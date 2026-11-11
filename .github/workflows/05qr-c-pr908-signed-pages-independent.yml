@@ -1,0 +1,273 @@
+name: 05 QR-C PR908 signed public three-asset Pages independent QA-only
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr908-signed-pages-independent.yml'
+      - 'tests/wasm-distribution/qa-05qrc-pr908-independent.mjs'
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  qac908-public-pages-release-source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Source original6 immutable Git Blobs, QA-only2 exact diff, Rust origin
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=fb8f088f00b6ac375bc27b7054608585362219e9
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          declare -A pinned=(
+            [".github/workflows/01a-protected-main-signed-wasm-release-off.yml"]="7b7c51ee3068bf6347ea3887df979c1f1253216b"
+            [".github/workflows/pages.yml"]="5926ecf20412dc1b015f5f85304588a85c568f8c"
+            ["scripts/wasm-distribution/build-candidate.mjs"]="2ca205aea52c576b7851b0b1a4243c2aec348f23"
+            ["scripts/wasm-distribution/protected-release-inputs.json"]="98aca3762e029bee6a96e3d5e68fd134ade0408f"
+            ["scripts/wasm-distribution/verify-protected-release.mjs"]="7c0dde1fb165e9b75647141e18a46ad0a5f1c912"
+            ["src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs"]="29b455e35337cf9d4530361fce19a684955e516e"
+          )
+          for p in "${!pinned[@]}"; do
+            test "$(git rev-parse "$source:$p")" = "${pinned[$p]}"
+            test "$(git rev-parse "HEAD:$p")" = "${pinned[$p]}"
+          done
+          got="$(git diff --name-only "$source" HEAD | sort)"
+          want="$(printf '%s\n' .github/workflows/05qr-c-pr908-signed-pages-independent.yml tests/wasm-distribution/qa-05qrc-pr908-independent.mjs | sort)"
+          test "$got" = "$want"
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = f61af649e46cb69db5419563f280219021b354f3
+          test -z "$(git diff --name-only '$source' HEAD -- crates/ddv-save-core src/lib/ddv/core/save)"
+          node --check tests/wasm-distribution/qa-05qrc-pr908-independent.mjs
+          echo QAC908_SOURCE6_ORIGINAL_BLOBS_QA_ONLY2_READONLY_PASS
+      - name: Check original Source signed public intent proof & independent physical asset origin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for run in 42973333625 42973333655; do
+            test "$(gh api repos/DreamwishWand/web/actions/runs/$run --jq .head_sha)" = 'fb8f088f00b6ac375bc27b7054608585362219e9'
+            test "$(gh api repos/DreamwishWand/web/actions/runs/$run --jq .conclusion)" = success
+            test "$(gh api repos/DreamwishWand/web/actions/runs/$run --jq .event)" = pull_request
+          done
+          test "$(gh api repos/DreamwishWand/web/actions/runs/42973333625 --jq .path)" = '.github/workflows/01a-protected-main-signed-wasm-release-off.yml'
+          test "$(gh api repos/DreamwishWand/web/actions/artifacts/13834521493 --jq .workflow_run.head_sha)" = 'fb8f088f00b6ac375bc27b7054608585362219e9'
+          test "$(gh api repos/DreamwishWand/web/actions/artifacts/13833948516 --jq .workflow_run.head_sha)" = 'fb8f088f00b6ac375bc27b7054608585362219e9'
+          gh run download 42973333625 -R DreamwishWand/web \
+            -n r22-protected-source-signed-proof-NO-EXECUTABLES -D /tmp/qac908-signed-proof
+          gh run download 42973333655 -R DreamwishWand/web \
+            -n r22-source-pinned-rust-wasm-js-and-binary-candidate-unsigned -D /tmp/qac908-source-genuine
+      - name: Independently reconstruct approved-only manifest, verify 3 Source OIDC signatures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,hashlib
+          proof=Path('/tmp/qac908-signed-proof')
+          originals=Path('/tmp/qac908-source-genuine')
+          def one(root,name):
+            paths=list(root.rglob(name))
+            assert len(paths)==1,(name,paths)
+            return paths[0]
+          artifacts=[p.name for p in proof.rglob('*') if p.is_file()]
+          assert sorted(artifacts)==sorted(['protected-release.bundle.json','protected-release-pins.json'])
+          pins=json.loads(one(proof,'protected-release-pins.json').read_text())
+          assert pins['sourceHead']=='fb8f088f00b6ac375bc27b7054608585362219e9'
+          expected={
+            'ddv_save_core.js':(16904,'4704a19c6e2962583d03a0bf8e7d5bf5ad2a802fd664259117eff4b2bbcbac0d'),
+            'ddv_save_core_bg.wasm':(258719,'5383f76a7228493d720e1e2734a26738d1165f92cbcfae48f3e1df5c38b10207'),
+            'manifest.json':(1915,'8138a6b8cefd65a85563b087c5ebcd61b7efe165d7330793269e73c97caeea71')
+          }
+          target=Path('static/worker-wasm')
+          target.mkdir(parents=True,exist_ok=True)
+          for name in ['ddv_save_core.js','ddv_save_core_bg.wasm']:
+            content=one(originals,name).read_bytes()
+            size,digest=expected[name]
+            assert len(content)==size and hashlib.sha256(content).hexdigest()==digest
+            (target/name).write_bytes(content)
+          baseline=json.loads(one(originals,'manifest.json').read_text())
+          assert baseline['source']['commit']=='fb8f088f00b6ac375bc27b7054608585362219e9'
+          baseline['kind']='PUBLIC_READONLY_SIGNED_ASSET_ONLY_UI_OFF'
+          baseline['release']['publishedPages']=True
+          content=(json.dumps(baseline,indent=2,ensure_ascii=False)+'\n').encode()
+          assert len(content)==1915,(len(content),hashlib.sha256(content).hexdigest())
+          assert hashlib.sha256(content).hexdigest()==expected['manifest.json'][1]
+          (target/'manifest.json').write_bytes(content)
+          lock=one(originals,'Cargo.lock').read_bytes()
+          assert hashlib.sha256(lock).hexdigest()=='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c'
+          assert baseline['source']['cargoLockSha256']=='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c'
+          assert baseline['source']['wasmBindgen']=='0.2.105'
+          assert baseline['source']['toolchain'].startswith('rustc 1.99.1 ')
+          assert baseline['source']['defaultFeatures'] is False
+          assert baseline['source']['features']==['indexed-read','worker-wasm']
+          assert baseline['abi']['writerAuthorized'] is False and baseline['abi']['nativeV3'] is False
+          assert baseline['release']['publishedPages'] is True and baseline['release']['productConsumerEnabled'] is False
+          assert baseline['release']['writerAuthorized'] is False and baseline['release']['autoUpload'] is False
+          assert baseline['signature']['status']=='UNKNOWN' and baseline['signature']['verified'] is False
+          assert (target/'ddv_save_core_bg.wasm').read_bytes()[:4]==bytes([0,97,115,109])
+          assert sorted(p.name for p in target.iterdir())==sorted(expected)
+          for name,(size,digest) in expected.items():
+            assert pins[{'ddv_save_core.js':'jsSha256','ddv_save_core_bg.wasm':'wasmSha256','manifest.json':'manifestSha256'}[name]]==digest
+          assert pins['jsSizeBytes']==16904 and pins['wasmSizeBytes']==258719 and pins['manifestSizeBytes']==1915
+          assert pins['sourceProvenanceOnly'] is True and pins['verifiedSignature'] is False
+          folder=Path('tests/wasm-distribution/fixtures')
+          folder.mkdir(parents=True,exist_ok=True)
+          (folder/'ci-pins.json').write_text(json.dumps(pins))
+          print('QAC908_SIGNED_PUBLIC3_SOURCE_HEAD_RECONSTRUCTED_MANIFEST_SIZE_SHA_LOCK_FEATURES_PASS')
+          PY
+          bundle="$(find /tmp/qac908-signed-proof -name protected-release.bundle.json -type f -print -quit)"
+          test -s "$bundle"
+          for name in ddv_save_core.js ddv_save_core_bg.wasm manifest.json; do
+            gh attestation verify "static/worker-wasm/$name" \
+              --repo DreamwishWand/web --bundle "$bundle"
+          done
+          echo QAC908_GENUINE_SOURCE_PR908_GITHUB_OIDC_SIGSTORE_THREE_SUBJECTS_PASS
+      - name: Independently audit Pages signed public deployment ordering and exact 3-file scope
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const y=readFileSync('.github/workflows/pages.yml','utf8');
+          const inputs=JSON.parse(readFileSync('scripts/wasm-distribution/protected-release-inputs.json','utf8'));
+          const builder=readFileSync('scripts/wasm-distribution/build-candidate.mjs','utf8');
+          const verifier=readFileSync('scripts/wasm-distribution/verify-protected-release.mjs','utf8');
+          const loader=readFileSync('src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs','utf8');
+          assert.equal(inputs.acceptedAncestorProtectedMain,'8e0bf62a09f43f3e193e684f2f92f3a09fc405b5');
+          assert.equal(inputs.releasePermission,'OWNER_APPROVED_20261111_THREE_READONLY_PUBLIC_ASSETS_ONLY');
+          assert.equal(inputs.publicReadonlyAssetsApproved,true);
+          assert.equal(inputs.productConsumerEnabled,false);
+          assert.equal(inputs.writerEnabled,false);
+          assert.equal(inputs.approvedCargoLockSha256,'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c');
+          assert.equal(inputs.ownerApprovalReference,'DreamwishWand/web issue328 comment6788779090');
+          assert.match(y,/WAND_SOURCE_HEAD: \$\{\{ github\.sha \}\}/);
+          assert.match(y,/test "\$GITHUB_REF" = refs\/heads\/main/);
+          assert.match(y,/--no-default-features/);
+          assert.match(y,/--features worker-wasm,indexed-read/);
+          const steps=[
+            'Stage exactly three Owner-approved public read-only files',
+            'Build static site',
+            'Verify Pages physical JS, WASM and Manifest equal protected-main source',
+            'GitHub OIDC Sigstore attests the ACTUAL three Pages input bytes',
+            'Verify all three signatures before Pages artifact upload',
+            'Pin all three real signed asset digests for post-deploy HTTPS check',
+            'Verify static routes',
+            'Upload Pages artifact',
+            'Deploy existing Pages including only verified three read-only assets',
+            'Verify actual same-origin HTTPS bytes, status, MIME and no redirect'
+          ];
+          const offsets=steps.map(t=>{const p=y.indexOf('name: '+t);assert(p>0,'STEP_MISSING_'+t);return p});
+          assert(offsets.every((p,i)=>i===0||p>offsets[i-1]),'SIGNED_BEFORE_PUBLIC_UPLOAD_ORDER');
+          assert.match(y,/id-token: write/);
+          assert.match(y,/attestations: write/);
+          assert.match(y,/pages: write/);
+          assert.match(y,/WAND_DEPLOYED_BASE_URL: \$\{\{ steps\.deployment\.outputs\.page_url \}\}/);
+          assert.match(y,/\[\[ "\$root" == https:\/\/\* \]\]/);
+          assert.match(y,/--max-redirs 0/);
+          assert.match(y,/code" == 200/);
+          assert.match(y,/LIVE_BAD_MIME/);
+          assert.match(y,/sha256sum "\$response"/);
+          assert.match(y,/LIVE_TRIPLE_ASSET_PROVENANCE_FAIL/);
+          assert.match(y,/test ! -e static\/worker-wasm\/Cargo\.lock/);
+          assert.match(y,/find static\/worker-wasm -maxdepth 1 -type f \| wc -l/);
+          assert.match(y,/test "\$\(find build\/worker-wasm -maxdepth 1 -type f \| wc -l\)" -eq 3/);
+          assert.match(y,/test -f build\/gallery\/index\.html/);
+          assert.match(y,/test -f build\/presets\/index\.html/);
+          assert.match(y,/test -f build\/editor\/world\/index\.html/);
+          assert.match(builder,/if\(!publicOnly\)await writeFile/);
+          assert.match(verifier,/UNAPPROVED_EXTRA_PUBLIC_ASSET/);
+          assert.match(loader,/UNSIGNED_PRODUCT_DISTRIBUTION_OFF/);
+          assert.match(loader,/redirect:'error'/);
+          assert.match(loader,/cache:'no-store'/);
+          assert.doesNotMatch(loader,/^\s*window\.localStorage\./m);
+          assert.doesNotMatch(y,/STEAM_SAVE_OWNER_PRIVATE|\.p1g\b/);
+          console.log('QAC908_SIGNED_SOURCE_TO_PAGES_ORDER_NO_4TH_FILE_HTTPS_STRICT_FAIL_CLOSED_PASS');
+          NODE
+          test -z "$(git ls-files static/worker-wasm tests/stage-f/fixtures)"
+      - name: Actual physically signed source bytes strict CSP real Chrome /web
+        env:
+          BASE_PATH: /web
+          WAND_SOURCE_HEAD: fb8f088f00b6ac375bc27b7054608585362219e9
+          WAND_CANDIDATE_BASE_PATH: /web
+          WAND_PROTECTED_RELEASE_CSP: '1'
+        shell: bash
+        run: |
+          node tests/stage-f/generate-fixture.mjs
+          test -z "$(git ls-files tests/stage-f/fixtures)"
+          npm ci --no-audit --no-fund
+          npm run build
+          for name in ddv_save_core.js ddv_save_core_bg.wasm manifest.json; do
+            cmp "static/worker-wasm/$name" "build/worker-wasm/$name"
+          done
+          test "$(find build/worker-wasm -maxdepth 1 -type f | wc -l)" -eq 3
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/wasm-distribution/worker.mjs')
+          content=p.read_text()
+          marker=" const typed=await testRealEncryptedSavedDiffGridsFacade(loaded.WorkerWasmSource);"
+          assert content.count(marker)==1
+          content="import {independentQac908} from './qa-05qrc-pr908-independent.mjs';\n"+content
+          content=content.replace(marker,
+            " const qa=await independentQac908();\n"
+            " check(qa.pr908NewScope&&qa.actualPublicIntentManifest&&\n"
+            "  qa.newJsMimePositive&&!qa.productConsumerEnabled&&!qa.writerAuthorized,\n"
+            "  'QAC908_PUBLIC_TRIPLE_SIGNED_NEW_SCOPE_REQUIRED');\n"+marker)
+          p.write_text(content)
+          PY
+          node tests/wasm-distribution/chrome-smoke.mjs
+          echo QAC908_PUBLIC3_SOURCE_SIGNED_REAL_CHROME_STRICT_CSP_WEB_PASS
+      - name: Same verified 3 files under custom-root Chrome strict CSP without deploy
+        env:
+          BASE_PATH: ''
+          WAND_SOURCE_HEAD: fb8f088f00b6ac375bc27b7054608585362219e9
+          WAND_CANDIDATE_BASE_PATH: ''
+          WAND_PROTECTED_RELEASE_CSP: '1'
+        shell: bash
+        run: |
+          npm run build
+          for name in ddv_save_core.js ddv_save_core_bg.wasm manifest.json; do
+            cmp "static/worker-wasm/$name" "build/worker-wasm/$name"
+          done
+          node tests/wasm-distribution/chrome-smoke.mjs
+          echo QAC908_PUBLIC3_SOURCE_SIGNED_REAL_CHROME_STRICT_CSP_CUSTOM_ROOT_PASS
+      - name: Forbidden Blob import fails closed under restrictive CSP in real Chrome
+        env:
+          WAND_SOURCE_HEAD: fb8f088f00b6ac375bc27b7054608585362219e9
+          WAND_CANDIDATE_BASE_PATH: ''
+          WAND_PROTECTED_RELEASE_CSP: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tests/wasm-distribution/chrome-smoke.mjs /tmp/qac908-original-csp-smoke.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/wasm-distribution/chrome-smoke.mjs')
+          original=p.read_text()
+          old="script-src 'self' blob: 'wasm-unsafe-eval'"
+          assert original.count(old)==1
+          p.write_text(original.replace(old,"script-src 'self' 'wasm-unsafe-eval'"))
+          PY
+          set +e
+          node tests/wasm-distribution/chrome-smoke.mjs > /tmp/qac908-csp-blob-denied.log 2>&1
+          result="$?"
+          set -e
+          test "$result" -ne 0
+          grep -F 'VERIFIED_JS_OR_WASM_COMPILE_DENIED' /tmp/qac908-csp-blob-denied.log
+          cp /tmp/qac908-original-csp-smoke.mjs tests/wasm-distribution/chrome-smoke.mjs
+          echo QAC908_CSP_BLOB_FORBIDDEN_ACTUAL_CHROME_FAIL_CLOSED_PASS
+      - name: Source QA-only remains unmerged; public live Pages HTTPS is 09 INT task
+        run: |
+          test -z "$(git ls-files static/worker-wasm tests/stage-f/fixtures)"
+          test ! -f static/worker-wasm/Cargo.lock
+          test ! -f build/worker-wasm/Cargo.lock
+          test -z "$(git diff --name-only 'fb8f088f00b6ac375bc27b7054608585362219e9' HEAD -- src/lib/ddv/core/save crates/ddv-save-core)"
+          echo QAC908_PR_SOURCE_LOCAL_CHROME_ONLY_NO_PRIVATE_SAVE_NO_PUBLIC_DEPLOY
