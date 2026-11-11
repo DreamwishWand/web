@@ -28,6 +28,9 @@ jobs:
       WAND_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
       WAND_PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
       WAND_PRODUCT_RELEASE_OWNER_APPROVED: 'false'
+      # Owner approved ONLY three inert public Rust Read assets.
+      # This workflow remains non-deploying independent source QA proof.
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
     steps:
       - name: Checkout exact source, not synthetic PR merge
         uses: actions/checkout@v4
@@ -149,4 +152,4 @@ jobs:
           test -z "$(git ls-files static/worker-wasm tests/stage-e/pkg tests/stage-f/fixtures)"
           test ! -f src/lib/ddv/core/save/product-wasm-distribution-flag-on.js
           ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|writerAuthorized: *true|applyAuthorized: *true|include_bytes!' scripts/wasm-distribution tests/wasm-distribution
-          echo 'R22_HUMAN_GATE_NOT_GRANTED_NO_PUBLIC_WASM_DEPLOYMENT'
+          echo 'R22_QA_SIGNED_READONLY_THREE_ASSETS_CANDIDATE_ONLY_NO_PAGES_DEPLOY'

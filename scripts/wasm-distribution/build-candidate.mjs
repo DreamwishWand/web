@@ -9,6 +9,9 @@ import {join,resolve} from 'node:path';
 const root=resolve(import.meta.dirname,'../..');
 const generated=join(root,'tests/stage-e/pkg');
 const target=join(root,'static/worker-wasm');
+// Owner 2026-11-11 narrowly approved public deployment of exactly three
+// READ-only files. No product Worker/Writer/App/Cloud activation is implied.
+const publicOnly=process.env.WAND_PUBLIC_READONLY_ASSET_GATE==='OWNER_APPROVED_THREE_FILES_20261111';
 const fail=(code)=>{throw Error('R22_WASM_DISTRIBUTION_'+code)};
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const textCommand=(cmd,args)=>execFileSync(cmd,args,{cwd:root,encoding:'utf8'}).trim();
@@ -66,7 +69,7 @@ const source={
 };
 const manifest={
   contract:'wand.r22.rust-wasm-source-provenance-candidate@1',
-  kind:'DEV_READY_PUBLIC_SYNTHETIC_NOT_A_PRODUCT_GATE',
+  kind:publicOnly?'PUBLIC_READONLY_SIGNED_ASSET_ONLY_UI_OFF':'DEV_READY_PUBLIC_SYNTHETIC_NOT_A_PRODUCT_GATE',
   source,
   assets:{
     js:{path:'ddv_save_core.js',sizeBytes:glue.length,sha256:sha(glue)},
@@ -84,14 +87,16 @@ const manifest={
     evidence:'GitHub job SOURCE_HEAD + generated lock + tools + byte digests ONLY; no verified signature'
   },
   release:{
-    publishedPages:false,
+    publishedPages:publicOnly,
     productConsumerEnabled:false,
     autoUpload:false,
     writerAuthorized:false
   }
 };
 await writeFile(join(target,'manifest.json'),JSON.stringify(manifest,null,2)+'\n',{flag:'wx'});
-await writeFile(join(target,'Cargo.lock'),lock,{flag:'wx'});
+if(!publicOnly)await writeFile(join(target,'Cargo.lock'),lock,{flag:'wx'});
+// Cargo.lock SHA remains in signed manifest; never publish the lock as a
+// fourth public file under Owner's exact three-file permission.
 const manifestBytes=await readFile(join(target,'manifest.json'));
 const publicPins={
   contract:'wand.r22.candidate-pinned-digests@1',
@@ -113,5 +118,6 @@ console.log('R22_PUBLIC_SYNTHETIC_WASM_CANDIDATE_BUILT',{
   cargoLockSha256:source.cargoLockSha256,manifestSha256:publicPins.manifestSha256,
   jsSha256:publicPins.jsSha256,jsSizeBytes:glue.length,
   wasmSha256:publicPins.wasmSha256,wasmSizeBytes:wasm.length,
-  signatureStatus:'UNKNOWN',productionEnabled:false
+  signatureStatus:'UNKNOWN',publicAssetReleaseAuthorized:publicOnly,
+  productionEnabled:false
 });

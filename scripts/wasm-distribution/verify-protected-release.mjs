@@ -15,19 +15,23 @@ const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const cmd=(name,args)=>execFileSync(name,args,{cwd:root,encoding:'utf8'}).trim();
 const read=async path=>readFile(join(root,path)).catch(()=>fail('MISSING_'+path));
 const config=JSON.parse((await read('scripts/wasm-distribution/protected-release-inputs.json')).toString('utf8'));
+const publicOnly=process.env.WAND_PUBLIC_READONLY_ASSET_GATE==='OWNER_APPROVED_THREE_FILES_20261111';
+// Owner permission applies to ONLY three inert read-only public files, never
+// to activation of the product Consumer, native writer or cloud.
 const expectedSource=process.env.WAND_SOURCE_HEAD;
 const event=process.env.GITHUB_EVENT_NAME;
 const stage=process.argv[2];
 if(!['inputs','built'].includes(stage))fail('INVALID_STAGE');
 if(!/^[0-9a-f]{40}$/.test(expectedSource??'')||
    git('rev-parse','HEAD')!==expectedSource)fail('SOURCE_HEAD_MISMATCH');
-if(!['pull_request','push'].includes(event))fail('EVENT_NOT_ALLOWED');
-if(event==='push'&&process.env.GITHUB_REF!=='refs/heads/main')
+if(!['pull_request','push','workflow_dispatch'].includes(event))fail('EVENT_NOT_ALLOWED');
+if(event!=='pull_request'&&process.env.GITHUB_REF!=='refs/heads/main')
  fail('NOT_PROTECTED_MAIN_PUSH');
 if(event==='pull_request'&&process.env.WAND_PR_BASE_SHA!==
    config.acceptedAncestorProtectedMain)fail('PR_BASE_NOT_FIXED_PROTECTED_MAIN');
 if(config.contract!=='wand.r22.protected-main-signed-wasm-release-inputs@1'||
- config.releasePermission!=='HUMAN_GATE_NOT_GRANTED'||
+ config.releasePermission!=='OWNER_APPROVED_20261111_THREE_READONLY_PUBLIC_ASSETS_ONLY'||
+ config.publicReadonlyAssetsApproved!==true||
  config.productConsumerEnabled!==false||config.writerEnabled!==false||
  config.rustcVersion!=='1.99.1'||config.wasmBindgenCliVersion!=='0.2.105'||
  config.wasmTarget!=='wasm32-unknown-unknown'||
@@ -36,8 +40,24 @@ if(config.contract!=='wand.r22.protected-main-signed-wasm-release-inputs@1'||
  fail('INVALID_APPROVED_INPUTS');
 if(git('rev-parse','HEAD:crates/ddv-save-core/Cargo.toml')!==
   config.cargoTomlGitBlob)fail('CARGO_TOML_CHANGE_NEEDS_SCOPE_QA');
-if(git('rev-parse','HEAD:.github/workflows/pages.yml')!==
-  config.originalPagesWorkflowGitBlob)fail('PAGES_DEPLOY_CHANGE_NOT_AUTHORIZED');
+const pagesWorkflow=(await read('.github/workflows/pages.yml')).toString('utf8');
+const pagesOriginal=(git('rev-parse','HEAD:.github/workflows/pages.yml')===
+ config.originalPagesWorkflowGitBlob);
+if(!pagesOriginal){
+ // A changed Pages build may be permitted only for an exact Owner-approved
+ // public read-only three-file release with signed subjects in that SAME
+ // Pages job BEFORE uploading the whole existing public website.
+ if(!publicOnly||
+    !pagesWorkflow.includes('actions/attest-build-provenance@v2')||
+    !pagesWorkflow.includes('gh attestation verify static/worker-wasm/ddv_save_core.js')||
+    !pagesWorkflow.includes('gh attestation verify static/worker-wasm/ddv_save_core_bg.wasm')||
+    !pagesWorkflow.includes('gh attestation verify static/worker-wasm/manifest.json')||
+    !pagesWorkflow.includes('node scripts/wasm-distribution/verify-protected-release.mjs built')||
+    !pagesWorkflow.includes('actions/upload-pages-artifact@v3')||
+    !pagesWorkflow.includes('actions/deploy-pages@v4')||
+    !pagesWorkflow.includes('WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111'))
+  fail('PAGES_RELEASE_POLICY_NOT_OWNER_AUTHORIZED');
+}
 try{
  git('merge-base','--is-ancestor',config.acceptedAncestorProtectedMain,expectedSource);
  if(event==='pull_request'){
@@ -63,7 +83,9 @@ if(stage==='inputs'){
  });
  process.exit(0);
 }
-const files=['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json','Cargo.lock'];
+const files=publicOnly?
+ ['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json']:
+ ['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json','Cargo.lock'];
 const sourceBytes=await Promise.all(files.map(n=>read('static/worker-wasm/'+n)));
 const builtBytes=await Promise.all(files.map(n=>read('build/worker-wasm/'+n)));
 for(let i=0;i<files.length;i++){
@@ -90,7 +112,8 @@ if(manifest.contract!=='wand.r22.rust-wasm-source-provenance-candidate@1'||
  manifest.abi?.maxPageRecords!==8||
  manifest.abi?.nativeV3!==false||
  manifest.abi?.writerAuthorized!==false||
- manifest.release?.publishedPages!==false||
+ manifest.release?.publishedPages!==publicOnly||
+ manifest.kind!==(publicOnly?'PUBLIC_READONLY_SIGNED_ASSET_ONLY_UI_OFF':'DEV_READY_PUBLIC_SYNTHETIC_NOT_A_PRODUCT_GATE')||
  manifest.release?.productConsumerEnabled!==false||
  manifest.release?.writerAuthorized!==false||
  manifest.signature?.verified!==false||
@@ -114,8 +137,14 @@ if(pins.contract!=='wand.r22.candidate-pinned-digests@1'||
  pins.wasmSizeBytes!==sourceBytes[1].length||
  pins.verifiedSignature!==false||pins.sourceProvenanceOnly!==true)
  fail('TRIPLE_INDEPENDENT_TEST_PIN_MISMATCH');
-if(sha(sourceBytes[3])!==config.approvedCargoLockSha256)
+if(!publicOnly&&sha(sourceBytes[3])!==config.approvedCargoLockSha256)
  fail('CARGO_LOCK_COPY_MISMATCH');
+if(publicOnly){
+ const publishedFiles=(await import('node:fs/promises')).readdir(join(root,'build/worker-wasm'));
+ const found=(await publishedFiles).sort();
+ if(JSON.stringify(found)!==JSON.stringify(files.slice().sort()))
+   fail('UNAPPROVED_EXTRA_PUBLIC_ASSET');
+}
 const basePath=process.env.WAND_RELEASE_BASE_PATH;
 if(basePath!=='/web'&&basePath!=='')
  fail('BASE_PATH_NOT_EXPLICIT');
@@ -124,5 +153,6 @@ console.log('R22_PROTECTED_RELEASE_STATIC_BYTES_EQ_SOURCE_SIGNED_SUBJECT',{
  manifest:{size:sourceBytes[2].length,sha256:sha(sourceBytes[2])},
  js:{size:sourceBytes[0].length,sha256:sha(sourceBytes[0])},
  wasm:{size:sourceBytes[1].length,sha256:sha(sourceBytes[1])},
- signatureCheckedSeparately:false,publicDeployed:false,consumerEnabled:false
+ signatureCheckedSeparately:false,publicAssetReleaseAuthorized:publicOnly,
+ publicDeployed:false,consumerEnabled:false
 });

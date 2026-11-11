@@ -1,6 +1,6 @@
 {
   "contract": "wand.r22.protected-main-signed-wasm-release-inputs@1",
-  "acceptedAncestorProtectedMain": "305d0afd6125d9d8a2c3a262a8891e64bac4cfe7",
+  "acceptedAncestorProtectedMain": "8e0bf62a09f43f3e193e684f2f92f3a09fc405b5",
   "cargoTomlGitBlob": "f61af649e46cb69db5419563f280219021b354f3",
   "approvedCargoLockSha256": "e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c",
   "rustcVersion": "1.99.1",
@@ -13,7 +13,9 @@
   ],
   "defaultFeatures": false,
   "originalPagesWorkflowGitBlob": "27a1cdf7e5ff1d3cdda36a7e18e75bef3e68c98a",
-  "releasePermission": "HUMAN_GATE_NOT_GRANTED",
+  "releasePermission": "OWNER_APPROVED_20261111_THREE_READONLY_PUBLIC_ASSETS_ONLY",
   "productConsumerEnabled": false,
-  "writerEnabled": false
+  "writerEnabled": false,
+  "ownerApprovalReference": "DreamwishWand/web issue328 comment6788779090",
+  "publicReadonlyAssetsApproved": true
 }
