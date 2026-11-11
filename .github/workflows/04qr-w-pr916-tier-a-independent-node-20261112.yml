@@ -1,0 +1,52 @@
+name: "04 QR-W PR916 independent Tier A typed scalar requests only"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qr-w-pr916-tier-a-independent-node-20261112.yml"
+      - "tests/04qr-w-pr916-tier-a-independent-node-20261112.test.mjs"
+permissions:
+  contents: read
+jobs:
+  qrw-01d-pr916-typed-requests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "Source PR916 and QA-only diff pin, no private Save"
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git merge-base 'd10b0df838716beae0119a0982ce319f4a4f6615' HEAD)" = 'd10b0df838716beae0119a0982ce319f4a4f6615'
+          test "$(git rev-parse d10b0df838716beae0119a0982ce319f4a4f6615:src/lib/ddv/core/items/tier-a-edit-requests.mjs)" = '473aabc9a83ab9227cd8c8c915d4f225139d386d'
+          test "$(git rev-parse d10b0df838716beae0119a0982ce319f4a4f6615:tests/ddv-core-tier-a-edit-requests.test.mjs)" = '3e79edffd745b62f3756eb743bdbcc11b6cc0404'
+          test "$(git rev-parse d10b0df838716beae0119a0982ce319f4a4f6615:.github/workflows/01d-tier-a-scalar-requests.yml)" = 'e734b8f0a38068f3c2cc9d64e0e82566dde3cc2f'
+          test -z "$(git ls-files tests/stage-f/fixtures static/worker-wasm)"
+          if env | grep -Eq '^(DDV_PRIVATE_SAVE_PATH|WAND_PRIVATE_MEDIA_PATH|WEP_PRIVATE_P1G_PATH|STEAM_GAME_ROOT|P1G_PATH)='; then
+            echo 'PRIVATE_SAVE_CANNOT_ENTER_QA'
+            exit 1
+          fi
+          grep -Fx "export const TIER_A_WRITER_ENABLED=false;" src/lib/ddv/core/items/tier-a-edit-requests.mjs
+      - name: "Fetch only pinned Rust PR914 source for immutable ABI read, NEVER Rust QA"
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin 4f7f18990ea470d49e1d5fe9b9aceae649072516
+          test "$(git rev-parse 4f7f18990ea470d49e1d5fe9b9aceae649072516:crates/ddv-save-core/src/semantic_writer.rs)" = '9e77d3d0243ea01fb061de7134f6aeb867ac5297'
+          echo 'QRW_PR916_REUSE_01A_PR914_FIXED_RUST_ABI_BLOB_ONLY_NO_RUST_TEST_REQA'
+      - name: "Run independent scoped Node positives and adversarial negatives"
+        run: |
+          node --test tests/04qr-w-pr916-tier-a-independent-node-20261112.test.mjs
+      - name: "No product Writer/Native Stack/Chest authorization or Source merge"
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show HEAD:src/lib/ddv/core/items/tier-a-edit-requests.mjs | grep -Fx 'export const TIER_A_WRITER_ENABLED=false;'
+          test -z "$(git ls-files tests/stage-f/fixtures static/worker-wasm)"
+          echo 'QRW_PR916_TYPED_SCALAR_QA_ONLY_NO_PRODUCT_WRITER_NO_NATIVE_V3_NO_SAVE_SOURCE_CHANGES_NEVER_MERGE'
