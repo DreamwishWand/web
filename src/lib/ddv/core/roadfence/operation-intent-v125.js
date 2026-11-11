@@ -109,6 +109,10 @@ function requireMoveOrRotate(kind, intent, source, desired, motion) {
   if (!motion || typeof motion !== 'object' || Array.isArray(motion)) {
     reject('ROADFENCE_OPERATION_EXPLICIT_TRANSFORM_REQUIRED');
   }
+  const unexpected = Object.keys(motion).filter((key) => ![
+    'pivot', 'rotateQuarterTurns', 'translateX', 'translateY'
+  ].includes(key));
+  if (unexpected.length) reject('ROADFENCE_OPERATION_TRANSFORM_UNRECOGNIZED_FIELD');
   const turns = motion.rotateQuarterTurns ?? 0;
   const dx = motion.translateX ?? 0;
   const dy = motion.translateY ?? 0;
@@ -241,10 +245,12 @@ export function assessRoadFenceEditIntentV125({
     nativeInventoryCostRefund: 'UNKNOWN',
     wandInventoryDelta: 0,
     writerAuthorized: false,
+    persistentWriteAuthorized: false,
+    WORLD_PERSISTENT_WRITE_V125: false,
     productApplyAuthorized: false
   };
   try {
-    normalizeBuildIdentity(buildIdentity);
+    const normalizedBuild = normalizeBuildIdentity(buildIdentity);
     if (kind !== 'road' && kind !== 'fence') {
       reject('ROADFENCE_OPERATION_KIND_UNKNOWN');
     }
@@ -259,6 +265,7 @@ export function assessRoadFenceEditIntentV125({
     return {
       ...base,
       status: 'STATIC_INTENT_VALIDATED_ONLY',
+      sourceBuildIdentity: normalizedBuild,
       ...assessment,
       nextGate: 'EXACT_COMPILER_SCOPE_AND_01E_SAME_BUILD_V3'
     };
