@@ -91,6 +91,9 @@ const script=String.raw`
  };
  const panel=await wait(()=>document.querySelector('[data-steam-diffgrids-readonly]'),'PANEL',18000);
  panel.open=true;
+ need(window.innerWidth===320,'VIEWPORT_320');
+ document.documentElement.style.zoom='2';
+ need(panel.getBoundingClientRect().width>0,'CSS200_PANEL_VISIBLE');
  const input=await wait(()=>document.querySelector('#steam-diffgrids-file'),'FILE');
  // Initial state: no implicit local Save read / no session.
  need(!document.querySelector('[data-diffgrids-count]'),'NO_AUTO_SAVE');
@@ -143,8 +146,25 @@ const script=String.raw`
  close.click();await wait(()=>!document.querySelector('[data-diffgrids-count]'),'CLOSE');
  need(document.activeElement?.matches?.('[data-diffgrids-summary]'),'FOCUS_RESTORED');
  need(!document.querySelector('[data-diffgrids-next]'),'NO_STALE_PAGE_AFTER_CLOSE');
+ need(document.activeElement.tabIndex>=0,'NATIVE_KEYBOARD_SUMMARY');
+ // Bad externally supplied original SHA must never resurrect the closed
+ // ProductSession; a fresh explicit selection is required to try again.
+ input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+ sha.value='0'.repeat(64);sha.dispatchEvent(new Event('input',{bubbles:true}));
+ check.checked=true;check.dispatchEvent(new Event('change',{bubbles:true}));
+ const rejectOpen=await wait(()=>document.querySelector('[data-diffgrids-open]:not([disabled])'),'BAD_SHA_OPEN_READY');
+ rejectOpen.click();
+ await wait(()=>document.querySelector('[data-diffgrids-error]'),'BAD_SHA_FAILCLOSED',25000);
+ need(!document.querySelector('[data-diffgrids-count]'),'BAD_SHA_NO_SESSION');
+ // Reopening requires the correct original SHA, not an old Rust cursor.
+ sha.value=expected.originalSha256;sha.dispatchEvent(new Event('input',{bubbles:true}));
+ const goodAgain=await wait(()=>document.querySelector('[data-diffgrids-open]:not([disabled])'),'REOPEN_READY');
+ goodAgain.click();
+ await wait(()=>document.querySelector('[data-diffgrids-count="17"]'),'REOPEN_NEW_SESSION',25000);
+ document.querySelector('[data-diffgrids-close]').click();
+ await wait(()=>!document.querySelector('[data-diffgrids-count]'),'REOPEN_CLOSE');
  return {result:'08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS',
-  pages:pages.join(','),gridIdZeroLiteral:true,manualClickOnly:true,
+  pages:pages.join(','),viewport320:true,zoom200:true,badShaDenied:true,reopenFresh:true,keyboard:true,gridIdZeroLiteral:true,manualClickOnly:true,
   sameRustWorker:true,strictUiMetadata:true,closed:true,focusRestored:true,
   realPrivateSave:false,writerAuthorized:false,productEnabled:false};
 })()
@@ -156,6 +176,7 @@ try{
   '--disable-gpu','--remote-allow-origins=*','--remote-debugging-port=0',
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  await attach();await rpc('Page.enable');await rpc('Runtime.enable');
+ await rpc('Emulation.setDeviceMetricsOverride',{width:320,height:800,deviceScaleFactor:1,mobile:false});
  await rpc('Page.navigate',{url:'http://127.0.0.1:'+port+'/web/editor/timing/'});
  for(let n=0;n<200;n++){
   try{const r=await rpc('Runtime.evaluate',{expression:'location.pathname',returnByValue:true});
@@ -174,7 +195,7 @@ try{
  const result=outcome.result?.value;
  assert.equal(result?.result,'08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS');
  for(const k of ['manualClickOnly','sameRustWorker','strictUiMetadata',
-   'closed','focusRestored','gridIdZeroLiteral'])assert.equal(result[k],true,k);
+   'closed','focusRestored','gridIdZeroLiteral','viewport320','zoom200','badShaDenied','reopenFresh','keyboard'])assert.equal(result[k],true,k);
  assert.equal(result.pages,'8,8,1');
  for(const k of ['realPrivateSave','writerAuthorized','productEnabled'])
   assert.equal(result[k],false,k);
