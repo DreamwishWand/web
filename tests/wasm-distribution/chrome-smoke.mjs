@@ -25,6 +25,13 @@ if(!binary)throw Error('ENV_WAIT_DEP_CHROME_NOT_INSTALLED');
 // source pkg substitute. Other source/test paths are local QA harness only.
 const base=process.env.WAND_CANDIDATE_BASE_PATH;
 if(base!=='/web'&&base!=='')throw Error('R22_BASE_ENV_REQUIRED');
+const strictCsp=process.env.WAND_PROTECTED_RELEASE_CSP==='1';
+const cspHeaders=strictCsp?{
+ 'content-security-policy':"default-src 'none'; script-src 'self' blob: 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
+ 'x-content-type-options':'nosniff',
+ 'referrer-policy':'no-referrer'
+}:{};
+
 function replyFile(req,res){
  let p;
  try{p=decodeURIComponent(new URL(req.url,'http://localhost').pathname)}
@@ -40,6 +47,7 @@ function replyFile(req,res){
   const target=resolve(repoRoot,'build/worker-wasm',relative);
   return readFile(target).then(bytes=>{
     res.writeHead(200,{'content-type':mime[extname(target)]||'application/octet-stream',
+    ...cspHeaders,
       'cache-control':'no-store','x-content-type-options':'nosniff'});
     res.end(bytes);
   }).catch(()=>{res.writeHead(404);res.end()});
@@ -74,6 +82,7 @@ function replyFile(req,res){
  if(!path.startsWith(repoRoot+'/')){res.writeHead(403);res.end();return}
  readFile(path).then(bytes=>{
   res.writeHead(200,{'content-type':mime[extname(path)]||'application/octet-stream',
+    ...cspHeaders,
    'cache-control':'no-store','x-content-type-options':'nosniff'});
   res.end(bytes);
  }).catch(()=>{res.writeHead(404);res.end()});
@@ -174,6 +183,7 @@ try{
   const report=result.result?.value;
   assert.equal(report?.result,
     'R22_TRUE_GENERATED_BOTH_JS_AND_WASM_SAME_ORIGIN_CHROME_PASS');
+  if(strictCsp)assert.equal(report?.realChromeModuleWorker,true,'R22_STRICT_CSP_CHROME_WORKER');
   for(const name of ['dualSourcePins','singleNetworkFetchPerAsset',
     'inMemoryVerifiedJsAndWasm','realChromeModuleWorker',
     'realGeneratedRustWasm','syntheticEncryptedSteamP1g',
@@ -185,6 +195,7 @@ try{
   assert.equal(report.basePath,base);
   assert.equal(report.diffgrids,17);
   assert.equal(report.pages,'8,8,1');
+  if(strictCsp)console.log('R22_PROTECTED_RELEASE_STRICT_CSP_CHROME_PASS',{basePath:base,noInlineScript:true, productEnabled:false});
   console.log('R22_TRUE_GENERATED_BOTH_JS_AND_WASM_SAME_ORIGIN_CHROME_PASS',{
    sourceHead:report.sourceHead,basePath:base,records:report.diffgrids,
    signatureVerified:false,writer:false,privateSteamP1g:false
