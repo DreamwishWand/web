@@ -5,6 +5,9 @@ on:
       - 'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs'
       - 'tests/p1g-rust-worker-readonly-bridge.test.mjs'
       - 'tests/stage-f/**'
+      - 'tests/wasm-distribution/**'
+      - 'scripts/wasm-distribution/**'
+      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
       - '.github/workflows/01a-stagef-p1g-to-rust-worker.yml'
       - 'crates/ddv-save-core/**'
   push:
@@ -12,6 +15,9 @@ on:
       - 'core/p1g-rust-worker-readonly-bridge-*'
 permissions:
   contents: read
+  # OIDC/Sigstore signing of the *candidate artifact*, not public Pages release.
+  id-token: write
+  attestations: write
 jobs:
   synthetic-p1g-to-real-rust-chrome:
     runs-on: ubuntu-24.04
@@ -20,6 +26,13 @@ jobs:
       CARGO_TARGET_DIR: /tmp/wand-stagef-core-target
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Compile the exact submitted Source HEAD, not GitHub's synthetic PR merge.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -34,7 +47,8 @@ jobs:
           grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
       - name: Compile accepted Rust Core real WASM for isolated Worker only
         run: |
-          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
           test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
       - name: Install exact wasm-bindgen CLI 0.2.105
         run: |
@@ -54,6 +68,88 @@ jobs:
           test -z "$(git ls-files tests/stage-f/fixtures)"
       - name: REAL Chrome Module Worker existing P1G Codec to Rust single Session
         run: node tests/stage-f/chrome-smoke.mjs
+      - name: Build uncommitted source-provenance candidate, both JS and WASM
+        env:
+          WAND_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          WAND_BINDGEN_CLI: /tmp/wand-stagef-bindgen-tool/bin/wasm-bindgen
+        run: |
+          node scripts/wasm-distribution/build-candidate.mjs
+          test -s static/worker-wasm/ddv_save_core.js
+          test -s static/worker-wasm/ddv_save_core_bg.wasm
+          test -s static/worker-wasm/manifest.json
+          test -s static/worker-wasm/Cargo.lock
+          test -z "$(git ls-files static/worker-wasm tests/wasm-distribution/fixtures)"
+      - name: Build candidate as same-origin Pages /web, WITHOUT deploying
+        env:
+          BASE_PATH: /web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          test -s build/worker-wasm/ddv_save_core.js
+          test -s build/worker-wasm/ddv_save_core_bg.wasm
+          test -s build/worker-wasm/manifest.json
+          test -s build/worker-wasm/Cargo.lock
+          test -f build/editor/timing/index.html
+      - name: TRUE Chrome Worker built JS+WASM /web and tamper/ABI/origin negatives
+        env:
+          WAND_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          WAND_CANDIDATE_BASE_PATH: /web
+        run: node tests/wasm-distribution/chrome-smoke.mjs
+      - name: Build same candidate at custom-domain empty base, NOT deploying
+        env:
+          BASE_PATH: ''
+        run: |
+          npm run build
+          test -s build/worker-wasm/ddv_save_core.js
+          test -s build/worker-wasm/ddv_save_core_bg.wasm
+          test -s build/worker-wasm/manifest.json
+      - name: TRUE Chrome Worker custom-origin root and dual hash negatives
+        env:
+          WAND_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          WAND_CANDIDATE_BASE_PATH: ''
+        run: node tests/wasm-distribution/chrome-smoke.mjs
+      - name: Sign candidate artifact provenance with GitHub Sigstore OIDC
+        id: attest
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            static/worker-wasm/ddv_save_core.js
+            static/worker-wasm/ddv_save_core_bg.wasm
+            static/worker-wasm/manifest.json
+      - name: Verify signed provenance for BOTH JS and WASM against this repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R22_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -s "$R22_BUNDLE"
+          gh attestation verify static/worker-wasm/ddv_save_core.js \
+            --repo "$GITHUB_REPOSITORY" --bundle "$R22_BUNDLE"
+          gh attestation verify static/worker-wasm/ddv_save_core_bg.wasm \
+            --repo "$GITHUB_REPOSITORY" --bundle "$R22_BUNDLE"
+          gh attestation verify static/worker-wasm/manifest.json \
+            --repo "$GITHUB_REPOSITORY" --bundle "$R22_BUNDLE"
+          # The attested bundle is recorded separately. Manifest status
+          # remains UNKNOWN until separate QA/Owner product gate and
+          # authenticated runtime pin/verification; do NOT edit it after
+          # signing (that would change its hash and invalidate the signature).
+          mkdir -p tests/wasm-distribution/attestation-evidence
+          cp "$R22_BUNDLE" tests/wasm-distribution/attestation-evidence/r22-sigstore.bundle.json
+          echo 'R22_GITHUB_SIGSTORE_CANDIDATE_JS_WASM_MANIFEST_SIGNATURE_VERIFIED_NOT_PUBLICLY_DEPLOYED'
+      - name: Publish auditable candidate ONLY as isolated short-lived CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r22-source-pinned-rust-wasm-js-and-binary-candidate-unsigned
+          path: |
+            static/worker-wasm/
+            tests/wasm-distribution/attestation-evidence/r22-sigstore.bundle.json
+          retention-days: 3
+          if-no-files-found: error
+      - name: Verify distribution still OFF for product and private assets absent
+        run: |
+          test -z "$(git ls-files static/worker-wasm tests/stage-e/pkg tests/stage-f/fixtures tests/wasm-distribution/fixtures)"
+          test ! -f src/lib/ddv/core/save/product-wasm-distribution-flag-on.js
+          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|writerAuthorized: *true|applyAuthorized: *true|realOwnerPrivateSave: *true' scripts/wasm-distribution tests/wasm-distribution src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs
       - name: No product Editor, Writer or generated binary promoted
         run: |
           test ! -f src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.js

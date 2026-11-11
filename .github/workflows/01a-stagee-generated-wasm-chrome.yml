@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'tests/stage-e/**'
+      - 'scripts/wasm-distribution/**'
+      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
       - '.github/workflows/01a-stagee-generated-wasm-chrome.yml'
       - 'crates/ddv-save-core/**'
       - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
