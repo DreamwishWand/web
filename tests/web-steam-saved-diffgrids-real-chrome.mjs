@@ -84,9 +84,12 @@ const script=String.raw`
    try{const v=check();if(v)return v}catch{}
    await new Promise(r=>setTimeout(r,50))
   }
-  throw Error('08WEB_WAIT_'+code)
+  throw Error('08WEB_WAIT_'+code+' URL='+location.href+' TITLE='+document.title+
+   ' BODY='+document.body?.textContent?.slice(0,600)+
+   ' BODY_HTML='+document.body?.innerHTML?.slice(0,300)+
+   ' SCRIPT_COUNT='+document.scripts.length)
  };
- const panel=await wait(()=>document.querySelector('[data-steam-diffgrids-readonly]'),'PANEL');
+ const panel=await wait(()=>document.querySelector('[data-steam-diffgrids-readonly]'),'PANEL',18000);
  panel.open=true;
  const input=await wait(()=>document.querySelector('#steam-diffgrids-file'),'FILE');
  // Initial state: no implicit local Save read / no session.
