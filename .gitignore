@@ -15,3 +15,4 @@ tests/stage-f/fixtures/
 # Generated genuine Rust wasm-bindgen candidate, CI-only until Owner release gate.
 static/worker-wasm/
 tests/wasm-distribution/fixtures/
+tests/wasm-distribution/attestation-evidence/
