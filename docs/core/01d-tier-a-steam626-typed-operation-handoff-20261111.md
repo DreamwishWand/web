@@ -16,7 +16,7 @@ Steam target is platform Steam/Windows, gameVersion 1.25.3, buildKind SteamFullV
 
 | Operation | Candidate structural path | Current contract | 01A / 01E gate |
 |---|---|---|---|
-| Inventory.ExistingAmountDecrease (A1) | /Player/ListInventories/{InventoryID}/Inventory/{CanonicalItemID}/Amount | Existing entry + CompatibleItemType + oldAmount; decrease only, no new entry, no stock creation/increase, no writer | Rust actual Source external Build + Session/Revision/IndexGeneration/decodedSHA + original encrypted SHA; native maximum stack & variation route, exact CAS, full doc/reference validation, backup→different Edited-copy→separate-process Reopen; 01E only if proven cross-domain effects |
+| Inventory.ExistingAmountDecrease (A1) | /Player/ListInventories/{InventoryID}/Inventory/{CanonicalItemID}/Amount | Existing inventory ID positive, CompatibleItemType string and oldAmount; existing positive amount only, Rust DEV conservative 1..9999, decrease to positive number only; no new entry/stock creation/increase, no writer | Rust actual Source external Build + Session/Revision/IndexGeneration/decodedSHA + original encrypted SHA; native maximum stack & variation route, exact CAS, full doc/reference validation, backup→different Edited-copy→separate-process Reopen; 01E only if proven cross-domain effects |
 | Chest.ExistingSlotAmountDecrease (A2) | /Player/ContainerInventories/{ContainerInventoryID}/Inventory/{slotIndex}/Amount | Candidate only, WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE | Core recheck ContainerInventory.ID, BelongsToPlayer, ParentItemID, Size, existing Inventory slot ItemID, old Amount, opaque ItemState SHA and all active grid references; 01E if real native container recalculation required |
 | Collection.InspectRawGroupFlag | /Player/CollectionSets[*]/GroupData[*]/GroupsCollectionItems[ItemID] | RAW bool/ABSENT read, no writer | Native GetNewGroup/ignored/IsValidItemForCollection/availability/GroupIndex before ownership interpretation |
 | Ownership.Change | UNKNOWN | WAIT_EVIDENCE | Saved/native ownership representation, cross-domain dependents, Provider entitlement exclusions |
@@ -26,7 +26,7 @@ Steam target is platform Steam/Windows, gameVersion 1.25.3, buildKind SteamFullV
 | Wardrobe.Change | UNKNOWN | WAIT_EVIDENCE | Genuine Steam626 outfit/equip state and ownership, no external entitlement |
 | OwnedSkin.Select | UNKNOWN | WAIT_EVIDENCE | Player-owned-only Skin choice, same-build Native consumer/receipt exclusions |
 
-A1 and A2 are intentionally the ONLY named scalar candidate descriptors. A2 does not infer current Steam626 Chest legality from Switch624 tests. No operation can call a Rust writer via this module. The contract name is wand.01d.tier-a-existing-field-request@1; all proposals report writerAuthorized=false, exportAuthorized=false, productOperationEnabled=false and authoritativeCoreValidationRequired=true.
+A1 and A2 are intentionally the ONLY named scalar candidate descriptors. Current parallel 01A draft PR914 (not independently accepted or merged) defines Rust DEV variants InventoryExistingAmountDecrease and ChestExistingSlotAmountDecrease, names inventory.existing.amount.decrease@1 and chest.existing.slot.amount.decrease@1. This 01D Source emits exact corresponding snake_case NativeDevCommand fields as a nonauthoritative proposal. Source PR914 enforces positive ids, positive decreases with old<=9999, native String CompatibleItemType excluding protected classes and Chest Size==Inventory.length<=256; strict 01D preflight is aligned, but 01A may still revise its Source. A2 does not infer current Steam626 Chest legality from Switch624 tests. Its synthetic size must exactly equal the number of actual Inventory slots (not merely at most Size) and be bounded to 256, matching the current unmerged 01A DEV source. Every ItemState and active reference still requires 01A/01B genuine verification. No operation can call a Rust writer via this module. The contract name is wand.01d.tier-a-existing-field-request@1; all proposals report writerAuthorized=false, exportAuthorized=false, productOperationEnabled=false and authoritativeCoreValidationRequired=true.
 
 ## Rust 01A proposed interface (not yet implemented ABI)
 
@@ -40,10 +40,20 @@ For Chest preserve ItemState and every unrelated slot/field EXACTLY, and do not 
 
 Synthetic positive: Inventory existing 50→49 produces exact Amount leaf and readset; Chest existing 10→9 produces one Amount leaf with ParentItemID/Size/BelongsToPlayer/ItemState/active-reference obligations yet still WAIT. Neither emits an editable product operation.
 
-Fail-closed negatives: wrong Switch/Steam Build, schema624, malformed SHA, forged session fields, stale or negative Revision, amount negative/fractional/overflow, unchanged/increased count, unknown/zero/string ItemID, missing entry, compatible item type mismatch shape, forged DLC/Premium/Receipt/Entitlement/ownership extra keys, Chest foreign owner, capacity overflow, index out of bounds, multiple active references, accidental Slot/Container creation, unrecognized operation, claimed authorized Writer or public image.
+Fail-closed negatives: wrong Switch/Steam Build, schema624, malformed SHA, forged session fields, stale or negative Revision, amount zero/negative/fractional/overflow above 9999, unchanged/increased count, unknown/zero/string ItemID, missing entry, compatible item type mismatch shape, forged DLC/Premium/Receipt/Entitlement/ownership extra keys, Chest foreign owner, capacity overflow, index out of bounds, multiple active references, accidental Slot/Container creation, unrecognized operation, claimed authorized Writer or public image.
 
 ## Ownership, gates and rollback
 
 01D adds only versioned pure typed-contract source, synthetic focused tests, technical handoff, and focused CI. 01A ProductSession Rust source remains untouched; 01C Road/Fence untouched. 01E request only when a specific Native consumer/producer or required cross-domain recalculation is proven; no artificial Tier B blocker.
 
 05 QR-C separately validates any new Rust adapter only. 05 QR-L independently checks genuine private Steam Edited-copy/Reopen when 01A authorizes scope; original Save never enters public Actions. 09 INT is sole selective Merge owner and reuses already accepted ancestors. Rollback removes only this additive descriptor/tests/doc/workflow; protected Pages and all Owner private sources preserved. All production Writer, Apply, Cloud, Provider, CommunityPublic and MediaPublic flags remain OFF.
+
+
+## Concurrent 01A DEV variant exact mapping (not product authority)
+
+- 01D Inventory.ExistingAmountDecrease → 01A InventoryExistingAmountDecrease:
+  inventory_id / canonical_item_id / expected_compatible_item_type / expected_old_amount / new_amount.
+- 01D Chest.ExistingSlotAmountDecrease → 01A ChestExistingSlotAmountDecrease:
+  container_id / slot_index / expected_item_id / expected_old_amount / new_amount.
+- 01A PR914 ProductSession DEV Rust semantic writer is **not** a received/current main ABI and its synthetic success is not real Steam Edited-copy. Its own checks of container ParentItemID, Size, slot ItemID and Owner are useful inherited Source evidence; 01D still requires the richer ItemState/active ref readset, and deliberately does not authorize a Chest product edit.
+- Source 01A CLI and Cargo feature semantic-writer-dev are separate from public worker-wasm and must remain OFF. Re-evaluate fixed Source HEAD when 01A completes independent QA, do not duplicate its Rust code or create a competing executor.
