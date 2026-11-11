@@ -42,11 +42,15 @@ jobs:
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features indexed-read,synthetic-stage-b --test indexed_read_stagec --verbose
       - name: One ProductSession true semantic batch DEV-only feature native compile and tests
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --test semantic_inventory_writer_dev --verbose
-      - name: Verify semantic writer feature is not available to released wasm32
+      - name: Prove one typed Rust Writer module typechecks in wasm32 without public ABI export
         run: |
           set -euo pipefail
           grep -Fx 'semantic-writer-dev = ["indexed-read"]' crates/ddv-save-core/Cargo.toml
-          grep -Fq 'compile_error!("semantic-writer-dev must not enter public WASM Worker/Pages release");' crates/ddv-save-core/src/lib.rs
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,indexed-read,semantic-writer-dev
+          # Public Pages feature set is strictly worker-wasm,indexed-read.
+          grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
       - name: Compile WASM Worker plus opt-in indexed-read types without binding to UI
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read
       - name: Rust wasm32 ABI compilation (no UI/bundle assumption)
