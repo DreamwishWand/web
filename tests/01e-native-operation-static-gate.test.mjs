@@ -135,9 +135,10 @@ test('W1 event producer cannot be chosen by inverse Softwood ItemID; intentional
 
 test('01E d.mts both CompatibleItemType positions match 01A/01D String Native enum contract',()=>{
   const d=readFileSync(new URL('../src/lib/ddv/native/operation-native-static-gate.d.mts',import.meta.url),'utf8');
-  assert.match(d,/compatibleItemType\\?:string;/);
-  assert.match(d,/compatibleItemType:string;/);
-  assert.doesNotMatch(d,/compatibleItemType\\??:number;/);
+  assert.ok(d.includes('compatibleItemType?:string;'));
+  assert.ok(d.includes('compatibleItemType:string;'));
+  assert.ok(!d.includes('compatibleItemType?:number;'));
+  assert.ok(!d.includes('compatibleItemType:number;'));
   assert.equal(previewNativeInventoryAmount({...amount(),declaredBuild:steam}).compatibleItemType,
     'ItemType_Ingredient');
 });
