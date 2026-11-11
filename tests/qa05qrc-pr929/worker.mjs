@@ -61,10 +61,15 @@ async function run(){
  ensure(await rejected(()=>readOnly.openEncrypted({
     build:{...BUILD,externallyConfirmed:false},encryptedBytes:ciphertext})),
   'UNATTESTED_BUILD_DENIED');
- ensure(await rejected(()=>readOnly.openEncrypted({
-    build:{...BUILD,platform:'switch',buildKind:'switch-bid',
-      buildId:'9A239D3DB569756D'},encryptedBytes:ciphertext})),
-  'SWITCH_BID_DENIED');
+ // The accepted read-only ProductSession may read an attested Switch626
+ // registry candidate; only new DEV SEMANTIC mutation must reject cross-build.
+ const switchBridge=asyncNewBridge(async()=>{throw Error('NO_BACKUP')});
+ const switchRead=await switchBridge.openEncrypted({
+   build:{...BUILD,platform:'switch',buildKind:'switch-bid',
+     buildId:'9A239D3DB569756D'},encryptedBytes:ciphertext});
+ ensure(await rejected(()=>switchBridge.devStageTypedAmounts(
+   scope(switchRead),commands)),'SWITCH_TYPED_EDIT_DENIED');
+ switchBridge.close();
  readOnly.close();
  // Direct Rust WASM ABI raw typed JSON must reject escaped-equivalent duplicate keys.
  const rustSource=new WorkerWasmSource(
