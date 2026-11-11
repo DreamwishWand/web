@@ -49,9 +49,12 @@ async function loadAcceptedReadOnlyRustModule(){
   // Its "qaCandidate" is the only currently accepted loader operation;
   // because it is a QA-only API, this product Worker must stay disabled
   // until a *separate* Owner product gate/production loader acceptance.
-  const result=await loadSourcePinnedRustWasmCandidate({
-    basePath:basePathForWorker(),trustedPins:pinned,qaCandidate:true
-  });
+  // The accepted 01A JS declaration exposes qaCandidate but does not yet
+  // enumerate the additional audited basePath/trustedPins properties.
+  // A named argument object avoids accidental excess-property TS narrowing.
+  const args=Object.freeze({basePath:basePathForWorker(),trustedPins:pinned,
+    qaCandidate:true});
+  const result=await loadSourcePinnedRustWasmCandidate(args);
   if(result?.sourceHead!==pinned.sourceHead||
      result.checkedBothJsAndWasm!==true||
      result.sameOriginFetchOnly!==true||
@@ -73,9 +76,8 @@ void (async()=>{
   // Refuse to register the File handler until verified JS + WASM have
   // actually been fetched/checked/compiled on THIS isolated Worker.
   // This also fails closed on CSP Blob restrictions at live origin.
-  let module;
   try{
-    module=await loadAcceptedReadOnlyRustModule();
+    const module=await loadAcceptedReadOnlyRustModule();
     const wasmFactory=async()=>module;
     const bound=installLocalSteamP1gSavedDiffGridsWorker({
       wasmFactory,validateExternalAttestation:validateOwnerLocalSteamAttestation,
