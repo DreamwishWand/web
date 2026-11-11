@@ -12,8 +12,8 @@ const base=()=>({
   session:{sessionId:'b'.repeat(32),revision:3,indexGeneration:7,decodedSha256:hash('c')},
   command:{
     operation:'Inventory.ExistingAmountDecrease',
-    inventoryId:0,canonicalItemId:40000047,
-    compatibleItemType:'ItemType_Furniture',
+    inventoryId:4,canonicalItemId:30000001,
+    compatibleItemType:'ItemType_Ingredient',
     expectedOldAmount:50,nextAmount:49,entryPresent:true
   }
 });
@@ -26,10 +26,10 @@ const blocked=(mutator,code)=>{
   assert.equal(v.exportAuthorized,false);
 };
 const chestCommand=()=>({
-  operation:'Chest.ExistingSlotAmountDecrease',containerInventoryId:116,
-  containerParentItemId:40000047,belongsToPlayer:true,size:48,
-  slotCount:2,slotIndex:1,slotItemId:30000002,
-  expectedOldAmount:10,nextAmount:9,itemStateReadsetSha256:hash('d'),
+  operation:'Chest.ExistingSlotAmountDecrease',containerInventoryId:12,
+  containerParentItemId:500000,belongsToPlayer:true,size:2,
+  slotCount:2,slotIndex:0,slotItemId:30000002,
+  expectedOldAmount:12,nextAmount:11,itemStateReadsetSha256:hash('d'),
   activeReferenceCount:1
 });
 
@@ -54,11 +54,15 @@ test('Inventory 50→49 is only a strictly scoped scalar candidate, not past act
   const x=plan();
   assert.equal(x.contract,TIER_A_CONTRACT);
   assert.equal(x.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
-  assert.equal(x.candidate.fieldPath,'/Player/ListInventories/0/Inventory/40000047/Amount');
+  assert.equal(x.candidate.fieldPath,'/Player/ListInventories/4/Inventory/30000001/Amount');
   assert.deepEqual(x.candidate.exactAllowedPaths,[x.candidate.fieldPath]);
   assert.equal(x.candidate.expectedOldAmount,50);
   assert.equal(x.candidate.nextAmount,49);
-  assert.equal(x.candidate.readSet[0].expectedValue,'ItemType_Furniture');
+  assert.equal(x.candidate.readSet[0].expectedValue,4);
+  assert.equal(x.candidate.readSet[1].expectedValue,'ItemType_Ingredient');
+  assert.deepEqual(x.candidate.nativeDevCommand,{variant:'InventoryExistingAmountDecrease',
+    inventory_id:4,canonical_item_id:30000001,
+    expected_compatible_item_type:'ItemType_Ingredient',expected_old_amount:50,new_amount:49});
   assert.equal(x.sessionSnapshot.revision,3);
   assert.equal(x.sessionSnapshot.indexGeneration,7);
   assert.equal(x.authoritativeCoreValidationRequired,true);
@@ -81,8 +85,10 @@ test('No amount increment, no noop, no negative, no float, no unsafe/overflow st
   blocked(x=>{x.command.expectedOldAmount=-1},'INVENTORY_AMOUNT_BOUNDS');
   blocked(x=>{x.command.expectedOldAmount=2147483648},'INVENTORY_AMOUNT_BOUNDS');
   blocked(x=>{x.command.nextAmount=Number.MAX_SAFE_INTEGER},'INVENTORY_AMOUNT_BOUNDS');
-  const zero=plan(x=>{x.command.expectedOldAmount=1;x.command.nextAmount=0});
-  assert.equal(zero.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
+  blocked(x=>{x.command.expectedOldAmount=1;x.command.nextAmount=0},'INVENTORY_AMOUNT_BOUNDS');
+  blocked(x=>{x.command.expectedOldAmount=10000;x.command.nextAmount=9999},'INVENTORY_AMOUNT_BOUNDS');
+  const low=plan(x=>{x.command.expectedOldAmount=2;x.command.nextAmount=1});
+  assert.equal(low.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
 });
 test('Unknown ItemID, alias type, missing entry or unverified route fail closed',()=>{
   blocked(x=>{x.command.canonicalItemId=0},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
@@ -90,6 +96,8 @@ test('Unknown ItemID, alias type, missing entry or unverified route fail closed'
   blocked(x=>{x.command.canonicalItemId=4294967296},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.canonicalItemId='40000047'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.inventoryId='00'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(x=>{x.command.inventoryId=0},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(x=>{x.command.compatibleItemType='ItemType_Premium'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.inventoryId=Number.MAX_SAFE_INTEGER},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.compatibleItemType='untrusted'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.compatibleItemType=1.5},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
@@ -131,9 +139,12 @@ test('Source SHA, single Rust session receipt, revision and index-generation are
 test('Synthetic existing Chest slot maps only one Amount leaf, retaining ItemState SHA and container identity',()=>{
   const x=plan(r=>{r.command=chestCommand()});
   assert.equal(x.status,'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE');
-  assert.equal(x.candidate.fieldPath,'/Player/ContainerInventories/116/Inventory/1/Amount');
+  assert.equal(x.candidate.fieldPath,'/Player/ContainerInventories/12/Inventory/0/Amount');
   assert.equal(x.candidate.readSet.find(z=>z.path.endsWith('/ItemState')).expectedContentSha256,hash('d'));
   assert.equal(x.candidate.readSet.find(z=>z.path.endsWith('/BelongsToPlayer')).expectedValue,true);
+  assert.deepEqual(x.candidate.nativeDevCommand,{variant:'ChestExistingSlotAmountDecrease',
+    container_id:12,slot_index:0,expected_item_id:30000002,
+    expected_old_amount:12,new_amount:11});
   assert.deepEqual(x.candidate.exactAllowedPaths,[x.candidate.fieldPath]);
   assert.equal(x.writerAuthorized,false);
   assert.equal(x.nativeCrossDomainRecalculationProven,false);
@@ -153,9 +164,10 @@ test('Existing Chest refusal covers foreign, duplicate, invalid slot, overflow, 
   ch(c=>{c.inventoryCreation=true});
 });
 test('Existing Chest only decrement and fixed numeric bounds; cannot transfer items or mutate ownership',()=>{
-  blocked(x=>{x.command=chestCommand();x.command.nextAmount=11},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
-  blocked(x=>{x.command=chestCommand();x.command.nextAmount=10},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
+  blocked(x=>{x.command=chestCommand();x.command.nextAmount=13},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
+  blocked(x=>{x.command=chestCommand();x.command.nextAmount=12},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=-1},'CHEST_SLOT_AMOUNT_BOUNDS');
+  blocked(x=>{x.command=chestCommand();x.command.nextAmount=0},'CHEST_SLOT_AMOUNT_BOUNDS');
   blocked(x=>{x.command=chestCommand();x.command.expectedOldAmount=2147483648},'CHEST_SLOT_AMOUNT_BOUNDS');
   blocked(x=>{x.command=chestCommand();x.command.ItemID=40000047},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID');
 });
