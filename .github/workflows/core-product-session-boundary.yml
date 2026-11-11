@@ -4,6 +4,8 @@ on:
     paths:
       - 'crates/ddv-save-core/**'
       - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
+      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
+      - 'scripts/wasm-distribution/**'
       - 'tests/product-wasm-read-owner.test.mjs'
       - 'tests/product-wasm-typed-read-owner.test.mjs'
       - 'src/lib/ddv/core/save/product-wasm-read-owner.d.mts'
