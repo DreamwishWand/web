@@ -11,7 +11,7 @@ import {join,resolve,extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
 import assert from 'node:assert/strict';
-const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
+const root=resolve(fileURLToPath(new URL('../',import.meta.url)));
 const base='/web';
 const csp="default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-inline'; worker-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'";
 const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript',
