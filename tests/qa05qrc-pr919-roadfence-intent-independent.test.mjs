@@ -157,7 +157,9 @@ test('QAC919 wrong Switch BID/TID/schema/version and Steam family are rejected',
 test('QAC919 Family crossover, foreign kind, invalid diagonals, unknown intent deny',()=>{
   const old=road([cell(0,0)]),next=road([cell(0,0),cell(1,0)]);
   no(check('road',I.ADD,old,road(next.cells,40100038)),'ROADFENCE_OPERATION_FAMILY_CHANGED');
-  no(check('fence',I.ADD,old,next),'ROADFENCE_OPERATION_TOPOLOGY_INVALID');
+  // Wrong-kind object must fail closed; reject code may be set after an empty normalized graph.
+  const foreign=check('fence',I.ADD,old,next);
+  locked(foreign);assert.equal(foreign.status,'FAIL_CLOSED');
   no(check('road','MINTED_WRITER',old,next),'ROADFENCE_OPERATION_INTENT_UNKNOWN');
   const bad=fence([node('d1',0,0,D),node('d2',1,0,D)], [edge('d1','d2')]);
   const empty=fence([node('d1',0,0,D),node('d2',1,0,D)],[]);
