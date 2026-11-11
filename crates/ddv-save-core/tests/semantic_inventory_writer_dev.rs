@@ -72,15 +72,14 @@ fn inventory_50_to_49_true_semantic_change_exact_only_one_number(){
    envelope(&s,2,3,WorkerAction::ExportEditedCopy)).is_err());
  let redo=s.redo_typed_semantic_batch(envelope(&s,2,3,WorkerAction::Stage)).unwrap();
  assert_eq!((redo.revision,redo.index_generation),(3,4));
- let output=s.take_typed_semantic_decoded_once(
-   envelope(&s,3,4,WorkerAction::ExportEditedCopy)).unwrap();
+ let one_time=envelope(&s,3,4,WorkerAction::ExportEditedCopy);
+ let output=s.take_typed_semantic_decoded_once(one_time).unwrap();
  let expected=ORIGINAL.replacen(r#""Amount":50"#,r#""Amount":49"#,1);
  assert_eq!(output,expected.as_bytes());
  assert_eq!(Sha256::digest(&output).as_slice(),r.staged_decoded_sha256);
  assert!(expected.contains(r#""ratio":1.00"#)); // exact unknown lexical form
  assert!(expected.contains(r#""float":1.00"#));
- assert!(s.take_typed_semantic_decoded_once(
-   envelope(&s,3,4,WorkerAction::ExportEditedCopy)).is_err());
+ assert!(s.take_typed_semantic_decoded_once(one_time).is_err());
  assert!(s.receipt().is_err());
  let reopened=open(&output); // independent Rust ProductSession after byte export
  assert_ne!(reopened.receipt().unwrap().decoded_sha256,r.original_decoded_sha256);
