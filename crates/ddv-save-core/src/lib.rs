@@ -33,6 +33,13 @@ pub use spatial_reference_index::{
 // Private-native only: count concordance cannot grant Native V3 or Writer.
 #[cfg(feature="private-native-v1")]
 pub use spatial_reference_index::SpatialNativeCensusReceipt;
+mod steam_spatial_preflight;
+pub use steam_spatial_preflight::{
+    preflight_steam_move_rotate,steam_orientation_cardinal,steam_orientation_defined,
+    PreviewCell,PreviewObjectKey,PreviewTransform,PreviewGrid,
+    PreviewRestrictions,PreviewOccupiedCell,PreviewSnapshot,PreviewRequest,
+    PreviewReceipt,STEAM_SPATIAL_PREFLIGHT_CONTRACT,
+};
 mod worker_session;
 #[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]
 mod wasm_worker;
