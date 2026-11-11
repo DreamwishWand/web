@@ -23,7 +23,7 @@ function fake(overrides={}){
   async redo(){log.push(['redo']);return{kind:'REDONE',ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false}},
   async exportEditedCopy(){log.push(['export']);return{kind:'EXPORTED',ok:true,
     editedCopyName:'edited-copy-different.p1g',backupName:'original-backup.p1g',
-    editedCiphertextVerified:true,independentReopenVerified:true,originalUnchanged:true,
+    editedCiphertextVerified:true,freshWorkerReopenVerified:true,independentProcessReopenVerified:false,originalUnchanged:true,
     writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false}},
   async close(){log.push(['close'])}
  };
@@ -78,7 +78,7 @@ test('file→durable original backup→verified targets→CAS→Undo→Redo→se
  await assert.rejects(w.exportEditedCopy());
  await w.redo();await w.exportEditedCopy();
  assert.equal(w.snapshot().editedCopy.name,'edited-copy-different.p1g');
- assert.equal(w.snapshot().editedCopy.independentReopenVerified,true);
+ assert.equal(w.snapshot().editedCopy.freshWorkerReopenVerified,true);
  assert.deepEqual(log.filter(x=>['backup','list','stage','undo','redo','export'].includes(x[0]))
   .map(x=>x[0]),['backup','list','stage','undo','redo','export']);
  await assert.rejects(w.exportEditedCopy());
@@ -107,7 +107,7 @@ test('encoded export cannot overwrite original, coincide with backup or declare 
   {editedCopyName:'steam-original.p1g'},
   {editedCopyName:'original-backup.p1g'},
   {editedCopyName:'../../private.p1g'},
-  {independentReopenVerified:false},
+  {freshWorkerReopenVerified:false},
   {writerAuthorized:true},
   {originalUnchanged:false}
  ];
