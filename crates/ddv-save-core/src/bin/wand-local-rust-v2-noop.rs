@@ -169,11 +169,11 @@ fn run_semantic_existing_decrease(){
  }
  let int=|name:&str|->u32{
     required(name).parse::<u32>().ok().filter(|v|*v>0)
-      .unwrap_or_else(||deny("SEMANTIC_EXPECTED_DECIMAL_ID"));
+      .unwrap_or_else(||deny("SEMANTIC_EXPECTED_DECIMAL_ID"))
  };
  let amount=|name:&str|->u32{
     required(name).parse::<u32>()
-      .unwrap_or_else(|_|deny("SEMANTIC_EXPECTED_DECIMAL_AMOUNT"));
+      .unwrap_or_else(|_|deny("SEMANTIC_EXPECTED_DECIMAL_AMOUNT"))
  };
  let mut cmds=Vec::with_capacity(2);
  if inventory{
