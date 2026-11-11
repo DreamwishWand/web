@@ -6,7 +6,7 @@
   let client=null,ready=false,busy=false,opened=false,error=false;
   let chosenFile=null,originalSha='',buildConfirmed=false;
   let count=null,rows=[],page=0,hasNext=false;
-  let openButton=null;
+  let disclosure=null;
   $: words=savedDiffGridsCopy($locale);
   $: valid=ready&&!busy&&chosenFile!==null&&
     /^[a-f0-9]{64}$/.test(originalSha)&&buildConfirmed;
@@ -60,13 +60,13 @@
   async function closeSession(){
     await clear();
     chosenFile=null;originalSha='';buildConfirmed=false;
-    await tick();openButton?.focus();
+    await tick();disclosure?.focus();
   }
 </script>
 
 <details class="diffgrids-readonly" data-steam-diffgrids-readonly data-writer="off"
  data-cloud="off" data-product-read="off">
-  <summary>{words.title} · {words.subtitle}</summary>
+  <summary bind:this={disclosure} data-diffgrids-summary>{words.title} · {words.subtitle}</summary>
   <div class="content">
     <p>{words.intro}</p>
     <p role="status" aria-live="polite" data-diffgrids-status>{message}</p>
@@ -85,7 +85,7 @@
           <span>{words.confirm}</span>
         </label>
         <div class="actions">
-          <button type="button" bind:this={openButton} on:click={openReadOnly}
+          <button type="button" on:click={openReadOnly}
             disabled={!valid} data-diffgrids-open>{words.open}</button>
           <button type="button" on:click={closeSession} disabled={!opened&&!busy}
             data-diffgrids-close>{words.close}</button>
