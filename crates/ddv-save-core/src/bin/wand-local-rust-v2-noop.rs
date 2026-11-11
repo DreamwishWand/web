@@ -28,6 +28,14 @@ fn required(k:&str)->String{
    .unwrap_or_else(||deny("MISSING_EXTERNAL_ATTESTATION"))
 }
 fn main(){
+ #[cfg(feature="semantic-writer-dev")]
+ if matches!(env::args().nth(1).as_deref(),
+     Some("--semantic-inventory-existing-decrease-only"|
+          "--semantic-chest-existing-decrease-only"|
+          "--semantic-inventory-and-chest-decrease-only")) {
+   run_semantic_existing_decrease();
+   return;
+ }
  if env::args().collect::<Vec<_>>().len()!=2||
     env::args().nth(1).as_deref()!=Some("--semantic-noop-proof-only"){
    deny("EXPLICIT_PRIVATE_NOOP_OPERATION_REQUIRED")
@@ -112,4 +120,124 @@ fn main(){
  io::stdout().write_all(&modified).unwrap_or_else(|_|deny("PRIVATE_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("PRIVATE_PIPE_FLUSH"));
  eprintln!("PRIVATE_V2_RUST_NOOP_CAS_UNDO_REDO_ONE_TIME_PIPE_PASS");
+}
+
+
+// Same already-existing V2 PRIVATE stdin/stdout executor; no second reader.
+// Source original P1G bytes and private key remain exclusively in the local
+// existing Codec/backup wrapper and are never passed to public CI.
+#[cfg(feature="semantic-writer-dev")]
+fn run_semantic_existing_decrease(){
+ use ddv_save_core::TypedSemanticCommand;
+ const MAX_DECODED:u64=256*1024*1024;
+ let args=env::args().collect::<Vec<_>>();
+ if args.len()!=2{deny("SEMANTIC_ONE_EXPLICIT_OPERATION_REQUIRED");}
+ let inventory=matches!(args[1].as_str(),
+     "--semantic-inventory-existing-decrease-only"|
+     "--semantic-inventory-and-chest-decrease-only");
+ let chest=matches!(args[1].as_str(),
+     "--semantic-chest-existing-decrease-only"|
+     "--semantic-inventory-and-chest-decrease-only");
+ if !inventory&&!chest{deny("SEMANTIC_COMMAND_NOT_ALLOWLISTED");}
+ if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM{
+   deny("SEMANTIC_EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
+ }
+ let original_sha=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
+ let source_size=required("WAND_LOCAL_ORIGINAL_SIZE_BYTES").parse::<u64>()
+   .unwrap_or_else(|_|deny("SEMANTIC_ORIGINAL_SIZE_MISSING"));
+ if original_sha==[0;32]||source_size==0||source_size>128*1024*1024{
+    deny("SEMANTIC_ORIGINAL_PACKAGED_SHA_OR_SIZE");
+ }
+ let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
+ if expected==[0;32]{deny("SEMANTIC_DECODED_SHA_REQUIRED");}
+ let mut input=Vec::new();
+ io::stdin().take(MAX_DECODED+1).read_to_end(&mut input)
+    .unwrap_or_else(|_|deny("SEMANTIC_PRIVATE_PIPE_READ"));
+ if input.is_empty()||input.len() as u64>MAX_DECODED||
+   Sha256::digest(&input).as_slice()!=expected{
+    deny("SEMANTIC_SOURCE_SHA_CAS");
+ }
+ let build=BuildIdentity{platform:Platform::SteamWindows,
+   build_kind:BuildKind::SteamFullVersion,build_id:STEAM.into(),
+   schema:626,externally_attested:true};
+ let session=ProductSession::open_decoded_readonly(input,build)
+   .unwrap_or_else(|_|deny("SEMANTIC_FULL_DOCUMENT_OR_VERSION"));
+ let before=session.receipt().unwrap_or_else(|_|deny("SEMANTIC_RECEIPT"));
+ if before.decoded_sha256!=expected||before.writer_authorized||
+   before.revision!=0||before.index_generation!=1{
+    deny("SEMANTIC_SOURCE_RECEIPT_SCOPE");
+ }
+ let int=|name:&str|->u32{
+    required(name).parse::<u32>().ok().filter(|v|*v>0)
+      .unwrap_or_else(||deny("SEMANTIC_EXPECTED_DECIMAL_ID"));
+ };
+ let amount=|name:&str|->u32{
+    required(name).parse::<u32>()
+      .unwrap_or_else(|_|deny("SEMANTIC_EXPECTED_DECIMAL_AMOUNT"));
+ };
+ let mut cmds=Vec::with_capacity(2);
+ if inventory{
+   cmds.push(TypedSemanticCommand::InventoryExistingAmountDecrease{
+     inventory_id:int("WAND_LOCAL_INVENTORY_ID"),
+     canonical_item_id:int("WAND_LOCAL_CANONICAL_ITEM_ID"),
+     expected_compatible_item_type:required("WAND_LOCAL_COMPATIBLE_ITEM_TYPE"),
+     expected_old_amount:amount("WAND_LOCAL_EXPECTED_OLD_AMOUNT"),
+     new_amount:amount("WAND_LOCAL_NEW_AMOUNT"),
+   });
+ }
+ if chest{
+   cmds.push(TypedSemanticCommand::ChestExistingSlotAmountDecrease{
+     container_id:int("WAND_LOCAL_CONTAINER_ID"),
+     slot_index:required("WAND_LOCAL_SLOT_INDEX").parse::<usize>()
+      .unwrap_or_else(|_|deny("SEMANTIC_CHEST_SLOT_INDEX")),
+     expected_item_id:int("WAND_LOCAL_SLOT_ITEM_ID"),
+     expected_old_amount:amount("WAND_LOCAL_CHEST_EXPECTED_OLD_AMOUNT"),
+     new_amount:amount("WAND_LOCAL_CHEST_NEW_AMOUNT"),
+   });
+ }
+ let scope=|revision:u64,generation:u64,action|WorkerEnvelope{
+   contract:PRODUCT_WORKER_CONTRACT,session_id:before.session_id,
+   expected_revision:revision,expected_index_generation:generation,
+   expected_decoded_sha256:expected,action,
+ };
+ if session.dispatch(scope(0,1,WorkerAction::Stage)).is_ok(){
+   deny("SEMANTIC_PRODUCT_WRITER_BYPASS");
+ }
+ let staged=session.stage_typed_semantic_batch(scope(0,1,WorkerAction::Stage),&cmds)
+   .unwrap_or_else(|_|deny("SEMANTIC_TYPED_STAGE_DENIED"));
+ if staged.revision!=1||staged.index_generation!=2||
+   !staged.applied||!staged.semantic_changed||
+   staged.operation_count!=cmds.len()||staged.product_writer_authorized||
+   staged.native_v3_verified||staged.staged_decoded_sha256==expected{
+     deny("SEMANTIC_ATOMIC_DIFF_INVARIANT");
+ }
+ if session.stage_typed_semantic_batch(scope(0,1,WorkerAction::Stage),&cmds).is_ok(){
+   deny("SEMANTIC_STAGE_REPLAY_ACCEPTED");
+ }
+ let undo=session.undo_typed_semantic_batch(scope(1,2,WorkerAction::Stage))
+   .unwrap_or_else(|_|deny("SEMANTIC_UNDO_DENIED"));
+ if undo.applied||undo.revision!=2||undo.index_generation!=3{
+   deny("SEMANTIC_UNDO_INVARIANT");
+ }
+ if session.take_typed_semantic_decoded_once(
+   scope(2,3,WorkerAction::ExportEditedCopy)).is_ok(){
+   deny("SEMANTIC_UNDONE_EXPORT_ACCEPTED");
+ }
+ let redo=session.redo_typed_semantic_batch(scope(2,3,WorkerAction::Stage))
+   .unwrap_or_else(|_|deny("SEMANTIC_REDO_DENIED"));
+ if !redo.applied||redo.revision!=3||redo.index_generation!=4{
+   deny("SEMANTIC_REDO_INVARIANT");
+ }
+ let edited=session.take_typed_semantic_decoded_once(
+   scope(3,4,WorkerAction::ExportEditedCopy))
+    .unwrap_or_else(|_|deny("SEMANTIC_ONE_TIME_EXPORT_DENIED"));
+ if Sha256::digest(&edited).as_slice()!=staged.staged_decoded_sha256||
+   session.take_typed_semantic_decoded_once(
+     scope(3,4,WorkerAction::ExportEditedCopy)).is_ok(){
+    deny("SEMANTIC_PRIVATE_EDITED_BYTES_REPLAY_OR_SHA");
+ }
+ // Private pipe ONLY. No plaintext, key, IDs, SHA or path in CI/logs.
+ io::stdout().write_all(&edited).unwrap_or_else(|_|deny("SEMANTIC_PIPE_WRITE"));
+ io::stdout().flush().unwrap_or_else(|_|deny("SEMANTIC_PIPE_FLUSH"));
+ eprintln!("PRIVATE_V2_RUST_REAL_AMOUNT_SEMANTIC_CHANGE_CAS_ATOMIC_UNDO_REDO_ONE_TIME_PIPE_PASS");
 }
