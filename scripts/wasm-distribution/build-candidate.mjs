@@ -96,7 +96,7 @@ const manifestBytes=await readFile(join(target,'manifest.json'));
 const publicPins={
   contract:'wand.r22.candidate-pinned-digests@1',
   sourceHead:expectedHead,
-  manifestSha256:sha(manifestBytes),
+  manifestSha256:sha(manifestBytes),manifestSizeBytes:manifestBytes.length,
   jsSha256:sha(glue),wasmSha256:sha(wasm),
   jsSizeBytes:glue.length,wasmSizeBytes:wasm.length,
   sourceProvenanceOnly:true,
