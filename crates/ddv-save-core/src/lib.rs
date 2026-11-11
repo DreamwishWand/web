@@ -7,6 +7,11 @@
 compile_error!("private-native-v2 is native-only and cannot enter WASM");
 #[cfg(all(feature="private-native-v1",target_arch="wasm32"))]
 compile_error!("private-native-v1 is native-only and cannot enter WASM");
+// DEV feature may be type-checked for the same wasm32 Rust Core, but a
+// browser build needs the existing Worker entropy/session boundary. Production
+// Pages explicitly compiles ONLY worker-wasm,indexed-read, never this feature.
+#[cfg(all(feature="semantic-writer-dev",target_arch="wasm32",not(feature="worker-wasm")))]
+compile_error!("semantic-writer-dev wasm32 requires the existing Worker binding");
 mod product_session;
 mod strict_document;
 // Source-only synthetic transaction lab is compiled out of the product Worker.
@@ -16,6 +21,9 @@ compile_error!("synthetic-stage-b must not be linked into WASM/Worker release");
 pub use product_session::{SyntheticChangeSet, SyntheticStageReceipt, SyntheticExportReceipt};
 #[cfg(feature = "private-native-v1")]
 pub use product_session::NativeAreaGridSliceReceipt;
+#[cfg(feature = "semantic-writer-dev")]
+pub use product_session::{TypedOperationKind,TypedOperationRegistryEntry,
+    TypedSemanticCommand,SemanticStageReceipt,TYPED_OPERATION_REGISTRY};
 #[cfg(feature = "private-native-v2")]
 pub use product_session::PrivateOfflineReceipt;
 #[cfg(feature = "indexed-read")]

@@ -17,6 +17,8 @@ indexed-read = []
 private-native-v1 = ["indexed-read"]
 # Native-only exact 1-byte semantic-NOOP private edit proof; Writer remains OFF.
 private-native-v2 = ["private-native-v1"]
+# DEV/Owner-private semantic existing-field V2, excluded from Pages WASM release.
+semantic-writer-dev = ["indexed-read"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }

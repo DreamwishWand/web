@@ -1,0 +1,104 @@
+name: 05 QR-C PR914 semantic Rust Writer changed-only independent QA
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa05qrc_pr914_writer_changed_scope.rs'
+      - '.github/workflows/05qr-c-pr914-semantic-writer-independent.yml'
+permissions:
+  contents: read
+jobs:
+  independent-pr914-typed-quantity-atomic-cas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/qac914-rust-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Exact original Source12 Git Blobs / two QA-only ADD / forbid private data
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=4f7f18990ea470d49e1d5fe9b9aceae649072516
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          declare -A blobs=(
+            [".github/workflows/01a-private-native-rust-v1.yml"]="bf0d912ca1ba9af2672fc0a2b29ba45875386b08"
+            [".github/workflows/core-product-session-boundary.yml"]="1995e60e584f7ed144ab73b1ddeec87bd293fb13"
+            ["crates/ddv-save-core/Cargo.toml"]="27cc74609bc818741ff068bdd00c0b7d430aa257"
+            ["crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs"]="5bf8d4c937702060f855e796ccde1915c7f6cc98"
+            ["crates/ddv-save-core/src/indexed_read.rs"]="6182cdb26623b49990348fa8800b6603626c051b"
+            ["crates/ddv-save-core/src/lib.rs"]="925ff4b2b009a40513cb4328595f00cf302e2f44"
+            ["crates/ddv-save-core/src/product_session.rs"]="d1302e4f028acd91ef9e4d50687fe67e6e2d103e"
+            ["crates/ddv-save-core/src/semantic_writer.rs"]="9e77d3d0243ea01fb061de7134f6aeb867ac5297"
+            ["crates/ddv-save-core/tests/semantic_inventory_writer_dev.rs"]="da4f2c380caaef54dc300aa5b97fef60a8b0264b"
+            ["tests/helpers/native-semantic-p1g-independent-reopen.mjs"]="d0cf2c553c9c1e3043af2168bb5efd7e03ad697e"
+            ["tests/native-owner-semantic-writer-p1g.test.mjs"]="f939e5e136aa370e105ff270b014eebf229e1989"
+            ["tests/native-owner-semantic-writer.test.mjs"]="ae5d82b45656afd43bed53032eb1f0dec13b9f49"
+          )
+          for p in "${!blobs[@]}"; do
+            test "$(git rev-parse "$source:$p")" = "${blobs[$p]}"
+            test "$(git rev-parse "HEAD:$p")" = "${blobs[$p]}"
+          done
+          got="$(git diff --name-only "$source" HEAD | sort)"
+          want="$(printf '%s\n' .github/workflows/05qr-c-pr914-semantic-writer-independent.yml crates/ddv-save-core/tests/qa05qrc_pr914_writer_changed_scope.rs | sort)"
+          test "$got" = "$want"
+          test -z "$(git ls-files | grep -Ei '(private.*\.p1g$|\.p1g$|owner.*secret|steam.*key)' || true)"
+          test -z "$(git diff --name-only "$source" HEAD -- crates/ddv-save-core/src)"
+          echo QAC914_EXACT_SOURCE12_NO_REIMPLEMENTATION_NO_PRIVATE_DATA_PASS
+      - name: Prove production Rust WASM unchanged product Writer feature gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fx 'semantic-writer-dev = ["indexed-read"]' crates/ddv-save-core/Cargo.toml
+          grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          test "$(sha256sum crates/ddv-save-core/Cargo.lock | cut -d' ' -f1)" = e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 5926ecf20412dc1b015f5f85304588a85c568f8c
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,indexed-read
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,indexed-read,semantic-writer-dev
+          if grep -q 'semantic-writer-dev' .github/workflows/pages.yml; then
+            echo "PRODUCT_WASM_SEMANTIC_WRITER_FEATURE_LEAK";exit 1
+          fi
+          echo QAC914_PUBLIC_WASM_WRITER_OFF_DEV_WASM_TYPECHECK_ONLY_PASS
+      - name: Independent Rust 11 new changed-domain adversarial cases
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features semantic-writer-dev \
+            --test qa05qrc_pr914_writer_changed_scope -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,semantic-writer-dev \
+            --test qa05qrc_pr914_writer_changed_scope -- --nocapture
+          echo QAC914_INDEPENDENT_22_RUST_CHANGED_ONLY_ATOMIC_CAS_EXACT_DIFF_PASS
+      - name: Independent narrow real quantity CLI and synthetic P1G Codec/Edited-copy/reopen
+        shell: bash
+        run: |
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --release --no-default-features --features private-native-v2,semantic-writer-dev \
+            --bin wand-local-rust-v2-noop
+          test -x "$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop"
+          WAND_TEST_SEMANTIC_RUST="$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop" \
+            node --test tests/native-owner-semantic-writer-p1g.test.mjs
+          echo QAC914_SOURCE_NEW_SYNTHETIC_P1G_ENCODE_FRESH_NODE_REOPEN_NOT_PRIVATE_STEAM_PASS
+      - name: Reject Writer/product-promote/private artifact leakage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-files | grep -E '\.p1g$|STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE' || true)"
+          ! grep -F 'product_writer_authorized:true' crates/ddv-save-core/src/semantic_writer.rs
+          ! grep -F 'native_v3_verified:true' crates/ddv-save-core/src/semantic_writer.rs
+          test -z "$(git diff --name-only '4f7f18990ea470d49e1d5fe9b9aceae649072516' HEAD -- src/lib/ddv/core/save .github/workflows/pages.yml)"
+          echo QAC914_SYNTHETIC_ONLY_PRODUCT_WRITER_AND_PRIVATE_BACKUP_GATES_OFF
