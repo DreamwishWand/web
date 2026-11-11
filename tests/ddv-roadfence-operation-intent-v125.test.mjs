@@ -27,11 +27,15 @@ function accepted(result) {
   assert.equal(result.contract, ROADFENCE_OPERATION_INTENT_CONTRACT);
   assert.equal(result.status, 'STATIC_INTENT_VALIDATED_ONLY');
   assert.equal(result.layoutPolicy, 'PRESERVE_EXISTING');
+  assert.equal(result.sourceBuildIdentity.bid, BUILD_V125_SWITCH.bid);
+  assert.equal(result.sourceBuildIdentity.profileSchema, 624);
   assert.equal(result.sourceBinding, 'REQUIRES_CORE_SESSION_TYPED_SOURCE_WITNESS');
   assert.equal(result.nativeProducerConsumerRecompileV3, 'UNKNOWN');
   assert.equal(result.nativeInventoryCostRefund, 'UNKNOWN');
   assert.equal(result.wandInventoryDelta, 0);
   assert.equal(result.writerAuthorized, false);
+  assert.equal(result.persistentWriteAuthorized, false);
+  assert.equal(result.WORLD_PERSISTENT_WRITE_V125, false);
   assert.equal(result.productApplyAuthorized, false);
 }
 
@@ -84,6 +88,11 @@ test('Road MOVE/ROTATE require exact canonical transform; no Native orientation 
     assess('road', RoadFenceEditIntent.MOVE, horizontal, horizontal,
       { translateX: 0 }).errorCode,
     'ROADFENCE_OPERATION_MOVE_TRANSFORM_INVALID'
+  );
+  assert.equal(
+    assess('road', RoadFenceEditIntent.MOVE, horizontal, moved,
+      { translateX: 2, reflected: true }).errorCode,
+    'ROADFENCE_OPERATION_TRANSFORM_UNRECOGNIZED_FIELD'
   );
 });
 
