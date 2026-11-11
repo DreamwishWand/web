@@ -100,7 +100,9 @@ export async function loadSourcePinnedRustWasmCandidate({
    !hex64.test(manifest.source?.cargoLockSha256??'')||
    !hex64.test(manifest.source?.cargoTomlSha256??'')||
    manifest.signature?.status!=='UNKNOWN'||manifest.signature?.verified!==false||
-   manifest.release?.publishedPages!==false||
+   (manifest.release?.publishedPages!==false &&
+    manifest.release?.publishedPages!==true)||
+   manifest.release?.autoUpload!==false||
    manifest.release?.productConsumerEnabled!==false||
    manifest.release?.writerAuthorized!==false||
    manifest.abi?.exportClass!=='WorkerWasmSource'||
