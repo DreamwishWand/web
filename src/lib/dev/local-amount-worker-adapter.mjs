@@ -164,8 +164,9 @@ export function createPr929LocalDevAmountAdapter({wasmFactory,verifyTargets=asyn
    const sourceUnchanged=await h(original.bytes)===original.sha;
    if(!reopened||!sourceUnchanged||saved.name===backup.name||
     saved.name===original.name)fail();
+   const verifiedBackupName=backup.name;
    await close();
-   return {kind:'EXPORTED',ok:true,backupName:backup.name,
+   return {kind:'EXPORTED',ok:true,backupName:verifiedBackupName,
     editedCopyName:saved.name,editedCiphertextVerified:true,
     freshWorkerReopenVerified:true,independentProcessReopenVerified:false,
     originalUnchanged:true,writerAuthorized:false,nativeV3Verified:false,
