@@ -141,7 +141,7 @@ const script=String.raw`
  }
  const close=document.querySelector('[data-diffgrids-close]');
  close.click();await wait(()=>!document.querySelector('[data-diffgrids-count]'),'CLOSE');
- need(document.activeElement?.matches?.('[data-diffgrids-open]'),'FOCUS_RESTORED');
+ need(document.activeElement?.matches?.('[data-diffgrids-summary]'),'FOCUS_RESTORED');
  need(!document.querySelector('[data-diffgrids-next]'),'NO_STALE_PAGE_AFTER_CLOSE');
  return {result:'08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS',
   pages:pages.join(','),gridIdZeroLiteral:true,manualClickOnly:true,
