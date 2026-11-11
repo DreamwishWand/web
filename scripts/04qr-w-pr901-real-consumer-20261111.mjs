@@ -176,7 +176,13 @@ try{
   assert.ok(!textContent.includes(word),'raw Rust or private data leaked '+word);
  await page.locator('[data-diffgrids-close]').click();
  await page.waitForFunction(()=>!document.querySelector('[data-diffgrids-count]'));
- assert.equal(await summary.evaluate(el=>document.activeElement===el),true,'Close focus restore');
+ // Svelte Close clears the result DOM before tick() commits focus restoration.
+ // Wait for the actual final focused element rather than sampling mid-transition.
+ const focusRestored=await page.waitForFunction(()=>
+  document.activeElement?.matches?.('[data-diffgrids-summary]')===true,
+  null,{timeout:3000}).then(()=>true).catch(()=>false);
+ if(!focusRestored)
+  visualFailures.push('QRW901_CLOSE_FOCUS_NOT_RESTORED_AFTER_SVELTE_TICK');
  assert.equal(await page.locator('[data-diffgrids-next]').count(),0,'no stale cursor display');
  await page.locator('#steam-diffgrids-file').setInputFiles({
   name:'SYNTHETIC_CI_ONLY.p1g',mimeType:'application/octet-stream',buffer:file
