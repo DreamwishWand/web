@@ -1,0 +1,67 @@
+name: 05 QR-C PR919 RoadFence changed-only independent Intent QA
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr919-roadfence-intent-independent.yml'
+      - 'tests/qa05qrc-pr919-roadfence-intent-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  independent-pr919-intent-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Fixed PR919 Source two original ADD Git Blobs / QA-only two ADD exact diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=384bbff7f89a4e3e0ae24d6fdca52ed3c93a4aef
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git rev-parse "$source:src/lib/ddv/core/roadfence/operation-intent-v125.js")" = 50c856244cbbdc6536293eb3eb96b8d2d96fa3f8
+          test "$(git rev-parse "$source:tests/ddv-roadfence-operation-intent-v125.test.mjs")" = efd9a5dabe9d35439e73dc2b6bc56d82bb936b82
+          test "$(git rev-parse HEAD:src/lib/ddv/core/roadfence/operation-intent-v125.js)" = 50c856244cbbdc6536293eb3eb96b8d2d96fa3f8
+          test "$(git rev-parse HEAD:tests/ddv-roadfence-operation-intent-v125.test.mjs)" = efd9a5dabe9d35439e73dc2b6bc56d82bb936b82
+          got="$(git diff --name-only "$source" HEAD | sort)"
+          want="$(printf '%s\n' .github/workflows/05qr-c-pr919-roadfence-intent-independent.yml tests/qa05qrc-pr919-roadfence-intent-independent.test.mjs | sort)"
+          test "$got" = "$want"
+          test -z "$(git diff --name-only "$source" HEAD -- src/lib/ddv/core/roadfence)"
+          test -z "$(git ls-files | grep -Ei '(^|/).*\.p1g$|STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE' || true)"
+          echo QAC919_SOURCE_TWO_ORIGINAL_GIT_BLOBS_QA_ONLY_TWO_UNCHANGED_PASS
+      - name: Node independent NEW Intent synthetic normals and adversarial edge collisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          node --check tests/qa05qrc-pr919-roadfence-intent-independent.test.mjs
+          node --test tests/qa05qrc-pr919-roadfence-intent-independent.test.mjs
+          echo QAC919_NEW_SOURCE_ONLY_INTENT_NEGATIVE_SCOPE_PASS
+      - name: Product Writer stay OFF and Native unknown in both accepted/fail-closed receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const src=readFileSync('src/lib/ddv/core/roadfence/operation-intent-v125.js','utf8');
+          assert.match(src,/return JSON\.stringify\(\[String\(edge\.a\), String\(edge\.b\)\]\.sort\(\)\)/);
+          for(const value of [
+           'sourceBinding:','compilerSupport:',
+           "nativeProducerConsumerRecompileV3: 'UNKNOWN'",
+           "nativeInventoryCostRefund: 'UNKNOWN'",
+           'wandInventoryDelta: 0',
+           'writerAuthorized: false',
+           'persistentWriteAuthorized: false',
+           'WORLD_PERSISTENT_WRITE_V125: false',
+           'productApplyAuthorized: false']) assert.ok(src.includes(value),value);
+          assert.doesNotMatch(src,/writeFileSync|writeFile\(|saveP1g|applyMutation|enableWriter\(/);
+          console.log('QAC919_NO_NATIVE_WRITER_OR_PRIVATE_SAVE_ELEVATION_PASS');
+          NODE
+          echo QAC919_SOURCE_ONLY_REQUIRES_COMPILER_01A_SESSION_01E_NATIVE_V3_OFF
