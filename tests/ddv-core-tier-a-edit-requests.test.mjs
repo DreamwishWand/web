@@ -35,7 +35,7 @@ const chestCommand=()=>({
 
 test('R08 operation matrix classifies all requested Tier A domains without authorizing any writer or inferring fields',()=>{
   assert.equal(TIER_A_WRITER_ENABLED,false);
-  assert.equal(TIER_A_OPERATIONS.length,10);
+  assert.equal(TIER_A_OPERATIONS.length,9);
   assert.equal(TIER_A_OPERATIONS[0].name,'Inventory.ExistingAmountDecrease');
   assert.equal(TIER_A_OPERATIONS[1].name,'Chest.ExistingSlotAmountDecrease');
   assert.equal(TIER_A_OPERATIONS[2].name,'Collection.InspectRawGroupFlag');
