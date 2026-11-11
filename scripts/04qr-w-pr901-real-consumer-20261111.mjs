@@ -73,7 +73,12 @@ try{
  page.on('pageerror',e=>errors.push(String(e)));
  page.on('download',d=>downloads.push(d.suggestedFilename()));
  page.on('request',r=>{
-  if(!['GET','HEAD'].includes(r.method())||!r.url().startsWith(origin+'/'))
+  // Accepted Loader executes the already SHA-verified JS bytes through one
+  // short-lived same-Origin Blob URL to prevent second-network-import TOCTOU.
+  // A GET for that EXACT Blob origin is local memory, not Cloud or off-origin.
+  const sameOriginNetwork=r.url().startsWith(origin+'/');
+  const sameOriginBlob=r.url().startsWith('blob:'+origin+'/');
+  if(!['GET','HEAD'].includes(r.method())||(!sameOriginNetwork&&!sameOriginBlob))
    network.push(r.method()+' '+r.url())
  });
  await page.addInitScript(()=>{
