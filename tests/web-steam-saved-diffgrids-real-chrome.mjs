@@ -121,6 +121,7 @@ const script=String.raw`
  // Deterministic browser-DOM contract, isolated from actual Svelte UI.
  // Delayed summary, replacement of the panel, permanent absence and duplicates.
  // This is not the Reader proof; the real UI path below must still pass.
+ await wait(()=>document.body?.isConnected,'DOCUMENT_BODY',18000);
  const fixture=document.createElement('div');
  fixture.hidden=true;document.body.append(fixture);
  const makePanel=()=>{const p=document.createElement('details');
@@ -244,7 +245,7 @@ const script=String.raw`
   need(!whole.includes(prohibited),'NO_PRIVATE_'+prohibited);
  }
  await click('[data-diffgrids-close]','CLOSE_BUTTON');
- await wait(()=>pair()&&!currentElement('[data-diffgrids-count]'),'CLOSE');
+ await wait(()=>pair()&&!pair().panel.querySelector('[data-diffgrids-count]'),'CLOSE');
  await wait(()=>pair()?.summary===document.activeElement,'FOCUS_RESTORED',18000);
  need(document.activeElement===present('[data-diffgrids-summary]','FOCUS'),'FOCUS_RESTORED');
  need(!document.querySelector('[data-diffgrids-next]'),'NO_STALE_PAGE_AFTER_CLOSE');
@@ -253,14 +254,14 @@ const script=String.raw`
  // ProductSession; a fresh explicit selection is required to try again.
  select('0'.repeat(64));
  await click('[data-diffgrids-open]:not([disabled])','BAD_SHA_OPEN_READY');
- await wait(()=>document.querySelector('[data-diffgrids-error]'),'BAD_SHA_FAILCLOSED',25000);
+ await element('[data-diffgrids-error]','BAD_SHA_FAILCLOSED',25000);
  need(!document.querySelector('[data-diffgrids-count]'),'BAD_SHA_NO_SESSION');
  // Reopening requires the correct original SHA, not an old Rust cursor.
  setSha(expected.originalSha256);
  await click('[data-diffgrids-open]:not([disabled])','REOPEN_READY');
- await wait(()=>document.querySelector('[data-diffgrids-count="17"]'),'REOPEN_NEW_SESSION',25000);
+ await element('[data-diffgrids-count="17"]','REOPEN_NEW_SESSION',25000);
  await click('[data-diffgrids-close]','REOPEN_CLOSE_BUTTON');
- await wait(()=>pair()&&!currentElement('[data-diffgrids-count]'),'REOPEN_CLOSE');
+ await wait(()=>pair()&&!pair().panel.querySelector('[data-diffgrids-count]'),'REOPEN_CLOSE');
  return {result:'08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS',
   pages:pages.join(','),viewport320:true,zoom200:true,geometry100:baseline,
   geometry200:afterScroll,innerTableScroll:true,badShaDenied:true,reopenFresh:true,keyboard:true,gridIdZeroLiteral:true,manualClickOnly:true,
