@@ -185,6 +185,36 @@ fn domain_span(roots:RootIndex,domain:IndexedDomain)->CoreResult<Span>{
         IndexedDomain::SavedDiffGrids|IndexedDomain::Unsupported=>Err(denied("INDEX_DOMAIN_NOT_ALLOWLISTED")),
     }
 }
+// One existing indexed object-span scanner. Native-private typed witnesses
+// reuse this same bounded lexical path; no whole-document Value reader.
+fn indexed_field_at(bytes:&[u8],span:Span,pos:usize)
+ ->CoreResult<(IndexedFieldWitness,Span,usize,bool)>{
+    if span.begin>=span.end||span.end>bytes.len()||pos<=span.begin||
+       pos>=span.end-1||bytes.get(span.begin)!=Some(&b'{')||
+       bytes.get(span.end-1)!=Some(&b'}'){
+        return Err(denied("INDEX_SPAN_INVALID"));
+    }
+    let key_start=skip_ws(bytes,pos);
+    let key_end=string_end(bytes,key_start)?;
+    if key_end-key_start>INDEX_KEY_BYTES_MAX{
+        return Err(denied("INDEX_FIELD_KEY_BOUNDS"));
+    }
+    let key:String=serde_json::from_slice(&bytes[key_start..key_end])
+        .map_err(|_|denied("INDEX_FIELD_KEY_INVALID"))?;
+    let colon=skip_ws(bytes,key_end);
+    if bytes.get(colon)!=Some(&b':'){return Err(denied("INDEX_FIELD_COLON_REQUIRED"));}
+    let begin=skip_ws(bytes,colon+1);
+    let kind=kind(bytes,begin)?;
+    let end=value_end(bytes,begin)?;
+    if end>span.end-1{return Err(denied("INDEX_FIELD_OVER_DOMAIN"));}
+    let next=skip_ws(bytes,end);
+    let (pos,done)=match bytes.get(next){
+        Some(b',') if next<span.end-1=>(next+1,false),
+        Some(b'}') if next==span.end-1=>(next,true),
+        _=>return Err(denied("INDEX_FIELD_NEXT_INVALID")),
+    };
+    Ok((IndexedFieldWitness{key,kind,value_bytes:end-begin},Span{begin,end},pos,done))
+}
 fn page_fields(bytes:&[u8],span:Span,start:usize)
  ->CoreResult<(Vec<IndexedFieldWitness>,usize,bool)>{
     if start<=span.begin||start>span.end||bytes.get(span.begin)!=Some(&b'{')||
@@ -196,29 +226,12 @@ fn page_fields(bytes:&[u8],span:Span,start:usize)
     loop{
         pos=skip_ws(bytes,pos);
         if pos>=span.end{return Err(denied("INDEX_CURSOR_OUT_OF_DOMAIN"));}
-        if pos==span.end-1 {return Ok((fields,pos,true));}
+        if pos==span.end-1{return Ok((fields,pos,true));}
         if fields.len()==INDEX_PAGE_ENTRIES_MAX{return Ok((fields,pos,false));}
-        let key_start=pos;
-        let key_end=string_end(bytes,pos)?;
-        if key_end-key_start>INDEX_KEY_BYTES_MAX{
-            return Err(denied("INDEX_FIELD_KEY_BOUNDS"));
-        }
-        let key:String=serde_json::from_slice(&bytes[key_start..key_end])
-            .map_err(|_|denied("INDEX_FIELD_KEY_INVALID"))?;
-        pos=skip_ws(bytes,key_end);
-        if bytes.get(pos)!=Some(&b':'){return Err(denied("INDEX_FIELD_COLON_REQUIRED"));}
-        pos=skip_ws(bytes,pos+1);
-        let begin=pos;
-        let kind=kind(bytes,begin)?;
-        let end=value_end(bytes,begin)?;
-        if end>span.end-1{return Err(denied("INDEX_FIELD_OVER_DOMAIN"));}
-        fields.push(IndexedFieldWitness{key,kind,value_bytes:end-begin});
-        pos=skip_ws(bytes,end);
-        match bytes.get(pos){
-            Some(b',')=>{pos+=1;},
-            Some(b'}') if pos==span.end-1=>return Ok((fields,pos,true)),
-            _=>return Err(denied("INDEX_FIELD_NEXT_INVALID")),
-        }
+        let (field,_,next,done)=indexed_field_at(bytes,span,pos)?;
+        fields.push(field);
+        pos=next;
+        if done{return Ok((fields,pos,true));}
     }
 }
 pub(super) fn validate_scope(s:&ProductSession,st:&State,e:&WorkerEnvelope)->CoreResult<()>{
@@ -366,5 +379,257 @@ impl ProductSession {
             fields,next_cursor,complete_all_domains:false,
             product_read_accepted:false,writer_authorized:false,
         })
+    }
+}
+
+
+// 01A R08, E1225/E1233: Native-private active Avatar structural receipt.
+// Excluded from public WASM; no mutation, second SaveSession or authority.
+#[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
+mod private_avatar {
+    use super::*;
+    use super::super::{Platform,BuildKind};
+    use sha2::{Digest,Sha256};
+    use serde_json::{json,Value};
+    const EXACT:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
+    const MAX_AVATAR_FIELDS:usize=64;
+    const MAX_CUSTOMIZATIONS:usize=256;
+    const MAX_MAKEUP:usize=32; // bounded structural scan, not Native allowed set
+    const MAX_AVATAR_BYTES:usize=1024*1024;
+    fn sha(b:&[u8])->String{Sha256::digest(b).iter().map(|x|format!("{x:02x}")).collect()}
+    fn hex(b:&[u8])->String{b.iter().map(|x|format!("{x:02x}")).collect()}
+    fn members(bytes:&[u8],span:Span,max:usize)->CoreResult<Vec<(String,Span)>>{
+        if span.end>bytes.len()||span.begin>=span.end||
+            bytes.get(span.begin)!=Some(&b'{')||bytes.get(span.end-1)!=Some(&b'}'){
+            return Err(denied("AVATAR_OBJECT_REQUIRED"));
+        }
+        let mut pos=skip_ws(bytes,span.begin+1);
+        let mut out=Vec::new();
+        while pos<span.end-1{
+            if out.len()>=max{return Err(denied("AVATAR_MEMBER_BOUND"));}
+            let (f,v,n,done)=indexed_field_at(bytes,span,pos)?;
+            out.push((f.key,v));
+            pos=skip_ws(bytes,n);
+            if done{break}
+        }
+        if pos!=span.end-1{return Err(denied("AVATAR_OBJECT_SPAN"));}
+        Ok(out)
+    }
+    fn field(fields:&[(String,Span)],name:&str)->Option<Span>{
+        fields.iter().find(|(k,_)|k==name).map(|(_,v)|*v)
+    }
+    fn required(fields:&[(String,Span)],name:&str)->CoreResult<Span>{
+        field(fields,name).ok_or(denied("AVATAR_REQUIRED_FIELD_ABSENT"))
+    }
+    fn int(bytes:&[u8],span:Span)->CoreResult<i32>{
+        let token=bytes.get(span.begin..span.end).ok_or(denied("AVATAR_INT_SPAN"))?;
+        if token.is_empty()||token.len()>11{return Err(denied("AVATAR_INT32_REQUIRED"));}
+        let v=serde_json::from_slice::<i32>(token).map_err(|_|denied("AVATAR_INT32_REQUIRED"))?;
+        // Native int32 decimal tokens only, no exponents, float or strings.
+        if token!=v.to_string().as_bytes(){return Err(denied("AVATAR_INT32_CANONICAL"));}
+        Ok(v)
+    }
+    fn key_u32(k:&str)->CoreResult<u32>{
+        let v=k.parse::<u32>().map_err(|_|denied("AVATAR_MAP_KEY"))?;
+        if v.to_string()!=k{return Err(denied("AVATAR_MAP_KEY"));}
+        Ok(v)
+    }
+    fn optional_int(bytes:&[u8],fields:&[(String,Span)],name:&str)->CoreResult<Option<i32>>{
+        field(fields,name).map(|s|int(bytes,s)).transpose()
+    }
+    fn palette(v:Option<i32>)->bool{v.map(|n|(0..90).contains(&n)).unwrap_or(false)}
+    #[derive(Clone,Debug)]
+    struct RefEntry{key:u32,value:i32,entry_sha:String}
+    #[derive(Clone,Debug)]
+    struct RefMap{present:bool,sha:Option<String>,entries:Vec<RefEntry>}
+    fn refs(bytes:&[u8],span:Option<Span>,mode:&str)->CoreResult<RefMap>{
+        let Some(s)=span else{return Ok(RefMap{present:false,sha:None,entries:Vec::new()})};
+        let max=match mode{"Clothes"|"IncompatibleClothes"=>18,"Makeup"=>MAX_MAKEUP,
+            "ClothingCustomization"=>MAX_CUSTOMIZATIONS,_=>return Err(denied("AVATAR_REF_MODE"))};
+        let mut entries=Vec::new();
+        for (k,v) in members(bytes,s,max)?{
+            let key=key_u32(&k)?;
+            let value=match mode{
+                "Clothes"|"IncompatibleClothes"=>{
+                    if key>17{return Err(denied("AVATAR_CLOTHING_SLOT"));}
+                    let n=int(bytes,v)?;
+                    // Explicit zero is retained as a saved scalar, not an
+                    // inferred unequipped/default or authorized item.
+                    if n<0||(n!=0&&n/10_000_000!=5){return Err(denied("AVATAR_CLOTHING_ID_PREFIX"));}
+                    n
+                },
+                "Makeup"=>{
+                    if key>=32{return Err(denied("AVATAR_MAKEUP_SLOT_BOUND"));}
+                    let obj=members(bytes,v,32)?;
+                    // Only a physically present exact member is read. No
+                    // alias/default or claim of actual Steam save presence.
+                    let n=int(bytes,required(&obj,"MakeupItemID")?)?;
+                    if n<=0||n/10_000_000!=14{return Err(denied("AVATAR_MAKEUP_ID_PREFIX"));}
+                    n
+                },
+                "ClothingCustomization"=>{
+                    if key==0||key>i32::MAX as u32||key/10_000_000!=5{
+                        return Err(denied("AVATAR_CUSTOMIZATION_ITEM_KEY"));}
+                    // Native map<int32,int32>: retain exact saved design scalar,
+                    // including zero/negative, never assume design ownership.
+                    int(bytes,v)?
+                },
+                _=>return Err(denied("AVATAR_REF_MODE")),
+            };
+            entries.push(RefEntry{key,value,entry_sha:sha(&bytes[v.begin..v.end])});
+        }
+        Ok(RefMap{present:true,sha:Some(sha(&bytes[s.begin..s.end])),entries})
+    }
+    fn map_json(m:&RefMap)->Value{
+        json!({"present":m.present,"mapSha256":m.sha,
+            "entries":m.entries.iter().map(|r|json!({"key":r.key,"savedValue":r.value,"entrySha256":r.entry_sha})).collect::<Vec<_>>()})
+    }
+    #[derive(Clone,Debug)]
+    struct Branch {
+        sha:String,hair:Option<i32>,highlight:Option<i32>,
+        clothes:RefMap,incompatible:RefMap,makeup:RefMap,customization:RefMap,
+    }
+    fn branch(bytes:&[u8],span:Span)->CoreResult<Branch>{
+        if span.end-span.begin>MAX_AVATAR_BYTES{return Err(denied("AVATAR_BRANCH_BYTE_BOUND"));}
+        let f=members(bytes,span,MAX_AVATAR_FIELDS)?;
+        Ok(Branch{sha:sha(&bytes[span.begin..span.end]),
+            hair:optional_int(bytes,&f,"HairColorIndex")?,
+            highlight:optional_int(bytes,&f,"HairHighlightColor")?,
+            clothes:refs(bytes,field(&f,"Clothes"),"Clothes")?,
+            incompatible:refs(bytes,field(&f,"IncompatibleClothes"),"IncompatibleClothes")?,
+            makeup:refs(bytes,field(&f,"Makeup"),"Makeup")?,
+            customization:refs(bytes,field(&f,"ClothingCustomization"),"ClothingCustomization")?,
+        })
+    }
+    fn branch_json(b:&Branch)->Value{
+        json!({"branchSha256":b.sha,
+            "hairColorIndex":b.hair,"hairColorIndexPresent":b.hair.is_some(),
+            "hairHighlightColorIndex":b.highlight,"hairHighlightColorPresent":b.highlight.is_some(),
+            "hairHighlightSavedField":"HairHighlightColor",
+            "bothPackagedHairIndicesCandidate":palette(b.hair)&&palette(b.highlight),
+            "clothes":map_json(&b.clothes),"incompatibleClothes":map_json(&b.incompatible),
+            "makeup":map_json(&b.makeup),"clothingCustomization":map_json(&b.customization),
+            "allFourReferenceMapsPresent":b.clothes.present&&b.incompatible.present&&b.makeup.present&&b.customization.present,
+            "nativeReferenceClosureVerified":false,"rightsVerified":false})
+    }
+    /// Opaque native receipt; no Serialize/Deserialize for private source data.
+    /// JSON is emitted only by the local explicit receipt executor.
+    pub struct PrivateActiveAvatarReceipt{
+        scope:WorkerEnvelope,is_male:bool,female:Branch,male:Branch,
+    }
+    impl PrivateActiveAvatarReceipt{
+        pub fn to_private_receipt_json(&self)->Value{
+            let active=if self.is_male{&self.male}else{&self.female};
+            json!({"contract":"wand.native.private.active-avatar-read@1",
+                "platform":"SteamWindows","fullVersion":EXACT,"schema":626,
+                "sessionId":hex(&self.scope.session_id),"revision":self.scope.expected_revision,
+                "indexGeneration":self.scope.expected_index_generation,
+                "decodedSha256":hex(&self.scope.expected_decoded_sha256),
+                "avatarIsMale":self.is_male,"activeBranch":if self.is_male{"MaleAvatar"}else{"FemaleAvatar"},
+                "activeHairFieldsPresent":active.hair.is_some()&&active.highlight.is_some(),
+                "activeBothPackagedHairIndicesCandidate":palette(active.hair)&&palette(active.highlight),
+                "femaleAvatar":branch_json(&self.female),"maleAvatar":branch_json(&self.male),
+                "fullDocumentRustValidated":true,"physicalGameInstallCryptographicallyProven":false,
+                "actualAllowedPaletteVerified":false,"rightsVerified":false,
+                "nativeReferenceClosureVerified":false,"cleanupClosureVerified":false,
+                "productReadAccepted":false,"writerAuthorized":false,"editedCopyAuthorized":false,
+                "applyAuthorized":false,"nativeV3Verified":false})
+        }
+    }
+    impl ProductSession{
+        pub fn read_private_active_avatar(&self,e:WorkerEnvelope)->CoreResult<PrivateActiveAvatarReceipt>{
+            let b=&self.native_source_build;
+            if b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||
+               b.build_id!=EXACT||b.schema!=626||!b.externally_attested{
+                return Err(denied("AVATAR_EXACT_STEAM626_REQUIRED"));
+            }
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            let bytes=&self.decoded;
+            let root=roots(bytes)?.player;
+            // Player root itself can be large; use only the existing indexed
+            // span walker and collect the three selected fields, not raw data.
+            let mut pos=skip_ws(bytes,root.begin+1);
+            let mut selected=Vec::with_capacity(3);
+            let mut count=0usize;
+            while pos<root.end-1{
+                count+=1;if count>1024{return Err(denied("AVATAR_PLAYER_FIELD_BOUND"));}
+                let (f,v,next,done)=indexed_field_at(bytes,root,pos)?;
+                if matches!(f.key.as_str(),"AvatarIsMale"|"FemaleAvatar"|"MaleAvatar"){
+                    selected.push((f.key,v));
+                }
+                pos=skip_ws(bytes,next);if done{break}
+            }
+            let gender=required(&selected,"AvatarIsMale")?;
+            let is_male=match &bytes[gender.begin..gender.end]{
+                b"true"=>true,b"false"=>false,_=>return Err(denied("AVATAR_GENDER_BOOL_REQUIRED")),
+            };
+            Ok(PrivateActiveAvatarReceipt{scope:e,is_male,
+                female:branch(bytes,required(&selected,"FemaleAvatar")?)?,
+                male:branch(bytes,required(&selected,"MaleAvatar")?)?})
+        }
+    }
+    #[cfg(test)]
+    mod tests{
+        use super::*;
+        use crate::{BuildIdentity,SessionReceipt};
+        fn open(v:Value)->ProductSession{
+            ProductSession::open_decoded_readonly(serde_json::to_vec(&v).unwrap(),BuildIdentity{
+                platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+                build_id:EXACT.into(),schema:626,externally_attested:true}).unwrap()
+        }
+        fn env(r:SessionReceipt)->WorkerEnvelope{WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
+            expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+        fn doc()->Value{json!({"GameInfo":{"Version":626},"World":{},"Player":{
+            "AvatarIsMale":true,"FemaleAvatar":{"HairColorIndex":0,"HairHighlightColor":0,
+                "Clothes":{"0":50000001},"IncompatibleClothes":{},"Makeup":{},"ClothingCustomization":{"50000001":23}},
+            "MaleAvatar":{"HairColorIndex":89,"HairHighlightColor":1,
+                "Clothes":{"5":50000002},"Makeup":{"1":{"MakeupItemID":140000001,"Unknown":"preserve"}},"ClothingCustomization":{"50000002":0}}
+        }})}
+        #[test]
+        fn actual_branch_and_absence_zero_exact_refs(){
+            let s=open(doc());let r=s.receipt().unwrap();let e=env(r);
+            let v=s.read_private_active_avatar(e).unwrap().to_private_receipt_json();
+            assert_eq!(v["activeBranch"],"MaleAvatar");
+            assert_eq!(v["maleAvatar"]["hairColorIndex"],89);
+            assert_eq!(v["femaleAvatar"]["hairHighlightColorIndex"],0);
+            assert_eq!(v["maleAvatar"]["incompatibleClothes"]["present"],false);
+            assert_eq!(v["femaleAvatar"]["incompatibleClothes"]["present"],true);
+            assert_eq!(v["maleAvatar"]["makeup"]["entries"][0]["savedValue"],140000001);
+            assert_eq!(v["maleAvatar"]["clothingCustomization"]["entries"][0]["savedValue"],0);
+            assert_eq!(v["writerAuthorized"],false);assert_eq!(s.receipt().unwrap(),r);
+            let mut v=doc();v["Player"]["MaleAvatar"].as_object_mut().unwrap().remove("HairHighlightColor");
+            v["Player"]["MaleAvatar"]["HairHighlightColorIndex"]=json!(0);
+            let s=open(v);let v=s.read_private_active_avatar(env(s.receipt().unwrap())).unwrap().to_private_receipt_json();
+            assert!(v["maleAvatar"]["hairHighlightColorIndex"].is_null());
+            assert_eq!(v["activeHairFieldsPresent"],false);
+            assert_eq!(v["activeBothPackagedHairIndicesCandidate"],false);
+        }
+        #[test]
+        fn bad_build_scope_shape_and_bounds(){
+            for (key,value) in [("AvatarIsMale",json!(1)),("MaleAvatar",json!([])),("FemaleAvatar",Value::Null)]{
+                let mut v=doc();v["Player"][key]=value;
+                let s=open(v);assert!(s.read_private_active_avatar(env(s.receipt().unwrap())).is_err());
+            }
+            for (key,value) in [("HairColorIndex",json!("0")),("HairHighlightColor",json!(2147483648u64)),
+              ("HairColorIndex",json!(1.0)),("Clothes",json!({"18":50000001})),
+              ("Clothes",json!({"5":140000001})),("Makeup",json!({"1":{"MakeupItemID":50000001}})),
+              ("Makeup",json!({"1":{"ItemID":140000001}})),("ClothingCustomization",json!({"050000001":1})),
+              ("ClothingCustomization",json!({"50000001":"1"}))]{
+                let mut v=doc();v["Player"]["MaleAvatar"][key]=value;
+                let s=open(v);assert!(s.read_private_active_avatar(env(s.receipt().unwrap())).is_err(),"{key}");
+            }
+            let mut v=doc();v["Player"]["MaleAvatar"]["ClothingCustomization"]=json!((50000001..50000258).map(|i|(i.to_string(),json!(1))).collect::<serde_json::Map<String,Value>>());
+            let s=open(v);assert!(s.read_private_active_avatar(env(s.receipt().unwrap())).is_err());
+            let s=open(doc());let e=env(s.receipt().unwrap());let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_active_avatar(stale).is_err());
+            let mut wrong=e;wrong.action=WorkerAction::Stage;assert!(s.read_private_active_avatar(wrong).is_err());
+            assert!(open(doc()).read_private_active_avatar(e).is_err());
+            s.close().unwrap();assert!(s.read_private_active_avatar(e).is_err());
+            let sw=ProductSession::open_decoded_readonly(serde_json::to_vec(&doc()).unwrap(),BuildIdentity{
+                platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),
+                schema:626,externally_attested:true}).unwrap();
+            assert!(sw.read_private_active_avatar(env(sw.receipt().unwrap())).is_err());
+        }
     }
 }
