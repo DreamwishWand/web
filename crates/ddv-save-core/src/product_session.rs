@@ -98,6 +98,7 @@ mod semantic_writer;
 pub use semantic_writer::{
     TypedOperationKind,TypedOperationRegistryEntry,TypedSemanticCommand,
     SemanticStageReceipt,TYPED_OPERATION_REGISTRY,
+    ExistingAmountSelection,ExistingAmountItemType,ExistingChestFacts,ExistingAmountTargetView,CoreExistingAmountTarget,AuthorizedExistingAmountTarget,
 };
 #[cfg(feature = "indexed-read")]
 #[path = "indexed_read.rs"]
