@@ -1,12 +1,12 @@
 # 01C CORE — Road/Fence Operation-specific Native closure (Switch 1.25.0 only)
 
-**Scope:** R07 / W-NATIVE-005, `DEV_READY / SOURCE_ONLY_SYNTHETIC`. Child Source of PR #919 fixed `384bbff7f89a4e3e0ae24d6fdca52ed3c93a4aef`. **No edits to PR #919 original two files or its QA scope.** This adds one pure operation requirements API, focused tests and this handoff. All product Writer/Apply/EditedCopy/Cloud/Public flags remain OFF.
+**Scope:** R07 / W-NATIVE-005, `DEV_READY / SOURCE_ONLY_SYNTHETIC`. Child Source of PR #919 repaired fixed `02c5a5d92d8dcdb7ee92e46a64b2a69a36853bcb`, independently accepted by QA946 and selectively integrated via PR947 (protected main `1b0d43a878b8768a762d20ea1e6dd28b680efc94`). **No edits to PR #919 original two files or its QA scope.** This adds one pure operation requirements API, focused tests and this handoff. All product Writer/Apply/EditedCopy/Cloud/Public flags remain OFF.
 
 ## Static source and precedence
 
 - Existing `logical.js`: Topology/Adjacency/Components/Transform. Existing `persistent-compiler-v125.js` and `persistent-v125/road.js`, `fence-support.js`, `fence-layout.js`, `reconcile.js`: Native GridObject Base/Ext/DiagExt representation **proposal**, support classification, persistent object descriptor diff and `NextGridObjectID`. The accepted historical Switch v1.25.0 fixture DW-R/F / ROAD-RM01 scopes are **not** current Steam626/Native V3 proof; not rerun.
 - Existing `native-reader-v125.js` decodes a bounded same-version Native-shaped saved GridObject representation using catalog. It is **not** direct proof of executable callgraph or producer/consumer effects. Existing `persistent-transaction-v125.js` remains Writer OFF and is not a second Rust executor.
-- PR #919 exact fixed `384bbff7f89a4e3e0ae24d6fdca52ed3c93a4aef` `operation-intent-v125.js`: separate static ADD/MOVE/ROTATE/ERASE/CONNECT/DISCONNECT/RECOMPILE legitimacy; previously discovered Fence edge delimiter collision repaired. Child imports that fixed file without editing it.
+- PR #919 exact repaired fixed `02c5a5d92d8dcdb7ee92e46a64b2a69a36853bcb` (QA946 / PR947 accepted) `operation-intent-v125.js`: separate static ADD/MOVE/ROTATE/ERASE/CONNECT/DISCONNECT/RECOMPILE legitimacy; the historical `384bbff7f89a4e3e0ae24d6fdca52ed3c93a4aef` Source was TRUE_RED in QA928 for the legacy `::` RECOMPILE topology fingerprint collision. The repaired Source uses collision-free tuple-set comparison, preserves the earlier `|` ADD fix, and is the accepted parent imported by the child without editing it.
 - 01E PR #917 is **Steam/Switch v1.25.3 schema626 static-tier draft**, not direct same-build Road/Fence Native V3. Switch v1.25.0 BID `52BD625D9B4E0053` schema624 is not interchangeable with Steam v1.25.3 `releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22` schema626 or Switch1.25.3 BID `9A239D3DB569756D` schema626.
 
 ## Scope by Operation
@@ -29,8 +29,8 @@ All operations are Tier B for **persistent Save mutation**. LogicalQuantityDelta
 
 ## Handoff
 
-- **05 QR-C** independently checks PR #919 original2 at fixed HEAD and this **new child delta** separately, no duplicate old compiler/P1I/RM01 suites.
+- **05 QR-C** reuses accepted PR #919 original2 (QA946 / PR947); independently checks this **new child delta** only, no duplicate parent or old compiler/P1I/RM01 suites.
 - **01E**: for each selected Operation, provide exact same-build binary/source SHA + reachable input consumer/output producer, Native neighbor/variation/recompile and inventory cost/refund closure; report UNKNOWN on absent evidence. 01C then maps those witnesses to per-Operation legality.
 - **01A** single ProductSession full-doc CAS/atomic/backup/export independent Reopen; **01B** Spatial bounds/footprint/parent legality; **02 WEP** only non-authorizing read-only preflight until Gate.
-- **09 INT** sole merge: after independent QA for PR #919 original2, integrate those first; only then consider this child new3 Source paths after separate QA, no stacked branch/QA-only wholesale merge.
-- **Rollback** remove this child three ADD files only. Preserve PR #919 (after accepted), pre-existing Native Compiler, Pages, original private Save and Backup.
+- **09 INT** sole merge: PR #919 original2 already accepted and integrated by PR947; consider only this child original3 Source paths after separate independent QA, with fresh protected-main blob/CI checks, no stacked branch/QA-only wholesale merge.
+- **Rollback** remove this child three ADD files only. Preserve PR #919 (QA946 / PR947 accepted), pre-existing Native Compiler, Pages, original private Save and Backup.
