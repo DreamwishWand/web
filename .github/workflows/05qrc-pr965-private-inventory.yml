@@ -1,0 +1,40 @@
+name: 05 QR-C PR965 independent private Inventory receipt
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr965-private-inventory.mjs'
+      - '.github/workflows/05qrc-pr965-private-inventory.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact Source ancestor and immutable original blobs
+        run: |
+          git merge-base --is-ancestor 7e3c7f1a1a5d0a9bcff2e4ec30eae0ba66d9761d HEAD
+          test "$(git diff --name-only 7e3c7f1a1a5d0a9bcff2e4ec30eae0ba66d9761d HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = 3a54702198a32ebcc392651a6805e0b46efef47e
+          test "$(git rev-parse HEAD:crates/ddv-save-core/examples/wand-private-existing-amount-read.rs)" = ecceb63cd9ed1cf56a154d3eb44cd1e4a8929eeb
+          test "$(git rev-parse HEAD:tests/private-existing-amount-read.mjs)" = 38ea01997bd975bb06fdb54e01108c1469413289
+          test "$(git rev-parse HEAD:.github/workflows/01a-private-existing-amount-read.yml)" = 4be3eedb1ecf0a108a3d97de71869cf71adb6015
+      - name: Independently build Native Rust and execute synthetic receipt cases
+        run: |
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --example wand-private-existing-amount-read
+          node tests/qa/05qrc-pr965-private-inventory.mjs crates/ddv-save-core/target/debug/examples/wand-private-existing-amount-read
+      - name: Public WASM isolation check
+        run: |
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
+          test -z "$(git ls-files crates/ddv-save-core/target)"
