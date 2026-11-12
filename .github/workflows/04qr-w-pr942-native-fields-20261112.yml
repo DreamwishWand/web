@@ -1,0 +1,17 @@
+name: 04 QR-W PR942 independent Steam626 native field scope
+on:
+  pull_request:
+    paths:
+      - 'tests/04qr-w-pr942-native-fields-independent-20261112.test.mjs'
+      - '.github/workflows/04qr-w-pr942-native-fields-20261112.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/04qr-w-pr942-native-fields-independent-20261112.test.mjs
