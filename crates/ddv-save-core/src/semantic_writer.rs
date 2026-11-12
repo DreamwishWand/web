@@ -430,9 +430,20 @@ impl CoreExistingAmountTarget {
 }
 /// Separate Rust-only capability. No production mint exists until a trusted
 /// same-build catalog/rights/variation/reference provider is integrated.
-/// A source witness alone must never become this capability.
+/// A source witness alone must never become this capability. The requested
+/// new amount is sealed together with the source snapshot.
+///
+/// ```compile_fail
+/// use ddv_save_core::{AuthorizedExistingAmountTarget,CoreExistingAmountTarget};
+/// fn forge(target:CoreExistingAmountTarget)->AuthorizedExistingAmountTarget {
+///     AuthorizedExistingAmountTarget{target,new_amount:1}
+/// }
+/// ```
 #[derive(Debug)]
-pub struct AuthorizedExistingAmountTarget { target:CoreExistingAmountTarget }
+pub struct AuthorizedExistingAmountTarget {
+    target:CoreExistingAmountTarget,
+    new_amount:u32,
+}
 
 fn native_amount_type(id:u32)->CoreResult<ExistingAmountItemType>{
     if id==0||id>i32::MAX as u32 {
@@ -613,19 +624,22 @@ impl ProductSession {
     /// Native source evidence is not an authentic per-target catalog, rights,
     /// canonical variation, active reference or subscriber closure. No caller
     /// can supply a boolean, hash, registry, or callback as authority here.
-    pub fn authorize_existing_amount_target(&self,e:WorkerEnvelope,target:&CoreExistingAmountTarget)
-        ->CoreResult<AuthorizedExistingAmountTarget>{
+    pub fn authorize_existing_amount_target(&self,e:WorkerEnvelope,target:&CoreExistingAmountTarget,
+        new_amount:u32)->CoreResult<AuthorizedExistingAmountTarget>{
         build_check(self)?;
         let st=self.lock()?;
         indexed_read::validate_scope(self,&st,&e)?;
         validate_target_snapshot(self,&e,target)?;
+        // Validate the exact requested next amount before any future authority
+        // lookup. The sealed capability binds this amount, never a range.
+        let _=command_from_target(target,new_amount)?;
         Err(denied("AMOUNT_TARGET_NATIVE_AUTHORITY_UNAVAILABLE"))
     }
     /// Future DEV-only trusted capability route. No public mint yet. Verify
     /// each snapshot again, then reuse the existing atomic Writer/CAS ledger.
     /// No new Session, executor, JSON rebuild, or Worker/Codec ABI.
     pub fn stage_core_minted_amount_batch(&self,e:WorkerEnvelope,
-        requests:&[(AuthorizedExistingAmountTarget,u32)])
+        requests:&[AuthorizedExistingAmountTarget])
         ->CoreResult<SemanticStageReceipt>{
         build_check(self)?;
         if requests.is_empty()||requests.len()>MAX_TX_COMMANDS{
@@ -636,9 +650,9 @@ impl ProductSession {
             check(self,&st,&e,WorkerAction::Stage)?;
             if st.semantic.is_some(){return Err(denied("SEMANTIC_STAGE_ALREADY_EXISTS"));}
             let mut commands=Vec::with_capacity(requests.len());
-            for (grant,new_amount) in requests{
+            for grant in requests{
                 validate_target_snapshot(self,&e,&grant.target)?;
-                commands.push(command_from_target(&grant.target,*new_amount)?);
+                commands.push(command_from_target(&grant.target,grant.new_amount)?);
             }
             commands
         };
@@ -697,9 +711,20 @@ mod minted_amount_target_tests {
         assert_eq!(facts.physical_slot_count,2);
         assert_eq!(facts.state_sha256,sha(b"{}"));
         let e=scope(s.receipt().unwrap(),WorkerAction::ReadDomain);
-        assert_eq!(s.authorize_existing_amount_target(e,&i).unwrap_err().0,
+        assert_eq!(s.authorize_existing_amount_target(e,&i,49).unwrap_err().0,
             "AMOUNT_TARGET_NATIVE_AUTHORITY_UNAVAILABLE");
-        assert!(s.authorize_existing_amount_target(e,&c).is_err());
+        assert!(s.authorize_existing_amount_target(e,&c,11).is_err());
+        for amount in [0,50,51]{
+            assert_eq!(s.authorize_existing_amount_target(e,&i,amount).unwrap_err().0,
+                "SEMANTIC_EXISTING_POSITIVE_DECREASE_ONLY");
+        }
+        let mut forged=doc();
+        forged["Player"]["CatalogAuthority"]=json!({"verified":true,"rights":true,"itemId":30000001});
+        let forged_session=open(&forged);
+        let forged_target=read(&forged_session,inv()).unwrap();
+        assert_eq!(forged_session.authorize_existing_amount_target(
+            scope(forged_session.receipt().unwrap(),WorkerAction::ReadDomain),&forged_target,49)
+            .unwrap_err().0,"AMOUNT_TARGET_NATIVE_AUTHORITY_UNAVAILABLE");
         assert_eq!(s.receipt().unwrap().revision,0);
     }
     #[test]
@@ -759,19 +784,19 @@ mod minted_amount_target_tests {
         let s=open(&doc());let t=read(&s,inv()).unwrap();
         let r=s.receipt().unwrap();let e=scope(r,WorkerAction::ReadDomain);
         let other=open(&doc());
-        assert!(other.authorize_existing_amount_target(scope(other.receipt().unwrap(),WorkerAction::ReadDomain),&t).is_err());
+        assert!(other.authorize_existing_amount_target(scope(other.receipt().unwrap(),WorkerAction::ReadDomain),&t,49).is_err());
         let mut stale=e;stale.expected_revision+=1;
         assert!(s.read_existing_amount_target(stale,inv()).is_err());
         stale=e;stale.expected_index_generation+=1;
-        assert!(s.authorize_existing_amount_target(stale,&t).is_err());
+        assert!(s.authorize_existing_amount_target(stale,&t,49).is_err());
         stale=e;stale.expected_decoded_sha256[0]^=1;
         assert!(s.read_existing_amount_target(stale,inv()).is_err());
         stale=e;stale.action=WorkerAction::Stage;
         assert!(s.read_existing_amount_target(stale,inv()).is_err());
         let mut fake=t.clone();fake.view.old_amount=49;
-        assert!(s.authorize_existing_amount_target(e,&fake).is_err());
+        assert!(s.authorize_existing_amount_target(e,&fake,49).is_err());
         let mut fake=t.clone();fake.view.entry_sha256[0]^=1;
-        assert!(s.authorize_existing_amount_target(e,&fake).is_err());
+        assert!(s.authorize_existing_amount_target(e,&fake,49).is_err());
         s.close().unwrap();
         assert!(s.read_existing_amount_target(e,inv()).is_err());
         let sw=ProductSession::open_decoded_readonly(serde_json::to_vec(&doc()).unwrap(),BuildIdentity{
@@ -782,21 +807,21 @@ mod minted_amount_target_tests {
     }
     // Synthetic capability construction ONLY inside this unit test module.
     // Production authorize_existing_amount_target cannot mint one.
-    fn synthetic_grant(s:&ProductSession,sel:ExistingAmountSelection)->AuthorizedExistingAmountTarget{
-        AuthorizedExistingAmountTarget{target:read(s,sel).unwrap()}
+    fn synthetic_grant(s:&ProductSession,sel:ExistingAmountSelection,new_amount:u32)->AuthorizedExistingAmountTarget{
+        AuthorizedExistingAmountTarget{target:read(s,sel).unwrap(),new_amount}
     }
     #[test]
     fn synthetic_sealed_capability_reuses_atomic_writer_undo_redo_export(){
         let v=doc();let s=open(&v);let r=s.receipt().unwrap();
         let e=scope(r,WorkerAction::Stage);
-        let dup=[(synthetic_grant(&s,inv()),49),(synthetic_grant(&s,inv()),48)];
+        let dup=[synthetic_grant(&s,inv(),49),synthetic_grant(&s,inv(),48)];
         assert!(s.stage_core_minted_amount_batch(e,&dup).is_err());
         for amount in [0,50,51]{
-            assert!(s.stage_core_minted_amount_batch(e,&[(synthetic_grant(&s,inv()),amount)]).is_err());
+            assert!(s.stage_core_minted_amount_batch(e,&[synthetic_grant(&s,inv(),amount)]).is_err());
         }
         let other=open(&v);
-        assert!(s.stage_core_minted_amount_batch(e,&[(synthetic_grant(&other,inv()),49)]).is_err());
-        let requests=[(synthetic_grant(&s,inv()),49),(synthetic_grant(&s,chest()),11)];
+        assert!(s.stage_core_minted_amount_batch(e,&[synthetic_grant(&other,inv(),49)]).is_err());
+        let requests=[synthetic_grant(&s,inv(),49),synthetic_grant(&s,chest(),11)];
         let receipt=s.stage_core_minted_amount_batch(e,&requests).unwrap();
         assert_eq!(receipt.exact_field_changed_count,2);
         assert!(!receipt.product_writer_authorized);
