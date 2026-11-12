@@ -1,0 +1,99 @@
+name: 05 QR-C PR957 independent signed readonly loader
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr957-signed-readonly-independent.yml'
+      - 'tests/qa05qrc-pr957/smoke.mjs'
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  qac957:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Immutable Source eight and QA-only two
+        shell: bash
+        run: |
+          set -euo pipefail
+          s=579b043d38dc4ef7378e42f562e1f8abefe943bb
+          base=7d95accf9098cc54cc2fb698e95d3034e152102b
+          test "$(git merge-base "$s" HEAD)" = "$s"
+          while read -r sha p; do
+            test "$(git rev-parse "$s:$p")" = "$sha"
+            test "$(git rev-parse "HEAD:$p")" = "$sha"
+          done <<'PINS'
+          dfa9faeab54a20036b1dcaec3784f2eb34b59a43 .github/workflows/01a-stable-readonly-release-loader.yml
+          05712e73defe1fadb344cd389905afcc756bbba1 .github/workflows/pages.yml
+          6328c52bf18be0bb416a88d5267aae190a2ce7f9 scripts/readonly-release/seal.mjs
+          1a0cd2e949685584ed6fb48000a56907b800844b src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs
+          ecde2dcaf08889855407e8829d43fe451e908003 src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs
+          d4253a4ad25d7176f5101bf58db94e58d2b1440c src/lib/ddv/core/save/product-rust-wasm-release-loader.mjs
+          86fb4eb4e20bbc7367eee784ad6800ac76c7b916 tests/protected-readonly-release.test.mjs
+          2e35fea263186ae6bb2f58498f8f696128046606 tests/readonly-release/smoke.mjs
+          PINS
+          test "$(git diff --name-only "$base" "$s" | wc -l)" = 8
+          test "$(git diff --name-only "$s" HEAD | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr957-signed-readonly-independent.yml tests/qa05qrc-pr957/smoke.mjs | sort)"
+          grep -Fx 'export const PROTECTED_READONLY_RELEASE_ANCHOR=null;' src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs
+          test -z "$(git ls-files | grep -Ei '\.p1g$|OWNER_PRIVATE|PRIVATE_DECODED' || true)"
+          echo QAC957_SOURCE8_QA_ONLY2_NULL_ANCHOR_PASS
+      - name: Independently verify exact historical signed protected artifact and wrong signer ref source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=7d95accf9098cc54cc2fb698e95d3034e152102b
+          run=43149282478
+          repo=DreamwishWand/web
+          dir="$(mktemp -d)"
+          gh api "repos/$repo/actions/runs/$run" | jq -e --arg sha "$source" '.head_sha==$sha and .head_branch=="main" and .conclusion=="success" and .event=="push" and .head_repository.full_name=="DreamwishWand/web"'
+          gh api "repos/$repo/actions/runs/$run/artifacts" | jq -e '.artifacts[] | select(.id==13912604743 and .name=="github-pages" and .expired==false)'
+          gh run download "$run" --repo "$repo" --name github-pages --dir "$dir"
+          archive="$(find "$dir" -maxdepth 1 -type f -name '*.tar*' -print -quit)"
+          test -n "$archive"
+          mkdir "$dir/site" "$dir/bundles"
+          tar -xf "$archive" -C "$dir/site"
+          p="$dir/site/worker-wasm"
+          test "$(find "$p" -maxdepth 1 -type f | wc -l)" = 3
+          (cd "$p"; printf '%s\n' '2352327400ac693d5fb30ce01ec1a12b93c29260c46d2653e2e32fc0ba2cdada  manifest.json' '4704a19c6e2962583d03a0bf8e7d5bf5ad2a802fd664259117eff4b2bbcbac0d  ddv_save_core.js' 'cff1575ec87e08364384054f02490659575d72de5bc556d8f45c60f1a5950ef4  ddv_save_core_bg.wasm' | sha256sum -c -)
+          for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+            (cd "$dir/bundles"; gh attestation download "$p/$name" --repo "$repo")
+          done
+          cat "$dir/bundles/"*.jsonl > "$dir/signed.jsonl"
+          node scripts/readonly-release/seal.mjs verify-only "$source" "$p" "$dir/signed.jsonl"
+          for neg in source ref signer; do
+            sd="$source"; sr=refs/heads/main; sw="$repo/.github/workflows/pages.yml"
+            case "$neg" in source) sd=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;; ref) sr=refs/heads/not-main;; signer) sw="$repo/.github/workflows/ci.yml";; esac
+            if gh attestation verify "$p/manifest.json" --repo "$repo" --bundle "$dir/signed.jsonl" --signer-workflow "$sw" --source-ref "$sr" --source-digest "$sd" --deny-self-hosted-runners --predicate-type https://slsa.dev/provenance/v1 >"$dir/$neg.log" 2>&1; then
+              echo "QAC957_WRONG_PROVENANCE_ACCEPTED $neg"; exit 1
+            fi
+            echo "QAC957_WRONG_PROVENANCE_DENIED $neg"
+          done
+          cp -a "$p" "$dir/forged"
+          printf '\n' >> "$dir/forged/manifest.json"
+          if node scripts/readonly-release/seal.mjs verify-only "$source" "$dir/forged" "$dir/signed.jsonl" >"$dir/forged.log" 2>&1; then exit 1; fi
+          grep -F R22_RELEASE_SEAL_SIGNATURE_VERIFICATION_DENIED "$dir/forged.log"
+          if node scripts/readonly-release/seal.mjs seal >"$dir/context.log" 2>&1; then exit 1; fi
+          grep -F R22_RELEASE_SEAL_PROTECTED_PAGES_CONTEXT_REQUIRED "$dir/context.log"
+          grep -Fx 'export const PROTECTED_READONLY_RELEASE_ANCHOR=null;' src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs
+          echo "QAC957_FIXED_GENUINE_BUNDLE_EXACT3_WRONG_SOURCE_REF_SIGNER_UNSIGNED_PR_CONTEXT_DENIED"
+          echo "QAC957_ASSETS=$p" >> "$GITHUB_ENV"
+          echo "QAC957_SOURCE=$source" >> "$GITHUB_ENV"
+      - name: Actual Chrome HTTPS Worker new real network and denial replay cases
+        run: node tests/qa05qrc-pr957/smoke.mjs "$QAC957_ASSETS" "$QAC957_SOURCE"
+      - name: No production anchor or Source mutation
+        if: always()
+        run: |
+          grep -Fx 'export const PROTECTED_READONLY_RELEASE_ANCHOR=null;' src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs
+          test -z "$(git diff --name-only)"
+          grep -Fq 'PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
