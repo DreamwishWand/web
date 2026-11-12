@@ -129,6 +129,7 @@ test('real installed Chrome: new-only pilot 4 anchors, no passive launch or pers
  if(p.stderr)process.stderr.write(p.stderr);
  assert.equal(p.error,undefined,p.error?.message);
  assert.equal(p.status,0,'real Chrome pilot '+String(p.signal));
+ assert.match(p.stdout||'',/WEB_TOUR_CDP_PRIVATE_PIPE_VERIFIED/);
  assert.match(p.stdout||'',/WEB_TOUR_INSTALLED_CHROME_FINAL_PASS/);
 });
 
@@ -161,4 +162,84 @@ test('CDP startup uses actual port file without stderr; validates /json/version 
   await rm(join(workspace,'DevToolsActivePort'));
   assert.deepEqual(await waitForBrowserEndpoint({...opts,getStderr:()=> 'DevTools listening on '+endpoint+'\n'}),{endpoint,discovery:'stderr'});
  }finally{await rm(workspace,{recursive:true,force:true})}
+});
+
+test('actual localhost probe diagnoses refused, delayed, malformed, redirect and foreign/replaced identity',async()=>{
+ const {waitForBrowserEndpoint}=await import('../scripts/web-tour-cdp-startup.mjs');
+ const {createServer}=await import('node:http');
+ const {mkdtemp,writeFile,rm}=await import('node:fs/promises');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const workspace=await mkdtemp(join(tmpdir(),'wand-cdp-http-'));
+ const path='/devtools/browser/12345678-1234-1234-1234-123456789abc';
+ const foreign='/devtools/browser/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+ let mode='foreign',port,requests=0;
+ const server=createServer((req,res)=>{
+  requests++;
+  if(mode==='redirect'){res.writeHead(302,{location:'/foreign'});res.end();return}
+  if(mode==='bad-json'){res.end('not-json');return}
+  if(mode==='delayed'&&requests<3){res.writeHead(503);res.end();return}
+  res.setHeader('content-type','application/json');
+  res.end(JSON.stringify({webSocketDebuggerUrl:'ws://127.0.0.1:'+port+(mode==='foreign'?foreign:path)}));
+ });
+ const opts={workspace,child:{exitCode:null,signalCode:null},getStderr:()=>'',getSpawnError:()=>null,timeoutMs:350};
+ try{
+  await new Promise((ok,bad)=>{server.once('error',bad);server.listen(0,'127.0.0.1',ok)});
+  port=server.address().port;
+  await writeFile(join(workspace,'DevToolsActivePort'),port+'\n'+path+'\n');
+  await assert.rejects(waitForBrowserEndpoint(opts),/ENDPOINT_IDENTITY_MISMATCH.*candidate=active-port-file/);
+  mode='bad-json';await assert.rejects(waitForBrowserEndpoint(opts),/JSON_INVALID/);
+  mode='redirect';await assert.rejects(waitForBrowserEndpoint(opts),/HTTP_REDIRECT/);
+  mode='delayed';requests=0;
+  assert.equal((await waitForBrowserEndpoint({...opts,timeoutMs:2000})).endpoint,'ws://127.0.0.1:'+port+path);
+  mode='foreign';await assert.rejects(waitForBrowserEndpoint(opts),/ENDPOINT_IDENTITY_MISMATCH/);
+  await new Promise(ok=>server.close(ok));
+  await assert.rejects(waitForBrowserEndpoint(opts),/TCP_REFUSED|TCP_RESET|TCP_SOCKET/);
+ }finally{server.closeAllConnections();if(server.listening)await new Promise(ok=>server.close(ok));await rm(workspace,{recursive:true,force:true})}
+});
+test('real concurrent Chrome private pipes, isolated targets, killed child fails closed', {timeout:45000},async()=>{
+ if(process.env.CI!=='true'&&process.env.WEB_TOUR_CHROME!=='1')return;
+ const {createChromePipeTransport}=await import('../scripts/web-tour-cdp-startup.mjs');
+ const {spawn}=await import('node:child_process');
+ const {mkdtemp,rm,access}=await import('node:fs/promises');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const {once}=await import('node:events');
+ const chrome=process.env.CHROME_BIN||['google-chrome-stable','google-chrome','chromium','chromium-browser']
+  .map(x=>spawnSync('which',[x],{encoding:'utf8'}).stdout?.trim()).find(Boolean);
+ assert.ok(chrome,'actual installed Chrome required');
+ const instances=[];
+ try{
+  for(let i=0;i<2;i++){
+   const dir=await mkdtemp(join(tmpdir(),'wand-cdp-pipe-'));
+   const child=spawn(chrome,['--headless=new','--disable-gpu','--no-sandbox',
+    '--disable-dev-shm-usage','--remote-debugging-pipe','--no-first-run',
+    '--no-default-browser-check','--user-data-dir='+dir,'about:blank'],
+    {stdio:['ignore','pipe','pipe','pipe','pipe']});
+   let stderr='';child.stdout.resume();child.stderr.on('data',b=>stderr=(stderr+String(b)).slice(-8192));
+   const transport=createChromePipeTransport(child,{getStderr:()=>stderr});
+   instances.push({dir,child,transport});
+  }
+  await Promise.all(instances.map(x=>x.transport.verifyBrowser()));
+  const results=await Promise.all(instances.map(async(x,i)=>{
+   await assert.rejects(access(join(x.dir,'DevToolsActivePort')),e=>e.code==='ENOENT');
+   const t=await x.transport.send('Target.createTarget',{url:'about:blank'});
+   const a=await x.transport.send('Target.attachToTarget',{targetId:t.targetId,flatten:true});
+   const v=await x.transport.send('Runtime.evaluate',{expression:JSON.stringify('private-pipe-'+i),returnByValue:true},a.sessionId);
+   assert.equal(v.result.value,'private-pipe-'+i);
+   return {target:t.targetId,session:a.sessionId};
+  }));
+  assert.notEqual(results[0].target,results[1].target);
+  assert.notEqual(results[0].session,results[1].session);
+  await assert.rejects(instances[0].transport.send('Runtime.evaluate',{expression:'1'},results[1].session),/CHROME_CDP_COMMAND_ERROR|CHROME_CDP_PIPE_SESSION_MISMATCH/);
+  const dead=instances[0],exited=once(dead.child,'exit');
+  dead.child.kill('SIGKILL');await exited;
+  await assert.rejects(dead.transport.send('Browser.getVersion'),/CHROME_CDP_PIPE_NOT_LIVE/);
+  await instances[1].transport.verifyBrowser();
+  console.log('WEB_TOUR_REAL_CONCURRENT_PRIVATE_CDP_PIPES_ISOLATION_PASS');
+ }finally{
+  await Promise.all(instances.map(async x=>{
+   x.transport.close();
+   if(x.child.exitCode===null&&x.child.signalCode===null){const done=once(x.child,'exit');x.child.kill('SIGKILL');await done}
+   await rm(x.dir,{recursive:true,force:true,maxRetries:12,retryDelay:125});
+  }));
+ }
 });
