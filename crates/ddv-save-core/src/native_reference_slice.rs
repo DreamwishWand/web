@@ -347,15 +347,36 @@ impl ProductSession {
         let item_id=stored_i32(b,required(b,saved,"ItemID")?)?;
         let old_x=stored_i32(b,required(b,saved,"X")?)?;
         let old_y=stored_i32(b,required(b,saved,"Y")?)?;
-        let old_orientation=number(b,required(b,saved,"Orientation")?)?;
-        if old_orientation>15{return Err(fail("SPATIAL_STORED_ORIENTATION_UNDEFINED"));}
+        let orientation_span=required(b,saved,"Orientation")?;
+        // Steam626 protobuf OriginalName string; numeric enum is not the stored contract.
+        let orientation_name: String=serde_json::from_slice(&b[orientation_span.begin..orientation_span.end])
+            .map_err(|_|fail("SPATIAL_STORED_ORIENTATION_STRING_REQUIRED"))?;
+        let old_orientation=match orientation_name.as_str(){
+            "GridOrientation_Up"=>0,
+            "GridOrientation_UpUpRight"=>1,
+            "GridOrientation_UpRight"=>2,
+            "GridOrientation_UpRightRight"=>3,
+            "GridOrientation_Right"=>4,
+            "GridOrientation_DownRightRight"=>5,
+            "GridOrientation_DownRight"=>6,
+            "GridOrientation_DownDownRight"=>7,
+            "GridOrientation_Down"=>8,
+            "GridOrientation_DownDownLeft"=>9,
+            "GridOrientation_DownLeft"=>10,
+            "GridOrientation_DownLeftLeft"=>11,
+            "GridOrientation_Left"=>12,
+            "GridOrientation_UpLeftLeft"=>13,
+            "GridOrientation_UpLeft"=>14,
+            "GridOrientation_UpUpLeft"=>15,
+            _=>return Err(fail("SPATIAL_STORED_ORIENTATION_UNDEFINED")),
+        };
         let state_field_present=field(b,saved,"State")?.is_some();
         let source_oneof_present=field(b,saved,"From")?.is_some();
         Ok(NativeStoredModifiedObjectWitness{
             session_id:state.id,revision:state.revision,
             index_generation:state.generation,decoded_sha256:self.sha,
             grid_id,object_id,item_id,old_x,old_y,
-            old_orientation:old_orientation as u8,
+            old_orientation,
             state_field_present,source_oneof_present,
             stored_modified_identity_and_old_values_verified:true,
             removed_overlap_excluded:true,
@@ -483,7 +504,7 @@ mod tests{
         assert!(s.verify_native_area_grid_slice(e).is_err());
     }
 
-    const STORED_MODIFIED:&str=r#"{"GameInfo":{"Version":626},"Player":{},"World":{"GridCollection":{"DiffGrids":{"7":{"ID":7,"ModifiedObjects":{"4":{"ID":4,"ItemID":100,"X":2,"Y":-1,"Orientation":4}},"RemovedObjects":[]}}}}}"#;
+    const STORED_MODIFIED:&str=r#"{"GameInfo":{"Version":626},"Player":{},"World":{"GridCollection":{"DiffGrids":{"7":{"ID":7,"ModifiedObjects":{"4":{"ID":4,"ItemID":100,"X":2,"Y":-1,"Orientation":"GridOrientation_Right"}},"RemovedObjects":[]}}}}}"#;
     #[test]
     fn modified_existing_real_source_old_transform_only_not_native_legal(){
         let s=session(STORED_MODIFIED);
@@ -523,7 +544,7 @@ mod tests{
             assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,
                 "SPATIAL_STORED_MODIFIED_REMOVED_OVERLAP");
         }
-        let wrong=STORED_MODIFIED.replace("\"Orientation\":4","\"Orientation\":16");
+        let wrong=STORED_MODIFIED.replace("\"GridOrientation_Right\"","\"GridOrientation_Unknown\"");
         let s=session(&wrong);
         assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,
             "SPATIAL_STORED_ORIENTATION_UNDEFINED");
@@ -535,6 +556,20 @@ mod tests{
         let s=session(&wrong);
         assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,
             "SPATIAL_STORED_I32_REQUIRED");
+    }
+    #[test]
+    fn steam626_original_orientation_names_only(){
+        let names=["GridOrientation_Up","GridOrientation_UpUpRight","GridOrientation_UpRight","GridOrientation_UpRightRight","GridOrientation_Right","GridOrientation_DownRightRight","GridOrientation_DownRight","GridOrientation_DownDownRight","GridOrientation_Down","GridOrientation_DownDownLeft","GridOrientation_DownLeft","GridOrientation_DownLeftLeft","GridOrientation_Left","GridOrientation_UpLeftLeft","GridOrientation_UpLeft","GridOrientation_UpUpLeft"];
+        for (index,name) in names.iter().enumerate(){
+            let input=STORED_MODIFIED.replace("GridOrientation_Right",name);
+            let s=session(&input);
+            assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap().old_orientation,index as u8);
+        }
+        for bad in ["4","null","true","\"4\"","\"Right\"","\"GridOrientation_right\""]{
+            let input=STORED_MODIFIED.replace("\"GridOrientation_Right\"",bad);
+            let s=session(&input);
+            assert!(s.read_native_stored_modified_object(scope(&s),7,4).is_err());
+        }
     }
     #[test]
     fn state_source_flags_only_never_writer_or_native_consent(){
