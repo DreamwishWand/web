@@ -15,7 +15,9 @@
       return kind('OPEN');
     },
     async backupOriginal(){backed=true;return{backupReadbackVerified:true,
-      originalUnchanged:true,shaMatched:true,sizeMatched:true,separateName:true}},
+      originalUnchanged:true,shaMatched:true,sizeMatched:true,separateName:true,
+      originalName:'synthetic-ci.p1g',originalSha256:'a'.repeat(64),originalSizeBytes:64,
+      backupName:'backup-ci.p1g'}},
     async listVerifiedTargets(){if(!backed)throw Error('DENIED');
       return {targets:[target],rawDocumentExposed:false}},
     async stageTyped(commands){

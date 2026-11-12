@@ -21,7 +21,9 @@ test('single Worker RPC exposes no raw Save/Session/decoded hash and never grant
   async open({file,build,originalSha256}){calls.push(['OPEN',file.name,build]);
    assert.equal(originalSha256,'a'.repeat(64));return ok('OPEN')},
   async backupOriginal(){calls.push(['BACKUP']);return{backupReadbackVerified:true,
-   originalUnchanged:true,shaMatched:true,sizeMatched:true,separateName:true}},
+   originalUnchanged:true,shaMatched:true,sizeMatched:true,separateName:true,
+   originalName:'steam.p1g',originalSha256:'a'.repeat(64),originalSizeBytes:122,
+   backupName:'backup-opfs.p1g'}},
   async listVerifiedTargets(){calls.push(['TARGETS']);return{
    targets:[inventory()],rawDocumentExposed:false}},
   async stageTyped(commands){calls.push(['STAGE',commands]);return ok('STAGED')},
@@ -57,4 +59,31 @@ test('untrusted Worker failures are generic and method/keys allowlist fail close
  const p=createLocalAmountDevPort(client);
  await assert.rejects(p.close(),/DEV_WORKER_DENIED/);
  p.dispose();
+});
+
+test('QA941 regression: server consumes request ID before invocation, including concurrent replay and Close',async()=>{
+ const replies=[],calls=[];const server={postMessage:r=>replies.push(r)};
+ let release,entered;
+ const waiting=new Promise(r=>{release=r}),started=new Promise(r=>{entered=r});
+ installLocalDevAmountWorker(server,{
+  async open(a){calls.push(['OPEN',a]);entered();await waiting;return ok('OPEN')},
+  async close(){calls.push(['CLOSE']);return ok('CLOSED')},
+  async undo(){calls.push(['UNDO']);return ok('UNDONE')}
+ });
+ const send=(id,method,args=[])=>server.onmessage({data:{id,method,args}});
+ const old=send(7,'open',[{name:'A'}]);await started;
+ await send(7,'open',[{name:'A'}]); // still pending: no second adapter call
+ await send(8,'undo'); // bounded concurrency: consume the denied ID
+ await send(9,'close'); // revoke current operation, not request watermark
+ await send(7,'open',[{name:'A'}]);await send(8,'undo');
+ release();await old;
+ assert.equal(calls.filter(x=>x[0]==='OPEN').length,1);
+ assert.equal(calls.filter(x=>x[0]==='UNDO').length,0);
+ assert.equal(calls.filter(x=>x[0]==='CLOSE').length,1);
+ assert.equal(replies.filter(x=>x.id===7).length,3);
+ assert.ok(replies.filter(x=>x.id===7||x.id===8).every(x=>x.ok===false));
+ await send(10,'undo');
+ assert.equal(calls.filter(x=>x[0]==='UNDO').length,1);
+ await send(10,'undo');assert.equal(calls.filter(x=>x[0]==='UNDO').length,1);
+ assert.equal(replies.at(-1).ok,false);
 });
