@@ -303,7 +303,14 @@ impl ProductSession {
         let diffs=required(b,collection,"DiffGrids")?;
         let mut target=None;
         object(b,diffs,|key,span|{
-            if canonical_key(&key)?==u64::from(grid_id) {
+            let key_id=canonical_key(&key)?;
+            // Distinct JSON keys can alias the same stored Native identity.
+            // Validate every map record, not only the selected key.
+            if key_id>u64::from(u32::MAX) ||
+               number(b,required(b,span,"ID")?)?!=key_id {
+                return Err(fail("SPATIAL_STORED_GRID_KEY_ID_MISMATCH"));
+            }
+            if key_id==u64::from(grid_id) {
                 if target.replace(span).is_some(){
                     return Err(fail("SPATIAL_STORED_DUPLICATE_GRID"));
                 }
@@ -317,7 +324,12 @@ impl ProductSession {
         let modified=required(b,grid,"ModifiedObjects")?;
         let mut item=None;
         object(b,modified,|key,span|{
-            if canonical_key(&key)?==u64::from(object_id){
+            let key_id=canonical_key(&key)?;
+            if key_id>u64::from(u32::MAX) ||
+               number(b,required(b,span,"ID")?)?!=key_id {
+                return Err(fail("SPATIAL_STORED_OBJECT_KEY_ID_MISMATCH"));
+            }
+            if key_id==u64::from(object_id){
                 if item.replace(span).is_some(){
                     return Err(fail("SPATIAL_STORED_DUPLICATE_OBJECT"));
                 }
@@ -557,6 +569,28 @@ mod tests{
         assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,
             "SPATIAL_STORED_I32_REQUIRED");
     }
+    #[test]
+    fn all_diffgrid_and_selected_modified_map_identities_are_unambiguous(){
+        let grid7=r#""7":{"ID":7,"ModifiedObjects":{"4":{"ID":4,"ItemID":100,"X":2,"Y":-1,"Orientation":"GridOrientation_Right"}},"RemovedObjects":[]}"#;
+        let good=STORED_MODIFIED.replace(grid7,&format!("{},\"8\":{{\"ID\":8,\"ModifiedObjects\":{{}},\"RemovedObjects\":[]}}",grid7));
+        assert_ne!(good,STORED_MODIFIED);
+        let s=session(&good);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap().object_id,4);
+        let bad=good.replace("\"8\":{\"ID\":8","\"8\":{\"ID\":7");
+        let s=session(&bad);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,"SPATIAL_STORED_GRID_KEY_ID_MISMATCH");
+        let good=STORED_MODIFIED.replace("\"Orientation\":\"GridOrientation_Right\"}}","\"Orientation\":\"GridOrientation_Right\"},\"5\":{\"ID\":5,\"ItemID\":101,\"X\":3,\"Y\":4,\"Orientation\":\"GridOrientation_Up\"}}");
+        assert_ne!(good,STORED_MODIFIED);
+        let s=session(&good);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap().object_id,4);
+        let bad=good.replace("\"5\":{\"ID\":5","\"5\":{\"ID\":4");
+        let s=session(&bad);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,"SPATIAL_STORED_OBJECT_KEY_ID_MISMATCH");
+        let bad=good.replace("\"5\":{\"ID\":5","\"4294967296\":{\"ID\":4294967296");
+        let s=session(&bad);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,"SPATIAL_STORED_OBJECT_KEY_ID_MISMATCH");
+    }
+
     #[test]
     fn steam626_original_orientation_names_only(){
         let names=["GridOrientation_Up","GridOrientation_UpUpRight","GridOrientation_UpRight","GridOrientation_UpRightRight","GridOrientation_Right","GridOrientation_DownRightRight","GridOrientation_DownRight","GridOrientation_DownDownRight","GridOrientation_Down","GridOrientation_DownDownLeft","GridOrientation_DownLeft","GridOrientation_DownLeftLeft","GridOrientation_Left","GridOrientation_UpLeftLeft","GridOrientation_UpLeft","GridOrientation_UpUpLeft"];
