@@ -1,0 +1,27 @@
+name: 04 QR-W PR978 independent real Chrome private pipe
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr978-private-pipe-independent-20261112.mjs'
+      - '.github/workflows/04qr-w-pr978-private-pipe-20261112.yml'
+permissions:
+  contents: read
+jobs:
+  real-chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Independent real Chrome and child protocol fault boundaries
+        run: node --test scripts/04qr-w-pr978-private-pipe-independent-20261112.mjs
+      - name: Actual installed Chrome and startup regression contracts
+        run: node --test tests/web-presets-my-tour-contract.test.mjs
