@@ -4,6 +4,7 @@
  * exports a Save, and cannot validate who produced its caller-supplied inputs.
  * Real source/build/reference/entitlement proof and authority remain Rust-owned.
  */
+import {isSteam626ExistingListAmountType,steam626ItemTypeOf} from './steam626-native-fields.mjs';
 export const TIER_A_CONTRACT='wand.01d.tier-a-existing-field-request@1';
 export const TIER_A_WRITER_ENABLED=false;
 export const STEAM626=Object.freeze({
@@ -16,7 +17,7 @@ export const TIER_A_OPERATIONS=Object.freeze([
     shape:'SOURCED_STRUCTURAL',semantic:'NATIVE_CANONICAL_VARIATION_STACK_RULES_UNVERIFIED',
     command:'inventory.existing.amount.decrease@1',coreOwner:'01A',writerAuthorized:false,requires01E:'ONLY_IF_NATIVE_CROSS_DOMAIN_DEPENDENCY_PROVEN'}),
   Object.freeze({name:'Chest.ExistingSlotAmountDecrease',tier:'A2',field:'Player.ContainerInventories[ContainerInventoryID].Inventory[slotIndex].Amount',
-    shape:'SWITCH_1250_SCHEMA624_SOURCE_ONLY_NOT_STEAM626_ACCEPTED',semantic:'CONTAINER_SLOT_IDENTITY_PARENT_CAPACITY_ACTIVE_REF_UNVERIFIED',
+    shape:'STEAM626_REAL_SAVE_V2_AND_NATIVE_SCHEMA_CONFIRMED',semantic:'CONTAINER_SLOT_IDENTITY_PARENT_CAPACITY_ACTIVE_REF_UNVERIFIED',
     command:'chest.existing.slot.amount.decrease@1',coreOwner:'01A',writerAuthorized:false,requires01E:'IF_NATIVE_SLOT_CONSUMER_OR_CROSS_DOMAIN_MUTATION_PROVEN'}),
   Object.freeze({name:'Collection.InspectRawGroupFlag',tier:'A_READ',field:'Player.CollectionSets[*].GroupData[*].GroupsCollectionItems[ItemID]:boolean',
     shape:'SOURCED_STRUCTURAL',semantic:'GAME_DISCOVERED_COLLECTED_OWNED_NOT_PROVEN',
@@ -45,8 +46,7 @@ const u32=v=>Number.isSafeInteger(v)&&v>=0&&v<=4294967295;
 const positiveId=v=>u32(v)&&v>0;
 // Mirrors 01A PR914 DEV-only typed Rust amount range, not a native stock-cap assertion.
 const amount=v=>Number.isSafeInteger(v)&&v>=1&&v<=9999;
-const typeToken=v=>typeof v==='string'&&/^ItemType_[A-Za-z0-9_]{1,48}$/.test(v)&&
-  !['Premium','DLC','Entitlement','Receipt','Auth','Currency','Moonstone','Quest'].some(x=>v.includes(x));
+const typeToken=(v,id)=>isSteam626ExistingListAmountType(v,id);
 const decimal=n=>String(n);
 const frozen=v=>{
   if(v&&typeof v==='object'&&!Object.isFrozen(v)){
@@ -92,7 +92,7 @@ const proposed=(operation,target,source,session,fieldPath,oldAmount,nextAmount,r
 function requestInventory({target,source,session,command}){
   if(!keys(command,['operation','inventoryId','canonicalItemId','compatibleItemType','expectedOldAmount','nextAmount','entryPresent'])||
     !positiveId(command.inventoryId)||!positiveId(command.canonicalItemId)||
-    !typeToken(command.compatibleItemType)||command.entryPresent!==true)
+    !typeToken(command.compatibleItemType,command.canonicalItemId)||command.entryPresent!==true)
     return reject('EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   const a=command.expectedOldAmount,b=command.nextAmount;
   if(!amount(a)||!amount(b))return reject('INVENTORY_AMOUNT_BOUNDS');
@@ -114,11 +114,11 @@ function requestChest({target,source,session,command}){
   if(!keys(command,['operation','containerInventoryId','containerParentItemId','belongsToPlayer',
     'size','slotCount','slotIndex','slotItemId','expectedOldAmount','nextAmount',
     'itemStateReadsetSha256','activeReferenceCount'])||
-    !positiveId(command.containerInventoryId)||!positiveId(command.containerParentItemId)||
+    !positiveId(command.containerInventoryId)||!steam626ItemTypeOf(command.containerParentItemId)||
     command.belongsToPlayer!==true||!u32(command.size)||command.size<1||command.size>256||
     !u32(command.slotCount)||command.slotCount!==command.size||
     !u32(command.slotIndex)||command.slotIndex>=command.slotCount||
-    !positiveId(command.slotItemId)||!SHA.test(command.itemStateReadsetSha256)||
+    !steam626ItemTypeOf(command.slotItemId)||!SHA.test(command.itemStateReadsetSha256)||
     !u32(command.activeReferenceCount)||command.activeReferenceCount>1)
     return reject('CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID');
   const a=command.expectedOldAmount,b=command.nextAmount;
@@ -132,15 +132,17 @@ function requestChest({target,source,session,command}){
     {path:prefix+'/BelongsToPlayer',expectedValue:true},
     {path:prefix+'/ParentItemID',expectedValue:command.containerParentItemId},
     {path:prefix+'/Size',expectedValue:command.size},
+    {path:prefix+'/ExtraSize',required:'CORE_RESOLVE_SIZE_WITHOUT_EXTRAS'},
+    {path:prefix+'/BlockMoveTo',required:'CORE_PRESERVE_AND_CHECK'},
     {path:prefix+'/Inventory',expectedType:'ARRAY',expectedLength:command.slotCount},
     {path:prefix+'/Inventory/'+slot+'/ItemID',expectedValue:command.slotItemId},
-    {path:prefix+'/Inventory/'+slot+'/ItemState',expectedContentSha256:command.itemStateReadsetSha256},
+    {path:prefix+'/Inventory/'+slot+'/State',expectedContentSha256:command.itemStateReadsetSha256},
     {path,expectedType:'SIGNED_NONNEGATIVE_INTEGER',expectedValue:a},
-    {path:'/World/GridCollection',required:'COMPLETE_ACTIVE_CONTAINER_REFERENCES',
+    {path:'/World/GridCollection',required:'CORE_COMPLETE_EFFECTIVE_ACTIVE_CONTAINER_REFERENCES_ALL_ROOTS',
       expectedReferenceCount:command.activeReferenceCount}
   ];
   return proposed(command.operation,target,source,session,path,a,b,readSet,
-    'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE',
+    'WAIT_STEAM626_NATIVE_STACK_PARENT_STATE_AND_CONSUMER_EVIDENCE',
     {variant:'ChestExistingSlotAmountDecrease',container_id:command.containerInventoryId,
       slot_index:command.slotIndex,expected_item_id:command.slotItemId,
       expected_old_amount:a,new_amount:b});

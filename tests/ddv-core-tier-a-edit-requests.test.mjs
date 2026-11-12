@@ -13,7 +13,7 @@ const base=()=>({
   command:{
     operation:'Inventory.ExistingAmountDecrease',
     inventoryId:4,canonicalItemId:30000001,
-    compatibleItemType:'ItemType_Ingredient',
+    compatibleItemType:'ItemType_ActivityItem',
     expectedOldAmount:50,nextAmount:49,entryPresent:true
   }
 });
@@ -27,7 +27,7 @@ const blocked=(mutator,code)=>{
 };
 const chestCommand=()=>({
   operation:'Chest.ExistingSlotAmountDecrease',containerInventoryId:12,
-  containerParentItemId:500000,belongsToPlayer:true,size:2,
+  containerParentItemId:40000047,belongsToPlayer:true,size:2,
   slotCount:2,slotIndex:0,slotItemId:30000002,
   expectedOldAmount:12,nextAmount:11,itemStateReadsetSha256:hash('d'),
   activeReferenceCount:1
@@ -59,10 +59,10 @@ test('Inventory 50→49 is only a strictly scoped scalar candidate, not past act
   assert.equal(x.candidate.expectedOldAmount,50);
   assert.equal(x.candidate.nextAmount,49);
   assert.equal(x.candidate.readSet[0].expectedValue,4);
-  assert.equal(x.candidate.readSet[1].expectedValue,'ItemType_Ingredient');
+  assert.equal(x.candidate.readSet[1].expectedValue,'ItemType_ActivityItem');
   assert.deepEqual(x.candidate.nativeDevCommand,{variant:'InventoryExistingAmountDecrease',
     inventory_id:4,canonical_item_id:30000001,
-    expected_compatible_item_type:'ItemType_Ingredient',expected_old_amount:50,new_amount:49});
+    expected_compatible_item_type:'ItemType_ActivityItem',expected_old_amount:50,new_amount:49});
   assert.equal(x.sessionSnapshot.revision,3);
   assert.equal(x.sessionSnapshot.indexGeneration,7);
   assert.equal(x.authoritativeCoreValidationRequired,true);
@@ -138,9 +138,9 @@ test('Source SHA, single Rust session receipt, revision and index-generation are
 });
 test('Synthetic existing Chest slot maps only one Amount leaf, retaining ItemState SHA and container identity',()=>{
   const x=plan(r=>{r.command=chestCommand()});
-  assert.equal(x.status,'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE');
+  assert.equal(x.status,'WAIT_STEAM626_NATIVE_STACK_PARENT_STATE_AND_CONSUMER_EVIDENCE');
   assert.equal(x.candidate.fieldPath,'/Player/ContainerInventories/12/Inventory/0/Amount');
-  assert.equal(x.candidate.readSet.find(z=>z.path.endsWith('/ItemState')).expectedContentSha256,hash('d'));
+  assert.equal(x.candidate.readSet.find(z=>z.path.endsWith('/State')).expectedContentSha256,hash('d'));
   assert.equal(x.candidate.readSet.find(z=>z.path.endsWith('/BelongsToPlayer')).expectedValue,true);
   assert.deepEqual(x.candidate.nativeDevCommand,{variant:'ChestExistingSlotAmountDecrease',
     container_id:12,slot_index:0,expected_item_id:30000002,
@@ -180,4 +180,27 @@ test('Mutating caller input after proposal never rewrites immutable candidate; n
   assert.equal(x.writerAuthorized,false);
   assert.equal(x.productOperationEnabled,false);
   assert.deepEqual(original.command.expectedOldAmount,50);
+});
+
+test('Steam626 Native enum membership and signed ItemID prefix reject previous false-positive token and mismatches',()=>{
+  for(const token of ['ItemType_Ingredient','ItemType_Unknown','ItemType_Currency','ItemType_Skin','ActivityItemType_Ingredient','ItemType_None','ItemType_Furniture']) {
+    blocked(x=>{x.command.compatibleItemType=token},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  }
+  for(const id of [1,300000000,2147483648,40000047,90000001]) {
+    blocked(x=>{x.command.canonicalItemId=id},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  }
+  const furniture=plan(x=>{x.command.canonicalItemId=40000047;x.command.compatibleItemType='ItemType_Furniture'});
+  assert.equal(furniture.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
+  assert.equal(furniture.writerAuthorized,false);
+});
+test('Chest uses signed native item identities and the State field, never ItemState alias',()=>{
+  const ch=f=>blocked(x=>{x.command=chestCommand();f(x.command)},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID');
+  ch(c=>{c.slotItemId=2147483648});
+  ch(c=>{c.containerParentItemId=500000});
+  const p=plan(x=>{x.command=chestCommand()});
+  assert.ok(p.candidate.readSet.some(x=>x.path.endsWith('/State')));
+  assert.ok(!p.candidate.readSet.some(x=>x.path.endsWith('/ItemState')));
+  assert.ok(p.candidate.readSet.some(x=>x.path.endsWith('/ExtraSize')));
+  assert.ok(p.candidate.readSet.some(x=>x.path.endsWith('/BlockMoveTo')));
+  assert.equal(p.writerAuthorized,false);
 });
