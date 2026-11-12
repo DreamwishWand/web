@@ -1,5 +1,7 @@
 // Real Chrome CDP startup only. Never use remote endpoints or synthetic PASS.
-import {readFile} from 'node:fs/promises';
+import {readFile,mkdtemp,rm} from 'node:fs/promises';
+import {spawn} from 'node:child_process';
+import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as sleep} from 'node:timers/promises';
 
@@ -139,8 +141,8 @@ export function createChromePipeTransport(child,{getStderr=()=>'',onEvent=()=>{}
    catch{stop('WRITE_ERROR')}
   });
  }
- async function verifyBrowser(){
-  const v=await send('Browser.getVersion',{},null,15000);
+ async function verifyBrowser(timeoutMs=15000){
+  const v=await send('Browser.getVersion',{},null,timeoutMs);
   if(typeof v.product!=='string'||!/^(?:HeadlessChrome|Chrome|Chromium)\//.test(v.product)||
    typeof v.protocolVersion!=='string'||!/^\d+\.\d+$/.test(v.protocolVersion)){
    stop('BROWSER_IDENTITY');throw failure('BROWSER_IDENTITY');
@@ -148,4 +150,53 @@ export function createChromePipeTransport(child,{getStderr=()=>'',onEvent=()=>{}
   return v;
  }
  return {send,verifyBrowser,close:()=>stop('CLEANUP')};
+}
+
+// Only a pre-UI Browser.getVersion deadline may get ONE fresh attempt.
+// The transport never retries any command; protocol/identity/exit failures
+// remain terminal. No target, session, navigation or user action is replayed.
+export async function startVerifiedChrome({chrome,onEvent=()=>{},log=()=>{},
+ spawnChild=spawn,startupTimeoutMs=15000}={}){
+ for(let attempt=1;attempt<=2;attempt++){
+  const started=performance.now();
+  const workspace=await mkdtemp(join(tmpdir(),'wand-tour-chrome-'));
+  let child=null,transport=null,stderr='',cleanup=null;
+  const live=()=>child&&child.pid&&child.exitCode===null&&child.signalCode===null;
+  const dispose=()=>cleanup??=(async()=>{
+   transport?.close();
+   if(live()){
+    await new Promise((resolve,reject)=>{
+     const timer=setTimeout(()=>{done();reject(Error('CHROME_CDP_COLDSTART_CLEANUP_DEADLINE'))},3000);
+     const done=()=>{clearTimeout(timer);child.removeListener('exit',exited);child.removeListener('close',exited)};
+     const exited=()=>{done();resolve()};
+     child.once('exit',exited);child.once('close',exited);
+     if(!live()){exited();return}
+     try{child.kill('SIGKILL')}catch{done();reject(Error('CHROME_CDP_COLDSTART_CLEANUP_KILL'))}
+    });
+   }
+   await rm(workspace,{recursive:true,force:true,maxRetries:12,retryDelay:125});
+  })();
+  try{
+   child=spawnChild(chrome,['--headless=new','--disable-gpu','--no-sandbox',
+    '--disable-dev-shm-usage','--remote-debugging-pipe','--no-first-run',
+    '--no-default-browser-check','--user-data-dir='+workspace,'about:blank'],
+    {stdio:['ignore','pipe','pipe','pipe','pipe']});
+   child.stdout?.resume();child.stderr?.on('data',b=>stderr=(stderr+String(b)).slice(-8192));
+   // Install error/exit handlers synchronously before the first write.
+   transport=createChromePipeTransport(child,{getStderr:()=>stderr,onEvent});
+   log('WEB_TOUR_CDP_COLDSTART_BEGIN attempt='+attempt);
+   await transport.verifyBrowser(startupTimeoutMs);
+   if(!live())throw Error('CHROME_CDP_COLDSTART_CHILD_NOT_LIVE');
+   log('WEB_TOUR_CDP_COLDSTART_VERIFIED attempt='+attempt+' elapsedMs='+Math.round(performance.now()-started));
+   return {child,transport,workspace,attempt,dispose};
+  }catch(error){
+   const retry=attempt===1&&String(error?.message).startsWith('CHROME_CDP_PIPE_COMMAND_DEADLINE_Browser.getVersion ');
+   log('WEB_TOUR_CDP_COLDSTART_FAILED attempt='+attempt+' elapsedMs='+Math.round(performance.now()-started)+
+    ' retry='+retry+' kind='+(retry?'VERSION_DEADLINE':'TERMINAL')+' stderrMarkers='+startupDiagnostic(stderr));
+   await dispose();
+   if(!retry)throw error;
+   log('WEB_TOUR_CDP_COLDSTART_FRESH_RETRY');
+  }
+ }
+ throw Error('CHROME_CDP_COLDSTART_EXHAUSTED');
 }
