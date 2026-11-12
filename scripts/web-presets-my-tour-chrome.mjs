@@ -5,7 +5,7 @@ import {mkdtempSync,rmSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as sleep} from 'node:timers/promises';
-import {waitForBrowserEndpoint,startupDiagnostic} from './web-tour-cdp-startup.mjs';
+import {createChromePipeTransport,startupDiagnostic} from './web-tour-cdp-startup.mjs';
 import {presetsMyTourCopy,PRESETS_MY_TOUR_LOCALES} from '../src/lib/tour/presets-my-tour-copy.mjs';
 import {PRESETS_MY_WAND_TOUR} from '../src/lib/tour/typed-tour-contract.mjs';
 const HOST='http://127.0.0.1:4398';
@@ -13,7 +13,6 @@ const chrome=process.env.CHROME_BIN ||
  ['google-chrome-stable','google-chrome','chromium','chromium-browser'].map(x=>
   spawnSync('which',[x],{encoding:'utf8'}).stdout?.trim()).find(Boolean);
 assert.ok(chrome&&existsSync(chrome),'real installed Chrome required; no synthetic PASS');
-assert.equal(typeof WebSocket,'function','Node >=22 native CDP WebSocket required');
 const workspace=mkdtempSync(join(tmpdir(),'wand-tour-chrome-'));
 const vite=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1',
  '--port','4398','--strictPort'],{
@@ -23,9 +22,9 @@ let viteOutput='',viteSpawnError=null;
 vite.on('error',e=>{viteSpawnError=e});
 for(const io of [vite.stdout,vite.stderr])io.on('data',b=>viteOutput=(viteOutput+String(b)).slice(-8192));
 const browser=spawn(chrome,['--headless=new','--disable-gpu','--no-sandbox',
- '--disable-dev-shm-usage','--remote-debugging-port=0','--remote-debugging-address=127.0.0.1',
+ '--disable-dev-shm-usage','--remote-debugging-pipe',
  '--no-first-run','--no-default-browser-check','--user-data-dir='+workspace,'about:blank'],
- {stdio:['ignore','pipe','pipe']});
+ {stdio:['ignore','pipe','pipe','pipe','pipe']});
 let browserOutput='',browserSpawnError=null;
 browser.on('error',e=>{browserSpawnError=e});
 browser.stdout.resume();
@@ -38,32 +37,12 @@ const ready=async(expr,timeout=18000)=>{
  }
  throw Error('CHROME_TIMEOUT '+String(expr).slice(0,100));
 };
-let socket=null;
-let serial=0;
-const pending=new Map();
 let sessionId=null;
 const requests=[];
 const exceptions=[];
-async function connect(){
- const {endpoint,discovery}=await waitForBrowserEndpoint({workspace,child:browser,
-  getStderr:()=>browserOutput,getSpawnError:()=>browserSpawnError});
- console.log('WEB_TOUR_CDP_ENDPOINT_VERIFIED '+discovery);
- socket=new WebSocket(endpoint);
- await new Promise((resolve,reject)=>{
-  const timer=setTimeout(()=>{cleanup();reject(Error('CHROME_CDP_SOCKET_OPEN_TIMEOUT'))},5000);
-  const cleanup=()=>{clearTimeout(timer);socket.removeEventListener('open',opened);socket.removeEventListener('error',failed);socket.removeEventListener('close',failed)};
-  const opened=()=>{cleanup();resolve()};
-  const failed=()=>{cleanup();reject(Error('CHROME_CDP_SOCKET_OPEN_FAILED'))};
-  socket.addEventListener('open',opened,{once:true});
-  socket.addEventListener('error',failed,{once:true});
-  socket.addEventListener('close',failed,{once:true});
- });
- socket.addEventListener('message',e=>{
-  const event=JSON.parse(String(e.data));
-  if(event.id&&pending.has(event.id)){
-   const p=pending.get(event.id);pending.delete(event.id);
-   event.error?p.reject(Error(JSON.stringify(event.error))):p.resolve(event.result||{});
-  }
+const transport=createChromePipeTransport(browser,{
+ getStderr:()=>browserOutput,
+ onEvent:event=>{
   if(event.method==='Network.requestWillBeSent'){
    const x=event.params?.request||{};
    if(x.method!=='GET'&&x.method!=='HEAD')requests.push(x.method+' '+x.url);
@@ -72,14 +51,15 @@ async function connect(){
   if(event.method==='Runtime.exceptionThrown'){
    exceptions.push(event.params?.exceptionDetails?.text||'unknown chrome exception');
   }
- });
+ }
+});
+async function connect(){
+ if(browserSpawnError)throw Error('CHROME_CDP_PIPE_SPAWN_ERROR');
+ await transport.verifyBrowser();
+ console.log('WEB_TOUR_CDP_PRIVATE_PIPE_VERIFIED');
 }
 function send(method,params={},session=sessionId){
- const id=++serial;
- return new Promise((resolve,reject)=>{
-  pending.set(id,{resolve,reject});
-  socket.send(JSON.stringify({id,method,params,...(session?{sessionId:session}:{})}));
- });
+ return transport.send(method,params,session);
 }
 async function evalJs(expression){
  const r=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true,
@@ -286,8 +266,7 @@ try{
  console.log('WEB_TOUR_REAL_CHROME_INVALID_ANCHOR_FAILCLOSED_NO_POST_PASS');
  console.log('WEB_TOUR_INSTALLED_CHROME_FINAL_PASS');
 }finally{
- for(const p of pending.values())p.reject?.(Error('cleanup'));
- try{socket?.close();}catch{}
+ transport.close();
  if(browser.exitCode===null&&browser.signalCode===null)browser.kill('SIGKILL');
  if(vite.exitCode===null&&vite.signalCode===null)vite.kill('SIGKILL');
  await sleep(450);
