@@ -1,0 +1,27 @@
+name: "04 QR-W PR985 independent cold-start actual Chrome"
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr985-*.mjs'
+      - '.github/workflows/04qr-w-pr985-coldstart-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  independent-chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Independent actual Chrome forced first-child stop and lifecycle faults
+        run: node --test scripts/04qr-w-pr985-coldstart-independent-20261113.mjs
+      - name: Actual full Tour and Source regression contracts
+        run: node --test tests/web-presets-my-tour-contract.test.mjs
