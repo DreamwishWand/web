@@ -1,0 +1,99 @@
+name: 05 QR-C PR948 independent Core minted authority QA-only
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr948-core-minted-independent.yml'
+      - 'crates/ddv-save-core/tests/qa948/independent.rs'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 26
+    env:
+      CARGO_TARGET_DIR: /tmp/qa05qrc-pr948-rust
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Source exact3 blobs and QA-only2, no PR929 changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=b228430226a737207b8b6610bf246fb3d92b359a
+          base=3f4e81afad0041148361baee706301efecf21159
+          root=crates/ddv-save-core/src
+          test "$(git merge-base "$src" HEAD)" = "$src"
+          while read -r p old new; do
+            test "$(git rev-parse "$base:$root/$p")" = "$old"
+            test "$(git rev-parse "$src:$root/$p")" = "$new"
+            test "$(git rev-parse "HEAD:$root/$p")" = "$new"
+          done <<'EOF'
+          semantic_writer.rs 9e77d3d0243ea01fb061de7134f6aeb867ac5297 bed027dda893adeff9c50d78c3f9ce2c5091a9dc
+          product_session.rs d1302e4f028acd91ef9e4d50687fe67e6e2d103e ea7dd088a6fea7aabac9cf3a9916325ebd8c9d71
+          lib.rs c71e11334e4c9c59761a110e65c81d469a18eb73 c16d60adc6c12b68a35eb1b09c55206ad006c9bc
+          EOF
+          test "$(git diff --name-only "$base" "$src" | sort)" = "$(printf '%s\n' "$root/lib.rs" "$root/product_session.rs" "$root/semantic_writer.rs" | sort)"
+          test "$(git diff --name-only "$src" HEAD | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr948-core-minted-independent.yml crates/ddv-save-core/tests/qa948/independent.rs | sort)"
+          echo QAC948_EXACT_SOURCE3_QA_ONLY2_PASS
+      - name: External crate compile-fail private descriptor and sealed capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          p=crates/ddv-save-core
+          mkdir -p "$p/examples"
+          trap 'rm -f "$p/examples/qa948_probe.rs"' EXIT
+          probe() {
+            printf '%s\n' "$1" > "$p/examples/qa948_probe.rs"
+            if cargo check --manifest-path "$p/Cargo.toml" --no-default-features --features semantic-writer-dev --example qa948_probe > /tmp/qa948-probe.log 2>&1; then
+              cat /tmp/qa948-probe.log; echo UNEXPECTED_COMPILE_SUCCESS; exit 1
+            fi
+            cat /tmp/qa948-probe.log
+            grep -Eq "$2" /tmp/qa948-probe.log
+          }
+          probe 'use ddv_save_core::*; fn forge(v: ExistingAmountTargetView)->CoreExistingAmountTarget { CoreExistingAmountTarget{view:v} } fn main(){}' 'E0451'
+          probe 'use ddv_save_core::*; fn forge(t:CoreExistingAmountTarget)->AuthorizedExistingAmountTarget {AuthorizedExistingAmountTarget{target:t,new_amount:1}} fn main(){}' 'E0451'
+          probe 'use ddv_save_core::*; fn mutate(t:&mut CoreExistingAmountTarget){t.view().old_amount=1;} fn main(){}' 'E0594'
+          probe 'use ddv_save_core::*; fn mutate(t:&mut AuthorizedExistingAmountTarget){t.new_amount=1;} fn main(){}' 'E0616'
+          probe 'use ddv_save_core::*; fn forge(s:&ProductSession,e:WorkerEnvelope,t:&CoreExistingAmountTarget){let _=s.authorize_existing_amount_target(e,t,1,true);} fn main(){}' 'E0061'
+          probe 'use ddv_save_core::*; fn forge(s:&ProductSession,e:WorkerEnvelope,t:CoreExistingAmountTarget){let _=s.stage_core_minted_amount_batch(e,&[t]);} fn main(){}' 'E0308'
+          echo QAC948_EXTERNAL_SIX_COMPILE_FAIL_PASS
+      - name: Independent native synthetic six groups with test-only private access
+        shell: bash
+        run: |
+          set -euo pipefail
+          p=crates/ddv-save-core/src/semantic_writer.rs
+          trap 'git restore -- "$p"' EXIT
+          printf '\ninclude!("../tests/qa948/independent.rs");\n' >> "$p"
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --lib qa948_independent -- --nocapture
+          git restore -- "$p"
+          test "$(git rev-parse "HEAD:$p")" = "$(git hash-object "$p")"
+          echo QAC948_TEST_ONLY_INJECTION_REMOVED
+      - name: Public WASM ABI and DEV feature isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          p=crates/ddv-save-core
+          cargo check --manifest-path "$p/Cargo.toml" --no-default-features --features worker-wasm,indexed-read --target wasm32-unknown-unknown
+          grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          python3 - <<'PY'
+          import subprocess
+          names=['read_existing_amount_target','authorize_existing_amount_target','stage_core_minted_amount_batch']
+          for n in names:
+              hits=subprocess.check_output(['git','grep','-l',n,'--','crates/ddv-save-core/src','src'],text=True).splitlines()
+              assert hits==['crates/ddv-save-core/src/semantic_writer.rs'],(n,hits)
+          print('QAC948_NO_NEW_WORKER_ABI_OR_PRODUCT_CALLER_PASS')
+          PY
+          mkdir -p "$p/examples"
+          trap 'rm -f "$p/examples/qa948_public.rs"' EXIT
+          printf '%s\n' 'use ddv_save_core::CoreExistingAmountTarget; fn main(){}' > "$p/examples/qa948_public.rs"
+          if cargo check --manifest-path "$p/Cargo.toml" --no-default-features --features indexed-read --example qa948_public > /tmp/qa948-public.log 2>&1; then exit 1; fi
+          cat /tmp/qa948-public.log
+          grep -q E0432 /tmp/qa948-public.log
+          echo QAC948_DEV_TYPE_ABSENT_PUBLIC_PASS
