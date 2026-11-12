@@ -1,0 +1,59 @@
+name: "04 QR-W PR932 independent DEV local editor Node and physical Chrome"
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr932-local-amount-*.mjs'
+      - '.github/workflows/04qr-w-pr932-local-amount-independent-20261112.yml'
+permissions:
+  contents: read
+jobs:
+  independent-node:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Only immutable Source and QA additions; no Owner data
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-files src/routes/test-04qrw-pr932 src/routes/test-dev-amount-ui tests/dev-amount-ui-chrome/*.p1g)"
+          if env | grep -Eq '^(DDV_PRIVATE_SAVE_PATH|WAND_PRIVATE_MEDIA_PATH|WEP_PRIVATE_P1G_PATH|STEAM_GAME_ROOT|P1G_PATH)='; then exit 1; fi
+          node --test scripts/04qr-w-pr932-local-amount-node-20261112.mjs
+  independent-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies and independent browser driver
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real Chrome and isolated MOCK Worker physical UI only
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-files src/routes/test-04qrw-pr932 src/routes/test-dev-amount-ui)"
+          export CHROME_BIN="$(command -v google-chrome)"
+          node scripts/04qr-w-pr932-local-amount-chrome-20261112.mjs
+      - name: Always verify temporary route removed and product OFF
+        if: always()
+        run: |
+          set -euo pipefail
+          test ! -e src/routes/test-04qrw-pr932
+          test ! -e src/routes/test-dev-amount-ui
+          test -z "$(git ls-files src/routes/test-04qrw-pr932 src/routes/test-dev-amount-ui tests/dev-amount-ui-chrome/*.p1g)"
+          ! git grep -n 'LocalAmountEditorDev' -- src/routes
+          echo 'QRW932_NO_TRACKED_OR_RESIDUAL_TEST_ROUTE__NO_PRODUCT_WRITER__MOCK_ONLY'
