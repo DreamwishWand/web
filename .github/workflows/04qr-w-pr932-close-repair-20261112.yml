@@ -1,0 +1,26 @@
+name: "04 QR-W PR932 close repair independent Node Worker"
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr932-close-repair-*.mjs'
+      - '.github/workflows/04qr-w-pr932-close-repair-20261112.yml'
+permissions:
+  contents: read
+jobs:
+  independent-close:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test scripts/04qr-w-pr932-close-repair-node-20261112.mjs
+      - run: |
+          test -z "$(git ls-files src/routes/test-dev-amount-ui src/routes/test-04qrw-pr932)"
+          ! git grep -n LocalAmountEditorDev -- src/routes
+          echo QRW932_CLOSE_REPAIR_NO_PRODUCT_ROUTE__MOCK_ONLY
