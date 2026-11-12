@@ -58,13 +58,40 @@ fn page_count(session:&ProductSession,scope:WorkerEnvelope,domain:IndexedDomain)
     }
     denied("NATIVE_INDEX_PAGE_BOUND");
 }
+fn hex_bytes(b:&[u8])->String{b.iter().map(|x|format!("{x:02x}")).collect()}
+fn private_output_path(raw:&str)->std::path::PathBuf{
+    use std::{path::Path,fs};
+    let p=Path::new(raw);
+    if !p.is_absolute()||p.file_name().is_none(){denied("PRIVATE_OUTPUT_ABSOLUTE_REQUIRED")}
+    let parent=fs::canonicalize(p.parent().unwrap_or_else(||denied("PRIVATE_OUTPUT_PARENT")))
+        .unwrap_or_else(|_|denied("PRIVATE_OUTPUT_PARENT"));
+    let meta=fs::metadata(&parent).unwrap_or_else(|_|denied("PRIVATE_OUTPUT_PARENT"));
+    if !meta.is_dir(){denied("PRIVATE_OUTPUT_PARENT")}
+    #[cfg(unix)]{use std::os::unix::fs::PermissionsExt;
+        if meta.permissions().mode()&0o077!=0{denied("PRIVATE_OUTPUT_DIRECTORY_PERMISSIONS")}}
+    let out=parent.join(p.file_name().unwrap());
+    if fs::symlink_metadata(&out).is_ok(){denied("PRIVATE_OUTPUT_ALREADY_EXISTS")}
+    out
+}
+fn write_private_receipt(path:&std::path::Path,v:&serde_json::Value){
+    use std::{fs::{self,OpenOptions},io::Write};
+    let bytes=serde_json::to_vec(v).unwrap_or_else(|_|denied("PRIVATE_RECEIPT_ENCODE"));
+    let mut opts=OpenOptions::new();opts.write(true).create_new(true);
+    #[cfg(unix)]{use std::os::unix::fs::OpenOptionsExt;opts.mode(0o600);}
+    let mut out=opts.open(path).unwrap_or_else(|_|denied("PRIVATE_OUTPUT_CREATE_NEW"));
+    if out.write_all(&bytes).and_then(|_|out.sync_all()).is_err(){
+        drop(out);let _=fs::remove_file(path);denied("PRIVATE_OUTPUT_WRITE");
+    }
+}
 fn run(){
     // The accepted no-argument V1 path remains byte-for-byte behaviorally
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
-    let native_slice=match argv.as_slice(){
-      []=>false,
-      [flag] if flag=="--native-area-grid-slice-only"=>true,
+    let (native_slice,avatar_output)=match argv.as_slice(){
+      []=>(false,None),
+      [flag] if flag=="--native-area-grid-slice-only"=>(true,None),
+      [flag,out,path] if flag=="--active-avatar-receipt-only"&&out=="--out"=>
+        (false,Some(private_output_path(path))),
       _=>denied("UNTRUSTED_CLI_ARGS"),
     };
     if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION{
@@ -112,6 +139,20 @@ fn run(){
       expected_decoded_sha256:receipt.decoded_sha256,
       action:WorkerAction::ReadDomain
     };
+    if let Some(path)=avatar_output{
+        let witness=session.read_private_active_avatar(scope)
+            .unwrap_or_else(|_|denied("ACTIVE_AVATAR_READ_DENIED"));
+        let mut out=witness.to_private_receipt_json();
+        out["originalSha256SuppliedExternally"]=serde_json::json!(hex_bytes(&original_sha));
+        out["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+        out["cloudUploadPerformed"]=serde_json::json!(false);
+        out["originalModifiedByHarness"]=serde_json::json!(false);
+        if session.receipt().ok()!=Some(receipt){denied("ACTIVE_AVATAR_EPOCH_CHANGED");}
+        session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
+        write_private_receipt(&path,&out);
+        eprintln!("LOCAL_RUST_V1_PRIVATE_AVATAR_RECEIPT_WRITTEN");
+        return;
+    }
     let player=page_count(&session,scope,IndexedDomain::Player);
     let world=page_count(&session,scope,IndexedDomain::World);
     let slice=if native_slice {
