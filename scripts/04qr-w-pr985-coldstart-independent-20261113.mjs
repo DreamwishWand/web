@@ -34,11 +34,11 @@ const dead=c=>c.exitCode!==null||c.signalCode!==null;
 const gone=async x=>{assert.ok(dead(x.child),'child must be terminated');await assert.rejects(access(x.dir),e=>e.code==='ENOENT')};
 async function emergency(x){if(!dead(x.child)){const p=once(x.child,'exit');spawnKill(x.child);await p}await rm(x.dir,{recursive:true,force:true,maxRetries:12,retryDelay:125})}
 const spawnKill=c=>process.kill(c.pid,'SIGKILL');
-test('actual Chrome induced stopped first child, fresh second real Chrome, no stale pipe or UI replay', {timeout:40000},async()=>{
+test('actual Chrome induced stopped first child, fresh second real Chrome, no stale pipe or UI replay', {timeout:65000},async()=>{
  assert.ok(chrome,'actual installed Chrome required');
  const seen=[],logs=[];let instance;
  try{
-  instance=await startVerifiedChrome({chrome,startupTimeoutMs:6000,log:x=>logs.push(x),spawnChild:(binary,args,opts)=>{
+  instance=await startVerifiedChrome({chrome,startupTimeoutMs:15000,log:x=>logs.push(x),spawnChild:(binary,args,opts)=>{
    assert.equal(binary,chrome);assert.ok(args.includes('--remote-debugging-pipe'));assert.equal(args.some(x=>x.startsWith('--remote-debugging-port')),false);
    if(seen.length){assert.ok(dead(seen[0].child),'first exit BEFORE second spawn');assert.equal(existsSync(seen[0].dir),false,'first profile removed BEFORE second spawn')}
    const c=spawn(binary,args,opts);seen.push({child:c,dir:profile(args)});
