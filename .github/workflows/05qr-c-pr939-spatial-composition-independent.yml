@@ -1,0 +1,106 @@
+name: 05 QR-C PR939 independent affected composition QA
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr939-spatial-composition-independent.yml'
+      - 'crates/ddv-save-core/tests/qa05qrc_pr939_composition.rs'
+permissions:
+  contents: read
+jobs:
+  qac939:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/qac939-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Accepted PR915 three blobs and exact current-main seven-line addition
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=a6c7447943529ee7e3532b4c2cd6596c802550d1
+          src=3ba4960ab00d36d4ec81b2969011d4a3c91318d5
+          old=0477cc06dd7cd8e38bb95cacfe1aaac8c383a033
+          priorqa=9d4112073b36845cf533c3ca764d5c71314ab56a
+          test "$(git merge-base "$src" HEAD)" = "$src"
+          test "$(git rev-parse "$src^")" = "$base"
+          for ref in "$src" "$old" "$priorqa" HEAD; do
+            test "$(git rev-parse "$ref:crates/ddv-save-core/src/steam_spatial_preflight.rs")" = 96e901b637d034d8e1e0b59449889d4f2ef7e5e2
+            test "$(git rev-parse "$ref:crates/ddv-save-core/tests/steam_spatial_preflight.rs")" = 70d6226802b35a026ed13f6b84e4dc9ed106a67a
+            test "$(git rev-parse "$ref:docs/core/01b-r06r22-steam-spatial-preflight-20261111.md")" = dbc74b9858cbafcb90e24a4ab6b4a6a7987eb5d7
+          done
+          test "$(git rev-parse "$base:crates/ddv-save-core/src/lib.rs")" = 925ff4b2b009a40513cb4328595f00cf302e2f44
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/lib.rs)" = c71e11334e4c9c59761a110e65c81d469a18eb73
+          test "$(git diff --numstat "$base" "$src" -- crates/ddv-save-core/src/lib.rs | cut -f1,2)" = "$(printf '7\t0')"
+          test "$(git diff --name-only "$src" HEAD | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr939-spatial-composition-independent.yml crates/ddv-save-core/tests/qa05qrc_pr939_composition.rs | sort)"
+          test -z "$(git ls-files | grep -Ei '\.p1g$|STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE' || true)"
+          node --input-type=module <<'NODE'
+          import {execFileSync} from 'node:child_process';
+          import assert from 'node:assert/strict';
+          const base='a6c7447943529ee7e3532b4c2cd6596c802550d1',src='3ba4960ab00d36d4ec81b2969011d4a3c91318d5';
+          const read=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'});
+          const path='crates/ddv-save-core/src/lib.rs';
+          const before=read(base,path),after=read(src,path);
+          const hunk=['mod steam_spatial_preflight;','pub use steam_spatial_preflight::{',
+            '    preflight_steam_move_rotate,steam_orientation_cardinal,steam_orientation_defined,',
+            '    PreviewCell,PreviewObjectKey,PreviewTransform,PreviewGrid,',
+            '    PreviewRestrictions,PreviewOccupiedCell,PreviewSnapshot,PreviewRequest,',
+            '    PreviewReceipt,STEAM_SPATIAL_PREFLIGHT_CONTRACT,','};',''].join('\n');
+          assert.equal(after,before.replace('mod worker_session;',hunk+'mod worker_session;'));
+          assert.equal(after.replace(hunk,''),before);
+          for(const p of ['crates/ddv-save-core/Cargo.toml','crates/ddv-save-core/src/product_session.rs',
+            'crates/ddv-save-core/src/semantic_writer.rs','crates/ddv-save-core/src/spatial_reference_index.rs',
+            'crates/ddv-save-core/src/wasm_worker.rs','.github/workflows/pages.yml']){
+            assert.equal(read(src,p),read(base,p),p);
+          }
+          assert.match(after,/compile_error!\("semantic-writer-dev wasm32 requires the existing Worker binding"\)/);
+          assert.match(after,/pub use product_session::\{TypedOperationKind,TypedOperationRegistryEntry,\s*TypedSemanticCommand,SemanticStageReceipt,TYPED_OPERATION_REGISTRY\}/);
+          assert.match(after,/BuildIdentity, BuildKind, Platform, ProductSession, ReadReceipt, SessionReceipt/);
+          assert.match(read(src,'.github/workflows/pages.yml'),/--features worker-wasm,indexed-read\b/);
+          assert.doesNotMatch(read(src,'.github/workflows/pages.yml'),/--features[^\n]*semantic-writer-dev/);
+          console.log('QAC939_ORIGINAL3_BLOBS_EXACT_7LINE_REVERSIBLE_MAIN_EXPORT_PRESERVATION_PASS');
+          NODE
+      - name: New affected-only composition tests default, indexed-read and semantic-writer-dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          m=crates/ddv-save-core/Cargo.toml
+          cargo test --manifest-path "$m" --test qa05qrc_pr939_composition -- --nocapture
+          cargo test --manifest-path "$m" --no-default-features --features indexed-read --test qa05qrc_pr939_composition -- --nocapture
+          cargo test --manifest-path "$m" --no-default-features --features semantic-writer-dev --test qa05qrc_pr939_composition -- --nocapture
+          echo QAC939_PREVIEW_SESSION_INDEXED_CARDINAL_DEV_COMPOSITION_PASS
+      - name: Actual WASM public ABI and negative DEV-without-Worker guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          m=crates/ddv-save-core/Cargo.toml
+          cargo check --manifest-path "$m" --no-default-features --features worker-wasm,indexed-read --target wasm32-unknown-unknown
+          cargo check --manifest-path "$m" --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev --target wasm32-unknown-unknown
+          if cargo check --manifest-path "$m" --no-default-features --features semantic-writer-dev --target wasm32-unknown-unknown >/tmp/qac939-denied.log 2>&1; then
+            echo 'unexpected DEV wasm without Worker'; exit 1
+          fi
+          grep -F 'semantic-writer-dev wasm32 requires the existing Worker binding' /tmp/qac939-denied.log
+          # External consumer must not see the DEV-only exports under public features.
+          tmp=$(mktemp -d)
+          mkdir -p "$tmp/src"
+          printf '[package]\nname="qac939-public-negative"\nversion="0.0.0"\nedition="2021"\n[dependencies]\nddv-save-core={path="%s/crates/ddv-save-core",default-features=false,features=["worker-wasm","indexed-read"]}\n' "$PWD" > "$tmp/Cargo.toml"
+          printf 'use ddv_save_core::{TypedSemanticCommand,SemanticStageReceipt,TYPED_OPERATION_REGISTRY};\nfn main(){}\n' > "$tmp/src/main.rs"
+          if cargo check --manifest-path "$tmp/Cargo.toml" --target wasm32-unknown-unknown >/tmp/qac939-no-export.log 2>&1; then
+            echo 'unexpected public DEV exports'; exit 1
+          fi
+          grep -F 'unresolved imports' /tmp/qac939-no-export.log
+          grep -F 'TypedSemanticCommand' /tmp/qac939-no-export.log
+          grep -F 'SemanticStageReceipt' /tmp/qac939-no-export.log
+          grep -F 'TYPED_OPERATION_REGISTRY' /tmp/qac939-no-export.log
+          echo QAC939_PUBLIC_WASM_NO_DEV_EXPORTS_AND_NEGATIVE_GUARD_PASS
