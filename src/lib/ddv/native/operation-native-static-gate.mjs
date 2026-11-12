@@ -102,6 +102,71 @@ function matchExternalBuild(v) {
   return Object.values(NATIVE_SOURCE_TARGETS).find(x=>
     Object.keys(x).every(k=>v[k]===x[k]))??null;
 }
+// Archived, byte-matched Steam source evidence. Not an authenticated save or
+// installed-game assertion; local native branches are not whole-operation V3.
+const archivedSteam626Witness=(operationId,localMutation,consumer,producer,derived,required)=>freeze({
+  operationId,kind:'ARCHIVED_STEAM626_NATIVE_STATIC_PARTIAL',
+  binarySha256:'66644cf655e158086f83ffd654222ecfb5744c08423a644d3c0edc3244d66e4c',
+  localMutation,consumer:freeze(consumer),producer:freeze(producer),
+  derived:freeze(derived),requiredBeforeOperationV3:freeze(required),
+  fullReferenceClosureVerified:false,nativeV3Accepted:false,
+  nativeEventReplayAuthorized:false,productWriterAuthorized:false
+});
+const steam626Witnesses=freeze({
+  INV_AMOUNT:archivedSteam626Witness('INV_AMOUNT','EXISTING_CANONICAL_AMOUNT_DECREMENT_ONLY',[
+    'LIST_GET_AMOUNT_4351A60_TO_TRY_GET_4351450_TO_APPLY_VARIATION_4351580',
+    'VARIATION_CAN_CHANGE_ITEM_AND_AMOUNT','DATA_AMOUNT_JSON_FIELD_1_INT32'
+  ],[
+    'LIST_REMOVE_4351D10_SUBTRACTS_CONVERTED_AMOUNT_AT_4351DDD',
+    'LOW_LEVEL_ZERO_RETAINS_ROW_NOT_PRODUCT_AUTHORIZATION',
+    'DATA_WRITE_JSON_4353B90_AMOUNT_INT32'
+  ],[
+    'ITEM_REMOVED_DISPATCH_CONDITIONAL',
+    'POSSESS_SUBSCRIBES_ADD_REMOVE_MOVE_AND_RECALCULATES_PROGRESS_STATUS',
+    'CRAFT_RELEVANT_INVENTORY_READS_PROFILE_QUANTITY',
+    'CONSUME_ITEM_REASON_GATED_NOT_EQUIVALENT_TO_OFFLINE_DECREMENT'
+  ],[
+    'AUTHENTIC_CORE_TARGET_AND_CANONICAL_VARIATION_QUANTITY',
+    'LEGAL_EXISTING_POSITIVE_DECREASE_NO_DEPLETION',
+    'ACTIVE_MISSION_FILTER_AND_OTHER_SUBSCRIBER_CLOSURE',
+    'PRESERVE_COLLECTION_OWNERSHIP_AND_ENTITLEMENTS'
+  ]),
+  CHEST_AMOUNT:archivedSteam626Witness('CHEST_AMOUNT','EXISTING_SLOT_POSITIVE_REMAINDER_ONLY',[
+    'CONTAINER_GET_AMOUNT_3F55100_SUMS_MATCHED_SLOTS_ITEM_STATE_QUERY',
+    'SLOT_AMOUNT_JSON_FIELD_2_INT32',
+    'STACK_DATA_36A2B20_ACTIVITY_TYPE_AND_ITEM_EXCEPTION'
+  ],[
+    'POSITION_REMOVE_3F54770_SUBTRACTS_AT_3F54901',
+    'ZERO_RESETS_ITEM_AMOUNT_STATE_434C250_NOT_PRODUCT_AUTHORIZATION',
+    'SLOT_WRITE_JSON_434C0E0_AMOUNT_INT32'
+  ],[
+    'ITEMS_AMOUNT_CACHE_LAZY_CONSTRUCTS_FROM_SLOTS_AND_STACK_DATA',
+    'POSITIVE_REMAINDER_UPDATES_RUNTIME_CACHE_NOT_NEW_SAVE_FIELD',
+    'ITEM_REMOVED_DISPATCH_CONDITIONAL',
+    'POSSESS_CAN_INCLUDE_STORAGE_AND_PANTRY'
+  ],[
+    'AUTHENTIC_PLAYER_CHEST_PARENT_ACTIVE_REFERENCE_AND_SLOT',
+    'LEGAL_EXISTING_POSITIVE_DECREASE_PRESERVE_ITEM_STATE',
+    'ACTIVE_MISSION_FILTER_AND_OTHER_SUBSCRIBER_CLOSURE',
+    'NO_INVENTED_PERSISTED_CACHE_OR_CONSUMPTION_EVENT'
+  ]),
+  GRID_MOVE:archivedSteam626Witness('GRID_MOVE','EXISTING_MODIFIED_OBJECT_TRANSFORM_CANDIDATE',[
+    'DIFFGRID_UPDATE_TRANSFORM_3FEDA00_VALIDATES_AREA_BEFORE_WRITES',
+    'CORE_AUTHENTIC_EFFECTIVE_OCCUPANCY_REQUIRED'
+  ],[
+    'REMOVE_GRIDCELLS_THEN_TRANSFORM_THEN_ADD_GRIDCELLS',
+    'DEFAULT_ONLY_OBJECT_REQUIRES_CLONE_AND_MODIFIED_MAP_INSERT'
+  ],[
+    'GRID_CHANGED_DISPATCH_CONDITIONAL',
+    'MISSION_GRID_CHANGED_CAN_CHANGE_STATUS_AFTER_DECOR_CHECK'
+  ],[
+    '01B_FOOTPRINT_PARENT_FLOOR_OCCUPANCY_AND_OLD_TRANSFORM',
+    'EXISTING_MODIFIED_NOT_REMOVED_NON_ROADFENCE_OBJECT',
+    'ACTIVE_DECOR_MISSION_AND_OTHER_SUBSCRIBER_CLOSURE',
+    '01C_ROADFENCE_SEPARATE_OWNER'
+  ])
+});
+
 /**
  * Static handoff only. Exact *declared* Build identity is necessary, never
  * proof of installed game or provenance. No caller-supplied boolean can grant.
@@ -117,6 +182,8 @@ export function describeNativeOperation(operationId,declaredBuild) {
     w1OrRoadFenceGlobalBlocker:op.tier===A?false:null,
     externalBuildIsAuthentication:false,sourceOnly:true,
     target:freeze({...matchExternalBuild(declaredBuild)}),
+    ...(matchExternalBuild(declaredBuild)===NATIVE_SOURCE_TARGETS.steam1253&&Object.hasOwn(steam626Witnesses,operationId)
+      ?{archivedSteam626NativeWitness:steam626Witnesses[operationId]}:{}),
     coreIssuedReadsetVerified:false,productWriterAuthorized:false,
     productEditedCopyAuthorized:false,operationEnabled:false,
     deviceV4Mandated:false,deviceV4OnlyWhenStaticCannotCloseCriticalRisk:true});

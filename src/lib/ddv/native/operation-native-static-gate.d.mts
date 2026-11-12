@@ -39,7 +39,23 @@ export interface NativeStaticDenial {
   readonly operationEnabled:false;
   readonly coreSessionAuthenticated:false;
 }
+/** Scoped static native facts, never an authenticated per-save grant. */
+export interface ArchivedSteam626NativeWitness {
+  readonly operationId:'INV_AMOUNT'|'CHEST_AMOUNT'|'GRID_MOVE';
+  readonly kind:'ARCHIVED_STEAM626_NATIVE_STATIC_PARTIAL';
+  readonly binarySha256:string;
+  readonly localMutation:string;
+  readonly consumer:readonly string[];
+  readonly producer:readonly string[];
+  readonly derived:readonly string[];
+  readonly requiredBeforeOperationV3:readonly string[];
+  readonly fullReferenceClosureVerified:false;
+  readonly nativeV3Accepted:false;
+  readonly nativeEventReplayAuthorized:false;
+  readonly productWriterAuthorized:false;
+}
 export type NativeStaticDescription = NativeOperationRow & {
+  readonly archivedSteam626NativeWitness?:ArchivedSteam626NativeWitness;
   readonly contract:string;
   readonly status:'TIER_A_STATIC_INDEPENDENT_CANDIDATE'|'TIER_B_NATIVE_DEPENDENCIES_OPEN';
   readonly w1OrRoadFenceGlobalBlocker:false|null;
