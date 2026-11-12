@@ -87,3 +87,56 @@ test('QA941 regression: server consumes request ID before invocation, including 
  await send(10,'undo');assert.equal(calls.filter(x=>x[0]==='UNDO').length,1);
  assert.equal(replies.at(-1).ok,false);
 });
+
+test('QA955 regression: pending asynchronous Close owns the port and consumes denied IDs',async()=>{
+ const replies=[],calls=[];const server={postMessage:r=>replies.push(r)};
+ let release,entered;
+ const waiting=new Promise(r=>{release=r}),started=new Promise(r=>{entered=r});
+ installLocalDevAmountWorker(server,{
+  async close(){calls.push('CLOSE');entered();await waiting;return ok('CLOSED')},
+  async open(){calls.push('OPEN');return ok('OPEN')},
+  async undo(){calls.push('UNDO');return ok('UNDONE')},
+  async redo(){calls.push('REDO');return ok('REDONE')},
+  async exportEditedCopy(){calls.push('EXPORT');return ok('EXPORTED')}
+ });
+ const send=(id,method,args=[])=>server.onmessage({data:{id,method,args}});
+ const close=send(1,'close');await started;
+ await send(2,'open',[{name:'B'}]);
+ await send(3,'undo');await send(4,'redo');await send(5,'exportEditedCopy');
+ await send(6,'close'); // distinct ID, but no overlapping close cleanup
+ assert.deepEqual(calls,['CLOSE']);
+ assert.deepEqual(replies.map(r=>[r.id,r.ok]),[[2,false],[3,false],[4,false],[5,false],[6,false]]);
+ release();await close;
+ assert.deepEqual(replies.at(-1),{id:1,ok:true,data:ok('CLOSED')});
+ await send(2,'open',[{name:'B'}]);await send(6,'close');
+ assert.deepEqual(calls,['CLOSE']); // watermark survives Close settlement
+ await send(7,'open',[{name:'B'}]);await send(8,'undo');
+ assert.deepEqual(calls,['CLOSE','OPEN','UNDO']);
+ assert.ok(replies.slice(-2).every(r=>r.ok===true));
+});
+
+test('QA955 regression: Close preempts active work, settles failure, and never unlocks that active operation',async()=>{
+ const replies=[],calls=[];const server={postMessage:r=>replies.push(r)};
+ let finishOpen,openEntered,finishClose,closeEntered;
+ const openWait=new Promise(r=>{finishOpen=r}),openStarted=new Promise(r=>{openEntered=r});
+ const closeWait=new Promise((_,reject)=>{finishClose=reject}),closeStarted=new Promise(r=>{closeEntered=r});
+ installLocalDevAmountWorker(server,{
+  async open(){calls.push('OPEN');openEntered();await openWait;return ok('OPEN')},
+  async close(){calls.push('CLOSE');closeEntered();await closeWait;return ok('CLOSED')},
+  async undo(){calls.push('UNDO');return ok('UNDONE')}
+ });
+ const send=(id,method,args=[])=>server.onmessage({data:{id,method,args}});
+ const old=send(1,'open',[{name:'A'}]);await openStarted;
+ const close=send(2,'close');await closeStarted;
+ await send(3,'undo');await send(4,'close');
+ assert.deepEqual(calls,['OPEN','CLOSE']);
+ finishClose(Error('PRIVATE_CLOSE_FAILURE'));await close;
+ assert.deepEqual(replies.at(-1),{id:2,ok:false,error:'DENIED'});
+ await send(5,'undo'); // old active operation still draining
+ assert.deepEqual(calls,['OPEN','CLOSE']);
+ finishOpen();await old;
+ assert.deepEqual(replies.at(-1),{id:1,ok:false,error:'DENIED'});
+ await send(6,'undo');assert.deepEqual(calls,['OPEN','CLOSE','UNDO']);
+ assert.equal(replies.at(-1).ok,true);
+ await send(5,'undo');assert.equal(replies.at(-1).ok,false);
+});

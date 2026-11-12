@@ -218,7 +218,7 @@ export function installLocalDevAmountWorker(port,adapter){
   'stageTyped','undo','redo','exportEditedCopy','close']);
  // IDs are consumed BEFORE invoking an adapter, including denied/busy
  // requests. A Close revokes the operation, not the per-port high-water mark.
- let lastId=0,active=null,epoch=0;
+ let lastId=0,active=null,closing=null,epoch=0;
  port.onmessage=async e=>{
   const v=e.data;
   if(!safeKeys(v,'id,method,args')||!Number.isSafeInteger(v.id)||
@@ -228,11 +228,16 @@ export function installLocalDevAmountWorker(port,adapter){
   }
   lastId=v.id;
   const deny=()=>port.postMessage({id:v.id,ok:false,error:'DENIED'});
+  // Close preempts ordinary work, but owns the port until its own
+  // asynchronous cleanup settles. Denied requests still consume IDs.
+  if(closing!==null){deny();return}
   if(v.method==='close'){
-   const token=++epoch;
-   try{const data=await adapter.close();if(token!==epoch){deny();return}
+   const token=++epoch;closing=v.id;
+   try{const data=await adapter.close();
+    if(token!==epoch||closing!==v.id){deny();return}
     port.postMessage({id:v.id,ok:true,data});
    }catch{deny()}
+   finally{if(closing===v.id)closing=null}
    return;
   }
   if(active!==null){deny();return}
