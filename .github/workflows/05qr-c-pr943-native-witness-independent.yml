@@ -1,0 +1,44 @@
+name: 05 QR-C PR943 independent native amount and archive binding
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr943-native-witness-independent.yml'
+      - 'tests/qa05qrc-pr943-native-witness.test.mjs'
+permissions:
+  contents: read
+jobs:
+  qac943:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact original five and accepted native contract provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          s=1cda27549550929ee83df34a01be86059456e796
+          base=a6c7447943529ee7e3532b4c2cd6596c802550d1
+          test "$(git merge-base "$s" HEAD)" = "$s"
+          while read -r sha p; do
+            test "$(git rev-parse "$s:$p")" = "$sha"
+            test "$(git rev-parse "HEAD:$p")" = "$sha"
+          done <<'PINS'
+          088ea3c94a9bfdbf227694636c6df2cbc6754da0 src/lib/ddv/native/operation-native-static-gate.mjs
+          3ffdab4d7bf36a4414f4ef656ede8651640ab4b9 src/lib/ddv/native/operation-native-static-gate.d.mts
+          ecee16599ebbe298cf051c511085ec6ddea0226c tests/01e-native-operation-static-gate.test.mjs
+          d15270cdd81800d257356fe0c4a74ff4a0e4fe89 tests/01e-steam626-native-amount-witness.test.mjs
+          22c567e2e3971a0270cf60f1750c3f460b725557 docs/core/01e-steam626-native-inventory-chest-consumer-producer-20261112.md
+          PINS
+          test "$(git diff --name-only "$base" "$s" | wc -l)" = 5
+          test "$(git diff --name-only "$s" HEAD | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr943-native-witness-independent.yml tests/qa05qrc-pr943-native-witness.test.mjs | sort)"
+          test -z "$(git ls-files | grep -Ei '\.p1g$|GameAssembly\.dll$|global-metadata\.dat$|dump\.cs$|OWNER_PRIVATE' || true)"
+          echo QAC943_ORIGINAL5_QA_ONLY2_NO_PRIVATE_BYTES_PASS
+      - name: Independent exact enum and immutable archive binding
+        run: node --test tests/qa05qrc-pr943-native-witness.test.mjs
