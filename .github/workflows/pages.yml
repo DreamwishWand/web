@@ -98,6 +98,19 @@ jobs:
           test ! -e static/worker-wasm/Cargo.lock
           test "$(find static/worker-wasm -maxdepth 1 -type f | wc -l)" -eq 3
           test -z "$(git ls-files static/worker-wasm)"
+      - name: GitHub OIDC Sigstore attests the ACTUAL three Pages input bytes
+        id: asset_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            static/worker-wasm/ddv_save_core.js
+            static/worker-wasm/ddv_save_core_bg.wasm
+            static/worker-wasm/manifest.json
+      - name: Seal exact signed release identity into the trusted Worker build input
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SIGSTORE_BUNDLE: ${{ steps.asset_sigstore.outputs.bundle-path }}
+        run: node scripts/readonly-release/seal.mjs seal
       - name: Build static site
         env:
           BASE_PATH: /web
@@ -111,14 +124,7 @@ jobs:
           set -euo pipefail
           node scripts/wasm-distribution/verify-protected-release.mjs built
           test "$(find build/worker-wasm -maxdepth 1 -type f | wc -l)" -eq 3
-      - name: GitHub OIDC Sigstore attests the ACTUAL three Pages input bytes
-        id: asset_sigstore
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: |
-            static/worker-wasm/ddv_save_core.js
-            static/worker-wasm/ddv_save_core_bg.wasm
-            static/worker-wasm/manifest.json
+          node scripts/readonly-release/seal.mjs check-built
       - name: Verify all three signatures before Pages artifact upload
         env:
           GH_TOKEN: ${{ github.token }}
