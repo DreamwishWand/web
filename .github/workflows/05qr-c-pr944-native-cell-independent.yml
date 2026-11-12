@@ -1,0 +1,65 @@
+name: 05 QR-C PR944 independent Steam626 native cell QA-only
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr944-native-cell-independent.yml'
+      - 'crates/ddv-save-core/tests/qa05qrc_pr944_native_cell.rs'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 26
+    env:
+      CARGO_TARGET_DIR: /tmp/qa05qrc-pr944-rust
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Immutable Source exact blobs and QA-only two ADD
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=ee5eef788d2c68cdab5ce458a901af3508cf8bc0
+          base=a6c7447943529ee7e3532b4c2cd6596c802550d1
+          p=crates/ddv-save-core/src/spatial_reference_index.rs
+          t=crates/ddv-save-core/tests/steam_native_cardinal_layer_cells.rs
+          test "$(git merge-base "$src" HEAD)" = "$src"
+          for ref in "$src" HEAD; do
+            test "$(git rev-parse "$ref:$p")" = 4fe1db1706ec5380fa2fa3bae3fe86c56ff66529
+            test "$(git rev-parse "$ref:$t")" = ebbeb3624f50c8f06ebf436ba0cffa00edaecabf
+          done
+          test "$(git rev-parse "$base:$p")" = 0cf6bcb38fdc58c5fdd7ec59ca3f0d5a494796b5
+          test "$(git diff --name-only "$base" "$src" | sort)" = "$(printf '%s\n' "$p" "$t" | sort)"
+          test "$(git diff --name-only "$src" HEAD | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr944-native-cell-independent.yml crates/ddv-save-core/tests/qa05qrc_pr944_native_cell.rs | sort)"
+          test -z "$(git diff --name-only "$src" HEAD -- crates/ddv-save-core/src src/lib .github/workflows/pages.yml)"
+          echo QAC944_EXACT2_SOURCE_QA_ONLY2_PASS
+      - name: Independent six Rust groups
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features indexed-read --test qa05qrc_pr944_native_cell -- --nocapture
+      - name: Public Rust WASM ABI and no new writer authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features worker-wasm,indexed-read --target wasm32-unknown-unknown
+          grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          python3 - <<'PY'
+          import pathlib, subprocess
+          p=pathlib.Path('crates/ddv-save-core/src/spatial_reference_index.rs')
+          new=p.read_text().split('/// Source-only Steam v1.25.3 GridArea cell rules',1)[1]
+          assert 'not an authentic object or legal Move/Rotate' in new
+          assert 'caller\'s data can be forged' in new
+          assert 'before using the result' in new
+          assert 'writer_authorized: true' not in new
+          # No production caller for new local helpers outside their own module.
+          for name in ['steam1253_cardinal_layer_at','steam1253_layers_collide','steam1253_nonwall_cell_predicate']:
+              hits=subprocess.check_output(['git','grep','-l',name,'--','crates/ddv-save-core/src','src'],text=True).splitlines()
+              assert hits==[str(p)],(name,hits)
+          print('QAC944_LOCAL_ONLY_NO_PRODUCT_CALLER_NO_WRITER_AUTHORITY_PASS')
+          PY
