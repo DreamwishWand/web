@@ -1,0 +1,44 @@
+name: 05 QR-C PR968 independent private Avatar receipt
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr968-private-avatar.mjs'
+      - 'crates/ddv-save-core/tests/qa_pr968_private_avatar.rs'
+      - '.github/workflows/05qrc-pr968-private-avatar.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact Source ancestor and immutable original blobs
+        run: |
+          git merge-base --is-ancestor 18f4f798220afa42a5090bb7baddbaa86d46120c HEAD
+          test "$(git diff --name-only 18f4f798220afa42a5090bb7baddbaa86d46120c HEAD | wc -l)" -eq 3
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/indexed_read.rs)" = e17f2f6b7788eee72c39b772a496181ffc4e9399
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v1.rs)" = 12c16597f98674380f2ae6ae294ef1f095f643be
+          test "$(git rev-parse HEAD:tests/private-active-avatar-read.mjs)" = a6f9d71108a45cc8750e1501512926740a972443
+          test "$(git rev-parse HEAD:.github/workflows/01a-private-active-avatar-read.yml)" = a11caf097e9cd3915c57171b168ff40aa80e3ef7
+      - name: Independent Rust native scope and actual CLI
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1 --test qa_pr968_private_avatar
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1 --bin wand-local-rust-v1
+          node tests/qa/05qrc-pr968-private-avatar.mjs crates/ddv-save-core/target/debug/wand-local-rust-v1
+      - name: Public WASM isolation and forbidden native feature
+        run: |
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          if cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,private-native-v1 > /tmp/qac968-native-isolation.log 2>&1; then exit 1; fi
+          grep -F 'private-native-v1 is native-only and cannot enter WASM' /tmp/qac968-native-isolation.log
+          test -z "$(git ls-files crates/ddv-save-core/target)"
