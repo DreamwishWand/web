@@ -32,7 +32,7 @@ export async function waitForBrowserEndpoint({workspace,child,getStderr,getSpawn
  let candidate='none';
  const fail=reason=>Error('CHROME_CDP_STARTUP_'+reason+
   ' exit='+String(child.exitCode)+' signal='+String(child.signalCode)+
-  ' stderrMarkers='+startupDiagnostic(getStderr()));
+  ' candidate='+candidate+' stderrMarkers='+startupDiagnostic(getStderr()));
  while(Date.now()<end){
   if(getSpawnError())throw fail('SPAWN_ERROR');
   if(child.exitCode!==null||child.signalCode!==null)throw fail('EARLY_EXIT');
