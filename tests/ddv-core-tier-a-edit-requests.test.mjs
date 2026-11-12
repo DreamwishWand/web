@@ -210,3 +210,13 @@ test('Chest uses signed native item identities and the State field, never ItemSt
   assert.ok(p.candidate.readSet.some(x=>x.path.endsWith('/BlockMoveTo')));
   assert.equal(p.writerAuthorized,false);
 });
+
+test('Chest packaged bounds fail closed for over-cap and absent subtype; no right inferred',()=>{
+  const ch=f=>blocked(x=>{x.command=chestCommand();f(x.command)},'CHEST_PACKAGED_STACK_BOUND_UNSUPPORTED');
+  ch(c=>{c.expectedOldAmount=51;c.nextAmount=50});
+  ch(c=>{c.slotItemId=31300001});
+  ch(c=>{c.slotItemId=31400001;c.expectedOldAmount=2;c.nextAmount=1});
+  const p=plan(x=>{x.command=chestCommand();x.command.slotItemId=31700001;x.command.expectedOldAmount=99;x.command.nextAmount=98});
+  assert.equal(p.status,'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE');
+  assert.equal(p.writerAuthorized,false);
+});

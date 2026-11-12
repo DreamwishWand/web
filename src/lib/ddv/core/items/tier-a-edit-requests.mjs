@@ -4,7 +4,7 @@
  * exports a Save, and cannot validate who produced its caller-supplied inputs.
  * Real source/build/reference/entitlement proof and authority remain Rust-owned.
  */
-import {isSteam626ExistingListAmountType,steam626ItemTypeOf,STEAM626_NATIVE_FIELDS} from './steam626-native-fields.mjs';
+import {isSteam626ExistingListAmountType,steam626ItemTypeOf,STEAM626_NATIVE_FIELDS,steam626PackagedChestStackBound} from './steam626-native-fields.mjs';
 export const TIER_A_CONTRACT='wand.01d.tier-a-existing-field-request@1';
 export const TIER_A_WRITER_ENABLED=false;
 export const STEAM626=Object.freeze({
@@ -29,7 +29,7 @@ export const TIER_A_OPERATIONS=Object.freeze([
   ...[['Appearance.Change','Appearance'],['Wardrobe.Change','Wardrobe'],['OwnedSkin.Select','OwnedSkin']].map(([name,domain])=>
     Object.freeze({name,tier:'A_WAIT_EVIDENCE',field:null,shape:'STEAM626_NATIVE_SCHEMA_ONLY',
       nativeFieldPaths:Object.freeze(STEAM626_NATIVE_FIELDS.filter(x=>x.domain===domain).map(x=>x.path)),
-      semantic:'REAL_SAVE_FIELD_AND_SAME_BUILD_ALLOWED_SET_UNVERIFIED',command:null,coreOwner:'01A',
+      semantic:'PACKAGED_NATIVE_BOUNDS_KNOWN_REAL_SAVE_FIELD_AND_ACTUAL_OWNED_ALLOWED_SET_UNVERIFIED',command:null,coreOwner:'01A',
       writerAuthorized:false,requires01E:'AFTER_CONCRETE_TYPED_FIELD_EVIDENCE'}))
 ]);
 export const TIER_A_DEPENDENCIES=Object.freeze({
@@ -128,6 +128,8 @@ function requestChest({target,source,session,command}){
     return reject('CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID');
   const a=command.expectedOldAmount,b=command.nextAmount;
   if(!amount(a)||!amount(b))return reject('CHEST_SLOT_AMOUNT_BOUNDS');
+  const stackBound=steam626PackagedChestStackBound(command.slotItemId);
+  if(stackBound===null||a>stackBound||b>stackBound)return reject('CHEST_PACKAGED_STACK_BOUND_UNSUPPORTED');
   if(b>=a)return reject('CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
   const container=decimal(command.containerInventoryId),slot=decimal(command.slotIndex);
   const prefix='/Player/ContainerInventories/'+container;

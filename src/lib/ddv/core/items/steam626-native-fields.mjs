@@ -49,6 +49,52 @@ export function isSteam626ExistingListAmountType(token,itemId){
   return (token==='ItemType_ActivityItem'||token==='ItemType_Furniture')&&
     steam626ItemTypeOf(itemId)===token;
 }
+
+// Derived only from the SHA-pinned private same-build packaged data; no asset bytes.
+// Live overrides, actual ItemDB membership, ownership and session legality remain Core-owned.
+export const STEAM626_PACKAGED_NATIVE_DATA=Object.freeze({
+  protoDbSha256:'1912bb552abddac8b112fa5a781a0401672add38a62276d6c9174db39b899ae1',
+  stackEntrySha256:'fab3a692d5e54bb2a03695b241600f0018a8918571759cbf193c6eec88c3deaa',
+  resourcesSha256:'7ecdb997d1bc2f451b5609bdc26292fd5f390a27c524da12ec9f14b60a395b29',
+  avatarBundleSha256:'d5d12176081a598ed87352ccb4dc90833238b6b89c2317192daf7aebcda4b60d',
+  catalogCounts:Object.freeze({ActivityItem:3716,Furniture:6233,Clothing:1900,AvatarFeature:43,Skin:146,Makeup:67}),
+  packagedItemStackExceptions:0,writerAuthorized:false
+});
+export const STEAM626_PACKAGED_STACK_BY_ACTIVITY_SUBTYPE=Object.freeze({
+  0:50,2:50,3:50,4:50,8:50,10:50,11:50,12:99,14:1,15:50,16:50,17:99,18:50,19:50
+});
+export const STEAM626_PACKAGED_AVATAR_COUNTS=Object.freeze({
+  BodyType:6,FaceType:8,SkinColorIndex:30,HairColorIndex:90,HairHighlightColor:90,
+  EyeColorIndex:75,MakeupColorIndex:75,DefaultSkinCategory:17,MonsterSkinCategory:13
+});
+export const STEAM626_NATIVE_SKIN_TARGETS=Object.freeze({
+  Character:Object.freeze({subtype:0,definitionField:'CharacterItemID',fieldNumber:10}),
+  Castle:Object.freeze({subtype:3,definitionField:'SkinAssetType',fieldNumber:6,value:0}),
+  Plaza:Object.freeze({subtype:3,definitionField:'SkinAssetType',fieldNumber:6,value:1}),
+  Mount:Object.freeze({subtype:4,definitionField:'MountItemID',fieldNumber:10})
+});
+// Same-build typed subitems divide the ID remainder by 10^5. This is
+// classification only, not existence or compatibility with a specific target.
+export function steam626NativeSubItemType(itemId){
+  if(!steam626ItemTypeOf(itemId))return null;
+  return Math.floor((itemId%10000000)/100000);
+}
+export function steam626PackagedChestStackBound(itemId){
+  if(steam626ItemTypeOf(itemId)!=='ItemType_ActivityItem')return null;
+  const subtype=steam626NativeSubItemType(itemId);
+  return Object.hasOwn(STEAM626_PACKAGED_STACK_BY_ACTIVITY_SUBTYPE,subtype)
+    ?STEAM626_PACKAGED_STACK_BY_ACTIVITY_SUBTYPE[subtype]:null;
+}
+// A conservative source-only nonnegative index check, not a right to equip.
+// Monster skin indices deliberately excluded; no negative/sentinel support.
+export function isSteam626PackagedAvatarIndex(field,index){
+  if(typeof field!=='string'||!Object.hasOwn(STEAM626_PACKAGED_AVATAR_COUNTS,field)||
+    field==='DefaultSkinCategory'||field==='MonsterSkinCategory'||
+    !Number.isSafeInteger(index)||index<0)return false;
+  return index<(field==='SkinColorIndex'?STEAM626_PACKAGED_AVATAR_COUNTS.DefaultSkinCategory:
+    STEAM626_PACKAGED_AVATAR_COUNTS[field]);
+}
+
 const field=(domain,path,type,fieldNumber,limit,saveShape='NATIVE_SCHEMA_ONLY')=>Object.freeze({
   domain,path,type,fieldNumber,limit,saveShape,writerAuthorized:false
 });
@@ -67,14 +113,14 @@ export const STEAM626_NATIVE_FIELDS=Object.freeze([
   field('Chest','/Player/ContainerInventories/{containerId}/ParentItemID','nullable int32',6,'RESOLVE_ACTUAL_PARENT_AND_ACTIVE_REFS'),
   field('Chest','/Player/ContainerInventories/{containerId}/ExtraSize','int32',7,'SIZE_WITHOUT_EXTRAS_EQUALS_SIZE_MINUS_EXTRA_SIZE'),
   field('Appearance','/Player/AvatarIsMale','bool',14,'SELECT_EXISTING_AVATAR_NO_GENDER_CHANGE'),
-  field('Appearance',avatar+'/BodyType','int32',8,'SAME_GENDER_AVATAR_CONFIG_BODY_TYPES'),
-  field('Appearance',avatar+'/SkinColorIndex','int32',4,'SAME_BUILD_SKIN_CONFIG'),
-  field('Appearance',avatar+'/HairColorIndex','int32',6,'SAME_BUILD_HAIR_COLOR_CONFIG'),
-  field('Appearance',avatar+'/HairHighlightColor','int32',7,'SAME_BUILD_HIGHLIGHT_COLOR_CONFIG'),
-  field('Appearance',avatar+'/FaceType/{facePart}','map<uint32,int32>',9,'FACE_PART_0_TO_3_AND_CONFIG_INDEX'),
+  field('Appearance',avatar+'/BodyType','int32',8,'PACKAGED_0_TO_5_BOTH_GENDERS_CORE_ALLOWED_SET_REQUIRED'),
+  field('Appearance',avatar+'/SkinColorIndex','int32',4,'PACKAGED_0_TO_29_DEFAULT_0_TO_16_ONLY_CANDIDATE_CORE_ALLOWED_SET_REQUIRED'),
+  field('Appearance',avatar+'/HairColorIndex','int32',6,'PACKAGED_0_TO_89_CORE_ALLOWED_SET_REQUIRED'),
+  field('Appearance',avatar+'/HairHighlightColor','int32',7,'PACKAGED_0_TO_89_CORE_ALLOWED_SET_REQUIRED'),
+  field('Appearance',avatar+'/FaceType/{facePart}','map<uint32,int32>',9,'FACE_PART_0_TO_3_AND_PACKAGED_INDEX_0_TO_7_CORE_ALLOWED_SET_REQUIRED'),
   field('Appearance',avatar+'/Eyeball/EyeballItemID','int32',1,'AVATAR_FEATURE_EYEBALL_AND_OWNED'),
-  ...[1,2,3].map(n=>field('Appearance',avatar+'/Eyeball/ColorIndex'+n,'int32',n+1,'SAME_BUILD_EYE_COLOR_CONFIG')),
-  field('Appearance',avatar+'/Makeup/{slot}','map<uint32,Makeup>',10,'OWNED_MAKEUP_AND_PALETTE'),
+  ...[1,2,3].map(n=>field('Appearance',avatar+'/Eyeball/ColorIndex'+n,'int32',n+1,'PACKAGED_0_TO_74_CORE_ALLOWED_SET_REQUIRED')),
+  field('Appearance',avatar+'/Makeup/{slot}','map<uint32,Makeup>',10,'OWNED_MAKEUP_AND_PACKAGED_PALETTE_0_TO_74_CORE_ALLOWED_SET_REQUIRED'),
   field('Wardrobe',avatar+'/Clothes/{clothingSlot}','map<uint32,int32>',2,'SLOT_0_TO_17_AND_ACTUAL_OWNED_COMPATIBLE_CLOTHING'),
   field('Wardrobe',avatar+'/IncompatibleClothes/{clothingSlot}','map<uint32,int32>',3,'PRESERVE_NATIVE_CONFLICTS'),
   field('Wardrobe',avatar+'/ClothingCustomization/{itemId}','map<int32,int32>',11,'PRESERVE_DESIGN_REFERENCE'),
@@ -86,7 +132,7 @@ export const STEAM626_NATIVE_FIELDS=Object.freeze([
 export const STEAM626_NATIVE_QUANTITY_RULES=Object.freeze({
   listZero:'NATIVE_REMOVE_SUBTRACTS_EXISTING_AMOUNT_RETAINS_KEY_AND_MARKER',
   chestZero:'NATIVE_REMOVE_RESETS_AMOUNT_ITEM_ID_AND_STATE_AT_ZERO',
-  chestStack:'ITEM_EXCEPTION_BEFORE_ACTIVITY_SUBTYPE; SAME_BUILD_STACK_DATA_REQUIRED',
+  chestStack:'ITEM_EXCEPTION_BEFORE_ACTIVITY_SUBTYPE; PACKAGED_STACK_CONFIRMED; LIVE_TARGET_AND_CONFIG_REQUIRED',
   chestCapacity:'SIZE_MINUS_EXTRA_SIZE; NATIVE_GET_SLOT_CAN_MATERIALIZE',
   devBounds:'POSITIVE_DECREASE_1_TO_9999_NOT_NATIVE_CAP',
   nativeV3Accepted:false,writerAuthorized:false,
