@@ -1,0 +1,44 @@
+name: 05 QR-C PR917 independent repaired Native enum String QA
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr917-native-enum-string-independent.yml'
+      - 'tests/qa05qrc-pr917/**'
+permissions:
+  contents: read
+jobs:
+  qac917:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact Source four ADD and immutable old and accepted contract blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=72e0a66129833e1dec443b702916b5272501589f
+          test "$(git merge-base "$src" HEAD)" = "$src"
+          test "$(git rev-parse HEAD:src/lib/ddv/native/operation-native-static-gate.mjs)" = a6549d3976f3e1352ffd1868805dcb410b376f3a
+          test "$(git rev-parse HEAD:src/lib/ddv/native/operation-native-static-gate.d.mts)" = 6401d5f302cc6d46f5f7139cf8d83119fdced10b
+          test "$(git rev-parse HEAD:tests/01e-native-operation-static-gate.test.mjs)" = 822eaf659bdd88adf4d40b9ea90b3ec5093342ad
+          test "$(git rev-parse HEAD:docs/core/01e-native-operation-static-tier-handoff-20261111.md)" = c467ec158db1c2318e2713baf72de3115197a118
+          got="$(git diff --name-only "$src" HEAD | sort)"
+          want="$(printf '%s\n' .github/workflows/05qr-c-pr917-native-enum-string-independent.yml tests/qa05qrc-pr917/independent.mjs | sort)"
+          test "$got" = "$want"
+          test -z "$(git diff --name-only "$src" HEAD -- src crates docs)"
+          test -z "$(git ls-files | grep -Ei '\.p1g$|STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE' || true)"
+          echo QAC917_ORIGINAL4_QA_ONLY2_NO_PRIVATE_SAVE_PASS
+      - name: Execute old numeric mismatch and new String exact accepted 01D 01A contract negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/qa05qrc-pr917/independent.mjs
+          node --test tests/qa05qrc-pr917/independent.mjs
+          echo QAC917_OLD_NUMERIC_REPRO_FIXED_STRING_AND_UNTRUSTED_AUTHORITY_PASS
