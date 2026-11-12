@@ -1,0 +1,55 @@
+name: 05 QR-C PR922 independent doc provenance repair
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr922-doc-repair-independent.yml'
+      - 'tests/qa05qrc-pr922-doc-repair.test.mjs'
+permissions:
+  contents: read
+jobs:
+  qac922-doc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Original child3 and QA-only2 exact scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          s=497b3aae429942d5bc73ac9f592e0adf640fd292
+          q=2fe8f66804420481ef63146b9fda7978e0209c6c
+          test "$(git merge-base "$s" HEAD)" = "$s"
+          test "$(git diff --name-only "$s" HEAD | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr922-doc-repair-independent.yml tests/qa05qrc-pr922-doc-repair.test.mjs | sort)"
+          test "$(git rev-parse "$q:tests/qa05qrc-pr922-child-closure.test.mjs")" = 843b94ac70154e8d9f4d2080744a6c6cc6181c64
+          test -z "$(git ls-files | grep -Ei '\.p1g$|OWNER_PRIVATE|PRIVATE_DECODED' || true)"
+          echo QAC922_DOC_SOURCE3_QA_ONLY2_PASS
+      - name: Exact historical failing test only, then repaired assertion and provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          q=2fe8f66804420481ef63146b9fda7978e0209c6c
+          d="$(mktemp -d)"
+          git worktree add --detach "$d/old" "$q"
+          trap 'git worktree remove --force "$d/old"; rm -rf "$d"' EXIT
+          set +e
+          (cd "$d/old"; node --test --test-name-pattern='^child documentation pins accepted repaired parent, not historical TRUE_RED parent$' tests/qa05qrc-pr922-child-closure.test.mjs) >"$d/old.log" 2>&1
+          rc=$?
+          set -e
+          cat "$d/old.log"
+          test "$rc" = 1
+          grep -F 'provenance must pin repaired PR919 Source' "$d/old.log"
+          grep -F '# fail 1' "$d/old.log"
+          echo QAC922_EXACT_OLD_DOC_FAILURE_REPRODUCED
+          git show "$q:tests/qa05qrc-pr922-child-closure.test.mjs" > tests/qa05qrc-pr922-doc-original-repro.mjs
+          node --test --test-name-pattern='^child documentation pins accepted repaired parent, not historical TRUE_RED parent$' tests/qa05qrc-pr922-doc-original-repro.mjs
+          rm tests/qa05qrc-pr922-doc-original-repro.mjs
+          node --test tests/qa05qrc-pr922-doc-repair.test.mjs
+          test -z "$(git diff --name-only)"
+          echo QAC922_REPAIRED_DOC_ONLY_OLD_RUNTIME_REUSED_PASS
