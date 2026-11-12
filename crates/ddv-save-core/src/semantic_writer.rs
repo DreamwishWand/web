@@ -384,3 +384,461 @@ impl ProductSession{
         Ok(output)
     }
 }
+
+
+// R03/R08: Core-owned existing amount target witnesses. Selection is not
+// authority. The legacy private research Writer remains unchanged; this new
+// boundary must be used by a future product Worker only after its own QA.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum ExistingAmountSelection {
+    Inventory { inventory_id:u32, item_id:u32 },
+    Chest { container_id:u32, slot_index:usize },
+}
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum ExistingAmountItemType { ActivityItem=3, Furniture=4 }
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct ExistingChestFacts {
+    pub parent_item_id:i32,
+    pub belongs_to_player:bool,
+    pub size:u32,
+    pub extra_size:u32,
+    pub block_move_to:bool,
+    pub physical_slot_count:usize,
+    pub state_sha256:[u8;32],
+    /// Source-only packaged bound, not the live ItemDB/ContainerStackData.
+    pub packaged_stack_bound:u32,
+}
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct ExistingAmountTargetView {
+    pub selection:ExistingAmountSelection,
+    pub session_id:[u8;16],
+    pub revision:u64,
+    pub index_generation:u64,
+    pub decoded_sha256:[u8;32],
+    pub item_id:i32,
+    pub old_amount:u32,
+    pub compatible_item_type:ExistingAmountItemType,
+    pub entry_sha256:[u8;32],
+    pub chest:Option<ExistingChestFacts>,
+}
+/// Opaque source witness: no public constructor, Deserialize, mutable view,
+/// caller-supplied catalog evidence, or capability to authorize a mutation.
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct CoreExistingAmountTarget { view:ExistingAmountTargetView }
+impl CoreExistingAmountTarget {
+    pub fn view(&self)->&ExistingAmountTargetView { &self.view }
+}
+/// Separate Rust-only capability. No production mint exists until a trusted
+/// same-build catalog/rights/variation/reference provider is integrated.
+/// A source witness alone must never become this capability. The requested
+/// new amount is sealed together with the source snapshot.
+///
+/// ```compile_fail
+/// use ddv_save_core::{AuthorizedExistingAmountTarget,CoreExistingAmountTarget};
+/// fn forge(target:CoreExistingAmountTarget)->AuthorizedExistingAmountTarget {
+///     AuthorizedExistingAmountTarget{target,new_amount:1}
+/// }
+/// ```
+#[derive(Debug)]
+pub struct AuthorizedExistingAmountTarget {
+    target:CoreExistingAmountTarget,
+    new_amount:u32,
+}
+
+fn native_amount_type(id:u32)->CoreResult<ExistingAmountItemType>{
+    if id==0||id>i32::MAX as u32 {
+        return Err(denied("AMOUNT_NATIVE_SIGNED_ID_REQUIRED"));
+    }
+    match id/10_000_000 {
+        3=>Ok(ExistingAmountItemType::ActivityItem),
+        4=>Ok(ExistingAmountItemType::Furniture),
+        _=>Err(denied("AMOUNT_NATIVE_TYPE_NOT_ALLOWED")),
+    }
+}
+fn native_type_token(t:ExistingAmountItemType)->&'static str {
+    match t {
+        ExistingAmountItemType::ActivityItem=>"ItemType_ActivityItem",
+        ExistingAmountItemType::Furniture=>"ItemType_Furniture",
+    }
+}
+fn saved_item_id(bytes:&[u8],span:Span)->CoreResult<u32>{
+    let value=number(bytes,span)?;
+    if value==0||value>i32::MAX as u64 {
+        return Err(denied("AMOUNT_NATIVE_SIGNED_ID_REQUIRED"));
+    }
+    Ok(value as u32)
+}
+fn saved_positive_amount(bytes:&[u8],span:Span)->CoreResult<u32>{
+    let amount=number(bytes,span)?;
+    // Need at least one permitted positive decrease. This is a conservative
+    // DEV limit, not a Native stack maximum.
+    if amount<2||amount>MAX_CONSERVATIVE_AMOUNT{
+        return Err(denied("AMOUNT_NO_POSITIVE_DECREASE"));
+    }
+    Ok(amount as u32)
+}
+fn physical_slots(bytes:&[u8],span:Span)->CoreResult<usize>{
+    if bytes.get(span.begin)!=Some(&b'[')||
+       bytes.get(span.end.saturating_sub(1))!=Some(&b']'){
+        return Err(denied("AMOUNT_SLOT_ARRAY_REQUIRED"));
+    }
+    let mut pos=indexed_read::skip_ws(bytes,span.begin+1);
+    if pos==span.end-1{return Ok(0);}
+    let mut count=0;
+    loop {
+        if count==MAX_CONTAINER_SLOTS||pos>=span.end-1{
+            return Err(denied("AMOUNT_SLOT_COUNT_BOUNDS"));
+        }
+        let end=indexed_read::value_end(bytes,pos)?;
+        if end>=span.end{return Err(denied("AMOUNT_SLOT_SPAN_BOUNDS"));}
+        count+=1;
+        pos=indexed_read::skip_ws(bytes,end);
+        match bytes.get(pos){
+            Some(b']') if pos==span.end-1=>return Ok(count),
+            Some(b',')=>pos=indexed_read::skip_ws(bytes,pos+1),
+            _=>return Err(denied("AMOUNT_SLOT_ARRAY_INVALID")),
+        }
+    }
+}
+fn packaged_activity_bound(id:u32)->CoreResult<u32>{
+    // E1202 SOURCE_ONLY: ActivityItem subtype is local-id / 10^5,
+    // never a top-level ItemType. No cap for absent subtype 13.
+    match (id%10_000_000)/100_000 {
+        0|2|3|4|8|10|11|15|16|18|19=>Ok(50),
+        12|17=>Ok(99),
+        14=>Ok(1),
+        _=>Err(denied("AMOUNT_CHEST_PACKAGED_SUBTYPE_UNKNOWN")),
+    }
+}
+fn observe_existing_amount(s:&ProductSession,e:&WorkerEnvelope,selection:ExistingAmountSelection)
+    ->CoreResult<CoreExistingAmountTarget>{
+    let bytes=&s.decoded;
+    let player=indexed_read::roots(bytes)?.player;
+    let (item_id,item_type,entry,old_amount,chest)=match selection {
+        ExistingAmountSelection::Inventory{inventory_id,item_id}=>{
+            valid_id(inventory_id)?;
+            let item_type=native_amount_type(item_id)?;
+            let lists=object_field(bytes,player,"ListInventories")?;
+            let record=object_field(bytes,lists,&inventory_id.to_string())?;
+            positive_id_field(bytes,record,"ID",inventory_id)?;
+            // Exact Native enum token, not the old generic ItemType_ prefix.
+            let saved_type=object_field(bytes,record,"CompatibleItemType")?;
+            compatible_type(bytes,saved_type,native_type_token(item_type))?;
+            let items=object_field(bytes,record,"Inventory")?;
+            let entry=object_field(bytes,items,&item_id.to_string())?;
+            let old=saved_positive_amount(bytes,object_field(bytes,entry,"Amount")?)?;
+            (item_id,item_type,entry,old,None)
+        }
+        ExistingAmountSelection::Chest{container_id,slot_index}=>{
+            valid_id(container_id)?;
+            let containers=object_field(bytes,player,"ContainerInventories")?;
+            let record=object_field(bytes,containers,&container_id.to_string())?;
+            positive_id_field(bytes,record,"ID",container_id)?;
+            raw_boolean_true(bytes,object_field(bytes,record,"BelongsToPlayer")?)?;
+            let block=object_field(bytes,record,"BlockMoveTo")?;
+            // Conservative existing unmoved container subset: unknown/true
+            // is not a claim of Native illegality, but is not eligible here.
+            if bytes.get(block.begin..block.end)!=Some(&b"false"[..]){
+                return Err(denied("AMOUNT_CHEST_BLOCK_MOVE_UNVERIFIED"));
+            }
+            let parent=saved_item_id(bytes,object_field(bytes,record,"ParentItemID")?)?;
+            if native_amount_type(parent)?!=ExistingAmountItemType::Furniture{
+                return Err(denied("AMOUNT_CHEST_FURNITURE_PARENT_REQUIRED"));
+            }
+            let size=number(bytes,object_field(bytes,record,"Size")?)?;
+            let extra=number(bytes,object_field(bytes,record,"ExtraSize")?)?;
+            if size==0||size>MAX_CONTAINER_SLOTS as u64||extra>size{
+                return Err(denied("AMOUNT_CHEST_CAPACITY_INVALID"));
+            }
+            let slots=object_field(bytes,record,"Inventory")?;
+            let count=physical_slots(bytes,slots)?;
+            if count!=size as usize||slot_index>=(size-extra) as usize{
+                return Err(denied("AMOUNT_CHEST_SLOT_OR_CAPACITY_MISMATCH"));
+            }
+            let entry=array_element(bytes,slots,slot_index)?;
+            let item_id=saved_item_id(bytes,object_field(bytes,entry,"ItemID")?)?;
+            let item_type=native_amount_type(item_id)?;
+            if item_type!=ExistingAmountItemType::ActivityItem{
+                return Err(denied("AMOUNT_CHEST_ACTIVITY_ITEM_REQUIRED"));
+            }
+            let state=object_field(bytes,entry,"State")?;
+            // Only explicitly saved empty object in this narrow candidate
+            // subset. Unknown/nonempty oneof, null or missing State cannot
+            // prove canonical variation or State equivalence.
+            if bytes.get(state.begin)!=Some(&b'{')||
+               indexed_read::skip_ws(bytes,state.begin+1)!=state.end-1||
+               bytes.get(state.end-1)!=Some(&b'}'){
+                return Err(denied("AMOUNT_CHEST_STATE_UNRESOLVED"));
+            }
+            let old=saved_positive_amount(bytes,object_field(bytes,entry,"Amount")?)?;
+            let bound=packaged_activity_bound(item_id)?;
+            if old>bound{return Err(denied("AMOUNT_CHEST_PACKAGED_BOUND_EXCEEDED"));}
+            (item_id,item_type,entry,old,Some(ExistingChestFacts{
+                parent_item_id:parent as i32,belongs_to_player:true,size:size as u32,
+                extra_size:extra as u32,block_move_to:false,physical_slot_count:count,
+                state_sha256:sha(&bytes[state.begin..state.end]),packaged_stack_bound:bound,
+            }))
+        }
+    };
+    Ok(CoreExistingAmountTarget{view:ExistingAmountTargetView{
+        selection,session_id:e.session_id,revision:e.expected_revision,
+        index_generation:e.expected_index_generation,decoded_sha256:s.sha,
+        item_id:item_id as i32,old_amount,compatible_item_type:item_type,
+        entry_sha256:sha(&bytes[entry.begin..entry.end]),chest,
+    }})
+}
+fn validate_target_snapshot(s:&ProductSession,e:&WorkerEnvelope,target:&CoreExistingAmountTarget)
+    ->CoreResult<()>{
+    let current=observe_existing_amount(s,e,target.view.selection)?;
+    if current!=*target{return Err(denied("AMOUNT_TARGET_SCOPE_OR_WITNESS_CAS"));}
+    Ok(())
+}
+fn command_from_target(target:&CoreExistingAmountTarget,new_amount:u32)
+    ->CoreResult<TypedSemanticCommand>{
+    let v=&target.view;
+    valid_amount_decrease(v.old_amount,new_amount)?;
+    Ok(match v.selection {
+        ExistingAmountSelection::Inventory{inventory_id,item_id}=>
+            TypedSemanticCommand::InventoryExistingAmountDecrease{
+                inventory_id,canonical_item_id:item_id,
+                expected_compatible_item_type:native_type_token(v.compatible_item_type).into(),
+                expected_old_amount:v.old_amount,new_amount,
+            },
+        ExistingAmountSelection::Chest{container_id,slot_index}=>
+            TypedSemanticCommand::ChestExistingSlotAmountDecrease{
+                container_id,slot_index,expected_item_id:v.item_id as u32,
+                expected_old_amount:v.old_amount,new_amount,
+            },
+    })
+}
+impl ProductSession {
+    /// Read an actual existing target under the same Session mutex. Selectors
+    /// are merely lookups, never trusted proof. No raw document/state export.
+    pub fn read_existing_amount_target(&self,e:WorkerEnvelope,selection:ExistingAmountSelection)
+        ->CoreResult<CoreExistingAmountTarget>{
+        build_check(self)?;
+        let st=self.lock()?;
+        indexed_read::validate_scope(self,&st,&e)?;
+        observe_existing_amount(self,&e,selection)
+    }
+    /// Native source evidence is not an authentic per-target catalog, rights,
+    /// canonical variation, active reference or subscriber closure. No caller
+    /// can supply a boolean, hash, registry, or callback as authority here.
+    pub fn authorize_existing_amount_target(&self,e:WorkerEnvelope,target:&CoreExistingAmountTarget,
+        new_amount:u32)->CoreResult<AuthorizedExistingAmountTarget>{
+        build_check(self)?;
+        let st=self.lock()?;
+        indexed_read::validate_scope(self,&st,&e)?;
+        validate_target_snapshot(self,&e,target)?;
+        // Validate the exact requested next amount before any future authority
+        // lookup. The sealed capability binds this amount, never a range.
+        let _=command_from_target(target,new_amount)?;
+        Err(denied("AMOUNT_TARGET_NATIVE_AUTHORITY_UNAVAILABLE"))
+    }
+    /// Future DEV-only trusted capability route. No public mint yet. Verify
+    /// each snapshot again, then reuse the existing atomic Writer/CAS ledger.
+    /// No new Session, executor, JSON rebuild, or Worker/Codec ABI.
+    pub fn stage_core_minted_amount_batch(&self,e:WorkerEnvelope,
+        requests:&[AuthorizedExistingAmountTarget])
+        ->CoreResult<SemanticStageReceipt>{
+        build_check(self)?;
+        if requests.is_empty()||requests.len()>MAX_TX_COMMANDS{
+            return Err(denied("SEMANTIC_BATCH_BOUNDS"));
+        }
+        let commands={
+            let st=self.lock()?;
+            check(self,&st,&e,WorkerAction::Stage)?;
+            if st.semantic.is_some(){return Err(denied("SEMANTIC_STAGE_ALREADY_EXISTS"));}
+            let mut commands=Vec::with_capacity(requests.len());
+            for grant in requests{
+                validate_target_snapshot(self,&e,&grant.target)?;
+                commands.push(command_from_target(&grant.target,grant.new_amount)?);
+            }
+            commands
+        };
+        // The existing Writer performs duplicate/overlap checks, exact
+        // old-token CAS, full document validation and final locked epoch CAS.
+        self.stage_typed_semantic_batch(e,&commands)
+    }
+}
+
+#[cfg(test)]
+mod minted_amount_target_tests {
+    use super::*;
+    use crate::{BuildIdentity,SessionReceipt};
+    use serde_json::{json,Value};
+    fn doc()->Value{
+        json!({"GameInfo":{"Version":626},"World":{},"Player":{
+            "ListInventories":{"4":{"ID":4,"CompatibleItemType":"ItemType_ActivityItem",
+                "Inventory":{"30000001":{"Amount":50,"Marker":"Keep"},"30000002":{"Amount":2}}}},
+            "ContainerInventories":{"12":{"ID":12,"ParentItemID":40000047,
+                "BelongsToPlayer":true,"BlockMoveTo":false,"Size":2,"ExtraSize":0,
+                "Inventory":[{"ItemID":30000002,"Amount":12,"State":{},"Unknown":7},
+                             {"ItemID":0,"Amount":0}]}}
+        },"Unknown":{"Preserve":true}})
+    }
+    fn open(v:&Value)->ProductSession{
+        ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),BuildIdentity{
+            platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+            build_id:EXACT_STEAM.into(),schema:626,externally_attested:true,
+        }).unwrap()
+    }
+    fn scope(r:SessionReceipt,action:WorkerAction)->WorkerEnvelope{
+        WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
+            expected_revision:r.revision,expected_index_generation:r.index_generation,
+            expected_decoded_sha256:r.decoded_sha256,action}
+    }
+    fn inv()->ExistingAmountSelection{
+        ExistingAmountSelection::Inventory{inventory_id:4,item_id:30000001}
+    }
+    fn chest()->ExistingAmountSelection{
+        ExistingAmountSelection::Chest{container_id:12,slot_index:0}
+    }
+    fn read(s:&ProductSession,sel:ExistingAmountSelection)->CoreResult<CoreExistingAmountTarget>{
+        s.read_existing_amount_target(scope(s.receipt().unwrap(),WorkerAction::ReadDomain),sel)
+    }
+    #[test]
+    fn minted_real_saved_values_not_caller_authority(){
+        let s=open(&doc());
+        let i=read(&s,inv()).unwrap();
+        let c=read(&s,chest()).unwrap();
+        assert_eq!(i.view().item_id,30000001);
+        assert_eq!(i.view().old_amount,50);
+        assert_eq!(i.view().compatible_item_type as u32,3);
+        assert_eq!(c.view().old_amount,12);
+        let facts=c.view().chest.unwrap();
+        assert_eq!(facts.parent_item_id,40000047);
+        assert_eq!(facts.physical_slot_count,2);
+        assert_eq!(facts.state_sha256,sha(b"{}"));
+        let e=scope(s.receipt().unwrap(),WorkerAction::ReadDomain);
+        assert_eq!(s.authorize_existing_amount_target(e,&i,49).unwrap_err().0,
+            "AMOUNT_TARGET_NATIVE_AUTHORITY_UNAVAILABLE");
+        assert!(s.authorize_existing_amount_target(e,&c,11).is_err());
+        for amount in [0,50,51]{
+            assert_eq!(s.authorize_existing_amount_target(e,&i,amount).unwrap_err().0,
+                "SEMANTIC_EXISTING_POSITIVE_DECREASE_ONLY");
+        }
+        let mut forged=doc();
+        forged["Player"]["CatalogAuthority"]=json!({"verified":true,"rights":true,"itemId":30000001});
+        let forged_session=open(&forged);
+        let forged_target=read(&forged_session,inv()).unwrap();
+        assert_eq!(forged_session.authorize_existing_amount_target(
+            scope(forged_session.receipt().unwrap(),WorkerAction::ReadDomain),&forged_target,49)
+            .unwrap_err().0,"AMOUNT_TARGET_NATIVE_AUTHORITY_UNAVAILABLE");
+        assert_eq!(s.receipt().unwrap().revision,0);
+    }
+    #[test]
+    fn exact_native_enum_signed_id_and_type_rejections(){
+        for token in ["ItemType_Ingredient","ActivityItemType_Ingredient","ItemType_Furniture",
+                      "ItemType_Entitlement","ItemType_Currency","ItemType_ActivityItemFake"]{
+            let mut v=doc();v["Player"]["ListInventories"]["4"]["CompatibleItemType"]=json!(token);
+            assert!(read(&open(&v),inv()).is_err(),"{token}");
+        }
+        for id in [0,1,40000047,80000001,2147483648,u32::MAX]{
+            let mut v=doc();
+            v["Player"]["ListInventories"]["4"]["Inventory"][id.to_string()]=json!({"Amount":50});
+            assert!(read(&open(&v),ExistingAmountSelection::Inventory{
+                inventory_id:4,item_id:id}).is_err(),"{id}");
+        }
+        let mut v=doc();
+        v["Player"]["ListInventories"]["4"]["CompatibleItemType"]=json!("ItemType_Furniture");
+        v["Player"]["ListInventories"]["4"]["Inventory"]["40000047"]=json!({"Amount":5});
+        let s=open(&v);
+        assert_eq!(read(&s,ExistingAmountSelection::Inventory{inventory_id:4,item_id:40000047})
+            .unwrap().view().compatible_item_type as u32,4);
+        for amount in [json!(0),json!(1),json!(-1),json!(10000),json!("50"),json!(2.5)]{
+            let mut v=doc();v["Player"]["ListInventories"]["4"]["Inventory"]["30000001"]["Amount"]=amount;
+            assert!(read(&open(&v),inv()).is_err());
+        }
+    }
+    #[test]
+    fn chest_actual_structure_fail_closed(){
+        for (key,value) in [("ParentItemID",json!(30000001)),("ParentItemID",json!(2147483648u64)),
+            ("ParentItemID",Value::Null),("BelongsToPlayer",json!(false)),
+            ("BlockMoveTo",json!(true)),("BlockMoveTo",json!("false")),("Size",json!(3)),
+            ("Size",json!(257)),("ExtraSize",json!(3)),("ExtraSize",json!(2)),("ExtraSize",json!(-1)),
+            ("ID",json!(13))] {
+            let mut v=doc();v["Player"]["ContainerInventories"]["12"][key]=value;
+            assert!(read(&open(&v),chest()).is_err(),"{key}");
+        }
+        for key in ["State","ItemID","Amount"]{
+            let mut v=doc();
+            v["Player"]["ContainerInventories"]["12"]["Inventory"][0].as_object_mut().unwrap().remove(key);
+            assert!(read(&open(&v),chest()).is_err(),"{key}");
+        }
+        for (key,value) in [("State",json!({"Unknown":1})),("State",Value::Null),
+            ("State",json!([])),("ItemID",json!(40000047)),("ItemID",json!(-1)),
+            ("ItemID",json!(31300001)),("Amount",json!(51)),("Amount",json!(0))]{
+            let mut v=doc();v["Player"]["ContainerInventories"]["12"]["Inventory"][0][key]=value;
+            assert!(read(&open(&v),chest()).is_err(),"{key}");
+        }
+        // A physical 257th slot must not be hidden by a 256-slot accessor.
+        let mut v=doc();
+        v["Player"]["ContainerInventories"]["12"]["Size"]=json!(256);
+        v["Player"]["ContainerInventories"]["12"]["Inventory"]=json!(vec![json!({"ItemID":30000002,"Amount":12,"State":{}});257]);
+        assert!(read(&open(&v),chest()).is_err());
+        assert!(read(&open(&doc()),ExistingAmountSelection::Chest{container_id:12,slot_index:2}).is_err());
+    }
+    #[test]
+    fn session_epoch_and_snapshot_cas_no_caller_catalog(){
+        let s=open(&doc());let t=read(&s,inv()).unwrap();
+        let r=s.receipt().unwrap();let e=scope(r,WorkerAction::ReadDomain);
+        let other=open(&doc());
+        assert!(other.authorize_existing_amount_target(scope(other.receipt().unwrap(),WorkerAction::ReadDomain),&t,49).is_err());
+        let mut stale=e;stale.expected_revision+=1;
+        assert!(s.read_existing_amount_target(stale,inv()).is_err());
+        stale=e;stale.expected_index_generation+=1;
+        assert!(s.authorize_existing_amount_target(stale,&t,49).is_err());
+        stale=e;stale.expected_decoded_sha256[0]^=1;
+        assert!(s.read_existing_amount_target(stale,inv()).is_err());
+        stale=e;stale.action=WorkerAction::Stage;
+        assert!(s.read_existing_amount_target(stale,inv()).is_err());
+        let mut fake=t.clone();fake.view.old_amount=49;
+        assert!(s.authorize_existing_amount_target(e,&fake,49).is_err());
+        let mut fake=t.clone();fake.view.entry_sha256[0]^=1;
+        assert!(s.authorize_existing_amount_target(e,&fake,49).is_err());
+        s.close().unwrap();
+        assert!(s.read_existing_amount_target(e,inv()).is_err());
+        let sw=ProductSession::open_decoded_readonly(serde_json::to_vec(&doc()).unwrap(),BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+            build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true,
+        }).unwrap();
+        assert!(read(&sw,inv()).is_err());
+    }
+    // Synthetic capability construction ONLY inside this unit test module.
+    // Production authorize_existing_amount_target cannot mint one.
+    fn synthetic_grant(s:&ProductSession,sel:ExistingAmountSelection,new_amount:u32)->AuthorizedExistingAmountTarget{
+        AuthorizedExistingAmountTarget{target:read(s,sel).unwrap(),new_amount}
+    }
+    #[test]
+    fn synthetic_sealed_capability_reuses_atomic_writer_undo_redo_export(){
+        let v=doc();let s=open(&v);let r=s.receipt().unwrap();
+        let e=scope(r,WorkerAction::Stage);
+        let dup=[synthetic_grant(&s,inv(),49),synthetic_grant(&s,inv(),48)];
+        assert!(s.stage_core_minted_amount_batch(e,&dup).is_err());
+        for amount in [0,50,51]{
+            assert!(s.stage_core_minted_amount_batch(e,&[synthetic_grant(&s,inv(),amount)]).is_err());
+        }
+        let other=open(&v);
+        assert!(s.stage_core_minted_amount_batch(e,&[synthetic_grant(&other,inv(),49)]).is_err());
+        let requests=[synthetic_grant(&s,inv(),49),synthetic_grant(&s,chest(),11)];
+        let receipt=s.stage_core_minted_amount_batch(e,&requests).unwrap();
+        assert_eq!(receipt.exact_field_changed_count,2);
+        assert!(!receipt.product_writer_authorized);
+        assert_eq!(receipt.revision,1);
+        assert!(s.stage_core_minted_amount_batch(e,&requests).is_err());
+        assert!(read(&s,inv()).is_err());
+        let undo=s.undo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        assert!(!undo.applied);
+        let redo=s.redo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        assert!(redo.applied);
+        assert!(s.stage_core_minted_amount_batch(scope(s.receipt().unwrap(),WorkerAction::Stage),&requests).is_err());
+        let export=scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+        let out=s.take_typed_semantic_decoded_once(export).unwrap();
+        let mut expected=v;
+        expected["Player"]["ListInventories"]["4"]["Inventory"]["30000001"]["Amount"]=json!(49);
+        expected["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(11);
+        assert_eq!(out,serde_json::to_vec(&expected).unwrap());
+        assert!(s.take_typed_semantic_decoded_once(export).is_err());
+    }
+}
