@@ -1,0 +1,46 @@
+name: 05 QR-C PR943 independent repaired Build binding
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr943-build-binding-repair.yml'
+      - 'tests/qa05qrc-pr943-build-binding-repair.test.mjs'
+permissions:
+  contents: read
+jobs:
+  qac943-repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact original5 repair2 and QA-only2
+        shell: bash
+        run: |
+          set -euo pipefail
+          s=ac66a1f2efbf7b0caf5104b7a9c3b368e92f91ba
+          o=1cda27549550929ee83df34a01be86059456e796
+          base=a6c7447943529ee7e3532b4c2cd6596c802550d1
+          test "$(git merge-base "$s" HEAD)" = "$s"
+          while read -r sha p; do
+            test "$(git rev-parse "$s:$p")" = "$sha"
+            test "$(git rev-parse "HEAD:$p")" = "$sha"
+          done <<'PINS'
+          cdb030864a244c347176e444034b33cbecf51b67 src/lib/ddv/native/operation-native-static-gate.mjs
+          3ffdab4d7bf36a4414f4ef656ede8651640ab4b9 src/lib/ddv/native/operation-native-static-gate.d.mts
+          57693f9efef90a550dbddd6ff7613343f4d66ed9 tests/01e-native-operation-static-gate.test.mjs
+          d15270cdd81800d257356fe0c4a74ff4a0e4fe89 tests/01e-steam626-native-amount-witness.test.mjs
+          22c567e2e3971a0270cf60f1750c3f460b725557 docs/core/01e-steam626-native-inventory-chest-consumer-producer-20261112.md
+          PINS
+          test "$(git diff --name-only "$base" "$s" | wc -l)" = 5
+          test "$(git diff --name-only "$o" "$s" | sort)" = "$(printf '%s\n' src/lib/ddv/native/operation-native-static-gate.mjs tests/01e-native-operation-static-gate.test.mjs | sort)"
+          test "$(git diff --name-only "$s" HEAD | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr943-build-binding-repair.yml tests/qa05qrc-pr943-build-binding-repair.test.mjs | sort)"
+          test -z "$(git ls-files | grep -Ei '\.p1g$|GameAssembly\.dll$|global-metadata\.dat$|dump\.cs$|OWNER_PRIVATE' || true)"
+          echo QAC943_REPAIR_ORIGINAL5_REPAIR2_QA2_NO_PRIVATE_PASS
+      - name: Reproduce old binding bug and independent new exact snapshot tests
+        run: node --test tests/qa05qrc-pr943-build-binding-repair.test.mjs
