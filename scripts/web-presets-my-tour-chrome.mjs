@@ -5,6 +5,7 @@ import {mkdtempSync,rmSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as sleep} from 'node:timers/promises';
+import {waitForBrowserEndpoint,startupDiagnostic} from './web-tour-cdp-startup.mjs';
 import {presetsMyTourCopy,PRESETS_MY_TOUR_LOCALES} from '../src/lib/tour/presets-my-tour-copy.mjs';
 import {PRESETS_MY_WAND_TOUR} from '../src/lib/tour/typed-tour-contract.mjs';
 const HOST='http://127.0.0.1:4398';
@@ -18,18 +19,17 @@ const vite=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127
  '--port','4398','--strictPort'],{
  cwd:process.cwd(),env:{...process.env,BASE_PATH:''},stdio:['ignore','pipe','pipe']
 });
-let viteOutput='';
-for(const io of [vite.stdout,vite.stderr])io.on('data',b=>viteOutput+=String(b).slice(0,1500));
+let viteOutput='',viteSpawnError=null;
+vite.on('error',e=>{viteSpawnError=e});
+for(const io of [vite.stdout,vite.stderr])io.on('data',b=>viteOutput=(viteOutput+String(b)).slice(-8192));
 const browser=spawn(chrome,['--headless=new','--disable-gpu','--no-sandbox',
- '--disable-dev-shm-usage','--remote-debugging-port=0','--no-first-run',
- '--no-default-browser-check','--user-data-dir='+workspace,'about:blank'],
+ '--disable-dev-shm-usage','--remote-debugging-port=0','--remote-debugging-address=127.0.0.1',
+ '--no-first-run','--no-default-browser-check','--user-data-dir='+workspace,'about:blank'],
  {stdio:['ignore','pipe','pipe']});
-let browserOutput='',webSocketURL='';
-browser.stderr.on('data',data=>{
- browserOutput+=String(data).slice(0,1000);
- const found=browserOutput.match(/DevTools listening on (ws:\/\/[^\s]+)/);
- if(found)webSocketURL=found[1];
-});
+let browserOutput='',browserSpawnError=null;
+browser.on('error',e=>{browserSpawnError=e});
+browser.stdout.resume();
+browser.stderr.on('data',data=>{browserOutput=(browserOutput+String(data)).slice(-8192)});
 const ready=async(expr,timeout=18000)=>{
  const start=Date.now();
  while(Date.now()-start<timeout){
@@ -45,11 +45,18 @@ let sessionId=null;
 const requests=[];
 const exceptions=[];
 async function connect(){
- await ready(()=>Boolean(webSocketURL),15000);
- socket=new WebSocket(webSocketURL);
+ const {endpoint,discovery}=await waitForBrowserEndpoint({workspace,child:browser,
+  getStderr:()=>browserOutput,getSpawnError:()=>browserSpawnError});
+ console.log('WEB_TOUR_CDP_ENDPOINT_VERIFIED '+discovery);
+ socket=new WebSocket(endpoint);
  await new Promise((resolve,reject)=>{
-  socket.addEventListener('open',resolve,{once:true});
-  socket.addEventListener('error',reject,{once:true});
+  const timer=setTimeout(()=>{cleanup();reject(Error('CHROME_CDP_SOCKET_OPEN_TIMEOUT'))},5000);
+  const cleanup=()=>{clearTimeout(timer);socket.removeEventListener('open',opened);socket.removeEventListener('error',failed);socket.removeEventListener('close',failed)};
+  const opened=()=>{cleanup();resolve()};
+  const failed=()=>{cleanup();reject(Error('CHROME_CDP_SOCKET_OPEN_FAILED'))};
+  socket.addEventListener('open',opened,{once:true});
+  socket.addEventListener('error',failed,{once:true});
+  socket.addEventListener('close',failed,{once:true});
  });
  socket.addEventListener('message',e=>{
   const event=JSON.parse(String(e.data));
@@ -87,10 +94,15 @@ const tap=async(selector)=>{
  assert.equal(ok,true,'not found '+selector);
 };
 try{
- await ready(async()=>{
-  if(vite.exitCode!==null)throw Error('VITE_EARLY_EXIT '+viteOutput);
-  return (await fetch(HOST+'/presets/')).ok;
- },20000);
+ const viteDeadline=Date.now()+20000;
+ let viteReady=false;
+ while(Date.now()<viteDeadline){
+  if(viteSpawnError||vite.exitCode!==null||vite.signalCode!==null)
+   throw Error('VITE_STARTUP_FAILED exit='+vite.exitCode+' markers='+startupDiagnostic(viteOutput));
+  try{if((await fetch(HOST+'/presets/',{signal:AbortSignal.timeout(500)})).ok){viteReady=true;break}}catch{}
+  await sleep(110);
+ }
+ if(!viteReady)throw Error('VITE_STARTUP_TIMEOUT markers='+startupDiagnostic(viteOutput));
  await connect();
  const target=await send('Target.createTarget',{url:HOST+'/presets/'},null);
  const attach=await send('Target.attachToTarget',{targetId:target.targetId,flatten:true},null);
@@ -276,8 +288,8 @@ try{
 }finally{
  for(const p of pending.values())p.reject?.(Error('cleanup'));
  try{socket?.close();}catch{}
- browser.kill('SIGKILL');
- vite.kill('SIGKILL');
+ if(browser.exitCode===null&&browser.signalCode===null)browser.kill('SIGKILL');
+ if(vite.exitCode===null&&vite.signalCode===null)vite.kill('SIGKILL');
  await sleep(450);
  try{rmSync(workspace,{recursive:true,force:true,maxRetries:12,retryDelay:125});}
  catch(error){console.error('WEB_TOUR_CHROME_CLEANUP_RETAINED_TEMP_NO_USER_DATA',String(error));}
