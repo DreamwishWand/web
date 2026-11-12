@@ -568,6 +568,247 @@ mod private_avatar {
                 male:branch(bytes,required(&selected,"MaleAvatar")?)?})
         }
     }
+
+    // Private Character Skin candidate receipt. Shares the accepted Avatar
+    // span helpers, indexed walker, immutable ProductSession and V1 transport.
+    // No catalog parser, condition evaluator or mutation authority.
+    pub struct PrivateCharacterSkinReceipt { value:Value }
+    impl PrivateCharacterSkinReceipt {
+        pub fn to_private_receipt_json(&self)->Value{self.value.clone()}
+    }
+    fn character_id(v:i32)->bool{v>0&&v/10_000_000==1}
+    fn character_skin_id(v:i32)->bool{
+        v>0&&v/10_000_000==17&&(v%10_000_000)/100_000==0
+    }
+    fn text_token(bytes:&[u8],span:Span,max:usize)->CoreResult<String>{
+        let token=bytes.get(span.begin..span.end).ok_or(denied("SKIN_TOKEN_SPAN"))?;
+        if token.len()>max{return Err(denied("SKIN_TOKEN_BOUND"));}
+        serde_json::from_slice::<String>(token).map_err(|_|denied("SKIN_STRING_REQUIRED"))
+    }
+    fn character_span(bytes:&[u8],array:Span,target:i32)->CoreResult<(usize,Span,Span)>{
+        if array.begin>=array.end||array.end>bytes.len()||
+            bytes.get(array.begin)!=Some(&b'[')||bytes.get(array.end-1)!=Some(&b']'){
+            return Err(denied("SKIN_CHARACTERS_ARRAY_REQUIRED"));
+        }
+        let mut pos=skip_ws(bytes,array.begin+1);
+        let mut index=0usize;
+        let mut seen=std::collections::BTreeSet::new();
+        let mut found=None;
+        while pos<array.end-1{
+            if index>=512{return Err(denied("SKIN_CHARACTER_COUNT_BOUND"));}
+            let end=value_end(bytes,pos)?;
+            if end>=array.end||end-pos>1024*1024{return Err(denied("SKIN_CHARACTER_SPAN_BOUND"));}
+            let span=Span{begin:pos,end};
+            let fs=members(bytes,span,128)?;
+            let base=required(&fs,"Base")?;
+            let b=members(bytes,base,32)?;
+            // JSON spelling is the exact observed lowercase "id" in the
+            // prior serialized shape. No "Id"/"ID" fallback or array index.
+            // Steam626 physical presence remains subject to real private read.
+            let id=int(bytes,required(&b,"id")?)?;
+            if !character_id(id)||!seen.insert(id){return Err(denied("SKIN_CHARACTER_ID_OR_DUPLICATE"));}
+            if id==target{found=Some((index,span,base));}
+            index+=1;
+            pos=skip_ws(bytes,end);
+            match bytes.get(pos){
+                Some(b',') if pos<array.end-1=>pos=skip_ws(bytes,pos+1),
+                Some(b']') if pos==array.end-1=>break,
+                _=>return Err(denied("SKIN_CHARACTER_ARRAY_TERMINATOR")),
+            }
+        }
+        found.ok_or(denied("SKIN_CHARACTER_NOT_PRESENT"))
+    }
+    fn skin_inventory(bytes:&[u8],lists:Span,skin:i32)->CoreResult<Value>{
+        let mut selected=None;
+        for (key,record) in members(bytes,lists,128)?{
+            let id=key_u32(&key)?;
+            if id==0{return Err(denied("SKIN_INVENTORY_ID_ZERO"));}
+            let fs=members(bytes,record,64)?;
+            let id_span=required(&fs,"ID")?;
+            let actual=serde_json::from_slice::<u32>(&bytes[id_span.begin..id_span.end])
+                .map_err(|_|denied("SKIN_INVENTORY_ID_TYPE"))?;
+            if actual!=id{return Err(denied("SKIN_INVENTORY_ID_MISMATCH"));}
+            let ty=text_token(bytes,required(&fs,"CompatibleItemType")?,128)?;
+            if ty!="ItemType_Skin"{continue;}
+            // Reject ambiguous compatible routes even if only one has item.
+            if selected.is_some(){return Err(denied("SKIN_COMPATIBLE_INVENTORY_AMBIGUOUS"));}
+            selected=Some((id,record,required(&fs,"Inventory")?));
+        }
+        let (id,record,items)=selected.ok_or(denied("SKIN_COMPATIBLE_INVENTORY_ABSENT"))?;
+        let entries=members(bytes,items,16384)?;
+        let wanted=skin.to_string();
+        let mut found=None;
+        for (k,v) in entries{
+            let n=key_u32(&k)?;
+            if n>i32::MAX as u32||n==0||n/10_000_000!=17{
+                return Err(denied("SKIN_INVENTORY_ITEM_KEY"));
+            }
+            if k==wanted{found=Some(v);}
+        }
+        let entry=found.ok_or(denied("SKIN_INVENTORY_ENTRY_ABSENT"))?;
+        let fields=members(bytes,entry,64)?;
+        let amount=int(bytes,required(&fields,"Amount")?)?;
+        if amount<1{return Err(denied("SKIN_NO_POSITIVE_SAVED_AMOUNT"));}
+        let marker_span=field(&fields,"Marker");
+        let marker=marker_span.map(|s|text_token(bytes,s,128)).transpose()?;
+        if let Some(m)=&marker{
+            if !m.starts_with("ItemMarker_")||m.len()<=11||
+                !m.bytes().all(|c|c.is_ascii_alphanumeric()||c==b'_'){
+                return Err(denied("SKIN_MARKER_SHAPE"));
+            }
+        }
+        Ok(json!({"inventoryId":id,"compatibleItemType":"ItemType_Skin",
+            "itemId":skin,"savedAmount":amount,"markerPresent":marker.is_some(),
+            "savedMarker":marker,"markerSha256":marker_span.map(|s|sha(&bytes[s.begin..s.end])),
+            "inventoryRecordSha256":sha(&bytes[record.begin..record.end]),
+            "entrySha256":sha(&bytes[entry.begin..entry.end]),
+            "positiveSavedAmount":true,"nativeHasItemVerified":false,
+            "markerSemanticsVerified":false,"rightsVerified":false}))
+    }
+    impl ProductSession{
+        /// Selectors identify a requested existing character and saved Skin
+        /// entry only. They do not establish their catalog compatibility.
+        pub fn read_private_character_skin(&self,e:WorkerEnvelope,character:i32,skin:i32)
+            ->CoreResult<PrivateCharacterSkinReceipt>{
+            let b=&self.native_source_build;
+            if b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||
+                b.build_id!=EXACT||b.schema!=626||!b.externally_attested{
+                return Err(denied("SKIN_EXACT_STEAM626_REQUIRED"));
+            }
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            if !character_id(character)||!character_skin_id(skin){
+                return Err(denied("SKIN_SELECTOR_ID_OR_SUBTYPE"));
+            }
+            let bytes=&self.decoded;
+            let root=roots(bytes)?;
+            let world=members(bytes,root.world,1024)?;
+            let player=members(bytes,root.player,1024)?;
+            let array=required(&world,"Characters")?;
+            let (index,span,base)=character_span(bytes,array,character)?;
+            let fields=members(bytes,span,128)?;
+            let old_span=field(&fields,"SkinID");
+            let old=old_span.map(|s|int(bytes,s)).transpose()?;
+            // Existing sentinel/zero is evidence only; unknown positive
+            // incompatible subtype denied. Never invent absent/default.
+            if old.is_some_and(|n|n>0&&!character_skin_id(n)){
+                return Err(denied("SKIN_CURRENT_POSITIVE_TYPE"));
+            }
+            let lists=required(&player,"ListInventories")?;
+            let inventory=skin_inventory(bytes,lists,skin)?;
+            // Full source hash + exact selected spans are pointers for the
+            // later native catalog/conditions/reference join. No condition
+            // results, definition bytes, entitlement or event replay here.
+            let value=json!({
+                "contract":"wand.native.private.character-skin-read@1",
+                "platform":"SteamWindows","fullVersion":EXACT,"schema":626,
+                "sessionId":hex(&e.session_id),"revision":e.expected_revision,
+                "indexGeneration":e.expected_index_generation,"decodedSha256":hex(&e.expected_decoded_sha256),
+                "character":{"characterId":character,"savedArrayIndexDiagnosticOnly":index,
+                    "baseIdSavedField":"id","baseSha256":sha(&bytes[base.begin..base.end]),
+                    "characterSha256":sha(&bytes[span.begin..span.end]),
+                    "skinIdPresent":old.is_some(),"currentSkinId":old,
+                    "skinIdSha256":old_span.map(|s|sha(&bytes[s.begin..s.end])),
+                    "requestedSkinId":skin,"sameSavedSkin":old==Some(skin)},
+                "skinInventory":inventory,
+                "referenceReadSet":{"charactersSha256":sha(&bytes[array.begin..array.end]),
+                    "listInventoriesSha256":sha(&bytes[lists.begin..lists.end]),
+                    "worldSha256":sha(&bytes[root.world.begin..root.world.end]),
+                    "playerSha256":sha(&bytes[root.player.begin..root.player.end]),
+                    "definitionJoinRequired":["CharacterItemID","AvailableWhen","CannotRemoveWhen","Conditions","Hidden","OnlineOnly","SyncOnline"],
+                    "catalogDefinitionVerified":false,"actualConditionsEvaluated":false,
+                    "activeReferenceClosureVerified":false,"subscriberClosureVerified":false},
+                "fullDocumentRustValidated":true,"physicalGameInstallCryptographicallyProven":false,
+                "characterSkinCompatibilityVerified":false,"ownedRightsVerified":false,
+                "productReadAccepted":false,"writerAuthorized":false,"editedCopyAuthorized":false,
+                "applyAuthorized":false,"nativeV3Verified":false
+            });
+            Ok(PrivateCharacterSkinReceipt{value})
+        }
+    }
+    #[cfg(test)]
+    mod character_skin_tests{
+        use super::*;
+        use crate::{BuildIdentity,SessionReceipt};
+        fn open(v:Value)->ProductSession{
+            ProductSession::open_decoded_readonly(serde_json::to_vec(&v).unwrap(),BuildIdentity{
+                platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+                build_id:EXACT.into(),schema:626,externally_attested:true}).unwrap()
+        }
+        fn env(r:SessionReceipt)->WorkerEnvelope{WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
+            expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+        fn doc()->Value{json!({"GameInfo":{"Version":626},"World":{"Characters":[
+            {"Base":{"id":10000002},"SkinID":0},
+            {"Base":{"id":10000053},"SkinID":170000001,"Unknown":{"keep":true}}
+        ]},"Player":{"ListInventories":{
+            "7":{"ID":7,"CompatibleItemType":"ItemType_ActivityItem","Inventory":{}},
+            "42":{"ID":42,"CompatibleItemType":"ItemType_Skin","Inventory":{
+                "170000000":{"Amount":1,"Marker":"ItemMarker_None"},"170100001":{"Amount":1}
+            }}
+        }}}})}
+        fn read(s:&ProductSession)->CoreResult<PrivateCharacterSkinReceipt>{
+            s.read_private_character_skin(env(s.receipt().unwrap()),10000053,170000000)
+        }
+        #[test]
+        fn exact_character_and_compatible_route_read_only(){
+            let s=open(doc());let before=s.receipt().unwrap();let v=read(&s).unwrap().to_private_receipt_json();
+            assert_eq!(v["character"]["characterId"],10000053);
+            assert_eq!(v["character"]["savedArrayIndexDiagnosticOnly"],1);
+            assert_eq!(v["character"]["currentSkinId"],170000001);
+            assert_eq!(v["skinInventory"]["inventoryId"],42);
+            assert_eq!(v["skinInventory"]["savedAmount"],1);
+            assert_eq!(v["skinInventory"]["savedMarker"],"ItemMarker_None");
+            assert_eq!(v["skinInventory"]["nativeHasItemVerified"],false);
+            assert_eq!(v["ownedRightsVerified"],false);
+            assert_eq!(v["referenceReadSet"]["actualConditionsEvaluated"],false);
+            assert_eq!(v["writerAuthorized"],false);assert_eq!(s.receipt().unwrap(),before);
+            let mut d=doc();d["World"]["Characters"][1].as_object_mut().unwrap().remove("SkinID");
+            d["Player"]["ListInventories"]["42"]["Inventory"]["170000000"].as_object_mut().unwrap().remove("Marker");
+            let s=open(d);let v=read(&s).unwrap().to_private_receipt_json();
+            assert_eq!(v["character"]["skinIdPresent"],false);assert!(v["character"]["currentSkinId"].is_null());
+            assert_eq!(v["skinInventory"]["markerPresent"],false);assert!(v["skinInventory"]["savedMarker"].is_null());
+            for old in [0,-1,170000000]{
+                let mut d=doc();d["World"]["Characters"][1]["SkinID"]=json!(old);
+                let s=open(d);let v=read(&s).unwrap().to_private_receipt_json();
+                assert_eq!(v["character"]["currentSkinId"],old);assert_eq!(v["character"]["skinIdPresent"],true);
+                assert_eq!(v["character"]["sameSavedSkin"],old==170000000);
+            }
+        }
+        #[test]
+        fn rejects_ambiguous_wrong_type_and_stale(){
+            let mut ds=Vec::new();
+            let mut d=doc();d["World"]["Characters"][0]["Base"]["id"]=json!(10000053);ds.push(d);
+            let mut d=doc();d["World"]["Characters"][1]["Base"]=json!({"Id":10000053});ds.push(d);
+            let mut d=doc();d["World"]["Characters"][1]["SkinID"]=json!("170000001");ds.push(d);
+            let mut d=doc();d["World"]["Characters"][1]["SkinID"]=json!(2147483648u64);ds.push(d);
+            let mut d=doc();d["World"]["Characters"][1]["SkinID"]=json!(170100001);ds.push(d);
+            let mut d=doc();d["Player"]["ListInventories"]["7"]["CompatibleItemType"]=json!("ItemType_Skin");ds.push(d);
+            let mut d=doc();d["Player"]["ListInventories"]["42"]["ID"]=json!(7);ds.push(d);
+            let mut d=doc();d["Player"]["ListInventories"]["42"]["CompatibleItemType"]=json!("ItemType_ActivityItem");ds.push(d);
+            let mut d=doc();d["Player"]["ListInventories"]["42"]["Inventory"]["170000000"]["Amount"]=json!(0);ds.push(d);
+            let mut d=doc();d["Player"]["ListInventories"]["42"]["Inventory"]["170000000"]["Amount"]=json!(2147483648u64);ds.push(d);
+            let mut d=doc();d["Player"]["ListInventories"]["42"]["Inventory"]["170000000"]["Marker"]=json!(0);ds.push(d);
+            let mut d=doc();d["Player"]["ListInventories"]["42"]["Inventory"]["0170000000"]=json!({"Amount":1});ds.push(d);
+            let mut d=doc();d["Player"]["ListInventories"]["42"]["Inventory"].as_object_mut().unwrap().remove("170000000");ds.push(d);
+            let mut d=doc();d["World"]["Characters"]=json!((10000000..10000513).map(|i|json!({"Base":{"id":i},"SkinID":0})).collect::<Vec<_>>());ds.push(d);
+            for d in ds{let s=open(d);assert!(read(&s).is_err());}
+            let s=open(doc());let e=env(s.receipt().unwrap());
+            for (c,k) in [(10000099,170000000),(10000053,170100001),(10000053,0),(0,170000000),(10000053,i32::MAX)]{
+                assert!(s.read_private_character_skin(e,c,k).is_err());
+            }
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_character_skin(stale,10000053,170000000).is_err());
+            let mut wrong=e;wrong.action=WorkerAction::Stage;
+            assert!(s.read_private_character_skin(wrong,10000053,170000000).is_err());
+            assert!(open(doc()).read_private_character_skin(e,10000053,170000000).is_err());
+            s.close().unwrap();assert!(s.read_private_character_skin(e,10000053,170000000).is_err());
+            let sw=ProductSession::open_decoded_readonly(serde_json::to_vec(&doc()).unwrap(),BuildIdentity{
+                platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),
+                schema:626,externally_attested:true}).unwrap();
+            assert!(sw.read_private_character_skin(env(sw.receipt().unwrap()),10000053,170000000).is_err());
+        }
+    }
+
     #[cfg(test)]
     mod tests{
         use super::*;
