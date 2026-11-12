@@ -1,0 +1,48 @@
+name: 05 QR-C PR922 child native closure independent QA
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr922-child-native-closure.yml'
+      - 'tests/qa05qrc-pr922-child-closure.test.mjs'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact repaired parent and child three blobs
+        run: |
+          set -euo pipefail
+          parent=02c5a5d92d8dcdb7ee92e46a64b2a69a36853bcb
+          child=761524b78a8eb6407b793b64d60d48c99837cf70
+          test "$(git merge-base "$parent" "$child")" = "$parent"
+          test "$(git merge-base "$child" HEAD)" = "$child"
+          while read -r path sha; do
+            test "$(git rev-parse "$child:$path")" = "$sha"
+            test "$(git rev-parse "HEAD:$path")" = "$sha"
+          done <<'EOF'
+          src/lib/ddv/core/roadfence/native-operation-closure-v125.js e1987d9c9c86544b7a09ea0cbe93792ff253355d
+          tests/ddv-roadfence-native-operation-closure-v125.test.mjs 94f0e49810f47adf9abdaa6d71bdc363e721a2e3
+          docs/core/01c-roadfence-operation-native-closure-20261112.md 1c1f4b1e06f475d7c3d2d60a28f4dacbc53eb968
+          src/lib/ddv/core/roadfence/operation-intent-v125.js 590962406839ecc6a5d504816e4cd589784f205c
+          tests/ddv-roadfence-operation-intent-v125.test.mjs f1e714b427450cb5fe1a7e6ae719e4cf24c62482
+          EOF
+          test "$(git diff --name-only "$parent" "$child" | sort)" = "$(printf '%s\n' docs/core/01c-roadfence-operation-native-closure-20261112.md src/lib/ddv/core/roadfence/native-operation-closure-v125.js tests/ddv-roadfence-native-operation-closure-v125.test.mjs | sort)"
+          test "$(git diff --name-only "$child" HEAD | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr922-child-native-closure.yml tests/qa05qrc-pr922-child-closure.test.mjs | sort)"
+          echo QAC922_EXACT_CHILD3_PARENT2_QA_ONLY2_PASS
+      - name: Independent runtime scope and provenance
+        run: node --test tests/qa05qrc-pr922-child-closure.test.mjs
+      - name: No production caller outside source module
+        if: always()
+        run: |
+          set -euo pipefail
+          test "$(git grep -l assessRoadFenceNativeRequirementsV125 -- src)" = src/lib/ddv/core/roadfence/native-operation-closure-v125.js
+          echo QAC922_NO_PRODUCTION_CALLER_PASS
