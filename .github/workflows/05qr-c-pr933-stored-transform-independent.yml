@@ -1,0 +1,75 @@
+name: 05 QR-C PR933 independent stored transform witness
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr933-stored-transform-independent.yml'
+      - 'crates/ddv-save-core/qa/qa05qrc_pr933_stored_transform.rs'
+permissions:
+  contents: read
+jobs:
+  independent-pr933:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/qac933-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Immutable source one MOD and QA-only two ADD
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=27ae34a2f45542fe7b97c80d706e537ca45654cc
+          base=61f0a1c00b87ae35dede4d3dbc2430a77e8196e1
+          p=crates/ddv-save-core/src/native_reference_slice.rs
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git rev-parse "$source^")" = "$base"
+          test "$(git diff --name-only "$base" "$source")" = "$p"
+          test "$(git rev-parse "$base:$p")" = 6d31c593c282932b8ca266e392a5be6f47aac5e2
+          test "$(git rev-parse "$source:$p")" = ae1f2e9f0a92f0644bdc0c71e4f15f9d1fa17630
+          test "$(git rev-parse "HEAD:$p")" = ae1f2e9f0a92f0644bdc0c71e4f15f9d1fa17630
+          test "$(git diff --name-only "$source" HEAD | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr933-stored-transform-independent.yml crates/ddv-save-core/qa/qa05qrc_pr933_stored_transform.rs | sort)"
+          test -z "$(git ls-files | grep -Ei '\.p1g$|OWNER_PRIVATE|PRIVATE_DECODED' || true)"
+          echo QAC933_SOURCE_ONE_IMMUTABLE_QA_TWO_ADD_PASS
+      - name: Focused independent crate-private witness tests on temporary crate copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          cp -a crates/ddv-save-core "$dir/core"
+          m="$dir/core/Cargo.toml"
+          p="$dir/core/src/native_reference_slice.rs"
+          # Test-only module added to temporary copy, NOT a Git source change.
+          printf '\n#[cfg(test)]\nmod qa933_independent { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/qa/qa05qrc_pr933_stored_transform.rs")); }\n' >> "$p"
+          cargo generate-lockfile --manifest-path "$m"
+          test "$(sha256sum "$dir/core/Cargo.lock" | cut -d' ' -f1)" = e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c
+          set +e
+          cargo test --locked --manifest-path "$m" --no-default-features --features private-native-v1 --lib qac933_ -- --nocapture
+          a=$?
+          cargo test --locked --manifest-path "$m" --no-default-features --features private-native-v1,semantic-writer-dev --lib qac933_ -- --nocapture
+          b=$?
+          set -e
+          test "$(git hash-object crates/ddv-save-core/src/native_reference_slice.rs)" = ae1f2e9f0a92f0644bdc0c71e4f15f9d1fa17630
+          test -z "$(git diff --name-only)"
+          echo "QAC933_FOCUSED_NATIVE_EXIT=$a DEV_COMPOSITION_EXIT=$b"
+          if [ "$a" != 0 ] || [ "$b" != 0 ]; then exit 1; fi
+      - name: Public wasm32 ABI and private-native guard (run even if focused test fails)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          m=crates/ddv-save-core/Cargo.toml
+          cargo check --manifest-path "$m" --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          if cargo check --manifest-path "$m" --target wasm32-unknown-unknown --no-default-features --features private-native-v1,worker-wasm > /tmp/qac933-private-denied.log 2>&1; then
+            echo 'private native leaked into wasm'; exit 1
+          fi
+          grep -F 'private-native-v1 is native-only and cannot enter WASM' /tmp/qac933-private-denied.log
+          test "$(git hash-object crates/ddv-save-core/src/native_reference_slice.rs)" = ae1f2e9f0a92f0644bdc0c71e4f15f9d1fa17630
+          echo QAC933_PUBLIC_ABI_PRIVATE_NATIVE_GUARD_PASS
