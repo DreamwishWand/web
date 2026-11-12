@@ -1,0 +1,338 @@
+// 08 WEB R22 public-SYNTHETIC only: REAL installed Chrome, REAL Vite/Svelte
+// build, REAL pinned public JS+WASM and accepted Rust Worker; no private Save.
+// CI temporarily opts in a test-only Worker and synthetic attestation BEFORE
+// build, never commits the opt-in or publishes this candidate Pages artifact.
+import {createServer} from 'node:https';
+import {readFile,mkdtemp,rm,readdir} from 'node:fs/promises';
+import {existsSync} from 'node:fs';
+import {spawn,spawnSync,execFileSync} from 'node:child_process';
+import {tmpdir} from 'node:os';
+import {join,resolve,extname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {setTimeout as delay} from 'node:timers/promises';
+import assert from 'node:assert/strict';
+const root=resolve(fileURLToPath(new URL('../',import.meta.url)));
+const base='/web';
+const csp="default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-inline'; worker-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'";
+const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript',
+  '.wasm':'application/wasm','.json':'application/json','.css':'text/css',
+  '.p1g':'application/octet-stream','.svg':'image/svg+xml','.png':'image/png',
+  '.woff2':'font/woff2'};
+const profile=await mkdtemp(join(tmpdir(),'wand-08web-real-chrome-'));
+let chrome,ws,server,foreignServer;
+let fault=null,assetRequests=0;
+const binary=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium'].filter(Boolean)
+ .find(bin=>spawnSync('which',[bin],{stdio:'ignore'}).status===0);
+if(!binary)throw Error('ENV_WAIT_DEP_CHROME_NOT_INSTALLED');
+let seq=0;const pending=new Map();
+const rpc=(method,params={})=>new Promise((resolve,reject)=>{
+ const id=++seq;pending.set(id,{resolve,reject});
+ ws.send(JSON.stringify({id,method,params}));
+});
+function serve(req,res){
+ let pathname;
+ try{pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname)}
+ catch{res.writeHead(400);res.end();return}
+ if(!pathname.startsWith(base+'/')||pathname.includes('..')||pathname.includes('\\')){
+  res.writeHead(403);res.end();return;
+ }
+ const suffix=pathname.slice(base.length);
+ if(suffix==='/__qrw_blank__'){res.writeHead(200,{'content-type':'text/html','content-security-policy':csp});res.end('<!doctype html><title>QA isolated origin</title>');return;}
+ const isSynthetic=['/__synthetic__/synthetic626-diffgrids.p1g',
+  '/__synthetic__/expected-diffgrids.json'].includes(suffix);
+ const source=isSynthetic?join(root,'tests/stage-f/fixtures/',suffix.split('/').at(-1)):
+   join(root,'build',suffix.endsWith('/')?suffix+'index.html':suffix);
+ if(!resolve(source).startsWith(root+'/')||(!isSynthetic&&suffix.startsWith('/__synthetic__/'))){
+  res.writeHead(403);res.end();return;
+ }
+ readFile(source).then(data=>{
+   const asset=suffix.startsWith('/worker-wasm/');
+   if(asset)assetRequests++;
+   if(asset&&fault==='redirect'&&suffix.endsWith('.js')){res.writeHead(302,{location:'/web/worker-wasm/manifest.json'});res.end();return}
+   if(asset&&fault==='manifest'&&suffix.endsWith('manifest.json')){data=Buffer.from(data);data[data.length-1]^=1}
+   if(asset&&fault==='js'&&suffix.endsWith('.js')){data=Buffer.from(data);data[data.length-1]^=1}
+   if(asset&&fault==='wasm'&&suffix.endsWith('.wasm')){data=Buffer.from(data);data[data.length-1]^=1}
+   res.writeHead(200,{'content-type':asset&&fault==='mime'&&suffix.endsWith('.js')?'text/html':mime[extname(source)]||'application/octet-stream',
+    'cache-control':'no-store','x-content-type-options':'nosniff',
+    'content-security-policy':csp});
+   res.end(data);
+ }).catch(()=>{res.writeHead(404);res.end()});
+}
+async function attach(){
+ const file=join(profile,'DevToolsActivePort');
+ let port;
+ for(let i=0;i<240;i++){
+  if(existsSync(file)){port=Number((await readFile(file,'utf8')).split('\n')[0]);if(port)break;}
+  await delay(125);
+ }
+ if(!port)throw Error('ENV_CHROME_DEBUG_PORT_UNAVAILABLE');
+ let url;
+ for(let i=0;i<160;i++){
+  try{const r=await fetch('http://127.0.0.1:'+port+'/json/list');
+    url=(await r.json()).find(x=>x.type==='page')?.webSocketDebuggerUrl;if(url)break}
+  catch{}await delay(125);
+ }
+ if(!url)throw Error('ENV_CHROME_TARGET_UNAVAILABLE');
+ ws=new WebSocket(url);
+ await new Promise((ok,bad)=>{ws.addEventListener('open',ok,{once:true});
+   ws.addEventListener('error',bad,{once:true})});
+ ws.addEventListener('message',e=>{
+  let r;try{r=JSON.parse(String(e.data))}catch{return}
+  const p=pending.get(r.id);
+  if(!p)return;pending.delete(r.id);
+  if(r.error)p.reject(Error(JSON.stringify(r.error)));else p.resolve(r.result);
+ });
+}
+const script=String.raw`
+(async()=>{
+ const need=(v,k)=>{if(!v)throw Error('08WEB_CHROME_'+k)};
+ const wait=async(check,code,timeout=90000)=>{
+  const start=Date.now();
+  while(Date.now()-start<timeout){
+   try{const v=check();if(v)return v}catch{}
+   await new Promise(r=>setTimeout(r,50))
+  }
+  throw Error('08WEB_WAIT_'+code+' URL='+location.href+' TITLE='+document.title+
+   ' BODY='+document.body?.textContent?.slice(0,600)+
+   ' BODY_HTML='+document.body?.innerHTML?.slice(0,300)+
+   ' SCRIPT_COUNT='+document.scripts.length)
+ };
+ const panel=await wait(()=>document.querySelector('[data-steam-diffgrids-readonly]'),'PANEL',18000);
+ panel.open=true;
+ need(window.innerWidth===320,'VIEWPORT_320');
+ const inspect=(element,stage)=>{
+  const r=element.getBoundingClientRect();
+  const data={stage,left:r.left,right:r.right,width:r.width,
+    viewport:innerWidth,scrollX,scrollY,rootMin:getComputedStyle(document.documentElement).minWidth,
+    bodyMin:getComputedStyle(document.body).minWidth};
+  need(r.left>=-1&&r.right<=innerWidth+1,'REFLOW_'+JSON.stringify(data));
+  need(Math.abs(scrollX)<=1,'PAGE_SCROLL_X_'+JSON.stringify(data));
+  return data;
+ };
+ const summary=panel.querySelector('[data-diffgrids-summary]');
+ const baseline=inspect(summary,'320_ROOT_ZOOM100');
+ document.documentElement.style.zoom='2';
+ const input=await wait(()=>document.querySelector('#steam-diffgrids-file'),'FILE');
+ inspect(summary,'320_ROOT_ZOOM200_CLOSED_MANUAL_PANEL');
+ // Initial state: no implicit local Save read / no session.
+ need(!document.querySelector('[data-diffgrids-count]'),'NO_AUTO_SAVE');
+ await wait(()=>input.disabled===false,'RUST_SIGNED_PINNED_WORKER_READY');
+ const response=await Promise.all([
+  fetch('/web/__synthetic__/synthetic626-diffgrids.p1g',{cache:'no-store'}),
+  fetch('/web/__synthetic__/expected-diffgrids.json',{cache:'no-store'})
+ ]);
+ need(response.every(x=>x.ok),'SYNTHETIC_ONLY_FIXTURE');
+ const expected=await response[1].json(),file=new File(
+  [await response[0].arrayBuffer()],'synthetic-ci-only.p1g',
+  {type:'application/octet-stream'});
+ need(expected.syntheticOnly===true&&file.size===expected.sourceBytes,'P1G_SOURCE_SIZE');
+ const dt=new DataTransfer();dt.items.add(file);
+ input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+ const sha=document.querySelector('#steam-diffgrids-sha');
+ sha.value=expected.originalSha256;sha.dispatchEvent(new Event('input',{bubbles:true}));
+ const check=document.querySelector('.diffgrids-readonly input[type=checkbox]');
+ check.checked=true;check.dispatchEvent(new Event('change',{bubbles:true}));
+ const open=await wait(()=>document.querySelector('[data-diffgrids-open]:not([disabled])'),'MANUAL_OPEN');
+ need(!document.querySelector('[data-diffgrids-count]'),'NO_READ_BEFORE_CLICK');
+ open.click();
+ const pages=[];
+ for(let page=1;page<=3;page++){
+  const result=await wait(()=>document.querySelector('[data-diffgrids-page="'+page+'"]'),'PAGE_'+page);
+  need(result.getAttribute('data-diffgrids-count')==='17','TOTAL_17');
+  const tr=result.querySelectorAll('tbody tr');
+  pages.push(tr.length);
+  need(tr.length===(page===3?1:8),'PAGE_BOUNDS_'+page);
+  need([...tr].every(row=>row.cells.length===5),'ONLY_ALLOWED_UI_METADATA');
+  need([...tr].every(row=>row.cells[4].textContent.trim().length>0),'EXTERNAL_LAYOUT_STATUS');
+  if(page===1){
+   need(tr[0].cells[0].textContent.trim()==='0','GRIDID0_LITERAL_ONLY');
+   need(tr[0].cells[1].textContent.trim()==='2','MODIFIED_COUNT');
+   need(tr[0].cells[2].textContent.trim()==='2','REMOVED_COUNT');
+   need(tr[0].cells[3].textContent.trim()==='1','OVERLAP_COUNT');
+  }
+  if(page<3){
+   const next=await wait(()=>document.querySelector('[data-diffgrids-next]:not([disabled])'),'NEXT');
+   next.click();
+  }
+ }
+ need(pages.join(',')==='8,8,1','THREE_PAGES');
+ summary.scrollIntoView({block:'center',inline:'nearest'});
+ await new Promise(r=>setTimeout(r,100));
+ const afterScroll=inspect(summary,'320_ROOT_ZOOM200_AFTER_VERTICAL_SCROLL');
+ inspect(panel.querySelector('.controls'),'320_ROOT_ZOOM200_MANUAL_CONTROLS');
+ inspect(input,'320_ROOT_ZOOM200_FILE_PICKER');
+ inspect(panel.querySelector('#steam-diffgrids-sha'),'320_ROOT_ZOOM200_SHA_INPUT');
+ const gridScroller=panel.querySelector('.table-scroller');
+ inspect(gridScroller,'320_ROOT_ZOOM200_TABLE_CONTAINER');
+ gridScroller.scrollLeft=80;
+ need(gridScroller.scrollLeft>0,'FIVE_COLUMN_TABLE_INNER_SCROLL');
+ need(Math.abs(scrollX)<=1,'TABLE_SCROLL_DID_NOT_MOVE_PAGE');
+ const whole=document.querySelector('[data-steam-diffgrids-readonly]').textContent;
+ for(const prohibited of ['OPAQUE_SYNTHETIC_NEVER_TO_UI','PRIVATE_SYNTHETIC_PATH_NEVER_TO_UI',
+  'PRIVATE_SYNTHETIC_OBJECT_NEVER_TO_UI','decodedSha256','sessionId','nextCursor']){
+  need(!whole.includes(prohibited),'NO_PRIVATE_'+prohibited);
+ }
+ const close=document.querySelector('[data-diffgrids-close]');
+ close.click();await wait(()=>!document.querySelector('[data-diffgrids-count]'),'CLOSE');
+ need(document.activeElement?.matches?.('[data-diffgrids-summary]'),'FOCUS_RESTORED');
+ need(!document.querySelector('[data-diffgrids-next]'),'NO_STALE_PAGE_AFTER_CLOSE');
+ need(document.activeElement.tabIndex>=0,'NATIVE_KEYBOARD_SUMMARY');
+ // Bad externally supplied original SHA must never resurrect the closed
+ // ProductSession; a fresh explicit selection is required to try again.
+ input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+ sha.value='0'.repeat(64);sha.dispatchEvent(new Event('input',{bubbles:true}));
+ check.checked=true;check.dispatchEvent(new Event('change',{bubbles:true}));
+ const rejectOpen=await wait(()=>document.querySelector('[data-diffgrids-open]:not([disabled])'),'BAD_SHA_OPEN_READY');
+ rejectOpen.click();
+ await wait(()=>document.querySelector('[data-diffgrids-error]'),'BAD_SHA_FAILCLOSED',25000);
+ need(!document.querySelector('[data-diffgrids-count]'),'BAD_SHA_NO_SESSION');
+ // Reopening requires the correct original SHA, not an old Rust cursor.
+ sha.value=expected.originalSha256;sha.dispatchEvent(new Event('input',{bubbles:true}));
+ const goodAgain=await wait(()=>document.querySelector('[data-diffgrids-open]:not([disabled])'),'REOPEN_READY');
+ goodAgain.click();
+ await wait(()=>document.querySelector('[data-diffgrids-count="17"]'),'REOPEN_NEW_SESSION',25000);
+ document.querySelector('[data-diffgrids-close]').click();
+ await wait(()=>!document.querySelector('[data-diffgrids-count]'),'REOPEN_CLOSE');
+ return {result:'08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS',
+  pages:pages.join(','),viewport320:true,zoom200:true,geometry100:baseline,
+  geometry200:afterScroll,innerTableScroll:true,badShaDenied:true,reopenFresh:true,keyboard:true,gridIdZeroLiteral:true,manualClickOnly:true,
+  sameRustWorker:true,strictUiMetadata:true,closed:true,focusRestored:true,
+  realPrivateSave:false,writerAuthorized:false,productEnabled:false};
+})()
+`;
+try{
+ execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=127.0.0.1','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem')],{stdio:'ignore'});
+ server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},serve);
+ await new Promise((r,j)=>{server.once('error',j);server.listen(19443,'127.0.0.1',r)});
+ const port=server.address().port;
+ chrome=spawn(binary,['--headless=new','--no-sandbox','--disable-dev-shm-usage',
+  '--disable-gpu','--ignore-certificate-errors','--remote-allow-origins=*','--remote-debugging-port=0',
+  '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
+ await attach();await rpc('Page.enable');await rpc('Runtime.enable');
+ await rpc('Emulation.setDeviceMetricsOverride',{width:320,height:800,deviceScaleFactor:1,mobile:false});
+ await rpc('Page.navigate',{url:'https://127.0.0.1:'+port+'/web/editor/timing/'});
+ for(let n=0;n<200;n++){
+  try{const r=await rpc('Runtime.evaluate',{expression:'location.pathname',returnByValue:true});
+    if(r.result?.value==='/web/editor/timing/')break}catch{}
+  await delay(40);
+ }
+ const watchdog=new AbortController();
+ let outcome;
+ try{outcome=await Promise.race([
+  rpc('Runtime.evaluate',{expression:script,awaitPromise:true,returnByValue:true}),
+  delay(160000,undefined,{signal:watchdog.signal})
+    .then(()=>{throw Error('08WEB_REAL_CHROME_TIMEOUT')})
+ ])}finally{watchdog.abort()}
+ if(outcome.exceptionDetails)throw Error(String(outcome.exceptionDetails.exception?.description||
+   outcome.exceptionDetails.text).slice(0,1000));
+ const result=outcome.result?.value;
+ assert.equal(result?.result,'08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS');
+ for(const k of ['manualClickOnly','sameRustWorker','strictUiMetadata',
+   'closed','focusRestored','gridIdZeroLiteral','viewport320','zoom200','badShaDenied','reopenFresh','keyboard'])assert.equal(result[k],true,k);
+ assert.equal(result.pages,'8,8,1');
+ assert.equal(result.innerTableScroll,true,'5_COLUMN_TABLE_SCROLL_INTERNAL');
+ const zoomRects=[result.geometry100,result.geometry200];
+ for(const box of zoomRects){
+  assert.equal(box.viewport,320,'PHYSICAL_320_VIEWPORT');
+  assert.ok(box.left>=-1&&box.right<=321,'PHYSICAL_REFLOW_NO_CLIP');
+  assert.ok(Math.abs(box.scrollX)<=1,'PAGE_NO_HORIZONTAL_SCROLL');
+ }
+ await rpc('Runtime.evaluate',{expression:"document.documentElement.style.zoom='1'",
+   returnByValue:true});
+ await rpc('Emulation.setDeviceMetricsOverride',
+   {width:1280,height:800,deviceScaleFactor:1,mobile:false});
+ const desktop=await rpc('Runtime.evaluate',{expression:`(()=>{
+  const e=document.querySelector('[data-diffgrids-summary]');
+  const r=e.getBoundingClientRect();
+  return {left:r.left,right:r.right,viewport:innerWidth,scrollX};
+ })()`,returnByValue:true});
+ const d=desktop.result?.value;
+ assert.ok(d&&d.viewport===1280&&d.left>=-1&&d.right<=1281&&Math.abs(d.scrollX)<=1,
+   'DESKTOP_NO_PAGE_HORIZONTAL_OVERFLOW');
+ for(const k of ['realPrivateSave','writerAuthorized','productEnabled'])
+  assert.equal(result[k],false,k);
+ // Inspect the actual bundled Worker, not a mock loader or handwritten module.
+ const anchor=(await import('../src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs')).PROTECTED_READONLY_RELEASE_ANCHOR;
+ const candidates=[];
+ for(const name of await readdir(join(root,'build/_app'),{recursive:true})){
+  if(!name.endsWith('.js'))continue;
+  const body=await readFile(join(root,'build/_app',name),'utf8');
+  if(body.includes('DIFFGRIDS_PRODUCT_LOADER_RECEIPT_DENIED')&&body.includes('DIFFGRIDS_RUNTIME_READY')){
+   assert.ok(body.includes(anchor.releaseId),'BUILT_CONSUMER_RELEASE_ID');
+   assert.ok(body.includes('wand.r22.protected-readonly-loader-receipt@1'),'BUILT_PROTECTED_LOADER');
+   candidates.push('/web/_app/'+name.replaceAll('\\\\','/'));
+  }
+ }
+ assert.equal(candidates.length,1,'ONE_BUILT_CONSUMER_WORKER');
+ for(const mode of ['manifest','js','wasm','mime','redirect']){
+  fault=mode;const before=assetRequests;
+  const expression='new Promise((resolve,reject)=>{const w=new Worker('+JSON.stringify(candidates[0])+',{type:"module"});const timer=setTimeout(()=>{w.terminate();reject(Error("NEGATIVE_WORKER_TIMEOUT"))},15000);w.onmessage=e=>{clearTimeout(timer);w.terminate();resolve(e.data)};w.onerror=e=>{clearTimeout(timer);w.terminate();reject(Error(e.message))}})';
+  const denied=await rpc('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});
+  assert.equal(denied.exceptionDetails,undefined,mode);
+  assert.deepEqual(denied.result.value,{kind:'DIFFGRIDS_RUNTIME_READY',ready:false,writerAuthorized:false},mode);
+  assert.ok(assetRequests>before,'REAL_ASSET_REQUEST_'+mode);
+ }
+ fault=null;
+
+ // Independent raw Worker protocol on the real bundled consumer, not UI mock.
+ const raw=await rpc('Runtime.evaluate',{expression:`(async()=>{
+  const worker=new Worker(${JSON.stringify(candidates[0])},{type:'module'});
+  try{
+   const next=()=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('QRW_WORKER_TIMEOUT')),15000);worker.onmessage=e=>{clearTimeout(timer);resolve(e.data)};worker.onerror=e=>{clearTimeout(timer);reject(Error(e.message))}});
+   const ready=await next();if(ready.ready!==true||ready.writerAuthorized!==false)throw Error('QRW_READY');
+   const expected=await (await fetch('/web/__synthetic__/expected-diffgrids.json')).json();
+   const file=new File([await (await fetch('/web/__synthetic__/synthetic626-diffgrids.p1g')).arrayBuffer()],'synthetic.p1g');
+   const a={contract:'wand.owner.local.steam-p1g-rust-v1@1',platform:'steam-windows',buildKind:'steam-full-version',fullVersion:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,originalSha256:expected.originalSha256,evidenceKind:'ci-synthetic-fixture',observedOutsideSave:false};
+   let id=0;const send=async(kind,p)=>{const reply=next();worker.postMessage({kind,requestId:++id,...p});const r=await reply;if(r.requestId!==id)throw Error('QRW_ID');return r};
+   const open=attestation=>send('OPEN_LOCAL_STORED_DIFFGRIDS',{file,expectedEncryptedSizeBytes:file.size,attestation});
+   const require=(v,k)=>{if(!v)throw Error(k)};
+   const bad=await open({...a,schema:624});require(bad.ok===false,'WRONG_BUILD');
+   const A=await open(a);require(A.ok&&A.summary.recordCount===17&&A.summary.writerAuthorized===false,'OPEN_A');
+   const sel=A.summary.selection;const read=(selection,pageIndex)=>send('READ_LOCAL_STORED_DIFFGRIDS_NEXT',{selection,pageIndex});
+   const p=await read(sel,0);require(p.ok&&p.summary.records.length===8&&p.summary.applyAuthorized===false,'PAGE0');
+   require((await read(sel,0)).ok===false,'REPLAY');
+   require((await read(sel+1,1)).ok===false,'FOREIGN_SELECTION');
+   require((await read(sel,1)).summary.records.length===8,'PAGE1');
+   require((await read(sel,2)).summary.records.length===1,'PAGE2');
+   require((await read(sel,3)).ok===false,'EXHAUSTED');
+   require((await send('CLOSE_LOCAL_STORED_DIFFGRIDS',{selection:sel})).ok===true,'CLOSE');
+   require((await read(sel,0)).ok===false,'CLOSED');
+   const B=await open(a);require(B.ok&&B.summary.selection!==sel,'NEW_SELECTION');
+   require((await send('CLOSE_LOCAL_STORED_DIFFGRIDS',{selection:sel})).ok===false,'STALE_CLOSE');
+   require((await read(B.summary.selection,0)).ok===true,'B_SURVIVES');
+   require((await send('CLOSE_LOCAL_STORED_DIFFGRIDS',{selection:B.summary.selection})).ok===true,'CLOSE_B');
+   return {rawWorker:true,wrongBuild:true,pages:'8,8,1',replay:true,staleClose:true,reopen:true};
+  }finally{worker.terminate()}
+ })()`,awaitPromise:true,returnByValue:true});
+ assert.equal(raw.exceptionDetails,undefined,JSON.stringify(raw.exceptionDetails));
+ assert.deepEqual(raw.result.value,{rawWorker:true,wrongBuild:true,pages:'8,8,1',replay:true,staleClose:true,reopen:true});
+ // Same compiled Worker at a foreign origin must not even fetch signed assets.
+ foreignServer=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},serve);
+ await new Promise((r,j)=>{foreignServer.once('error',j);foreignServer.listen(19444,'127.0.0.1',r)});
+ // Avoid page auto-load racing the measurement: a blank same-origin page.
+ // Worker scripts are still served from the alternate HTTPS origin.
+ await rpc('Page.navigate',{url:'https://127.0.0.1:19444/web/__qrw_blank__'});
+ for(let n=0;n<200;n++){try{const v=await rpc('Runtime.evaluate',{expression:'location.pathname',returnByValue:true});if(v.result?.value==='/web/__qrw_blank__')break}catch{}await delay(40)}
+ const beforeForeign=assetRequests;
+ const deniedForeign=await rpc('Runtime.evaluate',{expression:'new Promise((resolve,reject)=>{const w=new Worker('+JSON.stringify(candidates[0])+',{type:"module"});const timer=setTimeout(()=>{w.terminate();reject(Error("FOREIGN_TIMEOUT"))},15000);w.onmessage=e=>{clearTimeout(timer);w.terminate();resolve(e.data)};w.onerror=e=>{clearTimeout(timer);w.terminate();reject(Error(e.message))}})',awaitPromise:true,returnByValue:true});
+ assert.equal(deniedForeign.exceptionDetails,undefined,JSON.stringify(deniedForeign.exceptionDetails));
+ assert.deepEqual(deniedForeign.result.value,{kind:'DIFFGRIDS_RUNTIME_READY',ready:false,writerAuthorized:false});
+ assert.equal(assetRequests,beforeForeign,'FOREIGN_ORIGIN_NO_ASSET_FETCH');
+ console.log('QRW967_REAL_BUILT_CONSUMER_RAW_WORKER_5_ASSET_FAULTS_WRONG_ORIGIN_PASS',raw.result.value);
+
+ console.log('08WEB_BUILT_PROTECTED_CONSUMER_SIGNED_BYTES_4NEG_PASS');
+ console.log('08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS',
+  {pages:result.pages,signedPublicAssetBytes:true,privateSave:false,
+    consumerProductOwnerFlag:false,physical320Css100:result.geometry100,
+    physical320Css200AfterVerticalScroll:result.geometry200,
+    physicalDesktopCss100:d,innerTableScroll:result.innerTableScroll});
+}catch(e){console.error('08WEB_REAL_CHROME_FAIL',String(e?.stack||e).slice(0,1800));process.exitCode=1}
+finally{
+ for(const p of pending.values())p.reject(Error('CDP_CLOSED'));pending.clear();
+ try{ws?.close()}catch{}
+ if(chrome){chrome.kill('SIGTERM');await delay(250);
+   if(chrome.exitCode===null)chrome.kill('SIGKILL')}
+ if(foreignServer)await new Promise(r=>foreignServer.close(r));
+ if(server)await new Promise(r=>server.close(r));
+ await rm(profile,{recursive:true,force:true,maxRetries:3});
+}
