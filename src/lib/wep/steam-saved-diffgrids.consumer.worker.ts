@@ -4,63 +4,35 @@
 // is a trust anchor. NEVER take pins, URL, Build, Session or flags from UI.
 import {installLocalSteamP1gSavedDiffGridsWorker}
   from '$lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs';
-import {loadSourcePinnedRustWasmCandidate}
-  from '$lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs';
+import {loadProtectedReadonlyRustWasm}
+  from '$lib/ddv/core/save/product-rust-wasm-release-loader.mjs';
 import {validateOwnerLocalSteamAttestation}
   from '../../../tools/owner-local-steam-v1/attestation.mjs';
 
-// Source: protected-main ef0372a5 and actual HTTPS Pages run42980529332;
-// release same-Pages-build OIDC Sigstore attestation 66174683.
-// All three independent bytes/sizes were accepted by 05 QR-C PR909,
-// 09 INT PR910 and the managed HTTPS deploy verification. These are NOT
-// fetched from the manifest, UI, query, storage, CDN, or an untrusted route.
-// Pin to the full source commit AND manifest (which embeds that commit).
-export const ACCEPTED_PUBLIC_READONLY_RUST_RELEASE_PINS=Object.freeze({
-  contract:'wand.r22.candidate-pinned-digests@1',
-  sourceHead:'ef0372a58b9619a442c65b31cecbb88c3cca0029',
-  manifestSha256:'9a0515d259163ab80ba070f15918dcba1e59c3d5726c8efaeb8934ec5e5f6b50',
-  manifestSizeBytes:1915,
-  jsSha256:'4704a19c6e2962583d03a0bf8e7d5bf5ad2a802fd664259117eff4b2bbcbac0d',
-  jsSizeBytes:16904,
-  wasmSha256:'5383f76a7228493d720e1e2734a26738d1165f92cbcfae48f3e1df5c38b10207',
-  wasmSizeBytes:258719,
-  sourceProvenanceOnly:true,
-  verifiedSignature:false
-});
-
+// PR957/PR960: the protected Pages build seals the exact signed three assets
+// into the trusted Worker bundle. No fixed historical commit/digest or caller pins.
 // Explicit Owner PRODUCT-operation Gate is separate from permission to
 // host three inert read-only files. No product Reader is enabled by this PR.
 // Focused CI may replace this SINGLE constant in the temporary test working
 // tree only, never commit the enabled value or put private P1G into CI.
 const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;
 
-function basePathForWorker(){
-  const pathname=self.location.pathname;
-  if(pathname.startsWith('/web/_app/'))return '/web';
-  if(pathname.startsWith('/_app/'))return '';
-  throw Error('DIFFGRIDS_WORKER_BASE_ORIGIN_DENIED');
-}
 async function loadAcceptedReadOnlyRustModule(){
-  const pinned=ACCEPTED_PUBLIC_READONLY_RUST_RELEASE_PINS;
-  // 01A Loader is itself Worker-only and strictly verifies all three
-  // independent pins, each exact size, Source/Build/ABI/Origin, MIME, no
-  // redirect, no cache; compiles verified WASM in memory, then imports the
-  // VERIFIED JS bytes as a one-shot Blob URL. Never dynamic import(url).
-  // Its "qaCandidate" is the only currently accepted loader operation;
-  // because it is a QA-only API, this product Worker must stay disabled
-  // until a *separate* Owner product gate/production loader acceptance.
-  // The accepted 01A JS declaration exposes qaCandidate but does not yet
-  // enumerate the additional audited basePath/trustedPins properties.
-  // A named argument object avoids accidental excess-property TS narrowing.
-  const args=Object.freeze({basePath:basePathForWorker(),trustedPins:pinned,
-    qaCandidate:true});
-  const result=await loadSourcePinnedRustWasmCandidate(args);
-  if(result?.sourceHead!==pinned.sourceHead||
+  // Accepted 01A production provenance boundary: no caller arguments.
+  // Build-sealed release identity is validated by the loader, not by the UI.
+  const result=await loadProtectedReadonlyRustWasm();
+  if(result?.contract!=='wand.r22.protected-readonly-loader-receipt@1'||
+     !/^[a-f0-9]{64}$/.test(result.releaseId)||
+     !/^[a-f0-9]{40}$/.test(result.sourceHead)||
+     result.attestationVerifiedAtBuild!==true||
+     result.runtimeSignatureVerified!==false||
      result.checkedBothJsAndWasm!==true||
      result.sameOriginFetchOnly!==true||
+     result.qaCandidate!==false||
      result.productConsumerEnabled!==false||
      result.writerAuthorized!==false||
      result.nativeV3Verified!==false||
+     result.applyAuthorized!==false||
      typeof result.WorkerWasmSource!=='function')
     throw Error('DIFFGRIDS_PRODUCT_LOADER_RECEIPT_DENIED');
   return Object.freeze({WorkerWasmSource:result.WorkerWasmSource});
