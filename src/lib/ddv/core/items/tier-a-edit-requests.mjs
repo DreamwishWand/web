@@ -4,7 +4,7 @@
  * exports a Save, and cannot validate who produced its caller-supplied inputs.
  * Real source/build/reference/entitlement proof and authority remain Rust-owned.
  */
-import {isSteam626ExistingListAmountType,steam626ItemTypeOf} from './steam626-native-fields.mjs';
+import {isSteam626ExistingListAmountType,steam626ItemTypeOf,STEAM626_NATIVE_FIELDS} from './steam626-native-fields.mjs';
 export const TIER_A_CONTRACT='wand.01d.tier-a-existing-field-request@1';
 export const TIER_A_WRITER_ENABLED=false;
 export const STEAM626=Object.freeze({
@@ -22,10 +22,15 @@ export const TIER_A_OPERATIONS=Object.freeze([
   Object.freeze({name:'Collection.InspectRawGroupFlag',tier:'A_READ',field:'Player.CollectionSets[*].GroupData[*].GroupsCollectionItems[ItemID]:boolean',
     shape:'SOURCED_STRUCTURAL',semantic:'GAME_DISCOVERED_COLLECTED_OWNED_NOT_PROVEN',
     command:null,coreOwner:'01A',writerAuthorized:false,requires01E:'IF_COLLECTION_GROUP_PRODUCER_CONSUMER_IS_NEEDED'}),
-  ...['Ownership.Change','Variation.Change','Group.Change','Appearance.Change','Wardrobe.Change','OwnedSkin.Select'].map(name=>
+  ...['Ownership.Change','Variation.Change','Group.Change'].map(name=>
     Object.freeze({name,tier:'A_WAIT_EVIDENCE',field:null,shape:'UNKNOWN_STEAM626_NATIVE',
       semantic:'REQUIRES_REAL_FIELD_AND_NATIVE_PRODUCER_CONSUMER_PROOF',
-      command:null,coreOwner:'01A',writerAuthorized:false,requires01E:'AFTER_CONCRETE_TYPED_FIELD_EVIDENCE'}))
+      command:null,coreOwner:'01A',writerAuthorized:false,requires01E:'AFTER_CONCRETE_TYPED_FIELD_EVIDENCE'})),
+  ...[['Appearance.Change','Appearance'],['Wardrobe.Change','Wardrobe'],['OwnedSkin.Select','OwnedSkin']].map(([name,domain])=>
+    Object.freeze({name,tier:'A_WAIT_EVIDENCE',field:null,shape:'STEAM626_NATIVE_SCHEMA_ONLY',
+      nativeFieldPaths:Object.freeze(STEAM626_NATIVE_FIELDS.filter(x=>x.domain===domain).map(x=>x.path)),
+      semantic:'REAL_SAVE_FIELD_AND_SAME_BUILD_ALLOWED_SET_UNVERIFIED',command:null,coreOwner:'01A',
+      writerAuthorized:false,requires01E:'AFTER_CONCRETE_TYPED_FIELD_EVIDENCE'}))
 ]);
 export const TIER_A_DEPENDENCIES=Object.freeze({
   commonRust:'SINGLE_01A_PRODUCTSESSION_REVALIDATE_BUILD_SESSION_FULL_DOCUMENT_REF_INDEX_REVISION_CAS',
@@ -114,11 +119,11 @@ function requestChest({target,source,session,command}){
   if(!keys(command,['operation','containerInventoryId','containerParentItemId','belongsToPlayer',
     'size','slotCount','slotIndex','slotItemId','expectedOldAmount','nextAmount',
     'itemStateReadsetSha256','activeReferenceCount'])||
-    !positiveId(command.containerInventoryId)||!steam626ItemTypeOf(command.containerParentItemId)||
+    !positiveId(command.containerInventoryId)||steam626ItemTypeOf(command.containerParentItemId)!=='ItemType_Furniture'||
     command.belongsToPlayer!==true||!u32(command.size)||command.size<1||command.size>256||
     !u32(command.slotCount)||command.slotCount!==command.size||
     !u32(command.slotIndex)||command.slotIndex>=command.slotCount||
-    !steam626ItemTypeOf(command.slotItemId)||!SHA.test(command.itemStateReadsetSha256)||
+    steam626ItemTypeOf(command.slotItemId)!=='ItemType_ActivityItem'||!SHA.test(command.itemStateReadsetSha256)||
     !u32(command.activeReferenceCount)||command.activeReferenceCount>1)
     return reject('CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID');
   const a=command.expectedOldAmount,b=command.nextAmount;
@@ -142,7 +147,7 @@ function requestChest({target,source,session,command}){
       expectedReferenceCount:command.activeReferenceCount}
   ];
   return proposed(command.operation,target,source,session,path,a,b,readSet,
-    'WAIT_STEAM626_NATIVE_STACK_PARENT_STATE_AND_CONSUMER_EVIDENCE',
+    'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE',
     {variant:'ChestExistingSlotAmountDecrease',container_id:command.containerInventoryId,
       slot_index:command.slotIndex,expected_item_id:command.slotItemId,
       expected_old_amount:a,new_amount:b});

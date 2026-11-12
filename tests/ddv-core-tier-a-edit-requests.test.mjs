@@ -44,7 +44,11 @@ test('R08 operation matrix classifies all requested Tier A domains without autho
     const row=TIER_A_OPERATIONS.find(x=>x.name===name);
     assert.equal(row.field,null);
     assert.equal(row.command,null);
-    assert.equal(row.shape,'UNKNOWN_STEAM626_NATIVE');
+    assert.equal(row.shape,['Appearance.Change','Wardrobe.Change','OwnedSkin.Select'].includes(name)?'STEAM626_NATIVE_SCHEMA_ONLY':'UNKNOWN_STEAM626_NATIVE');
+    if(row.shape==='STEAM626_NATIVE_SCHEMA_ONLY'){
+      assert.ok(row.nativeFieldPaths.length>0);
+      assert.ok(Object.isFrozen(row.nativeFieldPaths));
+    }
     assert.equal(row.writerAuthorized,false);
   }
   assert.equal(TIER_A_DEPENDENCIES.incompatible.includes('STEAM626'),true);
@@ -138,7 +142,7 @@ test('Source SHA, single Rust session receipt, revision and index-generation are
 });
 test('Synthetic existing Chest slot maps only one Amount leaf, retaining ItemState SHA and container identity',()=>{
   const x=plan(r=>{r.command=chestCommand()});
-  assert.equal(x.status,'WAIT_STEAM626_NATIVE_STACK_PARENT_STATE_AND_CONSUMER_EVIDENCE');
+  assert.equal(x.status,'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE');
   assert.equal(x.candidate.fieldPath,'/Player/ContainerInventories/12/Inventory/0/Amount');
   assert.equal(x.candidate.readSet.find(z=>z.path.endsWith('/State')).expectedContentSha256,hash('d'));
   assert.equal(x.candidate.readSet.find(z=>z.path.endsWith('/BelongsToPlayer')).expectedValue,true);
@@ -197,6 +201,8 @@ test('Chest uses signed native item identities and the State field, never ItemSt
   const ch=f=>blocked(x=>{x.command=chestCommand();f(x.command)},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID');
   ch(c=>{c.slotItemId=2147483648});
   ch(c=>{c.containerParentItemId=500000});
+  ch(c=>{c.containerParentItemId=30000001});
+  for(const id of [80000001,170000001,50000001,40000001])ch(c=>{c.slotItemId=id});
   const p=plan(x=>{x.command=chestCommand()});
   assert.ok(p.candidate.readSet.some(x=>x.path.endsWith('/State')));
   assert.ok(!p.candidate.readSet.some(x=>x.path.endsWith('/ItemState')));
