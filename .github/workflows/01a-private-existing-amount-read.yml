@@ -1,0 +1,40 @@
+name: 01A private existing amount target read harness (synthetic only)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/semantic_writer.rs'
+      - 'crates/ddv-save-core/examples/wand-private-existing-amount-read.rs'
+      - 'tests/private-existing-amount-read.mjs'
+      - '.github/workflows/01a-private-existing-amount-read.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-read-receipt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Private feature native only, synthetic selection and exact receipt
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev private_inventory_discovery_tests
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --example wand-private-existing-amount-read
+          node tests/private-existing-amount-read.mjs crates/ddv-save-core/target/debug/examples/wand-private-existing-amount-read
+      - name: Existing native Writer regression and public WASM isolation
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
+      - name: No private executable or Save distribution
+        run: |
+          test -z "$(git ls-files crates/ddv-save-core/target)"
+          test ! -e static/worker-wasm/ddv_save_core.js
+          echo PRIVATE_READ_HARNESS_SYNTHETIC_ONLY_NO_ARTIFACT_UPLOAD

@@ -106,35 +106,42 @@ fn valid_amount_decrease(old:u32,new:u32)->CoreResult<()>{
     }
     Ok(())
 }
-fn object_field(bytes:&[u8], parent:Span, sought:&str)->CoreResult<Span>{
+// Shared existing object span scanner; selection and exact lookup use the
+// same grammar/validated bytes, not a second JSON reader.
+fn next_object_member(bytes:&[u8],parent:Span,pos:&mut usize)
+    ->CoreResult<Option<(String,Span)>>{
     if bytes.get(parent.begin)!=Some(&b'{')||
        bytes.get(parent.end.saturating_sub(1))!=Some(&b'}')||
-       parent.begin>=parent.end||parent.end>bytes.len(){
-       return Err(denied("SEMANTIC_OBJECT_PARENT_REQUIRED"));
+       parent.begin>=parent.end||parent.end>bytes.len()||
+       *pos<=parent.begin||*pos>=parent.end{
+        return Err(denied("SEMANTIC_OBJECT_PARENT_REQUIRED"));
     }
-    let mut i=parent.begin+1;
-    loop {
-        i=indexed_read::skip_ws(bytes,i);
-        if i>=parent.end{return Err(denied("SEMANTIC_MAP_OUT_OF_SPAN"));}
-        if i==parent.end-1{return Err(denied("SEMANTIC_TARGET_NOT_PRESENT"));}
-        let k_end=indexed_read::string_end(bytes,i)?;
-        if k_end-i>128{return Err(denied("SEMANTIC_KEY_BOUNDS"));}
-        let k:String=serde_json::from_slice(&bytes[i..k_end])
-            .map_err(|_|denied("SEMANTIC_KEY_INVALID"))?;
-        i=indexed_read::skip_ws(bytes,k_end);
-        if bytes.get(i)!=Some(&b':'){return Err(denied("SEMANTIC_KEY_COLON"));}
-        let begin=indexed_read::skip_ws(bytes,i+1);
-        let end=indexed_read::value_end(bytes,begin)?;
-        if end>=parent.end{return Err(denied("SEMANTIC_FIELD_OUT_OF_PARENT"));}
-        if k==sought{return Ok(Span{begin,end});}
-        i=indexed_read::skip_ws(bytes,end);
-        match bytes.get(i){
-            Some(b',')=>i+=1,
-            Some(b'}') if i==parent.end-1=>
-                return Err(denied("SEMANTIC_TARGET_NOT_PRESENT")),
-            _=>return Err(denied("SEMANTIC_MAP_TERMINATOR")),
-        }
+    let i=indexed_read::skip_ws(bytes,*pos);
+    if i>=parent.end{return Err(denied("SEMANTIC_MAP_OUT_OF_SPAN"));}
+    if i==parent.end-1{return Ok(None);}
+    let k_end=indexed_read::string_end(bytes,i)?;
+    if k_end-i>128{return Err(denied("SEMANTIC_KEY_BOUNDS"));}
+    let k:String=serde_json::from_slice(&bytes[i..k_end])
+        .map_err(|_|denied("SEMANTIC_KEY_INVALID"))?;
+    let colon=indexed_read::skip_ws(bytes,k_end);
+    if bytes.get(colon)!=Some(&b':'){return Err(denied("SEMANTIC_KEY_COLON"));}
+    let begin=indexed_read::skip_ws(bytes,colon+1);
+    let end=indexed_read::value_end(bytes,begin)?;
+    if end>=parent.end{return Err(denied("SEMANTIC_FIELD_OUT_OF_PARENT"));}
+    let next=indexed_read::skip_ws(bytes,end);
+    *pos=match bytes.get(next){
+        Some(b',') if next<parent.end-1=>next+1,
+        Some(b'}') if next==parent.end-1=>next,
+        _=>return Err(denied("SEMANTIC_MAP_TERMINATOR")),
+    };
+    Ok(Some((k,Span{begin,end})))
+}
+fn object_field(bytes:&[u8], parent:Span, sought:&str)->CoreResult<Span>{
+    let mut pos=parent.begin.checked_add(1).ok_or(denied("SEMANTIC_MAP_OUT_OF_SPAN"))?;
+    while let Some((key,span))=next_object_member(bytes,parent,&mut pos)?{
+        if key==sought{return Ok(span);}
     }
+    Err(denied("SEMANTIC_TARGET_NOT_PRESENT"))
 }
 fn array_element(bytes:&[u8],parent:Span,at:usize)->CoreResult<Span>{
     if at>=MAX_CONTAINER_SLOTS{return Err(denied("SEMANTIC_SLOT_INDEX_BOUNDS"));}
@@ -621,6 +628,58 @@ impl ProductSession {
         indexed_read::validate_scope(self,&st,&e)?;
         observe_existing_amount(self,&e,selection)
     }
+    /// Native-local-only bounded selection of ONE fresh Inventory witness.
+    /// This is a selector, not authorization or proof of E1172 target identity.
+    /// Scan existing spans once; no whole-document Value, no extra session.
+    #[cfg(not(target_arch="wasm32"))]
+    pub fn find_one_existing_inventory_amount_target(&self,e:WorkerEnvelope)
+        ->CoreResult<CoreExistingAmountTarget>{
+        build_check(self)?;
+        let st=self.lock()?;
+        indexed_read::validate_scope(self,&st,&e)?;
+        let bytes=&self.decoded;
+        let player=indexed_read::roots(bytes)?.player;
+        let lists=object_field(bytes,player,"ListInventories")?;
+        let mut pos=lists.begin+1;
+        let mut records=0usize;
+        let mut entries=0usize;
+        const MAX_RECORDS:usize=128;
+        const MAX_ENTRIES:usize=16384;
+        fn canonical_id(key:&str)->Option<u32>{
+            let id=key.parse::<u32>().ok()?;
+            if id==0||id.to_string()!=key{return None;}
+            Some(id)
+        }
+        while let Some((key,record))=next_object_member(bytes,lists,&mut pos)?{
+            records+=1;
+            if records>MAX_RECORDS{return Err(denied("AMOUNT_DISCOVERY_RECORD_BOUND"));}
+            let id=canonical_id(&key).ok_or(denied("AMOUNT_DISCOVERY_INVENTORY_KEY"))?;
+            positive_id_field(bytes,record,"ID",id)?;
+            let ty=object_field(bytes,record,"CompatibleItemType")?;
+            let kind=if compatible_type(bytes,ty,"ItemType_ActivityItem").is_ok(){
+                ExistingAmountItemType::ActivityItem
+            }else if compatible_type(bytes,ty,"ItemType_Furniture").is_ok(){
+                ExistingAmountItemType::Furniture
+            }else{continue};
+            let items=object_field(bytes,record,"Inventory")?;
+            let mut item_pos=items.begin+1;
+            while let Some((item_key,entry))=next_object_member(bytes,items,&mut item_pos)?{
+                entries+=1;
+                if entries>MAX_ENTRIES{return Err(denied("AMOUNT_DISCOVERY_ENTRY_BOUND"));}
+                let Some(item_id)=canonical_id(&item_key)else{continue};
+                if native_amount_type(item_id).ok()!=Some(kind){continue;}
+                let Ok(amount)=object_field(bytes,entry,"Amount")else{continue};
+                if saved_positive_amount(bytes,amount).is_err(){continue;}
+                // Exact existing target path reuses PR948 authority witness.
+                // Same mutex and immutable source; only ONE final exact lookup.
+                return observe_existing_amount(self,&e,ExistingAmountSelection::Inventory{
+                    inventory_id:id,item_id,
+                });
+            }
+        }
+        Err(denied("AMOUNT_DISCOVERY_NO_ELIGIBLE_EXISTING_TARGET"))
+    }
+
     /// Native source evidence is not an authentic per-target catalog, rights,
     /// canonical variation, active reference or subscriber closure. No caller
     /// can supply a boolean, hash, registry, or callback as authority here.
@@ -840,5 +899,67 @@ mod minted_amount_target_tests {
         expected["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(11);
         assert_eq!(out,serde_json::to_vec(&expected).unwrap());
         assert!(s.take_typed_semantic_decoded_once(export).is_err());
+    }
+}
+
+
+#[cfg(all(test,not(target_arch="wasm32")))]
+mod private_inventory_discovery_tests {
+    use super::*;
+    use crate::{BuildIdentity,SessionReceipt};
+    use serde_json::json;
+    fn open(v:serde_json::Value)->ProductSession{
+        ProductSession::open_decoded_readonly(serde_json::to_vec(&v).unwrap(),BuildIdentity{
+            platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+            build_id:EXACT_STEAM.into(),schema:626,externally_attested:true,
+        }).unwrap()
+    }
+    fn envelope(r:SessionReceipt)->WorkerEnvelope{
+        WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
+            expected_revision:r.revision,expected_index_generation:r.index_generation,
+            expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}
+    }
+    fn doc()->serde_json::Value{
+        json!({"GameInfo":{"Version":626},"World":{},"Player":{"ListInventories":{
+            "1":{"ID":1,"CompatibleItemType":"ItemType_Ingredient","Inventory":{"30000001":{"Amount":50}}},
+            "2":{"ID":2,"CompatibleItemType":"ItemType_ActivityItem","Inventory":{
+                "030000001":{"Amount":50},"30000001":{"Amount":1},"30000002":{"Amount":0},
+                "30000003":{"Amount":2},"40000001":{"Amount":50},"2147483648":{"Amount":50}
+            }}
+        }}})
+    }
+    #[test]
+    fn discovers_only_exact_existing_target_and_same_epoch(){
+        let s=open(doc());let r=s.receipt().unwrap();let e=envelope(r);
+        let v=s.find_one_existing_inventory_amount_target(e).unwrap();
+        assert_eq!(v.view().selection,ExistingAmountSelection::Inventory{inventory_id:2,item_id:30000003});
+        assert_eq!(v.view().old_amount,2);
+        assert_eq!(v,s.read_existing_amount_target(e,v.view().selection).unwrap());
+        assert_eq!(s.receipt().unwrap(),r);
+        assert!(s.authorize_existing_amount_target(e,&v,1).is_err());
+        let mut stale=e;stale.expected_revision+=1;
+        assert!(s.find_one_existing_inventory_amount_target(stale).is_err());
+        let mut wrong=e;wrong.action=WorkerAction::Stage;
+        assert!(s.find_one_existing_inventory_amount_target(wrong).is_err());
+        let other=open(doc());
+        assert!(other.find_one_existing_inventory_amount_target(e).is_err());
+        s.close().unwrap();
+        assert!(s.find_one_existing_inventory_amount_target(e).is_err());
+    }
+    #[test]
+    fn no_eligible_target_invalid_map_and_bounds_fail_closed(){
+        let mut v=doc();v["Player"]["ListInventories"]["2"]["Inventory"]["30000003"]["Amount"]=json!(1);
+        let s=open(v.clone());assert!(s.find_one_existing_inventory_amount_target(envelope(s.receipt().unwrap())).is_err());
+        v["Player"]["ListInventories"]["2"]["ID"]=json!(1);
+        let s=open(v);assert!(s.find_one_existing_inventory_amount_target(envelope(s.receipt().unwrap())).is_err());
+        let mut v=doc();
+        v["Player"]["ListInventories"]=json!((1..=129).map(|i|
+           (i.to_string(),json!({"ID":i,"CompatibleItemType":"ItemType_Currency","Inventory":{}})))
+           .collect::<serde_json::Map<String,serde_json::Value>>());
+        let s=open(v);assert_eq!(s.find_one_existing_inventory_amount_target(envelope(s.receipt().unwrap())).unwrap_err().0,"AMOUNT_DISCOVERY_RECORD_BOUND");
+        let mut v=doc();
+        v["Player"]["ListInventories"]["2"]["Inventory"]=json!((30000000..30016385).map(|i|
+           (i.to_string(),json!({"Amount":1}))).collect::<serde_json::Map<String,serde_json::Value>>());
+        let s=open(v);assert_eq!(s.find_one_existing_inventory_amount_target(envelope(s.receipt().unwrap())).unwrap_err().0,"AMOUNT_DISCOVERY_ENTRY_BOUND");
     }
 }
