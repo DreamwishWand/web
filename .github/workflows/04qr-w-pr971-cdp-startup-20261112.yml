@@ -1,0 +1,22 @@
+name: "04 QR-W PR971 independent real Chrome CDP startup"
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr971-*.mjs'
+      - '.github/workflows/04qr-w-pr971-cdp-startup-20261112.yml'
+permissions:
+  contents: read
+jobs:
+  independent-cdp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test scripts/04qr-w-pr971-cdp-startup-independent-20261112.mjs
