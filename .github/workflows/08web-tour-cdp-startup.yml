@@ -1,0 +1,26 @@
+name: 08 WEB Tour real Chrome CDP startup (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'scripts/web-presets-my-tour-chrome.mjs'
+      - 'scripts/web-tour-cdp-startup.mjs'
+      - 'tests/web-presets-my-tour-contract.test.mjs'
+      - '.github/workflows/08web-tour-cdp-startup.yml'
+permissions:
+  contents: read
+jobs:
+  real-chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Actual installed Chrome and startup regression contracts
+        run: node --test tests/web-presets-my-tour-contract.test.mjs
