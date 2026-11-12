@@ -23,7 +23,8 @@ pub use product_session::{SyntheticChangeSet, SyntheticStageReceipt, SyntheticEx
 pub use product_session::NativeAreaGridSliceReceipt;
 #[cfg(feature = "semantic-writer-dev")]
 pub use product_session::{TypedOperationKind,TypedOperationRegistryEntry,
-    TypedSemanticCommand,SemanticStageReceipt,TYPED_OPERATION_REGISTRY};
+    TypedSemanticCommand,SemanticStageReceipt,TYPED_OPERATION_REGISTRY,
+    ExistingAmountSelection,ExistingAmountItemType,ExistingChestFacts,ExistingAmountTargetView,CoreExistingAmountTarget,AuthorizedExistingAmountTarget};
 #[cfg(feature = "private-native-v2")]
 pub use product_session::PrivateOfflineReceipt;
 #[cfg(feature = "indexed-read")]
