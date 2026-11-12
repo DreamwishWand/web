@@ -63,9 +63,20 @@ async function checkedFetch(url,length,digest,contentType,fetcher){
 export async function loadSourcePinnedRustWasmCandidate({
  basePath,trustedPins,qaCandidate=false,fetcher=fetch
 }={}){
- if(typeof document!=='undefined'||typeof self?.location==='undefined')
+ if(typeof document!=='undefined'||typeof globalThis.self?.location==='undefined')
    fail('WORKER_ONLY');
  if(qaCandidate!==true)fail('UNSIGNED_PRODUCT_DISTRIBUTION_OFF');
+ const loaded=await loadPinnedReadOnlyRustBytes({basePath,trustedPins,fetcher});
+ return Object.freeze({...loaded,signatureVerified:false,
+   productConsumerEnabled:false,nativeV3Verified:false,writerAuthorized:false});
+}
+
+// Shared byte/ABI pipeline ONLY. This receipt does not authenticate the pin
+// issuer and cannot authorize a product operation. The protected loader
+// obtains pins from a separate build-sealed module, never from this API's caller.
+export async function loadPinnedReadOnlyRustBytes({basePath,trustedPins,fetcher=fetch}={}){
+ if(typeof document!=='undefined'||typeof globalThis.self?.location==='undefined')
+   fail('WORKER_ONLY');
  if(!exact(trustedPins,
   'contract,sourceHead,manifestSha256,manifestSizeBytes,jsSha256,wasmSha256,jsSizeBytes,wasmSizeBytes,sourceProvenanceOnly,verifiedSignature')||
   trustedPins.contract!=='wand.r22.candidate-pinned-digests@1'||
@@ -129,6 +140,10 @@ export async function loadSourcePinnedRustWasmCandidate({
  let compiled,blobUrl,mod;
  try{
    compiled=await WebAssembly.compile(wasm);
+   const devSymbol=/(?:dev_(?:stage|undo|redo|begin|take)|semantic_writer|private_native)/i;
+   if(WebAssembly.Module.exports(compiled).some(x=>devSymbol.test(x.name))||
+      devSymbol.test(new TextDecoder('utf-8',{fatal:true}).decode(js)))
+     fail('PUBLIC_DEV_SYMBOL_DENIED');
    blobUrl=URL.createObjectURL(new Blob([js],{type:'text/javascript'}));
    mod=await import(/* @vite-ignore */blobUrl);
  }catch{fail('VERIFIED_JS_OR_WASM_COMPILE_DENIED')}

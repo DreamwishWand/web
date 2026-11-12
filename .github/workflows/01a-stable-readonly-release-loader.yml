@@ -1,0 +1,50 @@
+name: 01A stable protected read-only release loader (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'src/lib/ddv/core/save/product-rust-wasm-*loader.mjs'
+      - 'src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs'
+      - 'scripts/readonly-release/**'
+      - 'tests/protected-readonly-release.test.mjs'
+      - 'tests/readonly-release/**'
+      - '.github/workflows/01a-stable-readonly-release-loader.yml'
+      - '.github/workflows/pages.yml'
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  fixed-signed-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Local source boundary and immutable identity
+        run: node --test tests/protected-readonly-release.test.mjs
+      - name: Reuse exact already signed protected Pages artifact (no new upload)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          gh run download 43149282478 --repo DreamwishWand/web --name github-pages --dir "$dir"
+          mkdir "$dir/site"
+          archive="$(find "$dir" -maxdepth 1 -type f -name '*.tar*' -print -quit)"
+          test -n "$archive"
+          tar -xf "$archive" -C "$dir/site"
+          test -s "$dir/site/worker-wasm/manifest.json"
+          node scripts/readonly-release/seal.mjs verify-only 7d95accf9098cc54cc2fb698e95d3034e152102b "$dir/site/worker-wasm"
+          echo "R22_HISTORICAL_ASSET_DIR=$dir/site/worker-wasm" >> "$GITHUB_ENV"
+      - name: Real Chrome isolated HTTPS Worker (test-only embedded origin and historical signed assets)
+        run: node tests/readonly-release/smoke.mjs "$R22_HISTORICAL_ASSET_DIR"
+      - name: No anchor minted in PR, no Reader or Writer flag
+        run: |
+          grep -Fx 'export const PROTECTED_READONLY_RELEASE_ANCHOR=null;' src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs
+          test -z "$(git diff --name-only)"
+          grep -Fq 'PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
