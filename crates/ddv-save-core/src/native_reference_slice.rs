@@ -574,7 +574,7 @@ mod tests{
     #[test]
     fn state_source_flags_only_never_writer_or_native_consent(){
         let with_state=STORED_MODIFIED.replace(
-            "\"Orientation\":4","\"Orientation\":4,\"State\":{},\"From\":1");
+            "\"Orientation\":\"GridOrientation_Right\"","\"Orientation\":\"GridOrientation_Right\",\"State\":{},\"From\":1");
         let s=session(&with_state);
         let r=s.read_native_stored_modified_object(scope(&s),7,4).unwrap();
         assert!(r.state_field_present&&r.source_oneof_present);
