@@ -1,11 +1,9 @@
 // Real installed Chrome smoke for 08 WEB first Pilot; dependency-free DevTools.
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
-import {mkdtempSync,rmSync,existsSync} from 'node:fs';
-import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {existsSync} from 'node:fs';
 import {setTimeout as sleep} from 'node:timers/promises';
-import {createChromePipeTransport,startupDiagnostic} from './web-tour-cdp-startup.mjs';
+import {startVerifiedChrome,startupDiagnostic} from './web-tour-cdp-startup.mjs';
 import {presetsMyTourCopy,PRESETS_MY_TOUR_LOCALES} from '../src/lib/tour/presets-my-tour-copy.mjs';
 import {PRESETS_MY_WAND_TOUR} from '../src/lib/tour/typed-tour-contract.mjs';
 const HOST='http://127.0.0.1:4398';
@@ -13,7 +11,6 @@ const chrome=process.env.CHROME_BIN ||
  ['google-chrome-stable','google-chrome','chromium','chromium-browser'].map(x=>
   spawnSync('which',[x],{encoding:'utf8'}).stdout?.trim()).find(Boolean);
 assert.ok(chrome&&existsSync(chrome),'real installed Chrome required; no synthetic PASS');
-const workspace=mkdtempSync(join(tmpdir(),'wand-tour-chrome-'));
 const vite=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1',
  '--port','4398','--strictPort'],{
  cwd:process.cwd(),env:{...process.env,BASE_PATH:''},stdio:['ignore','pipe','pipe']
@@ -21,14 +18,6 @@ const vite=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127
 let viteOutput='',viteSpawnError=null;
 vite.on('error',e=>{viteSpawnError=e});
 for(const io of [vite.stdout,vite.stderr])io.on('data',b=>viteOutput=(viteOutput+String(b)).slice(-8192));
-const browser=spawn(chrome,['--headless=new','--disable-gpu','--no-sandbox',
- '--disable-dev-shm-usage','--remote-debugging-pipe',
- '--no-first-run','--no-default-browser-check','--user-data-dir='+workspace,'about:blank'],
- {stdio:['ignore','pipe','pipe','pipe','pipe']});
-let browserOutput='',browserSpawnError=null;
-browser.on('error',e=>{browserSpawnError=e});
-browser.stdout.resume();
-browser.stderr.on('data',data=>{browserOutput=(browserOutput+String(data)).slice(-8192)});
 const ready=async(expr,timeout=18000)=>{
  const start=Date.now();
  while(Date.now()-start<timeout){
@@ -40,26 +29,19 @@ const ready=async(expr,timeout=18000)=>{
 let sessionId=null;
 const requests=[];
 const exceptions=[];
-const transport=createChromePipeTransport(browser,{
- getStderr:()=>browserOutput,
- onEvent:event=>{
-  if(event.method==='Network.requestWillBeSent'){
-   const x=event.params?.request||{};
-   if(x.method!=='GET'&&x.method!=='HEAD')requests.push(x.method+' '+x.url);
-   if(x.url?.startsWith('http')&&!x.url.startsWith(HOST))requests.push('OFFORIGIN '+x.url);
-  }
-  if(event.method==='Runtime.exceptionThrown'){
-   exceptions.push(event.params?.exceptionDetails?.text||'unknown chrome exception');
-  }
+let browserInstance=null;
+const onEvent=event=>{
+ if(event.method==='Network.requestWillBeSent'){
+  const x=event.params?.request||{};
+  if(x.method!=='GET'&&x.method!=='HEAD')requests.push(x.method+' '+x.url);
+  if(x.url?.startsWith('http')&&!x.url.startsWith(HOST))requests.push('OFFORIGIN '+x.url);
  }
-});
-async function connect(){
- if(browserSpawnError)throw Error('CHROME_CDP_PIPE_SPAWN_ERROR');
- await transport.verifyBrowser();
- console.log('WEB_TOUR_CDP_PRIVATE_PIPE_VERIFIED');
-}
+ if(event.method==='Runtime.exceptionThrown'){
+  exceptions.push(event.params?.exceptionDetails?.text||'unknown chrome exception');
+ }
+};
 function send(method,params={},session=sessionId){
- return transport.send(method,params,session);
+ return browserInstance.transport.send(method,params,session);
 }
 async function evalJs(expression){
  const r=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true,
@@ -74,6 +56,7 @@ const tap=async(selector)=>{
  assert.equal(ok,true,'not found '+selector);
 };
 try{
+ const viteStart=performance.now();
  const viteDeadline=Date.now()+20000;
  let viteReady=false;
  while(Date.now()<viteDeadline){
@@ -83,7 +66,12 @@ try{
   await sleep(110);
  }
  if(!viteReady)throw Error('VITE_STARTUP_TIMEOUT markers='+startupDiagnostic(viteOutput));
- await connect();
+ console.log('WEB_TOUR_VITE_READY_MS '+Math.round(performance.now()-viteStart));
+ // Do not compete with Vite cold startup. Only the read-only initial browser
+ // handshake may recover once, on a completely new child/profile/pipe.
+ browserInstance=await startVerifiedChrome({chrome,onEvent,log:console.log});
+ console.log('WEB_TOUR_CDP_PRIVATE_PIPE_VERIFIED');
+ console.log('WEB_TOUR_CDP_COLDSTART_READY attempt='+browserInstance.attempt);
  const target=await send('Target.createTarget',{url:HOST+'/presets/'},null);
  const attach=await send('Target.attachToTarget',{targetId:target.targetId,flatten:true},null);
  sessionId=attach.sessionId;
@@ -266,10 +254,6 @@ try{
  console.log('WEB_TOUR_REAL_CHROME_INVALID_ANCHOR_FAILCLOSED_NO_POST_PASS');
  console.log('WEB_TOUR_INSTALLED_CHROME_FINAL_PASS');
 }finally{
- transport.close();
- if(browser.exitCode===null&&browser.signalCode===null)browser.kill('SIGKILL');
- if(vite.exitCode===null&&vite.signalCode===null)vite.kill('SIGKILL');
- await sleep(450);
- try{rmSync(workspace,{recursive:true,force:true,maxRetries:12,retryDelay:125});}
- catch(error){console.error('WEB_TOUR_CHROME_CLEANUP_RETAINED_TEMP_NO_USER_DATA',String(error));}
+ try{await browserInstance?.dispose();}
+ finally{if(vite.exitCode===null&&vite.signalCode===null)vite.kill('SIGKILL');}
 }

@@ -130,6 +130,7 @@ test('real installed Chrome: new-only pilot 4 anchors, no passive launch or pers
  assert.equal(p.error,undefined,p.error?.message);
  assert.equal(p.status,0,'real Chrome pilot '+String(p.signal));
  assert.match(p.stdout||'',/WEB_TOUR_CDP_PRIVATE_PIPE_VERIFIED/);
+ assert.match(p.stdout||'',/WEB_TOUR_VITE_READY_MS \d+[\s\S]*WEB_TOUR_CDP_COLDSTART_BEGIN[\s\S]*WEB_TOUR_CDP_COLDSTART_READY attempt=[12]/);
  assert.match(p.stdout||'',/WEB_TOUR_INSTALLED_CHROME_FINAL_PASS/);
 });
 
@@ -198,28 +199,21 @@ test('actual localhost probe diagnoses refused, delayed, malformed, redirect and
 });
 test('real concurrent Chrome private pipes, isolated targets, killed child fails closed', {timeout:45000},async()=>{
  if(process.env.CI!=='true'&&process.env.WEB_TOUR_CHROME!=='1')return;
- const {createChromePipeTransport}=await import('../scripts/web-tour-cdp-startup.mjs');
- const {spawn}=await import('node:child_process');
- const {mkdtemp,rm,access}=await import('node:fs/promises');
- const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const {startVerifiedChrome}=await import('../scripts/web-tour-cdp-startup.mjs');
+ const {access}=await import('node:fs/promises');
+ const {join}=await import('node:path');
  const {once}=await import('node:events');
  const chrome=process.env.CHROME_BIN||['google-chrome-stable','google-chrome','chromium','chromium-browser']
   .map(x=>spawnSync('which',[x],{encoding:'utf8'}).stdout?.trim()).find(Boolean);
  assert.ok(chrome,'actual installed Chrome required');
  const instances=[];
  try{
-  for(let i=0;i<2;i++){
-   const dir=await mkdtemp(join(tmpdir(),'wand-cdp-pipe-'));
-   const child=spawn(chrome,['--headless=new','--disable-gpu','--no-sandbox',
-    '--disable-dev-shm-usage','--remote-debugging-pipe','--no-first-run',
-    '--no-default-browser-check','--user-data-dir='+dir,'about:blank'],
-    {stdio:['ignore','pipe','pipe','pipe','pipe']});
-   let stderr='';child.stdout.resume();child.stderr.on('data',b=>stderr=(stderr+String(b)).slice(-8192));
-   const transport=createChromePipeTransport(child,{getStderr:()=>stderr});
-   instances.push({dir,child,transport});
-  }
-  await Promise.all(instances.map(x=>x.transport.verifyBrowser()));
-  const results=await Promise.all(instances.map(async(x,i)=>{
+  const outcomes=await Promise.allSettled([0,1].map(async()=>{
+   const x=await startVerifiedChrome({chrome,log:console.log});
+   instances.push({...x,dir:x.workspace});
+  }));
+  for(const x of outcomes)if(x.status==='rejected')throw x.reason;
+ const results=await Promise.all(instances.map(async(x,i)=>{
    await assert.rejects(access(join(x.dir,'DevToolsActivePort')),e=>e.code==='ENOENT');
    const t=await x.transport.send('Target.createTarget',{url:'about:blank'});
    const a=await x.transport.send('Target.attachToTarget',{targetId:t.targetId,flatten:true});
@@ -236,10 +230,56 @@ test('real concurrent Chrome private pipes, isolated targets, killed child fails
   await instances[1].transport.verifyBrowser();
   console.log('WEB_TOUR_REAL_CONCURRENT_PRIVATE_CDP_PIPES_ISOLATION_PASS');
  }finally{
-  await Promise.all(instances.map(async x=>{
-   x.transport.close();
-   if(x.child.exitCode===null&&x.child.signalCode===null){const done=once(x.child,'exit');x.child.kill('SIGKILL');await done}
-   await rm(x.dir,{recursive:true,force:true,maxRetries:12,retryDelay:125});
-  }));
+  await Promise.all(instances.map(x=>x.dispose()));
+ }
+});
+
+test('cold-start lifecycle retries only first version deadline with fresh child/profile, never identity/exit', {timeout:20000},async()=>{
+ const {startVerifiedChrome}=await import('../scripts/web-tour-cdp-startup.mjs');
+ const {spawn}=await import('node:child_process');
+ const {access}=await import('node:fs/promises');
+ const {join}=await import('node:path');
+ // Synthetic child protocol fixtures only: actual Chrome is required in the
+ // separate Tour and concurrent tests above. No fixture can satisfy them.
+ const childSource=`const fs=require('node:fs');let b='';const mode=process.argv[1];
+ const r=fs.createReadStream(null,{fd:3});r.on('data',c=>{b+=c;
+ if(!b.includes('\\0'))return;const m=JSON.parse(b.split('\\0')[0]);
+ if(mode==='dead'){process.exit(3)}
+ if(mode==='hang')return;
+ const send=()=>{try{fs.writeSync(4,JSON.stringify({id:m.id,result:{product:mode==='wrong'?'Foreign/1':'Chrome/1',protocolVersion:'1.3'}})+'\\0')}catch{}};
+ if(mode==='late')setTimeout(send,3000);else send();
+ });setInterval(()=>{},1000);`;
+ const run=async(modes,timeout=1000)=>{
+  const seen=[],logs=[];
+  const spawnChild=(_binary,args,opts)=>{
+   const profile=args.find(x=>x.startsWith('--user-data-dir=')).slice('--user-data-dir='.length);
+   const mode=modes[seen.length];
+   assert.ok(mode,'unexpected extra startup attempt');
+   const child=spawn(process.execPath,['-e',childSource,mode],opts);
+   seen.push({profile,child});return child;
+  };
+  const promise=startVerifiedChrome({chrome:'fixture-only',spawnChild,startupTimeoutMs:timeout,log:x=>logs.push(x)});
+  return {seen,logs,promise};
+ };
+ const cleaned=async x=>{assert.ok(x.child.exitCode!==null||x.child.signalCode!==null);await assert.rejects(access(x.profile),e=>e.code==='ENOENT')};
+ const good=await run(['late','ok']);const instance=await good.promise;
+ try{
+  assert.equal(instance.attempt,2);assert.equal(good.seen.length,2);
+  assert.notEqual(good.seen[0].profile,good.seen[1].profile);
+  assert.notEqual(good.seen[0].child.pid,good.seen[1].child.pid);
+  await cleaned(good.seen[0]);
+  assert.ok(good.logs.includes('WEB_TOUR_CDP_COLDSTART_FRESH_RETRY'));
+  assert.equal(instance.child.exitCode,null);
+ }finally{await instance.dispose()}
+ await cleaned(good.seen[1]);
+ for(const [modes,pattern] of [
+  [['hang','hang'],/COMMAND_DEADLINE_Browser.getVersion/],
+  [['wrong'],/BROWSER_IDENTITY/],
+  [['dead'],/EARLY_EXIT|EOF|CLOSED/]
+ ]){
+  const x=await run(modes);
+  await assert.rejects(x.promise,pattern);
+  assert.equal(x.seen.length,modes.length);
+  for(const item of x.seen)await cleaned(item);
  }
 });
