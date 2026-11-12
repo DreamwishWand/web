@@ -1,0 +1,80 @@
+name: 05 QR-C PR926 independent Steam626 GridArea cardinal bounds QA-only
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr926-cardinal-gridarea-independent.yml'
+      - 'crates/ddv-save-core/tests/qa05qrc_pr926_cardinal_gridarea.rs'
+permissions:
+  contents: read
+jobs:
+  independent-pr926-cardinal-gridarea:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 26
+    env:
+      CARGO_TARGET_DIR: /tmp/qa05qrc-pr926-rust
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source exact three immutable Git blobs, QA-only two ADD and no private Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=f2afdbda609915809468c5eaa18b9ea4117ee477
+          test "$(git merge-base "$src" HEAD)" = "$src"
+          test "$(git rev-parse "$src:crates/ddv-save-core/src/spatial_reference_index.rs")" = 0cf6bcb38fdc58c5fdd7ec59ca3f0d5a494796b5
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/spatial_reference_index.rs)" = 0cf6bcb38fdc58c5fdd7ec59ca3f0d5a494796b5
+          test "$(git rev-parse "$src:crates/ddv-save-core/tests/steam_native_cardinal_gridarea.rs")" = b34b9062e71ccbaa1a01fc2429f08ae4ebb0df84
+          test "$(git rev-parse HEAD:crates/ddv-save-core/tests/steam_native_cardinal_gridarea.rs)" = b34b9062e71ccbaa1a01fc2429f08ae4ebb0df84
+          test "$(git rev-parse "$src:docs/core/01b-r06-steam-cardinal-gridarea-static-20261112.md")" = 1a1d518b18262bf6f91bdc8ce82abafc27ae3714
+          test "$(git rev-parse HEAD:docs/core/01b-r06-steam-cardinal-gridarea-static-20261112.md)" = 1a1d518b18262bf6f91bdc8ce82abafc27ae3714
+          test "$(git rev-parse 8659486f63565167a76e2d3482705a55364a1857:crates/ddv-save-core/src/spatial_reference_index.rs)" = 490e1fd1951b1b333efd7eab9291be03e121801a
+          got="$(git diff --name-only "$src" HEAD | sort)"
+          want="$(printf '%s\n' .github/workflows/05qr-c-pr926-cardinal-gridarea-independent.yml crates/ddv-save-core/tests/qa05qrc_pr926_cardinal_gridarea.rs | sort)"
+          test "$got" = "$want"
+          test -z "$(git diff --name-only "$src" HEAD -- crates/ddv-save-core/src src/lib/ddv/core/save .github/workflows/pages.yml)"
+          test -z "$(git ls-files | grep -Ei '(^|/).*\.p1g$|STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|PRIVATE_DECODED' || true)"
+          echo QAC926_SOURCE3_EXACT_GIT_BLOBS_QA_ONLY2_NO_PRIVATE_SAVE_PASS
+      - name: Independent ten synthetic Rust cardinal, full orientation, overflow and Build negative tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features indexed-read \
+            --test qa05qrc_pr926_cardinal_gridarea -- --nocapture
+          echo QAC926_INDEPENDENT_NEW_RUST_CARDINAL_GRIDAREA10_PASS
+      - name: Actual public worker-wasm ABI compile and Source-only authority separation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features worker-wasm,indexed-read \
+            --target wasm32-unknown-unknown
+          grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const src=readFileSync('crates/ddv-save-core/src/spatial_reference_index.rs','utf8');
+          const doc=readFileSync('docs/core/01b-r06-steam-cardinal-gridarea-static-20261112.md','utf8');
+          const start=src.indexOf('pub fn steam1253_cardinal_bounds(');
+          assert.ok(start>0,'NEW_HELPER_NOT_FOUND');
+          const body=src.slice(start);
+          assert.match(body,/Ok\(SpatialExtent\s*\{\s*width:scaled\(x\)\?,height:scaled\(y\)\?\s*\}\)/);
+          assert.match(body,/SPATIAL_NATIVE_STEAM_BUILD_REQUIRED/);
+          assert.match(body,/SPATIAL_NATIVE_AREA_SCALE_OVERFLOW/);
+          assert.doesNotMatch(body,/writer_authorized\s*:\s*true|native_placement_legal\s*:\s*true|ProductSession|submit_?operation/i);
+          assert.match(doc,/SOURCE_ONLY/);
+          assert.match(doc,/Writer OFF/);
+          assert.match(doc,/NOT.*Native IsAreaValidFor/);
+          console.log('QAC926_BOUND_RECT_ONLY_UNAUTHENTICATED_SOURCE_NATIVE_PLACEMENT_UNKNOWN_WRITER_OFF_PASS');
+          NODE
+          echo QAC926_PRODUCT_RUST_WASM_ABI_DEV_WRITER_FLAG_UNTOUCHED_PASS
