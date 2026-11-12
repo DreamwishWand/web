@@ -131,3 +131,34 @@ test('real installed Chrome: new-only pilot 4 anchors, no passive launch or pers
  assert.equal(p.status,0,'real Chrome pilot '+String(p.signal));
  assert.match(p.stdout||'',/WEB_TOUR_INSTALLED_CHROME_FINAL_PASS/);
 });
+
+test('CDP startup validates exact loopback browser endpoint; rejects incomplete and remote inputs',async()=>{
+ const {parseDevToolsActivePort,parseDevToolsStderr,startupDiagnostic}=await import('../scripts/web-tour-cdp-startup.mjs');
+ const id='/devtools/browser/12345678-1234-1234-1234-123456789abc';
+ const endpoint='ws://127.0.0.1:49152'+id;
+ assert.equal(parseDevToolsActivePort('49152\n'+id+'\n'),endpoint);
+ assert.equal(parseDevToolsStderr('noise\nDevTools listening on '+endpoint+'\n'),endpoint);
+ for(const bad of ['49152\n','0\n'+id,'65536\n'+id,'49152\n/devtools/page/abc','49152\n'+id+'?x=1','49152\n'+id+'\nextra'])assert.equal(parseDevToolsActivePort(bad),null);
+ assert.equal(parseDevToolsStderr('DevTools listening on ws://evil.invalid:49152'+id),null);
+ assert.equal(startupDiagnostic('ERROR /private/path token=secret'), 'ERROR');
+});
+test('CDP startup uses actual port file without stderr; validates /json/version and fails early',async()=>{
+ const {waitForBrowserEndpoint}=await import('../scripts/web-tour-cdp-startup.mjs');
+ const {mkdtemp,writeFile,rm}=await import('node:fs/promises');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const workspace=await mkdtemp(join(tmpdir(),'wand-cdp-contract-'));
+ const path='/devtools/browser/12345678-1234-1234-1234-123456789abc';
+ const endpoint='ws://127.0.0.1:49152'+path;
+ const child={exitCode:null,signalCode:null};
+ const opts={workspace,child,getStderr:()=>'',getSpawnError:()=>null,timeoutMs:250,
+  fetcher:async(url,options)=>{assert.equal(url,'http://127.0.0.1:49152/json/version');assert.equal(options.redirect,'error');return {ok:true,json:async()=>({webSocketDebuggerUrl:endpoint})}}};
+ try{
+  await writeFile(join(workspace,'DevToolsActivePort'),'49152\n'+path+'\n');
+  assert.deepEqual(await waitForBrowserEndpoint(opts),{endpoint,discovery:'active-port-file'});
+  await assert.rejects(waitForBrowserEndpoint({...opts,fetcher:async()=>({ok:true,json:async()=>({webSocketDebuggerUrl:'ws://evil.invalid:49152'+path})})}),/CHROME_CDP_STARTUP_TIMEOUT/);
+  await assert.rejects(waitForBrowserEndpoint({...opts,child:{exitCode:1,signalCode:null}}),/EARLY_EXIT/);
+  await assert.rejects(waitForBrowserEndpoint({...opts,getSpawnError:()=>Error('private path')}),/SPAWN_ERROR/);
+  await rm(join(workspace,'DevToolsActivePort'));
+  assert.deepEqual(await waitForBrowserEndpoint({...opts,getStderr:()=> 'DevTools listening on '+endpoint+'\n'}),{endpoint,discovery:'stderr'});
+ }finally{await rm(workspace,{recursive:true,force:true})}
+});
