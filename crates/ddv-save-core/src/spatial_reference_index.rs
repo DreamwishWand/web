@@ -312,3 +312,65 @@ impl SpatialCandidateIndex {
             .ok_or(denied("SPATIAL_OBJECT_ID_NOT_FOUND"))
     }
 }
+
+
+/// Same-Steam-v1.25.3 GridArea cardinal bounding dimensions ONLY.
+///
+/// IL2CPP GridArea.GetSizeForOrientation: orientation 0/8 uses SizeX/Y,
+/// 4/12 swaps X/Y, each multiplied by the grid tessellation and divided
+/// by the Area tessellation in signed int32 arithmetic. The source can
+/// truncate and overflow; to be safely portable we REJECT either case
+/// instead of approximating. 1..15 noncardinal calls MoreRotationSize,
+/// which this static helper does not attempt.
+///
+/// This does NOT enumerate GridArea mask layers, FloorType, occupancy,
+/// item restrictions, parent/subgrid, or authenticate the caller's values.
+/// Consequently it is NEVER sufficient to permit a Save Writer.
+impl SpatialExtent {
+    pub fn steam1253_cardinal_bounds(
+        self,
+        build: &BuildIdentity,
+        orientation: u8,
+        grid_tessellation_factor: u32,
+        area_tessellation_factor: u32,
+    ) -> CoreResult<SpatialExtent> {
+        const STEAM_V1253: &str =
+            "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
+        if build.platform != Platform::SteamWindows ||
+            build.build_kind != BuildKind::SteamFullVersion ||
+            build.build_id != STEAM_V1253 ||
+            build.schema != 626 || !build.externally_attested {
+            return Err(denied("SPATIAL_NATIVE_STEAM_BUILD_REQUIRED"));
+        }
+        let (x,y) = match orientation {
+            0 | 8 => (self.width,self.height),
+            4 | 12 => (self.height,self.width),
+            _ => return Err(denied("SPATIAL_NATIVE_NONCARDINAL_SIZE_UNVERIFIED")),
+        };
+        let max = i32::MAX as u32;
+        if x == 0 || y == 0 || grid_tessellation_factor == 0 ||
+            area_tessellation_factor == 0 || x > max || y > max ||
+            grid_tessellation_factor > max || area_tessellation_factor > max {
+            return Err(denied("SPATIAL_NATIVE_AREA_SIZE_OR_TESSELLATION_INVALID"));
+        }
+        let scaled = |dim:u32| -> CoreResult<u32> {
+            // Native signed int32 imul happens before idiv. Reject even if
+            // division would bring an overflowed numerator into range.
+            let product = u64::from(dim)
+                .checked_mul(u64::from(grid_tessellation_factor))
+                .ok_or(denied("SPATIAL_NATIVE_AREA_SCALE_OVERFLOW"))?;
+            if product > i32::MAX as u64 {
+                return Err(denied("SPATIAL_NATIVE_AREA_SCALE_OVERFLOW"));
+            }
+            if product % u64::from(area_tessellation_factor) != 0 {
+                return Err(denied("SPATIAL_NATIVE_AREA_SCALE_INEXACT"));
+            }
+            let n = product / u64::from(area_tessellation_factor);
+            if n == 0 || n > i32::MAX as u64 {
+                return Err(denied("SPATIAL_NATIVE_AREA_SCALE_INVALID"));
+            }
+            u32::try_from(n).map_err(|_| denied("SPATIAL_NATIVE_AREA_SCALE_OVERFLOW"))
+        };
+        Ok(SpatialExtent { width:scaled(x)?,height:scaled(y)? })
+    }
+}
