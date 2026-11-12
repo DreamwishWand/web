@@ -1,0 +1,20 @@
+name: 01D Steam626 native field contract focused
+on:
+  pull_request:
+    paths:
+      - 'src/lib/ddv/core/items/steam626-native-fields.mjs'
+      - 'src/lib/ddv/core/items/tier-a-edit-requests.mjs'
+      - 'tests/ddv-core-steam626-native-fields.test.mjs'
+      - 'tests/ddv-core-tier-a-edit-requests.test.mjs'
+      - '.github/workflows/01d-steam626-native-fields.yml'
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/ddv-core-steam626-native-fields.test.mjs tests/ddv-core-tier-a-edit-requests.test.mjs
