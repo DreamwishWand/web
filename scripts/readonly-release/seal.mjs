@@ -78,7 +78,8 @@ async function verifySigned(dir,source,bundle){
     '--source-digest',source,'--deny-self-hosted-runners',
     '--predicate-type','https://slsa.dev/provenance/v1'];
    if(bundle)args.push('--bundle',bundle);
-   execFileSync('gh',args,{stdio:['ignore','inherit','inherit']});
+   try{execFileSync('gh',args,{stdio:['ignore','inherit','inherit']})}
+   catch{fail('SIGNATURE_VERIFICATION_DENIED')}
    if(sha(await readFile(file))!==sha(bytes[i]))fail('SNAPSHOT_CHANGED');
   }
   const after=await snapshot(dir);
@@ -106,8 +107,9 @@ async function main(){
  const cmd=process.argv[2];
  if(cmd==='verify-only'){
   // Historical fixed signed release audit: NO anchor emitted, NO deployment.
-  const [source,dir]=process.argv.slice(3);
-  const pins=await verifySigned(resolve(dir),source,undefined);
+  const [source,dir,bundle]=process.argv.slice(3);
+  if(!dir||process.argv.length>6)fail('VERIFY_ONLY_ARGUMENTS');
+  const pins=await verifySigned(resolve(dir),source,bundle?resolve(bundle):undefined);
   console.log('R22_EXACT_PROTECTED_SIGNED_SUBJECTS_VERIFIED',JSON.stringify(pins));
   return;
  }
