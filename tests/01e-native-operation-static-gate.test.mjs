@@ -164,3 +164,51 @@ test('Steam626 exact enum and signed ItemID type prefix: ActivityItem and Furnit
     }
   }
 });
+
+test('QA958 regression: changing or throwing Build accessors never pair a Steam witness with a Switch target',()=>{
+  for(const op of ['INV_AMOUNT','CHEST_AMOUNT','GRID_MOVE']){
+    let calls=0;
+    const b={get platform(){return ++calls<=2?sw.platform:steam.platform;},
+      get buildKind(){return calls<=2?sw.buildKind:steam.buildKind;},
+      get buildId(){return calls<=2?sw.buildId:steam.buildId;},
+      gameVersion:'1.25.3',schema:626};
+    const bad=describeNativeOperation(op,b);
+    assert.equal(bad.status,'REJECTED');
+    assert.equal(bad.archivedSteam626NativeWitness,undefined);
+    assert.equal(calls,0);
+    const throwing={...steam,get schema(){throw new Error('caller accessor');}};
+    assert.equal(describeNativeOperation(op,throwing).status,'REJECTED');
+    const inherited=Object.create(steam);
+    assert.equal(describeNativeOperation(op,inherited).status,'REJECTED');
+    const revoked=Proxy.revocable({...steam},{});
+    revoked.revoke();
+    assert.equal(describeNativeOperation(op,revoked.proxy).status,'REJECTED');
+  }
+});
+test('QA958 regression: one coherent Build snapshot selects both target and witness across all three operations',()=>{
+  for(const op of ['INV_AMOUNT','CHEST_AMOUNT','GRID_MOVE']){
+    for(const target of [steam,sw]){
+      const reads=new Map();
+      let propertyReads=0;
+      const b=new Proxy({...target},{
+        get(){propertyReads++;throw new Error('unexpected ordinary property read');},
+        getOwnPropertyDescriptor(obj,key){
+          const count=(reads.get(key)||0)+1;reads.set(key,count);
+          if(count>1)throw new Error('second Build descriptor read');
+          return Reflect.getOwnPropertyDescriptor(obj,key);
+        }
+      });
+      const result=describeNativeOperation(op,b);
+      assert.deepEqual(result.target,target);
+      assert.ok(Object.isFrozen(result.target));
+      assert.equal(propertyReads,0);
+      assert.deepEqual([...reads.values()],[1,1,1,1,1]);
+      assert.equal(result.archivedSteam626NativeWitness?.operationId,target===steam?op:undefined);
+      assert.equal(result.externalBuildIsAuthentication,false);
+      assert.equal(result.nativeV3Accepted,false);
+      assert.equal(result.productWriterAuthorized,false);
+      assert.equal(describeNativeOperation(op,{...target,buildId:'wrong'}).status,'REJECTED');
+      assert.equal(describeNativeOperation(op,Object.assign(Object.create(null),target)).target.platform,target.platform);
+    }
+  }
+});

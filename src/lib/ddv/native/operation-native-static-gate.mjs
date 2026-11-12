@@ -100,9 +100,23 @@ const reject=(code,op=null)=>freeze({contract:OPERATION_NATIVE_STATIC_GATE,statu
   operationEnabled:false,coreSessionAuthenticated:false});
 
 function matchExternalBuild(v) {
-  if(!rec(v))return null;
-  return Object.values(NATIVE_SOURCE_TARGETS).find(x=>
-    Object.keys(x).every(k=>v[k]===x[k]))??null;
+  // Capture each required own data property once. Never execute accessors or
+  // re-read caller state to choose a different archive from the returned target.
+  // A hostile proxy may throw or supply inconsistent descriptors: only an
+  // exact coherent canonical snapshot is accepted, never authentication.
+  try {
+    if(!rec(v))return null;
+    const snapshot=Object.create(null);
+    for(const k of Object.keys(NATIVE_SOURCE_TARGETS.steam1253)){
+      const d=Object.getOwnPropertyDescriptor(v,k);
+      if(!d||!Object.hasOwn(d,'value'))return null;
+      snapshot[k]=d.value;
+    }
+    return Object.values(NATIVE_SOURCE_TARGETS).find(x=>
+      Object.keys(x).every(k=>snapshot[k]===x[k]))??null;
+  } catch {
+    return null;
+  }
 }
 // Archived, byte-matched Steam source evidence. Not an authenticated save or
 // installed-game assertion; local native branches are not whole-operation V3.
@@ -178,13 +192,14 @@ export function describeNativeOperation(operationId,declaredBuild) {
   const op=byId.get(operationId);
   if(!op)return reject('UNKNOWN_OPERATION');
   if(op.tier===C)return reject('PROTECTED_RIGHTS_OR_ENTITLEMENT_OPERATION',operationId);
-  if(!matchExternalBuild(declaredBuild))return reject('EXACT_PLATFORM_BUILD_VERSION_SCHEMA_REQUIRED',operationId);
+  const target=matchExternalBuild(declaredBuild);
+  if(!target)return reject('EXACT_PLATFORM_BUILD_VERSION_SCHEMA_REQUIRED',operationId);
   return freeze({contract:OPERATION_NATIVE_STATIC_GATE,status:op.tier===A?'TIER_A_STATIC_INDEPENDENT_CANDIDATE':'TIER_B_NATIVE_DEPENDENCIES_OPEN',
     ...op,
     w1OrRoadFenceGlobalBlocker:op.tier===A?false:null,
     externalBuildIsAuthentication:false,sourceOnly:true,
-    target:freeze({...matchExternalBuild(declaredBuild)}),
-    ...(matchExternalBuild(declaredBuild)===NATIVE_SOURCE_TARGETS.steam1253&&Object.hasOwn(steam626Witnesses,operationId)
+    target:freeze({...target}),
+    ...(target===NATIVE_SOURCE_TARGETS.steam1253&&Object.hasOwn(steam626Witnesses,operationId)
       ?{archivedSteam626NativeWitness:steam626Witnesses[operationId]}:{}),
     coreIssuedReadsetVerified:false,productWriterAuthorized:false,
     productEditedCopyAuthorized:false,operationEnabled:false,
