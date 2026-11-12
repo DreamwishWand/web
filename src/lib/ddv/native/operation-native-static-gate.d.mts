@@ -69,11 +69,13 @@ export type NativeStaticDescription = NativeOperationRow & {
   readonly deviceV4Mandated:false;
   readonly deviceV4OnlyWhenStaticCannotCloseCriticalRisk:true;
 };
+/** Narrow nonauthoritative preview subset, not a game-wide enum. */
+export type NativeExistingAmountItemType = 'ItemType_ActivityItem'|'ItemType_Furniture';
 export interface InventoryAmountStaticInput {
   declaredBuild?:DeclaredNativeBuild;
   inventoryId?:number;
   canonicalItemId?:number;
-  compatibleItemType?:string;
+  compatibleItemType?:NativeExistingAmountItemType;
   existingRow?:boolean;
   oldAmount?:number;
   nextAmount?:number;
@@ -117,7 +119,7 @@ export declare function previewNativeInventoryAmount(
   sourcePointer:string;
   inventoryId:number;
   canonicalItemId:number;
-  compatibleItemType:string;
+  compatibleItemType:NativeExistingAmountItemType;
   expectedOldAmount:number;
   hypotheticalNextAmount:number;
   recomputationRequirement:'UNKNOWN_UNTIL_SAME_BUILD_NATIVE_STATIC_TRACE';
