@@ -2,10 +2,10 @@
 // build, REAL pinned public JS+WASM and accepted Rust Worker; no private Save.
 // CI temporarily opts in a test-only Worker and synthetic attestation BEFORE
 // build, never commits the opt-in or publishes this candidate Pages artifact.
-import {createServer} from 'node:http';
-import {readFile,mkdtemp,rm} from 'node:fs/promises';
+import {createServer} from 'node:https';
+import {readFile,mkdtemp,rm,readdir} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
-import {spawn,spawnSync} from 'node:child_process';
+import {spawn,spawnSync,execFileSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {join,resolve,extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -20,6 +20,7 @@ const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript'
   '.woff2':'font/woff2'};
 const profile=await mkdtemp(join(tmpdir(),'wand-08web-real-chrome-'));
 let chrome,ws,server;
+let fault=null,assetRequests=0;
 const binary=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium'].filter(Boolean)
  .find(bin=>spawnSync('which',[bin],{stdio:'ignore'}).status===0);
 if(!binary)throw Error('ENV_WAIT_DEP_CHROME_NOT_INSTALLED');
@@ -44,7 +45,12 @@ function serve(req,res){
   res.writeHead(403);res.end();return;
  }
  readFile(source).then(data=>{
-   res.writeHead(200,{'content-type':mime[extname(source)]||'application/octet-stream',
+   const asset=suffix.startsWith('/worker-wasm/');
+   if(asset)assetRequests++;
+   if(asset&&fault==='redirect'&&suffix.endsWith('.js')){res.writeHead(302,{location:'/web/worker-wasm/manifest.json'});res.end();return}
+   if(asset&&fault==='manifest'&&suffix.endsWith('manifest.json')){data=Buffer.from(data);data[data.length-1]^=1}
+   if(asset&&fault==='wasm'&&suffix.endsWith('.wasm')){data=Buffer.from(data);data[data.length-1]^=1}
+   res.writeHead(200,{'content-type':asset&&fault==='mime'&&suffix.endsWith('.js')?'text/html':mime[extname(source)]||'application/octet-stream',
     'cache-control':'no-store','x-content-type-options':'nosniff',
     'content-security-policy':csp});
    res.end(data);
@@ -193,14 +199,16 @@ const script=String.raw`
 })()
 `;
 try{
- server=createServer(serve);await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=127.0.0.1','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem')],{stdio:'ignore'});
+ server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},serve);
+ await new Promise((r,j)=>{server.once('error',j);server.listen(19443,'127.0.0.1',r)});
  const port=server.address().port;
  chrome=spawn(binary,['--headless=new','--no-sandbox','--disable-dev-shm-usage',
-  '--disable-gpu','--remote-allow-origins=*','--remote-debugging-port=0',
+  '--disable-gpu','--ignore-certificate-errors','--remote-allow-origins=*','--remote-debugging-port=0',
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  await attach();await rpc('Page.enable');await rpc('Runtime.enable');
  await rpc('Emulation.setDeviceMetricsOverride',{width:320,height:800,deviceScaleFactor:1,mobile:false});
- await rpc('Page.navigate',{url:'http://127.0.0.1:'+port+'/web/editor/timing/'});
+ await rpc('Page.navigate',{url:'https://127.0.0.1:'+port+'/web/editor/timing/'});
  for(let n=0;n<200;n++){
   try{const r=await rpc('Runtime.evaluate',{expression:'location.pathname',returnByValue:true});
     if(r.result?.value==='/web/editor/timing/')break}catch{}
@@ -241,6 +249,29 @@ try{
    'DESKTOP_NO_PAGE_HORIZONTAL_OVERFLOW');
  for(const k of ['realPrivateSave','writerAuthorized','productEnabled'])
   assert.equal(result[k],false,k);
+ // Inspect the actual bundled Worker, not a mock loader or handwritten module.
+ const anchor=(await import('../src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs')).PROTECTED_READONLY_RELEASE_ANCHOR;
+ const candidates=[];
+ for(const name of await readdir(join(root,'build/_app'),{recursive:true})){
+  if(!name.endsWith('.js'))continue;
+  const body=await readFile(join(root,'build/_app',name),'utf8');
+  if(body.includes('DIFFGRIDS_PRODUCT_LOADER_RECEIPT_DENIED')&&body.includes('DIFFGRIDS_RUNTIME_READY')){
+   assert.ok(body.includes(anchor.releaseId),'BUILT_CONSUMER_RELEASE_ID');
+   assert.ok(body.includes('wand.r22.protected-readonly-loader-receipt@1'),'BUILT_PROTECTED_LOADER');
+   candidates.push('/web/_app/'+name.replaceAll('\\\\','/'));
+  }
+ }
+ assert.equal(candidates.length,1,'ONE_BUILT_CONSUMER_WORKER');
+ for(const mode of ['manifest','wasm','mime','redirect']){
+  fault=mode;const before=assetRequests;
+  const expression='new Promise((resolve,reject)=>{const w=new Worker('+JSON.stringify(candidates[0])+',{type:"module"});const timer=setTimeout(()=>{w.terminate();reject(Error("NEGATIVE_WORKER_TIMEOUT"))},15000);w.onmessage=e=>{clearTimeout(timer);w.terminate();resolve(e.data)};w.onerror=e=>{clearTimeout(timer);w.terminate();reject(Error(e.message))}})';
+  const denied=await rpc('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});
+  assert.equal(denied.exceptionDetails,undefined,mode);
+  assert.deepEqual(denied.result.value,{kind:'DIFFGRIDS_RUNTIME_READY',ready:false,writerAuthorized:false},mode);
+  assert.ok(assetRequests>before,'REAL_ASSET_REQUEST_'+mode);
+ }
+ fault=null;
+ console.log('08WEB_BUILT_PROTECTED_CONSUMER_SIGNED_BYTES_4NEG_PASS');
  console.log('08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS',
   {pages:result.pages,signedPublicAssetBytes:true,privateSave:false,
     consumerProductOwnerFlag:false,physical320Css100:result.geometry100,
