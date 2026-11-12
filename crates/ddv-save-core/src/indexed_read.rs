@@ -745,7 +745,7 @@ mod private_avatar {
             "42":{"ID":42,"CompatibleItemType":"ItemType_Skin","Inventory":{
                 "170000000":{"Amount":1,"Marker":"ItemMarker_None"},"170100001":{"Amount":1}
             }}
-        }}}})}
+        }}})}
         fn read(s:&ProductSession)->CoreResult<PrivateCharacterSkinReceipt>{
             s.read_private_character_skin(env(s.receipt().unwrap()),10000053,170000000)
         }
