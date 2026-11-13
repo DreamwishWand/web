@@ -7,7 +7,8 @@ import {
  SWITCH1253_REVIEWED_RELEASE,SWITCH1253_NATIVE_PINS,SWITCH1253_OWNER_SCOPE,
  validateSwitch1253ItemImageCatalog,switch1253ItemImagePath,
  scopedSwitch1253ItemImageHref,loadSwitch1253PublicItemImageSource,
- prepareSwitch1253ItemImageManifest,SWITCH1253_PREPARED_WEBP_SIZES
+ prepareSwitch1253ItemImageManifest,SWITCH1253_PREPARED_WEBP_SIZES,
+ createSwitch1253ManifestController,attachSwitch1253ManifestLifecycle,SWITCH1253_MANIFEST_REFRESH_MS
 } from '../src/lib/item-media/switch1253-public-item-images.mjs';
 
 import {ITEM_IMAGE_OWNER_DECISION_ID} from '../src/lib/item-media/public-item-images.mjs';
@@ -295,4 +296,58 @@ test('synthetic operator fixture validates both exact per-item raster pins and i
  const one=validateSwitch1253ItemImageCatalog(m,r);
  assert.equal(one.count,1);
  assert.equal(scopedSwitch1253ItemImageHref('/web',id,one),null);
+});
+
+test('mutable manifest revalidates with no-store; stale open catalog clears and one withdrawn item cannot render',async()=>{
+ let now=1000,states=[],calls=[],reply=manifest();
+ const review=approvedRelease(),controller=createSwitch1253ManifestController(review,s=>states.push(s),()=>now);
+ const fetcher=async(url,init)=>{calls.push({url,init});return new Response(JSON.stringify(reply),{headers:{'content-type':'application/json'}})};
+ const a=await controller.load('/web',fetcher);
+ assert.equal(a.count,1);assert.equal(calls.length,1);
+ assert.equal(calls[0].init.cache,'no-store');assert.equal(calls[0].init.credentials,'omit');assert.equal(calls[0].init.redirect,'error');
+ assert.equal(await controller.load('/web',fetcher),a);
+ now+=SWITCH1253_MANIFEST_REFRESH_MS;
+ reply={...manifest(),items:{}};
+ const b=controller.load('/web',fetcher);
+ assert.equal(states.at(-1).catalog,null,'old catalog clears before async refresh');
+ assert.equal(await b,null);assert.equal(states.at(-1).catalog,null);assert.equal(calls.length,2);
+ reply=manifest();assert.equal((await controller.load('/web',fetcher)).count,1);
+ const bad=async()=>new Response(JSON.stringify(reply),{headers:{'content-type':'text/html'}});
+ assert.equal(await controller.load('/web',bad,true),null);assert.equal(states.at(-1).catalog,null);
+ controller.clear();
+});
+test('refresh cancels on hidden/dispose, no stale delayed response resurrection or old catalog retention',async()=>{
+ const review=approvedRelease(),states=[],controller=createSwitch1253ManifestController(review,s=>states.push(s));
+ let resolveOld;
+ const old=controller.load('/web',()=>new Promise(resolve=>{resolveOld=resolve}));
+ controller.clear('DOCUMENT_NOT_VISIBLE');
+ assert.equal(await old,null);
+ const good=await controller.load('/web',async()=>new Response(JSON.stringify(manifest()),{headers:{'content-type':'application/json'}}));
+ assert.equal(good.count,1);const before=states.length;
+ resolveOld(new Response(JSON.stringify(manifest()),{headers:{'content-type':'application/json'}}));
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(states.length,before,'cancelled old manifest cannot republish');
+ const win=new EventTarget(),doc=new EventTarget();let tick=null;
+ doc.visibilityState='visible';win.setInterval=(f,ms)=>{assert.equal(ms,SWITCH1253_MANIFEST_REFRESH_MS);tick=f;return 1};win.clearInterval=id=>{assert.equal(id,1);tick=null};
+ const calls=[];const fake={load:(...args)=>{calls.push(['load',args[0],args[2]]);return Promise.resolve(null)},clear:reason=>calls.push(['clear',reason])};
+ const detach=attachSwitch1253ManifestLifecycle(fake,'/web',win,doc,()=>{});
+ win.dispatchEvent(new Event('focus'));tick();doc.visibilityState='hidden';doc.dispatchEvent(new Event('visibilitychange'));
+ win.dispatchEvent(new Event('pagehide'));doc.visibilityState='visible';win.dispatchEvent(new Event('pageshow'));
+ detach();const n=calls.length;win.dispatchEvent(new Event('focus'));doc.dispatchEvent(new Event('visibilitychange'));
+ assert.deepEqual(calls,[['load','/web',true],['load','/web',true],['load','/web',true],['clear','DOCUMENT_NOT_VISIBLE'],['clear','DOCUMENT_NOT_VISIBLE'],['load','/web',true],['clear','NO_VISIBLE_CONSUMER']]);
+ assert.equal(calls.length,n);assert.equal(tick,null);
+ assert.match(readFileSync(new URL('../src/lib/ui/ItemThumb.svelte',import.meta.url),'utf8'),/onMount\(\(\) => retainSwitch1253PublicItemImageSource\(base\)\)/);
+});
+test('eligible two manifest refresh removes only withdrawn row; same-BID survivor stays available',async()=>{
+ const r=approvedRelease(),m=manifest(),id='40000047',p=SWITCH1253_NATIVE_PINS[id];
+ r.items[id]={originalNativeStreamSha256:p.originalNativeStreamSha256,sourcePngSha256:p.sourcePngSha256,webpSha256:p.webpSha256,rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',visibility:'RELEASED_PLAYER_FACING'};
+ m.items[id]={...p,pixelStatus:'SWITCH_RGBA_EXACT_VERIFIED',visibility:'RELEASED_PLAYER_FACING',rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',assetStatus:'WEBP_LOSSLESS_VERIFIED_160'};
+ let raw=m;const states=[],c=createSwitch1253ManifestController(r,v=>states.push(v));
+ const fetcher=async()=>new Response(JSON.stringify(raw),{headers:{'content-type':'application/json'}});
+ assert.equal((await c.load('/web',fetcher)).count,2);
+ raw=structuredClone(m);delete raw.items[id];
+ assert.equal((await c.load('/web',fetcher,true)).count,1);
+ assert.equal(scopedSwitch1253ItemImageHref('/web',id,states.at(-1).catalog),null);
+ assert.ok(scopedSwitch1253ItemImageHref('/web',item,states.at(-1).catalog));
+ c.clear();
 });

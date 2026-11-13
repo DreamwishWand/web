@@ -196,32 +196,102 @@ export function scopedSwitch1253ItemImageHref(base,itemId,catalog){
  if(!path)return null;
  return (base?'/'+base.replace(/^\/+|\/+$/g,''):'')+'/'+path;
 }
-let activePromise=null;
-export function loadSwitch1253PublicItemImageSource(base='',fetchImpl=globalThis.fetch){
- // Not even a manifest request unless code-reviewed rights+operator+HTTPS
- // are separately accepted in this compiled release. No prod activation.
- if(!reviewedReleaseOn(SWITCH1253_REVIEWED_RELEASE)){
-   switch1253PublicItemImageSource.set({
-     status:'NOT_CONFIGURED',catalog:null,reason:'MEDIA_PUBLIC_OFF'
-   });
-   return Promise.resolve(null);
+// A mutable manifest is a withdrawal control, never an immutable cached asset.
+// Bound the visible-tab lifetime and clear before a refresh, including on
+// focus/pageshow/visibility change. CDN/old immutable URL purge still requires
+// independently measured operator controls; client refresh is not a purge.
+export const SWITCH1253_MANIFEST_REFRESH_MS=60000;
+export const SWITCH1253_MANIFEST_TIMEOUT_MS=10000;
+
+// Test-only callers may construct an isolated controller with an explicit
+// synthetic review. The production singleton below uses only compiled review.
+export function createSwitch1253ManifestController(reviewedRelease,publish,clock=Date.now){
+ let pending=null,last=null;
+ const state=(reason)=>publish({status:'NOT_CONFIGURED',catalog:null,reason});
+ function clear(reason='MANIFEST_REFRESH_REQUIRED'){
+  const old=pending;pending=null;last=null;
+  old?.stop();state(reason);
  }
- if(activePromise)return activePromise;
- activePromise=(async()=>{
-   if(!baseOk(base)||typeof fetchImpl!=='function')fail('BASE_OR_FETCH_INVALID');
-   const prefix=base?'/'+base.replace(/^\/+|\/+$/g,''):'';
+ function load(base='',fetchImpl=globalThis.fetch,force=false){
+  if(!reviewedReleaseOn(reviewedRelease)){clear('MEDIA_PUBLIC_OFF');return Promise.resolve(null);}
+  if(!baseOk(base)||typeof fetchImpl!=='function'){clear('BASE_OR_FETCH_INVALID');return Promise.resolve(null);}
+  if(pending&&pending.base===base)return pending.promise;
+  const now=clock();
+  if(!force&&last&&last.base===base&&now>=last.at&&now-last.at<SWITCH1253_MANIFEST_REFRESH_MS)
+   return Promise.resolve(last.catalog);
+  clear('MANIFEST_REFRESH_PENDING');
+  const abort=new AbortController(),slot={base,promise:null,stop:null};
+  pending=slot;
+  let rejectStop;
+  const stopped=new Promise((_,reject)=>{rejectStop=reject});
+  slot.stop=()=>{abort.abort();rejectStop(new Error('MANIFEST_REFRESH_CANCELLED'))};
+  const deadline=setTimeout(()=>{
+   if(pending===slot){pending=null;last=null;state('MANIFEST_REFRESH_TIMEOUT');slot.stop();}
+  },SWITCH1253_MANIFEST_TIMEOUT_MS);
+  const prefix=base?'/'+base.replace(/^\/+|\/+$/g,''):'';
+  const request=(async()=>{
    const response=await fetchImpl(prefix+'/'+SWITCH1253_MANIFEST_PATH,
-     {credentials:'omit',redirect:'error',cache:'force-cache'});
+    {credentials:'omit',redirect:'error',cache:'no-store',signal:abort.signal});
    if(!response.ok)fail('PUBLISHED_MANIFEST_UNAVAILABLE');
-   const catalog=validateSwitch1253ItemImageCatalog(
-     await response.json(),SWITCH1253_REVIEWED_RELEASE);
-   switch1253PublicItemImageSource.set({status:'VERIFIED',catalog,reason:''});
+   const mime=response.headers?.get('content-type')?.split(';')[0].trim().toLowerCase();
+   if(mime!=='application/json')fail('PUBLISHED_MANIFEST_MIME_INVALID');
+   return validateSwitch1253ItemImageCatalog(await response.json(),reviewedRelease);
+  })();
+  slot.promise=Promise.race([request,stopped]).then(catalog=>{
+   if(pending!==slot)return null;
+   last={base,at:clock(),catalog};
+   publish({status:'VERIFIED',catalog,reason:''});
    return catalog;
- })().catch(err=>{
-   switch1253PublicItemImageSource.set({
-     status:'NOT_CONFIGURED',catalog:null,reason:String(err?.message||err)
-   });
+  }).catch(err=>{
+   if(pending===slot){last=null;state(String(err?.message||err));}
    return null;
- });
- return activePromise;
+  }).finally(()=>{clearTimeout(deadline);if(pending===slot)pending=null;});
+  return slot.promise;
+ }
+ return Object.freeze({load,clear});
+}
+const productionController=createSwitch1253ManifestController(
+ SWITCH1253_REVIEWED_RELEASE,value=>switch1253PublicItemImageSource.set(value)
+);
+export function loadSwitch1253PublicItemImageSource(base='',fetchImpl=globalThis.fetch){
+ return productionController.load(base,fetchImpl);
+}
+
+// One lifecycle per visible document, shared by all mounted ItemThumbs.
+// No timers or listeners when compiled media is OFF. On background/BFCache
+// entry clear and cancel; when visible/focused revalidate, not a stale replay.
+export function attachSwitch1253ManifestLifecycle(controller,base,win,doc,fetchImpl=globalThis.fetch){
+ const refresh=()=>{if(doc.visibilityState==='visible')void controller.load(base,fetchImpl,true);
+  else controller.clear('DOCUMENT_NOT_VISIBLE');};
+ const hide=()=>controller.clear('DOCUMENT_NOT_VISIBLE');
+ win.addEventListener('focus',refresh);
+ win.addEventListener('pageshow',refresh);
+ win.addEventListener('pagehide',hide);
+ doc.addEventListener('visibilitychange',refresh);
+ const timer=win.setInterval(refresh,SWITCH1253_MANIFEST_REFRESH_MS);
+ refresh();
+ return ()=>{
+  win.clearInterval(timer);win.removeEventListener('focus',refresh);
+  win.removeEventListener('pageshow',refresh);win.removeEventListener('pagehide',hide);
+  doc.removeEventListener('visibilitychange',refresh);controller.clear('NO_VISIBLE_CONSUMER');
+ };
+}
+let consumers=0,detach=null,consumerBase=null;
+export function retainSwitch1253PublicItemImageSource(base=''){
+ if(!reviewedReleaseOn(SWITCH1253_REVIEWED_RELEASE)||typeof window==='undefined'||typeof document==='undefined'){
+  void loadSwitch1253PublicItemImageSource(base);return ()=>{};
+ }
+ if(!baseOk(base)||(consumers&&consumerBase!==base)){
+  productionController.clear('BASE_OR_FETCH_INVALID');return ()=>{};
+ }
+ if(consumers===0){
+  consumerBase=base;
+  detach=attachSwitch1253ManifestLifecycle(productionController,base,window,document);
+ }
+ consumers++;
+ let released=false;
+ return ()=>{
+  if(released)return;released=true;consumers--;
+  if(consumers===0){detach?.();detach=null;consumerBase=null;}
+ };
 }

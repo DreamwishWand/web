@@ -77,6 +77,7 @@ jobs:
           .github/workflows/web-shared-catalog-detail.yml
           scripts/web-switch1253-private-preview-build.mjs
           src/lib/item-media/switch1253-public-item-images.mjs
+          src/lib/ui/ItemThumb.svelte
           tests/web-switch1253-item-thumb-contract.test.mjs
           CURRENT_IMAGE_PREP_SCOPE
             if diff -q /tmp/switch1253-expected /tmp/switch1253-actual >/dev/null; then
@@ -84,7 +85,7 @@ jobs:
             elif diff -q /tmp/switch1253-policy-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ISSUE604_POLICY_EXACT3_SCOPE_PASS
             elif diff -q /tmp/switch1253-prep-expected /tmp/switch1253-actual >/dev/null; then
-              echo WEB_CURRENT_SWITCH1253_ELIGIBLE2_PREP_EXACT4_SCOPE_PASS
+              echo WEB_CURRENT_SWITCH1253_ELIGIBLE2_PREP_EXACT5_SCOPE_PASS
               node scripts/web-switch1253-private-preview-build.mjs
             else
               diff -u /tmp/switch1253-policy-expected /tmp/switch1253-actual || true

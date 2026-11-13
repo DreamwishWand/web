@@ -36,7 +36,8 @@ try{
  await writeFile(join(root,'entry.mjs'),`import {mount,tick} from 'svelte';
  import Harness from './Harness.svelte';
  import {prepareSwitch1253ItemImageManifest,validateSwitch1253ItemImageCatalog,
- switch1253PublicItemImageSource,loadSwitch1253PublicItemImageSource} from '$lib/item-media/switch1253-public-item-images.mjs';
+ switch1253PublicItemImageSource,loadSwitch1253PublicItemImageSource,createSwitch1253ManifestController,
+ attachSwitch1253ManifestLifecycle} from '$lib/item-media/switch1253-public-item-images.mjs';
  import {itemImagePreferences} from '$lib/item-media/public-item-images.mjs';
  mount(Harness,{target:document.body});
  const draft=prepareSwitch1253ItemImageManifest();
@@ -58,7 +59,10 @@ try{
  }
  async function init(){
   await tick();
+  let detach=null,controller=null;
   window.act418PrivateTest={draft:()=>structuredClone(draft),fixture,
+   startRefresh:()=>{detach?.();const f=fixture();controller=createSwitch1253ManifestController(f.release,v=>switch1253PublicItemImageSource.set(v));detach=attachSwitch1253ManifestLifecycle(controller,'/web',window,document);},
+   stopRefresh:()=>{detach?.();detach=null;controller=null;},
    apply:(m,r)=>{const catalog=validateSwitch1253ItemImageCatalog(m,r);
     switch1253PublicItemImageSource.set({status:'VERIFIED',catalog,reason:null});return catalog.count;},
    off:()=>loadSwitch1253PublicItemImageSource('/web'),
@@ -117,9 +121,15 @@ async function syntheticBrowser(out,draft){
    '40000047':Buffer.from('UklGRiQAAABXRUJQVlA4TBcAAAAvn8AnAAfQsVo0uf8BAEX6/58i+p/6AQA=','base64'),
    '40006096':Buffer.from('UklGRiQAAABXRUJQVlA4TBcAAAAvn8AnAAdQvU4Xpf8BAEX6/58i+p/6AQA=','base64')};
   for(const [id,b] of Object.entries(swatches))assert.notEqual(createHash('sha256').update(b).digest('hex'),draft.items[id].webpSha256);
-  let missing=false;
+  let missing=false,withdrawn=false,manifestHits=0;
   await page.route('**/ddv/item-images/**',async route=>{
-   const url=route.request().url(),id=Object.keys(paths).find(k=>paths[k]===url);
+   const url=route.request().url();
+   if(url.endsWith('/manifest.json')){
+    manifestHits++;const f=await page.evaluate(()=>window.act418PrivateTest.fixture());
+    if(withdrawn)delete f.manifest.items['40000047'];
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(f.manifest)});
+   }
+   const id=Object.keys(paths).find(k=>paths[k]===url);
    hits.push({id:id??'UNKNOWN',url});
    if(!id||(missing&&id==='40000047'))return route.fulfill({status:404,body:'not found'});
    await route.fulfill({status:200,contentType:'image/webp',body:swatches[id]});
@@ -165,6 +175,15 @@ async function syntheticBrowser(out,draft){
   assert.equal(await page.locator('[data-item-thumb-id="40000047"] img').count(),0);
   missing=false;await page.reload();await page.waitForFunction(()=>!!window.act418PrivateTest);await apply();
   await page.waitForFunction(()=>document.querySelectorAll('img').length===2&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
+  await page.evaluate(()=>window.act418PrivateTest.startRefresh());
+  await page.waitForFunction(()=>document.querySelectorAll('img').length===2&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
+  assert.equal(manifestHits,1);
+  withdrawn=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await page.waitForFunction(()=>document.querySelector('[data-item-thumb-id="40000047"]').dataset.mediaStatus==='unavailable'&&document.querySelector('[data-item-thumb-id="40006096"] img')?.naturalWidth===160);
+  assert.equal(manifestHits,2);assert.equal(await page.locator('[data-item-thumb-id="40000047"] img').count(),0);
+  await page.evaluate(()=>window.act418PrivateTest.stopRefresh());
+  await page.waitForFunction(()=>document.querySelectorAll('img').length===0);
+  console.log('ACT418_OPEN_TAB_NO_STORE_MANIFEST_REFRESH_WITHDRAW_ONE_KEEP_SURVIVOR_PASS');
   const before=hits.length;await page.evaluate(()=>window.act418PrivateTest.off());await page.waitForFunction(()=>document.querySelectorAll('img').length===0);
   assert.equal(hits.length,before);assert.ok(requests.every(([m,u])=>m==='GET'&&u.startsWith(origin+'/')));
   assert.ok(hits.every(h=>h.id!=='UNKNOWN'));assert.deepEqual(errors,[]);
