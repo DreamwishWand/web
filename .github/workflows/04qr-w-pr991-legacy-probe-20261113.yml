@@ -1,0 +1,27 @@
+name: "04 QR-W PR991 independent legacy probe actual HTTP and Chrome"
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr991-*.mjs'
+      - '.github/workflows/04qr-w-pr991-legacy-probe-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  independent-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Independent actual HTTP observations and deadline negative evidence
+        run: node --test scripts/04qr-w-pr991-legacy-probe-independent-20261113.mjs
+      - name: Actual full Chrome Tour and Source regression contracts
+        run: node --test tests/web-presets-my-tour-contract.test.mjs
