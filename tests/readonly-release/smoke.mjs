@@ -18,7 +18,7 @@ const pins=await inspectReleasePins(dir,source);
 const root=resolve(import.meta.dirname,'../..');
 const profile=await mkdtemp(join(tmpdir(),'wand-release-chrome-'));
 let server,browser,ws;const origin=RELEASE_TUPLES[0].origin,rootOrigin=RELEASE_TUPLES[1].origin;
-let rootLegacy=false;let seq=0;const pending=new Map();
+let rootScenario='web';let seq=0;const pending=new Map();
 const chrome=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium','chromium-browser'].filter(Boolean)
  .find(x=>spawnSync('which',[x],{stdio:'ignore'}).status===0);
 if(!chrome)throw Error('ENV_CHROME_NOT_INSTALLED');
@@ -28,13 +28,17 @@ const assets=new Map(await Promise.all(['manifest.json','ddv_save_core.js','ddv_
 const hash=x=>createHash('sha256').update(x).digest('hex');
 // Only this isolated HTTPS fixture synthesizes a root manifest. Its bytes
 // are NOT signed root provenance. Historical bytes remain legacy-only.
-const rootManifest=Buffer.from(JSON.stringify({...JSON.parse(assets.get('manifest.json')),
- delivery:releaseDelivery(RELEASE_TUPLES[1])}));
-const rootPins={...pins,manifestSha256:hash(rootManifest),manifestSizeBytes:rootManifest.length};
+const rootManifest=t=>Buffer.from(JSON.stringify({...JSON.parse(assets.get('manifest.json')),
+ source:{...JSON.parse(assets.get('manifest.json')).source,repository:t.repository},
+ delivery:releaseDelivery(t)}));
+const webRootManifest=rootManifest(RELEASE_TUPLES[1]),siteRootManifest=rootManifest(RELEASE_TUPLES[2]);
+const rootFixture=()=>rootScenario==='legacy'?assets.get('manifest.json'):
+ rootScenario==='site'?siteRootManifest:webRootManifest;
+const rootFixturePins=()=>({...pins,manifestSha256:hash(rootFixture()),manifestSizeBytes:rootFixture().length});
 const anchor=(base='/web',mode='good')=>{
- const a={contract:'wand.r22.protected-readonly-release@1',repository:'DreamwishWand/web',
- signerWorkflow:'DreamwishWand/web/.github/workflows/pages.yml',sourceRef:'refs/heads/main',
- origin:mode==='origin'?'https://wrong.invalid':base===''?rootOrigin:origin,basePath:base,pins:base===''&&!rootLegacy?rootPins:pins,
+ const t=base===''?RELEASE_TUPLES[rootScenario==='site'||rootScenario==='cross'?2:1]:RELEASE_TUPLES[0];
+ const a={contract:'wand.r22.protected-readonly-release@1',...t,
+ origin:mode==='origin'?'https://wrong.invalid':t.origin,pins:base===''?rootFixturePins():pins,
  attestationVerifiedAtBuild:true};
  const id=hash(readonlyReleaseIdentityText(a));
  return mode==='null'?null:{...a,releaseId:mode==='identity'?'f'.repeat(64):id};
@@ -94,7 +98,7 @@ function respond(req,res){
    body='const a='+JSON.stringify(a)+';if(a)Object.freeze(a.pins);export const PROTECTED_READONLY_RELEASE_ANCHOR=a?Object.freeze(a):null;';
   }else body=modules.get(n);
  }else if(/^\/(?:web\/)?worker-wasm\/(?:manifest\.json|ddv_save_core\.js|ddv_save_core_bg\.wasm)$/.test(path)){
-  const n=path.split('/').at(-1);body=n==='manifest.json'&&req.headers.host==='dreamwishwand.com'&&!rootLegacy?rootManifest:assets.get(n);
+  const n=path.split('/').at(-1);body=n==='manifest.json'&&req.headers.host==='dreamwishwand.com'?rootFixture():assets.get(n);
   type=n.endsWith('.json')?'application/json':n.endsWith('.wasm')?'application/wasm':'text/javascript';
  }
  if(body===undefined){res.writeHead(404,headers);res.end();return}
@@ -127,7 +131,7 @@ try{
  // Navigate the second exact origin in the same isolated browser. No
  // network access to the real hosts: Chrome resolver maps both to fixture.
  const rootProbe=async()=>{
-  await rpc('Page.navigate',{url:rootOrigin+'/test.html'});
+  await rpc('Page.navigate',{url:rootOrigin+'/test.html?case='+rootScenario});
   let ready=false;
   for(let i=0;i<200;i++){try{const x=await rpc('Runtime.evaluate',{expression:'location.origin+location.pathname',returnByValue:true});if(x.result.value===rootOrigin+'/test.html'){ready=true;break}}catch{}await delay(50)}
   if(!ready)throw Error('ENV_CHROME_ROOT_NAVIGATION');
@@ -136,11 +140,14 @@ try{
   return x.result.value.root;
  };
  r.root=await rootProbe();
- rootLegacy=true;
- const historicalRoot=await rootProbe();
- assert.equal(historicalRoot.ok,false);assert.match(historicalRoot.error,/MANIFEST_PROVENANCE_OR_ABI_DENIED/);
- assert.equal(historicalRoot.count,1);
- for(const mode of ['good','root']){
+ rootScenario='site';r.site=await rootProbe();
+ for(const scenario of ['legacy','cross']){
+  rootScenario=scenario;
+  const denied=await rootProbe();
+  assert.equal(denied.ok,false,scenario);assert.match(denied.error,/MANIFEST_PROVENANCE_OR_ABI_DENIED/,scenario);
+  assert.equal(denied.count,1,scenario);
+ }
+ for(const mode of ['good','root','site']){
   const x=r[mode];assert.equal(x.ok,true,JSON.stringify(x));assert.equal(x.count,3);assert.equal(x.replay,true);
   assert.equal(x.contract,'wand.r22.protected-readonly-loader-receipt@1');assert.equal(x.source,source);
   assert.equal(x.verified,true);assert.equal(x.abi,true);
@@ -149,7 +156,7 @@ try{
  for(const [mode,pattern] of [['caller','CALLER_AUTHORITY_DENIED'],['null','BUILD_ANCHOR_MISSING'],['identity','BUILD_IDENTITY_MISMATCH'],['origin','BUILD_ANCHOR_MISSING_OR_INVALID'],['manifest','ASSET_SHA256_MISMATCH'],['js','ASSET_SHA256_MISMATCH'],['wasm','ASSET_SHA256_MISMATCH'],['redirect','ASSET_ORIGIN_STATUS_REDIRECT'],['mime','ASSET_CONTENT_TYPE'],['stale','MANIFEST_PROVENANCE_OR_ABI_DENIED'],['wrongbase','WORKER_DELIVERY_SCOPE_DENIED']]){
   assert.equal(r[mode].ok,false,mode);assert.match(r[mode].error,new RegExp(pattern),mode);
  }
- console.log('R22_BUILD_ANCHORED_READONLY_REAL_CHROME_2POS_12NEG_PASS; HISTORICAL_LEGACY_SIGNED_BYTES; SYNTHETIC_ROOT_MANIFEST_ONLY; LOCAL_HOST_MAPPING; PRODUCT_OFF');
+ console.log('R22_BUILD_ANCHORED_READONLY_REAL_CHROME_3POS_13NEG_PASS; HISTORICAL_LEGACY_SIGNED_BYTES; SYNTHETIC_WEB_AND_SITE_ROOT_MANIFESTS_ONLY; LOCAL_HOST_MAPPING; PRODUCT_OFF');
 }finally{
  for(const p of pending.values())p.reject(Error('CDP_CLOSED'));pending.clear();try{ws?.close()}catch{}
  if(browser){browser.kill('SIGTERM');await delay(250);if(browser.exitCode===null)browser.kill('SIGKILL')}
