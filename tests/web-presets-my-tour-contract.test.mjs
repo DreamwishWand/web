@@ -165,37 +165,77 @@ test('CDP startup uses actual port file without stderr; validates /json/version 
  }finally{await rm(workspace,{recursive:true,force:true})}
 });
 
-test('actual localhost probe diagnoses refused, delayed, malformed, redirect and foreign/replaced identity',async()=>{
- const {waitForBrowserEndpoint}=await import('../scripts/web-tour-cdp-startup.mjs');
+test('actual localhost probe: completed observations and deadlines are separate contracts', {timeout:30000},async()=>{
+ const {probeBrowserEndpoint,waitForBrowserEndpoint}=await import('../scripts/web-tour-cdp-startup.mjs');
  const {createServer}=await import('node:http');
  const {mkdtemp,writeFile,rm}=await import('node:fs/promises');
  const {tmpdir}=await import('node:os');const {join}=await import('node:path');
  const workspace=await mkdtemp(join(tmpdir(),'wand-cdp-http-'));
  const path='/devtools/browser/12345678-1234-1234-1234-123456789abc';
  const foreign='/devtools/browser/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
- let mode='foreign',port,requests=0;
+ let mode='foreign',port,deadlineController=null,deadlineTimer=null;
+ const seen=[];
  const server=createServer((req,res)=>{
-  requests++;
+  const record={mode,path:req.url,completed:false};seen.push(record);
+  res.on('finish',()=>{record.completed=true});
   if(mode==='redirect'){res.writeHead(302,{location:'/foreign'});res.end();return}
   if(mode==='bad-json'){res.end('not-json');return}
-  if(mode==='delayed'&&requests<3){res.writeHead(503);res.end();return}
+  if(mode==='deadline'){
+   // Real request and partial response, never a completed identity. Start
+   // the short deadline only after this request is witnessed on the server.
+   res.writeHead(200,{'content-type':'application/json'});
+   res.write('{"webSocketDebuggerUrl":');
+   deadlineTimer=setTimeout(()=>deadlineController.abort(new DOMException('probe deadline','TimeoutError')),50);
+   return;
+  }
+  if(mode==='delayed'&&seen.filter(x=>x.mode==='delayed').length<3){res.writeHead(503);res.end();return}
   res.setHeader('content-type','application/json');
   res.end(JSON.stringify({webSocketDebuggerUrl:'ws://127.0.0.1:'+port+(mode==='foreign'?foreign:path)}));
  });
- const opts={workspace,child:{exitCode:null,signalCode:null},getStderr:()=>'',getSpawnError:()=>null,timeoutMs:350};
+ const opts={workspace,child:{exitCode:null,signalCode:null},getStderr:()=>'',getSpawnError:()=>null};
  try{
   await new Promise((ok,bad)=>{server.once('error',bad);server.listen(0,'127.0.0.1',ok)});
   port=server.address().port;
+  const endpoint='ws://127.0.0.1:'+port+path;
   await writeFile(join(workspace,'DevToolsActivePort'),port+'\n'+path+'\n');
-  await assert.rejects(waitForBrowserEndpoint(opts),/ENDPOINT_IDENTITY_MISMATCH.*candidate=active-port-file/);
-  mode='bad-json';await assert.rejects(waitForBrowserEndpoint(opts),/JSON_INVALID/);
-  mode='redirect';await assert.rejects(waitForBrowserEndpoint(opts),/HTTP_REDIRECT/);
-  mode='delayed';requests=0;
-  assert.equal((await waitForBrowserEndpoint({...opts,timeoutMs:2000})).endpoint,'ws://127.0.0.1:'+port+path);
-  mode='foreign';await assert.rejects(waitForBrowserEndpoint(opts),/ENDPOINT_IDENTITY_MISMATCH/);
+  // Observe exactly one complete HTTP transaction per diagnostic. The
+  // watchdog is test-local; no extra retries or change to the 500ms
+  // production-default probe / 15s polling deadline.
+  const observation=async(next,expected)=>{
+   mode=next;const before=seen.length;
+   assert.equal(await probeBrowserEndpoint(endpoint,{signal:AbortSignal.timeout(5000)}),expected,next);
+   assert.equal(seen.length,before+1,'ONE_ACTUAL_REQUEST_'+next);
+   assert.equal(seen.at(-1).path,'/json/version');
+   assert.equal(seen.at(-1).completed,true,'ACTUAL_RESPONSE_COMPLETED_'+next);
+  };
+  await observation('foreign','ENDPOINT_IDENTITY_MISMATCH');
+  await observation('bad-json','JSON_INVALID');
+  await observation('redirect','HTTP_REDIRECT');
+  await observation('match','MATCH');
+  await observation('foreign','ENDPOINT_IDENTITY_MISMATCH'); // replaced identity
+  const beforeRemote=seen.length;
+  assert.equal(await probeBrowserEndpoint('ws://evil.invalid:'+port+path),'ENDPOINT_INVALID');
+  assert.equal(seen.length,beforeRemote,'REMOTE_NO_REQUEST');
+  mode='delayed';
+  assert.deepEqual(await waitForBrowserEndpoint({...opts,timeoutMs:5000}),{endpoint,discovery:'active-port-file'});
+  const delayed=seen.filter(x=>x.mode==='delayed');
+  assert.ok(delayed.length>=3&&delayed.slice(0,3).every(x=>x.path==='/json/version'&&x.completed),'REAL_DELAYED_RESPONSES');
+  mode='deadline';deadlineController=new AbortController();
+  const beforeDeadline=seen.length;
+  const started=performance.now();
+  assert.equal(await probeBrowserEndpoint(endpoint,{signal:AbortSignal.any([deadlineController.signal,AbortSignal.timeout(5000)])}),'PROBE_DEADLINE');
+  assert.equal(seen.length,beforeDeadline+1,'DEADLINE_REAL_REQUEST_WITNESS');
+  assert.equal(deadlineController.signal.aborted,true,'DEADLINE_AFTER_SERVER_WITNESS');
+  assert.equal(seen.at(-1).completed,false,'DEADLINE_NO_COMPLETE_IDENTITY');
+  console.log('WEB_TOUR_LEGACY_PROBE_HTTP_WITNESSES count='+seen.length+' deadlineElapsedMs='+Math.round(performance.now()-started));
+  server.closeAllConnections();
   await new Promise(ok=>server.close(ok));
-  await assert.rejects(waitForBrowserEndpoint(opts),/TCP_REFUSED|TCP_RESET|TCP_SOCKET/);
- }finally{server.closeAllConnections();if(server.listening)await new Promise(ok=>server.close(ok));await rm(workspace,{recursive:true,force:true})}
+  assert.match(await probeBrowserEndpoint(endpoint,{signal:AbortSignal.timeout(5000)}),/^(TCP_REFUSED|TCP_RESET|TCP_SOCKET)$/);
+ }finally{
+  clearTimeout(deadlineTimer);server.closeAllConnections();
+  if(server.listening)await new Promise(ok=>server.close(ok));
+  await rm(workspace,{recursive:true,force:true});
+ }
 });
 test('real concurrent Chrome private pipes, isolated targets, killed child fails closed', {timeout:45000},async()=>{
  if(process.env.CI!=='true'&&process.env.WEB_TOUR_CHROME!=='1')return;
