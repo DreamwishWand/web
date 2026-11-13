@@ -20,7 +20,7 @@ const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript'
   '.woff2':'font/woff2'};
 const profile=await mkdtemp(join(tmpdir(),'wand-08web-real-chrome-'));
 let chrome,ws,server;
-let fault=null,assetRequests=0;
+let fault=null,assetRequests=0,mutationRequests=0;
 const binary=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium'].filter(Boolean)
  .find(bin=>spawnSync('which',[bin],{stdio:'ignore'}).status===0);
 if(!binary)throw Error('ENV_WAIT_DEP_CHROME_NOT_INSTALLED');
@@ -30,6 +30,7 @@ const rpc=(method,params={})=>new Promise((resolve,reject)=>{
  ws.send(JSON.stringify({id,method,params}));
 });
 function serve(req,res){
+ if(req.method!=='GET'&&req.method!=='HEAD'){mutationRequests++;res.writeHead(405);res.end();return;}
  let pathname;
  try{pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname)}
  catch{res.writeHead(400);res.end();return}
@@ -179,6 +180,16 @@ const script=String.raw`
   return input&&!input.disabled&&currentElement('#steam-diffgrids-sha')&&
    currentElement('input[type=checkbox]')&&currentElement('[data-diffgrids-open]');
  },'RUST_SIGNED_PROTECTED_WORKER_READY');
+ const localeSelect=await wait(()=>document.querySelector('#site-locale'),'LOCALE_SELECT');
+ const expectedTitles=['Steam 1.25.3 · Pre-release read-only test','Steam 1.25.3 · Test en lecture seule avant publication','Steam 1.25.3 · Test in sola lettura prima del rilascio','Steam 1.25.3 · Schreibgeschützter Vorabtest','Steam 1.25.3 · Prueba de solo lectura previa al lanzamiento','Steam 1.25.3 · 正式リリース前の読み取り専用テスト','Steam 1.25.3 · 正式发布前只读测试','Steam 1.25.3 · Teste somente leitura antes do lançamento'];
+ const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
+ for(let i=0;i<locales.length;i++){
+  localeSelect.value=locales[i];localeSelect.dispatchEvent(new Event('change',{bubbles:true}));
+  await wait(()=>document.querySelector('[data-preformal-steam-reader] h1')?.textContent.trim()===expectedTitles[i],'LOCALE_'+locales[i],5000);
+  need(!document.querySelector('[data-diffgrids-count]'),'LOCALE_NO_AUTO_READ');
+ }
+ localeSelect.value='en';localeSelect.dispatchEvent(new Event('change',{bubbles:true}));
+ await wait(()=>document.querySelector('[data-preformal-steam-reader] h1')?.textContent.trim()===expectedTitles[0],'LOCALE_EN_RESET',5000);
  const baseline=inspect(present('[data-diffgrids-summary]','SUMMARY_100'),'320_ROOT_ZOOM100');
  document.documentElement.style.zoom='2';
  inspect(present('[data-diffgrids-summary]','SUMMARY_200'),'320_ROOT_ZOOM200_CLOSED_MANUAL_PANEL');
@@ -193,6 +204,8 @@ const script=String.raw`
   [await response[0].arrayBuffer()],'synthetic-ci-only.p1g',
   {type:'application/octet-stream'});
  need(expected.syntheticOnly===true&&file.size===expected.sourceBytes,'P1G_SOURCE_SIZE');
+ const fileSha=async()=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))].map(b=>b.toString(16).padStart(2,'0')).join('');
+ need(await fileSha()===expected.originalSha256,'ORIGINAL_SHA_BEFORE');
  const dt=new DataTransfer();dt.items.add(file);
  const select=(digest)=>{
   const input=present('#steam-diffgrids-file','FILE');need(!input.disabled,'FILE_DISABLED');
@@ -265,7 +278,9 @@ const script=String.raw`
  await element('[data-diffgrids-count="17"]','REOPEN_NEW_SESSION',25000);
  await click('[data-diffgrids-close]','REOPEN_CLOSE_BUTTON');
  await wait(()=>pair()&&!pair().panel.querySelector('[data-diffgrids-count]'),'REOPEN_CLOSE');
+ need(await fileSha()===expected.originalSha256&&file.size===expected.sourceBytes,'ORIGINAL_SHA_AFTER');
  return {result:'08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS',
+  allEightLocales:true,originalImmutable:true,
   pages:pages.join(','),viewport320:true,zoom200:true,geometry100:baseline,
   geometry200:afterScroll,innerTableScroll:true,badShaDenied:true,reopenFresh:true,keyboard:true,gridIdZeroLiteral:true,manualClickOnly:true,
   sameRustWorker:true,strictUiMetadata:true,closed:true,focusRestored:true,
@@ -309,6 +324,54 @@ try{
     if(r.result?.value==='/web/editor/steam-reader/')break}catch{}
   await delay(40);
  }
+ if(process.env.WAND_PREFORMAL_PRODUCTION_NEGATIVE==='1'){
+  // Unmodified production worker/client with only a verified historical
+  // test-origin anchor. Synthetic attestation must NOT be accepted here.
+  const anchor=(await import('../src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs')).PROTECTED_READONLY_RELEASE_ANCHOR;
+  const candidates=[];
+  for(const name of await readdir(join(root,'build/_app'),{recursive:true})){
+   if(!name.endsWith('.js'))continue;
+   const body=await readFile(join(root,'build/_app',name),'utf8');
+   if(body.includes('DIFFGRIDS_PRODUCT_LOADER_RECEIPT_DENIED')&&body.includes('DIFFGRIDS_RUNTIME_READY')){
+    assert.ok(body.includes(anchor.releaseId),'PRODUCTION_ANCHOR_ID');
+    candidates.push('/web/_app/'+name.replaceAll('\\\\','/'));
+   }
+  }
+  assert.equal(candidates.length,1,'ONE_PRODUCTION_CONSUMER_WORKER');
+  const expression=`(async()=>{
+   const end=performance.now()+18000;
+   while(performance.now()<end&&!document.querySelector('[data-diffgrids-manual-only]'))
+    await new Promise(r=>setTimeout(r,50));
+   if(!document.querySelector('[data-diffgrids-manual-only]'))throw Error('PRODUCTION_ROUTE_NOT_READY');
+   const w=new Worker(`+JSON.stringify(candidates[0])+`,{type:'module'});
+   const recv=()=>new Promise((resolve,reject)=>{
+    const t=setTimeout(()=>reject(Error('PRODUCTION_NEGATIVE_TIMEOUT')),15000);
+    w.onmessage=e=>{clearTimeout(t);resolve(e.data)};
+    w.onerror=()=>{clearTimeout(t);reject(Error('PRODUCTION_NEGATIVE_WORKER_ERROR'))};
+   });
+   try{
+    const ready=await recv();
+    if(ready.kind!=='DIFFGRIDS_RUNTIME_READY'||ready.ready!==true||ready.writerAuthorized!==false)throw Error('PRODUCTION_READY');
+    const file=new Blob([new Uint8Array(16)]);
+    const sha=[...new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))].map(b=>b.toString(16).padStart(2,'0')).join('');
+    const attestation={contract:'wand.owner.local.steam-p1g-rust-v1@1',platform:'steam-windows',buildKind:'steam-full-version',
+     fullVersion:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,originalSha256:sha,
+     evidenceKind:'ci-synthetic-fixture',observedOutsideSave:false};
+    const call=async(data)=>{const p=recv();w.postMessage(data);const r=await p;if(r.requestId!==data.requestId||r.ok!==false||r.summary)throw Error('FALSE_ACCEPT');return r.error};
+    const msg={kind:'OPEN_LOCAL_STORED_DIFFGRIDS',file,expectedEncryptedSizeBytes:16,attestation};
+    const synthetic=await call({...msg,requestId:1});
+    const wrong=await call({...msg,requestId:2,attestation:{...attestation,platform:'switch',fullVersion:'1.25.3'}});
+    const foreign=await call({kind:'READ_LOCAL_STORED_DIFFGRIDS_NEXT',requestId:3,selection:99,pageIndex:0});
+    const forged=await call({...msg,requestId:4,sessionId:'foreign'});
+    return {synthetic,wrong,foreign,forged};
+   }finally{w.terminate()}
+  })()`;
+  const r=await rpc('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});
+  assert.equal(r.exceptionDetails,undefined,'PRODUCTION_NEGATIVE_EXCEPTION');
+  assert.deepEqual(r.result?.value,{synthetic:'LOCAL_DIFFGRIDS_OPEN_FAILED_CLOSED',wrong:'LOCAL_DIFFGRIDS_OPEN_FAILED_CLOSED',foreign:'LOCAL_DIFFGRIDS_STALE_READ_OR_REPLAY',forged:'LOCAL_DIFFGRIDS_OPEN_FAILED_CLOSED'});
+  assert.equal(mutationRequests,0);
+  console.log('08WEB_PREFORMAL_UNPATCHED_PRODUCTION_SYNTHETIC_WRONG_BUILD_FOREIGN_ABI_DENIED');
+ }else{
  const watchdog=new AbortController();
  let outcome;
  try{outcome=await Promise.race([
@@ -323,6 +386,7 @@ try{
  for(const k of ['manualClickOnly','sameRustWorker','strictUiMetadata',
    'closed','focusRestored','gridIdZeroLiteral','viewport320','zoom200','badShaDenied','reopenFresh','keyboard','readinessContract'])assert.equal(result[k],true,k);
  assert.equal(result.pages,'8,8,1');
+ assert.equal(result.allEightLocales,true);assert.equal(result.originalImmutable,true);
  assert.equal(result.innerTableScroll,true,'5_COLUMN_TABLE_SCROLL_INTERNAL');
  const zoomRects=[result.geometry100,result.geometry200];
  for(const box of zoomRects){
@@ -379,7 +443,9 @@ try{
   {pages:result.pages,signedPublicAssetBytes:true,privateSave:false,
     consumerProductOwnerFlag:false,preformalReaderScope:true,physical320Css100:result.geometry100,
     physical320Css200AfterVerticalScroll:result.geometry200,
-    physicalDesktopCss100:d,innerTableScroll:result.innerTableScroll});
+    physicalDesktopCss100:d,innerTableScroll:result.innerTableScroll,allEightLocales:true,originalImmutable:true});
+ assert.equal(mutationRequests,0,'NO_LOCAL_SAVE_MUTATION_HTTP_REQUEST');
+ }
 }catch(e){console.error('08WEB_REAL_CHROME_FAIL',String(e?.stack||e).slice(0,1800));process.exitCode=1}
 finally{
  for(const p of pending.values())p.reject(Error('CDP_CLOSED'));pending.clear();

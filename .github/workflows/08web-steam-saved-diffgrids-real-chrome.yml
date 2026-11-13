@@ -105,6 +105,13 @@ jobs:
           await writeFile(path,'// TEST ONLY; verified historical signed assets, isolated origin.\nconst a='+JSON.stringify(a)+';Object.freeze(a.pins);export const PROTECTED_READONLY_RELEASE_ANCHOR=Object.freeze(a);\n');
           console.log('08WEB_TEST_ONLY_RELEASE_ID',a.releaseId);
           NODE
+      - name: Build exact preformal Source with test-origin verified anchor only
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run build
+          test -f build/editor/steam-reader/index.html
+          WAND_PREFORMAL_PRODUCTION_NEGATIVE=1 node tests/web-steam-saved-diffgrids-real-chrome.mjs
       - name: QA-ONLY synthetic attestation (NEVER a product Source commit)
         run: |
           node --input-type=module <<'NODE'
