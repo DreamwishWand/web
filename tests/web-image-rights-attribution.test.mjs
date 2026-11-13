@@ -25,3 +25,11 @@ test('shared footer visible text follows locale, keeps existing Help link, no co
  assert.doesNotMatch(footer,/<img|<video|mailto:|\{@html|fetch\(|mediaPublic|rightsContact|operatorReceipt|humanReviewed/);
  assert.match(read('../src/routes/+layout.svelte'),/<SiteFooter \/>/);
 });
+
+test('World Editor shared shell inventory pins and inventories the exact new eight-locale footer resource',()=>{
+ const inventory=JSON.parse(read('../docs/wep/world-editor-localization-inventory-20261002.json'));
+ const shell=inventory.categories.navigation.find(x=>x.surface==='Shared site shell rendered on World Editor');
+ assert.equal(shell.imageRightsAttributionSource,'src/lib/i18n/image-rights-attribution.js');
+ assert.deepEqual(shell.imageRightsAttributionLocales,IMAGE_RIGHTS_ATTRIBUTION);
+ assert.ok(shell.strings.includes(IMAGE_RIGHTS_ATTRIBUTION.ja));
+});

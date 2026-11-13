@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 import {IMAGE_RIGHTS_ATTRIBUTION} from '../src/lib/i18n/image-rights-attribution.js';
 import {SUPPORTED_LOCALES} from '../src/lib/i18n/registry.js';
+import {t} from '../src/lib/i18n/runtime.js';
 import {readFileSync} from 'node:fs';
 const origin='http://127.0.0.1:4298',base='/web';
 const html=readFileSync('build/index.html','utf8');
@@ -26,7 +27,7 @@ const fit=async label=>{
  assert.notEqual(r.overflow,'hidden');
 };
 try{
- for(const path of ['/','/collection/','/explore/','/help/']){
+ for(const path of ['/','/collection/','/explore/','/help/','/editor/world/']){
   await page.goto(origin+base+path,{waitUntil:'domcontentloaded'});
   await notice.waitFor({timeout:20000});
   assert.equal(await notice.count(),1,path);
@@ -37,7 +38,18 @@ try{
   await page.setViewportSize({width,height:900});
   await page.evaluate(z=>document.documentElement.style.zoom=String(z),zoom);
   for(const {code} of SUPPORTED_LOCALES){
-   await page.locator('#site-locale').selectOption(code);
+   const desktop=page.locator('#site-locale');
+   if(await desktop.isVisible())await desktop.selectOption(code);
+   else{
+    const current=await page.locator('html').getAttribute('data-locale');
+    const settings=page.locator('.mobile-global-actions').getByRole('button',{name:t('shared.shell.settings',{},current),exact:true});
+    await settings.click();
+    const mobile=page.locator('#site-locale-mobile');
+    await mobile.selectOption(code);
+    await waitCopy(code);
+    await page.keyboard.press('Escape');
+    await page.locator('dialog:has(#site-locale-mobile)').waitFor({state:'hidden'});
+   }
    await waitCopy(code);await fit(code+'/'+width+'/'+zoom);
   }
  }
