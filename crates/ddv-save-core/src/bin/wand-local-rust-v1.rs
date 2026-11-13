@@ -92,13 +92,15 @@ fn run(){
     // The accepted no-argument V1 path remains byte-for-byte behaviorally
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
-    let (native_slice,avatar_output,skin_output)=match argv.as_slice(){
-      []=>(false,None,None),
-      [flag] if flag=="--native-area-grid-slice-only"=>(true,None,None),
+    let (native_slice,avatar_output,skin_output,dependency_output)=match argv.as_slice(){
+      []=>(false,None,None,None),
+      [flag] if flag=="--native-area-grid-slice-only"=>(true,None,None,None),
       [flag,out,path] if flag=="--active-avatar-receipt-only"&&out=="--out"=>
-        (false,Some(private_output_path(path)),None),
+        (false,Some(private_output_path(path)),None,None),
+      [flag,out,path] if flag=="--avatar-dependencies-receipt-only"&&out=="--out"=>
+        (false,None,None,Some(private_output_path(path))),
       [flag,c,k,out,path] if flag=="--character-skin-receipt-only"&&out=="--out"=>
-        (false,None,Some((selector_id(c),selector_id(k),private_output_path(path)))),
+        (false,None,Some((selector_id(c),selector_id(k),private_output_path(path))),None),
       _=>denied("UNTRUSTED_CLI_ARGS"),
     };
     if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION{
@@ -146,6 +148,20 @@ fn run(){
       expected_decoded_sha256:receipt.decoded_sha256,
       action:WorkerAction::ReadDomain
     };
+    if let Some(path)=dependency_output{
+        let witness=session.read_private_avatar_dependencies(scope)
+            .unwrap_or_else(|_|denied("AVATAR_DEPENDENCIES_READ_DENIED"));
+        let mut out=witness.to_private_receipt_json();
+        out["originalSha256SuppliedExternally"]=serde_json::json!(hex_bytes(&original_sha));
+        out["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+        out["cloudUploadPerformed"]=serde_json::json!(false);
+        out["originalModifiedByHarness"]=serde_json::json!(false);
+        if session.receipt().ok()!=Some(receipt){denied("AVATAR_DEPENDENCIES_EPOCH_CHANGED");}
+        session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
+        write_private_receipt(&path,&out);
+        eprintln!("LOCAL_RUST_V1_PRIVATE_AVATAR_DEPENDENCIES_RECEIPT_WRITTEN");
+        return;
+    }
     if let Some((character,skin,path))=skin_output{
         let witness=session.read_private_character_skin(scope,character,skin)
             .unwrap_or_else(|_|denied("CHARACTER_SKIN_READ_DENIED"));
