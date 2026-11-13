@@ -65,7 +65,7 @@ try{
  await writeFile(join(root,'Harness.svelte'),`<script>import ItemThumb from '$lib/ui/ItemThumb.svelte';export let ids=[];</script><main style="display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px">{#each ids as id (id)}<ItemThumb itemId={id} label={'QA-'+id} />{/each}<ItemThumb itemId="40002422" label="excluded"/></main>`);
  await writeFile(join(root,'entry.mjs'),`import {mount,tick} from 'svelte';import Harness from './Harness.svelte';import * as m from '$lib/item-media/switch1253-public-item-images.mjs';
  mount(Harness,{target:document.body,props:{ids:Object.keys(m.SWITCH1253_NATIVE_PINS)}});
- await tick();let detach;window.qrw={start:r=>{const c=m.createSwitch1253ManifestController(r,v=>m.switch1253PublicItemImageSource.set(v));detach=m.attachSwitch1253ManifestLifecycle(c,'/web',window,document);},stop:()=>detach?.(),off:()=>m.loadSwitch1253PublicItemImageSource('/web')};`);
+ await tick();let detach,last,options=[];window.qrw={start:r=>{const c=m.createSwitch1253ManifestController(r,v=>{last=v;m.switch1253PublicItemImageSource.set(v)});const observedFetch=(u,o)=>{options.push({u,cache:o.cache,credentials:o.credentials,redirect:o.redirect,signal:o.signal instanceof AbortSignal});return fetch(u,o)};detach=m.attachSwitch1253ManifestLifecycle(c,'/web',window,document,observedFetch);},state:()=>last,options:()=>options,stop:()=>detach?.(),off:()=>m.loadSwitch1253PublicItemImageSource('/web')};`);
  await build({root,configFile:false,plugins:[svelte({configFile:false})],resolve:{alias:{'$lib':join(repo,'src/lib'),'$app/paths':join(root,'paths.mjs')}},build:{target:'esnext',outDir:out,emptyOutDir:true,cssCodeSplit:false,lib:{entry:join(root,'entry.mjs'),formats:['es'],fileName:()=> 'preview.js',cssFileName:'preview'},rollupOptions:{output:{inlineDynamicImports:true}}}});
  assert.deepEqual((await readdir(out)).sort(),['preview.css','preview.js']);
  const js=await readFile(join(out,'preview.js')),css=await readFile(join(out,'preview.css'));
@@ -101,12 +101,12 @@ try{
  const refresh=()=>page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  mode='half';hold=new Promise(yes=>releaseHold=yes);await refresh();await expect([]);releaseHold();hold=null;await expect(ids.filter((_,i)=>i%2===1));
  mode='full';await refresh();await expect(ids);
- mode='swap';await refresh();await expect([]);
+ mode='swap';await refresh();await expect([]);await page.waitForFunction(()=>window.qrw.state()?.reason?.includes('ITEM_ID_NATIVE_SHA'));
  mode='full';await refresh();await expect(ids);
- mode='empty';await refresh();await expect([]);
+ mode='empty';await refresh();await expect([]);await page.waitForFunction(()=>window.qrw.state()?.reason?.includes('MAPPING_EMPTY_OR_OVERSIZED'));
  mode='full';await refresh();await expect(ids);
  await page.evaluate(()=>window.qrw.stop());await expect([]);await page.evaluate(()=>window.qrw.off());await expect([]);
- assert.ok(manifestHeaders.length>=7);assert.ok(manifestHeaders.every(h=>h['cache-control']==='no-cache'||h.pragma==='no-cache'||h['cache-control']==='no-store'));
+ assert.ok(manifestHeaders.length>=7);const options=await page.evaluate(()=>window.qrw.options());assert.equal(options.length,manifestHeaders.length);assert.ok(options.every(o=>o.u==='/web/'+m.SWITCH1253_MANIFEST_PATH&&o.cache==='no-store'&&o.credentials==='omit'&&o.redirect==='error'&&o.signal));console.log('QRW1066_REAL_FETCH_INIT_AND_INTERCEPTED_NETWORK_COUNT_PASS',options.length,JSON.stringify(manifestHeaders.map(h=>({cacheControl:h['cache-control']??null,pragma:h.pragma??null}))));
  assert.deepEqual(errors,[]);assert.deepEqual(unsafe,[]);
  console.log('QRW1066_ACTUAL_60_HALF_WITHDRAW_CLEAR_BEFORE_RESPONSE_RESTORE_SWAP_EMPTY_DISPOSE_PASS',manifestHeaders.length);
  await ctx.close();
