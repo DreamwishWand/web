@@ -693,13 +693,30 @@ mod private_storage {
         let arr=required(b,c,"Inventory")?;
         let slot_facts=slots(b,arr)?;
         let lists=required(b,roots.player,"ListInventories")?;
-        let catalog=required(b,lists,"0")?;
-        if number(b,required(b,catalog,"ID")?)?!=0||
-           text_field(b,required(b,catalog,"CompatibleItemType")?)?!="ItemType_Furniture"{
+        let mut catalog=None;let mut list_count=0usize;
+        walk_object(b,lists,|k,v|{
+            list_count+=1;
+            if list_count>4096{return Err(denied("STORAGE_CATALOG_LIST_BOUND"));}
+            let id=canonical_record(b,k,v)?;
+            if id>u32::MAX as u64{return Err(denied("STORAGE_CATALOG_ID_BOUND"));}
+            if id==0{catalog=Some(v);}
+            Ok(())
+        })?;
+        let catalog=catalog.ok_or(denied("STORAGE_CATALOG_ZERO_ROLE"))?;
+        if text_field(b,required(b,catalog,"CompatibleItemType")?)?!="ItemType_Furniture"{
             return Err(denied("STORAGE_CATALOG_ZERO_ROLE"));
         }
         let inventory=required(b,catalog,"Inventory")?;
-        let entry=required(b,inventory,"40000053")?;
+        let mut entry=None;let mut item_count=0usize;
+        walk_object(b,inventory,|k,v|{
+            item_count+=1;
+            if item_count>MAX_OBJECTS{return Err(denied("STORAGE_CATALOG_ITEM_BOUND"));}
+            let id=key_id(k)?;
+            if id==0||id>i32::MAX as u64{return Err(denied("STORAGE_CATALOG_ITEM_ID"));}
+            if id==ITEM{entry=Some(v);}
+            Ok(())
+        })?;
+        let entry=entry.ok_or(denied("STORAGE_CATALOG_ITEM_MISSING"))?;
         let amount=number(b,required(b,entry,"Amount")?)?;
         if amount>i32::MAX as u64{return Err(denied("STORAGE_CATALOG_AMOUNT"));}
         // Presence and SHA only; no inference of ownership or runtime variation.
@@ -794,6 +811,9 @@ mod private_storage {
             let mut d=doc(0);d["Player"]["NextContainerInventoryID"]=json!(12);assert!(read(&d).is_err());
             let mut d=doc(1);d["Player"]["ContainerInventories"]["12"]["Inventory"][0]["State"]=json!({});assert!(read(&d).is_err());
             let mut d=doc(0);d["Player"]["ListInventories"]["0"]["ID"]=json!(1);assert!(read(&d).is_err());
+            let mut d=doc(0);d["Player"]["ListInventories"]["00"]=json!({"ID":0});assert!(read(&d).is_err());
+            let mut d=doc(0);d["Player"]["ListInventories"]["0"]["Inventory"]["040000053"]=json!({"Amount":0});assert!(read(&d).is_err());
+            let mut d=doc(0);d["World"]["GridCollection"]["Grids"]["07"]=json!({"ID":7,"Objects":{}});assert!(read(&d).is_err());
             let mut d=doc(0);d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"]["State"]["Other"]=json!({});assert!(read(&d).is_err());
         }
     }
