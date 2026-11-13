@@ -61,6 +61,18 @@ try{
   throw Error('WEP_SAVEFREE_BROWSER_CATALOG_LOAD_DENIED '+JSON.stringify({status,state,pageSnapshot:pageSnapshot.slice(0,700),probe,errors,unsafe})+' '+String(error));
  }
  assert.equal((await dbs()).some(x=>x.name===DB),false,'Catalog load must not touch IndexedDB');
+ // New presentation-only scope: canonical catalog ID -> shared ItemThumb.
+ // This is the real production OFF path, not a real game-image assertion.
+ const thumbFor=id=>panel.locator('[data-item-thumb-id="'+id+'"]');
+ const mediaRequests=[];
+ context.on('request',req=>{if(req.url().includes('/ddv/item-images/'))mediaRequests.push(req.url());});
+ assert.equal(await panel.locator('[data-media-status="verified-public-image"]').count(),0);
+ assert.ok(await panel.locator('[data-wep-savefree-results] [data-item-thumb-id]').count()>0);
+ for(const id of await panel.locator('[data-wep-savefree-results] [data-item-thumb-id]').evaluateAll(els=>els.map(el=>el.getAttribute('data-item-thumb-id')))){
+  assert.equal(await panel.locator('[data-wep-savefree-choose="'+id+'"]').count(),1,'thumbnail and catalog button must share canonical ID');
+ }
+ assert.deepEqual(mediaRequests,[],'OFF must not request any media');
+
  await page.locator('[data-wep-savefree-search]').fill('40000047');
  const choose=page.locator('[data-wep-savefree-choose="40000047"]');
  await choose.waitFor({timeout:30000});
@@ -68,6 +80,22 @@ try{
  await page.keyboard.press('Enter');
  const selection=page.locator('[data-wep-savefree-selection]');
  await selection.waitFor();
+ const selectedThumb=selection.locator('[data-item-thumb-id="40000047"]');
+ assert.equal(await selectedThumb.count(),1);
+ assert.equal(await selectedThumb.getAttribute('data-media-status'),'unavailable');
+ assert.equal(await selectedThumb.locator('img').count(),0);
+ assert.equal(await selectedThumb.locator('[aria-hidden="true"]').count(),1);
+ // The shared preference store changes presentation only.
+ await page.evaluate(async()=>{
+  const {itemImagePreferences}=await import('/src/lib/item-media/public-item-images.mjs');
+  itemImagePreferences.set({size:96,fit:'cover',density:'compact'});
+ });
+ assert.equal(await selectedThumb.evaluate(el=>getComputedStyle(el).getPropertyValue('--image-size').trim()),'96px');
+ await page.evaluate(async()=>{
+  const {itemImagePreferences}=await import('/src/lib/item-media/public-item-images.mjs');
+  itemImagePreferences.set({size:56,fit:'contain',density:'comfortable'});
+ });
+ assert.deepEqual(mediaRequests,[],'OFF search and selection do not fetch images');
  assert.match(await selection.innerText(),/3 × 2/);
  assert.match(await selection.innerText(),/VERIFIED_SWITCH1250_CATALOG_GEOMETRY_SCOPE/);
  assert.equal(await page.locator('[data-wep-savefree-save]:not([disabled])').count(),0,
@@ -119,6 +147,8 @@ try{
   await page.evaluate(z=>{document.documentElement.style.zoom=z;},zoom);
   const m=await panel.evaluate(el=>({client:el.clientWidth,scroll:el.scrollWidth}));
   assert.ok(m.scroll<=m.client+2,'Savefree 320/CSS200 panel overflow '+JSON.stringify(m));
+  const thumbBounds=await selectedThumb.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,vw:document.documentElement.clientWidth};});
+  assert.ok(thumbBounds.left>=-1&&thumbBounds.right<=thumbBounds.vw+2,'selected thumb must fit viewport '+JSON.stringify(thumbBounds));
  }
  await page.setViewportSize({width:1440,height:900});
  await page.evaluate(()=>{document.documentElement.style.zoom='1';});
@@ -152,6 +182,8 @@ try{
   backup:current.backup},'selected read-only sender/receiver cannot mutate stored first Scene');
  assert.deepEqual(await page.evaluate(keys=>keys.map(k=>localStorage.getItem(k)),oldKeys),
   oldValues,'legacy Moodboard primary/backup unchanged');
+ assert.deepEqual(mediaRequests,[],'production OFF path must make no image or manifest requests');
+ console.log('WEP_SAVEFREE_SHARED_ITEMTHUMB_CANONICAL_ID_OFF_FALLBACK_PREFERENCES_PASS');
  assert.deepEqual(unsafe,[],'unexpected external request or mutating HTTP');
  assert.deepEqual(errors,[],'browser JS exception');
  console.log(JSON.stringify({operation:'WEP_SAVEFREE_FIRST_NONEMPTY_VERIFIED_CATALOG_SCENE@1',
