@@ -1,0 +1,34 @@
+name: 04 QR-W PR1054 independent SaveFree ItemThumb
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr1054-savefree-thumb-independent-20261113.mjs'
+      - '.github/workflows/04qr-w-pr1054-savefree-thumb-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual installed Chrome independent new consumer
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          "$CHROME_BIN" --version
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4358 >/tmp/qrw1054.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4358/editor/world/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/04qr-w-pr1054-savefree-thumb-independent-20261113.mjs
