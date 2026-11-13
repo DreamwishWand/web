@@ -747,30 +747,48 @@ mod private_avatar {
             "variationVerified":false,"rightsVerified":false}))
     }
     fn achievements_dependencies(bytes:&[u8],s:Option<Span>)->CoreResult<Value>{
+        achievements_dependencies_mode(bytes,s,false)
+    }
+    fn achievements_dependencies_mode(bytes:&[u8],s:Option<Span>,detail:bool)->CoreResult<Value>{
         let Some(span)=s else{return Ok(json!({"present":false,"sha256":null,"entries":[],"completeNativeClosureVerified":false}))};
         let mut seen=std::collections::BTreeSet::new();let mut out=Vec::new();
+        let mut budget=DependencyBudget::default();
         for v in array_spans(bytes,span,4096)?{
             let f=members(bytes,v,64)?;
             let id=int(bytes,required(&f,"AchievementID")?)?;
             if id<=0||id/10_000_000!=211||!seen.insert(id){return Err(denied("AVATAR_DEP_ACHIEVEMENT_ID"));}
             let state=field(&f,"State").map(|x|enum_token(bytes,x,"AchievementState_")).transpose()?;
-            out.push(json!({"achievementId":id,"recordSha256":sha(&bytes[v.begin..v.end]),
+            let mut row=json!({"achievementId":id,"recordSha256":sha(&bytes[v.begin..v.end]),
                 "state":state,"statePresent":state.is_some(),
                 "curAmount":scalar_witness(bytes,&f,"CurAmount")?,
                 "maxAmount":scalar_witness(bytes,&f,"MaxAmount")?,
                 "claimedRewardMilestone":scalar_witness(bytes,&f,"ClaimedRewardMilestone")?,
                 "typesCollected":dependency_hash(bytes,field(&f,"TypesCollected")),
-                "itemsUsed":dependency_hash(bytes,field(&f,"ItemsUsed"))}));
+                "itemsUsed":dependency_hash(bytes,field(&f,"ItemsUsed"))});
+            if detail{
+                row["typesCollectedTyped"]=amount_int_refs(bytes,field(&f,"TypesCollected"),&mut budget)?;
+                row["itemsUsedTyped"]=amount_int_refs(bytes,field(&f,"ItemsUsed"),&mut budget)?;
+                let grids=field(&f,"GridObjectsCollected");
+                row["gridObjectsCollected"]=dependency_hash(bytes,grids);
+                let addresses=if let Some(s)=grids{field(&members(bytes,s,64)?,"GridObjectAddresses")}else{None};
+                row["gridObjectsCollectedTyped"]=amount_grid_refs(bytes,addresses,"GridID","GridObjectID",&mut budget)?;
+            }
+            out.push(row);
         }
         Ok(json!({"present":true,"sha256":sha(&bytes[span.begin..span.end]),"entries":out,
             "completeNativeClosureVerified":false}))
     }
     #[derive(Default)]
-    struct DependencyBudget{nodes:usize,progress_entries:usize,progress_bytes:usize}
+    struct DependencyBudget{nodes:usize,progress_entries:usize,progress_bytes:usize,reference_entries:usize}
     impl DependencyBudget{
         fn node(&mut self)->CoreResult<()>{
             self.nodes+=1;
             if self.nodes>8192{return Err(denied("AVATAR_DEP_SUBSCRIBER_NODE_BOUND"));}
+            Ok(())
+        }
+        fn reference(&mut self)->CoreResult<()>{
+            self.reference_entries+=1;
+            if self.reference_entries>65536{return Err(denied("AMOUNT_DEP_REFERENCE_BOUND"));}
             Ok(())
         }
         fn progress(&mut self,key:&str,value_bytes:usize)->CoreResult<()>{
@@ -782,7 +800,7 @@ mod private_avatar {
             Ok(())
         }
     }
-    fn objective_dependencies(bytes:&[u8],v:Span,budget:&mut DependencyBudget)->CoreResult<Value>{
+    fn objective_dependencies_mode(bytes:&[u8],v:Span,budget:&mut DependencyBudget,detail:bool)->CoreResult<Value>{
         budget.node()?;
         let f=members(bytes,v,128)?;
         let mut progress=Vec::new();
@@ -796,17 +814,30 @@ mod private_avatar {
                     "sha256":sha(&bytes[val.begin..val.end])}));
             }
         }
-        Ok(json!({"recordSha256":sha(&bytes[v.begin..v.end]),
-            "targetAmount":scalar_witness(bytes,&f,"TargetAmount")?,
-            "curAmount":scalar_witness(bytes,&f,"CurAmount")?,
+        let mut row=json!({"recordSha256":sha(&bytes[v.begin..v.end]),
+            "targetAmount":if detail{amount_float_witness(bytes,field(&f,"TargetAmount"))?}else{scalar_witness(bytes,&f,"TargetAmount")?},
+            "curAmount":if detail{Value::Null}else{scalar_witness(bytes,&f,"CurAmount")?},
             "status":token_witness(bytes,&f,"Status")?,
             "stepType":token_witness(bytes,&f,"StepType")?,
             "progressKeys":dependency_hash(bytes,field(&f,"ProgressKeys")),"progressEntries":progress,
             "itemIdsCollected":dependency_hash(bytes,field(&f,"ItemIdsCollected")),
             "gridObjectIdsCollected":dependency_hash(bytes,field(&f,"GridObjectIdsCollected")),
-            "itemFilter":dependency_hash(bytes,field(&f,"ItemFilter"))}))
+            "itemFilter":dependency_hash(bytes,field(&f,"ItemFilter"))});
+        if detail{
+            row["itemAmount"]=amount_float_witness(bytes,field(&f,"ItemAmount"))?;
+            row["nonNativeCurAmountField"]=dependency_hash(bytes,field(&f,"CurAmount"));
+            row["currentAmountKeyVerified"]=json!(false);
+            row["effectiveCurrentAmount"]=Value::Null;
+            row["itemIdsCollectedTyped"]=amount_int_refs(bytes,field(&f,"ItemIdsCollected"),budget)?;
+            row["gridObjectIdsCollectedTyped"]=amount_grid_refs(bytes,field(&f,"GridObjectIdsCollected"),"GridId","GridObjectId",budget)?;
+            row["runtimeGeneratedFilterVerified"]=json!(false);
+        }
+        Ok(row)
     }
     fn mission_dependencies(bytes:&[u8],s:Option<Span>,budget:&mut DependencyBudget)->CoreResult<Value>{
+        mission_dependencies_mode(bytes,s,budget,false)
+    }
+    fn mission_dependencies_mode(bytes:&[u8],s:Option<Span>,budget:&mut DependencyBudget,detail:bool)->CoreResult<Value>{
         let Some(span)=s else{return Ok(json!({"present":false,"sha256":null,"groups":[],"completeNativeClosureVerified":false}))};
         let mut groups=Vec::new();let mut total_slots=0usize;let mut total_objectives=0usize;
         for (key,g) in members(bytes,span,128)?{
@@ -835,7 +866,7 @@ mod private_avatar {
                                     for (oi,obj) in array_spans(bytes,o,256)?.into_iter().enumerate(){
                                         total_objectives+=1;
                                         if total_objectives>4096{return Err(denied("AVATAR_DEP_OBJECTIVE_BOUND"));}
-                                        objectives.push(json!({"physicalIndex":oi,"witness":objective_dependencies(bytes,obj,budget)?}));
+                                        objectives.push(json!({"physicalIndex":oi,"witness":objective_dependencies_mode(bytes,obj,budget,detail)?}));
                                     }
                                 }
                                 substeps.push(json!({"physicalIndex":ui,"recordSha256":sha(&bytes[sub.begin..sub.end]),
@@ -846,11 +877,35 @@ mod private_avatar {
                             "subStepsPresent":field(&sf,"SubSteps").is_some(),"subSteps":substeps}));
                     }
                 }
-                slots.push(json!({"slotId":slot,"missionId":mission,"recordSha256":sha(&bytes[v.begin..v.end]),
+                let mut row=json!({"slotId":slot,"missionId":mission,"recordSha256":sha(&bytes[v.begin..v.end]),
                     "state":state,"statePresent":state.is_some(),"currentStepIndex":current,
                     "currentStepIndexPresent":current.is_some(),
                     "characterId":scalar_witness(bytes,&f,"CharacterId")?,
-                    "missionSteps":dependency_hash(bytes,field(&f,"MissionSteps")),"steps":steps}));
+                    "missionSteps":dependency_hash(bytes,field(&f,"MissionSteps")),"steps":steps});
+                if detail{
+                    row["class"]=token_witness(bytes,&f,"Class")?;
+                    let mut filters=Vec::new();
+                    if let Some(s)=field(&f,"ItemsToGive"){
+                        for (i,s) in array_spans(bytes,s,256)?.into_iter().enumerate(){
+                            budget.reference()?;
+                            let fs=members(bytes,s,128)?;
+                            filters.push(json!({"position":i,"recordSha256":sha(&bytes[s.begin..s.end]),
+                                "item":scalar_witness(bytes,&fs,"Item")?,
+                                "itemList":amount_int_refs(bytes,field(&fs,"ItemList"),budget)?,
+                                "type":token_witness(bytes,&fs,"Type")?,
+                                "subType":token_witness(bytes,&fs,"SubType")?,
+                                "set":scalar_witness(bytes,&fs,"Set")?,
+                                "tags":amount_int_refs(bytes,field(&fs,"Tags"),budget)?,
+                                "effectiveFilterVerified":false}));
+                        }
+                    }
+                    row["itemsToGive"]=json!({"saved":dependency_hash(bytes,field(&f,"ItemsToGive")),"entries":filters});
+                    row["itemsToGiveAmount"]=amount_int_refs(bytes,field(&f,"ItemsToGiveAmount"),budget)?;
+                    row["rewards"]=dependency_hash(bytes,field(&f,"Rewards"));
+                    row["rewardPresents"]=dependency_hash(bytes,field(&f,"RewardPresents"));
+                    row["additionalRewards"]=dependency_hash(bytes,field(&f,"AdditionalRewards"));
+                }
+                slots.push(row);
             }
             groups.push(json!({"groupKey":group,"recordSha256":sha(&bytes[g.begin..g.end]),"slots":slots}));
         }
@@ -858,6 +913,9 @@ mod private_avatar {
             "completeNativeClosureVerified":false}))
     }
     fn evolve_dependencies(bytes:&[u8],s:Option<Span>,budget:&mut DependencyBudget)->CoreResult<Value>{
+        evolve_dependencies_mode(bytes,s,budget,false)
+    }
+    fn evolve_dependencies_mode(bytes:&[u8],s:Option<Span>,budget:&mut DependencyBudget,detail:bool)->CoreResult<Value>{
         let Some(span)=s else{return Ok(json!({"present":false,"sha256":null,"entries":[],"completeNativeClosureVerified":false}))};
         let fs=members(bytes,span,64)?;
         let map=field(&fs,"EvolveProgressState");
@@ -869,7 +927,7 @@ mod private_avatar {
                 let f=members(bytes,v,64)?;
                 if id==0||id>i32::MAX as u32||int(bytes,required(&f,"ItemID")?)?!=id as i32{
                     return Err(denied("AVATAR_DEP_EVOLVE_ID"));}
-                let o=field(&f,"Objective").map(|x|objective_dependencies(bytes,x,budget)).transpose()?;
+                let o=field(&f,"Objective").map(|x|objective_dependencies_mode(bytes,x,budget,detail)).transpose()?;
                 out.push(json!({"itemId":id,"recordSha256":sha(&bytes[v.begin..v.end]),
                     "level":scalar_witness(bytes,&f,"Level")?,"objectivePresent":o.is_some(),"objective":o}));
             }
@@ -1176,6 +1234,48 @@ mod private_avatar {
                 return Err(denied("SKIN_DEP_RECEIPT_BOUND"));}
             Ok(PrivateCharacterSkinDependencyReceipt{value})
         }
+    }
+
+
+    // ACT422 exact Native field types verified in E1198 dump SHA.
+    fn amount_uint(bytes:&[u8],s:Span)->CoreResult<u32>{
+        let n=serde_json::from_slice::<u32>(&bytes[s.begin..s.end]).map_err(|_|denied("AMOUNT_DEP_UINT32"))?;
+        if n.to_string().as_bytes()!=&bytes[s.begin..s.end]{return Err(denied("AMOUNT_DEP_UINT_CANONICAL"));}
+        Ok(n)
+    }
+    fn amount_float_witness(bytes:&[u8],s:Option<Span>)->CoreResult<Value>{
+        let Some(s)=s else{return Ok(json!({"present":false,"rawToken":null,"sha256":null}))};
+        let raw=&bytes[s.begin..s.end];
+        if raw.len()>64{return Err(denied("AMOUNT_DEP_FLOAT_BOUND"));}
+        let n=serde_json::from_slice::<f32>(raw).map_err(|_|denied("AMOUNT_DEP_FLOAT32"))?;
+        if !n.is_finite(){return Err(denied("AMOUNT_DEP_FLOAT32"));}
+        let token=std::str::from_utf8(raw).map_err(|_|denied("AMOUNT_DEP_FLOAT_TOKEN"))?;
+        Ok(json!({"present":true,"rawToken":token,"sha256":sha(raw)}))
+    }
+    fn amount_int_refs(bytes:&[u8],s:Option<Span>,budget:&mut DependencyBudget)->CoreResult<Value>{
+        let mut entries=Vec::new();
+        if let Some(s)=s{
+            for (position,v) in array_spans(bytes,s,16384)?.into_iter().enumerate(){
+                budget.reference()?;
+                entries.push(json!({"position":position,"value":int(bytes,v)?,
+                    "sha256":sha(&bytes[v.begin..v.end])}));
+            }
+        }
+        Ok(json!({"saved":dependency_hash(bytes,s),"entries":entries}))
+    }
+    fn amount_grid_refs(bytes:&[u8],s:Option<Span>,g:&str,o:&str,budget:&mut DependencyBudget)->CoreResult<Value>{
+        let mut entries=Vec::new();
+        if let Some(s)=s{
+            for (position,v) in array_spans(bytes,s,16384)?.into_iter().enumerate(){
+                budget.reference()?;
+                let f=members(bytes,v,32)?;
+                let grid=field(&f,g).map(|x|amount_uint(bytes,x)).transpose()?;
+                let object=field(&f,o).map(|x|amount_uint(bytes,x)).transpose()?;
+                entries.push(json!({"position":position,"gridId":grid,"objectId":object,
+                    "recordSha256":sha(&bytes[v.begin..v.end]),"completePhysicalAddress":grid.is_some()&&object.is_some()}));
+            }
+        }
+        Ok(json!({"saved":dependency_hash(bytes,s),"entries":entries}))
     }
 
     #[cfg(test)]
