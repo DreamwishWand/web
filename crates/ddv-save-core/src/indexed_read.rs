@@ -747,12 +747,12 @@ mod private_avatar {
             "variationVerified":false,"rightsVerified":false}))
     }
     fn achievements_dependencies(bytes:&[u8],s:Option<Span>)->CoreResult<Value>{
-        achievements_dependencies_mode(bytes,s,false)
+        achievements_dependencies_mode(bytes,s,false,&mut DependencyBudget::default())
     }
-    fn achievements_dependencies_mode(bytes:&[u8],s:Option<Span>,detail:bool)->CoreResult<Value>{
+    fn achievements_dependencies_mode(bytes:&[u8],s:Option<Span>,detail:bool,budget:&mut DependencyBudget)->CoreResult<Value>{
         let Some(span)=s else{return Ok(json!({"present":false,"sha256":null,"entries":[],"completeNativeClosureVerified":false}))};
         let mut seen=std::collections::BTreeSet::new();let mut out=Vec::new();
-        let mut budget=DependencyBudget::default();
+        // ACT490: amount detail shares one budget with Mission and Evolve.
         for v in array_spans(bytes,span,4096)?{
             let f=members(bytes,v,64)?;
             let id=int(bytes,required(&f,"AchievementID")?)?;
@@ -766,12 +766,12 @@ mod private_avatar {
                 "typesCollected":dependency_hash(bytes,field(&f,"TypesCollected")),
                 "itemsUsed":dependency_hash(bytes,field(&f,"ItemsUsed"))});
             if detail{
-                row["typesCollectedTyped"]=amount_int_refs(bytes,field(&f,"TypesCollected"),&mut budget)?;
-                row["itemsUsedTyped"]=amount_int_refs(bytes,field(&f,"ItemsUsed"),&mut budget)?;
+                row["typesCollectedTyped"]=amount_int_refs(bytes,field(&f,"TypesCollected"),budget)?;
+                row["itemsUsedTyped"]=amount_int_refs(bytes,field(&f,"ItemsUsed"),budget)?;
                 let grids=field(&f,"GridObjectsCollected");
                 row["gridObjectsCollected"]=dependency_hash(bytes,grids);
                 let addresses=if let Some(s)=grids{if &bytes[s.begin..s.end]==b"null"{None}else{field(&members(bytes,s,64)?,"GridObjectAddresses")}}else{None};
-                row["gridObjectsCollectedTyped"]=amount_grid_refs(bytes,addresses,"GridID","GridObjectID",&mut budget)?;
+                row["gridObjectsCollectedTyped"]=amount_grid_refs(bytes,addresses,"GridID","GridObjectID",budget)?;
             }
             out.push(row);
         }
@@ -1410,7 +1410,7 @@ mod private_avatar {
                     "marker":{"saved":dependency_hash(bytes,marker),"value":marker_token},
                     "coreMintedExistingTarget":true,"effectiveRouteVerified":false},
                 "subscriberReadSet":{"missionSlots":missions,
-                    "achievementsData":achievements_dependencies_mode(bytes,field(&player,"AchievementsData"),true)?,
+                    "achievementsData":achievements_dependencies_mode(bytes,field(&player,"AchievementsData"),true,&mut budget)?,
                     "evolveStatesProfile":evolve,"questInfo":dependency_hash(bytes,field(&world,"QuestInfo")),
                     "conditionalEventHistory":amount_event_dependencies(bytes,field(&top,"ConditionalEventHistory"))?,
                     "conditionAndDefinitionJoinRequired":true,"effectiveActiveSubscriberSetVerified":false,
@@ -1473,6 +1473,59 @@ mod private_avatar {
             assert!(s.read_private_furniture_amount_dependencies(stale,40000001,hash(&d)).is_err());
             assert!(open(&d).read_private_furniture_amount_dependencies(e,40000001,hash(&d)).is_err());
             s.close().unwrap();assert!(s.read_private_furniture_amount_dependencies(e,40000001,hash(&d)).is_err());
+        }
+        // Count every emitted typed reference, including the filter record
+        // itself. Per-array limits and the final receipt byte cap remain
+        // independent; no separate budget may reset at a domain boundary.
+        fn cumulative_doc(mixed:bool,extra:usize)->Value{
+            let mut d=doc();
+            let slot=&mut d["World"]["MissionSlots"]["0"]["Slots"][0];
+            slot["MissionSteps"][0]["SubSteps"][0]["Objectives"]=json!([
+                {"ItemIdsCollected":vec![0;16384]},{"ItemIdsCollected":vec![0;16384]}]);
+            slot.as_object_mut().unwrap().remove("ItemsToGive");
+            slot.as_object_mut().unwrap().remove("ItemsToGiveAmount");
+            if mixed{
+                slot["ItemsToGive"]=json!([{"ItemList":[0],"Tags":[0]}]);
+                slot["ItemsToGiveAmount"]=json!([0]);
+                d["Player"]["EvolveStatesProfile"]=json!({"EvolveProgressState":{"40000001":{
+                    "ItemID":40000001,"Objective":{"ItemIdsCollected":vec![0;16384]}}}});
+                d["Player"]["AchievementsData"]=json!([{"AchievementID":2110000001,
+                    "TypesCollected":vec![0;16380+extra]}]);
+            }else{
+                d["Player"]["AchievementsData"]=json!([{"AchievementID":2110000001,
+                    "TypesCollected":vec![0;16384],"ItemsUsed":vec![0;16384]},
+                    {"AchievementID":2110000002,"TypesCollected":vec![0;extra]}]);
+            }
+            d
+        }
+        #[test]
+        fn cumulative_reference_budget_across_all_dependency_domains(){
+            for mixed in [false,true]{
+                let d=cumulative_doc(mixed,0);
+                let s=open(&d);let before=s.receipt().unwrap();
+                let v=s.read_private_furniture_amount_dependencies(env(&s),40000001,hash(&d)).unwrap();
+                let sub=&v["subscriberReadSet"];
+                let slot=&sub["missionSlots"]["groups"][0]["slots"][0];
+                let refs=|v:&Value|v["entries"].as_array().unwrap().len();
+                let mut total:usize=slot["steps"][0]["subSteps"][0]["objectives"].as_array().unwrap()
+                    .iter().map(|o|refs(&o["witness"]["itemIdsCollectedTyped"])).sum();
+                for a in sub["achievementsData"]["entries"].as_array().unwrap(){
+                    total+=refs(&a["typesCollectedTyped"])+refs(&a["itemsUsedTyped"])+refs(&a["gridObjectsCollectedTyped"]);
+                }
+                if mixed{
+                    let filters=slot["itemsToGive"]["entries"].as_array().unwrap();
+                    total+=filters.len()+filters.iter().map(|f|refs(&f["itemList"])+refs(&f["tags"])).sum::<usize>();
+                    total+=refs(&slot["itemsToGiveAmount"]);
+                    total+=refs(&sub["evolveStatesProfile"]["entries"][0]["objective"]["itemIdsCollectedTyped"]);
+                }
+                assert_eq!(total,65536);
+                assert!(serde_json::to_vec(&v).unwrap().len()<=8*1024*1024);
+                assert_eq!(s.receipt().unwrap(),before);
+                let bad=cumulative_doc(mixed,1);let s=open(&bad);let before=s.receipt().unwrap();
+                let err=s.read_private_furniture_amount_dependencies(env(&s),40000001,hash(&bad)).unwrap_err();
+                assert_eq!(err.0,"AMOUNT_DEP_REFERENCE_BOUND");
+                assert_eq!(s.receipt().unwrap(),before);
+            }
         }
         #[test]
         fn rejects_wrong_route_malformed_reference_and_unknown_runtime_claim(){
