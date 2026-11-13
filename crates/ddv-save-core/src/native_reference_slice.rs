@@ -35,7 +35,7 @@ fn count(n:&mut usize)->CoreResult<()>{
 // The strict whole-document JSON validator ran before ProductSession opened.
 // This walker reuses the already-accepted lexical span parser, never builds a
 // serde_json::Value tree or exports original text to JS/UI.
-fn object<F>(b:&[u8],s:Span,mut visit:F)->CoreResult<()>
+pub(super) fn object<F>(b:&[u8],s:Span,mut visit:F)->CoreResult<()>
 where F:FnMut(String,Span)->CoreResult<()>{
     if b.get(s.begin)!=Some(&b'{')||b.get(s.end-1)!=Some(&b'}'){
         return Err(fail("NATIVE_REF_OBJECT_REQUIRED"));
@@ -63,7 +63,7 @@ where F:FnMut(String,Span)->CoreResult<()>{
         }
     }
 }
-fn array<F>(b:&[u8],s:Span,mut visit:F)->CoreResult<()>
+pub(super) fn array<F>(b:&[u8],s:Span,mut visit:F)->CoreResult<()>
 where F:FnMut(Span)->CoreResult<()>{
     if b.get(s.begin)!=Some(&b'[')||b.get(s.end-1)!=Some(&b']'){
         return Err(fail("NATIVE_REF_ARRAY_REQUIRED"));
@@ -83,7 +83,7 @@ where F:FnMut(Span)->CoreResult<()>{
         }
     }
 }
-fn field(b:&[u8],s:Span,name:&str)->CoreResult<Option<Span>>{
+pub(super) fn field(b:&[u8],s:Span,name:&str)->CoreResult<Option<Span>>{
     let mut result=None;
     object(b,s,|key,val|{
         if key==name {
@@ -93,7 +93,7 @@ fn field(b:&[u8],s:Span,name:&str)->CoreResult<Option<Span>>{
     })?;
     Ok(result)
 }
-fn required(b:&[u8],s:Span,name:&str)->CoreResult<Span>{
+pub(super) fn required(b:&[u8],s:Span,name:&str)->CoreResult<Span>{
     field(b,s,name)?.ok_or(fail("NATIVE_REF_REQUIRED_FIELD_MISSING"))
 }
 /// Only direct village Area/Grid + optional FloatingIsland/Grid structural links,
