@@ -27,8 +27,14 @@ if(!/^[0-9a-f]{40}$/.test(expectedSource??'')||
 if(!['pull_request','push','workflow_dispatch'].includes(event))fail('EVENT_NOT_ALLOWED');
 if(event!=='pull_request'&&process.env.GITHUB_REF!=='refs/heads/main')
  fail('NOT_PROTECTED_MAIN_PUSH');
-if(event==='pull_request'&&process.env.WAND_PR_BASE_SHA!==
-   config.acceptedAncestorProtectedMain)fail('PR_BASE_NOT_FIXED_PROTECTED_MAIN');
+const prBase=process.env.WAND_PR_BASE_SHA;
+if(event==='pull_request'){
+ // A release maintenance PR must be based on the current protected main,
+ // not a stale reviewed ancestor or a caller-selected alternate base.
+ if(!/^[0-9a-f]{40}$/.test(prBase??'')||
+    git('rev-parse','refs/remotes/origin/main')!==prBase)
+  fail('PR_BASE_NOT_LIVE_PROTECTED_MAIN');
+}
 if(config.contract!=='wand.r22.protected-main-signed-wasm-release-inputs@1'||
  config.releasePermission!=='OWNER_APPROVED_20261111_THREE_READONLY_PUBLIC_ASSETS_ONLY'||
  config.publicReadonlyAssetsApproved!==true||
@@ -61,13 +67,19 @@ if(!pagesOriginal){
 try{
  git('merge-base','--is-ancestor',config.acceptedAncestorProtectedMain,expectedSource);
  if(event==='pull_request'){
-  // Accepted Rust Session must remain untouched by *this* release PR.
-  execFileSync('git',['diff','--quiet',config.acceptedAncestorProtectedMain,
+  // Preserve the historical approved ancestor AND prohibit any Rust
+  // Session delta in the release maintenance PR relative to its live base.
+  git('merge-base','--is-ancestor',config.acceptedAncestorProtectedMain,prBase);
+  git('merge-base','--is-ancestor',prBase,expectedSource);
+  execFileSync('git',['diff','--quiet',prBase,
    expectedSource,'--','crates/ddv-save-core/'],{cwd:root});
  }
 }catch{fail('ACCEPTED_RUST_ANCESTOR_CHANGED')}
+const approvedLock=await read('scripts/wasm-distribution/approved-Cargo.lock');
 const locked=await read('crates/ddv-save-core/Cargo.lock');
-if(sha(locked)!==config.approvedCargoLockSha256)
+if(process.env.WAND_APPROVED_RELEASE_LOCK!=='1'||
+   sha(approvedLock)!==config.approvedCargoLockSha256||
+   sha(locked)!==config.approvedCargoLockSha256||!locked.equals(approvedLock))
  fail('CARGO_LOCK_SHA_DRIFT_NEEDS_NEW_REVIEW');
 const rustc=cmd('rustc',['--version','--verbose']);
 if(!rustc.startsWith('rustc 1.99.1 '))fail('RUSTC_VERSION_DRIFT');
@@ -100,6 +112,7 @@ if(manifest.contract!=='wand.r22.rust-wasm-source-provenance-candidate@1'||
  manifest.source?.commit!==expectedSource||
  manifest.source?.repository!=='DreamwishWand/web'||
  manifest.source?.cargoLockSha256!==sha(locked)||
+ manifest.source?.cargoLockOrigin!=='approved-repository-lock'||
  manifest.source?.wasmBindgen!=='0.2.105'||
  !manifest.source?.toolchain?.startsWith('rustc 1.99.1 ')||
  manifest.source?.profile!=='release'||

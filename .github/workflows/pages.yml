@@ -21,6 +21,7 @@ jobs:
     env:
       # Owner 2026-11-11 explicitly authorized only these 3 inert assets.
       WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
       WAND_SOURCE_HEAD: ${{ github.sha }}
       CARGO_TARGET_DIR: /tmp/wand-pages-r22-rust
     outputs:
@@ -67,7 +68,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           test "$(git rev-parse HEAD)" = "$WAND_SOURCE_HEAD"
-          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
           node scripts/wasm-distribution/verify-protected-release.mjs inputs
       - name: Generate genuine read-only Rust wasm32 from this protected main
         run: |

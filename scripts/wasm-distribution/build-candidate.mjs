@@ -32,6 +32,16 @@ for(const required of [
 ])if(!cargoText.includes(required))fail('RUST_FEATURE_ABI_CHANGED');
 const lock=await readFile(join(root,'crates/ddv-save-core/Cargo.lock'))
   .catch(()=>fail('CARGO_LOCK_NOT_AVAILABLE'));
+// Protected release jobs use the exact previously reviewed dependency lock.
+// Other synthetic candidate jobs may still generate a DEV-only lock.
+const approvedLockMode=process.env.WAND_APPROVED_RELEASE_LOCK==='1';
+if(approvedLockMode){
+ const approved=await readFile(join(root,'scripts/wasm-distribution/approved-Cargo.lock'))
+  .catch(()=>fail('APPROVED_CARGO_LOCK_NOT_AVAILABLE'));
+ const config=JSON.parse(await readFile(join(root,'scripts/wasm-distribution/protected-release-inputs.json'),'utf8'));
+ if(sha(approved)!==config.approvedCargoLockSha256||!lock.equals(approved))
+  fail('APPROVED_CARGO_LOCK_MISMATCH');
+}
 const toolchain=textCommand('rustc',['--version','--verbose']);
 const cargoVersion=textCommand('cargo',['--version']);
 const bindgenCli=process.env.WAND_BINDGEN_CLI;
@@ -58,8 +68,8 @@ const source={
   repository:'DreamwishWand/web',
   commit:expectedHead,
   cargoTomlSha256:sha(cargo),
-  cargoLockSha256:sha(lock), // generated dependency lock, not a signed attest
-  cargoLockOrigin:'cargo-generated-this-ci-job',
+  cargoLockSha256:sha(lock), // exact dependency lock; signature checked separately
+  cargoLockOrigin:approvedLockMode?'approved-repository-lock':'cargo-generated-this-ci-job',
   cargoVersion,toolchain,
   wasmBindgen:'0.2.105',
   wasmTarget:'wasm32-unknown-unknown',

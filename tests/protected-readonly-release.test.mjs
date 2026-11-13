@@ -43,3 +43,30 @@ test('Pages source signs before sealing and bundling, then checks exact build by
  assert.match(worker,/if\(PRODUCT_READONLY_CONSUMER_OWNER_ENABLED\|\|!PREFORMAL_STEAM_READER_ENABLED\)/);
  assert.match(worker,/allowSyntheticFixture:false/);
 });
+
+test('protected release uses the exact previously reviewed Cargo lock, not floating dependency resolution',async()=>{
+ const root=new URL('../',import.meta.url);
+ const read=path=>readFile(new URL(path,root));
+ const lock=await read('scripts/wasm-distribution/approved-Cargo.lock');
+ const config=JSON.parse(await read('scripts/wasm-distribution/protected-release-inputs.json'));
+ assert.equal(lock.length,7052);
+ assert.equal(createHash('sha256').update(lock).digest('hex'),config.approvedCargoLockSha256);
+ for(const path of ['.github/workflows/pages.yml','.github/workflows/01a-protected-main-signed-wasm-release-off.yml']){
+  const y=(await read(path)).toString('utf8');
+  const copy='cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock';
+  assert.ok(y.includes("WAND_APPROVED_RELEASE_LOCK: '1'"));
+  assert.ok(y.includes(copy));
+  assert.ok(y.indexOf(copy)<y.indexOf('verify-protected-release.mjs inputs'));
+  assert.ok(y.indexOf('verify-protected-release.mjs inputs')<y.indexOf('cargo build --locked'));
+  assert.doesNotMatch(y,/cargo generate-lockfile/);
+ }
+ const verifier=(await read('scripts/wasm-distribution/verify-protected-release.mjs')).toString('utf8');
+ assert.match(verifier,/CARGO_LOCK_SHA_DRIFT_NEEDS_NEW_REVIEW/);
+ assert.match(verifier,/!locked\.equals\(approvedLock\)/);
+ assert.match(verifier,/refs\/remotes\/origin\/main/);
+ assert.match(verifier,/PR_BASE_NOT_LIVE_PROTECTED_MAIN/);
+ assert.match(verifier,/cargoLockOrigin!=='approved-repository-lock'/);
+ const builder=(await read('scripts/wasm-distribution/build-candidate.mjs')).toString('utf8');
+ assert.match(builder,/APPROVED_CARGO_LOCK_MISMATCH/);
+ assert.match(builder,/cargoLockOrigin:approvedLockMode\?'approved-repository-lock':'cargo-generated-this-ci-job'/);
+});
