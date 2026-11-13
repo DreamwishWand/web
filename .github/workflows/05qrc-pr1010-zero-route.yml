@@ -1,0 +1,45 @@
+name: 05 QR-C PR1010 changed-risk zero route
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1010-zero-route.mjs'
+      - '.github/workflows/05qrc-pr1010-zero-route.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact original2 and old accepted blobs
+        run: |
+          git merge-base --is-ancestor c11fbb57100286a70b897ed475a007e95c369fca HEAD
+          test "$(git diff --name-only c11fbb57100286a70b897ed475a007e95c369fca HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/indexed_read.rs)" = c4e8ae4d41b786bb6dea7c1451810fc54ce67240
+          test "$(git rev-parse HEAD:tests/private-character-skin-read.mjs)" = 9f18a60278cc56ced25666e4ed71161e8045f276
+          test "$(git rev-parse e3e8a9275f6a2ca3e4ad17d0c3db2f9a6889df9b:crates/ddv-save-core/src/indexed_read.rs)" = cc4b5f4b98f3687964b72070707491a8f8fb9c0a
+          test "$(git rev-parse e3e8a9275f6a2ca3e4ad17d0c3db2f9a6889df9b:tests/private-character-skin-read.mjs)" = 3bb525dc534758e496421b621ed432952de2f514
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v1.rs)" = "$(git rev-parse e3e8a9275f6a2ca3e4ad17d0c3db2f9a6889df9b:crates/ddv-save-core/src/bin/wand-local-rust-v1.rs)"
+      - name: Build old accepted and repaired native actual executors
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/old" e3e8a9275f6a2ca3e4ad17d0c3db2f9a6889df9b
+          cargo build --manifest-path "$RUNNER_TEMP/old/crates/ddv-save-core/Cargo.toml" --no-default-features --features private-native-v1 --bin wand-local-rust-v1 --target-dir "$RUNNER_TEMP/old-target"
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1 --bin wand-local-rust-v1
+          node tests/qa/05qrc-pr1010-zero-route.mjs "$RUNNER_TEMP/old-target/debug/wand-local-rust-v1" crates/ddv-save-core/target/debug/wand-local-rust-v1
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1 character_skin_tests
+      - name: Public WASM isolation
+        run: |
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          if cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,private-native-v1 > /tmp/qac1010-native.log 2>&1; then exit 1; fi
+          grep -F 'private-native-v1 is native-only and cannot enter WASM' /tmp/qac1010-native.log
