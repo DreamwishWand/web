@@ -770,7 +770,7 @@ mod private_avatar {
                 row["itemsUsedTyped"]=amount_int_refs(bytes,field(&f,"ItemsUsed"),&mut budget)?;
                 let grids=field(&f,"GridObjectsCollected");
                 row["gridObjectsCollected"]=dependency_hash(bytes,grids);
-                let addresses=if let Some(s)=grids{field(&members(bytes,s,64)?,"GridObjectAddresses")}else{None};
+                let addresses=if let Some(s)=grids{if &bytes[s.begin..s.end]==b"null"{None}else{field(&members(bytes,s,64)?,"GridObjectAddresses")}}else{None};
                 row["gridObjectsCollectedTyped"]=amount_grid_refs(bytes,addresses,"GridID","GridObjectID",&mut budget)?;
             }
             out.push(row);
