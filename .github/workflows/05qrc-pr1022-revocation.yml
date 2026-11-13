@@ -1,0 +1,44 @@
+name: 05 QR-C PR1022 independent actual Worker revocation
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1022-revocation.mjs'
+      - '.github/workflows/05qrc-pr1022-revocation.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact original2 and old fixed facade
+        run: |
+          git merge-base --is-ancestor 4f420b437e4235a165b5f80d454048e8b9e77261 HEAD
+          test "$(git diff --name-only 4f420b437e4235a165b5f80d454048e8b9e77261 HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs)" = a46d2d404bc135aa36abe3df5a16e73934a2a159
+          test "$(git rev-parse HEAD:tests/stage-f/saved-diffgrids-facade-real-worker.mjs)" = d0e6bbad4a9ab8453b6bda21496ff607328f11ef
+          test "$(git rev-parse bfdbbe9e883e84193e90c0669a4855721ddb25e7:src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs)" = 497685240690005dd7c9bbc8e88ec59e58c06be5
+          git worktree add --detach "$RUNNER_TEMP/old" bfdbbe9e883e84193e90c0669a4855721ddb25e7
+      - name: Actual generated Rust WASM and synthetic encrypted fixture
+        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root "$RUNNER_TEMP/bindgen"
+          mkdir -p tests/stage-e/pkg
+          "$RUNNER_TEMP/bindgen/bin/wasm-bindgen" "${CARGO_TARGET_DIR:-crates/ddv-save-core/target}/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node tests/stage-f/generate-fixture.mjs
+      - name: Actual module Worker with old/new causal and Rust closure assertions
+        run: |
+          QA1022_OLD_FACADE="$RUNNER_TEMP/old/src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs" node tests/qa/05qrc-pr1022-revocation.mjs
+          test -z "$(git ls-files tests/stage-e/pkg tests/stage-f/fixtures)"
