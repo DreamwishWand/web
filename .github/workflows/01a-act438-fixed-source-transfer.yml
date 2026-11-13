@@ -11,14 +11,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 'fc17e42a55695eeab5b8dff0ef7257fefca6c168'
+          ref: 'ca38dbca655fcf5fd54a9193a7bd18fad2ec892d'
       - name: Archive exact tracked release-trust Source and synthetic tests
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 'fc17e42a55695eeab5b8dff0ef7257fefca6c168'
-          git ls-tree -r HEAD .github/workflows/pages.yml .github/workflows/01a-protected-main-signed-wasm-release-off.yml .github/workflows/01a-stable-readonly-release-loader.yml scripts/readonly-release scripts/wasm-distribution src/lib/ddv/core/save src/lib/wep/steam-saved-diffgrids.consumer.worker.ts tests/protected-readonly-release.test.mjs tests/readonly-release > source-blobs.txt
-          git archive --format=tar HEAD .github/workflows/pages.yml .github/workflows/01a-protected-main-signed-wasm-release-off.yml .github/workflows/01a-stable-readonly-release-loader.yml scripts/readonly-release scripts/wasm-distribution src/lib/ddv/core/save src/lib/wep/steam-saved-diffgrids.consumer.worker.ts tests/protected-readonly-release.test.mjs tests/readonly-release | gzip -n > source.tar.gz
+          test "$(git rev-parse HEAD)" = 'ca38dbca655fcf5fd54a9193a7bd18fad2ec892d'
+          git ls-tree -r HEAD .github/workflows/pages.yml .github/workflows/01a-protected-main-signed-wasm-release-off.yml .github/workflows/01a-stable-readonly-release-loader.yml scripts/readonly-release scripts/wasm-distribution src/lib/ddv/core/save src/lib/wep/steam-saved-diffgrids.consumer.worker.ts tests/protected-readonly-release.test.mjs tests/readonly-release tests/wasm-distribution tests/scaffold.test.mjs tests/web-canonical-domain-preflight.test.mjs tests/web-public-profile-host-routing-contract.test.mjs > source-blobs.txt
+          git archive --format=tar HEAD .github/workflows/pages.yml .github/workflows/01a-protected-main-signed-wasm-release-off.yml .github/workflows/01a-stable-readonly-release-loader.yml scripts/readonly-release scripts/wasm-distribution src/lib/ddv/core/save src/lib/wep/steam-saved-diffgrids.consumer.worker.ts tests/protected-readonly-release.test.mjs tests/readonly-release tests/wasm-distribution tests/scaffold.test.mjs tests/web-canonical-domain-preflight.test.mjs tests/web-public-profile-host-routing-contract.test.mjs | gzip -n > source.tar.gz
           sha256sum source.tar.gz source-blobs.txt > source.sha256
       - uses: actions/upload-artifact@v4
         with:
