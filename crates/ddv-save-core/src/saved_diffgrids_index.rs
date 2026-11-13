@@ -486,3 +486,315 @@ mod tests {
         assert_eq!(pair_count,56); // different units, zero semantic decision
     }
 }
+
+// ACT451: native-only exact physical Storage candidate and stored link
+// census. Reuse THIS module's accepted span traversal and ProductSession
+// epoch. External default layouts, runtime orphan cache, effective grids,
+// rights and geometry remain unresolved. No mutation or public ABI.
+#[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
+mod private_storage {
+    use super::*;
+    use serde_json::{json,Value};
+    use sha2::{Digest,Sha256};
+    const ITEM:u64=40000053; // exact Steam626 packaged definition E1410/ACT440
+    const MAX_OBJECTS:usize=250_000;
+    const MAX_CONTAINERS:usize=4096;
+    const MAX_LINKS:usize=16384;
+    fn digest(b:&[u8],s:Span)->String{
+        Sha256::digest(&b[s.begin..s.end]).iter().map(|v|format!("{v:02x}")).collect()
+    }
+    fn hex(b:&[u8])->String{b.iter().map(|v|format!("{v:02x}")).collect()}
+    fn token(b:&[u8],s:Span)->&[u8]{&b[s.begin..s.end]}
+    fn raw(b:&[u8],s:Span,want:&[u8])->bool{token(b,s)==want}
+    fn nullable_id(b:&[u8],s:Span)->CoreResult<Option<u64>>{
+        if raw(b,s,b"null"){return Ok(None);}
+        let n=number(b,s)?;
+        if n>i32::MAX as u64{return Err(denied("STORAGE_NATIVE_ID_BOUNDS"));}
+        Ok(Some(n))
+    }
+    fn optional_witness(b:&[u8],s:Option<Span>)->Value{
+        json!({"present":s.is_some(),"sha256":s.map(|x|digest(b,x))})
+    }
+    fn boolean(b:&[u8],s:Span)->CoreResult<bool>{
+        if raw(b,s,b"true"){Ok(true)}else if raw(b,s,b"false"){Ok(false)}
+        else{Err(denied("STORAGE_BOOL_REQUIRED"))}
+    }
+    fn canonical_record(b:&[u8],key:&str,s:Span)->CoreResult<u64>{
+        let id=key_id(key)?;
+        if number(b,required(b,s,"ID")?)?!=id{return Err(denied("STORAGE_KEY_ID_MISMATCH"));}
+        Ok(id)
+    }
+    // Typed physical GridObject.State.Storage only. Unknown unrelated state
+    // branches are not interpreted. The entire GridCollection digest binds
+    // them for future independent native/default/subgrid reconciliation.
+    fn storage_state(b:&[u8],o:Span)->CoreResult<Option<(Span,Span)>>{
+        let Some(s)=find_field(b,o,"State")? else{return Ok(None)};
+        if raw(b,s,b"null"){return Ok(None);}
+        let Some(storage)=find_field(b,s,"Storage")? else{return Ok(None)};
+        if raw(b,storage,b"null"){return Ok(None);}
+        // Validate object even where ID is absent, preserve literal default.
+        walk_object(b,storage,|_,_|Ok(()))?;
+        Ok(Some((s,storage)))
+    }
+    #[derive(Clone,Copy)]
+    struct Link{grid:u64,object:u64,item:u64,container:u64,diff:bool,object_span:Span,state:Span,storage:Span}
+    struct Census{links:Vec<Link>,objects:usize,grids:usize,diffs:usize,default_templates:usize,external_layouts:usize}
+    impl Census{
+        fn new()->Self{Self{links:Vec::new(),objects:0,grids:0,diffs:0,default_templates:0,external_layouts:0}}
+        fn scan(&mut self,b:&[u8],map:Span,diff:bool)->CoreResult<()>{
+            walk_object(b,map,|k,g|{
+                let gid=canonical_record(b,k,g)?;
+                if self.grids+self.diffs>=GRID_LIMIT{return Err(denied("STORAGE_GRID_BOUND"));}
+                if diff{
+                    self.diffs+=1;
+                    // Existing stored DiffGrid record verifies modified/removed
+                    // identities and exact external metadata field types.
+                    let m=record(b,SavedDiffGridIndexEntry{grid_id:gid,span:g})?;
+                    if m.grid_default_layout_path.is_some()||m.default_layout_grid_id.is_some(){
+                        self.external_layouts+=1;
+                    }
+                }else{self.grids+=1;}
+                let field=if diff{"ModifiedObjects"}else{"Objects"};
+                let Some(objects)=find_field(b,g,field)? else{
+                    if diff{return Ok(());}else{return Err(denied("STORAGE_GRID_OBJECTS_REQUIRED"));}
+                };
+                let mut count=0;
+                walk_object(b,objects,|k,o|{
+                    self.objects+=1;count+=1;
+                    if self.objects>MAX_OBJECTS||count>IDS_PER_GRID_LIMIT{return Err(denied("STORAGE_OBJECT_BOUND"));}
+                    let oid=canonical_record(b,k,o)?;
+                    let Some((state,storage))=storage_state(b,o)? else{return Ok(())};
+                    let item=number(b,required(b,o,"ItemID")?)?;
+                    if item==0||item>i32::MAX as u64{return Err(denied("STORAGE_ITEM_ID"));}
+                    if let Some(d)=find_field(b,storage,"DefaultContainerInventoryData")?{
+                        if !text_field(b,d)?.is_empty(){self.default_templates+=1;}
+                    }
+                    if let Some(cid)=find_field(b,storage,"ContainerInventoryID")?{
+                        if let Some(id)=nullable_id(b,cid)?{
+                            if id!=0{
+                                if self.links.len()==MAX_LINKS{return Err(denied("STORAGE_LINK_BOUND"));}
+                                self.links.push(Link{grid:gid,object:oid,item,container:id,diff,object_span:o,state,storage});
+                            }
+                        }
+                    }
+                    Ok(())
+                })
+            })
+        }
+    }
+    fn candidate(b:&[u8],c:&Census,selector:Option<(u64,u64)>)->CoreResult<Link>{
+        // First physical candidate only, or explicit exact composite selector.
+        // A failed selected candidate does not silently fall back to another.
+        let x=c.links.iter().find(|x|!x.diff&&x.item==ITEM&&
+            selector.map_or(true,|(g,o)|x.grid==g&&x.object==o))
+            .copied().ok_or(denied("STORAGE_NO_PHYSICAL_CANDIDATE"))?;
+        if x.container<=1||c.links.iter().filter(|y|y.container==x.container).count()!=1{
+            return Err(denied("STORAGE_STORED_LINK_AMBIGUOUS"));
+        }
+        // Physical duplicate of selected composite in DiffGrids remains an
+        // unresolved overlay even if the modified object has another state.
+        let mut sole=true;
+        walk_object(b,x.state,|k,s|{
+            if k!="Storage"&&!raw(b,s,b"null"){sole=false;}
+            Ok(())
+        })?;
+        if !sole{return Err(denied("STORAGE_STATE_ONEOF_UNRESOLVED"));}
+        if !text_field(b,required(b,x.storage,"DefaultContainerInventoryData")?)?.is_empty(){
+            return Err(denied("STORAGE_DEFAULT_TEMPLATE_NOT_CLEARED"));
+        }
+        if let Some(s)=find_field(b,x.storage,"UnlockKeyItemID")?{if number(b,s)?!=0{return Err(denied("STORAGE_UNLOCK_KEY"));}}
+        if let Some(s)=find_field(b,x.storage,"UnlockLocId")?{if !text_field(b,s)?.is_empty(){return Err(denied("STORAGE_UNLOCK_LOCATION"));}}
+        if let Some(s)=find_field(b,x.storage,"DesignID")?{if !raw(b,s,b"null"){return Err(denied("STORAGE_DESIGN_UNRESOLVED"));}}
+        Ok(x)
+    }
+    fn slots(b:&[u8],s:Span)->CoreResult<Vec<Value>>{
+        let mut out=Vec::new();
+        walk_array(b,s,|v|{
+            if out.len()==16{return Err(denied("STORAGE_PHYSICAL_SLOTS_BOUND"));}
+            let item=number(b,required(b,v,"ItemID")?)?;
+            let amt=number(b,required(b,v,"Amount")?)?;
+            if item>i32::MAX as u64||amt>i32::MAX as u64||(item==0)!=(amt==0){
+                return Err(denied("STORAGE_SLOT_ITEM_AMOUNT"));
+            }
+            let state=required(b,v,"State")?;
+            let is_null=raw(b,state,b"null");
+            if !is_null{
+                if item==0{return Err(denied("STORAGE_EMPTY_SLOT_STATE"));}
+                walk_object(b,state,|_,_|Ok(()))?;
+            }
+            out.push(json!({"position":out.len(),"itemId":item,"amount":amt,
+                "stateExplicitNull":is_null,"stateSha256":digest(b,state),"entrySha256":digest(b,v)}));
+            Ok(())
+        })?;
+        Ok(out)
+    }
+    fn project(b:&[u8],e:WorkerEnvelope,selector:Option<(u64,u64)>)->CoreResult<Value>{
+        let roots=indexed_read::roots(b)?;
+        let collection=required(b,roots.world,"GridCollection")?;
+        let grids=required(b,collection,"Grids")?;
+        let diffs=find_field(b,collection,"DiffGrids")?;
+        let mut census=Census::new();
+        census.scan(b,grids,false)?;
+        if let Some(d)=diffs{census.scan(b,d,true)?;}
+        let x=candidate(b,&census,selector)?;
+        // Do not assume saved Mod/Rem precedence or effective default grids.
+        if let Some(d)=diffs{
+            let mut overlay=false;
+            walk_object(b,d,|k,g|{
+                if key_id(k)?==x.grid{
+                    let m=record(b,SavedDiffGridIndexEntry{grid_id:x.grid,span:g})?;
+                    overlay=m.modified_object_ids.contains(&x.object)||m.removed_object_ids.contains(&x.object);
+                }
+                Ok(())
+            })?;
+            if overlay{return Err(denied("STORAGE_SELECTED_OVERLAY_AMBIGUOUS"));}
+        }
+        let o=x.object_span;
+        let px=signed_hash(b,required(b,o,"X")?)?;
+        let py=signed_hash(b,required(b,o,"Y")?)?;
+        let ori=text_field(b,required(b,o,"Orientation")?)?;
+        const ORIENTATIONS:[&str;16]=["GridOrientation_Up","GridOrientation_UpUpRight","GridOrientation_UpRight","GridOrientation_UpRightRight",
+            "GridOrientation_Right","GridOrientation_DownRightRight","GridOrientation_DownRight","GridOrientation_DownDownRight",
+            "GridOrientation_Down","GridOrientation_DownDownLeft","GridOrientation_DownLeft","GridOrientation_DownLeftLeft",
+            "GridOrientation_Left","GridOrientation_UpLeftLeft","GridOrientation_UpLeft","GridOrientation_UpUpLeft"];
+        if !ORIENTATIONS.contains(&ori.as_str()){return Err(denied("STORAGE_ORIENTATION"));}
+        let containers=required(b,roots.player,"ContainerInventories")?;
+        let mut chosen=None;let mut count=0;let mut max=0;
+        let mut unmatched=Vec::new();
+        let linked:BTreeSet<u64>=census.links.iter().map(|l|l.container).collect();
+        let mut existing=BTreeSet::new();
+        walk_object(b,containers,|k,v|{
+            count+=1;
+            if count>MAX_CONTAINERS{return Err(denied("STORAGE_CONTAINER_BOUND"));}
+            let id=canonical_record(b,k,v)?;
+            if id>i32::MAX as u64{return Err(denied("STORAGE_CONTAINER_ID_BOUND"));}
+            existing.insert(id);max=max.max(id);
+            if id==x.container{chosen=Some(v);}
+            // A stored unmatched container is NOT a runtime orphan. Only
+            // expose same-parent candidates and their immutable record hash.
+            if id>1&&!linked.contains(&id){
+                if let Some(p)=find_field(b,v,"ParentItemID")?{
+                    if nullable_id(b,p)?==Some(ITEM){
+                        unmatched.push(json!({"containerId":id,"recordSha256":digest(b,v)}));
+                    }
+                }
+            }
+            Ok(())
+        })?;
+        if !linked.iter().all(|id|existing.contains(id)){return Err(denied("STORAGE_STORED_DANGLING_LINK"));}
+        let c=chosen.ok_or(denied("STORAGE_CONTAINER_MISSING"))?;
+        let next=number(b,required(b,roots.player,"NextContainerInventoryID")?)?;
+        if next<=max||next>i32::MAX as u64{return Err(denied("STORAGE_COUNTER_UNRESOLVED"));}
+        if number(b,required(b,c,"Size")?)?!=16||number(b,required(b,c,"ExtraSize")?)?!=0||
+           !boolean(b,required(b,c,"BelongsToPlayer")?)?||boolean(b,required(b,c,"BlockMoveTo")?)?||
+           nullable_id(b,required(b,c,"ParentItemID")?)?!=Some(ITEM){
+            return Err(denied("STORAGE_CONTAINER_ROLE_OR_TEMPLATE"));
+        }
+        let arr=required(b,c,"Inventory")?;
+        let slot_facts=slots(b,arr)?;
+        let lists=required(b,roots.player,"ListInventories")?;
+        let catalog=required(b,lists,"0")?;
+        if number(b,required(b,catalog,"ID")?)?!=0||
+           text_field(b,required(b,catalog,"CompatibleItemType")?)?!="ItemType_Furniture"{
+            return Err(denied("STORAGE_CATALOG_ZERO_ROLE"));
+        }
+        let inventory=required(b,catalog,"Inventory")?;
+        let entry=required(b,inventory,"40000053")?;
+        let amount=number(b,required(b,entry,"Amount")?)?;
+        if amount>i32::MAX as u64{return Err(denied("STORAGE_CATALOG_AMOUNT"));}
+        // Presence and SHA only; no inference of ownership or runtime variation.
+        let marker=optional_witness(b,find_field(b,entry,"Marker")?);
+        let refs:Vec<Value>=census.links.iter().map(|l|json!({
+            "gridId":l.grid,"objectId":l.object,"itemId":l.item,"containerId":l.container,
+            "storedKind":if l.diff{"DiffGrids.ModifiedObjects"}else{"Grids.Objects"},
+            "objectSha256":digest(b,l.object_span),"storageSha256":digest(b,l.storage)})).collect();
+        let v=json!({"contract":"wand.native.private.storage-stored-readset@1",
+            "platform":"SteamWindows","fullVersion":EXACT_STEAM_FULL_VERSION,"schema":626,
+            "sessionId":hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
+            "decodedSha256":hex(&e.expected_decoded_sha256),
+            "selectionKind":if selector.is_some(){"EXPLICIT_PHYSICAL_COMPOSITE"}else{"FIRST_PHYSICAL_CANDIDATE"},
+            "target":{"gridId":x.grid,"objectId":x.object,"itemId":ITEM,"containerId":x.container,
+                "x":px,"y":py,"orientation":ori,"objectSha256":digest(b,o),"stateSha256":digest(b,x.state),
+                "storageSha256":digest(b,x.storage),"defaultTemplateCleared":true,
+                "from":optional_witness(b,find_field(b,o,"From")?)},
+            "container":{"recordSha256":digest(b,c),"mapSha256":digest(b,containers),"size":16,"extraSize":0,
+                "belongsToPlayer":true,"blockMoveTo":false,"parentItemId":ITEM,"physicalSlotCount":slot_facts.len(),
+                "slotsSha256":digest(b,arr),"slots":slot_facts,"nextContainerInventoryId":next,"containerCount":count},
+            "catalog":{"inventoryId":0,"itemId":ITEM,"amount":amount,"marker":marker,"entrySha256":digest(b,entry),
+                "routeSha256":digest(b,catalog)},
+            "storedReferences":{"gridCollectionSha256":digest(b,collection),"worldSha256":digest(b,roots.world),
+                "physicalGridCount":census.grids,"physicalDiffGridCount":census.diffs,"objectCount":census.objects,
+                "diffGridsPresent":diffs.is_some(),"externalLayoutMetadataCount":census.external_layouts,
+                "nonemptyStorageTemplateCount":census.default_templates,"links":refs,
+                "sameParentStoredUnmatchedContainers":unmatched,"runtimeOrphanOrderVerified":false,
+                "effectiveDefaultGridVerified":false,"effectiveSubgridParentClosureVerified":false,
+                "allEffectiveReferencesVerified":false},
+            "rightsVerified":false,"variationVerified":false,"initializedGeometryVerified":false,
+            "nativeSubscriberClosureVerified":false,"nativeV3Verified":false,"productReadAccepted":false,
+            "writerAuthorized":false,"editedCopyAuthorized":false,"applyAuthorized":false});
+        if serde_json::to_vec(&v).map_err(|_|denied("STORAGE_RECEIPT_ENCODE"))?.len()>8*1024*1024{
+            return Err(denied("STORAGE_RECEIPT_BOUND"));
+        }
+        Ok(v)
+    }
+    impl ProductSession{
+        pub fn read_private_storage_stored_candidate(&self,e:WorkerEnvelope,selector:Option<(u64,u64)>)->CoreResult<Value>{
+            self.check_saved_diffgrids_build()?;
+            let st=self.lock()?;
+            indexed_read::validate_scope(self,&st,&e)?;
+            project(&self.decoded,e,selector)
+        }
+    }
+    #[cfg(test)]
+    mod tests{
+        use super::*;
+        use crate::{BuildIdentity,WorkerAction,PRODUCT_WORKER_CONTRACT};
+        fn doc(n:usize)->Value{json!({"GameInfo":{"Version":626},"Player":{
+            "NextContainerInventoryID":20,
+            "ContainerInventories":{"12":{"ID":12,"ParentItemID":40000053,"BelongsToPlayer":true,"BlockMoveTo":false,
+                "Size":16,"ExtraSize":0,"Inventory":vec![json!({"ItemID":0,"Amount":0,"State":null});n]},
+                "13":{"ID":13,"ParentItemID":40000053}},
+            "ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":{"40000053":{"Amount":0,"Marker":"ItemMarker_None"}}}}},
+            "World":{"GridCollection":{"Grids":{"7":{"ID":7,"Objects":{"4":{"ID":4,"ItemID":40000053,"X":2,"Y":-1,
+                "Orientation":"GridOrientation_Right","State":{"Storage":{"ContainerInventoryID":12,
+                "DefaultContainerInventoryData":"","UnlockKeyItemID":0,"UnlockLocId":"","DesignID":null}}}}}},
+                "DiffGrids":{"8":{"ID":8,"DefaultLayoutGridID":8,"ModifiedObjects":{},"RemovedObjects":[]}}}}})}
+        fn open(d:&Value)->ProductSession{ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),
+            BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+                build_id:EXACT_STEAM_FULL_VERSION.into(),schema:626,externally_attested:true}).unwrap()}
+        fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
+            expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+        fn read(d:&Value)->CoreResult<Value>{let s=open(d);s.read_private_storage_stored_candidate(env(&s),None)}
+        #[test]
+        fn preserves_physical_count_and_unknown_effective_layout(){
+            for n in [0,15,16]{let mut d=doc(n);if n>0{d["Player"]["ContainerInventories"]["12"]["Inventory"][0]=json!({"ItemID":30200001,"Amount":3,"State":{"Unknown":7},"Opaque":9});}
+                let s=open(&d);let before=s.receipt().unwrap();let v=s.read_private_storage_stored_candidate(env(&s),Some((7,4))).unwrap();
+                assert_eq!(v["container"]["physicalSlotCount"],n);assert_eq!(v["catalog"]["amount"],0);
+                assert_eq!(v["storedReferences"]["sameParentStoredUnmatchedContainers"][0]["containerId"],13);
+                assert_eq!(v["storedReferences"]["allEffectiveReferencesVerified"],false);
+                assert_eq!(v["storedReferences"]["externalLayoutMetadataCount"],1);
+                assert_eq!(v["writerAuthorized"],false);assert_eq!(s.receipt().unwrap(),before);
+                assert!(s.read_private_storage_stored_candidate(env(&s),Some((8,4))).is_err());
+                let mut e=env(&s);e.expected_revision+=1;assert!(s.read_private_storage_stored_candidate(e,None).is_err());
+                assert!(open(&d).read_private_storage_stored_candidate(env(&s),None).is_err());
+                let e=env(&s);s.close().unwrap();assert!(s.read_private_storage_stored_candidate(e,None).is_err());
+            }
+        }
+        #[test]
+        fn stored_ambiguity_and_wrong_physical_contract_denied(){
+            assert!(read(&doc(17)).is_err());
+            for (f,v) in [("Size",json!(15)),("ExtraSize",json!(1)),("ParentItemID",json!(40000054)),
+                ("BelongsToPlayer",json!(false)),("BlockMoveTo",json!(true)),("ID",json!(13))]{
+                let mut d=doc(0);d["Player"]["ContainerInventories"]["12"][f]=v;assert!(read(&d).is_err(),"{f}");
+            }
+            let mut d=doc(0);d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"]["State"]["Storage"]["DefaultContainerInventoryData"]=json!("Furniture_16Slot");assert!(read(&d).is_err());
+            let mut d=doc(0);d["World"]["GridCollection"]["DiffGrids"]["8"]["ModifiedObjects"]["9"]=json!({"ID":9,"ItemID":40000053,"State":{"Storage":{"ContainerInventoryID":12}}});assert!(read(&d).is_err());
+            let mut d=doc(0);d["World"]["GridCollection"]["DiffGrids"]["7"]=json!({"ID":7,"RemovedObjects":[4]});assert!(read(&d).is_err());
+            let mut d=doc(0);d["Player"]["NextContainerInventoryID"]=json!(12);assert!(read(&d).is_err());
+            let mut d=doc(1);d["Player"]["ContainerInventories"]["12"]["Inventory"][0]["State"]=json!({});assert!(read(&d).is_err());
+            let mut d=doc(0);d["Player"]["ListInventories"]["0"]["ID"]=json!(1);assert!(read(&d).is_err());
+            let mut d=doc(0);d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"]["State"]["Other"]=json!({});assert!(read(&d).is_err());
+        }
+    }
+}
