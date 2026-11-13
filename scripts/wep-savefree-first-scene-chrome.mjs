@@ -17,6 +17,8 @@ try{
       !['GET','HEAD'].includes(req.method())))
     unsafe.push(req.method()+' '+req.url());
  });
+ const mediaRequests=[];
+ context.on('request',req=>{if(req.url().includes('/ddv/item-images/'))mediaRequests.push(req.url());});
  const page=await context.newPage();
  page.on('pageerror',e=>errors.push(String(e)));
  let response=await page.goto(origin+'/editor/world/',{waitUntil:'networkidle',timeout:60000});
@@ -63,9 +65,6 @@ try{
  assert.equal((await dbs()).some(x=>x.name===DB),false,'Catalog load must not touch IndexedDB');
  // New presentation-only scope: canonical catalog ID -> shared ItemThumb.
  // This is the real production OFF path, not a real game-image assertion.
- const thumbFor=id=>panel.locator('[data-item-thumb-id="'+id+'"]');
- const mediaRequests=[];
- context.on('request',req=>{if(req.url().includes('/ddv/item-images/'))mediaRequests.push(req.url());});
  assert.equal(await panel.locator('[data-media-status="verified-public-image"]').count(),0);
  assert.ok(await panel.locator('[data-wep-savefree-results] [data-item-thumb-id]').count()>0);
  for(const id of await panel.locator('[data-wep-savefree-results] [data-item-thumb-id]').evaluateAll(els=>els.map(el=>el.getAttribute('data-item-thumb-id')))){
@@ -147,11 +146,87 @@ try{
   await page.evaluate(z=>{document.documentElement.style.zoom=z;},zoom);
   const m=await panel.evaluate(el=>({client:el.clientWidth,scroll:el.scrollWidth}));
   assert.ok(m.scroll<=m.client+2,'Savefree 320/CSS200 panel overflow '+JSON.stringify(m));
-  const thumbBounds=await selectedThumb.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,vw:document.documentElement.clientWidth};});
+  const thumbBounds=await selectedThumb.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,vw:window.innerWidth};});
   assert.ok(thumbBounds.left>=-1&&thumbBounds.right<=thumbBounds.vw+2,'selected thumb must fit viewport '+JSON.stringify(thumbBounds));
  }
  await page.setViewportSize({width:1440,height:900});
  await page.evaluate(()=>{document.documentElement.style.zoom='1';});
+ // Synthetic-only image positive: the existing reviewed-resolver fixture
+ // is injected into this disposable page store, after mounting the actual
+ // canonical candidate. Never change production release configuration.
+ assert.deepEqual(mediaRequests,[],'OFF did not fetch media before synthetic fixture');
+ await page.locator('[data-wep-savefree-search]').fill('40006096');
+ const fixtureChoice=panel.locator('[data-wep-savefree-choose="40006096"]');
+ await fixtureChoice.waitFor({timeout:10000});
+ const fixtureRow=fixtureChoice.locator('..');
+ const fixtureThumb=fixtureRow.locator('[data-item-thumb-id="40006096"]');
+ assert.equal(await fixtureThumb.count(),1);
+ assert.equal(await fixtureThumb.getAttribute('data-media-status'),'unavailable');
+ const fixturePath=await page.evaluate(async()=>{
+  const media=await import('/src/lib/item-media/switch1253-public-item-images.mjs');
+  const prefs=await import('/src/lib/item-media/public-item-images.mjs');
+  const id='40006096',pin=media.SWITCH1253_NATIVE_PINS[id];
+  const release={
+   mediaPublic:true,decisionId:prefs.ITEM_IMAGE_OWNER_DECISION_ID,scope:media.SWITCH1253_OWNER_SCOPE,
+   rightsHolderLicense:'DOCUMENTED_SCOPE_LICENSE',licenseEvidenceSha256:'a'.repeat(64),
+   rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',
+   takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',
+   oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'b'.repeat(64),
+   items:{[id]:{originalNativeStreamSha256:pin.originalNativeStreamSha256,
+    sourcePngSha256:pin.sourcePngSha256,webpSha256:pin.webpSha256,
+    rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',
+    visibility:'RELEASED_PLAYER_FACING'}}
+  };
+  const {mediaPublic,items,...reviewFields}=release;
+  const raw={schema:media.SWITCH1253_ITEM_IMAGE_SCHEMA,assetVariant:media.SWITCH1253_ITEM_IMAGE_VARIANT,
+   codec:'WEBP_LOSSLESS_RGBA_EXACT',format:'webp',lossless:true,
+   source:{...media.SWITCH1253_TARGET,originalBundleSha256:media.SWITCH1253_ORIGINAL_BUNDLE_SHA256},
+   target:{...media.SWITCH1253_TARGET},publication:{gate:'MEDIA_PUBLIC_SCOPED_ON',...reviewFields},
+   items:{[id]:{...pin,pixelStatus:'SWITCH_RGBA_EXACT_VERIFIED',visibility:'RELEASED_PLAYER_FACING',
+    rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',
+    assetStatus:'WEBP_LOSSLESS_VERIFIED_160'}}};
+  const catalog=media.validateSwitch1253ItemImageCatalog(raw,release);
+  // Keep the validated synthetic fixture separate from any live manifest.
+  window.__wepSyntheticItemThumbCatalog=catalog;
+  return media.scopedSwitch1253ItemImageHref('',id,catalog);
+ });
+ assert.match(fixturePath,/^\/ddv\/item-images\//);
+ const fixtureUrl=origin+fixturePath;
+ // Generated solid 8x8 WebP, NOT DDV artwork or the authentic pinned SHA bytes.
+ // Intercept only within this isolated synthetic browser, never publish the file.
+ await page.route(fixtureUrl,route=>route.fulfill({status:200,contentType:'image/webp',
+  body:Buffer.from('UklGRh4AAABXRUJQVlA4TBEAAAAvB8ABAAdQsnoUuf+BiOh/AAA=','base64')}));
+ await page.evaluate(async()=>{
+  const media=await import('/src/lib/item-media/switch1253-public-item-images.mjs');
+  const prefs=await import('/src/lib/item-media/public-item-images.mjs');
+  media.switch1253PublicItemImageSource.set({status:'VERIFIED',catalog:window.__wepSyntheticItemThumbCatalog,reason:''});
+  prefs.itemImagePreferences.set({size:80,fit:'cover',density:'comfortable'});
+ });
+ const fixtureImage=fixtureThumb.locator('img');
+ await fixtureImage.scrollIntoViewIfNeeded();
+ await fixtureImage.waitFor();
+ await fixtureImage.evaluate(img=>img.decode());
+ assert.equal(await fixtureImage.evaluate(img=>img.naturalWidth),8);
+ assert.equal(await fixtureImage.getAttribute('src'),fixturePath);
+ assert.ok((await fixtureImage.getAttribute('alt')).trim().length>0);
+ assert.ok((await fixtureRow.locator('.item-name').innerText()).includes(await fixtureImage.getAttribute('alt')));
+ assert.equal(await fixtureImage.evaluate(img=>getComputedStyle(img).objectFit),'cover');
+ assert.equal(await fixtureThumb.evaluate(el=>getComputedStyle(el).getPropertyValue('--image-size').trim()),'80px');
+ assert.equal(await selectedThumb.getAttribute('data-media-status'),'unavailable','different canonical ID must not alias fixture');
+ await fixtureImage.dispatchEvent('error');
+ await fixtureThumb.locator('[aria-hidden="true"]').waitFor();
+ assert.equal(await fixtureThumb.getAttribute('data-media-status'),'unavailable','decode failure falls back');
+ await page.evaluate(async()=>{
+  const media=await import('/src/lib/item-media/switch1253-public-item-images.mjs');
+  const prefs=await import('/src/lib/item-media/public-item-images.mjs');
+  media.switch1253PublicItemImageSource.set({status:'NOT_CONFIGURED',catalog:null,reason:'MEDIA_PUBLIC_OFF'});
+  prefs.itemImagePreferences.set({size:56,fit:'contain',density:'comfortable'});
+  delete window.__wepSyntheticItemThumbCatalog;
+ });
+ await page.unroute(fixtureUrl);
+ assert.ok(mediaRequests.length>0,'synthetic positive must load an image');
+ assert.ok(mediaRequests.every(url=>url===fixtureUrl),'only intercepted synthetic exact URL is allowed');
+ console.log('WEP_SAVEFREE_ITEMTHUMB_SYNTHETIC_VALIDATED_RESOLVER_8X8_WEBP_POSITIVE_ERROR_FALLBACK_PASS');
  // Reuse the accepted Presets -> explicit selected same-tab sender -> WEP
  // receiver. This is a NEW first-time-created source path, not old QA re-run.
  await page.goto(origin+'/presets/',{waitUntil:'networkidle',timeout:60000});
@@ -182,7 +257,7 @@ try{
   backup:current.backup},'selected read-only sender/receiver cannot mutate stored first Scene');
  assert.deepEqual(await page.evaluate(keys=>keys.map(k=>localStorage.getItem(k)),oldKeys),
   oldValues,'legacy Moodboard primary/backup unchanged');
- assert.deepEqual(mediaRequests,[],'production OFF path must make no image or manifest requests');
+ assert.ok(mediaRequests.every(url=>url===fixtureUrl),'no real game image or manifest requests');
  console.log('WEP_SAVEFREE_SHARED_ITEMTHUMB_CANONICAL_ID_OFF_FALLBACK_PREFERENCES_PASS');
  assert.deepEqual(unsafe,[],'unexpected external request or mutating HTTP');
  assert.deepEqual(errors,[],'browser JS exception');
