@@ -1,0 +1,20 @@
+name: 04 QR-W PR781 independent private preflight
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr781-private-preflight-independent-20261113.py'
+      - '.github/workflows/04qr-w-pr781-private-preflight-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  independent-private-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Independent actual OS synthetic fixture only
+        run: python3 scripts/04qr-w-pr781-private-preflight-independent-20261113.py
