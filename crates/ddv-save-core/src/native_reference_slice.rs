@@ -246,6 +246,162 @@ impl ProductSession {
         })
     }
 }
+
+/// 01B native PRIVATE source-owned stored GridObject old fields, not edit authority.
+/// A caller may choose an ID, but cannot forge a field value on this receipt.
+/// It is deliberately crate-only: the UI/Worker has no such capability and
+/// 01A must explicitly bind a future typed Read before exposing any fields.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub(crate) struct NativeStoredModifiedObjectWitness {
+    pub session_id:[u8;16],
+    pub revision:u64,
+    pub index_generation:u64,
+    pub decoded_sha256:[u8;32],
+    pub grid_id:u32,
+    pub object_id:u32,
+    pub item_id:i32,
+    pub old_x:i32,
+    pub old_y:i32,
+    pub old_orientation:u8,
+    pub state_field_present:bool,
+    pub source_oneof_present:bool,
+    pub stored_modified_identity_and_old_values_verified:bool,
+    pub removed_overlap_excluded:bool,
+    pub native_parent_subgrid_verified:bool,
+    pub native_gridarea_footprint_verified:bool,
+    pub native_floor_and_gridcells_verified:bool,
+    pub native_item_edit_restrictions_verified:bool,
+    pub native_placement_legal:bool,
+    pub writer_authorized:bool,
+}
+fn stored_i32(bytes:&[u8],span:Span)->CoreResult<i32>{
+    serde_json::from_slice::<i32>(&bytes[span.begin..span.end])
+        .map_err(|_|fail("SPATIAL_STORED_I32_REQUIRED"))
+}
+/// Read from the SAME validated ProductSession, not a second parser/session.
+/// Owner-private native feature only. The selected existing ModifiedObjects
+/// object is rejected if it is also in RemovedObjects. No default-layout
+/// object is cloned or created. Presence alone does NOT verify Parent,
+/// ItemDB restrictions, Native GridCells, GridArea masks or collision.
+/// Every positive result remains explicitly non-Writer.
+impl ProductSession {
+    pub(crate) fn read_native_stored_modified_object(
+        &self,scope:WorkerEnvelope,grid_id:u32,object_id:u32
+    )->CoreResult<NativeStoredModifiedObjectWitness>{
+        let state=self.lock()?;
+        validate_scope(self,&state,&scope)?;
+        const STEAM:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
+        let build=&self.native_source_build;
+        if build.platform!=crate::Platform::SteamWindows ||
+           build.build_kind!=crate::BuildKind::SteamFullVersion ||
+           build.build_id!=STEAM || build.schema!=626 || !build.externally_attested {
+            return Err(fail("SPATIAL_STORED_STEAM_EXACT_BUILD_REQUIRED"));
+        }
+        let b:&[u8]=&self.decoded;
+        let world=roots(b)?.world;
+        let collection=required(b,world,"GridCollection")?;
+        let diffs=required(b,collection,"DiffGrids")?;
+        let mut target=None;
+        object(b,diffs,|key,span|{
+            let key_id=canonical_key(&key)?;
+            // Distinct JSON keys can alias the same stored Native identity.
+            // Validate every map record, not only the selected key.
+            if key_id>u64::from(u32::MAX) ||
+               number(b,required(b,span,"ID")?)?!=key_id {
+                return Err(fail("SPATIAL_STORED_GRID_KEY_ID_MISMATCH"));
+            }
+            if key_id==u64::from(grid_id) {
+                if target.replace(span).is_some(){
+                    return Err(fail("SPATIAL_STORED_DUPLICATE_GRID"));
+                }
+            }
+            Ok(())
+        })?;
+        let grid=target.ok_or(fail("SPATIAL_STORED_GRID_NOT_FOUND"))?;
+        if number(b,required(b,grid,"ID")?)?!=u64::from(grid_id){
+            return Err(fail("SPATIAL_STORED_GRID_KEY_ID_MISMATCH"));
+        }
+        let modified=required(b,grid,"ModifiedObjects")?;
+        let mut item=None;
+        object(b,modified,|key,span|{
+            let key_id=canonical_key(&key)?;
+            if key_id>u64::from(u32::MAX) ||
+               number(b,required(b,span,"ID")?)?!=key_id {
+                return Err(fail("SPATIAL_STORED_OBJECT_KEY_ID_MISMATCH"));
+            }
+            if key_id==u64::from(object_id){
+                if item.replace(span).is_some(){
+                    return Err(fail("SPATIAL_STORED_DUPLICATE_OBJECT"));
+                }
+            }
+            Ok(())
+        })?;
+        let saved=item.ok_or(fail("SPATIAL_STORED_MODIFIED_OBJECT_NOT_FOUND"))?;
+        if number(b,required(b,saved,"ID")?)?!=u64::from(object_id){
+            return Err(fail("SPATIAL_STORED_OBJECT_KEY_ID_MISMATCH"));
+        }
+        if let Some(removed)=field(b,grid,"RemovedObjects")?{
+            let mut overlaps=false;
+            match b[removed.begin]{
+                b'[' => array(b,removed,|raw|{
+                    if number(b,raw)?==u64::from(object_id){overlaps=true;}
+                    Ok(())
+                })?,
+                b'{' => object(b,removed,|key,raw|{
+                    canonical_key(&key)?;
+                    if number(b,raw)?==u64::from(object_id){overlaps=true;}
+                    Ok(())
+                })?,
+                _=>return Err(fail("SPATIAL_STORED_REMOVED_SHAPE_INVALID")),
+            }
+            if overlaps{return Err(fail("SPATIAL_STORED_MODIFIED_REMOVED_OVERLAP"));}
+        }
+        let item_id=stored_i32(b,required(b,saved,"ItemID")?)?;
+        let old_x=stored_i32(b,required(b,saved,"X")?)?;
+        let old_y=stored_i32(b,required(b,saved,"Y")?)?;
+        let orientation_span=required(b,saved,"Orientation")?;
+        // Steam626 protobuf OriginalName string; numeric enum is not the stored contract.
+        let orientation_name: String=serde_json::from_slice(&b[orientation_span.begin..orientation_span.end])
+            .map_err(|_|fail("SPATIAL_STORED_ORIENTATION_STRING_REQUIRED"))?;
+        let old_orientation=match orientation_name.as_str(){
+            "GridOrientation_Up"=>0,
+            "GridOrientation_UpUpRight"=>1,
+            "GridOrientation_UpRight"=>2,
+            "GridOrientation_UpRightRight"=>3,
+            "GridOrientation_Right"=>4,
+            "GridOrientation_DownRightRight"=>5,
+            "GridOrientation_DownRight"=>6,
+            "GridOrientation_DownDownRight"=>7,
+            "GridOrientation_Down"=>8,
+            "GridOrientation_DownDownLeft"=>9,
+            "GridOrientation_DownLeft"=>10,
+            "GridOrientation_DownLeftLeft"=>11,
+            "GridOrientation_Left"=>12,
+            "GridOrientation_UpLeftLeft"=>13,
+            "GridOrientation_UpLeft"=>14,
+            "GridOrientation_UpUpLeft"=>15,
+            _=>return Err(fail("SPATIAL_STORED_ORIENTATION_UNDEFINED")),
+        };
+        let state_field_present=field(b,saved,"State")?.is_some();
+        let source_oneof_present=field(b,saved,"From")?.is_some();
+        Ok(NativeStoredModifiedObjectWitness{
+            session_id:state.id,revision:state.revision,
+            index_generation:state.generation,decoded_sha256:self.sha,
+            grid_id,object_id,item_id,old_x,old_y,
+            old_orientation,
+            state_field_present,source_oneof_present,
+            stored_modified_identity_and_old_values_verified:true,
+            removed_overlap_excluded:true,
+            native_parent_subgrid_verified:false,
+            native_gridarea_footprint_verified:false,
+            native_floor_and_gridcells_verified:false,
+            native_item_edit_restrictions_verified:false,
+            native_placement_legal:false,
+            writer_authorized:false,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests{
     use super::*;
@@ -359,4 +515,130 @@ mod tests{
         s.close().unwrap();
         assert!(s.verify_native_area_grid_slice(e).is_err());
     }
+
+    const STORED_MODIFIED:&str=r#"{"GameInfo":{"Version":626},"Player":{},"World":{"GridCollection":{"DiffGrids":{"7":{"ID":7,"ModifiedObjects":{"4":{"ID":4,"ItemID":100,"X":2,"Y":-1,"Orientation":"GridOrientation_Right"}},"RemovedObjects":[]}}}}}"#;
+    #[test]
+    fn modified_existing_real_source_old_transform_only_not_native_legal(){
+        let s=session(STORED_MODIFIED);
+        let out=s.read_native_stored_modified_object(scope(&s),7,4).unwrap();
+        assert_eq!((out.grid_id,out.object_id,out.item_id,out.old_x,out.old_y,out.old_orientation),(7,4,100,2,-1,4));
+        assert!(out.stored_modified_identity_and_old_values_verified&&out.removed_overlap_excluded);
+        assert!(!out.state_field_present&&!out.source_oneof_present);
+        assert!(!out.native_parent_subgrid_verified&&!out.native_gridarea_footprint_verified);
+        assert!(!out.native_floor_and_gridcells_verified&&!out.native_item_edit_restrictions_verified);
+        assert!(!out.native_placement_legal&&!out.writer_authorized);
+        let receipt=s.receipt().unwrap();
+        assert_eq!((out.session_id,out.revision,out.index_generation,out.decoded_sha256),
+            (receipt.session_id,receipt.revision,receipt.index_generation,receipt.decoded_sha256));
+    }
+    #[test]
+    fn forged_key_and_inner_id_rejected_instead_of_ui_assertion(){
+        let s=session(STORED_MODIFIED);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,99).unwrap_err().0,
+            "SPATIAL_STORED_MODIFIED_OBJECT_NOT_FOUND");
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),8,4).unwrap_err().0,
+            "SPATIAL_STORED_GRID_NOT_FOUND");
+        let fake=STORED_MODIFIED.replace("\"4\":{\"ID\":4","\"4\":{\"ID\":5");
+        let s=session(&fake);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,
+            "SPATIAL_STORED_OBJECT_KEY_ID_MISMATCH");
+        let fake=STORED_MODIFIED.replace("\"7\":{\"ID\":7","\"7\":{\"ID\":8");
+        let s=session(&fake);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,
+            "SPATIAL_STORED_GRID_KEY_ID_MISMATCH");
+    }
+    #[test]
+    fn overlap_bad_orientation_and_missing_old_fields_rejected(){
+        for removed in ["[4]","{\"0\":4}"]{
+            let changed=STORED_MODIFIED.replace("\"RemovedObjects\":[]",
+                &format!("\"RemovedObjects\":{removed}"));
+            let s=session(&changed);
+            assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,
+                "SPATIAL_STORED_MODIFIED_REMOVED_OVERLAP");
+        }
+        let wrong=STORED_MODIFIED.replace("\"GridOrientation_Right\"","\"GridOrientation_Unknown\"");
+        let s=session(&wrong);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,
+            "SPATIAL_STORED_ORIENTATION_UNDEFINED");
+        let missing=STORED_MODIFIED.replace("\"X\":2,","");
+        let s=session(&missing);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,
+            "NATIVE_REF_REQUIRED_FIELD_MISSING");
+        let wrong=STORED_MODIFIED.replace("\"ItemID\":100","\"ItemID\":\"100\"");
+        let s=session(&wrong);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,
+            "SPATIAL_STORED_I32_REQUIRED");
+    }
+    #[test]
+    fn all_diffgrid_and_selected_modified_map_identities_are_unambiguous(){
+        let grid7=r#""7":{"ID":7,"ModifiedObjects":{"4":{"ID":4,"ItemID":100,"X":2,"Y":-1,"Orientation":"GridOrientation_Right"}},"RemovedObjects":[]}"#;
+        let good=STORED_MODIFIED.replace(grid7,&format!("{},\"8\":{{\"ID\":8,\"ModifiedObjects\":{{}},\"RemovedObjects\":[]}}",grid7));
+        assert_ne!(good,STORED_MODIFIED);
+        let s=session(&good);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap().object_id,4);
+        let bad=good.replace("\"8\":{\"ID\":8","\"8\":{\"ID\":7");
+        let s=session(&bad);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,"SPATIAL_STORED_GRID_KEY_ID_MISMATCH");
+        let good=STORED_MODIFIED.replace("\"Orientation\":\"GridOrientation_Right\"}}","\"Orientation\":\"GridOrientation_Right\"},\"5\":{\"ID\":5,\"ItemID\":101,\"X\":3,\"Y\":4,\"Orientation\":\"GridOrientation_Up\"}}");
+        assert_ne!(good,STORED_MODIFIED);
+        let s=session(&good);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap().object_id,4);
+        let bad=good.replace("\"5\":{\"ID\":5","\"5\":{\"ID\":4");
+        let s=session(&bad);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,"SPATIAL_STORED_OBJECT_KEY_ID_MISMATCH");
+        let bad=good.replace("\"5\":{\"ID\":5","\"4294967296\":{\"ID\":4294967296");
+        let s=session(&bad);
+        assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap_err().0,"SPATIAL_STORED_OBJECT_KEY_ID_MISMATCH");
+    }
+
+    #[test]
+    fn steam626_original_orientation_names_only(){
+        let names=["GridOrientation_Up","GridOrientation_UpUpRight","GridOrientation_UpRight","GridOrientation_UpRightRight","GridOrientation_Right","GridOrientation_DownRightRight","GridOrientation_DownRight","GridOrientation_DownDownRight","GridOrientation_Down","GridOrientation_DownDownLeft","GridOrientation_DownLeft","GridOrientation_DownLeftLeft","GridOrientation_Left","GridOrientation_UpLeftLeft","GridOrientation_UpLeft","GridOrientation_UpUpLeft"];
+        for (index,name) in names.iter().enumerate(){
+            let input=STORED_MODIFIED.replace("GridOrientation_Right",name);
+            let s=session(&input);
+            assert_eq!(s.read_native_stored_modified_object(scope(&s),7,4).unwrap().old_orientation,index as u8);
+        }
+        for bad in ["4","null","true","\"4\"","\"Right\"","\"GridOrientation_right\""]{
+            let input=STORED_MODIFIED.replace("\"GridOrientation_Right\"",bad);
+            let s=session(&input);
+            assert!(s.read_native_stored_modified_object(scope(&s),7,4).is_err());
+        }
+    }
+    #[test]
+    fn state_source_flags_only_never_writer_or_native_consent(){
+        let with_state=STORED_MODIFIED.replace(
+            "\"Orientation\":\"GridOrientation_Right\"","\"Orientation\":\"GridOrientation_Right\",\"State\":{},\"From\":1");
+        let s=session(&with_state);
+        let r=s.read_native_stored_modified_object(scope(&s),7,4).unwrap();
+        assert!(r.state_field_present&&r.source_oneof_present);
+        assert!(!r.native_placement_legal&&!r.writer_authorized);
+    }
+    #[test]
+    fn foreign_revision_generation_sha_action_closed_and_wrong_build_denied(){
+        let s=session(STORED_MODIFIED);
+        let mut e=scope(&s);e.expected_revision+=1;
+        assert!(s.read_native_stored_modified_object(e,7,4).is_err());
+        let mut e=scope(&s);e.expected_index_generation+=1;
+        assert!(s.read_native_stored_modified_object(e,7,4).is_err());
+        let mut e=scope(&s);e.expected_decoded_sha256=[0u8;32];
+        assert!(s.read_native_stored_modified_object(e,7,4).is_err());
+        let mut e=scope(&s);e.action=WorkerAction::Stage;
+        assert!(s.read_native_stored_modified_object(e,7,4).is_err());
+        let foreign=session(STORED_MODIFIED);
+        assert!(s.read_native_stored_modified_object(scope(&foreign),7,4).is_err());
+        let wrong=ProductSession::open_decoded_readonly(
+            STORED_MODIFIED.as_bytes().to_vec(),
+            BuildIdentity{
+                platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+                build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true
+            }
+        ).unwrap();
+        assert_eq!(wrong.read_native_stored_modified_object(scope(&wrong),7,4).unwrap_err().0,
+            "SPATIAL_STORED_STEAM_EXACT_BUILD_REQUIRED");
+        let valid_scope=scope(&s);
+        s.close().unwrap();
+        assert!(s.read_native_stored_modified_object(valid_scope,7,4).is_err());
+    }
+
 }
