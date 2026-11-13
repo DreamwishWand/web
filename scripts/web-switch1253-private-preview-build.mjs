@@ -9,6 +9,9 @@ import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {build} from 'vite';
 import {svelte} from '@sveltejs/vite-plugin-svelte';
+import {prepareSwitch1253ItemImageManifest} from '../src/lib/item-media/switch1253-public-item-images.mjs';
+import {createServer} from 'node:http';
+import assert from 'node:assert/strict';
 
 const repo=resolve('.');
 const root=await mkdtemp(join(repo,'.switch1253-private-preview-'));
@@ -75,7 +78,97 @@ try{
   console.log('ACT418_PRIVATE_BUNDLE '+name+' '+bytes.length+' '+createHash('sha256').update(bytes).digest('hex'));
   for(let i=0;i<b64.length;i+=4000)console.log('ACT418_PRIVATE_CHUNK '+name+' '+(i/4000)+' '+b64.slice(i,i+4000));
  }
+ const draft=prepareSwitch1253ItemImageManifest();
+ const draftBytes=Buffer.from(JSON.stringify(draft,null,2)+'\n');
+ console.log('ACT418_PREPARED_DRAFT '+draftBytes.length+' '+createHash('sha256').update(draftBytes).digest('hex')+' '+draftBytes.toString('base64'));
  console.log('ACT418_PRIVATE_PREVIEW_BUILD_NO_GAME_BYTES_PASS');
+ if(process.argv.includes('--synthetic-browser'))await syntheticBrowser(out,draft);
 }finally{
  await rm(root,{recursive:true,force:true});await rm(out,{recursive:true,force:true});
+}
+
+async function syntheticBrowser(out,draft){
+ // Distinct, original single-colour test swatches, NOT game bytes and NOT
+ // matching the real pinned hashes. Interception exists only in this test.
+ // Real asset MIME/SHA is verified on the private staging files separately.
+ const {chromium}=await import('playwright-core');
+ assert.ok(process.env.CHROME_BIN);
+ const html='<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/preview.css"><style>:root{--border:#888;--surface-raised:#eee;--ink-muted:#555}body{margin:8px;font:14px system-ui}</style><script type="module" src="/preview.js"></script>';
+ const js=await readFile(join(out,'preview.js')),css=await readFile(join(out,'preview.css'));
+ const server=createServer((req,res)=>{
+  res.setHeader('Cache-Control','no-store');
+  if(req.url==='/'){res.setHeader('Content-Type','text/html');res.end(html);}
+  else if(req.url==='/preview.js'){res.setHeader('Content-Type','text/javascript');res.end(js);}
+  else if(req.url==='/preview.css'){res.setHeader('Content-Type','text/css');res.end(css);}
+  else{res.statusCode=404;res.end();}
+ });
+ await new Promise((yes,no)=>{server.once('error',no);server.listen(0,'127.0.0.1',yes)});
+ const origin='http://127.0.0.1:'+server.address().port;
+ let browser;
+ try{
+  browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+  const ctx=await browser.newContext({viewport:{width:1280,height:860},serviceWorkers:'block'});
+  const page=await ctx.newPage(),requests=[],errors=[],hits=[];
+  ctx.on('request',r=>requests.push([r.method(),r.url()]));
+  page.on('pageerror',e=>errors.push(String(e)));
+  const pins=Object.entries(draft.items);
+  const paths=Object.fromEntries(pins.map(([id,e])=>[id,origin+'/web/ddv/item-images/'+draft.assetVariant+'/'+e.originalNativeStreamSha256.slice(0,2)+'/'+e.originalNativeStreamSha256+'-'+e.sourcePngSha256+'-'+e.webpSha256+'.webp']));
+  const swatches={
+   '40000047':Buffer.from('UklGRiQAAABXRUJQVlA4TBcAAAAvn8AnAAfQsVo0uf8BAEX6/58i+p/6AQA=','base64'),
+   '40006096':Buffer.from('UklGRiQAAABXRUJQVlA4TBcAAAAvn8AnAAdQvU4Xpf8BAEX6/58i+p/6AQA=','base64')};
+  for(const [id,b] of Object.entries(swatches))assert.notEqual(createHash('sha256').update(b).digest('hex'),draft.items[id].webpSha256);
+  let missing=false;
+  await page.route('**/ddv/item-images/**',async route=>{
+   const url=route.request().url(),id=Object.keys(paths).find(k=>paths[k]===url);
+   hits.push({id:id??'UNKNOWN',url});
+   if(!id||(missing&&id==='40000047'))return route.fulfill({status:404,body:'not found'});
+   await route.fulfill({status:200,contentType:'image/webp',body:swatches[id]});
+  });
+  await page.goto(origin);await page.waitForFunction(()=>!!window.act418PrivateTest);
+  assert.equal(await page.locator('img').count(),0);assert.equal(hits.length,0);
+  assert.ok(await page.evaluate(()=>{const {release}=window.act418PrivateTest.fixture();
+   try{window.act418PrivateTest.apply(window.act418PrivateTest.draft(),release);return false}catch(e){return String(e).includes('MANIFEST_PUBLICATION_UNVERIFIED')}}));
+  const apply=()=>page.evaluate(()=>{const f=window.act418PrivateTest.fixture();return window.act418PrivateTest.apply(f.manifest,f.release)});
+  assert.equal(await apply(),2);
+  await page.waitForFunction(()=>document.querySelectorAll('img').length===2&&[...document.querySelectorAll('img')].every(i=>i.complete&&i.naturalWidth===160&&i.naturalHeight===160));
+  for(const id of Object.keys(paths)){
+   const img=page.locator('[data-item-thumb-id="'+id+'"] img');
+   assert.equal(await img.evaluate(el=>el.src),paths[id]);
+   assert.equal(await page.locator('[data-item-thumb-id="'+id+'"]').getAttribute('data-media-status'),'verified-public-image');
+  }
+  assert.equal(await page.locator('[data-item-thumb-id="40002422"] img').count(),0);
+  assert.deepEqual(hits.map(h=>h.id).sort(),['40000047','40006096']);
+  for(const [width,zoom] of [[320,1],[640,2]]){
+   await page.setViewportSize({width,height:850});
+   await page.evaluate(z=>document.documentElement.style.zoom=String(z),zoom);
+   await page.evaluate(()=>window.act418PrivateTest.prefs(96,'cover'));
+   await page.waitForFunction(()=>[...document.querySelectorAll('img')].every(i=>i.style.objectFit==='cover'));
+   const layout=await page.evaluate(()=>({width:innerWidth,rects:[...document.querySelectorAll('[data-item-thumb-id]')].map(e=>{const r=e.getBoundingClientRect();return [r.left,r.right,r.width]})}));
+   assert.ok(layout.rects.every(r=>r[0]>=-1&&r[1]<=layout.width+2&&r[2]>0),JSON.stringify(layout));
+  }
+  await page.evaluate(()=>document.documentElement.style.zoom='1');await page.setViewportSize({width:1280,height:860});
+  await page.evaluate(()=>window.act418PrivateTest.prefs(56,'contain'));
+  await page.waitForFunction(()=>[...document.querySelectorAll('img')].every(i=>i.style.objectFit==='contain'));
+  assert.ok(await page.evaluate(()=>{const changes=[
+   f=>f.manifest.items['40000047'].webpSha256='a'.repeat(64),
+   f=>f.manifest.target.schema=624,
+   f=>f.manifest.items['40000047'].visibility='HIDDEN',
+   f=>f.manifest.items['40000047'].url='https://invalid.example/a.webp',
+   f=>{f.manifest.items['40002422']={...f.manifest.items['40000047']};f.release.items['40002422']={...f.release.items['40000047']}},
+   f=>f.release.receivingContact='NOT_RUN',
+   f=>f.manifest.items['40000047'].rasterStatus=f.manifest.items['40006096'].rasterStatus];
+   return changes.every(change=>{const f=window.act418PrivateTest.fixture();change(f);
+    try{window.act418PrivateTest.apply(f.manifest,f.release);return false}catch{return true}});
+  }));
+  missing=true;await page.reload();await page.waitForFunction(()=>!!window.act418PrivateTest);await apply();
+  await page.waitForFunction(()=>document.querySelector('[data-item-thumb-id="40000047"]').dataset.mediaStatus==='unavailable'&&document.querySelector('[data-item-thumb-id="40006096"] img')?.naturalWidth===160);
+  assert.equal(await page.locator('[data-item-thumb-id="40000047"] img').count(),0);
+  missing=false;await page.reload();await page.waitForFunction(()=>!!window.act418PrivateTest);await apply();
+  await page.waitForFunction(()=>document.querySelectorAll('img').length===2&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
+  const before=hits.length;await page.evaluate(()=>window.act418PrivateTest.off());await page.waitForFunction(()=>document.querySelectorAll('img').length===0);
+  assert.equal(hits.length,before);assert.ok(requests.every(([m,u])=>m==='GET'&&u.startsWith(origin+'/')));
+  assert.ok(hits.every(h=>h.id!=='UNKNOWN'));assert.deepEqual(errors,[]);
+  console.log('ACT418_ACTUAL_SHARED_ITEMTHUMB_SYNTHETIC_ONLY_2POS_7NEG_OFF_REFLOW_FALLBACK_PASS');
+  await ctx.close();
+ }finally{await browser?.close();await new Promise(yes=>server.close(yes))}
 }

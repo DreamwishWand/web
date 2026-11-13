@@ -187,3 +187,5 @@ jobs:
         env:
           SHARED_DETAIL_E2E_URL: http://127.0.0.1:4194
         run: node scripts/web-shared-catalog-e2e-chrome.mjs
+      - name: Actual shared ItemThumb isolated synthetic-only positive and negative UX
+        run: node scripts/web-switch1253-private-preview-build.mjs --synthetic-browser
