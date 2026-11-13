@@ -131,9 +131,10 @@ try{
  // Navigate the second exact origin in the same isolated browser. No
  // network access to the real hosts: Chrome resolver maps both to fixture.
  const rootProbe=async()=>{
-  await rpc('Page.navigate',{url:rootOrigin+'/test.html?case='+rootScenario});
+  const target=rootOrigin+'/test.html?case='+rootScenario;
+  await rpc('Page.navigate',{url:target});
   let ready=false;
-  for(let i=0;i<200;i++){try{const x=await rpc('Runtime.evaluate',{expression:'location.origin+location.pathname',returnByValue:true});if(x.result.value===rootOrigin+'/test.html'){ready=true;break}}catch{}await delay(50)}
+  for(let i=0;i<200;i++){try{const x=await rpc('Runtime.evaluate',{expression:'location.href',returnByValue:true});if(x.result.value===target){ready=true;break}}catch{}await delay(50)}
   if(!ready)throw Error('ENV_CHROME_ROOT_NAVIGATION');
   const x=await rpc('Runtime.evaluate',{expression:`new Promise((r,j)=>{let n=0;function tick(){if(window.result)window.result.then(r,j);else if(++n>3000)j(Error('no root runner'));else setTimeout(tick,30)}tick()})`,awaitPromise:true,returnByValue:true});
   if(x.exceptionDetails)throw Error(JSON.stringify(x.exceptionDetails).slice(0,1000));
