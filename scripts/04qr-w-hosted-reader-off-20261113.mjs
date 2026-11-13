@@ -18,7 +18,7 @@ async function deployment(){
  if(sha!==expected)throw Error('WAIT_HEAD_DEPLOYMENT_DRIFT '+sha);
 }
 await deployment();
-const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);
+const bin=['google-chrome-stable','google-chrome','chromium'].map(x=>spawnSync('which',[x],{encoding:'utf8'}).stdout?.trim()).find(Boolean);
 assert.ok(bin,'ENV_CHROME_NOT_INSTALLED');
 const browser=await chromium.launch({executablePath:bin,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const ctx=await browser.newContext({viewport:{width:320,height:800},ignoreHTTPSErrors:false,serviceWorkers:'block',acceptDownloads:false});
@@ -57,7 +57,7 @@ async function geometry(){
 try{
  const response=await p.goto(url,{waitUntil:'networkidle',timeout:60000});
  assert.equal(response.status(),200);assert.equal(p.url(),url);
- await p.waitForFunction(()=>window.__readerAudit?.messages?.length>0,{timeout:20000});
+ await p.waitForFunction(()=>window.__readerAudit?.messages?.length>0,undefined,{timeout:20000});
  await boundary();
  assert.equal(await panel.getAttribute('open'),null);
  await summary.focus();await p.keyboard.press('Enter');assert.equal(await panel.evaluate(e=>e.open),true);
@@ -66,7 +66,7 @@ try{
  await geometry();await p.evaluate(()=>document.documentElement.style.zoom='2');await geometry();await boundary();
  await summary.focus();await p.keyboard.press('Enter');assert.equal(await panel.evaluate(e=>e.open),false);
  await p.reload({waitUntil:'networkidle',timeout:60000});
- await p.waitForFunction(()=>window.__readerAudit?.messages?.length>0,{timeout:20000});
+ await p.waitForFunction(()=>window.__readerAudit?.messages?.length>0,undefined,{timeout:20000});
  await boundary();
  assert.equal(await panel.getAttribute('open'),null);
  assert.equal(req.filter(r=>r.u.includes('/worker-wasm/')).length,0,'OFF worker must not request signed assets');
