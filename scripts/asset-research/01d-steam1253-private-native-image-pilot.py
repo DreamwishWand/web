@@ -18,6 +18,7 @@ from pathlib import Path
 import re
 import stat
 import struct
+import sys
 
 OPERATION = "DEV_READY_SOURCE_ONLY"
 SCHEMA = "wand.01d.steam1253-native-image-sample-hold@1"
@@ -86,7 +87,12 @@ def accepted_furniture_rows(path):
     if spec is None or spec.loader is None:
         raise ValueError("ACCEPTED_READER_MISSING")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    previous = sys.dont_write_bytecode
+    try:
+        sys.dont_write_bytecode = True
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = previous
     data = path.read_bytes()
     rows = module.read_category(data, "Furniture")
     if len(rows) != 6233:
@@ -323,66 +329,61 @@ def self_test():
 
 
 def save_exclusive(path, data):
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
-    with os.fdopen(fd, "wb") as out:
-        out.write(data)
+    """Legacy arbitrary-path writer is disabled, even for a validated hint."""
+    raise ValueError("PRIVATE_IMAGE_PATH_WRITE_DISABLED")
 
 
-def private_path_preflight(source_root: Path, catalog_root: Path, bundle_path: Path, private_output: Path):
-    """Fail closed on real-path overlap before opening any original or writing outputs.
+def private_path_preflight(source_root: Path, catalog_root: Path, bundle_path: Path, private_output: Path | None = None):
+    """Read-only path validation. Optional legacy output is a hint, never a sink.
 
-    Explicit symlink/alias denial also covers symlinked *ancestor* directories.
-    The three input directory fences are SourceRoot, CatalogRoot and Bundle.parent.
+    This does not claim immutable containment for subsequent path writes.
     """
-    raw = tuple(p.absolute() for p in (source_root, catalog_root, bundle_path, private_output))
+    raw = tuple(p.absolute() for p in (source_root, catalog_root, bundle_path))
+    if private_output is not None:
+        raw += (private_output.absolute(),)
     resolved = []
+    repo = Path(__file__).resolve().parents[2]
     for index, candidate in enumerate(raw):
         is_file = index == 2
-        if any(part.is_symlink() for part in (candidate, *candidate.parents)):
+        if ".." in candidate.parts or any(part.is_symlink() for part in (candidate, *candidate.parents)):
             raise ValueError("PRIVATE_PATH_SYMLINK_OR_ALIAS")
         try:
             real = candidate.resolve(strict=True)
         except (OSError, RuntimeError):
             raise ValueError("PRIVATE_PATH_MISSING_OR_ALIAS") from None
-        # Reject directory aliasing, including symlink-mediated '..' traversal.
-        if real != Path(os.path.normpath(str(candidate))):
+        if real != candidate:
             raise ValueError("PRIVATE_PATH_SYMLINK_OR_ALIAS")
+        if real == repo or repo in real.parents or real in repo.parents:
+            raise ValueError("PRIVATE_PATH_INSIDE_REPOSITORY")
+        if any((p / ".git").exists() or (p / ".git").is_symlink()
+               for p in ((real.parent if is_file else real), *real.parents)):
+            raise ValueError("PRIVATE_PATH_INSIDE_REPOSITORY")
         if is_file:
             if not real.is_file():
                 raise ValueError("PRIVATE_BUNDLE_SYMLINK_OR_MISSING")
         elif not real.is_dir():
             raise ValueError("PRIVATE_DIRECTORY_MISSING_OR_SYMLINK")
         resolved.append(real)
-    root, catalog, bundle, target = resolved
+    root, catalog, bundle = resolved[:3]
+    target = resolved[3] if private_output is not None else None
     if root == catalog:
         raise ValueError("PRIVATE_INPUT_ROOT_DUPLICATE_OR_ALIAS")
-    for input_dir in (root, catalog, bundle.parent):
-        if (target == input_dir or input_dir in target.parents
-                or target in input_dir.parents):
-            raise ValueError("PRIVATE_OUTPUT_MUST_BE_SEPARATE")
+    if target is not None:
+        for input_dir in (root, catalog, bundle.parent):
+            if (target == input_dir or input_dir in target.parents
+                    or target in input_dir.parents):
+                raise ValueError("PRIVATE_OUTPUT_MUST_BE_SEPARATE")
     return root, catalog, bundle, target
 
 
-def run(args):
-    # No provenance file read, texture load or private output before this fence.
-    root, catalog, bundle, target = private_path_preflight(
-        args.source_root, args.catalog_root, args.bundle, args.private_output
-    )
-    for name in ("Furniture.json",):
-        exact_sha(root / name, PINS[name])
-    if (root / "FullVersion.txt").read_bytes() != VERSION.encode("ascii"):
-        raise ValueError("EXTERNAL_STEAM_FULLVERSION_MISMATCH")
-    for name in ("catalog.keyData.bin", "catalog.bucketData.bin", "catalog.entryData.bin", "catalog.InternalIds.bin"):
-        exact_sha(catalog / name, PINS[name])
-    exact_sha(bundle, PINS["furniture_a1c425a5.bundle"])
-    accepted_furniture_rows(root / "Furniture.json")
-    catalog_items = resolve_catalog(catalog)
+def decode_products(bundle, ids):
+    """Existing exact Native decode and raster invariants; memory only."""
     from PIL import Image  # PRIVATE ONLY; imported after PINNED provenance; CI negatives need no Pillow
     unity = UnityFS(bundle)
     cab = unity.read(0, unity.nodes[0][1])
     objects = cab_objects(cab)
     products = []
-    for item in check_sample_ids(args.item_id):
+    for item in ids:
         guid = ITEMS[item]
         entries = resolve_asset(cab, objects, guid)
         data = parse_texture(cab, objects, entries, unity)
@@ -412,44 +413,52 @@ def run(args):
              "canPublish": False},
             png.getvalue(), webp.getvalue()
         ))
-    # Outputs are not made until every real source check and raster invariant passes.
-    names = [target / f"{x['itemId']}-steam1253-reconstructed.png" for x, _, _ in products]
-    names += [target / f"{x['itemId']}-steam1253-lossless160.webp" for x, _, _ in products]
-    receipt = target / "01d-r14-steam1253-private-native-hold.json"
-    if any(p.exists() or p.is_symlink() for p in [*names, receipt]):
-        raise ValueError("PRIVATE_OUTPUT_EXISTS_NO_CLOBBER")
-    saved = []
-    try:
-        for entry, png, webp in products:
-            for ext, content in (("reconstructed.png", png), ("lossless160.webp", webp)):
-                path = target / f"{entry['itemId']}-steam1253-{ext}"
-                save_exclusive(path, content)
-                saved.append(path)
-        record = {
-            "schema": SCHEMA, "operation": OPERATION, "source": {
-                "platform": "Steam/Windows", "gameVersion": "1.25.3",
-                "fullVersion": VERSION.strip(), "originalBundleSha256": PINS["furniture_a1c425a5.bundle"][0],
-                "privateOriginal": True
-            },
-            "rights": {"origin": "Disney Dreamlight Valley", "affiliation": "UNAFFILIATED",
-                       "license": "UNKNOWN", "perImageTakedown": "NOT_RUN", "hostedHttps": "NOT_RUN"},
-            "historicalR39LossyWebpNotReused": True,
-            "nativeSamples": [x for x, _, _ in products],
-            "releaseManifestDraft": {"items": {}, "publicUrl": None, "schema": "HOLD_SOURCE_ONLY",
-                                     "publicImagesEnabled": False},
-            "currentSwitchSameBuildSourcePositive": 0, "canPublish": False,
-            "canWriteSave": False, "cloudUploadAllowed": False
-        }
-        payload = (json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
-        save_exclusive(receipt, payload)
-        saved.append(receipt)
-        return {"sourceOriginal": "STEAM1253_SHA_VERIFIED", "items": len(products),
-                "webpRgbaExact": len(products), "publicImages": 0,
-                "receiptSha256": hashlib.sha256(payload).hexdigest()}
-    except Exception:
-        for path in saved:
-            path.unlink(missing_ok=True)
-        raise
+    return products
+
+
+def run(args):
+    # No provenance file read before path validation; never write a file.
+    root, catalog, bundle, _ = private_path_preflight(
+        args.source_root, args.catalog_root, args.bundle, getattr(args, "private_output", None)
+    )
+    for name in ("Furniture.json",):
+        exact_sha(root / name, PINS[name])
+    if (root / "FullVersion.txt").read_bytes() != VERSION.encode("ascii"):
+        raise ValueError("EXTERNAL_STEAM_FULLVERSION_MISMATCH")
+    for name in ("catalog.keyData.bin", "catalog.bucketData.bin", "catalog.entryData.bin", "catalog.InternalIds.bin"):
+        exact_sha(catalog / name, PINS[name])
+    exact_sha(bundle, PINS["furniture_a1c425a5.bundle"])
+    accepted_furniture_rows(root / "Furniture.json")
+    resolve_catalog(catalog)
+    products = decode_products(bundle, check_sample_ids(args.item_id))
+    # Complete private data stays in memory; no caller path is opened for
+    # writing and failure cannot unlink an unrelated file.
+    record = {
+        "schema": SCHEMA, "operation": OPERATION, "source": {
+            "platform": "Steam/Windows", "gameVersion": "1.25.3",
+            "fullVersion": VERSION.strip(), "originalBundleSha256": PINS["furniture_a1c425a5.bundle"][0],
+            "privateOriginal": True
+        },
+        "rights": {"origin": "Disney Dreamlight Valley", "affiliation": "UNAFFILIATED",
+                   "license": "UNKNOWN", "perImageTakedown": "NOT_RUN", "hostedHttps": "NOT_RUN"},
+        "historicalR39LossyWebpNotReused": True,
+        "nativeSamples": [x for x, _, _ in products],
+        "releaseManifestDraft": {"items": {}, "publicUrl": None, "schema": "HOLD_SOURCE_ONLY",
+                                 "publicImagesEnabled": False},
+        "currentSwitchSameBuildSourcePositive": 0, "canPublish": False,
+        "canWriteSave": False, "cloudUploadAllowed": False
+    }
+    return {"record": record, "products": tuple(products)}
+
+
+def report_summary(result):
+    record = result["record"]
+    products = result["products"]
+    payload = (json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
+    return {"sourceOriginal": "STEAM1253_SHA_VERIFIED", "items": len(products),
+            "webpRgbaExact": len(products), "publicImages": 0,
+            "privateFilesWritten": False,
+            "receiptSha256": hashlib.sha256(payload).hexdigest()}
 
 
 def main():
@@ -464,10 +473,10 @@ def main():
     if a.self_test:
         print(json.dumps(self_test(), sort_keys=True))
         return
-    if any(x is None for x in (a.source_root, a.catalog_root, a.bundle, a.private_output)):
-        raise ValueError("PRIVATE_SOURCE_ROOT_CATALOG_BUNDLE_OUTPUT_REQUIRED")
+    if any(x is None for x in (a.source_root, a.catalog_root, a.bundle)):
+        raise ValueError("PRIVATE_SOURCE_ROOT_CATALOG_BUNDLE_REQUIRED")
     a.item_id = a.item_id or list(ITEMS)
-    print(json.dumps(run(a), sort_keys=True))
+    print(json.dumps(report_summary(run(a)), sort_keys=True))
 
 
 if __name__ == "__main__":
