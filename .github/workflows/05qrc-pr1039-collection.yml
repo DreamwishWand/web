@@ -1,0 +1,38 @@
+name: 05 QR-C PR1039 independent Collection Core
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_pr1039_collection.rs'
+      - '.github/workflows/05qrc-pr1039-collection.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify fixed original3 and QA-only delta
+        run: |
+          git merge-base --is-ancestor d7f0b9052ffc29519cd917c1c965ea47dfbc67d1 HEAD
+          test "$(git diff --name-only d7f0b9052ffc29519cd917c1c965ea47dfbc67d1 HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/private_collection_read.rs)" = 2051cf75b6ac2c28041bb44a8db42fac0b92963b
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/native_reference_slice.rs)" = 84c010a851bd1324d1ba716e3ac20ee7ff97e69e
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = 16fb65a15fa3f00c249e91ffaad655c508a917c8
+      - name: Native exact spans and bounded membership tests
+        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1 --test qa_pr1039_collection -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1,semantic-writer-dev --test qa_pr1039_collection -- --nocapture
+      - name: Public and private feature isolation
+        run: |
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
