@@ -79,7 +79,7 @@ try{
   const dep=JSON.parse(input);
   dep.Player.ListInventories[42].Inventory[170000001]={Amount:1,Marker:'ItemMarker_None'};
   dep.World.DialogueFlags=[50000001,50000002,50000001];
-  dep.ConditionalEventHistory={ActiveEvents:{1520000001:{SpawnState:{Unknown:1}}},Inbox:{}};
+  dep.ConditionalEventHistory={ActiveEvents:{1520000001:{SpawnState:{Unknown:1}}},InboxSpawnCount:{}};
   const depArgs=(out,flag='50000001')=>['--character-skin-dependencies-receipt-only','10000053','170000000',flag,'--out',out];
   const depCall=(doc,out,over={},flag='50000001')=>{
    const b=Buffer.from(JSON.stringify(doc));return call(depArgs(out,flag),{WAND_LOCAL_DECODED_SHA256:sha(b),...over},b)
@@ -95,6 +95,7 @@ try{
   assert.equal(v.dialogueFlag.persistedList.sha256,sha(Buffer.from(JSON.stringify(dep.World.DialogueFlags))));
   assert.equal(v.oldSkinInventory.itemId,170000001);
   assert.equal(v.subscriberReadSet.conditionalEventHistory.activeEvents.entries[0].eventId,1520000001);
+  assert.equal(v.subscriberReadSet.conditionalEventHistory.inboxSpawnCount.present,true);
   assert.equal(v.selectedSkin.sessionId,v.sessionId);
   assert.equal(v.selectedSkin.decodedSha256,v.decodedSha256);
   assert.equal(v.originalSha256SuppliedExternally,'a'.repeat(64));
