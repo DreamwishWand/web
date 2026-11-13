@@ -961,12 +961,14 @@ mod minted_amount_target_tests {
         assert!(!receipt.native_v3_verified);
         s.undo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
         s.redo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
-        let out=s.take_typed_semantic_decoded_once(
-            scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).unwrap();
+        let export=scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+        let out=s.take_typed_semantic_decoded_once(export).unwrap();
         v["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(11);
         assert_eq!(out,serde_json::to_vec(&v).unwrap());
-        assert!(s.take_typed_semantic_decoded_once(
-            scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());
+        // Export closes the Session; replay the original envelope rather
+        // than attempting to obtain a new receipt from the closed Session.
+        assert_eq!(s.receipt().unwrap_err().0,"SESSION_CLOSED");
+        assert!(s.take_typed_semantic_decoded_once(export).is_err());
     }
     #[test]
     fn session_epoch_and_snapshot_cas_no_caller_catalog(){
