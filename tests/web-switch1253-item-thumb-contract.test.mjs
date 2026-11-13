@@ -4,23 +4,28 @@ import {readFileSync} from 'node:fs';
 import {
  SWITCH1253_ITEM_IMAGE_SCHEMA,SWITCH1253_TARGET,
  SWITCH1253_ITEM_IMAGE_VARIANT,SWITCH1253_ORIGINAL_BUNDLE_SHA256,
- SWITCH1253_REVIEWED_RELEASE,SWITCH1253_NATIVE_PINS,
+ SWITCH1253_REVIEWED_RELEASE,SWITCH1253_NATIVE_PINS,SWITCH1253_OWNER_SCOPE,
  validateSwitch1253ItemImageCatalog,switch1253ItemImagePath,
  scopedSwitch1253ItemImageHref,loadSwitch1253PublicItemImageSource
 } from '../src/lib/item-media/switch1253-public-item-images.mjs';
 
+import {ITEM_IMAGE_OWNER_DECISION_ID} from '../src/lib/item-media/public-item-images.mjs';
 const item='40006096';
 const pin=SWITCH1253_NATIVE_PINS[item];
 function approvedRelease(){
  // Synthetic authorization fixture, NOT a real accepted licence or prod flag.
  return {
-  mediaPublic:true,rightsHolderLicense:'DOCUMENTED_SCOPE_LICENSE',
+  mediaPublic:true,decisionId:ITEM_IMAGE_OWNER_DECISION_ID,scope:SWITCH1253_OWNER_SCOPE,
+  rightsHolderLicense:'DOCUMENTED_SCOPE_LICENSE',licenseEvidenceSha256:'a'.repeat(64),
   rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',
   takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',
+  attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',
+  operatorReceiptSha256:'b'.repeat(64),
   items:{[item]:{
     originalNativeStreamSha256:pin.originalNativeStreamSha256,
     sourcePngSha256:pin.sourcePngSha256,webpSha256:pin.webpSha256,
-    rightsStatus:'DOCUMENTED_LICENSE_APPROVED'
+    rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',
+    visibility:'RELEASED_PLAYER_FACING'
   }}
  };
 }
@@ -31,13 +36,16 @@ function manifest(){
   codec:'WEBP_LOSSLESS_RGBA_EXACT',format:'webp',lossless:true,
   source:{...SWITCH1253_TARGET,originalBundleSha256:SWITCH1253_ORIGINAL_BUNDLE_SHA256},
   target:{...SWITCH1253_TARGET},
-  publication:{gate:'MEDIA_PUBLIC_SCOPED_ON',rightsReview:'OPERATOR_ACCEPTED',
-    receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',
-    managedHttps:'MANAGED_VERIFIED'},
+  publication:{gate:'MEDIA_PUBLIC_SCOPED_ON',decisionId:ITEM_IMAGE_OWNER_DECISION_ID,
+    scope:SWITCH1253_OWNER_SCOPE,rightsHolderLicense:'DOCUMENTED_SCOPE_LICENSE',
+    licenseEvidenceSha256:'a'.repeat(64),rightsReview:'OPERATOR_ACCEPTED',
+    receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',
+    attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',
+    operatorReceiptSha256:'b'.repeat(64)},
   items:{[item]:{
     ...pin,pixelStatus:'SWITCH_RGBA_EXACT_VERIFIED',
     visibility:'RELEASED_PLAYER_FACING',
-    rightsStatus:'DOCUMENTED_LICENSE_APPROVED',
+    rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',
     assetStatus:'WEBP_LOSSLESS_VERIFIED_160'
   }}
  };
@@ -190,4 +198,40 @@ test('QA802 regression: undeclared root/publication/source/item/release media fi
      section+' '+key+' must never be accepted'
    );
  }
+});
+
+test('Issue604 scoped Owner decision and UNKNOWN license remain separate facts',()=>{
+ const make=()=>{
+  const r=approvedRelease(),m=manifest();
+  for(const p of [r,m.publication]){p.rightsHolderLicense='UNKNOWN';p.licenseEvidenceSha256=null}
+  r.items[item].rightsStatus='UNKNOWN';m.items[item].rightsStatus='UNKNOWN';
+  return {r,m};
+ };
+ let {r,m}=make();
+ assert.equal(validateSwitch1253ItemImageCatalog(m,r).count,1);
+ assert.equal(r.rightsHolderLicense,'UNKNOWN');
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
+ for(const key of ['decisionId','scope','rightsReview','receivingContact','takedown','managedHttps',
+  'attribution','oldUrlAndCache','rollback','operatorReceiptSha256']){
+  for(const invalid of [undefined,'NOT_RUN','FORGED']){
+   ({r,m}=make());r[key]=invalid;
+   assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/,key);
+  }
+  ({r,m}=make());m.publication[key]='FORGED';
+  assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MANIFEST_PUBLICATION_UNVERIFIED/,key);
+ }
+ for(const visibility of ['UNRELEASED','HIDDEN','PRIVATE','UGC','UNKNOWN']){
+  ({r,m}=make());m.items[item].visibility=visibility;r.items[item].visibility=visibility;
+  assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/ITEM_ID_NATIVE_SHA/);
+ }
+ for(const key of ['publicationDecision','rightsStatus','visibility']){
+  ({r,m}=make());delete r.items[item][key];
+  assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/ITEM_ID_NATIVE_SHA/);
+ }
+ ({r,m}=make());m.items[item].rightsStatus='DOCUMENTED_LICENSE_APPROVED';
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/ITEM_ID_NATIVE_SHA/);
+ ({r,m}=make());r.licenseEvidenceSha256='a'.repeat(64);
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
+ ({r,m}=make());r.rightsHolderLicense='DOCUMENTED_SCOPE_LICENSE';
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
 });
