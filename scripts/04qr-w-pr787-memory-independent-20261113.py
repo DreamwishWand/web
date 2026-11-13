@@ -4,7 +4,7 @@ from unittest.mock import patch
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 S='b3b51ca692a22d6ffdf001db8bbcb1e73382ad14'
 OLD='2744cc61781c72908db338309d034750370bbc37'
-BASE='1024d4207245ed99126abedcf3452ef670a44c6a'
+BASE='b7d86d47125f1764919b67898c39badaf35976d8'
 LIVE='e3e8a9275f6a2ca3e4ad17d0c3db2f9a6889df9b'
 P='scripts/asset-research/01d-steam1253-private-native-image-pilot.py'
 PINS={P:'fce27deda2fd6d6482f56bccc175210b7726c92e','tests/01d-steam1253-private-native-image-pilot.test.mjs':'274fc70354ca34b99f89088f2e6043370745d036','docs/core/01d-r14-steam1253-private-native-image-pilot-20261108.md':'cc291c3a786964d205be74fd236dc12901f96a77'}
