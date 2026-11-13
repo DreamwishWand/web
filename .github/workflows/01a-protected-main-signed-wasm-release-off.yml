@@ -31,6 +31,7 @@ jobs:
       # Owner approved ONLY three inert public Rust Read assets.
       # This workflow remains non-deploying independent source QA proof.
       WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
     steps:
       - name: Checkout exact source, not synthetic PR merge
         uses: actions/checkout@v4
@@ -51,7 +52,7 @@ jobs:
           set -euo pipefail
           test "$WAND_PRODUCT_RELEASE_OWNER_APPROVED" = false
           test -z "$(git ls-files static/worker-wasm)"
-          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
           node scripts/wasm-distribution/verify-protected-release.mjs inputs
       - name: Compile single genuine Rust Worker with READ features ONLY
         run: |

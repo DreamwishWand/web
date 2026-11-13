@@ -10,6 +10,14 @@ const sha256=async bytes=>[...new Uint8Array(await crypto.subtle.digest('SHA-256
   .map(x=>x.toString(16).padStart(2,'0')).join('');
 const strictSize=(n,max)=>Number.isSafeInteger(n)&&n>0&&n<=max;
 const version='wand.r22.rust-wasm-source-provenance-candidate@1';
+// The protected release lock is the previously reviewed exact dependency set.
+// Historical synthetic candidates retain their generated-lock contract.
+const approvedCargoLockSha256='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
+function validCargoLockProvenance(source){
+ return source?.cargoLockOrigin==='cargo-generated-this-ci-job'||
+  (source?.cargoLockOrigin==='approved-repository-lock'&&
+   source.cargoLockSha256===approvedCargoLockSha256);
+}
 
 function baseRoute(basePath){
  if(basePath!==''&&basePath!=='/web')fail('UNSUPPORTED_BASE_PATH');
@@ -109,7 +117,7 @@ export async function loadPinnedReadOnlyRustBytes({basePath,trustedPins,fetcher=
    manifest.source?.profile!=='release'||
    manifest.source?.defaultFeatures!==false||
    JSON.stringify(manifest.source?.features)!=='["indexed-read","worker-wasm"]'||
-   manifest.source?.cargoLockOrigin!=='cargo-generated-this-ci-job'||
+   !validCargoLockProvenance(manifest.source)||
    !hex64.test(manifest.source?.cargoLockSha256??'')||
    !hex64.test(manifest.source?.cargoTomlSha256??'')||
    manifest.signature?.status!=='UNKNOWN'||manifest.signature?.verified!==false||
