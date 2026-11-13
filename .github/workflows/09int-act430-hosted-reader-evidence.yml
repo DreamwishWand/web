@@ -1,0 +1,119 @@
+name: 09INT ACT430 hosted Reader exact deployment evidence only (NEVER MERGE)
+on:
+  push:
+    branches: ['evidence/09int-act430-hosted-reader-20261113']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  hosted-reader:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_MAIN: 261f089bb164e0b2f566d16338da7b84a329f5d6
+      EXPECTED_RUN: '43429213453'
+      ROOT: https://dreamwishwand.github.io/web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Fixed exact parent and one evidence workflow only
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/09int-act430-hosted-reader-evidence.yml"
+          r="$(gh api "repos/DreamwishWand/web/actions/runs/$EXPECTED_RUN")"
+          test "$(jq -r .head_sha <<< "$r")" = "$EXPECTED_MAIN"
+          test "$(jq -r .status <<< "$r")" = completed
+          test "$(jq -r .conclusion <<< "$r")" = success
+      - name: Actual HTTPS route and exact deployed artifact bytes
+        run: |
+          set -euo pipefail
+          d="$(mktemp -d)"
+          mkdir "$d/site"
+          gh run download "$EXPECTED_RUN" --repo DreamwishWand/web --name github-pages --dir "$d"
+          archive="$(find "$d" -maxdepth 1 -type f -name '*.tar*' -print -quit)"
+          test -n "$archive"
+          tar -xf "$archive" -C "$d/site"
+          for f in editor/steam-reader/index.html editor/timing/index.html worker-wasm/manifest.json; do
+            test -s "$d/site/$f"
+            case "$f" in */index.html) url="$ROOT/$(dirname "$f")/"; typ=text/html;; *) url="$ROOT/$f"; typ=application/json;; esac
+            code="$(curl --silent --show-error --fail --max-time 30 --max-redirs 0 --proto '=https' -H 'Cache-Control: no-cache' -D "$d/headers" -o "$d/live" -w '%{http_code}' "$url")"
+            test "$code" = 200
+            grep -i "^content-type: $typ" "$d/headers" >/dev/null
+            cmp "$d/live" "$d/site/$f"
+            printf 'ACT430_ACTUAL_HTTPS_EXACT_ARTIFACT %s 200 %s SHA256=' "$f" "$typ"
+            sha256sum "$d/live" | cut -d' ' -f1
+          done
+          python - "$d/site/editor/steam-reader/index.html" "$d/site/editor/timing/index.html" <<'PY'
+          import sys
+          from html.parser import HTMLParser
+          class P(HTMLParser):
+              def __init__(self):
+                  super().__init__(); self.tags=[]
+              def handle_starttag(self,t,a): self.tags.append((t,dict(a)))
+          def get(p):
+              r=P(); r.feed(open(p,encoding='utf-8').read()); return r.tags
+          r,t=map(get,sys.argv[1:])
+          assert any(n=='meta' and a.get('name')=='robots' and set(a.get('content','').split(','))=={'noindex','nofollow'} for n,a in r)
+          assert any('data-preformal-steam-reader' in a for n,a in r)
+          assert any('data-steam-diffgrids-readonly' in a and a.get('data-preformal-read')=='scoped' and a.get('data-product-read')=='off' and a.get('data-writer')=='off' and a.get('data-cloud')=='off' for n,a in r)
+          assert any('data-steam-diffgrids-readonly' in a and a.get('data-preformal-read')=='off' and a.get('data-product-read')=='off' and a.get('data-writer')=='off' for n,a in t)
+          assert not any(a.get('id')=='steam-diffgrids-file' for n,a in r+t)
+          print('ACT430_ACTUAL_HTML_NOINDEX_SCOPED_PREHYDRATION_NO_FILE_TIMING_OFF_PASS')
+          PY
+          rm -rf "$d"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual installed Chrome deployed route readiness, no file selected
+        run: |
+          set -euo pipefail
+          d="$(mktemp -d)"
+          npm install --prefix "$d" --no-audit --no-fund --no-package-lock playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium)"
+          cd "$d"
+          cat > probe.cjs <<'NODE'
+          const assert=require('node:assert/strict');
+          const {chromium}=require('playwright-core');
+          (async()=>{
+            const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+            try {
+              const page=await browser.newPage({viewport:{width:1280,height:900}});
+              const writes=[];page.on('request',r=>{if(!['GET','HEAD','OPTIONS'].includes(r.method()))writes.push(r.method())});
+              const root=process.env.ROOT;
+              let res=await page.goto(root+'/editor/steam-reader/',{waitUntil:'domcontentloaded',timeout:45000});
+              assert.equal(res.status(),200);assert.equal(res.request().redirectedFrom(),null);
+              await page.locator('[data-diffgrids-manual-only]').waitFor({state:'attached',timeout:45000});
+              await page.locator('[data-diffgrids-summary]').click();
+              const p=page.locator('[data-steam-diffgrids-readonly]');
+              assert.equal(await p.count(),1);
+              for(const [k,v] of [['data-preformal-read','scoped'],['data-product-read','off'],['data-writer','off'],['data-cloud','off']])assert.equal(await p.getAttribute(k),v);
+              assert.equal(await page.locator('meta[name=robots]').getAttribute('content'),'noindex,nofollow');
+              assert.equal(await page.locator('#steam-diffgrids-file').isEnabled(),true);
+              assert.equal(await page.locator('#steam-diffgrids-file').evaluate(e=>e.files.length),0);
+              assert.equal(await page.locator('[data-diffgrids-open]').isDisabled(),true);
+              assert.equal(await page.locator('[data-diffgrids-count]').count(),0);
+              assert.equal(await page.locator('[data-diffgrids-manual-only]').innerText().then(t=>t.includes('releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22')&&t.includes('626')),true);
+              console.log('ACT430_REAL_HOSTED_CHROME_SIGNED_WORKER_READY_MANUAL_FILE_NO_AUTO_OPEN_PASS');
+              res=await page.goto(root+'/editor/timing/',{waitUntil:'domcontentloaded',timeout:45000});
+              assert.equal(res.status(),200);assert.equal(res.request().redirectedFrom(),null);
+              await page.locator('[data-steam-diffgrids-readonly]').waitFor({state:'attached'});
+              await page.waitForTimeout(1000);
+              const q=page.locator('[data-steam-diffgrids-readonly]');
+              assert.equal(await q.getAttribute('data-preformal-read'),'off');
+              assert.equal(await q.getAttribute('data-product-read'),'off');
+              assert.equal(await q.getAttribute('data-writer'),'off');
+              assert.equal(await q.locator('#steam-diffgrids-file').count(),0);
+              assert.equal(await q.locator('a[href$="/editor/steam-reader/"]').count(),1);
+              const timing=page.locator('#timing-file');
+              if(await timing.count())assert.equal(await timing.isDisabled(),true);
+              assert.deepEqual(writes,[]);
+              console.log('ACT430_REAL_HOSTED_CHROME_TIMING_OFF_NO_WRITE_REQUESTS_PASS');
+              console.log('ACT430_HOSTED_ROUTE_SCOPE_PASS_NO_SAVE_SELECTED_NO_GENUINE_E2E');
+            }finally{await browser.close()}
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+          node probe.cjs
