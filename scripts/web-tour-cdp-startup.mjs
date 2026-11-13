@@ -27,15 +27,35 @@ export function startupDiagnostic(text){
   'No usable sandbox','Failed to create','SingletonLock','zygote','crashpad','DBus'];
  return flags.filter(x=>s.toLowerCase().includes(x.toLowerCase())).join(',')||'none';
 }
+// One bounded HTTP observation. A received identity mismatch is not a timeout;
+// a response that never completes must never be classified as an identity match.
+// This legacy diagnostic is not a fallback for the private CDP pipe.
+export async function probeBrowserEndpoint(endpoint,{signal=AbortSignal.timeout(500),fetcher=fetch}={}){
+ const m=/^ws:\/\/127\.0\.0\.1:(\d{1,5})(\/devtools\/browser\/[a-f0-9-]{36})$/i.exec(endpoint);
+ if(!m||localBrowserEndpoint(Number(m[1]),m[2])!==endpoint)return 'ENDPOINT_INVALID';
+ if(signal.aborted)return 'PROBE_DEADLINE';
+ try{
+  const response=await fetcher('http://127.0.0.1:'+m[1]+'/json/version',{redirect:'error',signal});
+  if(signal.aborted)return 'PROBE_DEADLINE';
+  if(response.status>=300&&response.status<400)return 'HTTP_REDIRECT';
+  if(!response.ok)return 'HTTP_STATUS_'+String(response.status||0);
+  let info;
+  try{info=await response.json()}
+  catch(e){return signal.aborted||e?.name==='AbortError'||e?.name==='TimeoutError'?'PROBE_DEADLINE':
+    e instanceof SyntaxError?'JSON_INVALID':probeFailure(e)}
+  if(signal.aborted)return 'PROBE_DEADLINE';
+  return info?.webSocketDebuggerUrl===endpoint?'MATCH':'ENDPOINT_IDENTITY_MISMATCH';
+ }catch(e){return signal.aborted?'PROBE_DEADLINE':probeFailure(e)}
+}
 export async function waitForBrowserEndpoint({workspace,child,getStderr,getSpawnError,
  timeoutMs=15000,fetcher=fetch}){
- const end=Date.now()+timeoutMs;
+ const end=performance.now()+timeoutMs;
  let last='no local DevTools endpoint';
  let candidate='none';
  const fail=reason=>Error('CHROME_CDP_STARTUP_'+reason+
   ' exit='+String(child.exitCode)+' signal='+String(child.signalCode)+
   ' candidate='+candidate+' stderrMarkers='+startupDiagnostic(getStderr()));
- while(Date.now()<end){
+ while(performance.now()<end){
   if(getSpawnError())throw fail('SPAWN_ERROR');
   if(child.exitCode!==null||child.signalCode!==null)throw fail('EARLY_EXIT');
   let file=null;
@@ -44,24 +64,17 @@ export async function waitForBrowserEndpoint({workspace,child,getStderr,getSpawn
   const endpoint=file||parseDevToolsStderr(getStderr());
   candidate=file?'active-port-file':endpoint?'stderr':'none';
   if(endpoint){
-   try{
-    const url=new URL(endpoint);
-    const response=await fetcher('http://127.0.0.1:'+url.port+'/json/version',{
-     redirect:'error',signal:AbortSignal.timeout(Math.max(1,Math.min(500,end-Date.now())))});
-    if(response.status>=300&&response.status<400){last='HTTP_REDIRECT';}
-    else if(!response.ok){last='HTTP_STATUS_'+String(response.status||0);}
-    else{
-     let info;
-     try{info=await response.json()}catch{last='JSON_INVALID';await sleep(Math.min(100,Math.max(0,end-Date.now())));continue;}
-     if(info?.webSocketDebuggerUrl===endpoint){
-      if(getSpawnError()||child.exitCode!==null||child.signalCode!==null)throw fail('EARLY_EXIT');
-      return {endpoint,discovery:file?'active-port-file':'stderr'};
-     }
-     last='ENDPOINT_IDENTITY_MISMATCH';
-    }
-   }catch(e){if(String(e?.message).startsWith('CHROME_CDP_STARTUP_'))throw e;last=probeFailure(e)}
+   const remaining=end-performance.now();
+   if(remaining<=0){last='PROBE_DEADLINE';break}
+   const signal=AbortSignal.timeout(Math.max(1,Math.min(500,Math.floor(remaining))));
+   last=await probeBrowserEndpoint(endpoint,{signal,fetcher});
+   if(getSpawnError()||child.exitCode!==null||child.signalCode!==null)throw fail('EARLY_EXIT');
+   if(last==='MATCH'){
+    if(performance.now()>=end){last='PROBE_DEADLINE';break}
+    return {endpoint,discovery:candidate};
+   }
   }
-  await sleep(Math.min(100,Math.max(0,end-Date.now())));
+  await sleep(Math.min(100,Math.max(0,end-performance.now())));
  }
  throw fail('TIMEOUT '+last);
 }
