@@ -41,6 +41,34 @@ try{
   const publicDir=join(dir,'public');await mkdir(publicDir,{mode:0o755});
   checkDenied(call(['--new-inventory-candidate','--out',join(publicDir,'out')]),'PRIVATE_OUTPUT_DIRECTORY_PERMISSIONS');
  }
+ // E1330/E1335 synthetic Furniture Catalog zero route. Exact saved
+ // restriction, positive item and amount, no authority or default inference.
+ const furniture=JSON.parse(input);
+ furniture.Player.ListInventories[0]={ID:0,CompatibleItemType:'ItemType_Furniture',
+  CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},
+  Inventory:{40000001:{Amount:7,Marker:'ItemMarker_None'},40700001:{Amount:5}}};
+ const bytes=Buffer.from(JSON.stringify(furniture));
+ const z=join(dir,'zero.json');
+ p=call(['--new-inventory-candidate','--out',z],{WAND_LOCAL_DECODED_SHA256:sha(bytes)},bytes);
+ assert.equal(p.status,0,p.stderr);assert.equal(p.stdout,'');
+ const zr=JSON.parse(await readFile(z));assert.equal(zr.inventoryId,0);assert.equal(zr.itemId,40000001);
+ assert.equal(zr.oldAmount,7);assert.equal(zr.writerAuthorized,false);assert.equal(zr.rightsVerified,false);
+ const ze=join(dir,'zero-explicit.json');
+ p=call(['--inventory','0','40000001','--out',ze],{WAND_LOCAL_DECODED_SHA256:sha(bytes)},bytes);
+ assert.equal(p.status,0,p.stderr);assert.equal(JSON.parse(await readFile(ze)).entrySha256,zr.entrySha256);
+ for(const [i,j] of [['00','40000001'],['0','0'],['0','40700001'],['0','30000002']]){
+  checkDenied(call(['--inventory',i,j,'--out',bad],{WAND_LOCAL_DECODED_SHA256:sha(bytes)},bytes),
+   i==='00'||j==='0'?'SELECTOR_ID':'NO_EXACT_EXISTING_INVENTORY_TARGET');
+ }
+ for(const badRoute of [{ID:1},{CompatibleItemType:'ItemType_ActivityItem'},
+  {CompatibleFurnitureTypes:null},{CompatibleFurnitureTypes:{List:['FurnitureItemType_Fence']}},
+  {CompatibleFurnitureTypes:{List:['FurnitureItemType_Default','Unknown']}}]){
+  const d=JSON.parse(bytes);Object.assign(d.Player.ListInventories[0],badRoute);
+  const b=Buffer.from(JSON.stringify(d));
+  checkDenied(call(['--inventory','0','40000001','--out',bad],{WAND_LOCAL_DECODED_SHA256:sha(b)},b),'NO_EXACT_EXISTING_INVENTORY_TARGET');
+ }
+ assert.deepEqual(JSON.parse(await readFile(z)),zr);
+ console.log('FURNITURE_ZERO_ROUTE_SYNTHETIC_2POS9NEG_PASS');
  assert.deepEqual(JSON.parse(await readFile(out)),r);
  console.log('PRIVATE_EXISTING_AMOUNT_READ_SYNTHETIC_2POS_NEG_PASS_NO_PRIVATE_DATA_NO_WRITER');
 }finally{await rm(dir,{recursive:true,force:true})}

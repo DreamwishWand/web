@@ -18,7 +18,7 @@ mod local {
         if h.len()!=64||h.bytes().any(|b|!matches!(b,b'0'..=b'9'|b'a'..=b'f'))||h.bytes().all(|b|b==b'0'){fail("SHA_FORMAT")}
         h
     }
-    fn id(s:&str)->u32{let v=s.parse::<u32>().unwrap_or_else(|_|fail("SELECTOR_ID"));if v==0||v.to_string()!=s{fail("SELECTOR_ID")}v}
+    fn id(s:&str,allow_zero:bool)->u32{let v=s.parse::<u32>().unwrap_or_else(|_|fail("SELECTOR_ID"));if (!allow_zero&&v==0)||v.to_string()!=s{fail("SELECTOR_ID")}v}
     fn output_path(raw:&str)->PathBuf{
         let p=Path::new(raw);
         if !p.is_absolute()||p.file_name().is_none(){fail("PRIVATE_OUTPUT_ABSOLUTE_REQUIRED")}
@@ -40,7 +40,7 @@ mod local {
         let (selection,path)=match argv.as_slice(){
             [m,o,p] if m=="--new-inventory-candidate"&&o=="--out"=>(None,output_path(p)),
             [m,i,j,o,p] if m=="--inventory"&&o=="--out"=>
-                (Some(ExistingAmountSelection::Inventory{inventory_id:id(i),item_id:id(j)}),output_path(p)),
+                (Some(ExistingAmountSelection::Inventory{inventory_id:id(i,true),item_id:id(j,false)}),output_path(p)),
             _=>fail("ARGS"),
         };
         if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT{fail("EXACT_STEAM_BUILD")}
