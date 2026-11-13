@@ -1,0 +1,95 @@
+name: 07 DBK owner canary static build verification
+on:
+  pull_request:
+    branches: ['07dbk/pages-canary-source-20261113']
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin exact source scope and binary fixtures
+        run: |
+          set -euo pipefail
+          git diff --name-status e7ef599a1ec524374ad079618e37bfb1e0bb3be0 HEAD
+          test "$(git diff --name-only e7ef599a1ec524374ad079618e37bfb1e0bb3be0 HEAD)" = '.github/workflows/07dbk-pages-canary-owner-focus.yml'
+          git checkout --detach e7ef599a1ec524374ad079618e37bfb1e0bb3be0
+          python3 - <<'PY'
+          import pathlib, subprocess, hashlib, struct
+          base='a81c591f18a35ed477166b4945421d70dd221ec0'
+          src='e7ef599a1ec524374ad079618e37bfb1e0bb3be0'
+          p='static/__dbk-takedown-rehearsal__/20261113/'
+          names=['alias.webp','canary.webp','control.webp']
+          expected={p+n: ('5d8814f2a6795e7c976a43d97e98332b9ecf831857db7d0e726604f5b4656997' if n=='control.webp' else 'ff3faebd2f71d24f08b4fdcb5135f36accd8badb7c4dff81e7d7a318457fab50') for n in names}
+          diff=subprocess.check_output(['git','diff','--name-status',base,src],text=True).splitlines()
+          assert sorted(diff)==sorted('A\t'+n for n in expected),diff
+          assert not subprocess.check_output(['git','ls-tree','-r','--name-only',base,'static/__dbk-takedown-rehearsal__'],text=True).strip()
+          for path,h in expected.items():
+              b=pathlib.Path(path).read_bytes()
+              assert len(b)==44 and hashlib.sha256(b).hexdigest()==h
+              assert b[:4]==b'RIFF' and b[8:16]==b'WEBPVP8L' and b[20]==0x2f
+              n=struct.unpack('<I',b[21:25])[0]
+              assert ((n&0x3fff)+1,((n>>14)&0x3fff)+1)==(160,160)
+          assert pathlib.Path(p+'alias.webp').read_bytes()==pathlib.Path(p+'canary.webp').read_bytes()
+          assert pathlib.Path(p+'control.webp').read_bytes()!=pathlib.Path(p+'canary.webp').read_bytes()
+          assert subprocess.check_output(['git','rev-parse','HEAD:.github/workflows/pages.yml'],text=True).strip()=='05712e73defe1fadb344cd389905afcc756bbba1'
+          print('ACT432_EXACT_SOURCE3_BINARY_PINS_PASS')
+          PY
+      - run: npm ci --no-audit --no-fund
+      - name: Build actual static candidate (no deployment or signing)
+        env:
+          BASE_PATH: /web
+        run: npm run build
+      - name: Verify built files and unchanged static route coverage
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib, hashlib, json, subprocess, zipfile
+          root=pathlib.Path('build'); ns=root/'__dbk-takedown-rehearsal__'
+          p=ns/'20261113'
+          target='ff3faebd2f71d24f08b4fdcb5135f36accd8badb7c4dff81e7d7a318457fab50'
+          control='5d8814f2a6795e7c976a43d97e98332b9ecf831857db7d0e726604f5b4656997'
+          expected={'alias.webp':target,'canary.webp':target,'control.webp':control}
+          actual=sorted(f.relative_to(ns).as_posix() for f in ns.rglob('*') if f.is_file())
+          assert actual==['20261113/'+n for n in sorted(expected)],actual
+          for n,h in expected.items():
+              b=(p/n).read_bytes(); assert len(b)==44 and hashlib.sha256(b).hexdigest()==h
+              assert b==(pathlib.Path('static/__dbk-takedown-rehearsal__/20261113')/n).read_bytes()
+          # Ordinary PR build must not create protected-main signed binaries.
+          assert not (root/'worker-wasm/ddv_save_core_bg.wasm').exists()
+          assert not (root/'worker-wasm/ddv_save_core.js').exists()
+          assert not (root/'worker-wasm/manifest.json').exists()
+          ci=pathlib.Path('.github/workflows/ci.yml').read_text()
+          routes=[line.strip().split('test -f build/',1)[1] for line in ci.splitlines() if line.strip().startswith('test -f build/')]
+          assert len(routes)>=30 and all((root/r).is_file() for r in routes)
+          # Actual build archive: full inventory, CRC, exact three canary bytes.
+          archive=pathlib.Path('/tmp/act432-built-static.zip')
+          with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
+              for f in sorted(root.rglob('*')):
+                  if f.is_file(): z.write(f,f.relative_to(root).as_posix())
+          with zipfile.ZipFile(archive) as z:
+              assert z.testzip() is None
+              names=z.namelist()
+              assert sorted(n for n in names if n.startswith('__dbk-takedown-rehearsal__/'))==['__dbk-takedown-rehearsal__/20261113/'+n for n in sorted(expected)]
+              for n,h in expected.items():
+                  assert hashlib.sha256(z.read('__dbk-takedown-rehearsal__/20261113/'+n)).hexdigest()==h
+              # No original archive, game pixels, or item manifest added by fixture.
+              assert not any(n.startswith('ddv/item-images/switch-1.25.3-schema626-lossless160-v1/') for n in names)
+              receipt={'source':'e7ef599a1ec524374ad079618e37bfb1e0bb3be0','files':len(names),'routes':len(routes),'zipSha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'canary':expected,'signed3':'NOT_GENERATED_IN_PR_BUILD','deployment':'NOT_RUN'}
+              print(json.dumps(receipt,sort_keys=True))
+              pathlib.Path('/tmp/act432-receipt.json').write_text(json.dumps(receipt,sort_keys=True))
+          print('ACT432_ACTUAL_STATIC_BUILD_ARCHIVE_EXACT3_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: act432-owner-focused-receipt
+          path: /tmp/act432-receipt.json
+          if-no-files-found: error
