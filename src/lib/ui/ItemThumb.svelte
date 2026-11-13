@@ -3,7 +3,7 @@
   import { base } from '$app/paths';
   import { itemImagePreferences } from '$lib/item-media/public-item-images.mjs';
   import { switch1253PublicItemImageSource,
-    loadSwitch1253PublicItemImageSource, scopedSwitch1253ItemImageHref } from '$lib/item-media/switch1253-public-item-images.mjs';
+    retainSwitch1253PublicItemImageSource, scopedSwitch1253ItemImageHref } from '$lib/item-media/switch1253-public-item-images.mjs';
 
   export let itemId: number | string;
   export let label = '';
@@ -12,7 +12,7 @@
   $: imageHref = $switch1253PublicItemImageSource.status === 'VERIFIED'
     ? scopedSwitch1253ItemImageHref(base,itemId,$switch1253PublicItemImageSource.catalog) : null;
   $: renderHref = imageHref && imageHref!==failedUrl ? imageHref : null;
-  onMount(() => { loadSwitch1253PublicItemImageSource(base); });
+  onMount(() => retainSwitch1253PublicItemImageSource(base));
 </script>
 
 <span class="item-image" class:compact data-item-thumb-id={String(itemId)}
