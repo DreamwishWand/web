@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import sys
 
 SCHEMA = "wand.01d.v1253-original-image-candidate-preflight@1"
 DRAFT = "wand.01d.versioned-image-release-hold@1"
@@ -38,7 +39,13 @@ def accepted_native_reader():
     if spec is None or spec.loader is None:
         raise ValueError("ACCEPTED_NATIVE_READER_UNAVAILABLE")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # Source-only import: never emit a bytecode cache in the checkout.
+    previous = sys.dont_write_bytecode
+    try:
+        sys.dont_write_bytecode = True
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = previous
     return module
 
 
@@ -60,18 +67,15 @@ def _overlap(a: Path, b: Path) -> bool:
     return a == b or a in b.parents or b in a.parents
 
 
-def _output_parent(root: Path, report: Path) -> Path:
-    if ".." in report.parts or report.is_symlink() or report.exists():
-        raise ValueError("REPORT_ALIAS_OR_EXISTS")
-    parent = _checked_directory(report.parent, "REPORT_PARENT_UNSAFE")
+def _private_root(root: Path) -> Path:
+    root = _checked_directory(root, "PRIVATE_ROOT_INVALID")
     repo = Path(__file__).resolve().parents[2]
-    if _overlap(root, parent) or _overlap(repo, parent):
-        raise ValueError("REPORT_ALIAS_OR_EXISTS")
-    # Also reject a different Git checkout, including a worktree .git file.
+    if _overlap(root, repo):
+        raise ValueError("PRIVATE_ROOT_INVALID")
     if any((p / ".git").exists() or (p / ".git").is_symlink()
-           for p in (parent, *parent.parents)):
-        raise ValueError("REPORT_PARENT_UNSAFE")
-    return parent
+           for p in (root, *root.parents)):
+        raise ValueError("PRIVATE_ROOT_INVALID")
+    return root
 
 
 def _directory_fd(path: Path, error: str) -> int:
@@ -213,7 +217,7 @@ def assemble(rows: dict, ids: list[str], source_tier: str):
 
 
 def read_private_source(root: Path, *, root_fd: int | None = None):
-    root = _checked_directory(root, "PRIVATE_ROOT_INVALID")
+    root = _private_root(root)
     if root_fd is None:
         fd = _directory_fd(root, "PRIVATE_ROOT_INVALID")
         try:
@@ -233,40 +237,32 @@ def read_private_source(root: Path, *, root_fd: int | None = None):
     return rows
 
 
-def emit_private_report(root: Path, report: Path, ids):
+def create_private_report(root: Path, ids):
+    """Return the complete private HOLD in memory, never a file-path write."""
     _ids(ids)
-    root = _checked_directory(root, "PRIVATE_ROOT_INVALID")
-    report = report.absolute()
-    parent = _output_parent(root, report)
+    root = _private_root(root)
     root_fd = _directory_fd(root, "PRIVATE_ROOT_INVALID")
     try:
-        parent_fd = _directory_fd(parent, "REPORT_PARENT_UNSAFE")
-        try:
-            a, b = os.fstat(root_fd), os.fstat(parent_fd)
-            if (a.st_dev, a.st_ino) == (b.st_dev, b.st_ino):
-                raise ValueError("REPORT_ALIAS_OR_EXISTS")
-            rows = read_private_source(root, root_fd=root_fd)
-            result = assemble(rows, ids, "OWNER_LOCAL_ORIGINAL_STEAM_SHA_VERIFIED")
-            payload = (json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-            # Revalidate after reading; do not follow a replaced parent or root.
-            _checked_directory(root, "PRIVATE_ROOT_INVALID")
-            _output_parent(root, report)
-            _same_directory(root, root_fd, "PRIVATE_ROOT_INVALID")
-            _same_directory(parent, parent_fd, "REPORT_PARENT_UNSAFE")
-            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
-            try:
-                fd = os.open(report.name, flags, 0o600, dir_fd=parent_fd)
-            except FileExistsError:
-                raise ValueError("REPORT_ALIAS_OR_EXISTS") from None
-            with os.fdopen(fd, "wb") as out:
-                out.write(payload)
-        finally:
-            os.close(parent_fd)
+        rows = read_private_source(root, root_fd=root_fd)
+        result = assemble(rows, ids, "OWNER_LOCAL_ORIGINAL_STEAM_SHA_VERIFIED")
+        _private_root(root)
+        _same_directory(root, root_fd, "PRIVATE_ROOT_INVALID")
+        return result
     finally:
         os.close(root_fd)
-    return {"schema": SCHEMA, "count": len(ids),
+
+
+def emit_private_report(root: Path, report: Path, ids):
+    """Legacy path-writing API is disabled; no output or input I/O."""
+    raise ValueError("PRIVATE_REPORT_PATH_WRITE_DISABLED")
+
+
+def report_summary(result):
+    payload = (json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    return {"schema": SCHEMA, "count": result["counts"]["requested"],
             "nativePresent": result["counts"]["steamNativePresent"],
             "publicImageRows": 0, "sourceTier": result["sourceTier"],
+            "privateReportWritten": False,
             "reportSha256": hashlib.sha256(payload).hexdigest()}
 
 
@@ -306,10 +302,11 @@ def main():
     if args.self_test:
         print(json.dumps(self_test(), sort_keys=True))
         return
-    if args.root is None or args.report is None:
-        raise ValueError("PRIVATE_SOURCE_AND_REPORT_REQUIRED")
-    _ids(args.item_id)
-    print(json.dumps(emit_private_report(args.root, args.report, args.item_id), sort_keys=True))
+    if args.report is not None:
+        raise ValueError("PRIVATE_REPORT_PATH_WRITE_DISABLED")
+    if args.root is None:
+        raise ValueError("PRIVATE_SOURCE_REQUIRED")
+    print(json.dumps(report_summary(create_private_report(args.root, args.item_id)), sort_keys=True))
 
 
 if __name__ == "__main__":
