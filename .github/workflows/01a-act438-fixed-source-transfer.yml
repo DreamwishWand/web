@@ -1,4 +1,4 @@
-name: 01A ACT490 immutable public Source transfer (no private data)
+name: 01A ACT505 immutable public Source transfer (no private data)
 on:
   push:
     branches: ['01a/act438-fixed-source-transfer']
@@ -11,18 +11,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: '6d33d267383cfa956e742be6a6be254ba27f4278'
-      - name: Verify exact source and archive only tracked public Core plus synthetic test
+          ref: 'fc17e42a55695eeab5b8dff0ef7257fefca6c168'
+      - name: Archive exact tracked release-trust Source and synthetic tests
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = '6d33d267383cfa956e742be6a6be254ba27f4278'
-          git ls-tree -r HEAD crates/ddv-save-core > source-blobs.txt
-          git archive --format=tar HEAD crates/ddv-save-core | gzip -n > source.tar.gz
+          test "$(git rev-parse HEAD)" = 'fc17e42a55695eeab5b8dff0ef7257fefca6c168'
+          git ls-tree -r HEAD .github/workflows/pages.yml .github/workflows/01a-protected-main-signed-wasm-release-off.yml .github/workflows/01a-stable-readonly-release-loader.yml scripts/readonly-release scripts/wasm-distribution src/lib/ddv/core/save src/lib/wep/steam-saved-diffgrids.consumer.worker.ts tests/protected-readonly-release.test.mjs tests/readonly-release > source-blobs.txt
+          git archive --format=tar HEAD .github/workflows/pages.yml .github/workflows/01a-protected-main-signed-wasm-release-off.yml .github/workflows/01a-stable-readonly-release-loader.yml scripts/readonly-release scripts/wasm-distribution src/lib/ddv/core/save src/lib/wep/steam-saved-diffgrids.consumer.worker.ts tests/protected-readonly-release.test.mjs tests/readonly-release | gzip -n > source.tar.gz
           sha256sum source.tar.gz source-blobs.txt > source.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: act490-fixed-public-source-only
+          name: act505-fixed-public-source-only
           path: |
             source.tar.gz
             source-blobs.txt
