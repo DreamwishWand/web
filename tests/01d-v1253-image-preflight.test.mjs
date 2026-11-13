@@ -46,7 +46,7 @@ test('01D private source accepts neither a counterfeit size/SHA nor an alleged c
   } finally {x.cleanup();}
 });
 
-test('01D report is exclusive no-clobber and cannot alias the original input directory', () => {
+test('01D legacy report path writes are disabled and existing files remain unchanged', () => {
   const x = fixture();
   try {
     const report = join(x.output, 'report.json');
@@ -120,7 +120,7 @@ with tempfile.TemporaryDirectory(prefix="wand-781-memory-") as tmp:
         assert result["releaseManifestDraft"]["items"]=={} and not result["canPublishImage"]
         assert not result["canEnableItemThumb"] and not result["canWriteSave"] and not result["cloudUploadAllowed"]
         assert result["samples"][0]["iconGuid"]=="guid:"+"a"*32 and result["samples"][1]["status"]=="MISSING_NATIVE_ITEM"
-        assert summary["reportSha256"]==hashlib.sha256((json.dumps(result,ensure_ascii=False,indent=2)+"\\n").encode()).hexdigest()
+        assert summary["reportSha256"]==hashlib.sha256((json.dumps(result,ensure_ascii=False,indent=2)+"\n").encode()).hexdigest()
         report=output/"receipt.json"; report.write_bytes(b"sentinel")
         deny(original,report); assert report.read_bytes()==b"sentinel"
         link=base/"alias"; link.symlink_to(original,target_is_directory=True)
