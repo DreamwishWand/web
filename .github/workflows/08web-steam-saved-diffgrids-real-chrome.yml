@@ -1,10 +1,11 @@
-name: 08 WEB protected signed Rust read-only Consumer (Owner OFF)
+name: 08 WEB protected signed Rust preformal read-only Consumer
 on:
   pull_request:
     paths:
       - 'src/lib/wep/SteamSavedDiffGridsReadonly.svelte'
       - 'src/lib/wep/steam-saved-diffgrids*'
       - 'src/routes/editor/timing/+page.svelte'
+      - 'src/routes/editor/steam-reader/+page.svelte'
       - 'tests/web-steam-saved-diffgrids*'
       - '.github/workflows/08web-steam-saved-diffgrids-real-chrome.yml'
 permissions:
@@ -29,6 +30,7 @@ jobs:
           set -euo pipefail
           test -z "$(git ls-files static/worker-wasm tests/stage-f/fixtures)"
           grep -Fx 'const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
+          grep -Fx 'const PREFORMAL_STEAM_READER_ENABLED=true;' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
           ! grep -F 'await import(/* @vite-ignore */ path.href)' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
           test ! -e src/lib/ddv/core/save/product-wasm-distribution-flag-on.js
       - name: Reuse exact already signed protected Pages artifact (no new upload)
@@ -103,14 +105,19 @@ jobs:
           await writeFile(path,'// TEST ONLY; verified historical signed assets, isolated origin.\nconst a='+JSON.stringify(a)+';Object.freeze(a.pins);export const PROTECTED_READONLY_RELEASE_ANCHOR=Object.freeze(a);\n');
           console.log('08WEB_TEST_ONLY_RELEASE_ID',a.releaseId);
           NODE
-      - name: QA-ONLY ephemeral opt-in (NEVER a product Source commit)
+      - name: Build exact preformal Source with test-origin verified anchor only
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run build
+          test -f build/editor/steam-reader/index.html
+          WAND_PREFORMAL_PRODUCTION_NEGATIVE=1 node tests/web-steam-saved-diffgrids-real-chrome.mjs
+      - name: QA-ONLY synthetic attestation (NEVER a product Source commit)
         run: |
           node --input-type=module <<'NODE'
           import {readFile,writeFile} from 'node:fs/promises';
           const edits=[
             ['src/lib/wep/steam-saved-diffgrids.consumer.worker.ts',[
-              ['const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;',
-               'const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=true;'],
               ['allowSyntheticFixture:false','allowSyntheticFixture:true']]],
             ['src/lib/wep/steam-saved-diffgrids-ui-client.mjs',[
               ["evidenceKind:'owner-observed-installed-steam-fullversion'",
@@ -125,7 +132,7 @@ jobs:
             }
             await writeFile(name,file);
           }
-          console.log('08WEB_QA_ONLY_EPHEMERAL_LOCAL_RUST_READER_ON_SYNTHETIC_NOT_COMMITTED');
+          console.log('08WEB_PREFORMAL_READER_SYNTHETIC_ATTESTATION_TEST_ONLY_NOT_COMMITTED');
           NODE
       - name: Build temporary local UI with signed real Rust byte assets
         env:
@@ -137,15 +144,18 @@ jobs:
           test -s build/worker-wasm/ddv_save_core.js
           test -s build/worker-wasm/ddv_save_core_bg.wasm
           test -f build/editor/timing/index.html
+          test -f build/editor/steam-reader/index.html
           command -v google-chrome
       - name: REAL installed Chrome actual Svelte UI manual P1G → signed Rust ProductSession
         run: node tests/web-steam-saved-diffgrids-real-chrome.mjs
-      - name: No runtime ON or original/private Save in Source or outputs
+      - name: Formal Reader and Writer OFF; no original/private Save in Source or outputs
         run: |
           set -euo pipefail
           test -z "$(git ls-files static/worker-wasm tests/stage-f/fixtures)"
           ! git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -F 'PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=true'
           git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -Fx 'const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;'
+          git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -Fx 'const PREFORMAL_STEAM_READER_ENABLED=true;'
+          git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -F 'allowSyntheticFixture:false'
           ! git show HEAD:src/lib/wep/steam-saved-diffgrids-ui-client.mjs | grep -F "evidenceKind:'ci-synthetic-fixture'"
           git show HEAD:src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs | grep -Fx 'export const PROTECTED_READONLY_RELEASE_ANCHOR=null;'
-          echo '08WEB_SYNTHETIC_CHROME_TEST_ONLY_REAL_PUBLIC_RUST_ASSETS_PRODUCT_CONSUMER_OFF'
+          echo '08WEB_SYNTHETIC_CHROME_TEST_ONLY_REAL_PUBLIC_RUST_ASSETS_PREFORMAL_SCOPED_FORMAL_OFF'
