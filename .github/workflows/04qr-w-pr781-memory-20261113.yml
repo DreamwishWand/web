@@ -1,0 +1,26 @@
+name: "04 QR-W PR781 memory-only actual OS"
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr781-memory-*.py'
+      - '.github/workflows/04qr-w-pr781-memory-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  independent-memory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent actual OS no-write and memory-only checks
+        run: python3 scripts/04qr-w-pr781-memory-independent-20261113.py
+      - name: Source synthetic regressions
+        if: always()
+        run: node --test tests/01d-v1253-image-preflight.test.mjs
