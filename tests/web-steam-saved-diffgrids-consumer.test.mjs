@@ -144,3 +144,8 @@ test('unavailable copy states prerequisites and no local read while unavailable 
  }
  assert.equal(savedDiffGridsCopy('unsupported').unavailable,expected.en);
 });
+
+test('preformal reader route label is localized in all eight locales',()=>{
+ const expected={"en":"Steam 1.25.3 · Pre-release read-only test","fr":"Steam 1.25.3 · Test en lecture seule avant publication","it":"Steam 1.25.3 · Test in sola lettura prima del rilascio","de":"Steam 1.25.3 · Schreibgeschützter Vorabtest","es-ES":"Steam 1.25.3 · Prueba de solo lectura previa al lanzamiento","ja":"Steam 1.25.3 · 正式リリース前の読み取り専用テスト","zh-CN":"Steam 1.25.3 · 正式发布前只读测试","pt-BR":"Steam 1.25.3 · Teste somente leitura antes do lançamento"};
+ for(const locale of STEAM_DIFFGRIDS_LOCALES)assert.equal(savedDiffGridsCopy(locale).preformal,expected[locale]);
+});
