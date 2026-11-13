@@ -183,6 +183,59 @@ export async function testRealEncryptedSavedDiffGridsFacade(WorkerWasmSource){
  const lastClosed=await call({kind:'CLOSE_LOCAL_STORED_DIFFGRIDS',
    requestId:++id,selection:newAccepted.summary.selection});
  check(lastClosed.ok===true,'AFTER_STALE_CLOSE_B_STILL_LIVE');
+ // QA1021 causal regression: OPEN completed inside the actual Worker,
+ // but its reply is withheld from the UI. Cancel by OPEN request identity
+ // before any selection-based READ or new OPEN, not by local UI state.
+ const completedRequest=open();
+ const completed=await call(completedRequest);
+ check(completed.ok===true,'CANCEL_COMPLETED_OPEN_READY');
+ const cancelledSelection=completed.summary.selection;
+ const cancel=(openRequestId,extra={})=>call({
+   kind:'CLOSE_LOCAL_STORED_DIFFGRIDS',requestId:++id,
+   selection:null,openRequestId,...extra
+ });
+ const rawRead=(selection,pageIndex=0)=>call({
+   kind:'READ_LOCAL_STORED_DIFFGRIDS_NEXT',requestId:++id,selection,pageIndex
+ });
+ const revoked=await cancel(completedRequest.requestId);
+ check(revoked.ok===true&&revoked.summary.closed===true,'CANCEL_COMPLETED_OPEN_REVOKED');
+ const cancelledRead=await rawRead(cancelledSelection);
+ check(cancelledRead.ok===false&&cancelledRead.error==='LOCAL_DIFFGRIDS_STALE_READ_OR_REPLAY',
+   'CANCEL_COMPLETED_OPEN_WIRE_READ_DENIED');
+ check((await cancel(completedRequest.requestId)).ok===false,'REPEATED_CANCEL_DENIED');
+ const freshRequest=open(),fresh=await call(freshRequest);
+ check(fresh.ok===true&&fresh.summary.selection!==cancelledSelection,'CANCEL_FRESH_SESSION');
+ const freshSel=fresh.summary.selection;
+ // Old/duplicate OPEN must not revoke a newer live Session or create an
+ // ABA identity. A delayed cancel for the old request must be inert.
+ for(const req of [completedRequest,freshRequest]){
+   const replay=await call(req);
+   check(replay.ok===false&&replay.error==='LOCAL_DIFFGRIDS_STALE_OPEN_OR_REPLAY',
+     'OPEN_ID_REPLAY_DENIED');
+ }
+ for(const wrong of [completedRequest.requestId,0,-1,1.5,'200',null,
+                     freshRequest.requestId+10000]){
+   const rejected=await cancel(wrong);
+   check(rejected.ok===false&&rejected.error==='LOCAL_DIFFGRIDS_STALE_SELECTION',
+     'CANCEL_WRONG_ID_DENIED');
+ }
+ check((await cancel(freshRequest.requestId,{unexpected:true})).ok===false,
+   'CANCEL_EXTRA_FIELD_DENIED');
+ check((await rawRead(freshSel)).ok===true,'STALE_CANCEL_PRESERVES_FRESH_SESSION');
+ // Cancel by original OPEN after reading one page is also exact, not an
+ // authorization to close a different active selection.
+ check((await cancel(freshRequest.requestId)).ok===true,'CANCEL_AFTER_READ_REVOKED');
+ check((await rawRead(freshSel,1)).ok===false,'CANCEL_AFTER_READ_DENIED');
+ const invalidRequest=open({unexpectedWriter:true});
+ check((await call(invalidRequest)).ok===false,'INVALID_FRESH_OPEN_DENIED');
+ const newerRequest=open(),newer=await call(newerRequest);
+ check(newer.ok===true,'NEW_AFTER_INVALID');
+ check((await call(invalidRequest)).error==='LOCAL_DIFFGRIDS_STALE_OPEN_OR_REPLAY',
+   'INVALID_OPEN_ID_CANNOT_REPLAY');
+ check((await cancel(invalidRequest.requestId)).ok===false,'INVALID_OPEN_CANCEL_INERT');
+ check((await rawRead(newer.summary.selection)).ok===true,'NEW_AFTER_INVALID_STILL_LIVE');
+ check((await cancel(newerRequest.requestId)).ok===true,'FINAL_CANCEL');
+ console.log('STAGEF_CANCELLED_COMPLETED_OPEN_ACTUAL_WIRE_REVOCATION_PASS');
  facade.close();
  return Object.freeze({
    source:'public-synthetic-generated-p1g',
@@ -191,6 +244,7 @@ export async function testRealEncryptedSavedDiffGridsFacade(WorkerWasmSource){
    pages:pageCounts,records:17,gridId0LiteralUnresolved:firstGridZero,
    ABStaleReadAndCloseDenied:true,concurrentStaleOpenDenied:true,
    replayAndClosedDenied:true,sourceShaAndSizeChecked:true,
+   cancelledCompletedOpenRevoked:true,openIdentityReplayDenied:true,
    metadataOnlyToUI:true,allNativeReferencesVerified:false,
    productReadAccepted:false,writerAuthorized:false,
    realSteamOwnerP1gTested:false
