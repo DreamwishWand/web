@@ -1,0 +1,32 @@
+name: 04 QR-W existing Pages private research exclusion
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pages-private-research-20261113.py'
+      - '.github/workflows/04qr-w-pages-private-research-20261113.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  fixed-artifact-and-https:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify fixed artifact metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/DreamwishWand/web/actions/artifacts/14021061938 --jq '.id == 14021061938 and .name == "github-pages" and .expired == false and .workflow_run.id == 43391843099 and .workflow_run.head_sha == "e3e8a9275f6a2ca3e4ad17d0c3db2f9a6889df9b" and .digest == "sha256:cb908abd03258197a4480e117706880446b4c35008f0a1cf0a1b128c8c3fe56d"' | grep -Fx true
+      - uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          run-id: 43391843099
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/wand-fixed-pages
+      - name: Inspect actual archive and public HTTPS exact six negatives
+        run: python3 scripts/04qr-w-pages-private-research-20261113.py "${{ runner.temp }}/wand-fixed-pages"
