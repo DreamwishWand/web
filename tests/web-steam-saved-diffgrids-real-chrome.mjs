@@ -209,7 +209,8 @@ const script=String.raw`
  const dt=new DataTransfer();dt.items.add(file);
  const select=(digest)=>{
   const input=present('#steam-diffgrids-file','FILE');need(!input.disabled,'FILE_DISABLED');
-  input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+  const fresh=new DataTransfer();fresh.items.add(file);
+  input.files=fresh.files;need(input.files.length===1,'FRESH_SYNTHETIC_FILE_LIST');input.dispatchEvent(new Event('change',{bubbles:true}));
   setSha(digest);
   const check=present('input[type=checkbox]','CONFIRM');
   check.checked=true;check.dispatchEvent(new Event('change',{bubbles:true}));
@@ -262,7 +263,7 @@ const script=String.raw`
  }
  await click('[data-diffgrids-close]','CLOSE_BUTTON');
  await wait(()=>pair()&&!pair().panel.querySelector('[data-diffgrids-count]'),'CLOSE');
- await wait(()=>pair()?.summary===document.activeElement,'FOCUS_RESTORED',18000);
+ await wait(()=>pair()?.summary===document.activeElement&&currentElement('#steam-diffgrids-file')&&!currentElement('#steam-diffgrids-file').disabled,'FOCUS_RESTORED',18000);
  need(document.activeElement===present('[data-diffgrids-summary]','FOCUS'),'FOCUS_RESTORED');
  need(!document.querySelector('[data-diffgrids-next]'),'NO_STALE_PAGE_AFTER_CLOSE');
  need(document.activeElement.tabIndex>=0,'NATIVE_KEYBOARD_SUMMARY');
@@ -272,6 +273,7 @@ const script=String.raw`
  await click('[data-diffgrids-open]:not([disabled])','BAD_SHA_OPEN_READY');
  await element('[data-diffgrids-error]','BAD_SHA_FAILCLOSED',25000);
  need(!document.querySelector('[data-diffgrids-count]'),'BAD_SHA_NO_SESSION');
+ await element('#steam-diffgrids-sha:not([disabled])','BAD_SHA_CLOSE_SETTLED');
  // Reopening requires the correct original SHA, not an old Rust cursor.
  setSha(expected.originalSha256);
  await click('[data-diffgrids-open]:not([disabled])','REOPEN_READY');
