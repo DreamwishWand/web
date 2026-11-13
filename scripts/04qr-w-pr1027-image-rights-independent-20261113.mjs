@@ -66,13 +66,41 @@ try{
   // bounds rather than relying on the full page's unrelated layout.
   await page.setViewportSize({width:320,height:800});
   await fit(code+' physical320');
+  // Owner contract: 320 CSS px reflow at 200% (640 physical px).
+  await page.setViewportSize({width:640,height:800});
   await page.evaluate(()=>document.documentElement.style.zoom='2');
-  await fit(code+' physical320 zoom200');
+  await fit(code+' effective320 zoom200');
   await page.evaluate(()=>document.documentElement.style.zoom='1');
   await help.focus();assert.equal(await help.evaluate(e=>e===document.activeElement),true);
   await page.keyboard.press('Enter');await page.waitForURL('**/web/help/');await waitCopy(code);
   console.log('QRW1027_LOCALE_RELOAD_DEEP_ROUTE_ZOOM_KEYBOARD_PASS',code);
  }
  assert.deepEqual(media,[]);assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);
- console.log('QRW1027_ALL8_PERSISTED_DIRECT_ROUTES_PHYSICAL320_200_NO_TRANSFER_PASS');
+ console.log('QRW1027_ALL8_PERSISTED_DIRECT_ROUTES_320CSS_200_NO_TRANSFER_PASS');
+ // Keep the original stronger 160-CSS-px diagnostic. Compare actual parent
+ // and candidate builds, same physical viewport/zoom and route, no DOM
+ // substitution. This does not convert a clipped candidate into PASS.
+ const geom=async (port)=>{
+  const url='http://127.0.0.1:'+port+'/web/collection/';
+  await page.setViewportSize({width:320,height:800});
+  const res=await page.goto(url,{waitUntil:'networkidle'});assert.equal(res.status(),200);
+  await page.evaluate(()=>document.documentElement.style.zoom='2');
+  await page.locator('footer').scrollIntoViewIfNeeded();
+  return page.locator('footer').evaluate(e=>{const b=e.getBoundingClientRect();return {viewport:innerWidth,width:b.width,scrollWidth:document.documentElement.scrollWidth,minWidth:getComputedStyle(document.documentElement).minWidth,bodyMinWidth:getComputedStyle(document.body).minWidth}})
+ };
+ const candidate=await geom(4298);
+ // Baseline requests are explicitly isolated, no user data. Use separate
+ // browser context so prior candidate network audit remains exact.
+ const baselineCtx=await browser.newContext({viewport:{width:320,height:800},serviceWorkers:'block',acceptDownloads:false});
+ const bp=await baselineCtx.newPage();
+ const response=await bp.goto('http://127.0.0.1:4299/web/collection/',{waitUntil:'networkidle'});assert.equal(response.status(),200);
+ await bp.evaluate(()=>document.documentElement.style.zoom='2');
+ await bp.locator('footer').scrollIntoViewIfNeeded();
+ const baseline=await bp.locator('footer').evaluate(e=>{const b=e.getBoundingClientRect();return {viewport:innerWidth,width:b.width,scrollWidth:document.documentElement.scrollWidth,minWidth:getComputedStyle(document.documentElement).minWidth,bodyMinWidth:getComputedStyle(document.body).minWidth}});
+ console.log('QRW1027_160CSS_PX_ACTUAL_PARENT_CANDIDATE_DIAGNOSTIC',JSON.stringify({baseline,candidate}));
+ assert.equal(candidate.width,baseline.width,'NO_NEW_FOOTER_WIDTH_REGRESSION');
+ assert.equal(candidate.minWidth,baseline.minWidth);assert.equal(candidate.bodyMinWidth,baseline.bodyMinWidth);
+ assert.ok(candidate.width>candidate.viewport&&baseline.width>baseline.viewport,'HISTORICAL_ROOT_OVERFLOW_CONFIRMED');
+ await baselineCtx.close();
+
 }finally{await ctx.close();await browser.close()}
