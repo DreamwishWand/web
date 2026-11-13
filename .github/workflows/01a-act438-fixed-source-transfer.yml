@@ -1,4 +1,4 @@
-name: 01A ACT451 immutable public Source transfer (no private data)
+name: 01A ACT422 immutable public Source transfer (no private data)
 on:
   push:
     branches: ['01a/act438-fixed-source-transfer']
@@ -11,18 +11,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 'e4594eef302a182770405740f1d60f283cdaa21e'
+          ref: 'e94d854dab3a7253734d4b41fa95f04b36797b3a'
       - name: Verify exact source and archive only tracked public Core plus synthetic test
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 'e4594eef302a182770405740f1d60f283cdaa21e'
+          test "$(git rev-parse HEAD)" = 'e94d854dab3a7253734d4b41fa95f04b36797b3a'
           git ls-tree -r HEAD crates/ddv-save-core > source-blobs.txt
           git archive --format=tar HEAD crates/ddv-save-core | gzip -n > source.tar.gz
           sha256sum source.tar.gz source-blobs.txt > source.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: act451-fixed-public-source-only
+          name: act422-fixed-public-source-only
           path: |
             source.tar.gz
             source-blobs.txt
