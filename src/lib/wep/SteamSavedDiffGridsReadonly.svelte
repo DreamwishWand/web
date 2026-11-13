@@ -1,6 +1,8 @@
 <script>
   import {onMount,tick} from 'svelte';
   import {locale} from '$lib/i18n/runtime.js';
+  import {base} from '$app/paths';
+  export let preformal=false;
   import {savedDiffGridsCopy} from './steam-saved-diffgrids-copy.mjs';
   import {createSavedDiffGridsUiClient,STEAM_FULL_VERSION} from './steam-saved-diffgrids-ui-client.mjs';
   let client=null,ready=false,busy=false,opened=false,error=false;
@@ -16,6 +18,10 @@
     !opened?words.ready:
     (count===0?words.zero:words.count+' '+count);
   onMount(()=>{
+    // The ordinary Timing panel remains OFF; only the dedicated route
+    // instantiates the existing Steam Worker. This is UI isolation, not
+    // a trust grant: the Worker verifies its signed anchor and typed facade.
+    if(!preformal||location.pathname!==base+'/editor/steam-reader/')return;
     const factory=()=>new Worker(
       new URL('./steam-saved-diffgrids.consumer.worker.ts',import.meta.url),
       {type:'module',name:'wand-steam-diffgrids-readonly'}
@@ -65,10 +71,11 @@
 </script>
 
 <details class="diffgrids-readonly" data-steam-diffgrids-readonly data-writer="off"
- data-cloud="off" data-product-read="off">
+ data-cloud="off" data-product-read="off" data-preformal-read={preformal?'scoped':'off'}>
   <summary bind:this={disclosure} data-diffgrids-summary>{words.title} · {words.subtitle}</summary>
   <div class="content">
     <p>{words.intro}</p>
+    {#if !preformal}<p><a data-sveltekit-reload href={base+'/editor/steam-reader/'}>{words.preformal}</a></p>{/if}
     <p role="status" aria-live="polite" data-diffgrids-status>{message}</p>
     {#if ready}
       <div class="controls" data-diffgrids-manual-only>

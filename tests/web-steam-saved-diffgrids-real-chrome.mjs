@@ -1,7 +1,7 @@
 // 08 WEB R22 public-SYNTHETIC only: REAL installed Chrome, REAL Vite/Svelte
 // build, REAL pinned public JS+WASM and accepted Rust Worker; no private Save.
-// CI temporarily opts in a test-only Worker and synthetic attestation BEFORE
-// build, never commits the opt-in or publishes this candidate Pages artifact.
+// CI uses the committed scoped preformal route and a temporary synthetic
+// attestation/anchor only; never publishes this candidate Pages artifact.
 import {createServer} from 'node:https';
 import {readFile,mkdtemp,rm,readdir} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
@@ -156,6 +156,9 @@ const script=String.raw`
   const p=pair();need(p,'PANEL_SUMMARY_REPLACED');p.panel.open=true;
  };
  await openPanel();
+ need(document.querySelector('[data-steam-diffgrids-readonly]').dataset.preformalRead==='scoped','PREFORMAL_SCOPE');
+ need(document.querySelector('[data-steam-diffgrids-readonly]').dataset.productRead==='off','FORMAL_OFF');
+ need(document.querySelector('meta[name=robots]')?.content.includes('noindex'),'NOINDEX');
  need(window.innerWidth===320,'VIEWPORT_320');
  const inspect=(element,stage)=>{
   need(element?.isConnected,'MISSING_CURRENT_GEOMETRY_'+stage);
@@ -279,10 +282,31 @@ try{
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  await attach();await rpc('Page.enable');await rpc('Runtime.enable');
  await rpc('Emulation.setDeviceMetricsOverride',{width:320,height:800,deviceScaleFactor:1,mobile:false});
+ // The regular Timing route must not instantiate the Steam Worker or load
+ // signed reader assets, even with a valid preformal anchor in this build.
  await rpc('Page.navigate',{url:'https://127.0.0.1:'+port+'/web/editor/timing/'});
+ const outside=await rpc('Runtime.evaluate',{expression:`(async()=>{
+  const end=performance.now()+18000;
+  while(performance.now()<end){
+   const p=document.querySelector('[data-steam-diffgrids-readonly]');
+   if(location.pathname==='/web/editor/timing/'&&p?.querySelector('summary')){
+    p.open=true;await new Promise(r=>setTimeout(r,500));
+    const q=document.querySelector('[data-steam-diffgrids-readonly]');
+    return q?.dataset.preformalRead==='off'&&
+      !q.querySelector('#steam-diffgrids-file')&&
+      !!q.querySelector('a[href$="/editor/steam-reader/"]');
+   }
+   await new Promise(r=>setTimeout(r,50));
+  }
+  return false;
+ })()`,awaitPromise:true,returnByValue:true});
+ assert.equal(outside.result?.value,true,'ORDINARY_TIMING_NO_STEAM_CONTROLS');
+ assert.equal(assetRequests,0,'ORDINARY_TIMING_NO_SIGNED_READER_ASSETS');
+ console.log('08WEB_PREFORMAL_ROUTE_ISOLATION_PASS');
+ await rpc('Page.navigate',{url:'https://127.0.0.1:'+port+'/web/editor/steam-reader/'});
  for(let n=0;n<200;n++){
   try{const r=await rpc('Runtime.evaluate',{expression:'location.pathname',returnByValue:true});
-    if(r.result?.value==='/web/editor/timing/')break}catch{}
+    if(r.result?.value==='/web/editor/steam-reader/')break}catch{}
   await delay(40);
  }
  const watchdog=new AbortController();
@@ -353,7 +377,7 @@ try{
  console.log('08WEB_BUILT_PROTECTED_CONSUMER_SIGNED_BYTES_4NEG_PASS');
  console.log('08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS',
   {pages:result.pages,signedPublicAssetBytes:true,privateSave:false,
-    consumerProductOwnerFlag:false,physical320Css100:result.geometry100,
+    consumerProductOwnerFlag:false,preformalReaderScope:true,physical320Css100:result.geometry100,
     physical320Css200AfterVerticalScroll:result.geometry200,
     physicalDesktopCss100:d,innerTableScroll:result.innerTableScroll});
 }catch(e){console.error('08WEB_REAL_CHROME_FAIL',String(e?.stack||e).slice(0,1800));process.exitCode=1}
