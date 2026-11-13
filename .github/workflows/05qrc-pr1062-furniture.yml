@@ -1,0 +1,39 @@
+name: 05 QR-C PR1062 independent cumulative reference bound
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_pr1062_furniture.rs'
+      - '.github/workflows/05qrc-pr1062-furniture.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Fixed Source original2 and QA-only2
+        run: |
+          git merge-base --is-ancestor e94d854dab3a7253734d4b41fa95f04b36797b3a HEAD
+          test "$(git diff --name-only e94d854dab3a7253734d4b41fa95f04b36797b3a HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/indexed_read.rs)" = 7363469b142ade0bf6fc9c646ceb78ec6a17fc22
+          test "$(git rev-parse HEAD:crates/ddv-save-core/examples/wand-private-furniture-amount-dependencies.rs)" = acc28f58d37a7561d8192c73a4256ad50014a98d
+      - name: Lock and independent positive scope regressions
+        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1,semantic-writer-dev --test qa_pr1062_furniture qac1062_raw_scope_and_unknown -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1,semantic-writer-dev --test qa_pr1062_furniture qac1062_single_array_bound -- --nocapture
+      - name: Public and DEV WASM feature checks
+        run: |
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
+      - name: Aggregate 65536 accept and 65537 reject (must pass)
+        run: cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1,semantic-writer-dev --test qa_pr1062_furniture qac1062_cross_domain_reference_bound -- --nocapture
