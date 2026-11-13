@@ -1,0 +1,43 @@
+name: 05 QR-C PR1028 independent chest explicit null
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1028-chest-null.rs'
+      - '.github/workflows/05qrc-pr1028-chest-null.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact original1 and independent test-only injection
+        run: |
+          git merge-base --is-ancestor 582a7812be4106623d99a2a9ea6b7936184149c8 HEAD
+          test "$(git diff --name-only 582a7812be4106623d99a2a9ea6b7936184149c8 HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = 44aba99611e78a5f1018ce2f78801cb96d9d2198
+          test "$(git rev-parse 92a9c506716625ef33e8a9d3b7253b4ced8c70a1:crates/ddv-save-core/src/semantic_writer.rs)" = 7714552824222c84f710d224a26e2500fe1403a6
+          git worktree add --detach "$RUNNER_TEMP/old" 92a9c506716625ef33e8a9d3b7253b4ced8c70a1
+          for root in "$RUNNER_TEMP/old" "$PWD"; do
+            cp tests/qa/05qrc-pr1028-chest-null.rs "$root/crates/ddv-save-core/src/qa_pr1028_chest_null.rs"
+            printf '\n#[cfg(test)]\n#[path="qa_pr1028_chest_null.rs"]\nmod qa_pr1028_chest_null;\n' >> "$root/crates/ddv-save-core/src/semantic_writer.rs"
+          done
+      - name: Old causal rejection and new independent sealed capability tests
+        run: |
+          QA1028_EXPECT_OLD=1 cargo test --manifest-path "$RUNNER_TEMP/old/crates/ddv-save-core/Cargo.toml" --no-default-features --features semantic-writer-dev --lib qac1028_old_new_state_causal -- --nocapture
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --lib qac1028 -- --nocapture
+          git restore crates/ddv-save-core/src/semantic_writer.rs
+          rm crates/ddv-save-core/src/qa_pr1028_chest_null.rs
+          test "$(git hash-object crates/ddv-save-core/src/semantic_writer.rs)" = 44aba99611e78a5f1018ce2f78801cb96d9d2198
+      - name: Unmodified public and DEV WASM feature builds
+        run: |
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
