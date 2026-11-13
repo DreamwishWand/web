@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,symlinkSync,rmSync,readFileSync,statSync,existsSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,symlinkSync,rmSync,readFileSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
+import {pathToFileURL} from 'node:url';
 import {SOURCE,TARGET,SOURCE_ONLY_SAMPLES,createHoldManifest,validateManifestInputs,parseCli,verifyPrivateFiles} from '../scripts/asset-research/01d-v1253-image-consumer-hold.mjs';
 
 test('R14 same Steam FullVersion three real sample SHAs are only a private HOLD, never public Image Resolver rows',()=>{
@@ -52,7 +53,8 @@ test('R14 CLI requires every private source and rejects duplicate/unknown public
   assert.equal(parseCli(good).fullversion,'/private/FullVersion.txt');
   assert.throws(()=>parseCli([...good,'--release','true']),/MISSING_OR_UNKNOWN_FLAGS/);
   assert.throws(()=>parseCli(['--fullversion','a','--fullversion','b',...good.slice(4)]),/DUPLICATE_OR_UNKNOWN/);
-  assert.throws(()=>parseCli(good.slice(0,-2)),/MISSING_OR_UNKNOWN_FLAGS/);
+  assert.equal(parseCli(good.slice(0,-2)).output,undefined);
+  assert.throws(()=>parseCli(good.slice(0,-4)),/MISSING_OR_UNKNOWN_FLAGS/);
 });
 test('R14 private files reject symlink directories, existing output and false first-party original bytes before publication',async()=>{
   const root=mkdtempSync(join(tmpdir(),'wand-01d-r14-contract-'));
@@ -99,7 +101,7 @@ test('R14 repaired authority and actual OS path boundaries deny before hashing',
   }finally{rmSync(root,{recursive:true,force:true});rmSync(repoFixture,{recursive:true,force:true});}
 });
 
-test('R14 verifier-only label: test-local synthetic pins, actual nine file reads and exclusive HOLD output',()=>{
+test('R14 verifier-only label: test-local synthetic pins, nine actual reads, memory-only HOLD and no file writes',async()=>{
   // This temporary module substitutes synthetic fixture hashes ONLY. The
   // committed verifier's original Steam pins are untouched; no media proof.
   const root=mkdtempSync(join(tmpdir(),'wand-794-positive-'));
@@ -126,16 +128,26 @@ test('R14 verifier-only label: test-local synthetic pins, actual nine file reads
     // repository fence cannot encompass the isolated private fixture root.
     const moduleDir=join(codeRoot,'scripts','asset-research');mkdirSync(moduleDir,{recursive:true});
     const script=join(moduleDir,'hold.mjs');writeFileSync(script,text);
-    const output=join(out,'hold.json'),args=['--fullversion',fullversion,'--furniture',furniture,'--bundle',bundle,'--images',images,'--output',output];
-    const run=()=>spawnSync(process.execPath,[script,...args],{encoding:'utf8',timeout:20000});
-    const first=run();assert.equal(first.status,0,first.stderr);
-    const receipt=JSON.parse(readFileSync(output,'utf8'));
+    const output=join(out,'hold.json'),args=['--fullversion',fullversion,'--furniture',furniture,'--bundle',bundle,'--images',images];
+    const mod=await import(pathToFileURL(script).href);
+    const receipt=await mod.verifyPrivateFiles({fullversion,furniture,bundle,images});
     assert.equal(receipt.evidence.privateFileProof,'PINNED_FILE_SHA_VERIFIED');
     assert.deepEqual(receipt.publicProjection.items,{});assert.equal(receipt.publicProjection.publishAllowed,false);
     assert.equal(receipt.writerEnabled,false);assert.equal(receipt.target.sameBuildSwitchOriginalVerified,false);
-    assert.equal(statSync(output).mode&0o777,0o600);
-    const saved=readFileSync(output);assert.notEqual(run().status,0);assert.deepEqual(readFileSync(output),saved);
-    rmSync(output);writeFileSync(join(images,SOURCE_ONLY_SAMPLES[2].itemId+'-steam1253-lossless160.webp'),'corrupt');
+    const run=(extra=[])=>spawnSync(process.execPath,[script,...args,...extra],{encoding:'utf8',timeout:20000});
+    const first=run();assert.equal(first.status,0,first.stderr);
+    const summary=JSON.parse(first.stdout);assert.equal(summary.privateHoldManifestWritten,false);
+    assert.equal(summary.privateHoldManifestVerified,true);assert.equal(summary.reportSha256,sha(JSON.stringify(receipt,null,2)+'\n'));
+    const hinted=run(['--output',output]);assert.equal(hinted.status,0,hinted.stderr);
+    assert.equal(JSON.parse(hinted.stdout).privateHoldManifestWritten,false);assert.equal(existsSync(output),false);
+    writeFileSync(output,'sentinel');assert.notEqual(run(['--output',output]).status,0);
+    assert.equal(readFileSync(output,'utf8'),'sentinel');rmSync(output);
+    // Simulate the QA997 output-directory relocation boundary. The report
+    // producer has no output write primitive, so no new file can be created.
+    const relocated=join(source,'relocated');mkdirSync(relocated);
+    const badHint=join(relocated,'late.json');
+    assert.notEqual(run(['--output',badHint]).status,0);assert.equal(existsSync(badHint),false);
+    writeFileSync(join(images,SOURCE_ONLY_SAMPLES[2].itemId+'-steam1253-lossless160.webp'),'corrupt');
     assert.notEqual(run().status,0);assert.equal(existsSync(output),false);
   }finally{rmSync(root,{recursive:true,force:true});rmSync(codeRoot,{recursive:true,force:true});}
 });

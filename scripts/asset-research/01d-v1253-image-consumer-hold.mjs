@@ -47,7 +47,8 @@ export const SOURCE_ONLY_SAMPLES = Object.freeze([
 
 const schema = 'wand.01d.v1253-item-image-consumer-hold@1';
 const hex64 = /^[a-f0-9]{64}$/;
-const expectedKeys = ['fullversion','furniture','bundle','images','output'];
+const requiredKeys = ['fullversion','furniture','bundle','images'];
+const expectedKeys = [...requiredKeys,'output'];
 const hashPath = path => createHash('sha256').update(path).digest('hex');
 function fail(code) { throw new Error('01D_IMAGE_PROOF_'+code); }
 function byteHeaders(bytes,kind) {
@@ -155,6 +156,7 @@ function buildHoldManifest(samples, privateFileProof) {
 // PR787/QA844 and PR781 repair: canonical directory fences before any
 // source hash. Linux directory handles keep the final open anchored even
 // if an operator replaces a path after the check; no unsafe fallback.
+// Directory handles do not establish immutable output containment. No writes.
 const checkout=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 const within=(p,root)=>p===root || p.startsWith(root.endsWith(sep)?root:root+sep);
 const overlap=(a,b)=>within(a,b)||within(b,a);
@@ -220,20 +222,21 @@ async function recheckDirectory(p,fd){
     fail('PRIVATE_DIRECTORY_ALIAS');
 }
 async function preparePaths({fullversion,furniture,bundle,images,output}){
-  const args={fullversion,furniture,bundle,images,output};
+  const args={fullversion,furniture,bundle,images};
+  if(output!==undefined)args.output=output; // Legacy hint: validation only, NEVER a write target.
   for(const p of Object.values(args))strictPath(p);
-  const outputParent=dirname(output);
+  const outputParent=output===undefined?null:dirname(output);
   const inputDirs=[dirname(fullversion),dirname(furniture),dirname(bundle),images];
-  if(inputDirs.some(p=>overlap(p,outputParent)))fail('OUTPUT_MUST_BE_SEPARATE');
-  if(overlap(checkout,outputParent)||overlap(resolve(process.cwd()),outputParent))
+  if(outputParent!==null&&inputDirs.some(p=>overlap(p,outputParent)))fail('OUTPUT_MUST_BE_SEPARATE');
+  if(outputParent!==null&&(overlap(checkout,outputParent)||overlap(resolve(process.cwd()),outputParent)))
     fail('PRIVATE_INPUT_OR_OUTPUT_INSIDE_REPOSITORY');
-  const dirs=[...new Set([...inputDirs,outputParent])];
+  const dirs=[...new Set([...inputDirs,...(outputParent===null?[]:[outputParent])])];
   const files=[fullversion,furniture,bundle,...SOURCE_ONLY_SAMPLES.flatMap(p=>[
     join(images,p.itemId+'-steam1253-reconstructed.png'),
     join(images,p.itemId+'-steam1253-lossless160.webp')])];
   // All specified directory boundaries first; no content reads on bad path.
   for(const p of dirs)await checkedDirectory(p);
-  await absentOutput(output);
+  if(output!==undefined)await absentOutput(output);
   // Check named originals first. Derived files are checked immediately before
   // their hashes, after the original hashes, without changing error ordering.
   for(const p of [fullversion,furniture,bundle])await checkedFile(p);
@@ -245,9 +248,11 @@ async function preparePaths({fullversion,furniture,bundle,images,output}){
   const handles=new Map();
   try{
     for(const p of dirs)handles.set(p,await pinDirectory(p));
-    const out=await handles.get(outputParent).stat();
-    for(const p of inputDirs){
-      if(sameInode(out,await handles.get(p).stat()))fail('OUTPUT_MUST_BE_SEPARATE');
+    if(outputParent!==null){
+      const out=await handles.get(outputParent).stat();
+      for(const p of inputDirs){
+        if(sameInode(out,await handles.get(p).stat()))fail('OUTPUT_MUST_BE_SEPARATE');
+      }
     }
     return {args,outputParent,handles};
   }catch(e){await Promise.allSettled([...handles.values()].map(fd=>fd.close()));throw e;}
@@ -299,7 +304,7 @@ async function verifyWithPaths(paths){
       {sha:p.steamLossless160WebpSha256,kind:'webp',size:null},seen,handles);
   }
   for(const [p,fd] of handles)await recheckDirectory(p,fd);
-  await absentOutput(output);
+  if(output!==undefined)await absentOutput(output);
   // Only this private verifier can issue this label, after all nine checks.
   return buildHoldManifest(SOURCE_ONLY_SAMPLES,'PINNED_FILE_SHA_VERIFIED');
 }
@@ -308,20 +313,8 @@ export async function verifyPrivateFiles(args) {
   try{return await verifyWithPaths(paths);}
   finally{await closePaths(paths);}
 }
-async function writePrivateReceipt(args){
-  const paths=await preparePaths(args);
-  try{
-    const out=await verifyWithPaths(paths);
-    const parent=paths.handles.get(paths.outputParent);
-    await recheckDirectory(paths.outputParent,parent);
-    await absentOutput(args.output);
-    const fd=await open(join(fdPath(parent),basename(args.output)),constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY|constants.O_NOFOLLOW,0o600);
-    try{await fd.writeFile(JSON.stringify(out,null,2)+'\n','utf8');await fd.sync();}
-    finally{await fd.close();}
-  }finally{await closePaths(paths);}
-}
 export function parseCli(argv) {
-  if(argv.length!==expectedKeys.length*2)fail('MISSING_OR_UNKNOWN_FLAGS');
+  if(![requiredKeys.length*2,expectedKeys.length*2].includes(argv.length))fail('MISSING_OR_UNKNOWN_FLAGS');
   const fields={};
   for(let i=0;i<argv.length;i+=2) {
     const k=argv[i];
@@ -330,12 +323,15 @@ export function parseCli(argv) {
       fail('MISSING_DUPLICATE_OR_UNKNOWN_FLAG');
     fields[k.slice(2)]=argv[i+1];
   }
-  if(Object.keys(fields).length!==expectedKeys.length)fail('CLI_FIELDS_MISSING');
+  if(requiredKeys.some(k=>!Object.hasOwn(fields,k)))fail('CLI_FIELDS_MISSING');
   return fields;
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   const args=parseCli(process.argv.slice(2));
-  await writePrivateReceipt(args);
-  console.log(JSON.stringify({privateHoldManifestWritten:true,verifiedSteamSampleCount:3,
+  const report=await verifyPrivateFiles(args);
+  // The CLI emits only a redacted digest; the complete HOLD exists in memory.
+  // No arbitrary output path is opened, even if a checked legacy hint is given.
+  console.log(JSON.stringify({privateHoldManifestWritten:false,privateHoldManifestVerified:true,
+    reportSha256:hashPath(JSON.stringify(report,null,2)+'\n'),verifiedSteamSampleCount:3,
     publicImages:0,sourcePlatform:'Steam/Windows',switchSameBuildVerified:false}));
 }
