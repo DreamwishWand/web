@@ -1,0 +1,30 @@
+name: 01A ACT438 immutable public Source transfer (no private data)
+on:
+  push:
+    branches: ['01a/act438-fixed-source-transfer']
+    paths: ['.github/workflows/01a-act438-fixed-source-transfer.yml']
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 'a34d94f85e856853fd673fd74b2aa1dae84fe733'
+      - name: Verify exact source and archive only tracked public Core plus synthetic test
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'a34d94f85e856853fd673fd74b2aa1dae84fe733'
+          git ls-tree -r HEAD crates/ddv-save-core tests/private-character-skin-read.mjs > source-blobs.txt
+          git archive --format=tar HEAD crates/ddv-save-core tests/private-character-skin-read.mjs | gzip -n > source.tar.gz
+          sha256sum source.tar.gz source-blobs.txt > source.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: act438-fixed-public-source-only
+          path: |
+            source.tar.gz
+            source-blobs.txt
+            source.sha256
+          retention-days: 1
