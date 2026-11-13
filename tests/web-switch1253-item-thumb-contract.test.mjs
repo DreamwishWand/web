@@ -6,7 +6,8 @@ import {
  SWITCH1253_ITEM_IMAGE_VARIANT,SWITCH1253_ORIGINAL_BUNDLE_SHA256,
  SWITCH1253_REVIEWED_RELEASE,SWITCH1253_NATIVE_PINS,SWITCH1253_OWNER_SCOPE,
  validateSwitch1253ItemImageCatalog,switch1253ItemImagePath,
- scopedSwitch1253ItemImageHref,loadSwitch1253PublicItemImageSource
+ scopedSwitch1253ItemImageHref,loadSwitch1253PublicItemImageSource,
+ prepareSwitch1253ItemImageManifest,SWITCH1253_PREPARED_WEBP_SIZES
 } from '../src/lib/item-media/switch1253-public-item-images.mjs';
 
 import {ITEM_IMAGE_OWNER_DECISION_ID} from '../src/lib/item-media/public-item-images.mjs';
@@ -55,9 +56,9 @@ test('current Switch 1.25.3 BID/schema626 source explicitly unapproved in real r
  assert.equal(SWITCH1253_TARGET.schema,626);
  assert.equal(SWITCH1253_REVIEWED_RELEASE.mediaPublic,false);
  assert.deepEqual(Object.keys(SWITCH1253_REVIEWED_RELEASE.items),[]);
- assert.equal(Object.keys(SWITCH1253_NATIVE_PINS).length,1,'only one verified Switch raster');
- assert.equal(SWITCH1253_NATIVE_PINS['40000047'],undefined,'format50 raster NOT_RUN');
- assert.equal(SWITCH1253_NATIVE_PINS['40002422'],undefined,'format50 raster NOT_RUN');
+ assert.deepEqual(Object.keys(SWITCH1253_NATIVE_PINS),['40000047','40006096']);
+ assert.equal(SWITCH1253_NATIVE_PINS['40000047'].rasterStatus,'SWITCH_ASTC6X6_SRGB_RGBA_EXACT_PRIVATE');
+ assert.equal(SWITCH1253_NATIVE_PINS['40002422'],undefined,'hidden, independently excluded');
  assert.throws(()=>validateSwitch1253ItemImageCatalog(manifest()),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
  let requested=0;
  const fake=async()=>{requested++;throw new Error('OFF must not request');};
@@ -95,7 +96,7 @@ test('old R39/schema624/Steam/other BID/unknown game build never promote a curre
    schema:624,originalBundleSha256:SWITCH1253_ORIGINAL_BUNDLE_SHA256}
  ])assert.throws(()=>validateSwitch1253ItemImageCatalog({...manifest(),source},approvedRelease()),/PLATFORM_VERSION_BID_SCHEMA/);
 });
-test('format50 two unknown sprites, unreviewed DLC, SHA or pixel mismatch and Rights OFF all deny',()=>{
+test('unreviewed eligible sprite, hidden sprite, unknown item, SHA or pixel mismatch and Rights OFF all deny',()=>{
  for(const id of ['40000047','40002422','999000123']){
   const m=manifest();m.items={[id]:{...m.items[item]}};
   assert.throws(()=>validateSwitch1253ItemImageCatalog(m,approvedRelease()),/ITEM_ID_NATIVE_SHA/);
@@ -234,4 +235,64 @@ test('Issue604 scoped Owner decision and UNKNOWN license remain separate facts',
  assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
  ({r,m}=make());r.rightsHolderLicense='DOCUMENTED_SCOPE_LICENSE';
  assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
+});
+
+test('ACT397 exact eligible2 draft is versioned metadata only, and cannot authorize publication',()=>{
+ const m=prepareSwitch1253ItemImageManifest();
+ assert.deepEqual(Object.keys(m.items),['40000047','40006096']);
+ assert.equal(m.publication.gate,'MEDIA_PUBLIC_PREPARED_OFF');
+ assert.equal(m.publication.rightsHolderLicense,'UNKNOWN');
+ assert.equal(m.publication.operatorReceiptSha256,null);
+ assert.equal(m.publication.receivingContact,'NOT_RUN');
+ assert.deepEqual(SWITCH1253_PREPARED_WEBP_SIZES,{'40000047':19064,'40006096':29314});
+ assert.equal(m.items['40000047'].originalNativeStreamSha256,'b0352f4fde178c423dbfa0f02c1f3f6fbfdb24bd4edf2603b67ce2f74485a68c');
+ assert.equal(m.items['40000047'].sourcePngSha256,'c156d4e1a32de6e61a851704349f17333098bab39f20ace06f56a7ecf591cc26');
+ assert.equal(m.items['40000047'].webpSha256,'b3d130ebf054038655970ed6b9a963b387b2c82be4a1658c2835775ac61d1f54');
+ assert.equal(m.items['40006096'].webpSha256,'4d2cbdf8cac7ad46ee5f7baa112ae5af34d2fc05de271db1a49d98d003a03858');
+ for(const id of Object.keys(m.items)){
+  assert.equal(m.items[id].publicationDecision,'NOT_RUN');
+  assert.equal(m.items[id].rightsStatus,'UNKNOWN');
+ }
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m,approvedRelease()),/MANIFEST_PUBLICATION_UNVERIFIED/);
+ m.items['40000047'].webpSha256='f'.repeat(64);
+ assert.equal(prepareSwitch1253ItemImageManifest().items['40000047'].webpSha256,SWITCH1253_NATIVE_PINS['40000047'].webpSha256);
+});
+test('synthetic operator fixture validates both exact per-item raster pins and immutable URL paths, but no hidden or cross-pinned item',()=>{
+ const r=approvedRelease(),m=manifest(),id='40000047',p=SWITCH1253_NATIVE_PINS[id];
+ r.rightsHolderLicense='UNKNOWN';r.licenseEvidenceSha256=null;
+ m.publication.rightsHolderLicense='UNKNOWN';m.publication.licenseEvidenceSha256=null;
+ r.items[item].rightsStatus='UNKNOWN';m.items[item].rightsStatus='UNKNOWN';
+ r.items[id]={originalNativeStreamSha256:p.originalNativeStreamSha256,sourcePngSha256:p.sourcePngSha256,webpSha256:p.webpSha256,rightsStatus:'UNKNOWN',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',visibility:'RELEASED_PLAYER_FACING'};
+ m.items[id]={...p,pixelStatus:'SWITCH_RGBA_EXACT_VERIFIED',visibility:'RELEASED_PLAYER_FACING',rightsStatus:'UNKNOWN',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',assetStatus:'WEBP_LOSSLESS_VERIFIED_160'};
+ const good=validateSwitch1253ItemImageCatalog(m,r);
+ assert.equal(good.count,2);
+ for(const k of [id,item]){
+  const p=SWITCH1253_NATIVE_PINS[k];
+  assert.equal(scopedSwitch1253ItemImageHref('/web',k,good),'/web/ddv/item-images/'+SWITCH1253_ITEM_IMAGE_VARIANT+'/'+p.originalNativeStreamSha256.slice(0,2)+'/'+p.originalNativeStreamSha256+'-'+p.sourcePngSha256+'-'+p.webpSha256+'.webp');
+ }
+ assert.equal(scopedSwitch1253ItemImageHref('/web','40002422',good),null);
+ for(const change of [
+  x=>{x.items[id].rasterStatus=pin.rasterStatus;},
+  x=>{x.items[id].webpSha256=pin.webpSha256;},
+  x=>{x.items[id].sourcePngSha256=pin.sourcePngSha256;},
+  x=>{x.items[id].originalNativeStreamSha256=pin.originalNativeStreamSha256;},
+  x=>{x.items[id].visibility='HIDDEN';},
+  x=>{x.items[id].publicationDecision='NOT_RUN';},
+  x=>{x.items[id].url='https://example.invalid/a.webp';},
+  x=>{x.items['40002422']={...x.items[id]};}
+ ]){
+  const x=structuredClone(m);change(x);
+  assert.throws(()=>validateSwitch1253ItemImageCatalog(x,r),/ITEM_ID_NATIVE_SHA/);
+ }
+ const hidden=structuredClone(m),hiddenReview=structuredClone(r);
+ hidden.items['40002422']={...m.items[id]};
+ hiddenReview.items['40002422']={...r.items[id]};
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(hidden,hiddenReview),/ITEM_ID_NATIVE_SHA/);
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
+ // Partial rollout allowed: one eligible item may be removed independently.
+ delete m.items[id];delete r.items[id];
+ const one=validateSwitch1253ItemImageCatalog(m,r);
+ assert.equal(one.count,1);
+ assert.equal(scopedSwitch1253ItemImageHref('/web',id,one),null);
 });

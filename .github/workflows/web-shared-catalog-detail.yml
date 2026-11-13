@@ -76,6 +76,7 @@ jobs:
               echo WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS
             elif diff -q /tmp/switch1253-policy-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ISSUE604_POLICY_EXACT3_SCOPE_PASS
+              # Same exact3 boundary for ACT418 eligible2 pin/draft preparation.
             else
               diff -u /tmp/switch1253-policy-expected /tmp/switch1253-actual || true
               exit 1
