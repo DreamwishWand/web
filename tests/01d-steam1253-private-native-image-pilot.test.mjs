@@ -160,6 +160,8 @@ with tempfile.TemporaryDirectory(prefix="wand-787-memory-") as tmp:
     assert not record["canWriteSave"] and not record["cloudUploadAllowed"]
     summary=m.report_summary(result);assert summary["privateFilesWritten"] is False
     assert summary["publicImages"]==0 and summary["items"]==1
+    assert summary["sourceOriginal"]=="NOT_ATTESTED_BY_SUMMARY"
+    assert m.report_summary({"record":{},"products":()})["sourceOriginal"]=="NOT_ATTESTED_BY_SUMMARY"
     assert set(summary)=={"sourceOriginal","items","webpRgbaExact","publicImages","privateFilesWritten","receiptSha256"}
     assert summary["receiptSha256"]==hashlib.sha256((json.dumps(record,ensure_ascii=False,indent=2,sort_keys=True)+"\n").encode()).hexdigest()
     assert not (src/"40000047-steam1253-lossless160.webp").exists()

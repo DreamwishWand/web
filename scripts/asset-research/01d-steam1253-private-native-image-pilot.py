@@ -455,8 +455,9 @@ def report_summary(result):
     record = result["record"]
     products = result["products"]
     payload = (json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
-    return {"sourceOriginal": "STEAM1253_SHA_VERIFIED", "items": len(products),
-            "webpRgbaExact": len(products), "publicImages": 0,
+    # A summary of caller-supplied memory is not itself a verification witness.
+    return {"sourceOriginal": "NOT_ATTESTED_BY_SUMMARY", "items": len(products),
+            "webpRgbaExact": sum(x.get("webpRgbaExact") is True for x, _, _ in products), "publicImages": 0,
             "privateFilesWritten": False,
             "receiptSha256": hashlib.sha256(payload).hexdigest()}
 
@@ -476,7 +477,11 @@ def main():
     if any(x is None for x in (a.source_root, a.catalog_root, a.bundle)):
         raise ValueError("PRIVATE_SOURCE_ROOT_CATALOG_BUNDLE_REQUIRED")
     a.item_id = a.item_id or list(ITEMS)
-    print(json.dumps(report_summary(run(a)), sort_keys=True))
+    result = run(a)
+    summary = report_summary(result)
+    # Only the completed real CLI verification path emits the historical label.
+    summary["sourceOriginal"] = "STEAM1253_SHA_VERIFIED"
+    print(json.dumps(summary, sort_keys=True))
 
 
 if __name__ == "__main__":
