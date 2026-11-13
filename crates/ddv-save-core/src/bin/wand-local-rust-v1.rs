@@ -112,21 +112,33 @@ fn selector_id(s:&str)->i32{
     if n<=0||n.to_string()!=s{denied("CHARACTER_SKIN_SELECTOR_ID");}
     n
 }
+fn collection_selector(s:&str,major:i32)->i32{
+    let n=s.parse::<i32>().unwrap_or_else(|_|denied("COLLECTION_SELECTOR_ID"));
+    if n<=0||n.to_string()!=s||n/10_000_000!=major{denied("COLLECTION_SELECTOR_ID")}
+    n
+}
+fn collection_group_index(s:&str)->usize{
+    let n=s.parse::<usize>().unwrap_or_else(|_|denied("COLLECTION_GROUP_SELECTOR"));
+    if n>=257||n.to_string()!=s{denied("COLLECTION_GROUP_SELECTOR")}
+    n
+}
 fn run(){
     // The accepted no-argument V1 path remains byte-for-byte behaviorally
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
-    let (native_slice,avatar_output,skin_output,dependency_output,skin_dependency_output)=match argv.as_slice(){
-      []=>(false,None,None,None,None),
-      [flag] if flag=="--native-area-grid-slice-only"=>(true,None,None,None,None),
+    let (native_slice,avatar_output,skin_output,dependency_output,skin_dependency_output,collection_output)=match argv.as_slice(){
+      []=>(false,None,None,None,None,None),
+      [flag] if flag=="--native-area-grid-slice-only"=>(true,None,None,None,None,None),
       [flag,out,path] if flag=="--active-avatar-receipt-only"&&out=="--out"=>
-        (false,Some(private_output_path(path)),None,None,None),
+        (false,Some(private_output_path(path)),None,None,None,None),
       [flag,out,path] if flag=="--avatar-dependencies-receipt-only"&&out=="--out"=>
-        (false,None,None,Some(private_output_path(path)),None),
+        (false,None,None,Some(private_output_path(path)),None,None),
       [flag,c,k,out,path] if flag=="--character-skin-receipt-only"&&out=="--out"=>
-        (false,None,Some((selector_id(c),selector_id(k),private_output_path(path))),None,None),
+        (false,None,Some((selector_id(c),selector_id(k),private_output_path(path))),None,None,None),
       [flag,c,k,f,out,path] if flag=="--character-skin-dependencies-receipt-only"&&out=="--out"=>
-        (false,None,None,None,Some((selector_id(c),selector_id(k),selector_id(f),pinned_private_output(path)))),
+        (false,None,None,None,Some((selector_id(c),selector_id(k),selector_id(f),pinned_private_output(path))),None),
+      [flag,d,g,t,out,path] if flag=="--collection-group-receipt-only"&&out=="--out"=>
+        (false,None,None,None,None,Some((collection_selector(d,212),collection_group_index(g),collection_selector(t,3),pinned_private_output(path)))),
       _=>denied("UNTRUSTED_CLI_ARGS"),
     };
     if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION{
@@ -174,6 +186,32 @@ fn run(){
       expected_decoded_sha256:receipt.decoded_sha256,
       action:WorkerAction::ReadDomain
     };
+    if let Some((definition,group,target,path))=collection_output{
+        let witness=session.read_private_collection_group(scope,definition,group,target)
+            .unwrap_or_else(|_|denied("COLLECTION_GROUP_READ_DENIED"));
+        let mut out=witness.to_private_receipt_json();
+        if out["contract"]!="wand.native.private.collection-group-readset@1"||
+           out["fullVersion"]!=EXACT_STEAM_VERSION||out["schema"]!=626||
+           out["sessionId"]!=hex_bytes(&receipt.session_id)||
+           out["decodedSha256"]!=hex_bytes(&receipt.decoded_sha256)||
+           out["revision"]!=receipt.revision||out["indexGeneration"]!=receipt.index_generation||
+           out["selectedGroup"]["definitionId"]!=definition||
+           out["selectedGroup"]["groupPosition"]!=group||
+           out["targetItemId"]!=target||
+           out["fullDocumentRustValidated"]!=true||
+           ["packagedMembershipVerified","effectiveEligibilityVerified","ownershipVerified","rightsVerified",
+            "subscriberClosureVerified","nativeV3Verified","productReadAccepted","writerAuthorized",
+            "editedCopyAuthorized","applyAuthorized"].iter().any(|k|out[*k]!=false)||
+           session.receipt().ok()!=Some(receipt){denied("COLLECTION_GROUP_RECEIPT_SCOPE_DENIED");}
+        out["originalSha256SuppliedExternally"]=serde_json::json!(hex_bytes(&original_sha));
+        out["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+        out["cloudUploadPerformed"]=serde_json::json!(false);
+        out["originalModifiedByHarness"]=serde_json::json!(false);
+        session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
+        write_private_receipt(&path.path,&out);
+        eprintln!("LOCAL_RUST_V1_PRIVATE_COLLECTION_GROUP_RECEIPT_WRITTEN");
+        return;
+    }
     if let Some((character,skin,flag,path))=skin_dependency_output{
         let witness=session.read_private_character_skin_dependencies(scope,character,skin,flag)
             .unwrap_or_else(|_|denied("CHARACTER_SKIN_DEPENDENCIES_READ_DENIED"));
