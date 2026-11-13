@@ -1,0 +1,30 @@
+name: 05 QR-C ACT501 PR1067 repaired provenance
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-act501-pr1067-provenance.mjs'
+      - '.github/workflows/05qrc-act501-pr1067-provenance.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact Source and QA-only delta
+        run: |
+          set -euo pipefail
+          source=bf2fbac24db7c566ca03bfd6adacf90dc86efcb0
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = c8b8eeeffa0ff3787b5d7ad79881ffd006898626
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+      - name: Actual old and repaired loader causal byte checks
+        run: node --test tests/qa/05qrc-act501-pr1067-provenance.mjs
