@@ -124,3 +124,23 @@ test('invalid Source, worker unavailable and after Close reject without file tra
  await assert.rejects(()=>d.open(encrypted,sha,true),/FAILED_CLOSED/);
  d.dispose();
 });
+
+// OFF is not evidence of a failed deployment signature or a runtime cause.
+// Keep all eight approved status strings explicit; no English fallback.
+test('unavailable copy states prerequisites and no local read while unavailable in all eight locales',()=>{
+ const expected={
+  "en": "Local save reading is currently unavailable. Explicit enablement and successful runtime verification are required. No local save is read while this feature is unavailable.",
+  "fr": "La lecture locale des sauvegardes est actuellement indisponible. Une activation explicite et une vérification réussie à l’exécution sont nécessaires. Aucune sauvegarde locale n’est lue tant que cette fonction est indisponible.",
+  "it": "La lettura locale dei salvataggi non è al momento disponibile. Sono necessarie l’attivazione esplicita e la verifica riuscita in fase di esecuzione. Finché la funzione non è disponibile, non viene letto alcun salvataggio locale.",
+  "de": "Das lokale Lesen von Spielständen ist derzeit nicht verfügbar. Eine ausdrückliche Aktivierung und eine erfolgreiche Laufzeitprüfung sind erforderlich. Solange diese Funktion nicht verfügbar ist, wird kein lokaler Spielstand gelesen.",
+  "es-ES": "La lectura local de partidas guardadas no está disponible en este momento. Se requieren una activación explícita y una verificación correcta en tiempo de ejecución. Mientras esta función no esté disponible, no se lee ninguna partida guardada local.",
+  "ja": "現在、ローカルセーブの読み取りは利用できません。明示的な有効化と実行時検証の成功が必要です。この機能を利用できない間は、ローカルセーブを読み取りません。",
+  "zh-CN": "目前无法在本地读取存档。需要明确启用此功能并通过运行时验证。此功能不可用时，不会读取本地存档。",
+  "pt-BR": "A leitura local de dados salvos não está disponível no momento. São necessárias a ativação explícita e a verificação bem-sucedida em tempo de execução. Nenhum dado salvo local é lido enquanto este recurso está indisponível."
+};
+ assert.deepEqual(Object.keys(expected),STEAM_DIFFGRIDS_LOCALES);
+ for(const locale of STEAM_DIFFGRIDS_LOCALES){
+   assert.equal(savedDiffGridsCopy(locale).unavailable,expected[locale],locale);
+ }
+ assert.equal(savedDiffGridsCopy('unsupported').unavailable,expected.en);
+});
