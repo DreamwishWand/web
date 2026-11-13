@@ -652,9 +652,27 @@ mod private_avatar {
                 makeup.push(json!({"slot":slot,"itemId":item,"entrySha256":sha(&bytes[entry.begin..entry.end]),"scalars":colors}));
             }
         }
+        let mut face=Vec::new();
+        if let Some(v)=field(&fs,"FaceType"){
+            for (key,entry) in members(bytes,v,32)?{
+                let n=key_u32(&key)?;
+                face.push(json!({"key":n,"savedValue":int(bytes,entry)?,"sha256":sha(&bytes[entry.begin..entry.end])}));
+            }
+        }
+        let mut eye=serde_json::Map::new();
+        if let Some(v)=field(&fs,"Eyeball"){
+            // Explicit null stays distinct from a present object. No default
+            // or invented color/item ID when the object is missing/null.
+            if &bytes[v.begin..v.end]!=b"null"{
+                let f=members(bytes,v,32)?;
+                for k in ["EyeballItemID","ColorIndex1","ColorIndex2","ColorIndex3"]{
+                    eye.insert(k.into(),scalar_witness(bytes,&f,k)?);
+                }
+            }
+        }
         Ok(json!({"branchSha256":sha(&bytes[s.begin..s.end]),"scalars":scalars,
-            "faceType":dependency_hash(bytes,field(&fs,"FaceType")),
-            "eyeball":dependency_hash(bytes,field(&fs,"Eyeball")),
+            "faceType":dependency_hash(bytes,field(&fs,"FaceType")),"faceTypeEntries":face,
+            "eyeball":dependency_hash(bytes,field(&fs,"Eyeball")),"eyeballScalars":eye,
             "makeup":makeup,"otherFieldsRetainedByBranchHash":true}))
     }
     fn inventory_dependencies(bytes:&[u8],lists:Span,avatar:&PrivateActiveAvatarReceipt)->CoreResult<Value>{
@@ -671,9 +689,10 @@ mod private_avatar {
         for (key,rec) in members(bytes,lists,128)?{
             let id=key_u32(&key)?;
             let f=members(bytes,rec,64)?;
-            let saved=serde_json::from_slice::<u32>(&bytes[required(&f,"ID")?.begin..required(&f,"ID")?.end])
+            let id_span=required(&f,"ID")?;let id_token=&bytes[id_span.begin..id_span.end];
+            let saved=serde_json::from_slice::<u32>(id_token)
                 .map_err(|_|denied("AVATAR_DEP_INVENTORY_ID"))?;
-            if id!=saved{return Err(denied("AVATAR_DEP_INVENTORY_ID"));}
+            if id!=saved||id_token!=saved.to_string().as_bytes(){return Err(denied("AVATAR_DEP_INVENTORY_ID"));}
             let ty=text_token(bytes,required(&f,"CompatibleItemType")?,128)?;
             if id==1||ty=="ItemType_Clothing"{
                 if id!=1||ty!="ItemType_Clothing"||selected[0].replace((rec,required(&f,"Inventory")?)).is_some(){
@@ -684,6 +703,9 @@ mod private_avatar {
                     return Err(denied("AVATAR_DEP_MAKEUP_ROUTE"));}
             }
         }
+        let reference_count=clothes.len()+makeup.len();
+        let all_maps_present=[&avatar.female,&avatar.male].iter().all(|b|
+            b.clothes.present&&b.incompatible.present&&b.makeup.present&&b.customization.present);
         let mut all_positive=true;let mut routes=Vec::new();
         for (i,wanted) in [clothes,makeup].into_iter().enumerate(){
             let (rec,items)=selected[i].ok_or(denied("AVATAR_DEP_REQUIRED_ROUTE_ABSENT"))?;
@@ -719,6 +741,7 @@ mod private_avatar {
                 "entries":entries}));
         }
         Ok(json!({"listInventoriesSha256":sha(&bytes[lists.begin..lists.end]),"routes":routes,
+            "observedUniqueReferenceCount":reference_count,"allFourMapsPerBranchPresent":all_maps_present,
             "allObservedReferencesHavePositiveSavedAmount":all_positive,
             "nativeExtractClothesAndMakeupVerified":false,"adequateDressVerified":false,
             "variationVerified":false,"rightsVerified":false}))
@@ -729,7 +752,7 @@ mod private_avatar {
         for v in array_spans(bytes,span,4096)?{
             let f=members(bytes,v,64)?;
             let id=int(bytes,required(&f,"AchievementID")?)?;
-            if id<=0||!seen.insert(id){return Err(denied("AVATAR_DEP_ACHIEVEMENT_ID"));}
+            if id<=0||id/10_000_000!=211||!seen.insert(id){return Err(denied("AVATAR_DEP_ACHIEVEMENT_ID"));}
             let state=field(&f,"State").map(|x|enum_token(bytes,x,"AchievementState_")).transpose()?;
             out.push(json!({"achievementId":id,"recordSha256":sha(&bytes[v.begin..v.end]),
                 "state":state,"statePresent":state.is_some(),
@@ -742,7 +765,25 @@ mod private_avatar {
         Ok(json!({"present":true,"sha256":sha(&bytes[span.begin..span.end]),"entries":out,
             "completeNativeClosureVerified":false}))
     }
-    fn objective_dependencies(bytes:&[u8],v:Span)->CoreResult<Value>{
+    #[derive(Default)]
+    struct DependencyBudget{nodes:usize,progress_entries:usize,progress_bytes:usize}
+    impl DependencyBudget{
+        fn node(&mut self)->CoreResult<()>{
+            self.nodes+=1;
+            if self.nodes>8192{return Err(denied("AVATAR_DEP_SUBSCRIBER_NODE_BOUND"));}
+            Ok(())
+        }
+        fn progress(&mut self,key:&str,value_bytes:usize)->CoreResult<()>{
+            self.progress_entries+=1;
+            self.progress_bytes=self.progress_bytes.checked_add(key.len()+value_bytes)
+                .ok_or(denied("AVATAR_DEP_PROGRESS_BOUND"))?;
+            if self.progress_entries>4096||self.progress_bytes>2*1024*1024{
+                return Err(denied("AVATAR_DEP_PROGRESS_BOUND"));}
+            Ok(())
+        }
+    }
+    fn objective_dependencies(bytes:&[u8],v:Span,budget:&mut DependencyBudget)->CoreResult<Value>{
+        budget.node()?;
         let f=members(bytes,v,128)?;
         let mut progress=Vec::new();
         if let Some(s)=field(&f,"ProgressKeys"){
@@ -750,6 +791,7 @@ mod private_avatar {
                 // Exact persisted scalar string, bounded; no caller paths,
                 // no interpretation or defaulting of the Native progress key.
                 if key.len()>128{return Err(denied("AVATAR_DEP_PROGRESS_KEY_BOUND"));}
+                budget.progress(&key,val.end-val.begin)?;
                 progress.push(json!({"key":key,"savedValue":text_token(bytes,val,512)?,
                     "sha256":sha(&bytes[val.begin..val.end])}));
             }
@@ -764,32 +806,36 @@ mod private_avatar {
             "gridObjectIdsCollected":dependency_hash(bytes,field(&f,"GridObjectIdsCollected")),
             "itemFilter":dependency_hash(bytes,field(&f,"ItemFilter"))}))
     }
-    fn mission_dependencies(bytes:&[u8],s:Option<Span>)->CoreResult<Value>{
+    fn mission_dependencies(bytes:&[u8],s:Option<Span>,budget:&mut DependencyBudget)->CoreResult<Value>{
         let Some(span)=s else{return Ok(json!({"present":false,"sha256":null,"groups":[],"completeNativeClosureVerified":false}))};
         let mut groups=Vec::new();let mut total_slots=0usize;let mut total_objectives=0usize;
         for (key,g) in members(bytes,span,128)?{
             let group=key_u32(&key)?;let fs=members(bytes,g,64)?;
             let a=required(&fs,"Slots")?;let mut slots=Vec::new();let mut ids=std::collections::BTreeSet::new();
             for v in array_spans(bytes,a,512)?{
+                budget.node()?;
                 total_slots+=1;if total_slots>1024{return Err(denied("AVATAR_DEP_MISSION_SLOT_BOUND"));}
                 let f=members(bytes,v,128)?;
                 let slot=int(bytes,required(&f,"SlotId")?)?;
                 let mission=int(bytes,required(&f,"MissionId")?)?;
-                if slot<0||!ids.insert(slot)||mission<0{return Err(denied("AVATAR_DEP_MISSION_ID"));}
+                if slot<0||!ids.insert(slot)||mission<0||(mission>0&&mission/10_000_000!=207){
+                    return Err(denied("AVATAR_DEP_MISSION_ID"));}
                 let state=field(&f,"State").map(|s|enum_token(bytes,s,"MissionSlotState_")).transpose()?;
                 let current=optional_int(bytes,&f,"CurrentStepIndex")?;
                 let mut steps=Vec::new();
                 if let Some(a)=field(&f,"MissionSteps"){
                     for (si,step) in array_spans(bytes,a,256)?.into_iter().enumerate(){
+                        budget.node()?;
                         let sf=members(bytes,step,64)?;let mut substeps=Vec::new();
                         if let Some(ss)=field(&sf,"SubSteps"){
                             for (ui,sub) in array_spans(bytes,ss,256)?.into_iter().enumerate(){
+                                budget.node()?;
                                 let uf=members(bytes,sub,64)?;let mut objectives=Vec::new();
                                 if let Some(o)=field(&uf,"Objectives"){
                                     for (oi,obj) in array_spans(bytes,o,256)?.into_iter().enumerate(){
                                         total_objectives+=1;
                                         if total_objectives>4096{return Err(denied("AVATAR_DEP_OBJECTIVE_BOUND"));}
-                                        objectives.push(json!({"physicalIndex":oi,"witness":objective_dependencies(bytes,obj)?}));
+                                        objectives.push(json!({"physicalIndex":oi,"witness":objective_dependencies(bytes,obj,budget)?}));
                                     }
                                 }
                                 substeps.push(json!({"physicalIndex":ui,"recordSha256":sha(&bytes[sub.begin..sub.end]),
@@ -811,18 +857,19 @@ mod private_avatar {
         Ok(json!({"present":true,"sha256":sha(&bytes[span.begin..span.end]),"groups":groups,
             "completeNativeClosureVerified":false}))
     }
-    fn evolve_dependencies(bytes:&[u8],s:Option<Span>)->CoreResult<Value>{
+    fn evolve_dependencies(bytes:&[u8],s:Option<Span>,budget:&mut DependencyBudget)->CoreResult<Value>{
         let Some(span)=s else{return Ok(json!({"present":false,"sha256":null,"entries":[],"completeNativeClosureVerified":false}))};
         let fs=members(bytes,span,64)?;
         let map=field(&fs,"EvolveProgressState");
         let mut out=Vec::new();
         if let Some(a)=map{
             for (k,v) in members(bytes,a,4096)?{
+                budget.node()?;
                 let id=key_u32(&k)?;
                 let f=members(bytes,v,64)?;
                 if id==0||id>i32::MAX as u32||int(bytes,required(&f,"ItemID")?)?!=id as i32{
                     return Err(denied("AVATAR_DEP_EVOLVE_ID"));}
-                let o=field(&f,"Objective").map(|x|objective_dependencies(bytes,x)).transpose()?;
+                let o=field(&f,"Objective").map(|x|objective_dependencies(bytes,x,budget)).transpose()?;
                 out.push(json!({"itemId":id,"recordSha256":sha(&bytes[v.begin..v.end]),
                     "level":scalar_witness(bytes,&f,"Level")?,"objectivePresent":o.is_some(),"objective":o}));
             }
@@ -841,6 +888,9 @@ mod private_avatar {
             let player=members(bytes,root.player,1024)?;let world=members(bytes,root.world,1024)?;
             let avatar=avatar_snapshot(bytes,&player,e)?;
             let ownership=inventory_dependencies(bytes,required(&player,"ListInventories")?,&avatar)?;
+            let mut budget=DependencyBudget::default();
+            let missions=mission_dependencies(bytes,field(&world,"MissionSlots"),&mut budget)?;
+            let evolve=evolve_dependencies(bytes,field(&player,"EvolveStatesProfile"),&mut budget)?;
             let value=json!({"contract":"wand.native.private.avatar-dependencies@1","avatar":avatar.to_private_receipt_json(),
                 "femaleDependencies":branch_dependencies(bytes,required(&player,"FemaleAvatar")?)?,
                 "maleDependencies":branch_dependencies(bytes,required(&player,"MaleAvatar")?)?,
@@ -848,9 +898,9 @@ mod private_avatar {
                     "playerSha256":sha(&bytes[root.player.begin..root.player.end]),
                     "worldSha256":sha(&bytes[root.world.begin..root.world.end]),
                     "achievementsData":achievements_dependencies(bytes,field(&player,"AchievementsData"))?,
-                    "missionSlots":mission_dependencies(bytes,field(&world,"MissionSlots"))?,
+                    "missionSlots":missions,
                     "questInfo":dependency_hash(bytes,field(&world,"QuestInfo")),
-                    "evolveStatesProfile":evolve_dependencies(bytes,field(&player,"EvolveStatesProfile"))?,
+                    "evolveStatesProfile":evolve,
                     "conditionAndDefinitionJoinRequired":true,"nativeSubscriberClosureVerified":false,
                     "effectiveActiveSubscriberSetVerified":false},
                 "rightsVerified":false,"writerAuthorized":false,"productReadAccepted":false,
@@ -1241,6 +1291,12 @@ mod private_avatar {
             let mut d=v.clone();let a=d["Player"]["AchievementsData"][0].clone();
             d["Player"]["AchievementsData"].as_array_mut().unwrap().push(a);
             let x=open(d);assert!(x.read_private_avatar_dependencies(env(x.receipt().unwrap())).is_err());
+            let mut budget=DependencyBudget{nodes:8192,..Default::default()};
+            assert!(budget.node().is_err());
+            let mut budget=DependencyBudget{progress_entries:4096,..Default::default()};
+            assert!(budget.progress("x",1).is_err());
+            let mut budget=DependencyBudget{progress_bytes:2*1024*1024,..Default::default()};
+            assert!(budget.progress("x",1).is_err());
             let mut stale=e;stale.expected_revision+=1;
             assert!(s.read_private_avatar_dependencies(stale).is_err());
             assert!(open(v).read_private_avatar_dependencies(e).is_err());
