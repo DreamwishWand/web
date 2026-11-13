@@ -22,12 +22,25 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
-      - name: Exact 2 modified plus 3 added on current main, accepted Rust/store untouched
+      - name: Exact original handoff or scoped public-thumb follow-up, accepted Rust/store untouched
         shell: bash
         run: |
           set -euo pipefail
           BASE="${{ github.event.pull_request.base.sha }}"
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          # Preserve the original exact-five gate; this follow-up is an explicit
+          # four-MOD alternative, not a blanket removal of the scope check.
+          git diff --name-status "$BASE" HEAD | LC_ALL=C sort >/tmp/item-handoff-status
+          cat >/tmp/item-handoff-thumb-scope <<'SCOPE'
+          M	.github/workflows/web-collection-atomic-item-handoff.yml
+          M	scripts/web-collection-atomic-item-handoff-chrome.mjs
+          M	src/routes/moodboards/atomic/+page.svelte
+          M	tests/web-collection-atomic-item-handoff.test.mjs
+          SCOPE
+          LC_ALL=C sort /tmp/item-handoff-thumb-scope >/tmp/item-handoff-thumb-expected
+          if cmp -s /tmp/item-handoff-thumb-expected /tmp/item-handoff-status; then
+            echo WEB_COLLECTION_ATOMIC_PUBLIC_THUMB_EXACT4_PASS
+          else
           cat >/tmp/item-handoff-scope <<'SCOPE'
           .github/workflows/web-collection-atomic-item-handoff.yml
           scripts/web-collection-atomic-item-handoff-chrome.mjs
@@ -44,6 +57,7 @@ jobs:
           for p in scripts/web-collection-atomic-item-handoff-chrome.mjs tests/web-collection-atomic-item-handoff.test.mjs .github/workflows/web-collection-atomic-item-handoff.yml; do
             test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
           done
+          fi
           git diff --exit-code "$BASE" HEAD -- \
             src/lib/moodboards/ src/lib/collection/ src/lib/explore/ src/lib/wep/ \
             crates/ src/routes/+layout.svelte src/routes/account/ src/routes/library/ \

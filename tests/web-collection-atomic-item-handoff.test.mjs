@@ -57,3 +57,13 @@ test('all 8 locales reuse preaccepted opt-in warnings and Item add labels, no ne
   assert.ok(typeof EXPLORE_COPY[locale].added==='string'&&EXPLORE_COPY[locale].added.length>3);
  }
 });
+
+test('explicit verified public catalog handoff alone uses the shared ItemThumb, never saved references',()=>{
+ const a=source('src/routes/moodboards/atomic/+page.svelte');
+ assert.equal(a.split('<ItemThumb ').length-1,1);
+ assert.match(a,/import ItemThumb from '\$lib\/ui\/ItemThumb\.svelte'/);
+ assert.match(a,/\{:else if handoffRecord\}[\s\S]*?data-atomic-handoff-preview[\s\S]*?<ItemThumb itemId=\{handoffRecord\.itemId\} label=\{handoffRecord\.label\} \/>/);
+ assert.doesNotMatch(a,/ItemThumb itemId=\{(?:reference|snapshot|board|handoffItemId)/);
+ assert.doesNotMatch(a,/<img\b|loadSwitch1253PublicItemImageSource|scopedSwitch1253ItemImageHref/);
+ assert.match(a,/data-writer="off" data-media-public="off"/);
+});

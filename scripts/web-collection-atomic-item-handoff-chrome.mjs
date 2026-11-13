@@ -67,6 +67,20 @@ try{
  assert.equal(await page.locator('[data-atomic-item-handoff]').getAttribute('data-atomic-handoff-verified'),'true');
  assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,nofollow');
  assert.equal(await page.locator('[data-atomic-handoff-add]').count(),0,'before first-board create');
+ const preview=page.locator('[data-atomic-handoff-preview]');
+ const thumb=preview.locator('[data-item-thumb-id="40000047"]');
+ await thumb.waitFor({timeout:10000});
+ assert.equal(await thumb.getAttribute('data-media-status'),'unavailable','compiled media OFF');
+ assert.equal(await thumb.locator('img').count(),0);
+ for(const width of [320,640]){
+  await page.setViewportSize({width,height:850});
+  await page.evaluate(w=>{document.documentElement.style.zoom=w===640?'2':'1';},width);
+  const geometry=await preview.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:document.documentElement.clientWidth,view:window.innerWidth};});
+  assert.ok(geometry.left>=-1&&geometry.right<=geometry.view+2,JSON.stringify(geometry));
+ }
+ await page.evaluate(()=>{document.documentElement.style.zoom='1';});
+ await page.setViewportSize({width:1280,height:860});
+ console.log('WEB_ATOMIC_EXPLICIT_PUBLIC_ITEM_SHARED_THUMB_MEDIA_OFF_REFLOW_PASS');
  assert.deepEqual(await checkOld(),old,'link navigation cannot mutate legacy bytes');
  console.log('WEB_COLLECTION_ATOMIC_320_ZOOM200_KEYBOARD_NO_AUTOSAVE_PASS');
  await page.locator('[data-atomic-title]').fill('Opt-in from Collection');
@@ -109,6 +123,12 @@ try{
  await reopened.locator('[data-atomic-handoff-already]').waitFor({timeout:30000});
  assert.equal(await reopened.locator('[data-atomic-handoff-add]').count(),0);
  assert.equal(await reopened.locator('[data-atomic-item="40000047"]').count(),1);
+ assert.equal(await reopened.locator('[data-atomic-items] [data-item-thumb-id]').count(),0,'saved private Board rows cannot auto-request images');
+ const plain=await createPage();
+ await plain.goto(origin+'/moodboards/atomic/',{waitUntil:'domcontentloaded'});
+ await plain.locator('[data-atomic-item="40000047"]').waitFor({timeout:30000});
+ assert.equal(await plain.locator('[data-item-thumb-id]').count(),0,'no explicit public selection');
+ await plain.close();
  await reopened.locator('[data-atomic-reopen]').click();
  await reopened.locator('[data-atomic-outcome="REOPENED"]').waitFor();
  const reopenedRow=await readIdb(reopened);
@@ -131,6 +151,7 @@ try{
   await p.locator('[data-atomic-catalog="ready"]').waitFor({timeout:30000});
   assert.equal(await p.locator('[data-atomic-handoff-add]').count(),0,path);
   assert.equal(await p.locator('[data-atomic-handoff-denied]').count(),1,path);
+  assert.equal(await p.locator('[data-atomic-handoff-preview], [data-item-thumb-id]').count(),0,path);
   await p.close();
  }
  const verifiedAfter=await readIdb(page);
