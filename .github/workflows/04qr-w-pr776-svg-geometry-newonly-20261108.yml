@@ -1,0 +1,67 @@
+name: "04 QR-W PR776 independent actual SVG visual geometry"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr776-svg-geometry-newonly-20261108.yml"
+      - "scripts/04qr-w-pr776-svg-geometry-newonly-20261108.mjs"
+  push:
+    branches:
+      - "qa/04qr-w-pr776-svg-geometry-newonly-5e2143-20261108"
+permissions:
+  contents: read
+jobs:
+  independent-svg-geometry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Run installed Chrome with zero personal media/Save"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env | grep -Eq '^(DDV_PRIVATE_SAVE_PATH|WEP_PRIVATE_P1G_PATH|WAND_PRIVATE_MEDIA_PATH)='; then
+            echo "PRIVATE_INPUT_FORBIDDEN"
+            exit 1
+          fi
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: "Build existing static Pages /web with original first-party SVG"
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm run build
+          test -f build/index.html
+          test -f build/decorate/index.html
+          test ! -e build/CNAME
+      - name: "Serve isolated local test UI for eight locales and actual SVG paths"
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4299 > /tmp/qrw776-svg.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4299/decorate/ > /dev/null; then
+              echo "QRW776_LOOPBACK_ONLY_CHROME_READY"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/qrw776-svg.log
+          exit 1
+      - name: "Independent real Chrome visual path geometry, 8locale 320 and CSSzoom200 keyboard"
+        run: node scripts/04qr-w-pr776-svg-geometry-newonly-20261108.mjs
+      - name: "No game artwork, rights, media public or writer acceptance"
+        run: echo "QRW776_FIRST_PARTY_CONCEPT_SVG_ONLY_MEDIA_RIGHTS_PROVIDER_SAVE_WRITER_OFF"
