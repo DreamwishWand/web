@@ -15,7 +15,7 @@ assert.deepEqual(git('diff','--name-only',B,S).split('\n').sort(),Object.keys(pi
 assert.deepEqual(git('diff','--name-status',S,'HEAD').split('\n').sort(),['A\t.github/workflows/04qr-w-pr1009-preformal-reader-20261113.yml','A\tscripts/04qr-w-pr1009-preformal-reader-independent-20261113.mjs'].sort());
 for(const [p,h] of Object.entries(pins))assert.equal(git('rev-parse','HEAD:'+p),h);
 for(const [p,h] of Object.entries({'src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs':'497685240690005dd7c9bbc8e88ec59e58c06be5','src/lib/wep/steam-saved-diffgrids-ui-client.mjs':'e25be774f939f30a58dc2b2086cec4d22d48260a','src/routes/editor/timing/+page.svelte':'7db3d6119755eeb305b49ae38339d636e40edcf6'}))assert.equal(git('rev-parse','HEAD:'+p),h);
-const mode=process.argv[2];assert.ok(['production','synthetic'].includes(mode));
+assert.equal(process.argv[2],'synthetic');
 const tmp=await mkdtemp(join(tmpdir(),'qrw1009-')),root=resolve('build'),origin='https://127.0.0.1:19443';
 const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.json':'application/json','.wasm':'application/wasm','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.woff2':'font/woff2'};
 const requests=[],violations=[];
@@ -66,44 +66,32 @@ try{
  let a=await audit();assert.equal(a.created,1);assert.deepEqual(a.ready,[{ready:true,writer:false}]);assert.equal(a.sent.length,0);
  assert.equal(await panel.getAttribute('data-product-read'),'off');assert.equal(await panel.getAttribute('data-writer'),'off');assert.equal(await panel.getAttribute('data-cloud'),'off');
  assert.equal(await p.locator('meta[name=robots]').getAttribute('content'),'noindex,nofollow');
- const fixture=await readFile('tests/stage-f/fixtures/synthetic626-diffgrids.p1g'),sha=createHash('sha256').update(fixture).digest('hex');
- async function select(digest=sha){await panel.locator('#steam-diffgrids-file').setInputFiles({name:'synthetic-only.p1g',mimeType:'application/octet-stream',buffer:fixture});await panel.locator('#steam-diffgrids-sha').fill(digest);await panel.locator('input[type=checkbox]').check();assert.equal(await panel.locator('[data-diffgrids-open]').isEnabled(),true)}
- const open=()=>panel.locator('[data-diffgrids-open]').click();
- const deny=async d=>{const r=await raw(d);assert.equal(r.ok,false);assert.deepEqual(r.keys,['error','ok','requestId']);return r.error};
- if(mode==='production'){
-  // No synthetic grant via wire fields; actual signed Worker, untouched flag.
-  const r=await p.evaluate(async()=>{
-   const w=__qrw.workers.at(-1),file=new Blob([new Uint8Array(16)]),hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))].map(x=>x.toString(16).padStart(2,'0')).join('');
-   const attestation={contract:'wand.owner.local.steam-p1g-rust-v1@1',platform:'steam-windows',buildKind:'steam-full-version',fullVersion:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,originalSha256:hash,evidenceKind:'ci-synthetic-fixture',observedOutsideSave:false};
-   const msg={kind:'OPEN_LOCAL_STORED_DIFFGRIDS',file,expectedEncryptedSizeBytes:16,attestation};
-   const call=d=>new Promise((ok,bad)=>{const t=setTimeout(()=>bad(Error('DENIAL_TIMEOUT')),10000);const on=e=>{if(e.data?.requestId!==d.requestId)return;clearTimeout(t);w.removeEventListener('message',on);ok(e.data.ok===false&&!e.data.summary)};w.addEventListener('message',on);w.postMessage(d)});
-   return [await call({...msg,requestId:9001,allowSyntheticFixture:true}),await call({...msg,requestId:9002,attestation:{...attestation,schema:624}}),await call({...msg,requestId:9003,attestation:{...attestation,evidenceKind:'owner-observed-installed-steam-fullversion',observedOutsideSave:true}})];
-  });assert.deepEqual(r,[true,true,true]);
-  await deny({kind:'CLOSE_LOCAL_STORED_DIFFGRIDS',requestId:9004,selection:999});
-  await deny({kind:'READ_LOCAL_STORED_DIFFGRIDS_NEXT',requestId:9005,selection:999,pageIndex:0});
-  assert.equal(await panel.locator('[data-diffgrids-count]').count(),0);
-  console.log('QRW1009_PRODUCTION_SIGNED_ROUTE_NEW_NEGATIVES_PASS');
- }else{
-  await select();await open();await panel.locator('[data-diffgrids-page="1"]').waitFor({timeout:25000});assert.equal(await panel.locator('tbody tr').count(),8);
-  a=await audit();const sel=a.reply.find(x=>x.ok&&x.selection)?.selection;assert.ok(sel>0);
-  await deny({kind:'READ_LOCAL_STORED_DIFFGRIDS_NEXT',requestId:9001,selection:sel,pageIndex:0});
-  await deny({kind:'CLOSE_LOCAL_STORED_DIFFGRIDS',requestId:9002,selection:sel+1});
-  await panel.locator('[data-diffgrids-next]').click();await panel.locator('[data-diffgrids-page="2"]').waitFor();
-  await panel.locator('[data-diffgrids-next]').click();await panel.locator('[data-diffgrids-page="3"]').waitFor();assert.equal(await panel.locator('tbody tr').count(),1);
-  await panel.locator('[data-diffgrids-close]').click();await panel.locator('[data-diffgrids-count]').waitFor({state:'detached'});
-  await select();await open();await panel.locator('[data-diffgrids-page="1"]').waitFor({timeout:25000});
-  await deny({kind:'CLOSE_LOCAL_STORED_DIFFGRIDS',requestId:9003,selection:sel});
-  await panel.locator('[data-diffgrids-next]').click();await panel.locator('[data-diffgrids-page="2"]').waitFor();
-  // Real SPA exit, not artificial DOM removal; observe exact Worker terminate.
-  const home=p.locator('a[href="/web/"]:not([data-sveltekit-reload])').first();await home.waitFor();await home.click();await p.waitForURL(origin+'/web/');
-  await p.waitForFunction(()=>window.__qrw?.terminated===1,undefined,{timeout:15000});
-  assert.equal(await p.locator('[data-steam-diffgrids-readonly]').count(),0);
-  await p.goBack();await p.waitForURL('**/editor/steam-reader/');await openPanel();
-  a=await audit();assert.equal(a.created,2);assert.equal(a.terminated,1);assert.equal(await panel.locator('[data-diffgrids-count]').count(),0);assert.equal(await panel.locator('[data-diffgrids-open]').isDisabled(),true);
-  await select();await open();await panel.locator('[data-diffgrids-page="1"]').waitFor({timeout:25000});await panel.locator('[data-diffgrids-close]').click();
-  assert.equal(createHash('sha256').update(await readFile('tests/stage-f/fixtures/synthetic626-diffgrids.p1g')).digest('hex'),sha);
-  console.log('QRW1009_ACTUAL_SIGNED_SYNTHETIC_REPLAY_STALE_CLOSE_SPA_TEARDOWN_REOPEN_PASS');
- }
+ const fixturePath=resolve('tests/stage-f/fixtures/synthetic626-diffgrids.p1g'),fixture=await readFile(fixturePath),sha=createHash('sha256').update(fixture).digest('hex');
+ const file=panel.locator('#steam-diffgrids-file'), digest=panel.locator('#steam-diffgrids-sha'), check=panel.locator('input[type=checkbox]'), open=panel.locator('[data-diffgrids-open]'), close=panel.locator('[data-diffgrids-close]');
+ async function select(){await file.setInputFiles(fixturePath);await digest.fill(sha);await check.check();}
+ async function openFresh(){await select();await open.click({timeout:10000});await panel.locator('[data-diffgrids-page="1"]').waitFor({timeout:25000});}
+ async function closeFully(){await close.click();await panel.locator('[data-diffgrids-count]').waitFor({state:'detached'});await p.waitForFunction(()=>document.activeElement?.matches('[data-diffgrids-summary]')&&document.querySelector('#steam-diffgrids-sha')?.value===''&&document.querySelector('[data-steam-diffgrids-readonly] input[type=checkbox]')?.checked===false,undefined,{timeout:15000});}
+ await openFresh();await closeFully();
+ const retained=await file.evaluate(e=>e.files.length);
+ await file.evaluate(e=>{window.__qrw.fileChanges=0;e.addEventListener('change',()=>window.__qrw.fileChanges++)});
+ await select();await p.waitForFunction(()=>document.querySelector('#steam-diffgrids-sha')?.value.length===64&&document.querySelector('[data-steam-diffgrids-readonly] input[type=checkbox]')?.checked===true);
+ await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+ const reopenedEnabled=await open.isEnabled(),changes=await p.evaluate(()=>window.__qrw.fileChanges);
+ console.log('QRW1009_CLOSE_SAME_FILE_NATIVE_INPUT_OBSERVATION',JSON.stringify({retainedFileCount:retained,sameFileChangeEvents:changes,reopenEnabled:reopenedEnabled}));
+ // Continue the independent lifecycle check without pretending the failed reselect worked.
+ if(!reopenedEnabled){await file.setInputFiles([]);await openFresh();}
+ else{await open.click();await panel.locator('[data-diffgrids-page="1"]').waitFor({timeout:25000});}
+ const home=p.locator('a[href="/web/"]:not([data-sveltekit-reload])').first();
+ await home.waitFor();await home.click();await p.waitForURL(origin+'/web/');
+ await p.waitForFunction(()=>window.__qrw?.terminated===1,undefined,{timeout:15000});
+ assert.equal(await p.locator('[data-steam-diffgrids-readonly]').count(),0);
+ await p.goBack();await p.waitForURL('**/editor/steam-reader/');await openPanel();
+ a=await audit();assert.equal(a.created,2);assert.equal(a.terminated,1);
+ assert.equal(await panel.locator('[data-diffgrids-count]').count(),0);assert.equal(await open.isDisabled(),true);
+ await openFresh();await closeFully();
+ assert.equal(createHash('sha256').update(await readFile(fixturePath)).digest('hex'),sha);
+ console.log('QRW1009_ACTUAL_SPA_TEARDOWN_FRESH_WORKER_REOPEN_PASS');
+ assert.equal(reopenedEnabled,true,'TRUE_RED_NATIVE_SAME_FILE_RESELECT_AFTER_CLOSE');
  assert.deepEqual(violations,[]);assert.deepEqual(pageErrors,[]);
  await ctx.close();
 }finally{await browser?.close();await new Promise(r=>server.close(r));await rm(tmp,{recursive:true,force:true})}

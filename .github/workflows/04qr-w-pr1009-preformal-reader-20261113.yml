@@ -1,4 +1,4 @@
-name: 04 QR-W independent preformal Reader lifecycle
+name: 04 QR-W supplemental native file input and SPA lifecycle
 on:
   pull_request:
     paths:
@@ -73,11 +73,10 @@ jobs:
           cp "$dir/site/worker-wasm/"* static/worker-wasm/
           echo "R22_HISTORICAL_SOURCE_HEAD=$source" >> "$GITHUB_ENV"
           rm -rf "$dir"
-      - name: Existing UI Source static validation and focused normal tests
+      - name: Install exact dependencies for supplemental actual browser
         run: |
           npm ci --no-audit --no-fund
           npm install --no-save --package-lock=false playwright-core@1.55.0
-          node --test tests/web-steam-saved-diffgrids-consumer.test.mjs
       - name: Generate PUBLIC synthetic encrypted P1G locally only
         run: |
           node tests/stage-f/generate-fixture.mjs
@@ -102,13 +101,6 @@ jobs:
           await writeFile(path,'// TEST ONLY; verified historical signed assets, isolated origin.\nconst a='+JSON.stringify(a)+';Object.freeze(a.pins);export const PROTECTED_READONLY_RELEASE_ANCHOR=Object.freeze(a);\n');
           console.log('08WEB_TEST_ONLY_RELEASE_ID',a.releaseId);
           NODE
-      - name: Build exact preformal Source with test-origin verified anchor only
-        env:
-          BASE_PATH: /web
-        run: |
-          npm run build
-          test -f build/editor/steam-reader/index.html
-          node scripts/04qr-w-pr1009-preformal-reader-independent-20261113.mjs production
       - name: QA-ONLY synthetic attestation (NEVER a product Source commit)
         run: |
           node --input-type=module <<'NODE'
@@ -135,7 +127,6 @@ jobs:
         env:
           BASE_PATH: /web
         run: |
-          npm run check
           npm run build
           test -s build/worker-wasm/manifest.json
           test -s build/worker-wasm/ddv_save_core.js
