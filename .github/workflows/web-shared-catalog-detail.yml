@@ -8,6 +8,7 @@ on:
       - 'src/lib/ui/ItemThumb.svelte'
       - 'src/lib/ui/ItemImagePreferences.svelte'
       - 'tests/web-switch1253-item-thumb-contract.test.mjs'
+      - 'scripts/web-switch1253-private-preview-build.mjs'
       - 'src/lib/entity/shared-catalog-directory.mjs'
       - 'src/lib/entity/SharedCatalogDiscovery.svelte'
       - 'tests/web-item-detail-static-link-gate.test.mjs'
@@ -72,11 +73,19 @@ jobs:
           src/lib/item-media/switch1253-public-item-images.mjs
           tests/web-switch1253-item-thumb-contract.test.mjs
           CURRENT_IMAGE_POLICY_SCOPE
+            cat > /tmp/switch1253-prep-expected <<'CURRENT_IMAGE_PREP_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          scripts/web-switch1253-private-preview-build.mjs
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-switch1253-item-thumb-contract.test.mjs
+          CURRENT_IMAGE_PREP_SCOPE
             if diff -q /tmp/switch1253-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS
             elif diff -q /tmp/switch1253-policy-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ISSUE604_POLICY_EXACT3_SCOPE_PASS
-              # Same exact3 boundary for ACT418 eligible2 pin/draft preparation.
+            elif diff -q /tmp/switch1253-prep-expected /tmp/switch1253-actual >/dev/null; then
+              echo WEB_CURRENT_SWITCH1253_ELIGIBLE2_PREP_EXACT4_SCOPE_PASS
+              node scripts/web-switch1253-private-preview-build.mjs
             else
               diff -u /tmp/switch1253-policy-expected /tmp/switch1253-actual || true
               exit 1
