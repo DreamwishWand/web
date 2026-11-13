@@ -86,3 +86,78 @@ test('01D wrong external FullVersion or unsafe IDs fail closed before reading or
     }
   }finally{x.cleanup();}
 });
+
+// Actual OS synthetic protobuf; only in-memory fixture pins are substituted.
+// No original game bytes, media, or private Save enter CI.
+test('01D private path repair: actual HOLD sibling, ancestor/dotdot/repository and swap denial', () => {
+  const py = String.raw`
+import importlib.util, pathlib, tempfile, hashlib, json, stat, os
+from unittest.mock import patch
+spec=importlib.util.spec_from_file_location("preflight", pathlib.Path("scripts/asset-research/01d-v1253-image-preflight.py").resolve())
+m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+def vi(n):
+    b=bytearray()
+    while n>127:
+        b.append((n&127)|128); n>>=7
+    b.append(n); return bytes(b)
+def field(n,b): return vi(n*8+2)+vi(len(b))+b
+body=vi(8)+vi(40000047)+field(2,b"SYNTHETIC_FIXTURE")+field(4,b"guid:"+b"a"*32)
+raw=vi(47)+vi(len(body))+body
+with tempfile.TemporaryDirectory(prefix="wand-781-repair-") as tmp:
+    base=pathlib.Path(tmp); original=base/"original"; output=base/"output"
+    original.mkdir(); output.mkdir(); (original/"nested").mkdir()
+    (original/"Furniture.json").write_bytes(raw)
+    (original/"FullVersion.txt").write_bytes(m.FULLVERSION_BYTES)
+    before={p.relative_to(original):p.read_bytes() for p in original.rglob("*") if p.is_file()}
+    def deny(root,report):
+        try: m.emit_private_report(root,report,["40000047"])
+        except ValueError: return
+        raise AssertionError("UNSAFE_PATH_ACCEPTED")
+    with patch.multiple(m,FURNITURE_SHA256=hashlib.sha256(raw).hexdigest(),FURNITURE_BYTES=len(raw),STEAM_ITEM_COUNT=1):
+        report=output/"receipt.json"; receipt=m.emit_private_report(original,report,["40000047","40006096"])
+        data=json.loads(report.read_text()); assert receipt["publicImageRows"]==0
+        assert data["releaseManifestDraft"]["items"]=={} and not data["canPublishImage"]
+        assert not data["canEnableItemThumb"] and not data["canWriteSave"] and not data["cloudUploadAllowed"]
+        assert data["samples"][0]["iconGuid"]=="guid:"+"a"*32 and data["samples"][1]["status"]=="MISSING_NATIVE_ITEM"
+        assert stat.S_IMODE(report.stat().st_mode)==0o600
+        saved=report.read_bytes(); deny(original,report); assert report.read_bytes()==saved
+        link=base/"alias"; link.symlink_to(original,target_is_directory=True)
+        deny(original,link/"nested"/"forbidden.json")
+        deny(original,output/".."/"original"/"nested"/"forbidden.json")
+        deny(original,original/"nested"/"forbidden.json")
+        deny(original,base/"ancestor.json")
+        deny(link,output/"bad-root.json")
+        deny(original,pathlib.Path("scripts")/"never-create-private-781.json")
+        assert not pathlib.Path("scripts/never-create-private-781.json").exists()
+        leaf=output/"leaf.json"; leaf.symlink_to(original/"Furniture.json")
+        deny(original,leaf); assert leaf.is_symlink()
+        dangling=output/"dangling.json"; dangling.symlink_to(original/"not-created.json")
+        deny(original,dangling); assert not (original/"not-created.json").exists()
+        other=base/"other-checkout"; other.mkdir(); (other/".git").write_text("gitdir: dummy")
+        deny(original,other/"forbidden.json")
+        assert not (other/"forbidden.json").exists()
+        # Swap an ancestor while the real parser is running; no write through it.
+        outer=base/"outer"; outer.mkdir(); inner=outer/"nested"; inner.mkdir()
+        moved=base/"moved"
+        real_assemble=m.assemble
+        def swap(*a,**kw):
+            result=real_assemble(*a,**kw); outer.rename(moved)
+            outer.symlink_to(original,target_is_directory=True); return result
+        with patch.object(m,"assemble",side_effect=swap):
+            deny(original,inner/"race.json")
+        assert not (moved/"nested"/"race.json").exists()
+        assert not (original/"nested"/"race.json").exists()
+        # A different regular directory replacing the same name also fails.
+        new=base/"new"; new.mkdir(); moved2=base/"moved2"
+        def replace(*a,**kw):
+            result=real_assemble(*a,**kw); new.rename(moved2); new.mkdir(); return result
+        with patch.object(m,"assemble",side_effect=replace):
+            deny(original,new/"race.json")
+        assert not (new/"race.json").exists() and not (moved2/"race.json").exists()
+    assert {p.relative_to(original):p.read_bytes() for p in original.rglob("*") if p.is_file()}==before
+print("PR781_PRIVATE_PATH_REPAIR_PASS")
+`;
+  const r = spawnSync(python, ['-c', py], {encoding:'utf8',timeout:15000,maxBuffer:1024*1024});
+  assert.equal(r.status,0,r.stderr);
+  assert.match(r.stdout,/PR781_PRIVATE_PATH_REPAIR_PASS/);
+});

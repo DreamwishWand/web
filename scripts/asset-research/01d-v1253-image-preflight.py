@@ -42,11 +42,79 @@ def accepted_native_reader():
     return module
 
 
-def _read_regular(path: Path, max_size: int) -> bytes:
+def _checked_directory(path: Path, error: str) -> Path:
+    """PR787/QA844 real-path fence, stricter: no '..' or symlink ancestor."""
+    path = path.absolute()
+    if ".." in path.parts or any(p.is_symlink() for p in (path, *path.parents)):
+        raise ValueError(error)
+    try:
+        real = path.resolve(strict=True)
+    except (OSError, RuntimeError):
+        raise ValueError(error) from None
+    if real != path or not real.is_dir():
+        raise ValueError(error)
+    return real
+
+
+def _overlap(a: Path, b: Path) -> bool:
+    return a == b or a in b.parents or b in a.parents
+
+
+def _output_parent(root: Path, report: Path) -> Path:
+    if ".." in report.parts or report.is_symlink() or report.exists():
+        raise ValueError("REPORT_ALIAS_OR_EXISTS")
+    parent = _checked_directory(report.parent, "REPORT_PARENT_UNSAFE")
+    repo = Path(__file__).resolve().parents[2]
+    if _overlap(root, parent) or _overlap(repo, parent):
+        raise ValueError("REPORT_ALIAS_OR_EXISTS")
+    # Also reject a different Git checkout, including a worktree .git file.
+    if any((p / ".git").exists() or (p / ".git").is_symlink()
+           for p in (parent, *parent.parents)):
+        raise ValueError("REPORT_PARENT_UNSAFE")
+    return parent
+
+
+def _directory_fd(path: Path, error: str) -> int:
+    """Walk every component without following symlinks; pin the directory.
+    A platform without these primitives fails closed (no insecure fallback).
+    """
+    if (not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY")
+            or os.open not in os.supports_dir_fd
+            or os.stat not in os.supports_dir_fd):
+        raise ValueError("PRIVATE_DIRECTORY_FD_UNSUPPORTED")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    fd = None
+    try:
+        fd = os.open(path.anchor, flags)
+        for part in path.parts[1:]:
+            if part in ("..", "."):
+                raise ValueError(error)
+            child = os.open(part, flags, dir_fd=fd)
+            os.close(fd)
+            fd = child
+        return fd
+    except (OSError, ValueError):
+        if fd is not None:
+            os.close(fd)
+        raise ValueError(error) from None
+
+
+def _same_directory(path: Path, fd: int, error: str):
+    check = _directory_fd(path, error)
+    try:
+        a, b = os.fstat(fd), os.fstat(check)
+        if (a.st_dev, a.st_ino) != (b.st_dev, b.st_ino):
+            raise ValueError(error)
+    finally:
+        os.close(check)
+
+
+def _read_regular(path: Path, max_size: int, *, dir_fd: int | None = None) -> bytes:
     if path.is_symlink() or not path.is_file():
         raise ValueError("ORIGINAL_MISSING_OR_SYMLINK")
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(path, flags)
+    name = path.name if dir_fd is not None else path
+    fd = os.open(name, flags, dir_fd=dir_fd)
     try:
         before = os.fstat(fd)
         if not stat.S_ISREG(before.st_mode) or before.st_size <= 0 or before.st_size > max_size:
@@ -62,7 +130,7 @@ def _read_regular(path: Path, max_size: int) -> bytes:
             after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns
         ):
             raise ValueError("ORIGINAL_CHANGED_DURING_READ")
-        external = os.stat(path, follow_symlinks=False)
+        external = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
         if (external.st_dev, external.st_ino) != (before.st_dev, before.st_ino):
             raise ValueError("ORIGINAL_REPLACED")
         return bytes(data)
@@ -144,14 +212,19 @@ def assemble(rows: dict, ids: list[str], source_tier: str):
     }
 
 
-def read_private_source(root: Path):
-    root = root.absolute()
-    if root.is_symlink() or not root.is_dir():
-        raise ValueError("PRIVATE_ROOT_INVALID")
-    raw = _read_regular(root / "Furniture.json", 4 * 1024 * 1024)
+def read_private_source(root: Path, *, root_fd: int | None = None):
+    root = _checked_directory(root, "PRIVATE_ROOT_INVALID")
+    if root_fd is None:
+        fd = _directory_fd(root, "PRIVATE_ROOT_INVALID")
+        try:
+            return read_private_source(root, root_fd=fd)
+        finally:
+            os.close(fd)
+    _same_directory(root, root_fd, "PRIVATE_ROOT_INVALID")
+    raw = _read_regular(root / "Furniture.json", 4 * 1024 * 1024, dir_fd=root_fd)
     if (len(raw), hashlib.sha256(raw).hexdigest()) != (FURNITURE_BYTES, FURNITURE_SHA256):
         raise ValueError("ORIGINAL_FURNITURE_SHA_OR_SIZE_MISMATCH")
-    full = _read_regular(root / "FullVersion.txt", 128)
+    full = _read_regular(root / "FullVersion.txt", 128, dir_fd=root_fd)
     if full != FULLVERSION_BYTES:
         raise ValueError("EXTERNAL_FULLVERSION_MISMATCH")
     rows = accepted_native_reader().read_category(raw, "Furniture")
@@ -161,18 +234,36 @@ def read_private_source(root: Path):
 
 
 def emit_private_report(root: Path, report: Path, ids):
-    root = root.absolute()
+    _ids(ids)
+    root = _checked_directory(root, "PRIVATE_ROOT_INVALID")
     report = report.absolute()
-    if report == root or root in report.parents or report.is_symlink() or report.exists():
-        raise ValueError("REPORT_ALIAS_OR_EXISTS")
-    if not report.parent.is_dir() or report.parent.is_symlink():
-        raise ValueError("REPORT_PARENT_UNSAFE")
-    rows = read_private_source(root)
-    result = assemble(rows, ids, "OWNER_LOCAL_ORIGINAL_STEAM_SHA_VERIFIED")
-    payload = (json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    fd = os.open(report, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
-    with os.fdopen(fd, "wb") as out:
-        out.write(payload)
+    parent = _output_parent(root, report)
+    root_fd = _directory_fd(root, "PRIVATE_ROOT_INVALID")
+    try:
+        parent_fd = _directory_fd(parent, "REPORT_PARENT_UNSAFE")
+        try:
+            a, b = os.fstat(root_fd), os.fstat(parent_fd)
+            if (a.st_dev, a.st_ino) == (b.st_dev, b.st_ino):
+                raise ValueError("REPORT_ALIAS_OR_EXISTS")
+            rows = read_private_source(root, root_fd=root_fd)
+            result = assemble(rows, ids, "OWNER_LOCAL_ORIGINAL_STEAM_SHA_VERIFIED")
+            payload = (json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+            # Revalidate after reading; do not follow a replaced parent or root.
+            _checked_directory(root, "PRIVATE_ROOT_INVALID")
+            _output_parent(root, report)
+            _same_directory(root, root_fd, "PRIVATE_ROOT_INVALID")
+            _same_directory(parent, parent_fd, "REPORT_PARENT_UNSAFE")
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+            try:
+                fd = os.open(report.name, flags, 0o600, dir_fd=parent_fd)
+            except FileExistsError:
+                raise ValueError("REPORT_ALIAS_OR_EXISTS") from None
+            with os.fdopen(fd, "wb") as out:
+                out.write(payload)
+        finally:
+            os.close(parent_fd)
+    finally:
+        os.close(root_fd)
     return {"schema": SCHEMA, "count": len(ids),
             "nativePresent": result["counts"]["steamNativePresent"],
             "publicImageRows": 0, "sourceTier": result["sourceTier"],
