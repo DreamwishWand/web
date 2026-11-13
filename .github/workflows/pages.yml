@@ -28,6 +28,7 @@ jobs:
       js_sha: ${{ steps.asset_pins.outputs.js_sha }}
       wasm_sha: ${{ steps.asset_pins.outputs.wasm_sha }}
       manifest_sha: ${{ steps.asset_pins.outputs.manifest_sha }}
+      expected_root: ${{ steps.release_tuple.outputs.root }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -37,6 +38,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Read committed active release tuple (not caller or environment selection)
+        id: release_tuple
+        run: |
+          node --input-type=module -e 'import {ACTIVE_RELEASE_TUPLE as t} from "./src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs"; console.log("base="+t.basePath); console.log("root="+t.origin+t.basePath)' >> "$GITHUB_OUTPUT"
       - name: Install dependencies
         run: |
           if [ -f package-lock.json ]; then
@@ -63,7 +68,7 @@ jobs:
           targets: wasm32-unknown-unknown
       - name: Verify exact protected-main release inputs and dependency lock
         env:
-          WAND_RELEASE_BASE_PATH: /web
+          WAND_RELEASE_BASE_PATH: ${{ steps.release_tuple.outputs.base }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
@@ -114,13 +119,13 @@ jobs:
         run: node scripts/readonly-release/seal.mjs seal
       - name: Build static site
         env:
-          BASE_PATH: /web
+          BASE_PATH: ${{ steps.release_tuple.outputs.base }}
           VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
       - name: Verify Pages physical JS, WASM and Manifest equal protected-main source
         env:
-          WAND_RELEASE_BASE_PATH: /web
+          WAND_RELEASE_BASE_PATH: ${{ steps.release_tuple.outputs.base }}
         run: |
           set -euo pipefail
           node scripts/wasm-distribution/verify-protected-release.mjs built
@@ -129,7 +134,7 @@ jobs:
       - name: Verify all three signatures before Pages artifact upload
         env:
           GH_TOKEN: ${{ github.token }}
-          WAND_RELEASE_BASE_PATH: /web
+          WAND_RELEASE_BASE_PATH: ${{ steps.release_tuple.outputs.base }}
           WAND_SIGSTORE_BUNDLE: ${{ steps.asset_sigstore.outputs.bundle-path }}
         run: |
           set -euo pipefail
@@ -206,6 +211,7 @@ jobs:
       - name: Verify actual same-origin HTTPS bytes, status, MIME and no redirect
         env:
           WAND_DEPLOYED_BASE_URL: ${{ steps.deployment.outputs.page_url }}
+          WAND_EXPECTED_BASE_URL: ${{ needs.build.outputs.expected_root }}
           WAND_JS_SHA256: ${{ needs.build.outputs.js_sha }}
           WAND_WASM_SHA256: ${{ needs.build.outputs.wasm_sha }}
           WAND_MANIFEST_SHA256: ${{ needs.build.outputs.manifest_sha }}
@@ -213,7 +219,7 @@ jobs:
         run: |
           set -euo pipefail
           root="${WAND_DEPLOYED_BASE_URL%/}"
-          [[ "$root" == 'https://dreamwishwand.github.io/web' ]] || { echo 'LIVE_RELEASE_TUPLE_MISMATCH'; exit 1; }
+          [[ "$root" == "$WAND_EXPECTED_BASE_URL" ]] || { echo 'LIVE_RELEASE_TUPLE_MISMATCH'; exit 1; }
           for spec in "ddv_save_core.js:$WAND_JS_SHA256:js" \
                       "ddv_save_core_bg.wasm:$WAND_WASM_SHA256:wasm" \
                       "manifest.json:$WAND_MANIFEST_SHA256:json"; do
