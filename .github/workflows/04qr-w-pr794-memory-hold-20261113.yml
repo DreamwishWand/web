@@ -1,0 +1,25 @@
+name: 04 QR-W PR794 memory-only HOLD independent
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr794-memory-hold-independent-20261113.mjs'
+      - '.github/workflows/04qr-w-pr794-memory-hold-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent actual OS synthetic fixtures only
+        run: node --test scripts/04qr-w-pr794-memory-hold-independent-20261113.mjs
+      - name: Source regression contracts
+        run: node --test tests/01d-v1253-image-consumer-hold.test.mjs
