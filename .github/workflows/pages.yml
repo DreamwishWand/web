@@ -213,7 +213,7 @@ jobs:
         run: |
           set -euo pipefail
           root="${WAND_DEPLOYED_BASE_URL%/}"
-          [[ "$root" == https://* ]] || { echo 'LIVE_TLS_REQUIRED'; exit 1; }
+          [[ "$root" == 'https://dreamwishwand.github.io/web' ]] || { echo 'LIVE_RELEASE_TUPLE_MISMATCH'; exit 1; }
           for spec in "ddv_save_core.js:$WAND_JS_SHA256:js" \
                       "ddv_save_core_bg.wasm:$WAND_WASM_SHA256:wasm" \
                       "manifest.json:$WAND_MANIFEST_SHA256:json"; do
