@@ -1024,7 +1024,11 @@ mod private_avatar {
             if !character_id(character)||!character_skin_id(skin){
                 return Err(denied("SKIN_SELECTOR_ID_OR_SUBTYPE"));
             }
-            let bytes=&self.decoded;
+            let value=skin_receipt_value(&self.decoded,e,character,skin)?;
+            Ok(PrivateCharacterSkinReceipt{value})
+        }
+    }
+    fn skin_receipt_value(bytes:&[u8],e:WorkerEnvelope,character:i32,skin:i32)->CoreResult<Value>{
             let root=roots(bytes)?;
             let world=members(bytes,root.world,1024)?;
             let player=members(bytes,root.player,1024)?;
@@ -1067,9 +1071,112 @@ mod private_avatar {
                 "productReadAccepted":false,"writerAuthorized":false,"editedCopyAuthorized":false,
                 "applyAuthorized":false,"nativeV3Verified":false
             });
-            Ok(PrivateCharacterSkinReceipt{value})
+            Ok(value)
+    }
+
+    // ACT395: physical saved DialogueFlags are NOT the initialized runtime
+    // DialogueFlagsOverride dictionary. Only an independent Native runtime
+    // witness or exact producer exclusion can resolve the effective value.
+    fn skin_dialogue_flags(bytes:&[u8],span:Option<Span>,target:i32)->CoreResult<Value>{
+        let mut entries=Vec::new();let mut target_positions=Vec::new();
+        if let Some(s)=span{
+            for (i,v) in array_spans(bytes,s,16384)?.into_iter().enumerate(){
+                let n=int(bytes,v)?;
+                if n<=0||n/10_000_000!=5{return Err(denied("SKIN_DEP_DIALOGUE_FLAG_TYPE"));}
+                let digest=sha(&bytes[v.begin..v.end]);
+                if n==target{target_positions.push(i);}
+                // Repeated int32 is not assumed to be a set; retain physical
+                // duplicate positions, do not silently normalize the list.
+                entries.push(json!({"position":i,"flagId":n,"tokenSha256":digest}));
+            }
+        }
+        let membership=span.map(|_|!target_positions.is_empty());
+        Ok(json!({"targetFlagId":target,"persistedList":dependency_hash(bytes,span),
+            "entries":entries,"targetPositions":target_positions,"persistedMembership":membership,
+            "runtimeOverrideInitialized":null,"runtimeOverrideKeyPresent":null,"runtimeOverrideValue":null,
+            "effectiveFlagValue":null,"effectiveFlagVerified":false,"runtimeOverrideVerified":false}))
+    }
+    fn conditional_event_dependencies(bytes:&[u8],span:Option<Span>)->CoreResult<Value>{
+        let Some(s)=span else{return Ok(json!({"present":false,"sha256":null,
+            "activeEvents":{"present":false,"sha256":null,"entries":[]},"inbox":{"present":false,"sha256":null},
+            "effectiveRegistryVerified":false,"completeNativeClosureVerified":false}))};
+        let f=members(bytes,s,64)?;
+        let active=field(&f,"ActiveEvents");let mut events=Vec::new();
+        if let Some(a)=active{
+            for (key,v) in members(bytes,a,4096)?{
+                let id=key_u32(&key)?;
+                if id==0||id>i32::MAX as u32{return Err(denied("SKIN_DEP_EVENT_ID"));}
+                let fs=members(bytes,v,128)?;
+                events.push(json!({"eventId":id,"recordSha256":sha(&bytes[v.begin..v.end]),
+                    "spawnState":dependency_hash(bytes,field(&fs,"SpawnState"))}));
+            }
+        }
+        Ok(json!({"present":true,"sha256":sha(&bytes[s.begin..s.end]),
+            "activeEvents":{"present":active.is_some(),"sha256":active.map(|v|sha(&bytes[v.begin..v.end])),"entries":events},
+            "inbox":dependency_hash(bytes,field(&f,"Inbox")),
+            "effectiveRegistryVerified":false,"completeNativeClosureVerified":false}))
+    }
+    fn skin_selection_dependencies(bytes:&[u8],chars:Span)->CoreResult<Vec<Value>>{
+        let mut seen=std::collections::BTreeSet::new();let mut out=Vec::new();
+        for (i,v) in array_spans(bytes,chars,512)?.into_iter().enumerate(){
+            let fs=members(bytes,v,128)?;let base=required(&fs,"Base")?;
+            let id=int(bytes,required(&members(bytes,base,32)?,"id")?)?;
+            if !character_id(id)||!seen.insert(id){return Err(denied("SKIN_DEP_CHARACTER_ID"));}
+            out.push(json!({"characterId":id,"physicalIndex":i,"recordSha256":sha(&bytes[v.begin..v.end]),
+                "skinId":scalar_witness(bytes,&fs,"SkinID")?}));
+        }
+        Ok(out)
+    }
+    pub struct PrivateCharacterSkinDependencyReceipt{value:Value}
+    impl PrivateCharacterSkinDependencyReceipt{
+        pub fn to_private_receipt_json(&self)->Value{self.value.clone()}
+    }
+    impl ProductSession{
+        pub fn read_private_character_skin_dependencies(&self,e:WorkerEnvelope,character:i32,skin:i32,flag:i32)
+            ->CoreResult<PrivateCharacterSkinDependencyReceipt>{
+            let b=&self.native_source_build;
+            if b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||
+               b.build_id!=EXACT||b.schema!=626||!b.externally_attested{return Err(denied("SKIN_EXACT_STEAM626_REQUIRED"));}
+            if !character_id(character)||!character_skin_id(skin)||flag<=0||flag/10_000_000!=5{
+                return Err(denied("SKIN_DEP_SELECTOR"));}
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            let bytes=&self.decoded;let root=roots(bytes)?;
+            // Existing Skin reader factored into a pure span projection. Both
+            // old and new stock + all dependencies are in THIS mutex epoch.
+            let selected=skin_receipt_value(bytes,e,character,skin)?;
+            let old=selected["character"]["currentSkinId"].as_i64()
+                .and_then(|v|i32::try_from(v).ok()).ok_or(denied("SKIN_DEP_OLD_SKIN_ABSENT"))?;
+            if !character_skin_id(old)||old==skin{return Err(denied("SKIN_DEP_DISTINCT_EXISTING_SKINS"));}
+            let player=members(bytes,root.player,1024)?;let world=members(bytes,root.world,1024)?;
+            let lists=required(&player,"ListInventories")?;
+            let old_stock=skin_inventory(bytes,lists,old)?;
+            let flags=skin_dialogue_flags(bytes,field(&world,"DialogueFlags"),flag)?;
+            let top_begin=skip_ws(bytes,0);let top_end=value_end(bytes,top_begin)?;
+            let top=members(bytes,Span{begin:top_begin,end:top_end},1024)?;
+            let history=conditional_event_dependencies(bytes,field(&top,"ConditionalEventHistory"))?;
+            let mut budget=DependencyBudget::default();
+            let missions=mission_dependencies(bytes,field(&world,"MissionSlots"),&mut budget)?;
+            let evolve=evolve_dependencies(bytes,field(&player,"EvolveStatesProfile"),&mut budget)?;
+            let value=json!({"contract":"wand.native.private.character-skin-dependencies@1",
+                "sessionId":hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
+                "decodedSha256":hex(&e.expected_decoded_sha256),"fullVersion":EXACT,"schema":626,
+                "selectedSkin":selected,"oldSkinInventory":old_stock,"dialogueFlag":flags,
+                "savedCharacterSelections":skin_selection_dependencies(bytes,required(&world,"Characters")?)?,
+                "subscriberReadSet":{"missionSlots":missions,
+                    "achievementsData":achievements_dependencies(bytes,field(&player,"AchievementsData"))?,
+                    "evolveStatesProfile":evolve,"questInfo":dependency_hash(bytes,field(&world,"QuestInfo")),
+                    "conditionalEventHistory":history,
+                    "conditionAndDefinitionJoinRequired":true,"activeAutoSelectionVerified":false,
+                    "nativeSubscriberClosureVerified":false,"effectiveActiveSubscriberSetVerified":false},
+                "selectedConditionFlagJoinVerified":false,"effectiveItemDbVerified":false,
+                "rightsVerified":false,"writerAuthorized":false,"productReadAccepted":false,
+                "editedCopyAuthorized":false,"applyAuthorized":false,"nativeV3Verified":false});
+            if serde_json::to_vec(&value).map_err(|_|denied("SKIN_DEP_RECEIPT_ENCODE"))?.len()>8*1024*1024{
+                return Err(denied("SKIN_DEP_RECEIPT_BOUND"));}
+            Ok(PrivateCharacterSkinDependencyReceipt{value})
         }
     }
+
     #[cfg(test)]
     mod character_skin_tests{
         use super::*;
@@ -1093,6 +1200,63 @@ mod private_avatar {
         }}})}
         fn read(s:&ProductSession)->CoreResult<PrivateCharacterSkinReceipt>{
             s.read_private_character_skin(env(s.receipt().unwrap()),10000053,170000000)
+        }
+        fn dep_doc()->Value{
+            let mut d=doc();
+            d["Player"]["ListInventories"]["42"]["Inventory"]["170000001"]=json!({"Amount":1,"Marker":"ItemMarker_None"});
+            d["World"]["DialogueFlags"]=json!([50000001,50000002,50000001]);
+            d["World"]["MissionSlots"]=json!({"0":{"Slots":[{"SlotId":0,"MissionId":2070000001,
+                "State":"MissionSlotState_OnGoing","CurrentStepIndex":0,"MissionSteps":[{"SubSteps":[{"Objectives":[
+                {"TargetAmount":2,"CurAmount":1,"ProgressKeys":{"CurrentAmount":"1"}}]}]}]}]}});
+            d["ConditionalEventHistory"]=json!({"ActiveEvents":{"1520000001":{"SpawnState":{"Unknown":1}}},"Inbox":{}});
+            d
+        }
+        fn dep(s:&ProductSession)->CoreResult<Value>{
+            Ok(s.read_private_character_skin_dependencies(env(s.receipt()?),10000053,170000000,50000001)?.to_private_receipt_json())
+        }
+        #[test]
+        fn skin_dependency_same_epoch_physical_flags_and_active_refs(){
+            let s=open(dep_doc());let before=s.receipt().unwrap();let v=dep(&s).unwrap();
+            assert_eq!(v["dialogueFlag"]["persistedMembership"],true);
+            assert_eq!(v["dialogueFlag"]["targetPositions"],json!([0,2]));
+            assert_eq!(v["dialogueFlag"]["entries"][1]["flagId"],50000002);
+            assert_eq!(v["dialogueFlag"]["runtimeOverrideKeyPresent"],Value::Null);
+            assert_eq!(v["dialogueFlag"]["effectiveFlagValue"],Value::Null);
+            assert_eq!(v["oldSkinInventory"]["itemId"],170000001);
+            assert_eq!(v["savedCharacterSelections"].as_array().unwrap().len(),2);
+            assert_eq!(v["subscriberReadSet"]["conditionalEventHistory"]["activeEvents"]["entries"][0]["eventId"],1520000001);
+            assert_eq!(v["subscriberReadSet"]["missionSlots"]["groups"][0]["slots"][0]["steps"][0]["subSteps"][0]["objectives"][0]["witness"]["curAmount"]["value"],1);
+            assert_eq!(v["writerAuthorized"],false);assert_eq!(v["rightsVerified"],false);
+            assert_eq!(s.receipt().unwrap(),before);
+            let mut d=dep_doc();d["World"]["DialogueFlags"]=json!([50000002]);
+            d["World"]["DialogueFlagsOverride"]=json!({"50000001":true});
+            let x=dep(&open(d)).unwrap();
+            assert_eq!(x["dialogueFlag"]["persistedMembership"],false);
+            assert_eq!(x["dialogueFlag"]["effectiveFlagValue"],Value::Null);
+            let mut d=dep_doc();d["World"].as_object_mut().unwrap().remove("DialogueFlags");
+            d.as_object_mut().unwrap().remove("ConditionalEventHistory");
+            let x=dep(&open(d)).unwrap();
+            assert_eq!(x["dialogueFlag"]["persistedMembership"],Value::Null);
+            assert_eq!(x["subscriberReadSet"]["conditionalEventHistory"]["present"],false);
+        }
+        #[test]
+        fn skin_dependency_malformed_and_stale_fail_closed(){
+            for bad in [json!(null),json!({}),json!(["50000001"]),json!([0]),json!([40000001]),json!([2147483648u64])]{
+                let mut d=dep_doc();d["World"]["DialogueFlags"]=bad;assert!(dep(&open(d)).is_err());
+            }
+            let mut d=dep_doc();d["ConditionalEventHistory"]["ActiveEvents"]=json!({"01520000001":{}});
+            assert!(dep(&open(d)).is_err());
+            let mut d=dep_doc();d["ConditionalEventHistory"]["ActiveEvents"]=json!({"1520000001":null});
+            assert!(dep(&open(d)).is_err());
+            let mut d=dep_doc();d["Player"]["ListInventories"]["42"]["Inventory"].as_object_mut().unwrap().remove("170000001");
+            assert!(dep(&open(d)).is_err());
+            let s=open(dep_doc());let r=s.receipt().unwrap();let e=env(r);
+            assert!(s.read_private_character_skin_dependencies(e,10000053,170000001,50000001).is_err());
+            assert!(s.read_private_character_skin_dependencies(e,10000053,170000000,40000001).is_err());
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_character_skin_dependencies(stale,10000053,170000000,50000001).is_err());
+            assert!(open(dep_doc()).read_private_character_skin_dependencies(e,10000053,170000000,50000001).is_err());
+            s.close().unwrap();assert!(s.read_private_character_skin_dependencies(e,10000053,170000000,50000001).is_err());
         }
         #[test]
         fn exact_character_and_compatible_route_read_only(){
