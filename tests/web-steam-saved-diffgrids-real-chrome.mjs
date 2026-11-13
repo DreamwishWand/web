@@ -206,7 +206,6 @@ const script=String.raw`
  need(expected.syntheticOnly===true&&file.size===expected.sourceBytes,'P1G_SOURCE_SIZE');
  const fileSha=async()=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))].map(b=>b.toString(16).padStart(2,'0')).join('');
  need(await fileSha()===expected.originalSha256,'ORIGINAL_SHA_BEFORE');
- const dt=new DataTransfer();dt.items.add(file);
  const select=(digest)=>{
   const input=present('#steam-diffgrids-file','FILE');need(!input.disabled,'FILE_DISABLED');
   const fresh=new DataTransfer();fresh.items.add(file);
@@ -457,7 +456,8 @@ try{
  };
  await selectNative();
  await evaluate('document.querySelector("[data-diffgrids-open]").click()');
- await waitDom('document.querySelector("[data-diffgrids-page]")');
+ await waitDom('document.querySelector("[data-diffgrids-page]")?.dataset.diffgridsPage==="1"');
+ assert.equal(await evaluate('document.querySelector("[data-diffgrids-open]").disabled'),true,'ACTIVE_SESSION_OPEN_DISABLED');
  await evaluate('window.__readerHold.kind="CLOSE_LOCAL_STORED_DIFFGRIDS";document.querySelector("[data-diffgrids-close]").click()');
  await waitDom('window.__readerHold.held==="CLOSE_LOCAL_STORED_DIFFGRIDS"');
  assert.equal(await evaluate('(()=>{const p=document.querySelector("[data-diffgrids-manual-only]");return [...p.querySelectorAll("input,button")].every(e=>e.disabled)&&!document.querySelector("[data-diffgrids-count]")})()'),true,'CLOSE_PENDING_ALL_CONTROLS_DISABLED');
@@ -475,7 +475,7 @@ try{
  assert.equal(await evaluate('!!document.querySelector("[data-diffgrids-count]")'),false,'STALE_OPEN_NO_RESURRECTION');
  await selectNative();
  await evaluate('document.querySelector("[data-diffgrids-open]").click()');
- await waitDom('document.querySelector("[data-diffgrids-page]")');
+ await waitDom('document.querySelector("[data-diffgrids-page]")?.dataset.diffgridsPage==="1"');
  await evaluate('document.querySelector("[data-diffgrids-close]").click()');
  await waitDom('!document.querySelector("#steam-diffgrids-file").disabled&&document.activeElement===document.querySelector("[data-diffgrids-summary]")');
  console.log('08WEB_NATIVE_SAME_FILE_RESELECT_CLOSE_BARRIER_STALE_OPEN_PASS');

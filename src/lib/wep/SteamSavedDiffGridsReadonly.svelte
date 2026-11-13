@@ -11,7 +11,7 @@
   let disclosure=null,fileInput=null,closing=false,epoch=0;
   const current=token=>token===epoch&&client!==null;
   $: words=savedDiffGridsCopy($locale);
-  $: valid=ready&&!busy&&chosenFile!==null&&
+  $: valid=ready&&!busy&&!opened&&chosenFile!==null&&
     /^[a-f0-9]{64}$/.test(originalSha)&&buildConfirmed;
   $: message=!ready?words.unavailable:
     busy?(opened?words.reading:words.opening):
@@ -61,7 +61,7 @@
     if(opened)await clear();
   }
   async function openReadOnly(){
-    if(!valid||busy||closing||!client)return;
+    if(!valid||busy||closing||opened||!client)return;
     const token=++epoch,file=chosenFile,sha=originalSha;
     error=false;busy=true;resetResults();
     try{
