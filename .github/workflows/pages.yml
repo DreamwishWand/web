@@ -41,6 +41,8 @@ jobs:
       - name: Read committed active release tuple (not caller or environment selection)
         id: release_tuple
         run: |
+          # ACT505 staging keeps the existing /web build. A future cutover
+          # must explicitly change BOTH the committed selector and Pages base.
           node --input-type=module -e 'import {ACTIVE_RELEASE_TUPLE as t} from "./src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs"; console.log("base="+t.basePath); console.log("root="+t.origin+t.basePath)' >> "$GITHUB_OUTPUT"
       - name: Install dependencies
         run: |
@@ -68,12 +70,13 @@ jobs:
           targets: wasm32-unknown-unknown
       - name: Verify exact protected-main release inputs and dependency lock
         env:
-          WAND_RELEASE_BASE_PATH: ${{ steps.release_tuple.outputs.base }}
+          WAND_RELEASE_BASE_PATH: /web
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           test "$(git rev-parse HEAD)" = "$WAND_SOURCE_HEAD"
           cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          test "$WAND_RELEASE_BASE_PATH" = "${{ steps.release_tuple.outputs.base }}"
           node scripts/wasm-distribution/verify-protected-release.mjs inputs
       - name: Generate genuine read-only Rust wasm32 from this protected main
         run: |
@@ -119,13 +122,13 @@ jobs:
         run: node scripts/readonly-release/seal.mjs seal
       - name: Build static site
         env:
-          BASE_PATH: ${{ steps.release_tuple.outputs.base }}
+          BASE_PATH: /web
           VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
       - name: Verify Pages physical JS, WASM and Manifest equal protected-main source
         env:
-          WAND_RELEASE_BASE_PATH: ${{ steps.release_tuple.outputs.base }}
+          WAND_RELEASE_BASE_PATH: /web
         run: |
           set -euo pipefail
           node scripts/wasm-distribution/verify-protected-release.mjs built
@@ -134,7 +137,7 @@ jobs:
       - name: Verify all three signatures before Pages artifact upload
         env:
           GH_TOKEN: ${{ github.token }}
-          WAND_RELEASE_BASE_PATH: ${{ steps.release_tuple.outputs.base }}
+          WAND_RELEASE_BASE_PATH: /web
           WAND_SIGSTORE_BUNDLE: ${{ steps.asset_sigstore.outputs.bundle-path }}
         run: |
           set -euo pipefail
