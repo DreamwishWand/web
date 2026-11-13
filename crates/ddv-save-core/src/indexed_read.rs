@@ -1099,7 +1099,7 @@ mod private_avatar {
     }
     fn conditional_event_dependencies(bytes:&[u8],span:Option<Span>)->CoreResult<Value>{
         let Some(s)=span else{return Ok(json!({"present":false,"sha256":null,
-            "activeEvents":{"present":false,"sha256":null,"entries":[]},"inbox":{"present":false,"sha256":null},
+            "activeEvents":{"present":false,"sha256":null,"entries":[]},"inboxSpawnCount":{"present":false,"sha256":null},
             "effectiveRegistryVerified":false,"completeNativeClosureVerified":false}))};
         let f=members(bytes,s,64)?;
         let active=field(&f,"ActiveEvents");let mut events=Vec::new();
@@ -1114,7 +1114,7 @@ mod private_avatar {
         }
         Ok(json!({"present":true,"sha256":sha(&bytes[s.begin..s.end]),
             "activeEvents":{"present":active.is_some(),"sha256":active.map(|v|sha(&bytes[v.begin..v.end])),"entries":events},
-            "inbox":dependency_hash(bytes,field(&f,"Inbox")),
+            "inboxSpawnCount":dependency_hash(bytes,field(&f,"InboxSpawnCount")),
             "effectiveRegistryVerified":false,"completeNativeClosureVerified":false}))
     }
     fn skin_selection_dependencies(bytes:&[u8],chars:Span)->CoreResult<Vec<Value>>{
@@ -1209,7 +1209,7 @@ mod private_avatar {
             d["World"]["MissionSlots"]=json!({"0":{"Slots":[{"SlotId":0,"MissionId":2070000001,
                 "State":"MissionSlotState_OnGoing","CurrentStepIndex":0,"MissionSteps":[{"SubSteps":[{"Objectives":[
                 {"TargetAmount":2,"CurAmount":1,"ProgressKeys":{"CurrentAmount":"1"}}]}]}]}]}});
-            d["ConditionalEventHistory"]=json!({"ActiveEvents":{"1520000001":{"SpawnState":{"Unknown":1}}},"Inbox":{}});
+            d["ConditionalEventHistory"]=json!({"ActiveEvents":{"1520000001":{"SpawnState":{"Unknown":1}}},"InboxSpawnCount":{}});
             d
         }
         fn dep(s:&ProductSession)->CoreResult<Value>{
@@ -1226,6 +1226,7 @@ mod private_avatar {
             assert_eq!(v["oldSkinInventory"]["itemId"],170000001);
             assert_eq!(v["savedCharacterSelections"].as_array().unwrap().len(),2);
             assert_eq!(v["subscriberReadSet"]["conditionalEventHistory"]["activeEvents"]["entries"][0]["eventId"],1520000001);
+            assert_eq!(v["subscriberReadSet"]["conditionalEventHistory"]["inboxSpawnCount"]["present"],true);
             assert_eq!(v["subscriberReadSet"]["missionSlots"]["groups"][0]["slots"][0]["steps"][0]["subSteps"][0]["objectives"][0]["witness"]["curAmount"]["value"],1);
             assert_eq!(v["writerAuthorized"],false);assert_eq!(v["rightsVerified"],false);
             assert_eq!(s.receipt().unwrap(),before);
