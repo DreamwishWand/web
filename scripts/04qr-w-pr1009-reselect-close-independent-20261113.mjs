@@ -129,7 +129,13 @@ try{
  // Delay real OPEN reply, cancel it before UI receives selection, open a
  // new session and deliver old reply last. New selection and page survive.
  await select();await hold('OPEN_LOCAL_STORED_DIFFGRIDS');await open.click();await held('OPEN_LOCAL_STORED_DIFFGRIDS');
+ const cancelledSel=await p.evaluate(()=>__qrw.held.find(x=>x.kind==='OPEN_LOCAL_STORED_DIFFGRIDS').event.data.summary.selection);
  await close.click();await settled();
+ // Close occurs after Rust completed OPEN but before UI saw its receipt.
+ // The UI has only the pending OPEN requestId. Probe whether the actual
+ // Worker still honors the cancelled selection before any newer OPEN.
+ const afterCancelled=await raw({kind:'READ_LOCAL_STORED_DIFFGRIDS_NEXT',requestId:9001,selection:cancelledSel,pageIndex:0});
+ console.log('QRW1009_CANCELLED_COMPLETED_OPEN_WIRE_OBSERVATION',JSON.stringify(afterCancelled));
  await openFresh();const beforeRelease=await audit();
  await release();await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
  assert.equal(await panel.locator('[data-diffgrids-page="1"]').count(),1);
@@ -152,5 +158,6 @@ try{
  assert.equal(createHash('sha256').update(await readFile(fixturePath)).digest('hex'),sha);
  assert.deepEqual(violations,[]);assert.deepEqual(pageErrors,[]);
  console.log('QRW1009_ACTUAL_SPA_TEARDOWN_BACK_FRESH_SESSION_PASS');
+ assert.deepEqual(afterCancelled,{ok:false,error:'LOCAL_DIFFGRIDS_STALE_READ_OR_REPLAY',keys:['error','ok','requestId']},'TRUE_RED_CANCELLED_OPEN_RETAINS_ACTUAL_WORKER_SELECTION');
  await ctx.close();
 }finally{await browser?.close();await new Promise(r=>server.close(r));await rm(tmp,{recursive:true,force:true})}
