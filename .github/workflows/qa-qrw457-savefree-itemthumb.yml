@@ -1,0 +1,47 @@
+name: QR-W ACT457 PR1054 independent ItemThumb lifecycle
+on:
+  pull_request:
+    paths:
+      - 'scripts/qa-qrw457-savefree-itemthumb-lifecycle.mjs'
+      - '.github/workflows/qa-qrw457-savefree-itemthumb.yml'
+permissions:
+  contents: read
+jobs:
+  lifecycle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify frozen Source and exact QA additions
+        run: |
+          set -euo pipefail
+          SOURCE=ae7199e01f0fb36e9d62971cbb0f01fbf2c1b121
+          git fetch --no-tags --depth=1 origin "$SOURCE"
+          test "$(git rev-parse HEAD:src/lib/wep/SaveFreeFirstScene.svelte)" = ba09f189e76dafde45e7f9502003ba8704212d77
+          test "$(git rev-parse HEAD:docs/wep/world-editor-localization-inventory-20261002.json)" = c69f64bfef779dd7fb8d71475bf536aab311cfe2
+          test "$(git rev-parse HEAD:scripts/wep-savefree-first-scene-chrome.mjs)" = d79102fe10c7bfcc9254577fb143ceab21741e30
+          test "$(git rev-parse HEAD:src/lib/ui/ItemThumb.svelte)" = 7709d84ce4e9324f66f0ab466916b60ad8143425
+          test "$(git diff --name-only "$SOURCE" HEAD | wc -l)" = 2
+          git diff --name-status "$SOURCE" HEAD
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual isolated Chrome, new failure/remount/reselection negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          "$CHROME_BIN" --version
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4358 >/tmp/qrw457.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4358/editor/world/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/qa-qrw457-savefree-itemthumb-lifecycle.mjs
