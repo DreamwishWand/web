@@ -8,7 +8,8 @@
   let client=null,ready=false,busy=false,opened=false,error=false;
   let chosenFile=null,originalSha='',buildConfirmed=false;
   let count=null,rows=[],page=0,hasNext=false;
-  let disclosure=null;
+  let disclosure=null,fileInput=null,closing=false,epoch=0;
+  const current=token=>token===epoch&&client!==null;
   $: words=savedDiffGridsCopy($locale);
   $: valid=ready&&!busy&&chosenFile!==null&&
     /^[a-f0-9]{64}$/.test(originalSha)&&buildConfirmed;
@@ -27,46 +28,68 @@
       {type:'module',name:'wand-steam-diffgrids-readonly'}
     );
     client=createSavedDiffGridsUiClient(factory);
-    client.start(state=>{ready=state.ready===true; if(!ready){opened=false;rows=[];count=null}});
-    return ()=>{client?.dispose();client=null;ready=false};
+    client.start(state=>{
+      ready=state.ready===true;
+      if(!ready){epoch++;resetResults();resetSelection();busy=false;closing=false}
+    });
+    return ()=>{epoch++;client?.dispose();client=null;ready=false};
   });
-  function selectFile(event){
-    chosenFile=event.currentTarget.files?.[0]||null;
-    originalSha='';buildConfirmed=false;error=false;
-    if(opened)void clear();
-  }
-  async function clear(){
+  function resetResults(){
     opened=false;rows=[];page=0;count=null;hasNext=false;
-    busy=false;
+  }
+  function resetSelection(){
+    chosenFile=null;originalSha='';buildConfirmed=false;
+    if(fileInput)fileInput.value='';
+  }
+  async function clear(reset=false,focus=false){
+    if(closing)return;
+    const token=++epoch;
+    closing=true;busy=true;resetResults();
+    if(reset){resetSelection();error=false}
     try{await client?.close()}catch{ /* no trusted receipt survives */ }
+    finally{
+      if(current(token)){
+        closing=false;busy=false;
+        if(focus){await tick();if(current(token))disclosure?.focus()}
+      }
+    }
+  }
+  async function selectFile(event){
+    if(busy||closing||!ready)return;
+    const file=event.currentTarget.files?.[0]||null;
+    chosenFile=file;originalSha='';buildConfirmed=false;error=false;
+    if(opened)await clear();
   }
   async function openReadOnly(){
-    if(!valid||!client)return;
-    const file=chosenFile;
-    error=false;busy=true;rows=[];opened=false;count=null;hasNext=false;
+    if(!valid||busy||closing||!client)return;
+    const token=++epoch,file=chosenFile,sha=originalSha;
+    error=false;busy=true;resetResults();
     try{
-      const receipt=await client.open(file,originalSha,true);
+      const receipt=await client.open(file,sha,true);
+      if(!current(token))return;
       if(!receipt||receipt.writerAuthorized!==false)throw Error('DENIED');
       count=receipt.recordCount;opened=true;
-      if(count>0)await nextPage();
+      if(count>0)await loadPage(token);
     }catch{
-      error=true;await clear();
-    }finally{busy=false}
+      if(current(token)){error=true;await clear()}
+    }finally{if(current(token))busy=false}
+  }
+  async function loadPage(token){
+    const result=await client.readNext();
+    if(!current(token))return;
+    rows=result.records;page=result.pageIndex+1;hasNext=result.hasNext;
   }
   async function nextPage(){
-    if(!client||!opened)return;
+    if(!client||!opened||busy||closing)return;
+    const token=++epoch;
     busy=true;error=false;
-    try{
-      const result=await client.readNext();
-      rows=result.records;page=result.pageIndex+1;hasNext=result.hasNext;
-    }catch{
-      await clear();error=true;
-    }finally{busy=false}
+    try{await loadPage(token)}
+    catch{if(current(token)){error=true;await clear()}}
+    finally{if(current(token))busy=false}
   }
   async function closeSession(){
-    await clear();
-    chosenFile=null;originalSha='';buildConfirmed=false;
-    await tick();disclosure?.focus();
+    if(closing||(!opened&&!busy))return;
+    await clear(true,true);
   }
 </script>
 
@@ -81,7 +104,7 @@
       <div class="controls" data-diffgrids-manual-only>
         <label for="steam-diffgrids-file">{words.file}</label>
         <input id="steam-diffgrids-file" type="file" accept=".p1g,application/octet-stream"
-          disabled={busy} on:change={selectFile}/>
+          bind:this={fileInput} disabled={busy} on:change={selectFile}/>
         <label for="steam-diffgrids-sha">{words.sha}</label>
         <input id="steam-diffgrids-sha" type="text" spellcheck="false" autocapitalize="off"
           autocomplete="off" maxlength="64" pattern="[a-f0-9]{64}"
@@ -94,7 +117,7 @@
         <div class="actions">
           <button type="button" on:click={openReadOnly}
             disabled={!valid} data-diffgrids-open>{words.open}</button>
-          <button type="button" on:click={closeSession} disabled={!opened&&!busy}
+          <button type="button" on:click={closeSession} disabled={closing||(!opened&&!busy)}
             data-diffgrids-close>{words.close}</button>
         </div>
       </div>

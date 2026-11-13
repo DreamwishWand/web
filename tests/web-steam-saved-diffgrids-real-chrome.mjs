@@ -410,6 +410,73 @@ try{
   }
   throw Error('08WEB_WAIT_DESKTOP_CURRENT_SUMMARY');
  })()`,awaitPromise:true,returnByValue:true});
+ // Native CDP file selection, not synthetic change dispatch. Install a
+ // test-only delivery barrier on the real Worker to hold the actual reply
+ // (never forge a receipt), then reload the real route.
+ const hook=String.raw`(()=>{
+  const Native=window.Worker;
+  window.__readerHold={kind:null,held:null,release:null,posts:0};
+  window.Worker=class extends Native{
+   constructor(url,opts){
+    super(url,opts);
+    if(opts?.name!=='wand-steam-diffgrids-readonly')return;
+    const h=window.__readerHold,ids=new Map();
+    const post=this.postMessage.bind(this);
+    this.postMessage=(data,...rest)=>{h.posts++;ids.set(data.requestId,data.kind);return post(data,...rest)};
+    let cb=null;
+    Object.defineProperty(this,'onmessage',{configurable:true,get:()=>cb,set:v=>{cb=v}});
+    this.addEventListener('message',event=>{
+     if(h.kind&&ids.get(event.data?.requestId)===h.kind&&!h.held){
+      h.held=h.kind;h.release=()=>{h.kind=null;h.held=null;h.release=null;cb?.call(this,event)};
+     }else cb?.call(this,event);
+    });
+   }
+  };
+ })()`;
+ await rpc('Page.addScriptToEvaluateOnNewDocument',{source:hook});
+ await rpc('Page.navigate',{url:'https://127.0.0.1:'+port+'/web/editor/steam-reader/'});
+ const evaluate=async expression=>{
+  const x=await rpc('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});
+  if(x.exceptionDetails)throw Error(String(x.exceptionDetails.exception?.description||x.exceptionDetails.text).slice(0,700));
+  return x.result?.value;
+ };
+ const waitDom=async check=>evaluate('(async()=>{const end=performance.now()+18000;while(performance.now()<end){if('+check+')return true;await new Promise(r=>setTimeout(r,40))}throw Error("NATIVE_RESELECT_WAIT")})()');
+ await waitDom('location.pathname==="/web/editor/steam-reader/"&&document.querySelector("#steam-diffgrids-file:not([disabled])")');
+ await evaluate('document.querySelector("[data-steam-diffgrids-readonly]").open=true;window.__nativeChanges=0;document.querySelector("#steam-diffgrids-file").addEventListener("change",()=>window.__nativeChanges++)');
+ const fixturePath=join(root,'tests/stage-f/fixtures/synthetic626-diffgrids.p1g');
+ const expected=JSON.parse(await readFile(join(root,'tests/stage-f/fixtures/expected-diffgrids.json'),'utf8'));
+ const selectNative=async()=>{
+  const doc=await rpc('DOM.getDocument');
+  const el=await rpc('DOM.querySelector',{nodeId:doc.root.nodeId,selector:'#steam-diffgrids-file'});
+  assert.ok(el.nodeId);
+  await rpc('DOM.setFileInputFiles',{nodeId:el.nodeId,files:[fixturePath]});
+  await evaluate('(()=>{const s=document.querySelector("#steam-diffgrids-sha");s.value='+JSON.stringify(expected.originalSha256)+';s.dispatchEvent(new Event("input",{bubbles:true}));const c=document.querySelector("[data-diffgrids-manual-only] input[type=checkbox]");c.click()})()');
+  await waitDom('document.querySelector("[data-diffgrids-open]:not([disabled])")');
+ };
+ await selectNative();
+ await evaluate('document.querySelector("[data-diffgrids-open]").click()');
+ await waitDom('document.querySelector("[data-diffgrids-page]")');
+ await evaluate('window.__readerHold.kind="CLOSE_LOCAL_STORED_DIFFGRIDS";document.querySelector("[data-diffgrids-close]").click()');
+ await waitDom('window.__readerHold.held==="CLOSE_LOCAL_STORED_DIFFGRIDS"');
+ assert.equal(await evaluate('(()=>{const p=document.querySelector("[data-diffgrids-manual-only]");return [...p.querySelectorAll("input,button")].every(e=>e.disabled)&&!document.querySelector("[data-diffgrids-count]")})()'),true,'CLOSE_PENDING_ALL_CONTROLS_DISABLED');
+ await evaluate('window.__readerHold.release()');
+ await waitDom('!document.querySelector("#steam-diffgrids-file").disabled&&document.activeElement===document.querySelector("[data-diffgrids-summary]")');
+ assert.equal(await evaluate('document.querySelector("#steam-diffgrids-file").files.length'),0,'NATIVE_INPUT_CLEARED');
+ await selectNative();
+ assert.equal(await evaluate('window.__nativeChanges'),2,'SAME_NATIVE_FILE_CHANGE');
+ // Hold an actual OPEN reply then close before it is delivered.
+ await evaluate('window.__readerHold.kind="OPEN_LOCAL_STORED_DIFFGRIDS";document.querySelector("[data-diffgrids-open]").click()');
+ await waitDom('window.__readerHold.held==="OPEN_LOCAL_STORED_DIFFGRIDS"');
+ await evaluate('document.querySelector("[data-diffgrids-close]").click()');
+ await waitDom('!document.querySelector("#steam-diffgrids-file").disabled&&document.activeElement===document.querySelector("[data-diffgrids-summary]")');
+ await evaluate('window.__readerHold.release()');
+ assert.equal(await evaluate('!!document.querySelector("[data-diffgrids-count]")'),false,'STALE_OPEN_NO_RESURRECTION');
+ await selectNative();
+ await evaluate('document.querySelector("[data-diffgrids-open]").click()');
+ await waitDom('document.querySelector("[data-diffgrids-page]")');
+ await evaluate('document.querySelector("[data-diffgrids-close]").click()');
+ await waitDom('!document.querySelector("#steam-diffgrids-file").disabled&&document.activeElement===document.querySelector("[data-diffgrids-summary]")');
+ console.log('08WEB_NATIVE_SAME_FILE_RESELECT_CLOSE_BARRIER_STALE_OPEN_PASS');
  const d=desktop.result?.value;
  assert.ok(d&&d.viewport===1280&&d.left>=-1&&d.right<=1281&&Math.abs(d.scrollX)<=1,
    'DESKTOP_NO_PAGE_HORIZONTAL_OVERFLOW');
