@@ -629,12 +629,15 @@ fn observe_existing_amount(s:&ProductSession,e:&WorkerEnvelope,selection:Existin
                 return Err(denied("AMOUNT_CHEST_ACTIVITY_ITEM_REQUIRED"));
             }
             let state=object_field(bytes,entry,"State")?;
-            // Only explicitly saved empty object in this narrow candidate
-            // subset. Unknown/nonempty oneof, null or missing State cannot
-            // prove canonical variation or State equivalence.
-            if bytes.get(state.begin)!=Some(&b'{')||
-               indexed_read::skip_ws(bytes,state.begin+1)!=state.end-1||
-               bytes.get(state.end-1)!=Some(&b'}'){
+            // Steam626 native Slot State field3 can be explicitly null.
+            // Preserve its exact token; null and an empty object are distinct
+            // saved witnesses, never aliases or proof of Native authority.
+            // Missing State, unknown/nonempty oneof and other types fail closed.
+            let explicit_null=bytes.get(state.begin..state.end)==Some(&b"null"[..]);
+            let empty_object=bytes.get(state.begin)==Some(&b'{')&&
+                indexed_read::skip_ws(bytes,state.begin+1)==state.end-1&&
+                bytes.get(state.end-1)==Some(&b'}');
+            if !explicit_null&&!empty_object{
                 return Err(denied("AMOUNT_CHEST_STATE_UNRESOLVED"));
             }
             let old=saved_positive_amount(bytes,object_field(bytes,entry,"Amount")?)?;
@@ -901,8 +904,9 @@ mod minted_amount_target_tests {
             v["Player"]["ContainerInventories"]["12"]["Inventory"][0].as_object_mut().unwrap().remove(key);
             assert!(read(&open(&v),chest()).is_err(),"{key}");
         }
-        for (key,value) in [("State",json!({"Unknown":1})),("State",Value::Null),
-            ("State",json!([])),("ItemID",json!(40000047)),("ItemID",json!(-1)),
+        for (key,value) in [("State",json!({"Unknown":1})),("State",json!("null")),
+            ("State",json!([])),("State",json!(false)),("State",json!(0)),
+            ("ItemID",json!(40000047)),("ItemID",json!(-1)),
             ("ItemID",json!(31300001)),("Amount",json!(51)),("Amount",json!(0))]{
             let mut v=doc();v["Player"]["ContainerInventories"]["12"]["Inventory"][0][key]=value;
             assert!(read(&open(&v),chest()).is_err(),"{key}");
@@ -913,6 +917,56 @@ mod minted_amount_target_tests {
         v["Player"]["ContainerInventories"]["12"]["Inventory"]=json!(vec![json!({"ItemID":30000002,"Amount":12,"State":{}});257]);
         assert!(read(&open(&v),chest()).is_err());
         assert!(read(&open(&doc()),ExistingAmountSelection::Chest{container_id:12,slot_index:2}).is_err());
+    }
+    #[test]
+    fn chest_explicit_null_distinct_witness_and_positive_cas(){
+        let mut v=doc();
+        v["Player"]["ContainerInventories"]["12"]["Inventory"][0]["State"]=Value::Null;
+        let s=open(&v);
+        let before=s.receipt().unwrap();
+        let e=scope(before,WorkerAction::ReadDomain);
+        let target=read(&s,chest()).unwrap();
+        let facts=target.view().chest.unwrap();
+        assert_eq!(facts.state_sha256,sha(b"null"));
+        let empty=open(&doc());
+        let empty_target=read(&empty,chest()).unwrap();
+        assert_eq!(empty_target.view().chest.unwrap().state_sha256,sha(b"{}"));
+        assert_ne!(facts.state_sha256,empty_target.view().chest.unwrap().state_sha256);
+        assert_eq!(s.authorize_existing_amount_target(e,&target,11).unwrap_err().0,
+            "AMOUNT_TARGET_NATIVE_AUTHORITY_UNAVAILABLE");
+        for amount in [0,12,13]{
+            assert_eq!(s.authorize_existing_amount_target(e,&target,amount).unwrap_err().0,
+                "SEMANTIC_EXISTING_POSITIVE_DECREASE_ONLY");
+        }
+        let mut wrong=target.clone();
+        wrong.view.chest.as_mut().unwrap().state_sha256=sha(b"{}");
+        assert_eq!(s.authorize_existing_amount_target(e,&wrong,11).unwrap_err().0,
+            "AMOUNT_TARGET_SCOPE_OR_WITNESS_CAS");
+        let mut wrong=target.clone();
+        wrong.view.entry_sha256[0]^=1;
+        assert!(s.authorize_existing_amount_target(e,&wrong,11).is_err());
+        assert!(empty.authorize_existing_amount_target(
+            scope(empty.receipt().unwrap(),WorkerAction::ReadDomain),&target,11).is_err());
+        let mut stale=e;stale.expected_revision+=1;
+        assert!(s.read_existing_amount_target(stale,chest()).is_err());
+        assert_eq!(s.receipt().unwrap(),before);
+        // Only test-local synthetic authority can exercise the amount ledger.
+        // Production mint remains unavailable. State and all unknown bytes stay.
+        let grant=synthetic_grant(&s,chest(),11);
+        let stage=scope(before,WorkerAction::Stage);
+        let receipt=s.stage_core_minted_amount_batch(stage,&[grant]).unwrap();
+        assert_eq!(receipt.exact_field_changed_count,1);
+        assert!(!receipt.product_writer_authorized);
+        assert!(!receipt.original_overwrite_authorized);
+        assert!(!receipt.native_v3_verified);
+        s.undo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        s.redo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        let out=s.take_typed_semantic_decoded_once(
+            scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).unwrap();
+        v["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(11);
+        assert_eq!(out,serde_json::to_vec(&v).unwrap());
+        assert!(s.take_typed_semantic_decoded_once(
+            scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());
     }
     #[test]
     fn session_epoch_and_snapshot_cas_no_caller_catalog(){
