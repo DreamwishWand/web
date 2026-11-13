@@ -279,4 +279,22 @@ fn run(){
     }
     println!("{}",out);
 }
+#[cfg(all(test,target_os="linux"))]
+#[test]
+fn skin_dependency_pinned_output_does_not_follow_replaced_parent(){
+    use std::{fs,path::PathBuf,os::unix::fs::{DirBuilderExt,symlink},time::{SystemTime,UNIX_EPOCH}};
+    let root=std::env::temp_dir().join(format!("wand-skin-pinned-{}-{}",std::process::id(),
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+    fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
+    struct Cleanup(PathBuf);impl Drop for Cleanup{fn drop(&mut self){let _=fs::remove_dir_all(&self.0);}}
+    let _cleanup=Cleanup(root.clone());
+    let parent=root.join("parent");let moved=root.join("moved");let other=root.join("other");
+    for p in [&parent,&other]{fs::DirBuilder::new().mode(0o700).create(p).unwrap();}
+    let out=pinned_private_output(parent.join("receipt.json").to_str().unwrap());
+    fs::rename(&parent,&moved).unwrap();symlink(&other,&parent).unwrap();
+    let v=serde_json::json!({"writerAuthorized":false});
+    write_private_receipt(&out.path,&v);
+    assert!(!other.join("receipt.json").exists());
+    assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(moved.join("receipt.json")).unwrap()).unwrap(),v);
+}
 fn main(){run()}
