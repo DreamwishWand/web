@@ -61,7 +61,7 @@ test('Star Path reference groups preserve every decoded label, count unresolved 
   for(const [records,total,visible,unresolved] of [[main.duties,121,121,0],[main.routineDuties,21,0,21],[ftue.duties,15,15,0],[ftue.routineDuties,3,3,0]]){
     const group=guideDutyGroup(records);
     assert.equal(group.total,total); assert.equal(group.labels.length,visible); assert.equal(group.unresolved,unresolved);
-    assert.ok(group.labels.every(x=>x&&!/^Liveops\\./i.test(x)));
+    assert.ok(group.labels.every(x=>x&&!x.toLowerCase().startsWith('liveops.')));
     assert.equal(group.labels.length+group.unresolved,group.total);
   }
   assert.deepEqual(guideDutyGroup(ftue.routineDuties).labels,ftue.routineDuties.map(x=>x.label));

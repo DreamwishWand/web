@@ -22,14 +22,17 @@ try {
    assert.equal(await ordinary.locator('[data-guide-duty-label]').count(),121);
    assert.equal(await routine.locator('[data-guide-duty-label]').count(),0);
    assert.equal(await routine.locator('[data-guide-duty-unresolved]').getAttribute('data-guide-duty-unresolved'),'21');
-   assert.match(await routine.innerText(),new RegExp(guideCopy(loc).unresolvedDutyText.replace(/[.*+?^$${}()|[\]\\]/g,'\\$&')));
+   assert.ok((await routine.innerText()).includes(guideCopy(loc).unresolvedDutyText));
    assert.ok((await routine.locator('h4').innerText()).includes(guideCopy(loc).routineDuties));
    assert.ok(!(await routine.innerText()).includes('Liveops.'));
-   await list.nth(1).click();
+   await list.nth(1).focus();
+   await list.nth(1).press('Enter');
    await routine.locator('[data-guide-duty-label]').first().waitFor();
    assert.equal(await ordinary.locator('[data-guide-duty-label]').count(),15);
    assert.equal(await routine.locator('[data-guide-duty-label]').count(),3);
    assert.equal(await routine.locator('[data-guide-duty-unresolved]').count(),0);
+   assert.equal(await list.nth(1).getAttribute('aria-pressed'),'true');
+   assert.equal(await list.nth(0).getAttribute('aria-pressed'),'false');
    assert.match(await routine.innerText(),/Take a Picture of the Event Board/);
    for(const [width,zoom] of [[320,1],[640,2]]){
     await page.setViewportSize({width,height:900});
