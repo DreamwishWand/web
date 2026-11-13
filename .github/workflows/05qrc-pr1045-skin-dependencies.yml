@@ -1,0 +1,46 @@
+name: 05 QR-C PR1045 independent Skin dependencies
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_pr1045_skin_dependencies.rs'
+      - 'tests/qa/05qrc-pr1045-private-output.mjs'
+      - '.github/workflows/05qrc-pr1045-skin-dependencies.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed original3 and QA-only files
+        run: |
+          git merge-base --is-ancestor a34d94f85e856853fd673fd74b2aa1dae84fe733 HEAD
+          test "$(git diff --name-only a34d94f85e856853fd673fd74b2aa1dae84fe733 HEAD | wc -l)" -eq 3
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/indexed_read.rs)" = 726e5ade4ce8be9ec16774aa3237c325a39234d3
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v1.rs)" = 1be07d04f2ea8b98236aeb48f63b7e533a1ead14
+          test "$(git rev-parse HEAD:tests/private-character-skin-read.mjs)" = d18ae08646c9c362c2022a0ea41de4c51b344a73
+      - name: Native same-session physical dependencies and bounds
+        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1 --test qa_pr1045_skin_dependencies -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1,semantic-writer-dev --test qa_pr1045_skin_dependencies -- --nocapture
+      - name: Actual private CLI output descriptor and create-new
+        run: |
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --no-default-features --features private-native-v1 --bin wand-local-rust-v1
+          node tests/qa/05qrc-pr1045-private-output.mjs crates/ddv-save-core/target/release/wand-local-rust-v1
+      - name: Public and DEV WASM feature checks
+        run: |
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
