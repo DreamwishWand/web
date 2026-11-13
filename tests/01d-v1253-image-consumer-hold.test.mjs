@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,symlinkSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,symlinkSync,rmSync,readFileSync,statSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {join,resolve} from 'node:path';
+import {createHash} from 'node:crypto';
+import {spawnSync} from 'node:child_process';
 import {SOURCE,TARGET,SOURCE_ONLY_SAMPLES,createHoldManifest,validateManifestInputs,parseCli,verifyPrivateFiles} from '../scripts/asset-research/01d-v1253-image-consumer-hold.mjs';
 
 test('R14 same Steam FullVersion three real sample SHAs are only a private HOLD, never public Image Resolver rows',()=>{
@@ -68,4 +70,72 @@ test('R14 private files reject symlink directories, existing output and false fi
     writeFileSync(args.output,'not clobber');
     await assert.rejects(()=>verifyPrivateFiles(args),/NO_CLOBBER_OUTPUT_EXISTS/);
   }finally{rmSync(root,{recursive:true,force:true});}
+});
+
+test('R14 repaired authority and actual OS path boundaries deny before hashing',async()=>{
+  const root=mkdtempSync(join(tmpdir(),'wand-794-repair-'));
+  const repoFixture=mkdtempSync(join(process.cwd(),'.wand-794-synthetic-'));
+  try{
+    const source=join(root,'source'),images=join(root,'images'),out=join(root,'out');
+    mkdirSync(source);mkdirSync(images);mkdirSync(out);mkdirSync(join(images,'child'));
+    const fullversion=join(source,'FullVersion.txt'),furniture=join(source,'Furniture.json'),bundle=join(source,'bundle');
+    writeFileSync(fullversion,SOURCE.externalFullVersion+'\n');
+    writeFileSync(furniture,'synthetic wrong size');writeFileSync(bundle,'synthetic wrong size');
+    const args={fullversion,furniture,bundle,images,output:join(out,'hold.json')};
+    assert.equal(createHoldManifest({privateFileProof:'PINNED_FILE_SHA_VERIFIED'}).evidence.privateFileProof,'NOT_RUN');
+    const repoFile=join(repoFixture,'FullVersion.txt');writeFileSync(repoFile,SOURCE.externalFullVersion+'\n');
+    const alias=join(root,'repo-alias');symlinkSync(repoFixture,alias,'dir');
+    await assert.rejects(verifyPrivateFiles({...args,fullversion:join(alias,'FullVersion.txt')}),/PRIVATE_DIRECTORY_ALIAS|PRIVATE_INPUT_OR_OUTPUT_INSIDE_REPOSITORY/);
+    await assert.rejects(verifyPrivateFiles({...args,output:out+'/../source/hold.json'}),/PRIVATE_DIRECTORY_ALIAS|OUTPUT_MUST_BE_SEPARATE/);
+    await assert.rejects(verifyPrivateFiles({...args,output:join(images,'child','hold.json')}),/OUTPUT_MUST_BE_SEPARATE/);
+    await assert.rejects(verifyPrivateFiles({...args,output:join(root,'ancestor.json')}),/OUTPUT_MUST_BE_SEPARATE/);
+    const other=join(root,'other-checkout');mkdirSync(other);writeFileSync(join(other,'.git'),'gitdir: dummy');
+    await assert.rejects(verifyPrivateFiles({...args,output:join(other,'hold.json')}),/PRIVATE_INPUT_OR_OUTPUT_INSIDE_REPOSITORY/);
+    const imageAlias=join(root,'image-alias');symlinkSync(images,imageAlias,'dir');
+    await assert.rejects(verifyPrivateFiles({...args,images:imageAlias}),/PRIVATE_DIRECTORY_ALIAS/);
+    await assert.rejects(verifyPrivateFiles(args),/MISSING_SYMLINK_SIZE/);
+    assert.equal(readFileSync(furniture,'utf8'),'synthetic wrong size');
+    for(const p of [args.output,join(source,'hold.json'),join(images,'child','hold.json'),join(root,'ancestor.json'),join(other,'hold.json')])assert.equal(existsSync(p),false);
+  }finally{rmSync(root,{recursive:true,force:true});rmSync(repoFixture,{recursive:true,force:true});}
+});
+
+test('R14 verifier-only label: test-local synthetic pins, actual nine file reads and exclusive HOLD output',()=>{
+  // This temporary module substitutes synthetic fixture hashes ONLY. The
+  // committed verifier's original Steam pins are untouched; no media proof.
+  const root=mkdtempSync(join(tmpdir(),'wand-794-positive-'));
+  const codeRoot=mkdtempSync(join(process.cwd(),'.wand-794-testmodule-'));
+  try{
+    const source=join(root,'source'),images=join(root,'images'),out=join(root,'out');
+    mkdirSync(source);mkdirSync(images);mkdirSync(out);
+    const fullversion=join(source,'FullVersion.txt'),furniture=join(source,'Furniture.json'),bundle=join(source,'bundle');
+    writeFileSync(fullversion,SOURCE.externalFullVersion+'\n');
+    const f=Buffer.from('synthetic furniture'),b=Buffer.from('synthetic bundle');
+    writeFileSync(furniture,f);writeFileSync(bundle,b);
+    const sha=x=>createHash('sha256').update(x).digest('hex');
+    let text=readFileSync(resolve('scripts/asset-research/01d-v1253-image-consumer-hold.mjs'),'utf8');
+    text=text.replace(SOURCE.furnitureSha256,sha(f)).replace('furnitureBytes: '+SOURCE.furnitureBytes,'furnitureBytes: '+f.length)
+      .replace(SOURCE.bundleSha256,sha(b)).replace('bundleBytes: '+SOURCE.bundleBytes,'bundleBytes: '+b.length);
+    for(const [i,p] of SOURCE_ONLY_SAMPLES.entries()){
+      const png=Buffer.alloc(32);Buffer.from('89504e470d0a1a0a','hex').copy(png);png.writeUInt32BE(512,16);png.writeUInt32BE(512,20);png[24]=8;png[25]=6;png[31]=i+1;
+      const webp=Buffer.alloc(32);webp.write('RIFF');webp.writeUInt32LE(24,4);webp.write('WEBP',8);webp.write('VP8L',12);webp[20]=0x2f;webp.writeUInt32LE(159|(159<<14),21);webp[31]=i+1;
+      writeFileSync(join(images,p.itemId+'-steam1253-reconstructed.png'),png);
+      writeFileSync(join(images,p.itemId+'-steam1253-lossless160.webp'),webp);
+      text=text.replace(p.steamDerivedPngSha256,sha(png)).replace(p.steamLossless160WebpSha256,sha(webp));
+    }
+    // Keep the copy under a checkout-shaped location so its source-relative
+    // repository fence cannot encompass the isolated private fixture root.
+    const moduleDir=join(codeRoot,'scripts','asset-research');mkdirSync(moduleDir,{recursive:true});
+    const script=join(moduleDir,'hold.mjs');writeFileSync(script,text);
+    const output=join(out,'hold.json'),args=['--fullversion',fullversion,'--furniture',furniture,'--bundle',bundle,'--images',images,'--output',output];
+    const run=()=>spawnSync(process.execPath,[script,...args],{encoding:'utf8',timeout:20000});
+    const first=run();assert.equal(first.status,0,first.stderr);
+    const receipt=JSON.parse(readFileSync(output,'utf8'));
+    assert.equal(receipt.evidence.privateFileProof,'PINNED_FILE_SHA_VERIFIED');
+    assert.deepEqual(receipt.publicProjection.items,{});assert.equal(receipt.publicProjection.publishAllowed,false);
+    assert.equal(receipt.writerEnabled,false);assert.equal(receipt.target.sameBuildSwitchOriginalVerified,false);
+    assert.equal(statSync(output).mode&0o777,0o600);
+    const saved=readFileSync(output);assert.notEqual(run().status,0);assert.deepEqual(readFileSync(output),saved);
+    rmSync(output);writeFileSync(join(images,SOURCE_ONLY_SAMPLES[2].itemId+'-steam1253-lossless160.webp'),'corrupt');
+    assert.notEqual(run().status,0);assert.equal(existsSync(output),false);
+  }finally{rmSync(root,{recursive:true,force:true});rmSync(codeRoot,{recursive:true,force:true});}
 });

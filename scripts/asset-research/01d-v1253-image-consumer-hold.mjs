@@ -5,8 +5,8 @@
 import {createHash} from 'node:crypto';
 import {constants} from 'node:fs';
 import {lstat, open, realpath} from 'node:fs/promises';
-import {dirname, isAbsolute, join, resolve, sep} from 'node:path';
-import {pathToFileURL} from 'node:url';
+import {basename, dirname, isAbsolute, join, parse, resolve, sep} from 'node:path';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 
 export const SOURCE = Object.freeze({
   platform: 'Steam/Windows',
@@ -96,6 +96,11 @@ export function createHoldManifest({source=SOURCE,target=TARGET,releaseFlag=fals
   validateManifestInputs({source,target,releaseFlag,samples});
   if(!['NOT_RUN','PINNED_FILE_SHA_VERIFIED'].includes(privateFileProof))
     fail('UNRECOGNIZED_PRIVATE_PROOF');
+  // Legacy caller label is accepted only as an unverified HOLD request.
+  // A string supplied by a caller can never confer verification.
+  return buildHoldManifest(samples, 'NOT_RUN');
+}
+function buildHoldManifest(samples, privateFileProof) {
   return {
     schema,
     operation:'DEV_READY',
@@ -147,61 +152,173 @@ export function createHoldManifest({source=SOURCE,target=TARGET,releaseFlag=fals
     providerEnabled:false,communityPublicEnabled:false
   };
 }
-async function verifyPinned(path,{sha,size,kind},seen) {
-  const st=await lstat(path);
-  if(st.isSymbolicLink()||!st.isFile()||(size!==null&&st.size!==size)||st.size<=0||st.size>300*1024*1024)fail('MISSING_SYMLINK_SIZE');
+// PR787/QA844 and PR781 repair: canonical directory fences before any
+// source hash. Linux directory handles keep the final open anchored even
+// if an operator replaces a path after the check; no unsafe fallback.
+const checkout=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
+const within=(p,root)=>p===root || p.startsWith(root.endsWith(sep)?root:root+sep);
+const overlap=(a,b)=>within(a,b)||within(b,a);
+function strictPath(p){
+  if(typeof p!=='string'||!isAbsolute(p))fail('ABSOLUTE_PRIVATE_PATHS_REQUIRED');
+  if(p.split(/[\\/]/).includes('..')||resolve(p)!==p)fail('PRIVATE_DIRECTORY_ALIAS');
+  return p;
+}
+function ancestors(p){
+  const result=[p];while(dirname(p)!==p){p=dirname(p);result.push(p);}return result;
+}
+async function checkoutFence(p){
+  if(within(p,checkout)||within(p,resolve(process.cwd())))
+    fail('PRIVATE_INPUT_OR_OUTPUT_INSIDE_REPOSITORY');
+  for(const dir of ancestors(p)){
+    try{await lstat(join(dir,'.git'));fail('PRIVATE_INPUT_OR_OUTPUT_INSIDE_REPOSITORY');}
+    catch(e){if(e?.code!=='ENOENT')throw e;}
+  }
+}
+async function checkedDirectory(p){
+  strictPath(p);
+  for(const dir of ancestors(p)){
+    const st=await lstat(dir);
+    if(st.isSymbolicLink()||!st.isDirectory())fail('PRIVATE_DIRECTORY_ALIAS');
+  }
+  if(await realpath(p)!==p)fail('PRIVATE_DIRECTORY_ALIAS');
+  await checkoutFence(p);
+  return p;
+}
+async function checkedFile(p){
+  strictPath(p);
+  await checkedDirectory(dirname(p));
+  const st=await lstat(p);
+  if(st.isSymbolicLink()||!st.isFile())fail('MISSING_SYMLINK_SIZE');
+  if(await realpath(p)!==p)fail('PRIVATE_DIRECTORY_ALIAS');
+  return st;
+}
+async function absentOutput(p){
+  try{await lstat(p);fail('NO_CLOBBER_OUTPUT_EXISTS');}
+  catch(e){if(e?.code!=='ENOENT')throw e;}
+}
+const sameInode=(a,b)=>a.dev===b.dev&&a.ino===b.ino;
+const fdPath=fd=>'/proc/self/fd/'+fd.fd;
+async function pinDirectory(p){
+  if(process.platform!=='linux'||!constants.O_DIRECTORY||!constants.O_NOFOLLOW)
+    fail('PRIVATE_DIRECTORY_FD_UNSUPPORTED');
+  const flags=constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW;
+  const root=parse(p).root;
+  let fd=await open(root,flags);
+  try{
+    for(const part of p.slice(root.length).split(sep).filter(Boolean)){
+      const child=await open(join(fdPath(fd),part),flags);
+      await fd.close();fd=child;
+    }
+    if(!sameInode(await fd.stat(),await lstat(p))||await realpath(fdPath(fd))!==p)
+      fail('PRIVATE_DIRECTORY_ALIAS');
+    return fd;
+  }catch(e){await fd.close();throw e;}
+}
+async function recheckDirectory(p,fd){
+  await checkedDirectory(p);
+  if(!sameInode(await fd.stat(),await lstat(p))||await realpath(fdPath(fd))!==p)
+    fail('PRIVATE_DIRECTORY_ALIAS');
+}
+async function preparePaths({fullversion,furniture,bundle,images,output}){
+  const args={fullversion,furniture,bundle,images,output};
+  for(const p of Object.values(args))strictPath(p);
+  const outputParent=dirname(output);
+  const inputDirs=[dirname(fullversion),dirname(furniture),dirname(bundle),images];
+  if(inputDirs.some(p=>overlap(p,outputParent)))fail('OUTPUT_MUST_BE_SEPARATE');
+  if(overlap(checkout,outputParent)||overlap(resolve(process.cwd()),outputParent))
+    fail('PRIVATE_INPUT_OR_OUTPUT_INSIDE_REPOSITORY');
+  const dirs=[...new Set([...inputDirs,outputParent])];
+  const files=[fullversion,furniture,bundle,...SOURCE_ONLY_SAMPLES.flatMap(p=>[
+    join(images,p.itemId+'-steam1253-reconstructed.png'),
+    join(images,p.itemId+'-steam1253-lossless160.webp')])];
+  // All specified directory boundaries first; no content reads on bad path.
+  for(const p of dirs)await checkedDirectory(p);
+  await absentOutput(output);
+  // Check named originals first. Derived files are checked immediately before
+  // their hashes, after the original hashes, without changing error ordering.
+  for(const p of [fullversion,furniture,bundle])await checkedFile(p);
+  // The six expected derivative names cannot escape the checked image root.
+  // If present, reject leaf/ancestor aliases before any original content read.
+  for(const p of files.slice(3)){
+    try{await checkedFile(p);}catch(e){if(e?.code!=='ENOENT')throw e;}
+  }
+  const handles=new Map();
+  try{
+    for(const p of dirs)handles.set(p,await pinDirectory(p));
+    const out=await handles.get(outputParent).stat();
+    for(const p of inputDirs){
+      if(sameInode(out,await handles.get(p).stat()))fail('OUTPUT_MUST_BE_SEPARATE');
+    }
+    return {args,outputParent,handles};
+  }catch(e){await Promise.allSettled([...handles.values()].map(fd=>fd.close()));throw e;}
+}
+async function closePaths(paths){
+  await Promise.allSettled([...paths.handles.values()].map(fd=>fd.close()));
+}
+async function verifyPinned(path,{sha,size,kind},seen,handles) {
+  const st=await checkedFile(path);
+  if((size!==null&&st.size!==size)||st.size<=0||st.size>300*1024*1024)fail('MISSING_SYMLINK_SIZE');
   const id=st.dev+':'+st.ino;
   if(seen.has(id)) fail('INPUT_INODE_ALIAS');
   seen.add(id);
-  const fd=await open(path,constants.O_RDONLY | (constants.O_NOFOLLOW||0));
+  const parent=dirname(path),dir=handles.get(parent);
+  await recheckDirectory(parent,dir);
+  const fd=await open(join(fdPath(dir),basename(path)),constants.O_RDONLY|constants.O_NOFOLLOW);
   let hash=createHash('sha256'),prefix=Buffer.alloc(0);
   try {
     const live=await fd.stat();
-    if(!live.isFile()||live.dev!==st.dev||live.ino!==st.ino||(size!==null&&live.size!==size))
+    if(!live.isFile()||!sameInode(live,st)||live.size!==st.size)
       fail('OPEN_INODE_RACE');
+    await recheckDirectory(parent,dir);
+    if(!sameInode(await checkedFile(path),live))fail('OPEN_INODE_RACE');
     for await(const b of fd.createReadStream({autoClose:false,highWaterMark:1024*1024})){
       if(prefix.length<32)prefix=Buffer.concat([prefix,b.subarray(0,32-prefix.length)]);
       hash.update(b);
     }
     const after=await fd.stat();
-    if(after.mtimeMs!==live.mtimeMs||after.size!==live.size||
-       after.ino!==live.ino||after.dev!==live.dev)
+    if(after.mtimeMs!==live.mtimeMs||after.ctimeMs!==live.ctimeMs||after.size!==live.size||!sameInode(after,live))
+      fail('MUTATED_DURING_SHA');
+    await recheckDirectory(parent,dir);
+    const external=await checkedFile(path);
+    if(!sameInode(external,live)||external.size!==after.size||external.mtimeMs!==after.mtimeMs||external.ctimeMs!==after.ctimeMs)
       fail('MUTATED_DURING_SHA');
     if(hash.digest('hex')!==sha)fail('FILE_SHA_MISMATCH');
-    if(kind==='fullversion'||kind==='png'||kind==='webp')
-      byteHeaders(prefix,kind);
+    if(kind==='fullversion'||kind==='png'||kind==='webp')byteHeaders(prefix,kind);
   }finally{await fd.close();}
 }
-export async function verifyPrivateFiles({fullversion,furniture,bundle,images,output}) {
-  const args={fullversion,furniture,bundle,images,output};
-  if(Object.keys(args).some(k=>!isAbsolute(args[k]||'')))fail('ABSOLUTE_PRIVATE_PATHS_REQUIRED');
-  const root=resolve(process.cwd());
-  for(const p of Object.values(args)){
-    if(resolve(p)===root || resolve(p).startsWith(root+sep))
-      fail('PRIVATE_INPUT_OR_OUTPUT_INSIDE_REPOSITORY');
-  }
-  for(const dir of [images,dirname(output)]){
-    const st=await lstat(dir);
-    if(st.isSymbolicLink()||!st.isDirectory()||
-       (await realpath(dir))!==resolve(dir))fail('PRIVATE_DIRECTORY_ALIAS');
-  }
-  try{await lstat(output);fail('NO_CLOBBER_OUTPUT_EXISTS')}catch(e){
-    if(e?.message==='01D_IMAGE_PROOF_NO_CLOBBER_OUTPUT_EXISTS')throw e;
-    if(e?.code!=='ENOENT')throw e;
-  }
-  if([fullversion,furniture,bundle].some(p=>dirname(p)===dirname(output)) ||
-     resolve(images)===resolve(dirname(output)))fail('OUTPUT_MUST_BE_SEPARATE');
+async function verifyWithPaths(paths){
+  const {args:{fullversion,furniture,bundle,images,output},handles}=paths;
   const seen=new Set();
-  await verifyPinned(fullversion,{sha:hashPath(SOURCE.externalFullVersion+'\n'),size:SOURCE.externalFullVersion.length+1,kind:'fullversion'},seen);
-  await verifyPinned(furniture,{sha:SOURCE.furnitureSha256,size:SOURCE.furnitureBytes},seen);
-  await verifyPinned(bundle,{sha:SOURCE.bundleSha256,size:SOURCE.bundleBytes},seen);
+  await verifyPinned(fullversion,{sha:hashPath(SOURCE.externalFullVersion+'\n'),size:SOURCE.externalFullVersion.length+1,kind:'fullversion'},seen,handles);
+  await verifyPinned(furniture,{sha:SOURCE.furnitureSha256,size:SOURCE.furnitureBytes},seen,handles);
+  await verifyPinned(bundle,{sha:SOURCE.bundleSha256,size:SOURCE.bundleBytes},seen,handles);
   for(const p of SOURCE_ONLY_SAMPLES) {
     await verifyPinned(join(images,p.itemId+'-steam1253-reconstructed.png'),
-      {sha:p.steamDerivedPngSha256,kind:'png',size:null},seen);
+      {sha:p.steamDerivedPngSha256,kind:'png',size:null},seen,handles);
     await verifyPinned(join(images,p.itemId+'-steam1253-lossless160.webp'),
-      {sha:p.steamLossless160WebpSha256,kind:'webp',size:null},seen);
+      {sha:p.steamLossless160WebpSha256,kind:'webp',size:null},seen,handles);
   }
-  return createHoldManifest({privateFileProof:'PINNED_FILE_SHA_VERIFIED'});
+  for(const [p,fd] of handles)await recheckDirectory(p,fd);
+  await absentOutput(output);
+  // Only this private verifier can issue this label, after all nine checks.
+  return buildHoldManifest(SOURCE_ONLY_SAMPLES,'PINNED_FILE_SHA_VERIFIED');
+}
+export async function verifyPrivateFiles(args) {
+  const paths=await preparePaths(args);
+  try{return await verifyWithPaths(paths);}
+  finally{await closePaths(paths);}
+}
+async function writePrivateReceipt(args){
+  const paths=await preparePaths(args);
+  try{
+    const out=await verifyWithPaths(paths);
+    const parent=paths.handles.get(paths.outputParent);
+    await recheckDirectory(paths.outputParent,parent);
+    await absentOutput(args.output);
+    const fd=await open(join(fdPath(parent),basename(args.output)),constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY|constants.O_NOFOLLOW,0o600);
+    try{await fd.writeFile(JSON.stringify(out,null,2)+'\n','utf8');await fd.sync();}
+    finally{await fd.close();}
+  }finally{await closePaths(paths);}
 }
 export function parseCli(argv) {
   if(argv.length!==expectedKeys.length*2)fail('MISSING_OR_UNKNOWN_FLAGS');
@@ -218,10 +335,7 @@ export function parseCli(argv) {
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   const args=parseCli(process.argv.slice(2));
-  const out=await verifyPrivateFiles(args);
-  const fd=await open(args.output,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY|(constants.O_NOFOLLOW||0),0o600);
-  try{await fd.writeFile(JSON.stringify(out,null,2)+'\n','utf8');await fd.sync();}
-  finally{await fd.close();}
+  await writePrivateReceipt(args);
   console.log(JSON.stringify({privateHoldManifestWritten:true,verifiedSteamSampleCount:3,
     publicImages:0,sourcePlatform:'Steam/Windows',switchSameBuildVerified:false}));
 }
