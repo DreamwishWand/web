@@ -1278,6 +1278,216 @@ mod private_avatar {
         Ok(json!({"saved":dependency_hash(bytes,s),"entries":entries}))
     }
 
+
+    #[cfg(feature="semantic-writer-dev")]
+    fn amount_placement_dependencies(bytes:&[u8],s:Option<Span>,target:i32)->CoreResult<Value>{
+        let Some(s)=s else{return Ok(json!({"present":false,"sha256":null,"matches":[],
+            "allEffectiveReferencesVerified":false}))};
+        let f=members(bytes,s,64)?;
+        let mut matches=Vec::new();let mut total=0usize;let mut grids=0usize;let mut diffs=0usize;let mut unknown=0usize;
+        for (map,objects,is_diff) in [("Grids","Objects",false),("DiffGrids","ModifiedObjects",true)]{
+            let Some(g)=field(&f,map) else{continue};
+            for (k,v) in members(bytes,g,50000)?{
+                let gid=key_u32(&k)?;
+                let gf=members(bytes,v,128)?;
+                if amount_uint(bytes,required(&gf,"ID")?)?!=gid{return Err(denied("AMOUNT_DEP_GRID_ID"));}
+                if is_diff{diffs+=1}else{grids+=1}
+                if grids+diffs>50000{return Err(denied("AMOUNT_DEP_GRID_BOUND"));}
+                let Some(os)=field(&gf,objects) else{continue};
+                for (k,o) in members(bytes,os,16384)?{
+                    total+=1;if total>250000{return Err(denied("AMOUNT_DEP_OBJECT_BOUND"));}
+                    let oid=key_u32(&k)?;let of=members(bytes,o,128)?;
+                    if amount_uint(bytes,required(&of,"ID")?)?!=oid{return Err(denied("AMOUNT_DEP_OBJECT_ID"));}
+                    let Some(i)=field(&of,"ItemID") else{unknown+=1;continue};
+                    if int(bytes,i)?!=target{continue;}
+                    if matches.len()==16384{return Err(denied("AMOUNT_DEP_MATCH_BOUND"));}
+                    matches.push(json!({"gridId":gid,"objectId":oid,"itemId":target,
+                        "storedKind":if is_diff{"DiffGrids.ModifiedObjects"}else{"Grids.Objects"},
+                        "recordSha256":sha(&bytes[o.begin..o.end]),"gridSha256":sha(&bytes[v.begin..v.end]),
+                        "x":scalar_witness(bytes,&of,"X")?,"y":scalar_witness(bytes,&of,"Y")?,
+                        "orientation":token_witness(bytes,&of,"Orientation")?,
+                        "state":dependency_hash(bytes,field(&of,"State")),"from":dependency_hash(bytes,field(&of,"From")),
+                        "removedObjects":dependency_hash(bytes,field(&gf,"RemovedObjects")),
+                        "defaultLayoutGridId":dependency_hash(bytes,field(&gf,"DefaultLayoutGridID")),
+                        "defaultLayoutPath":dependency_hash(bytes,field(&gf,"GridDefaultLayoutPath"))}));
+                }
+            }
+        }
+        Ok(json!({"present":true,"sha256":sha(&bytes[s.begin..s.end]),
+            "gridsPresent":field(&f,"Grids").is_some(),"diffGridsPresent":field(&f,"DiffGrids").is_some(),
+            "storedGridCount":grids,"storedDiffGridCount":diffs,"storedObjectCount":total,"unknownItemIdCount":unknown,
+            "matches":matches,"allEffectiveReferencesVerified":false,"runtimeAliasVariationResolved":false,
+            "externalDefaultsSubgridParentVerified":false}))
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    fn amount_event_dependencies(bytes:&[u8],s:Option<Span>)->CoreResult<Value>{
+        let mut out=conditional_event_dependencies(bytes,s)?;
+        let mut actions=Vec::new();let mut inbox=Vec::new();
+        if let Some(s)=s{
+            let f=members(bytes,s,64)?;
+            if let Some(a)=field(&f,"ActiveEvents"){
+                for (k,v) in members(bytes,a,4096)?{
+                    let id=key_u32(&k)?;let fs=members(bytes,v,128)?;
+                    let mut fields=Vec::new();let mut nonnull=0;
+                    for key in ["SpawnState","RecurringEventState","AddTimeLostTreasureState",
+                        "RecurringEventsState","SendMailboxState","SpawnSnippetState"]{
+                        if let Some(x)=field(&fs,key){
+                            if &bytes[x.begin..x.end]!=b"null"{nonnull+=1;members(bytes,x,256)?;}
+                            fields.push(json!({"field":key,"saved":dependency_hash(bytes,Some(x))}));
+                        }
+                    }
+                    if nonnull>1{return Err(denied("AMOUNT_DEP_EVENT_ONEOF"));}
+                    actions.push(json!({"eventId":id,"recordSha256":sha(&bytes[v.begin..v.end]),
+                        "savedActionFields":fields,"effectiveActionVerified":false}));
+                }
+            }
+            if let Some(a)=field(&f,"InboxSpawnCount"){
+                for (k,v) in members(bytes,a,4096)?{
+                    let id=key_u32(&k)?;
+                    if id==0||id>i32::MAX as u32{return Err(denied("AMOUNT_DEP_INBOX_ID"));}
+                    inbox.push(json!({"eventId":id,"savedCount":int(bytes,v)?,"sha256":sha(&bytes[v.begin..v.end])}));
+                }
+            }
+        }
+        out["savedActionStates"]=json!(actions);out["inboxSpawnCountTyped"]=json!(inbox);
+        Ok(out)
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    impl ProductSession{
+        pub fn read_private_furniture_amount_dependencies(&self,e:WorkerEnvelope,item:u32,entry_sha:[u8;32])->CoreResult<Value>{
+            use crate::ExistingAmountSelection;
+            // Reuse the accepted Core-minted target and exact physical
+            // Furniture zero-route restriction. First read owns its lock.
+            // Revalidate the SAME immutable source/revision/generation under
+            // the second lock before projecting ANY dependency; no cross-epoch
+            // witness, second reader, or caller-provided authority.
+            if item/10_000_000!=4||entry_sha==[0;32]{return Err(denied("AMOUNT_DEP_FURNITURE_SELECTOR"));}
+            let target=self.read_existing_amount_target(e,ExistingAmountSelection::Inventory{inventory_id:0,item_id:item})?;
+            let tv=target.view();
+            if tv.entry_sha256!=entry_sha||tv.session_id!=e.session_id||tv.revision!=e.expected_revision||
+                tv.index_generation!=e.expected_index_generation||tv.decoded_sha256!=e.expected_decoded_sha256{
+                return Err(denied("AMOUNT_DEP_TARGET_WITNESS_MISMATCH"));}
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            let bytes=&self.decoded;let root=roots(bytes)?;
+            let player=members(bytes,root.player,1024)?;let world=members(bytes,root.world,1024)?;
+            let lists=required(&player,"ListInventories")?;
+            let mut selected=None;let mut total=0usize;
+            for (k,route) in members(bytes,lists,4096)?{
+                let id=key_u32(&k)?;let fs=members(bytes,route,128)?;
+                if amount_uint(bytes,required(&fs,"ID")?)?!=id{return Err(denied("AMOUNT_DEP_ROUTE_ID"));}
+                let ty=text_token(bytes,required(&fs,"CompatibleItemType")?,128)?;
+                let inv=required(&fs,"Inventory")?;
+                for (k,entry) in members(bytes,inv,250000)?{
+                    total+=1;if total>250000{return Err(denied("AMOUNT_DEP_INVENTORY_BOUND"));}
+                    let key=key_u32(&k)?;
+                    if key==item{
+                        if id!=0||ty!="ItemType_Furniture"||selected.replace((route,entry)).is_some(){
+                            return Err(denied("AMOUNT_DEP_TARGET_ROUTE_AMBIGUOUS"));}
+                    }
+                }
+            }
+            let (route,entry)=selected.ok_or(denied("AMOUNT_DEP_TARGET_MISSING"))?;
+            if sha(&bytes[entry.begin..entry.end])!=hex(&entry_sha){return Err(denied("AMOUNT_DEP_TARGET_ENTRY_CHANGED"));}
+            let ef=members(bytes,entry,128)?;let rf=members(bytes,route,128)?;
+            let marker=field(&ef,"Marker");
+            let marker_token=if let Some(s)=marker{
+                let t=&bytes[s.begin..s.end];if t.len()>256{return Err(denied("AMOUNT_DEP_MARKER_BOUND"));}
+                // String, numeric or null token: no ownership/rights inference.
+                if t==b"null"{Value::Null}else if t.first()==Some(&b'"'){json!(text_token(bytes,s,128)?)}else{json!(int(bytes,s)?)}
+            }else{Value::Null};
+            let top_begin=skip_ws(bytes,0);let top_end=value_end(bytes,top_begin)?;
+            let top=members(bytes,Span{begin:top_begin,end:top_end},1024)?;
+            let mut budget=DependencyBudget::default();
+            let missions=mission_dependencies_mode(bytes,field(&world,"MissionSlots"),&mut budget,true)?;
+            let evolve=evolve_dependencies_mode(bytes,field(&player,"EvolveStatesProfile"),&mut budget,true)?;
+            let value=json!({"contract":"wand.native.private.furniture-amount-dependencies@1",
+                "platform":"SteamWindows","fullVersion":EXACT,"schema":626,
+                "sessionId":hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
+                "decodedSha256":hex(&e.expected_decoded_sha256),
+                "target":{"inventoryId":0,"itemId":item,"oldAmount":tv.old_amount,"entrySha256":hex(&entry_sha),
+                    "routeSha256":sha(&bytes[route.begin..route.end]),"compatibleItemType":"ItemType_Furniture",
+                    "savedRestriction":dependency_hash(bytes,field(&rf,"CompatibleFurnitureTypes")),
+                    "marker":{"saved":dependency_hash(bytes,marker),"value":marker_token},
+                    "coreMintedExistingTarget":true,"effectiveRouteVerified":false},
+                "subscriberReadSet":{"missionSlots":missions,
+                    "achievementsData":achievements_dependencies_mode(bytes,field(&player,"AchievementsData"),true)?,
+                    "evolveStatesProfile":evolve,"questInfo":dependency_hash(bytes,field(&world,"QuestInfo")),
+                    "conditionalEventHistory":amount_event_dependencies(bytes,field(&top,"ConditionalEventHistory"))?,
+                    "conditionAndDefinitionJoinRequired":true,"effectiveActiveSubscriberSetVerified":false,
+                    "runtimeGeneratedFiltersVerified":false,"nativeSubscriberClosureVerified":false},
+                "placementReadSet":amount_placement_dependencies(bytes,field(&world,"GridCollection"),item as i32)?,
+                "effectiveItemDbVerified":false,"rightsVerified":false,"variationVerified":false,
+                "nativeV3Verified":false,"productReadAccepted":false,"writerAuthorized":false,
+                "editedCopyAuthorized":false,"applyAuthorized":false});
+            if serde_json::to_vec(&value).map_err(|_|denied("AMOUNT_DEP_RECEIPT_ENCODE"))?.len()>8*1024*1024{
+                return Err(denied("AMOUNT_DEP_RECEIPT_BOUND"));}
+            Ok(value)
+        }
+    }
+    #[cfg(all(test,feature="semantic-writer-dev"))]
+    mod amount_dependency_tests{
+        use super::*;
+        use crate::{BuildIdentity,WorkerAction,PRODUCT_WORKER_CONTRACT};
+        fn doc()->Value{json!({"GameInfo":{"Version":626},"Player":{
+            "ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture",
+                "CompatibleFurnitureTypes":{"List":["FurnitureItemType_Default"]},
+                "Inventory":{"40000001":{"Amount":4,"Marker":"ItemMarker_None"}}}},
+            "AchievementsData":[{"AchievementID":2110000001,"CurAmount":1,"MaxAmount":3,
+                "TypesCollected":[4],"ItemsUsed":[40000001],"GridObjectsCollected":{"GridObjectAddresses":[{"GridID":7,"GridObjectID":4}]}}]},
+            "World":{"MissionSlots":{"0":{"Slots":[{"SlotId":0,"MissionId":2070000001,"CurrentStepIndex":0,
+                "State":"MissionSlotState_OnGoing","Class":"MissionSlotClass_Story",
+                "ItemsToGive":[{"Item":40000001,"ItemList":[40000001],"Type":"ItemType_Furniture","Tags":[1]}],
+                "ItemsToGiveAmount":[1],"MissionSteps":[{"SubSteps":[{"Objectives":[{
+                    "TargetAmount":2.5,"ItemAmount":1.25,"ProgressKeys":{"NativeKeyUnknown":"1.5"},
+                    "ItemIdsCollected":[40000001],"GridObjectIdsCollected":[{"GridId":7,"GridObjectId":4}]}]}]}]}]}},
+                "GridCollection":{"Grids":{"7":{"ID":7,"Objects":{"4":{"ID":4,"ItemID":40000001,"State":null}}}},
+                    "DiffGrids":{"8":{"ID":8,"ModifiedObjects":{"5":{"ID":5,"ItemID":40000001}}}}}},
+            "ConditionalEventHistory":{"ActiveEvents":{"1520000001":{"SpawnState":{"Unknown":1}}},
+                "InboxSpawnCount":{"1520000001":2}}})}
+        fn open(d:&Value)->ProductSession{ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),
+            BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+                build_id:EXACT.into(),schema:626,externally_attested:true}).unwrap()}
+        fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
+            expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+        fn hash(d:&Value)->[u8;32]{Sha256::digest(serde_json::to_vec(&d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]).unwrap()).into()}
+        fn read(d:&Value)->CoreResult<Value>{let s=open(d);s.read_private_furniture_amount_dependencies(env(&s),40000001,hash(d))}
+        #[test]
+        fn exact_amount_dependency_saved_float_refs_and_effective_unknown(){
+            let d=doc();let s=open(&d);let before=s.receipt().unwrap();let e=env(&s);
+            let v=s.read_private_furniture_amount_dependencies(e,40000001,hash(&d)).unwrap();
+            let o=&v["subscriberReadSet"]["missionSlots"]["groups"][0]["slots"][0]["steps"][0]["subSteps"][0]["objectives"][0]["witness"];
+            assert_eq!(o["targetAmount"]["rawToken"],"2.5");
+            assert_eq!(o["itemAmount"]["rawToken"],"1.25");
+            assert_eq!(o["progressEntries"][0]["savedValue"],"1.5");
+            assert_eq!(o["itemIdsCollectedTyped"]["entries"][0]["value"],40000001);
+            assert_eq!(o["gridObjectIdsCollectedTyped"]["entries"][0]["gridId"],7);
+            assert!(o["effectiveCurrentAmount"].is_null());
+            assert_eq!(v["subscriberReadSet"]["achievementsData"]["entries"][0]["gridObjectsCollectedTyped"]["entries"][0]["objectId"],4);
+            assert_eq!(v["subscriberReadSet"]["conditionalEventHistory"]["inboxSpawnCountTyped"][0]["savedCount"],2);
+            assert_eq!(v["placementReadSet"]["matches"].as_array().unwrap().len(),2);
+            assert_eq!(v["target"]["oldAmount"],4);assert_eq!(v["writerAuthorized"],false);
+            assert_eq!(s.receipt().unwrap(),before);
+            assert!(s.read_private_furniture_amount_dependencies(e,40000001,[9;32]).is_err());
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_furniture_amount_dependencies(stale,40000001,hash(&d)).is_err());
+            assert!(open(&d).read_private_furniture_amount_dependencies(e,40000001,hash(&d)).is_err());
+            s.close().unwrap();assert!(s.read_private_furniture_amount_dependencies(e,40000001,hash(&d)).is_err());
+        }
+        #[test]
+        fn rejects_wrong_route_malformed_reference_and_unknown_runtime_claim(){
+            let mut d=doc();d["Player"]["ListInventories"]["1"]=json!({"ID":1,"CompatibleItemType":"ItemType_Furniture","Inventory":{"40000001":{"Amount":4}}});assert!(read(&d).is_err());
+            let mut d=doc();d["Player"]["ListInventories"]["0"]["CompatibleFurnitureTypes"]["List"]=json!(["FurnitureItemType_Fence"]);assert!(read(&d).is_err());
+            let mut d=doc();d["World"]["MissionSlots"]["0"]["Slots"][0]["MissionSteps"][0]["SubSteps"][0]["Objectives"][0]["ItemIdsCollected"]=json!(["40000001"]);assert!(read(&d).is_err());
+            let mut d=doc();d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"]["ID"]=json!(5);assert!(read(&d).is_err());
+            let mut d=doc();d["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["RecurringEventState"]=json!({});assert!(read(&d).is_err());
+            let mut d=doc();d["ConditionalEventHistory"]["InboxSpawnCount"]["1520000001"]=json!("2");assert!(read(&d).is_err());
+            let mut d=doc();d["World"]["GridCollection"]["DiffGrids"]["8"]["ModifiedObjects"]["5"].as_object_mut().unwrap().remove("ItemID");
+            let v=read(&d).unwrap();assert_eq!(v["placementReadSet"]["unknownItemIdCount"],1);
+            assert_eq!(v["placementReadSet"]["allEffectiveReferencesVerified"],false);
+        }
+    }
+
     #[cfg(test)]
     mod character_skin_tests{
         use super::*;
