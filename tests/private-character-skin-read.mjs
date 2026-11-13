@@ -1,5 +1,5 @@
 // Public synthetic CLI checks only. No real Save or private artifact.
-import {mkdtemp,readFile,rm,stat,symlink} from 'node:fs/promises';
+import {mkdtemp,readFile,rm,stat,symlink,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -73,5 +73,64 @@ try{
  assert.deepEqual(JSON.parse(await readFile(path)),v);
  p=call([]);assert.equal(p.status,0,p.stderr);assert.equal(JSON.parse(p.stdout).contract,'wand.native.private.real-steam-v1@1');
  assert.equal(Object.hasOwn(JSON.parse(p.stdout),'character'),false);
+
+ // ACT395: new Linux-only pinned private transport. All data synthetic.
+ if(process.platform==='linux'){
+  const dep=JSON.parse(input);
+  dep.Player.ListInventories[42].Inventory[170000001]={Amount:1,Marker:'ItemMarker_None'};
+  dep.World.DialogueFlags=[50000001,50000002,50000001];
+  dep.ConditionalEventHistory={ActiveEvents:{1520000001:{SpawnState:{Unknown:1}}},InboxSpawnCount:{}};
+  const depArgs=(out,flag='50000001')=>['--character-skin-dependencies-receipt-only','10000053','170000000',flag,'--out',out];
+  const depCall=(doc,out,over={},flag='50000001')=>{
+   const b=Buffer.from(JSON.stringify(doc));return call(depArgs(out,flag),{WAND_LOCAL_DECODED_SHA256:sha(b),...over},b)
+  };
+  const target=join(dir,'skin-deps.json');
+  p=depCall(dep,target);assert.equal(p.status,0,p.stderr);assert.equal(p.stdout,'');
+  const v=JSON.parse(await readFile(target));
+  assert.equal(v.contract,'wand.native.private.character-skin-dependencies@1');
+  assert.equal(v.dialogueFlag.persistedMembership,true);
+  assert.deepEqual(v.dialogueFlag.targetPositions,[0,2]);
+  assert.equal(v.dialogueFlag.effectiveFlagValue,null);
+  assert.equal(v.dialogueFlag.runtimeOverrideKeyPresent,null);
+  assert.equal(v.dialogueFlag.persistedList.sha256,sha(Buffer.from(JSON.stringify(dep.World.DialogueFlags))));
+  assert.equal(v.oldSkinInventory.itemId,170000001);
+  assert.equal(v.subscriberReadSet.conditionalEventHistory.activeEvents.entries[0].eventId,1520000001);
+  assert.equal(v.subscriberReadSet.conditionalEventHistory.inboxSpawnCount.present,true);
+  assert.equal(v.selectedSkin.sessionId,v.sessionId);
+  assert.equal(v.selectedSkin.decodedSha256,v.decodedSha256);
+  assert.equal(v.originalSha256SuppliedExternally,'a'.repeat(64));
+  for(const k of ['writerAuthorized','productReadAccepted','editedCopyAuthorized','applyAuthorized','nativeV3Verified','rightsVerified'])assert.equal(v[k],false,k);
+  assert.equal((await stat(target)).mode&0o777,0o600);
+  const absent=structuredClone(dep);delete absent.World.DialogueFlags;
+  const absentPath=join(dir,'flags-absent.json');
+  p=depCall(absent,absentPath);assert.equal(p.status,0,p.stderr);
+  const av=JSON.parse(await readFile(absentPath));
+  assert.equal(av.dialogueFlag.persistedMembership,null);
+  assert.equal(av.dialogueFlag.effectiveFlagValue,null);
+  const off=structuredClone(dep);off.World.DialogueFlags=[50000002];off.World.DialogueFlagsOverride={'50000001':true};
+  const offPath=join(dir,'flags-off.json');
+  p=depCall(off,offPath);assert.equal(p.status,0,p.stderr);
+  assert.equal(JSON.parse(await readFile(offPath)).dialogueFlag.effectiveFlagValue,null);
+  const badPath=join(dir,'skin-dep-bad.json');
+  for(const mutate of [
+   x=>{x.World.DialogueFlags=null},
+   x=>{x.World.DialogueFlags=['50000001']},
+   x=>{x.World.DialogueFlags=[1.5]},
+   x=>{x.ConditionalEventHistory.ActiveEvents={'01520000001':{}}},
+   x=>{delete x.Player.ListInventories[42].Inventory[170000001]},
+  ]){
+   const x=structuredClone(dep);mutate(x);deny(depCall(x,badPath),'CHARACTER_SKIN_DEPENDENCIES_READ_DENIED');
+  }
+  deny(depCall(dep,target),'PRIVATE_OUTPUT_ALREADY_EXISTS');
+  deny(depCall(dep,badPath,{},'050000001'),'CHARACTER_SKIN_SELECTOR_ID');
+  deny(depCall(dep,badPath,{WAND_LOCAL_DECODED_SHA256:'f'.repeat(64)}),'DECODED_SOURCE_SHA_MISMATCH');
+  deny(depCall(dep,badPath,{WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:'wrong'}),'EXACT_EXTERNAL_STEAM_BUILD_REQUIRED');
+  const pub=join(dir,'public');await mkdir(pub,{mode:0o755});
+  deny(depCall(dep,join(pub,'bad.json')),'PRIVATE_OUTPUT_DIRECTORY_PERMISSIONS');
+  const link=join(dir,'dep-link');await symlink(target,link);
+  deny(depCall(dep,link),'PRIVATE_OUTPUT_ALREADY_EXISTS');
+  assert.deepEqual(JSON.parse(await readFile(target)),v);
+  console.log('ACT395_SKIN_DEPENDENCIES_SAME_SESSION_FLAGS_UNKNOWN_OVERRIDE_PRIVATE_OUTPUT_PASS');
+ }
  console.log('PRIVATE_CHARACTER_SKIN_NATIVE_CLI_SYNTHETIC_PASS_NO_PRIVATE_UPLOAD');
 }finally{await rm(dir,{recursive:true,force:true})}
