@@ -4,6 +4,8 @@
 // item 40006096 has independently reconstructed pixel-exact PNG/WebP.
 // No game pixels, personal Save, or private binaries in this source or CI.
 import { writable } from 'svelte/store';
+import {ITEM_IMAGE_OWNER_DECISION_ID} from './public-item-images.mjs';
+export const SWITCH1253_OWNER_SCOPE='RELEASED_PLAYER_FACING_ITEM_THUMBNAILS';
 
 export const SWITCH1253_ITEM_IMAGE_SCHEMA='wand.item-images.switch1253-release@1';
 export const SWITCH1253_ITEM_IMAGE_VARIANT='switch-1.25.3-schema626-lossless160-v1';
@@ -24,8 +26,11 @@ export const SWITCH1253_NATIVE_PINS=Object.freeze({
 // No rights/host/release acceptance. This compiled default is the runtime
 // authority; untrusted fetched JSON cannot switch it to ON.
 export const SWITCH1253_REVIEWED_RELEASE=Object.freeze({
-  mediaPublic:false,rightsHolderLicense:'UNKNOWN',rightsReview:'NOT_RUN',
+  mediaPublic:false,decisionId:ITEM_IMAGE_OWNER_DECISION_ID,scope:SWITCH1253_OWNER_SCOPE,
+  rightsHolderLicense:'UNKNOWN',licenseEvidenceSha256:null,rightsReview:'NOT_RUN',
   receivingContact:'NOT_RUN',takedown:'NOT_RUN',managedHttps:'NOT_RUN',
+  attribution:'NOT_RUN',oldUrlAndCache:'NOT_RUN',rollback:'NOT_RUN',
+  operatorReceiptSha256:null,
   items:Object.freeze({})
 });
 export const switch1253PublicItemImageSource=writable({
@@ -49,10 +54,19 @@ function exactTarget(value){
 }
 function reviewedReleaseOn(release){
  return exactKeys(release,[
-   'mediaPublic','rightsHolderLicense','rightsReview','receivingContact',
-   'takedown','managedHttps','items'
+   'mediaPublic','decisionId','scope','rightsHolderLicense','licenseEvidenceSha256',
+   'rightsReview','receivingContact','takedown','managedHttps',
+   'attribution','oldUrlAndCache','rollback','operatorReceiptSha256','items'
  ]) && release?.mediaPublic===true &&
-   release.rightsHolderLicense==='DOCUMENTED_SCOPE_LICENSE' &&
+   release.decisionId===ITEM_IMAGE_OWNER_DECISION_ID &&
+   release.scope===SWITCH1253_OWNER_SCOPE &&
+   ((release.rightsHolderLicense==='UNKNOWN'&&release.licenseEvidenceSha256===null)||
+    (release.rightsHolderLicense==='DOCUMENTED_SCOPE_LICENSE'&&
+     typeof release.licenseEvidenceSha256==='string'&&HEX.test(release.licenseEvidenceSha256))) &&
+   typeof release.operatorReceiptSha256==='string'&&HEX.test(release.operatorReceiptSha256) &&
+   release.attribution==='EIGHT_LOCALES_REVIEWED' &&
+   release.oldUrlAndCache==='MANAGED_TESTED' &&
+   release.rollback==='MANAGED_TESTED' &&
    release.rightsReview==='OPERATOR_ACCEPTED' &&
    release.receivingContact==='MANAGED_VERIFIED' &&
    release.takedown==='MANAGED_TESTED' &&
@@ -73,20 +87,22 @@ export function validateSwitch1253ItemImageCatalog(raw,reviewedRelease=SWITCH125
     raw.codec!=='WEBP_LOSSLESS_RGBA_EXACT'||
     raw.format!=='webp'||raw.lossless!==true)
    fail('PIXEL_FORMAT_OR_VARIANT_UNVERIFIED');
+ // Manifest claims never authorize publication. Every field must match
+ // the immutable compiled review; Issue604 is not a copyright licence.
+ const publicationKeys=['decisionId','scope','rightsHolderLicense','licenseEvidenceSha256',
+   'rightsReview','managedHttps','takedown','receivingContact','attribution',
+   'oldUrlAndCache','rollback','operatorReceiptSha256'];
  if(raw.publication?.gate!=='MEDIA_PUBLIC_SCOPED_ON'||
-    raw.publication?.rightsReview!=='OPERATOR_ACCEPTED'||
-    raw.publication?.managedHttps!=='MANAGED_VERIFIED'||
-    raw.publication?.takedown!=='MANAGED_TESTED'||
-    raw.publication?.receivingContact!=='MANAGED_VERIFIED')
+    publicationKeys.some(key=>raw.publication?.[key]!==reviewedRelease[key]))
    fail('MANIFEST_PUBLICATION_UNVERIFIED');
+ const rightsStatus=reviewedRelease.rightsHolderLicense==='UNKNOWN'?
+   'UNKNOWN':'DOCUMENTED_LICENSE_APPROVED';
  if(!exactKeys(raw,[
      'schema','assetVariant','codec','format','lossless','source','target',
      'publication','items'
    ]) || !exactKeys(raw.target,['platform','gameVersion','buildID','schema']) ||
    !exactKeys(raw.source,['platform','gameVersion','buildID','schema','originalBundleSha256']) ||
-   !exactKeys(raw.publication,[
-     'gate','rightsReview','managedHttps','takedown','receivingContact'
-   ]))fail('UNKNOWN_ROOT_SOURCE_TARGET_OR_PUBLICATION_FIELDS');
+   !exactKeys(raw.publication,['gate',...publicationKeys]))fail('UNKNOWN_ROOT_SOURCE_TARGET_OR_PUBLICATION_FIELDS');
  if(!raw.items||typeof raw.items!=='object'||Array.isArray(raw.items))
    fail('MAPPING_INVALID');
  const keys=Object.keys(raw.items);
@@ -99,10 +115,10 @@ export function validateSwitch1253ItemImageCatalog(raw,reviewedRelease=SWITCH125
       !e||typeof e!=='object'||Array.isArray(e)||
       !trusted||typeof trusted!=='object'||Array.isArray(trusted)||
       !exactKeys(trusted,['originalNativeStreamSha256','sourcePngSha256',
-        'webpSha256','rightsStatus'])||
+        'webpSha256','rightsStatus','publicationDecision','visibility'])||
       !exactKeys(e,['originalNativeStreamSha256','sourcePngSha256',
         'webpSha256','rasterStatus','pixelStatus','visibility','rightsStatus',
-        'assetStatus'])||
+        'assetStatus','publicationDecision'])||
       !pin||pin.rasterStatus!=='SWITCH_DXT5_RGBA_EXACT_PRIVATE'||
       e.rasterStatus!==pin.rasterStatus||
       e.originalNativeStreamSha256!==pin.originalNativeStreamSha256||
@@ -112,12 +128,15 @@ export function validateSwitch1253ItemImageCatalog(raw,reviewedRelease=SWITCH125
       !HEX.test(e.sourcePngSha256||'')||!HEX.test(e.webpSha256||'')||
       e.pixelStatus!=='SWITCH_RGBA_EXACT_VERIFIED'||
       e.visibility!=='RELEASED_PLAYER_FACING'||
-      e.rightsStatus!=='DOCUMENTED_LICENSE_APPROVED'||
+      e.rightsStatus!==rightsStatus||
+      e.publicationDecision!=='OWNER_SCOPED_PUBLICATION_ACCEPTED'||
+      trusted.publicationDecision!==e.publicationDecision||
+      trusted.visibility!==e.visibility||
       e.assetStatus!=='WEBP_LOSSLESS_VERIFIED_160'||
       trusted.originalNativeStreamSha256!==e.originalNativeStreamSha256||
       trusted.sourcePngSha256!==e.sourcePngSha256||
       trusted.webpSha256!==e.webpSha256||
-      trusted.rightsStatus!=='DOCUMENTED_LICENSE_APPROVED')
+      trusted.rightsStatus!==rightsStatus)
      fail('ITEM_ID_NATIVE_SHA_RGBA_RELEASE_OR_RIGHTS_UNVERIFIED');
    safe[id]=Object.freeze({
      originalNativeStreamSha256:e.originalNativeStreamSha256,
