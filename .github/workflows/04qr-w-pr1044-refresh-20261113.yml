@@ -1,0 +1,27 @@
+name: 04 QR-W PR1044 independent refresh
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr1044-refresh-independent-20261113.mjs'
+      - '.github/workflows/04qr-w-pr1044-refresh-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Fixed Source5 independent controller and actual Chrome synthetic only
+        run: |
+          export CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          node scripts/04qr-w-pr1044-refresh-independent-20261113.mjs --synthetic-browser
