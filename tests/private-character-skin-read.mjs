@@ -47,6 +47,29 @@ try{
   const link=join(dir,'link');await symlink(path,link);
   deny(call(args(link)),'PRIVATE_OUTPUT_ALREADY_EXISTS');
  }
+ // E1324 minimized synthetic regression. Preserve selected target evidence;
+ // unrelated route zero is valid only when its own key and ID agree.
+ const zero=JSON.parse(input);
+ zero.Player.ListInventories[0]={ID:0,CompatibleItemType:'ItemType_ActivityItem',Inventory:{}};
+ const body=Buffer.from(JSON.stringify(zero));
+ const zpath=join(dir,'zero.json');
+ p=call(args(zpath),{WAND_LOCAL_DECODED_SHA256:sha(body)},body);
+ assert.equal(p.status,0,p.stderr);assert.equal(p.stdout,'');
+ const z=JSON.parse(await readFile(zpath));
+ assert.deepEqual(z.character,v.character);assert.deepEqual(z.skinInventory,v.skinInventory);
+ assert.notEqual(z.referenceReadSet.listInventoriesSha256,v.referenceReadSet.listInventoriesSha256);
+ assert.equal(z.writerAuthorized,false);assert.equal(z.ownedRightsVerified,false);
+ for(const badRecord of [
+  {ID:1,CompatibleItemType:'ItemType_ActivityItem',Inventory:{}},
+  {ID:0,CompatibleItemType:'ItemType_Skin',Inventory:{170000000:{Amount:1}}},
+  {ID:'0',CompatibleItemType:'ItemType_ActivityItem',Inventory:{}}
+ ]){
+  const d=JSON.parse(body);d.Player.ListInventories[0]=badRecord;
+  const bytes=Buffer.from(JSON.stringify(d));
+  deny(call(args(bad),{WAND_LOCAL_DECODED_SHA256:sha(bytes)},bytes),'CHARACTER_SKIN_READ_DENIED');
+ }
+ assert.deepEqual(JSON.parse(await readFile(zpath)),z);
+ console.log('NONSKIN_ZERO_ROUTE_SYNTHETIC_POS_NEG_PASS');
  assert.deepEqual(JSON.parse(await readFile(path)),v);
  p=call([]);assert.equal(p.status,0,p.stderr);assert.equal(JSON.parse(p.stdout).contract,'wand.native.private.real-steam-v1@1');
  assert.equal(Object.hasOwn(JSON.parse(p.stdout),'character'),false);

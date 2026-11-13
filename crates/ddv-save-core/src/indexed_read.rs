@@ -622,7 +622,6 @@ mod private_avatar {
         let mut selected=None;
         for (key,record) in members(bytes,lists,128)?{
             let id=key_u32(&key)?;
-            if id==0{return Err(denied("SKIN_INVENTORY_ID_ZERO"));}
             let fs=members(bytes,record,64)?;
             let id_span=required(&fs,"ID")?;
             let actual=serde_json::from_slice::<u32>(&bytes[id_span.begin..id_span.end])
@@ -630,6 +629,8 @@ mod private_avatar {
             if actual!=id{return Err(denied("SKIN_INVENTORY_ID_MISMATCH"));}
             let ty=text_token(bytes,required(&fs,"CompatibleItemType")?,128)?;
             if ty!="ItemType_Skin"{continue;}
+            // ID zero is a persisted unrelated route; only the selected Skin route must be positive.
+            if id==0{return Err(denied("SKIN_INVENTORY_ID_ZERO"));}
             // Reject ambiguous compatible routes even if only one has item.
             if selected.is_some(){return Err(denied("SKIN_COMPATIBLE_INVENTORY_AMBIGUOUS"));}
             selected=Some((id,record,required(&fs,"Inventory")?));
@@ -773,6 +774,54 @@ mod private_avatar {
                 assert_eq!(v["character"]["currentSkinId"],old);assert_eq!(v["character"]["skinIdPresent"],true);
                 assert_eq!(v["character"]["sameSavedSkin"],old==170000000);
             }
+        }
+        #[test]
+        fn nonskin_zero_route_preserves_selected_skin_invariants(){
+            let baseline=open(doc());
+            let expected=read(&baseline).unwrap().to_private_receipt_json();
+            let mut d=doc();
+            d["Player"]["ListInventories"]["0"]=json!({
+                "ID":0,"CompatibleItemType":"ItemType_ActivityItem","Inventory":{}
+            });
+            let s=open(d.clone());let before=s.receipt().unwrap();
+            let actual=read(&s).unwrap().to_private_receipt_json();
+            assert_eq!(actual["character"],expected["character"]);
+            assert_eq!(actual["skinInventory"],expected["skinInventory"]);
+            assert_ne!(actual["referenceReadSet"]["listInventoriesSha256"],expected["referenceReadSet"]["listInventoriesSha256"]);
+            assert_eq!(s.receipt().unwrap(),before);
+            assert_eq!(actual["writerAuthorized"],false);
+            assert_eq!(actual["ownedRightsVerified"],false);
+            // Exact route invariants remain fail closed, even on unrelated records.
+            for bad in [
+                json!({"ID":1,"CompatibleItemType":"ItemType_ActivityItem","Inventory":{}}),
+                json!({"ID":"0","CompatibleItemType":"ItemType_ActivityItem","Inventory":{}}),
+                json!({"ID":0,"CompatibleItemType":0,"Inventory":{}}),
+                json!({"ID":0,"CompatibleItemType":"ItemType_Skin","Inventory":{"170000000":{"Amount":1}}}),
+            ]{
+                let mut v=d.clone();v["Player"]["ListInventories"]["0"]=bad;
+                let s=open(v);assert!(read(&s).is_err());
+            }
+            let mut v=d.clone();
+            let selected=v["Player"]["ListInventories"].as_object_mut().unwrap().remove("42").unwrap();
+            v["Player"]["ListInventories"]["0"]=selected;
+            v["Player"]["ListInventories"]["0"]["ID"]=json!(0);
+            let s=open(v);assert!(read(&s).is_err());
+            let mut v=d.clone();
+            v["Player"]["ListInventories"]["01"]=json!({"ID":1,"CompatibleItemType":"ItemType_ActivityItem","Inventory":{}});
+            let s=open(v);assert!(read(&s).is_err());
+            let mut v=d.clone();
+            v["Player"]["ListInventories"]["43"]=v["Player"]["ListInventories"]["42"].clone();
+            v["Player"]["ListInventories"]["43"]["ID"]=json!(43);
+            let s=open(v);assert!(read(&s).is_err());
+            let mut v=d.clone();
+            v["Player"]["ListInventories"].as_object_mut().unwrap().remove("42");
+            let s=open(v);assert!(read(&s).is_err());
+            let e=env(before);
+            assert!(s.read_private_character_skin(e,10000053,170000000).is_err());
+            let s=open(d);let e=env(s.receipt().unwrap());
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_character_skin(stale,10000053,170000000).is_err());
+            assert!(s.read_private_character_skin(e,10000053,170100001).is_err());
         }
         #[test]
         fn rejects_ambiguous_wrong_type_and_stale(){
