@@ -80,12 +80,21 @@ jobs:
           src/lib/ui/ItemThumb.svelte
           tests/web-switch1253-item-thumb-contract.test.mjs
           CURRENT_IMAGE_PREP_SCOPE
+            cat > /tmp/switch1253-union-expected <<'CURRENT_IMAGE_UNION_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          scripts/web-switch1253-private-preview-build.mjs
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-switch1253-item-thumb-contract.test.mjs
+          CURRENT_IMAGE_UNION_SCOPE
             if diff -q /tmp/switch1253-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS
             elif diff -q /tmp/switch1253-policy-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ISSUE604_POLICY_EXACT3_SCOPE_PASS
             elif diff -q /tmp/switch1253-prep-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ELIGIBLE2_PREP_EXACT5_SCOPE_PASS
+              node scripts/web-switch1253-private-preview-build.mjs
+            elif diff -q /tmp/switch1253-union-expected /tmp/switch1253-actual >/dev/null; then
+              echo WEB_CURRENT_SWITCH1253_ELIGIBLE60_EXACT4_SCOPE_PASS
               node scripts/web-switch1253-private-preview-build.mjs
             else
               diff -u /tmp/switch1253-policy-expected /tmp/switch1253-actual || true
