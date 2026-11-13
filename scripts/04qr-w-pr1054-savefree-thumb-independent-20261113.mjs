@@ -63,6 +63,9 @@ try{
  assert.equal(await thumb('40006096').count(),0);
  assert.equal(await thumb('40000047').getAttribute('data-media-status'),'unavailable');
  bad=false;await search.fill('40006096');await choice('40006096').waitFor();
+ // The compiled release remains OFF; a new ItemThumb mount calls the actual loader, which clears the disposable synthetic store. Assert the real OFF behavior first, then install the test fixture again after mount.
+ assert.equal(await thumb('40006096').getAttribute('data-media-status'),'unavailable');
+ await enable();
  const img=thumb('40006096').locator('img');await img.scrollIntoViewIfNeeded();await img.waitFor();await img.evaluate(i=>i.decode());
  assert.equal(await img.evaluate(i=>i.naturalWidth),8);assert.equal(await img.getAttribute('src'),path);
  assert.equal(await img.getAttribute('alt'),(await choice('40006096').locator('..').locator('.item-name').innerText()).replace(/\s+#40006096\s*$/,'').trim());
@@ -72,7 +75,9 @@ try{
  assert.equal(await panel.locator('[data-wep-savefree-artifact]').count(),0);
  assert.equal(await panel.locator('[data-wep-savefree-save]:not([disabled])').count(),0);
  const chosen=await sel.locator('[data-item-thumb-id]').count();
- if(chosen){assert.equal(await sel.locator('[data-item-thumb-id]').getAttribute('data-item-thumb-id'),'40006096');await sel.locator('img').waitFor();assert.equal(await sel.locator('img').getAttribute('src'),path);}
+ const expectedGeometry=await page.evaluate(async()=>{const {loadCollectionRuntime}=await import('/src/lib/collection/runtime.js');const {buildSharedCatalogDirectory}=await import('/src/lib/entity/shared-catalog-directory.mjs');const {createSwitchWorldReadAdapter}=await import('/src/lib/wep/world-browser-adapter.ts');const {resolveVerifiedSaveFreeSceneItem}=await import('/src/lib/wep/savefree-first-scene.ts');const c=await loadCollectionRuntime(''),d=buildSharedCatalogDirectory(c.index,c.rows,'en'),b=await createSwitchWorldReadAdapter({basePath:''});try{return resolveVerifiedSaveFreeSceneItem(d,b,40006096).bounds}catch(e){if(!String(e).includes('WEP_SAVEFREE_SCENE_'))throw e;return null}});
+ assert.equal(chosen,expectedGeometry?1:0,'image eligibility must not change pinned geometry result');
+ if(chosen){assert.equal(await sel.locator('[data-item-thumb-id]').getAttribute('data-item-thumb-id'),'40006096');assert.equal(await sel.locator('[data-item-thumb-id]').getAttribute('data-media-status'),'unavailable');await enable();await sel.locator('img').waitFor();assert.equal(await sel.locator('img').getAttribute('src'),path);assert.ok((await sel.innerText()).includes(expectedGeometry.w+' × '+expectedGeometry.h));}
  else{assert.equal(await panel.locator('[data-wep-savefree-status][role="alert"]').count(),1);}
  await select('40000047');await sel.waitFor();assert.equal(await sel.locator('[data-item-thumb-id]').getAttribute('data-item-thumb-id'),'40000047');assert.equal(await sel.locator('img').count(),0);
  assert.equal(await panel.locator('[data-wep-savefree-save]:not([disabled])').count(),0);
@@ -88,7 +93,7 @@ try{
  }
  await page.setViewportSize({width:1440,height:900});await page.evaluate(()=>document.documentElement.style.zoom='1');
  // OFF transition clears mounted image; subsequent remount must remain OFF.
- await search.fill('40006096');await choice('40006096').waitFor();await thumb('40006096').locator('img').waitFor();
+ await search.fill('40006096');await choice('40006096').waitFor();assert.equal(await thumb('40006096').getAttribute('data-media-status'),'unavailable');await enable();await thumb('40006096').locator('img').waitFor();
  await page.evaluate(async()=>{const m=await import('/src/lib/item-media/switch1253-public-item-images.mjs');m.switch1253PublicItemImageSource.set({status:'NOT_CONFIGURED',catalog:null,reason:'MEDIA_PUBLIC_OFF'});delete window.__qrw1054});
  await thumb('40006096').locator('[aria-hidden=true]').waitFor();
  const count=media.length;await search.fill('40000047');await choice('40000047').waitFor();await search.fill('40006096');await choice('40006096').waitFor();
