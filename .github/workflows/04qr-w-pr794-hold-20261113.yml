@@ -1,0 +1,28 @@
+name: "04 QR-W PR794 independent HOLD synthetic filesystem"
+on:
+  pull_request:
+    paths:
+      - 'scripts/asset-research/04qr-w-pr794-*.mjs'
+      - '.github/workflows/04qr-w-pr794-hold-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  independent-hold:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Independent synthetic filesystem and actual resolver HOLD
+        run: node --test scripts/asset-research/04qr-w-pr794-hold-independent-20261113.mjs
+      - name: Source synthetic contracts
+        if: always()
+        run: node --test tests/01d-v1253-image-consumer-hold.test.mjs
