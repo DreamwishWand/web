@@ -84,13 +84,15 @@ const rec=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const hex64=v=>typeof v==='string'&&/^[0-9a-f]{64}$/.test(v);
 const safeId=v=>Number.isSafeInteger(v)&&v>=0;
 const safePositive=v=>safeId(v)&&v>0;
-// Exactly the non-authoritative Native enum token shape handed off by 01D
-// PR916 and required as String by 01A PR914. Caller input is NOT a trusted
-// save readset; Rust still checks the actual stored CompatibleItemType.
-const nativeCompatibleItemType=v=>typeof v==='string'&&
-  /^ItemType_[A-Za-z0-9_]{1,48}$/.test(v)&&
-  !['Premium','DLC','Entitlement','Receipt','Auth','Currency','Moonstone','Quest']
-    .some(x=>v.includes(x));
+// Conservative static preview subset aligned with 01D PR942/E1202.
+// Steam626 Item.Type uses signed int32 / 10^7. Ingredient is an ActivityItemType
+// subtype, never a CompatibleItemType. Prefix alone proves neither existence,
+// canonical variation, subtype eligibility, rights nor stored-row authority.
+// The same restrictive preview shape is used for Switch; Steam native evidence
+// remains Steam-only. Only 01A Rust can authenticate a target and execute CAS.
+const nativeCompatibleItemType=(v,id)=>Number.isInteger(id)&&id>0&&id<=2147483647&&
+  ((v==='ItemType_ActivityItem'&&Math.trunc(id/10000000)===3)||
+   (v==='ItemType_Furniture'&&Math.trunc(id/10000000)===4));
 const forbidden=/\/(?:Entitlements?|DLC|Premium|Receipt|Auth|Purchases?|Moonstones?|Currencies?)(?:\/|$)/i;
 const seen=(x)=>Array.isArray(x)&&x.every(s=>typeof s==='string'&&s.startsWith('/')&&s.length<=300)&&new Set(x).size===x.length;
 const reject=(code,op=null)=>freeze({contract:OPERATION_NATIVE_STATIC_GATE,status:'REJECTED',reason:code,
@@ -98,10 +100,89 @@ const reject=(code,op=null)=>freeze({contract:OPERATION_NATIVE_STATIC_GATE,statu
   operationEnabled:false,coreSessionAuthenticated:false});
 
 function matchExternalBuild(v) {
-  if(!rec(v))return null;
-  return Object.values(NATIVE_SOURCE_TARGETS).find(x=>
-    Object.keys(x).every(k=>v[k]===x[k]))??null;
+  // Capture each required own data property once. Never execute accessors or
+  // re-read caller state to choose a different archive from the returned target.
+  // A hostile proxy may throw or supply inconsistent descriptors: only an
+  // exact coherent canonical snapshot is accepted, never authentication.
+  try {
+    if(!rec(v))return null;
+    const snapshot=Object.create(null);
+    for(const k of Object.keys(NATIVE_SOURCE_TARGETS.steam1253)){
+      const d=Object.getOwnPropertyDescriptor(v,k);
+      if(!d||!Object.hasOwn(d,'value'))return null;
+      snapshot[k]=d.value;
+    }
+    return Object.values(NATIVE_SOURCE_TARGETS).find(x=>
+      Object.keys(x).every(k=>snapshot[k]===x[k]))??null;
+  } catch {
+    return null;
+  }
 }
+// Archived, byte-matched Steam source evidence. Not an authenticated save or
+// installed-game assertion; local native branches are not whole-operation V3.
+const archivedSteam626Witness=(operationId,localMutation,consumer,producer,derived,required)=>freeze({
+  operationId,kind:'ARCHIVED_STEAM626_NATIVE_STATIC_PARTIAL',
+  binarySha256:'66644cf655e158086f83ffd654222ecfb5744c08423a644d3c0edc3244d66e4c',
+  localMutation,consumer:freeze(consumer),producer:freeze(producer),
+  derived:freeze(derived),requiredBeforeOperationV3:freeze(required),
+  fullReferenceClosureVerified:false,nativeV3Accepted:false,
+  nativeEventReplayAuthorized:false,productWriterAuthorized:false
+});
+const steam626Witnesses=freeze({
+  INV_AMOUNT:archivedSteam626Witness('INV_AMOUNT','EXISTING_CANONICAL_AMOUNT_DECREMENT_ONLY',[
+    'LIST_GET_AMOUNT_4351A60_TO_TRY_GET_4351450_TO_APPLY_VARIATION_4351580',
+    'VARIATION_CAN_CHANGE_ITEM_AND_AMOUNT','DATA_AMOUNT_JSON_FIELD_1_INT32'
+  ],[
+    'LIST_REMOVE_4351D10_SUBTRACTS_CONVERTED_AMOUNT_AT_4351DDD',
+    'LOW_LEVEL_ZERO_RETAINS_ROW_NOT_PRODUCT_AUTHORIZATION',
+    'DATA_WRITE_JSON_4353B90_AMOUNT_INT32'
+  ],[
+    'ITEM_REMOVED_DISPATCH_CONDITIONAL',
+    'POSSESS_SUBSCRIBES_ADD_REMOVE_MOVE_AND_RECALCULATES_PROGRESS_STATUS',
+    'CRAFT_RELEVANT_INVENTORY_READS_PROFILE_QUANTITY',
+    'CONSUME_ITEM_REASON_GATED_NOT_EQUIVALENT_TO_OFFLINE_DECREMENT'
+  ],[
+    'AUTHENTIC_CORE_TARGET_AND_CANONICAL_VARIATION_QUANTITY',
+    'LEGAL_EXISTING_POSITIVE_DECREASE_NO_DEPLETION',
+    'ACTIVE_MISSION_FILTER_AND_OTHER_SUBSCRIBER_CLOSURE',
+    'PRESERVE_COLLECTION_OWNERSHIP_AND_ENTITLEMENTS'
+  ]),
+  CHEST_AMOUNT:archivedSteam626Witness('CHEST_AMOUNT','EXISTING_SLOT_POSITIVE_REMAINDER_ONLY',[
+    'CONTAINER_GET_AMOUNT_3F55100_SUMS_MATCHED_SLOTS_ITEM_STATE_QUERY',
+    'SLOT_AMOUNT_JSON_FIELD_2_INT32',
+    'STACK_DATA_36A2B20_ACTIVITY_TYPE_AND_ITEM_EXCEPTION'
+  ],[
+    'POSITION_REMOVE_3F54770_SUBTRACTS_AT_3F54901',
+    'ZERO_RESETS_ITEM_AMOUNT_STATE_434C250_NOT_PRODUCT_AUTHORIZATION',
+    'SLOT_WRITE_JSON_434C0E0_AMOUNT_INT32'
+  ],[
+    'ITEMS_AMOUNT_CACHE_LAZY_CONSTRUCTS_FROM_SLOTS_AND_STACK_DATA',
+    'POSITIVE_REMAINDER_UPDATES_RUNTIME_CACHE_NOT_NEW_SAVE_FIELD',
+    'ITEM_REMOVED_DISPATCH_CONDITIONAL',
+    'POSSESS_CAN_INCLUDE_STORAGE_AND_PANTRY'
+  ],[
+    'AUTHENTIC_PLAYER_CHEST_PARENT_ACTIVE_REFERENCE_AND_SLOT',
+    'LEGAL_EXISTING_POSITIVE_DECREASE_PRESERVE_ITEM_STATE',
+    'ACTIVE_MISSION_FILTER_AND_OTHER_SUBSCRIBER_CLOSURE',
+    'NO_INVENTED_PERSISTED_CACHE_OR_CONSUMPTION_EVENT'
+  ]),
+  GRID_MOVE:archivedSteam626Witness('GRID_MOVE','EXISTING_MODIFIED_OBJECT_TRANSFORM_CANDIDATE',[
+    'DIFFGRID_UPDATE_TRANSFORM_3FEDA00_VALIDATES_AREA_BEFORE_WRITES',
+    'CORE_AUTHENTIC_EFFECTIVE_OCCUPANCY_REQUIRED'
+  ],[
+    'REMOVE_GRIDCELLS_THEN_TRANSFORM_THEN_ADD_GRIDCELLS',
+    'DEFAULT_ONLY_OBJECT_REQUIRES_CLONE_AND_MODIFIED_MAP_INSERT'
+  ],[
+    'GRID_CHANGED_DISPATCH_CONDITIONAL',
+    'MISSION_GRID_CHANGED_CAN_CHANGE_STATUS_AFTER_DECOR_CHECK'
+  ],[
+    '01B_FOOTPRINT_PARENT_FLOOR_OCCUPANCY_AND_OLD_TRANSFORM',
+    'EXISTING_MODIFIED_NOT_REMOVED_NON_ROADFENCE_OBJECT',
+    'ACTIVE_DECOR_MISSION_AND_OTHER_SUBSCRIBER_CLOSURE',
+    '01C_ROADFENCE_SEPARATE_OWNER'
+  ])
+});
+
 /**
  * Static handoff only. Exact *declared* Build identity is necessary, never
  * proof of installed game or provenance. No caller-supplied boolean can grant.
@@ -111,12 +192,15 @@ export function describeNativeOperation(operationId,declaredBuild) {
   const op=byId.get(operationId);
   if(!op)return reject('UNKNOWN_OPERATION');
   if(op.tier===C)return reject('PROTECTED_RIGHTS_OR_ENTITLEMENT_OPERATION',operationId);
-  if(!matchExternalBuild(declaredBuild))return reject('EXACT_PLATFORM_BUILD_VERSION_SCHEMA_REQUIRED',operationId);
+  const target=matchExternalBuild(declaredBuild);
+  if(!target)return reject('EXACT_PLATFORM_BUILD_VERSION_SCHEMA_REQUIRED',operationId);
   return freeze({contract:OPERATION_NATIVE_STATIC_GATE,status:op.tier===A?'TIER_A_STATIC_INDEPENDENT_CANDIDATE':'TIER_B_NATIVE_DEPENDENCIES_OPEN',
     ...op,
     w1OrRoadFenceGlobalBlocker:op.tier===A?false:null,
     externalBuildIsAuthentication:false,sourceOnly:true,
-    target:freeze({...matchExternalBuild(declaredBuild)}),
+    target:freeze({...target}),
+    ...(target===NATIVE_SOURCE_TARGETS.steam1253&&Object.hasOwn(steam626Witnesses,operationId)
+      ?{archivedSteam626NativeWitness:steam626Witnesses[operationId]}:{}),
     coreIssuedReadsetVerified:false,productWriterAuthorized:false,
     productEditedCopyAuthorized:false,operationEnabled:false,
     deviceV4Mandated:false,deviceV4OnlyWhenStaticCannotCloseCriticalRisk:true});
@@ -132,9 +216,9 @@ export function previewNativeInventoryAmount({declaredBuild,inventoryId,canonica
     compatibleItemType,existingRow,oldAmount,nextAmount,sourceHash,changedPaths=[]}={}) {
   const p=describeNativeOperation('INV_AMOUNT',declaredBuild);
   if(p.status!=='TIER_A_STATIC_INDEPENDENT_CANDIDATE')return p;
-  if(!safeId(inventoryId)||!safePositive(canonicalItemId)||!nativeCompatibleItemType(compatibleItemType)||
+  if(!safePositive(inventoryId)||inventoryId>4294967295||!nativeCompatibleItemType(compatibleItemType,canonicalItemId)||
      existingRow!==true||!safePositive(oldAmount)||!safePositive(nextAmount)||
-     nextAmount>2147483647||oldAmount>2147483647||nextAmount===oldAmount)
+     nextAmount>9999||oldAmount>9999||nextAmount>=oldAmount)
     return reject('EXISTING_CANONICAL_ROW_AND_NONZERO_AMOUNT_REQUIRED','INV_AMOUNT');
   if(!hex64(sourceHash))return reject('SOURCE_HASH_SHAPE_REQUIRED_NOT_AUTHENTICATION','INV_AMOUNT');
   const ptr=`/Player/ListInventories/${inventoryId}/Inventory/${canonicalItemId}/Amount`;
