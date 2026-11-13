@@ -98,18 +98,21 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{
          fail('P1G_WORKER_RUST_GATE_VIOLATION');
       }
       if(allowDevSemanticWriter){
+        // All async metadata stays local until the owning OPEN commits.
         const initialDecodedSha=await hash(new TextEncoder().encode(decoded.jsonText));
+        if(token!==epoch)fail('P1G_WORKER_DEV_OPEN_REVOKED');
         if(initialDecodedSha!==receipt.decodedSha256)
           fail('P1G_WORKER_DEV_INITIAL_DECODED_HASH_MISMATCH');
+        const encryptedSha256=await hash(isolated);
+        if(token!==epoch)fail('P1G_WORKER_DEV_OPEN_REVOKED');
         devOriginal={
           bytes:new Uint8Array(isolated),
-          encryptedSha256:await hash(isolated),
+          encryptedSha256,
           encryptedSizeBytes:isolated.length,
           codecMetadata:decoded.metadata,
           originalDecodedSha256:receipt.decodedSha256,
-          token
+          token,exportPending:false
         };
-        if(token!==epoch){clearDev();fail('P1G_WORKER_DEV_OPEN_REVOKED');}
       }
       return Object.freeze({
         ...receipt,
@@ -119,7 +122,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{
       });
     }catch(e){
       // A's stale rejection must never kill newer B.
-      if(token===epoch)rust.close();
+      if(token===epoch)close();
       if(e instanceof Error&&(/^P1G_WORKER_|^PRODUCT_WORKER_/).test(e.message))
         throw e;
       fail('P1G_WORKER_CODEC_OR_RUST_REJECTED');
@@ -134,6 +137,8 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{
   const devSource=()=>{
     if(!allowDevSemanticWriter||!devOriginal||devOriginal.token!==epoch)
       fail('P1G_WORKER_DEV_SESSION_OFF');
+    if(devOriginal.exportPending)fail('P1G_WORKER_DEV_EXPORT_IN_PROGRESS');
+    if(!rust.getReceipt()){clearDev();fail('P1G_WORKER_DEV_SESSION_OFF');}
     return devOriginal;
   };
   const devStageTypedAmounts=(scope,commands)=>{
@@ -148,51 +153,71 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{
   const devCreateEncodedEditedOnce=async scope=>{
     const original=devSource();
     const token=epoch;
-    // The caller must provide a trusted Worker-local backup persister which
-    // uses create-new, fsync/readback and cryptographic SHA+Size. Merely
-    // supplying a UI boolean or pathname is not accepted here.
-    let receipt;
+    const owns=()=>epoch===token&&devOriginal===original;
+    const check=code=>{if(!owns())fail(code)};
+    // One owner-local export attempt at a time; no mutation may interleave
+    // while its backup/codec awaits. A failed pre-consume attempt can retry.
+    original.exportPending=true;
+    let ciphertext=null,consumed=false,committed=false;
     try{
-      receipt=await verifyDurableBackupDev({
-        originalBytes:new Uint8Array(original.bytes),
-        originalEncryptedSha256:original.encryptedSha256,
-        originalEncryptedSizeBytes:original.encryptedSizeBytes
+      // Trusted Worker-local create-new, fsync/readback backup callback.
+      let receipt;
+      try{
+        receipt=await verifyDurableBackupDev({
+          originalBytes:new Uint8Array(original.bytes),
+          originalEncryptedSha256:original.encryptedSha256,
+          originalEncryptedSizeBytes:original.encryptedSizeBytes
+        });
+      }catch{check('P1G_WORKER_DEV_BACKUP_STALE');fail('P1G_WORKER_DEV_BACKUP_REJECTED')}
+      check('P1G_WORKER_DEV_BACKUP_STALE');
+      if(!receipt||receipt.backupReadbackVerified!==true||
+         receipt.sha256!==original.encryptedSha256||
+         receipt.sizeBytes!==original.encryptedSizeBytes||
+         receipt.editedCopyWillUseDifferentName!==true)
+        fail('P1G_WORKER_DEV_BACKUP_NOT_CONFIRMED');
+      const edited=rust.devTakeDecodedEditedOnce(scope);
+      consumed=true;
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      const decodedHash=await hash(new TextEncoder().encode(edited.jsonText));
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      if(decodedHash!==edited.stagedDecodedSha256||
+         decodedHash===original.originalDecodedSha256)
+        fail('P1G_WORKER_DEV_RUST_SHA_MISMATCH');
+      ciphertext=await p1gPackagedProfileCodec.createEncodedProfile(
+        edited.jsonText,original.codecMetadata);
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      const reopened=await p1gPackagedProfileCodec.loadProfile(ciphertext);
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      const reopenedHash=await hash(new TextEncoder().encode(reopened.jsonText));
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      if(reopened.jsonText!==edited.jsonText||reopenedHash!==decodedHash)
+        fail('P1G_WORKER_DEV_CODEC_EXACT_REOPEN_FAILED');
+      const editedSha256=await hash(ciphertext);
+      // Final linearization point: no await after this check. Only this
+      // exact source object can be cleared, and stale ciphertext never leaves.
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      const result=Object.freeze({
+        contract:'wand.dev.p1g.typed-edited-copy@1',
+        editedCiphertext:ciphertext,
+        editedSha256,
+        editedSizeBytes:ciphertext.length,
+        originalSha256:original.encryptedSha256,
+        stagedDecodedSha256:decodedHash,
+        writerAuthorized:false,nativeV3Verified:false,
+        originalOverwriteAuthorized:false,
+        independentProcessReopenVerified:false
       });
-    }catch{fail('P1G_WORKER_DEV_BACKUP_REJECTED')}
-    if(epoch!==token)fail('P1G_WORKER_DEV_BACKUP_STALE');
-    if(!receipt||receipt.backupReadbackVerified!==true||
-       receipt.sha256!==original.encryptedSha256||
-       receipt.sizeBytes!==original.encryptedSizeBytes||
-       receipt.editedCopyWillUseDifferentName!==true)
-      fail('P1G_WORKER_DEV_BACKUP_NOT_CONFIRMED');
-    const edited=rust.devTakeDecodedEditedOnce(scope);
-    if(epoch!==token)fail('P1G_WORKER_DEV_EXPORT_STALE');
-    const decodedHash=await hash(new TextEncoder().encode(edited.jsonText));
-    if(decodedHash!==edited.stagedDecodedSha256||
-       decodedHash===original.originalDecodedSha256)
-      fail('P1G_WORKER_DEV_RUST_SHA_MISMATCH');
-    const ciphertext=await p1gPackagedProfileCodec.createEncodedProfile(
-      edited.jsonText,original.codecMetadata);
-    const reopened=await p1gPackagedProfileCodec.loadProfile(ciphertext);
-    if(reopened.jsonText!==edited.jsonText||
-       await hash(new TextEncoder().encode(reopened.jsonText))!==decodedHash)
-      fail('P1G_WORKER_DEV_CODEC_EXACT_REOPEN_FAILED');
-    if(epoch!==token)fail('P1G_WORKER_DEV_EXPORT_STALE');
-    const result=Object.freeze({
-      contract:'wand.dev.p1g.typed-edited-copy@1',
-      editedCiphertext:ciphertext,
-      editedSha256:await hash(ciphertext),
-      editedSizeBytes:ciphertext.length,
-      originalSha256:original.encryptedSha256,
-      stagedDecodedSha256:decodedHash,
-      writerAuthorized:false,nativeV3Verified:false,
-      originalOverwriteAuthorized:false,
-      // Same-Worker Codec self-check only. Independent PROCESS evidence
-      // remains a separate 05 QR-L operation-specific acceptance gate.
-      independentProcessReopenVerified:false
-    });
-    clearDev();
-    return result;
+      clearDev();committed=true;
+      return result;
+    }finally{
+      if(!committed&&ciphertext instanceof Uint8Array)ciphertext.fill(0);
+      // Stale A cannot touch B. A consumed or revoked Rust session cannot
+      // retry; backup/invalid-scope/undone pre-consume denial may retry.
+      if(owns()){
+        if(consumed||!rust.getReceipt())clearDev();
+        else original.exportPending=false;
+      }
+    }
   };
   return Object.freeze({
     openEncrypted,close,
