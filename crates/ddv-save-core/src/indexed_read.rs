@@ -1082,7 +1082,8 @@ mod private_avatar {
         if let Some(s)=span{
             for (i,v) in array_spans(bytes,s,16384)?.into_iter().enumerate(){
                 let n=int(bytes,v)?;
-                if n<=0||n/10_000_000!=5{return Err(denied("SKIN_DEP_DIALOGUE_FLAG_TYPE"));}
+                // Only the physical int32 is attested here. Native flag-ID
+                // classification is part of the exact condition/catalog join.
                 let digest=sha(&bytes[v.begin..v.end]);
                 if n==target{target_positions.push(i);}
                 // Repeated int32 is not assumed to be a set; retain physical
@@ -1137,7 +1138,7 @@ mod private_avatar {
             let b=&self.native_source_build;
             if b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||
                b.build_id!=EXACT||b.schema!=626||!b.externally_attested{return Err(denied("SKIN_EXACT_STEAM626_REQUIRED"));}
-            if !character_id(character)||!character_skin_id(skin)||flag<=0||flag/10_000_000!=5{
+            if !character_id(character)||!character_skin_id(skin)||flag<=0{
                 return Err(denied("SKIN_DEP_SELECTOR"));}
             let st=self.lock()?;validate_scope(self,&st,&e)?;
             let bytes=&self.decoded;let root=roots(bytes)?;
@@ -1241,7 +1242,7 @@ mod private_avatar {
         }
         #[test]
         fn skin_dependency_malformed_and_stale_fail_closed(){
-            for bad in [json!(null),json!({}),json!(["50000001"]),json!([0]),json!([40000001]),json!([2147483648u64])]{
+            for bad in [json!(null),json!({}),json!(["50000001"]),json!([false]),json!([1.5]),json!([2147483648u64])]{
                 let mut d=dep_doc();d["World"]["DialogueFlags"]=bad;assert!(dep(&open(d)).is_err());
             }
             let mut d=dep_doc();d["ConditionalEventHistory"]["ActiveEvents"]=json!({"01520000001":{}});
@@ -1252,7 +1253,7 @@ mod private_avatar {
             assert!(dep(&open(d)).is_err());
             let s=open(dep_doc());let r=s.receipt().unwrap();let e=env(r);
             assert!(s.read_private_character_skin_dependencies(e,10000053,170000001,50000001).is_err());
-            assert!(s.read_private_character_skin_dependencies(e,10000053,170000000,40000001).is_err());
+            assert!(s.read_private_character_skin_dependencies(e,10000053,170000000,0).is_err());
             let mut stale=e;stale.expected_revision+=1;
             assert!(s.read_private_character_skin_dependencies(stale,10000053,170000000,50000001).is_err());
             assert!(open(dep_doc()).read_private_character_skin_dependencies(e,10000053,170000000,50000001).is_err());
