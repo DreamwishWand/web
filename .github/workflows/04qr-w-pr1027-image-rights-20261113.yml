@@ -1,0 +1,56 @@
+name: 04 QR-W PR1027 independent rights attribution
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr1027-image-rights-independent-20261113.mjs'
+      - '.github/workflows/04qr-w-pr1027-image-rights-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/web-image-rights-attribution.test.mjs
+      - run: npm run check && npm run build
+        env:
+          BASE_PATH: /web
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual parent build for 160 CSS px diagnostic (no committed product edits)
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          git worktree add --detach /tmp/qrw1027-parent 92a9c506716625ef33e8a9d3b7253b4ced8c70a1
+          ln -s "$PWD/node_modules" /tmp/qrw1027-parent/node_modules
+          (cd /tmp/qrw1027-parent && npm run build)
+          test -s /tmp/qrw1027-parent/build/collection/index.html
+      - name: Real Chrome on built static product
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/attribution-preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4298/web/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4298/web/ >/dev/null
+          (cd /tmp/qrw1027-parent && npm run preview -- --host 127.0.0.1 --port 4299 --strictPort >/tmp/qrw1027-parent-preview.log 2>&1) &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4299/web/collection/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4299/web/collection/ >/dev/null
+          node scripts/04qr-w-pr1027-image-rights-independent-20261113.mjs
