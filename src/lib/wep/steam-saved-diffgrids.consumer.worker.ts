@@ -11,11 +11,12 @@ import {validateOwnerLocalSteamAttestation}
 
 // PR957/PR960: the protected Pages build seals the exact signed three assets
 // into the trusted Worker bundle. No fixed historical commit/digest or caller pins.
-// Explicit Owner PRODUCT-operation Gate is separate from permission to
-// host three inert read-only files. No product Reader is enabled by this PR.
-// Focused CI may replace this SINGLE constant in the temporary test working
-// tree only, never commit the enabled value or put private P1G into CI.
+// Formal product authority remains OFF. Owner Policy61–66 grants only the
+// Steam626 stored-DiffGrids preformal test route, not a general Reader or Writer.
+// The signed anchor and exact typed facade remain mandatory. No UI message
+// can grant either flag. Rollback: set PREFORMAL_STEAM_READER_ENABLED=false.
 const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;
+const PREFORMAL_STEAM_READER_ENABLED=true;
 
 async function loadAcceptedReadOnlyRustModule(){
   // Accepted 01A production provenance boundary: no caller arguments.
@@ -41,7 +42,7 @@ const publishUnavailable=()=>self.postMessage({
   kind:'DIFFGRIDS_RUNTIME_READY',ready:false,writerAuthorized:false
 });
 void (async()=>{
-  if(!PRODUCT_READONLY_CONSUMER_OWNER_ENABLED){
+  if(PRODUCT_READONLY_CONSUMER_OWNER_ENABLED||!PREFORMAL_STEAM_READER_ENABLED){
     publishUnavailable();
     return;
   }

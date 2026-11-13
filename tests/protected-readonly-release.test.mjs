@@ -30,7 +30,7 @@ test('immutable release identity changes with any subject, source or delivery sc
   ['signerWorkflow','DreamwishWand/web/.github/workflows/other.yml']])
   assert.notEqual(hash(a),hash({...a,[k]:v}),k);
 });
-test('Pages source signs before sealing and bundling, then checks exact build bytes; no flag or new public file',async()=>{
+test('Pages source signs before sealing and bundling, then checks exact build bytes; formal authority OFF and scoped preformal Reader',async()=>{
  const y=await readFile(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
  const order=['actions/attest-build-provenance@v2','scripts/readonly-release/seal.mjs seal',
   '- name: Build static site','scripts/readonly-release/seal.mjs check-built','actions/upload-pages-artifact@v3'];
@@ -39,4 +39,7 @@ test('Pages source signs before sealing and bundling, then checks exact build by
  assert.match(y,/find build\/worker-wasm -maxdepth 1 -type f \| wc -l\)" -eq 3/);
  const worker=await readFile(new URL('../src/lib/wep/steam-saved-diffgrids.consumer.worker.ts',import.meta.url),'utf8');
  assert.match(worker,/PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false/);
+ assert.match(worker,/PREFORMAL_STEAM_READER_ENABLED=true/);
+ assert.match(worker,/if\(PRODUCT_READONLY_CONSUMER_OWNER_ENABLED\|\|!PREFORMAL_STEAM_READER_ENABLED\)/);
+ assert.match(worker,/allowSyntheticFixture:false/);
 });
