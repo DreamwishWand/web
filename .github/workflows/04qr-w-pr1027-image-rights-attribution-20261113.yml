@@ -1,0 +1,38 @@
+name: 04 QR-W PR1027 attribution independent
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr1027-image-rights-attribution-independent-20261113.mjs'
+      - '.github/workflows/04qr-w-pr1027-image-rights-attribution-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+        env:
+          BASE_PATH: /web
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Independent actual built static Chrome
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/qrw1027-preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4298/web/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4298/web/ >/dev/null
+          node scripts/04qr-w-pr1027-image-rights-attribution-independent-20261113.mjs
