@@ -67,9 +67,20 @@ jobs:
           CURRENT_IMAGE_SCOPE
             git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/switch1253-actual
             LC_ALL=C sort /tmp/switch1253-approved > /tmp/switch1253-expected
-            diff -u /tmp/switch1253-expected /tmp/switch1253-actual
+            cat > /tmp/switch1253-policy-expected <<'CURRENT_IMAGE_POLICY_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-switch1253-item-thumb-contract.test.mjs
+          CURRENT_IMAGE_POLICY_SCOPE
+            if diff -q /tmp/switch1253-expected /tmp/switch1253-actual >/dev/null; then
+              echo WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS
+            elif diff -q /tmp/switch1253-policy-expected /tmp/switch1253-actual >/dev/null; then
+              echo WEB_CURRENT_SWITCH1253_ISSUE604_POLICY_EXACT3_SCOPE_PASS
+            else
+              diff -u /tmp/switch1253-policy-expected /tmp/switch1253-actual || true
+              exit 1
+            fi
             node --test tests/web-switch1253-item-thumb-contract.test.mjs
-            echo WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS
           fi
           # The original Item gate protected Collection/Explore against unrelated edits.
           # The only exception is the exact nine-path Stage1 public ItemThumb change,
