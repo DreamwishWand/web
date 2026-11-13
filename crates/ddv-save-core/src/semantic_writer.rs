@@ -182,13 +182,13 @@ fn positive_id_field(bytes:&[u8],parent:Span,name:&str,id:u32)->CoreResult<()>{
 }
 // E1335: only the native Catalog Furniture route has a valid zero
 // selector. Check the *saved* restriction, not the constructor defaults.
-fn furniture_catalog_restriction(bytes:&[u8],record:Span,item:u32)->CoreResult<()>{
-    if native_amount_type(item)?!=ExistingAmountItemType::Furniture{
-        return Err(denied("AMOUNT_ZERO_ROUTE_FURNITURE_REQUIRED"));
-    }
+fn furniture_catalog_mask(bytes:&[u8],record:Span)->CoreResult<u16>{
     let mut pos=record.begin+1;
     let mut restriction=None;
+    let mut fields=0usize;
     while let Some((key,v))=next_object_member(bytes,record,&mut pos)?{
+        fields+=1;
+        if fields>64{return Err(denied("AMOUNT_ZERO_ROUTE_RECORD_BOUND"));}
         if key=="CompatibleFurnitureTypes"{restriction=Some(v);}
         else if key.starts_with("Compatible")&&key!="CompatibleItemType"{
             return Err(denied("AMOUNT_ZERO_ROUTE_RESTRICTION_AMBIGUOUS"));
@@ -224,6 +224,12 @@ fn furniture_catalog_restriction(bytes:&[u8],record:Span,item:u32)->CoreResult<(
         if mask&bit!=0{return Err(denied("AMOUNT_ZERO_ROUTE_RESTRICTION_DUPLICATE"));}
         mask|=bit;
     }
+    Ok(mask)
+}
+fn check_furniture_catalog_item(mask:u16,item:u32)->CoreResult<()>{
+    if native_amount_type(item)?!=ExistingAmountItemType::Furniture{
+        return Err(denied("AMOUNT_ZERO_ROUTE_FURNITURE_REQUIRED"));
+    }
     let subtype=(item%10_000_000)/100_000;
     if subtype>=16||mask&(1u16<<subtype)==0{
         return Err(denied("AMOUNT_ZERO_ROUTE_SUBTYPE_DENIED"));
@@ -239,7 +245,7 @@ fn inventory_route(bytes:&[u8],record:Span,id:u32,item:u32,expected:&str)->CoreR
         return Err(denied("AMOUNT_ZERO_ROUTE_ID_OR_TYPE"));
     }
     compatible_type(bytes,object_field(bytes,record,"CompatibleItemType")?,"ItemType_Furniture")?;
-    furniture_catalog_restriction(bytes,record,item)
+    check_furniture_catalog_item(furniture_catalog_mask(bytes,record)?,item)
 }
 fn raw_boolean_true(bytes:&[u8],span:Span)->CoreResult<()>{
     if bytes.get(span.begin..span.end)!=Some(&b"true"[..]){
@@ -719,6 +725,8 @@ impl ProductSession {
             }else{continue};
             // Unrelated zero routes never become amount targets.
             if id==0&&kind!=ExistingAmountItemType::Furniture{continue;}
+            // Parse the persisted restriction once, even for a large Catalog.
+            let zero_mask=if id==0{Some(furniture_catalog_mask(bytes,record)?)}else{None};
             let items=object_field(bytes,record,"Inventory")?;
             let mut item_pos=items.begin+1;
             while let Some((item_key,entry))=next_object_member(bytes,items,&mut item_pos)?{
@@ -731,8 +739,8 @@ impl ProductSession {
                 // For zero Catalog, apply saved restriction before selecting.
                 // Disallowed subtype is skipped; malformed/unknown restriction
                 // is an error rather than an invented default.
-                if id==0{
-                    match furniture_catalog_restriction(bytes,record,item_id){
+                if let Some(mask)=zero_mask{
+                    match check_furniture_catalog_item(mask,item_id){
                         Ok(())=>{},
                         Err(e) if e.0=="AMOUNT_ZERO_ROUTE_SUBTYPE_DENIED"=>continue,
                         Err(e)=>return Err(e),
@@ -947,6 +955,11 @@ mod minted_amount_target_tests {
         assert_eq!(s.find_one_existing_inventory_amount_target(scope(before,WorkerAction::ReadDomain)).unwrap(),w);
         assert!(read(&s,ExistingAmountSelection::Inventory{inventory_id:0,item_id:40900001}).is_ok());
         assert!(read(&s,ExistingAmountSelection::Inventory{inventory_id:0,item_id:40700001}).is_err());
+        let mut d=v.clone();
+        d["Player"]["ListInventories"]["0"]["CompatibleFurnitureTypes"]=json!({"List":["FurnitureItemType_SnippetTrap"]});
+        let x=open(&d);
+        let selected=x.find_one_existing_inventory_amount_target(scope(x.receipt().unwrap(),WorkerAction::ReadDomain)).unwrap();
+        assert_eq!(selected.view().selection,ExistingAmountSelection::Inventory{inventory_id:0,item_id:40900001});
         assert_eq!(s.authorize_existing_amount_target(scope(before,WorkerAction::ReadDomain),&w,6)
             .unwrap_err().0,"AMOUNT_TARGET_NATIVE_AUTHORITY_UNAVAILABLE");
         for (key,bad) in [
