@@ -1,0 +1,36 @@
+name: "04 QR-W PR786 repaired host gate independent audit"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr786-rights-host-fix-20261109.yml"
+      - "scripts/04qr-w-pr786-rights-host-fix-20261109.mjs"
+  push:
+    branches: [qa/04qr-w-pr786-rights-host-fix-69220b-20261109]
+permissions:
+  contents: read
+jobs:
+  independent-rights-host-fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "No private original, provider or mail credentials"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env | grep -Eq '^(RESEND_API_KEY|SMTP_PASSWORD|GMAIL_TOKEN|DDV_PRIVATE_SAVE_PATH|WEP_PRIVATE_P1G_PATH)='; then
+            echo "PRIVATE_PROVIDER_INPUT_FORBIDDEN"
+            exit 1
+          fi
+      - name: "Independent changed-only synthetic negative checks"
+        run: node scripts/04qr-w-pr786-rights-host-fix-20261109.mjs
+      - name: "External receiving and rights/operator remain NOT_RUN"
+        run: echo "QRW786_REAL_INBOUND_REPLY_HOST_CDN_RIGHTS_NOT_RUN_FLAGS_OFF"
