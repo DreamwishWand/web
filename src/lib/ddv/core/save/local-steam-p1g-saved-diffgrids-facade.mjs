@@ -40,7 +40,10 @@ export function createLocalSteamP1gSavedDiffGridsFacade({
      typeof allowSyntheticFixture!=='boolean')
     denied('LOCAL_DIFFGRIDS_TRUSTED_DEPENDENCY_REQUIRED');
   const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory);
-  let epoch=0,active=null,pendingOpenRequestId=null;
+  let epoch=0,active=null,pendingOpenRequestId=null,lastOpenRequestId=0;
+  // OPEN IDs are strictly increasing for this Worker lifetime, even after
+  // revocation or a failed OPEN. Other message IDs are correlation only.
+  // This makes a delayed cancel by OPEN identity unambiguous (no ABA).
   const revoke=()=>{
     if(epoch===Number.MAX_SAFE_INTEGER)denied('LOCAL_DIFFGRIDS_EPOCH_BOUNDS');
     epoch++;
@@ -58,16 +61,16 @@ export function createLocalSteamP1gSavedDiffGridsFacade({
       denied('LOCAL_DIFFGRIDS_MESSAGE_BOUNDS');
     const id=data.requestId;
     if(data.kind==='CLOSE_LOCAL_STORED_DIFFGRIDS'){
-      // CLOSE during an in-flight OPEN has no issued selection yet. Require
-      // the exact requestId of that pending OPEN so A's delayed CLOSE cannot
-      // revoke a distinct newer B. No file/SessionID/Cursor enters the UI.
-      const abortPending=exact(data,'kind,openRequestId,requestId,selection')&&
-        data.selection===null&&!active&&
-        pendingOpenRequestId!==null&&
-        data.openRequestId===pendingOpenRequestId;
+      // The UI may not yet have received the successful OPEN reply even
+      // when Rust has already completed it. Match the exact accepted OPEN
+      // identity in either phase; no SessionID/Cursor enters the UI.
+      const abortOpen=exact(data,'kind,openRequestId,requestId,selection')&&
+        data.selection===null&&requestIdOk(data.openRequestId)&&
+        (active?active.openRequestId===data.openRequestId:
+          pendingOpenRequestId===data.openRequestId);
       const closeSelected=exact(data,'kind,requestId,selection')&&
         !!active&&data.selection===active.selection;
-      if(!abortPending&&!closeSelected){
+      if(!abortOpen&&!closeSelected){
         respond(post,id,false,'LOCAL_DIFFGRIDS_STALE_SELECTION');
       }else{
         revoke();
@@ -130,7 +133,15 @@ export function createLocalSteamP1gSavedDiffGridsFacade({
       respond(post,id,false,'LOCAL_DIFFGRIDS_OPERATION_DISABLED');
       return;
     }
-    // A is invalidated SYNCHRONOUSLY before awaiting File/SHA/Codec/Rust B.
+    // Reject a reused/older OPEN identity before touching the current
+    // session. Otherwise a delayed CLOSE for the old identity could close
+    // a new session using the same requestId. A fresh (even invalid) OPEN
+    // still revokes A synchronously before awaiting File/SHA/Codec/Rust B.
+    if(id<=lastOpenRequestId){
+      respond(post,id,false,'LOCAL_DIFFGRIDS_STALE_OPEN_OR_REPLAY');
+      return;
+    }
+    lastOpenRequestId=id;
     revoke();
     const mine=epoch;
     pendingOpenRequestId=id;
@@ -179,7 +190,7 @@ export function createLocalSteamP1gSavedDiffGridsFacade({
          issued.maxRecordsPerPage!==8||issued.productReadAccepted!==false||
          issued.writerAuthorized!==false)
         denied('LOCAL_DIFFGRIDS_INDEX_RECEIPT_DENIED');
-      active={selection:mine,scope,nextCursor:issued.cursor,
+      active={selection:mine,openRequestId:id,scope,nextCursor:issued.cursor,
         pageIndex:0,indexedRecords:issued.indexedRecords,recordsRead:0};
       pendingOpenRequestId=null;
       // This opaque local selection is only a UI response epoch fence, NOT
