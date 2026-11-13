@@ -27,7 +27,7 @@ fn qac1039_exact_lexical_map_membership_stock(){
  assert_eq!(ms[0]["groupPosition"],0);assert_eq!(ms[1]["groupPosition"],1);assert_eq!(ms[2]["setPosition"],1);
  let token=r#""Not\u0043omplete""#;assert_eq!(ms[1]["state"]["token"],token);assert_eq!(ms[1]["state"]["sha256"],hash(token));assert!(ms[1]["state"]["numericCode"].is_null());assert_eq!(ms[2]["state"]["present"],false);assert!(ms[2]["storedGroupIndex"].is_null());
  let stock=&x["storedStock"];assert_eq!(stock["inventoryId"],9);assert_eq!(stock["entry"]["amount"],0);assert_eq!(stock["entry"]["entrySha256"],hash(r#"{ "Amount":0, "Marker": {"m":"🌿"},"Other":null }"#));assert_eq!(stock["entry"]["markerSha256"],hash(r#"{"m":"🌿"}"#));assert_eq!(stock["ownershipVerified"],false);
- for k in ["packagedMembershipVerified","effectiveEligibilityVerified","ownershipVerified","rightsVerified","subscriberClosureVerified","nativeV3Verified","productReadAccepted","writerAuthorized","editedCopyAuthorized","applyAuthorized"]{assert_eq!(x[k],false,k);}
+ for k in ["packagedMembershipVerified","effectiveEligibilityVerified","ownershipVerified","rightsVerified","subscriberClosureVerified","nativeV3Verified","productReadAccepted","writerAuthorized","editedCopyAuthorized","applyAuthorized"]{assert_eq!(x[k],false,"{k}");}
  assert_eq!(x["scannedEntryCount"],5);assert_eq!(x["groupCount"],3);assert_eq!(s.receipt().unwrap(),before);
  let absent=read(&s,DEF,1,30000012).unwrap();assert!(absent["selectedGroup"]["targetEntry"].is_null());assert_eq!(absent["storedMemberships"].as_array().unwrap().len(),1);assert_eq!(absent["selectedGroup"]["numericNotCompleteMultiFalseShape"],false);
 }
