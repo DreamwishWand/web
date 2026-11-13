@@ -44,6 +44,7 @@ jobs:
           echo QAC1023_EXACT_SOURCE3_QA3_PASS
       - name: Independent Rust and CLI synthetic actual
         run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1 --test qa1023_avatar_dependency
           cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1 --bin wand-local-rust-v1
           node tests/qa1023-private-avatar-cli.mjs crates/ddv-save-core/target/debug/wand-local-rust-v1
