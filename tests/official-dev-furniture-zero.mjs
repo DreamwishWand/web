@@ -73,4 +73,109 @@ try{
  assert.equal(sha(await readFile(backup)),originalSha);assert.equal(sha(await readFile(original)),originalSha);
  assert.equal(sha(input),originalSha);await assert.rejects(()=>bridge.devCreateEncodedEditedOnce(scope(redo)));
  console.log('ACT401_SYNTHETIC_ZERO_ROUTE_EXACT_ONE_TOKEN_CAS_UNDO_REDO_BACKUP_FRESH_OS_REOPEN_PASS');
+
+ // Deterministic actual WebCrypto/Codec scheduling, never mock Rust/codec.
+ const bText=originalText.replace('"Amount":7','"Amount":9');
+ const bInput=await codec.createEncodedProfile(bText,metadata), bSha=sha(bInput);
+ const bCmd={...cmd,expectedOldAmount:9,newAmount:8};
+ const nativeDigest=crypto.subtle.digest.bind(crypto.subtle);
+ const gate=()=>{let hit,release;const reached=new Promise(r=>hit=r),hold=new Promise(r=>release=r);return {hit,reached,release,hold}};
+ const reached=async g=>{
+   let timer;try{await Promise.race([g.reached,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('EPOCH_TEST_GATE_NOT_REACHED')),8000)})])}
+   finally{clearTimeout(timer)}
+ };
+ const digestGate=(expected,nth=1)=>{
+   const g=gate();let seen=0;
+   crypto.subtle.digest=async(alg,bytes)=>{
+     if(sha(bytes)===expected&&++seen===nth){g.hit();await g.hold}
+     return nativeDigest(alg,bytes);
+   };
+   return g;
+ };
+ const settled=p=>p.then(v=>({ok:true,v}),e=>({ok:false,error:e.message}));
+ const persist=async({originalBytes,originalEncryptedSha256,originalEncryptedSizeBytes})=>{
+   assert.equal(sha(originalBytes),originalEncryptedSha256);
+   const p=join(d,'race-backup-'+originalEncryptedSha256);
+   try{const f=await open(p,'wx',0o600);try{await f.writeFile(originalBytes);await f.sync()}finally{await f.close()}}
+   catch(e){if(e.code!=='EEXIST')throw e}
+   const bytes=await readFile(p);
+   assert.equal(bytes.length,originalEncryptedSizeBytes);
+   return {backupReadbackVerified:true,sha256:sha(bytes),sizeBytes:bytes.length,editedCopyWillUseDifferentName:true};
+ };
+ const make=(verifyDurableBackupDev=persist)=>createP1gRustWorkerReadOnlyBridge(
+   async()=>({WorkerWasmSource:glue.WorkerWasmSource}),{allowDevSemanticWriter:true,verifyDurableBackupDev});
+ const openA=b=>b.openEncrypted({build,encryptedBytes:input});
+ const openB=b=>b.openEncrypted({build,encryptedBytes:bInput});
+ const finishB=async(b,r)=>{
+   assert.equal(b.getReceipt().sessionId,r.sessionId);
+   const s=b.devStageTypedAmounts(scope(r),[bCmd]);
+   const out=await b.devCreateEncodedEditedOnce(scope(s));
+   assert.equal(out.originalSha256,bSha);
+   assert.equal((await codec.loadProfile(out.editedCiphertext)).jsonText,bText.replace('"Amount":9','"Amount":8'));
+   assert.equal(sha(out.editedCiphertext),out.editedSha256);
+   await assert.rejects(()=>b.devCreateEncodedEditedOnce(scope(s)));
+ };
+ const raceDigest=async({kind,digest,nth=1,replace})=>{
+   const b=make();
+   const s=kind==='export'?b.devStageTypedAmounts(scope(await openA(b)),[cmd]):null;
+   const g=digestGate(digest,nth);
+   let pending;
+   try{
+     pending=settled(kind==='open'?openA(b):b.devCreateEncodedEditedOnce(scope(s)));
+     await reached(g);
+     const rb=replace?await openB(b):(b.close(),null);
+     g.release();
+     const old=await pending;
+     assert.equal(old.ok,false,'STALE_ASYNC_RESULT_ESCAPED');
+     assert.match(old.error,/REVOKED|STALE/);
+     crypto.subtle.digest=nativeDigest;
+     if(rb)await finishB(b,rb);
+     else{assert.equal(b.getReceipt(),null);await finishB(b,await openB(b))}
+   }finally{g.release();crypto.subtle.digest=nativeDigest;b.close();if(pending)await pending}
+ };
+ try{
+   // Both OPEN hash awaits: newer replacement and explicit close.
+   for(const digest of [sha(originalText),originalSha]){
+     await raceDigest({kind:'open',digest,replace:true});
+     await raceDigest({kind:'open',digest,replace:false});
+   }
+   // Decoded hash, independent same-Worker reopen hash, final cipher hash.
+   const changedText=originalText.replace('"Amount":7','"Amount":6');
+   for(const [digest,nth] of [[sha(changedText),1],[sha(changedText),2],[result.editedSha256,1]]){
+     await raceDigest({kind:'export',digest,nth,replace:true});
+     await raceDigest({kind:'export',digest,nth,replace:false});
+   }
+   // A pending backup cannot consume or clear B.
+   for(const replace of [true,false]){
+     const g=gate();let first=true;
+     const b=make(async args=>{if(first){first=false;g.hit();await g.hold}return persist(args)});
+     const s=b.devStageTypedAmounts(scope(await openA(b)),[cmd]);
+     const p=settled(b.devCreateEncodedEditedOnce(scope(s)));
+     try{await reached(g);const rb=replace?await openB(b):(b.close(),null);g.release();
+       const old=await p;assert.equal(old.ok,false);assert.match(old.error,/STALE/);
+       if(rb)await finishB(b,rb);else{assert.equal(b.getReceipt(),null);await finishB(b,await openB(b))}
+     }finally{g.release();await p;b.close()}
+   }
+   // Serialize same-epoch export, stage/undo/redo during backup, then retry
+   // after a pre-consume denial without losing the valid pending session.
+   const g=gate();let first=true;
+   const b=make(async args=>{if(first){first=false;g.hit();await g.hold}return persist(args)});
+   const s=b.devStageTypedAmounts(scope(await openA(b)),[cmd]);
+   const p=settled(b.devCreateEncodedEditedOnce(scope(s)));
+   try{await reached(g);
+     await assert.rejects(()=>b.devCreateEncodedEditedOnce(scope(s)),/EXPORT_IN_PROGRESS/);
+     assert.throws(()=>b.devUndoTypedAmounts(scope(s)),/EXPORT_IN_PROGRESS/);
+     assert.throws(()=>b.devRedoTypedAmounts(scope(s)),/EXPORT_IN_PROGRESS/);
+     assert.throws(()=>b.devStageTypedAmounts(scope(s),[cmd]),/EXPORT_IN_PROGRESS/);
+     g.release();const done=await p;assert.equal(done.ok,true);
+     assert.equal(done.v.originalSha256,originalSha);
+     assert.equal((await codec.loadProfile(done.v.editedCiphertext)).jsonText,changedText);
+     await assert.rejects(()=>b.devCreateEncodedEditedOnce(scope(s)));
+   }finally{g.release();await p;b.close()}
+   assert.equal(sha(input),originalSha);assert.equal(sha(bInput),bSha);
+   assert.equal(sha(await readFile(join(d,'race-backup-'+originalSha))),originalSha);
+   assert.equal(sha(await readFile(join(d,'race-backup-'+bSha))),bSha);
+   console.log('ACT401_DEV_EPOCH_OPEN2_EXPORT3_BACKUP_CLOSE_REPLACE_CONCURRENT_PASS');
+ }finally{crypto.subtle.digest=nativeDigest}
+
 }finally{await rm(d,{recursive:true,force:true})}
