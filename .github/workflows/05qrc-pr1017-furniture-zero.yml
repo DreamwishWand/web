@@ -1,0 +1,43 @@
+name: 05 QR-C PR1017 independent Furniture zero
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1017-furniture-zero.mjs'
+      - 'crates/ddv-save-core/tests/qa_pr1017_furniture_zero.rs'
+      - '.github/workflows/05qrc-pr1017-furniture-zero.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact original3
+        run: |
+          git merge-base --is-ancestor e6fe9b58a35d8e85517b5a2ec1c40adbd48cccf7 HEAD
+          test "$(git diff --name-only e6fe9b58a35d8e85517b5a2ec1c40adbd48cccf7 HEAD | wc -l)" -eq 3
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = 7714552824222c84f710d224a26e2500fe1403a6
+          test "$(git rev-parse HEAD:crates/ddv-save-core/examples/wand-private-existing-amount-read.rs)" = 6faa9381b4e31ee31f10b482b1faf936fb995013
+          test "$(git rev-parse HEAD:tests/private-existing-amount-read.mjs)" = 4fd9ae90d8102b09edd03491937be981c6b389ad
+      - name: Native old and new executors and independent atomic CAS
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/old" 3b8fa25f5961e97789245544a0eb04c932ee7c31
+          cargo build --manifest-path "$RUNNER_TEMP/old/crates/ddv-save-core/Cargo.toml" --no-default-features --features semantic-writer-dev --example wand-private-existing-amount-read --target-dir "$RUNNER_TEMP/old-target"
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --example wand-private-existing-amount-read
+          node tests/qa/05qrc-pr1017-furniture-zero.mjs "$RUNNER_TEMP/old-target/debug/examples/wand-private-existing-amount-read" crates/ddv-save-core/target/debug/examples/wand-private-existing-amount-read
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --test qa_pr1017_furniture_zero
+      - name: Public and DEV WASM builds
+        run: |
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
