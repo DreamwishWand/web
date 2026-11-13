@@ -1,0 +1,164 @@
+name: 01A generic offline Rust inputs (no Wand binary or private data)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/01a-private-offline-build-inputs.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inputs-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CARGO_HOME: /tmp/wand-generic-cargo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '8cd8314224da9af26e74b851ab5b1db695514781'
+          path: current
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: '2ec76d8e278ebac96add77ec40d3e5fe0ad959e5'
+          path: fixed-pr929
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify exact public Source and acquire only generic build inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C current rev-parse HEAD)" = '8cd8314224da9af26e74b851ab5b1db695514781'
+          test "$(git -C current rev-parse HEAD:crates/ddv-save-core)" = '6c1a2af9a46a256538dd96f0179133e29d4ed16d'
+          test "$(git -C fixed-pr929 rev-parse HEAD)" = '2ec76d8e278ebac96add77ec40d3e5fe0ad959e5'
+          test "$(git -C fixed-pr929 rev-parse HEAD:crates/ddv-save-core)" = 'bb2500a996f82f5ceda3bf8155ac8d899065bb88'
+          rustup run 1.99.1 rustc -vV
+          rustup target list --installed --toolchain 1.99.1 | grep -Fx wasm32-unknown-unknown
+          dir="$(mktemp -d)"
+          gh run download 43336554801 --repo DreamwishWand/web --name r22-source-pinned-rust-wasm-js-and-binary-candidate-unsigned --dir "$dir"
+          lock="$dir/static/worker-wasm/Cargo.lock"
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  '"$lock" | sha256sum -c -
+          for repo in current fixed-pr929; do
+            cp "$lock" "$repo/crates/ddv-save-core/Cargo.lock"
+            rustup run 1.99.1 cargo fetch --locked --manifest-path "$repo/crates/ddv-save-core/Cargo.toml"
+            cmp "$lock" "$repo/crates/ddv-save-core/Cargo.lock"
+          done
+          # Generic upstream CLI, not a Dreamwish Wand executable. Exact
+          # official release URL; fail closed on missing/mismatched version.
+          mkdir "$dir/bindgen"
+          curl --fail --silent --show-error --location --proto '=https' --max-time 120 https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.105/wasm-bindgen-0.2.105-x86_64-unknown-linux-musl.tar.gz -o "$dir/bindgen.tar.gz"
+          tar -xzf "$dir/bindgen.tar.gz" -C "$dir/bindgen"
+          bindgen="$(find "$dir/bindgen" -type f -name wasm-bindgen -print -quit)"
+          test -n "$bindgen"
+          "$bindgen" --version | grep -Fx 'wasm-bindgen 0.2.105'
+          root="$RUNNER_TEMP/wand-inputs"
+          mkdir -p "$root/generic" "$root/source" "$RUNNER_TEMP/wand-parts"
+          tool="$(rustup run 1.99.1 rustc --print sysroot)"
+          # Only upstream toolchain + Cargo registry downloads; no credentials,
+          # repository history, target/ outputs or Save paths.
+          cp -a "$tool" "$root/generic/rust"
+          mkdir -p "$root/generic/cargo/registry"
+          cp -a "$CARGO_HOME/registry/cache" "$CARGO_HOME/registry/index" "$root/generic/cargo/registry/"
+          cp "$bindgen" "$root/generic/wasm-bindgen"
+          cp "$lock" "$root/source/Cargo.lock"
+          git -C current archive HEAD -- crates/ddv-save-core tests/private-existing-amount-read.mjs > "$root/source/current.tar"
+          git -C fixed-pr929 archive HEAD -- crates/ddv-save-core package.json src/lib/ddv/core/save/p1g-packaged-profile-codec.js src/lib/ddv/core/save/safe-edit-session.js src/lib/ddv/core/save/versioning.js src/lib/ddv/core/save/product-wasm-read-owner.mjs src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs tests/stage-i > "$root/source/pr929.tar"
+          (cd "$root"; find generic source -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+          (cd "$root"; rustup run 1.99.1 rustc -vV > TOOLCHAIN.txt; "$bindgen" --version >> TOOLCHAIN.txt)
+          tar -C "$root" -cf - generic source SHA256SUMS TOOLCHAIN.txt | gzip -1 | split -b 32M -d -a 2 - "$RUNNER_TEMP/wand-parts/part-"
+          (cd "$RUNNER_TEMP/wand-parts"; sha256sum part-* > parts.sha256; cat parts.sha256; wc -c part-*)
+          echo GENERIC_INPUTS_ONLY_NO_WAND_BINARY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-index
+          path: ${{ runner.temp }}/wand-parts/parts.sha256
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-00
+          path: ${{ runner.temp }}/wand-parts/part-00
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-01
+          path: ${{ runner.temp }}/wand-parts/part-01
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-02
+          path: ${{ runner.temp }}/wand-parts/part-02
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-03
+          path: ${{ runner.temp }}/wand-parts/part-03
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-04
+          path: ${{ runner.temp }}/wand-parts/part-04
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-05
+          path: ${{ runner.temp }}/wand-parts/part-05
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-06
+          path: ${{ runner.temp }}/wand-parts/part-06
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-07
+          path: ${{ runner.temp }}/wand-parts/part-07
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-08
+          path: ${{ runner.temp }}/wand-parts/part-08
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-09
+          path: ${{ runner.temp }}/wand-parts/part-09
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-10
+          path: ${{ runner.temp }}/wand-parts/part-10
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wand-generic-inputs-part-11
+          path: ${{ runner.temp }}/wand-parts/part-11
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: ignore
