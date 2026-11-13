@@ -33,6 +33,44 @@ try{
  ]){
   r=call(args,over);assert.equal(r.status,12);assert.equal(r.stdout,'');assert.match(r.stderr,new RegExp(code));
  }
+ // Same existing CLI + actual native dependency projection. All IDs are
+ // synthetic, no real Save. Missing membership is evidence, not ownership.
+ const d=JSON.parse(input);
+ d.Player.ListInventories={
+  0:{ID:0,CompatibleItemType:'ItemType_Furniture',Inventory:{}},
+  1:{ID:1,CompatibleItemType:'ItemType_Clothing',Inventory:{50000001:{Amount:2,Marker:'ItemMarker_None'},50000002:{Amount:1}}},
+  3:{ID:3,CompatibleItemType:'ItemType_Makeup',Inventory:{140000001:{Amount:1}}}
+ };
+ d.Player.AchievementsData=[{AchievementID:2110000001,CurAmount:2,MaxAmount:10,ClaimedRewardMilestone:0,State:'AchievementState_OnGoing'}];
+ d.Player.EvolveStatesProfile={EvolveProgressState:{40000001:{ItemID:40000001,Level:1,Objective:{CurAmount:2,TargetAmount:5}}}};
+ d.World.MissionSlots={0:{Slots:[{SlotId:0,MissionId:2070000001,CurrentStepIndex:0,State:'MissionSlotState_OnGoing',MissionSteps:[{SubSteps:[{Objectives:[{TargetAmount:4,ProgressKeys:{CurrentAmount:'2'},Status:'MissionStepStatus_Ongoing',StepType:'StepGameplay'}]}]}]}]}};
+ const depCall=(doc,out,over={})=>{const b=Buffer.from(JSON.stringify(doc));return spawnSync(exe,['--avatar-dependencies-receipt-only','--out',out],{input:b,env:{...env,WAND_LOCAL_DECODED_SHA256:createHash('sha256').update(b).digest('hex'),...over},encoding:'utf8'})};
+ const dep=join(dir,'dependencies.json');
+ r=depCall(d,dep);assert.equal(r.status,0,r.stderr);assert.equal(r.stdout,'');
+ const w=JSON.parse(await readFile(dep));assert.equal(w.contract,'wand.native.private.avatar-dependencies@1');
+ assert.equal(w.ownership.routes[0].entries.length,2);assert.equal(w.ownership.routes[1].entries[0].savedAmount,1);
+ assert.equal(w.ownership.allObservedReferencesHavePositiveSavedAmount,true);
+ assert.equal(w.subscriberReadSet.achievementsData.entries[0].curAmount.value,2);
+ assert.equal(w.subscriberReadSet.missionSlots.groups[0].slots[0].steps[0].subSteps[0].objectives[0].witness.progressEntries[0].savedValue,'2');
+ assert.equal(w.subscriberReadSet.evolveStatesProfile.entries[0].objective.curAmount.value,2);
+ assert.equal(w.subscriberReadSet.nativeSubscriberClosureVerified,false);assert.equal(w.rightsVerified,false);assert.equal(w.writerAuthorized,false);
+ if(process.platform!=='win32')assert.equal((await stat(dep)).mode&0o777,0o600);
+ const absent=structuredClone(d);delete absent.Player.ListInventories[1].Inventory[50000001];
+ r=depCall(absent,join(dir,'absent.json'));assert.equal(r.status,0,r.stderr);
+ const aw=JSON.parse(await readFile(join(dir,'absent.json')));assert.equal(aw.ownership.allObservedReferencesHavePositiveSavedAmount,false);
+ const bad=join(dir,'dep-bad.json');
+ for(const mutate of [
+  x=>{x.Player.ListInventories[1].ID=2},
+  x=>{x.Player.ListInventories[3].CompatibleItemType='ItemType_Skin'},
+  x=>{x.Player.ListInventories[1].Inventory[50000001].Amount='2'},
+  x=>{x.Player.AchievementsData[0].CurAmount='2'},
+  x=>{x.Player.EvolveStatesProfile.EvolveProgressState[40000001].ItemID=40000002},
+ ]){
+  const x=structuredClone(d);mutate(x);r=depCall(x,bad);assert.equal(r.status,12);assert.equal(r.stdout,'');assert.match(r.stderr,/AVATAR_DEPENDENCIES_READ_DENIED/);
+ }
+ r=depCall(d,dep);assert.equal(r.status,12);assert.match(r.stderr,/PRIVATE_OUTPUT_ALREADY_EXISTS/);
+ assert.deepEqual(JSON.parse(await readFile(dep)),w);
+ console.log('PRIVATE_AVATAR_DEPENDENCIES_SYNTHETIC_2POS6NEG_PASS');
  // Existing no-argument V1 result stays redacted and unchanged.
  r=call([]);assert.equal(r.status,0,r.stderr);const old=JSON.parse(r.stdout);
  assert.equal(old.contract,'wand.native.private.real-steam-v1@1');assert.equal(old.writerAuthorized,false);
