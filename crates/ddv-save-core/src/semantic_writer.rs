@@ -180,6 +180,67 @@ fn positive_id_field(bytes:&[u8],parent:Span,name:&str,id:u32)->CoreResult<()>{
     }
     Ok(())
 }
+// E1335: only the native Catalog Furniture route has a valid zero
+// selector. Check the *saved* restriction, not the constructor defaults.
+fn furniture_catalog_restriction(bytes:&[u8],record:Span,item:u32)->CoreResult<()>{
+    if native_amount_type(item)?!=ExistingAmountItemType::Furniture{
+        return Err(denied("AMOUNT_ZERO_ROUTE_FURNITURE_REQUIRED"));
+    }
+    let mut pos=record.begin+1;
+    let mut restriction=None;
+    while let Some((key,v))=next_object_member(bytes,record,&mut pos)?{
+        if key=="CompatibleFurnitureTypes"{restriction=Some(v);}
+        else if key.starts_with("Compatible")&&key!="CompatibleItemType"{
+            return Err(denied("AMOUNT_ZERO_ROUTE_RESTRICTION_AMBIGUOUS"));
+        }
+    }
+    let r=restriction.ok_or(denied("AMOUNT_ZERO_ROUTE_RESTRICTION_ABSENT"))?;
+    if r.end-r.begin>2048{return Err(denied("AMOUNT_ZERO_ROUTE_RESTRICTION_BOUND"));}
+    let mut pos=r.begin+1;
+    let (key,list)=next_object_member(bytes,r,&mut pos)?
+        .ok_or(denied("AMOUNT_ZERO_ROUTE_RESTRICTION_ABSENT"))?;
+    if key!="List"||next_object_member(bytes,r,&mut pos)?.is_some(){
+        return Err(denied("AMOUNT_ZERO_ROUTE_RESTRICTION_AMBIGUOUS"));
+    }
+    let tokens:Vec<String>=serde_json::from_slice(&bytes[list.begin..list.end])
+        .map_err(|_|denied("AMOUNT_ZERO_ROUTE_RESTRICTION_TYPE"))?;
+    if tokens.is_empty()||tokens.len()>16{return Err(denied("AMOUNT_ZERO_ROUTE_RESTRICTION_BOUND"));}
+    let mut mask=0u16;
+    for token in tokens{
+        // Exact Steam626 enum tokens; persisted membership, not inferred
+        // defaults. Unknown enum values or duplicate members fail closed.
+        let n=match token.as_str(){
+            "FurnitureItemType_Default"=>0,
+            "FurnitureItemType_GroundAlteration"=>1,
+            "FurnitureItemType_Door"=>3,
+            "FurnitureItemType_Request"=>5,
+            "FurnitureItemType_Blocker"=>6,
+            "FurnitureItemType_Fence"=>7,
+            "FurnitureItemType_AncientMachine"=>8,
+            "FurnitureItemType_SnippetTrap"=>9,
+            _=>return Err(denied("AMOUNT_ZERO_ROUTE_RESTRICTION_UNKNOWN")),
+        };
+        let bit=1u16<<n;
+        if mask&bit!=0{return Err(denied("AMOUNT_ZERO_ROUTE_RESTRICTION_DUPLICATE"));}
+        mask|=bit;
+    }
+    let subtype=(item%10_000_000)/100_000;
+    if subtype>=16||mask&(1u16<<subtype)==0{
+        return Err(denied("AMOUNT_ZERO_ROUTE_SUBTYPE_DENIED"));
+    }
+    Ok(())
+}
+fn inventory_route(bytes:&[u8],record:Span,id:u32,item:u32,expected:&str)->CoreResult<()>{
+    if id!=0{
+        positive_id_field(bytes,record,"ID",id)?;
+        return compatible_type(bytes,object_field(bytes,record,"CompatibleItemType")?,expected);
+    }
+    if expected!="ItemType_Furniture"||number(bytes,object_field(bytes,record,"ID")?)?!=0{
+        return Err(denied("AMOUNT_ZERO_ROUTE_ID_OR_TYPE"));
+    }
+    compatible_type(bytes,object_field(bytes,record,"CompatibleItemType")?,"ItemType_Furniture")?;
+    furniture_catalog_restriction(bytes,record,item)
+}
 fn raw_boolean_true(bytes:&[u8],span:Span)->CoreResult<()>{
     if bytes.get(span.begin..span.end)!=Some(&b"true"[..]){
         return Err(denied("SEMANTIC_PLAYER_OWNED_CONTAINER_REQUIRED"));
@@ -217,13 +278,10 @@ fn target(bytes:&[u8],player:Span,cmd:&TypedSemanticCommand)
             inventory_id,canonical_item_id,expected_compatible_item_type,
             expected_old_amount,new_amount
         }=>{
-            valid_id(*inventory_id)?;
             valid_id(*canonical_item_id)?;
             let lists=object_field(bytes,player,"ListInventories")?;
             let record=object_field(bytes,lists,&inventory_id.to_string())?;
-            positive_id_field(bytes,record,"ID",*inventory_id)?;
-            compatible_type(bytes,object_field(bytes,record,"CompatibleItemType")?,
-                            expected_compatible_item_type)?;
+            inventory_route(bytes,record,*inventory_id,*canonical_item_id,expected_compatible_item_type)?;
             let items=object_field(bytes,record,"Inventory")?;
             let entry=object_field(bytes,items,&canonical_item_id.to_string())?;
             validate_old_amount(bytes,object_field(bytes,entry,"Amount")?,
@@ -523,14 +581,10 @@ fn observe_existing_amount(s:&ProductSession,e:&WorkerEnvelope,selection:Existin
     let player=indexed_read::roots(bytes)?.player;
     let (item_id,item_type,entry,old_amount,chest)=match selection {
         ExistingAmountSelection::Inventory{inventory_id,item_id}=>{
-            valid_id(inventory_id)?;
             let item_type=native_amount_type(item_id)?;
             let lists=object_field(bytes,player,"ListInventories")?;
             let record=object_field(bytes,lists,&inventory_id.to_string())?;
-            positive_id_field(bytes,record,"ID",inventory_id)?;
-            // Exact Native enum token, not the old generic ItemType_ prefix.
-            let saved_type=object_field(bytes,record,"CompatibleItemType")?;
-            compatible_type(bytes,saved_type,native_type_token(item_type))?;
+            inventory_route(bytes,record,inventory_id,item_id,native_type_token(item_type))?;
             let items=object_field(bytes,record,"Inventory")?;
             let entry=object_field(bytes,items,&item_id.to_string())?;
             let old=saved_positive_amount(bytes,object_field(bytes,entry,"Amount")?)?;
@@ -647,20 +701,24 @@ impl ProductSession {
         const MAX_ENTRIES:usize=16384;
         fn canonical_id(key:&str)->Option<u32>{
             let id=key.parse::<u32>().ok()?;
-            if id==0||id.to_string()!=key{return None;}
+            if id.to_string()!=key{return None;}
             Some(id)
         }
         while let Some((key,record))=next_object_member(bytes,lists,&mut pos)?{
             records+=1;
             if records>MAX_RECORDS{return Err(denied("AMOUNT_DISCOVERY_RECORD_BOUND"));}
             let id=canonical_id(&key).ok_or(denied("AMOUNT_DISCOVERY_INVENTORY_KEY"))?;
-            positive_id_field(bytes,record,"ID",id)?;
+            if number(bytes,object_field(bytes,record,"ID")?)?!=id as u64{
+                return Err(denied("SEMANTIC_CONTAINER_ID_MISMATCH"));
+            }
             let ty=object_field(bytes,record,"CompatibleItemType")?;
             let kind=if compatible_type(bytes,ty,"ItemType_ActivityItem").is_ok(){
                 ExistingAmountItemType::ActivityItem
             }else if compatible_type(bytes,ty,"ItemType_Furniture").is_ok(){
                 ExistingAmountItemType::Furniture
             }else{continue};
+            // Unrelated zero routes never become amount targets.
+            if id==0&&kind!=ExistingAmountItemType::Furniture{continue;}
             let items=object_field(bytes,record,"Inventory")?;
             let mut item_pos=items.begin+1;
             while let Some((item_key,entry))=next_object_member(bytes,items,&mut item_pos)?{
@@ -670,6 +728,16 @@ impl ProductSession {
                 if native_amount_type(item_id).ok()!=Some(kind){continue;}
                 let Ok(amount)=object_field(bytes,entry,"Amount")else{continue};
                 if saved_positive_amount(bytes,amount).is_err(){continue;}
+                // For zero Catalog, apply saved restriction before selecting.
+                // Disallowed subtype is skipped; malformed/unknown restriction
+                // is an error rather than an invented default.
+                if id==0{
+                    match furniture_catalog_restriction(bytes,record,item_id){
+                        Ok(())=>{},
+                        Err(e) if e.0=="AMOUNT_ZERO_ROUTE_SUBTYPE_DENIED"=>continue,
+                        Err(e)=>return Err(e),
+                    }
+                }
                 // Exact existing target path reuses PR948 authority witness.
                 // Same mutex and immutable source; only ONE final exact lookup.
                 return observe_existing_amount(self,&e,ExistingAmountSelection::Inventory{
@@ -863,6 +931,56 @@ mod minted_amount_target_tests {
             build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true,
         }).unwrap();
         assert!(read(&sw,inv()).is_err());
+    }
+    #[cfg(not(target_arch="wasm32"))]
+    #[test]
+    fn furniture_zero_route_exact_saved_restriction_and_atomic_cas(){
+        let mut v=doc();
+        v["Player"]["ListInventories"]["0"]=json!({"ID":0,"CompatibleItemType":"ItemType_Furniture",
+            "CompatibleFurnitureTypes":{"List":["FurnitureItemType_Default","FurnitureItemType_SnippetTrap"]},
+            "Inventory":{"40000001":{"Amount":7,"Marker":"Keep","Unknown":{"a":1}},
+                         "40900001":{"Amount":3},"40700001":{"Amount":5}}});
+        let sel=ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000001};
+        let s=open(&v);let before=s.receipt().unwrap();
+        let w=read(&s,sel).unwrap();
+        assert_eq!(w.view().old_amount,7);
+        assert_eq!(s.find_one_existing_inventory_amount_target(scope(before,WorkerAction::ReadDomain)).unwrap(),w);
+        assert!(read(&s,ExistingAmountSelection::Inventory{inventory_id:0,item_id:40900001}).is_ok());
+        assert!(read(&s,ExistingAmountSelection::Inventory{inventory_id:0,item_id:40700001}).is_err());
+        assert_eq!(s.authorize_existing_amount_target(scope(before,WorkerAction::ReadDomain),&w,6)
+            .unwrap_err().0,"AMOUNT_TARGET_NATIVE_AUTHORITY_UNAVAILABLE");
+        for (key,bad) in [
+            ("ID",json!(1)),("ID",json!("0")),("CompatibleItemType",json!("ItemType_ActivityItem")),
+            ("CompatibleFurnitureTypes",Value::Null),("CompatibleFurnitureTypes",json!({"List":[]})),
+            ("CompatibleFurnitureTypes",json!({"List":["FurnitureItemType_Fence"]})),
+            ("CompatibleFurnitureTypes",json!({"List":["FurnitureItemType_Default","Unknown"]})),
+            ("CompatibleFurnitureTypes",json!({"List":["FurnitureItemType_Default","FurnitureItemType_Default"]})),
+            ("CompatibleFurnitureTypes",json!({"List":["FurnitureItemType_Default"],"Other":{}})),
+            ("CompatibleActivityItemTypes",json!({"List":[]})),
+        ]{
+            let mut d=v.clone();d["Player"]["ListInventories"]["0"][key]=bad;
+            let x=open(&d);assert!(read(&x,sel).is_err(),"{key}");
+            let cmd=TypedSemanticCommand::InventoryExistingAmountDecrease{inventory_id:0,canonical_item_id:40000001,
+                expected_compatible_item_type:"ItemType_Furniture".into(),expected_old_amount:7,new_amount:6};
+            assert!(x.stage_typed_semantic_batch(scope(x.receipt().unwrap(),WorkerAction::Stage),&[cmd]).is_err());
+            assert_eq!(x.receipt().unwrap().revision,0);
+        }
+        let mut d=v.clone();d["Player"]["ListInventories"]["0"].as_object_mut().unwrap().remove("CompatibleFurnitureTypes");
+        assert!(read(&open(&d),sel).is_err());
+        let mut d=v.clone();d["Player"]["ListInventories"]["0"]["Inventory"]["30000001"]=json!({"Amount":7});
+        assert!(read(&open(&d),ExistingAmountSelection::Inventory{inventory_id:0,item_id:30000001}).is_err());
+        let e=scope(before,WorkerAction::Stage);
+        let cmd=TypedSemanticCommand::InventoryExistingAmountDecrease{inventory_id:0,canonical_item_id:40000001,
+            expected_compatible_item_type:"ItemType_Furniture".into(),expected_old_amount:8,new_amount:6};
+        assert!(s.stage_typed_semantic_batch(e,&[cmd]).is_err());
+        assert_eq!(s.receipt().unwrap(),before);
+        let grant=synthetic_grant(&s,sel,6);
+        assert_eq!(s.stage_core_minted_amount_batch(e,&[grant]).unwrap().exact_field_changed_count,1);
+        s.undo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        s.redo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        let out=s.take_typed_semantic_decoded_once(scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).unwrap();
+        v["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]["Amount"]=json!(6);
+        assert_eq!(out,serde_json::to_vec(&v).unwrap());
     }
     // Synthetic capability construction ONLY inside this unit test module.
     // Production authorize_existing_amount_target cannot mint one.
