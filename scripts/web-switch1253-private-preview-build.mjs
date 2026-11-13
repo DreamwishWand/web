@@ -26,6 +26,8 @@ try{
   <div class="cards">
    <article data-preview-item="40000047"><ItemThumb itemId={40000047} label="Wardrobe" /><span>Wardrobe</span></article>
    <article data-preview-item="40006096"><ItemThumb itemId={40006096} label="Dice Tree" /><span>Dice Tree</span></article>
+   <article data-preview-item="40000086"><ItemThumb itemId={40000086} label="New ASTC" /><span>New ASTC</span></article>
+   <article data-preview-item="40004581"><ItemThumb itemId={40004581} label="New DXT5" /><span>New DXT5</span></article>
    <article data-preview-item="40002422"><ItemThumb itemId={40002422} label="Excluded" /><span>Excluded</span></article>
   </div>
  </main>
@@ -115,18 +117,19 @@ async function syntheticBrowser(out,draft){
   const page=await ctx.newPage(),requests=[],errors=[],hits=[];
   ctx.on('request',r=>requests.push([r.method(),r.url()]));
   page.on('pageerror',e=>errors.push(String(e)));
-  const pins=Object.entries(draft.items);
+  const pins=Object.entries(draft.items).filter(([id])=>['40000047','40006096','40000086','40004581'].includes(id));
   const paths=Object.fromEntries(pins.map(([id,e])=>[id,origin+'/web/ddv/item-images/'+draft.assetVariant+'/'+e.originalNativeStreamSha256.slice(0,2)+'/'+e.originalNativeStreamSha256+'-'+e.sourcePngSha256+'-'+e.webpSha256+'.webp']));
   const swatches={
    '40000047':Buffer.from('UklGRiQAAABXRUJQVlA4TBcAAAAvn8AnAAfQsVo0uf8BAEX6/58i+p/6AQA=','base64'),
    '40006096':Buffer.from('UklGRiQAAABXRUJQVlA4TBcAAAAvn8AnAAdQvU4Xpf8BAEX6/58i+p/6AQA=','base64')};
+  swatches['40000086']=swatches['40000047'];swatches['40004581']=swatches['40006096'];
   for(const [id,b] of Object.entries(swatches))assert.notEqual(createHash('sha256').update(b).digest('hex'),draft.items[id].webpSha256);
   let missing=false,withdrawn=false,manifestHits=0;
   await page.route('**/ddv/item-images/**',async route=>{
    const url=route.request().url();
    if(url.endsWith('/manifest.json')){
     manifestHits++;const f=await page.evaluate(()=>window.act418PrivateTest.fixture());
-    if(withdrawn)delete f.manifest.items['40000047'];
+    if(withdrawn){delete f.manifest.items['40000047'];delete f.manifest.items['40000086'];}
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(f.manifest)});
    }
    const id=Object.keys(paths).find(k=>paths[k]===url);
@@ -139,15 +142,15 @@ async function syntheticBrowser(out,draft){
   assert.ok(await page.evaluate(()=>{const {release}=window.act418PrivateTest.fixture();
    try{window.act418PrivateTest.apply(window.act418PrivateTest.draft(),release);return false}catch(e){return String(e).includes('MANIFEST_PUBLICATION_UNVERIFIED')}}));
   const apply=()=>page.evaluate(()=>{const f=window.act418PrivateTest.fixture();return window.act418PrivateTest.apply(f.manifest,f.release)});
-  assert.equal(await apply(),2);
-  await page.waitForFunction(()=>document.querySelectorAll('img').length===2&&[...document.querySelectorAll('img')].every(i=>i.complete&&i.naturalWidth===160&&i.naturalHeight===160));
+  assert.equal(await apply(),60);
+  await page.waitForFunction(()=>document.querySelectorAll('img').length===4&&[...document.querySelectorAll('img')].every(i=>i.complete&&i.naturalWidth===160&&i.naturalHeight===160));
   for(const id of Object.keys(paths)){
    const img=page.locator('[data-item-thumb-id="'+id+'"] img');
    assert.equal(await img.evaluate(el=>el.src),paths[id]);
    assert.equal(await page.locator('[data-item-thumb-id="'+id+'"]').getAttribute('data-media-status'),'verified-public-image');
   }
   assert.equal(await page.locator('[data-item-thumb-id="40002422"] img').count(),0);
-  assert.deepEqual(hits.map(h=>h.id).sort(),['40000047','40006096']);
+  assert.deepEqual(hits.map(h=>h.id).sort(),['40000047','40006096','40000086','40004581'].sort());
   for(const [width,zoom] of [[320,1],[640,2]]){
    await page.setViewportSize({width,height:850});
    await page.evaluate(z=>document.documentElement.style.zoom=String(z),zoom);
@@ -174,20 +177,22 @@ async function syntheticBrowser(out,draft){
   await page.waitForFunction(()=>document.querySelector('[data-item-thumb-id="40000047"]').dataset.mediaStatus==='unavailable'&&document.querySelector('[data-item-thumb-id="40006096"] img')?.naturalWidth===160);
   assert.equal(await page.locator('[data-item-thumb-id="40000047"] img').count(),0);
   missing=false;await page.reload();await page.waitForFunction(()=>!!window.act418PrivateTest);await apply();
-  await page.waitForFunction(()=>document.querySelectorAll('img').length===2&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
+  await page.waitForFunction(()=>document.querySelectorAll('img').length===4&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
   await page.evaluate(()=>window.act418PrivateTest.startRefresh());
-  await page.waitForFunction(()=>document.querySelectorAll('img').length===2&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
+  await page.waitForFunction(()=>document.querySelectorAll('img').length===4&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
   assert.equal(manifestHits,1);
   withdrawn=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await page.waitForFunction(()=>document.querySelector('[data-item-thumb-id="40000047"]').dataset.mediaStatus==='unavailable'&&document.querySelector('[data-item-thumb-id="40006096"] img')?.naturalWidth===160);
   assert.equal(manifestHits,2);assert.equal(await page.locator('[data-item-thumb-id="40000047"] img').count(),0);
+  assert.equal(await page.locator('[data-item-thumb-id="40000086"] img').count(),0);
+  assert.equal(await page.locator('[data-item-thumb-id="40004581"] img').count(),1);
   await page.evaluate(()=>window.act418PrivateTest.stopRefresh());
   await page.waitForFunction(()=>document.querySelectorAll('img').length===0);
   console.log('ACT418_OPEN_TAB_NO_STORE_MANIFEST_REFRESH_WITHDRAW_ONE_KEEP_SURVIVOR_PASS');
   const before=hits.length;await page.evaluate(()=>window.act418PrivateTest.off());await page.waitForFunction(()=>document.querySelectorAll('img').length===0);
   assert.equal(hits.length,before);assert.ok(requests.every(([m,u])=>m==='GET'&&u.startsWith(origin+'/')));
   assert.ok(hits.every(h=>h.id!=='UNKNOWN'));assert.deepEqual(errors,[]);
-  console.log('ACT418_ACTUAL_SHARED_ITEMTHUMB_SYNTHETIC_ONLY_2POS_7NEG_OFF_REFLOW_FALLBACK_PASS');
+  console.log('ACT456_ACTUAL_SHARED_ITEMTHUMB_SYNTHETIC_ONLY_4POS_7NEG_OFF_REFLOW_FALLBACK_WITHDRAW_PASS');
   await ctx.close();
  }finally{await browser?.close();await new Promise(yes=>server.close(yes))}
 }

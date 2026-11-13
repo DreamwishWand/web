@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import {
  SWITCH1253_ITEM_IMAGE_SCHEMA,SWITCH1253_TARGET,
  SWITCH1253_ITEM_IMAGE_VARIANT,SWITCH1253_ORIGINAL_BUNDLE_SHA256,
@@ -12,6 +13,7 @@ import {
 } from '../src/lib/item-media/switch1253-public-item-images.mjs';
 
 import {ITEM_IMAGE_OWNER_DECISION_ID} from '../src/lib/item-media/public-item-images.mjs';
+const EXPECTED60=["40000047","40000086","40000166","40000342","40000350","40000353","40000384","40000387","40000428","40000486","40000575","40001334","40001336","40001678","40001756","40001863","40001864","40001994","40001995","40001996","40002002","40004581","40004837","40004964","40004979","40005017","40005025","40005033","40005110","40005111","40005150","40005239","40005252","40005253","40005267","40005269","40005413","40005415","40005431","40005432","40005584","40005585","40005623","40005853","40005863","40005873","40005929","40005934","40005954","40005967","40006005","40006072","40006074","40006075","40006078","40006079","40006080","40006096","40300007","40300042"];
 const item='40006096';
 const pin=SWITCH1253_NATIVE_PINS[item];
 function approvedRelease(){
@@ -57,7 +59,7 @@ test('current Switch 1.25.3 BID/schema626 source explicitly unapproved in real r
  assert.equal(SWITCH1253_TARGET.schema,626);
  assert.equal(SWITCH1253_REVIEWED_RELEASE.mediaPublic,false);
  assert.deepEqual(Object.keys(SWITCH1253_REVIEWED_RELEASE.items),[]);
- assert.deepEqual(Object.keys(SWITCH1253_NATIVE_PINS),['40000047','40006096']);
+ assert.deepEqual(Object.keys(SWITCH1253_NATIVE_PINS),EXPECTED60);
  assert.equal(SWITCH1253_NATIVE_PINS['40000047'].rasterStatus,'SWITCH_ASTC6X6_SRGB_RGBA_EXACT_PRIVATE');
  assert.equal(SWITCH1253_NATIVE_PINS['40002422'],undefined,'hidden, independently excluded');
  assert.throws(()=>validateSwitch1253ItemImageCatalog(manifest()),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
@@ -238,14 +240,15 @@ test('Issue604 scoped Owner decision and UNKNOWN license remain separate facts',
  assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
 });
 
-test('ACT397 exact eligible2 draft is versioned metadata only, and cannot authorize publication',()=>{
+test('ACT456 exact eligible60 draft is versioned metadata only, and cannot authorize publication',()=>{
  const m=prepareSwitch1253ItemImageManifest();
- assert.deepEqual(Object.keys(m.items),['40000047','40006096']);
+ assert.deepEqual(Object.keys(m.items),EXPECTED60);
  assert.equal(m.publication.gate,'MEDIA_PUBLIC_PREPARED_OFF');
  assert.equal(m.publication.rightsHolderLicense,'UNKNOWN');
  assert.equal(m.publication.operatorReceiptSha256,null);
  assert.equal(m.publication.receivingContact,'NOT_RUN');
- assert.deepEqual(SWITCH1253_PREPARED_WEBP_SIZES,{'40000047':19064,'40006096':29314});
+ assert.equal(SWITCH1253_PREPARED_WEBP_SIZES['40000047'],19064);
+ assert.equal(SWITCH1253_PREPARED_WEBP_SIZES['40006096'],29314);
  assert.equal(m.items['40000047'].originalNativeStreamSha256,'b0352f4fde178c423dbfa0f02c1f3f6fbfdb24bd4edf2603b67ce2f74485a68c');
  assert.equal(m.items['40000047'].sourcePngSha256,'c156d4e1a32de6e61a851704349f17333098bab39f20ace06f56a7ecf591cc26');
  assert.equal(m.items['40000047'].webpSha256,'b3d130ebf054038655970ed6b9a963b387b2c82be4a1658c2835775ac61d1f54');
@@ -350,4 +353,25 @@ test('eligible two manifest refresh removes only withdrawn row; same-BID survivo
  assert.equal(scopedSwitch1253ItemImageHref('/web',id,states.at(-1).catalog),null);
  assert.ok(scopedSwitch1253ItemImageHref('/web',item,states.at(-1).catalog));
  c.clear();
+});
+
+// ACT456 exact union receipt; synthetic operator review only, no game pixels.
+test('ACT456 independent union pins/sizes digest, all60 paths, per-item mismatch and excluded IDs',()=>{
+ const draft=prepareSwitch1253ItemImageManifest(),r=approvedRelease(),m=manifest();
+ const rows=Object.entries(SWITCH1253_NATIVE_PINS).map(([id,p])=>[id,p.originalNativeStreamSha256,p.sourcePngSha256,p.webpSha256,p.rasterStatus.includes('ASTC')?'A':'D',SWITCH1253_PREPARED_WEBP_SIZES[id]]);
+ assert.equal(createHash('sha256').update(JSON.stringify(rows)+'\n').digest('hex'),'93a28ff76265eefa578bf9b2776970a26cb5979c1b0c69ed710e6a5c6a5b4a00');
+ assert.equal(rows.length,60);assert.equal(rows.reduce((n,x)=>n+x[5],0),1213430);
+ assert.deepEqual(Object.keys(SWITCH1253_PREPARED_WEBP_SIZES),EXPECTED60);
+ r.items={};m.items={};
+ for(const [id,p] of Object.entries(draft.items)){
+  const {originalNativeStreamSha256,sourcePngSha256,webpSha256,visibility}=p;
+  r.items[id]={originalNativeStreamSha256,sourcePngSha256,webpSha256,visibility,rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED'};
+  m.items[id]={...p,rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED'};
+ }
+ const good=validateSwitch1253ItemImageCatalog(m,r);assert.equal(good.count,60);
+ const urls=new Set();for(const [id,n,p,w] of rows){const url='ddv/item-images/'+SWITCH1253_ITEM_IMAGE_VARIANT+'/'+n.slice(0,2)+'/'+n+'-'+p+'-'+w+'.webp';assert.equal(switch1253ItemImagePath(id,good),url);urls.add(url);for(const field of ['originalNativeStreamSha256','sourcePngSha256','webpSha256','rasterStatus']){const bad=structuredClone(m);bad.items[id][field]='0'.repeat(64);assert.throws(()=>validateSwitch1253ItemImageCatalog(bad,r),/ITEM_ID_NATIVE_SHA/);}}
+ assert.equal(urls.size,60);
+ for(const id of ['40002422','40006509','40006573','40006540','40001935','40002113','40001545','40800027','999000123']){assert.equal(SWITCH1253_NATIVE_PINS[id],undefined);assert.equal(switch1253ItemImagePath(id,good),null);const bad=structuredClone(m),badR=structuredClone(r);bad.items[id]={...m.items[item]};badR.items[id]={...r.items[item]};assert.throws(()=>validateSwitch1253ItemImageCatalog(bad,badR),/ITEM_ID_NATIVE_SHA/);}
+ const withdrawn=structuredClone(m);delete withdrawn.items['40000086'];const partial=validateSwitch1253ItemImageCatalog(withdrawn,r);assert.equal(partial.count,59);assert.equal(switch1253ItemImagePath('40000086',partial),null);assert.ok(switch1253ItemImagePath('40004581',partial));
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
 });
