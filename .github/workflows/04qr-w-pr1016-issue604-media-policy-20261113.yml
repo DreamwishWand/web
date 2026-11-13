@@ -1,0 +1,34 @@
+name: 04 QR-W PR1016 Issue604 policy independent
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-pr1016-issue604-media-policy-independent-20261113.mjs'
+      - '.github/workflows/04qr-w-pr1016-issue604-media-policy-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  independent-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start actual local app
+        run: |
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4315 >/tmp/qrw1016-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4315/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qrw1016-vite.log
+          exit 1
+      - name: Independent changed authorization policy and actual Chrome OFF
+        run: node scripts/04qr-w-pr1016-issue604-media-policy-independent-20261113.mjs
