@@ -83,15 +83,22 @@ fn write_private_receipt(path:&std::path::Path,v:&serde_json::Value){
         drop(out);let _=fs::remove_file(path);denied("PRIVATE_OUTPUT_WRITE");
     }
 }
+fn selector_id(s:&str)->i32{
+    let n=s.parse::<i32>().unwrap_or_else(|_|denied("CHARACTER_SKIN_SELECTOR_ID"));
+    if n<=0||n.to_string()!=s{denied("CHARACTER_SKIN_SELECTOR_ID");}
+    n
+}
 fn run(){
     // The accepted no-argument V1 path remains byte-for-byte behaviorally
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
-    let (native_slice,avatar_output)=match argv.as_slice(){
-      []=>(false,None),
-      [flag] if flag=="--native-area-grid-slice-only"=>(true,None),
+    let (native_slice,avatar_output,skin_output)=match argv.as_slice(){
+      []=>(false,None,None),
+      [flag] if flag=="--native-area-grid-slice-only"=>(true,None,None),
       [flag,out,path] if flag=="--active-avatar-receipt-only"&&out=="--out"=>
-        (false,Some(private_output_path(path))),
+        (false,Some(private_output_path(path)),None),
+      [flag,c,k,out,path] if flag=="--character-skin-receipt-only"&&out=="--out"=>
+        (false,None,Some((selector_id(c),selector_id(k),private_output_path(path)))),
       _=>denied("UNTRUSTED_CLI_ARGS"),
     };
     if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION{
@@ -139,6 +146,20 @@ fn run(){
       expected_decoded_sha256:receipt.decoded_sha256,
       action:WorkerAction::ReadDomain
     };
+    if let Some((character,skin,path))=skin_output{
+        let witness=session.read_private_character_skin(scope,character,skin)
+            .unwrap_or_else(|_|denied("CHARACTER_SKIN_READ_DENIED"));
+        let mut out=witness.to_private_receipt_json();
+        out["originalSha256SuppliedExternally"]=serde_json::json!(hex_bytes(&original_sha));
+        out["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+        out["cloudUploadPerformed"]=serde_json::json!(false);
+        out["originalModifiedByHarness"]=serde_json::json!(false);
+        if session.receipt().ok()!=Some(receipt){denied("CHARACTER_SKIN_EPOCH_CHANGED");}
+        session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
+        write_private_receipt(&path,&out);
+        eprintln!("LOCAL_RUST_V1_PRIVATE_CHARACTER_SKIN_RECEIPT_WRITTEN");
+        return;
+    }
     if let Some(path)=avatar_output{
         let witness=session.read_private_active_avatar(scope)
             .unwrap_or_else(|_|denied("ACTIVE_AVATAR_READ_DENIED"));
