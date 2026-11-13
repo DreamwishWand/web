@@ -77,6 +77,7 @@ try{
  article{min-width:0;display:flex;flex-direction:column;align-items:start;gap:4px;overflow-wrap:anywhere}
  </style>`);
  await writeFile(join(root,'entry.mjs'),`import {mount,tick} from 'svelte';
+ import {get} from 'svelte/store';
  import Harness from './Harness.svelte';
  import {prepareSwitch1253ItemImageManifest,validateSwitch1253ItemImageCatalog,
  switch1253PublicItemImageSource,loadSwitch1253PublicItemImageSource,createSwitch1253ManifestController,
@@ -103,7 +104,7 @@ try{
  async function init(){
   await tick();
   let detach=null,controller=null;
-  window.act418PrivateTest={draft:()=>structuredClone(draft),fixture,
+  window.act418PrivateTest={draft:()=>structuredClone(draft),fixture,state:()=>get(switch1253PublicItemImageSource),
    startRefresh:()=>{detach?.();const f=fixture();controller=createSwitch1253ManifestController(f.release,v=>switch1253PublicItemImageSource.set(v));detach=attachSwitch1253ManifestLifecycle(controller,'/web',window,document);},
    stopRefresh:()=>{detach?.();detach=null;controller=null;},
    apply:(m,r)=>{const catalog=validateSwitch1253ItemImageCatalog(m,r);
@@ -226,8 +227,7 @@ async function syntheticBrowser(out,draft){
   await page.waitForFunction(()=>document.querySelector('[data-item-thumb-id="40000047"]').dataset.mediaStatus==='unavailable'&&document.querySelector('[data-item-thumb-id="40006096"] img')?.naturalWidth===160);
   assert.equal(manifestHits,2);assert.equal(await page.locator('[data-item-thumb-id="40000047"] img').count(),0);
   allWithdrawn=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
-  await page.waitForFunction(()=>document.querySelectorAll('img').length===0);
-  await page.waitForFunction(()=>document.querySelectorAll('img').length===0);
+  await page.waitForFunction(()=>document.querySelectorAll('img').length===0&&window.act418PrivateTest.state().reason.includes('MAPPING_EMPTY_OR_OVERSIZED'));
   allWithdrawn=false;withdrawn=false;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await page.waitForFunction(()=>document.querySelectorAll('img').length===2&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
   await page.evaluate(()=>window.dispatchEvent(new Event('pagehide')));
