@@ -18,12 +18,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-          fetch-depth: 2
+          fetch-depth: 4
       - name: Fixed exact parent and one evidence workflow only
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
-          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/09int-act430-hosted-reader-evidence.yml"
+          git merge-base --is-ancestor "$EXPECTED_MAIN" HEAD
+          test "$(git diff --name-only "$EXPECTED_MAIN" HEAD)" = ".github/workflows/09int-act430-hosted-reader-evidence.yml"
+          git diff --exit-code "$EXPECTED_MAIN^" "$EXPECTED_MAIN" -- src/routes/editor/timing/+page.svelte src/lib/timing/
+          echo ACT430_EXISTING_SWITCH_TIMING_SOURCE_UNCHANGED
           r="$(gh api "repos/DreamwishWand/web/actions/runs/$EXPECTED_RUN")"
           test "$(jq -r .head_sha <<< "$r")" = "$EXPECTED_MAIN"
           test "$(jq -r .status <<< "$r")" = completed
@@ -81,8 +83,9 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
             try {
-              const page=await browser.newPage({viewport:{width:1280,height:900}});
-              const writes=[];page.on('request',r=>{if(!['GET','HEAD','OPTIONS'].includes(r.method()))writes.push(r.method())});
+              const writes=[];let context=await browser.newContext({viewport:{width:1280,height:900}});
+              context.on('request',r=>{if(!['GET','HEAD','OPTIONS'].includes(r.method()))writes.push(r.method())});
+              let page=await context.newPage();
               const root=process.env.ROOT;
               let res=await page.goto(root+'/editor/steam-reader/',{waitUntil:'domcontentloaded',timeout:45000});
               assert.equal(res.status(),200);assert.equal(res.request().redirectedFrom(),null);
@@ -98,6 +101,11 @@ jobs:
               assert.equal(await page.locator('[data-diffgrids-count]').count(),0);
               assert.equal(await page.locator('[data-diffgrids-manual-only]').innerText().then(t=>t.includes('releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22')&&t.includes('626')),true);
               console.log('ACT430_REAL_HOSTED_CHROME_SIGNED_WORKER_READY_MANUAL_FILE_NO_AUTO_OPEN_PASS');
+              await context.close();
+              context=await browser.newContext({viewport:{width:1280,height:900}});
+              const signedTimingRequests=[];
+              context.on('request',r=>{if(!['GET','HEAD','OPTIONS'].includes(r.method()))writes.push(r.method());if(new URL(r.url()).pathname.includes('/worker-wasm/'))signedTimingRequests.push(new URL(r.url()).pathname)});
+              page=await context.newPage();
               res=await page.goto(root+'/editor/timing/',{waitUntil:'domcontentloaded',timeout:45000});
               assert.equal(res.status(),200);assert.equal(res.request().redirectedFrom(),null);
               await page.locator('[data-steam-diffgrids-readonly]').waitFor({state:'attached'});
@@ -108,12 +116,23 @@ jobs:
               assert.equal(await q.getAttribute('data-writer'),'off');
               assert.equal(await q.locator('#steam-diffgrids-file').count(),0);
               assert.equal(await q.locator('a[href$="/editor/steam-reader/"]').count(),1);
+              // Existing Switch W1 read-only route was already accepted; do not disable or misclassify it as the newly enabled Steam reader.
               const timing=page.locator('#timing-file');
-              if(await timing.count())assert.equal(await timing.isDisabled(),true);
-              assert.deepEqual(writes,[]);
-              console.log('ACT430_REAL_HOSTED_CHROME_TIMING_OFF_NO_WRITE_REQUESTS_PASS');
+              const legacy=page.locator('[data-timing-readonly]');
+              assert.equal(await legacy.getAttribute('data-writer'),'off','SWITCH_TIMING_WRITER_OFF');
+              assert.equal(await legacy.getAttribute('data-worker-readonly'),'true','SWITCH_TIMING_READONLY');
+              assert.equal(await timing.count(),1,'EXISTING_SWITCH_FILE_PRESENT');
+              assert.equal(await timing.evaluate(e=>e.files.length),0,'SWITCH_FILE_NOT_SELECTED');
+              const legacyReady=await legacy.getAttribute('data-worker-ready');
+              assert.equal(await timing.isEnabled(),legacyReady==='true','EXISTING_SWITCH_FILE_READINESS_CONSISTENT');
+              assert.equal(await page.locator('[data-timing-loaded]').count(),0,'NO_SWITCH_AUTO_READ');
+              assert.equal(await page.locator('[data-w1-export-off]').count(),0,'NO_SWITCH_EXPORT_NO_SESSION');
+              assert.deepEqual(signedTimingRequests,[],'NO_STEAM_SIGNED_ASSET_REQUESTS_IN_TIMING');
+              assert.deepEqual(writes,[],'NO_WRITE_REQUESTS_EITHER_ROUTE');
+              console.log('ACT430_REAL_HOSTED_CHROME_STEAM_OFF_EXISTING_SWITCH_READONLY_UNCHANGED_NO_WRITE_REQUESTS_PASS legacyReady='+legacyReady);
+              await context.close();
               console.log('ACT430_HOSTED_ROUTE_SCOPE_PASS_NO_SAVE_SELECTED_NO_GENUINE_E2E');
             }finally{await browser.close()}
-          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          })().catch(e=>{console.error(e.stack||e.message);process.exitCode=1});
           NODE
           node probe.cjs
