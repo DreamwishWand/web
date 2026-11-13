@@ -34,7 +34,8 @@ function strictReceipt(r){
  * wasmFactory is a trusted static Worker import, not a message field. The
  * worker-side decode source owns the async decoded-chunk iterable.
  */
-export function createProductWasmReadOwner(wasmFactory){
+export function createProductWasmReadOwner(wasmFactory,{allowDevSemanticWriter=false}={}){
+ if(typeof allowDevSemanticWriter!=='boolean')fail('PRODUCT_WORKER_DEV_FLAG_INVALID');
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
  if(typeof document!=='undefined')fail('PRODUCT_WORKER_NOT_ISOLATED');
  let epoch=0,active=null;
@@ -349,6 +350,118 @@ export function createProductWasmReadOwner(wasmFactory){
       writerAuthorized:false
    });
  };
+
+ // DEV-only private Worker path. Public signed WASM never includes this feature,
+ // and no UI/Worker postMessage route can activate the constructor option.
+ const devScope=scope=>{
+   if(!allowDevSemanticWriter)fail('PRODUCT_WORKER_DEV_FLAG_OFF');
+   return typedScope(scope);
+ };
+ const devAccept=(a,scope,r,applied)=>{
+   if(!exactKeys(r,'contract,sessionId,revision,indexGeneration,originalDecodedSha256,stagedDecodedSha256,operationCount,applied,semanticChanged,nativeV3Verified,writerAuthorized,originalOverwriteAuthorized')||
+     r.contract!=='wand.worker.dev-semantic-amount@1'||
+     r.sessionId!==scope.sessionId||
+     r.originalDecodedSha256!==scope.decodedSha256||
+     !shaHex.test(r.stagedDecodedSha256)||
+     r.stagedDecodedSha256===scope.decodedSha256||
+     r.revision!==scope.revision+1||r.indexGeneration!==scope.indexGeneration+1||
+     !Number.isSafeInteger(r.operationCount)||r.operationCount<1||r.operationCount>16||
+     r.applied!==applied||r.semanticChanged!==true||
+     r.nativeV3Verified!==false||r.writerAuthorized!==false||
+     r.originalOverwriteAuthorized!==false) {
+     revoke();fail('PRODUCT_WORKER_DEV_RECEIPT_DENIED');
+   }
+   if(a.devSha&&a.devSha!==r.stagedDecodedSha256){
+     revoke();fail('PRODUCT_WORKER_DEV_HASH_CHANGED');
+   }
+   a.devSha=r.stagedDecodedSha256;a.devApplied=r.applied;
+   a.receipt=Object.freeze({...a.receipt,revision:r.revision,indexGeneration:r.indexGeneration});
+   a.cursors.clear();
+   return Object.freeze({sessionId:r.sessionId,revision:r.revision,
+     indexGeneration:r.indexGeneration,decodedSha256:scope.decodedSha256,
+     stagedDecodedSha256:r.stagedDecodedSha256,operationCount:r.operationCount,
+     applied:r.applied,nativeV3Verified:false,writerAuthorized:false});
+ };
+ const devStageTypedAmounts=(scope,commands)=>{
+   const a=devScope(scope);
+   if(a.devSha||!Array.isArray(commands)||commands.length<1||commands.length>16)
+     fail('PRODUCT_WORKER_DEV_BATCH_DENIED');
+   const positive=x=>Number.isSafeInteger(x)&&x>0&&x<=0xffffffff;
+   const nonnegative=x=>Number.isSafeInteger(x)&&x>=0&&x<=0xffffffff;
+   for(const c of commands){
+     if(!c||Object.getPrototypeOf(c)!==Object.prototype)
+       fail('PRODUCT_WORKER_DEV_COMMAND_PLAIN_REQUIRED');
+     if(c.kind==='InventoryExistingAmountDecrease'){
+       if(!exactKeys(c,'kind,inventoryId,canonicalItemId,compatibleItemType,expectedOldAmount,newAmount')||
+         !(positive(c.inventoryId)||(c.inventoryId===0&&c.compatibleItemType==='ItemType_Furniture'))||
+         !positive(c.canonicalItemId)||
+         typeof c.compatibleItemType!=='string'||c.compatibleItemType.length>64||
+         !nonnegative(c.expectedOldAmount)||!nonnegative(c.newAmount))
+         fail('PRODUCT_WORKER_DEV_INVENTORY_ARGS');
+     }else if(c.kind==='ChestExistingSlotAmountDecrease'){
+       if(!exactKeys(c,'kind,containerId,slotIndex,expectedItemId,expectedOldAmount,newAmount')||
+         !positive(c.containerId)||!nonnegative(c.slotIndex)||!positive(c.expectedItemId)||
+         !nonnegative(c.expectedOldAmount)||!nonnegative(c.newAmount))
+         fail('PRODUCT_WORKER_DEV_CHEST_ARGS');
+     }else fail('PRODUCT_WORKER_DEV_OPERATION_DISABLED');
+   }
+   if(typeof a.wasm.dev_stage_typed_amounts!=='function')
+     fail('PRODUCT_WORKER_DEV_WASM_FEATURE_ABSENT');
+   let r;
+   try{r=strictTypedJson(a.wasm.dev_stage_typed_amounts(
+     JSON.stringify(commands),scope.sessionId,BigInt(scope.revision),
+     BigInt(scope.indexGeneration),scope.decodedSha256),4096)}
+   catch{fail('PRODUCT_WORKER_DEV_RUST_STAGE_DENIED')}
+   return devAccept(a,scope,r,true);
+ };
+ const devToggle=(scope,redo)=>{
+   const a=devScope(scope);
+   if(!a.devSha||a.devApplied!==!redo)
+     fail('PRODUCT_WORKER_DEV_UNDO_REDO_ORDER');
+   const method=redo?'dev_redo_typed_amounts':'dev_undo_typed_amounts';
+   if(typeof a.wasm[method]!=='function')
+     fail('PRODUCT_WORKER_DEV_WASM_FEATURE_ABSENT');
+   let r;
+   try{r=strictTypedJson(a.wasm[method](scope.sessionId,BigInt(scope.revision),
+     BigInt(scope.indexGeneration),scope.decodedSha256),4096)}
+   catch{fail('PRODUCT_WORKER_DEV_RUST_TOGGLE_DENIED')}
+   return devAccept(a,scope,r,redo);
+ };
+ const devTakeDecodedEditedOnce=scope=>{
+   const a=devScope(scope);
+   if(!a.devSha||a.devApplied!==true)
+     fail('PRODUCT_WORKER_DEV_EXPORT_NOT_APPLIED');
+   if(typeof a.wasm.dev_begin_edited_copy!=='function'||
+      typeof a.wasm.dev_take_edited_chunk!=='function')
+     fail('PRODUCT_WORKER_DEV_WASM_FEATURE_ABSENT');
+   try{
+     const r=strictTypedJson(a.wasm.dev_begin_edited_copy(scope.sessionId,
+       BigInt(scope.revision),BigInt(scope.indexGeneration),
+       scope.decodedSha256),4096);
+     if(!exactKeys(r,'contract,totalBytes,stagedDecodedSha256,writerAuthorized,originalOverwriteAuthorized')||
+       r.contract!=='wand.worker.dev-semantic-export@1'||
+       !Number.isSafeInteger(r.totalBytes)||r.totalBytes<1||
+       r.totalBytes>PRODUCT_WASM_WORKER_MAX_BYTES||
+       r.stagedDecodedSha256!==a.devSha||
+       r.writerAuthorized!==false||r.originalOverwriteAuthorized!==false)
+       fail('PRODUCT_WORKER_DEV_EXPORT_RECEIPT_INVALID');
+     let total=0;const parts=[];const decoder=new TextDecoder('utf-8',{fatal:true});
+     while(total<r.totalBytes){
+       const chunk=a.wasm.dev_take_edited_chunk();
+       if(!(chunk instanceof Uint8Array)||chunk.length<1||
+         chunk.length>PRODUCT_WASM_CHUNK_MAX_BYTES||total+chunk.length>r.totalBytes)
+         fail('PRODUCT_WORKER_DEV_EXPORT_CHUNK_INVALID');
+       total+=chunk.length;
+       parts.push(decoder.decode(chunk,{stream:true}));
+       chunk.fill(0);
+     }
+     parts.push(decoder.decode());
+     return Object.freeze({jsonText:parts.join(''),
+       stagedDecodedSha256:r.stagedDecodedSha256,
+       writerAuthorized:false,originalOverwriteAuthorized:false});
+   }finally{revoke();}
+ };
+
  const submitOperation=()=>fail('PRODUCT_WORKER_WRITER_DISABLED');
  const getCapabilities=()=>Object.freeze({
    productWorkerBoundary:true,productReadAccepted:false,
@@ -361,5 +474,12 @@ export function createProductWasmReadOwner(wasmFactory){
  return Object.freeze({openDecoded,readCoreVersion,issueTypedCursor,readTypedPage,
    issueSavedDiffGridsCursor,readSavedDiffGridsPage,
    close,submitOperation,getCapabilities,
-   getReceipt:()=>active?.receipt??null});
+   getReceipt:()=>active?.receipt??null,
+   ...(allowDevSemanticWriter?{
+     devStageTypedAmounts,
+     devUndoTypedAmounts:scope=>devToggle(scope,false),
+     devRedoTypedAmounts:scope=>devToggle(scope,true),
+     devTakeDecodedEditedOnce
+   }: {})
+ });
 }
