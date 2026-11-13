@@ -76,7 +76,7 @@ test('ordinary filesystem denial: direct repository input, final symlink, direct
  await writeFile(args.furniture,Buffer.alloc(SOURCE.furnitureBytes));
  await assert.rejects(verifyPrivateFiles(args),/FILE_SHA_MISMATCH/);
  await assert.rejects(access(args.output),e=>e.code==='ENOENT');
-});
+}));
 test('repository file via external ancestor symlink denied before content read',()=>fixture(async x=>{
  const repoTemp=await mkdtemp(join(process.cwd(),'.qrw794-synthetic-'));
  try{
