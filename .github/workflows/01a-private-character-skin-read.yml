@@ -1,0 +1,40 @@
+name: 01A private Character Skin typed receipt (synthetic only)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/indexed_read.rs'
+      - 'crates/ddv-save-core/src/bin/wand-local-rust-v1.rs'
+      - 'tests/private-character-skin-read.mjs'
+      - '.github/workflows/01a-private-character-skin-read.yml'
+permissions:
+  contents: read
+jobs:
+  character-skin-native-read:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Actual native typed Character Skin receipt, synthetic only
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1 character_skin_tests
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1 --bin wand-local-rust-v1
+          node tests/private-character-skin-read.mjs crates/ddv-save-core/target/debug/wand-local-rust-v1
+          node tests/private-active-avatar-read.mjs crates/ddv-save-core/target/debug/wand-local-rust-v1
+      - name: Existing native regressions and public WASM isolation
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+      - name: No private data or executable upload
+        run: |
+          test -z "$(git ls-files crates/ddv-save-core/target)"
+          test ! -e static/worker-wasm/ddv_save_core.js
+          echo PRIVATE_CHARACTER_SKIN_READ_SYNTHETIC_ONLY_NO_ARTIFACT_UPLOAD
