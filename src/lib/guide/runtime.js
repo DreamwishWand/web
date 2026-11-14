@@ -83,6 +83,14 @@ export function guideSystemView(record, locale = 'en') {
   };
 }
 
+// A display-only projection of the existing version-pinned reference records.
+export function guideDutyGroup(records) {
+  const source = Array.isArray(records) ? records : [];
+  const labels = source.map(duty => typeof duty?.label === 'string' ? cleanGuideText(duty.label) : '')
+    .filter(label => label && !/^Liveops\./i.test(label));
+  return { total:source.length, labels, unresolved:source.length-labels.length };
+}
+
 export function guideStarPathView(record, locale = 'en') {
   return {
     key:cleanGuideText(record.id),
