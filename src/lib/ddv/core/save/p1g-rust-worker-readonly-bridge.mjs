@@ -39,17 +39,32 @@ async function* decodedUtf8Chunks(text){
     offset=end;
   }
 }
-export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
+export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{
+  allowDevSemanticWriter=false,verifyDurableBackupDev=null
+}={}){
   // Constructor itself enforces Worker-only (document must be absent).
-  const rust=createProductWasmReadOwner(wasmFactory);
+  if(typeof allowDevSemanticWriter!=='boolean'||
+    (allowDevSemanticWriter&&typeof verifyDurableBackupDev!=='function'))
+    fail('P1G_WORKER_DEV_TRUSTED_BACKUP_REQUIRED');
+  const rust=createProductWasmReadOwner(wasmFactory,{allowDevSemanticWriter});
+  let devOriginal=null;
+  const clearDev=()=>{
+    if(devOriginal?.bytes)devOriginal.bytes.fill(0);
+    devOriginal=null;
+  };
+  const hex=bytes=>[...new Uint8Array(bytes)]
+    .map(v=>v.toString(16).padStart(2,'0')).join('');
+  const hash=async bytes=>hex(await crypto.subtle.digest('SHA-256',bytes));
   let epoch=0;
   const close=()=>{
     epoch++;
+    clearDev();
     return rust.close();
   };
   const openEncrypted=async args=>{
     // A is synchronously invalidated before validating/decoding B.
     const token=++epoch;
+    clearDev();
     rust.close();
     if(!exact(args,'build,encryptedBytes')||
        !(args.encryptedBytes instanceof Uint8Array)||
@@ -82,6 +97,23 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
          close();
          fail('P1G_WORKER_RUST_GATE_VIOLATION');
       }
+      if(allowDevSemanticWriter){
+        // All async metadata stays local until the owning OPEN commits.
+        const initialDecodedSha=await hash(new TextEncoder().encode(decoded.jsonText));
+        if(token!==epoch)fail('P1G_WORKER_DEV_OPEN_REVOKED');
+        if(initialDecodedSha!==receipt.decodedSha256)
+          fail('P1G_WORKER_DEV_INITIAL_DECODED_HASH_MISMATCH');
+        const encryptedSha256=await hash(isolated);
+        if(token!==epoch)fail('P1G_WORKER_DEV_OPEN_REVOKED');
+        devOriginal={
+          bytes:new Uint8Array(isolated),
+          encryptedSha256,
+          encryptedSizeBytes:isolated.length,
+          codecMetadata:decoded.metadata,
+          originalDecodedSha256:receipt.decodedSha256,
+          token,exportPending:false
+        };
+      }
       return Object.freeze({
         ...receipt,
         decodedByExistingP1gCodec:true,
@@ -90,12 +122,101 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
       });
     }catch(e){
       // A's stale rejection must never kill newer B.
-      if(token===epoch)rust.close();
+      if(token===epoch)close();
       if(e instanceof Error&&(/^P1G_WORKER_|^PRODUCT_WORKER_/).test(e.message))
         throw e;
       fail('P1G_WORKER_CODEC_OR_RUST_REJECTED');
     }finally{
       isolated.fill(0); // never zero the caller's original bytes
+    }
+  };
+
+  // The trusted local DEV executor binds durable original backup verification.
+  // UI postMessage never reaches these methods. Export produces ONLY bytes
+  // for a separately named file; it cannot replace the original.
+  const devSource=()=>{
+    if(!allowDevSemanticWriter||!devOriginal||devOriginal.token!==epoch)
+      fail('P1G_WORKER_DEV_SESSION_OFF');
+    if(devOriginal.exportPending)fail('P1G_WORKER_DEV_EXPORT_IN_PROGRESS');
+    if(!rust.getReceipt()){clearDev();fail('P1G_WORKER_DEV_SESSION_OFF');}
+    return devOriginal;
+  };
+  const devStageTypedAmounts=(scope,commands)=>{
+    devSource();return rust.devStageTypedAmounts(scope,commands);
+  };
+  const devUndoTypedAmounts=scope=>{
+    devSource();return rust.devUndoTypedAmounts(scope);
+  };
+  const devRedoTypedAmounts=scope=>{
+    devSource();return rust.devRedoTypedAmounts(scope);
+  };
+  const devCreateEncodedEditedOnce=async scope=>{
+    const original=devSource();
+    const token=epoch;
+    const owns=()=>epoch===token&&devOriginal===original;
+    const check=code=>{if(!owns())fail(code)};
+    // One owner-local export attempt at a time; no mutation may interleave
+    // while its backup/codec awaits. A failed pre-consume attempt can retry.
+    original.exportPending=true;
+    let ciphertext=null,consumed=false,committed=false;
+    try{
+      // Trusted Worker-local create-new, fsync/readback backup callback.
+      let receipt;
+      try{
+        receipt=await verifyDurableBackupDev({
+          originalBytes:new Uint8Array(original.bytes),
+          originalEncryptedSha256:original.encryptedSha256,
+          originalEncryptedSizeBytes:original.encryptedSizeBytes
+        });
+      }catch{check('P1G_WORKER_DEV_BACKUP_STALE');fail('P1G_WORKER_DEV_BACKUP_REJECTED')}
+      check('P1G_WORKER_DEV_BACKUP_STALE');
+      if(!receipt||receipt.backupReadbackVerified!==true||
+         receipt.sha256!==original.encryptedSha256||
+         receipt.sizeBytes!==original.encryptedSizeBytes||
+         receipt.editedCopyWillUseDifferentName!==true)
+        fail('P1G_WORKER_DEV_BACKUP_NOT_CONFIRMED');
+      const edited=rust.devTakeDecodedEditedOnce(scope);
+      consumed=true;
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      const decodedHash=await hash(new TextEncoder().encode(edited.jsonText));
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      if(decodedHash!==edited.stagedDecodedSha256||
+         decodedHash===original.originalDecodedSha256)
+        fail('P1G_WORKER_DEV_RUST_SHA_MISMATCH');
+      ciphertext=await p1gPackagedProfileCodec.createEncodedProfile(
+        edited.jsonText,original.codecMetadata);
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      const reopened=await p1gPackagedProfileCodec.loadProfile(ciphertext);
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      const reopenedHash=await hash(new TextEncoder().encode(reopened.jsonText));
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      if(reopened.jsonText!==edited.jsonText||reopenedHash!==decodedHash)
+        fail('P1G_WORKER_DEV_CODEC_EXACT_REOPEN_FAILED');
+      const editedSha256=await hash(ciphertext);
+      // Final linearization point: no await after this check. Only this
+      // exact source object can be cleared, and stale ciphertext never leaves.
+      check('P1G_WORKER_DEV_EXPORT_STALE');
+      const result=Object.freeze({
+        contract:'wand.dev.p1g.typed-edited-copy@1',
+        editedCiphertext:ciphertext,
+        editedSha256,
+        editedSizeBytes:ciphertext.length,
+        originalSha256:original.encryptedSha256,
+        stagedDecodedSha256:decodedHash,
+        writerAuthorized:false,nativeV3Verified:false,
+        originalOverwriteAuthorized:false,
+        independentProcessReopenVerified:false
+      });
+      clearDev();committed=true;
+      return result;
+    }finally{
+      if(!committed&&ciphertext instanceof Uint8Array)ciphertext.fill(0);
+      // Stale A cannot touch B. A consumed or revoked Rust session cannot
+      // retry; backup/invalid-scope/undone pre-consume denial may retry.
+      if(owns()){
+        if(consumed||!rust.getReceipt())clearDev();
+        else original.exportPending=false;
+      }
     }
   };
   return Object.freeze({
@@ -107,6 +228,10 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
     issueSavedDiffGridsCursor:scope=>rust.issueSavedDiffGridsCursor(scope),
     readSavedDiffGridsPage:(scope,cursor)=>rust.readSavedDiffGridsPage(scope,cursor),
     getReceipt:()=>rust.getReceipt(),
+    ...(allowDevSemanticWriter?{
+      devStageTypedAmounts,devUndoTypedAmounts,devRedoTypedAmounts,
+      devCreateEncodedEditedOnce
+    }:{}),
     getCapabilities:()=>Object.freeze({
       ...rust.getCapabilities(),
       p1gWorkerReadOnlyBridge:true,
