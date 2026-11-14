@@ -51,7 +51,7 @@ fn shape_build_and_resealed_source_denials(){
  for (old,new) in [(STATE,"\"SetState_Complete\""),(STATE,"0"),("\"40000072\":false","\"40000072\":true"),("\"40000071\" : false","\"40000071\" : true"),("\"Amount\": 3","\"Amount\": 0"),("\"40000099\":false","\"40000071\":false"),("\"GroupIndex\":1","\"GroupIndex\":0"),("\"ID\":0","\"ID\":1")]{
   let b=text.replacen(old,new,1).into_bytes();let s=open(b.clone(),BID);let mut q=p.clone();q["sourceDecodedSha256"]=json!(h(&b));let e=env(&s,WorkerAction::ReadDomain);assert!(s.read_private_collection_group(e,DEF,1,ITEM).is_err(),"{old}");assert!(s.mint_private_switch626_collection_target(e,&bytes(&q)).is_err());assert_eq!(s.receipt().unwrap().revision,0);
  }
- let s=open(raw.clone(),"52BD625D9B4E0053");assert!(s.mint_private_switch626_collection_target(env(&s,WorkerAction::ReadDomain),&bytes(&p)).is_err());
+ assert!(ProductSession::open_decoded_readonly(raw.clone(),BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"52BD625D9B4E0053".into(),schema:626,externally_attested:true}).is_err());
  let s=ProductSession::open_decoded_readonly(raw,BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:"releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22".into(),schema:626,externally_attested:true}).unwrap();assert!(s.mint_private_switch626_collection_target(env(&s,WorkerAction::ReadDomain),&bytes(&p)).is_err());
 }
 #[test]
