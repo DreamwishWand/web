@@ -379,6 +379,15 @@ impl ProductSession{
         let roots=indexed_read::roots(&self.decoded)?;
         let mut edits=Vec::with_capacity(commands.len());
         for cmd in commands{edits.push(target(&self.decoded,roots.player,cmd)?);}
+        let count=edits.len();
+        self.commit_semantic_replacements(e,edits,count)
+    }
+    // Shared atomic ledger for Core-resolved replacements only.
+    fn commit_semantic_replacements(&self,e:WorkerEnvelope,mut edits:Vec<Replacement>,logical_count:usize)
+        ->CoreResult<SemanticStageReceipt>{
+        if edits.is_empty()||edits.len()>MAX_TX_COMMANDS||logical_count==0||logical_count>MAX_TX_COMMANDS{
+            return Err(denied("SEMANTIC_BATCH_BOUNDS"));
+        }
         edits.sort_by_key(|r|r.span.begin);
         for pair in edits.windows(2){
             if pair[0].span.end>pair[1].span.begin {
@@ -405,12 +414,16 @@ impl ProductSession{
         if st.lab.is_some(){return Err(denied("SEMANTIC_SYNTHETIC_LAB_CONFLICT"));}
         let rev=st.revision.checked_add(1).ok_or(denied("REVISION_OVERFLOW"))?;
         let gen=st.generation.checked_add(1).ok_or(denied("GENERATION_OVERFLOW"))?;
-        st.semantic=Some(SemanticLedger{edited,edited_sha,operation_count:edits.len(),
+        st.semantic=Some(SemanticLedger{edited,edited_sha,operation_count:logical_count,
                                       applied:true,consumed:false});
         st.indexed=None; // Existing Indexed Cursor grant table revoked.
         st.revision=rev;
         st.generation=gen;
         receipt(self,&st)
+    }
+    #[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
+    pub(super) fn commit_private_collection_bool(&self,e:WorkerEnvelope,span:Span)->CoreResult<SemanticStageReceipt>{
+        self.commit_semantic_replacements(e,vec![Replacement{span,old:b"false".to_vec(),new:b"true".to_vec()}],1)
     }
     fn semantic_toggle(&self,e:WorkerEnvelope,apply:bool)
         ->CoreResult<SemanticStageReceipt>{
