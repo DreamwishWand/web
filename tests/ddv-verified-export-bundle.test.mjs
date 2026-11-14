@@ -111,16 +111,37 @@ test('verified candidate export requires independent 01A verification and reuses
   assert.equal(out.contract,'dreamwish.ddv.verified-candidate-browser-export@1');
   assert.deepEqual(out.edited.bytes,edited);
   assert.deepEqual(out.backup.bytes,backup);
-  assert.equal(out.edited.fileName,'profile');
+  assert.equal(out.edited.fileName,'DDV_EDITED_copy_profile');
   assert.equal(out.edited.sha256,editedSha);
   assert.equal(out.backup.sha256,sourceSha);
   assert.equal(out.integrity.manifest.candidateManifestSha256,'2'.repeat(64));
   assert.equal(out.integrity.manifest.persistentWriteAuthorized,false);
   assert.equal(out.persistentWriteAuthorized,false);
   const entries=parseStoredZip(out.bundle.bytes);
-  assert.deepEqual(entries.get('profile'),edited);
+  assert.deepEqual(entries.get('DDV_EDITED_copy_profile'),edited);
+  assert.equal(out.integrity.manifest.editedFile,out.edited.fileName);
+  assert.equal(out.integrity.manifest.backupFile,out.backup.fileName);
   assert.deepEqual(entries.get('DDV_BACKUP_original_profile'),backup);
 
+  // Distinct filenames even for prior exports, case-insensitive collisions,
+  // long periodic names that would equal the prefixed truncated source, and
+  // input names equal to the fixed integrity/ZIP download names.
+  const comparable=s=>s.normalize('NFC').toLowerCase().replace(/[. ]+$/g,'');
+  for(const sourceName of ['profile.p1g','profile.profile','DDV_EDITED_copy_profile',
+    'DDV_WAND_EXPORT_MANIFEST.json','dreamwishwand_ddv_verifiedexport_v1_25_0.zip',
+    'DDV_EDITED_copy_'.repeat(13),'DDV_BACKUP_original_'.repeat(10),
+    '界'.repeat(100)+'.profile','...','a:b?c|d']){
+    const next=await createVerifiedCandidateExportBundle({candidate,verification,gameVersion:'1.25.0',targetBuild:switchTarget,sourceName});
+    const names=[next.edited.fileName,next.backup.fileName,next.integrity.fileName,next.bundle.fileName];
+    assert.equal(new Set(names.map(comparable)).size,4);
+    assert.ok(names.every(name=>comparable(name)!==comparable(sourceName)&&new TextEncoder().encode(name).length<=255));
+    const files=parseStoredZip(next.bundle.bytes);
+    assert.deepEqual(files.get(next.edited.fileName),edited);
+    assert.deepEqual(files.get(next.backup.fileName),backup);
+    assert.equal(next.integrity.manifest.editedFile,next.edited.fileName);
+    assert.equal(next.integrity.manifest.backupFile,next.backup.fileName);
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get(next.integrity.fileName))),next.integrity.manifest);
+  }
   await assert.rejects(
     ()=>createVerifiedCandidateExportBundle({
       candidate,
