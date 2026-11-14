@@ -53,3 +53,23 @@ test('eight locales, no Community ownership claim or Save Writer gates',()=>{
    assert.ok(typeof c[k]==='string'&&c[k].trim(),locale+':'+k);
  }
 });
+
+test('migration canonical file rejects forged authority, duplicate IDs, malformed and oversized before any IDB open',async()=>{
+ const m=await import('../src/lib/wep/local-scene-preset-store.mjs');
+ const entry={id:'scene_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',title:'Local',createdAt:'2026-11-14T00:00:00Z',artifact:captured().artifact};
+ const envelope={schema:m.WEP_LOCAL_SCENE_PORTABLE_SCHEMA,version:1,entries:[entry]};
+ const raw=JSON.stringify(envelope);
+ assert.deepEqual(m.parseLocalScenePortableFile(raw).entries,[entry]);
+ const badFactory={open(){throw Error('MUST_NOT_OPEN_IDB');}};
+ const mutate=fn=>{const x=structuredClone(envelope);fn(x);return JSON.stringify(x);};
+ for(const bad of [
+  '{}',raw+' ',JSON.stringify({...envelope,entries:[]}),mutate(x=>x.entries.push(x.entries[0])),
+  mutate(x=>x.entries[0].artifact.networks.roads={}),mutate(x=>x.entries[0].artifact.requirements.roadTopology=true),
+  mutate(x=>x.entries[0].artifact.session={key:'secret'}),mutate(x=>x.entries[0].artifact.objects[0].portableState={codec:'subgrid.itemdata-default-empty-child@1'}),
+  mutate(x=>x.entries[0].artifact.objects[0].localX=999),mutate(x=>x.entries[0].artifact.requirements.itemQuantities['40000048']=99),
+  mutate(x=>x.entries[0].artifact.objects[0].gridId=1), 'x'.repeat(m.WEP_LOCAL_SCENE_PORTABLE_MAX_BYTES+1)
+ ])await assert.rejects(m.importLocalScenePortableFile({factory:badFactory,raw:bad,expectedRevision:0}),/WEP_(LOCAL_SCENE|SCENE_REUSE)_/);
+ const {localScenePortableCopy}=await import('../src/lib/wep/local-scene-preset-copy.js');
+ for(const locale of LOCAL_SCENE_PRESET_LOCALES)for(const key of ['export','choose','import','count','exported','imported','blocked','notice'])
+  assert.ok(localScenePortableCopy(locale)[key]?.length>2);
+});

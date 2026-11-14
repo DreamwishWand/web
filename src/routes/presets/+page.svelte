@@ -10,7 +10,8 @@
   import { explainWepBlocker } from '$lib/wep/blocker-messages';
   import NativePresetManager from '$lib/presets/NativePresetManager.svelte';
   import { reopenLocalScenes, readLocalSceneById } from '$lib/wep/local-scene-preset-store.mjs';
-  import { localScenePresetCopy } from '$lib/wep/local-scene-preset-copy.js';
+  import { localScenePresetCopy, localScenePortableCopy } from '$lib/wep/local-scene-preset-copy.js';
+  import { exportLocalScenePortableFile, importLocalScenePortableFile, parseLocalScenePortableFile, WEP_LOCAL_SCENE_PORTABLE_MAX_BYTES } from '$lib/wep/local-scene-preset-store.mjs';
   import { localSceneRouteCopy } from '$lib/wep/local-scene-route-handoff.mjs';
   import { stageVerifiedMyLocalSceneRoute } from '$lib/presets/my-local-scene-route-sender.mjs';
   import {
@@ -52,6 +53,10 @@
   let deviceScenes:LocalSceneSummary[]=[];
   let deviceSceneSelected:LocalSceneSummary|null=null;
   let deviceScenesMessage='';
+  let deviceScenesReadable=false;
+  let portableInput:HTMLInputElement;
+  let portablePending:{raw:string;count:number;revision:number}|null=null;
+  let portableMessage='';
   let inGameChild: 'decorations'|'shop'|null=null;
   let connected = false;
   let loading = false;
@@ -65,6 +70,7 @@
   $: rootCopy=presetsStage1Copy($locale);
   $: myCopy=myPresetsCopy($locale);
   $: deviceSceneCopy=localScenePresetCopy($locale);
+  $: portableCopy=localScenePortableCopy($locale);
   $: deviceSceneRouteCopy=localSceneRouteCopy($locale);
 
   function preflightBlockCodes(value: any): string[] {
@@ -125,6 +131,10 @@
     if(deviceScenesBusy)return;
     deviceScenesBusy=true;
     deviceScenesOpened=true;
+    deviceScenesReadable=false;
+    portablePending=null;
+    portableMessage='';
+    if(portableInput)portableInput.value='';
     deviceSceneSelected=null;
     deviceScenes=[];
     deviceScenesRevision=0;
@@ -132,6 +142,7 @@
     try{
       const current=await reopenLocalScenes();
       deviceScenesRevision=current.revision;
+      deviceScenesReadable=true;
       deviceScenes=current.document.entries.map((entry:any)=>({
         id:entry.id,title:entry.title,createdAt:entry.createdAt,
         objectCount:entry.artifact.objects.length
@@ -140,9 +151,54 @@
     }catch(error){
       // Missing local Scene DB is an empty local library, not an invitation to
       // create it. Corruption or missing permissions remain blocked.
-      deviceScenesMessage=error instanceof Error &&
-        /DB_UNAVAILABLE_OR_ABSENT/.test(error.message)
-        ?deviceSceneCopy.empty:deviceSceneCopy.blocked;
+      deviceScenesReadable=error instanceof Error && /DB_UNAVAILABLE_OR_ABSENT/.test(error.message);
+      deviceScenesMessage=deviceScenesReadable?deviceSceneCopy.empty:deviceSceneCopy.blocked;
+    }finally{deviceScenesBusy=false;}
+  }
+
+  async function exportDeviceScenes():Promise<void>{
+    if(deviceScenesBusy||!deviceScenesReadable||!deviceScenes.length)return;
+    deviceScenesBusy=true;portableMessage='';
+    try{
+      const raw=await exportLocalScenePortableFile({expectedRevision:deviceScenesRevision});
+      const url=URL.createObjectURL(new Blob([raw],{type:'application/json'}));
+      const a=document.createElement('a');
+      a.href=url;a.download='dreamwish-wand-scenes.json';
+      try{a.click();}finally{setTimeout(()=>URL.revokeObjectURL(url),1000);}
+      portableMessage=portableCopy.exported;
+    }catch{portableMessage=portableCopy.blocked;}
+    finally{deviceScenesBusy=false;}
+  }
+  async function choosePortableSceneFile(event:Event):Promise<void>{
+    if(deviceScenesBusy||!deviceScenesReadable)return;
+    const input=event.currentTarget as HTMLInputElement;
+    const file=input.files?.[0];
+    portablePending=null;portableMessage='';
+    if(!file)return;
+    const revision=deviceScenesRevision;
+    deviceScenesBusy=true;
+    try{
+      if(file.size>WEP_LOCAL_SCENE_PORTABLE_MAX_BYTES)throw Error('SCENE_FILE_LIMIT');
+      const raw=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());
+      const checked=parseLocalScenePortableFile(raw);
+      portablePending={raw,count:checked.entries.length,revision};
+    }catch{portableMessage=portableCopy.blocked;}
+    finally{input.value='';deviceScenesBusy=false;}
+  }
+  async function importDeviceScenes():Promise<void>{
+    if(deviceScenesBusy||!deviceScenesReadable||!portablePending)return;
+    const pending=portablePending;
+    portablePending=null;deviceScenesBusy=true;portableMessage='';
+    deviceSceneSelected=null;
+    try{
+      const result=await importLocalScenePortableFile({raw:pending.raw,expectedRevision:pending.revision});
+      deviceScenesRevision=result.revision;
+      deviceScenes=result.document.entries.map((entry:any)=>({id:entry.id,title:entry.title,
+        createdAt:entry.createdAt,objectCount:entry.artifact.objects.length}));
+      portableMessage=portableCopy.imported;
+    }catch{
+      deviceScenesReadable=false;
+      portableMessage=portableCopy.blocked;
     }finally{deviceScenesBusy=false;}
   }
 
@@ -333,6 +389,21 @@
             {deviceSceneCopy.reopen}
           </button>
 
+          <div class="scene-portability" data-device-scene-portability>
+            <p>{portableCopy.notice}</p>
+            <button type="button" data-device-scenes-export on:click={exportDeviceScenes}
+              disabled={deviceScenesBusy||!deviceScenesReadable||!deviceScenes.length}>{portableCopy.export}</button>
+            <label>
+              <span>{portableCopy.choose}</span>
+              <input type="file" accept=".json,application/json" bind:this={portableInput}
+                data-device-scenes-import-file on:change={choosePortableSceneFile}
+                disabled={deviceScenesBusy||!deviceScenesReadable} />
+            </label>
+            {#if portablePending}<p data-device-scenes-import-count>{portableCopy.count}: {portablePending.count}</p>{/if}
+            <button type="button" data-device-scenes-import on:click={importDeviceScenes}
+              disabled={deviceScenesBusy||!deviceScenesReadable||!portablePending}>{portableCopy.import}</button>
+            {#if portableMessage}<p role="status" aria-live="polite" data-device-scenes-portable-status>{portableMessage}</p>{/if}
+          </div>
           {#if deviceScenesMessage}
             <p data-device-scenes-status role="status" aria-live="polite">{deviceScenesMessage}</p>
           {/if}
@@ -540,6 +611,10 @@
   .device-local-scenes button:focus-visible,.device-local-scenes a:focus-visible{
     outline:3px solid var(--gold);outline-offset:3px}
   .device-local-scenes button:disabled{opacity:.45}
+  .scene-portability{display:grid;gap:8px;min-width:0;max-width:100%}
+  .scene-portability label{display:grid;gap:6px;min-width:0;font-size:12px}
+  .scene-portability input{width:100%;min-width:0;max-width:100%;box-sizing:border-box;color:var(--ink);font-size:12px}
+  .scene-portability input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   .device-local-scenes ul{list-style:none;padding:0;display:grid;gap:9px;min-width:0}
   .device-scene-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;min-width:0}
   .device-scene-preview{min-width:0;padding:12px;border:1px solid var(--border);
