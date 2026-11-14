@@ -2,9 +2,10 @@
 // Requires trusted local Git object store and accepted scope supplied by the caller.
 // This is not a QA, approval, freshness, merge, deployment or Flag gate.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { inspectSelection } from './int-selection-preflight.mjs';
 
 const SHA = /^[0-9a-f]{40}$/;
@@ -28,7 +29,7 @@ export function constructCandidateTree(cwd, input) {
     const tree = git(['write-tree']).trim();
     if (!SHA.test(tree) || git(['cat-file','-t',tree]).trim() !== 'tree') deny('CANDIDATE_TREE_INVALID');
     const changed = git(['diff-tree','--no-commit-id','--name-only','-r','-z','--no-renames',
-      '--no-ext-diff','--no-textconv',report.main,tree,'--']).split('\0').filter(Boolean).sort();
+      '--no-ext-diff','--no-textconv','--ignore-submodules=none',report.main,tree,'--']).split('\0').filter(Boolean).sort();
     const expected = report.entries.map(e=>e.path);
     if (changed.length!==expected.length || changed.some((p,i)=>p!==expected[i])) deny('CANDIDATE_PATH_SET_MISMATCH');
     for (const e of report.entries) {
@@ -41,5 +42,17 @@ export function constructCandidateTree(cwd, input) {
       acceptanceVerified:false,remoteFreshnessVerified:false,refsUpdated:false};
   } finally {
     rmSync(dir,{recursive:true,force:true});
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    if (process.argv.length !== 3) deny('USAGE: node scripts/int-candidate-tree.mjs manifest.json');
+    const raw = readFileSync(process.argv[2]);
+    if (raw.length > 256 * 1024) deny('INPUT_TOO_LARGE');
+    console.log(JSON.stringify(constructCandidateTree(process.cwd(), JSON.parse(raw.toString('utf8')))));
+  } catch (error) {
+    console.error('INT_CANDIDATE_DENIED:', error.message);
+    process.exitCode = 1;
   }
 }

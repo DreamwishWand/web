@@ -44,3 +44,30 @@ test('exact selection with stacked base, squash-equivalent main and deny cases',
     assert.equal(inspectSelection(dir,{base,source:nested,main,paths:['nested/item.txt']}).entries[0].change,'ADD');
   } finally { rmSync(dir,{recursive:true,force:true}); }
 });
+
+test('ambient submodule ignore cannot hide added, modified or deleted gitlinks', () => {
+  const dir=mkdtempSync(join(tmpdir(),'wand-int-gitlink-'));
+  const git=(...args)=>execFileSync('git',args,{cwd:dir,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+  const write=(value)=>writeFileSync(join(dir,'a.txt'),value);
+  const commit=msg=>{git('commit','-m',msg);return git('rev-parse','HEAD');};
+  const link=(sha)=>git('update-index','--add','--cacheinfo','160000,'+sha+',hidden-submodule');
+  try {
+    git('init','-b','main');git('config','user.name','Synthetic');git('config','user.email','synthetic@example.invalid');
+    write('base');git('add','a.txt');const base=commit('base');
+    write('add');git('add','a.txt');link(base);const added=commit('add gitlink');
+    write('modify');git('add','a.txt');link(added);const modified=commit('modify gitlink');
+    write('delete');git('add','a.txt');git('update-index','--force-remove','hidden-submodule');const deleted=commit('delete gitlink');
+    git('config','diff.ignoreSubmodules','all');
+    for(const [before,after] of [[base,added],[added,modified],[modified,deleted]]) {
+      const input={base:before,source:after,main:before,paths:['a.txt']};
+      assert.throws(()=>inspectSelection(dir,input),/SOURCE_PATH_SET_MISMATCH/);
+      assert.throws(()=>inspectSelection(dir,{...input,paths:['a.txt','hidden-submodule']}),/NON_REGULAR_OR_AMBIGUOUS_PATH/);
+    }
+    git('checkout','--detach',added);write('regular only');git('add','a.txt');const regular=commit('regular only');
+    const out=inspectSelection(dir,{base:added,source:regular,main:added,paths:['a.txt']});
+    assert.equal(out.status,'EXACT_SELECTION_PREFLIGHT_ONLY');
+    assert.equal(out.mergeAuthorized,false);
+    assert.equal(out.acceptanceVerified,false);
+    assert.equal(out.remoteFreshnessVerified,false);
+  } finally {rmSync(dir,{recursive:true,force:true});}
+});
