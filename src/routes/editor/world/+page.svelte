@@ -5172,13 +5172,6 @@
               aria-describedby={!primaryJobAvailability.commands.reviewSavePrep.enabled ? 'wep-reason-reviewSavePrep' : undefined}
               on:click={runPrimarySavePrep}
             >{t('worldEditor.command.reviewSavePrep', {}, $locale)}</button>
-            {#if roomFinishContextActive}
-              <button
-                type="button"
-                aria-disabled={!primaryJobAvailability.commands.downloadOriginalBackup.enabled}
-                on:click={runPrimaryOriginalBackup}
-              >{t('worldEditor.command.downloadOriginalBackup', {}, $locale)}</button>
-            {/if}
             <button
               class="save-prep"
               aria-disabled={!primaryJobAvailability.commands.downloadOriginalBackup.enabled}
@@ -5936,11 +5929,11 @@
                 </div>
               </dl>
               <div class="verified-export-downloads">
-                <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.edited)}>
-                  {t('worldEditor.verifiedExport.downloadEdited', {}, $locale)}
-                </button>
                 <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.backup)}>
                   {t('worldEditor.verifiedExport.downloadBackup', {}, $locale)}
+                </button>
+                <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.edited)}>
+                  {t('worldEditor.verifiedExport.downloadEdited', {}, $locale)}
                 </button>
                 <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.bundle)}>
                   {t('worldEditor.verifiedExport.downloadBundle', {}, $locale)}
