@@ -147,3 +147,71 @@ export async function verifiedAtomicFirstBoardReopen(db){
   document:row.document,backupDocument:row.backupDocument,
   primary:row.primary,backup:row.backup};
 }
+
+/* Explicit same-store portable file for an isolated Board; never a legacy DB dump.
+   A portable file is untrusted planning data, not catalog/Writer authority. */
+export const ATOMIC_BOARD_PORTABLE_SCHEMA='wand.moodboards.atomic-first.portable@1';
+export const ATOMIC_BOARD_PORTABLE_MAX_BYTES=16*1024*1024;
+// Reject lossy File.text() decoding before the existing canonical/IDB gate.
+export function decodeAtomicBoardPortableBytes(bytes){
+ if(!(bytes instanceof Uint8Array)||!bytes.byteLength||bytes.byteLength>ATOMIC_BOARD_PORTABLE_MAX_BYTES)fail('PORTABLE_INVALID');
+ if(bytes.byteLength>=3&&bytes[0]===0xef&&bytes[1]===0xbb&&bytes[2]===0xbf)fail('PORTABLE_INVALID');
+ let raw;
+ try{raw=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);}catch{fail('PORTABLE_INVALID');}
+ const encoded=new TextEncoder().encode(raw);
+ if(encoded.byteLength!==bytes.byteLength||encoded.some((byte,index)=>byte!==bytes[index]))fail('PORTABLE_INVALID');
+ return raw;
+}
+function portableRow(row){
+ const r=validateRow(row);
+ if(!r||r.revision>=Number.MAX_SAFE_INTEGER||
+    (r.revision===1&&(r.deleted||r.backupDocument.boards.length!==0))||
+    (r.revision>1&&r.backupDocument.boards.length!==1)||
+    serializeMoodboardDocument(r.document)!==r.primary||
+    serializeMoodboardDocument(r.backupDocument)!==r.backup)fail('PORTABLE_INVALID');
+ for(const b of [...r.document.boards,...r.backupDocument.boards]){
+  if(b.groups.length!==0||b.references.some(x=>x.type!=='ITEM'||x.url!==null||
+     !/^[1-9][0-9]{0,15}$/.test(x.entityId??'')||!Number.isSafeInteger(Number(x.entityId))||
+     String(Number(x.entityId))!==x.entityId||x.groupIds.length!==0))fail('PORTABLE_INVALID');
+ }
+ return {schema:r.schema,revision:r.revision,boardId:r.boardId,primary:r.primary,backup:r.backup,deleted:r.deleted};
+}
+function encodePortable(row){
+ const raw=JSON.stringify({schema:ATOMIC_BOARD_PORTABLE_SCHEMA,version:1,snapshot:portableRow(row)},null,2)+'\n';
+ if(new TextEncoder().encode(raw).byteLength>ATOMIC_BOARD_PORTABLE_MAX_BYTES)fail('PORTABLE_INVALID');
+ return raw;
+}
+export function decodeAtomicBoardPortable(raw,verifiedRecords){
+ if(typeof raw!=='string'||!raw.length||raw.length>ATOMIC_BOARD_PORTABLE_MAX_BYTES||
+    new TextEncoder().encode(raw).byteLength>ATOMIC_BOARD_PORTABLE_MAX_BYTES||
+    !Array.isArray(verifiedRecords))fail('PORTABLE_INVALID');
+ let value;
+ try{value=JSON.parse(raw);}catch{fail('PORTABLE_INVALID');}
+ if(!exact(value,['schema','version','snapshot'])||value.schema!==ATOMIC_BOARD_PORTABLE_SCHEMA||
+    value.version!==1||encodePortable(value.snapshot)!==raw)fail('PORTABLE_INVALID');
+ const row=portableRow(value.snapshot);
+ const parsed=validateRow(row),catalog=new Set(verifiedRecords.filter(x=>Number.isSafeInteger(x?.itemId)&&
+  x.itemId>0&&typeof x.label==='string'&&x.label.trim()).map(x=>String(x.itemId)));
+ for(const b of [...parsed.document.boards,...parsed.backupDocument.boards])
+  for(const r of b.references)if(!catalog.has(r.entityId))fail('PORTABLE_ITEM_UNVERIFIED');
+ return row;
+}
+export async function exportAtomicBoardPortable(db){
+ const row=await readAtomicFirstBoard(db);
+ if(!row)fail('PORTABLE_EMPTY');
+ const {document,backupDocument,...raw}=row;
+ return encodePortable(raw);
+}
+export async function importAtomicBoardPortable(db,raw,verifiedRecords){
+ const row=decodeAtomicBoardPortable(raw,verifiedRecords);
+ // Existing transaction serializes concurrent create/import across tabs.
+ const receipt=await runTransaction(db,'readwrite',current=>{
+  if(current)fail('PORTABLE_DESTINATION_OCCUPIED');
+  return {row,value:{boardId:row.boardId,revision:row.revision,deleted:row.deleted}};
+ });
+ const reopened=await readAtomicFirstBoard(db);
+ if(!reopened)fail('PORTABLE_REOPEN');
+ const {document,backupDocument,...actual}=reopened;
+ if(encodePortable(actual)!==raw)fail('PORTABLE_REOPEN');
+ return receipt;
+}
