@@ -1,0 +1,30 @@
+name: 05 QR-C PR1230 independent restore review
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1230-restore.py'
+      - '.github/workflows/05qrc-pr1230-restore.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - run: |
+          source=e635ea386caa8c9413e03dfa8ccb94ce0e18abb3
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs)" = 21532675e37f33d60e7470d1e4241caffb9f2095
+          test "$(git rev-parse HEAD:tests/native-owner-semantic-writer.test.mjs)" = 8ac444f687787f2212937959cf5aa59514ca278a
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v2,semantic-writer-dev --bin wand-local-rust-v2-noop
+          python3 tests/qa/05qrc-pr1230-restore.py crates/ddv-save-core/target/debug/wand-local-rust-v2-noop
