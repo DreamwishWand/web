@@ -1,0 +1,47 @@
+name: 04 QR-W PR1073 independent delivery trust
+on:
+  pull_request:
+    paths:
+      - 'tests/readonly-release/04qr-w-pr1073-delivery-independent.mjs'
+      - '.github/workflows/04qr-w-pr1073-delivery-independent.yml'
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Exact historical signed subjects from fixed run, no live host fallback
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          run=43524370136
+          source=51fde043e024e2d84fd1c4c28a0c787748b82277
+          gh api "repos/DreamwishWand/web/actions/runs/$run" | jq -e --arg s "$source" '.head_sha==$s and .head_branch=="main" and .head_repository.id==1371485649 and .conclusion=="success"'
+          gh run download "$run" --repo DreamwishWand/web --name github-pages --dir "$dir"
+          archive="$(find "$dir" -maxdepth 1 -type f -name '*.tar*' -print -quit)"
+          test -n "$archive"
+          mkdir "$dir/site" "$dir/bundles"
+          tar -xf "$archive" -C "$dir/site"
+          for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+            (cd "$dir/bundles"; gh attestation download "$dir/site/worker-wasm/$name" --repo DreamwishWand/web)
+          done
+          cat "$dir/bundles/"*.jsonl > "$dir/signed.jsonl"
+          node scripts/readonly-release/seal.mjs verify-only "$source" "$dir/site/worker-wasm" "$dir/signed.jsonl"
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          "$CHROME_BIN" --version
+          node tests/readonly-release/04qr-w-pr1073-delivery-independent.mjs "$dir/site/worker-wasm"
