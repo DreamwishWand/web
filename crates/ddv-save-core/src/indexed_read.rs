@@ -1135,11 +1135,11 @@ mod private_avatar {
             if !character_id(character)||!character_skin_id(skin){
                 return Err(denied("SKIN_SELECTOR_ID_OR_SUBTYPE"));
             }
-            let value=skin_receipt_value(&self.decoded,e,character,skin)?;
+            let (value,_)=skin_receipt_value(&self.decoded,e,character,skin)?;
             Ok(PrivateCharacterSkinReceipt{value})
         }
     }
-    fn skin_receipt_value(bytes:&[u8],e:WorkerEnvelope,character:i32,skin:i32)->CoreResult<Value>{
+    fn skin_receipt_value(bytes:&[u8],e:WorkerEnvelope,character:i32,skin:i32)->CoreResult<(Value,Option<Span>)>{
             let root=roots(bytes)?;
             let world=members(bytes,root.world,1024)?;
             let player=members(bytes,root.player,1024)?;
@@ -1182,7 +1182,90 @@ mod private_avatar {
                 "productReadAccepted":false,"writerAuthorized":false,"editedCopyAuthorized":false,
                 "applyAuthorized":false,"nativeV3Verified":false
             });
-            Ok(value)
+            Ok((value,old_span))
+    }
+
+
+    #[cfg(feature="semantic-writer-dev")]
+    pub struct PrivateCharacterSkinTarget{
+        scope:WorkerEnvelope,span:Span,old:i32,new:i32,
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    impl ProductSession{
+        /// Native private source candidate only. The independently approved
+        /// plan must bind the same-character catalog compatibility, rights
+        /// and active-condition closure before genuine V2. Saved stock/hash
+        /// matches are never a product authority grant.
+        pub fn mint_private_character_skin_target(&self,e:WorkerEnvelope,plan:&[u8])
+            ->CoreResult<PrivateCharacterSkinTarget>{
+            let b=&self.native_source_build;
+            if self.worker_bound||b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||
+               b.build_id!=EXACT||b.schema!=626||!b.externally_attested||
+               e.expected_revision!=0||e.expected_index_generation!=1||plan.is_empty()||plan.len()>8192{
+                return Err(denied("SKIN_PLAN_SCOPE"));
+            }
+            let p:Value=serde_json::from_slice(plan).map_err(|_|denied("SKIN_PLAN_JSON"))?;
+            if serde_json::to_vec(&p).map_err(|_|denied("SKIN_PLAN_JSON"))?.as_slice()!=plan{
+                return Err(denied("SKIN_PLAN_NONCANONICAL"));
+            }
+            let keys=["contract","fullVersion","sourceDecodedSha256","characterId","baseSha256",
+                "characterSha256","oldSkinId","newSkinId","oldTokenSha256","charactersSha256",
+                "listInventoriesSha256","oldStock","newStock"];
+            let m=p.as_object().ok_or(denied("SKIN_PLAN_OBJECT"))?;
+            if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||
+               p["contract"]!="wand.private.steam626.character-skin-exact1@1"||p["fullVersion"]!=EXACT||
+               p["sourceDecodedSha256"]!=hex(&e.expected_decoded_sha256){
+                return Err(denied("SKIN_PLAN_BINDING"));
+            }
+            let get=|k:&str|p[k].as_i64().and_then(|n|i32::try_from(n).ok()).ok_or(denied("SKIN_PLAN_INT32"));
+            let character=get("characterId")?;let old=get("oldSkinId")?;let new=get("newSkinId")?;
+            if !character_id(character)||!character_skin_id(old)||!character_skin_id(new)||old==new{
+                return Err(denied("SKIN_PLAN_SELECTORS"));
+            }
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            let bytes=&self.decoded;
+            let (r,span)=skin_receipt_value(bytes,e,character,new)?;
+            let c=&r["character"];let refs=&r["referenceReadSet"];let ns=&r["skinInventory"];
+            if c["currentSkinId"]!=old||c["requestedSkinId"]!=new||
+               p["baseSha256"]!=c["baseSha256"]||p["characterSha256"]!=c["characterSha256"]||
+               p["oldTokenSha256"]!=c["skinIdSha256"]||p["charactersSha256"]!=refs["charactersSha256"]||
+               p["listInventoriesSha256"]!=refs["listInventoriesSha256"]{
+                return Err(denied("SKIN_CHARACTER_CAS"));
+            }
+            let player=members(bytes,roots(bytes)?.player,1024)?;
+            let os=skin_inventory(bytes,required(&player,"ListInventories")?,old)?;
+            // Exact existing scoped route7 and both saved marker witnesses.
+            // The native definition join is external; no subtype/ID heuristic
+            // is treated as proof that these skins belong to this character.
+            let stock=|x:&Value|->CoreResult<Value>{
+                if x["inventoryId"]!=7||x["compatibleItemType"]!="ItemType_Skin"||
+                   x["savedAmount"].as_i64().unwrap_or(0)<=0||x["markerPresent"]!=true||
+                   !x["markerSha256"].is_string(){
+                    return Err(denied("SKIN_STOCK_ROUTE_MARKER"));
+                }
+                Ok(json!({"itemId":x["itemId"],"savedAmount":x["savedAmount"],
+                    "entrySha256":x["entrySha256"],"markerSha256":x["markerSha256"],
+                    "inventoryRecordSha256":x["inventoryRecordSha256"]}))
+            };
+            if p["oldStock"]!=stock(&os)?||p["newStock"]!=stock(ns)?{
+                return Err(denied("SKIN_STOCK_CAS"));
+            }
+            let span=span.ok_or(denied("SKIN_TARGET_SPAN"))?;
+            if int(bytes,span)?!=old{return Err(denied("SKIN_OLD_SCALAR_CAS"));}
+            Ok(PrivateCharacterSkinTarget{scope:e,span,old,new})
+        }
+        pub fn stage_private_character_skin(&self,e:WorkerEnvelope,t:&PrivateCharacterSkinTarget)
+            ->CoreResult<super::super::SemanticStageReceipt>{
+            let b=&self.native_source_build;
+            if self.worker_bound||b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||
+               b.build_id!=EXACT||b.schema!=626||!b.externally_attested||
+               e.contract!=t.scope.contract||e.session_id!=t.scope.session_id||
+               e.expected_revision!=t.scope.expected_revision||e.expected_index_generation!=t.scope.expected_index_generation||
+               e.expected_decoded_sha256!=t.scope.expected_decoded_sha256{
+                return Err(denied("SKIN_STAGE_SCOPE_CAS"));
+            }
+            self.commit_private_skin_scalar(e,t.span,t.old,t.new)
+        }
     }
 
     // ACT395: physical saved DialogueFlags are NOT the initialized runtime
@@ -1255,7 +1338,7 @@ mod private_avatar {
             let bytes=&self.decoded;let root=roots(bytes)?;
             // Existing Skin reader factored into a pure span projection. Both
             // old and new stock + all dependencies are in THIS mutex epoch.
-            let selected=skin_receipt_value(bytes,e,character,skin)?;
+            let (selected,_)=skin_receipt_value(bytes,e,character,skin)?;
             let old=selected["character"]["currentSkinId"].as_i64()
                 .and_then(|v|i32::try_from(v).ok()).ok_or(denied("SKIN_DEP_OLD_SKIN_ABSENT"))?;
             if !character_skin_id(old)||old==skin{return Err(denied("SKIN_DEP_DISTINCT_EXISTING_SKINS"));}
@@ -1800,6 +1883,53 @@ mod private_avatar {
         }
         fn dep(s:&ProductSession)->CoreResult<Value>{
             Ok(s.read_private_character_skin_dependencies(env(s.receipt()?),10000053,170000000,50000001)?.to_private_receipt_json())
+        }
+        #[cfg(feature="semantic-writer-dev")]
+        #[test]
+        fn private_character_skin_exact1_stock_and_epoch(){
+            let mut d=dep_doc();
+            let lists=d["Player"]["ListInventories"].as_object_mut().unwrap();
+            let mut activity=lists.remove("7").unwrap();activity["ID"]=json!(4);lists.insert("4".into(),activity);
+            let mut skin=lists.remove("42").unwrap();skin["ID"]=json!(7);lists.insert("7".into(),skin);
+            let s=open(d.clone());let e=env(s.receipt().unwrap());
+            let r=s.read_private_character_skin_dependencies(e,10000053,170000000,50000001).unwrap().to_private_receipt_json();
+            let selected=&r["selectedSkin"];let c=&selected["character"];let refs=&selected["referenceReadSet"];
+            let stock=|x:&Value|json!({"itemId":x["itemId"],"savedAmount":x["savedAmount"],
+                "entrySha256":x["entrySha256"],"markerSha256":x["markerSha256"],
+                "inventoryRecordSha256":x["inventoryRecordSha256"]});
+            let p=json!({"contract":"wand.private.steam626.character-skin-exact1@1","fullVersion":EXACT,
+                "sourceDecodedSha256":r["decodedSha256"],"characterId":10000053,"baseSha256":c["baseSha256"],
+                "characterSha256":c["characterSha256"],"oldSkinId":170000001,"newSkinId":170000000,
+                "oldTokenSha256":c["skinIdSha256"],"charactersSha256":refs["charactersSha256"],
+                "listInventoriesSha256":refs["listInventoriesSha256"],"oldStock":stock(&r["oldSkinInventory"]),
+                "newStock":stock(&selected["skinInventory"])});
+            let bytes=serde_json::to_vec(&p).unwrap();
+            for (k,v) in [("characterId",json!(10000002)),("oldSkinId",json!(170000000)),
+                ("newSkinId",json!(170100001)),("baseSha256",json!("bad")),("characterSha256",json!("bad")),
+                ("oldTokenSha256",json!("bad")),("sourceDecodedSha256",json!("bad")),("fullVersion",json!("bad")),
+                ("charactersSha256",json!("bad")),("listInventoriesSha256",json!("bad")),("rightsVerified",json!(true))]{
+                let mut q=p.clone();q[k]=v;assert!(s.mint_private_character_skin_target(e,&serde_json::to_vec(&q).unwrap()).is_err(),"{k}");
+            }
+            for k in ["oldStock","newStock"]{
+                let mut q=p.clone();q[k]["entrySha256"]=json!("bad");assert!(s.mint_private_character_skin_target(e,&serde_json::to_vec(&q).unwrap()).is_err());
+                let mut q=p.clone();q[k]["markerSha256"]=json!("bad");assert!(s.mint_private_character_skin_target(e,&serde_json::to_vec(&q).unwrap()).is_err());
+            }
+            let t=s.mint_private_character_skin_target(e,&bytes).unwrap();
+            let mut stage=e;stage.action=WorkerAction::Stage;
+            assert!(s.stage_private_character_skin(e,&t).is_err());
+            let other=open(d.clone());let mut f=env(other.receipt().unwrap());f.action=WorkerAction::Stage;
+            assert!(other.stage_private_character_skin(f,&t).is_err());
+            let mut stale=stage;stale.expected_revision+=1;assert!(s.stage_private_character_skin(stale,&t).is_err());
+            let receipt=s.stage_private_character_skin(stage,&t).unwrap();
+            assert_eq!(receipt.operation_count,1);assert_eq!(receipt.exact_field_changed_count,1);assert!(!receipt.product_writer_authorized);
+            assert!(s.stage_private_character_skin(stage,&t).is_err());
+            let mut now=env(s.receipt().unwrap());now.action=WorkerAction::Stage;s.undo_typed_semantic_batch(now).unwrap();
+            let mut now=env(s.receipt().unwrap());now.action=WorkerAction::ExportEditedCopy;
+            assert!(s.take_typed_semantic_decoded_once(now).is_err());now.action=WorkerAction::Stage;
+            assert!(s.stage_private_character_skin(now,&t).is_err());s.redo_typed_semantic_batch(now).unwrap();
+            let mut now=env(s.receipt().unwrap());now.action=WorkerAction::ExportEditedCopy;
+            let out=s.take_typed_semantic_decoded_once(now).unwrap();assert!(s.take_typed_semantic_decoded_once(now).is_err());
+            d["World"]["Characters"][1]["SkinID"]=json!(170000000);assert_eq!(out,serde_json::to_vec(&d).unwrap());
         }
         #[test]
         fn skin_dependency_same_epoch_physical_flags_and_active_refs(){
