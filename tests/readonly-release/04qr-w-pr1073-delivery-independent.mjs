@@ -37,7 +37,7 @@ const worker=`import {loadProtectedReadonlyRustWasm as load} from './product-rus
 let count=0;const orig=self.fetch.bind(self);self.fetch=(u,o)=>{count++;if(o.cache!=='no-store'||o.redirect!=='error'||o.mode!=='same-origin'||o.credentials!=='same-origin')throw Error('FETCH_POLICY');return orig(u,o)};
 self.onmessage=async()=>{let first;try{const r=await load();first={ok:true,abi:typeof r.WorkerWasmSource==='function',flags:[r.runtimeSignatureVerified,r.qaCandidate,r.productConsumerEnabled,r.writerAuthorized,r.nativeV3Verified,r.applyAuthorized],source:r.sourceHead}}catch(e){first={ok:false,error:String(e)}}let replay;try{await load();replay='ACCEPTED'}catch(e){replay=String(e)}self.postMessage({first,replay,count})};`;
 let current,network=[],server,browser;
-const makeManifest=(t,mut)=>{const m=JSON.parse(bytes['manifest.json']);if(t!==RELEASE_TUPLES[0]){m.source.repository=t.repository;m.delivery=releaseDelivery(t)}if(mut)mut(m);return Buffer.from(JSON.stringify(m))};
+const makeManifest=(t,mut)=>{const m=JSON.parse(bytes['manifest.json']);if(t!==RELEASE_TUPLES[0]){m.source.repository=t.repository;m.delivery={...releaseDelivery(t)}}if(mut)mut(m);return Buffer.from(JSON.stringify(m))};
 const csp="default-src 'none'; script-src 'self' blob: 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'";
 function response(req,res){
  const u=new URL(req.url,'https://'+req.headers.host),p=u.pathname;
