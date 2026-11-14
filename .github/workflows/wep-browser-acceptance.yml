@@ -24,7 +24,7 @@ on:
       - 'static/ddv/core/save/v1.25/progression-reference-index-v125.part*.jsfrag'
       - 'static/ddv/core/world/v1.25/progression-destination-veto-v125.cjs'
   pull_request:
-    branches: [dev/wep-v125]
+    branches: [dev/wep-v125, main]
     paths:
       - '.github/workflows/wep-browser-acceptance.yml'
       - 'scripts/wep-primary-job-browser-acceptance.mjs'
@@ -107,6 +107,7 @@ jobs:
         env:
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
           WEP_BASE_URL: http://127.0.0.1:4173/editor/world/
+          WEP_VERIFIED_TRANSFORM_ONLY: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' && '1' || '0' }}
         run: node scripts/wep-primary-job-browser-acceptance.mjs
 
       - name: Upload acceptance evidence
