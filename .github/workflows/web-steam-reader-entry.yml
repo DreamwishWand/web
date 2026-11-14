@@ -1,0 +1,57 @@
+name: WEB Steam Reader entry navigation
+on:
+  pull_request:
+    paths:
+      - 'src/routes/editor/+page.svelte'
+      - 'src/routes/rc-status/+page.svelte'
+      - 'tests/web-steam-reader-entry.test.mjs'
+      - 'scripts/web-steam-reader-entry-chrome.mjs'
+      - '.github/workflows/web-steam-reader-entry.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact navigation-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE="${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD^2)" = "$SOURCE"
+          BASE="$(git rev-parse HEAD^1)"
+          git merge-base --is-ancestor "${{ github.event.pull_request.base.sha }}" "$BASE"
+          printf '%s\n' '.github/workflows/web-steam-reader-entry.yml' 'scripts/web-steam-reader-entry-chrome.mjs' 'src/routes/editor/+page.svelte' 'src/routes/rc-status/+page.svelte' 'tests/web-steam-reader-entry.test.mjs' | sort >/tmp/reader-entry-expected
+          git diff --name-only "$BASE" HEAD | sort >/tmp/reader-entry-actual
+          diff -u /tmp/reader-entry-expected /tmp/reader-entry-actual
+      - run: node --test tests/web-steam-reader-entry.test.mjs
+      - run: npm run check
+      - name: Static Pages and actual Chrome navigation only
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          test -f build/editor/steam-reader/index.html
+          test -f build/editor/index.html
+          test -f build/rc-status/index.html
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          root="$(mktemp -d)"
+          ln -s "$PWD/build" "$root/web"
+          python3 -m http.server 4299 --bind 127.0.0.1 --directory "$root" >/tmp/reader-entry-http.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true; rm -rf "$root"' EXIT
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4299/web/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4299/web/ >/dev/null
+          node scripts/web-steam-reader-entry-chrome.mjs
