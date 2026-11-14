@@ -1150,3 +1150,158 @@ mod private_inventory_discovery_tests {
         let s=open(v);assert_eq!(s.find_one_existing_inventory_amount_target(envelope(s.receipt().unwrap())).unwrap_err().0,"AMOUNT_DISCOVERY_ENTRY_BOUND");
     }
 }
+
+
+// ACT416: native-only read witness for a one-item split between two existing
+// physical Backpack slots. No mutation, no capability mint, no general
+// container-zero permission and no second Save parser.
+#[cfg(not(target_arch="wasm32"))]
+impl ProductSession {
+    pub fn read_private_backpack_slot_pair(&self,e:WorkerEnvelope,source_slot:usize,destination_slot:usize)
+        ->CoreResult<serde_json::Value>{
+        build_check(self)?;
+        let st=self.lock()?;
+        indexed_read::validate_scope(self,&st,&e)?;
+        if source_slot==destination_slot||source_slot>=MAX_CONTAINER_SLOTS||destination_slot>=MAX_CONTAINER_SLOTS{
+            return Err(denied("BACKPACK_PAIR_DISTINCT_BOUNDED_SLOTS"));
+        }
+        let bytes=&self.decoded;
+        let player=indexed_read::roots(bytes)?.player;
+        let containers=object_field(bytes,player,"ContainerInventories")?;
+        // Exact canonical map key 0 and matching physical ID 0. No ListInventory
+        // lookup or caller-supplied container role, no noncanonical key alias.
+        let mut pos=containers.begin+1;let mut selected=None;let mut n=0usize;
+        while let Some((key,record))=next_object_member(bytes,containers,&mut pos)?{
+            n+=1;if n>4096{return Err(denied("BACKPACK_CONTAINER_MAP_BOUND"));}
+            let id=key.parse::<u32>().map_err(|_|denied("BACKPACK_CONTAINER_KEY"))?;
+            if key!=id.to_string()||number(bytes,object_field(bytes,record,"ID")?)?!=id as u64{
+                return Err(denied("BACKPACK_CONTAINER_ID_OR_KEY"));
+            }
+            if id==0{if selected.replace(record).is_some(){return Err(denied("BACKPACK_CONTAINER_DUPLICATE"));}}
+        }
+        let record=selected.ok_or(denied("BACKPACK_CONTAINER_ABSENT"))?;
+        raw_boolean_true(bytes,object_field(bytes,record,"BelongsToPlayer")?)?;
+        let parent=object_field(bytes,record,"ParentItemID")?;
+        if bytes.get(parent.begin..parent.end)!=Some(&b"null"[..]){
+            return Err(denied("BACKPACK_PARENT_NULL_REQUIRED"));
+        }
+        let block=object_field(bytes,record,"BlockMoveTo")?;
+        if bytes.get(block.begin..block.end)!=Some(&b"false"[..]){
+            return Err(denied("BACKPACK_BLOCK_MOVE_UNRESOLVED"));
+        }
+        let size=number(bytes,object_field(bytes,record,"Size")?)?;
+        let extra=number(bytes,object_field(bytes,record,"ExtraSize")?)?;
+        if size==0||size>MAX_CONTAINER_SLOTS as u64||extra>size{
+            return Err(denied("BACKPACK_CAPACITY_INVALID"));
+        }
+        let slots=object_field(bytes,record,"Inventory")?;
+        let count=physical_slots(bytes,slots)?;
+        if count!=size as usize||source_slot>=(size-extra) as usize||destination_slot>=(size-extra) as usize{
+            return Err(denied("BACKPACK_PHYSICAL_OR_USABLE_SLOT_MISMATCH"));
+        }
+        let source=array_element(bytes,slots,source_slot)?;
+        let destination=array_element(bytes,slots,destination_slot)?;
+        let item=saved_item_id(bytes,object_field(bytes,source,"ItemID")?)?;
+        if native_amount_type(item)?!=ExistingAmountItemType::ActivityItem||
+           !matches!((item%10_000_000)/100_000,2|11|16){
+            return Err(denied("BACKPACK_ACTIVITY_SUBTYPE_SCREEN"));
+        }
+        let old=saved_positive_amount(bytes,object_field(bytes,source,"Amount")?)?;
+        let bound=packaged_activity_bound(item)?;
+        if old>bound{return Err(denied("BACKPACK_PACKAGED_STACK_BOUND"));}
+        if number(bytes,object_field(bytes,destination,"ItemID")?)?!=0||
+           number(bytes,object_field(bytes,destination,"Amount")?)?!=0{
+            return Err(denied("BACKPACK_DESTINATION_INVALID_ZERO_REQUIRED"));
+        }
+        let ss=object_field(bytes,source,"State")?;
+        let ds=object_field(bytes,destination,"State")?;
+        for x in [ss,ds]{
+            if bytes.get(x.begin..x.end)!=Some(&b"null"[..]){
+                return Err(denied("BACKPACK_EXPLICIT_NULL_STATE_REQUIRED"));
+            }
+        }
+        let hex=|b:&[u8]|b.iter().map(|v|format!("{v:02x}")).collect::<String>();
+        let digest=|s:Span|hex(&sha(&bytes[s.begin..s.end]));
+        Ok(serde_json::json!({
+            "contract":"wand.native.private.backpack-slot-pair-read@1",
+            "platform":"SteamWindows","fullVersion":EXACT_STEAM,"schema":626,
+            "sessionId":hex(&e.session_id),"revision":e.expected_revision,
+            "indexGeneration":e.expected_index_generation,"decodedSha256":hex(&self.sha),
+            "container":{"namespace":"ContainerInventories","containerId":0,"physicalKey":"0",
+                "recordSha256":digest(record),"mapSha256":digest(containers),"slotsSha256":digest(slots),
+                "belongsToPlayer":true,"blockMoveTo":false,"parentItemId":null,"parentPresent":true,
+                "parentSha256":digest(parent),"size":size,"extraSize":extra,"physicalSlotCount":count,
+                "usableSlotCount":size-extra},
+            "source":{"slotIndex":source_slot,"itemId":item,"oldAmount":old,
+                "stateExplicitNull":true,"stateSha256":digest(ss),"entrySha256":digest(source)},
+            "destination":{"slotIndex":destination_slot,"itemId":0,"oldAmount":0,
+                "stateExplicitNull":true,"stateSha256":digest(ds),"entrySha256":digest(destination)},
+            "proposedQuantityDiagnosticOnly":1,"packagedStackBound":bound,
+            "effectiveStackBound":null,"effectiveStackBoundVerified":false,
+            "canonicalItemDbVerified":false,"rightsVerified":false,"variationVerified":false,
+            "nativeReferenceClosureVerified":false,"subscriberClosureVerified":false,
+            "fullDocumentRustValidated":true,"productReadAccepted":false,"writerAuthorized":false,
+            "editedCopyAuthorized":false,"applyAuthorized":false,"nativeV3Verified":false
+        }))
+    }
+}
+#[cfg(all(test,not(target_arch="wasm32")))]
+mod backpack_pair_tests{
+    use super::*;
+    use crate::{BuildIdentity,SessionReceipt};
+    use serde_json::{json,Value};
+    fn doc()->Value{json!({"GameInfo":{"Version":626},"World":{},"Player":{
+        "ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":{}}},
+        "ContainerInventories":{"0":{"ID":0,"Size":3,"ExtraSize":1,"BelongsToPlayer":true,
+            "BlockMoveTo":false,"ParentItemID":null,"Inventory":[
+            {"ItemID":30200001,"Amount":4,"State":null,"Unknown":"keep"},
+            {"ItemID":0,"Amount":0,"State":null},{"ItemID":0,"Amount":0,"State":null}]},
+            "1":{"ID":1,"Size":0,"Inventory":[]}}}})}
+    fn open(d:&Value)->ProductSession{ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),
+        BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+            build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap()}
+    fn env(r:SessionReceipt)->WorkerEnvelope{WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
+        session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,
+        expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+    fn read(s:&ProductSession)->CoreResult<Value>{s.read_private_backpack_slot_pair(env(s.receipt()?),0,1)}
+    #[test]
+    fn exact_physical_pair_same_epoch(){
+        let s=open(&doc());let r=s.receipt().unwrap();let v=read(&s).unwrap();
+        assert_eq!(v["container"]["namespace"],"ContainerInventories");
+        assert_eq!(v["container"]["containerId"],0);assert_eq!(v["container"]["usableSlotCount"],2);
+        assert_eq!(v["source"]["itemId"],30200001);assert_eq!(v["source"]["oldAmount"],4);
+        assert_eq!(v["destination"]["itemId"],0);assert_eq!(v["destination"]["oldAmount"],0);
+        assert_eq!(v["source"]["stateSha256"],v["destination"]["stateSha256"]);
+        assert_eq!(v["packagedStackBound"],50);assert!(v["effectiveStackBound"].is_null());
+        assert_eq!(v["writerAuthorized"],false);assert_eq!(v["rightsVerified"],false);
+        assert_eq!(s.receipt().unwrap(),r);
+        for slot in [0,2,256]{assert!(s.read_private_backpack_slot_pair(env(r),0,slot).is_err());}
+        assert!(s.read_private_backpack_slot_pair(env(r),1,0).is_err());
+        let mut x=env(r);x.expected_revision+=1;assert!(s.read_private_backpack_slot_pair(x,0,1).is_err());
+        assert!(open(&doc()).read_private_backpack_slot_pair(env(r),0,1).is_err());
+        s.close().unwrap();assert!(s.read_private_backpack_slot_pair(env(r),0,1).is_err());
+    }
+    #[test]
+    fn invalid_shapes_do_not_become_witnesses(){
+        for (field,value) in [("ID",json!(1)),("ParentItemID",json!(0)),("ParentItemID",json!(40000001)),
+            ("BelongsToPlayer",json!(false)),("BlockMoveTo",json!(true)),("Size",json!(4)),
+            ("ExtraSize",json!(2)),("ExtraSize",json!(4)),("Size",json!(257))]{
+            let mut d=doc();d["Player"]["ContainerInventories"]["0"][field]=value;
+            assert!(read(&open(&d)).is_err(),"{field}");
+        }
+        for (i,field,value) in [(0,"ItemID",json!(40000001)),(0,"ItemID",json!(30000001)),
+            (0,"Amount",json!(1)),(0,"Amount",json!(51)),(0,"Amount",json!("4")),
+            (0,"State",json!({})),(1,"State",json!({})),(1,"ItemID",json!(30200001)),(1,"Amount",json!(1))]{
+            let mut d=doc();d["Player"]["ContainerInventories"]["0"]["Inventory"][i][field]=value;
+            assert!(read(&open(&d)).is_err(),"{field}");
+        }
+        let mut d=doc();d["Player"]["ContainerInventories"]["0"]["Inventory"][1].as_object_mut().unwrap().remove("State");
+        assert!(read(&open(&d)).is_err());
+        let mut d=doc();let m=d["Player"]["ContainerInventories"].as_object_mut().unwrap();let x=m.remove("0").unwrap();m.insert("00".into(),x);
+        assert!(read(&open(&d)).is_err());
+        let mut d=doc();d["Player"]["ContainerInventories"].as_object_mut().unwrap().remove("0");
+        assert!(read(&open(&d)).is_err());
+        let mut d=doc();d["Player"]["ContainerInventories"]["0"]["Inventory"].as_array_mut().unwrap().pop();
+        assert!(read(&open(&d)).is_err());
+    }
+}
