@@ -250,3 +250,77 @@ test('local incarnation CAS rejects identical reincarnation and preserves legacy
  assert.match(ui,/operation:'remove',id,expectedEntry,expectedIncarnation/);
  assert.match(ui,/localEntryIncarnations,\.\.\.portable/);
 });
+
+
+test('QA544 independent incarnation exhaustion, multi-insert atomicity, malformed maps and stale tokens',async()=>{
+ const {transactNativePresetLibrary:tx}=await import('../src/lib/presets/native-local-file-import-contract.mjs');
+ const {NATIVE_PRESET_LIBRARY_KEY:key,createEmptyNativePresetLibrary,serializeNativePresetLibrary}=await import('../src/lib/presets/native-preset-runtime.js');
+ const a=backup({shareInfo:{Code:'synthetic'}}),b={...backup({deleted:true}),id:'native_q544_b'},c={...backup({root:false}),id:'native_q544_c'};
+ const limit=Number.MAX_SAFE_INTEGER;
+ let raw=serializeNativePresetLibrary({...createEmptyNativePresetLibrary(),backups:[a],localEntryIncarnations:{next:limit-1,entries:{[a.id]:7}},opaqueTop:{keep:true}}),writes=0,tail=Promise.resolve();
+ const storage={getItem:k=>{assert.equal(k,key);return raw},setItem:(k,v)=>{assert.equal(k,key);raw=v;writes++}};
+ const locks={request:(name,opts,fn)=>{assert.equal(opts.mode,'exclusive');const r=tail.then(fn);tail=r.catch(()=>{});return r;}};
+ const run=opts=>tx({storage,locks,...opts});
+ const remove=(entry,g)=>run({operation:'remove',id:entry.id,expectedEntry:JSON.stringify(entry),expectedIncarnation:g});
+ const before=raw;
+ await assert.rejects(run({operation:'merge',backups:[b,c]}),/INCARNATION_EXHAUSTED/);
+ assert.equal(raw,before);assert.equal(writes,0);
+ await run({operation:'merge',backups:[a,b]});
+ const accepted=raw,snap=JSON.parse(raw);
+ assert.deepEqual(snap.backups,[a,b]);assert.equal(snap.localEntryIncarnations.next,limit);
+ assert.deepEqual(snap.localEntryIncarnations.entries,{[a.id]:7,[b.id]:limit-1});assert.equal(writes,1);
+ await run({operation:'merge',backups:[b,a]});assert.equal(raw,accepted);assert.equal(writes,1);
+ for(const g of [null,undefined,'7',7.1,-1,Infinity,limit,limit-1,0]) {
+  await assert.rejects(remove(a,g),/EXPECTED_INCARNATION_REQUIRED|STALE_INCARNATION/);
+  assert.equal(raw,accepted);assert.equal(writes,1);
+ }
+ await assert.rejects(run({operation:'merge',backups:[c]}),/INCARNATION_EXHAUSTED/);
+ const invalid=[
+  {next:limit,entries:{[a.id]:7,[b.id]:7}},
+  {next:limit,entries:{[a.id]:7,[b.id]:-1}},
+  {next:limit+1,entries:{[a.id]:7,[b.id]:8}},
+  {next:limit,entries:{[a.id]:7,[b.id]:limit}},
+  {next:limit,entries:{[a.id]:7,[b.id]:8},extra:true},
+  {next:limit,entries:{[a.id]:7,missing:8}},
+  {next:limit,entries:[7,8]}
+ ];
+ for(const meta of invalid){
+  raw=JSON.stringify({...snap,localEntryIncarnations:meta});
+  const corrupt=raw;
+  await assert.rejects(run({operation:'read'}),/INCARNATION_INVALID/);
+  await assert.rejects(remove(a,7),/INCARNATION_INVALID/);
+  assert.equal(raw,corrupt);assert.equal(writes,1);
+ }
+ raw=accepted;await remove(a,7);await remove(b,limit-1);
+ assert.deepEqual(JSON.parse(raw).localEntryIncarnations,{next:limit,entries:{}});
+ const empty=raw;await assert.rejects(run({operation:'merge',backups:[a]}),/INCARNATION_EXHAUSTED/);
+ assert.equal(raw,empty);assert.equal(writes,3);
+ assert.deepEqual(JSON.parse(raw).opaqueTop,{keep:true});
+});
+test('QA544 independent repeated legacy-zero to positive reincarnation and portable metadata isolation',async()=>{
+ const {transactNativePresetLibrary:tx,inspectNativePresetLocalFileBytes:inspect}=await import('../src/lib/presets/native-local-file-import-contract.mjs');
+ const {NATIVE_PRESET_LIBRARY_KEY:key,createEmptyNativePresetLibrary,serializeNativePresetLibrary}=await import('../src/lib/presets/native-preset-runtime.js');
+ const a=backup({shareInfo:{Code:'synthetic'}}),b={...backup({deleted:true}),id:'native_q544_legacy_b'};
+ let raw=serializeNativePresetLibrary({...createEmptyNativePresetLibrary(),backups:[a,b]}),writes=0,tail=Promise.resolve();
+ const storage={getItem:k=>{assert.equal(k,key);return raw},setItem:(k,v)=>{assert.equal(k,key);raw=v;writes++}};
+ const locks={request:(n,o,f)=>{const r=tail.then(f);tail=r.catch(()=>{});return r;}};
+ const run=opts=>tx({storage,locks,...opts});
+ const remove=(entry,g)=>run({operation:'remove',id:entry.id,expectedEntry:JSON.stringify(entry),expectedIncarnation:g});
+ const first=raw;await run({operation:'merge',backups:[a,b]});assert.equal(raw,first);assert.equal(writes,0);
+ const stale=[0];let g=0;
+ for(let i=0;i<4;i++){
+  await remove(a,g);
+  const envelope={schema:NATIVE_PRESET_LIBRARY_SCHEMA,version:1,backups:[a],localEntryIncarnations:{next:9999,entries:{[a.id]:9998}}};
+  const reviewed=await inspect(bytes(envelope));assert.equal(reviewed.localFileReady,true);
+  await run({operation:'merge',backups:reviewed.backups.map(x=>x.backup)});
+  const snap=JSON.parse(raw);g=snap.localEntryIncarnations.entries[a.id];
+  assert.equal(g,i+1);assert.equal(snap.localEntryIncarnations.entries[b.id],0);
+  assert.deepEqual(snap.backups,[b,a]);
+  const saved=raw,w=writes;
+  for(const prior of stale){await assert.rejects(remove(a,prior),/STALE_INCARNATION/);assert.equal(raw,saved);assert.equal(writes,w);}
+  stale.push(g);
+ }
+ await remove(b,0);assert.deepEqual(JSON.parse(raw).backups,[a]);
+ await remove(a,g);assert.deepEqual(JSON.parse(raw).localEntryIncarnations,{next:5,entries:{}});
+ assert.equal(writes,10);
+});
