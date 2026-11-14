@@ -12,7 +12,7 @@
   export let verifiedLocalDevGate=false;
   let workflow=null,available=false,pending=false,error=false;
   let file=null,sourceSha='',buildConfirmed=false,newAmount='';
-  let chosen=0,focusTarget=null;
+  let chosen=0,focusTarget=null,fileInput=null,uiEpoch=0;
   let state={phase:'closed',targets:[],preview:null,editedCopy:null,backupVerified:false};
   $: words=localAmountCopy($locale);
   $: openable=available&&!pending&&file!==null&&
@@ -30,27 +30,42 @@
       workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true});
       available=true;state=workflow.snapshot();
     }catch{available=false}
-    return ()=>{const active=workflow;workflow=null;available=false;
+    return ()=>{++uiEpoch;const active=workflow;workflow=null;available=false;
       if(active)void active.close()};
   });
   function resetInput(){
     file=null;sourceSha='';buildConfirmed=false;newAmount='';chosen=0;
+    if(fileInput)fileInput.value='';
   }
-  function chooseFile(e){
-    const f=e.currentTarget.files?.[0]||null;
-    if(workflow)void workflow.close().then(r=>state=r);
-    resetInput();file=f;error=false;
+  async function chooseFile(e){
+    const input=e.currentTarget,f=input.files?.[0]||null;
+    input.value=''; // Native selection of the same original must work again.
+    if(!workflow||pending)return;
+    const active=workflow,token=++uiEpoch;
+    pending=true;error=false;resetInput();
+    // close() revokes the old workflow synchronously before its Worker await.
+    // Do not permit a new open or display an old result during that barrier.
+    try{
+      const closing=active.close();
+      state=active.snapshot();
+      const v=await closing;
+      if(workflow!==active||token!==uiEpoch)return;
+      state=v;file=f;
+    }catch{
+      if(workflow===active&&token===uiEpoch){error=true;state=active.snapshot()}
+    }finally{if(workflow===active&&token===uiEpoch)pending=false}
   }
   async function act(operation){
     if(!workflow||pending)return;
+    const active=workflow,token=uiEpoch;
     pending=true;error=false;
     try{
       const v=await operation();
-      state=v;
+      if(workflow===active&&token===uiEpoch)state=v;
     }catch{
-      error=true;state=workflow.snapshot();
+      if(workflow===active&&token===uiEpoch){error=true;state=active.snapshot()}
       // Never display a raw Rust/Worker stack or private paths/IDs.
-    }finally{pending=false}
+    }finally{if(workflow===active&&token===uiEpoch)pending=false}
   }
   const open=()=>act(()=>workflow.open({
     file,fullVersion:STEAM626_FULL_VERSION,originalSha256:sourceSha,
@@ -79,9 +94,17 @@
     }finally{if(workflow===active)pending=false}
   }
   async function close(){
-    await act(()=>workflow.close());
-    resetInput();
-    await tick();focusTarget?.focus();
+    if(!workflow||pending)return;
+    const active=workflow,token=++uiEpoch;
+    pending=true;error=false;resetInput();
+    try{
+      const closing=active.close();state=active.snapshot();
+      const v=await closing;
+      if(workflow!==active||token!==uiEpoch)return;
+      state=v;
+    }catch{if(workflow===active&&token===uiEpoch){error=true;state=active.snapshot()}}
+    finally{if(workflow===active&&token===uiEpoch)pending=false}
+    await tick();if(workflow===active&&token===uiEpoch)focusTarget?.focus();
   }
 </script>
 
@@ -96,7 +119,7 @@
       <div class="fields">
         <label for="dev-amount-p1g">{words.file}</label>
         <input id="dev-amount-p1g" type="file" accept=".p1g,application/octet-stream"
-          on:change={chooseFile} disabled={pending}/>
+          bind:this={fileInput} on:change={chooseFile} disabled={pending}/>
         <label for="dev-amount-sha">{words.sha}</label>
         <input id="dev-amount-sha" type="text" maxlength="64" pattern="[a-f0-9]{64}"
           spellcheck="false" autocapitalize="off" autocomplete="off"

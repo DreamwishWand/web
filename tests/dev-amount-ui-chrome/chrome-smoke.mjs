@@ -3,7 +3,7 @@
 // it is not committed into src/routes and cannot be on protected Pages.
 // This checks UI behavior/geometry, NOT PR929 real Rust or real owner P1G.
 import {spawn,spawnSync} from 'node:child_process';
-import {mkdtemp,readFile,rm,mkdir,readdir} from 'node:fs/promises';
+import {mkdtemp,readFile,rm,mkdir,readdir,writeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
@@ -87,6 +87,9 @@ const script=String.raw`
  data.items.add(new File([new Uint8Array(64)],'synthetic-ci.p1g',
    {type:'application/octet-stream'}));
  chooser.files=data.files;chooser.dispatchEvent(new Event('change',{bubbles:true}));
+ await new Promise(r=>setTimeout(r,0));
+ need(chooser.disabled&&chooser.value===''&&document.querySelector('[data-dev-open]').disabled,'SELECTION_CLOSE_BARRIER');
+ await wait(()=>!chooser.disabled,'SELECTION_CLOSE_SETTLED');
  const sha=document.querySelector('#dev-amount-sha');
  sha.value='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b';sha.dispatchEvent(new Event('input',{bubbles:true}));
  const ck=document.querySelector('.check input[type=checkbox]');
@@ -123,12 +126,14 @@ const script=String.raw`
  await wait(()=>ed.isConnected&&!ed.disabled&&!document.querySelector('[data-dev-error]'),'EDITED_DOWNLOAD_SETTLED');
  const close=await wait(()=>document.querySelector('[data-dev-close]:not([disabled])'),'CLOSE_READY');
  close.click();
- await wait(()=>!document.querySelector('[data-dev-edited-copy]'),'CLOSE_REVOKED');
- need(document.activeElement===summary,'FOCUS_RESTORED');
+ await wait(()=>!document.querySelector('[data-dev-edited-copy]')&&!chooser.disabled,'CLOSE_REVOKED');
+ await wait(()=>document.activeElement===summary,'FOCUS_RESTORED');
+ need(chooser.value==='','NATIVE_FILE_INPUT_CLEARED');
  need(!document.querySelector('[data-dev-download-backup],[data-dev-download-edited]'),'CLOSED_NO_OUTPUT');
  // Same UI, fresh explicit selection: numeric zero InventoryID is a valid
  // exact Furniture descriptor, not a falsey/missing target.
  chooser.files=data.files;chooser.dispatchEvent(new Event('change',{bubbles:true}));
+ await wait(()=>!chooser.disabled,'ZERO_SELECTION_CLOSE_SETTLED');
  sha.value='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b';sha.dispatchEvent(new Event('input',{bubbles:true}));
  ck.checked=true;ck.dispatchEvent(new Event('change',{bubbles:true}));
  (await wait(()=>document.querySelector('[data-dev-open]:not([disabled])'),'ZERO_OPEN_READY')).click();
@@ -146,7 +151,7 @@ const script=String.raw`
  (await wait(()=>document.querySelector('[data-dev-export]'),'ZERO_EXPORT')).click();
  await wait(()=>document.querySelector('[data-dev-edited-copy]'),'ZERO_COPY');
  (await wait(()=>document.querySelector('[data-dev-close]:not([disabled])'),'ZERO_CLOSE')).click();
- await wait(()=>!document.querySelector('[data-dev-edited-copy]'),'ZERO_CLOSE_REVOKED');
+ await wait(()=>!document.querySelector('[data-dev-edited-copy]')&&!chooser.disabled,'ZERO_CLOSE_REVOKED');
  // Actual OPFS re-read and causal corruption / stale check (synthetic bytes).
  const m=await import('/src/lib/dev/local-amount-worker-adapter.mjs');
  const directory=await navigator.storage.getDirectory(),name='download-probe.p1g';
@@ -203,6 +208,34 @@ try{
     evaluation.exceptionDetails.text).slice(0,800));
  const result=evaluation.result?.value;
  assert.equal(result?.pass,true,'DEV_UI_CHROME_PASS');
+ // Native Chrome file chooser reselects the exact same OS file twice.
+ // The mock adapter has a delayed Close, so each selection must await it.
+ const nativeFile=join(profile,'synthetic-ci.p1g');await writeFile(nativeFile,Buffer.alloc(64));
+ await rpc('DOM.enable');
+ const {root:doc}=await rpc('DOM.getDocument');
+ const {nodeId}=await rpc('DOM.querySelector',{nodeId:doc.nodeId,selector:'#dev-amount-p1g'});
+ assert.ok(nodeId,'NATIVE_FILE_INPUT_NODE');
+ for(let round=0;round<2;round++){
+  await rpc('DOM.setFileInputFiles',{nodeId,files:[nativeFile]});
+  const observed=await rpc('Runtime.evaluate',{expression:`(async()=>{
+   const input=document.querySelector('#dev-amount-p1g');
+   const until=async fn=>{for(let n=0;n<250;n++){if(fn())return true;await new Promise(r=>setTimeout(r,20))}return false};
+   if(!await until(()=>input.disabled))throw Error('NATIVE_CLOSE_BARRIER_NOT_OBSERVED');
+   if(input.value!==''||!document.querySelector('[data-dev-open]').disabled)throw Error('NATIVE_OLD_SELECTION_RETAINED');
+   if(!await until(()=>!input.disabled))throw Error('NATIVE_CLOSE_NOT_SETTLED');
+   const sha=document.querySelector('#dev-amount-sha');sha.value='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b';sha.dispatchEvent(new Event('input',{bubbles:true}));
+   const ck=document.querySelector('.check input[type=checkbox]');ck.checked=true;ck.dispatchEvent(new Event('change',{bubbles:true}));
+   if(!await until(()=>document.querySelector('[data-dev-open]:not([disabled])')))throw Error('NATIVE_RESELECT_OPEN_NOT_READY');
+   document.querySelector('[data-dev-open]').click();
+   if(!await until(()=>document.querySelector('[data-dev-backup]:not([disabled])')))throw Error('NATIVE_RESELECT_OPEN_FAILED');
+   document.querySelector('[data-dev-close]').click();
+   if(!await until(()=>document.querySelector('[data-dev-open]')&&!input.disabled))throw Error('NATIVE_CLOSE_FAILED');
+   return input.value===''&&!document.querySelector('[data-backup-verified],[data-dev-preview],[data-dev-edited-copy]');
+  })()`,awaitPromise:true,returnByValue:true});
+  if(observed.exceptionDetails)throw Error('NATIVE_RESELECT_'+String(observed.exceptionDetails.exception?.description||observed.exceptionDetails.text));
+  assert.equal(observed.result?.value,true,'NATIVE_RESELECT_AND_CLOSE_'+round);
+ }
+ console.log('08WEB_DEV_NATIVE_SAME_FILE_RESELECT_DELAYED_CLOSE_BARRIER_PASS');
  assert.equal(result.syntheticMockWorkerOnly,true);
  assert.equal(result.realOwnerPrivateP1g,false);
  assert.ok(network.every(r=>r.method==='GET'),'NO_POST_PUT_UPLOAD');
