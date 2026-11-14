@@ -1,0 +1,74 @@
+name: 04 QR-W PR1082 repaired byte independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1082-repair-proof.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          test "$(git rev-parse HEAD^)" = '71ae25720019e266ce447f85f140a139187f9d79'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/04qr-w-pr1082-repair-proof.yml'
+          test "$(git diff --name-only ddfb8c107c3aab0293bb953e53811e1d93e9382f '71ae25720019e266ce447f85f140a139187f9d79' | wc -l)" = 7
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual byte boundary
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4482 --strictPort >/tmp/qrw1082.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4482/moodboards/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4482/moodboards/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          import {createEmptyMoodboardDocument,createMoodboard,serializeMoodboardDocument,MOODBOARD_STORAGE_KEY as P,MOODBOARD_BACKUP_KEY as B} from './src/lib/moodboards/store.js';
+          const t='2026-11-14T00:00:00.000Z';
+          const raw=title=>serializeMoodboardDocument(createMoodboard(createEmptyMoodboardDocument(t),{title},{now:t,idFactory:()=> 'qa_byte_boundary'}).document);
+          const good=Buffer.from(raw('QA é 日本語 �'));
+          const malformed=Buffer.from(raw('QA X'));malformed[malformed.indexOf(Buffer.from('QA X'))+3]=0xff;
+          assert.throws(()=>new TextDecoder('utf-8',{fatal:true}).decode(malformed));
+          const bom=Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),good]);
+          const duplicate=Buffer.from(raw('QA duplicate').replace('"version": 2','"version": 2, "version": 2'));
+          const at=malformed.indexOf(0xff);assert.ok(at>=0);
+          const mutate=b=>Buffer.concat([malformed.subarray(0,at),Buffer.from(b),malformed.subarray(at+1)]);
+          const extended=[['overlong4',mutate([0xf0,0x80,0x80,0xaf]),false],['illegal-f5',mutate([0xf5,0x80,0x80,0x80]),false],['utf16le',Buffer.concat([Buffer.from([0xff,0xfe]),Buffer.from(raw('QA X'),'utf16le')]),false],['empty',Buffer.alloc(0),false]];
+          const url='http://127.0.0.1:4482/moodboards/';
+          const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const outcomes=[];
+          try{
+           for(const [label,bytes,allow] of [['valid_utf8',good,true],['malformed_utf8',malformed,false],['bom_prefixed',bom,false],['duplicate_json',duplicate,false],...extended]){
+            const ctx=await browser.newContext({serviceWorkers:'block',acceptDownloads:true});
+            const p=await ctx.newPage(),errors=[],unsafe=[];
+            p.on('pageerror',e=>errors.push(String(e)));ctx.on('request',r=>{if(new URL(r.url()).origin!=='http://127.0.0.1:4482'||!['GET','HEAD'].includes(r.method()))unsafe.push(r.url())});
+            await p.goto(url,{waitUntil:'networkidle'});await p.locator('[data-moodboard-import-file]').waitFor({state:'attached'});
+            const read=()=>p.evaluate(([a,b])=>[localStorage.getItem(a),localStorage.getItem(b)],[P,B]);
+            assert.deepEqual(await read(),[null,null]);
+            await p.locator('[data-moodboard-import-file]').setInputFiles({name:label+'.json',mimeType:'application/json',buffer:bytes});
+            await p.waitForFunction(()=>document.querySelector('.moodboards-page .status[role=status]')?.textContent?.trim());
+            const after=await read(),status=await p.locator('.moodboards-page .status[role=status]').textContent();
+            const accepted=after[0]!==null;
+            if(accepted){const dl=p.waitForEvent('download');await p.locator('[data-moodboard-export]').click();const d=await dl;const stream=await d.createReadStream();const chunks=[];for await(const c of stream)chunks.push(c);const exported=Buffer.concat(chunks);assert.equal(exported.toString(),after[0]);if(allow)assert.deepEqual(exported,bytes);console.log('QRW1082_ACCEPTED_BYTES',label,'input',bytes.length,'exported',exported.length,'equal',bytes.equals(exported),'title',JSON.parse(after[0]).boards[0].title);}
+            console.log('QRW1082_ACTUAL_FILE_CASE',JSON.stringify({label,allow,accepted,status,backup:after[1],errorCount:errors.length,unsafeCount:unsafe.length}));
+            assert.equal(after[1],null);assert.deepEqual(errors,[]);assert.deepEqual(unsafe,[]);
+            if(allow)assert.equal(after[0],good.toString());
+            outcomes.push({label,allow,accepted});
+            await ctx.close();
+           }
+           assert.deepEqual(outcomes.filter(x=>x.allow!==x.accepted),[],'Actual file-byte boundary accepted lossy/noncanonical bytes');
+           console.log('QRW1082_FILE_BYTE_BOUNDARY_PASS');
+          }finally{await browser.close()}
+          
+          JS
