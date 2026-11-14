@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory() as td:
   def deny(over):
    global neg
    r=run(cur,'--inventory-amount-restore-review-only',{**e,**over});assert r.returncode!=0 and not r.stdout,(over,r.returncode,r.stdout);neg+=1
-  for k,val in [('WAND_LOCAL_RESTORE_BACKUP_SHA256','f'*64),('WAND_LOCAL_RESTORE_BACKUP_SOURCE_SHA256','f'*64),('WAND_LOCAL_RESTORE_BACKUP_ENTRY_SHA256','f'*64),('WAND_LOCAL_RESTORE_CURRENT_ENTRY_SHA256','f'*64),('WAND_LOCAL_RESTORE_EXPECTED_CURRENT_AMOUNT','0'+str(old)),('WAND_LOCAL_CANONICAL_ITEM_ID','40000054'),('WAND_LOCAL_INVENTORY_ID','00'),('WAND_LOCAL_INSTALLED_STEAM_FULLVERSION','9A239D3DB569756D'),('WAND_LOCAL_DECODED_SHA256','f'*64')]:deny({k:val})
+  for k,val in [('WAND_LOCAL_RESTORE_BACKUP_SHA256','f'*64),('WAND_LOCAL_RESTORE_BACKUP_SOURCE_SHA256','f'*64),('WAND_LOCAL_RESTORE_BACKUP_ENTRY_SHA256','f'*64),('WAND_LOCAL_RESTORE_CURRENT_ENTRY_SHA256','f'*64),('WAND_LOCAL_RESTORE_EXPECTED_CURRENT_AMOUNT','0'+str(old)),('WAND_LOCAL_CANONICAL_ITEM_ID','40000054'),('WAND_LOCAL_INVENTORY_ID','00'),('WAND_LOCAL_INSTALLED_STEAM_FULLVERSION','9A239D3DB569756D'),('WAND_LOCAL_DECODED_SHA256','f'*64)]:deny({k:val})
   for label,content in [('noncanonical',b+b' '),('invalid',b'{}'),('oversize',b' '*1048577)]:
    bad=pathlib.Path(td)/label;bad.write_bytes(content);deny({'WAND_LOCAL_RESTORE_BACKUP_PATH':str(bad),'WAND_LOCAL_RESTORE_BACKUP_SHA256':sha(content)})
   link=pathlib.Path(td)/'link';link.symlink_to(p);fifo=pathlib.Path(td)/'fifo';os.mkfifo(fifo)
