@@ -29,7 +29,7 @@ fn required(k:&str)->String{
 }
 fn main(){
  #[cfg(feature="semantic-writer-dev")]
- if matches!(env::args().nth(1).as_deref(),Some("--switch624-road-rm01-archive-only"|"--switch624-fence-fe01-archive-only"|"--switch624-fence-frp01-archive-only"|"--switch624-fence-fm01-archive-only")){
+ if matches!(env::args().nth(1).as_deref(),Some("--switch624-road-rm01-archive-only"|"--switch624-fence-fe01-archive-only"|"--switch624-fence-frp01-archive-only"|"--switch624-fence-fm01-archive-only"|"--switch624-road-r02-native-q4-archive-only")){
    run_switch624_archive_operation();
    return;
  }
@@ -329,6 +329,7 @@ fn run_switch624_archive_operation(){
  let fence=mode=="--switch624-fence-fe01-archive-only";
  let frp=mode=="--switch624-fence-frp01-archive-only";
  let fm=mode=="--switch624-fence-fm01-archive-only";
+ let r02=mode=="--switch624-road-r02-native-q4-archive-only";
  if env::args().len()!=2||required("WAND_LOCAL_INSTALLED_SWITCH_BID")!="52BD625D9B4E0053"{
    deny("RM01_EXACT_SWITCH624_REQUIRED");
  }
@@ -337,10 +338,10 @@ fn run_switch624_archive_operation(){
     .unwrap_or_else(|_|deny("RM01_ORIGINAL_SIZE"));
  if original==[0;32]||size==0||size>128*1024*1024{deny("RM01_ORIGINAL_ATTESTATION");}
  let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
- let plan=required(if frp{"WAND_LOCAL_FRP01_CANONICAL_PLAN"}else if fm{"WAND_LOCAL_FM01_CANONICAL_PLAN"}
+ let plan=required(if r02{"WAND_LOCAL_R02_CANONICAL_PLAN"}else if frp{"WAND_LOCAL_FRP01_CANONICAL_PLAN"}else if fm{"WAND_LOCAL_FM01_CANONICAL_PLAN"}
     else if fence{"WAND_LOCAL_FE01_CANONICAL_PLAN"}else{"WAND_LOCAL_RM01_CANONICAL_PLAN"});
  if plan.len()>16384{deny("RM01_PLAN_BOUNDS");}
- let plan_sha=hex32(&required(if frp{"WAND_LOCAL_FRP01_PLAN_SHA256"}else if fm{"WAND_LOCAL_FM01_PLAN_SHA256"}
+ let plan_sha=hex32(&required(if r02{"WAND_LOCAL_R02_PLAN_SHA256"}else if frp{"WAND_LOCAL_FRP01_PLAN_SHA256"}else if fm{"WAND_LOCAL_FM01_PLAN_SHA256"}
     else if fence{"WAND_LOCAL_FE01_PLAN_SHA256"}else{"WAND_LOCAL_RM01_PLAN_SHA256"}));
  if plan_sha==[0;32]||Sha256::digest(plan.as_bytes()).as_slice()!=plan_sha{deny("RM01_PLAN_SHA_CAS");}
  let mut input=Vec::new();
@@ -359,12 +360,13 @@ fn run_switch624_archive_operation(){
  let scope=|rev,gen,action|WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
     session_id:before.session_id,expected_revision:rev,expected_index_generation:gen,
     expected_decoded_sha256:expected,action};
- let stage=|e|if frp{session.stage_switch624_fence_frp01_archive(e,plan.as_bytes())}
+ let stage=|e|if r02{session.stage_switch624_road_r02_native_q4_archive(e,plan.as_bytes())}
+     else if frp{session.stage_switch624_fence_frp01_archive(e,plan.as_bytes())}
      else if fm{session.stage_switch624_fence_fm01_archive(e,plan.as_bytes())}
      else if fence{session.stage_switch624_fence_fe01_archive(e,plan.as_bytes())}
      else{session.stage_switch624_road_rm01_archive(e,plan.as_bytes())};
  let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|_|deny("RM01_STAGE"));
- let count=if fence||frp{7}else{8};
+ let count=if r02{6}else if fence||frp{7}else{8};
  if staged.operation_count!=count||staged.exact_field_changed_count!=count||!staged.applied||
     staged.product_writer_authorized||staged.original_overwrite_authorized||!staged.semantic_changed{
    deny("RM01_EXACT_STAGE");
@@ -379,7 +381,8 @@ fn run_switch624_archive_operation(){
     session.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).is_ok(){deny("RM01_EXPORT_REPLAY_OR_SHA");}
  io::stdout().write_all(&out).unwrap_or_else(|_|deny("RM01_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("RM01_PIPE_FLUSH"));
- if frp{eprintln!("PRIVATE_V2_SWITCH624_FRP01_ARCHIVE_EXACT7_PIPE_PASS");}
+ if r02{eprintln!("PRIVATE_V2_SWITCH624_R02_NATIVE_Q4_EXACT6_PIPE_PASS");}
+ else if frp{eprintln!("PRIVATE_V2_SWITCH624_FRP01_ARCHIVE_EXACT7_PIPE_PASS");}
  else if fm{eprintln!("PRIVATE_V2_SWITCH624_FM01_ARCHIVE_PRESERVE8_PIPE_PASS");}
  else if fence{eprintln!("PRIVATE_V2_SWITCH624_FE01_ARCHIVE_PRESERVE7_PIPE_PASS");}
  else{eprintln!("PRIVATE_V2_SWITCH624_RM01_ARCHIVE_EXACT8_PIPE_PASS");}

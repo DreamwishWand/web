@@ -100,14 +100,16 @@ fn collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
     let entry=object_field(b,object_field(b,route,"Inventory")?,&ROAD.to_string())?;
     if p["inventoryEntrySha256"]!=digest(raw(b,entry)?){return Err(denied("RM01_INVENTORY_ENTRY_CAS"));}
     let debit=validate_old_amount(b,object_field(b,entry,"Amount")?,amount,amount-3)?;
-    let mut insert=Vec::new();
-    for o in &plan[2..]{let id=uint(&o["ID"])?;insert.extend_from_slice(format!(",\"{id}\":").as_bytes());insert.extend_from_slice(&enc(o)?);}
-    insert.push(b'}');
-    let close=Span{begin:objs.end-1,end:objs.end};
     Ok(vec![repl(b,object_field(b,ms,"X")?,enc(&plan[1]["X"])?)?,
         repl(b,object_field(b,ms,"Y")?,enc(&plan[1]["Y"])?)?,
         repl(b,object_field(b,ms,"State")?,enc(&plan[1]["State"])?)?,
-        repl(b,close,insert)?,repl(b,counter,n3.to_string().into_bytes())?,debit])
+        append_road_objects(b,objs,&plan[2..])?,repl(b,counter,n3.to_string().into_bytes())?,debit])
+}
+fn append_road_objects(b:&[u8],objs:Span,records:&[Value])->CoreResult<Replacement>{
+    let mut insert=Vec::new();
+    for o in records{let id=uint(&o["ID"])?;insert.extend_from_slice(format!(",\"{id}\":").as_bytes());insert.extend_from_slice(&enc(o)?);}
+    insert.push(b'}');
+    repl(b,Span{begin:objs.end-1,end:objs.end},insert)
 }
 impl ProductSession{
     pub fn stage_switch624_road_rm01_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
@@ -182,6 +184,156 @@ mod tests{
                 2=>x["World"]["GridCollection"]["Grids"]["9"]["Objects"]["11"]["State"]=json!({}),
                 _=>x["World"]["GridCollection"]["Grids"]["9"]["Objects"]["12"]["ID"]=json!(50)}
             let t=open(&x);assert!(t.stage_switch624_road_rm01_archive(scope(&t,WorkerAction::Stage),&enc(&plan(&x)).unwrap()).is_err());
+        }
+        assert_eq!(s.receipt().unwrap().revision,0);
+    }
+}
+
+// ACT704: R02 is a distinct Native dense q4 ADD, not a direct layout add.
+// Reuse the exact-build native session, indexed scanner, lexical append and
+// atomic ledger. No generic road cost, refund, or new topology compiler.
+const R02_CONTRACT:&str="wand.private.switch624.road-r02-native-q4-archive@1";
+fn r02_plan_parse(bytes:&[u8])->CoreResult<Value>{
+    if bytes.is_empty()||bytes.len()>16384{return Err(denied("R02_PLAN_BOUNDS"));}
+    let v:Value=serde_json::from_slice(bytes).map_err(|_|denied("R02_PLAN_JSON"))?;
+    if enc(&v)?.as_slice()!=bytes{return Err(denied("R02_PLAN_NONCANONICAL"));}
+    let keys=["contract","sourceDecodedSha256","gridId","expectedNextId","expectedAmount",
+        "gridSha256","inventoryEntrySha256","objects"];
+    let m=v.as_object().ok_or(denied("R02_PLAN_OBJECT"))?;
+    if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||v["contract"]!=R02_CONTRACT{
+        return Err(denied("R02_PLAN_FIELDS"));
+    }
+    Ok(v)
+}
+fn r02_collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
+    let b=&s.decoded;
+    if p["sourceDecodedSha256"]!=digest(b){return Err(denied("R02_SOURCE_SHA_CAS"));}
+    let g=uint(&p["gridId"])?;let next=uint(&p["expectedNextId"])?;let amount=uint(&p["expectedAmount"])?;
+    let n4=next.checked_add(4).ok_or(denied("R02_COUNTER_OVERFLOW"))?;
+    if g==0||next==0||n4>i32::MAX as u32||amount<=4||amount as u64>MAX_CONSERVATIVE_AMOUNT{
+        return Err(denied("R02_TARGET_OR_COST_BOUNDS"));
+    }
+    let plan=p["objects"].as_array().filter(|a|a.len()==4).ok_or(denied("R02_PLAN_OBJECTS"))?;
+    let x=uint(&plan[0]["X"])?;let y=uint(&plan[0]["Y"])?;
+    let x4=x.checked_add(4).filter(|n|*n<=i32::MAX as u32).ok_or(denied("R02_COORD_BOUND"))?;
+    let y4=y.checked_add(4).filter(|n|*n<=i32::MAX as u32).ok_or(denied("R02_COORD_BOUND"))?;
+    // Observed exact Native allocation order; direct layout plan is separate.
+    let wanted=[obj(next,x,y,true),obj(next+1,x4,y4,true),obj(next+2,x4,y,true),obj(next+3,x,y4,true)];
+    if plan.as_slice()!=wanted.as_slice(){return Err(denied("R02_EXACT_PLAN_SHAPE"));}
+    let roots=indexed_read::roots(b)?;
+    let gc=object_field(b,roots.world,"GridCollection")?;
+    let grid=object_field(b,object_field(b,gc,"Grids")?,&g.to_string())?;
+    if p["gridSha256"]!=digest(raw(b,grid)?)||num(b,grid,"ID")?!=g||
+       num(b,grid,"TessellationFactor")?!=2||val(b,object_field(b,grid,"GridDefaultLayoutPath")?)?!=""{
+        return Err(denied("R02_GRID_CAS_OR_LAYOUT"));
+    }
+    let diffs=object_field(b,gc,"DiffGrids")?;
+    let mut pos=diffs.begin+1;let mut count=0;
+    while let Some((k,_))=next_object_member(b,diffs,&mut pos)?{
+        count+=1;if count>50000||k==g.to_string(){return Err(denied("R02_OVERLAY"));}
+    }
+    let counter=object_field(b,grid,"NextGridObjectID")?;
+    if number(b,counter)?!=next as u64{return Err(denied("R02_COUNTER_CAS"));}
+    let objs=object_field(b,grid,"Objects")?;
+    let mut pos=objs.begin+1;let mut count=0usize;
+    while let Some((k,entry))=next_object_member(b,objs,&mut pos)?{
+        count+=1;if count>250000{return Err(denied("R02_OBJECT_BOUND"));}
+        let id=k.parse::<u32>().map_err(|_|denied("R02_OBJECT_KEY"))?;
+        if id==0||id.to_string()!=k||id>=next||num(b,entry,"ID")?!=id{return Err(denied("R02_OBJECT_ID_OR_COUNTER"));}
+        let ox=val(b,object_field(b,entry,"X")?)?;let oy=val(b,object_field(b,entry,"Y")?)?;
+        let ox=ox.as_f64().filter(|v|v.is_finite()).ok_or(denied("R02_COORD_TOKEN"))?;
+        let oy=oy.as_f64().filter(|v|v.is_finite()).ok_or(denied("R02_COORD_TOKEN"))?;
+        if [(x,y),(x4,y4),(x4,y),(x,y4)].iter().any(|(a,c)|ox==*a as f64&&oy==*c as f64){
+            return Err(denied("R02_OCCUPIED_ANCHOR"));
+        }
+    }
+    // This scoped archived input is a nonempty direct grid. The external
+    // exact-source readset must independently close floor/footprint/rights.
+    if count==0{return Err(denied("R02_EMPTY_GRID_UNSUPPORTED"));}
+    let route=object_field(b,object_field(b,roots.player,"ListInventories")?,"0")?;
+    inventory_route(b,route,0,ROAD,"ItemType_Furniture")?;
+    let entry=object_field(b,object_field(b,route,"Inventory")?,&ROAD.to_string())?;
+    if p["inventoryEntrySha256"]!=digest(raw(b,entry)?){return Err(denied("R02_INVENTORY_ENTRY_CAS"));}
+    let debit=validate_old_amount(b,object_field(b,entry,"Amount")?,amount,amount-4)?;
+    Ok(vec![append_road_objects(b,objs,plan)?,repl(b,counter,n4.to_string().into_bytes())?,debit])
+}
+impl ProductSession{
+    pub fn stage_switch624_road_r02_native_q4_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        let build=&self.native_source_build;
+        if build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||build.build_id!=BID||
+           build.schema!=624||!build.externally_attested||self.worker_bound{
+            return Err(denied("R02_EXACT_SWITCH624_REQUIRED"));
+        }
+        let p=r02_plan_parse(plan)?;
+        let edits=r02_collect(self,&p)?;
+        self.commit_semantic_replacements(e,edits,6)
+    }
+}
+#[cfg(test)]
+mod r02_tests{
+    use super::*;
+    fn fixture()->(Value,Value){
+        let d=json!({"GameInfo":{"Version":624},"World":{"Ambient":{"keep":7},
+        "GridCollection":{"DiffGrids":{},"Grids":{"9":{"ID":9,"TessellationFactor":2,
+        "GridDefaultLayoutPath":"","NextGridObjectID":50,"Objects":{"12":{"ID":12,"ItemID":40000001,
+        "X":80,"Y":90,"Unknown":{"x":7}}}}}}},
+        "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture",
+        "CompatibleFurnitureTypes":{"List":["FurnitureItemType_GroundAlteration"]},
+        "Inventory":{"40100068":{"Amount":30,"Marker":"Keep","Opaque":9}}}}}});
+        let mut p=json!({"contract":R02_CONTRACT,"gridId":9,"expectedNextId":50,"expectedAmount":30,
+            "objects":[obj(50,40,20,true),obj(51,44,24,true),obj(52,44,20,true),obj(53,40,24,true)]});
+        bind(&d,&mut p);(d,p)
+    }
+    fn bind(d:&Value,p:&mut Value){
+        p["sourceDecodedSha256"]=json!(digest(&enc(d).unwrap()));
+        p["gridSha256"]=json!(digest(&enc(&d["World"]["GridCollection"]["Grids"]["9"]).unwrap()));
+        p["inventoryEntrySha256"]=json!(digest(&enc(&d["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]).unwrap()));
+    }
+    fn open(d:&Value)->ProductSession{let b=enc(d).unwrap();let h=sha(&b);
+        ProductSession::open_switch624_rm01_private(b,crate::BuildIdentity{platform:Platform::Switch,
+        build_kind:BuildKind::SwitchBid,build_id:BID.into(),schema:624,externally_attested:true},h).unwrap()}
+    fn scope(s:&ProductSession,a:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();
+        WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
+        expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:a}}
+    #[test]
+    fn r02_native_exact6_debit4_undo_redo_one_time(){
+        let (d,p)=fixture();let s=open(&d);let e=scope(&s,WorkerAction::Stage);
+        let r=s.stage_switch624_road_r02_native_q4_archive(e,&enc(&p).unwrap()).unwrap();
+        assert_eq!(r.operation_count,6);assert!(!r.product_writer_authorized);
+        assert!(s.stage_switch624_road_r02_native_q4_archive(e,&enc(&p).unwrap()).is_err());
+        s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(e).is_err());
+        let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["9"];
+        g["NextGridObjectID"]=json!(54);
+        for o in p["objects"].as_array().unwrap(){g["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
+        wanted["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(26);
+        assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),wanted);
+        assert_eq!(sha(&out),r.staged_decoded_sha256);
+    }
+    #[test]
+    fn r02_reject_wrong_plan_cost_overlap_state_and_epoch(){
+        let (d,p)=fixture();let s=open(&d);let e=scope(&s,WorkerAction::Stage);
+        for (k,v) in [("contract",json!("bad")),("expectedNextId",json!(51)),("expectedAmount",json!(4)),
+            ("sourceDecodedSha256",json!("bad")),("gridSha256",json!("bad")),
+            ("inventoryEntrySha256",json!("bad")),("objects",json!([])),("refund",json!(1))]{
+            let mut q=p.clone();q[k]=v;assert!(s.stage_switch624_road_r02_native_q4_archive(e,&enc(&q).unwrap()).is_err());
+        }
+        assert!(open(&d).stage_switch624_road_r02_native_q4_archive(e,&enc(&p).unwrap()).is_err());
+        for k in 0..6{
+            let mut d=d.clone();let mut q=p.clone();
+            match k{
+                0=>{d["World"]["GridCollection"]["Grids"]["9"]["Objects"]["12"]["X"]=json!(40);
+                    d["World"]["GridCollection"]["Grids"]["9"]["Objects"]["12"]["Y"]=json!(24);},
+                1=>d["World"]["GridCollection"]["DiffGrids"]["9"]=json!({}),
+                2=>d["World"]["GridCollection"]["Grids"]["9"]["GridDefaultLayoutPath"]=json!("unknown"),
+                3=>d["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(29),
+                4=>q["objects"][1]["State"]=Value::Null,
+                _=>q["objects"].as_array_mut().unwrap().swap(1,2),
+            }
+            bind(&d,&mut q);let t=open(&d);assert!(t.stage_switch624_road_r02_native_q4_archive(scope(&t,WorkerAction::Stage),&enc(&q).unwrap()).is_err());
         }
         assert_eq!(s.receipt().unwrap().revision,0);
     }
