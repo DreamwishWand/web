@@ -12,7 +12,7 @@ const int=x=>Number.isSafeInteger(x)&&x>0;
 const deny=m=>{throw new Error(m)};
 const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const keys=(x,k)=>object(x)&&Object.keys(x).sort().join(',')===[...k].sort().join(',');
-const path=x=>typeof x==='string'&&(/^(scripts|tests)\/int-[a-z0-9][a-z0-9-]{0,100}\.mjs$/.test(x)||/^tests\/int-[a-z0-9][a-z0-9-]{0,100}\.test\.mjs$/.test(x));
+const path=x=>typeof x==='string'&&x.endsWith('.mjs')&&(/^(scripts|tests)\/int-[a-z0-9][a-z0-9-]{0,100}\.mjs$/.test(x)||/^tests\/int-[a-z0-9][a-z0-9-]{0,100}\.test\.mjs$/.test(x));
 const entry=x=>x===null||(keys(x,['mode','blob'])&&x.mode==='100644'&&sha(x.blob));
 const token=(x,p)=>typeof x==='string'&&x.length<=160&&p.test(x);
 const equal=(a,b)=>a===null||b===null?a===b:a.mode===b.mode&&a.blob===b.blob;

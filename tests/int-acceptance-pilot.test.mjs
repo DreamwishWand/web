@@ -35,7 +35,7 @@ test('restricted receipt binds exact Git original blobs and CI without granting 
   assert.throws(()=>{const raw=JSON.stringify(m);inspectAcceptancePilot(dir,{raw,expectedDigest:hash(raw),main,run,jobs});},/RECEIPT_NOT_CANONICAL/);
   for(const x of [{risk:'L1'},{flagChange:'ON'},{dependencies:[base]},{repositoryId:1},{scope:'Writer'},{extra:true},{qa:{...m.qa,sourceHead:base}},{qa:{...m.qa,verdict:'TRUE_RED'}}])
    assert.throws(()=>verify({...m,...x}),/RECEIPT_SCOPE_DENIED/);
-  for(const path of ['.github/workflows/pages.yml','scripts/int-pilot.test.mjs','tests/int-pilot.test.test.mjs','tests/int-pilot.spec.mjs','tests/nested/int-pilot.test.mjs','tests/INT-pilot.test.mjs','src/int-pilot.test.mjs','tests/int-pilot.test.mjs/child']){
+  for(const path of ['.github/workflows/pages.yml','scripts/int-pilot.test.mjs','tests/int-pilot.test.test.mjs','tests/int-pilot.spec.mjs','tests/nested/int-pilot.test.mjs','tests/INT-pilot.test.mjs','src/int-pilot.test.mjs','tests/int-pilot.test.mjs/child','tests/int-pilot.test.mjs\n','scripts/int-pilot.mjs\n']){
    assert.throws(()=>verify({...m,source:{...m.source,entries:[{...m.source.entries[0],path},m.source.entries[1]]}}),/RECEIPT_PATH/);
   }
   assert.throws(()=>verify({...m,source:{...m.source,entries:[{...m.source.entries[0],after:{mode:'100644',blob:'1'.repeat(40)}},m.source.entries[1]]}}),/RECEIPT_SELECTION_MISMATCH/);
