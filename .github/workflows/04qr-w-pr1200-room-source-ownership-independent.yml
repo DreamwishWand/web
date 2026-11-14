@@ -1,0 +1,126 @@
+name: 04 QR-W PR1200 actual source ownership independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1200-room-source-ownership-independent.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact changed source and independent actual synthetic P1G
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git merge-base HEAD '3fb250c11d810727da9dbfab50b55349cd3c78e3')" = '3fb250c11d810727da9dbfab50b55349cd3c78e3'
+          test "$(git diff --name-only '3fb250c11d810727da9dbfab50b55349cd3c78e3' HEAD)" = '.github/workflows/04qr-w-pr1200-room-source-ownership-independent.yml'
+          test "$(git diff --name-only '983df39cf39cf161b2578ed42706b365470c25ad' '3fb250c11d810727da9dbfab50b55349cd3c78e3' | wc -l)" = 2
+          test "$(git rev-parse HEAD:src/lib/wep/room-finish-verified-export-v125.ts)" = 'fe680b649493a5e7707cfbdb03e9fcbadc7bc8b2'
+          test "$(git rev-parse HEAD:tests/wep-room-finish-post-01e-v125.test.mjs)" = '0e8355f678aa65e7da6972e03ddcc1fdbb4f3992'
+          test "$(git rev-parse HEAD:src/routes/editor/world/+page.svelte)" = 'bc8d11be8d34a83933b9f481b7c062240227d452'
+          test "$(sha256sum static/ddv/wep/world/v1.25/room-finish-trimming-pack-v125.json | cut -d' ' -f1)" = '32899e10d4d864ed7a9ee5571539807fec96016ceb48d747cac5315dbab3873c'
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          git show 983df39cf39cf161b2578ed42706b365470c25ad:src/lib/wep/room-finish-verified-export-v125.ts > src/lib/wep/qa753-old.ts
+          cat > .qa753-fixture.mjs <<'JS'
+          import {makeSyntheticP1gProfile,syntheticProfile} from './tests/helpers/p1g-fixture.mjs';
+          export function profile(){
+            const p=syntheticProfile('DeviceType_Switch');
+            p.Player.ListInventories={'4':{ID:4,CompatibleItemType:'ItemType_Trimming',Inventory:{
+              '160000000':{Amount:1,Marker:'ItemMarker_None'},'160000224':{Amount:1,Marker:'ItemMarker_None'},
+              '160100000':{Amount:1,Marker:'ItemMarker_None'},'160100001':{Amount:2,Marker:'ItemMarker_None'}}}};
+            p.ProfileWorld={Stores:[],Shops:[]};p.ConditionalEventHistory={ActiveEvents:{}};
+            p.World={DecorationPresets:[],PlayerHouses:[{HouseItemID:20500005,Floors:[{BoughtRooms:{},Rooms:{'0':{
+             Name:'QA753 Room',FloorGridID:900,WallGridIDs:{'0':901,'1':902,'2':903,'3':904},RoomPrefabAddress:'Room/Browser',
+             Flooring:160100000,Wallpapers:{'0':160000224,'1':160000224,'2':160000224,'3':160000224},
+             WallpaperOffsetById:{'160000224':0.4623557},Ceiling:160000000,OpaqueRoom:{keep:['未来',false,0]}}}}],OpaqueHouse:{keep:true}}],
+             GridCollection:{Grids:Object.fromEntries([900,901,902,903,904].map(id=>[String(id),{ID:id,Objects:{}}])),DiffGrids:{}},
+             Villages:[],FloatingIslands:{},MissionSlots:{},QuestInfo:{},Keyholes:{},OpaqueWorld:{keep:{qa753:true}}};
+            return p;
+          }
+          export const bytes=p=>Uint8Array.from(makeSyntheticP1gProfile(p));
+          JS
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import {readFile} from 'node:fs/promises';import {spawnSync} from 'node:child_process';
+          import {profile,bytes} from './.qa753-fixture.mjs';
+          import {openWorldSaveBytes} from './src/lib/wep/world-save-source.ts';
+          import * as M from './src/lib/wep/room-finish-verified-export-v125.ts';import * as OLD from './src/lib/wep/qa753-old.ts';
+          const sha=b=>createHash('sha256').update(b).digest('hex'),packBytes=await readFile('./static/ddv/wep/world/v1.25/room-finish-trimming-pack-v125.json');
+          const source=profile(),a=bytes(source),aSha=sha(a),opened=await openWorldSaveBytes(a,{sourcePlatform:'switch'});
+          const doc=M.createRoomFinishEditorDocumentV125(M.listIndoorRoomFinishRoutesV125(opened.profile).routes[0].projection),rawPack=JSON.parse(packBytes);
+          const make=(op,pack)=>M.applyRoomFinishDraftMutationV125(doc,op==='floor'?M.compileRoomFinishFlooringDraftV125({document:doc,profile:opened.profile,pack,itemId:160100001}):M.compileRoomFinishWallpaperDraftV125({document:doc,profile:opened.profile,pack,itemId:160000000,scope:op==='current'?'CURRENT_WALL':'ALL_WALLS',wallPosition:2}));
+          const review=(d,b=a,o=opened,mod=M)=>mod.reviewRoomFinishVerifiedExportV125({sourceBytes:b,sourceName:'qa753-profile',sourceEpoch:17,opened:o,draftDocument:d,exactBuildConfirmed:true});
+          const commit=(r,d,b=a)=>M.commitRoomFinishVerifiedExportV125({review:r,currentSourceEpoch:17,sourceBytes:b,draftDocument:d});
+          const deny=async(fn,re)=>{await assert.rejects(fn,re)};
+          const d0=make('floor',rawPack);
+          await deny(()=>review(d0),/VERIFIED_TRIMMING_PACK_REQUIRED/);
+          await deny(()=>M.loadRoomFinishTrimmingPackV125({fetchImpl:async()=>new Response('bad',{status:200})}),/HASH_MISMATCH/);
+          await deny(()=>review(d0),/VERIFIED_TRIMMING_PACK_REQUIRED/);
+          const pack=await M.loadRoomFinishTrimmingPackV125({fetchImpl:async()=>new Response(packBytes,{status:200})});
+          assert.ok(Object.isFrozen(pack.records));assert.ok(Object.values(pack.records).every(Object.isFrozen));assert.equal(Object.keys(pack.records).length,360);
+          const childCode="import {p1gPackagedProfileCodec as c} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js'; import {readFileSync} from 'node:fs'; const r=await c.loadProfile(Uint8Array.from(Buffer.from(readFileSync(0,'utf8'),'base64'))); if(r.inputType!=='packaged')process.exit(2); process.stdout.write(r.jsonText)";
+          const reopen=b=>{const r=spawnSync(process.execPath,['--input-type=module','-e',childCode],{input:Buffer.from(b).toString('base64'),encoding:'utf8',timeout:20000});assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout)};
+          assert.deepEqual(reopen(a),source);
+          let negatives=0,positives=0;
+          for(const op of ['floor','current','all']){
+            const d=make(op,pack),r=await review(d),id=op==='floor'?'160100001':'160000000',before=structuredClone(d);
+            assert.equal(r.sourceSha256,aSha);assert.equal(r.plan.operation.id,'WORLD_PLAYER_HOUSE_ROOM_FINISH_V125');
+            const controls=[['absent',p=>delete p.Player.ListInventories['4'].Inventory[id]],['zero',p=>p.Player.ListInventories['4'].Inventory[id].Amount=0],['string',p=>p.Player.ListInventories['4'].Inventory[id].Amount='1'],['bool',p=>p.Player.ListInventories['4'].Inventory[id].Amount=true],['array',p=>p.Player.ListInventories['4'].Inventory[id].Amount=[1]],['overflow',p=>p.Player.ListInventories['4'].Inventory[id].Amount=2147483648],['fraction',p=>p.Player.ListInventories['4'].Inventory[id].Amount=1.25],['negative',p=>p.Player.ListInventories['4'].Inventory[id].Amount=-1],['null record',p=>p.Player.ListInventories['4'].Inventory[id]=null],['no amount',p=>delete p.Player.ListInventories['4'].Inventory[id].Amount],['wrong role',p=>p.Player.ListInventories['4'].CompatibleItemType='ItemType_Furniture']];
+            for(const [label,mut] of controls){
+              const bRoot=profile();mut(bRoot);const b=bytes(bRoot),h=sha(b),o=await openWorldSaveBytes(b,{sourcePlatform:'switch'}),bad=structuredClone(r);
+              await deny(()=>review(d,b,opened),/OWNED_AMOUNT_INVALID|COMPILE_REJECTED|INVENTORY_ROLE_MISMATCH/);
+              await deny(()=>review(d,b,o),/OWNED_AMOUNT_INVALID|COMPILE_REJECTED|INVENTORY_ROLE_MISMATCH/);
+              await deny(()=>commit(r,d,b),/SOURCE_CHANGED_SINCE_PLAN/);
+              bad.sourceSha256=h;bad.sourceByteLength=b.length;await deny(()=>commit(bad,d,b),/OWNED_AMOUNT_INVALID|COMPILE_REJECTED|INVENTORY_ROLE_MISMATCH/);
+              assert.equal(sha(b),h);assert.deepEqual(d,before);negatives+=4;
+              if(op==='floor'&&label==='zero'){const old=await review(d,b,opened,OLD);assert.equal(old.status,'READY');console.log('QA753_OLD_STALE_OWNERSHIP_REVIEW_REPRODUCED');}
+            }
+            const mutations=[m=>m.target.houseItemId=20500006,m=>m.target.roomSlot=4,m=>m.target.floorIndex='0',m=>m.itemId=op==='floor'?160000000:160100001,m=>m.changes.find(c=>c.kind==='REPLACE').before=42,m=>m.changes.find(c=>c.kind==='REPLACE').after=42,m=>m.scope='INVALID',m=>m.selectedWallPositions=[3,2],m=>m.ownershipMutation=true];
+            for(const mut of mutations){const x=structuredClone(d);mut(x.roomFinish.pendingMutationSet);const rr=structuredClone(r);rr.mutationSet=structuredClone(x.roomFinish.pendingMutationSet);await deny(()=>review(x),/WEP_ROOM_FINISH_/);await deny(()=>commit(rr,x),/WEP_ROOM_FINISH_/);negatives+=2;}
+            const e=await commit(r,d),expected=structuredClone(source),room=expected.World.PlayerHouses[0].Floors[0].Rooms['0'];
+            if(op==='floor')room.Flooring=160100001;else if(op==='current')room.Wallpapers['2']=160000000;else{for(const k of ['0','1','2','3'])room.Wallpapers[k]=160000000;delete room.WallpaperOffsetById['160000224'];}
+            assert.equal(e.status,'PASS');assert.deepEqual(e.artifacts.backup.bytes,a);assert.notDeepEqual(e.artifacts.edited.bytes,a);assert.deepEqual(reopen(e.artifacts.edited.bytes),expected);
+            assert.equal(e.artifacts.integrity.manifest.operation.id,'WORLD_PLAYER_HOUSE_ROOM_FINISH_V125');assert.equal(e.artifacts.integrity.manifest.sourceSha256,aSha);assert.equal(e.artifacts.integrity.manifest.editedSha256,sha(e.artifacts.edited.bytes));
+            assert.equal(new Set([r.sourceName,e.artifacts.backup.fileName,e.artifacts.edited.fileName,e.artifacts.integrity.fileName]).size,4);assert.equal(sha(a),aSha);assert.equal(e.source.untouched,true);assert.equal(e.persistentWriteAuthorized,false);assert.deepEqual(d,before);positives++;
+            console.log('QA753_ACTUAL_ENCRYPTED_REOPEN',op,'PASS');
+          }
+          console.log('QA753_SOURCE_OWNERSHIP_AND_CANONICAL_MUTATION_PASS',positives,negatives);
+          JS
+          rm src/lib/wep/qa753-old.ts
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4383 --strictPort >/tmp/qa753-vite.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4383/editor/world/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4383/editor/world/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import {chromium} from 'playwright-core';import {profile,bytes} from './.qa753-fixture.mjs';import {p1gPackagedProfileCodec as codec} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
+          const root='http://127.0.0.1:4383',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+           const ctx=await browser.newContext({viewport:{width:1440,height:1100},acceptDownloads:true,serviceWorkers:'block'}),page=await ctx.newPage(),errors=[],packHits=[];page.setDefaultTimeout(45000);
+           page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.url().endsWith('/room-finish-trimming-pack-v125.json'))packHits.push(r.status())});
+           const source=profile(),original=Buffer.from(bytes(source));
+           await page.goto(root+'/editor/world/',{waitUntil:'networkidle'});await page.locator('.platform-select select').selectOption('switch');
+           await page.locator('.load-panel input[type="file"]').setInputFiles({name:'qa753-profile',mimeType:'application/octet-stream',buffer:original});
+           await page.getByText(/DDV save loaded locally/).waitFor();const routes=page.locator('[data-wep-room-finish-routes]');await routes.waitFor();await routes.locator('article').first().getByRole('button').click();
+           await page.locator('[data-wep-room-finish-toggle]').click();const panel=page.locator('[data-wep-room-finish]');await panel.waitFor();
+           await panel.locator('.room-finish-edit-grid section').nth(0).locator('select').selectOption('160100001');
+           await panel.locator('.room-finish-edit-grid section').nth(0).getByRole('button',{name:'Scope preview'}).click();
+           await panel.locator('[data-wep-room-finish-preview]').getByRole('button',{name:'Add to draft'}).click();
+           const exp=page.locator('[data-wep-verified-export]');await exp.locator('.verified-export-build-confirm input[type="checkbox"]').check();await exp.getByRole('button',{name:'Review Changes'}).click();
+           await exp.locator('[data-wep-room-finish-export-review]').waitFor();await exp.locator('.verified-export-confirm input[type="checkbox"]').check();await exp.getByRole('button',{name:'Apply / Export'}).click();
+           const success=exp.locator('.verified-export-success');await success.waitFor();const get=async re=>{const wait=page.waitForEvent('download');await success.getByRole('button',{name:re}).click();const d=await wait;assert.equal(await d.failure(),null);return [d.suggestedFilename(),await readFile(await d.path())]};
+           const [bn,b]=await get(/Download original backup/i),[en,e]=await get(/Download edited save/i);
+           assert.notEqual(bn,en);assert.notEqual(en,'qa753-profile');assert.deepEqual(b,original);const result=await codec.loadProfile(Uint8Array.from(e));assert.equal(result.inputType,'packaged');const expected=structuredClone(source);expected.World.PlayerHouses[0].Floors[0].Rooms['0'].Flooring=160100001;assert.deepEqual(JSON.parse(result.jsonText),expected);
+           assert.ok(packHits.includes(200));assert.deepEqual(errors,[]);console.log('QA753_ACTUAL_BROWSER_CANONICAL_PACK_FLOORING_DOWNLOAD_BACKUP_REOPEN_PASS');await ctx.close();
+          }finally{await browser.close()}
+          JS
+          rm .qa753-fixture.mjs
