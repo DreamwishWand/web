@@ -29,7 +29,7 @@ fn required(k:&str)->String{
 }
 fn main(){
  #[cfg(feature="semantic-writer-dev")]
- if matches!(env::args().nth(1).as_deref(),Some("--switch624-road-rm01-archive-only"|"--switch624-fence-fe01-archive-only"|"--switch624-fence-frp01-archive-only"|"--switch624-fence-fm01-archive-only"|"--switch624-road-r02-native-q4-archive-only"|"--switch624-fence-ortho-l-archive-only"|"--switch624-fence-diagonal90-archive-only"|"--switch624-fence-ortho-t-archive-only")){
+ if matches!(env::args().nth(1).as_deref(),Some("--switch624-road-rm01-archive-only"|"--switch624-fence-fe01-archive-only"|"--switch624-fence-frp01-archive-only"|"--switch624-fence-fm01-archive-only"|"--switch624-road-r02-native-q4-archive-only"|"--switch624-fence-ortho-l-archive-only"|"--switch624-fence-diagonal90-archive-only"|"--switch624-fence-ortho-t-archive-only"|"--switch624-fence-diagonal-n3-positive-archive-only"|"--switch624-fence-diagonal-n3-mirrored-archive-only"|"--switch624-fence-diagonal-n6-positive-archive-only")){
    run_switch624_archive_operation();
    return;
  }
@@ -333,7 +333,11 @@ fn run_switch624_archive_operation(){
  let add_l=mode=="--switch624-fence-ortho-l-archive-only";
  let add_d90=mode=="--switch624-fence-diagonal90-archive-only";
  let add_t=mode=="--switch624-fence-ortho-t-archive-only";
- let add_fence=add_l||add_d90||add_t;
+ let add_n3p=mode=="--switch624-fence-diagonal-n3-positive-archive-only";
+ let add_n3m=mode=="--switch624-fence-diagonal-n3-mirrored-archive-only";
+ let add_n6p=mode=="--switch624-fence-diagonal-n6-positive-archive-only";
+ let add_diag_a=add_n3p||add_n3m||add_n6p;
+ let add_fence=add_l||add_d90||add_t||add_diag_a;
  if env::args().len()!=2||required("WAND_LOCAL_INSTALLED_SWITCH_BID")!="52BD625D9B4E0053"{
    deny("RM01_EXACT_SWITCH624_REQUIRED");
  }
@@ -364,7 +368,10 @@ fn run_switch624_archive_operation(){
  let scope=|rev,gen,action|WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
     session_id:before.session_id,expected_revision:rev,expected_index_generation:gen,
     expected_decoded_sha256:expected,action};
- let stage=|e|if add_l{session.stage_switch624_fence_ortho_l_archive(e,plan.as_bytes())}
+ let stage=|e|if add_n3p{session.stage_switch624_fence_diagonal_n3_positive_archive(e,plan.as_bytes())}
+     else if add_n3m{session.stage_switch624_fence_diagonal_n3_mirrored_archive(e,plan.as_bytes())}
+     else if add_n6p{session.stage_switch624_fence_diagonal_n6_positive_archive(e,plan.as_bytes())}
+     else if add_l{session.stage_switch624_fence_ortho_l_archive(e,plan.as_bytes())}
      else if add_d90{session.stage_switch624_fence_diagonal90_archive(e,plan.as_bytes())}
      else if add_t{session.stage_switch624_fence_ortho_t_archive(e,plan.as_bytes())}
      else if r02{session.stage_switch624_road_r02_native_q4_archive(e,plan.as_bytes())}
@@ -373,7 +380,7 @@ fn run_switch624_archive_operation(){
      else if fence{session.stage_switch624_fence_fe01_archive(e,plan.as_bytes())}
      else{session.stage_switch624_road_rm01_archive(e,plan.as_bytes())};
  let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|_|deny("RM01_STAGE"));
- let count=if r02||add_l||add_d90{6}else if fence||frp{7}else{8};
+ let count=if add_diag_a{4}else if r02||add_l||add_d90{6}else if fence||frp{7}else{8};
  if staged.operation_count!=count||staged.exact_field_changed_count!=count||!staged.applied||
     staged.product_writer_authorized||staged.original_overwrite_authorized||!staged.semantic_changed{
    deny("RM01_EXACT_STAGE");
@@ -388,7 +395,10 @@ fn run_switch624_archive_operation(){
     session.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).is_ok(){deny("RM01_EXPORT_REPLAY_OR_SHA");}
  io::stdout().write_all(&out).unwrap_or_else(|_|deny("RM01_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("RM01_PIPE_FLUSH"));
- if add_l{eprintln!("PRIVATE_V2_SWITCH624_FENCE_ORTHO_L_EXACT6_PIPE_PASS");}
+ if add_n3p{eprintln!("PRIVATE_V2_SWITCH624_FENCE_DIAGONAL_N3_POSITIVE_EXACT4_PIPE_PASS");}
+ else if add_n3m{eprintln!("PRIVATE_V2_SWITCH624_FENCE_DIAGONAL_N3_MIRRORED_EXACT4_PIPE_PASS");}
+ else if add_n6p{eprintln!("PRIVATE_V2_SWITCH624_FENCE_DIAGONAL_N6_POSITIVE_EXACT4_PIPE_PASS");}
+ else if add_l{eprintln!("PRIVATE_V2_SWITCH624_FENCE_ORTHO_L_EXACT6_PIPE_PASS");}
  else if add_d90{eprintln!("PRIVATE_V2_SWITCH624_FENCE_DIAGONAL90_EXACT6_PIPE_PASS");}
  else if add_t{eprintln!("PRIVATE_V2_SWITCH624_FENCE_ORTHO_T_EXACT8_PIPE_PASS");}
  else if r02{eprintln!("PRIVATE_V2_SWITCH624_R02_NATIVE_Q4_EXACT6_PIPE_PASS");}
