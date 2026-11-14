@@ -10,7 +10,7 @@ ctx.on('request',r=>{if(![old,next].includes(new URL(r.url()).origin)||!['GET','
 const read=p=>p.evaluate(([a,b])=>[localStorage.getItem(a),localStorage.getItem(b)],[P,B]);
 const create=async(p,title)=>{await p.locator('.new-board input').fill(title);await p.locator('.new-board button').click();await p.locator('.board-list button').filter({hasText:title}).waitFor();};
 const exportFile=async(p,selector)=>{const dl=p.waitForEvent('download');await p.locator(selector).click();const file=await dl;return readFile(await file.path());};
-const importFile=async(p,buffer)=>{await p.locator('[data-moodboard-import-file]').setInputFiles({name:'moodboards.json',mimeType:'application/json',buffer});await p.locator('[role=status]').waitFor();};
+const importFile=async(p,buffer)=>{await p.locator('[data-moodboard-import-file]').setInputFiles({name:'moodboards.json',mimeType:'application/json',buffer});await p.locator('.moodboards-page .status[role=status]').waitFor();};
 try{
  const a=await ctx.newPage(),b=await ctx.newPage();for(const p of [a,b])p.on('pageerror',e=>errors.push(String(e)));
  await a.goto(old+'/web/moodboards/',{waitUntil:'networkidle'});await a.locator('.new-board input').waitFor();
@@ -24,10 +24,10 @@ try{
  await b.reload({waitUntil:'networkidle'});await b.locator('.board-list button').filter({hasText:'Synthetic old A'}).waitFor();assert.deepEqual(await read(b),[oldBefore[0],null]);
  console.log('ACT519_ACTUAL_TWO_ORIGIN_EXPORT_IMPORT_REOPEN_PASS');
  await create(b,'Synthetic destination C');const before=await read(b);assert.ok(before[1]);
- await importFile(b,payload);await b.waitForFunction(()=>document.querySelector('[role=status]')?.textContent?.includes('Import blocked'));
+ await importFile(b,payload);await b.waitForFunction(()=>document.querySelector('.moodboards-page .status[role=status]')?.textContent?.includes('Import blocked'));
  assert.deepEqual(await read(b),before);
  await importFile(b,Buffer.from('{"schema":"wand.moodboards.local@1","version":99,"boards":[]}'));
- await b.waitForFunction(()=>document.querySelector('[role=status]')?.textContent?.includes('current-format'));
+ await b.waitForFunction(()=>document.querySelector('.moodboards-page .status[role=status]')?.textContent?.includes('current-format'));
  assert.deepEqual(await read(b),before);assert.deepEqual(await read(a),oldBefore);
  console.log('ACT519_ACTUAL_DESTINATION_COLLISION_INVALID_BACKUP_UNCHANGED_PASS');
  await b.locator('.backup-actions button').last().click();await b.locator('.board-list button').filter({hasText:'Synthetic old B'}).waitFor();assert.equal((await read(b))[0],before[1]);
