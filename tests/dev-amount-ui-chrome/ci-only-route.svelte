@@ -52,7 +52,7 @@
       if(!backed||!directory||(which!=='backup'&&which!=='edited')||(which==='edited'&&!staged))throw Error('DENIED');
       const token=epoch;return readBoundEncryptedCopy({directory,name:which==='backup'?'backup-ci.p1g':'edited-ci.p1g',sha:which==='backup'?aSha:bSha,size:64},()=>{if(epoch!==token)throw Error('STALE')});
     },
-    async close(){epoch++;staged=false;backed=false;directory=null;return kind('CLOSED')}
+    async close(){epoch++;staged=false;backed=false;directory=null;await new Promise(r=>setTimeout(r,180));return kind('CLOSED')}
   };
 </script>
 <LocalAmountEditorDev verifiedLocalDevGate={true} {trustedWorkerAdapter}/>
