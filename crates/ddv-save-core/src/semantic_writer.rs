@@ -698,6 +698,25 @@ impl ProductSession {
         indexed_read::validate_scope(self,&st,&e)?;
         observe_existing_amount(self,&e,selection)
     }
+    /// Private Switch626 Chest observation only; never returns a mutation capability.
+    /// Do not widen build_check or the existing Writer entry points.
+    #[cfg(not(target_arch="wasm32"))]
+    pub(crate) fn read_private_switch626_chest_view(&self,e:WorkerEnvelope,container:u32,slot:usize)
+        ->CoreResult<ExistingAmountTargetView>{
+        let b=&self.native_source_build;
+        if b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||
+           b.build_id!="9A239D3DB569756D"||b.schema!=626||!b.externally_attested||
+           self.worker_bound||container<=1{
+            return Err(denied("CHEST_DEP_EXACT_PRIVATE_SWITCH626_REQUIRED"));
+        }
+        let st=self.lock()?;indexed_read::validate_scope(self,&st,&e)?;
+        let view=observe_existing_amount(self,&e,ExistingAmountSelection::Chest{container_id:container,slot_index:slot})?.view();
+        let facts=view.chest.as_ref().ok_or(denied("CHEST_DEP_TARGET_KIND"))?;
+        if facts.size!=48||facts.extra_size!=0||facts.state_sha256!=sha(b"null"){
+            return Err(denied("CHEST_DEP_SWITCH_EXACT_SHAPE_REQUIRED"));
+        }
+        Ok(view)
+    }
     /// Read-only positive amount snapshot, including 1. This returns a
     /// view, not CoreExistingAmountTarget or an authorization capability.
     pub(crate) fn read_inventory_backup_amount(&self,e:WorkerEnvelope,inventory_id:u32,item_id:u32)
