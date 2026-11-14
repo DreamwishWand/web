@@ -16,7 +16,7 @@ export function inspectRunEvidence(expected, run, jobsResponse) {
       !positive(expected.attempt) || !workflowPath(expected.workflowPath) || !sha(expected.head) ||
       !['pull_request','push'].includes(expected.event) ||
       !Array.isArray(expected.jobs) || expected.jobs.length < 1 || expected.jobs.length > 100 ||
-      !expected.jobs.every(safeJob) || new Set(expected.jobs).size !== expected.jobs.length ||
+      !Array.from({length:expected.jobs.length}, (_,i)=>Object.hasOwn(expected.jobs,i) && safeJob(expected.jobs[i])).every(Boolean) || new Set(expected.jobs).size !== expected.jobs.length ||
       (expected.event === 'pull_request' ? (!positive(expected.pr) || !sha(expected.base)) :
         (expected.pr !== null || expected.base !== null))) deny('INVALID_EXPECTATION');
   if (!object(run) || run.id !== expected.runId || run.workflow_id !== expected.workflowId ||
@@ -38,7 +38,7 @@ export function inspectRunEvidence(expected, run, jobsResponse) {
       jobsResponse.jobs.length !== expected.jobs.length) deny('JOB_SET_INCOMPLETE_OR_UNEXPECTED');
   const seen = new Set(), ids = new Set();
   for (const j of jobsResponse.jobs) {
-    if (!object(j) || !positive(j.id) || ids.has(j.id) || seen.has(j.name) ||
+    if (!object(j) || !Object.hasOwn(j,'name') || !safeJob(j.name) || !positive(j.id) || ids.has(j.id) || seen.has(j.name) ||
         !expected.jobs.includes(j.name) || j.run_id !== run.id ||
         j.run_attempt !== run.run_attempt || j.head_sha !== expected.head) deny('JOB_IDENTITY_MISMATCH');
     if (j.status !== 'completed' || j.conclusion !== 'success') deny('JOB_NOT_SUCCESS');

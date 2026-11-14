@@ -32,3 +32,15 @@ test('reject stale, foreign, missing, skipped and spoofed evidence',()=>{
  for(const d of [{head:'HEAD'},{attempt:0},{jobs:['verify','verify']},{workflowPath:'../ci.yml'},{extra:true}])
   assert.throws(()=>inspectRunEvidence({...expected,...d},run,jobs),/INVALID_EXPECTATION/);
 });
+
+test('reject sparse expected names and absent or invalid actual job names',()=>{
+ const missing={...job};delete missing.name;
+ const inherited=Object.create({name:'verify'});Object.assign(inherited,missing);
+ for(const names of [new Array(1),[undefined],[null],[''],['\x00'],['x'.repeat(161)]])
+  assert.throws(()=>inspectRunEvidence({...expected,jobs:names},run,{total_count:1,jobs:[missing]}),/INVALID_EXPECTATION/);
+ const inheritedIndex=new Array(1);Object.setPrototypeOf(inheritedIndex,Object.assign(Object.create(Array.prototype),{0:'verify'}));
+ assert.throws(()=>inspectRunEvidence({...expected,jobs:inheritedIndex},run,jobs),/INVALID_EXPECTATION/);
+ for(const j of [missing,inherited,...[undefined,null,'','\x00','x'.repeat(161)].map(name=>({...job,name}))])
+  assert.throws(()=>inspectRunEvidence(expected,run,{total_count:1,jobs:[j]}),/JOB_IDENTITY_MISMATCH/);
+ assert.deepEqual(inspectRunEvidence(expected,run,jobs).jobs,[{id:15,name:'verify'}]);
+});
