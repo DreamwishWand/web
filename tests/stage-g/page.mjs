@@ -96,6 +96,24 @@ const synthetic=async()=>{
  ensure(noPost.status===405,'NO_POST_ENDPOINT');
  const inaccessible=await fetch('/package.json');
  ensure(inaccessible.status===403,'ALLOWLIST_DENY');
+ // Public CI no longer serves either Owner UI, even if a local copy exists.
+ for(const name of ['index.html','page.mjs','dev-read.html','dev-read-page.mjs']){
+   for(const method of ['GET','HEAD']){
+     const response=await fetch('/tools/owner-local-steam-v1/'+name,{method});
+     ensure(response.status===403,'OWNER_UI_NOT_SERVED');
+   }
+ }
+ // Real Worker dependencies remain on the exact same localhost boundary.
+ for(const name of ['attestation.mjs','worker-core.mjs','worker.mjs','dev-read.worker.mjs']){
+   const response=await fetch('/tools/owner-local-steam-v1/'+name,{method:'HEAD'});
+   ensure(response.status===200,'SHARED_WORKER_SOURCE');
+   ensure(response.headers.get('x-content-type-options')==='nosniff'&&
+     response.headers.get('cache-control')==='no-store'&&
+     response.headers.get('content-security-policy')?.includes("connect-src 'self'")&&
+     response.headers.get('content-security-policy')?.includes("form-action 'none'"),
+     'SHARED_WORKER_SECURITY_HEADERS');
+ }
+ console.log('ACT559_PUBLIC_CI_OWNER_UI_8DENY_SHARED_4POS_PASS');
  worker.terminate();
  return Object.freeze({
   source:'CI_SYNTHETIC_ONLY',

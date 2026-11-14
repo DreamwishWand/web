@@ -1,15 +1,13 @@
-// Strict localhost-only static server. GET/HEAD only; NO upload endpoint,
-// telemetry, source file access, cookies, cloud, or Save logging.
+// Synthetic CI localhost server. Actual Owner launcher and UI are private.
+// GET/HEAD only; fixed public-source/WASM/fixture allowlist; no upload,
+// telemetry, general source serving, cookies, cloud, or Save logging.
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
-const staticOwner=new Set([
-  '/tools/owner-local-steam-v1/index.html',
-  '/tools/owner-local-steam-v1/page.mjs',
-  '/tools/owner-local-steam-v1/dev-read.html',
-  '/tools/owner-local-steam-v1/dev-read-page.mjs',
+const staticShared=new Set([
+  // Real DEV and normal Worker entries remain separate CI witnesses.
   '/tools/owner-local-steam-v1/dev-read.worker.mjs',
   '/tools/owner-local-steam-v1/worker.mjs',
   '/tools/owner-local-steam-v1/worker-core.mjs',
@@ -36,6 +34,9 @@ const mime={'.html':'text/html;charset=utf-8','.js':'text/javascript;charset=utf
   '.mjs':'text/javascript;charset=utf-8','.wasm':'application/wasm',
   '.p1g':'application/octet-stream','.json':'application/json'};
 export async function startOwnerLocalV1Server({ciFixture=false}={}){
+  // Public repository has no Owner UI or private-input launcher. Fail closed
+  // unless the caller explicitly starts the synthetic test harness.
+  if(ciFixture!==true)throw Error('OWNER_LOCAL_CI_FIXTURE_REQUIRED');
   let port=0;
   const server=createServer(async(req,res)=>{
     const deny=(status=403)=>{res.writeHead(status,{'cache-control':'no-store'});res.end()};
@@ -46,7 +47,7 @@ export async function startOwnerLocalV1Server({ciFixture=false}={}){
       const u=new URL(req.url,`http://127.0.0.1:${port}`);
       pathname=decodeURIComponent(u.pathname);
     }catch{return deny(400)}
-    if(!staticOwner.has(pathname)&&!(ciFixture&&staticCi.has(pathname)))
+    if(!staticShared.has(pathname)&&!staticCi.has(pathname))
       return deny();
     const file=resolve(root,'.'+pathname);
     if(!file.startsWith(root+'/'))return deny();
@@ -77,10 +78,10 @@ export async function startOwnerLocalV1Server({ciFixture=false}={}){
     server.listen(0,'127.0.0.1',ok);
   });
   port=server.address().port;
-  return {server,port,url:`http://127.0.0.1:${port}/tools/owner-local-steam-v1/index.html`};
+  return {server,port,url:`http://127.0.0.1:${port}/tests/stage-g/index.html`};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
-  const {url}=await startOwnerLocalV1Server();
-  // URL only, NEVER Save filename/hash or file contents.
-  process.stdout.write('Owner-local READ-ONLY proof: '+url+'\n');
+  // Do not accidentally launch a private-input surface from public Source.
+  process.stderr.write('OWNER_LOCAL_CI_FIXTURE_REQUIRED\n');
+  process.exitCode=12;
 }
