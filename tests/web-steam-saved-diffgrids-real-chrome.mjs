@@ -3,7 +3,7 @@
 // CI uses the committed scoped preformal route and a temporary synthetic
 // attestation/anchor only; never publishes this candidate Pages artifact.
 import {createServer} from 'node:https';
-import {readFile,mkdtemp,rm,readdir} from 'node:fs/promises';
+import {readFile,mkdtemp,rm,readdir,mkdir} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {spawn,spawnSync,execFileSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
@@ -23,7 +23,9 @@ const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript'
   '.p1g':'application/octet-stream','.svg':'image/svg+xml','.png':'image/png',
   '.woff2':'font/woff2'};
 const profile=await mkdtemp(join(tmpdir(),'wand-08web-real-chrome-'));
-let chrome,ws,server;
+let chrome,ws,server,browserWs;
+const downloadDir=join(profile,'verified-downloads');
+const downloads=new Map();
 let fault=null,assetRequests=0,mutationRequests=0;
 const binary=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium'].filter(Boolean)
  .find(bin=>spawnSync('which',[bin],{stdio:'ignore'}).status===0);
@@ -33,6 +35,30 @@ const rpc=(method,params={})=>new Promise((resolve,reject)=>{
  const id=++seq;pending.set(id,{resolve,reject});
  ws.send(JSON.stringify({id,method,params}));
 });
+async function configureBrowserDownloads(){
+ // Browser-level CDP, not the deprecated Page setting that can disappear
+ // when a navigation replaces the renderer. allowAndName pins disk names to
+ // Chromium's event GUID, while suggestedFilename is separately validated.
+ const [port,path]=(await readFile(join(profile,'DevToolsActivePort'),'utf8')).trim().split('\n');
+ if(!/^\d+$/.test(port)||!/^\/devtools\/browser\/[a-f0-9-]+$/.test(path))throw Error('BROWSER_CDP_ENDPOINT_INVALID');
+ await mkdir(downloadDir,{recursive:true});
+ browserWs=new WebSocket('ws://127.0.0.1:'+port+path);
+ await new Promise((ok,bad)=>{browserWs.addEventListener('open',ok,{once:true});browserWs.addEventListener('error',bad,{once:true})});
+ await new Promise((ok,bad)=>{
+  const timer=setTimeout(()=>bad(Error('BROWSER_DOWNLOAD_SETUP_TIMEOUT')),10000);
+  browserWs.addEventListener('message',e=>{
+   let m;try{m=JSON.parse(String(e.data))}catch{return}
+   if(m.id===1){clearTimeout(timer);if(m.error)bad(Error(JSON.stringify(m.error)));else ok();return}
+   if(m.method==='Browser.downloadWillBegin'){
+    const p=m.params;downloads.set(p.guid,{guid:p.guid,name:p.suggestedFilename,url:p.url,state:'started'});
+   }else if(m.method==='Browser.downloadProgress'){
+    const p=m.params,existing=downloads.get(p.guid);
+    if(existing){existing.state=p.state;existing.received=p.receivedBytes;existing.total=p.totalBytes}
+   }
+  });
+  browserWs.send(JSON.stringify({id:1,method:'Browser.setDownloadBehavior',params:{behavior:'allowAndName',downloadPath:downloadDir,eventsEnabled:true}}));
+ });
+}
 function serve(req,res){
  if(req.headers.host!==isolatedHost||req.socket.remoteAddress!=='127.0.0.1'){res.writeHead(403);res.end();return;}
  if(req.url===base+'/editor/steam-reader/'||req.url===base+'/editor/timing/')isolatedRouteRequests++;
@@ -205,6 +231,7 @@ const script=String.raw`
  inspect(present('[data-diffgrids-summary]','SUMMARY_200'),'320_ROOT_ZOOM200_CLOSED_MANUAL_PANEL');
  // Initial state: no implicit local Save read / no session.
  need(!document.querySelector('[data-diffgrids-count]'),'NO_AUTO_SAVE');
+ need(!document.querySelector('[data-diffgrids-backup]'),'NO_BACKUP_BEFORE_OPEN');
  const response=await Promise.all([
   fetch('/web/__synthetic__/synthetic626-diffgrids.p1g',{cache:'no-store'}),
   fetch('/web/__synthetic__/expected-diffgrids.json',{cache:'no-store'})
@@ -253,6 +280,18 @@ const script=String.raw`
   }
  }
  need(pages.join(',')==='8,8,1','THREE_PAGES');
+ const backup=present('[data-diffgrids-backup-download]','BACKUP_DOWNLOAD');
+ need(!backup.disabled,'BACKUP_AVAILABLE_AFTER_OPEN');
+ const chooseBackup=async(candidate,status)=>{
+  const input=present('#steam-diffgrids-backup-file','BACKUP_CANDIDATE');
+  const dt=new DataTransfer();dt.items.add(candidate);input.files=dt.files;
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+  await element('[data-diffgrids-backup-status="'+status+'"]','BACKUP_'+status);
+ };
+ await chooseBackup(new File([await file.arrayBuffer()],'candidate.p1g'),'backupMatched');
+ const changed=new Uint8Array(await file.arrayBuffer());changed[0]^=1;
+ await chooseBackup(new File([changed],'wrong.p1g'),'backupRejected');
+ await chooseBackup(new File([await file.arrayBuffer()],'candidate.p1g'),'backupMatched');
  present('[data-diffgrids-summary]','SUMMARY_SCROLL').scrollIntoView({block:'center',inline:'nearest'});
  await new Promise(r=>setTimeout(r,100));
  const afterScroll=inspect(present('[data-diffgrids-summary]','SUMMARY_AFTER_SCROLL'),'320_ROOT_ZOOM200_AFTER_VERTICAL_SCROLL');
@@ -275,6 +314,7 @@ const script=String.raw`
  await wait(()=>pair()?.summary===document.activeElement&&currentElement('#steam-diffgrids-file')&&!currentElement('#steam-diffgrids-file').disabled,'FOCUS_RESTORED',18000);
  need(document.activeElement===present('[data-diffgrids-summary]','FOCUS'),'FOCUS_RESTORED');
  need(!document.querySelector('[data-diffgrids-next]'),'NO_STALE_PAGE_AFTER_CLOSE');
+ need(!document.querySelector('[data-diffgrids-backup]'),'NO_STALE_BACKUP_AFTER_CLOSE');
  need(document.activeElement.tabIndex>=0,'NATIVE_KEYBOARD_SUMMARY');
  // Bad externally supplied original SHA must never resurrect the closed
  // ProductSession; a fresh explicit selection is required to try again.
@@ -310,6 +350,7 @@ try{
   '--host-resolver-rules=MAP '+isolatedHost+' 127.0.0.1:'+port+', MAP * ~NOTFOUND',
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  await attach();await rpc('Page.enable');await rpc('Runtime.enable');
+ await configureBrowserDownloads();
  await rpc('Emulation.setDeviceMetricsOverride',{width:320,height:800,deviceScaleFactor:1,mobile:false});
  // The regular Timing route must not instantiate the Steam Worker or load
  // signed reader assets, even with a valid preformal anchor in this build.
@@ -411,6 +452,7 @@ try{
  for(const k of ['manualClickOnly','sameRustWorker','strictUiMetadata',
    'closed','focusRestored','gridIdZeroLiteral','viewport320','zoom200','badShaDenied','reopenFresh','keyboard','readinessContract'])assert.equal(result[k],true,k);
  assert.equal(result.pages,'8,8,1');
+
  assert.equal(result.allEightLocales,true);assert.equal(result.originalImmutable,true);
  assert.equal(result.innerTableScroll,true,'5_COLUMN_TABLE_SCROLL_INTERNAL');
  const zoomRects=[result.geometry100,result.geometry200];
@@ -483,6 +525,38 @@ try{
  await evaluate('document.querySelector("[data-diffgrids-open]").click()');
  await waitDom('document.querySelector("[data-diffgrids-page]")?.dataset.diffgridsPage==="1"');
  assert.equal(await evaluate('document.querySelector("[data-diffgrids-open]").disabled'),true,'ACTIVE_SESSION_OPEN_DISABLED');
+ // Trusted physical mouse input, not a JavaScript synthetic click.
+ // Download the exact native-selected fixture, independently read the disk file,
+ // and re-select that file through the actual second native file input.
+ const point=await evaluate('(()=>{const b=document.querySelector("[data-diffgrids-backup-download]");if(!b||b.disabled)throw Error("BACKUP_BUTTON_NOT_READY");b.scrollIntoView({block:"center",inline:"nearest"});const r=b.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}})()');
+ assert.ok(point.x>=0&&point.x<1280&&point.y>=0&&point.y<800,'BACKUP_CLICK_VISIBLE');
+ await rpc('Input.dispatchMouseEvent',{type:'mouseMoved',x:point.x,y:point.y});
+ await rpc('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,x:point.x,y:point.y});
+ await rpc('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:point.x,y:point.y});
+ await waitDom('document.querySelector("[data-diffgrids-backup-status]")?.dataset.diffgridsBackupStatus==="backupRequested"');
+ let completed;
+ for(let n=0;n<150;n++){
+  const items=[...downloads.values()];
+  if(items.some(x=>x.state==='canceled'))throw Error('ACTUAL_BROWSER_BACKUP_CANCELED');
+  completed=items.find(x=>x.state==='completed');
+  if(completed)break;
+  await delay(100);
+ }
+ assert.ok(completed,'ACTUAL_BROWSER_BACKUP_NO_COMPLETION_EVENT');
+ assert.equal(downloads.size,1,'ONE_EXPLICIT_BACKUP_DOWNLOAD');
+ assert.equal(completed.name,'synthetic626-diffgrids.p1g.original-backup.p1g','DISTINCT_SUGGESTED_BACKUP_NAME');
+ assert.ok(completed.url.startsWith('blob:'+testOrigin+'/'),'SAME_ORIGIN_LOCAL_BLOB_ONLY');
+ assert.match(completed.guid,/^[a-f0-9-]+$/);
+ const downloaded=join(downloadDir,completed.guid);
+ const original=await readFile(fixturePath);
+ assert.equal(completed.received,original.length,'COMPLETED_DOWNLOAD_BYTE_COUNT');
+ assert.deepEqual(await readFile(downloaded),original,'ACTUAL_BROWSER_ORIGINAL_BACKUP_BYTES');
+ const backupDoc=await rpc('DOM.getDocument');
+ const backupNode=await rpc('DOM.querySelector',{nodeId:backupDoc.root.nodeId,selector:'#steam-diffgrids-backup-file'});
+ assert.ok(backupNode.nodeId);
+ await rpc('DOM.setFileInputFiles',{nodeId:backupNode.nodeId,files:[downloaded]});
+ await waitDom('document.querySelector("[data-diffgrids-backup-status]")?.dataset.diffgridsBackupStatus==="backupMatched"');
+ console.log('08WEB_ACTUAL_LOCAL_ORIGINAL_BACKUP_DOWNLOAD_NATIVE_REIMPORT_PASS');
  await evaluate('window.__readerHold.kind="CLOSE_LOCAL_STORED_DIFFGRIDS";document.querySelector("[data-diffgrids-close]").click()');
  await waitDom('window.__readerHold.held==="CLOSE_LOCAL_STORED_DIFFGRIDS"');
  assert.equal(await evaluate('(()=>{const p=document.querySelector("[data-diffgrids-manual-only]");return [...p.querySelectorAll("input,button")].every(e=>e.disabled)&&!document.querySelector("[data-diffgrids-count]")})()'),true,'CLOSE_PENDING_ALL_CONTROLS_DISABLED');
@@ -545,6 +619,7 @@ try{
 finally{
  for(const p of pending.values())p.reject(Error('CDP_CLOSED'));pending.clear();
  try{ws?.close()}catch{}
+ try{browserWs?.close()}catch{}
  if(chrome){chrome.kill('SIGTERM');await delay(250);
    if(chrome.exitCode===null)chrome.kill('SIGKILL')}
  if(server)await new Promise(r=>server.close(r));

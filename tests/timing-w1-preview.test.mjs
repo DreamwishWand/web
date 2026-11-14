@@ -61,6 +61,11 @@ test('main UI offers original-backup download and disabled edited-copy/export bu
  assert.match(page,/<button type="button" disabled data-w1-export-off/);
  assert.match(page,/requestUntouchedOriginalBackup\(/);
  const bridge=readFileSync(new URL('../src/lib/ddv/core/save/local-save-session-bridge.mjs',import.meta.url),'utf8');
- assert.match(bridge,/URL\.createObjectURL\(originalSelectedFile\)/);
+ const transport=readFileSync(new URL('../src/lib/ddv/core/save/local-original-backup.mjs',import.meta.url),'utf8');
+ assert.match(bridge,/if\(!hasUntouchedOriginalBackupSource\(scope\)\)/);
+ assert.match(bridge,/requestOriginalByteBackup\(originalSelectedFile\)/);
+ assert.match(transport,/URL\.createObjectURL\(originalSelectedFile\)/);
+ assert.match(transport,/persistedVerified:false,writerAuthorized:false/);
+ assert.match(transport,/\.original-backup\.p1g/);
  assert.doesNotMatch(page,/createEncodedProfile\(/);
 });

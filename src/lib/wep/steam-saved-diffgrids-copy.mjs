@@ -12,9 +12,85 @@ const labels={
  'zh-CN':['已保存网格元数据','可选的本地存档检查','仅在手动选择加密 Steam P1G 后读取；不会上传、云备份、编辑或应用。','本地加密 Steam P1G','已独立确认的 Steam 完整版本','原始文件 SHA-256（在存档外计算）','我已分别确认安装的 Steam 版本和原始 SHA-256。','以只读方式打开','读取下 8 项','关闭本地会话','目前无法在本地读取存档。需要明确启用此功能并通过运行时验证。此功能不可用时，不会读取本地存档。','可选择本地文件','正在本地打开和验证…','正在读取元数据…','读取被拒绝；会话已关闭。','未选择存档','已保存 DiffGrids','网格 ID','修改数','移除数','重叠数','外部布局','未解析','页','仅显示存储的元数据；Native 布局、GridID 0 合法性、拥有状态和编辑均未验证。','没有已保存的网格','只读；写入、应用和云功能已关闭。','Steam 1.25.3 · 正式发布前只读测试'],
  'pt-BR':['Metadados de grades salvas','Inspeção local opcional','A leitura só começa após selecionar manualmente um P1G Steam criptografado. Sem upload, nuvem ou edição.','P1G Steam criptografado local','Versão completa do Steam observada','SHA-256 do arquivo original (calculado externamente)','Confirmei separadamente a versão Steam instalada e o SHA-256 original.','Abrir somente leitura','Ler mais 8','Fechar sessão local','A leitura local de dados salvos não está disponível no momento. São necessárias a ativação explícita e a verificação bem-sucedida em tempo de execução. Nenhum dado salvo local é lido enquanto este recurso está indisponível.','Pronto para selecionar arquivo local','Abrindo e validando localmente…','Lendo metadados…','Leitura negada; sessão fechada.','Nenhum save selecionado','DiffGrids salvos','ID da grade','Modificados','Removidos','Em ambos','Layout externo','Não resolvido','Página','Somente metadados; layout Native, legalidade do GridID 0, propriedade e edição não verificados.','Nenhuma grade salva','Somente leitura; Writer, Apply e Cloud desligados.','Steam 1.25.3 · Teste somente leitura antes do lançamento']
 };
+const backupLabels={
+  "en": [
+    "Download encrypted original backup",
+    "Select saved backup to compare",
+    "Original bytes only. Compare a separate local backup; no disk-path or Writer verification.",
+    "Download requested. Save the file and verify it separately.",
+    "Comparing encrypted bytes locally…",
+    "Backup bytes match the original. Disk path and persistence are not verified.",
+    "Backup comparison or download rejected."
+  ],
+  "fr": [
+    "Télécharger la copie originale chiffrée",
+    "Choisir la copie à comparer",
+    "Octets originaux uniquement. Comparaison locale, sans preuve de chemin ni droit d’écriture.",
+    "Téléchargement demandé. Enregistrez et vérifiez le fichier séparément.",
+    "Comparaison locale des octets chiffrés…",
+    "Octets identiques à l’original. Chemin et persistance non vérifiés.",
+    "Copie ou comparaison refusée."
+  ],
+  "it": [
+    "Scarica la copia originale cifrata",
+    "Scegli la copia da confrontare",
+    "Solo byte originali. Confronto locale, senza verifica del percorso o autorizzazione di scrittura.",
+    "Download richiesto. Salva e verifica il file separatamente.",
+    "Confronto locale dei byte cifrati…",
+    "Byte identici all’originale. Percorso e persistenza non verificati.",
+    "Download o confronto rifiutato."
+  ],
+  "de": [
+    "Verschlüsselte Originalkopie herunterladen",
+    "Gespeicherte Kopie vergleichen",
+    "Nur Originalbytes. Lokaler Vergleich ohne Pfad- oder Schreibfreigabeprüfung.",
+    "Download angefordert. Datei speichern und separat prüfen.",
+    "Verschlüsselte Bytes werden lokal verglichen…",
+    "Bytes stimmen überein. Pfad und dauerhafte Speicherung nicht geprüft.",
+    "Download oder Vergleich abgelehnt."
+  ],
+  "es-ES": [
+    "Descargar copia original cifrada",
+    "Elegir copia guardada para comparar",
+    "Solo bytes originales. Comparación local sin verificar ruta ni permiso de escritura.",
+    "Descarga solicitada. Guarda y verifica el archivo por separado.",
+    "Comparando bytes cifrados localmente…",
+    "Bytes idénticos al original. Ruta y persistencia no verificadas.",
+    "Descarga o comparación rechazada."
+  ],
+  "ja": [
+    "暗号化原本をバックアップ",
+    "保存したバックアップを選択して比較",
+    "原本バイトのみ。別のローカルコピーを比較します。保存先や書込み権限は検証しません。",
+    "ダウンロードを要求しました。保存したファイルを別途確認してください。",
+    "暗号化バイトを端末内で比較中…",
+    "バックアップのバイトが原本と一致しました。保存先・永続保存は未確認です。",
+    "バックアップの取得または比較を拒否しました。"
+  ],
+  "zh-CN": [
+    "下载加密原始备份",
+    "选择已保存的备份进行比较",
+    "仅原始字节。本地比较，不验证磁盘路径或写入权限。",
+    "已请求下载。请保存并单独验证文件。",
+    "正在本地比较加密字节…",
+    "备份字节与原始文件一致。磁盘路径和持久保存未验证。",
+    "备份下载或比较被拒绝。"
+  ],
+  "pt-BR": [
+    "Baixar backup original criptografado",
+    "Selecionar backup salvo para comparar",
+    "Somente bytes originais. Comparação local sem verificar caminho ou permissão de escrita.",
+    "Download solicitado. Salve e verifique o arquivo separadamente.",
+    "Comparando bytes criptografados localmente…",
+    "Bytes do backup iguais ao original. Caminho e persistência não verificados.",
+    "Download ou comparação recusado."
+  ]
+};
+const backupKeys=['backupDownload','backupCandidate','backupHint','backupRequested','backupChecking','backupMatched','backupRejected'];
+for(const loc of STEAM_DIFFGRIDS_LOCALES)if(backupLabels[loc]?.length!==backupKeys.length)throw Error('DIFFGRIDS_BACKUP_TRANSLATION_FIELDS_MISSING_'+loc);
 const keys=['title','subtitle','intro','file','version','sha','confirm','open','next','close','unavailable','ready','opening','reading','error','empty','count','gridId','modified','removed','overlap','layout','unresolved','page','safety','zero','off','preformal'];
 for(const loc of STEAM_DIFFGRIDS_LOCALES)if(labels[loc]?.length!==keys.length)throw Error('DIFFGRIDS_TRANSLATION_FIELDS_MISSING_'+loc);
 export function savedDiffGridsCopy(locale='en'){
  const loc=STEAM_DIFFGRIDS_LOCALES.includes(locale)?locale:'en';
- return Object.freeze(Object.fromEntries(keys.map((key,i)=>[key,labels[loc][i]])));
+ return Object.freeze(Object.fromEntries([...keys.map((key,i)=>[key,labels[loc][i]]),...backupKeys.map((key,i)=>[key,backupLabels[loc][i]])]));
 }
