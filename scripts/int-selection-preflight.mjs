@@ -44,7 +44,7 @@ export function inspectSelection(cwd, input) {
   if (base === source) deny('EMPTY_SOURCE');
   git(cwd, 'merge-base', '--is-ancestor', base, source);
   const changed = git(cwd, 'diff', '--name-only', '-z', '--no-renames', '--no-ext-diff',
-    '--no-textconv', base, source, '--').split('\0').filter(Boolean).sort();
+    '--no-textconv', '--ignore-submodules=none', base, source, '--').split('\0').filter(Boolean).sort();
   const paths = [...input.paths].sort();
   if (changed.length !== paths.length || changed.some((p,i) => p !== paths[i]))
     deny('SOURCE_PATH_SET_MISMATCH');
