@@ -103,6 +103,30 @@ async function run(){
  owner.terminate();
  assert(ownerDenied.ok===false&&
    ownerDenied.error==='OWNER_LOCAL_DEV_READ_DISABLED','NORMAL_OWNER_DISPATCH_ON');
+ // Exercise the actual private-mode DEV entry, not a synthetic-mode mock.
+ // It enables metadata dispatch but never accepts the CI-synthetic claim.
+ const ownerDev=new Worker('../../tools/owner-local-steam-v1/dev-read.worker.mjs',
+   {type:'module'});
+ const devRequest=(data)=>new Promise((resolve,reject)=>{
+   ownerDev.addEventListener('message',e=>resolve(e.data),{once:true});
+   ownerDev.addEventListener('error',reject,{once:true});
+   ownerDev.postMessage(data);
+ });
+ try{
+   const devDenied=await devRequest({kind:'OPEN_LOCAL_V1',requestId:1,file,attestation});
+   assert(devDenied.ok===false&&
+     devDenied.error==='OWNER_LOCAL_WAIT_BUILD_SYNTHETIC_NOT_AUTHORIZED',
+     'OWNER_DEV_SYNTHETIC_ACCEPTED');
+   const noSession=await devRequest({
+     kind:'DEV_READ_METADATA',requestId:2,domain:'player',pageIndex:0
+   });
+   assert(noSession.ok===false&&
+     noSession.error==='OWNER_LOCAL_DEV_SESSION_NOT_OPEN','OWNER_DEV_DISPATCH_OPTIONS');
+   const devClosed=await devRequest({kind:'CLOSE_LOCAL_V1',requestId:3});
+   assert(devClosed.ok===true&&devClosed.summary.closed===true&&
+     devClosed.summary.writerAuthorized===false,'OWNER_DEV_CLOSE');
+ }finally{ownerDev.terminate()}
+ console.log('ACT559_REAL_OWNER_DEV_ENTRY_SYNTHETIC_DENY_METADATA_NO_SESSION_CLOSE_PASS');
  const second=await send('OPEN_LOCAL_V1',{file,attestation});
  assert(second?.ok===true&&second.summary.sessionId!==receipt.sessionId,
    'NEW_RUST_SESSION_REUSED');
