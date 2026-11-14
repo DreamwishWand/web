@@ -5,7 +5,7 @@ const labels = {
     "Before opening a Steam save",
     "1. Check the version of your installed Windows Steam game. This reader supports Steam 1.25.3 (schema 626). A filename or schema number alone does not establish the game build.",
     "2. In Windows PowerShell, replace the example path below with the path to your original encrypted P1G file and run the command. Copy its 64-character lowercase SHA-256 into the reader.",
-    "3. Select that same original file, confirm the independently checked version and hash, then open read-only. The command only reads the file; it does not change it or upload it. Keep the original."
+    "3. Select that same original file, confirm the independently checked version and SHA-256, then open read-only. The command only reads the file; it does not change it or upload it. Keep the original."
   ],
   "ja": [
     "Steamセーブを開く前の準備",
