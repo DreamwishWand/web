@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - 'src/lib/item-media/switch1253-public-item-images.mjs'
+      - 'src/lib/item-media/steam1253-hold10-pins.mjs'
       - 'src/lib/ui/ItemThumb.svelte'
       - 'src/lib/ui/ItemImagePreferences.svelte'
       - 'tests/web-switch1253-item-thumb-contract.test.mjs'
@@ -120,7 +121,27 @@ jobs:
           tests/web-steam1253-door-primary-contract.test.mjs
           tests/web-switch1253-item-thumb-contract.test.mjs
           STEAM_OTHER_SCOPE
-            if diff -q /tmp/steam1253-other36-expected /tmp/switch1253-actual >/dev/null; then
+            cat > /tmp/steam1253-hold10-expected <<'STEAM_HOLD_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          scripts/web-steam1253-door-collection-chrome.mjs
+          scripts/web-switch1253-private-preview-build.mjs
+          src/lib/item-media/steam1253-furniture146-pins.mjs
+          src/lib/item-media/steam1253-hold10-pins.mjs
+          src/lib/item-media/steam1253-other36-pins.mjs
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-steam1253-door-primary-contract.test.mjs
+          tests/web-switch1253-item-thumb-contract.test.mjs
+          STEAM_HOLD_SCOPE
+            cat > /tmp/steam1253-hold10-child-expected <<'STEAM_HOLD_CHILD_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          src/lib/item-media/steam1253-hold10-pins.mjs
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-steam1253-door-primary-contract.test.mjs
+          STEAM_HOLD_CHILD_SCOPE
+            if diff -q /tmp/steam1253-hold10-expected /tmp/switch1253-actual >/dev/null || diff -q /tmp/steam1253-hold10-child-expected /tmp/switch1253-actual >/dev/null; then
+              node --test tests/web-steam1253-door-primary-contract.test.mjs
+              echo WEB_STEAM1253_HOLD10_EXACT_SCOPE_PASS
+            elif diff -q /tmp/steam1253-other36-expected /tmp/switch1253-actual >/dev/null; then
               node --test tests/web-steam1253-door-primary-contract.test.mjs
               echo WEB_STEAM1253_OTHER36_EXACT8_SCOPE_PASS
             elif diff -q /tmp/steam1253-furniture146-expected /tmp/switch1253-actual >/dev/null; then

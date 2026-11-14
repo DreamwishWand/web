@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {STEAM1253_FURNITURE146_PINS as batch} from '../src/lib/item-media/steam1253-furniture146-pins.mjs';
+import {STEAM1253_HOLD10_PINS as held} from '../src/lib/item-media/steam1253-hold10-pins.mjs';
 import {STEAM1253_OTHER36_PINS as other} from '../src/lib/item-media/steam1253-other36-pins.mjs';
 import {STEAM1253_DOOR_PIN as pin,STEAM1253_DOOR_ID as id,STEAM1253_REVIEWED_RELEASE as off,
  STEAM1253_MANIFEST_PATH,prepareSteam1253ItemImageManifest,validateSteam1253ItemImageCatalog,
@@ -121,7 +122,7 @@ test('ACT676 Steam512 exact two pins and no old Switch Tree fallback',async()=>{
 test('ACT688 exact146 immutable Steam-primary data, old fallback provenance, per-item scoped acceptance',async()=>{
  const mod=await import('../src/lib/item-media/switch1253-public-item-images.mjs');
  const ids=Object.keys(batch),pins=mod.STEAM1253_NATIVE_PINS;
- assert.equal(ids.length,146);assert.equal(Object.keys(pins).length,187);
+ assert.equal(ids.length,146);assert.equal(Object.keys(pins).length,197);
  assert.equal(createHash('sha256').update(JSON.stringify(batch)).digest('hex'),'e7f07b97375ea087bbfec2965fa6b5b3cf6ac0d50ac222bce3804a36e447beb9');
  assert.ok(Object.isFrozen(batch));assert.equal(new Set(ids.map(k=>batch[k].iconGuid)).size,146);
  assert.equal(new Set(ids.map(k=>batch[k].webpSha256)).size,146);
@@ -147,13 +148,13 @@ test('ACT688 exact146 immutable Steam-primary data, old fallback provenance, per
  const d=validateSteam1253ItemImageCatalog(removed,release);assert.equal(d.count,145);assert.equal(scopedSwitch1253ItemImageHref('/web',ids[0],d),null);assert.ok(scopedSwitch1253ItemImageHref('/web',ids[1],d));
  const one={...m,items:{[ids[0]]:m.items[ids[0]]}},oneCat=validateSteam1253ItemImageCatalog(one,release);assert.equal(oneCat.count,1);assert.ok(scopedSwitch1253ItemImageHref('/web',ids[0],oneCat));assert.equal(scopedSwitch1253ItemImageHref('/web',ids[1],oneCat),null);
  assert.throws(()=>validateSteam1253ItemImageCatalog(m),/GATE_OFF/);assert.equal(off.mediaPublic,false);
- const all=mod.prepareSteam1253ItemImageManifest(Object.keys(pins));assert.equal(Object.keys(all.items).length,187);assert.equal(all.publication.gate,'MEDIA_PUBLIC_PREPARED_OFF');
+ const all=mod.prepareSteam1253ItemImageManifest(Object.keys(pins));assert.equal(Object.keys(all.items).length,197);assert.equal(all.publication.gate,'MEDIA_PUBLIC_PREPARED_OFF');
 });
 
 test('ACT689 exact36 visible Steam pins, 3 visible-only GUID aliases, no hidden peer mapping',async()=>{
  const mod=await import('../src/lib/item-media/switch1253-public-item-images.mjs');
  const ids=Object.keys(other),pins=mod.STEAM1253_NATIVE_PINS;
- assert.equal(ids.length,36);assert.equal(Object.keys(pins).length,187);
+ assert.equal(ids.length,36);assert.equal(Object.keys(pins).length,197);
  assert.equal(createHash('sha256').update(JSON.stringify(other)).digest('hex'),'12a2baf1ea35bcd1862bd7c730e90817aaf9e023cb418253cc0b2dd7433a78f9');
  assert.equal(new Set(ids.map(k=>other[k].iconGuid)).size,36);assert.equal(new Set(ids.map(k=>other[k].webpSha256)).size,36);assert.equal(ids.reduce((n,k)=>n+other[k].bytes,0),684558);
  const pairs=[['40005967','40006077'],['40000441','40002400'],['40003257','40003299']];
@@ -171,5 +172,29 @@ test('ACT689 exact36 visible Steam pins, 3 visible-only GUID aliases, no hidden 
   const forged={...m,items:{...m.items,[hidden]:m.items[visible]}};const review={...release,items:{...release.items,[hidden]:release.items[visible]}};assert.throws(()=>validateSteam1253ItemImageCatalog(forged,review));
  }
  const one={...m,items:{[ids[0]]:m.items[ids[0]]}},single=validateSteam1253ItemImageCatalog(one,release);assert.equal(single.count,1);assert.equal(scopedSwitch1253ItemImageHref('/web',ids[1],single),null);
+ assert.throws(()=>validateSteam1253ItemImageCatalog(m),/GATE_OFF/);assert.equal(off.mediaPublic,false);
+});
+
+test('ACT724 exact10 current Steam-only pins deny historical Switch fallback',async()=>{
+ const mod=await import('../src/lib/item-media/switch1253-public-item-images.mjs');
+ const ids=["40000074","40000162","40001327","40001755","40001771","40003776","40004576","40006509","40006540","40006573"],pins=mod.STEAM1253_NATIVE_PINS;
+ assert.deepEqual(Object.keys(held),ids);assert.equal(Object.keys(pins).length,197);
+ assert.equal(ids.reduce((n,k)=>n+held[k].bytes,0),229128);
+ assert.equal(new Set(ids.map(k=>held[k].webpSha256)).size,10);
+ const {release}=fixture(),m=mod.prepareSteam1253ItemImageManifest(ids);delete release.items[id];
+ for(const k of ids){
+  const p=held[k];assert.equal(pins[k],p);assert.ok(Object.isFrozen(p));assert.equal(p.platform,'Steam Windows');assert.equal(p.fallbackPolicy,'NO_FALLBACK_SWITCH_HISTORICAL_HOLD');
+  for(const key of ['fallbackPlatform','fallbackBuildID','fallbackBundleSha256','fallbackNativeStreamSha256'])assert.equal(p[key],null);
+  assert.equal(m.items[k].publicationDecision,'NOT_RUN');m.items[k].publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';
+  release.items[k]=Object.fromEntries(['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'].map(key=>[key,m.items[k][key]]));
+ }
+ const {mediaPublic,items,...publication}=release;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...publication};
+ const c=validateSteam1253ItemImageCatalog(m,release);assert.equal(c.count,10);
+ for(const k of ids){
+  const p=held[k];assert.equal(scopedSwitch1253ItemImageHref('/web',k,c),'/web/ddv/item-images/steam-1.25.3-schema626-lossless160-v1/'+p.webpSha256.slice(0,2)+'/'+p.webpSha256+'.webp');
+  const bad={...m,items:{...m.items,[k]:{...m.items[k],fallbackPolicy:'EXPLICIT_FALLBACK_ONLY'}}};assert.throws(()=>validateSteam1253ItemImageCatalog(bad,release));
+  const forged={...m,items:{...m.items,[k]:{...m.items[k],webpSha256:'0'.repeat(64)}}};assert.throws(()=>validateSteam1253ItemImageCatalog(forged,release));
+  const withdrawn=structuredClone(m);delete withdrawn.items[k];const d=validateSteam1253ItemImageCatalog(withdrawn,release);assert.equal(d.count,9);assert.equal(scopedSwitch1253ItemImageHref('/web',k,d),null);
+ }
  assert.throws(()=>validateSteam1253ItemImageCatalog(m),/GATE_OFF/);assert.equal(off.mediaPublic,false);
 });
