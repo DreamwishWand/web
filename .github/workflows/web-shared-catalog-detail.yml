@@ -93,7 +93,18 @@ jobs:
           src/lib/item-media/switch1253-public-item-images.mjs
           tests/web-steam1253-door-primary-contract.test.mjs
           STEAM_EXTENSION_SCOPE
-            if diff -q /tmp/steam1253-extension-expected /tmp/switch1253-actual >/dev/null; then
+            cat > /tmp/steam1253-tree-quarantine-expected <<'TREE_QUARANTINE_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          scripts/web-steam1253-door-collection-chrome.mjs
+          scripts/web-switch1253-private-preview-build.mjs
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-steam1253-door-primary-contract.test.mjs
+          tests/web-switch1253-item-thumb-contract.test.mjs
+          TREE_QUARANTINE_SCOPE
+            if diff -q /tmp/steam1253-tree-quarantine-expected /tmp/switch1253-actual >/dev/null; then
+              node --test tests/web-steam1253-door-primary-contract.test.mjs
+              echo WEB_STEAM1253_SHARED_TREE_QUARANTINE_EXACT6_SCOPE_PASS
+            elif diff -q /tmp/steam1253-extension-expected /tmp/switch1253-actual >/dev/null; then
               node --test tests/web-steam1253-door-primary-contract.test.mjs
               echo WEB_STEAM1253_EXACT3_EXTENSION_SCOPE_PASS
             elif diff -q /tmp/steam1253-exact1-expected /tmp/switch1253-actual >/dev/null; then
