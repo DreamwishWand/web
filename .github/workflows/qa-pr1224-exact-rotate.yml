@@ -1,0 +1,26 @@
+name: QA PR1224 exact rotate
+on:
+  pull_request:
+    branches: [01a/subgrid-exact-same-anchor-rotate-20261114]
+permissions:
+  contents: read
+jobs:
+  exact-rotate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Pin source and approved lock
+        run: |
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs)" = 0ebbd49b1ca116d8dbed3d18d051bea03a10b65d
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = d497abe34e6376e3b88a76491f2f8d1d5b4d361b
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/subgrid_exact_rotate.rs)" = f18ac79a36451fcd29778228e4d1b1cd7489e44c
+          git show f7bfa5e5cbbc9d59194540d65992cd2c010b8cf2:scripts/wasm-distribution/approved-Cargo.lock > crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+      - name: Independent two-build exact lexical oracle
+        run: |
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v2,semantic-writer-dev --bin wand-local-rust-v2-noop
+          python3 scripts/qa/qa-pr1224-exact-rotate.py crates/ddv-save-core/target/debug/wand-local-rust-v2-noop
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v2,semantic-writer-dev --lib subgrid_exact_rotate
