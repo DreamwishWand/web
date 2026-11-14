@@ -1,0 +1,30 @@
+name: Public community acceptance contract QA
+on:
+  push:
+    branches: [qa/pr1114-public-security-contract-20261114]
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact public source boundary
+        run: |
+          set -eu
+          test "$(git rev-parse HEAD^)" = ecb04582a45c995e802239e67c9f9cac43fc57fb
+          test "$(git diff --name-only HEAD^ HEAD | wc -l)" = 2
+          test "$(git hash-object docs/community/browser-operator-acceptance-runbook-20260930.md)" = 767ab4f8f4b56aec4be60a24684a30e567364e8f
+          test "$(git hash-object docs/community/transactional-email-activation-dreamwishwand-com-20260930.md)" = da9bfd0838f28a0a9240c6a136034eccb800f1e6
+          test "$(git hash-object tests/community-core-contract.test.mjs)" = 0246e99e0d251e35415207f84218fb97ab83a44f
+      - name: Existing contract and worker authorization checks
+        run: node --test --test-name-pattern='browser/operator runbook preserves|dreamwishwand.com activation runbook preserves|operator email relay reuses|Resend operator relay is fixed-purpose' tests/community-core-contract.test.mjs
+      - name: Independent changed-boundary negatives
+        run: node --test tests/community-public-contract-boundary-independent.test.mjs
