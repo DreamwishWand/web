@@ -1,3 +1,4 @@
+import {STEAM1253_OTHER36_PINS} from './steam1253-other36-pins.mjs';
 import {STEAM1253_FURNITURE146_PINS} from './steam1253-furniture146-pins.mjs';
 // Current-version ItemThumb policy, built over accepted shared ItemThumb/Preferences.
 // This is a *public release gate*, not a native game-reader or rights license.
@@ -211,6 +212,7 @@ export const STEAM1253_DOOR_PIN=Object.freeze({
 // ACT648: exact two new Steam primary provenance pins from E1641/E1642.
 export const STEAM1253_NATIVE_PINS=Object.freeze({
  ...STEAM1253_FURNITURE146_PINS,
+ ...STEAM1253_OTHER36_PINS,
  [STEAM1253_DOOR_ID]:STEAM1253_DOOR_PIN,
  '40006110':Object.freeze({
   platform:'Steam Windows',gameVersion:'1.25.3',schema:626,
