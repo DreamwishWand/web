@@ -9,6 +9,10 @@ use super::indexed_read::{self,Span};
 use crate::{CoreError,CoreResult,strict_document::validate_entire_document};
 use sha2::{Digest,Sha256};
 
+#[cfg(feature="product-amount-scoped")]
+#[path="product_amount_scoped.rs"]
+mod product_amount_scoped;
+
 const EXACT_STEAM:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
 const MAX_TX_COMMANDS:usize=16;
 const MAX_MAP_ID:u64=u32::MAX as u64;
@@ -367,6 +371,12 @@ impl ProductSession{
     /// CAS, same Rust Source SHA+SessionID+Revision+IndexGeneration envelope.
     /// No product Worker/Writer ABI and no private P1G bytes passed to GitHub.
     pub fn stage_typed_semantic_batch(
+        &self,e:WorkerEnvelope,commands:&[TypedSemanticCommand]
+    )->CoreResult<SemanticStageReceipt>{
+        if self.worker_bound{return Err(denied("SEMANTIC_RAW_WORKER_COMMAND_DENIED"));}
+        self.stage_typed_semantic_batch_inner(e,commands)
+    }
+    fn stage_typed_semantic_batch_inner(
         &self,e:WorkerEnvelope,commands:&[TypedSemanticCommand]
     )->CoreResult<SemanticStageReceipt>{
         build_check(self)?;
@@ -843,7 +853,7 @@ impl ProductSession {
         };
         // The existing Writer performs duplicate/overlap checks, exact
         // old-token CAS, full document validation and final locked epoch CAS.
-        self.stage_typed_semantic_batch(e,&commands)
+        self.stage_typed_semantic_batch_inner(e,&commands)
     }
 }
 
