@@ -200,7 +200,12 @@ export const STEAM1253_DOOR_PIN=Object.freeze({
  visibility:'RELEASED_PLAYER_FACING'
 });
 // Compiled OFF; fetched JSON cannot grant release authority.
-export const STEAM1253_REVIEWED_RELEASE=Object.freeze({...SWITCH1253_REVIEWED_RELEASE,items:Object.freeze({})});
+export const STEAM1253_REVIEWED_RELEASE=Object.freeze({
+ mediaPublic:false,decisionId:ITEM_IMAGE_OWNER_DECISION_ID,scope:SWITCH1253_OWNER_SCOPE,
+ rightsHolderLicense:'UNKNOWN',licenseEvidenceSha256:null,rightsReview:'NOT_RUN',
+ receivingContact:'NOT_RUN',takedown:'NOT_RUN',managedHttps:'NOT_RUN',attribution:'NOT_RUN',
+ oldUrlAndCache:'NOT_RUN',rollback:'NOT_RUN',operatorReceiptSha256:null,items:Object.freeze({})
+});
 const STEAM_PUBLICATION_KEYS=['decisionId','scope','rightsHolderLicense','licenseEvidenceSha256',
  'rightsReview','managedHttps','takedown','receivingContact','attribution','oldUrlAndCache','rollback','operatorReceiptSha256'];
 const steamCatalogs=new WeakSet();

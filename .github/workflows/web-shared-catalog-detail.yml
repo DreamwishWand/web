@@ -8,6 +8,8 @@ on:
       - 'src/lib/ui/ItemThumb.svelte'
       - 'src/lib/ui/ItemImagePreferences.svelte'
       - 'tests/web-switch1253-item-thumb-contract.test.mjs'
+      - 'tests/web-steam1253-door-primary-contract.test.mjs'
+      - 'scripts/web-steam1253-door-collection-chrome.mjs'
       - 'scripts/web-switch1253-private-preview-build.mjs'
       - 'src/lib/entity/shared-catalog-directory.mjs'
       - 'src/lib/entity/SharedCatalogDiscovery.svelte'
@@ -80,7 +82,16 @@ jobs:
           src/lib/ui/ItemThumb.svelte
           tests/web-switch1253-item-thumb-contract.test.mjs
           CURRENT_IMAGE_PREP_SCOPE
-            if diff -q /tmp/switch1253-expected /tmp/switch1253-actual >/dev/null; then
+            cat > /tmp/steam1253-exact1-expected <<'STEAM_EXACT1_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          scripts/web-steam1253-door-collection-chrome.mjs
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-steam1253-door-primary-contract.test.mjs
+          STEAM_EXACT1_SCOPE
+            if diff -q /tmp/steam1253-exact1-expected /tmp/switch1253-actual >/dev/null; then
+              node --test tests/web-steam1253-door-primary-contract.test.mjs
+              echo WEB_STEAM1253_DOOR_EXACT4_SCOPE_PASS
+            elif diff -q /tmp/switch1253-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS
             elif diff -q /tmp/switch1253-policy-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ISSUE604_POLICY_EXACT3_SCOPE_PASS
@@ -190,3 +201,9 @@ jobs:
         run: node scripts/web-shared-catalog-e2e-chrome.mjs
       - name: Actual shared ItemThumb isolated synthetic-only positive and negative UX
         run: node scripts/web-switch1253-private-preview-build.mjs --synthetic-browser
+
+      - name: Steam exact1 actual Collection shared ItemThumb synthetic fixture (no game pixels)
+        if: ${{ hashFiles('scripts/web-steam1253-door-collection-chrome.mjs') != '' }}
+        env:
+          SHARED_DETAIL_E2E_URL: http://127.0.0.1:4194
+        run: node scripts/web-steam1253-door-collection-chrome.mjs
