@@ -29,7 +29,7 @@ fn required(k:&str)->String{
 }
 fn main(){
  #[cfg(feature="semantic-writer-dev")]
- if matches!(env::args().nth(1).as_deref(),Some("--switch624-road-rm01-archive-only"|"--switch624-fence-fe01-archive-only"|"--switch624-fence-frp01-archive-only"|"--switch624-fence-fm01-archive-only"|"--switch624-road-r02-native-q4-archive-only"|"--switch624-fence-ortho-l-archive-only"|"--switch624-fence-diagonal90-archive-only"|"--switch624-fence-ortho-t-archive-only"|"--switch624-fence-diagonal-n3-positive-archive-only"|"--switch624-fence-diagonal-n3-mirrored-archive-only"|"--switch624-fence-diagonal-n6-positive-archive-only"|"--switch626-fence-fd01-layout-only"|"--switch626-fence-fd02-layout-only"|"--switch626-fence-fd03-layout-only"|"--switch626-fence-ortho-l-layout-only"|"--switch626-fence-diagonal90-layout-only"|"--switch626-fence-ortho-t-layout-only"|"--switch626-road-r02-native-q4-only"|"--switch626-fence-fm01-layout-only")){
+ if matches!(env::args().nth(1).as_deref(),Some("--switch624-road-rm01-archive-only"|"--switch624-fence-fe01-archive-only"|"--switch624-fence-frp01-archive-only"|"--switch624-fence-fm01-archive-only"|"--switch624-road-r02-native-q4-archive-only"|"--switch624-fence-ortho-l-archive-only"|"--switch624-fence-diagonal90-archive-only"|"--switch624-fence-ortho-t-archive-only"|"--switch624-fence-diagonal-n3-positive-archive-only"|"--switch624-fence-diagonal-n3-mirrored-archive-only"|"--switch624-fence-diagonal-n6-positive-archive-only"|"--switch626-fence-fd01-layout-only"|"--switch626-fence-fd02-layout-only"|"--switch626-fence-fd03-layout-only"|"--switch626-fence-ortho-l-layout-only"|"--switch626-fence-diagonal90-layout-only"|"--switch626-fence-ortho-t-layout-only"|"--switch626-road-r02-native-q4-only"|"--switch626-fence-fm01-layout-only"|"--switch626-road-rm01-native-mixed-q5-only"|"--switch626-fence-fe01-layout-only")){
    run_switch624_archive_operation();
    return;
  }
@@ -346,12 +346,14 @@ fn run_switch624_archive_operation(){
  let nonstraight626=l626||d90626||t626;
  let r02626=mode=="--switch626-road-r02-native-q4-only";
  let fm626=mode=="--switch626-fence-fm01-layout-only";
- let current=fd01||fd02||fd03||nonstraight626||r02626||fm626;
+ let rm626=mode=="--switch626-road-rm01-native-mixed-q5-only";
+ let fe626=mode=="--switch626-fence-fe01-layout-only";
+ let current=fd01||fd02||fd03||nonstraight626||r02626||fm626||rm626||fe626;
  let add_fence=add_l||add_d90||add_t||add_diag_a||fd01||fd02||fd03||nonstraight626;
  let (bid,schema)=if current{("9A239D3DB569756D",626)}else{("52BD625D9B4E0053",624)};
  if env::args().len()!=2||required("WAND_LOCAL_INSTALLED_SWITCH_BID")!=bid||
     (current&&env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty())){
-   deny(if fd01{"FD01_EXACT_SWITCH626_REQUIRED"}else if fd02{"FD02_EXACT_SWITCH626_REQUIRED"}else if fd03{"FD03_EXACT_SWITCH626_REQUIRED"}else if nonstraight626{"FENCE_NONSTRAIGHT_EXACT_SWITCH626_REQUIRED"}else if r02626{"R02_EXACT_SWITCH626_REQUIRED"}else if fm626{"FM01_EXACT_SWITCH626_REQUIRED"}else{"RM01_EXACT_SWITCH624_REQUIRED"});
+   deny(if fd01{"FD01_EXACT_SWITCH626_REQUIRED"}else if fd02{"FD02_EXACT_SWITCH626_REQUIRED"}else if fd03{"FD03_EXACT_SWITCH626_REQUIRED"}else if nonstraight626{"FENCE_NONSTRAIGHT_EXACT_SWITCH626_REQUIRED"}else if r02626{"R02_EXACT_SWITCH626_REQUIRED"}else if fm626{"FM01_EXACT_SWITCH626_REQUIRED"}else if rm626{"RM01_EXACT_SWITCH626_REQUIRED"}else if fe626{"FE01_EXACT_SWITCH626_REQUIRED"}else{"RM01_EXACT_SWITCH624_REQUIRED"});
  }
  let original=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
  let size=required("WAND_LOCAL_ORIGINAL_SIZE_BYTES").parse::<u64>()
@@ -359,10 +361,10 @@ fn run_switch624_archive_operation(){
  if original==[0;32]||size==0||size>128*1024*1024{deny("RM01_ORIGINAL_ATTESTATION");}
  let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
  let plan=required(if add_fence{"WAND_LOCAL_FENCE_ADD_CANONICAL_PLAN"}else if r02||r02626{"WAND_LOCAL_R02_CANONICAL_PLAN"}else if frp{"WAND_LOCAL_FRP01_CANONICAL_PLAN"}else if fm||fm626{"WAND_LOCAL_FM01_CANONICAL_PLAN"}
-    else if fence{"WAND_LOCAL_FE01_CANONICAL_PLAN"}else{"WAND_LOCAL_RM01_CANONICAL_PLAN"});
+    else if fence||fe626{"WAND_LOCAL_FE01_CANONICAL_PLAN"}else{"WAND_LOCAL_RM01_CANONICAL_PLAN"});
  if plan.len()>16384{deny("RM01_PLAN_BOUNDS");}
  let plan_sha=hex32(&required(if add_fence{"WAND_LOCAL_FENCE_ADD_PLAN_SHA256"}else if r02||r02626{"WAND_LOCAL_R02_PLAN_SHA256"}else if frp{"WAND_LOCAL_FRP01_PLAN_SHA256"}else if fm||fm626{"WAND_LOCAL_FM01_PLAN_SHA256"}
-    else if fence{"WAND_LOCAL_FE01_PLAN_SHA256"}else{"WAND_LOCAL_RM01_PLAN_SHA256"}));
+    else if fence||fe626{"WAND_LOCAL_FE01_PLAN_SHA256"}else{"WAND_LOCAL_RM01_PLAN_SHA256"}));
  if plan_sha==[0;32]||Sha256::digest(plan.as_bytes()).as_slice()!=plan_sha{deny("RM01_PLAN_SHA_CAS");}
  let mut input=Vec::new();
  io::stdin().take(256*1024*1024+1).read_to_end(&mut input)
@@ -381,7 +383,7 @@ fn run_switch624_archive_operation(){
  let scope=|rev,gen,action|WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
     session_id:before.session_id,expected_revision:rev,expected_index_generation:gen,
     expected_decoded_sha256:expected,action};
- let stage=|e|if r02626{session.stage_switch626_road_r02_native_q4(e,plan.as_bytes())}else if fm626{session.stage_switch626_fence_fm01_layout(e,plan.as_bytes())}else if l626{session.stage_switch626_fence_ortho_l_layout(e,plan.as_bytes())}else if d90626{session.stage_switch626_fence_diagonal90_layout(e,plan.as_bytes())}else if t626{session.stage_switch626_fence_ortho_t_layout(e,plan.as_bytes())}else if fd02{session.stage_switch626_fence_fd02_layout(e,plan.as_bytes())}else if fd03{session.stage_switch626_fence_fd03_layout(e,plan.as_bytes())}else if fd01{session.stage_switch626_fence_fd01_layout(e,plan.as_bytes())}
+ let stage=|e|if rm626{session.stage_switch626_road_rm01_native_mixed_q5(e,plan.as_bytes())}else if fe626{session.stage_switch626_fence_fe01_layout(e,plan.as_bytes())}else if r02626{session.stage_switch626_road_r02_native_q4(e,plan.as_bytes())}else if fm626{session.stage_switch626_fence_fm01_layout(e,plan.as_bytes())}else if l626{session.stage_switch626_fence_ortho_l_layout(e,plan.as_bytes())}else if d90626{session.stage_switch626_fence_diagonal90_layout(e,plan.as_bytes())}else if t626{session.stage_switch626_fence_ortho_t_layout(e,plan.as_bytes())}else if fd02{session.stage_switch626_fence_fd02_layout(e,plan.as_bytes())}else if fd03{session.stage_switch626_fence_fd03_layout(e,plan.as_bytes())}else if fd01{session.stage_switch626_fence_fd01_layout(e,plan.as_bytes())}
      else if add_n3p{session.stage_switch624_fence_diagonal_n3_positive_archive(e,plan.as_bytes())}
      else if add_n3m{session.stage_switch624_fence_diagonal_n3_mirrored_archive(e,plan.as_bytes())}
      else if add_n6p{session.stage_switch624_fence_diagonal_n6_positive_archive(e,plan.as_bytes())}
@@ -394,7 +396,7 @@ fn run_switch624_archive_operation(){
      else if fence{session.stage_switch624_fence_fe01_archive(e,plan.as_bytes())}
      else{session.stage_switch624_road_rm01_archive(e,plan.as_bytes())};
  let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|_|deny("RM01_STAGE"));
- let count=if l626||d90626||r02626{6}else if t626||fm626{8}else if current||add_diag_a{4}else if r02||add_l||add_d90{6}else if fence||frp{7}else{8};
+ let count=if l626||d90626||r02626{6}else if t626||fm626||rm626{8}else if fe626{7}else if current||add_diag_a{4}else if r02||add_l||add_d90{6}else if fence||frp{7}else{8};
  if staged.operation_count!=count||staged.exact_field_changed_count!=count||!staged.applied||
     staged.product_writer_authorized||staged.original_overwrite_authorized||!staged.semantic_changed{
    deny("RM01_EXACT_STAGE");
@@ -409,7 +411,7 @@ fn run_switch624_archive_operation(){
     session.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).is_ok(){deny("RM01_EXPORT_REPLAY_OR_SHA");}
  io::stdout().write_all(&out).unwrap_or_else(|_|deny("RM01_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("RM01_PIPE_FLUSH"));
- if r02626{eprintln!("PRIVATE_V2_SWITCH626_R02_NATIVE_Q4_EXACT6_PIPE_PASS");}else if fm626{eprintln!("PRIVATE_V2_SWITCH626_FM01_PRESERVE8_PIPE_PASS");}else if l626{eprintln!("PRIVATE_V2_SWITCH626_FENCE_ORTHO_L_EXACT6_PIPE_PASS");}else if d90626{eprintln!("PRIVATE_V2_SWITCH626_FENCE_DIAGONAL90_EXACT6_PIPE_PASS");}else if t626{eprintln!("PRIVATE_V2_SWITCH626_FENCE_ORTHO_T_EXACT8_PIPE_PASS");}else if fd02{eprintln!("PRIVATE_V2_SWITCH626_FENCE_FD02_EXACT4_PIPE_PASS");}else if fd03{eprintln!("PRIVATE_V2_SWITCH626_FENCE_FD03_EXACT4_PIPE_PASS");}else if fd01{eprintln!("PRIVATE_V2_SWITCH626_FENCE_FD01_EXACT4_PIPE_PASS");}
+ if rm626{eprintln!("PRIVATE_V2_SWITCH626_RM01_NATIVE_MIXED_Q5_EXACT8_PIPE_PASS");}else if fe626{eprintln!("PRIVATE_V2_SWITCH626_FE01_PRESERVE7_PIPE_PASS");}else if r02626{eprintln!("PRIVATE_V2_SWITCH626_R02_NATIVE_Q4_EXACT6_PIPE_PASS");}else if fm626{eprintln!("PRIVATE_V2_SWITCH626_FM01_PRESERVE8_PIPE_PASS");}else if l626{eprintln!("PRIVATE_V2_SWITCH626_FENCE_ORTHO_L_EXACT6_PIPE_PASS");}else if d90626{eprintln!("PRIVATE_V2_SWITCH626_FENCE_DIAGONAL90_EXACT6_PIPE_PASS");}else if t626{eprintln!("PRIVATE_V2_SWITCH626_FENCE_ORTHO_T_EXACT8_PIPE_PASS");}else if fd02{eprintln!("PRIVATE_V2_SWITCH626_FENCE_FD02_EXACT4_PIPE_PASS");}else if fd03{eprintln!("PRIVATE_V2_SWITCH626_FENCE_FD03_EXACT4_PIPE_PASS");}else if fd01{eprintln!("PRIVATE_V2_SWITCH626_FENCE_FD01_EXACT4_PIPE_PASS");}
  else if add_n3p{eprintln!("PRIVATE_V2_SWITCH624_FENCE_DIAGONAL_N3_POSITIVE_EXACT4_PIPE_PASS");}
  else if add_n3m{eprintln!("PRIVATE_V2_SWITCH624_FENCE_DIAGONAL_N3_MIRRORED_EXACT4_PIPE_PASS");}
  else if add_n6p{eprintln!("PRIVATE_V2_SWITCH624_FENCE_DIAGONAL_N6_POSITIVE_EXACT4_PIPE_PASS");}
