@@ -1,0 +1,90 @@
+name: 04 QR-W PR1171 exact2 shared Steam manifest independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1171-steam-exact2-common.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = '1f45d0ca062d1fa0a0c039f5ad64aeee20bfd0c7'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/04qr-w-pr1171-steam-exact2-common.yml'
+          test "$(git diff --name-only 165626e89ed361b72c2e047190b2ccfb6fefee11 1f45d0ca062d1fa0a0c039f5ad64aeee20bfd0c7 | wc -l)" = 3
+          test "$(git rev-parse HEAD:.github/workflows/web-shared-catalog-detail.yml)" = '88b7e4e340c8d244980d0958ec14fe19c133d26d'
+          test "$(git rev-parse HEAD:src/lib/item-media/switch1253-public-item-images.mjs)" = '99264b055464e86ce016bf300d7ac2c873974bc1'
+          test "$(git rev-parse HEAD:tests/web-steam1253-door-primary-contract.test.mjs)" = '6860507dfc4635c9e2eb9fb1906f7234a4b940b4'
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          git show 165626e89ed361b72c2e047190b2ccfb6fefee11:src/lib/item-media/switch1253-public-item-images.mjs > src/lib/item-media/qa658-parent.mjs
+          trap 'rm -f src/lib/item-media/qa658-parent.mjs src/lib/item-media/qa658-overlap.mjs' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/lib/item-media/switch1253-public-item-images.mjs')
+          s=p.read_text(); needle='export const SWITCH1253_NATIVE_PINS=Object.freeze({'
+          assert s.count(needle)==1
+          # Test-only legacy overlap, simulating future exact approved Switch pins. No product edit.
+          extra="""
+           '40006110':Object.freeze({originalNativeStreamSha256:'945359c7bee25a461c34d14d97f4d28aa2ae198594e4a147f9b3a3972406d149',sourcePngSha256:'d9a59309f9192e56a79f87dcddae324585b534cd680c38b7b58a2dfa9cc5c511',webpSha256:'4f1ed414b3f554a69dbc7b4e682507274c58ad327ace7e22808469aa1e56eff4',rasterStatus:'SWITCH_DXT5_RGBA_EXACT_PRIVATE'}),
+           '40005160':Object.freeze({originalNativeStreamSha256:'de98322ba8fa85da9fd19cdc3e5d5db361bbdfbedb1cfa503aa652a86827e74a',sourcePngSha256:'011b569722d0e4e19e20262994e51ced2f57ef8ef7e1c69ff036b1496a881b12',webpSha256:'461f6484256c69e5a528adc3af7054301841fc324c237d8bc0d4534830345bec',rasterStatus:'SWITCH_DXT5_RGBA_EXACT_PRIVATE'}),
+          """
+          p.with_name('qa658-overlap.mjs').write_text(s.replace(needle,needle+extra))
+          
+          PY
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import * as M from './src/lib/item-media/switch1253-public-item-images.mjs';import * as P from './src/lib/item-media/qa658-parent.mjs';import * as O from './src/lib/item-media/qa658-overlap.mjs';
+          const review=off=>({...off,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'c'.repeat(64),items:{}});
+          const fields=['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'];
+          function bind(m,r){for(const [id,e] of Object.entries(m.items)){e.publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';r.items[id]=Object.fromEntries(fields.map(k=>[k,e[k]]))}const {mediaPublic,items,...pub}=r;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...pub};return m}
+          const ids=['40006110','40005160'],all=[M.STEAM1253_DOOR_ID,...ids],sr=review(M.STEAM1253_REVIEWED_RELEASE),sm=bind(M.prepareSteam1253ItemImageManifest(all),sr),wr=review(M.SWITCH1253_REVIEWED_RELEASE);
+          const paths=Object.fromEntries(all.map(id=>[id,'/ddv/item-images/'+M.STEAM1253_ITEM_IMAGE_VARIANT+'/'+M.STEAM1253_NATIVE_PINS[id].webpSha256.slice(0,2)+'/'+M.STEAM1253_NATIVE_PINS[id].webpSha256+'.webp']));
+          assert.deepEqual(M.STEAM1253_DOOR_PIN,P.STEAM1253_DOOR_PIN);assert.deepEqual(M.SWITCH1253_NATIVE_PINS,P.SWITCH1253_NATIVE_PINS);assert.deepEqual(M.STEAM1253_REVIEWED_RELEASE,P.STEAM1253_REVIEWED_RELEASE);
+          assert.deepEqual(ids.map(id=>[M.STEAM1253_NATIVE_PINS[id].originalNativeStreamSha256,M.STEAM1253_NATIVE_PINS[id].webpSha256,M.STEAM1253_NATIVE_PINS[id].rgba160Sha256]),[['751dde857a70040b8704b4228c0282f10f54967738d64c7ed482ac69efe409ee','4f1ed414b3f554a69dbc7b4e682507274c58ad327ace7e22808469aa1e56eff4','306c52a3fd70c5e12f8349bfc68b5140a890859350342c10659e385d08edd870'],['8d28c26aed54bf50021641a898bcbb396b4075fcf21e3bf7c985518369ce5803','461f6484256c69e5a528adc3af7054301841fc324c237d8bc0d4534830345bec','278d57ff8d42b3e64a9f7abe597e6db7d2938c39b19f39d95526834669d46796']]);
+          const c=M.validateSteam1253ItemImageCatalog(sm,sr);assert.equal(c.count,3);for(const id of all)assert.equal(M.scopedSwitch1253ItemImageHref('',id,c),paths[id]);
+          for(const id of ids){for(const f of ['platform','schema','fullVersion','iconGuid','fallbackNativeStreamSha256','fallbackPolicy','rightsStatus','visibility','publicationDecision','bytes']){const x=structuredClone(sm);x.items[id][f]='WRONG';assert.throws(()=>M.validateSteam1253ItemImageCatalog(x,sr))}const x=structuredClone(sm);x.items[id]=x.items[ids.find(v=>v!==id)];assert.throws(()=>M.validateSteam1253ItemImageCatalog(x,sr));}
+          for(const id of ['40002422','40300001','40003299','040005160','__proto__','constructor'])assert.equal(M.scopedSwitch1253ItemImageHref('',id,c),null);assert.throws(()=>M.validateSteam1253ItemImageCatalog(sm));
+          const legacy=O.prepareSwitch1253ItemImageManifest();legacy.items=Object.fromEntries(['40000047',...ids].map(id=>[id,legacy.items[id]]));bind(legacy,wr);const merged=structuredClone(sm);merged.switch=legacy;
+          const both=O.validateSteam1253ItemImageCatalog(merged,sr,wr);assert.equal(both.count,4);assert.equal(O.scopedSwitch1253ItemImageHref('',ids[0],both),paths[ids[0]]);
+          delete merged.items[ids[0]];const w=O.validateSteam1253ItemImageCatalog(merged,sr,wr);assert.equal(w.count,3);assert.equal(O.scopedSwitch1253ItemImageHref('',ids[0],w),null);assert.equal(O.scopedSwitch1253ItemImageHref('',ids[1],w),paths[ids[1]]);assert.match(O.scopedSwitch1253ItemImageHref('','40000047',w),/switch-1.25.3/);delete merged.items[ids[1]];const w2=O.validateSteam1253ItemImageCatalog(merged,sr,wr);assert.equal(w2.count,2);assert.equal(O.scopedSwitch1253ItemImageHref('',ids[1],w2),null);console.log('QA658_EXACT2_20_FIELD_CROSS_PIN_LEGACY_OVERLAP_WITHDRAW_NO_RESURRECT_PASS');
+          JS
+          rm -f src/lib/item-media/qa658-parent.mjs src/lib/item-media/qa658-overlap.mjs
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4374 --strictPort >/tmp/qa658.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4374/collection/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4374/collection/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';
+          const root='http://127.0.0.1:4374',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{const ctx=await browser.newContext({serviceWorkers:'block',viewport:{width:1280,height:900}}),p=await ctx.newPage(),hits=[],errs=[],bad=[];p.on('pageerror',e=>errs.push(e.message));ctx.on('request',r=>{if(!r.url().startsWith(root+'/')||!['GET','HEAD'].includes(r.method()))bad.push(r.method())});
+          await p.goto(root+'/collection/',{waitUntil:'domcontentloaded'});await p.locator('[data-stage1-category-grid] .category-card').first().waitFor();const cfg=await p.evaluate(async()=>{const M=await import('/src/lib/item-media/switch1253-public-item-images.mjs');const review=off=>({...off,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'c'.repeat(64),items:{}});
+          const fields=['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'];
+          function bind(m,r){for(const [id,e] of Object.entries(m.items)){e.publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';r.items[id]=Object.fromEntries(fields.map(k=>[k,e[k]]))}const {mediaPublic,items,...pub}=r;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...pub};return m}
+          const ids=['40006110','40005160'],all=[M.STEAM1253_DOOR_ID,...ids],sr=review(M.STEAM1253_REVIEWED_RELEASE),sm=bind(M.prepareSteam1253ItemImageManifest(all),sr),wr=review(M.SWITCH1253_REVIEWED_RELEASE);
+          const paths=Object.fromEntries(all.map(id=>[id,'/ddv/item-images/'+M.STEAM1253_ITEM_IMAGE_VARIANT+'/'+M.STEAM1253_NATIVE_PINS[id].webpSha256.slice(0,2)+'/'+M.STEAM1253_NATIVE_PINS[id].webpSha256+'.webp']));
+          const colors=['#1144aa','#b27223','#46975d'],swatches={};for(let i=0;i<all.length;i++){const cv=document.createElement('canvas');cv.width=cv.height=160;const c=cv.getContext('2d');c.fillStyle=colors[i];c.fillRect(0,0,160,160);swatches[paths[all[i]]]=cv.toDataURL('image/webp').split(',')[1]}
+          globalThis.__qa658={M,sr,sm,ids};return{paths,swatches};});
+          await ctx.route('**/ddv/item-images/**',route=>{const url=new URL(route.request().url()).pathname;hits.push(url);return cfg.swatches[url]?route.fulfill({status:200,contentType:'image/webp',body:Buffer.from(cfg.swatches[url],'base64')}):route.fulfill({status:404,body:'denied'})});
+          async function inject(withdraw=null){await p.evaluate(async withdraw=>{const M=await import('/src/lib/item-media/switch1253-public-item-images.mjs');const review=off=>({...off,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'c'.repeat(64),items:{}});
+          const fields=['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'];
+          function bind(m,r){for(const [id,e] of Object.entries(m.items)){e.publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';r.items[id]=Object.fromEntries(fields.map(k=>[k,e[k]]))}const {mediaPublic,items,...pub}=r;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...pub};return m}
+          const ids=['40006110','40005160'],all=[M.STEAM1253_DOOR_ID,...ids],sr=review(M.STEAM1253_REVIEWED_RELEASE),sm=bind(M.prepareSteam1253ItemImageManifest(all),sr),wr=review(M.SWITCH1253_REVIEWED_RELEASE);
+          const paths=Object.fromEntries(all.map(id=>[id,'/ddv/item-images/'+M.STEAM1253_ITEM_IMAGE_VARIANT+'/'+M.STEAM1253_NATIVE_PINS[id].webpSha256.slice(0,2)+'/'+M.STEAM1253_NATIVE_PINS[id].webpSha256+'.webp']));
+          if(withdraw)delete sm.items[withdraw];const c=M.validateSteam1253ItemImageCatalog(sm,sr);M.switch1253PublicItemImageSource.set({status:'VERIFIED',catalog:c,reason:''});},withdraw)}
+          const ids=['40006110','40005160'];async function rendered(id,scope){const t=p.locator(scope+' [data-item-thumb-id="'+id+'"]').first();await t.waitFor();await t.scrollIntoViewIfNeeded();await t.locator('img').waitFor();assert.equal(await t.locator('img').getAttribute('src'),cfg.paths[id]);await p.waitForFunction(s=>{const el=document.querySelector(s);return el?.complete&&el.naturalWidth===160},scope+' [data-item-thumb-id="'+id+'"] img');}
+          for(const id of ids){await p.goto(root+'/collection/',{waitUntil:'domcontentloaded'});await p.locator('[data-stage1-category-grid] .category-card').first().waitFor();await p.locator('[data-stage1-search]').fill(id);await p.locator('[data-stage1-search-groups] [data-item-thumb-id="'+id+'"]').first().waitFor();assert.equal(await p.locator('[data-item-thumb-id="'+id+'"] img').count(),0);await inject();await rendered(id,'[data-stage1-search-groups]');await p.locator('[data-stage1-search-groups] .item-card').first().click();await rendered(id,'[data-stage1-item-info]');await p.locator('[data-stage1-item-info] .info-actions > a').click();await p.locator('[data-shared-discovery="READY"]').waitFor();await inject();await rendered(id,'[data-shared-entity-detail]');await inject(id);await p.waitForFunction(id=>!document.querySelector('[data-item-thumb-id="'+id+'"] img'),id);
+          await p.goto(root+'/explore/',{waitUntil:'domcontentloaded'});await p.locator('.grid .card').first().waitFor();await p.locator('.controls input[type="search"]').fill(id);await inject();await rendered(id,'.grid');}
+          assert.ok(ids.every(id=>hits.includes(cfg.paths[id])));assert.ok(hits.every(x=>Object.values(cfg.paths).includes(x)));assert.deepEqual(errs,[]);assert.deepEqual(bad,[]);console.log('QA658_REAL_CHROME_TWO_IDS_COLLECTION_INFO_DETAIL_EXPLORE_WITHDRAW_PASS');await ctx.close();
+          }finally{await browser.close()}
+          JS
