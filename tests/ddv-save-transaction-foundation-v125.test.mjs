@@ -109,7 +109,7 @@ async function expectCode(promise,code){
 function canonicalJson(value){return JSON.stringify(canonicalize(value));}
 function canonicalize(value){
   if(Array.isArray(value))return value.map(canonicalize);
-  if(value&&typeof value==='object'){const out={};for(const key of Object.keys(value).sort())out[key]=canonicalize(value[key]);return out;}
+  if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonicalize(value[key])]));
   return value;
 }
 async function manifestSha(manifest){
@@ -287,4 +287,75 @@ test('idempotence: second application of same final transform is exact no-op can
   const second=await createVerifiedWriteCandidate({session:secondSession,plan:secondPlan,adapter:adapter()});
   assert.equal(second.manifest.output.noOp,true);
   assert.deepEqual(second.candidateBytes,first.candidateBytes);
+});
+
+// ACT793: exact own-key identity through public transaction entrypoints.
+// JSON.parse is intentional: __proto__ is an own data key, not a literal setter.
+const OWN_PATH='/World/GridCollection/Grids/7/Objects/42/OpaqueObjectField';
+function ownKeyProfile(){
+  const root=profile();
+  root.World.GridCollection.Grids['7'].Objects['42'].OpaqueObjectField=
+    JSON.parse('{"Keep":1,"__proto__":{"Future":2},"nested":[{"__proto__":null,"A":3}]}');
+  return root;
+}
+function ownValue(root){return root.World.GridCollection.Grids['7'].Objects['42'].OpaqueObjectField;}
+function ownConditions(value){return [{path:OWN_PATH,operator:'EQUALS',value}];}
+test('own JSON key CAS rejects omitted and changed old data before adapter execution',async()=>{
+  const root=ownKeyProfile(),session=await openSession({root}),before=session.getSnapshot();
+  const actual=ownValue(root);
+  assert.equal(Object.hasOwn(ownValue(before),'__proto__'),true);
+  const missing=structuredClone(actual);delete missing.__proto__;
+  const drift=structuredClone(actual);drift.__proto__.Future=3;
+  const nested=structuredClone(actual);delete nested.nested[0].__proto__;
+  let called=0;
+  for(const value of [missing,drift,nested]){
+    const plan=await planFor(session,{preconditions:ownConditions(value)});
+    await expectCode(createVerifiedWriteCandidate({session,plan,adapter:adapter(()=>{called++;})}),'TX_PRECONDITION_FAILED');
+  }
+  assert.equal(called,0);assert.deepEqual(session.getSnapshot(),before);
+});
+test('own JSON key postcondition exactness, ordinary and reordered positive, independent reopen',async()=>{
+  const root=ownKeyProfile(),session=await openSession({root}),before=session.getSnapshot();
+  const actual=ownValue(root);
+  const reordered=JSON.parse('{"nested":[{"A":3,"__proto__":null}],"__proto__":{"Future":2},"Keep":1}');
+  const plan=await planFor(session,{preconditions:ownConditions(reordered),postconditions:ownConditions(actual)});
+  const candidate=await createVerifiedWriteCandidate({session,plan,adapter:adapter()});
+  assert.equal((await verifyWriteCandidate({candidate,codec:plainCodec()})).status,'PASS');
+  const reopened=await SafeProfileEditSession.open({sourceBytes:candidate.candidateBytes,codec:plainCodec(),sourcePlatform:PlatformFamily.Switch});
+  assert.deepEqual(ownValue(reopened.getSnapshot()),actual);
+  assert.equal(Object.hasOwn(ownValue(reopened.getSnapshot()),'__proto__'),true);
+  assert.deepEqual(session.getSnapshot(),before);
+  const missing=structuredClone(actual);delete missing.__proto__;
+  const bad=await planFor(session,{postconditions:ownConditions(missing)});
+  await expectCode(createVerifiedWriteCandidate({session,plan:bad,adapter:adapter()}),'TX_POSTCONDITION_FAILED');
+  const ordinary=await openSession(),ordinaryPlan=await planFor(ordinary);
+  const ordinaryCandidate=await createVerifiedWriteCandidate({session:ordinary,plan:ordinaryPlan,adapter:adapter()});
+  assert.equal((await verifyWriteCandidate({candidate:ordinaryCandidate,codec:plainCodec()})).status,'PASS');
+});
+test('own JSON key plan and manifest hashes bind nested data and reject omission/drift',async()=>{
+  const session=await openSession({root:ownKeyProfile()}),actual=ownValue(session.getSnapshot());
+  const plan=await planFor(session,{preconditions:ownConditions(actual),postconditions:ownConditions(actual)});
+  const candidate=await createVerifiedWriteCandidate({session,plan,adapter:adapter()});
+  // Independent hash oracle: sort own keys using null-prototype data records.
+  function canonicalOracle(v){
+    if(Array.isArray(v))return v.map(canonicalOracle);
+    if(v&&typeof v==='object'){
+      const out=Object.create(null);
+      for(const k of Object.keys(v).sort())Object.defineProperty(out,k,{value:canonicalOracle(v[k]),enumerable:true});
+      return out;
+    }
+    return v;
+  }
+  const hash=async v=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(JSON.stringify(canonicalOracle(v)))))].map(x=>x.toString(16).padStart(2,'0')).join('');
+  assert.equal(candidate.manifest.planSha256,await hash(candidate.plan));
+  const reordered=structuredClone(candidate.plan);
+  reordered.preconditions[0].value=JSON.parse('{"nested":[{"A":3,"__proto__":null}],"__proto__":{"Future":2},"Keep":1}');
+  assert.equal((await verifyWriteCandidate({candidate:{...candidate,plan:reordered},codec:plainCodec()})).status,'PASS');
+  for(const mutate of [v=>delete v.__proto__,v=>{v.__proto__.Future=8;},v=>delete v.nested[0].__proto__]){
+    const forged=structuredClone(candidate.plan);mutate(forged.preconditions[0].value);
+    await expectCode(verifyWriteCandidate({candidate:{...candidate,plan:forged},codec:plainCodec()}),'TX_PLAN_HASH_MISMATCH');
+  }
+  const manifest=structuredClone(candidate.manifest);
+  Object.defineProperty(manifest,'__proto__',{value:{Opaque:1},enumerable:true});
+  await expectCode(verifyWriteCandidate({candidate:{...candidate,manifest},codec:plainCodec()}),'TX_CANDIDATE_MANIFEST_HASH_MISMATCH');
 });

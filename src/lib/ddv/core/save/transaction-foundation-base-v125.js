@@ -558,7 +558,9 @@ function normalizePointers(value,code){if(!Array.isArray(value))throw txError(co
 function validatePointer(value,code){if(typeof value!=='string'||!/^\/(?:[^~]|~[01])*(?:\/(?:[^~]|~[01])*)*$/.test(value))throw txError(code);}
 function semanticEqual(a,b){return canonicalJson(a)===canonicalJson(b);}
 function canonicalJson(v){return JSON.stringify(canonicalize(v));}
-function canonicalize(v){if(Array.isArray(v))return v.map(canonicalize);if(v&&typeof v==='object'){const o={};for(const k of Object.keys(v).sort())o[k]=canonicalize(v[k]);return o;}return v;}
+// Preserve all own JSON keys as data, including __proto__. Assignment into
+// an ordinary object would invoke its inherited setter and lose CAS/hash input.
+function canonicalize(v){if(Array.isArray(v))return v.map(canonicalize);if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonicalize(v[k])]));return v;}
 function matchesAnyPrefix(path,prefixes){return prefixes.some(p=>path===p||path.startsWith(`${p}/`));}
 function summarizeFindings(v){return Array.isArray(v)?v.map(x=>x.code).join(', '):'';}
 function requireSession(s){if(!s||typeof s.getSnapshot!=='function'||typeof s.getPreflightContext!=='function'||!(s.source instanceof Uint8Array))throw txError('TX_SAFE_SESSION_REQUIRED');}
