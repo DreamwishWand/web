@@ -4,7 +4,7 @@ use ddv_save_core::portable_backup::{decode_inventory_amount_backup as decode,en
 use serde_json::json;
 const ITEM:u32=30000001;
 fn open(amount:u32,kind:&str)->ProductSession{
- let doc=json!({"GameInfo":{"Version":626},"World":{},"Player":{"ListInventories":{"4":{"ID":4,"CompatibleItemType":kind,"Inventory":{"30000001":{"Amount":amount,"Unknown":{"Keep":[1,"雪",null]}},"30000002":{"Amount":12,"Marker":"neighbor"}}}}}}});
+ let doc=json!({"GameInfo":{"Version":626},"World":{},"Player":{"ListInventories":{"4":{"ID":4,"CompatibleItemType":kind,"Inventory":{"30000001":{"Amount":amount,"Unknown":{"Keep":[1,"雪",null]}},"30000002":{"Amount":12,"Marker":"neighbor"}}}}}});
  ProductSession::open_decoded_readonly(serde_json::to_vec(&doc).unwrap(),BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:"releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22".into(),schema:626,externally_attested:true}).unwrap()
 }
 fn scope(s:&ProductSession,action:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action}}
