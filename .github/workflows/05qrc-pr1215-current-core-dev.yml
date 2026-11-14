@@ -1,0 +1,55 @@
+name: 05 QR-C PR1215 current Core DEV transport independent
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1215-current-core-dev.mjs'
+      - '.github/workflows/05qrc-pr1215-current-core-dev.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qa1215-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact Source6 and QA-only2
+        run: |
+          source=108ac32291f6f86ae7cdd9eca6872b76f6bbe953
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git diff --diff-filter=A --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 2c919d7b49b898920bd802d189456fc8aec7fb27
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/worker_session.rs)" = 885b89357db73fac5185f5eb1ec5558798e448f9
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 613950fe59f4cffade0babd572fda8d00e77428d
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 75572a67952e42baef505490f1bcba4c0a1749b7
+          test "$(git rev-parse HEAD:tests/official-dev-furniture-zero.mjs)" = 0d1dff86a9e61440f81439b3ec44487f2a2fc658
+          test "$(git rev-parse HEAD:.github/workflows/01a-dev-official-furniture-zero.yml)" = 3dfb228352b9c245073ed13cbb0c15ccf370680f
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = d359ee30c911923bb2425b2145c53f1245875d0c
+      - name: Locked real DEV WASM independent current Core
+        run: |
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qa1215-bindgen
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
+          mkdir -p /tmp/wand-qa1215-dev
+          /tmp/wand-qa1215-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --target web --out-dir /tmp/wand-qa1215-dev --no-typescript
+          echo '{"type":"module"}' > /tmp/wand-qa1215-dev/package.json
+          node tests/qa/05qrc-pr1215-current-core-dev.mjs /tmp/wand-qa1215-dev
+      - name: Public ABI isolation
+        run: |
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          node --input-type=module -e "import {readFileSync} from 'node:fs'; const e=WebAssembly.Module.exports(new WebAssembly.Module(readFileSync(process.env.CARGO_TARGET_DIR+'/wasm32-unknown-unknown/release/ddv_save_core.wasm'))); if(e.some(x=>/dev_(stage|undo|redo|begin|take)/.test(x.name))) process.exit(2); console.log('QA1215_PUBLIC_DEV_EXPORTS_ZERO');"
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
