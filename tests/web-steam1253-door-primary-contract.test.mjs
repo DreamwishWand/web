@@ -47,7 +47,7 @@ test('one neutral no-store manifest, withdrawal clears, refresh never uses Switc
 test('ACT648 exact2 shared Steam pins and one combined manifest; no hidden or cross-pin fallback',async()=>{
  const mod=await import('../src/lib/item-media/switch1253-public-item-images.mjs');
  const ids=[id,'40006110','40005160'],pins=mod.STEAM1253_NATIVE_PINS;
- assert.deepEqual(Object.keys(pins).sort(),[...ids,'40000047','40006096',...Object.keys(batch),...Object.keys(other)].sort());
+ assert.deepEqual(Object.keys(pins).sort(),[...ids,'40000047','40006096',...Object.keys(batch),...Object.keys(other),...Object.keys(held)].sort());
  assert.deepEqual(pins[id],pin);assert.equal(off.mediaPublic,false);
  assert.deepEqual(Object.keys(mod.prepareSteam1253ItemImageManifest().items),[id]);
  const {release}=fixture(),m=mod.prepareSteam1253ItemImageManifest(ids);
