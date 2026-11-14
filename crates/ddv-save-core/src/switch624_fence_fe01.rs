@@ -22,7 +22,7 @@ fn obj(id:u32,item:u32,x:u32,y:u32)->Value{
     json!({"ID":id,"ItemID":item,"X":x,"Y":y,
         "Orientation":if item==BASE{"GridOrientation_Down"}else{"GridOrientation_Left"},"State":null})
 }
-fn plan_parse(b:&[u8])->CoreResult<Value>{
+fn plan_parse(b:&[u8],contract:&str)->CoreResult<Value>{
     if b.is_empty()||b.len()>16384{return Err(denied("FE01_PLAN_BOUNDS"));}
     let v:Value=serde_json::from_slice(b).map_err(|_|denied("FE01_PLAN_JSON"))?;
     if enc(&v)?.as_slice()!=b{return Err(denied("FE01_PLAN_NONCANONICAL"));}
@@ -30,7 +30,7 @@ fn plan_parse(b:&[u8])->CoreResult<Value>{
         "retainedIds","deletedIds","created"];
     let m=v.as_object().ok_or(denied("FE01_PLAN_OBJECT"))?;
     if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||
-       v["contract"]!="wand.private.switch624.fence-fe01-archive@1"||
+       v["contract"]!=contract||
        v["layout"]!="PRESERVE_EXISTING"{return Err(denied("FE01_PLAN_FIELDS"));}
     Ok(v)
 }
@@ -129,7 +129,18 @@ impl ProductSession{
         let build=&self.native_source_build;
         if build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||build.build_id!=BID||
            build.schema!=624||!build.externally_attested||self.worker_bound{return Err(denied("FE01_EXACT_SWITCH624_REQUIRED"));}
-        let p=plan_parse(plan)?;
+        let p=plan_parse(plan,"wand.private.switch624.fence-fe01-archive@1")?;
+        let edits=collect(self,&p)?;
+        self.commit_semantic_replacements(e,edits,7)
+    }
+}
+impl ProductSession{
+    /// Exact Switch626 FE01 preserve7 layout-only; no inventory edit/refund.
+    pub fn stage_switch626_fence_fe01_layout(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        let b=&self.native_source_build;
+        if b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||b.build_id!="9A239D3DB569756D"||
+           b.schema!=626||!b.externally_attested||self.worker_bound{return Err(denied("FE01_EXACT_SWITCH626_REQUIRED"));}
+        let p=plan_parse(plan,"wand.private.switch626.fence-fe01-layout@1")?;
         let edits=collect(self,&p)?;
         self.commit_semantic_replacements(e,edits,7)
     }
@@ -155,6 +166,36 @@ mod tests{
         "gridSha256":digest(&enc(&d["World"]["GridCollection"]["Grids"]["9"]).unwrap()),
         "retainedIds":[10,13],"deletedIds":[11,12],"created":[obj(50,NEW_EXT,40,22),obj(51,BASE,40,26),
             obj(52,BASE,40,30),obj(53,NEW_EXT,40,32)]})}
+    #[test]
+    fn fe01_switch626_exact7_preserve_endpoints_no_inventory(){
+        let old=doc();let mut d=old.clone();d["GameInfo"]["Version"]=json!(626);
+        let mut p=plan(&d);p["contract"]=json!("wand.private.switch626.fence-fe01-layout@1");
+        let make=|v:&Value|ProductSession::open_decoded_readonly(enc(v).unwrap(),crate::BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+        let s=make(&d);let e=scope(&s,WorkerAction::Stage);let bytes=enc(&p).unwrap();
+        assert!(s.stage_switch624_fence_fe01_archive(e,&bytes).is_err());
+        assert!(s.stage_switch626_fence_fm01_layout(e,&bytes).is_err());
+        let t=open(&old);assert!(t.stage_switch626_fence_fe01_layout(scope(&t,WorkerAction::Stage),&bytes).is_err());
+        assert!(make(&d).stage_switch626_fence_fe01_layout(e,&bytes).is_err());
+        for (k,v) in [("contract",json!("wand.private.switch624.fence-fe01-archive@1")),("retainedIds",json!([10,12])),
+            ("deletedIds",json!([11,11])),("expectedNextId",json!(51)),("sourceDecodedSha256",json!("bad")),
+            ("gridSha256",json!("bad")),("layout",json!("REFUND")),("refund",json!(1))]{
+            let mut q=p.clone();q[k]=v;assert!(s.stage_switch626_fence_fe01_layout(e,&enc(&q).unwrap()).is_err());
+        }
+        let mut q=p.clone();q["created"][0]["ItemID"]=json!(OLD_EXT);assert!(s.stage_switch626_fence_fe01_layout(e,&enc(&q).unwrap()).is_err());
+        let r=s.stage_switch626_fence_fe01_layout(e,&bytes).unwrap();
+        assert_eq!(r.operation_count,7);assert_eq!(r.exact_field_changed_count,7);assert!(!r.product_writer_authorized);
+        assert!(s.stage_switch626_fence_fe01_layout(e,&bytes).is_err());
+        s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(e).is_err());
+        let mut want=d.clone();let g=&mut want["World"]["GridCollection"]["Grids"]["9"];g["NextGridObjectID"]=json!(54);
+        for id in ["11","12"]{g["Objects"].as_object_mut().unwrap().remove(id);}
+        for o in p["created"].as_array().unwrap(){g["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
+        assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),want);assert_eq!(sha(&out),r.staged_decoded_sha256);
+    }
     #[test]
     fn fe01_exact7_preserve_endpoints_player_undo_redo_one_time(){
         let d=doc();let s=open(&d);let p=plan(&d);let e=scope(&s,WorkerAction::Stage);
