@@ -2,7 +2,7 @@ name: 04 QR-W PR1153 independent subgrid
 on:
   pull_request:
     paths:
-      - 'tests/04qr-w-pr1153-subgrid-independent.test.mjs'
+      - 'scripts/04qr-w-pr1153-subgrid-independent.mjs'
       - '.github/workflows/04qr-w-pr1153-subgrid-independent.yml'
 permissions:
   contents: read
@@ -27,4 +27,4 @@ jobs:
           test "$(git rev-parse 9598a2fbb2ae8c345c135048b8dd6f4a26aace08:src/lib/ddv/core/world/runtime-v125/direct-root-editor-document-v125.js)" = "$(git rev-parse HEAD:src/lib/ddv/core/world/runtime-v125/direct-root-editor-document-v125.js)"
           git show 9598a2fbb2ae8c345c135048b8dd6f4a26aace08:src/lib/wep/world-browser-adapter.ts > src/lib/wep/qa615-parent-adapter.ts
           trap 'rm -f src/lib/wep/qa615-parent-adapter.ts' EXIT
-          node --test tests/04qr-w-pr1153-subgrid-independent.test.mjs
+          node --test scripts/04qr-w-pr1153-subgrid-independent.mjs
