@@ -26,7 +26,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE="${{ github.event.pull_request.base.sha }}"
+          EVENT_BASE="${{ github.event.pull_request.base.sha }}"
+          SOURCE="${{ github.event.pull_request.head.sha }}"
+          # Checkout is the actual PR merge commit. A queued event base can be
+          # older than its first parent after a protected-main integration.
+          # Verify both parents; scope the integrated tree against its actual base.
+          if test "$(git rev-parse HEAD)" = "$SOURCE"; then
+            BASE="$EVENT_BASE"
+          else
+            test "$(git rev-parse HEAD^2)" = "$SOURCE"
+            BASE="$(git rev-parse HEAD^1)"
+            git merge-base --is-ancestor "$EVENT_BASE" "$BASE"
+          fi
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           cat >/tmp/atomic-entry-scope <<'SCOPE'
           .github/workflows/web-moodboard-atomic-entry.yml
