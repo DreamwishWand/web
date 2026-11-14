@@ -56,7 +56,11 @@ function error(code:string, detail:unknown = null):never {
 
 // Module-private receipts prevent a caller-supplied or altered plan from
 // bypassing the reviewed source/placement/progression checks at export.
-const issuedReviews = new WeakMap<object,AnyRecord>();
+const issuedReviews = new WeakMap<object,{
+  review:AnyRecord;
+  baseline:AnyRecord;
+  draft:AnyRecord;
+}>();
 
 function semanticEqual(a:unknown,b:unknown) {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -362,12 +366,19 @@ export async function reviewMinimumVerifiedTransform({
     Number(opened?.profileSchemaVersion)!==624
   ) error('WEP_EXPORT_UNSUPPORTED_VERSION_BUILD');
 
+  // Capture the exact same plain-data documents before the first await.
+  // Never check placement on a later caller draft while the plan retains an
+  // earlier target. The source projection and placement use these snapshots.
+  const baselineSnapshot=clone(baselineDocument);
+  const draftSnapshot=clone(draftDocument);
+  const openedSnapshot=clone(opened);
   const change=analyzeMinimumTransformDraft({
-    baselineDocument,draftDocument,rotationGeometry:worldBinding?.adapter?.geometryService
+    baselineDocument:baselineSnapshot,draftDocument:draftSnapshot,
+    rotationGeometry:worldBinding?.adapter?.geometryService
   });
   if(
-    Number(draftDocument?.target?.rootGridId)!==change.gridId ||
-    Number(baselineDocument?.target?.rootGridId)!==change.gridId
+    Number(draftSnapshot?.target?.rootGridId)!==change.gridId ||
+    Number(baselineSnapshot?.target?.rootGridId)!==change.gridId
   ) error('WEP_EXPORT_CROSS_GRID_UNSUPPORTED');
 
   const safeSession=await SafeProfileEditSession.open({
@@ -376,7 +387,7 @@ export async function reviewMinimumVerifiedTransform({
     sourcePlatform:PlatformFamily.Switch
   });
   const profile:AnyRecord=safeSession.getSnapshot();
-  requireSourceBaseline({profile,opened,baselineDocument,worldBinding,change});
+  requireSourceBaseline({profile,opened:openedSnapshot,baselineDocument:baselineSnapshot,worldBinding,change});
   const [pack,progression]=await Promise.all([
     fetchScopePack(basePath,fetchImpl),
     buildSwitchV125DestinationProgressionProjection({
@@ -411,9 +422,15 @@ export async function reviewMinimumVerifiedTransform({
   if(typeof placementBinding?.classifyMinimumTransformPlacement!=='function') {
     error('WEP_EXPORT_PLACEMENT_BINDING_MISSING');
   }
+  // A changed UI draft must be reviewed again; even a change-and-restore
+  // cannot make the placement check inspect anything except the bound snapshot.
+  if (!semanticEqual(baselineDocument,baselineSnapshot) ||
+      !semanticEqual(draftDocument,draftSnapshot)) {
+    error('WEP_EXPORT_DRAFT_CHANGED');
+  }
   const placementEvidence=
     placementBinding.classifyMinimumTransformPlacement({
-      document:draftDocument,
+      document:clone(draftSnapshot),
       editorId:change.editorId
     });
   if(
@@ -505,7 +522,7 @@ export async function reviewMinimumVerifiedTransform({
     sourceByteLength:safeSession.source.length,
     targetBuild,
     change,
-    baselineTarget:clone(baselineDocument.target),
+    baselineTarget:clone(baselineSnapshot.target),
     plan,
     admissibility:clone(admissibility),
     progressionRecord:clone(progressionRecord),
@@ -513,7 +530,7 @@ export async function reviewMinimumVerifiedTransform({
     persistentWriteAuthorized:false,
     WORLD_PERSISTENT_WRITE_V125:false
   });
-  issuedReviews.set(review,clone(review));
+  issuedReviews.set(review,{review:clone(review),baseline:baselineSnapshot,draft:draftSnapshot});
   return review;
 }
 
@@ -537,7 +554,9 @@ export async function commitMinimumVerifiedTransform({
     review?.status!=='READY'
   ) error('WEP_EXPORT_REVIEW_REQUIRED');
   const issued=issuedReviews.get(review);
-  if (!issued || !semanticEqual(review,issued)) {
+  if (!issued || !semanticEqual(review,issued.review) ||
+      !semanticEqual(baselineDocument,issued.baseline) ||
+      !semanticEqual(draftDocument,issued.draft)) {
     error('WEP_EXPORT_REVIEW_STALE');
   }
   if(Number(currentSourceEpoch)!==Number(review.sourceEpoch)) {
@@ -558,7 +577,7 @@ export async function commitMinimumVerifiedTransform({
   // Consume synchronously before async work: repeated/overlapping export
   // requires a new review. The private copy is not mutable through UI state.
   issuedReviews.delete(review);
-  review=issued;
+  review=issued.review;
   const sourceHashBefore=await sha256Hex(sourceBytes);
   if(
     sourceHashBefore!==review.sourceSha256 ||
