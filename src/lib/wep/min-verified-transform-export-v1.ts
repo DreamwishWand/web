@@ -136,10 +136,12 @@ function documentShell(document:AnyRecord) {
 
 export function analyzeMinimumTransformDraft({
   baselineDocument,
-  draftDocument
+  draftDocument,
+  rotationGeometry=null
 }:{
   baselineDocument:AnyRecord;
   draftDocument:AnyRecord;
+  rotationGeometry?:AnyRecord|null;
 }) {
   if(!baselineDocument||!draftDocument) {
     error('WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE');
@@ -188,11 +190,7 @@ export function analyzeMinimumTransformDraft({
     delete beforeStable[key];
     delete afterStable[key];
   }
-  if(!semanticEqual(beforeStable,afterStable)) {
-    error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{
-      reason:'NON_TRANSFORM_OBJECT_FIELD_CHANGED'
-    });
-  }
+  const stableSame=semanticEqual(beforeStable,afterStable);
 
   const moved=Number(before.x)!==Number(after.x) ||
     Number(before.y)!==Number(after.y);
@@ -204,6 +202,35 @@ export function analyzeMinimumTransformDraft({
     error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{
       reason:'MOVE_ROTATE_COMBINATION_UNSUPPORTED'
     });
+  }
+
+  // The existing editor rotation service recomputes footprint, footprintSize
+  // and rotationSemantics. Accept its exact deterministic output, not a
+  // blanket exception for metadata or arbitrary caller-provided footprints.
+  let exactRotation=false;
+  if (operation==='ROTATE' && rotationGeometry) {
+    if (![0,4,8,12].includes(before.orientation) ||
+        ![0,4,8,12].includes(after.orientation)) {
+      error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{reason:'CARDINAL_ORIENTATION_REQUIRED'});
+    }
+    const turns=((after.orientation-before.orientation+16)%16)/4;
+    const inPlace=rotationGeometry.rotateObjectInPlace(clone(before),turns);
+    const scene=rotationGeometry.rotateSelectionLikeScene([clone(before)],turns);
+    if (!inPlace || !Array.isArray(scene) || scene.length!==1) {
+      error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{reason:'ROTATION_GEOMETRY_UNRESOLVED'});
+    }
+    // Legacy orientation-only draft is admissible only if the canonical
+    // footprint/size is genuinely unchanged (e.g. a square object).
+    const unchangedDerived=stableSame &&
+      semanticEqual(after.footprint,inPlace.footprint) &&
+      semanticEqual(after.metadata?.footprintSize,inPlace.metadata?.footprintSize);
+    exactRotation=semanticEqual(after,inPlace)||semanticEqual(after,scene[0])||unchangedDerived;
+    if (!exactRotation) {
+      error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{reason:'NON_TRANSFORM_OBJECT_FIELD_CHANGED'});
+    }
+  }
+  if (!stableSame && !exactRotation) {
+    error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{reason:'NON_TRANSFORM_OBJECT_FIELD_CHANGED'});
   }
 
   if(
@@ -289,6 +316,12 @@ function requireSourceBaseline({
       object.editability!=='editable' || (object.metadata?.reasons??[]).length!==0) {
     error('WEP_EXPORT_OBJECT_NO_LONGER_ADMISSIBLE');
   }
+  if (!semanticEqual(object.footprint,change.beforeObject.footprint) ||
+      !semanticEqual(object.metadata?.footprintSize,change.beforeObject.metadata?.footprintSize) ||
+      object.metadata?.gridTessellationFactor!==change.beforeObject.metadata?.gridTessellationFactor ||
+      !semanticEqual(object.source,change.beforeObject.source)) {
+    error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+  }
 }
 
 export async function reviewMinimumVerifiedTransform({
@@ -330,7 +363,7 @@ export async function reviewMinimumVerifiedTransform({
   ) error('WEP_EXPORT_UNSUPPORTED_VERSION_BUILD');
 
   const change=analyzeMinimumTransformDraft({
-    baselineDocument,draftDocument
+    baselineDocument,draftDocument,rotationGeometry:worldBinding?.adapter?.geometryService
   });
   if(
     Number(draftDocument?.target?.rootGridId)!==change.gridId ||
@@ -515,7 +548,8 @@ export async function commitMinimumVerifiedTransform({
   }
   const currentChange=analyzeMinimumTransformDraft({
     baselineDocument,
-    draftDocument
+    draftDocument,
+    rotationGeometry:worldBinding?.adapter?.geometryService
   });
   if(!semanticEqual(currentChange,review.change)) {
     error('WEP_EXPORT_REVIEW_STALE');
