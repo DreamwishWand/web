@@ -1,0 +1,31 @@
+name: 05 QR-C PR1226 independent exact intent boundary
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1226-adapter-intent.mjs'
+      - '.github/workflows/05qrc-pr1226-adapter-intent.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact child2, parent and direct adapter boundary
+        run: |
+          source=a7dcbffb1ced406ff8d3d667abfea253d148619e
+          parent=1aac6d1e82b1284305d149fa9543679cb709ccb0
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git diff --diff-filter=A --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/roadfence/persistent-transaction-v125.js)" = c3f8a55327054f6aff99286502885d4a5afeaf34
+          test "$(git rev-parse HEAD:tests/ddv-roadfence-persistent-transaction-v125.test.mjs)" = a9b3dadc65d2e8b3855f6b8a64545cc30d737b63
+          git show "$parent:src/lib/ddv/core/roadfence/persistent-transaction-v125.js" > src/lib/ddv/core/roadfence/.qa1226-parent.mjs
+          node tests/qa/05qrc-pr1226-adapter-intent.mjs
