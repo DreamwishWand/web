@@ -1,6 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
+  import ItemThumb from '$lib/ui/ItemThumb.svelte';
   import { loadCollectionRuntime } from '$lib/collection/runtime.js';
   import { buildSharedCatalogDirectory } from '$lib/entity/shared-catalog-directory.mjs';
   import { createSwitchWorldReadAdapter } from '$lib/wep/world-browser-adapter';
@@ -166,9 +167,12 @@
         maxlength="120" autocomplete="off" />
     </label>
     <ul class="choices" data-wep-savefree-results>
-      {#each results as item}
+      {#each results as item (item.itemId)}
         <li>
-          <span class="item-name">{item.label} <code>#{item.itemId}</code></span>
+          <div class="item-identity">
+            <ItemThumb itemId={item.itemId} label={item.label} compact />
+            <span class="item-name">{item.label} <code>#{item.itemId}</code></span>
+          </div>
           <button type="button" data-wep-savefree-choose={item.itemId}
             on:click={() => selectVerifiedItem(item.itemId)}
             disabled={saving}>{copy.choose}</button>
@@ -181,7 +185,12 @@
   {/if}
   {#if selected}
     <div class="selection" data-wep-savefree-selection>
-      <strong>{selected.label} · #{selected.itemId}</strong>
+      <div class="item-identity">
+        {#key selected.itemId}
+          <ItemThumb itemId={selected.itemId} label={selected.label} />
+        {/key}
+        <strong class="item-name">{selected.label} · #{selected.itemId}</strong>
+      </div>
       <span>{copy.footprint}: {selected.bounds.w} × {selected.bounds.h}</span>
       <code>{selected.layer} · {selected.source}</code>
       <label class="search">
@@ -240,7 +249,9 @@
   .choices{list-style:none;margin:12px 0;padding:0;display:grid;gap:6px}
   .choices li{display:flex;justify-content:space-between;align-items:center;
     flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--border);padding:8px 0}
-  .item-name{font-size:12px;min-width:0}
+  .item-identity{display:flex;align-items:center;gap:8px;flex:1 1 180px;min-width:0;max-width:100%}
+  .selection .item-identity{flex:none}
+  .item-name{font-size:12px;flex:1;min-width:0;overflow-wrap:anywhere}
   code{font-size:11px;overflow-wrap:anywhere}
   .selection{padding:12px;border:1px solid var(--border);border-radius:12px;
     display:grid;gap:8px;margin-top:14px}
