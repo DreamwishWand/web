@@ -29,6 +29,8 @@ export function requestOriginalByteBackup(originalSelectedFile){
 }
 export async function compareOriginalBackupBytes(original,candidate,current,maxBytes){
  if(typeof current!=='function'||!current())throw Error('LOCAL_BACKUP_CANDIDATE_SESSION_REVOKED');
+ if(!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>128*1024*1024)
+  throw Error('LOCAL_BACKUP_CANDIDATE_NOT_DISTINCT_BOUNDED');
     let originalBytes,candidateBytes;
     try{
       if(!(candidate instanceof Blob)||candidate===original)
