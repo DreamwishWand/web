@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, chmodSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, chmodSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -52,4 +52,33 @@ test('historical actual protected main transition reconstructs exact integrated 
  assert.equal(out.entries.length,8);
  assert.equal(out.mergeAuthorized,false);
  assert.throws(()=>constructCandidateTree(cwd,{base,source,main:source,paths}),/MAIN_PREIMAGE_MISMATCH/);
+});
+
+test('candidate disables repo-local and inherited executable fsmonitor without caller side effects',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'wand-candidate-hook-'));
+ const git=(...args)=>execFileSync('git',args,{cwd:dir,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+ const write=(p,s)=>writeFileSync(join(dir,p),s);
+ const commit=m=>{git('add','-A');git('commit','-m',m);return git('rev-parse','HEAD');};
+ const keys=['GIT_CONFIG_COUNT','GIT_CONFIG_KEY_0','GIT_CONFIG_VALUE_0'];
+ const old=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+ try{
+  git('init','-b','main');git('config','user.name','Synthetic');git('config','user.email','synthetic@example.invalid');
+  write('a','old');const base=commit('base');write('a','new');const source=commit('source');
+  git('checkout','--detach',base);write('a','staged');git('add','a');write('untouched','original');
+  const hook=join(dir,'monitor.sh');
+  write('monitor.sh','#!/bin/sh\necho invoked > hook-ran\ngit update-ref refs/heads/qa-hook-side-effect HEAD\nprintf changed > untouched\nprintf "token\\0"\n');chmodSync(hook,0o755);
+  git('config','core.fsmonitor',hook);
+  const index=readFileSync(join(dir,'.git','index')),refs=git('show-ref');
+  for(const inherited of [false,true]){
+   if(inherited){process.env.GIT_CONFIG_COUNT='1';process.env.GIT_CONFIG_KEY_0='core.fsmonitor';process.env.GIT_CONFIG_VALUE_0=hook;}
+   const out=constructCandidateTree(dir,{base,source,main:base,paths:['a']});
+   assert.equal(out.refsUpdated,false);assert.equal(git('show',out.tree+':a'),'new');
+   assert.equal(existsSync(join(dir,'hook-ran')),false);assert.equal(git('show-ref'),refs);
+   assert.equal(readFileSync(join(dir,'untouched'),'utf8'),'original');
+   assert.deepEqual(readFileSync(join(dir,'.git','index')),index);
+  }
+ }finally{
+  for(const k of keys){if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k];}
+  rmSync(dir,{recursive:true,force:true});
+ }
 });

@@ -2,25 +2,33 @@
 // Requires trusted local Git object store and accepted scope supplied by the caller.
 // This is not a QA, approval, freshness, merge, deployment or Flag gate.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { inspectSelection } from './int-selection-preflight.mjs';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
 const SHA = /^[0-9a-f]{40}$/;
 const ZERO = '0'.repeat(40);
 const deny = reason => { throw new Error(reason); };
 
 export function constructCandidateTree(cwd, input) {
-  const report = inspectSelection(cwd, input);
   const dir = mkdtempSync(join(tmpdir(), 'wand-int-candidate-'));
+  // Do not inherit Git directory, index, config injection or executable hooks.
+  const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>!k.startsWith('GIT_')));
+  Object.assign(env,{GIT_NO_REPLACE_OBJECTS:'1',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_INDEX_FILE:join(dir,'index')});
+  const config=[['core.fsmonitor','false'],['core.hooksPath','/dev/null'],['core.splitIndex','false'],['core.untrackedCache','false'],['core.sparseCheckout','false'],['index.sparse','false']];
+  env.GIT_CONFIG_COUNT=String(config.length);
+  config.forEach(([k,v],i)=>{env['GIT_CONFIG_KEY_'+i]=k;env['GIT_CONFIG_VALUE_'+i]=v;});
   const git = (args, stdin) => execFileSync('git', args, {
     cwd, encoding:'utf8', maxBuffer:16*1024*1024,
-    env:{...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_INDEX_FILE:join(dir,'index')},
+    env,
     input:stdin, stdio:['pipe','pipe','pipe']
   });
   try {
+    // Execute inherited preflight under the same controlled Git environment.
+    const manifest=join(dir,'selection.json');
+    writeFileSync(manifest,JSON.stringify(input),{mode:0o600});
+    const report=JSON.parse(execFileSync(process.execPath,[fileURLToPath(new URL('./int-selection-preflight.mjs',import.meta.url)),manifest],{cwd,env,encoding:'utf8',maxBuffer:16*1024*1024,stdio:['ignore','pipe','pipe']}));
     git(['read-tree', report.main]);
     const records = report.entries.map(e => e.after
       ? e.after.mode+' '+e.after.blob+'\t'+e.path+'\0'
