@@ -1,0 +1,68 @@
+name: 04 QR-W PR1164 Steam Door common manifest independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1164-steam-door-common.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          test "$(git merge-base HEAD '165626e89ed361b72c2e047190b2ccfb6fefee11')" = '165626e89ed361b72c2e047190b2ccfb6fefee11'
+          test "$(git diff --name-only '165626e89ed361b72c2e047190b2ccfb6fefee11' HEAD)" = '.github/workflows/04qr-w-pr1164-steam-door-common.yml'
+          test "$(git diff --name-only d9608e16820d067caf4fecaa0624dcfbf0d1a8c0 165626e89ed361b72c2e047190b2ccfb6fefee11 | wc -l)" = 4
+          test "$(git rev-parse HEAD:.github/workflows/web-shared-catalog-detail.yml)" = '7526e4f389ddb6071b7e25a862beef517e081507'
+          test "$(git rev-parse HEAD:scripts/web-steam1253-door-collection-chrome.mjs)" = '67e0690fd71f0e8eca8115e13b17ed1c17bc67f0'
+          test "$(git rev-parse HEAD:src/lib/item-media/switch1253-public-item-images.mjs)" = 'eebfc32cd0c449de7178e7b081611457208f725b'
+          test "$(git rev-parse HEAD:tests/web-steam1253-door-primary-contract.test.mjs)" = 'bec5e24ef08e876b8947c3d642618d614ea27fbf'
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import * as mod from './src/lib/item-media/switch1253-public-item-images.mjs';
+          const review=(off)=>({...off,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'c'.repeat(64),items:{}});
+          const fields=['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'];
+          function bind(m,r){for(const [id,e] of Object.entries(m.items)){e.publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';r.items[id]=Object.fromEntries(fields.map(k=>[k,e[k]]))}const {mediaPublic,items,...pub}=r;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...pub};return m}
+          const M=mod,door=M.STEAM1253_DOOR_ID,legacy='40000047',sr=review(M.STEAM1253_REVIEWED_RELEASE),wr=review(M.SWITCH1253_REVIEWED_RELEASE),sm=M.prepareSteam1253ItemImageManifest(),wm=M.prepareSwitch1253ItemImageManifest();wm.items={[legacy]:wm.items[legacy]};bind(wm,wr);bind(sm,sr);sm.switch=wm;
+          const expectedDoor='/ddv/item-images/'+M.STEAM1253_ITEM_IMAGE_VARIANT+'/'+M.STEAM1253_DOOR_PIN.webpSha256.slice(0,2)+'/'+M.STEAM1253_DOOR_PIN.webpSha256+'.webp';
+          const lp=M.SWITCH1253_NATIVE_PINS[legacy],expectedLegacy='/ddv/item-images/'+M.SWITCH1253_ITEM_IMAGE_VARIANT+'/'+lp.originalNativeStreamSha256.slice(0,2)+'/'+lp.originalNativeStreamSha256+'-'+lp.sourcePngSha256+'-'+lp.webpSha256+'.webp';
+          const c=M.validateSteam1253ItemImageCatalog(sm,sr,wr);assert.equal(c.count,2);assert.equal(M.scopedSwitch1253ItemImageHref('',door,c),expectedDoor);assert.equal(M.scopedSwitch1253ItemImageHref('',legacy,c),expectedLegacy);assert.equal(M.scopedSwitch1253ItemImageHref('','40006096',c),null);assert.equal(M.scopedSwitch1253ItemImageHref('','40300001',c),null);assert.equal(M.scopedSwitch1253ItemImageHref('',door,structuredClone(c)),null);
+          for(const f of ['platform','fullVersion','schema','iconGuid','fallbackBuildID','fallbackPolicy','visibility','originalBundleSha256','originalNativeStreamSha256','sourcePngSha256','webpSha256','rgba160Sha256','bytes']){const x=structuredClone(sm);x.items[door][f]='bad';assert.throws(()=>M.validateSteam1253ItemImageCatalog(x,sr,wr));}
+          for(const f of ['receivingContact','takedown','managedHttps','oldUrlAndCache','rollback','operatorReceiptSha256'])assert.throws(()=>M.validateSteam1253ItemImageCatalog(sm,{...sr,[f]:'NOT_RUN'},wr));
+          assert.throws(()=>M.validateSteam1253ItemImageCatalog(sm,sr,M.SWITCH1253_REVIEWED_RELEASE));assert.throws(()=>M.validateSteam1253ItemImageCatalog(sm,M.STEAM1253_REVIEWED_RELEASE,wr));
+          const states=[],calls=[],ctl=M.createSteam1253ManifestController(sr,wr,s=>states.push(s));let resolve;const delayed=new Promise(r=>resolve=r);const old=ctl.load('/old',async(u,o)=>{calls.push([u,o.cache,o.redirect,o.credentials]);return delayed});ctl.clear('QA_WITHDRAW');const raw=structuredClone(sm);delete raw.items[door];const newer=await ctl.load('/new',async(u,o)=>{calls.push([u,o.cache,o.redirect,o.credentials]);return new Response(JSON.stringify(raw),{headers:{'content-type':'application/json'}})});assert.equal(newer.count,1);resolve(new Response(JSON.stringify(sm),{headers:{'content-type':'application/json'}}));assert.equal(await old,null);assert.equal(states.at(-1).catalog,newer);assert.equal(M.scopedSwitch1253ItemImageHref('/new',door,newer),null);assert.equal(M.scopedSwitch1253ItemImageHref('/new',legacy,newer),'/new'+expectedLegacy);assert.deepEqual(calls,[['/old/'+M.STEAM1253_MANIFEST_PATH,'no-store','error','omit'],['/new/'+M.STEAM1253_MANIFEST_PATH,'no-store','error','omit']]);await ctl.load('/new',async()=>new Response('{}',{headers:{'content-type':'text/html'}}),true);assert.equal(states.at(-1).catalog,null);ctl.clear();
+          console.log('QA652_EXACT_MIXED_MANIFEST_OFF_RIGHTS_STALE_WITHDRAW_PASS');
+          JS
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4373 --strictPort >/tmp/qa652.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4373/collection/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4373/collection/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';
+          const origin='http://127.0.0.1:4373',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{const ctx=await browser.newContext({serviceWorkers:'block',viewport:{width:1280,height:900}}),page=await ctx.newPage(),errors=[],unsafe=[],hits=[];page.on('pageerror',e=>errors.push(e.message));ctx.on('request',r=>{if(!r.url().startsWith(origin+'/')||!['GET','HEAD'].includes(r.method()))unsafe.push(r.method())});await page.goto(origin+'/collection/',{waitUntil:'domcontentloaded'});await page.locator('[data-stage1-category-grid] .category-card').first().waitFor();const search=page.locator('[data-stage1-search]');await search.fill('40300045');const thumb=id=>page.locator('[data-stage1-search-groups] [data-item-thumb-id="'+id+'"]').first();await thumb('40300045').waitFor();assert.equal(await thumb('40300045').locator('img').count(),0);
+          const data=await page.evaluate(async()=>{const mod=await import('/src/lib/item-media/switch1253-public-item-images.mjs');const review=(off)=>({...off,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'c'.repeat(64),items:{}});
+          const fields=['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'];
+          function bind(m,r){for(const [id,e] of Object.entries(m.items)){e.publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';r.items[id]=Object.fromEntries(fields.map(k=>[k,e[k]]))}const {mediaPublic,items,...pub}=r;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...pub};return m}
+          const M=mod,door=M.STEAM1253_DOOR_ID,legacy='40000047',sr=review(M.STEAM1253_REVIEWED_RELEASE),wr=review(M.SWITCH1253_REVIEWED_RELEASE),sm=M.prepareSteam1253ItemImageManifest(),wm=M.prepareSwitch1253ItemImageManifest();wm.items={[legacy]:wm.items[legacy]};bind(wm,wr);bind(sm,sr);sm.switch=wm;
+          const expectedDoor='/ddv/item-images/'+M.STEAM1253_ITEM_IMAGE_VARIANT+'/'+M.STEAM1253_DOOR_PIN.webpSha256.slice(0,2)+'/'+M.STEAM1253_DOOR_PIN.webpSha256+'.webp';
+          const lp=M.SWITCH1253_NATIVE_PINS[legacy],expectedLegacy='/ddv/item-images/'+M.SWITCH1253_ITEM_IMAGE_VARIANT+'/'+lp.originalNativeStreamSha256.slice(0,2)+'/'+lp.originalNativeStreamSha256+'-'+lp.sourcePngSha256+'-'+lp.webpSha256+'.webp';
+          const c=document.createElement('canvas');c.width=c.height=160;const g=c.getContext('2d');g.fillStyle='#6349a0';g.fillRect(0,0,160,160);const swatch=c.toDataURL('image/webp').split(',')[1];globalThis.__qa652={ctl:M.createSteam1253ManifestController(sr,wr,s=>M.switch1253PublicItemImageSource.set(s)),path:M.STEAM1253_MANIFEST_PATH,sm};return {sm,expectedDoor,expectedLegacy,swatch,path:M.STEAM1253_MANIFEST_PATH};});let raw=data.sm;
+          await ctx.route('**/ddv/item-images/**',async route=>{const path=new URL(route.request().url()).pathname;hits.push(path);if(path==='/'+data.path)return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(raw)});if([data.expectedDoor,data.expectedLegacy].includes(path))return route.fulfill({status:200,contentType:'image/webp',body:Buffer.from(data.swatch,'base64')});return route.fulfill({status:404,body:'denied'})});
+          const refresh=()=>page.evaluate(()=>globalThis.__qa652.ctl.load('',fetch,true).then(x=>x?.count??null));assert.equal(await refresh(),2);
+          async function show(id,path){const t=thumb(id);await t.waitFor();await t.scrollIntoViewIfNeeded();await t.locator('img').waitFor();assert.equal(await t.locator('img').getAttribute('src'),path);await page.waitForFunction(sel=>{const x=document.querySelector(sel);return x?.complete&&x.naturalWidth===160},'[data-stage1-search-groups] [data-item-thumb-id="'+id+'"] img');}
+          await show('40300045',data.expectedDoor);await page.locator('[data-stage1-search-groups] .item-card').first().click();await page.locator('[data-stage1-item-info] [data-item-thumb-id="40300045"]').waitFor();assert.equal(await refresh(),2);const info=page.locator('[data-stage1-item-info] [data-item-thumb-id="40300045"] img');await info.waitFor();assert.equal(await info.getAttribute('src'),data.expectedDoor);
+          raw=structuredClone(raw);delete raw.items['40300045'];assert.equal(await refresh(),1);await page.waitForFunction(()=>!document.querySelector('[data-item-thumb-id="40300045"] img'));await search.fill('40000047');await thumb('40000047').waitFor();assert.equal(await refresh(),1);await show('40000047',data.expectedLegacy);const calls=hits.filter(x=>x.endsWith('/manifest.json'));assert.ok(calls.length===4&&calls.every(x=>x==='/'+data.path));assert.ok(hits.includes(data.expectedDoor)&&hits.includes(data.expectedLegacy));assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);console.log('QA652_REAL_CHROME_MIXED_SHARED_LIST_INFO_WITHDRAW_LEGACY_PASS');await ctx.close();
+          }finally{await browser.close()}
+          JS
