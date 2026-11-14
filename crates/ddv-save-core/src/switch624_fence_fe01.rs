@@ -220,13 +220,14 @@ mod tests{
 // existing validated scanner, exact lexical map splice and semantic ledger.
 // The supplied plan is CAS evidence, not proof of external rights/geometry.
 #[derive(Clone,Copy)]
-enum HistoricalFenceOp { Frp01, Fm01 }
+enum HistoricalFenceOp { Frp01, Fm01, Switch626Fm01 }
 impl HistoricalFenceOp {
     fn contract(self)->&'static str{match self{
         Self::Frp01=>"wand.private.switch624.fence-frp01-archive@1",
         Self::Fm01=>"wand.private.switch624.fence-fm01-archive@1",
+        Self::Switch626Fm01=>"wand.private.switch626.fence-fm01-layout@1",
     }}
-    fn count(self)->usize{match self{Self::Frp01=>7,Self::Fm01=>8}}
+    fn count(self)->usize{match self{Self::Frp01=>7,Self::Fm01|Self::Switch626Fm01=>8}}
 }
 const EXT1:u32=40700247;
 const REPLACEMENT_BASE:u32=40700268;
@@ -346,9 +347,11 @@ fn historical_collect(s:&ProductSession,p:&Value,op:HistoricalFenceOp)->CoreResu
 impl ProductSession{
     fn stage_historical_fence(&self,e:WorkerEnvelope,plan:&[u8],op:HistoricalFenceOp)->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
-        if build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||build.build_id!=BID||
-           build.schema!=624||!build.externally_attested||self.worker_bound{
-            return Err(denied("FENCE_LAYOUT_EXACT_SWITCH624_REQUIRED"));
+        let current=matches!(op,HistoricalFenceOp::Switch626Fm01);
+        let (bid,schema)=if current{("9A239D3DB569756D",626)}else{(BID,624)};
+        if build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||build.build_id!=bid||
+           build.schema!=schema||!build.externally_attested||self.worker_bound{
+            return Err(denied(if current{"FM01_EXACT_SWITCH626_REQUIRED"}else{"FENCE_LAYOUT_EXACT_SWITCH624_REQUIRED"}));
         }
         let p=historical_plan_parse(plan,op)?;
         let edits=historical_collect(self,&p,op)?;
@@ -356,6 +359,9 @@ impl ProductSession{
     }
     pub fn stage_switch624_fence_frp01_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
         self.stage_historical_fence(e,plan,HistoricalFenceOp::Frp01)
+    }
+    pub fn stage_switch626_fence_fm01_layout(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        self.stage_historical_fence(e,plan,HistoricalFenceOp::Switch626Fm01)
     }
     pub fn stage_switch624_fence_fm01_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
         self.stage_historical_fence(e,plan,HistoricalFenceOp::Fm01)
@@ -406,6 +412,37 @@ mod historical_layout_tests{
             expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:a}}
     fn stage(s:&ProductSession,e:WorkerEnvelope,p:&Value,frp:bool)->CoreResult<SemanticStageReceipt>{
         if frp{s.stage_switch624_fence_frp01_archive(e,&enc(p).unwrap())}else{s.stage_switch624_fence_fm01_archive(e,&enc(p).unwrap())}
+    }
+    #[test]
+    fn switch626_fm01_exact8_no_inventory_and_contract_denials(){
+        let (old,mut p)=fixture(false);let mut d=old.clone();d["GameInfo"]["Version"]=json!(626);
+        p["contract"]=json!(HistoricalFenceOp::Switch626Fm01.contract());bind(&d,&mut p,false);
+        let make=|v:&Value|ProductSession::open_decoded_readonly(enc(v).unwrap(),crate::BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+        let s=make(&d);let e=scope(&s,WorkerAction::Stage);let bytes=enc(&p).unwrap();
+        assert!(s.stage_switch624_fence_fm01_archive(e,&bytes).is_err());
+        assert!(s.stage_switch624_fence_frp01_archive(e,&bytes).is_err());
+        let t=open(&old);assert!(t.stage_switch626_fence_fm01_layout(scope(&t,WorkerAction::Stage),&bytes).is_err());
+        assert!(make(&d).stage_switch626_fence_fm01_layout(e,&bytes).is_err());
+        for (k,v) in [("contract",json!(HistoricalFenceOp::Fm01.contract())),("layout",json!("EXPLICIT_USER_LAYOUT")),
+            ("expectedNextId",json!(51)),("gridSha256",json!("bad")),("sourceDecodedSha256",json!("bad")),
+            ("inventoryEntrySha256",json!({})),("retainedIds",json!([11])),("deletedIds",json!([11,12,13,13])),("refund",json!(1))]{
+            let mut q=p.clone();q[k]=v;assert!(s.stage_switch626_fence_fm01_layout(e,&enc(&q).unwrap()).is_err());
+        }
+        let mut q=p.clone();q["created"][2]["State"]=Value::Null;
+        assert!(s.stage_switch626_fence_fm01_layout(e,&enc(&q).unwrap()).is_err());
+        let r=s.stage_switch626_fence_fm01_layout(e,&bytes).unwrap();
+        assert_eq!(r.operation_count,8);assert_eq!(r.exact_field_changed_count,8);assert!(!r.product_writer_authorized);
+        assert!(s.stage_switch626_fence_fm01_layout(e,&bytes).is_err());
+        s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(e).is_err());
+        let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["9"];g["NextGridObjectID"]=json!(53);
+        for id in p["deletedIds"].as_array().unwrap(){g["Objects"].as_object_mut().unwrap().remove(&id.as_u64().unwrap().to_string());}
+        for o in p["created"].as_array().unwrap(){g["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
+        assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),wanted);assert_eq!(sha(&out),r.staged_decoded_sha256);
     }
     #[test]
     fn frp7_and_fm8_isolated_exact_layout_no_inventory_or_ambient(){
