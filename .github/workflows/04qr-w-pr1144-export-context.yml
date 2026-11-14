@@ -21,8 +21,8 @@ jobs:
       - name: Actual real export pipeline with QA-only completion barrier
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = 'd74d12e06cfe30e09717b85cc33a53f0fbb5eab2'
-          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/04qr-w-pr1144-export-context.yml'
+          test "$(git merge-base HEAD 'd74d12e06cfe30e09717b85cc33a53f0fbb5eab2')" = 'd74d12e06cfe30e09717b85cc33a53f0fbb5eab2'
+          test "$(git diff --name-only 'd74d12e06cfe30e09717b85cc33a53f0fbb5eab2' HEAD)" = '.github/workflows/04qr-w-pr1144-export-context.yml'
           test "$(git rev-parse HEAD:src/routes/editor/world/+page.svelte)" = bc8d11be8d34a83933b9f481b7c062240227d452
           npm ci --no-audit --no-fund
           npm install --no-save --package-lock=false playwright-core@1.55.0
@@ -129,7 +129,11 @@ jobs:
            console.log('QA602_LATE_REVIEW_A_TO_B_NO_ATTACH_PASS');
            await edit();await build.check();await arm('review');await review.click();await entered();await page.locator('.toolbar-actions').getByRole('button',{name:'Undo'}).click();await release(true);await page.waitForFunction(()=>globalThis.__qa602?.finished===true);await page.waitForTimeout(150);await assertNoOld();console.log('QA602_LATE_REVIEW_ERROR_AFTER_DRAFT_UNDO_NO_ATTACH_PASS');
            await edit();await currentReview();await arm('commit');await ex.getByRole('button',{name:'Apply / Export'}).click();await entered();
-           await page.locator('.toolbar-actions').getByRole('button',{name:'Undo'}).click();await release();await page.waitForFunction(()=>globalThis.__qa602?.finished===true);await page.waitForTimeout(150);await assertNoOld();console.log('QA602_LATE_COMMIT_DRAFT_CHANGED_NO_DOWNLOAD_PASS');
+           await page.locator('.toolbar-actions').getByRole('button',{name:'Undo'}).click();
+           const stale=await ex.locator('.verified-export-error').innerText();assert.match(stale,/WEP_EXPORT_REVIEW_STALE/);
+           await release();await page.waitForFunction(()=>globalThis.__qa602?.finished===true);await page.waitForTimeout(150);
+           assert.equal(await panel.count(),0);assert.equal(await result.count(),0);assert.equal(await ex.locator('.verified-export-downloads').count(),0);
+           assert.equal(await ex.locator('.verified-export-error').innerText(),stale);console.log('QA602_LATE_COMMIT_DRAFT_CHANGED_NO_DOWNLOAD_PASS');
            await edit();await currentReview();await build.uncheck();assert.equal(await ex.getByRole('button',{name:'Apply / Export'}).isDisabled(),true);await build.check();await ex.getByRole('button',{name:'Apply / Export'}).click();await result.waitFor();assert.match(await result.innerText(),/PASS/);
            const btns=ex.locator('.verified-export-downloads button');const backup=page.waitForEvent('download');await btns.nth(1).click();assert.deepEqual(await readFile(await(await backup).path()),fileB);const edited=page.waitForEvent('download');await btns.nth(0).click();const dl=await edited;assert.notDeepEqual(await readFile(await dl.path()),fileB);assert.notEqual(dl.suggestedFilename(),'qa602-b.p1g');assert.deepEqual(errors,[]);assert.deepEqual(unsafe,[]);console.log('QA602_CURRENT_REVIEW_COMMIT_BUILD_CONFIRM_DISTINCT_EDITED_EXACT_BACKUP_PASS');await ctx.close();
           }finally{await browser.close()}
