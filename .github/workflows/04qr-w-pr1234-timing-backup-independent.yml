@@ -40,7 +40,7 @@ jobs:
           try{
            const ctx=await browser.newContext({acceptDownloads:true,serviceWorkers:'block',viewport:{width:1280,height:900}}),p=await ctx.newPage(),err=[],bad=[];p.setDefaultTimeout(45000);
            p.on('pageerror',e=>err.push(e.message));ctx.on('request',r=>{if(r.method()!=='GET'||!r.url().startsWith(root+'/'))bad.push(r.method()+' '+r.url())});
-           await p.addInitScript(()=>{const W=window.Worker;window.qa843Workers=0;window.Worker=class extends W{constructor(...args){super(...args);window.qa843Workers++}};});
+           await p.addInitScript(()=>{const W=window.Worker;window.qa843Workers=0;window.Worker=class extends W{constructor(...args){super(...args);window.qa843Workers++}};const old=Blob.prototype.arrayBuffer;Blob.prototype.arrayBuffer=async function(){const gate=window.qa843Gate;if(gate)await gate;return old.call(this)};});
            await p.goto(root+'/editor/timing/',{waitUntil:'domcontentloaded'});
            const loaded=p.locator('[data-timing-loaded="true"]'),status=p.locator('[data-w1-backup-status]'),file=p.locator('#timing-file'),candidate=p.locator('#w1-backup-candidate');
            const payload=(name,buffer)=>({name,mimeType:'application/octet-stream',buffer});
@@ -55,11 +55,11 @@ jobs:
            await candidate.setInputFiles(await aPath);await state('backupMatched');await select('same.p1g',B,'backupRejected');await select('same.p1g',A,'backupMatched');
            assert.match(await status.innerText(),/Disk path and persistence are not verified/);
            // A pending comparison is deliberately delayed at the real Blob read boundary.
-           const pause=()=>p.evaluate(()=>{const old=Blob.prototype.arrayBuffer;let release;const gate=new Promise(r=>release=r);window.qa843Release=()=>{Blob.prototype.arrayBuffer=old;release()};Blob.prototype.arrayBuffer=async function(){await gate;return old.call(this)};});
+           const pause=()=>p.evaluate(()=>{let release;window.qa843Gate=new Promise(r=>release=r);window.qa843Release=()=>{window.qa843Gate=null;release()};});
            await pause();await candidate.setInputFiles(payload('late.p1g',A));await state('backupChecking');
-           await p.locator('.timing-page a').first().click();await p.waitForURL(/\/editor\/?$/);
+           console.log('QA843_DELAYED_COMPARE_REACHED');await p.locator('.timing-page a').first().click();await p.waitForURL(/\/editor\/?$/);
            await p.evaluate(()=>window.qa843Release());await p.goBack();await p.waitForURL(/\/editor\/timing\/?$/);await loaded.locator('.event').waitFor();await state('idle');
-           assert.deepEqual(await receipt(),ar);assert.equal(await p.evaluate(()=>window.qa843Workers),1);
+           console.log('QA843_UNMOUNT_REENTERED');assert.deepEqual(await receipt(),ar);assert.equal(await p.evaluate(()=>window.qa843Workers),1);
            await attest();await pause();await candidate.setInputFiles(payload('late.p1g',A));await state('backupChecking');
            // Source B replaces A before delayed comparison returns; source file reads in Worker are independent.
            await file.setInputFiles(payload('same.p1g',B));await loaded.locator('.event').waitFor();await state('idle');await p.evaluate(()=>window.qa843Release());
