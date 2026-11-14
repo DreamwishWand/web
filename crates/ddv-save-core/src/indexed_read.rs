@@ -1498,7 +1498,7 @@ mod private_avatar {
             if container<=1||entry_sha==[0;32]{return Err(denied("CHEST_DEP_SELECTOR"));}
             let switch=self.native_source_build.platform==Platform::Switch;
             let tv=if switch{self.read_private_switch626_chest_view(e,container,slot)?}
-                else{self.read_existing_amount_target(e,ExistingAmountSelection::Chest{container_id:container,slot_index:slot})?.view()};
+                else{self.read_existing_amount_target(e,ExistingAmountSelection::Chest{container_id:container,slot_index:slot})?.view().clone()};
 
             let facts=tv.chest.ok_or(denied("CHEST_DEP_TARGET_KIND"))?;
             if tv.entry_sha256!=entry_sha||tv.session_id!=e.session_id||
