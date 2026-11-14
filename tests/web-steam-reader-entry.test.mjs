@@ -28,3 +28,14 @@ test('reuse eight-locale exact-build and read-only labels',()=>{
   for(const k of ['title','subtitle','open','intro','off'])assert.ok(c[k]);
  }
 });
+
+import {editorHubCopy,EDITOR_HUB_LOCALES} from '../src/lib/product-home/editor-hub-copy.mjs';
+test('editor entry distinguishes reference catalog, local scene and Switch timing across eight locales',()=>{
+ assert.deepEqual([...EDITOR_HUB_LOCALES].sort(),[...STEAM_DIFFGRIDS_LOCALES].sort());
+ const src=read('src/routes/editor/+page.svelte');
+ assert.match(src,/editorHubCopy\(\$locale\)/);
+ assert.match(src,/data-editor-catalog href=/);assert.match(src,/data-editor-world href=/);assert.match(src,/data-editor-timing href=/);
+ for(const locale of EDITOR_HUB_LOCALES){const c=editorHubCopy(locale);assert.equal(Object.keys(c).length,12);for(const v of Object.values(c))assert.ok(v.trim());assert.match(c.catalogDetail,/Switch v1\.25\.0/);assert.match(c.timingDetail,/Nintendo Switch v1\.25\.3/);assert.ok(Object.isFrozen(c));}
+ assert.equal(editorHubCopy('unknown'),editorHubCopy('en'));assert.equal(editorHubCopy('__proto__'),editorHubCopy('en'));
+ assert.doesNotMatch(src,/new Worker\(|type=["']file|<SteamSavedDiffGridsReadonly|createSavedDiffGridsUiClient/);
+});

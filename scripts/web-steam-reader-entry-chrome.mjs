@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 import {savedDiffGridsCopy,STEAM_DIFFGRIDS_LOCALES} from '../src/lib/wep/steam-saved-diffgrids-copy.mjs';
+import {editorHubCopy} from '../src/lib/product-home/editor-hub-copy.mjs';
 const origin='http://127.0.0.1:4299',base='/web';
 if(!process.env.CHROME_BIN)throw Error('CHROME_REQUIRED');
 const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
@@ -14,6 +15,14 @@ async function localized(loc,path){
  await page.locator('#site-locale').selectOption(loc);
  const copy=savedDiffGridsCopy(loc);
  await page.waitForFunction(({title,path})=>document.querySelector(path==='editor'?'[data-steam-reader-entry] h2':'#rc-reader-title')?.textContent?.trim()===title,{title:copy.preformal,path});
+ if(path==='editor'){
+  const hub=editorHubCopy(loc);
+  await page.waitForFunction(title=>document.querySelector('[data-editor-hub] h1')?.textContent?.trim()===title,hub.title);
+  for(const [selector,title,detail,href] of [['[data-editor-catalog]',hub.catalogTitle,hub.catalogDetail,'/editor/items/'],['[data-editor-world]',hub.worldTitle,hub.worldDetail,'/editor/world/'],['[data-editor-timing]',hub.timingTitle,hub.timingDetail,'/editor/timing/']]){
+   const tile=page.locator(selector);assert.equal(await tile.count(),1);assert.equal(await tile.locator('h2').textContent(),title);assert.equal(await tile.locator('p').textContent(),detail);assert.equal(await tile.getAttribute('href'),base+href);
+  }
+  assert.equal(await page.locator('[data-editor-writer-boundary]').textContent(),hub.boundary);
+ }
  assert.equal(await entry.count(),1);
  assert.equal(await entry.getAttribute('href'),base+'/editor/steam-reader/');
  assert.equal(await page.locator('[data-steam-diffgrids-readonly],input[type=file]').count(),0);
@@ -43,6 +52,14 @@ try{
  await page.setViewportSize({width:640,height:860});
  await page.evaluate(()=>document.documentElement.style.zoom='2');
  assert.ok(await entry.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth+1}));
+ await page.evaluate(()=>document.documentElement.style.zoom='1');
+ await page.goto(origin+base+'/editor/',{waitUntil:'domcontentloaded'});await page.setViewportSize({width:320,height:790});
+ for(const selector of ['[data-steam-reader-entry]','[data-editor-catalog]','[data-editor-world]','[data-editor-timing]','[data-editor-writer-boundary]']){
+  const tile=page.locator(selector);await tile.waitFor({state:'visible'});assert.ok(await tile.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth+1}));
+ }
+ await page.setViewportSize({width:640,height:860});await page.evaluate(()=>document.documentElement.style.zoom='2');
+ assert.ok(await page.locator('[data-editor-writer-boundary]').evaluate(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth+1}));
+ console.log('EDITOR_HUB_LOCALIZED_SCOPE_8_LOCALE_320_200_PASS');
  assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);
  console.log('STEAM_READER_ENTRY_HOME_RC_EDITOR_8LOCALE_KEYBOARD_MOBILE_READONLY_PASS');
 }finally{await ctx.close();await browser.close()}
