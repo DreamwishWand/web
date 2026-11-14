@@ -1,0 +1,68 @@
+name: Atomic Board portable byte boundary
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1084-portability.yml'
+permissions:
+  contents: read
+jobs:
+  byte-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          test "$(git rev-parse HEAD^)" = '5fa10946e7d3c82a426fa3d28c0f3a598e3d86eb'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/04qr-w-pr1084-portability.yml'
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual browser portable bytes and no destination mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4293 --strictPort >/tmp/atomic-qa.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4293/moodboards/atomic/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4293/moodboards/atomic/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {readFile} from 'node:fs/promises';
+          import {chromium} from 'playwright-core';
+          const origin='http://127.0.0.1:4293';
+          const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const ready=async p=>{await p.goto(origin+'/moodboards/atomic/',{waitUntil:'networkidle'});await p.locator('[data-atomic-ready="true"][data-atomic-catalog="ready"]').waitFor({timeout:45000});};
+          const read=p=>p.evaluate(async()=>{const m=await import('/src/lib/moodboards/atomic-first-board.mjs');const db=await m.openAtomicFirstBoardDatabase();try{return await m.verifiedAtomicFirstBoardReopen(db)}finally{db.close()}});
+          const failures=[];
+          try{
+            const src=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});
+            const a=await src.newPage(); await ready(a);
+            await a.locator('[data-atomic-title]').fill('ByteProbeX');await a.locator('[data-atomic-create]').click();await a.locator('[data-atomic-outcome="CREATED"]').waitFor();
+            const snapshot=await read(a),dl=a.waitForEvent('download');await a.locator('[data-atomic-portable-export]').click();const raw=await readFile(await(await dl).path());
+            const at=raw.indexOf(Buffer.from('ByteProbeX'));assert.ok(at>=0);
+            const invalid=Buffer.from(raw);invalid[at+9]=0xff;
+            for(const [name,buf,expect] of [['valid',raw,true],['invalid-utf8',invalid,false],['utf8-bom',Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),raw]),false]]){
+              const ctx=await browser.newContext({serviceWorkers:'block'});const p=await ctx.newPage();
+              try{
+                await ready(p);assert.equal(await read(p),null);
+                await p.locator('[data-atomic-portable-file]').setInputFiles({name:'probe.json',mimeType:'application/json',buffer:buf});
+                await p.locator('[data-atomic-outcome="PORTABLE_IMPORTED"],[data-atomic-outcome="PORTABLE_REJECTED"]').waitFor({timeout:20000});
+                const row=await read(p);const status=await p.locator('[data-atomic-outcome]').getAttribute('data-atomic-outcome');
+                console.log('ATOMIC_BYTE_BOUNDARY',name,status,'destinationOccupied',Boolean(row));
+                if(expect){assert.equal(status,'PORTABLE_IMPORTED');assert.deepEqual(row,snapshot);}
+                else if(status!=='PORTABLE_REJECTED'||row!==null)failures.push(name);
+              }finally{await ctx.close();}
+            }
+            assert.deepEqual(await read(a),snapshot);
+            assert.deepEqual(failures,[],'noncanonical byte input must reject before IDB mutation');
+          }finally{await browser.close();}
+          JS
