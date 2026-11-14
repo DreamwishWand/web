@@ -178,3 +178,42 @@ test('migration transaction preserves latest target, exact duplicate idempotence
  raw=before;await assert.rejects(m.transactNativePresetLibrary({storage,locks:null,operation:'merge',backups:[first]}),/LOCK_UNAVAILABLE/);
  assert.equal(raw,before);
 });
+
+
+test('QA529 stale tab remove must not delete replacement with same ID after intervening remove and import',async()=>{
+ const {transactNativePresetLibrary:tx}=await import('../src/lib/presets/native-local-file-import-contract.mjs');
+ const {NATIVE_PRESET_LIBRARY_KEY:key}=await import('../src/lib/presets/native-preset-runtime.js');
+ let raw=null,writes=0;
+ const storage={getItem:k=>{assert.equal(k,key);return raw},setItem:(k,v)=>{assert.equal(k,key);raw=v;writes++}};
+ let tail=Promise.resolve();
+ const locks={request:(name,options,fn)=>{assert.equal(options.mode,'exclusive');const result=tail.then(fn);tail=result.catch(()=>{});return result;}};
+ const run=options=>tx({storage,locks,...options});
+ const old=backup();await run({operation:'merge',backups:[old]});
+ const stale=(await run({operation:'read'})).library.backups[0];
+ await run({operation:'remove',id:old.id});
+ const replacement={...old,payload:{...old.payload,PresetName:'replacement'}};
+ await run({operation:'merge',backups:[replacement]});
+ const before=raw,beforeWrites=writes;
+ assert.deepEqual(JSON.parse(before).backups,[replacement]);
+ // Exact existing UI call: the stale tab captures only backup.id.
+ let rejected=false;try{await run({operation:'remove',id:stale.id});}catch{rejected=true;}
+ assert.deepEqual({rejected,raw,writes},{rejected:true,raw:before,writes:beforeWrites},
+   'stale removal must reject and preserve replacement bytes; cooperative lock cannot substitute for identity');
+});
+test('QA529 new serialized contention and raw guard preserve accepted disjoint payloads and reject collision',async()=>{
+ const {transactNativePresetLibrary:tx}=await import('../src/lib/presets/native-local-file-import-contract.mjs');
+ const {NATIVE_PRESET_LIBRARY_KEY:key}=await import('../src/lib/presets/native-preset-runtime.js');
+ let raw=null,writes=0,tail=Promise.resolve();
+ const storage={getItem:k=>{assert.equal(k,key);return raw},setItem:(k,v)=>{assert.equal(k,key);raw=v;writes++}};
+ const locks={request:(name,options,fn)=>{const result=tail.then(fn);tail=result.catch(()=>{});return result;}};
+ const run=options=>tx({storage,locks,...options});
+ const a=backup(),b={...backup({deleted:true}),id:'native_q529_b'},c={...backup({root:false}),id:'native_q529_c'};
+ const results=await Promise.allSettled([run({operation:'merge',backups:[a,b]}),run({operation:'merge',backups:[c]}),run({operation:'merge',backups:[{...a,payload:{...a.payload,PresetName:'conflict'}}]})]);
+ assert.deepEqual(results.map(r=>r.status),['fulfilled','fulfilled','rejected']);
+ assert.deepEqual(JSON.parse(raw).backups,[a,b,c]);assert.equal(writes,2);
+ const before=raw;await assert.rejects(run({operation:'merge',backups:[{...a,id:'native_q529_bad',persistentWriteAuthorized:true}]}),/IMPORT_INVALID/);
+ assert.equal(raw,before);assert.equal(writes,2);
+ let reads=0;const changed='{"external":"preserve"}';
+ const adversarial={getItem:()=>++reads===1?before:changed,setItem:()=>assert.fail('stale write')};
+ await assert.rejects(tx({storage:adversarial,locks,operation:'merge',backups:[{...a,id:'native_q529_new'}]}),/STALE_STORAGE/);
+});
