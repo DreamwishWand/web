@@ -29,6 +29,11 @@ fn required(k:&str)->String{
 }
 fn main(){
  #[cfg(feature="semantic-writer-dev")]
+ if env::args().nth(1).as_deref()==Some("--inventory-amount-backup-only") {
+   run_inventory_amount_backup();
+   return;
+ }
+ #[cfg(feature="semantic-writer-dev")]
  if matches!(env::args().nth(1).as_deref(),
      Some("--semantic-inventory-existing-decrease-only"|
           "--semantic-chest-existing-decrease-only"|
@@ -240,4 +245,73 @@ fn run_semantic_existing_decrease(){
  io::stdout().write_all(&edited).unwrap_or_else(|_|deny("SEMANTIC_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("SEMANTIC_PIPE_FLUSH"));
  eprintln!("PRIVATE_V2_RUST_REAL_AMOUNT_SEMANTIC_CHANGE_CAS_ATOMIC_UNDO_REDO_ONE_TIME_PIPE_PASS");
+}
+
+// Existing private executor, new read-only bounded file-format operation.
+// A caller must capture stdout into its local exclusive output file, NOT a
+// console/log. Original encrypted backup/codec verification remain external.
+#[cfg(feature="semantic-writer-dev")]
+fn run_inventory_amount_backup(){
+ use ddv_save_core::portable_backup::{decode_inventory_amount_backup,WAND_BACKUP_MAX_BYTES};
+ const MAX_DECODED:u64=256*1024*1024;
+ if env::args().len()!=2{deny("BACKUP_EXPLICIT_OPERATION_REQUIRED");}
+ if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM{
+   deny("BACKUP_EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
+ }
+ let original=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
+ let original_size=required("WAND_LOCAL_ORIGINAL_SIZE_BYTES").parse::<u64>()
+   .unwrap_or_else(|_|deny("BACKUP_ORIGINAL_SIZE_REQUIRED"));
+ if original==[0;32]||original_size==0||original_size>128*1024*1024{
+   deny("BACKUP_ORIGINAL_SHA_OR_SIZE");
+ }
+ let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
+ if expected==[0;32]{deny("BACKUP_DECODED_SHA_REQUIRED");}
+ let selector=|name:&str|->u32{
+   let text=required(name);
+   let id=text.parse::<u32>().ok().filter(|v|*v>0)
+     .unwrap_or_else(||deny("BACKUP_SELECTOR_ID"));
+   if id.to_string()!=text{deny("BACKUP_SELECTOR_ID");}
+   id
+ };
+ let inventory_id=selector("WAND_LOCAL_INVENTORY_ID");
+ let item_id=selector("WAND_LOCAL_CANONICAL_ITEM_ID");
+ let mut input=Vec::new();
+ io::stdin().take(MAX_DECODED+1).read_to_end(&mut input)
+   .unwrap_or_else(|_|deny("BACKUP_PRIVATE_PIPE_READ"));
+ if input.is_empty()||input.len() as u64>MAX_DECODED||
+    Sha256::digest(&input).as_slice()!=expected{
+   deny("BACKUP_SOURCE_SHA_CAS");
+ }
+ let session=ProductSession::open_decoded_readonly(input,BuildIdentity{
+   platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+   build_id:STEAM.into(),schema:626,externally_attested:true,
+ }).unwrap_or_else(|_|deny("BACKUP_FULL_DOCUMENT_OR_BUILD"));
+ let before=session.receipt().unwrap_or_else(|_|deny("BACKUP_SESSION_RECEIPT"));
+ if before.decoded_sha256!=expected||before.revision!=0||before.index_generation!=1||
+    !before.full_document_json_validated||before.product_worker_bound||
+    before.product_read_accepted||before.writer_authorized||before.edited_copy_authorized||
+    before.apply_authorized||before.all_domain_references_verified{
+   deny("BACKUP_READ_ONLY_SCOPE");
+ }
+ let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:before.session_id,
+    expected_revision:before.revision,expected_index_generation:before.index_generation,
+    expected_decoded_sha256:expected,action:WorkerAction::ReadDomain};
+ let bytes=session.capture_inventory_amount_backup(e,inventory_id,item_id)
+   .unwrap_or_else(|_|deny("BACKUP_TARGET_DENIED"));
+ if bytes.is_empty()||bytes.len()>WAND_BACKUP_MAX_BYTES{
+   deny("BACKUP_OUTPUT_BOUNDS");
+ }
+ let verified=decode_inventory_amount_backup(&bytes)
+   .unwrap_or_else(|_|deny("BACKUP_OUTPUT_VERIFY"));
+ if verified.inventory_id!=inventory_id||verified.item_id!=item_id||
+    verified.source_decoded_sha256!=required("WAND_LOCAL_DECODED_SHA256")||
+    session.receipt().ok()!=Some(before){
+   deny("BACKUP_OUTPUT_SCOPE");
+ }
+ session.close().unwrap_or_else(|_|deny("BACKUP_SESSION_CLOSE"));
+ // No output until complete verification and close. Existing private pipe
+ // transport only; wrapper handles exclusive file creation and readback.
+ io::stdout().write_all(&bytes).unwrap_or_else(|_|deny("BACKUP_PRIVATE_PIPE_WRITE"));
+ io::stdout().flush().unwrap_or_else(|_|deny("BACKUP_PRIVATE_PIPE_FLUSH"));
+ eprintln!("PRIVATE_V2_INVENTORY_AMOUNT_BACKUP_READONLY_PIPE_PASS");
 }
