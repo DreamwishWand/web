@@ -928,3 +928,35 @@ test('exact build and external surface gates fail closed', () => {
   assert.equal(noSurface.ok, false);
   assert.equal(noSurface.failClosedReason.code, 'TARGET_SURFACE_UNVERIFIED');
 });
+
+
+test('destructive Road/Fence reconciliation rejects opaque nested and alternate State', () => {
+  const states = [
+    { FenceMode: { Diagonal: true, Future: 1 } },
+    { FenceMode: { Diagonal: true }, Future: {} },
+    { Toggle: { Value: true } },
+    { FenceMode: { Diagonal: false } },
+    { FenceMode: { Diagonal: 'true' } }
+  ];
+  for (const State of states) {
+    const source = makeGrid([makeObject(10, 40100068, 0, 0, 'GridOrientation_Down', State)], 11);
+    const before = structuredClone(source);
+    const result = compileRoad({ source, sourceObjectIds: [10],
+      desiredNetwork: roadNetwork(40100068, [{ x: 1, y: 0, mode: FenceMode.ORTHOGONAL }]) });
+    assert.equal(result.ok, false);
+    assert.equal(result.failClosedReason.code, 'ROADFENCE_SOURCE_OBJECT_STATE_REPLACEMENT_UNSUPPORTED');
+    assert.deepEqual(source, before);
+  }
+  for (const State of [null, {}, { FenceMode: { Diagonal: true } }]) {
+    const source = makeGrid([makeObject(10, 40100068, 0, 0, 'GridOrientation_Down', State)], 11);
+    const result = compileRoad({ source, sourceObjectIds: [10],
+      desiredNetwork: roadNetwork(40100068, [{ x: 1, y: 0, mode: FenceMode.ORTHOGONAL }]) });
+    assert.equal(result.ok, true, JSON.stringify(result.failClosedReason));
+  }
+  const source = makeGrid([makeObject(10, 40700246, 0, 0, 'GridOrientation_Down',
+    { FenceMode: { Diagonal: true, Future: 1 } })], 11);
+  const result = compileFence({ source, sourceObjectIds: [10],
+    desiredNetwork: lineFence(3, FenceMode.ORTHOGONAL, 40700246) });
+  assert.equal(result.ok, false);
+  assert.equal(result.failClosedReason.code, 'ROADFENCE_SOURCE_OBJECT_STATE_REPLACEMENT_UNSUPPORTED');
+});
