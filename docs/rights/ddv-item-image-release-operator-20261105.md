@@ -1,47 +1,34 @@
-# Dreamwish Wand — DDV Item Image Release Operator Controls (07 DBK)
-**2026-11-05 | W-07DBK-ITEM-IMG-031 | SOURCE_ONLY / OPERATOR_NOT_READY | no image bytes**
+# Dreamwish Wand — DDV item image release controls
 
-## Authority and non-claims
-- Owner's final 2026-11-05 direction ([Issue #604](https://github.com/DreamwishWand/web/issues/604)): publishing genuine, player-visible Disney Dreamlight Valley item images on Wand public TEST Pages and eventual public service is an accepted **Owner product/business risk decision**, `OWNER_GO_FOR_DDV_GAME_IMAGES_20261105`. Do **not** invent a second Owner media-policy approval, a perpetual copyright-licence application gate, or a throwaway local-ZIP-only viewer. This does not grant a copyright licence or prove lawful reuse. Third-party rights-holder licence: **UNKNOWN**.
-- These controls govern only **DDV game-derived Item images** with verified source-to-target ItemID/PNG/WebP provenance. They do not authorize unannounced/unreleased material, private P1G, Creator/UGC images, DreamSnaps entries, child data, Community publication, Save Writer or Guide article bodies.
-- The mandatory public runtime gate is **Owner operator action plus 01D mapping + 08 WEB consumer + 04 QR-W independent QA + 09 INT protected merge/Pages/actual art smoke**. Do not substitute synthetic positive fixture or a "readyForOperatorReview" response for a real receipt.
+Dreamwish Wand is an unofficial, independent project, not affiliated with or endorsed by Disney or Gameloft. The game artwork and associated intellectual property belong to their respective rights holders.
 
-## Current evidence (do not promote)
-- Historical 01D/GameDB R39 v1.24.13: 12,117 GUID mappings; 12,082 unique source PNG and 12,082 160px WebP derivatives; SHA/source records available in the owner-controlled artifact. This is not 12,082 v1.25.3 verified live ItemIDs or 12,082 licensed images. Preserve explicit 16 missing icons and all unknowns; do not re-extract/rewrite the corpus.
-- Current v1.25.0 catalog evidence Switch BID `52BD625D9B4E0053` schema624; v1.25.3 actual Save Switch BID `9A239D3DB569756D` schema626. Old R39 PNG does not prove later ItemID/version/bid/schema or player-visible status.
-- 08 WEB PR #609 production ItemThumb is Source/CI development; it does **not** package or serve real game artwork on public Pages yet. PR #607 local ZIP/IndexedDB-only proposal is obsolete and closed. Unrelated CI inherited tests remain technical QA work for 08 WEB/09P/02 WEP, not a rights approval or a reason to stop local work.
-- Existing 07 DBK PR #340 repaired Source/QA #370 accepted 2 metadata failclosed negatives only; Guide article publication0/45, Rights0/45, nonEN human0/315, CHC public Issues0/193, Seed7 BLOCKED/Human7 HUMAN_GATE are **separate gates**. Owner image risk decision does not clear them.
+## Scope and authority
 
-## Four files in this Draft source scope
-1. `ops/ddv-item-image-operator-gate.mjs`: pure source-only `preflightGameItemImage` for exact source/target identity, content digest, player-visible class and suppression ledger; `planGameImageTakedown` for ItemID/source SHA/WebP SHA linked-image removal; `preflightGameImageOperatorReceipt` for a finite evidence checklist. Returns candidate/plan/review readiness; does not serve/upload/delete/authorize assets.
-2. `ops/ddv-item-image-operator-readiness-template.json`: exact eight-language disclaimer **DRAFTS**, copyright licence UNKNOWN, all reviewer receipts/contact/controls empty, publication OFF. Do not treat translations as legally reviewed.
-3. `tests/ddv-item-image-operator-gate.test.mjs`: synthetic positive and adversarial negatives. CI test PASS proves only logic, not real CDN purge or rights-holder consent.
-4. This runbook. It is an explicit operator handoff, not a public legal statement. The 01D production media manifest and 08 WEB final runtime consumer are separate Owner streams.
+The project's [game-image decision](https://github.com/DreamwishWand/web/issues/604) permits eligible genuine, released player-visible DDV item images in public TEST and the eventual service, subject to scoped acceptance. It is an Owner product decision, **not a copyright licence**. Rights-holder licence status must remain UNKNOWN unless separately evidenced. Do not infer a licence, partnership, public-domain status or a broader publication grant.
 
-## Finite release controls and evidence needed (not a renewed licence waiting loop)
-| Gate | Exact minimum evidence and negative condition | Owner |
-| --- | --- | --- |
-| G1 Identity/scope | Immutable pack SHA, each ItemID↔source GUID↔PNG SHA↔WebP SHA 160px, R39 source Platform/fullVersion/BID/schema and current target exact version/BID/schema; item/visibility evidence. Missing, schema transfer, wrong ID, unknown target, leaked/unreleased/unused/private source = HIDE/NOT_ELIGIBLE. | 01D ASSET |
-| G2 Policy/attribution | Existing Owner decision ID; rights-holder licence explicitly UNKNOWN unless separately evidenced; visible non-affiliation + attribution localized in 8 languages with named human copy/locale review evidence. No invented licence, Disney/Gameloft endorsement or "public-domain" statement. | 07 DBK + 08 WEB |
-| G3 Rights contact | Real controlled email or HTTPS rights-contact page; named accountable operator, delivery-tested URL/contact, tested date & private proof. This package provides **no real contact**. Set no public contact address until Owner supplies and validates it. | 00 CTRL / Operator |
-| G4 Notice intake | Triage record: report ID/date/affected ItemIDs and SHA, claimant channel, privacy-minimized evidence and acknowledgement, temporary hide choice, disposition, retention/appeal log; assigned human. Avoid publishing claimant identity or evidence in public logs. | Operator |
-| G5 Immediate hide | Search and cache/public manifest must suppress by ItemID **and shared source/WebP digest**; prove removal with direct Item route, public search, thumbnails, REST/crawler variants; old Item alias must not restore image. Per-asset complaint cannot be bypassed by shared derivative or another ItemID. | 01D + 08 WEB + Operator |
-| G6 Origin/CDN purge | Record actual origin object key and purge/invalidation IDs; test old public URLs, caches, CDN variants and browser responses until no delivery. A SQL flag, `REVOKE`, noindex, new manifest, or fresh CDN key alone cannot prove old media deleted/revoked. No automated CDN changes from this source module. | Operator / 09 INT |
-| G7 Backup/rollback | Preserve a redacted immutable removal ledger outside any restorable public snapshot; apply ledger on rollback/restore, avoid resurrecting hidden images; check old manifests/CI artifacts, deploy cache and backup copies. Stage rollback must not roll back takedown. Record honest unknown/holds. | 09 INT + Operator |
-| G8 Public acceptance | Scoped release-bundle deployment authorization/rollback evidence, only 09 INT merges/deploys, protected main CI+Pages and independent 04 QR-W actual HTTPS image-by-image GET, 8 locales/320px/200%/keyboard, missing/wrong-schema/currentness and prompt takedown behavior, source/prod hash matching. Real image bytes are NOT part of this Draft. | 00 CTRL + 09 INT + 04 QR-W |
+This scope does not cover hidden or unreleased artwork, raw game archives, private Save or personal media, third-party wiki images, Creator/UGC content, DreamSnaps, Guide article bodies, or account and entitlement changes. Those have separate eligibility and privacy/consent requirements.
 
-## Complaint & takedown rehearsal (no real deletion in repo/CI)
-1. Capture a rights complaint in a private, access-controlled ticket with callback/verification; redact personal identifiers from Board/GitHub/CI. Validate actual ItemID, GUID and SHA against 01D's immutable production pack. If uncertain, quarantine affected content; do not guess.
-2. Run `planGameImageTakedown(manifestRows,{kind:"ITEM_ID",value:"..."})` or `SOURCE_SHA256`/`WEBP_SHA256` to enumerate all linked ItemIDs and hashes. Inspect manually; a result is **not** a removal action. Add verified `HIDDEN` entries with incidentRef to the authoritative operator ledger before any new pack.
-3. Operate the approved image/URL disablement on production serving layer; invalidate actual CDN cache/origin and preexisting URLs. Record object key/purge operation IDs, HTTP GET/HEAD denial observations, logged time and independent verifier. Keep Source/Build/CDN history redacted.
-4. For rollback/redeploy/backup restoration, replay suppression ledger before serving old manifests; verify no resurrected old URL or alternate Item/alias. If old CDN cannot be invalidated, retain deployment NO_GO for affected artwork and escalate the concrete gap. Do not claim successful purge from source test alone.
-5. Record final disposition and appeal path using current service jurisdiction/operator policy; do not invent a binding universal legal deadline or contact details.
+The primary canonical asset supply is the official installed Steam Windows game; verified Switch assets are supplemental or explicitly identified item-specific fallback. Preserve platform, exact supported game version, Build/BID and schema provenance; never infer equivalence between platforms or builds, or substitute an old image solely because an ID matches. The final product uses versioned static/CDN delivery and does not require user-supplied game archives.
 
-## Existing non-affiliation/attribution localization
-The eight `template.locales` drafts are **not final legal translations**. Each locale requires an accountable human-reviewed receipt, accessible legal/about/footer placement in actual 08 WEB UI, and verified operator contact link. Translation does not itself confer copyright permission. No public wording should imply Disney/Gameloft partnership. Keeping no real assets on TEST Pages while these operator controls are NOT_READY does not block implementation of production-compatible cards/manifest and independent synthetic QA.
+## Required image release contract
 
-## Release integration and rollback boundaries
-- 07 DBK source additions should remain **Draft**, and 09 INT alone selects scoped accepted files for protected main and repeats only changed cumulative CI/QA. They must not be used to auto-enable a public image feature. No staging/Provider/CDN/Pages changes in this Task.
-- 01D ASSET `W-01D-ASSET-IMG-028` can implement actual versioned ItemID/GUID/hash manifest and asset pack concurrently; 08 WEB `W-WEB-STAGE1-ITEM-IMG-029` can implement normal static/CDN image cards; 04 QR-W `W-04QR-W-STAGE1-IMG-030` independent only on fixed green source, then authentic hosted image. This operator runbook is **not** a dependency for writing those Source/CI features; it is a finite gate before actual media deployment.
-- Local 01A Reader, 01D personal Owned UNKNOWN, 02 WEP 2D read/preview and 08 WEB local Editor continue. Save Writer/Native V3 stay separate OFF, no raw P1G/keys in public repo/CI.
-- At checkpoint, report `OPERATOR_NOT_READY` while real contact, human 8-locale review, CDN purge/rollback and actual asset pack proofs are unknown. `OWNER_GO_FOR_DDV_GAME_IMAGES` remains APPROVED as product direction; `COPYRIGHT_LICENCE` remains UNKNOWN; `PUBLIC_IMAGE_ASSETS_DEPLOYED` remains NOT_RUN. Do not overwrite these distinct truth values.
+| Control | Required evidence |
+| --- | --- |
+| Identity and visibility | Exact source/target build and per-image ItemID → IconGUID → Sprite/Texture → PNG/lossless WebP provenance, digest and pixel evidence; released player-visible scope only. Deny unknown/mismatched identity, hidden content or invalid bytes. |
+| Policy and attribution | Applicable scope, accurate rights status, eight supported locale non-affiliation/attribution copy and accountable review; no invented rights-holder permission. |
+| Rights contact | Real operator-controlled contact and successful receipt/reply evidence before claiming a working public contact. |
+| Notice intake | Privacy-minimized affected item/revision/hash, verified contact and case handling. No claimant identity, private correspondence or sensitive proof in public artifacts. |
+| Linked removal | Suppress the affected ItemID and all connected source-PNG/WebP digest aliases, public manifest entries, search and thumbnails. Invalid or incomplete linkage must fail closed rather than produce a partial-success receipt. |
+| Origin, CDN and old URLs | Verify actual serving-layer removal and applicable invalidation, old and alternate URL/conditional/cache responses, including an already-open browser and previously loaded catalog. A new URL, manifest flag or HTTP noindex alone is not revocation. |
+| Backup and rollback | Apply an authoritative suppression ledger outside restorable snapshots before restoring old manifests, assets or builds; test no resurrection of affected bytes. Preserve unaffected assets and service. |
+| Delivery acceptance | Fixed eligible manifest and bytes, applicable independent QA, scoped release/rollback acceptance, protected cumulative build/deployment, actual HTTPS, MIME, SHA and visible rendering, with affected negative cases. |
+
+These checks apply to the actual selected asset scope. Unverified images remain ineligible. A synthetic receipt or successful source-only test does not establish an actual contact, image publication, CDN purge, rollback or rights-holder licence. An accepted scope does not wait for unrelated functionality or a second Owner media-policy grant. No public flag changes are authorized by this document alone.
+
+## Executable safety contract
+
+- `ops/ddv-item-image-operator-gate.mjs` supplies `preflightGameItemImage`, `planGameImageTakedown` and `preflightGameImageOperatorReceipt`. The helpers validate candidate metadata and prepare a finite checklist; they do not operate a host, mail service, cache, or publication switch.
+- `ops/ddv-item-image-operator-readiness-template.json` is a **draft, unverified** template, not an accepted operational receipt. Its non-affiliation translations require actual review; unset controls must not be represented as PASS.
+- `tests/ddv-item-image-operator-gate.test.mjs` checks the source contract with synthetic data. Actual serving acceptance is separate.
+
+For withdrawal, quarantine an uncertain scope, stop affected serving, reconcile exact aliases, record actual origin/cache and old-URL results, and verify a suppression-filtered restore. An unresolved affected cache or rollback condition remains a scoped hold; never claim deletion from a successful planner test or assume downloaded third-party copies can be recalled. Do not unpublish unrelated accepted functionality.
