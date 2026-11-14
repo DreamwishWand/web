@@ -1,0 +1,119 @@
+name: 04 QR-W PR1111 exact deletion boundary
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1111-boundary.yml'
+permissions:
+  contents: read
+jobs:
+  boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent raw tree equality and dependency scan
+        run: |
+          python3 - <<'PY'
+          import subprocess as s, pathlib, hashlib
+          B='514709a1ef554dc25bab488ea205405d8dbea333'
+          H='ae009eb6894626569059272b1af025622a0fa96b'
+          paths={"docs/core/01d-collection-overlay-native-preset-local-file-20261104.md":"841c9ee0683a5aa2980f828ab25c6a331605c095","docs/core/01d-native-item-semantics-save-overlay-20261104.md":"031e730168407577ba60b72e0da784c06dc3cbca","docs/core/01d-r14-v1253-image-consumer-contract-hold-20261108.md":"4d6984a4e619e99046285886e3410de5fd358b55","docs/core/01d-r39-lossless-webp160-source-20261105.md":"ad30229e4c9b1d59fba0bfc21878f77cb4a58620","docs/core/01d-r39-real-asset-source-20261105.md":"f2c58039dea630722ca6a17513f2103060fe0745","docs/core/01d-steam626-native-fields-20261112.md":"476f6772c63a8102ed61628d1e2982401e3d0e76","docs/core/01d-v1253-image-preflight-20261108.md":"8ab2eef7e26364c4ffbacf017e7121d47426c381","docs/wep/01b-real-save-spatial-source-contract-20261104.md":"73412d005d10daa82059542928e45ba0e2d03440","docs/wep/preset-product-flow-runtime-20260930.md":"d2db3f71c115c8a9c493f817c99f72d46f54c13f","docs/wep/world-browser-read-runtime-20261001.md":"12b896b7e73a5a606c43e21ac6abf3f130ce1cb4"}
+          git=lambda *a:s.check_output(['git',*a])
+          def tree(ref):
+            out={}
+            for entry in git('ls-tree','-r','-z',ref).split(b'\0'):
+              if entry:
+                meta,p=entry.split(b'\t',1)
+                out[p.decode()]=meta.decode()
+            return out
+          b,h,q=tree(B),tree(H),tree('HEAD')
+          assert git('rev-parse',H+'^').decode().strip()==B
+          assert set(b)-set(h)==set(paths) and not set(h)-set(b)
+          assert all(b[p]==h[p] for p in h)
+          assert set(q)-set(h)=={'.github/workflows/04qr-w-pr1111-boundary.yml'} and all(q[p]==h[p] for p in h)
+          queries=0
+          for p,sha in paths.items():
+            assert b[p].endswith(sha)
+            raw=git('show',B+':'+p)
+            assert hashlib.sha1(('blob '+str(len(raw))+'\0').encode()+raw).hexdigest()==sha
+            needles=(p,'owner-local-steam-v1/README.md') if p.endswith('/README.md') else (p,pathlib.PurePosixPath(p).name,pathlib.PurePosixPath(p).stem)
+            for needle in needles:
+              queries+=1
+              r=s.run(['git','grep','-I','-l','-F','-e',needle,H,'--'],capture_output=True)
+              assert r.returncode==1,(needle,r.returncode,r.stdout.decode()[:500])
+          # Inspect broader directory references and dynamic file enumeration (no content logged).
+          import re
+          broad=[]
+          for p in h:
+            if not p.endswith(('.mjs','.js','.ts','.py','.rs','.sh','.yml','.yaml','.json','.svelte','.toml')): continue
+            raw=git('show',H+':'+p)
+            if b'docs/core' in raw or b'docs/wep' in raw or b'owner-local-steam-v1' in raw:
+              broad.append(p)
+              if p.startswith('tools/owner-local-steam-v1/'):
+                assert not re.search(rb'(?i)(?:readme\\.md|[\"\x27]readme[\"\x27])',raw),p
+          print('QRW1111_BROAD_DEPENDENCY_CANDIDATES',len(broad),sorted(broad))
+          print('QRW1111_FIXED10_RAW_TREE_ALL_RETAINED_MODES_BLOBS_IDENTICAL_PASS',len(b),len(h),'dependency_queries',queries)
+          PY
+      - name: Compare actual static builds before and after deletion (no upload)
+        env:
+          BASE_PATH: /web
+          VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          B=514709a1ef554dc25bab488ea205405d8dbea333
+          H=ae009eb6894626569059272b1af025622a0fa96b
+          temp="$(mktemp -d)"
+          trap 'rm -rf "$temp"' EXIT
+          git checkout --detach "$B"
+          npm ci --no-audit --no-fund
+          # Same test-only explicit version for BOTH builds. The production
+          # config leaves Kit's generated build version unspecified.
+          grep -R -n 'Date.now().toString()' node_modules/@sveltejs/kit/src/core/config | head -5
+          pin_version() {
+            node --input-type=module - <<'JS'
+            import {readFileSync,writeFileSync} from 'node:fs';
+            import assert from 'node:assert/strict';
+            const p='svelte.config.js',s=readFileSync(p,'utf8');
+            assert.equal(s.split('  kit: {').length,2);
+            assert.ok(!s.includes('version:'));
+            writeFileSync(p,s.replace('  kit: {','  kit: {\n    version: { name: "qrw1111-fixed-build-version" },'));
+          JS
+          }
+          pin_version
+          npm run build > "$temp/base.log" 2>&1 || { tail -40 "$temp/base.log"; exit 1; }
+          mv build "$temp/base"
+          rm -rf .svelte-kit
+          git restore -- svelte.config.js
+          git checkout --detach "$H"
+          pin_version
+          npm run build > "$temp/head.log" 2>&1 || { tail -40 "$temp/head.log"; exit 1; }
+          python3 - "$temp/base" build <<'PY'
+          import pathlib,sys,hashlib
+          a,b=map(pathlib.Path,sys.argv[1:])
+          def inv(d):
+            return {p.relative_to(d).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in d.rglob('*') if p.is_file()}
+          x,y=inv(a),inv(b)
+          print('QRW1111_STATIC_COUNTS',len(x),len(y),'html',sum(p.endswith('.html') for p in y))
+          print('QRW1111_STATIC_PATH_DELTA',sorted(set(x)-set(y)),sorted(set(y)-set(x)))
+          assert set(x)==set(y)
+          diff=[p for p in x if x[p]!=y[p]]
+          print('QRW1111_STATIC_BYTE_DELTA',len(diff),diff[:30])
+          assert not diff, diff[:30]
+          stems=["01d-collection-overlay-native-preset-local-file-20261104","01d-native-item-semantics-save-overlay-20261104","01d-r14-v1253-image-consumer-contract-hold-20261108","01d-r39-lossless-webp160-source-20261105","01d-r39-real-asset-source-20261105","01d-steam626-native-fields-20261112","01d-v1253-image-preflight-20261108","01b-real-save-spatial-source-contract-20261104","preset-product-flow-runtime-20260930","world-browser-read-runtime-20261001"]
+          for p in b.rglob('*'):
+            if p.is_file():
+              data=p.read_bytes()
+              assert not any(s in str(p) or s.encode() in data for s in stems),p
+          assert all((b/p).is_file() for p in ['index.html','editor/index.html','gallery/dreamsnaps/index.html','dreamsnaps/index.html','community-ops/index.html','404.html'])
+          print('QRW1111_ACTUAL_BASE_HEAD_STATIC_SAME_PATHS_NO_DELETED_DOC_REFERENCES_PASS')
+          PY
+          git restore -- svelte.config.js
+          test -z "$(git diff --name-only)"
