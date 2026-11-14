@@ -173,6 +173,7 @@ test('ADD review is explicit, exact-build gated and binds 01B adapter to 01A str
       baselineDocument:f.baseline,
       draftDocument:f.draft,
       placementBinding:f.placementBinding,
+      worldBinding:f.worldBinding,
       fetchImpl:localFetch,
       exactBuildConfirmed:false
     }),
@@ -187,6 +188,7 @@ test('ADD review is explicit, exact-build gated and binds 01B adapter to 01A str
     baselineDocument:f.baseline,
     draftDocument:f.draft,
     placementBinding:f.placementBinding,
+      worldBinding:f.worldBinding,
     fetchImpl:localFetch,
     exactBuildConfirmed:true
   });
@@ -214,6 +216,7 @@ test('ADD candidate pipeline reaches 01A verifier, export bundle and canonical r
     baselineDocument:f.baseline,
     draftDocument:f.draft,
     placementBinding:f.placementBinding,
+      worldBinding:f.worldBinding,
     fetchImpl:localFetch,
     exactBuildConfirmed:true
   });
@@ -252,6 +255,7 @@ test('ADD verified replacement export is enabled after exact 01E runtime accepta
     baselineDocument:f.baseline,
     draftDocument:f.draft,
     placementBinding:f.placementBinding,
+      worldBinding:f.worldBinding,
     fetchImpl:localFetch,
     exactBuildConfirmed:true
   });
@@ -284,6 +288,7 @@ test('ADD rejects generator-unavailable CORE definition even when local draft sh
       baselineDocument:f.baseline,
       draftDocument:f.draft,
       placementBinding:f.placementBinding,
+      worldBinding:f.worldBinding,
       fetchImpl:localFetch,
       exactBuildConfirmed:true
     }),
@@ -323,4 +328,38 @@ test('ADD review cannot substitute a legal draft for the planned illegal destina
   }
   const reopened=await openWorldSaveBytes(result.artifacts.edited.bytes,{sourcePlatform:'switch'});
   assert.fail('unsafe ADD async placement emitted X='+reopened.profile.World.GridCollection.Grids['10'].Objects['101'].X);
+});
+
+test('ADD source-bound baseline, one-time receipt and full exact structural diff',async()=>{
+  const f=await fixture();
+  const {createSwitchV125PlacementLegalityBinding}=await import('../src/lib/wep/placement-legality-v19.ts');
+  const placementBinding=await createSwitchV125PlacementLegalityBinding({fetchImpl:localFetch});
+  f.draft.objects[0].x=452;f.draft.objects[0].y=228;
+  const input={sourceBytes:f.bytes,sourceName:'profile',sourceEpoch:7,opened:f.opened,baselineDocument:f.baseline,draftDocument:f.draft,placementBinding,worldBinding:f.worldBinding,fetchImpl:localFetch,exactBuildConfirmed:true};
+  const commit=review=>commitOrdinaryFurnitureAddVerifiedExport({review,currentSourceEpoch:7,sourceBytes:f.bytes,baselineDocument:f.baseline,draftDocument:f.draft,worldBinding:f.worldBinding});
+  const stale=structuredClone(f.opened);stale.profile.Opaque.keep.future=false;
+  await assert.rejects(()=>reviewOrdinaryFurnitureAddVerifiedExport({...input,opened:stale}),/WEP_ADD_SOURCE_PROFILE_MISMATCH/);
+  const wrong=structuredClone(f.baseline);wrong.target.tessellationFactor=1;
+  const wrongDraft=structuredClone(f.draft);wrongDraft.target.tessellationFactor=1;
+  await assert.rejects(()=>reviewOrdinaryFurnitureAddVerifiedExport({...input,baselineDocument:wrong,draftDocument:wrongDraft}),/WEP_ADD_BASELINE_SOURCE_MISMATCH/);
+  const forged=structuredClone(f.baseline),forgedDraft=structuredClone(f.draft);
+  const occupant={...structuredClone(f.draft.objects[0]),editorId:'forged',x:450};
+  forged.objects.push(occupant);forgedDraft.objects.push(occupant);
+  await assert.rejects(()=>reviewOrdinaryFurnitureAddVerifiedExport({...input,baselineDocument:forged,draftDocument:forgedDraft}),/WEP_ADD_BASELINE_SOURCE_MISMATCH/);
+  const review=await reviewOrdinaryFurnitureAddVerifiedExport(input);
+  await assert.rejects(()=>commit(structuredClone(review)),/WEP_ADD_REVIEW_STALE/);
+  const tampered=await reviewOrdinaryFurnitureAddVerifiedExport(input);
+  tampered.plan.target.nextGridObjectIDAfter+=1;
+  await assert.rejects(()=>commit(tampered),/WEP_ADD_REVIEW_STALE/);
+  const pending=commit(review);
+  await assert.rejects(()=>commit(review),/WEP_ADD_REVIEW_STALE/);
+  const result=await pending;
+  const reopened=await openWorldSaveBytes(result.artifacts.edited.bytes,{sourcePlatform:'switch'});
+  const expected=structuredClone(f.opened.profile);
+  const grid=expected.World.GridCollection.Grids['10'];
+  grid.Objects['101']={ID:101,ItemID:40000048,X:452,Y:228,Orientation:'GridOrientation_Up',State:null};
+  grid.NextGridObjectID=102;
+  assert.deepEqual(reopened.profile,expected);
+  assert.deepEqual(Array.from(result.artifacts.backup.bytes),Array.from(f.bytes));
+  await assert.rejects(()=>commit(review),/WEP_ADD_REVIEW_STALE/);
 });
