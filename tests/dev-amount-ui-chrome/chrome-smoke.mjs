@@ -132,7 +132,10 @@ const script=String.raw`
  need(!document.querySelector('[data-dev-download-backup],[data-dev-download-edited]'),'CLOSED_NO_OUTPUT');
  // Same UI, fresh explicit selection: numeric zero InventoryID is a valid
  // exact Furniture descriptor, not a falsey/missing target.
- chooser.files=data.files;chooser.dispatchEvent(new Event('change',{bubbles:true}));
+ const secondSelection=new DataTransfer();
+ secondSelection.items.add(new File([new Uint8Array(64)],'synthetic-ci.p1g',{type:'application/octet-stream'}));
+ chooser.files=secondSelection.files;chooser.dispatchEvent(new Event('change',{bubbles:true}));
+ await wait(()=>chooser.disabled&&chooser.value==='','ZERO_SELECTION_CLOSE_STARTED');
  await wait(()=>!chooser.disabled,'ZERO_SELECTION_CLOSE_SETTLED');
  sha.value='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b';sha.dispatchEvent(new Event('input',{bubbles:true}));
  ck.checked=true;ck.dispatchEvent(new Event('change',{bubbles:true}));
