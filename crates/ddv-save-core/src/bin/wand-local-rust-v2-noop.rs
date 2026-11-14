@@ -348,7 +348,7 @@ fn run_switch624_archive_operation(){
  let add_fence=add_l||add_d90||add_t||add_diag_a||current;
  let (bid,schema)=if current{("9A239D3DB569756D",626)}else{("52BD625D9B4E0053",624)};
  if env::args().len()!=2||required("WAND_LOCAL_INSTALLED_SWITCH_BID")!=bid||
-    (nonstraight626&&env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty())){
+    (current&&env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty())){
    deny(if fd01{"FD01_EXACT_SWITCH626_REQUIRED"}else if fd02{"FD02_EXACT_SWITCH626_REQUIRED"}else if fd03{"FD03_EXACT_SWITCH626_REQUIRED"}else if nonstraight626{"FENCE_NONSTRAIGHT_EXACT_SWITCH626_REQUIRED"}else{"RM01_EXACT_SWITCH624_REQUIRED"});
  }
  let original=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
