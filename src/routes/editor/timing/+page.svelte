@@ -6,6 +6,7 @@
   import { getLocalSaveSessionBridge } from '$lib/timing/local-timing-worker-client';
   import SteamSavedDiffGridsReadonly from '$lib/wep/SteamSavedDiffGridsReadonly.svelte';
   import { previewNextOccurrenceUiOnly } from '$lib/timing/w1-nextoccurrence-preview.mjs';
+  import { savedDiffGridsCopy } from '$lib/wep/steam-saved-diffgrids-copy.mjs';
 
   let sourceBuild = '';
   let userSourceConfirmed = false;
@@ -20,6 +21,16 @@
   let nextCursor: string | null = null;
   let backupAvailable = false;
   let backupRequested = false;
+  let backupStatus: 'idle'|'backupChecking'|'backupMatched'|'backupRejected' = 'idle';
+  let backupBusy = false;
+  let backupToken = 0;
+  let sourceInput: HTMLInputElement;
+  let candidateInput: HTMLInputElement;
+  $: backupWords = savedDiffGridsCopy($locale);
+  function resetBackupComparison() {
+    ++backupToken; backupBusy = false; backupStatus = 'idle';
+    if(candidateInput) candidateInput.value = '';
+  }
   let selectedRow: any = null;
   let proposedUtc = '';
   let preview: any = null;
@@ -39,6 +50,7 @@
       if (!receipt) {
         summary = null; fileName = ''; rows = []; matched = 0; nextCursor = null;
         backupAvailable = false; backupRequested = false; selectedRow = null;
+        resetBackupComparison();
         proposedUtc = ''; preview = null; previewError = '';
         ++searchToken;
       }
@@ -56,7 +68,7 @@
     return () => {
       mounted = false;
       if (searchTimer) clearTimeout(searchTimer);
-      ++openToken; ++searchToken;
+      ++openToken; ++searchToken; resetBackupComparison();
       unsubscribe(); // Keeps one Core-owned Worker alive across SPA routes.
     };
   });
@@ -107,8 +119,12 @@
     searchTimer = setTimeout(() => { void searchSavedEvents(true); }, 160);
   }
   async function importLocal(event: Event) {
-    const file = (event.currentTarget as HTMLInputElement).files?.[0];
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // Same native file can be selected again after close or failure.
+    if(busy) return;
     const token = ++openToken;
+    busy = true;
     ++searchToken;
     if (searchTimer) clearTimeout(searchTimer);
     fileName = '';
@@ -120,18 +136,20 @@
     nextCursor = null;
     backupAvailable = false;
     backupRequested = false;
+    resetBackupComparison();
     selectedRow = null;
     proposedUtc = '';
     preview = null;
     previewError = '';
     // Explicitly release A before opening B, including invalid B.
     try { await request('CLOSE'); } catch { /* no previous live session */ }
-    if (!file) return;
+    if(token !== openToken) return;
+    if (!file) { busy = false; return; }
     if (!userSourceConfirmed || sourceBuild.trim().toUpperCase() !== WAND_TIMING_SWITCH_BID) {
       error = 'SOURCE_BUILD_ATTESTATION_REQUIRED';
+      busy = false;
       return;
     }
-    busy = true;
     try {
       // The Worker loads its pinned same-origin registry itself. No UI-origin
       // event definitions, source SHA, Session ID or capability are trusted.
@@ -181,6 +199,42 @@
       previewError = err instanceof Error ? err.message : 'W1_PREVIEW_REJECTED';
     }
   }
+  async function compareBackup(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const candidate = input.files?.[0];
+    input.value = '';
+    const bridge = getLocalSaveSessionBridge(), active = summary;
+    if(!candidate || !active || !backupAvailable || busy || backupBusy ||
+       bridge.getSession() !== active) return;
+    const token = ++backupToken;
+    const current = () => token === backupToken && summary === active && bridge.getSession() === active;
+    backupBusy = true; backupStatus = 'backupChecking';
+    try {
+      const receipt = await bridge.verifyUserSelectedOriginalBackupCandidate(candidate, {
+        sessionId:active.sessionId,sourceSha256:active.sourceSha256,
+        revision:active.revision,indexGeneration:active.indexGeneration
+      });
+      if(!current()) return;
+      if(receipt.candidateBytesMatchOriginal !== true || receipt.sourceSha256 !== active.sourceSha256 ||
+         receipt.sourceRevision !== active.revision || receipt.indexGeneration !== active.indexGeneration ||
+         receipt.persistedVerified !== false || receipt.distinctDiskPathVerified !== false ||
+         receipt.originalOverwriteProtectionVerified !== false || receipt.writerAuthorized !== false)
+        throw Error('LOCAL_BACKUP_CANDIDATE_RECEIPT_INVALID');
+      backupStatus = 'backupMatched';
+    } catch { if(current()) backupStatus = 'backupRejected'; }
+    finally { if(current()) backupBusy = false; }
+  }
+  async function closeLocalSession() {
+    if(busy || !summary) return;
+    const token = ++openToken;
+    busy = true; ++searchToken;
+    if(searchTimer) clearTimeout(searchTimer);
+    resetBackupComparison();
+    if(sourceInput) sourceInput.value = '';
+    try { await request('CLOSE'); }
+    catch { if(token === openToken) error = 'LOCAL_SESSION_CLOSE_REJECTED'; }
+    finally { if(token === openToken) busy = false; }
+  }
   function downloadOriginalBackup() {
     if (!summary || !backupAvailable) return;
     try {
@@ -223,7 +277,7 @@
       ? 'Switchの対象バージョン・BIDをゲーム側で確認した（セーブ自体にBIDは含まれません）'
       : 'I verified the target Switch game build externally (the save does not contain its BID).'}</span></label>
     <label for="timing-file">{japanese ? 'ローカルセーブを選択' : 'Choose a local save'}</label>
-    <input id="timing-file" type="file" accept=".save,.p1g,application/octet-stream" disabled={!workerReady || busy} on:change={importLocal}/>
+    <input id="timing-file" type="file" accept=".save,.p1g,application/octet-stream" disabled={!workerReady || busy} bind:this={sourceInput} on:change={importLocal}/>
     {#if busy}<p role="status">{japanese ? 'ローカルで読込み中…' : 'Reading locally…'}</p>{/if}
     {#if error}<p role="alert" class="error">{japanese ? '読込みできませんでした。BID・形式・バージョンを確認してください。' : 'Could not read the save. Check the build, file format and version.'} <code>{error}</code></p>{/if}
   </div>
@@ -241,6 +295,11 @@
          ? (japanese ? 'バックアップのダウンロードを要求しました。実際の保存を確認してください。' : 'Backup download requested. Verify the file was saved.')
          : (japanese ? '編集コピーの前に原本バックアップが必要です。現在、編集コピーの出力は無効です。' : 'An original backup is required before edited-copy export; edited-copy output is currently disabled.')}
         </p>
+        <label for="w1-backup-candidate">{backupWords.backupCandidate}</label>
+        <input id="w1-backup-candidate" type="file" accept=".save,.p1g,application/octet-stream"
+          bind:this={candidateInput} disabled={!backupAvailable || busy || backupBusy} on:change={compareBackup}/>
+        <p role="status" data-w1-backup-status={backupStatus}>{backupStatus === 'idle' ? backupWords.backupHint : backupWords[backupStatus]}</p>
+        <button type="button" data-w1-session-close="true" disabled={busy} on:click={closeLocalSession}>{backupWords.close}</button>
       </div>
       <label for="timing-search">{japanese ? 'EventID・ItemID・名前・日時で検索' : 'Search EventID, ItemID, name or timestamp'}</label>
       <input id="timing-search" type="search" bind:value={query} on:input={onSearchInput}/>
@@ -318,7 +377,7 @@
  .result-list{display:grid;gap:12px}
  .event{overflow-wrap:anywhere}\n button[data-timing-more]{padding:12px 18px;border:1px solid var(--border);border-radius:10px;background:var(--surface-raised);color:var(--ink);cursor:pointer}\n button:disabled{opacity:.5;cursor:not-allowed}
  .w1-preview,.w1-backup{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface)}
- .w1-preview{display:grid;gap:9px;overflow-wrap:anywhere}
+ .w1-preview,.w1-backup{display:grid;gap:9px;overflow-wrap:anywhere}
  .w1-preview button,.w1-backup button,.event button{padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);cursor:pointer}
  button:disabled{opacity:.5;cursor:not-allowed}
  .event h3{font-size:18px;margin:0 0 6px}
