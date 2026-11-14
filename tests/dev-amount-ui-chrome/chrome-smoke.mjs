@@ -58,9 +58,14 @@ const script=String.raw`
   }
   throw Error('LOCAL_DEV_WAIT_'+code+' BODY='+document.body?.textContent?.slice(0,360))
  };
- const detail=await wait(()=>document.querySelector('[data-dev-amount-editor]'),'PANEL');
+ // Wait for the same mounted DEV panel, summary and hydrated open control.
+ // SSR can expose the outer details element before children are parsed.
+ const detail=await wait(()=>{
+  const d=document.querySelector('[data-dev-amount-editor]');
+  return d?.isConnected&&d.querySelector('[data-dev-amount-summary]')&&d.querySelector('[data-dev-open]')?d:null;
+ },'MOUNTED_PANEL_SUMMARY_OPEN');
  const summary=detail.querySelector('[data-dev-amount-summary]');
- need(summary,'SEMANTIC_SUMMARY');
+ need(summary?.isConnected,'SEMANTIC_SUMMARY');
  summary.focus();need(document.activeElement===summary,'KEYBOARD_FOCUS');
  summary.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
  detail.open=true;need(window.innerWidth===320,'VIEWPORT');
