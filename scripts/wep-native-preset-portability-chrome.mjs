@@ -37,6 +37,20 @@ try{
  const third=fixture('third');await load(target,third);await target.locator('.backup-grid article').nth(2).waitFor();await wait(target);
  const fourth=fixture('fourth');await load(stale,fourth);await stale.locator('.backup-grid article').nth(3).waitFor();await wait(stale);
  assert.deepEqual(JSON.parse(await raw(target)).backups,[two,one,third,fourth]);
+ // Reproduce the independent stale-remove counterexample in real separate tabs.
+ const staleRemove=await open(next);await staleRemove.locator('.backup-grid article').nth(3).waitFor();
+ const card=(p,name)=>p.locator('.backup-grid article').filter({has:p.getByRole('heading',{name,exact:true})});
+ await card(target,'source').locator('[data-native-library-remove]').click();await wait(target);
+ assert.deepEqual(JSON.parse(await raw(target)).backups,[two,third,fourth]);
+ const replacement={...one,summary:{...one.summary,presetName:'replacement source'},payload:{...one.payload,PresetName:'replacement source',OpaqueFuture:{new:true}}};
+ await load(target,replacement);await card(target,'replacement source').waitFor();await wait(target);
+ const replaced=await raw(target);
+ await card(staleRemove,'source').locator('[data-native-library-remove]').click();await wait(staleRemove);
+ assert.equal(await raw(target),replaced);assert.deepEqual(JSON.parse(replaced).backups,[two,third,fourth,replacement]);
+ await card(staleRemove,'replacement source').waitFor();
+ const fifth=fixture('fifth');await load(target,fifth);await card(target,'fifth').waitFor();await wait(target);
+ await card(staleRemove,'replacement source').locator('[data-native-library-remove]').click();await wait(staleRemove);
+ assert.deepEqual(JSON.parse(await raw(target)).backups,[two,third,fourth,fifth]);
  const reopened=await open(next);await reopened.locator('.backup-grid article').nth(3).waitFor();
  assert.equal(await raw(reopened),await raw(target));assert.equal(await raw(source),sourceRaw);
  assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);

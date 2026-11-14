@@ -178,3 +178,28 @@ test('migration transaction preserves latest target, exact duplicate idempotence
  raw=before;await assert.rejects(m.transactNativePresetLibrary({storage,locks:null,operation:'merge',backups:[first]}),/LOCK_UNAVAILABLE/);
  assert.equal(raw,before);
 });
+
+test('stale native preset removal rejects a replaced same-ID entry and retains disjoint data',async()=>{
+ const m=await import('../src/lib/presets/native-local-file-import-contract.mjs');
+ const {NATIVE_PRESET_LIBRARY_KEY:key}=await import('../src/lib/presets/native-preset-runtime.js');
+ let raw=null,writes=0,tail=Promise.resolve();
+ const storage={getItem:k=>{assert.equal(k,key);return raw;},setItem:(k,v)=>{assert.equal(k,key);raw=v;writes++;}};
+ const locks={request:(name,opts,fn)=>{assert.equal(name,m.NATIVE_PRESET_LIBRARY_LOCK);assert.equal(opts.mode,'exclusive');const next=tail.then(fn);tail=next.catch(()=>{});return next;}};
+ const run=options=>m.transactNativePresetLibrary({storage,locks,...options});
+ const a=backup(),b={...a,payload:{...a.payload,PresetName:'replacement',OpaqueFuture:{replacement:true}}},c={...backup(),id:'native_disjoint'};
+ const remove=entry=>run({operation:'remove',id:entry.id,expectedEntry:JSON.stringify(entry)});
+ await run({operation:'merge',backups:[a]});
+ const stale=(await run({operation:'read'})).library.backups[0];
+ await remove(a);await run({operation:'merge',backups:[b]});
+ const replaced=raw;assert.equal(writes,3);
+ await assert.rejects(remove(stale),/STALE_ENTRY/);assert.equal(raw,replaced);assert.equal(writes,3);
+ await assert.rejects(run({operation:'remove',id:b.id}),/EXPECTED_ENTRY_REQUIRED/);
+ await assert.rejects(run({operation:'remove',id:b.id,expectedEntry:'{}'}),/STALE_ENTRY/);
+ await assert.rejects(remove(c),/ENTRY_MISSING/);assert.equal(raw,replaced);assert.equal(writes,3);
+ await run({operation:'merge',backups:[c]});
+ await remove(b);assert.deepEqual(JSON.parse(raw).backups,[c]);assert.equal(writes,5);
+ const ui=readFileSync('src/lib/presets/NativePresetManager.svelte','utf8');
+ assert.match(ui,/expectedEntry=JSON.stringify\(backup\)/);
+ assert.match(ui,/operation:'remove',id,expectedEntry/);
+ assert.match(ui,/removeBackup\(backup\)/);
+});

@@ -166,8 +166,8 @@ export function mergeNativePresetBackups(library,incoming,{now=new Date().toISOS
  if(byId.size>NATIVE_PRESET_LOCAL_BACKUP_LIMIT)fail('LIMIT');
  return {added,library:added?normalizeNativePresetLibrary({...current,updatedAt:now,backups:[...byId.values()]}):current};
 }
-/** @param {{storage?:Storage,locks?:LockManager,operation:'read'|'merge'|'remove',backups?:any[],id?:string}} options */
-export async function transactNativePresetLibrary({storage=globalThis.localStorage,locks=globalThis.navigator?.locks,operation,backups=[],id}){
+/** @param {{storage?:Storage,locks?:LockManager,operation:'read'|'merge'|'remove',backups?:any[],id?:string,expectedEntry?:string}} options */
+export async function transactNativePresetLibrary({storage=globalThis.localStorage,locks=globalThis.navigator?.locks,operation,backups=[],id,expectedEntry}){
  if(!storage||typeof locks?.request!=='function')fail('LOCK_UNAVAILABLE');
  return locks.request(NATIVE_PRESET_LIBRARY_LOCK,{mode:'exclusive'},async()=>{
   const {raw,library}=await readCurrentLibrary(storage);
@@ -182,7 +182,12 @@ export async function transactNativePresetLibrary({storage=globalThis.localStora
    const merged=mergeNativePresetBackups(library,reviewed.backups.map(x=>x.backup));
    next=merged.library;changed=merged.added>0;
   }else if(operation==='remove'){
-   if(!library.backups.some(b=>b.id===id))fail('ENTRY_MISSING');
+   // Compare the exact displayed entry under the same lock as the write.
+   // An equal ID with different content is not the same entry.
+   if(typeof expectedEntry!=='string'||!expectedEntry.length||utf8(expectedEntry).length>NATIVE_LOCAL_PRESET_FILE_MAX_BYTES)fail('EXPECTED_ENTRY_REQUIRED');
+   const current=library.backups.find(b=>b.id===id);
+   if(!current)fail('ENTRY_MISSING');
+   if(JSON.stringify(current)!==expectedEntry)fail('STALE_ENTRY');
    next=normalizeNativePresetLibrary({...library,updatedAt:new Date().toISOString(),backups:library.backups.filter(b=>b.id!==id)});
    changed=true;
   }else fail('OPERATION_INVALID');

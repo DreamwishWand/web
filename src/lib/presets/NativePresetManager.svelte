@@ -79,11 +79,13 @@
     }catch{status=copy.unsupported;}finally{input.value='';libraryBusy=false;}
   }
 
-  async function removeBackup(id:string){
+  async function removeBackup(backup:any){
     if(libraryBusy)return;
+    // Capture the entry displayed by this tab before any asynchronous work.
+    const id=backup.id,expectedEntry=JSON.stringify(backup);
     libraryBusy=true;
-    try{library=(await transactNativePresetLibrary({operation:'remove',id})).library;status='';}
-    catch{status=copy.unsupported;}finally{libraryBusy=false;}
+    try{library=(await transactNativePresetLibrary({operation:'remove',id,expectedEntry})).library;status='';}
+    catch{await refreshLibrary();status=copy.unsupported;}finally{libraryBusy=false;}
   }
 </script>
 
@@ -133,7 +135,7 @@
   <section class="local-library">
     <header><div><p class="eyebrow">LOCAL</p><h3>{copy.localLibrary}</h3><p>{copy.localIntro}</p></div><div class="library-actions"><button type="button" data-native-library-export on:click={exportLibrary} disabled={libraryBusy||!library.backups.length}>{copy.exportLibrary}</button><button type="button" data-native-library-import on:click={()=>importInput.click()} disabled={libraryBusy}>{copy.importLibrary}</button><input class="visually-hidden" bind:this={importInput} data-native-library-file type="file" accept=".json,application/json" on:change={importLibrary} /></div></header>
     {#if library.backups.length}<div class="backup-grid">{#each library.backups as backup}
-      <article><span>{backup.deleted?copy.deleted:copy.activeSlot+' '+((backup.source.activeSlotOrdinalZeroBased??0)+1)}</span><h4>{backup.summary.presetName}</h4><small>{backup.createdAt}</small><div><button type="button" on:click={()=>exportJson(backup,'dreamwishwand-native-preset-'+backup.id+'.json')}>{copy.export}</button><button type="button" on:click={()=>removeBackup(backup.id)} disabled={libraryBusy}>{copy.remove}</button></div></article>
+      <article><span>{backup.deleted?copy.deleted:copy.activeSlot+' '+((backup.source.activeSlotOrdinalZeroBased??0)+1)}</span><h4>{backup.summary.presetName}</h4><small>{backup.createdAt}</small><div><button type="button" on:click={()=>exportJson(backup,'dreamwishwand-native-preset-'+backup.id+'.json')}>{copy.export}</button><button type="button" data-native-library-remove on:click={()=>removeBackup(backup)} disabled={libraryBusy}>{copy.remove}</button></div></article>
     {/each}</div>{:else}<div class="empty small"><strong>{copy.noBackup}</strong></div>{/if}
   </section>
 </section>
