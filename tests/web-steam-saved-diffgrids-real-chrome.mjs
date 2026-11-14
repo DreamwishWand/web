@@ -256,8 +256,6 @@ const script=String.raw`
  need(pages.join(',')==='8,8,1','THREE_PAGES');
  const backup=present('[data-diffgrids-backup-download]','BACKUP_DOWNLOAD');
  need(!backup.disabled,'BACKUP_AVAILABLE_AFTER_OPEN');
- backup.click();
- await element('[data-diffgrids-backup-status="backupRequested"]','BACKUP_REQUESTED_ONLY');
  const chooseBackup=async(candidate,status)=>{
   const input=present('#steam-diffgrids-backup-file','BACKUP_CANDIDATE');
   const dt=new DataTransfer();dt.items.add(candidate);input.files=dt.files;
@@ -428,12 +426,7 @@ try{
  for(const k of ['manualClickOnly','sameRustWorker','strictUiMetadata',
    'closed','focusRestored','gridIdZeroLiteral','viewport320','zoom200','badShaDenied','reopenFresh','keyboard','readinessContract'])assert.equal(result[k],true,k);
  assert.equal(result.pages,'8,8,1');
- // Verify the browser's actual downloaded file, not merely its click receipt.
- const downloaded=join(profile,'synthetic-ci-only.p1g.original-backup.p1g');
- for(let n=0;n<120&&!existsSync(downloaded);n++)await delay(100);
- const original=await readFile(join(root,'tests/stage-f/fixtures/synthetic626-diffgrids.p1g'));
- assert.deepEqual(await readFile(downloaded),original,'ACTUAL_BROWSER_ORIGINAL_BACKUP_BYTES');
- console.log('08WEB_ACTUAL_LOCAL_ORIGINAL_BACKUP_DOWNLOAD_COMPARE_PASS');
+
  assert.equal(result.allEightLocales,true);assert.equal(result.originalImmutable,true);
  assert.equal(result.innerTableScroll,true,'5_COLUMN_TABLE_SCROLL_INTERNAL');
  const zoomRects=[result.geometry100,result.geometry200];
@@ -506,6 +499,26 @@ try{
  await evaluate('document.querySelector("[data-diffgrids-open]").click()');
  await waitDom('document.querySelector("[data-diffgrids-page]")?.dataset.diffgridsPage==="1"');
  assert.equal(await evaluate('document.querySelector("[data-diffgrids-open]").disabled'),true,'ACTIVE_SESSION_OPEN_DISABLED');
+ // Trusted physical mouse input, not a JavaScript synthetic click.
+ // Download the exact native-selected fixture, independently read the disk file,
+ // and re-select that file through the actual second native file input.
+ const point=await evaluate('(()=>{const b=document.querySelector("[data-diffgrids-backup-download]");if(!b||b.disabled)throw Error("BACKUP_BUTTON_NOT_READY");b.scrollIntoView({block:"center",inline:"nearest"});const r=b.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}})()');
+ assert.ok(point.x>=0&&point.x<1280&&point.y>=0&&point.y<800,'BACKUP_CLICK_VISIBLE');
+ await rpc('Input.dispatchMouseEvent',{type:'mouseMoved',x:point.x,y:point.y});
+ await rpc('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,x:point.x,y:point.y});
+ await rpc('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:point.x,y:point.y});
+ await waitDom('document.querySelector("[data-diffgrids-backup-status]")?.dataset.diffgridsBackupStatus==="backupRequested"');
+ const downloaded=join(profile,'synthetic626-diffgrids.p1g.original-backup.p1g');
+ for(let n=0;n<150&&!existsSync(downloaded);n++)await delay(100);
+ const original=await readFile(fixturePath);
+ assert.ok(existsSync(downloaded),'ACTUAL_BROWSER_BACKUP_FILE_MISSING');
+ assert.deepEqual(await readFile(downloaded),original,'ACTUAL_BROWSER_ORIGINAL_BACKUP_BYTES');
+ const backupDoc=await rpc('DOM.getDocument');
+ const backupNode=await rpc('DOM.querySelector',{nodeId:backupDoc.root.nodeId,selector:'#steam-diffgrids-backup-file'});
+ assert.ok(backupNode.nodeId);
+ await rpc('DOM.setFileInputFiles',{nodeId:backupNode.nodeId,files:[downloaded]});
+ await waitDom('document.querySelector("[data-diffgrids-backup-status]")?.dataset.diffgridsBackupStatus==="backupMatched"');
+ console.log('08WEB_ACTUAL_LOCAL_ORIGINAL_BACKUP_DOWNLOAD_NATIVE_REIMPORT_PASS');
  await evaluate('window.__readerHold.kind="CLOSE_LOCAL_STORED_DIFFGRIDS";document.querySelector("[data-diffgrids-close]").click()');
  await waitDom('window.__readerHold.held==="CLOSE_LOCAL_STORED_DIFFGRIDS"');
  assert.equal(await evaluate('(()=>{const p=document.querySelector("[data-diffgrids-manual-only]");return [...p.querySelectorAll("input,button")].every(e=>e.disabled)&&!document.querySelector("[data-diffgrids-count]")})()'),true,'CLOSE_PENDING_ALL_CONTROLS_DISABLED');

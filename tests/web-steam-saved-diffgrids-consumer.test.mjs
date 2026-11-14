@@ -166,6 +166,7 @@ import {compareOriginalBackupBytes} from '../src/lib/ddv/core/save/local-origina
 test('shared encrypted original byte comparison: exact, same handle, mismatch, forged methods and revoke',async()=>{
  const bytes=new Uint8Array(1024*1024+13).fill(33),a=new Blob([bytes]),b=new Blob([bytes]);
  assert.equal(await compareOriginalBackupBytes(a,b,()=>true,2*1024*1024),bytes.length);
+ for(const limit of [undefined,0,1.5,128*1024*1024+1])await assert.rejects(compareOriginalBackupBytes(a,b,()=>true,limit),/NOT_DISTINCT_BOUNDED/);
  await assert.rejects(compareOriginalBackupBytes(a,a,()=>true,2*1024*1024),/NOT_DISTINCT_BOUNDED/);
  const bad=new Blob([new Uint8Array(bytes.length).fill(34)]);bad.slice=()=>b;bad.arrayBuffer=()=>b.arrayBuffer();
  await assert.rejects(compareOriginalBackupBytes(a,bad,()=>true,2*1024*1024),/BYTES_DIFFER/);
