@@ -13,6 +13,10 @@ import {setTimeout as delay} from 'node:timers/promises';
 import assert from 'node:assert/strict';
 const root=resolve(fileURLToPath(new URL('../',import.meta.url)));
 const base='/web';
+// Preserve the real finite release tuple while serving only isolated local bytes.
+const testOrigin='https://dreamwishwand.github.io';
+const isolatedHost='dreamwishwand.github.io';
+let isolatedRouteRequests=0;
 const csp="default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-inline'; worker-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'";
 const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript',
   '.wasm':'application/wasm','.json':'application/json','.css':'text/css',
@@ -30,6 +34,8 @@ const rpc=(method,params={})=>new Promise((resolve,reject)=>{
  ws.send(JSON.stringify({id,method,params}));
 });
 function serve(req,res){
+ if(req.headers.host!==isolatedHost||req.socket.remoteAddress!=='127.0.0.1'){res.writeHead(403);res.end();return;}
+ if(req.url===base+'/editor/steam-reader/'||req.url===base+'/editor/timing/')isolatedRouteRequests++;
  if(req.method!=='GET'&&req.method!=='HEAD'){mutationRequests++;res.writeHead(405);res.end();return;}
  let pathname;
  try{pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname)}
@@ -151,12 +157,11 @@ const script=String.raw`
   }
   need(missing,'READINESS_MISSING_FAIL_CLOSED');
  }finally{fixture.remove()}
- // Wait for the complete live panel, not just the SSR opening tag.
- const openPanel=async()=>{
-  await currentPair();
-  const p=pair();need(p,'PANEL_SUMMARY_REPLACED');p.panel.open=true;
- };
- await openPanel();
+ // Dedicated Reader exposes manual controls on first visit. Do not
+ // programmatically open the disclosure: assert actual default behavior.
+ const initialPanel=await currentPair();
+ need(initialPanel.panel.open,'DEDICATED_DEFAULT_OPEN');
+ need(!initialPanel.panel.querySelector('[data-diffgrids-count]'),'DEDICATED_NO_AUTO_READ');
  need(document.querySelector('[data-steam-diffgrids-readonly]').dataset.preformalRead==='scoped','PREFORMAL_SCOPE');
  need(document.querySelector('[data-steam-diffgrids-readonly]').dataset.productRead==='off','FORMAL_OFF');
  need(document.querySelector('meta[name=robots]')?.content.includes('noindex'),'NOINDEX');
@@ -172,14 +177,19 @@ const script=String.raw`
   need(Math.abs(scrollX)<=1,'PAGE_SCROLL_X_'+JSON.stringify(data));
   return data;
  };
- // Wait for the actual mounted Worker-ready UI. Hydration may replace SSR
- // nodes and close details; re-open the current panel on each readiness check.
+ // Wait for the actual mounted Worker-ready UI, without forcing open.
  await wait(()=>{
-  const p=pair();if(!p)return false;p.panel.open=true;
+  const p=pair();if(!p||!p.panel.open)return false;
   const input=currentElement('#steam-diffgrids-file');
-  return input&&!input.disabled&&currentElement('#steam-diffgrids-sha')&&
+  return input&&!input.disabled&&input.getBoundingClientRect().height>0&&currentElement('#steam-diffgrids-sha')&&
    currentElement('input[type=checkbox]')&&currentElement('[data-diffgrids-open]');
  },'RUST_SIGNED_PROTECTED_WORKER_READY');
+ need(present('[data-diffgrids-open]','DEFAULT_OPEN_ACTION').disabled,'NO_IMPLICIT_OPEN_AUTHORITY');
+ need(present('#steam-diffgrids-file','DEFAULT_FILE').files.length===0,'NO_IMPLICIT_FILE');
+ // Users may still collapse/re-expand by native keyboard disclosure.
+ const disclosure=present('[data-diffgrids-summary]','DEFAULT_SUMMARY');
+ disclosure.click();need(!pair().panel.open,'MANUAL_COLLAPSE');
+ disclosure.click();need(pair().panel.open,'MANUAL_REEXPAND');
  const localeSelect=await wait(()=>document.querySelector('#site-locale'),'LOCALE_SELECT');
  const expectedTitles=['Steam 1.25.3 · Pre-release read-only test','Steam 1.25.3 · Test en lecture seule avant publication','Steam 1.25.3 · Test in sola lettura prima del rilascio','Steam 1.25.3 · Schreibgeschützter Vorabtest','Steam 1.25.3 · Prueba de solo lectura previa al lanzamiento','Steam 1.25.3 · 正式リリース前の読み取り専用テスト','Steam 1.25.3 · 正式发布前只读测试','Steam 1.25.3 · Teste somente leitura antes do lançamento'];
  const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
@@ -289,23 +299,27 @@ const script=String.raw`
 })()
 `;
 try{
- execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=127.0.0.1','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem')],{stdio:'ignore'});
+ execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=dreamwishwand.github.io','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem')],{stdio:'ignore'});
  server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},serve);
  await new Promise((r,j)=>{server.once('error',j);server.listen(19443,'127.0.0.1',r)});
  const port=server.address().port;
+ assert.equal(port,19443,'ISOLATED_TLS_PORT');
  chrome=spawn(binary,['--headless=new','--no-sandbox','--disable-dev-shm-usage',
   '--disable-gpu','--ignore-certificate-errors','--remote-allow-origins=*','--remote-debugging-port=0',
+  '--no-proxy-server','--disable-background-networking',
+  '--host-resolver-rules=MAP '+isolatedHost+' 127.0.0.1:'+port+', MAP * ~NOTFOUND',
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  await attach();await rpc('Page.enable');await rpc('Runtime.enable');
  await rpc('Emulation.setDeviceMetricsOverride',{width:320,height:800,deviceScaleFactor:1,mobile:false});
  // The regular Timing route must not instantiate the Steam Worker or load
  // signed reader assets, even with a valid preformal anchor in this build.
- await rpc('Page.navigate',{url:'https://127.0.0.1:'+port+'/web/editor/timing/'});
+ await rpc('Page.navigate',{url:testOrigin+'/web/editor/timing/'});
  const outside=await rpc('Runtime.evaluate',{expression:`(async()=>{
   const end=performance.now()+18000;
   while(performance.now()<end){
    const p=document.querySelector('[data-steam-diffgrids-readonly]');
    if(location.pathname==='/web/editor/timing/'&&p?.querySelector('summary')){
+    if(p.open)return false;
     p.open=true;await new Promise(r=>setTimeout(r,500));
     const q=document.querySelector('[data-steam-diffgrids-readonly]');
     return q?.dataset.preformalRead==='off'&&
@@ -317,14 +331,17 @@ try{
   return false;
  })()`,awaitPromise:true,returnByValue:true});
  assert.equal(outside.result?.value,true,'ORDINARY_TIMING_NO_STEAM_CONTROLS');
+ assert.ok(isolatedRouteRequests>=1,'TIMING_REQUEST_SERVED_ISOLATED');
+ assert.equal((await rpc('Runtime.evaluate',{expression:'location.origin',returnByValue:true})).result?.value,testOrigin,'EXACT_LEGACY_BROWSER_ORIGIN');
  assert.equal(assetRequests,0,'ORDINARY_TIMING_NO_SIGNED_READER_ASSETS');
  console.log('08WEB_PREFORMAL_ROUTE_ISOLATION_PASS');
- await rpc('Page.navigate',{url:'https://127.0.0.1:'+port+'/web/editor/steam-reader/'});
+ await rpc('Page.navigate',{url:testOrigin+'/web/editor/steam-reader/'});
  for(let n=0;n<200;n++){
   try{const r=await rpc('Runtime.evaluate',{expression:'location.pathname',returnByValue:true});
     if(r.result?.value==='/web/editor/steam-reader/')break}catch{}
   await delay(40);
  }
+ assert.ok(isolatedRouteRequests>=2,'STEAM_ROUTE_REQUEST_SERVED_ISOLATED');
  if(process.env.WAND_PREFORMAL_PRODUCTION_NEGATIVE==='1'){
   // Unmodified production worker/client with only a verified historical
   // test-origin anchor. Synthetic attestation must NOT be accepted here.
@@ -343,7 +360,12 @@ try{
    const end=performance.now()+18000;
    while(performance.now()<end&&!document.querySelector('[data-diffgrids-manual-only]'))
     await new Promise(r=>setTimeout(r,50));
-   if(!document.querySelector('[data-diffgrids-manual-only]'))throw Error('PRODUCTION_ROUTE_NOT_READY');
+   if(!document.querySelector('[data-diffgrids-manual-only]'))throw Error('PRODUCTION_ROUTE_NOT_READY path='+location.pathname+' origin='+location.origin+' panelCount='+document.querySelectorAll('[data-steam-diffgrids-readonly]').length);
+   const panel=document.querySelector('[data-steam-diffgrids-readonly]');
+   const input=panel?.querySelector('#steam-diffgrids-file');
+   if(!panel?.open||!input||input.getBoundingClientRect().height<=0||input.files.length!==0||
+      !panel.querySelector('[data-diffgrids-open]')?.disabled||panel.querySelector('[data-diffgrids-count]'))
+    throw Error('PRODUCTION_DEFAULT_VISIBLE_MANUAL_ONLY');
    const w=new Worker(`+JSON.stringify(candidates[0])+`,{type:'module'});
    const recv=()=>new Promise((resolve,reject)=>{
     const t=setTimeout(()=>reject(Error('PRODUCTION_NEGATIVE_TIMEOUT')),15000);
@@ -371,6 +393,8 @@ try{
   assert.equal(r.exceptionDetails,undefined,'PRODUCTION_NEGATIVE_EXCEPTION');
   assert.deepEqual(r.result?.value,{synthetic:'LOCAL_DIFFGRIDS_OPEN_FAILED_CLOSED',wrong:'LOCAL_DIFFGRIDS_OPEN_FAILED_CLOSED',foreign:'LOCAL_DIFFGRIDS_STALE_READ_OR_REPLAY',forged:'LOCAL_DIFFGRIDS_OPEN_FAILED_CLOSED'});
   assert.equal(mutationRequests,0);
+  assert.ok(assetRequests>=3,'SIGNED_ASSETS_SERVED_ISOLATED');
+  console.log('08WEB_LEGACY_ORIGIN_ISOLATED_TLS_TUPLE_PASS');
   console.log('08WEB_PREFORMAL_UNPATCHED_PRODUCTION_SYNTHETIC_WRONG_BUILD_FOREIGN_ABI_DENIED');
  }else{
  const watchdog=new AbortController();
@@ -435,7 +459,7 @@ try{
   };
  })()`;
  await rpc('Page.addScriptToEvaluateOnNewDocument',{source:hook});
- await rpc('Page.navigate',{url:'https://127.0.0.1:'+port+'/web/editor/steam-reader/'});
+ await rpc('Page.navigate',{url:testOrigin+'/web/editor/steam-reader/'});
  const evaluate=async expression=>{
   const x=await rpc('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});
   if(x.exceptionDetails)throw Error(String(x.exceptionDetails.exception?.description||x.exceptionDetails.text).slice(0,700));
@@ -443,7 +467,8 @@ try{
  };
  const waitDom=async check=>evaluate('(async()=>{const end=performance.now()+18000;while(performance.now()<end){if('+check+')return true;await new Promise(r=>setTimeout(r,40))}throw Error("NATIVE_RESELECT_WAIT")})()');
  await waitDom('location.pathname==="/web/editor/steam-reader/"&&document.querySelector("#steam-diffgrids-file:not([disabled])")');
- await evaluate('document.querySelector("[data-steam-diffgrids-readonly]").open=true;window.__nativeChanges=0;document.querySelector("#steam-diffgrids-file").addEventListener("change",()=>window.__nativeChanges++)');
+ assert.equal(await evaluate('document.querySelector("[data-steam-diffgrids-readonly]").open&&window.__readerHold.posts===0&&document.querySelector("#steam-diffgrids-file").files.length===0'),true,'NATIVE_DEFAULT_VISIBLE_NO_POSTS');
+ await evaluate('window.__nativeChanges=0;document.querySelector("#steam-diffgrids-file").addEventListener("change",()=>window.__nativeChanges++)');
  const fixturePath=join(root,'tests/stage-f/fixtures/synthetic626-diffgrids.p1g');
  const expected=JSON.parse(await readFile(join(root,'tests/stage-f/fixtures/expected-diffgrids.json'),'utf8'));
  const selectNative=async()=>{
@@ -478,6 +503,7 @@ try{
  await waitDom('document.querySelector("[data-diffgrids-page]")?.dataset.diffgridsPage==="1"');
  await evaluate('document.querySelector("[data-diffgrids-close]").click()');
  await waitDom('!document.querySelector("#steam-diffgrids-file").disabled&&document.activeElement===document.querySelector("[data-diffgrids-summary]")');
+ console.log('08WEB_DEDICATED_DEFAULT_VISIBLE_MANUAL_ONLY_TIMING_COLLAPSED_PASS');
  console.log('08WEB_NATIVE_SAME_FILE_RESELECT_CLOSE_BARRIER_STALE_OPEN_PASS');
  const d=desktop.result?.value;
  assert.ok(d&&d.viewport===1280&&d.left>=-1&&d.right<=1281&&Math.abs(d.scrollX)<=1,
