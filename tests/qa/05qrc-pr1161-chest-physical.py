@@ -10,7 +10,7 @@ def container(id,owner,slots,size,extra=0,**kw):return dict(ID=id,BelongsToPlaye
 doc={"GameInfo":{"Version":626},"Player":{"ContainerInventories":{
  "0":container(0,True,[row(3,None),row(4,{})],2),
  "1":container(1,True,[row(2,{"Opaque":7})],1),
- "12":container(12,True,[row(5,None),row(0,None,0)],3,1,ParentItemID=40000053,BlockMoveTo=False),
+ "12":container(12,True,[row(5,None),row(0,None,0)],2,0,ParentItemID=40000053,BlockMoveTo=False),
  "13":container(13,False,[row(6,None),row(7,{"Other":True})],2),
  "14":container(14,True,[],48),
  "15":container(15,True,[row(11,None),row(13,{"Unknown":[None,"雪"]})],2,1)
@@ -48,7 +48,7 @@ with tempfile.TemporaryDirectory(prefix="qa1161-") as root:
  neg=0
  for sel,h,env in [(("012","0"),None,None),(("12","+0"),None,None),(("0","0"),None,None),(("1","0"),None,None),(("12","1"),None,None),(("12","0"),"1"*64,None),(("12","0"),None,{"WAND_LOCAL_DECODED_SHA256":"1"*64}),(("12","0"),None,{"WAND_LOCAL_INSTALLED_STEAM_FULLVERSION":"Switch"})]:
   f=p/f"neg{neg}.json";r=invoke(doc,f,sel,h,env);assert r.returncode!=0 and not r.stdout and not f.exists();neg+=1
- for id,k,val in [("0","ID",1),("13","BelongsToPlayer","true"),("14","Size",16385),("15","ExtraSize",3),("1","Inventory",[row(2,None),row(1,None)]),("13","Inventory",[row(0,None)]),("13","Inventory",[row(5,True)]),("13","Inventory",[{"ItemID":ITEM,"Amount":5}]),("12","Inventory",[row(5,{})])]:
+ for id,k,val in [("0","ID",1),("13","BelongsToPlayer","true"),("14","Size",16385),("15","ExtraSize",3),("1","Inventory",[row(2,None),row(1,None)]),("13","Inventory",[row(0,None)]),("13","Inventory",[row(5,True)]),("13","Inventory",[{"ItemID":ITEM,"Amount":5}]),("12","Size",3),("12","Inventory",[row(5,{})])]:
   d=copy.deepcopy(doc);d["Player"]["ContainerInventories"][id][k]=val
   f=p/f"neg{neg}.json";r=invoke(d,f);assert r.returncode!=0 and not r.stdout and not f.exists(),(id,k,r.stderr);neg+=1
  # container bound, using empty physical containers so no invented slots.
