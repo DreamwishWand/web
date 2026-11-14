@@ -38,7 +38,13 @@ try{
  page.on('console',msg=>{if(msg.type()==='error')report.errors.push(msg.text());});
  await page.goto(root+'/editor/timing/',{waitUntil:'domcontentloaded'});
  await page.locator('[data-w1-ui-ready="true"]').waitFor({timeout:15000});
- assert.equal(await page.locator('[data-writer="off"]').count(),1);
+ // Timing contains its own OFF boundary and the independently OFF optional
+ // Steam panel; count each scope, not the whole document's markers.
+ assert.equal(await page.locator('[data-timing-readonly="true"][data-writer="off"]').count(),1);
+ assert.equal(await page.locator('[data-steam-diffgrids-readonly][data-preformal-read="off"][data-writer="off"]').count(),1);
+ assert.equal(await page.locator('[data-writer="off"]').count(),2);
+ assert.equal(await page.locator('[data-steam-diffgrids-readonly] input[type=file]').count(),0);
+ assert.equal(await page.locator('[data-writer="on"]').count(),0);
  await page.locator('#timing-bid').fill(bid);
  await page.locator('.attest input').check();
  await page.locator('#timing-file').setInputFiles({
