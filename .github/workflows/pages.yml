@@ -193,6 +193,8 @@ jobs:
           test -f build/community-lab/recovery/index.html
           test -f build/community-ops/index.html
           test -f build/404.html
+      - name: Require successful exact protected-main CI before Pages upload
+        run: node scripts/int-protected-ci-gate.mjs
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -208,6 +210,17 @@ jobs:
       pages: write
       id-token: write
     steps:
+      - name: Refuse stale main immediately before Pages deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY_ID" == 1371485649 && "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$GITHUB_REPOSITORY" == DreamwishWand/web || "$GITHUB_REPOSITORY" == DreamwishWand/site ]]
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          curl --fail --silent --show-error --max-time 20 --max-filesize 65536 --max-redirs 0 --proto '=https' \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/git/ref/heads/main" |
+            jq -e --arg sha "$GITHUB_SHA" '.ref=="refs/heads/main" and .object.type=="commit" and .object.sha==$sha' >/dev/null
       - name: Deploy existing Pages including only verified three read-only assets
         id: deployment
         uses: actions/deploy-pages@v4
