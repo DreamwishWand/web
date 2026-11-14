@@ -68,3 +68,79 @@ test('WEP placement binding exposes the exact promoted minimum-transform placeme
   assert.ok(source.includes('clearArea: false'));
   assert.ok(source.includes('automaticSpawning: false'));
 });
+
+import { makeSyntheticP1gProfile } from './helpers/p1g-fixture.mjs';
+import { openWorldSaveBytes } from '../src/lib/wep/world-save-source.ts';
+import { createSwitchWorldReadAdapter,projectSwitchAreaGrid } from '../src/lib/wep/world-browser-adapter.ts';
+import { createSwitchV125PlacementLegalityBinding } from '../src/lib/wep/placement-legality-v19.ts';
+import { normalizeEditorDocument } from '../src/lib/wep/editor-runtime.ts';
+import { reviewMinimumVerifiedTransform,commitMinimumVerifiedTransform } from '../src/lib/wep/min-verified-transform-export-v1.ts';
+
+const localFetch=async url=>{
+  const path=new URL(String(url),'https://wand.invalid').pathname;
+  try{return new Response(await readFile(new URL('../static'+path,import.meta.url)),{status:200});}
+  catch{return new Response('not found',{status:404});}
+};
+function profileForTransform(){
+  return {
+    GameInfo:{Version:624,InitialVersion:624,LastSaveDeviceInfo:{deviceType:'DeviceType_Switch'}},
+    Player:{},ProfileWorld:{Stores:[],Shops:[]},ConditionalEventHistory:{ActiveEvents:{}},
+    World:{
+      GridCollection:{Grids:{'10':{ID:10,GridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:102,Objects:{
+        '101':{ID:101,ItemID:40000048,X:10,Y:10,Orientation:'GridOrientation_Up',State:null}
+      }}},DiffGrids:{}},
+      Villages:[{SceneItemId:1540000000,Areas:{'7':{GridIDs:[10],Unlocked:true,EnvironmentEffectItemID:0,EnvironmentEffectOrientation:'GridOrientation_Up'}}}],
+      FloatingIslands:{},MissionSlots:{},QuestInfo:{},Keyholes:{}
+    },Opaque:{keep:true}
+  };
+}
+async function transformFixture(){
+  const profile=profileForTransform();
+  const sourceBytes=Uint8Array.from(makeSyntheticP1gProfile(profile));
+  const opened=await openWorldSaveBytes(sourceBytes,{sourcePlatform:'switch'});
+  const worldBinding=await createSwitchWorldReadAdapter({fetchImpl:localFetch});
+  const placementBinding=await createSwitchV125PlacementLegalityBinding({fetchImpl:localFetch});
+  const baselineDocument=normalizeEditorDocument(projectSwitchAreaGrid(opened,opened.areas[0],10,worldBinding));
+  const draftDocument=structuredClone(baselineDocument);
+  const object=draftDocument.objects[0];
+  assert.equal(object.itemId,40000048);
+  // Find a legal destination from the real pinned placement pack.
+  let found=false;
+  for(let y=0;y<80&&!found;y++)for(let x=0;x<80&&!found;x++){
+    if(x===object.x&&y===object.y)continue;
+    object.x=x;object.y=y;
+    const p=placementBinding.classifyMinimumTransformPlacement({document:draftDocument,editorId:object.editorId});
+    if(p.result.valid===true&&p.result.verdict==='VALID')found=true;
+  }
+  assert.equal(found,true);
+  const input={sourceBytes,sourceName:'profile',sourceEpoch:1,opened,baselineDocument,draftDocument,placementBinding,worldBinding,fetchImpl:localFetch,exactBuildConfirmed:true};
+  return {profile,input};
+}
+test('minimum transform Review rejects another packaged source and forged baseline before export',async()=>{
+  const {profile,input}=await transformFixture();
+  const other=structuredClone(profile);
+  other.Opaque.keep=false;
+  const bytes=Uint8Array.from(makeSyntheticP1gProfile(other));
+  await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,sourceBytes:bytes}),/WEP_EXPORT_SOURCE_PROFILE_MISMATCH/);
+  const baseline=structuredClone(input.baselineDocument),draft=structuredClone(input.draftDocument);
+  baseline.objects[0].x+=2;
+  await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,baselineDocument:baseline,draftDocument:draft}),/WEP_EXPORT_BASELINE_SOURCE_MISMATCH/);
+  const stale=structuredClone(input.opened);
+  stale.profile.World.GridCollection.Grids['10'].Objects['102']={ID:102,ItemID:40000048,X:1,Y:1,Orientation:'GridOrientation_Up',State:null};
+  await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,opened:stale}),/WEP_EXPORT_SOURCE_PROFILE_MISMATCH/);
+});
+test('minimum transform accepts one source-bound Review and denies cloned, changed and replayed plans',async()=>{
+  const {input}=await transformFixture();
+  const review=await reviewMinimumVerifiedTransform(input);
+  assert.equal(review.status,'READY');
+  const commit=review=>commitMinimumVerifiedTransform({review,currentSourceEpoch:1,sourceBytes:input.sourceBytes,baselineDocument:input.baselineDocument,draftDocument:input.draftDocument,worldBinding:input.worldBinding});
+  await assert.rejects(()=>commit(structuredClone(review)),/WEP_EXPORT_REVIEW_STALE/);
+  const changed=await reviewMinimumVerifiedTransform(input);
+  changed.plan.intent.finalTransform.x+=2;
+  await assert.rejects(()=>commit(changed),/WEP_EXPORT_REVIEW_STALE/);
+  const result=await commit(review);
+  assert.equal(result.status,'PASS');
+  assert.deepEqual(Array.from(result.artifacts.backup.bytes),Array.from(input.sourceBytes));
+  assert.notDeepEqual(Array.from(result.artifacts.edited.bytes),Array.from(input.sourceBytes));
+  await assert.rejects(()=>commit(review),/WEP_EXPORT_REVIEW_STALE/);
+});
