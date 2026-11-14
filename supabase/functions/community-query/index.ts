@@ -7,11 +7,15 @@ const queryToRpc = {
   me: 'community_get_me',
   work: 'community_get_work',
   gallery: 'community_get_gallery_v1',
+  galleryRetirementPreflight: 'community_gallery_retirement_preflight_v1',
+  galleryPhotoMediaPreflight: 'community_gallery_photo_media_preflight_r17',
   myGallery: 'community_get_my_gallery_v1',
   question: 'community_get_question_v1',
   myQaActivity: 'community_get_my_qa_activity_v1',
   dreamsnapJudge: 'community_get_dreamsnap_judge_v1',
   myDreamsnaps: 'community_get_my_dreamsnaps_v1',
+  dreamsnapOfficialAccountConsent: 'community_dreamsnap_get_account_official_result_consent_r20',
+
   saved: 'community_get_saved',
   notifications: 'community_get_notifications',
   preset: 'community_get_preset',
@@ -24,7 +28,7 @@ type QueryName = keyof typeof queryToRpc;
 function response(body: unknown, status = 200) {
   return Response.json(body, {
     status,
-    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store' }
+    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store, max-age=0', 'CDN-Cache-Control': 'no-store', 'Surrogate-Control': 'no-store', 'Vary': 'Authorization, Origin' }
   });
 }
 
@@ -39,6 +43,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return response({ ok: false, error: 'JWT issued-at claim missing' }, 401);
     }
 
+    // Source154 verified GoTrue Session + immutable terminal tombstone is the
+    // shared server authority, not the older account-global cutoff alone.
+    // Product writers require independent DB-atomic acceptance.
+    const {error: signedSessionError} = await ctx.supabaseAdmin.rpc(
+      'community_authorize_signed_session_v2',{
+        p_auth_subject: subject, p_issued_at_epoch: issuedAt,
+        p_session_id: String(ctx.jwtClaims?.session_id ?? '')
+      });
+    if (signedSessionError) return response({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
     const { error: sessionError } = await ctx.supabaseAdmin.rpc(
       'community_authorize_session',
       {
@@ -78,12 +91,27 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     switch (query) {
       case 'me':
       case 'ddvProfileWorkspaces':
+      case 'dreamsnapOfficialAccountConsent':
         break;
       case 'work':
         params.p_work_id = payload.workId;
         break;
       case 'gallery':
         params.p_work_id = payload.workId;
+        break;
+      case 'galleryPhotoMediaPreflight':
+        if (typeof payload.workId !== 'string' ||
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.workId)) {
+          return response({ok:false,error:'INVALID_WORK_ID'},400);
+        }
+        params.p_gallery_work_id=payload.workId;
+        break;
+      case 'galleryRetirementPreflight':
+        if (typeof payload.workId !== 'string' ||
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.workId)) {
+          return response({ok:false,error:'INVALID_WORK_ID'},400);
+        }
+        params.p_gallery_work_id=payload.workId;
         break;
       case 'question':
         params.p_question_id = payload.questionId;
@@ -111,10 +139,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
     if (error) {
+      if (error.message.includes('R19_PRESET_PROVIDER_INTEGRITY_READ_SUPPRESSED')) {
+        return response({ok:false,error:'PROVIDER_INTEGRITY_READ_SUPPRESSED'},409);
+      }
       const forbidden =
         error.message.includes('not accessible') ||
         error.message.includes('not active') ||
-        error.message.includes('role required');
+        error.message.includes('role required') ||
+        error.message.includes('GALLERY_RETIREMENT_NOT_OWNER') ||
+        error.message.includes('R17_PHOTO_PREFLIGHT_FORBIDDEN');
       return response(
         {
           ok: false,
