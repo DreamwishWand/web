@@ -376,7 +376,7 @@ mod historical_layout_tests{
              fence_record(52,BASE,42,26,false,true)],json!([10]),json!([11,12,13,14]))
         };
         let mut objects=json!({"30":{"ID":30,"ItemID":40000001,"X":80,"Y":90,"Opaque":{"n":7}}});
-        for o in old{objects[o["ID"].as_u64().unwrap().to_string()]=o;}
+        for o in old{let key=o["ID"].as_u64().unwrap().to_string();objects[key]=o;}
         let d=json!({"GameInfo":{"Version":624},"World":{"Ambient":{"opaque":8},"GridCollection":{"DiffGrids":{},
             "Grids":{"9":{"ID":9,"TessellationFactor":2,"GridDefaultLayoutPath":"","NextGridObjectID":50,"Objects":objects}}}},
             "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture",
