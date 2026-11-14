@@ -405,26 +405,35 @@ export const roadFenceStructuralMutationAdapterV125=Object.freeze({
     const objects=asObj(grid.Objects);
     if(!objects)throw bindingError('ROADFENCE_TX_ADAPTER_OBJECT_MAP_REQUIRED');
 
-    for(const entry of intent.preservedObjects??[]){
+    // The public adapter also accepts caller-supplied plans. Do not assume
+    // the compiler/builder validated the corresponding intent entries.
+    const preserved=normalizeEntries(intent.preservedObjects,'preserved');
+    const deleted=normalizeEntries(intent.deletedObjects,'deleted');
+    const created=normalizeEntries(intent.createdObjects,'created');
+    const preservedIds=sortedIds(plan.target.preservedGridObjectIds,'ROADFENCE_TX_ADAPTER_INTENT_IDS_INVALID');
+    const deletedIds=sortedIds(plan.target.deletedGridObjectIds,'ROADFENCE_TX_ADAPTER_INTENT_IDS_INVALID');
+    const createdIds=sortedIds(plan.target.createdGridObjectIds,'ROADFENCE_TX_ADAPTER_INTENT_IDS_INVALID');
+    if(!sameIds(preservedIds,preserved.map(x=>x.gridObjectId))||
+       !sameIds(deletedIds,deleted.map(x=>x.gridObjectId))||
+       !sameIds(createdIds,created.map(x=>x.gridObjectId)))
+      throw bindingError('ROADFENCE_TX_ADAPTER_INTENT_ENTRY_BINDING_MISMATCH');
+
+    for(const entry of preserved){
       if(!same(objects[String(entry.gridObjectId)],entry.sourceObject))
         throw bindingError('ROADFENCE_TX_ADAPTER_PRESERVED_SOURCE_MISMATCH',String(entry.gridObjectId));
     }
-    for(const entry of intent.deletedObjects??[]){
+    for(const entry of deleted){
       if(!same(objects[String(entry.gridObjectId)],entry.sourceObject))
         throw bindingError('ROADFENCE_TX_ADAPTER_DELETE_SOURCE_MISMATCH',String(entry.gridObjectId));
     }
-    for(const entry of intent.createdObjects??[]){
+    for(const entry of created){
       if(Object.prototype.hasOwnProperty.call(objects,String(entry.gridObjectId)))
         throw bindingError('ROADFENCE_TX_ADAPTER_CREATE_COLLISION',String(entry.gridObjectId));
     }
 
-    for(const id of plan.target.deletedGridObjectIds)delete objects[String(id)];
-    for(const entry of intent.createdObjects??[]){
-      const id=Number(entry.gridObjectId);
-      const object=clone(entry.object);
-      if(Number(object.ID)!==id)throw bindingError('ROADFENCE_TX_ADAPTER_CREATED_ID_MISMATCH',String(id));
-      objects[String(id)]=object;
-    }
+    // Validate every entry before the first draft mutation.
+    for(const id of deletedIds)delete objects[String(id)];
+    for(const entry of created)objects[String(entry.gridObjectId)]=entry.object;
     grid.NextGridObjectID=plan.target.nextGridObjectIDAfter;
   },
   persistentWriteAuthorized:false,
