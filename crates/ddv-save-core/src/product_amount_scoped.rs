@@ -348,6 +348,43 @@ mod tests{
         s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();assert!(s.take_typed_semantic_decoded_once(e).is_err());
         let mut wanted=d;wanted["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);assert_eq!(out,serde_json::to_vec(&wanted).unwrap());
     }
+    fn chest_doc()->Value{
+        let mut d=doc();let p=&mut d["Player"];
+        p["ListInventories"]["2"]=json!({"ID":2,"CompatibleItemType":"ItemType_ActivityItem","Inventory":{"30200000":{"Amount":2}}});
+        let empty=json!({"ItemID":0,"Amount":0,"State":null});
+        let mut slots=vec![empty.clone();48];slots[0]=json!({"ItemID":30200000,"Amount":50,"State":null,"Unknown":7});
+        p["ContainerInventories"]=json!({"0":{"ID":0,"BelongsToPlayer":true,"Size":1,"ExtraSize":0,"Inventory":[{"ItemID":30200000,"Amount":5,"State":{}}]},
+            "1":{"ID":1,"BelongsToPlayer":true,"Size":1,"ExtraSize":0,"Inventory":[empty]},
+            "12":{"ID":12,"ParentItemID":40001680,"BelongsToPlayer":true,"BlockMoveTo":false,"Size":48,"ExtraSize":0,"Inventory":slots}});
+        p["BackpackOverflow"]=json!({"Items":[]});
+        d["World"]["GridCollection"]["Grids"]["7"]=json!({"ID":7,"GridDefaultLayoutPath":"","Objects":{"4":{"ID":4,"ItemID":40001680,
+            "State":{"Storage":{"ContainerInventoryID":12,"DefaultContainerInventoryData":"","UnlockKeyItemID":0,"UnlockLocId":"","DesignID":null}}}}});
+        d["World"]["Villages"]=json!([{"Areas":{"2":{"GridIDs":[7],"Unlocked":true}}}]);d
+    }
+    #[test]fn linked_crop_exact1_and_references_fail_closed(){
+        let d=chest_doc();let sel=ExistingAmountSelection::Chest{container_id:12,slot_index:0};let s=open(&d);
+        let t=s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,49).unwrap();assert_eq!(t.view().old_amount,50);
+        let r=s.stage_scoped_product_amount(scope(&s,WorkerAction::Stage),sel,50,49,t.view().entry_sha256).unwrap();assert_eq!(r.exact_field_changed_count,1);
+        let out=s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).unwrap();
+        let mut want=d.clone();want["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);assert_eq!(out,serde_json::to_vec(&want).unwrap());
+        for(k,v)in [("BelongsToPlayer",json!(false)),("BlockMoveTo",json!(true)),("ExtraSize",json!(1)),("ParentItemID",json!(40000048))]{
+            let mut q=d.clone();q["Player"]["ContainerInventories"]["12"][k]=v;let x=open(&q);
+            assert!(x.preview_scoped_product_amount(scope(&x,WorkerAction::ReadDomain),sel,49).is_err());
+        }
+        for case in 0..4{
+            let mut q=d.clone();match case{
+                0=>q["Player"]["ContainerInventories"]["12"]["Inventory"][0]["State"]=json!({}),
+                1=>q["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"]["State"]["Storage"]["UnlockKeyItemID"]=json!(1),
+                2=>q["Player"]["BackpackOverflow"]["Items"]=json!([{"ItemID":30200000,"Amount":1}]),
+                _=>q["ConditionalEventHistory"]["ActiveEvents"]["15299998"]=json!({"GridID":7,"GridObjectID":4})
+            }let x=open(&q);assert!(x.preview_scoped_product_amount(scope(&x,WorkerAction::ReadDomain),sel,49).is_err());
+        }
+    }
+    #[test]fn unknown_active_subscriber_denied(){
+        let mut d=doc();d["Player"]["DutySlots"]["0"]=json!({"Slots":[{"State":"DutySlotState_OnGoing","DutyId":2119999999,"DifficultyLayer":0}]});
+        let s=open(&d);let sel=ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048};
+        assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,2).is_err());
+    }
     #[test]fn unresolved_default_and_unlisted_item_fail_closed(){
         let mut d=doc();d["World"]["GridCollection"]["DiffGrids"]["1"]=json!({"ID":1});let s=open(&d);
         let sel=ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048};
