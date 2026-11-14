@@ -1,0 +1,87 @@
+name: 04 QR-W PR1141 Scene CAS independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1141-scene-cas.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = 'a14be7743d0285656f9ad9de2e59744e93b4f23c'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/04qr-w-pr1141-scene-cas.yml'
+          test "$(git rev-parse HEAD:src/lib/wep/local-scene-preset-store.mjs)" = 5a221bb88b8c276ec17778361506435c70af8e29
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4364 --strictPort >/tmp/qa595.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4364/editor/world/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4364/editor/world/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';
+          const fixture={schema:'dreamwish-wand-wep-editor-document',version:1,
+           target:{gameVersion:'1.25.0',platform:'synthetic',areaKey:'local-scene-only'},
+           capabilities:{},metadata:{},networks:{roads:null,fences:null},
+           objects:[
+            {editorId:'stage-a',itemId:40000049,layer:'furniture',x:0,y:0,orientation:0,footprint:[{x:0,y:0}],source:null,portableState:null,dependencyIds:[],editability:'editable',metadata:{displayName:'A',worldClass:'FurnitureItemData'}},
+            {editorId:'stage-b',itemId:40000050,layer:'furniture',x:4,y:2,orientation:0,footprint:[{x:0,y:0}],source:null,portableState:null,dependencyIds:[],editability:'editable',metadata:{displayName:'B',worldClass:'FurnitureItemData'}}
+           ]};
+          
+          const origin='http://127.0.0.1:4364',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+           const ctx=await browser.newContext({serviceWorkers:'block'}),page=await ctx.newPage();
+           await page.goto(origin+'/editor/world/',{waitUntil:'networkidle'});
+           const result=await page.evaluate(async fixture=>{
+            const m=await import('/src/lib/wep/local-scene-preset-store.mjs');
+            const runtime=await import('/src/lib/wep/scene-preset-runtime.ts');
+            return Object.keys(runtime);
+           },fixture);
+           console.log('QA595_RUNTIME_EXPORTS',result);
+           await page.locator('.load-panel input[type=file]').setInputFiles({name:'qa595-synthetic.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(fixture))});
+           await page.getByText('Synthetic draft authoring',{exact:true}).waitFor();
+           await page.locator('[data-editor-object-id="stage-a"]').click();
+           await page.locator('.capture-panel input').first().fill('QA595 baseline');
+           await page.getByRole('button',{name:'Capture Preview'}).click();
+           await page.locator('[data-wep-local-scene-save]:not([disabled])').waitFor();
+           await page.locator('[data-wep-local-scene-save]').click();
+           await page.locator('[data-wep-local-scene-status]').filter({hasText:'saved and independently reopened'}).waitFor();
+           const out=await page.evaluate(async()=>{
+            const m=await import('/src/lib/wep/local-scene-preset-store.mjs');
+            const row=await m.reopenLocalScenes(),entry=row.document.entries[0],artifact=entry.artifact;
+            const same=(a,b)=>a.revision===b.revision&&a.backupRevision===b.backupRevision&&a.primary===b.primary&&a.backup===b.backup;
+            const reject=async(input,code)=>{let error;try{await m.saveLocalScene(input)}catch(e){error=e.message}if(error!==code)throw Error('expected '+code+' actual '+error)};
+            const input={artifact,title:'QA595',expectedRevision:row.revision,idFactory:()=>entry.id.slice(6)};
+            await reject(input,'WEP_LOCAL_SCENE_ID_COLLISION');if(!same(row,await m.reopenLocalScenes()))throw Error('collision changed');
+            let opens=0;const factory={open(...a){opens++;return indexedDB.open(...a)}};
+            await reject({...input,factory,expectedRevision:Number.MAX_SAFE_INTEGER},'WEP_LOCAL_SCENE_INPUT_INVALID');
+            const huge=structuredClone(artifact);huge.source.areaKey='界'.repeat(1400000);
+            await reject({...input,factory,artifact:huge},'WEP_LOCAL_SCENE_LIMIT_REACHED');if(opens!==0)throw Error('bad input opened DB');
+            // Two individually bounded UTF-8 payloads exceed combined primary size.
+            const big=structuredClone(artifact);big.source.areaKey='界'.repeat(750000);
+            const p=await m.saveLocalScene({...input,artifact:big,idFactory:()=> 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'});
+            const before=await m.reopenLocalScenes();if(before.revision!==2||before.backup!==row.primary)throw Error('positive backup');
+            await reject({...input,artifact:big,expectedRevision:2,idFactory:()=> 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'},'WEP_LOCAL_SCENE_LIMIT_REACHED');
+            if(!same(before,await m.reopenLocalScenes()))throw Error('combined changed');
+            // Actual IDB row seeded only for revision boundary (no real user data).
+            const db=await m.openLocalSceneDb();await new Promise((ok,no)=>{const tx=db.transaction(m.WEP_LOCAL_SCENE_STORE,'readwrite');tx.objectStore(m.WEP_LOCAL_SCENE_STORE).put({schema:'wand.wep.scene-library-snapshot@1',revision:Number.MAX_SAFE_INTEGER-1,backupRevision:Number.MAX_SAFE_INTEGER-2,primary:row.primary,backup:row.backup},'library');tx.oncomplete=ok;tx.onerror=no});db.close();
+            const last=await m.saveLocalScene({...input,expectedRevision:Number.MAX_SAFE_INTEGER-1,idFactory:()=> 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'});
+            const end=await m.verifiedReopenLocalScene(last);if(end.revision!==Number.MAX_SAFE_INTEGER||end.row.backup!==row.primary)throw Error('last revision');
+            await reject({...input,expectedRevision:Number.MAX_SAFE_INTEGER,idFactory:()=> 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'},'WEP_LOCAL_SCENE_INPUT_INVALID');
+            if(!same(end.row,await m.reopenLocalScenes()))throw Error('exhaustion changed');
+            return {collision:true,preopen:true,combined:true,lastRevision:end.revision,backup:true};
+           });assert.deepEqual(out,{collision:true,preopen:true,combined:true,lastRevision:Number.MAX_SAFE_INTEGER,backup:true});console.log('QA595_ACTUAL_IDB_COLLISION_COMBINED_UTF8_LAST_REVISION_PASS',JSON.stringify(out));await ctx.close();
+          }finally{await browser.close()}
+          
+          JS
