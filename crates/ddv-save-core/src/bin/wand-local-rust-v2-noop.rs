@@ -266,15 +266,15 @@ fn run_inventory_amount_backup(){
  }
  let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
  if expected==[0;32]{deny("BACKUP_DECODED_SHA_REQUIRED");}
- let selector=|name:&str|->u32{
+ let selector=|name:&str,allow_zero:bool|->u32{
    let text=required(name);
-   let id=text.parse::<u32>().ok().filter(|v|*v>0)
+   let id=text.parse::<u32>().ok().filter(|v|allow_zero||*v>0)
      .unwrap_or_else(||deny("BACKUP_SELECTOR_ID"));
    if id.to_string()!=text{deny("BACKUP_SELECTOR_ID");}
    id
  };
- let inventory_id=selector("WAND_LOCAL_INVENTORY_ID");
- let item_id=selector("WAND_LOCAL_CANONICAL_ITEM_ID");
+ let inventory_id=selector("WAND_LOCAL_INVENTORY_ID",true);
+ let item_id=selector("WAND_LOCAL_CANONICAL_ITEM_ID",false);
  let mut input=Vec::new();
  io::stdin().take(MAX_DECODED+1).read_to_end(&mut input)
    .unwrap_or_else(|_|deny("BACKUP_PRIVATE_PIPE_READ"));
