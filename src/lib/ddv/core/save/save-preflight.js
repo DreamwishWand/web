@@ -1,3 +1,4 @@
+import { SafeProfileEditSession } from './safe-edit-session.js';
 import { BuildIdentityKind, PlatformFamily, evaluateWriterAuthorization, RuntimeGateStatus } from './versioning.js';
 
 export const SAVE_PREFLIGHT_CONTRACT = 'dreamwish.ddv.save-preflight@1';
@@ -21,7 +22,8 @@ export function evaluateSavePreflight({ session, targetBuild, operation, persist
       contract: ctx.codecContract
     },
     operation: op,
-    persistence
+    persistence,
+    contracts: scopedPrivateTransformContracts(session, ctx, targetBuild, operation)
   });
   return Object.freeze({
     contract: SAVE_PREFLIGHT_CONTRACT,
@@ -94,6 +96,34 @@ export function createRuntimeAssertionManifest({ preflight, exportResult }) {
     },
     persistentWriteAuthorized: false
   });
+}
+
+// Only the existing isolated Switch626 minimum-transform candidate contract.
+// Never forward arbitrary session registries or infer a BID from schema.
+function scopedPrivateTransformContracts(session, ctx, target, op) {
+  if (!(session instanceof SafeProfileEditSession) ||
+      ctx.saveIdentity.sourcePlatform !== PlatformFamily.Switch ||
+      ctx.saveIdentity.profileGameInfoVersion !== 626 ||
+      ctx.inputFormat !== 'packaged' || ctx.codecContract !== 'p1g-v0' ||
+      !/^[a-f0-9]{64}$/.test(ctx.saveIdentity.sourceRawSha256 ?? '') ||
+      !sameTargetBuild(target, {platform: PlatformFamily.Switch, kind: BuildIdentityKind.SwitchBid, value:'9A239D3DB569756D'}) ||
+      op.id !== 'WORLD_EXISTING_ROOT_STATELESS_FURNITURE_TRANSFORM_V125' ||
+      op.owner !== '01B CORE - World / Grid / Buildings' ||
+      !['MOVE','ROTATE'].includes(op.kind) || op.runtimeGate !== RuntimeGateStatus.Pending ||
+      !Array.isArray(session.contracts) || session.contracts.length !== 1) return undefined;
+  const c = session.contracts[0];
+  if (!c || c.id !== 'private-switch626-exact-transform-candidate-only' ||
+      c.platform !== PlatformFamily.Switch || c.gameVersion !== '1.25.3' ||
+      c.profileGameInfoVersion !== 626 || c.codecContract !== 'p1g-v0' ||
+      c.persistentWriteAuthorized !== false || !sameTargetBuild(c.buildIdentity, target)) return undefined;
+  // Authorization is still candidate-only; downstream exact plan, adapter,
+  // external source/geometry/rights evidence and reopen remain mandatory.
+  return Object.freeze([Object.freeze({
+    id:c.id, platform:c.platform, gameVersion:c.gameVersion,
+    profileGameInfoVersion:c.profileGameInfoVersion,
+    buildIdentity:Object.freeze({kind:target.kind,value:target.value,platform:target.platform}),
+    codecContract:c.codecContract,persistentWriteAuthorized:false
+  })]);
 }
 
 function normalizeOperation(value) {
