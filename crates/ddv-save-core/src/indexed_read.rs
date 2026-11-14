@@ -486,14 +486,14 @@ mod private_avatar {
     }
     #[derive(Clone,Debug)]
     struct Branch {
-        sha:String,hair:Option<i32>,highlight:Option<i32>,
+        sha:String,hair:Option<i32>,highlight:Option<i32>,hair_span:Option<Span>,
         clothes:RefMap,incompatible:RefMap,makeup:RefMap,customization:RefMap,
     }
     fn branch(bytes:&[u8],span:Span)->CoreResult<Branch>{
         if span.end-span.begin>MAX_AVATAR_BYTES{return Err(denied("AVATAR_BRANCH_BYTE_BOUND"));}
         let f=members(bytes,span,MAX_AVATAR_FIELDS)?;
         Ok(Branch{sha:sha(&bytes[span.begin..span.end]),
-            hair:optional_int(bytes,&f,"HairColorIndex")?,
+            hair:optional_int(bytes,&f,"HairColorIndex")?,hair_span:field(&f,"HairColorIndex"),
             highlight:optional_int(bytes,&f,"HairHighlightColor")?,
             clothes:refs(bytes,field(&f,"Clothes"),"Clothes")?,
             incompatible:refs(bytes,field(&f,"IncompatibleClothes"),"IncompatibleClothes")?,
@@ -572,6 +572,59 @@ mod private_avatar {
         Ok(PrivateActiveAvatarReceipt{scope:e,is_male,
             female:branch(bytes,required(fields,"FemaleAvatar")?)?,
             male:branch(bytes,required(fields,"MaleAvatar")?)?})
+    }
+
+    #[cfg(feature="semantic-writer-dev")]
+    pub struct PrivateActiveHairTarget{
+        scope:WorkerEnvelope,span:Span,old:i32,new:i32,
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    impl ProductSession{
+        /// Private source-only scalar candidate. Exact independently approved
+        /// plan and external native/rights closure are prerequisites to real
+        /// V2; no product authority, no arbitrary path or branch selection.
+        pub fn mint_private_active_hair_target(&self,e:WorkerEnvelope,plan:&[u8])
+            ->CoreResult<PrivateActiveHairTarget>{
+            if self.worker_bound||e.expected_revision!=0||e.expected_index_generation!=1||
+               plan.is_empty()||plan.len()>8192{return Err(denied("HAIR_PLAN_SCOPE"));}
+            let p:Value=serde_json::from_slice(plan).map_err(|_|denied("HAIR_PLAN_JSON"))?;
+            if serde_json::to_vec(&p).map_err(|_|denied("HAIR_PLAN_JSON"))?.as_slice()!=plan{
+                return Err(denied("HAIR_PLAN_NONCANONICAL"));
+            }
+            let keys=["contract","fullVersion","sourceDecodedSha256","activeBranch",
+                "femaleBranchSha256","maleBranchSha256","oldTokenSha256","oldHairColorIndex","newHairColorIndex"];
+            let m=p.as_object().ok_or(denied("HAIR_PLAN_OBJECT"))?;
+            if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||
+               p["contract"]!="wand.private.steam626.active-hair-color-exact1@1"||p["fullVersion"]!=EXACT||
+               p["sourceDecodedSha256"]!=hex(&e.expected_decoded_sha256){
+                return Err(denied("HAIR_PLAN_BINDING"));
+            }
+            let r=self.read_private_active_avatar(e)?;
+            let (name,active)=if r.is_male{("MaleAvatar",&r.male)}else{("FemaleAvatar",&r.female)};
+            let old=active.hair.ok_or(denied("HAIR_OLD_MISSING"))?;
+            let new=p["newHairColorIndex"].as_i64().and_then(|n|i32::try_from(n).ok())
+                .ok_or(denied("HAIR_NEW_INT32"))?;
+            let span=active.hair_span.ok_or(denied("HAIR_TARGET_SPAN"))?;
+            if !palette(Some(old))||!palette(Some(new))||!palette(active.highlight)||old==new||
+               p["activeBranch"]!=name||p["oldHairColorIndex"]!=old||
+               p["femaleBranchSha256"]!=r.female.sha||p["maleBranchSha256"]!=r.male.sha||
+               p["oldTokenSha256"]!=sha(&self.decoded[span.begin..span.end]){
+                return Err(denied("HAIR_TARGET_CAS"));
+            }
+            Ok(PrivateActiveHairTarget{scope:e,span,old,new})
+        }
+        pub fn stage_private_active_hair_color(&self,e:WorkerEnvelope,t:&PrivateActiveHairTarget)
+            ->CoreResult<super::super::SemanticStageReceipt>{
+            let b=&self.native_source_build;
+            if self.worker_bound||b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||
+               b.build_id!=EXACT||b.schema!=626||!b.externally_attested||
+               e.contract!=t.scope.contract||e.session_id!=t.scope.session_id||
+               e.expected_revision!=t.scope.expected_revision||e.expected_index_generation!=t.scope.expected_index_generation||
+               e.expected_decoded_sha256!=t.scope.expected_decoded_sha256{
+                return Err(denied("HAIR_STAGE_SCOPE_CAS"));
+            }
+            self.commit_private_hair_scalar(e,t.span,t.old,t.new)
+        }
     }
     // ACT357: private, bounded dependency evidence for one existing Avatar
     // hair candidate. Same native ProductSession and lexical spans; no
@@ -2000,6 +2053,50 @@ mod private_avatar {
             assert!(s.read_private_avatar_dependencies(stale).is_err());
             assert!(open(v).read_private_avatar_dependencies(e).is_err());
             s.close().unwrap();assert!(s.read_private_avatar_dependencies(e).is_err());
+        }
+        #[cfg(feature="semantic-writer-dev")]
+        #[test]
+        fn private_active_hair_exact1_both_branches_and_epoch_denials(){
+            for male in [true,false]{
+                let mut d=dependency_doc();d["Player"]["AvatarIsMale"]=json!(male);
+                let s=open(d.clone());let r=s.receipt().unwrap();let e=env(r);
+                let receipt=s.read_private_active_avatar(e).unwrap().to_private_receipt_json();
+                let branch=if male{"MaleAvatar"}else{"FemaleAvatar"};
+                let old=if male{89}else{0};let new=if male{0}else{89};
+                let p=json!({"contract":"wand.private.steam626.active-hair-color-exact1@1",
+                    "fullVersion":EXACT,"sourceDecodedSha256":receipt["decodedSha256"],"activeBranch":branch,
+                    "femaleBranchSha256":receipt["femaleAvatar"]["branchSha256"],"maleBranchSha256":receipt["maleAvatar"]["branchSha256"],
+                    "oldTokenSha256":sha(old.to_string().as_bytes()),"oldHairColorIndex":old,"newHairColorIndex":new});
+                let bytes=serde_json::to_vec(&p).unwrap();
+                for (k,v) in [("activeBranch",json!(if male{"FemaleAvatar"}else{"MaleAvatar"})),
+                    ("oldHairColorIndex",json!(new)),("newHairColorIndex",json!(90)),("fullVersion",json!("bad")),
+                    ("sourceDecodedSha256",json!("bad")),("femaleBranchSha256",json!("bad")),
+                    ("maleBranchSha256",json!("bad")),("oldTokenSha256",json!("bad")),("rightsVerified",json!(true))]{
+                    let mut q=p.clone();q[k]=v;assert!(s.mint_private_active_hair_target(e,&serde_json::to_vec(&q).unwrap()).is_err(),"{k}");
+                }
+                let mut q=p.clone();q["newHairColorIndex"]=json!(old);
+                assert!(s.mint_private_active_hair_target(e,&serde_json::to_vec(&q).unwrap()).is_err());
+                let mut q=p.clone();q["newHairColorIndex"]=json!(-1);
+                assert!(s.mint_private_active_hair_target(e,&serde_json::to_vec(&q).unwrap()).is_err());
+                let t=s.mint_private_active_hair_target(e,&bytes).unwrap();
+                let mut stage=e;stage.action=WorkerAction::Stage;
+                assert!(s.stage_private_active_hair_color(e,&t).is_err());
+                let other=open(d.clone());let mut f=env(other.receipt().unwrap());f.action=WorkerAction::Stage;
+                assert!(other.stage_private_active_hair_color(f,&t).is_err());
+                let mut stale=stage;stale.expected_revision+=1;
+                assert!(s.stage_private_active_hair_color(stale,&t).is_err());
+                let receipt=s.stage_private_active_hair_color(stage,&t).unwrap();
+                assert_eq!(receipt.operation_count,1);assert_eq!(receipt.exact_field_changed_count,1);
+                assert!(!receipt.product_writer_authorized);assert!(s.stage_private_active_hair_color(stage,&t).is_err());
+                let mut now=env(s.receipt().unwrap());now.action=WorkerAction::Stage;s.undo_typed_semantic_batch(now).unwrap();
+                let mut now=env(s.receipt().unwrap());now.action=WorkerAction::ExportEditedCopy;
+                assert!(s.take_typed_semantic_decoded_once(now).is_err());now.action=WorkerAction::Stage;
+                assert!(s.stage_private_active_hair_color(now,&t).is_err());s.redo_typed_semantic_batch(now).unwrap();
+                let mut now=env(s.receipt().unwrap());now.action=WorkerAction::ExportEditedCopy;
+                let out=s.take_typed_semantic_decoded_once(now).unwrap();assert!(s.take_typed_semantic_decoded_once(now).is_err());
+                d["Player"][branch]["HairColorIndex"]=json!(new);
+                assert_eq!(out,serde_json::to_vec(&d).unwrap());
+            }
         }
         #[test]
         fn actual_branch_and_absence_zero_exact_refs(){
