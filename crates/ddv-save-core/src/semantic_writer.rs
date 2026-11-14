@@ -379,6 +379,12 @@ impl ProductSession{
         let roots=indexed_read::roots(&self.decoded)?;
         let mut edits=Vec::with_capacity(commands.len());
         for cmd in commands{edits.push(target(&self.decoded,roots.player,cmd)?);}
+        self.commit_amount_replacements(e,edits,None)
+    }
+    // Same transaction ledger for ordinary decreases and exact inverse lineage.
+    fn commit_amount_replacements(&self,e:WorkerEnvelope,mut edits:Vec<Replacement>,
+        expected_output:Option<[u8;32]>)->CoreResult<SemanticStageReceipt>{
+        if edits.is_empty()||edits.len()>MAX_TX_COMMANDS{return Err(denied("SEMANTIC_BATCH_BOUNDS"));}
         edits.sort_by_key(|r|r.span.begin);
         for pair in edits.windows(2){
             if pair[0].span.end>pair[1].span.begin {
@@ -395,6 +401,7 @@ impl ProductSession{
         validate_entire_document(&edited,self.schema)?;
         let edited_sha=sha(&edited);
         if edited_sha==self.sha{return Err(denied("SEMANTIC_BATCH_NO_MEANING_CHANGE"));}
+        if expected_output.is_some_and(|v|v!=edited_sha){return Err(denied("RESTORE_OUTPUT_LINEAGE_MISMATCH"));}
         // Commit is all-or-nothing on the SAME mutex and SAME Source ledger.
         let mut st=self.lock()?;
         check(self,&st,&e,WorkerAction::Stage)?;
@@ -1364,5 +1371,154 @@ mod private_inventory_discovery_tests {
         v["Player"]["ListInventories"]["2"]["Inventory"]=json!((30000000..30016385).map(|i|
            (i.to_string(),json!({"Amount":1}))).collect::<serde_json::Map<String,serde_json::Value>>());
         let s=open(v);assert_eq!(s.find_one_existing_inventory_amount_target(envelope(s.receipt().unwrap())).unwrap_err().0,"AMOUNT_DISCOVERY_ENTRY_BOUND");
+    }
+}
+
+ 
+// ACT927: restore exactly one positive Catalog0 amount to an independently
+// verified ancestor. Native-private only, no public Worker or generic increase.
+// The local official Codec wrapper owns encrypted provenance/backup verification
+// and accepted target-specific reverse eligibility; never infer it from hashes.
+#[cfg(all(feature="private-native-v2",not(target_arch="wasm32")))]
+impl ProductSession{
+    pub fn stage_private_catalog0_exact_lineage_restore(
+        &self,e:WorkerEnvelope,backup:&[u8],ancestor:&[u8],plan:&[u8],
+        current_packaged:[u8;32],current_size:u64,backup_packaged:[u8;32],
+        backup_size:u64,ancestor_packaged:[u8;32],ancestor_size:u64,
+    )->CoreResult<SemanticStageReceipt>{
+        use crate::portable_backup::decode_inventory_amount_backup;
+        use serde_json::{json,Value};
+        build_check(self)?;
+        if self.worker_bound||current_packaged==[0;32]||ancestor_packaged==[0;32]||
+           current_packaged==ancestor_packaged||current_packaged!=backup_packaged||
+           current_size!=backup_size||current_size==0||current_size>128*1024*1024||
+           ancestor_size==0||ancestor_size>128*1024*1024||
+           ancestor.is_empty()||ancestor.len()>256*1024*1024||plan.len()>8192{
+            return Err(denied("RESTORE_PRIVATE_LINEAGE_SCOPE"));
+        }
+        let b=decode_inventory_amount_backup(backup)?;
+        let hex=|v:&[u8;32]|v.iter().map(|n|format!("{n:02x}")).collect::<String>();
+        let ancestor_sha=sha(ancestor);
+        if b.inventory_id!=0||b.item_id/10_000_000!=4||
+           (b.item_id%10_000_000)/100_000!=0||
+           b.source_decoded_sha256!=hex(&ancestor_sha)||ancestor_sha==self.sha{
+            return Err(denied("RESTORE_ANCESTOR_TARGET"));
+        }
+        let mut read=e;read.action=WorkerAction::ReadDomain;
+        let review=self.review_inventory_amount_restore(read,backup,0,b.item_id)?;
+        if review.current_amount.checked_add(1)!=Some(b.amount)||
+           review.current_amount==0||b.amount as u64>MAX_CONSERVATIVE_AMOUNT{
+            return Err(denied("RESTORE_EXACT_POSITIVE_ONE_ONLY"));
+        }
+        let witness=self.read_existing_amount_target(read,ExistingAmountSelection::Inventory{inventory_id:0,item_id:b.item_id})?;
+        let v=witness.view();
+        if v.old_amount!=review.current_amount||v.entry_sha256!=review.current_entry_sha256{
+            return Err(denied("RESTORE_WITNESS_MISMATCH"));
+        }
+        let expected=json!({
+            "contract":"wand.private.catalog0-exact-lineage-restore-one@1",
+            "build":EXACT_STEAM,"inventoryId":0,"itemId":b.item_id,
+            "currentAmount":v.old_amount,"restoreAmount":b.amount,
+            "currentDecodedSha256":hex(&self.sha),"ancestorDecodedSha256":hex(&ancestor_sha),
+            "currentEntrySha256":hex(&v.entry_sha256),"ancestorEntrySha256":review.backup_entry_sha256,
+            "portableBackupSha256":hex(&sha(backup)),
+            "currentPackagedSha256":hex(&current_packaged),"currentPackagedSize":current_size,
+            "currentBackupSha256":hex(&backup_packaged),"currentBackupSize":backup_size,
+            "ancestorPackagedSha256":hex(&ancestor_packaged),"ancestorPackagedSize":ancestor_size
+        });
+        let parsed:Value=serde_json::from_slice(plan).map_err(|_|denied("RESTORE_PLAN_JSON"))?;
+        if parsed!=expected||serde_json::to_vec(&expected).map_err(|_|denied("RESTORE_PLAN_ENCODE"))?.as_slice()!=plan{
+            return Err(denied("RESTORE_PLAN_EXACT_BINDING"));
+        }
+        validate_entire_document(ancestor,self.schema)?;
+        let (kind,entry)=inventory_amount_entry(ancestor,indexed_read::roots(ancestor)?.player,0,b.item_id)?;
+        if kind!=ExistingAmountItemType::Furniture||
+           hex(&sha(&ancestor[entry.begin..entry.end]))!=review.backup_entry_sha256||
+           number(ancestor,object_field(ancestor,entry,"Amount")?)?!=b.amount as u64{
+            return Err(denied("RESTORE_ANCESTOR_ENTRY_BINDING"));
+        }
+        let (_,current)=inventory_amount_entry(&self.decoded,indexed_read::roots(&self.decoded)?.player,0,b.item_id)?;
+        let span=object_field(&self.decoded,current,"Amount")?;
+        let old=v.old_amount.to_string().into_bytes();let new=b.amount.to_string().into_bytes();
+        let new_end=span.begin.checked_add(new.len()).ok_or(denied("RESTORE_SPAN"))?;
+        if self.decoded.get(span.begin..span.end)!=Some(old.as_slice())||
+           ancestor.get(..span.begin)!=self.decoded.get(..span.begin)||
+           ancestor.get(span.begin..new_end)!=Some(new.as_slice())||
+           ancestor.get(new_end..)!=self.decoded.get(span.end..){
+            return Err(denied("RESTORE_NOT_EXACT_ONE_TOKEN_DESCENDANT"));
+        }
+        {
+            let st=self.lock()?;check(self,&st,&e,WorkerAction::Stage)?;
+            if st.semantic.is_some(){return Err(denied("SEMANTIC_STAGE_ALREADY_EXISTS"));}
+            validate_target_snapshot(self,&e,&witness)?;
+        }
+        self.commit_amount_replacements(e,vec![Replacement{span,old,new}],Some(ancestor_sha))
+    }
+}
+
+#[cfg(all(test,feature="private-native-v2",not(target_arch="wasm32")))]
+mod exact_lineage_restore_tests{
+    use super::*;
+    use crate::{BuildIdentity,SessionReceipt};
+    use serde_json::{json,Value};
+    fn doc(n:u32)->Vec<u8>{
+        serde_json::to_vec(&json!({"GameInfo":{"Version":626},"World":{},
+          "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture",
+            "CompatibleFurnitureTypes":{"List":["FurnitureItemType_Default"]},
+            "Inventory":{"40000048":{"Amount":n,"Marker":"Keep"}}}}},"Unknown":{"Keep":true}})).unwrap()
+    }
+    fn open(b:Vec<u8>)->ProductSession{
+        ProductSession::open_decoded_readonly(b,BuildIdentity{
+            platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+            build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap()
+    }
+    fn scope(r:SessionReceipt,action:WorkerAction)->WorkerEnvelope{
+        WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
+            expected_revision:r.revision,expected_index_generation:r.index_generation,
+            expected_decoded_sha256:r.decoded_sha256,action}
+    }
+    fn hex(v:&[u8;32])->String{v.iter().map(|n|format!("{n:02x}")).collect()}
+    #[test]
+    fn restore_exact_ancestor_digit_boundary_and_reject_other_changes(){
+        let ancestor=doc(100);let original=open(ancestor.clone());
+        let backup=original.capture_inventory_amount_backup(scope(original.receipt().unwrap(),WorkerAction::ReadDomain),0,40000048).unwrap();
+        let s=open(doc(99));let before=s.receipt().unwrap();let read=scope(before,WorkerAction::ReadDomain);
+        let r=s.review_inventory_amount_restore(read,&backup,0,40000048).unwrap();
+        let current=[1;32];let prior=[2;32];
+        let plan=json!({"contract":"wand.private.catalog0-exact-lineage-restore-one@1","build":EXACT_STEAM,
+            "inventoryId":0,"itemId":40000048,"currentAmount":99,"restoreAmount":100,
+            "currentDecodedSha256":hex(&before.decoded_sha256),"ancestorDecodedSha256":hex(&sha(&ancestor)),
+            "currentEntrySha256":hex(&r.current_entry_sha256),"ancestorEntrySha256":r.backup_entry_sha256,
+            "portableBackupSha256":hex(&sha(&backup)),"currentPackagedSha256":hex(&current),
+            "currentPackagedSize":50,"currentBackupSha256":hex(&current),"currentBackupSize":50,
+            "ancestorPackagedSha256":hex(&prior),"ancestorPackagedSize":51});
+        let stage=scope(before,WorkerAction::Stage);
+        let run=|p:&Value,a:&[u8],b:&[u8],e:WorkerEnvelope,bs:[u8;32]|s.stage_private_catalog0_exact_lineage_restore(
+            e,b,a,&serde_json::to_vec(p).unwrap(),current,50,bs,50,prior,51);
+        let mut forged=plan.clone();forged["restoreAmount"]=json!(101);
+        assert!(run(&forged,&ancestor,&backup,stage,current).is_err());
+        assert!(run(&plan,&ancestor,&backup,stage,[3;32]).is_err());
+        assert!(run(&plan,&ancestor,&backup,scope(before,WorkerAction::ReadDomain),current).is_err());
+        let mut stale=stage;stale.expected_revision+=1;
+        assert!(run(&plan,&ancestor,&backup,stale,current).is_err());
+        assert!(run(&plan,&ancestor,&backup,scope(original.receipt().unwrap(),WorkerAction::Stage),current).is_err());
+        let other=open(doc(101));
+        let wrong=other.capture_inventory_amount_backup(scope(other.receipt().unwrap(),WorkerAction::ReadDomain),0,40000048).unwrap();
+        assert!(run(&plan,&doc(101),&wrong,stage,current).is_err());
+        let mut changed:Value=serde_json::from_slice(&ancestor).unwrap();changed["Unknown"]["Keep"]=json!(false);
+        let changed=serde_json::to_vec(&changed).unwrap();let other=open(changed.clone());
+        let wrong=other.capture_inventory_amount_backup(scope(other.receipt().unwrap(),WorkerAction::ReadDomain),0,40000048).unwrap();
+        let mut p=plan.clone();p["ancestorDecodedSha256"]=json!(hex(&sha(&changed)));p["portableBackupSha256"]=json!(hex(&sha(&wrong)));
+        assert!(run(&p,&changed,&wrong,stage,current).is_err());
+        assert_eq!(s.receipt().unwrap(),before);
+        let r=run(&plan,&ancestor,&backup,stage,current).unwrap();assert_eq!(r.staged_decoded_sha256,sha(&ancestor));
+        assert_eq!(r.exact_field_changed_count,1);assert!(!r.product_writer_authorized);
+        assert!(run(&plan,&ancestor,&backup,stage,current).is_err());
+        let undone=s.undo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();assert!(!undone.applied);
+        assert!(s.take_typed_semantic_decoded_once(scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        let export=scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+        assert_eq!(s.take_typed_semantic_decoded_once(export).unwrap(),ancestor);
+        assert!(s.take_typed_semantic_decoded_once(export).is_err());
     }
 }

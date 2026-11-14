@@ -29,6 +29,10 @@ fn required(k:&str)->String{
 }
 fn main(){
  #[cfg(feature="semantic-writer-dev")]
+ if env::args().nth(1).as_deref()==Some("--private-steam626-catalog0-exact-lineage-restore-one-only") {
+   run_catalog0_exact_lineage_restore();return;
+ }
+ #[cfg(feature="semantic-writer-dev")]
  if matches!(env::args().nth(1).as_deref(),Some("--inventory-amount-backup-only"|"--inventory-amount-restore-review-only")) {
    run_inventory_amount_backup(env::args().nth(1).as_deref()==Some("--inventory-amount-restore-review-only"));
    return;
@@ -390,10 +394,14 @@ fn run_inventory_amount_backup(review_only:bool){
 // Explicit local read only, pinned expected bytes; no alternate target Apply.
 #[cfg(feature="semantic-writer-dev")]
 fn read_restore_backup(max:usize)->Vec<u8>{
- let path=required("WAND_LOCAL_RESTORE_BACKUP_PATH");
+ read_restore_pinned("WAND_LOCAL_RESTORE_BACKUP_PATH","WAND_LOCAL_RESTORE_BACKUP_SHA256",max)
+}
+#[cfg(feature="semantic-writer-dev")]
+fn read_restore_pinned(path_key:&str,sha_key:&str,max:usize)->Vec<u8>{
+ let path=required(path_key);
  let p=std::path::Path::new(&path);
  if !p.is_absolute(){deny("RESTORE_BACKUP_ABSOLUTE_REQUIRED");}
- let expected=hex32(&required("WAND_LOCAL_RESTORE_BACKUP_SHA256"));
+ let expected=hex32(&required(sha_key));
  if expected==[0;32]{deny("RESTORE_BACKUP_SHA");}
  let mut options=std::fs::OpenOptions::new();options.read(true);
  // Precheck regular file and reject final symlinks. Linux nonblocking +
@@ -413,4 +421,54 @@ fn read_restore_backup(max:usize)->Vec<u8>{
    deny("RESTORE_BACKUP_SHA_CAS");
  }
  bytes
+}
+
+#[cfg(feature="semantic-writer-dev")]
+fn run_catalog0_exact_lineage_restore(){
+ const MAX:usize=256*1024*1024;
+ if env::args_os().count()!=2||required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM||
+    env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty()){
+   deny("RESTORE_EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
+ }
+ let current=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
+ let backup=hex32(&required("WAND_LOCAL_BACKUP_SHA256"));
+ let ancestor=hex32(&required("WAND_LOCAL_RESTORE_ANCESTOR_PACKAGED_SHA256"));
+ let size=|k:&str|required(k).parse::<u64>().unwrap_or_else(|_|deny("RESTORE_PACKAGED_SIZE"));
+ let current_size=size("WAND_LOCAL_ORIGINAL_SIZE_BYTES");
+ let backup_size=size("WAND_LOCAL_BACKUP_SIZE_BYTES");
+ let ancestor_size=size("WAND_LOCAL_RESTORE_ANCESTOR_PACKAGED_SIZE_BYTES");
+ let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
+ let plan=read_restore_pinned("WAND_LOCAL_RESTORE_PLAN_PATH","WAND_LOCAL_RESTORE_PLAN_SHA256",8192);
+ let original=read_restore_pinned("WAND_LOCAL_RESTORE_ANCESTOR_DECODED_PATH","WAND_LOCAL_RESTORE_ANCESTOR_DECODED_SHA256",MAX);
+ let portable=read_restore_backup(ddv_save_core::portable_backup::WAND_BACKUP_MAX_BYTES);
+ let mut input=Vec::new();
+ io::stdin().take(MAX as u64+1).read_to_end(&mut input).unwrap_or_else(|_|deny("RESTORE_PRIVATE_PIPE_READ"));
+ if input.is_empty()||input.len()>MAX||Sha256::digest(&input).as_slice()!=expected{deny("RESTORE_SOURCE_SHA_CAS");}
+ let session=ProductSession::open_decoded_readonly(input,BuildIdentity{
+   platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+   build_id:STEAM.into(),schema:626,externally_attested:true}).unwrap_or_else(|_|deny("RESTORE_FULL_DOCUMENT"));
+ let before=session.receipt().unwrap_or_else(|_|deny("RESTORE_RECEIPT"));
+ if before.decoded_sha256!=expected||before.revision!=0||before.index_generation!=1||
+    before.product_worker_bound||before.writer_authorized||before.apply_authorized||before.edited_copy_authorized{
+    deny("RESTORE_SOURCE_SCOPE");
+ }
+ let e=|rev,gen,action|WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:before.session_id,
+   expected_revision:rev,expected_index_generation:gen,expected_decoded_sha256:expected,action};
+ let staged=session.stage_private_catalog0_exact_lineage_restore(e(0,1,WorkerAction::Stage),&portable,&original,&plan,
+     current,current_size,backup,backup_size,ancestor,ancestor_size).unwrap_or_else(|_|deny("RESTORE_STAGE_DENIED"));
+ if staged.operation_count!=1||staged.exact_field_changed_count!=1||!staged.applied||
+    staged.product_writer_authorized||staged.original_overwrite_authorized||
+    staged.staged_decoded_sha256.as_slice()!=Sha256::digest(&original).as_slice(){
+   deny("RESTORE_STAGE_RECEIPT");
+ }
+ if session.undo_typed_semantic_batch(e(0,1,WorkerAction::Stage)).is_ok(){deny("RESTORE_STALE_UNDO");}
+ let undone=session.undo_typed_semantic_batch(e(1,2,WorkerAction::Stage)).unwrap_or_else(|_|deny("RESTORE_UNDO"));
+ if undone.applied||session.take_typed_semantic_decoded_once(e(2,3,WorkerAction::ExportEditedCopy)).is_ok(){deny("RESTORE_UNDO_EXPORT");}
+ let redone=session.redo_typed_semantic_batch(e(2,3,WorkerAction::Stage)).unwrap_or_else(|_|deny("RESTORE_REDO"));
+ if !redone.applied{deny("RESTORE_REDO_RECEIPT");}
+ let out=session.take_typed_semantic_decoded_once(e(3,4,WorkerAction::ExportEditedCopy)).unwrap_or_else(|_|deny("RESTORE_EXPORT"));
+ if out!=original||session.take_typed_semantic_decoded_once(e(3,4,WorkerAction::ExportEditedCopy)).is_ok(){deny("RESTORE_OUTPUT_OR_REPLAY");}
+ io::stdout().write_all(&out).unwrap_or_else(|_|deny("RESTORE_PIPE_WRITE"));
+ io::stdout().flush().unwrap_or_else(|_|deny("RESTORE_PIPE_FLUSH"));
+ eprintln!("PRIVATE_CATALOG0_EXACT_LINEAGE_RESTORE_ONE_PIPE_PASS");
 }
