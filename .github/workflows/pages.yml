@@ -28,6 +28,7 @@ jobs:
       js_sha: ${{ steps.asset_pins.outputs.js_sha }}
       wasm_sha: ${{ steps.asset_pins.outputs.wasm_sha }}
       manifest_sha: ${{ steps.asset_pins.outputs.manifest_sha }}
+      expected_root: ${{ steps.release_tuple.outputs.root }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -37,6 +38,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Read committed active release tuple (not caller or environment selection)
+        id: release_tuple
+        run: |
+          # ACT505 staging keeps the existing /web build. A future cutover
+          # must explicitly change BOTH the committed selector and Pages base.
+          node --input-type=module -e 'import {ACTIVE_RELEASE_TUPLE as t} from "./src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs"; console.log("base="+t.basePath); console.log("root="+t.origin+t.basePath)' >> "$GITHUB_OUTPUT"
       - name: Install dependencies
         run: |
           if [ -f package-lock.json ]; then
@@ -69,6 +76,7 @@ jobs:
           test "$GITHUB_REF" = refs/heads/main
           test "$(git rev-parse HEAD)" = "$WAND_SOURCE_HEAD"
           cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          test "$WAND_RELEASE_BASE_PATH" = "${{ steps.release_tuple.outputs.base }}"
           node scripts/wasm-distribution/verify-protected-release.mjs inputs
       - name: Generate genuine read-only Rust wasm32 from this protected main
         run: |
@@ -206,6 +214,7 @@ jobs:
       - name: Verify actual same-origin HTTPS bytes, status, MIME and no redirect
         env:
           WAND_DEPLOYED_BASE_URL: ${{ steps.deployment.outputs.page_url }}
+          WAND_EXPECTED_BASE_URL: ${{ needs.build.outputs.expected_root }}
           WAND_JS_SHA256: ${{ needs.build.outputs.js_sha }}
           WAND_WASM_SHA256: ${{ needs.build.outputs.wasm_sha }}
           WAND_MANIFEST_SHA256: ${{ needs.build.outputs.manifest_sha }}
@@ -213,7 +222,7 @@ jobs:
         run: |
           set -euo pipefail
           root="${WAND_DEPLOYED_BASE_URL%/}"
-          [[ "$root" == https://* ]] || { echo 'LIVE_TLS_REQUIRED'; exit 1; }
+          [[ "$root" == "$WAND_EXPECTED_BASE_URL" ]] || { echo 'LIVE_RELEASE_TUPLE_MISMATCH'; exit 1; }
           for spec in "ddv_save_core.js:$WAND_JS_SHA256:js" \
                       "ddv_save_core_bg.wasm:$WAND_WASM_SHA256:wasm" \
                       "manifest.json:$WAND_MANIFEST_SHA256:json"; do

@@ -8,6 +8,8 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {resolve,join} from 'node:path';
 
+import {ACTIVE_RELEASE_TUPLE,RELEASE_REPOSITORY_ID,manifestMatchesRelease,protectedPagesContextMatches} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+
 const root=resolve(import.meta.dirname,'../..');
 const fail=s=>{throw Error('R22_PROTECTED_RELEASE_'+s)};
 const sha=b=>createHash('sha256').update(b).digest('hex');
@@ -27,6 +29,16 @@ if(!/^[0-9a-f]{40}$/.test(expectedSource??'')||
 if(!['pull_request','push','workflow_dispatch'].includes(event))fail('EVENT_NOT_ALLOWED');
 if(event!=='pull_request'&&process.env.GITHUB_REF!=='refs/heads/main')
  fail('NOT_PROTECTED_MAIN_PUSH');
+const tuple=ACTIVE_RELEASE_TUPLE;
+if(process.env.GITHUB_ACTIONS!=='true'||process.env.GITHUB_REPOSITORY_ID!==RELEASE_REPOSITORY_ID||
+ process.env.GITHUB_REPOSITORY!==tuple.repository)fail('REPOSITORY_IDENTITY_DENIED');
+const workflow=process.env.GITHUB_WORKFLOW_REF;
+const pages=workflow===tuple.signerWorkflow+'@'+tuple.sourceRef;
+const candidate=workflow===tuple.repository+'/.github/workflows/01a-protected-main-signed-wasm-release-off.yml@'+process.env.GITHUB_REF;
+if(pages){
+ if(!protectedPagesContextMatches(process.env,expectedSource,git('rev-parse','HEAD'))||
+    process.env.WAND_RELEASE_BASE_PATH!==tuple.basePath)fail('PROTECTED_PAGES_TUPLE_DENIED');
+}else if(!candidate)fail('RELEASE_WORKFLOW_DENIED');
 const prBase=process.env.WAND_PR_BASE_SHA;
 if(event==='pull_request'){
  // A release maintenance PR must be based on the current protected main,
@@ -110,7 +122,7 @@ for(let i=0;i<files.length;i++){
 const manifest=JSON.parse(sourceBytes[2].toString('utf8'));
 if(manifest.contract!=='wand.r22.rust-wasm-source-provenance-candidate@1'||
  manifest.source?.commit!==expectedSource||
- manifest.source?.repository!=='DreamwishWand/web'||
+ !manifestMatchesRelease(manifest,tuple)||
  manifest.source?.cargoLockSha256!==sha(locked)||
  manifest.source?.cargoLockOrigin!=='approved-repository-lock'||
  manifest.source?.wasmBindgen!=='0.2.105'||
