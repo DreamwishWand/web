@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {chromium} from 'playwright-core';
+const old='http://127.0.0.1:4481',next='http://127.0.0.1:4482';
+const P='dreamwishwand:moodboards:v1',B=P+':backup';
+const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+const ctx=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});
+const bad=[],errors=[];
+ctx.on('request',r=>{if(![old,next].includes(new URL(r.url()).origin)||!['GET','HEAD'].includes(r.method()))bad.push(r.method());});
+const read=p=>p.evaluate(([a,b])=>[localStorage.getItem(a),localStorage.getItem(b)],[P,B]);
+const create=async(p,title)=>{await p.locator('.new-board input').fill(title);await p.locator('.new-board button').click();await p.locator('.board-list button').filter({hasText:title}).waitFor();};
+const exportFile=async(p,selector)=>{const dl=p.waitForEvent('download');await p.locator(selector).click();const file=await dl;return readFile(await file.path());};
+const importFile=async(p,buffer)=>{await p.locator('[data-moodboard-import-file]').setInputFiles({name:'moodboards.json',mimeType:'application/json',buffer});await p.locator('[role=status]').waitFor();};
+try{
+ const a=await ctx.newPage(),b=await ctx.newPage();for(const p of [a,b])p.on('pageerror',e=>errors.push(String(e)));
+ await a.goto(old+'/web/moodboards/',{waitUntil:'networkidle'});await a.locator('.new-board input').waitFor();
+ await create(a,'Synthetic old A');await create(a,'Synthetic old B');
+ const oldBefore=await read(a);assert.ok(oldBefore[0]&&oldBefore[1]);
+ const payload=await exportFile(a,'[data-moodboard-export]'),previous=await exportFile(a,'[data-moodboard-export-previous]');
+ assert.equal(payload.toString(),oldBefore[0]);assert.equal(previous.toString(),oldBefore[1]);
+ await b.goto(next+'/moodboards/',{waitUntil:'networkidle'});assert.deepEqual(await read(b),[null,null]);
+ await importFile(b,payload);await b.locator('.board-list button').filter({hasText:'Synthetic old B'}).waitFor();
+ assert.deepEqual(await read(b),[oldBefore[0],null]);assert.deepEqual(await read(a),oldBefore);
+ await b.reload({waitUntil:'networkidle'});await b.locator('.board-list button').filter({hasText:'Synthetic old A'}).waitFor();assert.deepEqual(await read(b),[oldBefore[0],null]);
+ console.log('ACT519_ACTUAL_TWO_ORIGIN_EXPORT_IMPORT_REOPEN_PASS');
+ await create(b,'Synthetic destination C');const before=await read(b);assert.ok(before[1]);
+ await importFile(b,payload);await b.waitForFunction(()=>document.querySelector('[role=status]')?.textContent?.includes('Import blocked'));
+ assert.deepEqual(await read(b),before);
+ await importFile(b,Buffer.from('{"schema":"wand.moodboards.local@1","version":99,"boards":[]}'));
+ await b.waitForFunction(()=>document.querySelector('[role=status]')?.textContent?.includes('current-format'));
+ assert.deepEqual(await read(b),before);assert.deepEqual(await read(a),oldBefore);
+ console.log('ACT519_ACTUAL_DESTINATION_COLLISION_INVALID_BACKUP_UNCHANGED_PASS');
+ await b.locator('.backup-actions button').last().click();await b.locator('.board-list button').filter({hasText:'Synthetic old B'}).waitFor();assert.equal((await read(b))[0],before[1]);
+ console.log('ACT519_ACTUAL_PREVIOUS_SNAPSHOT_RESTORE_PASS');
+ assert.deepEqual(bad,[]);assert.deepEqual(errors,[]);
+ console.log('ACT519_NO_NON_GET_NO_OFF_ORIGIN_NO_PAGE_ERRORS_PASS');
+}finally{await browser.close();}

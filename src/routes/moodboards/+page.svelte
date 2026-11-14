@@ -4,6 +4,7 @@
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { moodboardCopy } from '$lib/moodboards/copy.js';
+  import { MOODBOARD_PORTABLE_MAX_BYTES, readMoodboardMigrationSnapshot, importPortableMoodboard, exportPortableMoodboard } from '$lib/moodboards/origin-portability.mjs';
   import {
     MOODBOARD_BACKUP_KEY,
     MOODBOARD_REFERENCE_TYPES,
@@ -31,6 +32,7 @@
   let newTitle='', newDescription='', groupTitle='';
   let referenceType='ITEM', referenceLabel='', referenceEntity='', referenceNote='';
   let importInput:HTMLInputElement;
+  let importing=false;
   $: copy=moodboardCopy($locale);
   $: selected=document.boards.find((board:any)=>board.id===selectedId)??null;
   $: sections=selected?moodboardSections(selected):[];
@@ -98,15 +100,27 @@
     persist(assignMoodboardReferenceGroups(document,selected.id,reference.id,ids));
   }
 
-  function exportBackup(){
-    const blob=new Blob([serializeMoodboardDocument(document)],{type:'application/json'});
-    const url=URL.createObjectURL(blob);const anchor=documentElement('a');anchor.href=url;anchor.download='dreamwish-wand-moodboards.json';anchor.click();URL.revokeObjectURL(url);
+  function exportBackup(previous=false){
+    try{
+      const raw=exportPortableMoodboard(localStorage,previous);
+      const blob=new Blob([raw],{type:'application/json'});
+      const url=URL.createObjectURL(blob);const anchor=documentElement('a');anchor.href=url;
+      anchor.download=previous?'dreamwish-wand-moodboards-previous.json':'dreamwish-wand-moodboards.json';
+      anchor.click();URL.revokeObjectURL(url);
+    }catch{status=copy.portableInvalid;}
   }
   function documentElement(tag:'a'):HTMLAnchorElement{return window.document.createElement(tag);}
 
   async function importBackup(event:Event){
-    const input=event.currentTarget as HTMLInputElement;const file=input.files?.[0];if(!file)return;
-    try{persist(parseMoodboardDocument(await file.text()));selectedId=document.boards[0]?.id??'';status=copy.imported;}catch{status=copy.invalid;}finally{input.value='';}
+    const input=event.currentTarget as HTMLInputElement;const file=input.files?.[0];if(!file||importing)return;
+    importing=true;
+    try{
+      const expected=readMoodboardMigrationSnapshot(localStorage);
+      if(!file.size||file.size>MOODBOARD_PORTABLE_MAX_BYTES)throw Error('MOODBOARD_PORTABLE_INVALID');
+      const result=importPortableMoodboard(localStorage,expected,await file.text());
+      document=result.document;selectedId=document.boards[0]?.id??'';status=copy.imported;
+    }catch(e){status=e instanceof Error&&/MOODBOARD_PORTABLE_(?:COLLISION|STALE)/.test(e.message)?copy.portableCollision:copy.portableInvalid;}
+    finally{input.value='';importing=false;}
   }
 
   function restoreBackup(){
@@ -131,9 +145,10 @@
 <svelte:head><title>Moodboards | Dreamwish Wand</title><meta name="description" content="Plan decorating ideas in local-first Dreamwish Wand Moodboards." /></svelte:head>
 <section class="moodboards-page container">
   <header class="heading"><div><p class="eyebrow">{copy.eyebrow}</p><h1>{copy.title}</h1><p class="page-intro">{copy.intro}</p></div>
-    <div class="backup-actions"><button type="button" on:click={exportBackup}>{copy.export}</button><button type="button" on:click={()=>importInput?.click()}>{copy.import}</button><button type="button" on:click={restoreBackup}>{copy.restore}</button><input class="hidden-file" bind:this={importInput} type="file" accept="application/json,.json" on:change={importBackup}/></div>
+    <div class="backup-actions"><button type="button" data-moodboard-export on:click={()=>exportBackup()}>{copy.export}</button><button type="button" data-moodboard-export-previous on:click={()=>exportBackup(true)}>{copy.exportPrevious}</button><button type="button" data-moodboard-import disabled={importing} on:click={()=>importInput?.click()}>{copy.import}</button><button type="button" on:click={restoreBackup}>{copy.restore}</button><input class="hidden-file" bind:this={importInput} data-moodboard-import-file type="file" accept="application/json,.json" on:change={importBackup}/></div>
   </header>
   <div class="local-note"><strong>{copy.local}</strong><span>{copy.localDetail}</span></div>
+  <p class="local-note" data-moodboard-portability-note>{copy.portableNote}</p>
   <!-- W-COLL-017 / R13: explicit opt-in only. This link never reads, imports,
        migrates, overwrites, merges or deletes either store. -->
   <aside class="atomic-entry" data-moodboard-atomic-entry data-storage-separation="explicit"
