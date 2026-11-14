@@ -1,0 +1,77 @@
+name: QA-only ACT912 hosted legacy624 repair acceptance
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-act912-hosted-legacy624.yml'
+      - 'scripts/qa-act912-hosted-legacy624.mjs'
+permissions:
+  contents: read
+jobs:
+  hosted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_SOURCE: b48bd69f260230090216769de64f8444e2cd7902
+      WEP_BASE_URL: https://dreamwishwand.github.io/web/editor/world/
+      WEP_VERIFIED_TRANSFORM_ONLY: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact protected repair and QA-only paths
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SOURCE"
+          test "$(git hash-object src/lib/wep/min-verified-transform-export-v1.ts)" = a610c16aa4a10683d089750f1779946574d1e313
+          test "$(git hash-object scripts/wep-primary-job-browser-acceptance.mjs)" = 023d2896cf12dbf1e31c9380342be1cd59a3bd8f
+          test "$(git diff --name-only HEAD^ HEAD | wc -l)" = 2
+          git diff --exit-code HEAD^ HEAD -- src/ static/ crates/ package.json package-lock.json .github/workflows/pages.yml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve Chrome
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          "$CHROME_BIN" --version
+      - name: Require actual exact deployed manifest and HTTPS route
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=https://dreamwishwand.github.io/web
+          ok=0
+          for i in $(seq 1 12); do
+            code="$(curl --silent --show-error --max-time 15 --max-filesize 262144 --max-redirs 0 --proto '=https' -H 'Cache-Control: no-cache' -o /tmp/act912-manifest.json -w '%{http_code}' "$root/worker-wasm/manifest.json" || true)"
+            if [[ "$code" == 200 ]] && jq -e --arg sha "$EXPECTED_SOURCE" '.source.commit==$sha' /tmp/act912-manifest.json >/dev/null; then ok=1; break; fi
+            sleep 10
+          done
+          test "$ok" = 1
+          sha256sum /tmp/act912-manifest.json | cut -d' ' -f1 >/tmp/act912-manifest.sha
+          echo "ACT912_HOSTED_MANIFEST_SHA256=$(cat /tmp/act912-manifest.sha)"
+          status="$(curl --silent --show-error --max-time 20 --max-filesize 2097152 --max-redirs 0 --proto '=https' -H 'Cache-Control: no-cache' -o /tmp/act912-world.html -w '%{http_code} %{content_type}' "$WEP_BASE_URL")"
+          [[ "$status" == "200 text/html"* ]]
+          echo "ACT912_HOSTED_ROUTE_HTTP200_HTML"
+      - name: Actual hosted synthetic MOVE and ROTATE (read-only network guard)
+        run: node scripts/qa-act912-hosted-legacy624.mjs
+      - name: Bind hosted manifest after browser and exact result
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl --silent --show-error --max-time 15 --max-filesize 262144 --max-redirs 0 --proto '=https' -H 'Cache-Control: no-cache' -o /tmp/act912-after.json -w '%{http_code}' https://dreamwishwand.github.io/web/worker-wasm/manifest.json)"
+          test "$code" = 200
+          cmp /tmp/act912-manifest.json /tmp/act912-after.json
+          jq -e '.result=="PASS" and .verifiedExport.canonicalReopenReload=="PASS" and .verifiedRotateExport.canonicalReopenReload=="PASS" and .hostedNetwork.blockedNonRead==0' .artifacts/wep-browser/acceptance-report.json >/dev/null
+          echo "ACT912_HOSTED_SYNTHETIC_MOVE_ROTATE_PASS"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: act912-hosted-report-only
+          path: .artifacts/wep-browser/acceptance-report.json
+          if-no-files-found: error
