@@ -17,6 +17,8 @@ import {
   ROADFENCE_STRUCTURAL_TRANSACTION_DEPENDENCY
 } from './persistent-v125/constants.js';
 
+import { isKnownRoadFenceModeState } from './persistent-v125/common.js';
+
 export const ROADFENCE_STRUCTURAL_TRANSACTION_BINDING_CONTRACT =
   'ddv.roadfence-structural-transaction-binding@1';
 export const ROADFENCE_STRUCTURAL_INTENT_CONTRACT =
@@ -98,6 +100,8 @@ function normalizeEntries(entries,kind){
       if(unknown.length)throw bindingError('ROADFENCE_TX_CREATED_OBJECT_FIELD_UNSUPPORTED',unknown.join(','));
       if(!same(Object.keys(object).sort(),[...KNOWN_CREATED_OBJECT_FIELDS].sort()))
         throw bindingError('ROADFENCE_TX_CREATED_OBJECT_FIELDS_INCOMPLETE',String(gridObjectId));
+      if(!isKnownRoadFenceModeState(object.State))
+        throw bindingError('ROADFENCE_TX_CREATED_OBJECT_STATE_UNSUPPORTED',String(gridObjectId));
       return {gridObjectId,object};
     }
     const sourceObject=clone(entry.sourceObject);
@@ -106,6 +110,8 @@ function normalizeEntries(entries,kind){
     if(kind==='deleted'){
       const unknown=Object.keys(sourceObject).filter(key=>!KNOWN_CREATED_OBJECT_FIELDS.includes(key));
       if(unknown.length)throw bindingError('ROADFENCE_TX_DELETED_OBJECT_FIELD_UNSUPPORTED',unknown.join(','));
+      if(!isKnownRoadFenceModeState(sourceObject.State))
+        throw bindingError('ROADFENCE_TX_DELETED_OBJECT_STATE_UNSUPPORTED',String(gridObjectId));
     }
     return {gridObjectId,sourceObject};
   }).sort((a,b)=>a.gridObjectId-b.gridObjectId);
