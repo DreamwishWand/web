@@ -29,8 +29,8 @@ fn required(k:&str)->String{
 }
 fn main(){
  #[cfg(feature="semantic-writer-dev")]
- if env::args().nth(1).as_deref()==Some("--inventory-amount-backup-only") {
-   run_inventory_amount_backup();
+ if matches!(env::args().nth(1).as_deref(),Some("--inventory-amount-backup-only"|"--inventory-amount-restore-review-only")) {
+   run_inventory_amount_backup(env::args().nth(1).as_deref()==Some("--inventory-amount-restore-review-only"));
    return;
  }
  #[cfg(feature="semantic-writer-dev")]
@@ -251,7 +251,7 @@ fn run_semantic_existing_decrease(){
 // A caller must capture stdout into its local exclusive output file, NOT a
 // console/log. Original encrypted backup/codec verification remain external.
 #[cfg(feature="semantic-writer-dev")]
-fn run_inventory_amount_backup(){
+fn run_inventory_amount_backup(review_only:bool){
  use ddv_save_core::portable_backup::{decode_inventory_amount_backup,WAND_BACKUP_MAX_BYTES};
  const MAX_DECODED:u64=256*1024*1024;
  if env::args().len()!=2{deny("BACKUP_EXPLICIT_OPERATION_REQUIRED");}
@@ -296,6 +296,56 @@ fn run_inventory_amount_backup(){
  let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:before.session_id,
     expected_revision:before.revision,expected_index_generation:before.index_generation,
     expected_decoded_sha256:expected,action:WorkerAction::ReadDomain};
+ if review_only{
+   // The same typed Restore review is advisory, never a stage command.
+   // External operator binds original target/lineage, not a caller hash as authority.
+   let bytes=read_restore_backup(WAND_BACKUP_MAX_BYTES);
+   let backup=decode_inventory_amount_backup(&bytes).unwrap_or_else(|_|deny("RESTORE_BACKUP_INVALID"));
+   let backup_source=hex32(&required("WAND_LOCAL_RESTORE_BACKUP_SOURCE_SHA256"));
+   let backup_entry=hex32(&required("WAND_LOCAL_RESTORE_BACKUP_ENTRY_SHA256"));
+   let current_entry=hex32(&required("WAND_LOCAL_RESTORE_CURRENT_ENTRY_SHA256"));
+   let old_text=required("WAND_LOCAL_RESTORE_EXPECTED_CURRENT_AMOUNT");
+   let old=old_text.parse::<u32>().ok().filter(|n|*n>0&&*n<=9999&&n.to_string()==old_text)
+      .unwrap_or_else(||deny("RESTORE_CURRENT_AMOUNT"));
+   let hex=|b:&[u8]|b.iter().map(|v|format!("{v:02x}")).collect::<String>();
+   if backup_source==[0;32]||backup_entry==[0;32]||current_entry==[0;32]||
+      backup.source_decoded_sha256!=hex(&backup_source)||backup.payload["entrySha256"]!=hex(&backup_entry){
+     deny("RESTORE_BACKUP_ORIGINAL_BINDING");
+   }
+   let v=session.review_inventory_amount_restore(e,&bytes,inventory_id,item_id)
+      .unwrap_or_else(|_|deny("RESTORE_TARGET_DENIED"));
+   if v.inventory_id!=inventory_id||v.item_id!=item_id||v.current_amount!=old||
+      v.current_entry_sha256!=current_entry||v.current_decoded_sha256!=expected||
+      v.session_id!=before.session_id||v.revision!=before.revision||v.index_generation!=before.index_generation||
+      v.backup_amount!=backup.amount||v.backup_decoded_sha256!=hex(&backup_source)||
+      v.backup_entry_sha256!=hex(&backup_entry)||session.receipt().ok()!=Some(before){
+     deny("RESTORE_CURRENT_TARGET_CAS");
+   }
+   let same_source=expected==backup_source;
+   if same_source&&(current_entry!=backup_entry||old!=backup.amount){deny("RESTORE_SAME_SOURCE_CONTRADICTION");}
+   let disposition=match v.disposition{
+     ddv_save_core::portable_backup::InventoryRestoreDisposition::AlreadyMatches=>"AlreadyMatches",
+     ddv_save_core::portable_backup::InventoryRestoreDisposition::PositiveDecreaseCandidate=>"PositiveDecreaseCandidate",
+     ddv_save_core::portable_backup::InventoryRestoreDisposition::IncreaseUnsupported=>"IncreaseUnsupported",
+   };
+   let out=serde_json::to_vec(&serde_json::json!({
+      "contract":"wand.native.private.inventory-restore-review@1","platform":"SteamWindows",
+      "fullVersion":STEAM,"schema":626,"target":{"inventoryId":inventory_id,"itemId":item_id},
+      "backupSha256":hex(&Sha256::digest(&bytes)),"backupDecodedSha256":v.backup_decoded_sha256,
+      "backupEntrySha256":v.backup_entry_sha256,"backupAmount":v.backup_amount,
+      "currentDecodedSha256":hex(&v.current_decoded_sha256),"currentEntrySha256":hex(&v.current_entry_sha256),
+      "currentAmount":v.current_amount,"sessionId":hex(&v.session_id),"revision":v.revision,
+      "indexGeneration":v.index_generation,"sameSourceDecoded":same_source,"disposition":disposition,
+      "originalSha256SuppliedExternally":hex(&original),"originalSizeBytesSuppliedExternally":original_size,
+      "originalTargetLineageVerified":false,"rightsVerified":false,"writerAuthorized":false,
+      "applyAuthorized":false,"editedCopyAuthorized":false,"nativeV3Verified":false
+   })).unwrap_or_else(|_|deny("RESTORE_REVIEW_ENCODE"));
+   session.close().unwrap_or_else(|_|deny("RESTORE_SESSION_CLOSE"));
+   io::stdout().write_all(&out).unwrap_or_else(|_|deny("RESTORE_PRIVATE_PIPE_WRITE"));
+   io::stdout().flush().unwrap_or_else(|_|deny("RESTORE_PRIVATE_PIPE_FLUSH"));
+   eprintln!("PRIVATE_V2_INVENTORY_RESTORE_REVIEW_READONLY_PIPE_PASS");
+   return;
+ }
  let bytes=session.capture_inventory_amount_backup(e,inventory_id,item_id)
    .unwrap_or_else(|_|deny("BACKUP_TARGET_DENIED"));
  if bytes.is_empty()||bytes.len()>WAND_BACKUP_MAX_BYTES{
@@ -314,4 +364,29 @@ fn run_inventory_amount_backup(){
  io::stdout().write_all(&bytes).unwrap_or_else(|_|deny("BACKUP_PRIVATE_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("BACKUP_PRIVATE_PIPE_FLUSH"));
  eprintln!("PRIVATE_V2_INVENTORY_AMOUNT_BACKUP_READONLY_PIPE_PASS");
+}
+
+// Explicit local read only, pinned expected bytes; no alternate target Apply.
+#[cfg(feature="semantic-writer-dev")]
+fn read_restore_backup(max:usize)->Vec<u8>{
+ let path=required("WAND_LOCAL_RESTORE_BACKUP_PATH");
+ let p=std::path::Path::new(&path);
+ if !p.is_absolute(){deny("RESTORE_BACKUP_ABSOLUTE_REQUIRED");}
+ let expected=hex32(&required("WAND_LOCAL_RESTORE_BACKUP_SHA256"));
+ if expected==[0;32]{deny("RESTORE_BACKUP_SHA");}
+ let mut options=std::fs::OpenOptions::new();options.read(true);
+ // Reject symlink final components on the supported private Linux runner.
+ #[cfg(target_os="linux")]{
+   use std::os::unix::fs::OpenOptionsExt;
+   options.custom_flags(0x20000);
+ }
+ let file=options.open(p).unwrap_or_else(|_|deny("RESTORE_BACKUP_OPEN"));
+ let meta=file.metadata().unwrap_or_else(|_|deny("RESTORE_BACKUP_METADATA"));
+ if !meta.is_file()||meta.len()==0||meta.len()>max as u64{deny("RESTORE_BACKUP_SIZE");}
+ let mut bytes=Vec::new();
+ file.take(max as u64+1).read_to_end(&mut bytes).unwrap_or_else(|_|deny("RESTORE_BACKUP_READ"));
+ if bytes.len() as u64!=meta.len()||Sha256::digest(&bytes).as_slice()!=expected{
+   deny("RESTORE_BACKUP_SHA_CAS");
+ }
+ bytes
 }
