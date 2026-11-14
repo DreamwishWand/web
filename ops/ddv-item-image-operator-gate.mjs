@@ -10,11 +10,29 @@ const itemId = value => (Number.isSafeInteger(value) && value > 0) ||
   (typeof value === "string" && /^[1-9][0-9]{0,15}$/.test(value));
 const normalizeId = value => String(value);
 const evidence = value => hasText(value) && value !== "UNKNOWN" && value !== "NOT_RUN";
-const identity = value => !!value && hasText(value.platform) && hasText(value.fullVersion) &&
-  hasText(value.bid) && Number.isSafeInteger(value.schema) && value.schema >= 0;
+// Build identity is platform-specific. Steam FullVersion SHA is evidence from the
+// installed original version file, not a hash guessed from a schema or version label.
+// Never manufacture a Switch BID for Steam; preserve the legacy Switch BID contract.
+// Steam evidence must be canonical, never silently normalized into a valid identity.
+// Keep the historical Switch evidence contract unchanged.
+const steamEvidence = value => evidence(value) && value === value.trim() &&
+  !/^(?:UNKNOWN|NOT_RUN)$/i.test(value) && !/[\p{Cc}\p{Cf}]/u.test(value);
+const steamBuildToken = value => steamEvidence(value) && /^[A-Za-z0-9][A-Za-z0-9._+-]*$/.test(value);
+const steamFileSha = value => sha(value) && value.length === 64;
+const identity = value => {
+  if (!value || !evidence(value.fullVersion) || !Number.isSafeInteger(value.schema) || value.schema < 0)
+    return false;
+  if (value.platform === "Nintendo Switch") return evidence(value.bid);
+  if (value.platform === "Steam Windows") {
+    return (value.bid === null || value.bid === undefined) && steamBuildToken(value.fullVersion) && steamFileSha(value.fullVersionSha256);
+  }
+  return false;
+};
 const sameIdentity = (a, b) => identity(a) && identity(b) &&
-  a.platform === b.platform && a.fullVersion === b.fullVersion &&
-  a.bid === b.bid && a.schema === b.schema;
+  a.platform === b.platform && a.fullVersion === b.fullVersion && a.schema === b.schema &&
+  (a.platform === "Nintendo Switch"
+    ? a.bid === b.bid
+    : a.fullVersionSha256.toLowerCase() === b.fullVersionSha256.toLowerCase());
 
 // A suppression ledger is authoritative only if valid. Never treat corrupt/absent ledger as empty.
 export function validateImageSuppressionLedger(ledger) {
@@ -31,9 +49,12 @@ export function preflightGameItemImage(row, context, suppressionLedger) {
   if (!row || typeof row !== "object") return { candidate: false, reasons: ["IMAGE_ROW_MISSING"] };
   if (!itemId(row.itemId) || !hasText(row.sourceGuid)) reasons.push("CANONICAL_ITEM_GUID_MISSING");
   if (!sha(row.sourcePngSha256) || !sha(row.webpSha256)) reasons.push("IMAGE_DIGEST_INVALID");
-  if (!identity(row.sourceIdentity) || !evidence(row.sourceEvidenceRef)) reasons.push("SOURCE_IDENTITY_UNVERIFIED");
+  if (!identity(row.sourceIdentity) || !evidence(row.sourceEvidenceRef) ||
+      (row.sourceIdentity?.platform === "Steam Windows" && !steamEvidence(row.sourceEvidenceRef)))
+    reasons.push("SOURCE_IDENTITY_UNVERIFIED");
   if (!sameIdentity(row.targetIdentity, context?.targetIdentity) ||
-      row.targetMappingVerified !== true || !evidence(row.targetEvidenceRef))
+      row.targetMappingVerified !== true || !evidence(row.targetEvidenceRef) ||
+      (row.targetIdentity?.platform === "Steam Windows" && !steamEvidence(row.targetEvidenceRef)))
     reasons.push("TARGET_VERSION_BID_SCHEMA_UNVERIFIED");
   if (row.visibilityClass !== "PLAYER_VISIBLE_VERIFIED" || row.nativePlayerVisibleVerified !== true ||
       !evidence(row.visibilityEvidenceRef) || row.unreleased !== false)
