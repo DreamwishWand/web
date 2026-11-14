@@ -290,3 +290,37 @@ test('ADD rejects generator-unavailable CORE definition even when local draft sh
     /WEP_ADD_OBJECT_NO_LONGER_ADMISSIBLE/
   );
 });
+
+test('ADD review cannot substitute a legal draft for the planned illegal destination during async fetch',async()=>{
+  const f=await fixture();
+  const {createSwitchV125PlacementLegalityBinding}=await import('../src/lib/wep/placement-legality-v19.ts');
+  const placementBinding=await createSwitchV125PlacementLegalityBinding({fetchImpl:localFetch});
+  const object=f.draft.objects[0];
+  object.x=452;object.y=228;
+  assert.equal(placementBinding.classifyMinimumTransformPlacement({document:f.draft,editorId:object.editorId}).result.valid,true);
+  object.x=100000;
+  assert.equal(placementBinding.classifyMinimumTransformPlacement({document:f.draft,editorId:object.editorId}).result.valid,false);
+  let swapped=false;
+  const fetchImpl=async url=>{
+    if(String(url).includes('ordinary-furniture-add-scope-pack-v125.json')){
+      object.x=452;swapped=true;
+    }
+    return localFetch(url);
+  };
+  let review;
+  try{
+    review=await reviewOrdinaryFurnitureAddVerifiedExport({sourceBytes:f.bytes,sourceName:'profile',sourceEpoch:1,opened:f.opened,baselineDocument:f.baseline,draftDocument:f.draft,placementBinding,worldBinding:f.worldBinding,fetchImpl,exactBuildConfirmed:true});
+  }catch(e){
+    assert.match(String(e?.code??e?.message),/WEP_ADD_INVALID_DESTINATION|WEP_ADD_REVIEW_STALE|WEP_ADD_DRAFT_CHANGED/);
+    assert.equal(swapped,true);return;
+  }
+  object.x=100000;
+  let result;
+  try{
+    result=await commitOrdinaryFurnitureAddVerifiedExport({review,currentSourceEpoch:1,sourceBytes:f.bytes,baselineDocument:f.baseline,draftDocument:f.draft,worldBinding:f.worldBinding});
+  }catch(e){
+    assert.match(String(e?.code??e?.message),/WEP_ADD_INVALID_DESTINATION|WEP_ADD_REVIEW_STALE|WEP_ADD_DRAFT_CHANGED/);return;
+  }
+  const reopened=await openWorldSaveBytes(result.artifacts.edited.bytes,{sourcePlatform:'switch'});
+  assert.fail('unsafe ADD async placement emitted X='+reopened.profile.World.GridCollection.Grids['10'].Objects['101'].X);
+});
