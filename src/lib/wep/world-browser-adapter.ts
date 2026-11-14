@@ -476,6 +476,19 @@ export function projectSwitchFloatingIslandGrid(
   }
 
   const document = result.document;
+  // The promoted v1.16 projector detects ancestor cycles, but does not
+  // reject a child Grid reused by another branch. Preserve its exact bytes
+  // and enforce the existing single-parent invariant at this consumer.
+  const seenGridIds = new Set<number>([rootGridId]);
+  const pending = [...document.metadata.subGridHierarchy];
+  while (pending.length) {
+    const node = pending.pop();
+    if (seenGridIds.has(node.gridId)) {
+      throw new Error('WEP_WORLD_DIRECT_ROOT_SUBGRID_DUPLICATE_PARENT');
+    }
+    seenGridIds.add(node.gridId);
+    for (const child of node.children) pending.push(child);
+  }
   return {
     ...document,
     target: {
