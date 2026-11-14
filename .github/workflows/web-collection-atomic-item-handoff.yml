@@ -46,7 +46,22 @@ jobs:
           SCOPE
           git diff --name-only "$BASE" HEAD | LC_ALL=C sort >/tmp/item-handoff-actual
           LC_ALL=C sort /tmp/item-handoff-scope >/tmp/item-handoff-expected
-          if cmp -s /tmp/item-handoff-expected /tmp/item-handoff-actual; then
+          # Explicit six-MOD public catalog thumbnail successor. Keep both historic gates below.
+          git diff --name-status "$BASE" HEAD | LC_ALL=C sort >/tmp/atomic-thumb-current
+          cat >/tmp/atomic-thumb-scope <<'SCOPE'
+          M	.github/workflows/web-atomic-wep-sender.yml
+          M	.github/workflows/web-collection-atomic-item-handoff.yml
+          M	.github/workflows/web-moodboard-atomic-first.yml
+          M	scripts/web-collection-atomic-item-handoff-chrome.mjs
+          M	src/routes/moodboards/atomic/+page.svelte
+          M	tests/web-collection-atomic-item-handoff.test.mjs
+          SCOPE
+          LC_ALL=C sort /tmp/atomic-thumb-scope >/tmp/atomic-thumb-expected
+          if cmp -s /tmp/atomic-thumb-expected /tmp/atomic-thumb-current; then
+            diff -u /tmp/atomic-thumb-expected /tmp/atomic-thumb-current
+            git diff --exit-code "$BASE" HEAD -- src/lib/ crates/ supabase/ static/ .github/workflows/pages.yml
+            echo WEB_ATOMIC_PUBLIC_THUMB_EXACT6_NO_STORE_CORE_CHANGE_PASS
+          elif cmp -s /tmp/item-handoff-expected /tmp/item-handoff-actual; then
             diff -u /tmp/item-handoff-expected /tmp/item-handoff-actual
             for p in src/routes/collection/+page.svelte src/routes/moodboards/atomic/+page.svelte; do
               test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M

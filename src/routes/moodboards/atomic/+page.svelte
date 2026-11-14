@@ -3,6 +3,7 @@
  import { base } from '$app/paths';
  import { locale } from '$lib/i18n/runtime.js';
  import { moodboardCopy } from '$lib/moodboards/copy.js';
+ import ItemThumb from '$lib/ui/ItemThumb.svelte';
  import { atomicPortabilityCopy } from '$lib/moodboards/atomic-portability-copy.mjs';
  import { exploreCopy } from '$lib/explore/copy.js';
  import { worldEditorStage1Copy } from '$lib/wep/world-editor-stage1-copy.js';
@@ -198,7 +199,11 @@
    {:else if !catalogReady}
     <p data-atomic-handoff-pending role="status">{inspire.loading}</p>
    {:else if handoffRecord}
-    <p data-atomic-handoff-label>{handoffRecord.label} · {inspire.itemId} {handoffRecord.itemId}</p>
+    <!-- Explicit public catalog selection only; never derive images from saved Board references. -->
+    <div class="atomic-handoff-preview" data-atomic-handoff-preview>
+     <ItemThumb itemId={handoffRecord.itemId} label={handoffRecord.label} />
+     <p data-atomic-handoff-label>{handoffRecord.label} · {inspire.itemId} {handoffRecord.itemId}</p>
+    </div>
     {#if handoffAlreadyStored}
      <p data-atomic-handoff-already>{inspire.added}</p>
     {:else if !snapshot}
@@ -265,6 +270,8 @@
 .atomic-first p{color:var(--ink-muted);line-height:1.65}
 .atomic-handoff{display:grid;gap:10px;min-width:0;margin:16px 0;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
 .atomic-handoff p{margin:0;overflow-wrap:anywhere;font-size:12px}
+.atomic-handoff-preview{display:flex;flex-wrap:wrap;align-items:center;gap:10px;min-width:0;max-width:100%}
+.atomic-handoff-preview p{flex:1 1 120px;min-width:0;max-width:100%}
 .atomic-handoff button{min-height:44px;max-width:100%;width:max-content;overflow-wrap:anywhere}
 .atomic-wep-sender{display:grid;gap:10px;min-width:0}
 .atomic-wep-sender p{font-size:12px;overflow-wrap:anywhere;margin:0}

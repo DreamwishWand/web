@@ -67,6 +67,20 @@ try{
  assert.equal(await page.locator('[data-atomic-item-handoff]').getAttribute('data-atomic-handoff-verified'),'true');
  assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,nofollow');
  assert.equal(await page.locator('[data-atomic-handoff-add]').count(),0,'before first-board create');
+ const preview=page.locator('[data-atomic-handoff-preview]');
+ const thumb=preview.locator('[data-item-thumb-id="40000047"]');
+ await thumb.waitFor({timeout:10000});
+ assert.equal(await thumb.getAttribute('data-media-status'),'unavailable','compiled media OFF');
+ assert.equal(await thumb.locator('img').count(),0);
+ for(const width of [320,640]){
+  await page.setViewportSize({width,height:850});
+  await page.evaluate(w=>{document.documentElement.style.zoom=w===640?'2':'1';},width);
+  const geometry=await preview.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:document.documentElement.clientWidth,view:window.innerWidth};});
+  assert.ok(geometry.left>=-1&&geometry.right<=geometry.view+2,JSON.stringify(geometry));
+ }
+ await page.evaluate(()=>{document.documentElement.style.zoom='1';});
+ await page.setViewportSize({width:1280,height:860});
+ console.log('WEB_ATOMIC_EXPLICIT_PUBLIC_ITEM_SHARED_THUMB_MEDIA_OFF_REFLOW_PASS');
  assert.deepEqual(await checkOld(),old,'link navigation cannot mutate legacy bytes');
  console.log('WEB_COLLECTION_ATOMIC_320_ZOOM200_KEYBOARD_NO_AUTOSAVE_PASS');
  await page.locator('[data-atomic-title]').fill('Opt-in from Collection');
@@ -109,6 +123,12 @@ try{
  await reopened.locator('[data-atomic-handoff-already]').waitFor({timeout:30000});
  assert.equal(await reopened.locator('[data-atomic-handoff-add]').count(),0);
  assert.equal(await reopened.locator('[data-atomic-item="40000047"]').count(),1);
+ assert.equal(await reopened.locator('[data-atomic-items] [data-item-thumb-id]').count(),0,'saved private Board rows cannot auto-request images');
+ const plain=await createPage();
+ await plain.goto(origin+'/moodboards/atomic/',{waitUntil:'domcontentloaded'});
+ await plain.locator('[data-atomic-item="40000047"]').waitFor({timeout:30000});
+ assert.equal(await plain.locator('[data-item-thumb-id]').count(),0,'no explicit public selection');
+ await plain.close();
  await reopened.locator('[data-atomic-reopen]').click();
  await reopened.locator('[data-atomic-outcome="REOPENED"]').waitFor();
  const reopenedRow=await readIdb(reopened);
@@ -116,6 +136,43 @@ try{
  assert.equal(reopenedRow.backup,saved.backup);
  assert.deepEqual(await checkOld(),old);
  console.log('WEB_COLLECTION_ATOMIC_BACKUP_DOWNLOAD_FRESH_TAB_REOPEN_LEGACY_INTACT_PASS');
+ // Portable file + explicit public selection in a fresh storage partition.
+ const portableDownload=page.waitForEvent('download');
+ await page.locator('[data-atomic-portable-export]').click();
+ const portable=await portableDownload;
+ assert.equal(portable.suggestedFilename(),'dreamwish-wand-atomic-board-portable.json');
+ const bytes=await readFile(await portable.path());
+ const dest=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});
+ try{
+  const p=await dest.newPage(),bad=[],errs=[];
+  dest.on('request',r=>{if(new URL(r.url()).origin!==origin||!['GET','HEAD'].includes(r.method()))bad.push(r.method())});
+  p.on('pageerror',e=>errs.push(String(e)));
+  await p.goto(origin+url,{waitUntil:'domcontentloaded'});
+  await p.locator('[data-atomic-ready="true"][data-atomic-catalog="ready"]').waitFor({timeout:30000});
+  assert.equal(await readIdb(p),null);
+  const input=p.locator('[data-atomic-portable-file]');
+  await input.setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from([0xff])});
+  await p.locator('[data-atomic-outcome="PORTABLE_REJECTED"]').waitFor();
+  assert.equal(await readIdb(p),null);
+  await input.setInputFiles({name:'board.json',mimeType:'application/json',buffer:bytes});
+  await p.locator('[data-atomic-outcome="PORTABLE_IMPORTED"]').waitFor();
+  assert.deepEqual(await readIdb(p),saved);
+  assert.equal(await p.locator('[data-atomic-handoff-preview] [data-item-thumb-id="40000047"]').count(),1);
+  assert.equal(await p.locator('[data-atomic-items] [data-item-thumb-id]').count(),0);
+  assert.equal(await p.locator('[data-atomic-handoff-add]').count(),0);
+  assert.equal(await p.locator('[data-atomic-portable-import]').isDisabled(),true);
+  const reexport=p.waitForEvent('download');
+  await p.locator('[data-atomic-portable-export]').click();
+  assert.deepEqual(await readFile(await(await reexport).path()),bytes);
+  await p.goto(origin+'/moodboards/atomic/',{waitUntil:'domcontentloaded'});
+  await p.locator('[data-atomic-item="40000047"]').waitFor();
+  assert.equal(await p.locator('[data-item-thumb-id]').count(),0);
+  assert.deepEqual(await readIdb(p),saved);
+  assert.deepEqual(await p.evaluate(()=>[localStorage.getItem('dreamwishwand:moodboards:v1'),localStorage.getItem('dreamwishwand:moodboards:v1:backup')]),[null,null]);
+  assert.deepEqual(bad,[]);assert.deepEqual(errs,[]);
+ }finally{await dest.close()}
+ assert.deepEqual(await readIdb(page),saved);
+ console.log('WEB_ATOMIC_PUBLIC_THUMB_PORTABLE_IMPORT_EXPORT_EXACT_NO_SAVED_LOOKUP_PASS');
  const adversarial=[
   '/moodboards/atomic/?item=999999',
   '/moodboards/atomic/?item=00040000047',
@@ -131,6 +188,7 @@ try{
   await p.locator('[data-atomic-catalog="ready"]').waitFor({timeout:30000});
   assert.equal(await p.locator('[data-atomic-handoff-add]').count(),0,path);
   assert.equal(await p.locator('[data-atomic-handoff-denied]').count(),1,path);
+  assert.equal(await p.locator('[data-atomic-handoff-preview], [data-item-thumb-id]').count(),0,path);
   await p.close();
  }
  const verifiedAfter=await readIdb(page);
