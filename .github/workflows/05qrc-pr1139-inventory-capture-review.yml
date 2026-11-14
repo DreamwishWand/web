@@ -1,0 +1,35 @@
+name: 05 QR-C PR1139 Inventory capture review independent
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_pr1139_inventory_capture_review.rs'
+      - '.github/workflows/05qrc-pr1139-inventory-capture-review.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact child1 and QA-only2
+        run: |
+          source=09194d0da715a5ee28bd646622fdf7e074a79de8
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git diff --diff-filter=A --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/portable_backup.rs)" = 42a7adba964af77c2cb83e26189a81045912b0d6
+      - name: Locked independent DEV capture and review
+        run: |
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --test qa_pr1139_inventory_capture_review -- --nocapture
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
