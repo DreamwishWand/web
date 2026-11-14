@@ -3,30 +3,26 @@
   import { locale, formatNumber } from '$lib/i18n/runtime.js';
   import { nativePresetCopy } from '$lib/presets/native-preset-copy.js';
   import {
-    NATIVE_PRESET_LIBRARY_KEY,
-    addNativePresetBackup,
     createEmptyNativePresetLibrary,
     createNativePresetBackup,
-    normalizeNativePresetLibrary,
-    openNativePresetProfile,
-    parseNativePresetLibrary,
-    removeNativePresetBackup,
-    serializeNativePresetLibrary
+    openNativePresetProfile
   } from '$lib/presets/native-preset-runtime.js';
-  import {inspectNativePresetLocalFileBytes,NATIVE_LOCAL_PRESET_FILE_MAX_BYTES} from '$lib/presets/native-local-file-import-contract.mjs';
+  import {inspectNativePresetLocalFileBytes,NATIVE_LOCAL_PRESET_FILE_MAX_BYTES,transactNativePresetLibrary} from '$lib/presets/native-local-file-import-contract.mjs';
 
   let opened:any=null, snapshots:any[]=[], selectedIndex=0, sourceName='', status='', loading=false;
-  let library:any=createEmptyNativePresetLibrary(), importInput:HTMLInputElement;
+  let library:any=createEmptyNativePresetLibrary(), importInput:HTMLInputElement, libraryBusy=false;
   $: copy=nativePresetCopy($locale);
   $: selected=snapshots[selectedIndex]??null;
   $: activeCount=snapshots.filter((x:any)=>!x.deleted).length;
 
-  onMount(()=>{try{const raw=localStorage.getItem(NATIVE_PRESET_LIBRARY_KEY);if(raw)library=parseNativePresetLibrary(raw);}catch{/* retain empty valid library */}});
-
-  function persist(next:any,message:string){
-    const valid=normalizeNativePresetLibrary(next);
-    try{localStorage.setItem(NATIVE_PRESET_LIBRARY_KEY,serializeNativePresetLibrary(valid));library=valid;status=message;}
-    catch{status=copy.quota;}
+  onMount(()=>{void refreshLibrary();});
+  async function refreshLibrary(){
+    try{library=(await transactNativePresetLibrary({operation:'read'})).library;}
+    catch{status=copy.unsupported;}
+  }
+  async function mergeBackups(backups:any[],message:string){
+    const result=await transactNativePresetLibrary({operation:'merge',backups});
+    library=result.library;status=message;
   }
 
   async function openSave(event:Event){
@@ -38,17 +34,18 @@
     }catch{opened=null;status=copy.unsupported;}finally{loading=false;input.value='';}
   }
 
-  function backupSelected(){
-    if(!selected)return;
+  async function backupSelected(){
+    if(!selected||libraryBusy)return;
+    libraryBusy=true;
     try{
       const backup=createNativePresetBackup(selected,{sourceName});
-      persist(addNativePresetBackup(library,backup),copy.backedUp);
-    }catch{status=copy.quota;}
+      await mergeBackups([backup],copy.backedUp);
+    }catch{status=copy.quota;}finally{libraryBusy=false;}
   }
 
   function exportJson(value:any,name:string){
     const blob=new Blob([JSON.stringify(value,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);
+    a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
 
   function exportSelected(){
@@ -57,27 +54,42 @@
     exportJson(backup,'dreamwishwand-native-preset-'+selected.physicalPresetIndex+'.json');
   }
 
-  function exportLibrary(){exportJson(library,'dreamwishwand-native-preset-library-v1.json');}
+  async function exportLibrary(){
+    if(libraryBusy)return;
+    libraryBusy=true;
+    try{
+      const result=await transactNativePresetLibrary({operation:'read'});
+      library=result.library;
+      if(!library.backups.length)throw Error('NATIVE_PRESET_LIBRARY_EMPTY');
+      // Local incarnation metadata is never portable across origins.
+      const {localEntryIncarnations,...portable}=library;
+      exportJson(portable,'dreamwishwand-native-preset-library-v1.json');
+    }catch{status=copy.unsupported;}finally{libraryBusy=false;}
+  }
 
   async function importLibrary(event:Event){
-    const input=event.currentTarget as HTMLInputElement,file=input.files?.[0];if(!file)return;
+    const input=event.currentTarget as HTMLInputElement,file=input.files?.[0];if(!file||libraryBusy)return;
+    libraryBusy=true;
     try{
       // A user-selected PC JSON file only; this path NEVER restores into a
       // DDV P1G and NEVER uploads a local backup to Community/Provider.
       if(!file.size||file.size>NATIVE_LOCAL_PRESET_FILE_MAX_BYTES)throw Error('NATIVE_PRESET_IMPORT_FILE_BOUNDS');
       const reviewed=await inspectNativePresetLocalFileBytes(new Uint8Array(await file.arrayBuffer()));
       if(!reviewed.localFileReady||!reviewed.backups)throw Error('NATIVE_PRESET_IMPORT_INVALID');
-      const byId=new Map<string,any>();
-      for(const entry of [...reviewed.backups.map((x:any)=>x.backup),...library.backups])
-        if(!byId.has(entry.id))byId.set(entry.id,entry);
-      // Do not silently discard entries beyond the explicit local quota.
-      if(byId.size>100)throw Error('NATIVE_PRESET_IMPORT_LIBRARY_LIMIT');
-      const merged=normalizeNativePresetLibrary({...library,updatedAt:new Date().toISOString(),backups:[...byId.values()]});
-      persist(merged,reviewed.status==='LOCAL_FILE_VALIDATED_WITH_QUARANTINED_BACKUPS'?copy.backupWarning:copy.imported);
-    }catch{status=copy.unsupported;}finally{input.value='';}
+      await mergeBackups(reviewed.backups.map((x:any)=>x.backup),
+        reviewed.status==='LOCAL_FILE_VALIDATED_WITH_QUARANTINED_BACKUPS'?copy.backupWarning:copy.imported);
+    }catch{status=copy.unsupported;}finally{input.value='';libraryBusy=false;}
   }
 
-  function removeBackup(id:string){try{persist(removeNativePresetBackup(library,id),'');}catch{/* already absent */}}
+  async function removeBackup(backup:any){
+    if(libraryBusy)return;
+    // Capture the entry displayed by this tab before any asynchronous work.
+    const id=backup.id,expectedEntry=JSON.stringify(backup);
+    const expectedIncarnation=library.localEntryIncarnations?.entries[id]??0;
+    libraryBusy=true;
+    try{library=(await transactNativePresetLibrary({operation:'remove',id,expectedEntry,expectedIncarnation})).library;status='';}
+    catch{await refreshLibrary();status=copy.unsupported;}finally{libraryBusy=false;}
+  }
 </script>
 
 <section class="native-manager" aria-labelledby="native-preset-manager-title">
@@ -115,7 +127,7 @@
               <div><dt>{copy.warnings}</dt><dd>{selected.warnings.length?selected.warnings.length:copy.clean}</dd></div>
             </dl>
             {#if selected.warnings.length}<p class="warning">{copy.backupWarning}</p>{/if}
-            <div class="actions"><button type="button" on:click={backupSelected}>{copy.backup}</button><button type="button" on:click={exportSelected}>{copy.export}</button></div>
+            <div class="actions"><button type="button" on:click={backupSelected} disabled={libraryBusy}>{copy.backup}</button><button type="button" on:click={exportSelected}>{copy.export}</button></div>
             <div class="blocked-actions"><button type="button" disabled title={copy.blocked}>{copy.restore}</button><button type="button" disabled title={copy.blocked}>{copy.push}</button><span>{copy.blocked}</span></div>
           {/if}
         </article>
@@ -124,9 +136,9 @@
   {/if}
 
   <section class="local-library">
-    <header><div><p class="eyebrow">LOCAL</p><h3>{copy.localLibrary}</h3><p>{copy.localIntro}</p></div><div class="library-actions"><button type="button" on:click={exportLibrary} disabled={!library.backups.length}>{copy.exportLibrary}</button><button type="button" on:click={()=>importInput.click()}>{copy.importLibrary}</button><input class="visually-hidden" bind:this={importInput} type="file" accept=".json,application/json" on:change={importLibrary} /></div></header>
+    <header><div><p class="eyebrow">LOCAL</p><h3>{copy.localLibrary}</h3><p>{copy.localIntro}</p></div><div class="library-actions"><button type="button" data-native-library-export on:click={exportLibrary} disabled={libraryBusy||!library.backups.length}>{copy.exportLibrary}</button><button type="button" data-native-library-import on:click={()=>importInput.click()} disabled={libraryBusy}>{copy.importLibrary}</button><input class="visually-hidden" bind:this={importInput} data-native-library-file type="file" accept=".json,application/json" on:change={importLibrary} /></div></header>
     {#if library.backups.length}<div class="backup-grid">{#each library.backups as backup}
-      <article><span>{backup.deleted?copy.deleted:copy.activeSlot+' '+((backup.source.activeSlotOrdinalZeroBased??0)+1)}</span><h4>{backup.summary.presetName}</h4><small>{backup.createdAt}</small><div><button type="button" on:click={()=>exportJson(backup,'dreamwishwand-native-preset-'+backup.id+'.json')}>{copy.export}</button><button type="button" on:click={()=>removeBackup(backup.id)}>{copy.remove}</button></div></article>
+      <article><span>{backup.deleted?copy.deleted:copy.activeSlot+' '+((backup.source.activeSlotOrdinalZeroBased??0)+1)}</span><h4>{backup.summary.presetName}</h4><small>{backup.createdAt}</small><div><button type="button" on:click={()=>exportJson(backup,'dreamwishwand-native-preset-'+backup.id+'.json')}>{copy.export}</button><button type="button" data-native-library-remove on:click={()=>removeBackup(backup)} disabled={libraryBusy}>{copy.remove}</button></div></article>
     {/each}</div>{:else}<div class="empty small"><strong>{copy.noBackup}</strong></div>{/if}
   </section>
 </section>
