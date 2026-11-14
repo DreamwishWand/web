@@ -482,3 +482,34 @@ impl SpatialExtent {
         Ok(true)
     }
 }
+
+// Exact candidate-local preview adapter. The existing generic high-bit
+// nonwall guard remains unchanged; do not promote this to a generic mask rule.
+impl SpatialExtent {
+    /// Steam v1.25.3 Furniture 40000066, raw single-cell layer 0x144,
+    /// accepted floor 0x07cbf4ff, manual non-wall placement.
+    ///
+    /// Both native Collide leaves ignore bit 0x100; the ordinary and detailed
+    /// placement branches also use a nonzero-layer test (0x144 and 0x44 are
+    /// both nonzero). Use the existing low-bit predicate for this exact
+    /// comparison only. Never normalize a stored/native layer or an unknown
+    /// other-object mask. No authentication of caller data, footprint, stride,
+    /// effective occupancy, rights, references, or Writer permission.
+    pub fn steam1253_furniture_40000066_nonwall_cell_predicate(
+        build: &BuildIdentity,
+        candidate_item_id: u32,
+        candidate_layer: u32,
+        accepted_floor: u32,
+        actual_floor: u32,
+        other_layers: &[u32],
+    ) -> CoreResult<bool> {
+        if candidate_item_id != 40000066 || candidate_layer != 0x144 ||
+            accepted_floor != 0x07cb_f4ff {
+            return Err(denied("SPATIAL_NATIVE_VASE_CELL_SCOPE_UNVERIFIED"));
+        }
+        // 0x44 is a local collision-equivalent projection, not replacement
+        // data. The original raw 0x144 is not modified or emitted.
+        Self::steam1253_nonwall_cell_predicate(
+            build, 0x44, accepted_floor, actual_floor, other_layers)
+    }
+}
