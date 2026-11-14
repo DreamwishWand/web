@@ -1,0 +1,95 @@
+name: 04 QR-W PR1209 independent legacy origin isolation
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrw-pr1209-isolated-origin-qa.yml'
+permissions:
+  contents: read
+jobs:
+  independent-isolation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify fixed Source and actual isolated Chrome network boundary
+        run: |
+          set -euo pipefail
+          SOURCE=6a0456a5d4de5a050db8f312cff8a763fd36799d
+          BASE=e16af9b2d824ba114a1caa56b3b3eb66206d162c
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          test "$(git diff --name-only "$SOURCE" HEAD)" = '.github/workflows/04qrw-pr1209-isolated-origin-qa.yml'
+          test "$(git diff --name-only "$BASE" "$SOURCE" | wc -l)" -eq 4
+          for p in src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs src/lib/ddv/core/save/product-rust-wasm-release-loader.mjs src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs src/lib/wep/steam-saved-diffgrids.consumer.worker.ts src/lib/wep/steam-saved-diffgrids-ui-client.mjs src/routes/editor/steam-reader/+page.svelte src/routes/editor/timing/+page.svelte; do
+            test "$(git rev-parse "$BASE:$p")" = "$(git rev-parse "$SOURCE:$p")"
+          done
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFile,mkdtemp,rm} from 'node:fs/promises';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {execFileSync,spawn} from 'node:child_process';
+          import {createServer,request} from 'node:https';
+          import {setTimeout as delay} from 'node:timers/promises';
+          import {LEGACY_RELEASE_TUPLE,ACTIVE_RELEASE_TUPLE,matchReleaseTuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          assert.equal(ACTIVE_RELEASE_TUPLE,LEGACY_RELEASE_TUPLE);
+          assert.equal(matchReleaseTuple({...LEGACY_RELEASE_TUPLE,origin:'https://127.0.0.1:19443'}),null);
+          for(const origin of ['https://dreamwishwand.github.io:19443','http://dreamwishwand.github.io','https://dreamwishwand.github.io.evil.invalid'])assert.equal(matchReleaseTuple({...LEGACY_RELEASE_TUPLE,origin}),null);
+          assert.equal(matchReleaseTuple(LEGACY_RELEASE_TUPLE),LEGACY_RELEASE_TUPLE);
+          const source=await readFile('tests/web-steam-saved-diffgrids-real-chrome.mjs','utf8');
+          const host=LEGACY_RELEASE_TUPLE.origin.slice(8);
+          const guard=source.split('\n').find(l=>l.includes("req.headers.host!==isolatedHost"));
+          assert.ok(guard&&guard.includes("req.socket.remoteAddress!=='127.0.0.1'"));
+          const executeGuard=Function('req','res','isolatedHost',guard+'\nreturn true;');
+          assert.ok(source.includes("'--no-proxy-server','--disable-background-networking'"));
+          assert.ok(source.includes("'--host-resolver-rules=MAP '+isolatedHost+' 127.0.0.1:'+port+', MAP * ~NOTFOUND'"));
+          const panel=await readFile('src/lib/wep/SteamSavedDiffGridsReadonly.svelte','utf8');
+          assert.ok(panel.includes('<details open={preformal}'));
+          assert.ok(panel.includes('export let preformal=false;'));
+          assert.ok(panel.includes("if(!preformal||location.pathname!==base+'/editor/steam-reader/')return;"));
+          assert.ok(panel.includes("chosenFile=null,originalSha='',buildConfirmed=false;"));
+          const dir=await mkdtemp(join(tmpdir(),'wand-qrw-'));
+          const log=[]; let chrome,server,ws;
+          try{
+            execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN='+host,'-keyout',join(dir,'key.pem'),'-out',join(dir,'cert.pem')],{stdio:'ignore'});
+            server=createServer({key:await readFile(join(dir,'key.pem')),cert:await readFile(join(dir,'cert.pem'))},(req,res)=>{
+              log.push([req.headers.host,req.socket.remoteAddress,req.url]);
+              if(executeGuard(req,res,host)!==true)return;
+              res.writeHead(200,{'content-type':'text/html'});res.end('<html><body>QRW_ISOLATED_ONLY</body></html>');
+            });
+            await new Promise((r,j)=>{server.once('error',j);server.listen(19443,'127.0.0.1',r)});
+            const wrong=await new Promise((resolve,reject)=>{const q=request({hostname:'127.0.0.1',port:19443,path:'/web/editor/steam-reader/',rejectUnauthorized:false},r=>{r.resume();resolve(r.statusCode)});q.on('error',reject);q.end()});
+            assert.equal(wrong,403);
+            chrome=spawn('google-chrome',['--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--ignore-certificate-errors','--remote-allow-origins=*','--remote-debugging-port=0','--no-proxy-server','--disable-background-networking','--host-resolver-rules=MAP '+host+' 127.0.0.1:19443, MAP * ~NOTFOUND','--user-data-dir='+dir,'about:blank'],{stdio:'ignore'});
+            let port;
+            for(let n=0;n<150;n++){try{port=Number((await readFile(join(dir,'DevToolsActivePort'),'utf8')).split('\n')[0]);if(port)break}catch{}await delay(100)}
+            assert.ok(port,'Chrome port');
+            const tabs=await (await fetch('http://127.0.0.1:'+port+'/json/list')).json();
+            ws=new WebSocket(tabs.find(t=>t.type==='page').webSocketDebuggerUrl);
+            await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j});
+            let id=0;const pending=new Map();
+            ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id&&pending.has(m.id)){const [r,j]=pending.get(m.id);pending.delete(m.id);m.error?j(Error(JSON.stringify(m.error))):r(m.result)}};
+            const rpc=(method,params={})=>new Promise((r,j)=>{const n=++id;pending.set(n,[r,j]);ws.send(JSON.stringify({id:n,method,params}))});
+            await rpc('Page.enable');await rpc('Runtime.enable');
+            for(const route of ['timing','steam-reader']){
+              const url=LEGACY_RELEASE_TUPLE.origin+'/web/editor/'+route+'/';
+              const nav=await rpc('Page.navigate',{url});assert.equal(nav.errorText,undefined);
+              let observed;
+              for(let n=0;n<100;n++){try{observed=(await rpc('Runtime.evaluate',{expression:'[location.origin,location.pathname,document.body?.textContent]',returnByValue:true})).result.value;if(observed?.[2]==='QRW_ISOLATED_ONLY'&&observed[1].includes('/'+route+'/'))break}catch{}await delay(50)}
+              assert.deepEqual(observed,[LEGACY_RELEASE_TUPLE.origin,'/web/editor/'+route+'/','QRW_ISOLATED_ONLY']);
+              assert.ok(log.some(([h,a,p])=>h===host&&a==='127.0.0.1'&&p==='/web/editor/'+route+'/'));
+            }
+            const external=await rpc('Page.navigate',{url:'https://example.com/'});
+            assert.equal(external.errorText,'net::ERR_NAME_NOT_RESOLVED');
+            assert.ok(log.slice(1).every(([h,a])=>h===host&&a==='127.0.0.1'));
+            console.log('QRW_PR1209_ACTUAL_CHROME_EXACT_TUPLE_LOCAL_ROUTES_WRONG_HOST403_EXTERNAL_DNS_DENY_PASS');
+          }finally{
+            ws?.close();chrome?.kill();server?.close();await delay(300);await rm(dir,{recursive:true,force:true});
+          }
+          NODE
