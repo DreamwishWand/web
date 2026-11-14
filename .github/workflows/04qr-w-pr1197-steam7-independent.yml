@@ -1,0 +1,80 @@
+name: 04 QR-W PR1197 exact Steam HOLD5 Chest2 independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1197-steam7-independent.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          test "$(git merge-base HEAD '323548460075d6edae67de2a8634a51133b27660')" = '323548460075d6edae67de2a8634a51133b27660'
+          test "$(git diff --name-only '323548460075d6edae67de2a8634a51133b27660' HEAD)" = '.github/workflows/04qr-w-pr1197-steam7-independent.yml'
+          test "$(git diff --name-only '827fec84f60e9fa6fb8ccbde014b3fe4b46081a3' '323548460075d6edae67de2a8634a51133b27660' | wc -l)" = 4
+          test "$(git rev-parse HEAD:.github/workflows/web-shared-catalog-detail.yml)" = 'a6bbbc01da03c881990d4807ac4319d3bb1de8b9'
+          test "$(git rev-parse HEAD:src/lib/item-media/steam1253-hold5-chest2-pins.mjs)" = 'c1470475f718793b72639225f69d1265c3f20ab0'
+          test "$(git rev-parse HEAD:src/lib/item-media/switch1253-public-item-images.mjs)" = 'd4be900846f8338b193df260d4b551f6d0cf4787'
+          test "$(git rev-parse HEAD:tests/web-steam1253-door-primary-contract.test.mjs)" = '926e69503587452920c6d0433ba34705409a3db1'
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          git show 827fec84f60e9fa6fb8ccbde014b3fe4b46081a3:src/lib/item-media/switch1253-public-item-images.mjs > src/lib/item-media/qa-parent.mjs
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import * as M from './src/lib/item-media/switch1253-public-item-images.mjs';import * as P from './src/lib/item-media/qa-parent.mjs';
+          const review=o=>({...o,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'c'.repeat(64),items:{}});
+          const fields=['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'];
+          function bind(m,r){for(const [id,e] of Object.entries(m.items)){e.publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';r.items[id]=Object.fromEntries(fields.map(k=>[k,e[k]]))}const {mediaPublic,items,...p}=r;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...p};return m}
+          const sr=review(M.STEAM1253_REVIEWED_RELEASE),wr=review(M.SWITCH1253_REVIEWED_RELEASE),wm=M.prepareSwitch1253ItemImageManifest();wm.items['40006096']={...wm.items['40000047'],...M.SWITCH1253_NATIVE_PINS['40006096']};bind(wm,wr);
+          const urlFor=id=>{const p=M.STEAM1253_NATIVE_PINS[id];return '/ddv/item-images/'+M.STEAM1253_ITEM_IMAGE_VARIANT+'/'+p.webpSha256.slice(0,2)+'/'+p.webpSha256+'.webp'};
+          
+          const pins=M.STEAM1253_NATIVE_PINS,prior=P.STEAM1253_NATIVE_PINS,ids=Object.keys(pins).filter(id=>!Object.hasOwn(prior,id)).sort();assert.equal(ids.length,7);assert.deepEqual(ids,['40001545','40001679','40001834','40001935','40002113','40300018','40300028']);assert.equal(Object.keys(pins).length,204);for(const id of Object.keys(prior))assert.deepEqual(pins[id],prior[id]);assert.deepEqual(M.SWITCH1253_NATIVE_PINS,P.SWITCH1253_NATIVE_PINS);assert.deepEqual(M.SWITCH1253_VISUAL_QUARANTINE,P.SWITCH1253_VISUAL_QUARANTINE);assert.deepEqual(M.STEAM1253_REVIEWED_RELEASE,P.STEAM1253_REVIEWED_RELEASE);assert.equal(M.STEAM1253_REVIEWED_RELEASE.mediaPublic,false);
+          const rows=ids.map(id=>{const p=pins[id];return [id,p.iconGuid,p.originalNativeStreamSha256,p.sourcePngSha256,p.webpSha256,p.rgba160Sha256]});
+          assert.equal(createHash('sha256').update(JSON.stringify(rows)).digest('hex'),'aba6df4d13e8ebde50afc7dde34e7f5792ae63d973fe7e6f751ae02cf37c8dde');
+          assert.equal(new Set(Object.values(pins).map(p=>p.iconGuid)).size,204);assert.equal(new Set(Object.values(pins).map(p=>p.webpSha256)).size,204);
+          const sm=bind(M.prepareSteam1253ItemImageManifest(Object.keys(pins)),sr);sm.switch=wm;const cat=M.validateSteam1253ItemImageCatalog(sm,sr,wr);assert.equal(cat.count,204);const hide=['40002422','40006077','40002400','40003299','40300001','40002148','40002037'];for(const id of hide){assert.equal(M.scopedSwitch1253ItemImageHref('',id,cat),null);const x=structuredClone(sm);x.items[id]={...x.items[ids[0]]};const rr=structuredClone(sr);rr.items[id]={...rr.items[ids[0]]};assert.throws(()=>M.validateSteam1253ItemImageCatalog(x,rr,wr));}
+          for(const id of ids){const p=pins[id];assert.ok(Object.isFrozen(p));assert.equal(p.platform,'Steam Windows');assert.equal(p.gameVersion,'1.25.3');assert.equal(p.schema,626);assert.equal(p.visibility,'RELEASED_PLAYER_FACING');assert.equal(p.codec,'WEBP_LOSSLESS_RGBA_EXACT');assert.equal(p.fallbackPolicy,['40001679','40001834'].includes(id)?'NO_FALLBACK_PRIOR_ALIAS_HOLD':'NO_FALLBACK_HISTORICAL_HOLD');assert.equal(p.originalBundleSha256,['40001679','40001834','40300028'].includes(id)?'acb7b4da1b360e37a9dc7b1b0781199d64c5269a37524335c68f4050e89161b7':'9fbf4b75e50bd08b7479e4dc372ca0568254051c64872b66ba9332ecf139cdb0');for(const k of ['fallbackPlatform','fallbackBuildID','fallbackBundleSha256','fallbackNativeStreamSha256'])assert.equal(p[k],null);assert.equal(p.width,160);assert.equal(p.height,160);assert.equal(M.scopedSwitch1253ItemImageHref('/web',id,cat),'/web'+urlFor(id));const single=bind(M.prepareSteam1253ItemImageManifest([id]),sr);single.switch=wm;assert.equal(M.validateSteam1253ItemImageCatalog(single,sr,wr).count,1);const removed=structuredClone(sm);delete removed.items[id];const w=M.validateSteam1253ItemImageCatalog(removed,sr,wr);assert.equal(w.count,203);assert.equal(M.scopedSwitch1253ItemImageHref('',id,w),null);
+          for(const f of ['iconGuid','originalNativeStreamSha256','sourcePngSha256','webpSha256','rgba160Sha256','fallbackNativeStreamSha256','fallbackPlatform','fallbackBuildID','fallbackBundleSha256','fallbackPolicy','visibility','rightsStatus','publicationDecision','fullVersion']){const x=structuredClone(single);x.items[id][f]='FORGED';assert.throws(()=>M.validateSteam1253ItemImageCatalog(x,sr,wr))}
+          const peer={'40001679':'40002148','40001834':'40002037'}[id];if(peer){const forged=structuredClone(single);forged.items[peer]=structuredClone(single.items[id]);const rr=structuredClone(sr);rr.items[peer]=structuredClone(rr.items[id]);assert.throws(()=>M.validateSteam1253ItemImageCatalog(forged,rr,wr));assert.equal(M.scopedSwitch1253ItemImageHref('',peer,cat),null);assert.throws(()=>M.prepareSteam1253ItemImageManifest([peer]));}const x=structuredClone(single);x.items[id]=structuredClone(sm.items[ids.find(i=>i!==id)]);assert.throws(()=>M.validateSteam1253ItemImageCatalog(x,sr,wr));assert.equal(M.scopedSwitch1253ItemImageHref('',p.iconGuid,cat),null);}
+          assert.throws(()=>M.validateSteam1253ItemImageCatalog(sm));assert.equal(M.scopedSwitch1253ItemImageHref('', '40006096', {target:M.SWITCH1253_TARGET,assetVariant:M.SWITCH1253_ITEM_IMAGE_VARIANT,codec:'WEBP_LOSSLESS_RGBA_EXACT',items:{'40006096':M.SWITCH1253_NATIVE_PINS['40006096']}}),null);console.log('QA740_EXACT_7_INDEPENDENT_PIN_DIGEST_PARENT_IMMUTABLE_ALL_WITHDRAW_DENY_PASS');
+          JS
+          rm src/lib/item-media/qa-parent.mjs
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4375 --strictPort >/tmp/qa.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4375/collection/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4375/collection/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';
+          const root='http://127.0.0.1:4375',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{const ctx=await browser.newContext({serviceWorkers:'block',viewport:{width:1280,height:900}}),p=await ctx.newPage(),hits=[],errs=[],bad=[];p.setDefaultTimeout(45000);p.on('pageerror',e=>errs.push(e.message));ctx.on('request',r=>{if(!r.url().startsWith(root+'/')||!['GET','HEAD'].includes(r.method()))bad.push(r.method())});
+          const ids=["40001679","40001834","40300018"];await p.goto(root+'/collection/',{waitUntil:'domcontentloaded'});await p.locator('[data-stage1-category-grid] .category-card').first().waitFor();const cfg=await p.evaluate(async ids=>{const M=await import('/src/lib/item-media/switch1253-public-item-images.mjs');const review=o=>({...o,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'c'.repeat(64),items:{}});
+          const fields=['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'];
+          function bind(m,r){for(const [id,e] of Object.entries(m.items)){e.publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';r.items[id]=Object.fromEntries(fields.map(k=>[k,e[k]]))}const {mediaPublic,items,...p}=r;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...p};return m}
+          const sr=review(M.STEAM1253_REVIEWED_RELEASE),wr=review(M.SWITCH1253_REVIEWED_RELEASE),wm=M.prepareSwitch1253ItemImageManifest();wm.items['40006096']={...wm.items['40000047'],...M.SWITCH1253_NATIVE_PINS['40006096']};bind(wm,wr);
+          const urlFor=id=>{const p=M.STEAM1253_NATIVE_PINS[id];return '/ddv/item-images/'+M.STEAM1253_ITEM_IMAGE_VARIANT+'/'+p.webpSha256.slice(0,2)+'/'+p.webpSha256+'.webp'};
+          
+          const paths=Object.fromEntries(ids.map(id=>[id,urlFor(id)]));const cv=document.createElement('canvas');cv.width=cv.height=160;const g=cv.getContext('2d');g.fillStyle='#6376aa';g.fillRect(0,0,160,160);return {paths,swatch:cv.toDataURL('image/webp').split(',')[1]};},ids);
+          await ctx.route('**/ddv/item-images/**',r=>{const path=new URL(r.request().url()).pathname;hits.push(path);return Object.values(cfg.paths).includes(path)?r.fulfill({status:200,contentType:'image/webp',body:Buffer.from(cfg.swatch,'base64')}):r.fulfill({status:404,body:'denied'})});
+          async function inject(id,withdraw=false){await p.evaluate(async({id,withdraw})=>{const M=await import('/src/lib/item-media/switch1253-public-item-images.mjs');const review=o=>({...o,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'c'.repeat(64),items:{}});
+          const fields=['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'];
+          function bind(m,r){for(const [id,e] of Object.entries(m.items)){e.publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';r.items[id]=Object.fromEntries(fields.map(k=>[k,e[k]]))}const {mediaPublic,items,...p}=r;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...p};return m}
+          const sr=review(M.STEAM1253_REVIEWED_RELEASE),wr=review(M.SWITCH1253_REVIEWED_RELEASE),wm=M.prepareSwitch1253ItemImageManifest();wm.items['40006096']={...wm.items['40000047'],...M.SWITCH1253_NATIVE_PINS['40006096']};bind(wm,wr);
+          const urlFor=id=>{const p=M.STEAM1253_NATIVE_PINS[id];return '/ddv/item-images/'+M.STEAM1253_ITEM_IMAGE_VARIANT+'/'+p.webpSha256.slice(0,2)+'/'+p.webpSha256+'.webp'};
+          
+          const m=bind(M.prepareSteam1253ItemImageManifest([id]),sr);m.switch=wm;if(withdraw)delete m.items[id];const c=M.validateSteam1253ItemImageCatalog(m,sr,wr);M.switch1253PublicItemImageSource.set({status:'VERIFIED',catalog:c,reason:''});},{id,withdraw});}
+          async function rendered(id,scope){const selector=scope+' [data-item-thumb-id="'+id+'"]';const t=p.locator(selector).first();await t.waitFor();await inject(id);await t.scrollIntoViewIfNeeded();await t.locator('img').waitFor();assert.equal(await t.locator('img').getAttribute('src'),cfg.paths[id]);await p.waitForFunction(s=>{const el=document.querySelector(s);return el?.complete&&el.naturalWidth===160&&el.naturalHeight===160},selector+' img');}
+          for(const id of ids){await p.goto(root+'/collection/',{waitUntil:'domcontentloaded'});await p.locator('[data-stage1-category-grid] .category-card').first().waitFor();await p.locator('[data-stage1-search]').fill(id);await p.locator('[data-stage1-search-groups] [data-item-thumb-id="'+id+'"]').first().waitFor();assert.equal(await p.locator('[data-item-thumb-id="'+id+'"] img').count(),0);await rendered(id,'[data-stage1-search-groups]');await p.locator('[data-stage1-search-groups] .item-card').first().click();await rendered(id,'[data-stage1-item-info]');await p.locator('[data-stage1-item-info] .info-actions > a').click();await p.locator('[data-shared-discovery="READY"]').waitFor();await rendered(id,'[data-shared-entity-detail]');await inject(id,true);await p.waitForFunction(id=>!document.querySelector('[data-item-thumb-id="'+id+'"] img'),id);
+          await p.goto(root+'/explore/',{waitUntil:'domcontentloaded'});await p.locator('.grid .card').first().waitFor();await p.locator('.controls input[type="search"]').fill(id);await rendered(id,'.grid');console.log('QA740_REAL_CHROME_ID',id,'4_CONSUMERS_WITHDRAW_PASS');}
+          assert.ok(ids.every(id=>hits.includes(cfg.paths[id])));assert.ok(hits.every(x=>Object.values(cfg.paths).includes(x)));assert.deepEqual(errs,[]);assert.deepEqual(bad,[]);console.log('QA740_REAL_CHROME_3_SAMPLES_ALL_PASS');await ctx.close();
+          }finally{await browser.close()}
+          JS
