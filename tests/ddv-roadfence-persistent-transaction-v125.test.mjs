@@ -4,7 +4,8 @@ import { readFile } from 'node:fs/promises';
 
 import { SafeProfileEditSession } from '../src/lib/ddv/core/save/safe-edit-session.js';
 import {
-  STRUCTURAL_WRITE_CANDIDATE_CAPABILITY
+  STRUCTURAL_WRITE_CANDIDATE_CAPABILITY,
+  createVerifiedWriteCandidate
 } from '../src/lib/ddv/core/save/transaction-foundation.js';
 import { PlatformFamily } from '../src/lib/ddv/core/save/versioning.js';
 import {
@@ -16,7 +17,8 @@ import {
   ROADFENCE_STRUCTURAL_ADAPTER_ID,
   ROADFENCE_STRUCTURAL_TRANSACTION_BINDING_CONTRACT,
   buildRoadFenceStructuralTransactionPlanV125,
-  createRoadFenceVerifiedWriteCandidateV125
+  createRoadFenceVerifiedWriteCandidateV125,
+  roadFenceStructuralMutationAdapterV125
 } from '../src/lib/ddv/core/roadfence/persistent-transaction-v125.js';
 import { FenceMode } from '../src/lib/ddv/core/roadfence/logical.js';
 import {
@@ -267,4 +269,189 @@ test('binding machine contract closes 01C-to-01A engineering gap but not persist
   assert.equal(artifact.current01aWriteCandidateCompatible,true);
   assert.equal(artifact.persistentWriteAuthorized,false);
   assert.equal(artifact.productApplyAuthorized,false);
+});
+
+
+test('binding rejects opaque State on created and deleted objects, including a matching source snapshot', async()=>{
+  const source=makeGrid([makeObject(10,40100068,0,0)],11);
+  const session=await open(profileForGrid(source));
+  const mutationSet=compileRoadMutationV125({
+    buildIdentity:BUILD_V125_SWITCH, sourceGrid:snapshotGrid(session), sourceObjectIds:[10],
+    desiredNetwork:roadNetwork(40100068,[{x:1,y:0,mode:FenceMode.ORTHOGONAL}]),
+    transform:{originSave:{x:0,y:0},pitchX:4,pitchY:4}, targetSurfaceValidated:true
+  });
+  assert.equal(mutationSet.ok,true);
+  const opaque={FenceMode:{Diagonal:true,Future:1}};
+  const created=structuredClone(mutationSet);
+  created.createdObjects[0].object.State=opaque;
+  assert.throws(()=>buildRoadFenceStructuralTransactionPlanV125({session,mutationSet:created}),
+    {code:'ROADFENCE_TX_CREATED_OBJECT_STATE_UNSUPPORTED'});
+  const deleted=structuredClone(mutationSet);
+  deleted.deletedObjects[0].sourceObject.State=opaque;
+  const changed=structuredClone(source);
+  changed.Objects['10'].State=opaque;
+  const matching=await open(profileForGrid(changed));
+  const before=structuredClone(matching.getSnapshot());
+  assert.throws(()=>buildRoadFenceStructuralTransactionPlanV125({session:matching,mutationSet:deleted}),
+    {code:'ROADFENCE_TX_DELETED_OBJECT_STATE_UNSUPPORTED'});
+  assert.deepEqual(matching.getSnapshot(),before);
+});
+
+
+test('binding rejects a deleted source with an omitted own __proto__ key',async()=>{
+  const clean=makeGrid([makeObject(10,40100068,0,0)],11);
+  const source=await open(profileForGrid(clean));
+  const mutationSet=compileRoadMutationV125({
+    buildIdentity:BUILD_V125_SWITCH, sourceGrid:snapshotGrid(source), sourceObjectIds:[10],
+    desiredNetwork:roadNetwork(40100068,[{x:1,y:0,mode:FenceMode.ORTHOGONAL}]),
+    transform:{originSave:{x:0,y:0},pitchX:4,pitchY:4}, targetSurfaceValidated:true
+  });
+  assert.equal(mutationSet.ok,true);
+  const altered=structuredClone(clean);
+  Object.defineProperty(altered.Objects['10'],'__proto__',{value:{Future:1},enumerable:true});
+  const session=await open(profileForGrid(altered));
+  const before=session.getSnapshot();
+  assert.equal(Object.hasOwn(before.World.GridCollection.Grids['7'].Objects['10'],'__proto__'),true);
+  assert.throws(()=>buildRoadFenceStructuralTransactionPlanV125({session,mutationSet}),
+    {code:'ROADFENCE_TX_SOURCE_OBJECT_BINDING_MISMATCH'});
+  await assert.rejects(createRoadFenceVerifiedWriteCandidateV125({session,mutationSet}),
+    {code:'ROADFENCE_TX_SOURCE_OBJECT_BINDING_MISMATCH'});
+  assert.deepEqual(session.getSnapshot(),before);
+});
+
+test('binding preserves matching opaque own keys and rejects nested old-value drift',async()=>{
+  const original=makeObject(10,40100068,0,0);
+  original.Opaque=JSON.parse('{"__proto__":{"Future":1},"Keep":true}');
+  const source=await open(profileForGrid(makeGrid([original],11)));
+  const mutationSet=compileRoadMutationV125({
+    buildIdentity:BUILD_V125_SWITCH, sourceGrid:snapshotGrid(source), sourceObjectIds:[10],
+    desiredNetwork:roadNetwork(40100068,[{x:0,y:0,mode:FenceMode.ORTHOGONAL},{x:1,y:0,mode:FenceMode.ORTHOGONAL}]),
+    transform:{originSave:{x:0,y:0},pitchX:4,pitchY:4}, targetSurfaceValidated:true
+  });
+  assert.equal(mutationSet.ok,true);
+  assert.deepEqual(mutationSet.preservedObjectIdentities,[10]);
+  const bound=await createRoadFenceVerifiedWriteCandidateV125({session:source,mutationSet});
+  assert.equal(bound.verification.status,'PASS');
+  const reopened=await open(JSON.parse(decoder.decode(bound.candidate.candidateBytes)));
+  assert.deepEqual(snapshotGrid(reopened).Objects['10'],original);
+  const tampered=structuredClone(mutationSet);
+  tampered.preservedObjects[0].sourceObject.Opaque['__proto__'].Future=2;
+  assert.throws(()=>buildRoadFenceStructuralTransactionPlanV125({session:source,mutationSet:tampered}),
+    {code:'ROADFENCE_TX_SOURCE_OBJECT_BINDING_MISMATCH'});
+  assert.deepEqual(snapshotGrid(source).Objects['10'],original);
+});
+
+
+test('direct structural adapter refuses omitted, mismatched and opaque intent entries before mutation',async()=>{
+  const original=profileForGrid(makeGrid([makeObject(10,40100068,0,0)],11));
+  const session=await open(original);
+  const mutationSet=compileRoadMutationV125({
+    buildIdentity:BUILD_V125_SWITCH,sourceGrid:snapshotGrid(session),sourceObjectIds:[10],
+    desiredNetwork:roadNetwork(40100068,[{x:1,y:0,mode:FenceMode.ORTHOGONAL}]),
+    transform:{originSave:{x:0,y:0},pitchX:4,pitchY:4},targetSurfaceValidated:true
+  });
+  assert.equal(mutationSet.ok,true);
+  const plan=buildRoadFenceStructuralTransactionPlanV125({session,mutationSet});
+  const adapter=roadFenceStructuralMutationAdapterV125;
+  const check=(change,code)=>{
+    const draft=structuredClone(original),intent=structuredClone(plan.intent);
+    change(draft,intent);
+    const before=structuredClone(draft);
+    assert.throws(()=>adapter.apply(draft,intent,plan),{code});
+    assert.deepEqual(draft,before);
+  };
+  check((d,i)=>{d.World.GridCollection.Grids['7'].Objects['10'].State={FenceMode:{Diagonal:true,Future:7}};i.deletedObjects=[];},
+    'ROADFENCE_TX_ADAPTER_INTENT_ENTRY_BINDING_MISMATCH');
+  check((d,i)=>{const state={FenceMode:{Diagonal:true,Future:7}};d.World.GridCollection.Grids['7'].Objects['10'].State=state;i.deletedObjects[0].sourceObject.State=state;},
+    'ROADFENCE_TX_DELETED_OBJECT_STATE_UNSUPPORTED');
+  check((d,i)=>{i.createdObjects[0].object.State={Future:7};},'ROADFENCE_TX_CREATED_OBJECT_STATE_UNSUPPORTED');
+  check((d,i)=>{i.createdObjects[0].object.Opaque=7;},'ROADFENCE_TX_CREATED_OBJECT_FIELD_UNSUPPORTED');
+  check((d,i)=>{i.deletedObjects.push(structuredClone(i.deletedObjects[0]));},'ROADFENCE_TX_ADAPTER_INTENT_ENTRY_BINDING_MISMATCH');
+  check((d,i)=>{i.createdObjects=[];},'ROADFENCE_TX_ADAPTER_INTENT_ENTRY_BINDING_MISMATCH');
+  check((d,i)=>{i.createdObjects[0].gridObjectId=12;i.createdObjects[0].object.ID=12;},'ROADFENCE_TX_ADAPTER_INTENT_ENTRY_BINDING_MISMATCH');
+  check((d,i)=>{delete i.deletedObjects;},'ROADFENCE_TX_MUTATION_SET_INVALID');
+  const draft=structuredClone(original);
+  adapter.apply(draft,structuredClone(plan.intent),plan);
+  assert.equal(draft.World.GridCollection.Grids['7'].Objects['10'],undefined);
+  assert.deepEqual(draft.World.GridCollection.Grids['7'].Objects['11'],plan.intent.createdObjects[0].object);
+  assert.equal(draft.World.GridCollection.Grids['7'].NextGridObjectID,12);
+  assert.deepEqual(draft.Player,original.Player);
+
+  const forged=structuredClone(plan);forged.intent.deletedObjects=[];
+  await assert.rejects(createVerifiedWriteCandidate({session,plan:forged,adapter}),
+    {code:'TX_MUTATION_OR_SERIALIZATION_FAILED',message:/ROADFENCE_TX_ADAPTER_INTENT_ENTRY_BINDING_MISMATCH/});
+  assert.deepEqual(session.getSnapshot(),original);
+});
+
+test('direct adapter rejects omitted preserved entries and retains exact opaque preserved objects',async()=>{
+  const original=makeObject(10,40100068,0,0);
+  original.Opaque={Future:7};
+  const root=profileForGrid(makeGrid([original],11)),session=await open(root);
+  const mutationSet=compileRoadMutationV125({
+    buildIdentity:BUILD_V125_SWITCH,sourceGrid:snapshotGrid(session),sourceObjectIds:[10],
+    desiredNetwork:roadNetwork(40100068,[{x:0,y:0,mode:FenceMode.ORTHOGONAL},{x:1,y:0,mode:FenceMode.ORTHOGONAL}]),
+    transform:{originSave:{x:0,y:0},pitchX:4,pitchY:4},targetSurfaceValidated:true
+  });
+  assert.equal(mutationSet.ok,true);
+  const plan=buildRoadFenceStructuralTransactionPlanV125({session,mutationSet});
+  const draft=structuredClone(root),intent=structuredClone(plan.intent);
+  intent.preservedObjects=[];
+  assert.throws(()=>roadFenceStructuralMutationAdapterV125.apply(draft,intent,plan),
+    {code:'ROADFENCE_TX_ADAPTER_INTENT_ENTRY_BINDING_MISMATCH'});
+  assert.deepEqual(draft,root);
+  roadFenceStructuralMutationAdapterV125.apply(draft,structuredClone(plan.intent),plan);
+  assert.deepEqual(draft.World.GridCollection.Grids['7'].Objects['10'],original);
+});
+
+test('direct adapter rejects coherent forged structural targets atomically',async()=>{
+  const root=profileForGrid(makeGrid([makeObject(10,40100068,0,0)],11));
+  const session=await open(root);
+  const mutationSet=compileRoadMutationV125({
+    buildIdentity:BUILD_V125_SWITCH,sourceGrid:snapshotGrid(session),sourceObjectIds:[10],
+    desiredNetwork:roadNetwork(40100068,[{x:1,y:0,mode:FenceMode.ORTHOGONAL}]),
+    transform:{originSave:{x:0,y:0},pitchX:4,pitchY:4},targetSurfaceValidated:true
+  });
+  assert.equal(mutationSet.ok,true);
+  const plan=buildRoadFenceStructuralTransactionPlanV125({session,mutationSet});
+  const adapter=roadFenceStructuralMutationAdapterV125;
+  const check=(change,code)=>{
+    const forged=structuredClone(plan),draft=structuredClone(root);
+    const target=forged.target,intent=forged.intent;
+    change(target,intent);
+    // Both declarations agree: equality alone must not authorize mutation.
+    intent.target=structuredClone(target);
+    assert.throws(()=>adapter.apply(draft,intent,forged),{code});
+    assert.deepEqual(draft,root);
+  };
+  check((t,i)=>{
+    t.preservedGridObjectIds=[10];
+    i.preservedObjects=[structuredClone(i.deletedObjects[0])];
+  },'ROADFENCE_TX_IDENTITY_SET_OVERLAP');
+  check(t=>{t.nextGridObjectIDAfter=13;},'ROADFENCE_TX_NEXT_TRANSITION_INVALID');
+  check((t,i)=>{
+    t.createdGridObjectIds=[12];
+    i.createdObjects[0].gridObjectId=12;i.createdObjects[0].object.ID=12;
+    t.replacementIdentityPairs=[{deletedGridObjectId:10,createdGridObjectId:12}];
+  },'ROADFENCE_TX_CREATED_IDS_NOT_CONTIGUOUS_FROM_NEXT');
+  check(t=>{t.replacementIdentityPairs=[{deletedGridObjectId:99,createdGridObjectId:11}];},
+    'ROADFENCE_TX_REPLACEMENT_PAIRS_INVALID');
+  check(t=>{
+    t.replacementIdentityPairs=[
+      {deletedGridObjectId:10,createdGridObjectId:11},
+      {deletedGridObjectId:10,createdGridObjectId:11}
+    ];
+  },'ROADFENCE_TX_REPLACEMENT_PAIRS_INVALID');
+  check(t=>{t.nextGridObjectIDAfter='12';},'ROADFENCE_TX_NEXT_AFTER_INVALID');
+  check((t,i)=>{
+    t.deletedGridObjectIds=[];t.createdGridObjectIds=[];
+    t.replacementIdentityPairs=[];t.nextGridObjectIDAfter=11;
+    i.deletedObjects=[];i.createdObjects=[];
+  },'ROADFENCE_TX_STRUCTURAL_NOOP');
+  const draft=structuredClone(root);
+  adapter.apply(draft,structuredClone(plan.intent),plan);
+  assert.equal(draft.World.GridCollection.Grids['7'].Objects['10'],undefined);
+  assert.deepEqual(draft.World.GridCollection.Grids['7'].Objects['11'],plan.intent.createdObjects[0].object);
+  assert.equal(draft.World.GridCollection.Grids['7'].NextGridObjectID,12);
+  assert.deepEqual(draft.Player,root.Player);
+  assert.deepEqual(session.getSnapshot(),root);
 });

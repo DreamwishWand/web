@@ -17,6 +17,8 @@ import {
   ROADFENCE_STRUCTURAL_TRANSACTION_DEPENDENCY
 } from './persistent-v125/constants.js';
 
+import { isKnownRoadFenceModeState } from './persistent-v125/common.js';
+
 export const ROADFENCE_STRUCTURAL_TRANSACTION_BINDING_CONTRACT =
   'ddv.roadfence-structural-transaction-binding@1';
 export const ROADFENCE_STRUCTURAL_INTENT_CONTRACT =
@@ -53,9 +55,8 @@ function sortedIds(values,code){
 function canonicalize(value){
   if(Array.isArray(value))return value.map(canonicalize);
   if(value&&typeof value==='object'){
-    const out={};
-    for(const key of Object.keys(value).sort())out[key]=canonicalize(value[key]);
-    return out;
+    // Own JSON keys (including __proto__) must remain data for exact CAS.
+    return Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonicalize(value[key])]));
   }
   return value;
 }
@@ -98,6 +99,8 @@ function normalizeEntries(entries,kind){
       if(unknown.length)throw bindingError('ROADFENCE_TX_CREATED_OBJECT_FIELD_UNSUPPORTED',unknown.join(','));
       if(!same(Object.keys(object).sort(),[...KNOWN_CREATED_OBJECT_FIELDS].sort()))
         throw bindingError('ROADFENCE_TX_CREATED_OBJECT_FIELDS_INCOMPLETE',String(gridObjectId));
+      if(!isKnownRoadFenceModeState(object.State))
+        throw bindingError('ROADFENCE_TX_CREATED_OBJECT_STATE_UNSUPPORTED',String(gridObjectId));
       return {gridObjectId,object};
     }
     const sourceObject=clone(entry.sourceObject);
@@ -106,6 +109,8 @@ function normalizeEntries(entries,kind){
     if(kind==='deleted'){
       const unknown=Object.keys(sourceObject).filter(key=>!KNOWN_CREATED_OBJECT_FIELDS.includes(key));
       if(unknown.length)throw bindingError('ROADFENCE_TX_DELETED_OBJECT_FIELD_UNSUPPORTED',unknown.join(','));
+      if(!isKnownRoadFenceModeState(sourceObject.State))
+        throw bindingError('ROADFENCE_TX_DELETED_OBJECT_STATE_UNSUPPORTED',String(gridObjectId));
     }
     return {gridObjectId,sourceObject};
   }).sort((a,b)=>a.gridObjectId-b.gridObjectId);
@@ -400,26 +405,55 @@ export const roadFenceStructuralMutationAdapterV125=Object.freeze({
     const objects=asObj(grid.Objects);
     if(!objects)throw bindingError('ROADFENCE_TX_ADAPTER_OBJECT_MAP_REQUIRED');
 
-    for(const entry of intent.preservedObjects??[]){
+    // The public adapter also accepts caller-supplied plans. Do not assume
+    // the compiler/builder validated the corresponding intent entries.
+    const preserved=normalizeEntries(intent.preservedObjects,'preserved');
+    const deleted=normalizeEntries(intent.deletedObjects,'deleted');
+    const created=normalizeEntries(intent.createdObjects,'created');
+    const preservedIds=sortedIds(plan.target.preservedGridObjectIds,'ROADFENCE_TX_ADAPTER_INTENT_IDS_INVALID');
+    const deletedIds=sortedIds(plan.target.deletedGridObjectIds,'ROADFENCE_TX_ADAPTER_INTENT_IDS_INVALID');
+    const createdIds=sortedIds(plan.target.createdGridObjectIds,'ROADFENCE_TX_ADAPTER_INTENT_IDS_INVALID');
+    if(!sameIds(preservedIds,preserved.map(x=>x.gridObjectId))||
+       !sameIds(deletedIds,deleted.map(x=>x.gridObjectId))||
+       !sameIds(createdIds,created.map(x=>x.gridObjectId)))
+      throw bindingError('ROADFENCE_TX_ADAPTER_INTENT_ENTRY_BINDING_MISMATCH');
+
+    // Matching caller-supplied targets is not proof of structural legality.
+    // Enforce the same partition/allocation invariants as the plan builder.
+    if(!createdIds.length&&!deletedIds.length)
+      throw bindingError('ROADFENCE_TX_STRUCTURAL_NOOP');
+    const union=[...preservedIds,...createdIds,...deletedIds];
+    if(new Set(union).size!==union.length)
+      throw bindingError('ROADFENCE_TX_IDENTITY_SET_OVERLAP');
+    const nextBefore=plan.target.nextGridObjectIDBefore;
+    const nextAfter=plan.target.nextGridObjectIDAfter;
+    if(!Number.isSafeInteger(nextBefore)||nextBefore<0)
+      throw bindingError('ROADFENCE_TX_NEXT_BEFORE_INVALID');
+    if(!Number.isSafeInteger(nextAfter)||nextAfter<0)
+      throw bindingError('ROADFENCE_TX_NEXT_AFTER_INVALID');
+    const expectedCreated=Array.from({length:createdIds.length},(_,i)=>nextBefore+i);
+    if(!sameIds(createdIds,expectedCreated))
+      throw bindingError('ROADFENCE_TX_CREATED_IDS_NOT_CONTIGUOUS_FROM_NEXT');
+    if(nextAfter!==nextBefore+createdIds.length)
+      throw bindingError('ROADFENCE_TX_NEXT_TRANSITION_INVALID');
+    normalizeReplacementPairs(plan.target.replacementIdentityPairs,deletedIds,createdIds);
+
+    for(const entry of preserved){
       if(!same(objects[String(entry.gridObjectId)],entry.sourceObject))
         throw bindingError('ROADFENCE_TX_ADAPTER_PRESERVED_SOURCE_MISMATCH',String(entry.gridObjectId));
     }
-    for(const entry of intent.deletedObjects??[]){
+    for(const entry of deleted){
       if(!same(objects[String(entry.gridObjectId)],entry.sourceObject))
         throw bindingError('ROADFENCE_TX_ADAPTER_DELETE_SOURCE_MISMATCH',String(entry.gridObjectId));
     }
-    for(const entry of intent.createdObjects??[]){
+    for(const entry of created){
       if(Object.prototype.hasOwnProperty.call(objects,String(entry.gridObjectId)))
         throw bindingError('ROADFENCE_TX_ADAPTER_CREATE_COLLISION',String(entry.gridObjectId));
     }
 
-    for(const id of plan.target.deletedGridObjectIds)delete objects[String(id)];
-    for(const entry of intent.createdObjects??[]){
-      const id=Number(entry.gridObjectId);
-      const object=clone(entry.object);
-      if(Number(object.ID)!==id)throw bindingError('ROADFENCE_TX_ADAPTER_CREATED_ID_MISMATCH',String(id));
-      objects[String(id)]=object;
-    }
+    // Validate every entry before the first draft mutation.
+    for(const id of deletedIds)delete objects[String(id)];
+    for(const entry of created)objects[String(entry.gridObjectId)]=entry.object;
     grid.NextGridObjectID=plan.target.nextGridObjectIDAfter;
   },
   persistentWriteAuthorized:false,
