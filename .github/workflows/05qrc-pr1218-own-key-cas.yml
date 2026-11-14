@@ -1,0 +1,33 @@
+name: 05 QR-C PR1218 independent own JSON key CAS
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1218-own-key-cas.mjs'
+      - '.github/workflows/05qrc-pr1218-own-key-cas.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact child2 and QA-only2; independent parent/fixed full binding
+        run: |
+          source=1aac6d1e82b1284305d149fa9543679cb709ccb0
+          parent=2861485b591a73f89931ade9170c640577f7fa0e
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git diff --diff-filter=A --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/roadfence/persistent-transaction-v125.js)" = cd81d96d68dfe27d5f0ddfdf4d67cc16856fa4b2
+          test "$(git rev-parse HEAD:tests/ddv-roadfence-persistent-transaction-v125.test.mjs)" = bb0b8381ef320ef6bfb389e28669685859a56154
+          test "$(git rev-parse "$parent:src/lib/ddv/core/roadfence/persistent-transaction-v125.js")" = e5dd79aafbfe95b63c58f8e7b970de530b62de6e
+          git show "$parent:src/lib/ddv/core/roadfence/persistent-transaction-v125.js" > src/lib/ddv/core/roadfence/.qa1218-parent.mjs
+          node tests/qa/05qrc-pr1218-own-key-cas.mjs
+          rm src/lib/ddv/core/roadfence/.qa1218-parent.mjs
