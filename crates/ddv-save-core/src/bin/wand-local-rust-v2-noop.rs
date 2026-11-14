@@ -29,6 +29,11 @@ fn required(k:&str)->String{
 }
 fn main(){
  #[cfg(feature="semantic-writer-dev")]
+ if env::args().nth(1).as_deref()==Some("--switch624-road-rm01-archive-only"){
+   run_switch624_road_rm01();
+   return;
+ }
+ #[cfg(feature="semantic-writer-dev")]
  if env::args().nth(1).as_deref()==Some("--inventory-amount-backup-only") {
    run_inventory_amount_backup();
    return;
@@ -314,4 +319,54 @@ fn run_inventory_amount_backup(){
  io::stdout().write_all(&bytes).unwrap_or_else(|_|deny("BACKUP_PRIVATE_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("BACKUP_PRIVATE_PIPE_FLUSH"));
  eprintln!("PRIVATE_V2_INVENTORY_AMOUNT_BACKUP_READONLY_PIPE_PASS");
+}
+
+// Same private executor and atomic ledger. External trusted operator verifies
+// archive/original/Backup and independently approved 01B/01C/01E plan.
+#[cfg(feature="semantic-writer-dev")]
+fn run_switch624_road_rm01(){
+ if env::args().len()!=2||required("WAND_LOCAL_INSTALLED_SWITCH_BID")!="52BD625D9B4E0053"{
+   deny("RM01_EXACT_SWITCH624_REQUIRED");
+ }
+ let original=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
+ let size=required("WAND_LOCAL_ORIGINAL_SIZE_BYTES").parse::<u64>()
+    .unwrap_or_else(|_|deny("RM01_ORIGINAL_SIZE"));
+ if original==[0;32]||size==0||size>128*1024*1024{deny("RM01_ORIGINAL_ATTESTATION");}
+ let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
+ let plan=required("WAND_LOCAL_RM01_CANONICAL_PLAN");
+ if plan.len()>16384{deny("RM01_PLAN_BOUNDS");}
+ let plan_sha=hex32(&required("WAND_LOCAL_RM01_PLAN_SHA256"));
+ if plan_sha==[0;32]||Sha256::digest(plan.as_bytes()).as_slice()!=plan_sha{deny("RM01_PLAN_SHA_CAS");}
+ let mut input=Vec::new();
+ io::stdin().take(256*1024*1024+1).read_to_end(&mut input)
+   .unwrap_or_else(|_|deny("RM01_PRIVATE_PIPE_READ"));
+ let session=ProductSession::open_switch624_rm01_private(input,BuildIdentity{
+    platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+    build_id:"52BD625D9B4E0053".into(),schema:624,externally_attested:true},expected)
+   .unwrap_or_else(|_|deny("RM01_FULL_DOCUMENT_OR_ARCHIVE"));
+ let before=session.receipt().unwrap_or_else(|_|deny("RM01_RECEIPT"));
+ if before.schema!=624||before.decoded_sha256!=expected||before.writer_authorized||
+    before.product_worker_bound||before.product_read_accepted||before.revision!=0||before.index_generation!=1{
+   deny("RM01_SOURCE_SCOPE");
+ }
+ let scope=|rev,gen,action|WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
+    session_id:before.session_id,expected_revision:rev,expected_index_generation:gen,
+    expected_decoded_sha256:expected,action};
+ let staged=session.stage_switch624_road_rm01_archive(scope(0,1,WorkerAction::Stage),plan.as_bytes())
+   .unwrap_or_else(|_|deny("RM01_STAGE"));
+ if staged.operation_count!=8||staged.exact_field_changed_count!=8||!staged.applied||
+    staged.product_writer_authorized||staged.original_overwrite_authorized||!staged.semantic_changed{
+   deny("RM01_EXACT_STAGE");
+ }
+ if session.stage_switch624_road_rm01_archive(scope(0,1,WorkerAction::Stage),plan.as_bytes()).is_ok(){deny("RM01_REPLAY");}
+ let undo=session.undo_typed_semantic_batch(scope(1,2,WorkerAction::Stage)).unwrap_or_else(|_|deny("RM01_UNDO"));
+ if undo.applied||session.take_typed_semantic_decoded_once(scope(2,3,WorkerAction::ExportEditedCopy)).is_ok(){deny("RM01_UNDO_EXPORT");}
+ let redo=session.redo_typed_semantic_batch(scope(2,3,WorkerAction::Stage)).unwrap_or_else(|_|deny("RM01_REDO"));
+ if !redo.applied||redo.staged_decoded_sha256!=staged.staged_decoded_sha256{deny("RM01_REDO_SHA");}
+ let out=session.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).unwrap_or_else(|_|deny("RM01_ONE_TIME_EXPORT"));
+ if Sha256::digest(&out).as_slice()!=staged.staged_decoded_sha256||
+    session.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).is_ok(){deny("RM01_EXPORT_REPLAY_OR_SHA");}
+ io::stdout().write_all(&out).unwrap_or_else(|_|deny("RM01_PIPE_WRITE"));
+ io::stdout().flush().unwrap_or_else(|_|deny("RM01_PIPE_FLUSH"));
+ eprintln!("PRIVATE_V2_SWITCH624_RM01_ARCHIVE_EXACT8_PIPE_PASS");
 }

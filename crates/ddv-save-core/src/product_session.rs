@@ -133,6 +133,24 @@ impl ProductSession {
     /// product binding, physical external Build verification or V2 acceptance.
     pub fn open_decoded_readonly(decoded: Vec<u8>, build: BuildIdentity) -> CoreResult<Self> {
         build.validate_registry_candidate()?;
+        Self::open_decoded_native_validated(decoded,build)
+    }
+    /// Native-private historical Switch624 replay only. External operator
+    /// independently binds archive, Build and approved target readset.
+    /// No generic registry expansion or Worker entrypoint.
+    #[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+    pub fn open_switch624_rm01_private(decoded:Vec<u8>,build:BuildIdentity,
+        expected_archive_decoded_sha:[u8;32])->CoreResult<Self>{
+        if decoded.is_empty()||decoded.len()>MAX_DECODED_BYTES||
+           build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||
+           build.build_id!="52BD625D9B4E0053"||build.schema!=624||!build.externally_attested||
+           expected_archive_decoded_sha==[0;32]||
+           Sha256::digest(&decoded).as_slice()!=expected_archive_decoded_sha{
+            return Err(CoreError("RM01_EXACT_ARCHIVE_BUILD_SHA_REQUIRED"));
+        }
+        Self::open_decoded_native_validated(decoded,build)
+    }
+    fn open_decoded_native_validated(decoded:Vec<u8>,build:BuildIdentity)->CoreResult<Self>{
         if decoded.is_empty() || decoded.len() > MAX_DECODED_BYTES {
             return Err(CoreError("DECODED_SOURCE_BOUNDS"));
         }
