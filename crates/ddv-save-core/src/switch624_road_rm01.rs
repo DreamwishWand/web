@@ -193,14 +193,15 @@ mod tests{
 // Reuse the exact-build native session, indexed scanner, lexical append and
 // atomic ledger. No generic road cost, refund, or new topology compiler.
 const R02_CONTRACT:&str="wand.private.switch624.road-r02-native-q4-archive@1";
-fn r02_plan_parse(bytes:&[u8])->CoreResult<Value>{
+const R02_626_CONTRACT:&str="wand.private.switch626.road-r02-native-q4@1";
+fn r02_plan_parse(bytes:&[u8],contract:&str)->CoreResult<Value>{
     if bytes.is_empty()||bytes.len()>16384{return Err(denied("R02_PLAN_BOUNDS"));}
     let v:Value=serde_json::from_slice(bytes).map_err(|_|denied("R02_PLAN_JSON"))?;
     if enc(&v)?.as_slice()!=bytes{return Err(denied("R02_PLAN_NONCANONICAL"));}
     let keys=["contract","sourceDecodedSha256","gridId","expectedNextId","expectedAmount",
         "gridSha256","inventoryEntrySha256","objects"];
     let m=v.as_object().ok_or(denied("R02_PLAN_OBJECT"))?;
-    if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||v["contract"]!=R02_CONTRACT{
+    if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||v["contract"]!=contract{
         return Err(denied("R02_PLAN_FIELDS"));
     }
     Ok(v)
@@ -264,7 +265,21 @@ impl ProductSession{
            build.schema!=624||!build.externally_attested||self.worker_bound{
             return Err(denied("R02_EXACT_SWITCH624_REQUIRED"));
         }
-        let p=r02_plan_parse(plan)?;
+        let p=r02_plan_parse(plan,R02_CONTRACT)?;
+        let edits=r02_collect(self,&p)?;
+        self.commit_semantic_replacements(e,edits,6)
+    }
+}
+impl ProductSession{
+    /// Exact current Switch626 R02 Native q4; external target legality remains
+    /// a separate private V2 prerequisite. No generic debit or refund.
+    pub fn stage_switch626_road_r02_native_q4(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        let build=&self.native_source_build;
+        if build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||
+           build.build_id!="9A239D3DB569756D"||build.schema!=626||!build.externally_attested||self.worker_bound{
+            return Err(denied("R02_EXACT_SWITCH626_REQUIRED"));
+        }
+        let p=r02_plan_parse(plan,R02_626_CONTRACT)?;
         let edits=r02_collect(self,&p)?;
         self.commit_semantic_replacements(e,edits,6)
     }
@@ -295,6 +310,40 @@ mod r02_tests{
     fn scope(s:&ProductSession,a:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();
         WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
         expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:a}}
+    #[test]
+    fn r02_switch626_exact6_current_debit4(){
+        let (old,mut p)=fixture();let mut d=old.clone();
+        d["GameInfo"]["Version"]=json!(626);
+        d["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(7025);
+        p["contract"]=json!(R02_626_CONTRACT);p["expectedAmount"]=json!(7025);bind(&d,&mut p);
+        let make=|v:&Value|ProductSession::open_decoded_readonly(enc(v).unwrap(),crate::BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+        let s=make(&d);let e=scope(&s,WorkerAction::Stage);let bytes=enc(&p).unwrap();
+        assert!(s.stage_switch624_road_r02_native_q4_archive(e,&bytes).is_err());
+        let t=open(&old);assert!(t.stage_switch626_road_r02_native_q4(scope(&t,WorkerAction::Stage),&bytes).is_err());
+        assert!(make(&d).stage_switch626_road_r02_native_q4(e,&bytes).is_err());
+        for (k,v) in [("contract",json!(R02_CONTRACT)),("expectedAmount",json!(7024)),("expectedNextId",json!(51)),
+            ("sourceDecodedSha256",json!("bad")),("gridSha256",json!("bad")),("inventoryEntrySha256",json!("bad")),("refund",json!(1))]{
+            let mut q=p.clone();q[k]=v;assert!(s.stage_switch626_road_r02_native_q4(e,&enc(&q).unwrap()).is_err());
+        }
+        let mut q=p.clone();q["objects"].as_array_mut().unwrap().swap(1,2);
+        assert!(s.stage_switch626_road_r02_native_q4(e,&enc(&q).unwrap()).is_err());
+        let mut bad=d.clone();bad["World"]["GridCollection"]["Grids"]["9"]["Objects"]["12"]["X"]=json!(40);
+        bad["World"]["GridCollection"]["Grids"]["9"]["Objects"]["12"]["Y"]=json!(24);
+        let mut q=p.clone();bind(&bad,&mut q);let t=make(&bad);
+        assert!(t.stage_switch626_road_r02_native_q4(scope(&t,WorkerAction::Stage),&enc(&q).unwrap()).is_err());
+        let r=s.stage_switch626_road_r02_native_q4(e,&bytes).unwrap();assert_eq!(r.operation_count,6);assert_eq!(r.exact_field_changed_count,6);
+        assert!(!r.product_writer_authorized);assert!(s.stage_switch626_road_r02_native_q4(e,&bytes).is_err());
+        s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(e).is_err());
+        let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["9"];g["NextGridObjectID"]=json!(54);
+        for o in p["objects"].as_array().unwrap(){g["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
+        wanted["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(7021);
+        assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),wanted);assert_eq!(sha(&out),r.staged_decoded_sha256);
+    }
     #[test]
     fn r02_native_exact6_debit4_undo_redo_one_time(){
         let (d,p)=fixture();let s=open(&d);let e=scope(&s,WorkerAction::Stage);
