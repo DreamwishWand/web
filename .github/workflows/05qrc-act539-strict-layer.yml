@@ -1,0 +1,46 @@
+name: 05 QR-C ACT539 PR1083 strict layer repair
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-act539-strict-layer.mjs'
+      - '.github/workflows/05qrc-act539-strict-layer.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed original5 and exact QA-only additions
+        run: |
+          source=8d9216121172ea461f2fec06e6fe1f419d62978a
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git diff --diff-filter=A --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:src/lib/wep/local-scene-preset-store.mjs)" = 8691ea9ac17f486028a5999187480a601c57b75b
+          test "$(git rev-parse HEAD:src/lib/wep/local-scene-preset-copy.js)" = 0d1fd1c2a95caac032e55b0166b5b00ecb8d78ab
+          test "$(git rev-parse HEAD:src/routes/presets/+page.svelte)" = 3a180b6a1ada704159f302a7eeec20a408d0810c
+          test "$(git rev-parse HEAD:tests/wep-local-scene-preset-cas.test.mjs)" = 8c015643d6f95d65c348b6ac43a773a138641333
+          test "$(git rev-parse HEAD:scripts/wep-local-scene-preset-chrome.mjs)" = 2bcb5c09b6c8289b0cb42b77499ab8c77313b2f2
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual Chrome causal replay and strict typed boundary
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          "$CHROME_BIN" --version
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4383 >/tmp/act539-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4383/presets/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4383/presets/ >/dev/null
+          node tests/qa/05qrc-act539-strict-layer.mjs
