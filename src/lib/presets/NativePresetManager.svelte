@@ -61,7 +61,9 @@
       const result=await transactNativePresetLibrary({operation:'read'});
       library=result.library;
       if(!library.backups.length)throw Error('NATIVE_PRESET_LIBRARY_EMPTY');
-      exportJson(library,'dreamwishwand-native-preset-library-v1.json');
+      // Local incarnation metadata is never portable across origins.
+      const {localEntryIncarnations,...portable}=library;
+      exportJson(portable,'dreamwishwand-native-preset-library-v1.json');
     }catch{status=copy.unsupported;}finally{libraryBusy=false;}
   }
 
@@ -83,8 +85,9 @@
     if(libraryBusy)return;
     // Capture the entry displayed by this tab before any asynchronous work.
     const id=backup.id,expectedEntry=JSON.stringify(backup);
+    const expectedIncarnation=library.localEntryIncarnations?.entries[id]??0;
     libraryBusy=true;
-    try{library=(await transactNativePresetLibrary({operation:'remove',id,expectedEntry})).library;status='';}
+    try{library=(await transactNativePresetLibrary({operation:'remove',id,expectedEntry,expectedIncarnation})).library;status='';}
     catch{await refreshLibrary();status=copy.unsupported;}finally{libraryBusy=false;}
   }
 </script>

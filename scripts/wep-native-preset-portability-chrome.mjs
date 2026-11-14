@@ -25,7 +25,7 @@ try{
  const sourceRaw=await raw(source);
  const dl=source.waitForEvent('download');await source.locator('[data-native-library-export]').click();
  const file=await readFile(await (await dl).path(),'utf8');
- assert.deepEqual(JSON.parse(file).backups,[one]);assert.equal(await raw(source),sourceRaw);
+ assert.deepEqual(JSON.parse(file).backups,[one]);assert.equal(Object.hasOwn(JSON.parse(file),'localEntryIncarnations'),false);assert.equal(await raw(source),sourceRaw);
  const target=await open(next);assert.equal(await raw(target),null);
  await load(target,two);await target.locator('.backup-grid article').first().waitFor();await wait(target);
  await load(target,file);await target.locator('.backup-grid article').nth(1).waitFor();await wait(target);
@@ -51,6 +51,21 @@ try{
  const fifth=fixture('fifth');await load(target,fifth);await card(target,'fifth').waitFor();await wait(target);
  await card(staleRemove,'replacement source').locator('[data-native-library-remove]').click();await wait(staleRemove);
  assert.deepEqual(JSON.parse(await raw(target)).backups,[two,third,fourth,fifth]);
+ // Byte-identical reincarnation, not just same-ID changed payload.
+ const aba=await open(next);await card(aba,'fifth').waitFor();
+ const beforeABA=JSON.parse(await raw(target));
+ await card(staleRemove,'fifth').locator('[data-native-library-remove]').click();await wait(staleRemove);
+ await load(staleRemove,fifth);await card(staleRemove,'fifth').waitFor();await wait(staleRemove);
+ const afterABA=await raw(target);
+ assert.notEqual(JSON.parse(afterABA).localEntryIncarnations.entries[fifth.id],beforeABA.localEntryIncarnations.entries[fifth.id]);
+ assert.deepEqual(JSON.parse(afterABA).backups,[two,third,fourth,fifth]);
+ await card(aba,'fifth').locator('[data-native-library-remove]').click();await wait(aba);
+ assert.equal(await raw(target),afterABA,'stale identical incarnation must not delete');
+ await card(aba,'fifth').waitFor();
+ await card(aba,'fifth').locator('[data-native-library-remove]').click();await wait(aba);
+ assert.deepEqual(JSON.parse(await raw(target)).backups,[two,third,fourth]);
+ await load(aba,fifth);await card(aba,'fifth').waitFor();await wait(aba);
+ console.log('WEP_NATIVE_PRESET_IDENTICAL_REINCARNATION_CAS_PASS');
  const reopened=await open(next);await reopened.locator('.backup-grid article').nth(3).waitFor();
  assert.equal(await raw(reopened),await raw(target));assert.equal(await raw(source),sourceRaw);
  assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);
