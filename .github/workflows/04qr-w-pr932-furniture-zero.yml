@@ -1,0 +1,76 @@
+name: 04 QR-W PR932 furniture zero independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr932-furniture-zero.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = 'df04a14c296c2cd0f5817bec08f32f0403b7c93f'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/04qr-w-pr932-furniture-zero.yml'
+          test "$(git diff --name-only 9598a2fbb2ae8c345c135048b8dd6f4a26aace08 df04a14c296c2cd0f5817bec08f32f0403b7c93f | wc -l)" = 10
+          test "$(git rev-parse HEAD:.github/workflows/08web-local-dev-amount-ui-chrome.yml)" = 'cf5e83719c1227c293ca4ac20055f0b49ba6c266'
+          test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = 'b16b8be855de48d132632ef26d05ddc07e52de42'
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = '955d95056d4c115b24b77db2ec2f31ef90992882'
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-copy.mjs)" = '64af6322420e7858d9f58acc62ab515b3aff791e'
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-worker-adapter.mjs)" = 'fca040fe50cb40464d38f7681203713f502c5733'
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-workflow.mjs)" = '819a3ecde292447dbf23654495bcd25fde2bb6ce'
+          test "$(git rev-parse HEAD:tests/dev-amount-ui-chrome/chrome-smoke.mjs)" = 'f3dfad2a7fb653f5e7715fef65be110525aa58a3'
+          test "$(git rev-parse HEAD:tests/dev-amount-ui-chrome/ci-only-route.svelte)" = '44892469c56a4b75ca5aa9538bbf59896e17b48d'
+          test "$(git rev-parse HEAD:tests/web-local-dev-amount-worker-port.test.mjs)" = '23d654993340bf35d99e6a92d7ed7003d61c6e05'
+          test "$(git rev-parse HEAD:tests/web-local-dev-amount-workflow.test.mjs)" = '96ebb8fde67e13e16012b7217e9490f0fa1e295f'
+          git show 2074334603195fa59a2b90f7f75e7e2eb1870514:src/lib/dev/local-amount-workflow.mjs > src/lib/dev/qa612-parent.mjs
+          trap 'rm -f src/lib/dev/qa612-parent.mjs; rm -rf src/routes/test-dev-amount-ui' EXIT
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {createExistingAmountDecrease as fixed} from './src/lib/dev/local-amount-workflow.mjs';
+          import {createExistingAmountDecrease as old} from './src/lib/dev/qa612-parent.mjs';
+          const t={kind:'InventoryExistingAmountDecrease',targetId:0,itemId:40000001,slotIndex:0,compatibleItemType:'ItemType_Furniture',oldAmount:7,registryVerified:true,sourceVerified:true,rightsAllowed:true};
+          assert.throws(()=>old(t,6));assert.deepEqual(fixed(t,6),{kind:t.kind,inventoryId:0,canonicalItemId:t.itemId,compatibleItemType:t.compatibleItemType,expectedOldAmount:7,newAmount:6});
+          for(const p of [{targetId:'0'},{targetId:[0]},{targetId:null},{targetId:0n},{targetId:NaN},{targetId:-1},{targetId:0.1},{compatibleItemType:'ItemType_Furniture '},{compatibleItemType:'ItemType_Ingredient'},{compatibleItemType:'ItemType_PremiumFurniture'},{compatibleItemType:null},{kind:'ChestExistingSlotAmountDecrease',compatibleItemType:null},{rightsAllowed:1},{rightsAllowed:false},{sourceVerified:false},{registryVerified:false},{slotIndex:-1},{oldAmount:1},{oldAmount:10000},{itemId:0},{extra:1}])assert.throws(()=>fixed({...t,...p},1));
+          for(const n of [0,-1,7,8,'6',6.5,null])assert.throws(()=>fixed(t,n));assert.equal(fixed(t,1).newAmount,1);assert.equal(fixed({...t,targetId:4,compatibleItemType:'ItemType_Ingredient'},6).inventoryId,4);
+          console.log('QA612_PARENT_DENY_FIXED_EXACT_ZERO_21TARGET_7AMOUNT_NEG_PASS');
+          
+          JS
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/routes/test-dev-amount-ui/+page.svelte')
+          s=Path('tests/dev-amount-ui-chrome/ci-only-route.svelte').read_text()
+          s=s.replace('return {targets:[target,furnitureZero],rawDocumentExposed:false}', '''const mode=new URL(location.href).searchParams.get('mode');
+                const bad={string:{targetId:'0'},chest:{kind:'ChestExistingSlotAmountDecrease',compatibleItemType:null},ingredient:{compatibleItemType:'ItemType_Ingredient'},rights:{rightsAllowed:false},mixed:{sourceVerified:false}}[mode];
+                return {targets:mode==='duplicate'?[furnitureZero,furnitureZero]:bad?[target,{...furnitureZero,...bad}]:[target,furnitureZero],rawDocumentExposed:false}''')
+          s=s.replace('const c=commands?.[0];','globalThis.__qa612Stages=(globalThis.__qa612Stages??0)+1;const c=commands?.[0];')
+          p.parent.mkdir(parents=True,exist_ok=True);p.write_text(s)
+          
+          PY
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4371 --strictPort >/tmp/qa612.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4371/test-dev-amount-ui/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4371/test-dev-amount-ui/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';
+          const origin='http://127.0.0.1:4371',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{const ctx=await browser.newContext({serviceWorkers:'block',viewport:{width:320,height:850}});const p=await ctx.newPage(),errors=[],unsafe=[];p.on('pageerror',e=>errors.push(e.message));ctx.on('request',r=>{if(!r.url().startsWith(origin+'/')||!['GET','HEAD'].includes(r.method()))unsafe.push(r.method())});
+          async function start(mode){await p.goto(origin+'/test-dev-amount-ui/?mode='+mode,{waitUntil:'networkidle'});await p.locator('[data-dev-amount-summary]').click();await p.locator('#dev-amount-p1g').setInputFiles({name:'synthetic-ci.p1g',mimeType:'application/octet-stream',buffer:Buffer.alloc(64)});await p.locator('#dev-amount-sha').fill('a'.repeat(64));await p.locator('.check input').check();await p.locator('[data-dev-open]').click();await p.locator('[data-dev-backup]').click();}
+          await start('good');await p.locator('[data-backup-verified]').waitFor();await p.locator('#dev-amount-target').selectOption({index:1});for(const n of ['0','7','8','-1','1.5']){await p.locator('#dev-amount-new').fill(n);assert.equal(await p.locator('[data-dev-stage]').isDisabled(),true)}
+          await p.locator('#dev-amount-new').fill('6');await p.locator('[data-dev-stage]').click();await p.locator('[data-dev-preview]').waitFor();assert.match(await p.locator('[data-dev-preview]').innerText(),/7.*6/s);await p.locator('[data-dev-undo]').click();await p.locator('[data-dev-redo]').click();await p.locator('[data-dev-export]').click();await p.locator('[data-dev-edited-copy]').waitFor();assert.equal(await p.evaluate(()=>globalThis.__qa612Stages),1);
+          for(const mode of ['string','chest','ingredient','rights','mixed','duplicate']){await start(mode);await p.locator('[data-dev-error]').waitFor();assert.equal(await p.locator('#dev-amount-target').count(),0);assert.equal(await p.locator('[data-dev-stage]').count(),0);assert.equal(await p.locator('[data-backup-verified]').count(),0);assert.equal(await p.evaluate(()=>globalThis.__qa612Stages??0),0);}
+          assert.deepEqual(errors,[]);assert.deepEqual(unsafe,[]);console.log('QA612_ACTUAL_CHROME_ZERO_POS_5AMOUNT_6LIST_DENY_PASS');await ctx.close();}finally{await browser.close()}
+          
+          JS
