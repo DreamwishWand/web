@@ -6,8 +6,8 @@ import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {createP1gRustWorkerReadOnlyBridge as makeBridge} from '../src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
-import {p1gPackagedProfileCodec as codec} from '../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
+import {createP1gRustWorkerReadOnlyBridge as makeBridge} from '../../src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+import {p1gPackagedProfileCodec as codec} from '../../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
 const pkg=resolve(process.argv[2]),glue=await import(pathToFileURL(join(pkg,'ddv_save_core.js')).href);
 glue.initSync({module:new WebAssembly.Module(await readFile(join(pkg,'ddv_save_core_bg.wasm')))});
 const sha=b=>createHash('sha256').update(b).digest('hex');
@@ -49,7 +49,7 @@ try{
   let expect=text.replace('"Amount": 19','"Amount": 18');if(label==='mixed')expect=expect.replace('"Amount": 29','"Amount": 28');
   const child=spawnSync(process.execPath,['--input-type=module','-e',
    "import {readFile} from 'node:fs/promises';import {createHash} from 'node:crypto';const {p1gPackagedProfileCodec:c}=await import(process.argv[1]);const d=await c.loadProfile(await readFile(process.argv[2]));if(createHash('sha256').update(d.jsonText).digest('hex')!==process.argv[3])process.exit(3);process.stdout.write('INDEPENDENT_REOPEN_EXACT');",
-   new URL('../src/lib/ddv/core/save/p1g-packaged-profile-codec.js',import.meta.url).href,edited,sha(expect)],{encoding:'utf8',timeout:15000});
+   new URL('../../src/lib/ddv/core/save/p1g-packaged-profile-codec.js',import.meta.url).href,edited,sha(expect)],{encoding:'utf8',timeout:15000});
   assert.equal(child.status,0,child.stderr);assert.equal(child.stdout,'INDEPENDENT_REOPEN_EXACT');
   assert.equal((await codec.loadProfile(await readFile(edited))).jsonText,expect);assert.equal(sha(await readFile(edited)),out.editedSha256);
   assert.equal(sha(await readFile(original)),h);assert.equal(sha(await readFile(backup)),h);assert.equal(sha(input),h);
