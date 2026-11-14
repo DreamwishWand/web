@@ -9,6 +9,8 @@ import {createExistingAmountDecrease}
 const fail=()=>{throw Error('LOCAL_DEV_WORKER_DENIED')};
 const h=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),
  x=>x.toString(16).padStart(2,'0')).join('');
+const MAX_OUTPUT_BYTES=128*1024*1024;
+const validSize=n=>Number.isSafeInteger(n)&&n>0&&n<=MAX_OUTPUT_BYTES;
 const validSha=s=>typeof s==='string'&&/^[a-f0-9]{64}$/.test(s);
 const filename=s=>typeof s==='string'&&/^[A-Za-z0-9._-]+\.p1g$/.test(s);
 const sameName=(a,b)=>typeof a==='string'&&typeof b==='string'&&a.normalize('NFC').toLowerCase()===b.normalize('NFC').toLowerCase();
@@ -63,6 +65,19 @@ async function writeChecked(root,tag,bytes,expectedSha,excluded,check){
   try{await root.removeEntry(name)}catch{};fail()
  }
 }
+// Read-only: caller is the Worker with a previously verified output binding.
+ // No caller-provided path or filename reaches this helper through the RPC.
+export async function readBoundEncryptedCopy(binding,check){
+ if(!binding||!filename(binding.name)||!validSha(binding.sha)||!validSize(binding.size))fail();
+ check();
+ const handle=await binding.directory.getFileHandle(binding.name);check();
+ const file=await handle.getFile();check();
+ if(file.name!==binding.name||file.size!==binding.size)fail();
+ const encryptedBytes=new Uint8Array(await file.arrayBuffer());check();
+ if(encryptedBytes.length!==binding.size||await h(encryptedBytes)!==binding.sha)fail();
+ check();
+ return {kind:'VERIFIED_DOWNLOAD',name:binding.name,sha256:binding.sha,sizeBytes:binding.size,encryptedBytes};
+}
 /**
  * verifyTargets is a trusted Worker-LOCAL provider of 01D/01E verified
  * existing-item descriptors. It cannot read UI-submitted item IDs. No
@@ -71,7 +86,7 @@ async function writeChecked(root,tag,bytes,expectedSha,excluded,check){
 export function createPr929LocalDevAmountAdapter({wasmFactory,verifyTargets=async()=>[]}){
  if(typeof wasmFactory!=='function'||typeof verifyTargets!=='function')fail();
  let root=null,original=null,backup=null,receipt=null,targets=[],applied=false;
- let generation=0;
+ let generation=0,outputs=Object.create(null);
  const check=token=>{if(token!==generation)fail()};
  const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{
   allowDevSemanticWriter:true,
@@ -98,7 +113,7 @@ export function createPr929LocalDevAmountAdapter({wasmFactory,verifyTargets=asyn
  function revoke(){
   generation++;try{bridge.close()}catch{}
   if(original?.bytes)original.bytes.fill(0);
-  root=null;original=null;backup=null;receipt=null;targets=[];applied=false;
+  root=null;original=null;backup=null;receipt=null;targets=[];applied=false;outputs=Object.create(null);
  }
  async function close(){revoke();return kind('CLOSED')}
  return Object.freeze({
@@ -132,6 +147,7 @@ export function createPr929LocalDevAmountAdapter({wasmFactory,verifyTargets=asyn
    check(token);
    if(sameName(saved.name,o.name))fail();
    backup={name:saved.name,source:o};
+   outputs.backup=Object.freeze({directory:r,name:saved.name,sha:o.sha,size:o.size});
    return {backupReadbackVerified:true,originalUnchanged:true,
     shaMatched:true,sizeMatched:true,separateName:true,originalName:o.name,
     originalSha256:o.sha,originalSizeBytes:o.size,backupName:saved.name};
@@ -186,7 +202,7 @@ export function createPr929LocalDevAmountAdapter({wasmFactory,verifyTargets=asyn
     if(edited.writerAuthorized!==false||
      edited.originalOverwriteAuthorized!==false||edited.nativeV3Verified!==false||
      !(edited.editedCiphertext instanceof Uint8Array)||!validSha(edited.editedSha256)||
-     edited.editedSha256===o.sha)fail();
+     edited.editedSha256===o.sha||!validSize(edited.editedCiphertext.length))fail();
     saved=await writeChecked(r,'wand-edited-copy',edited.editedCiphertext,
      edited.editedSha256,[o.name,b.name],()=>check(token));check(token);
     const reopened=await freshReopen(saved.bytes,edited.stagedDecodedSha256);check(token);
@@ -194,11 +210,17 @@ export function createPr929LocalDevAmountAdapter({wasmFactory,verifyTargets=asyn
     if(!reopened||!sourceUnchanged||sameName(saved.name,b.name)||
      sameName(saved.name,o.name))fail();
     const result={kind:'EXPORTED',ok:true,backupName:b.name,
-     editedCopyName:saved.name,editedCiphertextVerified:true,
+     editedCopyName:saved.name,editedSha256:edited.editedSha256,editedSizeBytes:saved.bytes.length,editedCiphertextVerified:true,
      freshWorkerReopenVerified:true,independentProcessReopenVerified:false,
      originalUnchanged:true,writerAuthorized:false,nativeV3Verified:false,
      originalOverwriteAuthorized:false};
-    revoke();return result;
+    // Close the single editing session; retain only immutable readback bindings
+    // for the two verified encrypted files until explicit Close/new selection.
+    const verifiedOutputs=Object.freeze({
+     backup:Object.freeze({directory:r,name:b.name,sha:o.sha,size:o.size}),
+     edited:Object.freeze({directory:r,name:saved.name,sha:edited.editedSha256,size:saved.bytes.length})
+    });
+    revoke();outputs=verifiedOutputs;return result;
    }catch{
     // Remove ONLY this operation's newly allocated edited copy; never a
     // previous backup or newer selection. No late error closes B.
@@ -206,6 +228,12 @@ export function createPr929LocalDevAmountAdapter({wasmFactory,verifyTargets=asyn
     if(token===generation)revoke();
     fail();
    }
+  },
+  async downloadVerifiedCopy(which){
+   if(which!=='backup'&&which!=='edited')fail();
+   const token=generation,bound=outputs[which];
+   if(!bound)fail();
+   return readBoundEncryptedCopy(bound,()=>{check(token);if(outputs[which]!==bound)fail()});
   },
   close
  });
@@ -215,7 +243,7 @@ export function createPr929LocalDevAmountAdapter({wasmFactory,verifyTargets=asyn
 export function installLocalDevAmountWorker(port,adapter){
  if(!port||typeof port.postMessage!=='function'||!adapter)fail();
  const methods=new Set(['open','backupOriginal','listVerifiedTargets',
-  'stageTyped','undo','redo','exportEditedCopy','close']);
+  'stageTyped','undo','redo','exportEditedCopy','downloadVerifiedCopy','close']);
  // IDs are consumed BEFORE invoking an adapter, including denied/busy
  // requests. A Close revokes the operation, not the per-port high-water mark.
  let lastId=0,active=null,closing=null,epoch=0;
@@ -223,7 +251,8 @@ export function installLocalDevAmountWorker(port,adapter){
   const v=e.data;
   if(!safeKeys(v,'id,method,args')||!Number.isSafeInteger(v.id)||
     v.id<1||v.id<=lastId||!methods.has(v.method)||!Array.isArray(v.args)||
-    v.args.length!==(['open','stageTyped'].includes(v.method)?1:0)){
+    v.args.length!==(['open','stageTyped','downloadVerifiedCopy'].includes(v.method)?1:0)||
+    (v.method==='downloadVerifiedCopy'&&v.args[0]!=='backup'&&v.args[0]!=='edited')){
     port.postMessage({id:v?.id??0,ok:false,error:'DENIED'});return;
   }
   lastId=v.id;
@@ -271,6 +300,7 @@ export function createLocalAmountDevPort(worker){
   stageTyped:commands=>rpc('stageTyped',commands),
   undo:()=>rpc('undo'),redo:()=>rpc('redo'),
   exportEditedCopy:()=>rpc('exportEditedCopy'),
+  downloadVerifiedCopy:which=>rpc('downloadVerifiedCopy',which),
   close:()=>rpc('close'),
   dispose:()=>{for(const p of pending.values())p.reject(Error('DEV_WORKER_CLOSED'));
    pending.clear();worker.terminate()}

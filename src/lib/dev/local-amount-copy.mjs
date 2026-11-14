@@ -85,7 +85,17 @@ const safety=Object.freeze({
   failed:'Negado. Sessão encerrada; selecione o arquivo novamente.',
   note:'Sem IDs desconhecidos, Skin, DLC, direitos pagos, JSON arbitrário, sobrescrita, Cloud ou Writer público.'}
 });
+const downloads=Object.freeze({
+ en:{downloadBackup:'Download original backup',downloadEdited:'Download edited P1G copy'},
+ ja:{downloadBackup:'原本Backupをダウンロード',downloadEdited:'編集済みP1Gをダウンロード'},
+ fr:{downloadBackup:'Télécharger la sauvegarde originale',downloadEdited:'Télécharger la copie P1G modifiée'},
+ it:{downloadBackup:'Scarica il backup originale',downloadEdited:'Scarica la copia P1G modificata'},
+ de:{downloadBackup:'Original-Sicherung herunterladen',downloadEdited:'Bearbeitete P1G-Kopie herunterladen'},
+ 'es-ES':{downloadBackup:'Descargar copia original',downloadEdited:'Descargar copia P1G editada'},
+ 'zh-CN':{downloadBackup:'下载原始备份',downloadEdited:'下载编辑后的 P1G 副本'},
+ 'pt-BR':{downloadBackup:'Baixar backup original',downloadEdited:'Baixar cópia P1G editada'}
+});
 const localized=Object.freeze(Object.fromEntries(Object.entries(map)
- .map(([k,v])=>[k,Object.freeze({...v,...(safety[k]||{})})])));
+ .map(([k,v])=>[k,Object.freeze({...v,...(safety[k]||{}),...downloads[k]})])));
 export const DEV_AMOUNT_UI_LOCALES=Object.freeze(Object.keys(localized));
-export function localAmountCopy(locale){return localized[locale]||en}
+export function localAmountCopy(locale){return localized[locale]||localized.en}

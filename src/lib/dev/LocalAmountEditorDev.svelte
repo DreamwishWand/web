@@ -61,6 +61,23 @@
   const undo=()=>act(()=>workflow.undo());
   const redo=()=>act(()=>workflow.redo());
   const exportCopy=()=>act(()=>workflow.exportEditedCopy());
+  async function downloadCopy(which){
+    if(!workflow||pending)return;
+    const active=workflow;
+    pending=true;error=false;
+    try{
+      const result=await active.downloadVerifiedCopy(which);
+      if(workflow!==active||active.snapshot().phase==='closed')return;
+      const url=URL.createObjectURL(new Blob([result.encryptedBytes],{type:'application/octet-stream'}));
+      try{
+        const a=document.createElement('a');a.href=url;a.download=result.name;
+        document.body.appendChild(a);
+        try{a.click()}finally{a.remove()}
+      }finally{setTimeout(()=>URL.revokeObjectURL(url),1000)}
+    }catch{
+      if(workflow===active){error=true;state=active.snapshot()}
+    }finally{if(workflow===active)pending=false}
+  }
   async function close(){
     await act(()=>workflow.close());
     resetInput();
@@ -100,7 +117,10 @@
           <button type="button" data-dev-backup on:click={backup} disabled={pending}>{words.backup}</button>
         {/if}
       </div>
-      {#if state.backupVerified}<p role="status" data-backup-verified>{words.backupOk}</p>{/if}
+      {#if state.backupVerified}
+        <p role="status" data-backup-verified>{words.backupOk}</p>
+        <button type="button" data-dev-download-backup on:click={()=>downloadCopy('backup')} disabled={pending}>{words.downloadBackup}</button>
+      {/if}
       {#if phase==='ready' || phase==='staged' || phase==='undone'}
         {#if state.targets.length===0}
           <p role="status" data-no-verified-targets>{words.empty}</p>
@@ -140,6 +160,7 @@
       {#if phase==='exported' && state.editedCopy}
         <p role="status" data-dev-edited-copy>{words.done}</p>
         <p><code>{state.editedCopy.name}</code></p>
+        <button type="button" data-dev-download-edited on:click={()=>downloadCopy('edited')} disabled={pending}>{words.downloadEdited}</button>
       {/if}
       {#if error}<p role="alert" data-dev-error>{words.failed}</p>{/if}
     {/if}

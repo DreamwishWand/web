@@ -12,6 +12,8 @@ const only=(o,keys)=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&
 const uint=(v,positive=false)=>Number.isSafeInteger(v)&&v>=(positive?1:0)&&v<=0xffffffff;
 const sha=v=>typeof v==='string'&&/^[0-9a-f]{64}$/.test(v);
 const same=(a,b)=>typeof a==='string'&&typeof b==='string'&&a.normalize('NFC').toLowerCase()===b.normalize('NFC').toLowerCase();
+const validSize=n=>Number.isSafeInteger(n)&&n>0&&n<=128*1024*1024;
+const encryptedDigest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
 const copyName=n=>typeof n==='string'&&/^[A-Za-z0-9._-]+\.p1g$/.test(n);
 // Mirror only the accepted Rust semantic_writer.rs DEV deny bounds, not a Native rights registry.
 const MAX_CONSERVATIVE_AMOUNT=9999;
@@ -54,10 +56,10 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false}
   if(trustedLocalHarness!==true||!adapter||typeof adapter!=='object')
     fail('LOCAL_HARNESS_GATE_OFF');
   for(const method of ['open','backupOriginal','listVerifiedTargets','stageTyped',
-    'undo','redo','exportEditedCopy','close'])
+    'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])
     if(typeof adapter[method]!=='function')fail('TRUSTED_WORKER_API_MISSING');
-  let epoch=0,busy=false,state=cleanState(),sourceBinding=null,backupBinding=null;
-  const reset=()=>{state=cleanState();sourceBinding=null;backupBinding=null};
+  let epoch=0,busy=false,state=cleanState(),sourceBinding=null,backupBinding=null,editedBinding=null;
+  const reset=()=>{state=cleanState();sourceBinding=null;backupBinding=null;editedBinding=null};
   const snapshot=()=>Object.freeze({...state,targets:Object.freeze([...state.targets]),
     preview:state.preview?Object.freeze({...state.preview}):null,
     editedCopy:state.editedCopy?Object.freeze({...state.editedCopy}):null});
@@ -163,11 +165,11 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false}
     return execute(async(check,commit)=>{
       const r=await adapter.exportEditedCopy();
       check();
-      if(!only(r,'kind,ok,editedCopyName,backupName,editedCiphertextVerified,freshWorkerReopenVerified,independentProcessReopenVerified,originalUnchanged,writerAuthorized,nativeV3Verified,originalOverwriteAuthorized')||
+      if(!only(r,'kind,ok,editedCopyName,editedSha256,editedSizeBytes,backupName,editedCiphertextVerified,freshWorkerReopenVerified,independentProcessReopenVerified,originalUnchanged,writerAuthorized,nativeV3Verified,originalOverwriteAuthorized')||
         r.kind!=='EXPORTED'||r.ok!==true||r.editedCiphertextVerified!==true||
         r.freshWorkerReopenVerified!==true||r.independentProcessReopenVerified!==false||r.originalUnchanged!==true||
         r.writerAuthorized!==false||r.nativeV3Verified!==false||
-        r.originalOverwriteAuthorized!==false||
+        r.originalOverwriteAuthorized!==false||!sha(r.editedSha256)||r.editedSha256===selected.sha||!validSize(r.editedSizeBytes)||
         typeof r.backupName!=='string'||typeof r.editedCopyName!=='string'||
         !/^[A-Za-z0-9._-]+\.p1g$/.test(r.backupName)||
         !/^[A-Za-z0-9._-]+\.p1g$/.test(r.editedCopyName)||
@@ -175,9 +177,33 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false}
         same(r.backupName,r.editedCopyName)||same(r.editedCopyName,selected.name))
         fail('EDITED_COPY_REOPEN_AND_NAME_DENIED');
       return commit({phase:'exported',editedCopy:{name:r.editedCopyName,
-        backupName:r.backupName,freshWorkerReopenVerified:true,independentProcessReopenVerified:false}});
+        backupName:r.backupName,freshWorkerReopenVerified:true,independentProcessReopenVerified:false}},()=>{
+          editedBinding=Object.freeze({name:r.editedCopyName,sha:r.editedSha256,size:r.editedSizeBytes});
+        });
+    });
+  };
+  const downloadVerifiedCopy=async which=>{
+    const selected=sourceBinding,backup=backupBinding;
+    if(!selected||!backup||backup.source!==selected||!state.backupVerified||busy||
+       !['ready','staged','undone','exported'].includes(state.phase)||
+       (which!=='backup'&&which!=='edited')||(which==='edited'&&state.phase!=='exported'))
+      fail('DOWNLOAD_SCOPE_DENIED');
+    const bound=which==='backup'?{name:backup.name,sha:selected.sha,size:selected.size}:editedBinding;
+    if(!bound)fail('DOWNLOAD_SCOPE_DENIED');
+    return execute(async(check)=>{
+      const r=await adapter.downloadVerifiedCopy(which);check();
+      if(!only(r,'kind,name,sha256,sizeBytes,encryptedBytes')||r.kind!=='VERIFIED_DOWNLOAD'||
+         r.name!==bound.name||!copyName(r.name)||r.sha256!==bound.sha||r.sizeBytes!==bound.size||
+         !validSize(r.sizeBytes)||!(r.encryptedBytes instanceof Uint8Array)||r.encryptedBytes.length!==bound.size)
+        fail('DOWNLOAD_RECEIPT_DENIED');
+      // The only output permitted to leave the Worker is the verified encrypted
+      // P1G copy. Never retain its bytes in snapshot/UI state.
+      const bytes=new Uint8Array(r.encryptedBytes);
+      const digest=await encryptedDigest(bytes);check();
+      if(digest!==bound.sha)fail('DOWNLOAD_DIGEST_DENIED');
+      return Object.freeze({name:bound.name,encryptedBytes:bytes});
     });
   };
   return Object.freeze({snapshot,open,backupAndRead,stage,undo,redo,
-    exportEditedCopy,close,contract:DEV_AMOUNT_CONTRACT});
+    exportEditedCopy,downloadVerifiedCopy,close,contract:DEV_AMOUNT_CONTRACT});
 }
