@@ -87,7 +87,7 @@ function profileForTransform(){
     Player:{},ProfileWorld:{Stores:[],Shops:[]},ConditionalEventHistory:{ActiveEvents:{}},
     World:{
       GridCollection:{Grids:{'10':{ID:10,GridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:102,Objects:{
-        '101':{ID:101,ItemID:40000048,X:10,Y:10,Orientation:'GridOrientation_Up',State:null}
+        '101':{ID:101,ItemID:40000048,X:452,Y:228,Orientation:'GridOrientation_Up',State:null}
       }}},DiffGrids:{}},
       Villages:[{SceneItemId:1540000000,Areas:{'7':{GridIDs:[10],Unlocked:true,EnvironmentEffectItemID:0,EnvironmentEffectOrientation:'GridOrientation_Up'}}}],
       FloatingIslands:{},MissionSlots:{},QuestInfo:{},Keyholes:{}
@@ -104,15 +104,14 @@ async function transformFixture(){
   const draftDocument=structuredClone(baselineDocument);
   const object=draftDocument.objects[0];
   assert.equal(object.itemId,40000048);
-  // Find a legal destination from the real pinned placement pack.
-  let found=false;
-  for(let y=0;y<80&&!found;y++)for(let x=0;x<80&&!found;x++){
-    if(x===object.x&&y===object.y)continue;
-    object.x=x;object.y=y;
-    const p=placementBinding.classifyMinimumTransformPlacement({document:draftDocument,editorId:object.editorId});
-    if(p.result.valid===true&&p.result.verdict==='VALID')found=true;
-  }
-  assert.equal(found,true);
+  // Reuse the exact positive cell from accepted primary-job Chrome PR64
+  // run37113368314/job111175398809, then recheck against current pinned data.
+  const before=placementBinding.classifyMinimumTransformPlacement({document:baselineDocument,editorId:object.editorId});
+  assert.equal(before.result.verdict,'VALID');
+  object.x=453;object.y=228;
+  const after=placementBinding.classifyMinimumTransformPlacement({document:draftDocument,editorId:object.editorId});
+  assert.equal(after.result.valid,true);
+  assert.equal(after.result.verdict,'VALID');
   const input={sourceBytes,sourceName:'profile',sourceEpoch:1,opened,baselineDocument,draftDocument,placementBinding,worldBinding,fetchImpl:localFetch,exactBuildConfirmed:true};
   return {profile,input};
 }
