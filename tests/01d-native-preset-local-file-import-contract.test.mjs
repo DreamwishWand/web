@@ -203,3 +203,32 @@ test('stale native preset removal rejects a replaced same-ID entry and retains d
  assert.match(ui,/operation:'remove',id,expectedEntry/);
  assert.match(ui,/removeBackup\(backup\)/);
 });
+
+
+test('QA538 exact full-entry CAS preserves metadata-only replacement and queued disjoint mutation',async()=>{
+ const {transactNativePresetLibrary:tx}=await import('../src/lib/presets/native-local-file-import-contract.mjs');
+ const {NATIVE_PRESET_LIBRARY_KEY:key}=await import('../src/lib/presets/native-preset-runtime.js');
+ let raw=null,writes=0,tail=Promise.resolve();
+ const storage={getItem:k=>{assert.equal(k,key);return raw},setItem:(k,v)=>{assert.equal(k,key);raw=v;writes++}};
+ const locks={request:(name,opts,fn)=>{assert.equal(opts.mode,'exclusive');const result=tail.then(fn);tail=result.catch(()=>{});return result;}};
+ const run=options=>tx({storage,locks,...options});
+ const a=backup({shareInfo:{Code:'synthetic'}}),b={...a,source:{...a.source,sourceName:'different provenance.p1g'}},c={...backup({deleted:true}),id:'native_q538_disjoint'};
+ await run({operation:'merge',backups:[a]});
+ const captured=JSON.stringify(a);
+ await run({operation:'remove',id:a.id,expectedEntry:captured});
+ await run({operation:'merge',backups:[b]});
+ const before=raw;
+ for(const expectedEntry of [undefined,null,{},'',captured,JSON.stringify({...b,warnings:['forged']}),JSON.stringify({...b,deleted:true})]){
+  await assert.rejects(run({operation:'remove',id:b.id,expectedEntry}),/EXPECTED_ENTRY_REQUIRED|STALE_ENTRY/);
+  assert.equal(raw,before);assert.equal(writes,3);
+ }
+ const result=await Promise.allSettled([run({operation:'merge',backups:[c]}),run({operation:'remove',id:b.id,expectedEntry:captured})]);
+ assert.deepEqual(result.map(x=>x.status),['fulfilled','rejected']);
+ assert.deepEqual(JSON.parse(raw).backups,[b,c]);assert.equal(writes,4);
+ await run({operation:'remove',id:b.id,expectedEntry:JSON.stringify(b)});
+ assert.deepEqual(JSON.parse(raw).backups,[c]);assert.equal(writes,5);
+ let reads=0;const saved=raw,changed='{"external":"preserve"}';
+ const storageRace={getItem:()=>++reads===1?saved:changed,setItem:()=>assert.fail('stale removal wrote')};
+ await assert.rejects(tx({storage:storageRace,locks,operation:'remove',id:c.id,expectedEntry:JSON.stringify(c)}),/STALE_STORAGE/);
+ assert.equal(raw,saved);assert.equal(writes,5);
+});
