@@ -453,3 +453,188 @@ mod historical_layout_tests{
         }
     }
 }
+
+// ACT713: exact archived 01C shape validation only, no generic compiler.
+// Standalone layout adds never debit/refund inventory or replace existing IDs.
+#[derive(Clone,Copy)]
+enum FenceAddShape { OrthoL, Diagonal90, OrthoT }
+impl FenceAddShape {
+    fn contract(self)->&'static str{match self{
+        Self::OrthoL=>"wand.private.switch624.fence-ortho-l-archive@1",
+        Self::Diagonal90=>"wand.private.switch624.fence-diagonal90-archive@1",
+        Self::OrthoT=>"wand.private.switch624.fence-ortho-t-archive@1",
+    }}
+    fn records(self)->u32{match self{Self::OrthoL|Self::Diagonal90=>5,Self::OrthoT=>7}}
+    fn descriptors(self)->&'static [(u32,i32,i32,bool,bool)]{match self{
+        Self::OrthoL=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
+            (EXT1,4,2,true,false),(BASE,4,4,false,false)],
+        Self::Diagonal90=>&[(BASE,0,0,false,true),(40700253,2,2,false,true),(BASE,4,4,false,true),
+            (40700253,6,2,true,true),(BASE,8,0,false,true)],
+        Self::OrthoT=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
+            (EXT1,6,0,false,false),(BASE,8,0,false,false),(EXT1,4,2,true,false),(BASE,4,4,false,false)],
+    }}
+}
+fn add_plan_parse(bytes:&[u8],shape:FenceAddShape)->CoreResult<Value>{
+    if bytes.is_empty()||bytes.len()>16384{return Err(denied("FENCE_ADD_PLAN_BOUNDS"));}
+    let v:Value=serde_json::from_slice(bytes).map_err(|_|denied("FENCE_ADD_PLAN_JSON"))?;
+    if enc(&v)?.as_slice()!=bytes{return Err(denied("FENCE_ADD_NONCANONICAL"));}
+    let keys=["contract","layout","sourceDecodedSha256","gridId","expectedNextId","gridSha256",
+        "created","inventoryEntrySha256"];
+    let m=v.as_object().ok_or(denied("FENCE_ADD_PLAN_OBJECT"))?;
+    if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||
+       v["contract"]!=shape.contract()||v["layout"]!="PRESERVE_EXISTING"{
+        return Err(denied("FENCE_ADD_PLAN_FIELDS"));
+    }
+    Ok(v)
+}
+fn add_wanted(shape:FenceAddShape,next:u32,x:u32,y:u32)->CoreResult<Vec<Value>>{
+    let coord=|v:u32,d:i32|i64::from(v).checked_add(i64::from(d))
+        .filter(|n|*n>=0&&*n<=i64::from(i32::MAX)).map(|n|n as u32).ok_or(denied("FENCE_ADD_COORD_BOUND"));
+    shape.descriptors().iter().enumerate().map(|(i,(item,dx,dy,left,diag))|
+        Ok(fence_record(next.checked_add(i as u32).ok_or(denied("FENCE_ADD_COUNTER_OVERFLOW"))?,
+            *item,coord(x,*dx)?,coord(y,*dy)?,*left,*diag))).collect()
+}
+fn add_collect(s:&ProductSession,p:&Value,shape:FenceAddShape)->CoreResult<Vec<Replacement>>{
+    let b=&s.decoded;
+    if p["sourceDecodedSha256"]!=digest(b){return Err(denied("FENCE_ADD_SOURCE_CAS"));}
+    let g=uint(&p["gridId"])?;let next=uint(&p["expectedNextId"])?;
+    let end=next.checked_add(shape.records()).ok_or(denied("FENCE_ADD_COUNTER_OVERFLOW"))?;
+    if g==0||next==0||end>i32::MAX as u32{return Err(denied("FENCE_ADD_ID_BOUNDS"));}
+    let plan=p["created"].as_array().filter(|a|a.len()==shape.records() as usize).ok_or(denied("FENCE_ADD_CREATED"))?;
+    let wanted=add_wanted(shape,next,uint(&plan[0]["X"])?,uint(&plan[0]["Y"])?)?;
+    if plan.as_slice()!=wanted.as_slice(){return Err(denied("FENCE_ADD_EXACT_SHAPE"));}
+    let anchors:Vec<(u32,u32)>=wanted.iter().map(|o|Ok((uint(&o["X"])?,uint(&o["Y"])?)))
+        .collect::<CoreResult<_>>()?;
+    let roots=indexed_read::roots(b)?;
+    let gc=object_field(b,roots.world,"GridCollection")?;
+    let grid=object_field(b,object_field(b,gc,"Grids")?,&g.to_string())?;
+    if p["gridSha256"]!=digest(raw(b,grid)?)||num(b,grid,"ID")?!=g||
+       num(b,grid,"TessellationFactor")?!=2||val(b,object_field(b,grid,"GridDefaultLayoutPath")?)?!=""{
+        return Err(denied("FENCE_ADD_GRID_CAS"));
+    }
+    let diffs=object_field(b,gc,"DiffGrids")?;
+    let mut pos=diffs.begin+1;let mut count=0;
+    while let Some((k,_))=next_object_member(b,diffs,&mut pos)?{
+        count+=1;if count>50000||k==g.to_string(){return Err(denied("FENCE_ADD_OVERLAY"));}
+    }
+    let counter=object_field(b,grid,"NextGridObjectID")?;
+    if number(b,counter)?!=next as u64{return Err(denied("FENCE_ADD_COUNTER_CAS"));}
+    let objs=object_field(b,grid,"Objects")?;
+    let mut pos=objs.begin+1;let mut count=0usize;
+    while let Some((k,entry))=next_object_member(b,objs,&mut pos)?{
+        count+=1;if count>250000{return Err(denied("FENCE_ADD_OBJECT_BOUND"));}
+        let id=k.parse::<u32>().map_err(|_|denied("FENCE_ADD_OBJECT_KEY"))?;
+        if id==0||id.to_string()!=k||id>=next||num(b,entry,"ID")?!=id{
+            return Err(denied("FENCE_ADD_OBJECT_ID"));
+        }
+        let ox=val(b,object_field(b,entry,"X")?)?.as_f64().filter(|v|v.is_finite()).ok_or(denied("FENCE_ADD_COORD_TOKEN"))?;
+        let oy=val(b,object_field(b,entry,"Y")?)?.as_f64().filter(|v|v.is_finite()).ok_or(denied("FENCE_ADD_COORD_TOKEN"))?;
+        if anchors.iter().any(|(x,y)|ox==*x as f64&&oy==*y as f64){return Err(denied("FENCE_ADD_OCCUPIED_ANCHOR"));}
+    }
+    // Existing lexical append uses a leading comma. Scope is the nonempty
+    // archived direct grid; actual full footprint/rights are external gates.
+    if count==0{return Err(denied("FENCE_ADD_EMPTY_GRID"));}
+    let route=object_field(b,object_field(b,roots.player,"ListInventories")?,"0")?;
+    inventory_route(b,route,0,BASE,"ItemType_Furniture")?;
+    let entry=object_field(b,object_field(b,route,"Inventory")?,&BASE.to_string())?;
+    let amount=num(b,entry,"Amount")?;
+    if amount==0||amount as u64>MAX_CONSERVATIVE_AMOUNT||p["inventoryEntrySha256"]!=digest(raw(b,entry)?){
+        return Err(denied("FENCE_ADD_CATALOG_CAS"));
+    }
+    layout_edits(b,&[],&[],objs,counter,end,plan)
+}
+impl ProductSession{
+    fn stage_fence_add(&self,e:WorkerEnvelope,plan:&[u8],shape:FenceAddShape)->CoreResult<SemanticStageReceipt>{
+        let build=&self.native_source_build;
+        if build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||build.build_id!=BID||
+           build.schema!=624||!build.externally_attested||self.worker_bound{
+            return Err(denied("FENCE_ADD_EXACT_SWITCH624_REQUIRED"));
+        }
+        let p=add_plan_parse(plan,shape)?;
+        let edits=add_collect(self,&p,shape)?;
+        self.commit_semantic_replacements(e,edits,shape.records() as usize+1)
+    }
+    pub fn stage_switch624_fence_ortho_l_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        self.stage_fence_add(e,plan,FenceAddShape::OrthoL)
+    }
+    pub fn stage_switch624_fence_diagonal90_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        self.stage_fence_add(e,plan,FenceAddShape::Diagonal90)
+    }
+    pub fn stage_switch624_fence_ortho_t_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        self.stage_fence_add(e,plan,FenceAddShape::OrthoT)
+    }
+}
+#[cfg(test)]
+mod add_tests{
+    use super::*;
+    fn fixture(shape:FenceAddShape)->(Value,Value){
+        let d=json!({"GameInfo":{"Version":624},"World":{"Ambient":{"keep":7},
+            "GridCollection":{"DiffGrids":{},"Grids":{"9":{"ID":9,"TessellationFactor":2,
+            "GridDefaultLayoutPath":"","NextGridObjectID":50,"Objects":{"12":{"ID":12,"ItemID":40000001,
+            "X":80,"Y":90,"Opaque":{"k":7}}}}}}},
+            "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture",
+            "CompatibleFurnitureTypes":{"List":["FurnitureItemType_Fence"]},
+            "Inventory":{"40700246":{"Amount":30,"Marker":"Keep","Unknown":8}}}}}});
+        let mut p=json!({"contract":shape.contract(),"layout":"PRESERVE_EXISTING","gridId":9,
+            "expectedNextId":50,"created":add_wanted(shape,50,40,20).unwrap()});
+        bind(&d,&mut p);(d,p)
+    }
+    fn bind(d:&Value,p:&mut Value){
+        p["sourceDecodedSha256"]=json!(digest(&enc(d).unwrap()));
+        p["gridSha256"]=json!(digest(&enc(&d["World"]["GridCollection"]["Grids"]["9"]).unwrap()));
+        p["inventoryEntrySha256"]=json!(digest(&enc(&d["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]).unwrap()));
+    }
+    fn open(d:&Value)->ProductSession{let b=enc(d).unwrap();let h=sha(&b);
+        ProductSession::open_switch624_fe01_private(b,crate::BuildIdentity{platform:Platform::Switch,
+            build_kind:BuildKind::SwitchBid,build_id:BID.into(),schema:624,externally_attested:true},h).unwrap()}
+    fn scope(s:&ProductSession,a:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();
+        WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
+            expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:a}}
+    const SHAPES:[FenceAddShape;3]=[FenceAddShape::OrthoL,FenceAddShape::Diagonal90,FenceAddShape::OrthoT];
+    #[test]
+    fn nonstraight_exact6_6_8_layout_only_undo_redo_export(){
+        for shape in SHAPES{
+            let (d,p)=fixture(shape);let s=open(&d);let e=scope(&s,WorkerAction::Stage);
+            let r=s.stage_fence_add(e,&enc(&p).unwrap(),shape).unwrap();
+            assert_eq!(r.operation_count,shape.records() as usize+1);assert!(!r.product_writer_authorized);
+            assert!(s.stage_fence_add(e,&enc(&p).unwrap(),shape).is_err());
+            s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+            s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+            let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(e).is_err());
+            let mut expected=d.clone();let g=&mut expected["World"]["GridCollection"]["Grids"]["9"];
+            g["NextGridObjectID"]=json!(50+shape.records());
+            for o in p["created"].as_array().unwrap(){g["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
+            assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),expected);
+            assert_eq!(sha(&out),r.staged_decoded_sha256);
+        }
+    }
+    #[test]
+    fn nonstraight_contract_shape_catalog_collision_and_epoch_deny(){
+        for shape in SHAPES{
+            let (d,p)=fixture(shape);let s=open(&d);let e=scope(&s,WorkerAction::Stage);
+            assert!(open(&d).stage_fence_add(e,&enc(&p).unwrap(),shape).is_err());
+            for (k,v) in [("layout",json!("EXPLICIT_USER_LAYOUT")),("contract",json!("wrong")),
+                ("expectedNextId",json!(51)),("sourceDecodedSha256",json!("bad")),("gridSha256",json!("bad")),
+                ("inventoryEntrySha256",json!("bad")),("created",json!([])),("refund",json!(1))]{
+                let mut q=p.clone();q[k]=v;assert!(s.stage_fence_add(e,&enc(&q).unwrap(),shape).is_err());
+            }
+            for i in 0..7{
+                let mut d=d.clone();let mut q=p.clone();
+                match i{
+                    0=>{d["World"]["GridCollection"]["Grids"]["9"]["Objects"]["12"]["X"]=json!(40);
+                        d["World"]["GridCollection"]["Grids"]["9"]["Objects"]["12"]["Y"]=json!(20);},
+                    1=>d["World"]["GridCollection"]["DiffGrids"]["9"]=json!({}),
+                    2=>d["World"]["GridCollection"]["Grids"]["9"]["GridDefaultLayoutPath"]=json!("unknown"),
+                    3=>d["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(0),
+                    4=>q["created"][1]["Orientation"]=json!("GridOrientation_Up"),
+                    5=>q["created"][1]["Opaque"]=json!(true),
+                    _=>q["created"][1]["ID"]=json!(50),
+                }
+                bind(&d,&mut q);let t=open(&d);assert!(t.stage_fence_add(scope(&t,WorkerAction::Stage),&enc(&q).unwrap(),shape).is_err());
+            }
+            assert_eq!(s.receipt().unwrap().revision,0);
+        }
+    }
+}
