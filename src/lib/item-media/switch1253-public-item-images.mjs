@@ -253,7 +253,7 @@ export function scopedSteam1253ItemImageHref(base,itemId,catalog){
  if(!baseOk(base)||!steamCatalogs.has(catalog))return null;
  const id=String(itemId),p=catalog.items[id];
  if(id===STEAM1253_DOOR_ID&&p){
-  const prefix=base?'/'+base.replace(/^\\/+|\\/+$/g,''):'';
+  const prefix=base?'/'+base.replace(/^\/+|\/+$/g,''):'';
   return prefix+'/ddv/item-images/'+STEAM1253_ITEM_IMAGE_VARIANT+'/'+p.webpSha256.slice(0,2)+'/'+p.webpSha256+'.webp';
  }
  return scopedSwitch1253ItemImageHref(base,itemId,catalog.switch);
