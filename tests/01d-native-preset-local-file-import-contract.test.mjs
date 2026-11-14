@@ -122,7 +122,8 @@ test('Native manager imports both single/local-library backups ONLY after valida
   const ui=readFileSync('src/lib/presets/NativePresetManager.svelte','utf8');
   assert.match(ui,/inspectNativePresetLocalFileBytes\(new Uint8Array\(await file\.arrayBuffer\(\)\)\)/);
   assert.match(ui,/!reviewed\.localFileReady\|\|!reviewed\.backups/);
-  assert.match(ui,/byId\.size>100/);
+  assert.match(ui,/transactNativePresetLibrary/);
+  assert.match(ui,/await mergeBackups\(/);
   assert.match(ui,/file\.size>NATIVE_LOCAL_PRESET_FILE_MAX_BYTES/);
   assert.match(ui,/reviewed\.backups\.map\(\(x:any\)=>x\.backup\)/);
   assert.match(ui,/disabled title=\{copy\.blocked\}>\{copy\.restore\}/);
@@ -157,4 +158,23 @@ test('QA674 exact import hook: incomplete schema624 SubGrid and DiffGrid entries
   const ok=await inspectNativePresetLocalFileBytes(bytes(clean));
   assert.equal(ok.status,'LOCAL_FILE_VALIDATED_PRESERVE_ONLY');
   assert.equal(ok.gameSaveApplyAuthorized,false);
+});
+
+test('migration transaction preserves latest target, exact duplicate idempotence, collision and corrupt bytes',async()=>{
+ const m=await import('../src/lib/presets/native-local-file-import-contract.mjs');
+ const {NATIVE_PRESET_LIBRARY_KEY:key}=await import('../src/lib/presets/native-preset-runtime.js');
+ let raw=null,writes=0;
+ const storage={getItem:k=>{assert.equal(k,key);return raw;},setItem:(k,v)=>{assert.equal(k,key);raw=v;writes++;}};
+ const locks={request:async(name,opts,fn)=>{assert.equal(name,m.NATIVE_PRESET_LIBRARY_LOCK);assert.equal(opts.mode,'exclusive');return fn();}};
+ const run=(backups,operation='merge')=>m.transactNativePresetLibrary({storage,locks,operation,backups});
+ const first=backup(), second={...backup(),id:'native_second'};
+ await run([first]);const one=raw;
+ await run([first]);assert.equal(raw,one);assert.equal(writes,1);
+ await assert.rejects(run([{...first,payload:{...first.payload,PresetName:'conflict'}}]),/ID_COLLISION/);
+ assert.equal(raw,one);assert.equal(writes,1);
+ await run([second]);assert.deepEqual(JSON.parse(raw).backups,[first,second]);
+ const before=raw;raw='{"corrupt":true}';
+ await assert.rejects(run([first]),/STORAGE_INVALID/);assert.equal(raw,'{"corrupt":true}');
+ raw=before;await assert.rejects(m.transactNativePresetLibrary({storage,locks:null,operation:'merge',backups:[first]}),/LOCK_UNAVAILABLE/);
+ assert.equal(raw,before);
 });

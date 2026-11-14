@@ -1,0 +1,36 @@
+name: WEP native preset migration portability
+on:
+  pull_request:
+    paths:
+      - 'src/lib/presets/NativePresetManager.svelte'
+      - 'src/lib/presets/native-local-file-import-contract.mjs'
+      - 'tests/01d-native-preset-local-file-import-contract.test.mjs'
+      - 'scripts/wep-native-preset-portability-chrome.mjs'
+      - '.github/workflows/wep-native-preset-portability.yml'
+permissions:
+  contents: read
+jobs:
+  portability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/01d-native-preset-local-file-import-contract.test.mjs
+      - run: npm run check
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual two-origin native preset file continuity
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4361 >/tmp/native-preset-migration.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4361/presets/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/wep-native-preset-portability-chrome.mjs
