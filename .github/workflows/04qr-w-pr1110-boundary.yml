@@ -1,0 +1,119 @@
+name: 04 QR-W PR1110 exact deletion boundary
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1110-boundary.yml'
+permissions:
+  contents: read
+jobs:
+  boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent raw tree equality and dependency scan
+        run: |
+          python3 - <<'PY'
+          import subprocess as s, pathlib, hashlib
+          B='514709a1ef554dc25bab488ea205405d8dbea333'
+          H='c5036bce70f1882e38309f2846cffebb0625e90d'
+          paths={"docs/core/01a-generated-real-wasm-browser-stage-e-099-20261107.md":"d8dacd520518c560f38da80fd931e2a77d9a2ad2","docs/core/01a-local-backup-reimport-candidate-20261104.md":"79ece2f04bfe11cb29b9136fa02f08f89945540f","docs/core/01a-native-area-grid-reference-slice-20261108.md":"1b5367df9926da54d995e73fa2bbc113454971fe","docs/core/01a-p1g-rust-worker-readonly-bridge-004-019-20261107.md":"75db3bdb1ed3ccdd141b42fc220ab492a87147ef","docs/core/01a-private-native-steam-rust-v1-v2-20261108.md":"2028eb106cc6fbbe1e677fc67f0be82881be6305","docs/core/01a-product-indexed-lazy-stagec-089-20261107.md":"a397d2e3b23772aaa0e443fa009b73c051e7e42d","docs/core/01a-product-single-session-abi-r02-20261106.md":"b7efd4ec308d518db0ed2199c26218be558b379f","docs/core/01a-product-wasm-worker-r04-20261106.md":"35ffd4d73ab7f4b0cbd24a6a3dd9b534dcce6a0f","docs/core/01a-r04-floating-island-direct-grid-index-20261108.md":"2a920a47784489e6c1cedadc2f53d8bde18483b0","docs/core/01a-r22-saved-diffgrids-typed-indexed-read-20261110.md":"e91964af0ec0df9cc2b8d6847ac19599ae4fdcd9","docs/core/01a-rust-product-session-068-stage-a-20261106.md":"c3e1a6beeaf087f9f1d7493ac8ee51ffc2200afd","docs/core/01a-rust-product-stageb-synthetic-cas-078-20261106.md":"90c1fd3d23e53d8144a6b4c687283ff4b8b2cc1a","docs/core/01a-stageh-local-dev-rust-typed-metadata-20261108.md":"17ebd7422726585fbdf5036f968c79d1d783daff","docs/core/01a-three-domain-local-read-and-w1-source-gate-20261104.md":"f93955f78dbd096bd1d2236fc6e29a66e0413d5c","docs/core/01a-worker-read-metadata-stage-d-093-20261107.md":"645b70cbda7bf72de1b93649f68d58901076f5c3","tools/owner-local-steam-v1/README.md":"98dd3f40d71dcba7513e0a371ce145d994a1a337"}
+          git=lambda *a:s.check_output(['git',*a])
+          def tree(ref):
+            out={}
+            for entry in git('ls-tree','-r','-z',ref).split(b'\0'):
+              if entry:
+                meta,p=entry.split(b'\t',1)
+                out[p.decode()]=meta.decode()
+            return out
+          b,h,q=tree(B),tree(H),tree('HEAD')
+          assert git('rev-parse',H+'^').decode().strip()==B
+          assert set(b)-set(h)==set(paths) and not set(h)-set(b)
+          assert all(b[p]==h[p] for p in h)
+          assert set(q)-set(h)=={'.github/workflows/04qr-w-pr1110-boundary.yml'} and all(q[p]==h[p] for p in h)
+          queries=0
+          for p,sha in paths.items():
+            assert b[p].endswith(sha)
+            raw=git('show',B+':'+p)
+            assert hashlib.sha1(('blob '+str(len(raw))+'\0').encode()+raw).hexdigest()==sha
+            needles=(p,'owner-local-steam-v1/README.md') if p.endswith('/README.md') else (p,pathlib.PurePosixPath(p).name,pathlib.PurePosixPath(p).stem)
+            for needle in needles:
+              queries+=1
+              r=s.run(['git','grep','-I','-l','-F','-e',needle,H,'--'],capture_output=True)
+              assert r.returncode==1,(needle,r.returncode,r.stdout.decode()[:500])
+          # Inspect broader directory references and dynamic file enumeration (no content logged).
+          import re
+          broad=[]
+          for p in h:
+            if not p.endswith(('.mjs','.js','.ts','.py','.rs','.sh','.yml','.yaml','.json','.svelte','.toml')): continue
+            raw=git('show',H+':'+p)
+            if b'docs/core' in raw or b'docs/wep' in raw or b'owner-local-steam-v1' in raw:
+              broad.append(p)
+              if p.startswith('tools/owner-local-steam-v1/'):
+                assert not re.search(rb'(?i)(?:readme\\.md|[\"\x27]readme[\"\x27])',raw),p
+          print('QRW1110_BROAD_DEPENDENCY_CANDIDATES',len(broad),sorted(broad))
+          print('QRW1110_FIXED16_RAW_TREE_ALL_RETAINED_MODES_BLOBS_IDENTICAL_PASS',len(b),len(h),'dependency_queries',queries)
+          PY
+      - name: Compare actual static builds before and after deletion (no upload)
+        env:
+          BASE_PATH: /web
+          VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          B=514709a1ef554dc25bab488ea205405d8dbea333
+          H=c5036bce70f1882e38309f2846cffebb0625e90d
+          temp="$(mktemp -d)"
+          trap 'rm -rf "$temp"' EXIT
+          git checkout --detach "$B"
+          npm ci --no-audit --no-fund
+          # Same test-only explicit version for BOTH builds. The production
+          # config leaves Kit's generated build version unspecified.
+          grep -R -n 'Date.now().toString()' node_modules/@sveltejs/kit/src/core/config | head -5
+          pin_version() {
+            node --input-type=module - <<'JS'
+            import {readFileSync,writeFileSync} from 'node:fs';
+            import assert from 'node:assert/strict';
+            const p='svelte.config.js',s=readFileSync(p,'utf8');
+            assert.equal(s.split('  kit: {').length,2);
+            assert.ok(!s.includes('version:'));
+            writeFileSync(p,s.replace('  kit: {','  kit: {\n    version: { name: "qrw1110-fixed-build-version" },'));
+          JS
+          }
+          pin_version
+          npm run build > "$temp/base.log" 2>&1 || { tail -40 "$temp/base.log"; exit 1; }
+          mv build "$temp/base"
+          rm -rf .svelte-kit
+          git restore -- svelte.config.js
+          git checkout --detach "$H"
+          pin_version
+          npm run build > "$temp/head.log" 2>&1 || { tail -40 "$temp/head.log"; exit 1; }
+          python3 - "$temp/base" build <<'PY'
+          import pathlib,sys,hashlib
+          a,b=map(pathlib.Path,sys.argv[1:])
+          def inv(d):
+            return {p.relative_to(d).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in d.rglob('*') if p.is_file()}
+          x,y=inv(a),inv(b)
+          print('QRW1110_STATIC_COUNTS',len(x),len(y),'html',sum(p.endswith('.html') for p in y))
+          print('QRW1110_STATIC_PATH_DELTA',sorted(set(x)-set(y)),sorted(set(y)-set(x)))
+          assert set(x)==set(y)
+          diff=[p for p in x if x[p]!=y[p]]
+          print('QRW1110_STATIC_BYTE_DELTA',len(diff),diff[:30])
+          assert not diff, diff[:30]
+          stems=["01a-generated-real-wasm-browser-stage-e-099-20261107","01a-local-backup-reimport-candidate-20261104","01a-native-area-grid-reference-slice-20261108","01a-p1g-rust-worker-readonly-bridge-004-019-20261107","01a-private-native-steam-rust-v1-v2-20261108","01a-product-indexed-lazy-stagec-089-20261107","01a-product-single-session-abi-r02-20261106","01a-product-wasm-worker-r04-20261106","01a-r04-floating-island-direct-grid-index-20261108","01a-r22-saved-diffgrids-typed-indexed-read-20261110","01a-rust-product-session-068-stage-a-20261106","01a-rust-product-stageb-synthetic-cas-078-20261106","01a-stageh-local-dev-rust-typed-metadata-20261108","01a-three-domain-local-read-and-w1-source-gate-20261104","01a-worker-read-metadata-stage-d-093-20261107","owner-local-steam-v1/README.md"]
+          for p in b.rglob('*'):
+            if p.is_file():
+              data=p.read_bytes()
+              assert not any(s in str(p) or s.encode() in data for s in stems),p
+          assert all((b/p).is_file() for p in ['index.html','editor/index.html','gallery/dreamsnaps/index.html','dreamsnaps/index.html','community-ops/index.html','404.html'])
+          print('QRW1110_ACTUAL_BASE_HEAD_STATIC_SAME_PATHS_NO_DELETED_DOC_REFERENCES_PASS')
+          PY
+          git restore -- svelte.config.js
+          test -z "$(git diff --name-only)"
