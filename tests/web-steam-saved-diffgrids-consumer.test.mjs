@@ -162,7 +162,7 @@ test('dedicated Reader starts expanded; optional Timing panel remains collapsed'
  assert.match(read('src/routes/editor/timing/+page.svelte'),/<SteamSavedDiffGridsReadonly \/>/);
 });
 
-import {compareOriginalBackupBytes} from '../src/lib/ddv/core/save/local-original-backup.mjs';
+import {compareOriginalBackupBytes,originalBackupFileName} from '../src/lib/ddv/core/save/local-original-backup.mjs';
 test('shared encrypted original byte comparison: exact, same handle, mismatch, forged methods and revoke',async()=>{
  const bytes=new Uint8Array(1024*1024+13).fill(33),a=new Blob([bytes]),b=new Blob([bytes]);
  assert.equal(await compareOriginalBackupBytes(a,b,()=>true,2*1024*1024),bytes.length);
@@ -173,4 +173,12 @@ test('shared encrypted original byte comparison: exact, same handle, mismatch, f
  await assert.rejects(compareOriginalBackupBytes(a,new Blob([bytes.slice(1)]),()=>true,2*1024*1024),/NOT_DISTINCT_BOUNDED/);
  let calls=0;await assert.rejects(compareOriginalBackupBytes(a,b,()=>++calls<3,2*1024*1024),/SESSION_REVOKED/);
  for(const locale of STEAM_DIFFGRIDS_LOCALES)for(const k of ['backupDownload','backupCandidate','backupHint','backupRequested','backupChecking','backupMatched','backupRejected'])assert.ok(savedDiffGridsCopy(locale)[k]);
+});
+
+test('original backup filename preserves safe ASCII basename and distinct suffix',()=>{
+ assert.equal(originalBackupFileName('synthetic626-diffgrids.p1g'),'synthetic626-diffgrids.p1g.original-backup.p1g');
+ assert.equal(originalBackupFileName('Profile_01.P1G'),'Profile_01.P1G.original-backup.p1g');
+ assert.equal(originalBackupFileName(''),'profile.p1g.original-backup.p1g');
+ assert.equal(originalBackupFileName('a/b\\c:\n名.p1g'),'a_b_c___.p1g.original-backup.p1g');
+ assert.doesNotMatch(originalBackupFileName('a/b\\c:\n名.p1g'),/[\/\\:\n]/);
 });

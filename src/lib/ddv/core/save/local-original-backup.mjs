@@ -10,6 +10,11 @@ const trueBlobSize = blob => nativeBlobSize.call(blob);
 const trueBlobChunk = (blob,start,end) =>
   nativeBlobArrayBuffer.call(nativeBlobSlice.call(blob,start,end));
 
+// Keep the source basename recognizable; never carry path separators or control characters.
+export function originalBackupFileName(name){
+ return String(name||'profile.p1g').replace(/[^A-Za-z0-9_.-]/g,'_')+'.original-backup.p1g';
+}
+
 export function requestOriginalByteBackup(originalSelectedFile){
  if(!(originalSelectedFile instanceof Blob))throw Error('LOCAL_ORIGINAL_BACKUP_STALE_OR_UNAVAILABLE');
     if(typeof document==='undefined'||typeof URL?.createObjectURL!=='function')
@@ -18,8 +23,7 @@ export function requestOriginalByteBackup(originalSelectedFile){
     try{
       const a=document.createElement('a');
       a.href=url;
-      a.download=String(originalSelectedFile.name||'profile.p1g')
-        .replace(/[^\\w.\\-]/g,'_')+'.original-backup.p1g';
+      a.download=originalBackupFileName(originalSelectedFile.name);
       a.click();
     }finally{
       setTimeout(()=>URL.revokeObjectURL(url),1000);
