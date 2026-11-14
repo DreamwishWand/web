@@ -79,3 +79,57 @@ try{
  await assert.rejects(access(bad));assert.deepEqual(await readFile(path),saved);
  console.log('ACT425_COLLECTION_PRIVATE_CLI_3POS_24NEG_PASS_NO_PRIVATE_UPLOAD');
 }finally{await rm(dir,{recursive:true,force:true})}
+
+// ACT767: exact Switch626/Furniture read only, separate mode and receipt.
+// Synthetic target only: no actual owner Save or selected private IDs.
+const swdir=await mkdtemp(join(tmpdir(),'wand-switch-collection-cli-'));
+const swdoc={GameInfo:{Version:626},World:{},Player:{
+ CollectionSets:[{CollectionDefinitionID:2120000001,GroupData:[{
+  GroupIndex:0,State:'SetState_NotComplete',GroupsCollectionItems:{40000001:false,40000002:false,40000003:false,40000004:true},
+  Unknown:{keep:1}}]}],
+ ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',Inventory:{40000001:{Amount:2,Marker:'Keep'}}},
+  4:{ID:4,CompatibleItemType:'ItemType_ActivityItem',Inventory:{30000001:{Amount:2}}}}
+}};
+const swargs=(path,d='2120000001',g='0',t='40000001')=>['--switch626-collection-furniture-receipt-only',d,g,t,'--out',path];
+const swcall=(a,body=raw(swdoc),over={})=>call(a,body,{WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:'',
+ WAND_LOCAL_INSTALLED_SWITCH_BID:'9A239D3DB569756D',...over});
+try{
+ const path=join(swdir,'receipt.json'),bad=join(swdir,'denied.json');
+ const p=swcall(swargs(path));assert.equal(p.status,0,p.stderr);assert.equal(p.stdout,'');
+ const bytes=await readFile(path),v=JSON.parse(bytes);
+ assert.equal(v.contract,'wand.native.private.switch626.furniture-collection-group-readset@1');
+ assert.equal(v.platform,'Switch');assert.equal(v.buildKind,'SwitchBid');assert.equal(v.buildId,'9A239D3DB569756D');
+ assert.equal(v.fullVersion,undefined);assert.equal(v.schema,626);assert.equal(v.decodedSha256,sha(raw(swdoc)));
+ assert.equal(v.selectedGroup.state.token,'"SetState_NotComplete"');assert.equal(v.selectedGroup.state.numericCode,null);
+ assert.equal(v.selectedGroup.falseCount,3);assert.equal(v.selectedGroup.switchSavedNotCompleteMultiFalseShape,true);
+ assert.equal(v.selectedGroup.numericNotCompleteMultiFalseShape,false);assert.equal(v.storedMemberships.length,1);
+ assert.equal(v.storedStock.inventoryId,0);assert.equal(v.storedStock.entry.amount,2);
+ assert.equal(v.storedStock.entry.entrySha256,sha(raw(swdoc.Player.ListInventories[0].Inventory[40000001])));
+ for(const k of ['writerAuthorized','productReadAccepted','editedCopyAuthorized','applyAuthorized','nativeV3Verified',
+  'packagedMembershipVerified','effectiveEligibilityVerified','ownershipVerified','rightsVerified','subscriberClosureVerified',
+  'cloudUploadPerformed','originalModifiedByHarness'])assert.equal(v[k],false,k);
+ assert.equal((await stat(path)).mode&0o777,0o600);
+ for(const [a,code] of [[swargs(path),'PRIVATE_OUTPUT_ALREADY_EXISTS'],
+  [swargs(bad,'2120000001','0','30000001'),'COLLECTION_SELECTOR_ID'],
+  [swargs(bad,'2120000001','0','040000001'),'COLLECTION_SELECTOR_ID'],
+  [swargs(bad,'2120000001','1'),'COLLECTION_GROUP_READ_DENIED'],
+  [swargs(bad,'2120000001','0','40000099'),'COLLECTION_GROUP_READ_DENIED']])deny(swcall(a),code);
+ deny(swcall(swargs(bad),raw(swdoc),{WAND_LOCAL_INSTALLED_SWITCH_BID:'52BD625D9B4E0053'}),'EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED');
+ deny(swcall(swargs(bad),raw(swdoc),{WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:'conflict'}),'EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED');
+ deny(swcall(swargs(bad),raw(swdoc),{WAND_LOCAL_DECODED_SHA256:'f'.repeat(64)}),'DECODED_SOURCE_SHA_MISMATCH');
+ deny(call(args(bad,'2120000001','0','40000001'),raw(swdoc)),'COLLECTION_SELECTOR_ID');
+ for(const mutate of [
+  x=>x.GameInfo.Version=624,
+  x=>x.Player.CollectionSets[0].GroupData[0].State=0,
+  x=>x.Player.CollectionSets[0].GroupData[0].State='NotComplete',
+  x=>x.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems[40000001]=true,
+  x=>{x.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems[40000002]=true;x.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems[40000003]=true;},
+  x=>x.Player.CollectionSets.push({CollectionDefinitionID:2120000002,GroupData:[{State:'SetState_NotComplete',GroupsCollectionItems:{40000001:true}}]}),
+  x=>x.Player.ListInventories[0].Inventory[40000001].Amount=0,
+  x=>x.Player.ListInventories[0].CompatibleItemType='ItemType_ActivityItem',
+  x=>x.Player.ListInventories[9]={ID:9,CompatibleItemType:'ItemType_Furniture',Inventory:{}},
+  x=>delete x.Player.ListInventories[0].Inventory[40000001],
+ ]){const x=structuredClone(swdoc);mutate(x);const r=swcall(swargs(bad),raw(x));assert.equal(r.status,12,r.stderr);assert.equal(r.stdout,'');}
+ await assert.rejects(access(bad));assert.deepEqual(await readFile(path),bytes);
+ console.log('ACT767_SWITCH626_FURNITURE_COLLECTION_PRIVATE_CLI_1POS_19NEG_PASS');
+}finally{await rm(swdir,{recursive:true,force:true})}
