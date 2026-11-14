@@ -1,0 +1,30 @@
+name: 04 QR-W PR1153 independent subgrid
+on:
+  pull_request:
+    paths:
+      - 'tests/04qr-w-pr1153-subgrid-independent.test.mjs'
+      - '.github/workflows/04qr-w-pr1153-subgrid-independent.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          test "$(git merge-base HEAD 16a5575c705d54dd7054b405435c9a92bab2999d)" = '16a5575c705d54dd7054b405435c9a92bab2999d'
+          test "$(git diff --name-only 9598a2fbb2ae8c345c135048b8dd6f4a26aace08 16a5575c705d54dd7054b405435c9a92bab2999d | wc -l)" = 2
+          test "$(git diff --name-only 16a5575c705d54dd7054b405435c9a92bab2999d HEAD | wc -l)" = 2
+          test "$(git rev-parse 9598a2fbb2ae8c345c135048b8dd6f4a26aace08:src/lib/ddv/core/world/runtime-v125/direct-root-editor-document-v125.js)" = "$(git rev-parse HEAD:src/lib/ddv/core/world/runtime-v125/direct-root-editor-document-v125.js)"
+          git show 9598a2fbb2ae8c345c135048b8dd6f4a26aace08:src/lib/wep/world-browser-adapter.ts > src/lib/wep/qa615-parent-adapter.ts
+          trap 'rm -f src/lib/wep/qa615-parent-adapter.ts' EXIT
+          node --test tests/04qr-w-pr1153-subgrid-independent.test.mjs
