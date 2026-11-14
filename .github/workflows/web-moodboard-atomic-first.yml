@@ -37,15 +37,38 @@ jobs:
           ATOMIC_FILES
           git diff --name-only "$BASE" HEAD | LC_ALL=C sort >/tmp/atomic-actual
           LC_ALL=C sort /tmp/atomic-expected >/tmp/atomic-expected-sorted
-          diff -u /tmp/atomic-expected-sorted /tmp/atomic-actual
-          while read -r path; do test "$(git diff --name-status "$BASE" HEAD -- "$path" | cut -f1)" = A; done </tmp/atomic-expected
-          git diff --exit-code "$BASE" HEAD -- src/lib/collection/ src/lib/moodboards/store.js src/routes/moodboards/+page.svelte src/routes/collection/+page.svelte src/routes/explore/+page.svelte src/lib/community/ src/lib/wep/ supabase/ static/ .github/workflows/pages.yml
-          echo WEB_ATOMIC_FIRST_NEW5_DISJOINT_LEGACY_SCOPE_PASS
+          if cmp -s /tmp/atomic-expected-sorted /tmp/atomic-actual; then
+            diff -u /tmp/atomic-expected-sorted /tmp/atomic-actual
+            while read -r path; do test "$(git diff --name-status "$BASE" HEAD -- "$path" | cut -f1)" = A; done </tmp/atomic-expected
+            git diff --exit-code "$BASE" HEAD -- src/lib/collection/ src/lib/moodboards/store.js src/routes/moodboards/+page.svelte src/routes/collection/+page.svelte src/routes/explore/+page.svelte src/lib/community/ src/lib/wep/ supabase/ static/ .github/workflows/pages.yml
+            echo WEB_ATOMIC_FIRST_NEW5_DISJOINT_LEGACY_SCOPE_PASS
+          else
+            # Explicit isolated Atomic Board portability successor; no other paths.
+            cat >/tmp/atomic-portable-scope <<'SCOPE'
+          .github/workflows/web-atomic-wep-sender.yml
+          .github/workflows/web-collection-atomic-item-handoff.yml
+          .github/workflows/web-moodboard-atomic-first.yml
+          scripts/web-atomic-board-portability-chrome.mjs
+          src/lib/moodboards/atomic-first-board.mjs
+          src/lib/moodboards/atomic-portability-copy.mjs
+          src/routes/moodboards/atomic/+page.svelte
+          tests/web-atomic-board-portability.test.mjs
+          SCOPE
+            LC_ALL=C sort /tmp/atomic-portable-scope >/tmp/atomic-portable-expected
+            diff -u /tmp/atomic-portable-expected /tmp/atomic-actual
+            for p in src/lib/moodboards/atomic-first-board.mjs src/routes/moodboards/atomic/+page.svelte .github/workflows/web-moodboard-atomic-first.yml .github/workflows/web-atomic-wep-sender.yml .github/workflows/web-collection-atomic-item-handoff.yml; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M
+            done
+            for p in src/lib/moodboards/atomic-portability-copy.mjs tests/web-atomic-board-portability.test.mjs scripts/web-atomic-board-portability-chrome.mjs; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+            done
+            echo WEB_ATOMIC_PORTABILITY_EXACT8_SCOPE_PASS
+          fi
       - name: Node fail-close, prior accepted legacy and static Svelte checks
         env:
           BASE_PATH: /web
         run: |
-          node --test tests/web-moodboard-atomic-first.test.mjs tests/web-collection-moodboard-inspire.test.mjs
+          node --test tests/web-moodboard-atomic-first.test.mjs tests/web-collection-moodboard-inspire.test.mjs tests/web-atomic-board-portability.test.mjs
           npm run check
           npm run build
           test -f build/moodboards/atomic/index.html
@@ -83,3 +106,18 @@ jobs:
         env:
           ATOMIC_MOODBOARD_ORIGIN: http://127.0.0.1:4293
         run: node scripts/web-moodboard-atomic-first-chrome.mjs
+
+      - name: Actual isolated Atomic Board portable file two-origin proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/wand-atomic-old
+          git archive HEAD | tar -xf - -C /tmp/wand-atomic-old
+          cp -a node_modules /tmp/wand-atomic-old/node_modules
+          (cd /tmp/wand-atomic-old && BASE_PATH=/web npm run dev -- --host 127.0.0.1 --port 4294 --strictPort) >/tmp/wand-atomic-old.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4294/web/moodboards/atomic/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4294/web/moodboards/atomic/ >/dev/null
+          node scripts/web-atomic-board-portability-chrome.mjs
