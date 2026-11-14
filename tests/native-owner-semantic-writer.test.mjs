@@ -86,3 +86,52 @@ test('No other operation or source version/schema accepted',()=>{
  assert.notEqual(protectedSlot.status,0);assert.equal(protectedSlot.stdout,'');
 });
 console.log('DEV_RUST_SINGLE_PRODUCTSESSION_TRUE_TYPED_INVENTORY_CHEST_SEMANTIC_CHANGE_PUBLIC_SYNTHETIC_TESTS_REGISTERED');
+
+test('Policy73 backup uses existing native executor and Core-owned actual amount, not mutation env',()=>{
+ const source=original.replace('ItemType_Ingredient','ItemType_ActivityItem');
+ const patch={WAND_LOCAL_DECODED_SHA256:sha(source),
+  WAND_LOCAL_EXPECTED_OLD_AMOUNT:'999',WAND_LOCAL_NEW_AMOUNT:'0',
+  WAND_LOCAL_COMPATIBLE_ITEM_TYPE:'ItemType_Premium'};
+ const p=invoke('--inventory-amount-backup-only',patch,source);
+ assert.equal(p.status,0,p.stderr.slice(0,200));
+ assert.match(p.stderr,/PRIVATE_V2_INVENTORY_AMOUNT_BACKUP_READONLY_PIPE_PASS/);
+ assert.doesNotMatch(p.stderr,/30000001|releases_1.25|OriginalUnknown|future|ratio/);
+ const v=JSON.parse(p.stdout);
+ assert.equal(v.type,'inventory.existing-amount');
+ assert.deepEqual(v.target,{inventoryId:4,itemId:30000001});
+ assert.equal(v.payload.amount,50);
+ assert.equal(v.payload.itemType,'ItemType_ActivityItem');
+ assert.equal(v.payload.entrySha256,sha('{"Amount":50,"Marker":"ItemMarker_None","Unknown":{"future":true,"ratio":1.00}}'));
+ assert.equal(v.provenance.decodedSha256,sha(source));
+ const {sha256,...body}=v;
+ assert.equal(sha256,sha(JSON.stringify(body)));
+ assert.equal(p.stdout,JSON.stringify(v));
+ assert.doesNotMatch(p.stdout,/OriginalUnknown|future|ratio|writerAuthorized/);
+ const again=invoke('--inventory-amount-backup-only',patch,source);
+ assert.equal(again.status,0);
+ assert.equal(again.stdout,p.stdout);
+});
+test('Policy73 native backup refuses invalid scope without stdout or private values',()=>{
+ const source=original.replace('ItemType_Ingredient','ItemType_ActivityItem');
+ const base={WAND_LOCAL_DECODED_SHA256:sha(source)};
+ for(const patch of [
+  {WAND_LOCAL_DECODED_SHA256:'0'.repeat(64)},
+  {WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:'Switch9A239D3DB569756D'},
+  {WAND_LOCAL_ORIGINAL_SHA256:'0'.repeat(64)},
+  {WAND_LOCAL_ORIGINAL_SIZE_BYTES:'0'},
+  {WAND_LOCAL_INVENTORY_ID:'0'},
+  {WAND_LOCAL_INVENTORY_ID:'04'},
+  {WAND_LOCAL_CANONICAL_ITEM_ID:'30000099'},
+  {WAND_LOCAL_CANONICAL_ITEM_ID:'80000001'}
+ ]){
+  const p=invoke('--inventory-amount-backup-only',{...base,...patch},source);
+  assert.notEqual(p.status,0);assert.equal(p.stdout,'');
+  assert.doesNotMatch(p.stderr,/30000001|OriginalUnknown|future|ratio/);
+ }
+ for(const doc of [source.replace('"Version":626','"Version":624'),
+   source.replace('"Amount":50','"Amount":1'),
+   original]){
+  const p=invoke('--inventory-amount-backup-only',{WAND_LOCAL_DECODED_SHA256:sha(doc)},doc);
+  assert.notEqual(p.status,0);assert.equal(p.stdout,'');
+ }
+});
