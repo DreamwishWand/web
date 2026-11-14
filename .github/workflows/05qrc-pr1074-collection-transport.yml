@@ -1,0 +1,45 @@
+name: 05 QR-C PR1074 independent Collection transport
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1074-collection-transport.py'
+      - '.github/workflows/05qrc-pr1074-collection-transport.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Fixed original3 and exact QA-only additions
+        run: |
+          git merge-base --is-ancestor d2ce5efc034d52e9ed7ac5d66f12635728a8441b HEAD
+          test "$(git diff --name-only d2ce5efc034d52e9ed7ac5d66f12635728a8441b HEAD | wc -l)" -eq 2
+          test "$(git diff --diff-filter=A --name-only d2ce5efc034d52e9ed7ac5d66f12635728a8441b HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v1.rs)" = 638685ce9db7acb74c37081951faab568096a9da
+          test "$(git rev-parse HEAD:tests/private-collection-cli.mjs)" = 3bdf0b3f8932251226d03c2bcc53df684db1c207
+          test "$(git rev-parse HEAD:.github/workflows/01a-private-character-skin-read.yml)" = b2b53dc8374a6f813110649fe7ba4839ad33dc88
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/private_collection_read.rs)" = 2051cf75b6ac2c28041bb44a8db42fac0b92963b
+      - name: Locked build and independent actual CLI transport
+        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --no-default-features --features private-native-v1 --bin wand-local-rust-v1
+          python3 tests/qa/05qrc-pr1074-collection-transport.py crates/ddv-save-core/target/release/wand-local-rust-v1
+      - name: Existing Collection and Avatar Skin regression
+        run: |
+          node tests/private-collection-cli.mjs crates/ddv-save-core/target/release/wand-local-rust-v1
+          node tests/private-character-skin-read.mjs crates/ddv-save-core/target/release/wand-local-rust-v1
+          node tests/private-active-avatar-read.mjs crates/ddv-save-core/target/release/wand-local-rust-v1
+      - name: Public and DEV WASM feature isolation
+        run: |
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
