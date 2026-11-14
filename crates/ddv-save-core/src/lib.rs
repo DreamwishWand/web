@@ -60,3 +60,6 @@ pub use product_session::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CoreError(pub &'static str);
 pub type CoreResult<T> = Result<T, CoreError>;
+
+// Policy73 portable file format only; no new SaveSession or WASM export.
+pub mod portable_backup;
