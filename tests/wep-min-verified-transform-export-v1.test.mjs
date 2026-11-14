@@ -218,3 +218,31 @@ test('minimum transform review binds the same draft to asynchronous placement an
   const reopened=await openWorldSaveBytes(result.artifacts.edited.bytes,{sourcePlatform:'switch'});
   assert.fail('unsafe async placement review emitted illegal X='+reopened.profile.World.GridCollection.Grids['10'].Objects['101'].X);
 });
+
+test('minimum transform rejects changes to both baseline and draft after review, even when selected delta is unchanged',async()=>{
+  const {input}=await transformFixture();
+  const review=await reviewMinimumVerifiedTransform(input);
+  const baseline=structuredClone(input.baselineDocument);
+  const draft=structuredClone(input.draftDocument);
+  baseline.target.areaId=999;draft.target.areaId=999;
+  const commit=(baselineDocument,draftDocument)=>commitMinimumVerifiedTransform({review,currentSourceEpoch:1,sourceBytes:input.sourceBytes,baselineDocument,draftDocument,worldBinding:input.worldBinding});
+  await assert.rejects(()=>commit(baseline,draft),/WEP_EXPORT_REVIEW_STALE/);
+  // The rejected stale attempt did not consume the original genuine receipt.
+  const result=await commit(input.baselineDocument,input.draftDocument);
+  assert.equal(result.status,'PASS');
+  assert.deepEqual(Array.from(result.artifacts.backup.bytes),Array.from(input.sourceBytes));
+});
+test('minimum transform rejects a valid draft changed during async fetch, and a fresh unchanged review succeeds',async()=>{
+  const {input}=await transformFixture();
+  const draft=structuredClone(input.draftDocument);
+  const x=draft.objects[0].x;
+  const fetchImpl=async url=>{
+    if(String(url).includes('min-transform-scope-pack-v125.json'))draft.objects[0].x=-100000;
+    return localFetch(url);
+  };
+  await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,draftDocument:draft,fetchImpl}),/WEP_EXPORT_DRAFT_CHANGED/);
+  draft.objects[0].x=x;
+  const review=await reviewMinimumVerifiedTransform({...input,draftDocument:draft});
+  const result=await commitMinimumVerifiedTransform({review,currentSourceEpoch:1,sourceBytes:input.sourceBytes,baselineDocument:input.baselineDocument,draftDocument:draft,worldBinding:input.worldBinding});
+  assert.equal(result.status,'PASS');
+});
