@@ -149,3 +149,15 @@ test('preformal reader route label is localized in all eight locales',()=>{
  const expected={"en":"Steam 1.25.3 · Pre-release read-only test","fr":"Steam 1.25.3 · Test en lecture seule avant publication","it":"Steam 1.25.3 · Test in sola lettura prima del rilascio","de":"Steam 1.25.3 · Schreibgeschützter Vorabtest","es-ES":"Steam 1.25.3 · Prueba de solo lectura previa al lanzamiento","ja":"Steam 1.25.3 · 正式リリース前の読み取り専用テスト","zh-CN":"Steam 1.25.3 · 正式发布前只读测试","pt-BR":"Steam 1.25.3 · Teste somente leitura antes do lançamento"};
  for(const locale of STEAM_DIFFGRIDS_LOCALES)assert.equal(savedDiffGridsCopy(locale).preformal,expected[locale]);
 });
+
+// Entry display only: no change to the typed client or Worker authority.
+import {readFileSync} from 'node:fs';
+test('dedicated Reader starts expanded; optional Timing panel remains collapsed',()=>{
+ const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
+ const panel=read('src/lib/wep/SteamSavedDiffGridsReadonly.svelte');
+ assert.match(panel,/<details open=\{preformal\} class="diffgrids-readonly"/);
+ assert.match(panel,/export let preformal=false;/);
+ assert.match(panel,/if\(!preformal\|\|location\.pathname!==base\+'\/editor\/steam-reader\/'\)return;/);
+ assert.match(read('src/routes/editor/steam-reader/+page.svelte'),/<SteamSavedDiffGridsReadonly preformal=\{true\}/);
+ assert.match(read('src/routes/editor/timing/+page.svelte'),/<SteamSavedDiffGridsReadonly \/>/);
+});
