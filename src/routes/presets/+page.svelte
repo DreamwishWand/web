@@ -179,7 +179,7 @@
     deviceScenesBusy=true;
     try{
       if(file.size>WEP_LOCAL_SCENE_PORTABLE_MAX_BYTES)throw Error('SCENE_FILE_LIMIT');
-      const raw=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());
+      const raw=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(await file.arrayBuffer());
       const checked=parseLocalScenePortableFile(raw);
       portablePending={raw,count:checked.entries.length,revision};
     }catch{portableMessage=portableCopy.blocked;}
@@ -195,6 +195,7 @@
       deviceScenesRevision=result.revision;
       deviceScenes=result.document.entries.map((entry:any)=>({id:entry.id,title:entry.title,
         createdAt:entry.createdAt,objectCount:entry.artifact.objects.length}));
+      deviceScenesMessage='';
       portableMessage=portableCopy.imported;
     }catch{
       deviceScenesReadable=false;

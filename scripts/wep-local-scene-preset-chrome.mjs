@@ -107,8 +107,8 @@ try{
  context.on('request',r=>{if(r.url().startsWith('http')&&
   (!allowedOrigins.has(new URL(r.url()).origin)||!['GET','HEAD'].includes(r.method())))
   migrationUnsafe.push(r.method()+' '+r.url());});
- async function myScenes(url){
-  const p=await context.newPage();
+ async function myScenes(url,ctx=context){
+  const p=await ctx.newPage();
   p.on('pageerror',e=>errors.push(String(e)));
   await p.goto(url+'/presets/',{waitUntil:'networkidle'});
   await p.locator('[data-preset-child="my"]').click();
@@ -125,6 +125,32 @@ try{
  const raw=await readFile(await dl.path(),'utf8');
  assert.equal(JSON.parse(raw).entries.length,2);
  assert.deepEqual(await snapshot(oldPage),second,'export source primary/backup unchanged');
+ // Empty target with no database is also a first-class import path.
+ const blankContext=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});
+ blankContext.on('request',r=>{if(r.url().startsWith('http')&&
+  (!allowedOrigins.has(new URL(r.url()).origin)||!['GET','HEAD'].includes(r.method())))
+  migrationUnsafe.push(r.method()+' '+r.url());});
+ const blank=await myScenes(newOrigin,blankContext);
+ const hasSceneDb=p=>p.evaluate(async()=> (await indexedDB.databases()).some(d=>d.name==='dreamwishwand:wep:scene-presets:local:v1'));
+ assert.equal(await hasSceneDb(blank),false);
+ const blankInput=blank.locator('[data-device-scenes-import-file]');
+ await blankInput.setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{}')});
+ await blank.locator('[data-device-scenes-portable-status]').filter({hasText:'Reopen the library'}).waitFor();
+ assert.equal(await hasSceneDb(blank),false,'invalid file cannot create database');
+ await blankInput.setInputFiles({name:'dreamwish-wand-scenes.json',mimeType:'application/json',buffer:Buffer.from(raw)});
+ await blank.locator('[data-device-scenes-import-count]').waitFor();
+ assert.equal(await hasSceneDb(blank),false,'valid file preview cannot create database');
+ await blank.locator('[data-device-scenes-import]').click();
+ await blank.locator('[data-device-scenes-portable-status]').filter({hasText:'Imported and independently reopened.'}).waitFor();
+ const emptyImported=await snapshot(blank);
+ assert.equal(emptyImported.revision,1);assert.equal(emptyImported.backupRevision,0);
+ assert.deepEqual(JSON.parse(emptyImported.backup).entries,[]);
+ assert.deepEqual(JSON.parse(emptyImported.primary).entries,JSON.parse(raw).entries);
+ assert.equal(await blank.locator('[data-device-scenes-status]').count(),0,'no stale empty status after import');
+ await blank.locator('[data-device-scenes-reopen]').click();
+ await blank.locator('[data-device-scene-select]').nth(1).waitFor();
+ assert.deepEqual(await snapshot(blank),emptyImported);
+ await blankContext.close();
  const target=await myScenes(newOrigin);
  assert.equal(await target.evaluate(async()=> (await indexedDB.databases()).some(d=>d.name==='dreamwishwand:wep:scene-presets:local:v1')),false,'new origin starts isolated');
  // Seed only target with a different portable Scene using accepted store.
