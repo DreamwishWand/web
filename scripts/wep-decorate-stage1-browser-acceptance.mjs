@@ -4,6 +4,8 @@ import { chromium } from 'playwright-core';
 import '../src/lib/ddv/core/world/runtime-v125/griddata-floor-v125.js';
 import '../src/lib/ddv/core/world/runtime-v125/placement-v125.js';
 import { makeSyntheticP1gProfile } from '../tests/helpers/p1g-fixture.mjs';
+import { p1gPackagedProfileCodec } from '../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
+import { createHash } from 'node:crypto';
 
 const root=(process.env.WEP_STAGE1_BASE_URL||'http://127.0.0.1:4175').replace(/\/$/,'');
 const chrome=process.env.CHROME_BIN;
@@ -27,6 +29,34 @@ async function eventually(fn,timeout=30000){
   }
   if(last)throw last;
   throw new Error('Timed out waiting for condition.');
+}
+async function verifyDownloadedSavePair(page,success,original,sourceName,expectedProfile){
+  const get=async name=>{
+    const pending=page.waitForEvent('download',{timeout:10000});
+    await success.getByRole('button',{name}).click();
+    const file=await pending;
+    assert.equal(await file.failure(),null);
+    return {name:file.suggestedFilename(),bytes:await readFile(await file.path())};
+  };
+  const edited=await get(/Download edited save/i);
+  const backup=await get(/Download original backup/i);
+  const integrity=await get(/Download manifest/i);
+  assert.equal(edited.name,'DDV_EDITED_copy_'+sourceName);
+  assert.equal(backup.name,'DDV_BACKUP_original_'+sourceName);
+  assert.notEqual(edited.name,sourceName);
+  assert.deepEqual(backup.bytes,original);
+  assert.notDeepEqual(edited.bytes,original);
+  const manifest=JSON.parse(integrity.bytes.toString('utf8'));
+  assert.equal(manifest.editedFile,edited.name);
+  assert.equal(manifest.backupFile,backup.name);
+  const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+  assert.equal(manifest.editedSha256,sha(edited.bytes));
+  assert.equal(manifest.sourceSha256,sha(original));
+  // Independent decoding of the actual browser download, not the optimistic
+  // in-memory result or a synthetic replacement of the downloaded bytes.
+  const reopened=await p1gPackagedProfileCodec.loadProfile(new Uint8Array(edited.bytes));
+  assert.equal(reopened.inputType,'packaged');
+  assert.deepEqual(JSON.parse(reopened.jsonText),expectedProfile);
 }
 async function seedMoodboard(page){
   const doc={
@@ -485,6 +515,13 @@ try{
   assert.ok(addSuccessText.includes('PASS'));
   assert.ok(await addSuccess.getByRole('button',{name:/Download edited save/i}).isVisible());
   assert.ok(await addSuccess.getByRole('button',{name:/Download original backup/i}).isVisible());
+  const expectedAdd=structuredClone(addExportProfile);
+  expectedAdd.World.GridCollection.Grids['10'].NextGridObjectID=102;
+  expectedAdd.World.GridCollection.Grids['10'].Objects['101']={
+    ID:101,ItemID:40000048,X:addPlacement.x,Y:addPlacement.y,Orientation:'GridOrientation_Up',State:null
+  };
+  await verifyDownloadedSavePair(page,addSuccess,addPackaged,'profile',expectedAdd);
+  pass('ORDINARY_FURNITURE_ADD_ACTUAL_DOWNLOAD_BACKUP_EXACT_REOPEN');
   pass('ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_RUNTIME_ACCEPTED',{
     itemId:40000048,
     gridId:10,
@@ -610,6 +647,10 @@ try{
   }
   assert.ok((await roomFloorSuccess.innerText()).includes('PASS'));
   assert.ok((await roomFloorSuccess.innerText()).includes('20500005'));
+  const expectedFloor=structuredClone(roomFinishProfile);
+  expectedFloor.World.PlayerHouses[0].Floors[0].Rooms['0'].Flooring=160100001;
+  await verifyDownloadedSavePair(page,roomFloorSuccess,roomPackaged,'room-finish-profile',expectedFloor);
+  pass('ROOM_FINISH_FLOORING_ACTUAL_DOWNLOAD_BACKUP_EXACT_REOPEN');
   pass('ROOM_FINISH_FLOORING_VERIFIED_EXPORT_REOPEN');
 
   // Return draft to the source baseline before exercising wallpaper scopes.
