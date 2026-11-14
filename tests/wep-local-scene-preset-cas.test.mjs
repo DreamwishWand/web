@@ -73,3 +73,29 @@ test('migration canonical file rejects forged authority, duplicate IDs, malforme
  for(const locale of LOCAL_SCENE_PRESET_LOCALES)for(const key of ['export','choose','import','count','exported','imported','blocked','notice'])
   assert.ok(localScenePortableCopy(locale)[key]?.length>2);
 });
+
+test('portable layer requires an exact primitive enum; no coercion or IDB open',async()=>{
+ const m=await import('../src/lib/wep/local-scene-preset-store.mjs');
+ const entry={id:'scene_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',title:'Local',createdAt:'2026-11-14T00:00:00Z',artifact:captured().artifact};
+ const file={schema:m.WEP_LOCAL_SCENE_PORTABLE_SCHEMA,version:1,entries:[entry]};
+ const raw=layer=>{const copy=structuredClone(file);copy.entries[0].artifact.objects[0].layer=layer;return JSON.stringify(copy);};
+ for(const layer of ['furniture','building','landscaping'])
+  assert.equal(m.parseLocalScenePortableFile(raw(layer)).entries[0].artifact.objects[0].layer,layer);
+ let opens=0;
+ const factory={open(){opens++;throw Error('MUST_NOT_OPEN_IDB');}};
+ for(const layer of [['furniture'],['building'],['landscaping'],[],['furniture','building'],{},null,0,true,'','unknown','Furniture',' furniture','furniture ']){
+  assert.throws(()=>m.parseLocalScenePortableFile(raw(layer)),/WEP_LOCAL_SCENE_PORTABLE_OBJECT_INVALID/);
+  for(const expectedRevision of [0,2])
+   await assert.rejects(m.importLocalScenePortableFile({factory,raw:raw(layer),expectedRevision}),/WEP_LOCAL_SCENE_PORTABLE_OBJECT_INVALID/);
+ }
+ // Other coercible fields are already rejected by detached geometry or exact portable checks.
+ for(const [key,value] of [['itemId','40000048'],['localX','0'],['localY',[0]],['orientation',false],['artifactObjectId',['o0']],['footprint',[{x:'0',y:0}]],['dependencyIds',[['o0']]]]){
+  const copy=structuredClone(file);copy.entries[0].artifact.objects[0][key]=value;
+  await assert.rejects(m.importLocalScenePortableFile({factory,raw:JSON.stringify(copy),expectedRevision:0}),/WEP_(LOCAL_SCENE|SCENE_REUSE)_/);
+ }
+ for(const [key,value] of [['bounds',{w:'1',h:1}],['originPolicy',['capture-region-top-left']],['artifactVersion','1']]){
+  const copy=structuredClone(file);copy.entries[0].artifact[key]=value;
+  await assert.rejects(m.importLocalScenePortableFile({factory,raw:JSON.stringify(copy),expectedRevision:0}),/WEP_(LOCAL_SCENE|SCENE_REUSE)_/);
+ }
+ assert.equal(opens,0);
+});

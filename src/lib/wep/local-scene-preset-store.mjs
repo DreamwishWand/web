@@ -156,6 +156,8 @@ export const WEP_LOCAL_SCENE_PORTABLE_SCHEMA='wand.wep.scene-library-portable@1'
 export const WEP_LOCAL_SCENE_PORTABLE_MAX_BYTES=MAX_BYTES;
 const byteLength=s=>new TextEncoder().encode(s).length;
 const boundedText=(v,n)=>typeof v==='string'&&v.length<=n;
+// Match the detached readonly geometry contract, without its layer coercion.
+const PORTABLE_LAYERS=new Set(['furniture','building','landscaping']);
 function checkPortableEntry(entry){
  const a=entry.artifact;
  // Exact capture shape, not an arbitrary JSON carrier. SubGrid/portableState
@@ -175,6 +177,7 @@ function checkPortableEntry(entry){
  const counts=Object.create(null);
  for(const o of a.objects){
   if(!keys(o,['artifactObjectId','itemId','layer','localX','localY','orientation','footprint','portableState','dependencyIds'])||
+   typeof o.layer!=='string'||!PORTABLE_LAYERS.has(o.layer)||
    o.portableState!==null||!Array.isArray(o.footprint)||o.footprint.length>4096||
    !o.footprint.every(c=>keys(c,['x','y']))||
    !Array.isArray(o.dependencyIds)||o.dependencyIds.length>4096||

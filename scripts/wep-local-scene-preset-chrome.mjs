@@ -137,6 +137,24 @@ try{
  await blankInput.setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{}')});
  await blank.locator('[data-device-scenes-portable-status]').filter({hasText:'Reopen the library'}).waitFor();
  assert.equal(await hasSceneDb(blank),false,'invalid file cannot create database');
+ const layerFile=(layer)=>{const f=JSON.parse(raw);f.entries[0].artifact.objects[0].layer=layer;return JSON.stringify(f);};
+ const badLayers=[['furniture'],[],null,'','unknown','Furniture'];
+ const directReject=async(p,bad,revision)=>p.evaluate(async({bad,revision})=>{
+  const {parseLocalScenePortableFile,importLocalScenePortableFile}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  let parser='',importer='',opens=0;
+  try{parseLocalScenePortableFile(bad);}catch(e){parser=e.message;}
+  const factory={open(...args){opens++;return indexedDB.open(...args);}};
+  try{await importLocalScenePortableFile({factory,raw:bad,expectedRevision:revision});}catch(e){importer=e.message;}
+  return {parser,importer,opens};
+ },{bad,revision});
+ for(const layer of badLayers){
+  const bad=layerFile(layer);
+  assert.deepEqual(await directReject(blank,bad,0),{parser:'WEP_LOCAL_SCENE_PORTABLE_OBJECT_INVALID',importer:'WEP_LOCAL_SCENE_PORTABLE_OBJECT_INVALID',opens:0});
+  await blankInput.setInputFiles({name:'invalid-layer.json',mimeType:'application/json',buffer:Buffer.from(bad)});
+  await blank.locator('[data-device-scenes-portable-status]').filter({hasText:'Reopen the library'}).waitFor();
+  assert.equal(await blank.locator('[data-device-scenes-import]').isDisabled(),true);
+  assert.equal(await hasSceneDb(blank),false);
+ }
  await blankInput.setInputFiles({name:'dreamwish-wand-scenes.json',mimeType:'application/json',buffer:Buffer.from(raw)});
  await blank.locator('[data-device-scenes-import-count]').waitFor();
  assert.equal(await hasSceneDb(blank),false,'valid file preview cannot create database');
@@ -150,6 +168,19 @@ try{
  await blank.locator('[data-device-scenes-reopen]').click();
  await blank.locator('[data-device-scene-select]').nth(1).waitFor();
  assert.deepEqual(await snapshot(blank),emptyImported);
+ // Existing legacy rows are not rewritten or silently repaired by portable export.
+ await blank.evaluate(async bad=>{
+  const {saveLocalScene}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  await saveLocalScene({artifact:JSON.parse(bad).entries[0].artifact,title:'Legacy unsupported layer',expectedRevision:1,
+   idFactory:()=> 'ffffffff-ffff-4fff-8fff-ffffffffffff'});
+ },layerFile(['furniture']));
+ const legacyUnsupported=await snapshot(blank);
+ const deniedExport=await blank.evaluate(async()=>{
+  const {exportLocalScenePortableFile}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  try{await exportLocalScenePortableFile({expectedRevision:2});return 'ACCEPTED';}catch(e){return e.message;}
+ });
+ assert.equal(deniedExport,'WEP_LOCAL_SCENE_PORTABLE_OBJECT_INVALID');
+ assert.deepEqual(await snapshot(blank),legacyUnsupported,'unsupported legacy export must not rewrite either snapshot');
  await blankContext.close();
  const target=await myScenes(newOrigin);
  assert.equal(await target.evaluate(async()=> (await indexedDB.databases()).some(d=>d.name==='dreamwishwand:wep:scene-presets:local:v1')),false,'new origin starts isolated');
@@ -181,6 +212,17 @@ try{
  await target.locator('[data-device-scenes-portable-status]').filter({hasText:'Reopen the library'}).waitFor();
  assert.deepEqual(await snapshot(target),imported,'duplicate ID rejects atomic import');
  assert.deepEqual(await snapshot(oldPage),second,'old origin source and Backup remain exact');
+ for(const layer of badLayers){
+  const bad=layerFile(layer);
+  assert.deepEqual(await directReject(target,bad,2),{parser:'WEP_LOCAL_SCENE_PORTABLE_OBJECT_INVALID',importer:'WEP_LOCAL_SCENE_PORTABLE_OBJECT_INVALID',opens:0});
+  await target.locator('[data-device-scenes-reopen]').click();
+  await target.locator('[data-device-scenes-import-file]:not([disabled])').waitFor();
+  await input.setInputFiles({name:'invalid-layer.json',mimeType:'application/json',buffer:Buffer.from(bad)});
+  await target.locator('[data-device-scenes-portable-status]').filter({hasText:'Reopen the library'}).waitFor();
+  assert.equal(await target.locator('[data-device-scenes-import]').isDisabled(),true);
+  assert.deepEqual(await snapshot(target),imported,'invalid layer cannot change primary/backup/revision');
+ }
+ console.log('WEP_SCENE_PORTABLE_STRICT_LAYER_TYPE_NO_OPEN_LEGACY_UNCHANGED_PASS');
  // Stale target revision rejects even when the file has new noncolliding IDs.
  await target.locator('[data-device-scenes-reopen]').click();
  await target.locator('[data-device-scenes-import-file]:not([disabled])').waitFor();
