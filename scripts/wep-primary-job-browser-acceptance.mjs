@@ -1084,7 +1084,10 @@ async function runRawSaveAcceptance(page, report) {
 }
 
 
-async function runVerifiedExportAcceptance(page, report) {
+async function runVerifiedExportAcceptance(page, report, operation = 'MOVE') {
+  const rotating = operation === 'ROTATE';
+  const reportKey = rotating ? 'verifiedRotateExport' : 'verifiedExport';
+  const suffix = rotating ? '-rotate' : '';
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.locator('.platform-select select').selectOption('switch');
 
@@ -1121,7 +1124,7 @@ async function runVerifiedExportAcceptance(page, report) {
   await object.click();
   await expectSelected(page, 1);
   const toolbar = page.locator('.toolbar-actions');
-  await toolbar.getByRole('button', { name: 'Move right' }).click();
+  await toolbar.getByRole('button', { name: rotating ? 'Rotate' : 'Move right', exact: true }).click();
 
   assert.equal(await reviewButton.isEnabled(), true);
   await reviewButton.click();
@@ -1133,10 +1136,10 @@ async function runVerifiedExportAcceptance(page, report) {
   ]);
   if (await reviewError.isVisible()) {
     const diagnostic = await text(reviewError);
-    report.verifiedExport.reviewFailure = diagnostic;
+    report[reportKey] = { reviewFailure: diagnostic };
     throw new Error('VERIFIED_EXPORT_REVIEW_FAIL: ' + diagnostic);
   }
-  await expectContains(review, 'MOVE');
+  await expectContains(review, operation);
   await expectContains(review, 'Item 40000048');
   await expectContains(review, 'Area 7');
   await expectContains(review, 'Grid 10');
@@ -1170,7 +1173,7 @@ async function runVerifiedExportAcceptance(page, report) {
   ]);
   const backupPath = path.join(
     artifactsDir,
-    'verified-export-original.profile'
+    'verified-export-original'+suffix+'.profile'
   );
   await backupDownload.saveAs(backupPath);
   assert.deepEqual(
@@ -1187,7 +1190,7 @@ async function runVerifiedExportAcceptance(page, report) {
   ]);
   const editedPath = path.join(
     artifactsDir,
-    'verified-export-edited.profile'
+    'verified-export-edited'+suffix+'.profile'
   );
   await editedDownload.saveAs(editedPath);
   const editedBytes = await readFile(editedPath);
@@ -1208,9 +1211,14 @@ async function runVerifiedExportAcceptance(page, report) {
   assert.equal(editedObject.ID, 101);
   assert.equal(editedObject.ItemID, 40000048);
   assert.equal(editedObject.State, null);
-  assert.equal(editedObject.X, verifiedExportMove.afterX);
-  assert.equal(editedObject.Y, verifiedExportMove.afterY);
-  assert.equal(editedObject.Orientation, 'GridOrientation_Up');
+  assert.equal(editedObject.X, rotating ? verifiedExportMove.x : verifiedExportMove.afterX);
+  assert.equal(editedObject.Y, rotating ? verifiedExportMove.y : verifiedExportMove.afterY);
+  assert.equal(editedObject.Orientation, rotating ? 'GridOrientation_Right' : 'GridOrientation_Up');
+  const expectedProfile = structuredClone(verifiedExportProfile);
+  const expectedObject = expectedProfile.World.GridCollection.Grids['10'].Objects['101'];
+  if (rotating) expectedObject.Orientation='GridOrientation_Right';
+  else { expectedObject.X=verifiedExportMove.afterX; expectedObject.Y=verifiedExportMove.afterY; }
+  assert.deepEqual(editedProfile,expectedProfile,'verified export exact full document diff');
   assert.equal(
     editedProfile.World.GridCollection.Grids['10'].NextGridObjectID,
     102
@@ -1224,7 +1232,7 @@ async function runVerifiedExportAcceptance(page, report) {
   ]);
   const manifestPath = path.join(
     artifactsDir,
-    'verified-export-manifest.json'
+    'verified-export-manifest'+suffix+'.json'
   );
   await manifestDownload.saveAs(manifestPath);
   const manifest = JSON.parse(
@@ -1235,7 +1243,7 @@ async function runVerifiedExportAcceptance(page, report) {
     'dreamwish.ddv.verified-candidate-export-bundle'
   );
   assert.equal(manifest.schemaVersion, 2);
-  assert.equal(manifest.operation.kind, 'MOVE');
+  assert.equal(manifest.operation.kind, operation);
   assert.equal(manifest.sourceSha256, originalSha256);
   assert.equal(manifest.editedSha256, editedSha256);
   assert.equal(manifest.persistentWriteAuthorized, false);
@@ -1249,12 +1257,12 @@ async function runVerifiedExportAcceptance(page, report) {
   ]);
   const bundlePath = path.join(
     artifactsDir,
-    'verified-export-bundle.zip'
+    'verified-export-bundle'+suffix+'.zip'
   );
   await bundleDownload.saveAs(bundlePath);
   assert.ok((await readFile(bundlePath)).length > packagedBytes.length);
 
-  report.verifiedExport = {
+  report[reportKey] = {
     packagedSource: 'PASS',
     exactBuildExplicitConfirmation: 'PASS',
     reviewChanges: 'PASS',
@@ -1278,7 +1286,7 @@ async function runVerifiedExportAcceptance(page, report) {
   await page.screenshot({
     path: path.join(
       artifactsDir,
-      'verified-replacement-export-pass.png'
+      'verified-replacement-export-pass'+suffix+'.png'
     ),
     fullPage: true
   });
@@ -1313,10 +1321,13 @@ try {
   });
   page.on('pageerror', (error) => report.pageErrors.push(String(error)));
 
-  await runSyntheticAcceptance(page, report);
-  await runRawSaveAcceptance(page, report);
-  await runLocaleLayoutAcceptance(page, report);
+  if (process.env.WEP_VERIFIED_TRANSFORM_ONLY !== '1') {
+    await runSyntheticAcceptance(page, report);
+    await runRawSaveAcceptance(page, report);
+    await runLocaleLayoutAcceptance(page, report);
+  }
   await runVerifiedExportAcceptance(page, report);
+  await runVerifiedExportAcceptance(page, report, 'ROTATE');
 
   // Product boundary: browser acceptance itself must not surface persistent writer controls.
   assert.equal(report.pageErrors.length, 0, `page errors: ${report.pageErrors.join(' | ')}`);
