@@ -23,7 +23,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import subprocess as s,hashlib
-          B='2ffcc040477455221a1ba154d60bf9f663c3dc77';H='21e1506e3df766a712b6c16c21c2aff98f2a49de';git=lambda *a:s.check_output(['git',*a])
+          B='514709a1ef554dc25bab488ea205405d8dbea333';H='21e1506e3df766a712b6c16c21c2aff98f2a49de';git=lambda *a:s.check_output(['git',*a])
           def tree(ref):
            return {p.decode():meta.decode() for e in git('ls-tree','-r','-z',ref).split(b'\0') if e for meta,p in [e.split(b'\t',1)]}
           b,h,q=tree(B),tree(H),tree('HEAD')
@@ -33,7 +33,7 @@ jobs:
           assert set(b)-set(h)==set(removed)
           assert set(h)-set(b)=={added}
           assert {p for p in set(b)&set(h) if b[p]!=h[p]}==set(pins)-{added}
-          assert git('rev-parse','HEAD^').decode().strip()==H
+          assert git('merge-base','HEAD',H).decode().strip()==H
           assert set(q)-set(h)=={'.github/workflows/04qr-w-pr1116-owner-boundary.yml'} and all(q[p]==h[p] for p in h)
           for p,v in pins.items():assert h[p].endswith(v)
           for name,v in {"index.html":"fd5d749ada7f9928419b270e28b7d3a9b5133604","page.mjs":"2a8f4e573f69d0d75c716aa2814cfc5b3f0b37b9","dev-read.html":"e0de6b76cfdae45b797f955ea41abeb30948783a","dev-read-page.mjs":"db5cb84d327e5702e861820a02ce7312d4d062a3","server.mjs":"e29a9e677d9cbaaeafd8e937b126223da83ed545","worker.mjs":"1aaebb9eb4044649d1334609fa9646120b1853b4","dev-read.worker.mjs":"f4d23402a362057efe8a4af0a3ae0a4950afa573","worker-core.mjs":"42b717455473cf69c98213dec867571c4a70ede7","attestation.mjs":"854bdf1ce201ed4431165c4f219f730263dab8b7"}.items():assert b['tools/owner-local-steam-v1/'+name].endswith(v)
@@ -83,7 +83,7 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
         run: |
           set -euo pipefail
-          B=2ffcc040477455221a1ba154d60bf9f663c3dc77
+          B=514709a1ef554dc25bab488ea205405d8dbea333
           H=21e1506e3df766a712b6c16c21c2aff98f2a49de
           temp="$(mktemp -d)"
           trap 'rm -rf "$temp"' EXIT
