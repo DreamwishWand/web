@@ -46,10 +46,12 @@ fn output_path(raw:&str)->PinnedPrivateOutput{
 fn output_path(_raw:&str)->PinnedPrivateOutput{fail("PRIVATE_OUTPUT_LINUX_ONLY")}
     pub fn run(){
         let argv:Vec<String>=env::args().skip(1).collect();
-        let (selector,path)=match argv.as_slice(){
-            [m,o,p] if m=="--storage-candidate"&&o=="--out"=>(None,output_path(p)),
+        let (selector,path,white48)=match argv.as_slice(){
+            [m,o,p] if m=="--storage-candidate"&&o=="--out"=>(None,output_path(p),false),
             [m,g,i,o,p] if m=="--storage-object"&&o=="--out"=>
-                (Some((selector_id(g),selector_id(i))),output_path(p)),
+                (Some((selector_id(g),selector_id(i))),output_path(p),false),
+            [m,g,i,o,p] if m=="--storage48-white-object"&&o=="--out"=>
+                (Some((selector_id(g),selector_id(i))),output_path(p),true),
             _=>fail("ARGS"),
         };
         if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT{fail("EXACT_STEAM_BUILD")}
@@ -71,11 +73,18 @@ fn output_path(_raw:&str)->PinnedPrivateOutput{fail("PRIVATE_OUTPUT_LINUX_ONLY")
         let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
             expected_revision:r.revision,expected_index_generation:r.index_generation,
             expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain};
-        let mut receipt=session.read_private_storage_stored_candidate(e,selector)
+        let mut receipt=if white48{
+            let (g,i)=selector.unwrap_or_else(||fail("WHITE48_EXPLICIT_SELECTOR_REQUIRED"));
+            session.read_private_storage48_white_stored(e,g,i)
+        }else{session.read_private_storage_stored_candidate(e,selector)}
             .unwrap_or_else(|_|fail("NO_EXACT_PHYSICAL_STORAGE_CANDIDATE"));
+        let (item,capacity,contract)=if white48{
+            (40001838,48,"wand.native.private.storage48-white-stored-readset@1")
+        }else{(40000053,16,"wand.native.private.storage-stored-readset@1")};
         if receipt["sessionId"]!=hex(&r.session_id)||receipt["decodedSha256"]!=decoded_sha||
            receipt["revision"]!=r.revision||receipt["indexGeneration"]!=r.index_generation||
-           receipt["target"]["itemId"]!=40000053||receipt["writerAuthorized"]!=false||
+           receipt["target"]["itemId"]!=item||receipt["container"]["size"]!=capacity||
+           receipt["contract"]!=contract||receipt["writerAuthorized"]!=false||
            session.receipt().ok()!=Some(r){fail("TARGET_SCOPE")}
         if let Some((g,i))=selector{
             if receipt["target"]["gridId"]!=g||receipt["target"]["objectId"]!=i{fail("SELECTOR_SCOPE")}

@@ -497,6 +497,18 @@ mod private_storage {
     use serde_json::{json,Value};
     use sha2::{Digest,Sha256};
     const ITEM:u64=40000053; // exact Steam626 packaged definition E1410/ACT440
+    // ACT591: separately verified White 48-slot definition; never arbitrary
+    // caller-provided item/capacity or an inference from saved Size.
+    const WHITE48_ITEM:u64=40001838;
+    #[derive(Clone,Copy)]
+    enum StorageProfile { Original16, White48 }
+    impl StorageProfile {
+        fn item(self)->u64{match self{Self::Original16=>ITEM,Self::White48=>WHITE48_ITEM}}
+        fn capacity(self)->usize{match self{Self::Original16=>16,Self::White48=>48}}
+        fn contract(self)->&'static str{match self{
+            Self::Original16=>"wand.native.private.storage-stored-readset@1",
+            Self::White48=>"wand.native.private.storage48-white-stored-readset@1"}}
+    }
     const MAX_OBJECTS:usize=250_000;
     const MAX_CONTAINERS:usize=4096;
     const MAX_LINKS:usize=16384;
@@ -582,10 +594,10 @@ mod private_storage {
             })
         }
     }
-    fn candidate(b:&[u8],c:&Census,selector:Option<(u64,u64)>)->CoreResult<Link>{
+    fn candidate(b:&[u8],c:&Census,selector:Option<(u64,u64)>,profile:StorageProfile)->CoreResult<Link>{
         // First physical candidate only, or explicit exact composite selector.
         // A failed selected candidate does not silently fall back to another.
-        let x=c.links.iter().find(|x|!x.diff&&x.item==ITEM&&
+        let x=c.links.iter().find(|x|!x.diff&&x.item==profile.item()&&
             selector.map_or(true,|(g,o)|x.grid==g&&x.object==o))
             .copied().ok_or(denied("STORAGE_NO_PHYSICAL_CANDIDATE"))?;
         if x.container<=1||c.links.iter().filter(|y|y.container==x.container).count()!=1{
@@ -607,10 +619,10 @@ mod private_storage {
         if let Some(s)=find_field(b,x.storage,"DesignID")?{if !raw(b,s,b"null"){return Err(denied("STORAGE_DESIGN_UNRESOLVED"));}}
         Ok(x)
     }
-    fn slots(b:&[u8],s:Span)->CoreResult<Vec<Value>>{
+    fn slots(b:&[u8],s:Span,profile:StorageProfile)->CoreResult<Vec<Value>>{
         let mut out=Vec::new();
         walk_array(b,s,|v|{
-            if out.len()==16{return Err(denied("STORAGE_PHYSICAL_SLOTS_BOUND"));}
+            if out.len()==profile.capacity(){return Err(denied("STORAGE_PHYSICAL_SLOTS_BOUND"));}
             let item=number(b,required(b,v,"ItemID")?)?;
             let amt=number(b,required(b,v,"Amount")?)?;
             if item>i32::MAX as u64||amt>i32::MAX as u64||(item==0)!=(amt==0){
@@ -628,7 +640,8 @@ mod private_storage {
         })?;
         Ok(out)
     }
-    fn project(b:&[u8],e:WorkerEnvelope,selector:Option<(u64,u64)>)->CoreResult<Value>{
+    fn project(b:&[u8],e:WorkerEnvelope,selector:Option<(u64,u64)>,profile:StorageProfile)->CoreResult<Value>{
+        let item=profile.item();
         let roots=indexed_read::roots(b)?;
         let collection=required(b,roots.world,"GridCollection")?;
         let grids=required(b,collection,"Grids")?;
@@ -636,7 +649,7 @@ mod private_storage {
         let mut census=Census::new();
         census.scan(b,grids,false)?;
         if let Some(d)=diffs{census.scan(b,d,true)?;}
-        let x=candidate(b,&census,selector)?;
+        let x=candidate(b,&census,selector,profile)?;
         // Do not assume saved Mod/Rem precedence or effective default grids.
         if let Some(d)=diffs{
             let mut overlay=false;
@@ -674,7 +687,7 @@ mod private_storage {
             // expose same-parent candidates and their immutable record hash.
             if id>1&&!linked.contains(&id){
                 if let Some(p)=find_field(b,v,"ParentItemID")?{
-                    if nullable_id(b,p)?==Some(ITEM){
+                    if nullable_id(b,p)?==Some(item){
                         unmatched.push(json!({"containerId":id,"recordSha256":digest(b,v)}));
                     }
                 }
@@ -685,13 +698,13 @@ mod private_storage {
         let c=chosen.ok_or(denied("STORAGE_CONTAINER_MISSING"))?;
         let next=number(b,required(b,roots.player,"NextContainerInventoryID")?)?;
         if next<=max||next>i32::MAX as u64{return Err(denied("STORAGE_COUNTER_UNRESOLVED"));}
-        if number(b,required(b,c,"Size")?)?!=16||number(b,required(b,c,"ExtraSize")?)?!=0||
+        if number(b,required(b,c,"Size")?)?!=profile.capacity() as u64||number(b,required(b,c,"ExtraSize")?)?!=0||
            !boolean(b,required(b,c,"BelongsToPlayer")?)?||boolean(b,required(b,c,"BlockMoveTo")?)?||
-           nullable_id(b,required(b,c,"ParentItemID")?)?!=Some(ITEM){
+           nullable_id(b,required(b,c,"ParentItemID")?)?!=Some(item){
             return Err(denied("STORAGE_CONTAINER_ROLE_OR_TEMPLATE"));
         }
         let arr=required(b,c,"Inventory")?;
-        let slot_facts=slots(b,arr)?;
+        let slot_facts=slots(b,arr,profile)?;
         let lists=required(b,roots.player,"ListInventories")?;
         let mut catalog=None;let mut list_count=0usize;
         walk_object(b,lists,|k,v|{
@@ -713,7 +726,7 @@ mod private_storage {
             if item_count>MAX_OBJECTS{return Err(denied("STORAGE_CATALOG_ITEM_BOUND"));}
             let id=key_id(k)?;
             if id==0||id>i32::MAX as u64{return Err(denied("STORAGE_CATALOG_ITEM_ID"));}
-            if id==ITEM{entry=Some(v);}
+            if id==item{entry=Some(v);}
             Ok(())
         })?;
         let entry=entry.ok_or(denied("STORAGE_CATALOG_ITEM_MISSING"))?;
@@ -725,19 +738,19 @@ mod private_storage {
             "gridId":l.grid,"objectId":l.object,"itemId":l.item,"containerId":l.container,
             "storedKind":if l.diff{"DiffGrids.ModifiedObjects"}else{"Grids.Objects"},
             "objectSha256":digest(b,l.object_span),"storageSha256":digest(b,l.storage)})).collect();
-        let v=json!({"contract":"wand.native.private.storage-stored-readset@1",
+        let v=json!({"contract":profile.contract(),
             "platform":"SteamWindows","fullVersion":EXACT_STEAM_FULL_VERSION,"schema":626,
             "sessionId":hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
             "decodedSha256":hex(&e.expected_decoded_sha256),
             "selectionKind":if selector.is_some(){"EXPLICIT_PHYSICAL_COMPOSITE"}else{"FIRST_PHYSICAL_CANDIDATE"},
-            "target":{"gridId":x.grid,"objectId":x.object,"itemId":ITEM,"containerId":x.container,
+            "target":{"gridId":x.grid,"objectId":x.object,"itemId":item,"containerId":x.container,
                 "x":px,"y":py,"orientation":ori,"objectSha256":digest(b,o),"stateSha256":digest(b,x.state),
                 "storageSha256":digest(b,x.storage),"defaultTemplateCleared":true,
                 "from":optional_witness(b,find_field(b,o,"From")?)},
-            "container":{"recordSha256":digest(b,c),"mapSha256":digest(b,containers),"size":16,"extraSize":0,
-                "belongsToPlayer":true,"blockMoveTo":false,"parentItemId":ITEM,"physicalSlotCount":slot_facts.len(),
+            "container":{"recordSha256":digest(b,c),"mapSha256":digest(b,containers),"size":profile.capacity(),"extraSize":0,
+                "belongsToPlayer":true,"blockMoveTo":false,"parentItemId":item,"physicalSlotCount":slot_facts.len(),
                 "slotsSha256":digest(b,arr),"slots":slot_facts,"nextContainerInventoryId":next,"containerCount":count},
-            "catalog":{"inventoryId":0,"itemId":ITEM,"amount":amount,"marker":marker,"entrySha256":digest(b,entry),
+            "catalog":{"inventoryId":0,"itemId":item,"amount":amount,"marker":marker,"entrySha256":digest(b,entry),
                 "routeSha256":digest(b,catalog)},
             "storedReferences":{"gridCollectionSha256":digest(b,collection),"worldSha256":digest(b,roots.world),
                 "physicalGridCount":census.grids,"physicalDiffGridCount":census.diffs,"objectCount":census.objects,
@@ -759,7 +772,14 @@ mod private_storage {
             self.check_saved_diffgrids_build()?;
             let st=self.lock()?;
             indexed_read::validate_scope(self,&st,&e)?;
-            project(&self.decoded,e,selector)
+            project(&self.decoded,e,selector,StorageProfile::Original16)
+        }
+        /// ACT591 exact White48, explicit physical composite only.
+        pub fn read_private_storage48_white_stored(&self,e:WorkerEnvelope,grid:u64,object:u64)->CoreResult<Value>{
+            self.check_saved_diffgrids_build()?;
+            let st=self.lock()?;
+            indexed_read::validate_scope(self,&st,&e)?;
+            project(&self.decoded,e,Some((grid,object)),StorageProfile::White48)
         }
     }
     #[cfg(test)]
@@ -783,6 +803,65 @@ mod private_storage {
             contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
             expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
         fn read(d:&Value)->CoreResult<Value>{let s=open(d);s.read_private_storage_stored_candidate(env(&s),None)}
+        fn white(n:usize)->Value{
+            let mut d=doc(n);
+            let c=&mut d["Player"]["ContainerInventories"];
+            c["12"]["Size"]=json!(48); c["12"]["ParentItemID"]=json!(WHITE48_ITEM);
+            c["13"]["ParentItemID"]=json!(WHITE48_ITEM);
+            let catalog=d["Player"]["ListInventories"]["0"]["Inventory"].as_object_mut().unwrap();
+            let entry=catalog.remove("40000053").unwrap();catalog.insert("40001838".into(),entry);
+            d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"]["ItemID"]=json!(WHITE48_ITEM);
+            d
+        }
+        fn read_white(d:&Value)->CoreResult<Value>{
+            let s=open(d);s.read_private_storage48_white_stored(env(&s),7,4)
+        }
+        #[test]
+        fn white48_exact_profile_and_old16_are_disjoint(){
+            for n in [0,1,48]{
+                let mut d=white(n);
+                if n>0{d["Player"]["ContainerInventories"]["12"]["Inventory"][0]=
+                    json!({"ItemID":30200001,"Amount":3,"State":{"Unknown":7},"Opaque":9});}
+                let s=open(&d);let before=s.receipt().unwrap();
+                let v=s.read_private_storage48_white_stored(env(&s),7,4).unwrap();
+                assert_eq!(v["contract"],"wand.native.private.storage48-white-stored-readset@1");
+                assert_eq!(v["target"]["itemId"],WHITE48_ITEM);assert_eq!(v["container"]["size"],48);
+                assert_eq!(v["container"]["physicalSlotCount"],n);
+                assert_eq!(v["container"]["slots"].as_array().unwrap().len(),n);
+                assert_eq!(v["catalog"]["itemId"],WHITE48_ITEM);
+                assert_eq!(v["storedReferences"]["sameParentStoredUnmatchedContainers"][0]["containerId"],13);
+                assert_eq!(v["writerAuthorized"],false);assert_eq!(s.receipt().unwrap(),before);
+                assert!(s.read_private_storage_stored_candidate(env(&s),Some((7,4))).is_err());
+                assert!(s.read_private_storage48_white_stored(env(&s),8,4).is_err());
+                assert!(open(&d).read_private_storage48_white_stored(env(&s),7,4).is_err());
+                let mut stale=env(&s);stale.expected_revision+=1;
+                assert!(s.read_private_storage48_white_stored(stale,7,4).is_err());
+                if n>0{
+                    assert_eq!(v["container"]["slots"][0]["stateSha256"],
+                        hex(&Sha256::digest(br#"{"Unknown":7}"#)));
+                }
+            }
+            assert!(read_white(&doc(16)).is_err());
+            assert_eq!(read(&doc(16)).unwrap()["container"]["size"],16);
+        }
+        #[test]
+        fn white48_wrong_target_capacity_and_existing_guards_deny(){
+            assert!(read_white(&white(49)).is_err());
+            for (f,v) in [("Size",json!(16)),("Size",json!(49)),("ParentItemID",json!(40000053)),
+                ("ExtraSize",json!(1)),("BelongsToPlayer",json!(false)),("BlockMoveTo",json!(true))]{
+                let mut d=white(0);d["Player"]["ContainerInventories"]["12"][f]=v;assert!(read_white(&d).is_err(),"{f}");
+            }
+            let mut d=white(0);d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"]["ItemID"]=json!(40001839);
+            assert!(read_white(&d).is_err());
+            let mut d=white(0);d["World"]["GridCollection"]["DiffGrids"]["7"]=json!({"ID":7,"RemovedObjects":[4]});
+            assert!(read_white(&d).is_err());
+            let mut d=white(0);d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"]["State"]["Storage"]["DefaultContainerInventoryData"]=json!("Furniture_48Slot");
+            assert!(read_white(&d).is_err());
+            let mut d=white(0);d["Player"]["ContainerInventories"].as_object_mut().unwrap().remove("12");
+            assert!(read_white(&d).is_err());
+            let mut d=white(0);d["Player"]["ListInventories"]["0"]["Inventory"].as_object_mut().unwrap().remove("40001838");
+            assert!(read_white(&d).is_err());
+        }
         #[test]
         fn preserves_physical_count_and_unknown_effective_layout(){
             for n in [0,15,16]{let mut d=doc(n);if n>0{d["Player"]["ContainerInventories"]["12"]["Inventory"][0]=json!({"ItemID":30200001,"Amount":3,"State":{"Unknown":7},"Opaque":9});}
