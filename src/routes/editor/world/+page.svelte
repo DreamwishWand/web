@@ -78,6 +78,7 @@
   import {
     buildSwitchV125DestinationProgressionProjection
   } from '$lib/wep/progression-destination-projection-v115';
+  import { sameVerifiedExportContext } from '$lib/wep/verified-export-context.mjs';
   import {
     commitMinimumVerifiedTransform,
     reviewMinimumVerifiedTransform
@@ -296,6 +297,7 @@
   let saveFileInput: HTMLInputElement;
   let verifiedExportBaselineDocument: any = null;
   let verifiedExportReview: any = null;
+  let verifiedExportReviewContext: ReturnType<typeof currentVerifiedExportContext> | null = null;
   let verifiedExportResult: any = null;
   let verifiedExportErrorCode = '';
   let verifiedExportErrorDetail = '';
@@ -670,8 +672,12 @@
     }
     draftValidation = session.getLastValidation?.() ?? null;
     draftSavePreparation = session.previewPersistentCommit?.() ?? null;
+    if (verifiedExportResult && !sameVerifiedExportContext(verifiedExportReviewContext, currentVerifiedExportContext())) {
+      verifiedExportResult = null;
+    }
     if (verifiedExportReview) {
       verifiedExportReview = null;
+      verifiedExportReviewContext = null;
       verifiedExportConfirmed = false;
       verifiedExportErrorCode = 'WEP_EXPORT_REVIEW_STALE';
       verifiedExportErrorDetail = '';
@@ -3803,6 +3809,7 @@
   }
 
   function downloadVerifiedArtifact(artifact: any) {
+    if (!sameVerifiedExportContext(verifiedExportReviewContext, currentVerifiedExportContext())) return;
     if (!artifact?.bytes || !artifact?.fileName) return;
     const blob = new Blob([artifact.bytes], {
       type: artifact.mimeType ?? 'application/octet-stream'
@@ -3934,7 +3941,18 @@
     );
   }
 
+  function currentVerifiedExportContext() {
+    return {
+      epoch: worldSourceEpoch, source: worldSource, bytes: worldSourceBytes,
+      baseline: verifiedExportBaselineDocument, draft: editorDocument,
+      buildConfirmed: verifiedExportBuildConfirmed, sourceName: fileName,
+      platform: sourcePlatform, buildId: sourceBuildId
+    };
+  }
+
   async function reviewVerifiedExport() {
+    if (verifiedExportLoading || !verifiedExportBuildConfirmed) return;
+    const context = currentVerifiedExportContext();
     const roomFinishReview =
       editorDocument?.target?.kind === 'PLAYER_HOUSE_ROOM';
     if (
@@ -3954,6 +3972,7 @@
     }
     verifiedExportLoading = true;
     verifiedExportReview = null;
+    verifiedExportReviewContext = null;
     verifiedExportResult = null;
     verifiedExportErrorCode = '';
     verifiedExportErrorDetail = '';
@@ -4046,6 +4065,8 @@
                 basePath: base,
                 exactBuildConfirmed: verifiedExportBuildConfirmed
               });
+      // File/route/draft may have changed while the review was awaiting IO.
+      if (!sameVerifiedExportContext(context, currentVerifiedExportContext())) return;
       if (
         review.contract !== ROADFENCE_VERIFIED_EXPORT_CONTRACT &&
         review.contract !== ROOM_FINISH_VERIFIED_EXPORT_CONTRACT &&
@@ -4060,12 +4081,14 @@
         );
       }
       verifiedExportReview = review;
+      verifiedExportReviewContext = context;
       message = t(
         'worldEditor.verifiedExport.reviewReady',
         {},
         $locale
       );
     } catch (error: any) {
+      if (!sameVerifiedExportContext(context, currentVerifiedExportContext())) return;
       verifiedExportErrorCode = String(
         error?.code ?? error?.message ?? 'WEP_EXPORT_REVIEW_FAILED'
       );
@@ -4078,6 +4101,17 @@
   }
 
   async function applyVerifiedExport() {
+    if (verifiedExportLoading || !verifiedExportBuildConfirmed) return;
+    const context = verifiedExportReviewContext;
+    if (!sameVerifiedExportContext(context, currentVerifiedExportContext())) {
+      verifiedExportReview = null;
+      verifiedExportReviewContext = null;
+      verifiedExportConfirmed = false;
+      verifiedExportResult = null;
+      verifiedExportErrorCode = 'WEP_EXPORT_REVIEW_STALE';
+      verifiedExportErrorDetail = '';
+      return;
+    }
     if (
       !verifiedExportReview ||
       !verifiedExportConfirmed ||
@@ -4095,7 +4129,7 @@
     verifiedExportErrorCode = '';
     verifiedExportErrorDetail = '';
     try {
-      verifiedExportResult =
+      const result =
         verifiedExportReview.contract === ROADFENCE_VERIFIED_EXPORT_CONTRACT
           ? await commitRoadFenceVerifiedExport({
               review: verifiedExportReview,
@@ -4143,12 +4177,16 @@
                 draftDocument: editorDocument,
                 worldBinding: switchWorldBinding
               });
+      // Never publish bytes from a previous Save or draft to the new view.
+      if (!sameVerifiedExportContext(context, currentVerifiedExportContext())) return;
+      verifiedExportResult = result;
       message = t(
         'worldEditor.verifiedExport.success',
         {},
         $locale
       );
     } catch (error: any) {
+      if (!sameVerifiedExportContext(context, currentVerifiedExportContext())) return;
       verifiedExportErrorCode = String(
         error?.code ?? error?.message ?? 'WEP_EXPORT_COMMIT_FAILED'
       );
@@ -5852,7 +5890,7 @@
               <button
                 type="button"
                 class="verified-export-apply"
-                disabled={!verifiedExportConfirmed || verifiedExportLoading}
+                disabled={!verifiedExportConfirmed || !verifiedExportBuildConfirmed || verifiedExportLoading}
                 aria-describedby={!verifiedExportConfirmed ? 'wep-verified-export-confirm-reason' : undefined}
                 on:click={applyVerifiedExport}
               >
