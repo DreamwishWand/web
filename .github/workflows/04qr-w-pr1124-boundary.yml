@@ -1,0 +1,119 @@
+name: 04 QR-W PR1124 exact deletion boundary
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1124-boundary.yml'
+permissions:
+  contents: read
+jobs:
+  boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent raw tree equality and dependency scan
+        run: |
+          python3 - <<'PY'
+          import subprocess as s, pathlib, hashlib
+          B='62daa7a2228aa517c59f46a5be30dc574681100a'
+          H='335a02c5a9bf944b55718b81bcac8273486a76d5'
+          paths={"docs/core/01b-r06-native-census-concordance-20261108.md":"b54926f3d583e52be8f3f0c4128ba0cdb0cdab75","docs/core/01b-r06-steam-cardinal-gridarea-static-20261112.md":"1a1d518b18262bf6f91bdc8ce82abafc27ae3714","docs/core/01b-r06-typed-spatial-index-20261108.md":"a34347757fc661c83c9348c3e088ac3a4ec73ebb","docs/core/01b-r06r22-steam-spatial-preflight-20261111.md":"dbc74b9858cbafcb90e24a4ab6b4a6a7987eb5d7","docs/core/01c-roadfence-operation-native-closure-20261112.md":"88320938087860df5eb92dc25b3f52a1ec61469f","docs/core/01e-steam626-native-inventory-chest-consumer-producer-20261112.md":"22c567e2e3971a0270cf60f1750c3f460b725557","docs/core/01e-w1-native-v3-source-closure-20261104.md":"d62d20d0e634737f8080a45a60b524432997e514","docs/core/01e-w1-scene-area-reference-readonly-20261104.md":"20b819f42508681bd9349054d9f3dc1e3f2b0d01","docs/core/01e-w1-wetland-area-grid-candidate-probe-20261104.md":"6bc4f2780aec4bb6009f22499d09aca2b2668989","docs/core/room-finish-integration-20261006.json":"a31d41fbe60e47f0afa1b4394a1876be5b5281f0"}
+          git=lambda *a:s.check_output(['git',*a])
+          def tree(ref):
+            out={}
+            for entry in git('ls-tree','-r','-z',ref).split(b'\0'):
+              if entry:
+                meta,p=entry.split(b'\t',1)
+                out[p.decode()]=meta.decode()
+            return out
+          b,h,q=tree(B),tree(H),tree('HEAD')
+          assert git('rev-parse',H+'^').decode().strip()==B
+          assert set(b)-set(h)==set(paths) and not set(h)-set(b)
+          assert all(b[p]==h[p] for p in h)
+          assert set(q)-set(h)=={'.github/workflows/04qr-w-pr1124-boundary.yml'} and all(q[p]==h[p] for p in h)
+          queries=0
+          for p,sha in paths.items():
+            assert b[p].endswith(sha)
+            raw=git('show',B+':'+p)
+            assert hashlib.sha1(('blob '+str(len(raw))+'\0').encode()+raw).hexdigest()==sha
+            needles=(p,'owner-local-steam-v1/README.md') if p.endswith('/README.md') else (p,pathlib.PurePosixPath(p).name,pathlib.PurePosixPath(p).stem)
+            for needle in needles:
+              queries+=1
+              r=s.run(['git','grep','-I','-l','-F','-e',needle,H,'--'],capture_output=True)
+              assert r.returncode==1,(needle,r.returncode,r.stdout.decode()[:500])
+          # Inspect broader directory references and dynamic file enumeration (no content logged).
+          import re
+          broad=[]
+          for p in h:
+            if not p.endswith(('.mjs','.js','.ts','.py','.rs','.sh','.yml','.yaml','.json','.svelte','.toml')): continue
+            raw=git('show',H+':'+p)
+            if b'docs/core' in raw or b'docs/wep' in raw or b'owner-local-steam-v1' in raw:
+              broad.append(p)
+              if p.startswith('tools/owner-local-steam-v1/'):
+                assert not re.search(rb'(?i)(?:readme\\.md|[\"\x27]readme[\"\x27])',raw),p
+          print('QRW1124_BROAD_DEPENDENCY_CANDIDATES',len(broad),sorted(broad))
+          print('QRW1124_FIXED10_RAW_TREE_ALL_RETAINED_MODES_BLOBS_IDENTICAL_PASS',len(b),len(h),'dependency_queries',queries)
+          PY
+      - name: Compare actual static builds before and after deletion (no upload)
+        env:
+          BASE_PATH: /web
+          VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          B=62daa7a2228aa517c59f46a5be30dc574681100a
+          H=335a02c5a9bf944b55718b81bcac8273486a76d5
+          temp="$(mktemp -d)"
+          trap 'rm -rf "$temp"' EXIT
+          git checkout --detach "$B"
+          npm ci --no-audit --no-fund
+          # Same test-only explicit version for BOTH builds. The production
+          # config leaves Kit's generated build version unspecified.
+          grep -R -n 'Date.now().toString()' node_modules/@sveltejs/kit/src/core/config | head -5
+          pin_version() {
+            node --input-type=module - <<'JS'
+            import {readFileSync,writeFileSync} from 'node:fs';
+            import assert from 'node:assert/strict';
+            const p='svelte.config.js',s=readFileSync(p,'utf8');
+            assert.equal(s.split('  kit: {').length,2);
+            assert.ok(!s.includes('version:'));
+            writeFileSync(p,s.replace('  kit: {','  kit: {\n    version: { name: "qrw1124-fixed-build-version" },'));
+          JS
+          }
+          pin_version
+          npm run build > "$temp/base.log" 2>&1 || { tail -40 "$temp/base.log"; exit 1; }
+          mv build "$temp/base"
+          rm -rf .svelte-kit
+          git restore -- svelte.config.js
+          git checkout --detach "$H"
+          pin_version
+          npm run build > "$temp/head.log" 2>&1 || { tail -40 "$temp/head.log"; exit 1; }
+          python3 - "$temp/base" build <<'PY'
+          import pathlib,sys,hashlib
+          a,b=map(pathlib.Path,sys.argv[1:])
+          def inv(d):
+            return {p.relative_to(d).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in d.rglob('*') if p.is_file()}
+          x,y=inv(a),inv(b)
+          print('QRW1124_STATIC_COUNTS',len(x),len(y),'html',sum(p.endswith('.html') for p in y))
+          print('QRW1124_STATIC_PATH_DELTA',sorted(set(x)-set(y)),sorted(set(y)-set(x)))
+          assert set(x)==set(y)
+          diff=[p for p in x if x[p]!=y[p]]
+          print('QRW1124_STATIC_BYTE_DELTA',len(diff),diff[:30])
+          assert not diff, diff[:30]
+          stems=["01b-r06-native-census-concordance-20261108","01b-r06-steam-cardinal-gridarea-static-20261112","01b-r06-typed-spatial-index-20261108","01b-r06r22-steam-spatial-preflight-20261111","01c-roadfence-operation-native-closure-20261112","01e-steam626-native-inventory-chest-consumer-producer-20261112","01e-w1-native-v3-source-closure-20261104","01e-w1-scene-area-reference-readonly-20261104","01e-w1-wetland-area-grid-candidate-probe-20261104","room-finish-integration-20261006"]
+          for p in b.rglob('*'):
+            if p.is_file():
+              data=p.read_bytes()
+              assert not any(s in str(p) or s.encode() in data for s in stems),p
+          assert all((b/p).is_file() for p in ['index.html','editor/index.html','gallery/dreamsnaps/index.html','dreamsnaps/index.html','community-ops/index.html','404.html'])
+          print('QRW1124_ACTUAL_BASE_HEAD_STATIC_SAME_PATHS_NO_DELETED_DOC_REFERENCES_PASS')
+          PY
+          git restore -- svelte.config.js
+          test -z "$(git diff --name-only)"
