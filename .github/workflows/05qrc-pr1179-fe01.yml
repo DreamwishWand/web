@@ -1,0 +1,38 @@
+name: 05 QR-C PR1179 independent FE01 preserve7
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1179-fe01.py'
+      - '.github/workflows/05qrc-pr1179-fe01.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Exact child4 and QA-only2
+        run: |
+          source=9b2187ce19965a55590331488a7c0a7a6c8e4cda
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git diff --diff-filter=A --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs)" = 7dfd9d91496eaed1fcab7111547dc37cf2228b09
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = 4958dc920ad3450aa01757502fafc1f4205da403
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = 6b47a9deb42ddd90bc02350475c3fceb5a033adb
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/switch624_fence_fe01.rs)" = a473fbd132dd6785fb448926db2f5c88673450ed
+      - name: Locked native independent lexical and cross-route checks
+        run: |
+          git show 08fd6694ec95ad2c6d648722f8e8c204b6115f9d:scripts/wasm-distribution/approved-Cargo.lock > crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v2,semantic-writer-dev --bin wand-local-rust-v2-noop
+          python3 tests/qa/05qrc-pr1179-fe01.py crates/ddv-save-core/target/debug/wand-local-rust-v2-noop
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --lib switch624_fence_fe01
