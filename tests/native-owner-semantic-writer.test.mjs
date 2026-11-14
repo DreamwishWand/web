@@ -4,6 +4,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync,symlinkSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 const bin=process.env.WAND_TEST_SEMANTIC_RUST;
 if(!bin){
  console.log('DEV_SEMANTIC_RUST_BINARY_ABSENT_GENERIC_NODE_NOT_RUN');
@@ -157,4 +160,60 @@ test('Backup includes quantity one and exact Furniture catalog zero, writer rema
  const writer=invoke('--semantic-inventory-existing-decrease-only',{...patch,
   WAND_LOCAL_COMPATIBLE_ITEM_TYPE:'ItemType_Furniture',WAND_LOCAL_EXPECTED_OLD_AMOUNT:'1',WAND_LOCAL_NEW_AMOUNT:'0'},source);
  assert.notEqual(writer.status,0);assert.equal(writer.stdout,'');
+});
+
+test('Policy73 exact target restore review same source and changed amount, never authority',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'wand-restore-review-'));
+ try{
+  const root=JSON.parse(original);
+  root.Player.ListInventories={'0':{ID:0,CompatibleItemType:'ItemType_Furniture',
+   CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},
+   Inventory:{'40000053':{Amount:49,Marker:'ItemMarker_None',Unknown:{keep:7}}}}};
+  const source=JSON.stringify(root),selector={WAND_LOCAL_INVENTORY_ID:'0',WAND_LOCAL_CANONICAL_ITEM_ID:'40000053'};
+  const capture=invoke('--inventory-amount-backup-only',{...selector,WAND_LOCAL_DECODED_SHA256:sha(source)},source);
+  assert.equal(capture.status,0,capture.stderr);
+  const bytes=Buffer.from(capture.stdout),backup=JSON.parse(capture.stdout),path=join(dir,'backup.wand.json');
+  writeFileSync(path,bytes,{mode:0o600});
+  const reviewEnv={...selector,WAND_LOCAL_RESTORE_BACKUP_PATH:path,WAND_LOCAL_RESTORE_BACKUP_SHA256:sha(bytes),
+   WAND_LOCAL_RESTORE_BACKUP_SOURCE_SHA256:backup.provenance.decodedSha256,
+   WAND_LOCAL_RESTORE_BACKUP_ENTRY_SHA256:backup.payload.entrySha256};
+  const review=(amount,over={})=>{
+   const d=structuredClone(root);d.Player.ListInventories[0].Inventory[40000053].Amount=amount;
+   const raw=JSON.stringify(d),entry=JSON.stringify(d.Player.ListInventories[0].Inventory[40000053]);
+   return invoke('--inventory-amount-restore-review-only',{...reviewEnv,
+    WAND_LOCAL_DECODED_SHA256:sha(raw),WAND_LOCAL_RESTORE_CURRENT_ENTRY_SHA256:sha(entry),
+    WAND_LOCAL_RESTORE_EXPECTED_CURRENT_AMOUNT:String(amount),...over},raw);
+  };
+  for(const [amount,disposition] of [[49,'AlreadyMatches'],[50,'PositiveDecreaseCandidate'],[48,'IncreaseUnsupported']]){
+   const p=review(amount);assert.equal(p.status,0,p.stderr);const v=JSON.parse(p.stdout);
+   assert.equal(v.contract,'wand.native.private.inventory-restore-review@1');
+   assert.deepEqual(v.target,{inventoryId:0,itemId:40000053});
+   assert.equal(v.backupAmount,49);assert.equal(v.currentAmount,amount);
+   assert.equal(v.disposition,disposition);assert.equal(v.sameSourceDecoded,amount===49);
+   assert.equal(v.revision,0);assert.equal(v.indexGeneration,1);
+   assert.equal(v.backupSha256,sha(bytes));
+   for(const k of ['originalTargetLineageVerified','rightsVerified','writerAuthorized','applyAuthorized',
+    'editedCopyAuthorized','nativeV3Verified'])assert.equal(v[k],false);
+   assert.doesNotMatch(p.stderr,/40000053|releases_1.25|Unknown/);
+  }
+  const link=join(dir,'link.wand.json');symlinkSync(path,link);
+  const fifo=join(dir,'fifo.wand.json');
+  assert.equal(spawnSync('mkfifo',[fifo]).status,0);
+  for(const over of [
+   {WAND_LOCAL_RESTORE_BACKUP_SHA256:'f'.repeat(64)},
+   {WAND_LOCAL_RESTORE_BACKUP_SOURCE_SHA256:'f'.repeat(64)},
+   {WAND_LOCAL_RESTORE_BACKUP_ENTRY_SHA256:'f'.repeat(64)},
+   {WAND_LOCAL_RESTORE_CURRENT_ENTRY_SHA256:'f'.repeat(64)},
+   {WAND_LOCAL_RESTORE_EXPECTED_CURRENT_AMOUNT:'49'},
+   {WAND_LOCAL_RESTORE_EXPECTED_CURRENT_AMOUNT:'050'},
+   {WAND_LOCAL_CANONICAL_ITEM_ID:'40000054'},
+   {WAND_LOCAL_INVENTORY_ID:'4'},
+   {WAND_LOCAL_RESTORE_BACKUP_PATH:'relative.wand.json'},
+   {WAND_LOCAL_RESTORE_BACKUP_PATH:link},
+   {WAND_LOCAL_RESTORE_BACKUP_PATH:dir},
+   {WAND_LOCAL_RESTORE_BACKUP_PATH:fifo},
+   {WAND_LOCAL_DECODED_SHA256:'f'.repeat(64)}
+  ]){const p=review(50,over);assert.notEqual(p.status,0);assert.equal(p.stdout,'');}
+  assert.deepEqual(readFileSync(path),bytes);
+ }finally{rmSync(dir,{recursive:true,force:true});}
 });
