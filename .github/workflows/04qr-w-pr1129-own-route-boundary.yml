@@ -1,0 +1,105 @@
+name: 04 QR-W PR1129 new own-route boundary
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1129-own-route-boundary.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = '0432d0e2d636871848f915e1dfaefe96b379a384'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/04qr-w-pr1129-own-route-boundary.yml'
+          test "$(git diff --name-only 'a09cc73f21a5a2ceacdf79187e7545510715b922' '0432d0e2d636871848f915e1dfaefe96b379a384' | wc -l)" = 2
+          test "$(git rev-parse HEAD:src/lib/wep/world-editor-recovery.ts)" = 5f4ebf988990064506bff9e7919972db821841d3
+          test "$(git rev-parse HEAD:tests/wep-recovery-checkpoint-preservation.test.mjs)" = 21e26740f2692e9d1abb5d82b08a2df29b0ccd8d
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4363 --strictPort >/tmp/qa573.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4363/editor/world/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4363/editor/world/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const recoveryProfile={
+            GameInfo:{Version:624,InitialVersion:624,LastSaveDeviceInfo:{deviceType:'DeviceType_Switch'}},
+            Player:{},
+            ProfileWorld:{Stores:[],Shops:[]},
+            ConditionalEventHistory:{ActiveEvents:{}},
+            World:{
+              GridCollection:{
+                Grids:{
+                  '10':{
+                    ID:10,
+                    GridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',
+                    GridDefaultLayoutPath:'',
+                    TessellationFactor:2,
+                    NextGridObjectID:102,
+                    Objects:{
+                      '101':{ID:101,ItemID:40000048,X:10,Y:10,Orientation:'GridOrientation_Up',State:null}
+                    }
+                  }
+                },
+                DiffGrids:{}
+              },
+              Villages:[{SceneItemId:1540000000,Areas:{'7':{GridIDs:[10],Unlocked:true,EnvironmentEffectItemID:0,EnvironmentEffectOrientation:'GridOrientation_Up'}}}],
+              FloatingIslands:{},
+              MissionSlots:{},
+              QuestInfo:{},
+              Keyholes:{}
+            }
+          };
+          
+          
+          const root='http://127.0.0.1:4363',idx='dreamwishwand:world-editor:recovery:index:v1',prefix='dreamwishwand:world-editor:recovery:v1:';
+          const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+           const context=await browser.newContext({viewport:{width:1440,height:1100}}),page=await context.newPage();const errors=[],unsafe=[];
+           page.on('pageerror',e=>errors.push(String(e)));page.on('request',r=>{if(!r.url().startsWith(root+'/')||r.method()!=='GET')unsafe.push([r.method(),r.url()])});
+           await page.goto(root+'/editor/world/',{waitUntil:'networkidle'});
+           await page.locator('.platform-select select').selectOption('switch');
+           await page.locator('.load-panel input[type="file"]').setInputFiles({name:'qa573-synthetic.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(recoveryProfile))});
+           await page.getByText(/DDV save loaded locally/).waitFor();await page.getByRole('button',{name:'Open in Canvas'}).first().click();await page.getByText(/Core-bound local draft authoring/).waitFor();
+           await page.locator('g[data-editor-object]').first().click();
+           const move=page.locator('.toolbar-actions').getByRole('button',{name:'Move right'});
+           await move.click();
+           const state=await page.evaluate(({idx,prefix})=>{const i=localStorage.getItem(idx),f=JSON.parse(i)[0],k=prefix+f;return {i,f,k,raw:localStorage.getItem(k)}},{idx,prefix});assert.ok(state.raw);
+           const original=JSON.parse(state.raw),valid=Object.values(original.routes)[0];
+           const cases=[
+            ['inherited-toString',{...original,routes:{},activeRouteKey:'toString'}],
+            ['inherited-constructor',{...original,routes:{},activeRouteKey:'constructor'}],
+            ['prototype-route',{...original,routes:{['__proto__']:{...valid,routeKey:'__proto__'}},activeRouteKey:'__proto__'}]
+           ];
+           const failures=[];
+           for(const [name,record] of cases){
+            const raw=JSON.stringify(record);
+            await page.evaluate(({k,raw,idx,i})=>{localStorage.setItem(k,raw);localStorage.setItem(idx,i)},{k:state.k,raw,idx,i:state.i});
+            await move.click();
+            // A checkpoint runs synchronously after the committed UI mutation. Wait for status or byte delta.
+            await page.waitForFunction(({k,raw})=>localStorage.getItem(k)!==raw||document.querySelector('.recovery-status')?.textContent?.includes('WEP_RECOVERY_EXISTING_RECORD_INVALID'),{k:state.k,raw},{timeout:10000});
+            const after=await page.evaluate(({k,idx})=>({raw:localStorage.getItem(k),index:localStorage.getItem(idx),status:document.querySelector('.recovery-status')?.textContent||''}),{k:state.k,idx});
+            const unchanged=after.raw===raw&&after.index===state.i;
+            const routeKeys=Object.keys(JSON.parse(after.raw).routes);
+            console.log('QA585_OWN_ROUTE_COUNTEREXAMPLE',JSON.stringify({name,unchanged,indexUnchanged:after.index===state.i,status:after.status,routeKeys,active:JSON.parse(after.raw).activeRouteKey}));
+            if(!unchanged||!after.status.includes('WEP_RECOVERY_EXISTING_RECORD_INVALID'))failures.push(name);
+           }
+           assert.deepEqual(errors,[]);assert.deepEqual(unsafe,[]);
+           assert.deepEqual(failures,[],'invalid inherited/prototype recovery route must fail closed and preserve raw bytes');
+           await context.close();
+          
+          }finally{await browser.close();}
+          
+          JS
