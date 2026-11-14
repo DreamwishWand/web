@@ -418,6 +418,26 @@ export const roadFenceStructuralMutationAdapterV125=Object.freeze({
        !sameIds(createdIds,created.map(x=>x.gridObjectId)))
       throw bindingError('ROADFENCE_TX_ADAPTER_INTENT_ENTRY_BINDING_MISMATCH');
 
+    // Matching caller-supplied targets is not proof of structural legality.
+    // Enforce the same partition/allocation invariants as the plan builder.
+    if(!createdIds.length&&!deletedIds.length)
+      throw bindingError('ROADFENCE_TX_STRUCTURAL_NOOP');
+    const union=[...preservedIds,...createdIds,...deletedIds];
+    if(new Set(union).size!==union.length)
+      throw bindingError('ROADFENCE_TX_IDENTITY_SET_OVERLAP');
+    const nextBefore=plan.target.nextGridObjectIDBefore;
+    const nextAfter=plan.target.nextGridObjectIDAfter;
+    if(!Number.isSafeInteger(nextBefore)||nextBefore<0)
+      throw bindingError('ROADFENCE_TX_NEXT_BEFORE_INVALID');
+    if(!Number.isSafeInteger(nextAfter)||nextAfter<0)
+      throw bindingError('ROADFENCE_TX_NEXT_AFTER_INVALID');
+    const expectedCreated=Array.from({length:createdIds.length},(_,i)=>nextBefore+i);
+    if(!sameIds(createdIds,expectedCreated))
+      throw bindingError('ROADFENCE_TX_CREATED_IDS_NOT_CONTIGUOUS_FROM_NEXT');
+    if(nextAfter!==nextBefore+createdIds.length)
+      throw bindingError('ROADFENCE_TX_NEXT_TRANSITION_INVALID');
+    normalizeReplacementPairs(plan.target.replacementIdentityPairs,deletedIds,createdIds);
+
     for(const entry of preserved){
       if(!same(objects[String(entry.gridObjectId)],entry.sourceObject))
         throw bindingError('ROADFENCE_TX_ADAPTER_PRESERVED_SOURCE_MISMATCH',String(entry.gridObjectId));
