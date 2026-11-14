@@ -1,0 +1,44 @@
+name: 04 QR-W PR1131 rights contract independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1131-rights-boundary.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import subprocess as s
+          B='a09cc73f21a5a2ceacdf79187e7545510715b922';H='f76f86e3d74cef288f6b137b2e11cbcaf7a43e87';git=lambda *a:s.check_output(['git',*a])
+          def tree(ref):
+           return {p.decode():meta.decode() for e in git('ls-tree','-r','-z',ref).split(b'\0') if e for meta,p in [e.split(b'\t',1)]}
+          b,h,q=tree(B),tree(H),tree('HEAD')
+          pins={'docs/rights/dbk-solo-owner-public-correction-20261106.md':('069cef7afef42a497c78e4a8c6bf8a61330b46b6','af2723ff72b75f0ffe6aa10dad20cc1b7d0e7317'),'docs/rights/ddv-item-image-release-operator-20261105.md':('6989cf4ccfe641cbcabda4dd37548829184d476b','07b6179f6630f373619c9919e591c47f1c87a74d')}
+          assert set(b)==set(h)
+          assert {p for p in b if b[p]!=h[p]}==set(pins)
+          assert set(q)-set(h)=={'.github/workflows/04qr-w-pr1131-rights-boundary.yml'} and all(q[p]==h[p] for p in h)
+          assert git('merge-base','HEAD',H).decode().strip()==H
+          for p,(old,new) in pins.items():
+           assert b[p].endswith(old) and h[p].endswith(new)
+          a=git('show',H+':docs/rights/dbk-solo-owner-public-correction-20261106.md').decode();c=git('show',H+':docs/rights/ddv-item-image-release-operator-20261105.md').decode()
+          for t in ['already eligible public scope','not a third party','expected previous revision','stale or mismatched','receipt and reply','quarantine or denial','shared source and derivative hashes','not removal','independent suppression ledger','voting-period DreamSnaps','private by default','minor and guardian','noindex','synthetic check is not real-world acceptance']:assert t in a,t
+          for t in ['not a copyright licence','UNKNOWN','hidden or unreleased','Steam Windows','Switch assets','Build/BID','ItemID → IconGUID → Sprite/Texture → PNG/lossless WebP','eight supported locale','receipt/reply','connected source-PNG/WebP digest aliases','fail closed','already-open browser','outside restorable snapshots','actual HTTPS, MIME, SHA','second Owner media-policy grant','No public flag changes','draft, unverified','unresolved affected cache or rollback']:assert t in c,t
+          print('QA577_EXACT2_MOD_RETAINED_TREE_AND_PUBLIC_NORMATIVE_CONTRACT_PASS',len(b),len(h))
+          
+          PY
+          npm ci --no-audit --no-fund
+          node --test tests/dbk-solo-owner-postpublish.test.mjs tests/ddv-item-image-operator-gate.test.mjs
+          
