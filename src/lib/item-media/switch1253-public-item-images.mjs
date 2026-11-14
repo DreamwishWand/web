@@ -30,6 +30,11 @@ export const SWITCH1253_NATIVE_PINS=Object.freeze({
     rasterStatus:'SWITCH_DXT5_RGBA_EXACT_PRIVATE'
   })
 });
+// E1640: historical exact bytes do not establish visual correctness.
+// Keep the original pin/evidence, but quarantine this exact Switch item at
+// every publication boundary until independently corrected; Steam is separate.
+export const SWITCH1253_VISUAL_QUARANTINE=Object.freeze({'40006096':'E1640_SWITCH_DICE_TREE_STRIPED'});
+const switchVisualQuarantined=id=>Object.prototype.hasOwnProperty.call(SWITCH1253_VISUAL_QUARANTINE,id);
 // Exact byte sizes for private staging verification; not a publication grant.
 export const SWITCH1253_PREPARED_WEBP_SIZES=Object.freeze({'40000047':19064,'40006096':29314});
 // No rights/host/release acceptance. This compiled default is the runtime
@@ -53,7 +58,7 @@ export function prepareSwitch1253ItemImageManifest(){
   source:{...SWITCH1253_TARGET,originalBundleSha256:SWITCH1253_ORIGINAL_BUNDLE_SHA256},
   target:{...SWITCH1253_TARGET},
   publication:{gate:'MEDIA_PUBLIC_PREPARED_OFF',...pending},
-  items:Object.fromEntries(Object.entries(SWITCH1253_NATIVE_PINS).map(([id,pin])=>[id,{
+  items:Object.fromEntries(Object.entries(SWITCH1253_NATIVE_PINS).filter(([id])=>!switchVisualQuarantined(id)).map(([id,pin])=>[id,{
    ...pin,pixelStatus:'SWITCH_RGBA_EXACT_VERIFIED',visibility:'RELEASED_PLAYER_FACING',
    rightsStatus:'UNKNOWN',publicationDecision:'NOT_RUN',assetStatus:'WEBP_LOSSLESS_VERIFIED_160'
   }]))
@@ -135,6 +140,9 @@ export function validateSwitch1253ItemImageCatalog(raw,reviewedRelease=SWITCH125
  if(keys.length===0||keys.length>40000)fail('MAPPING_EMPTY_OR_OVERSIZED');
  const safe=Object.create(null);
  for(const id of keys){
+   // Drop the quarantined row even in a stale previously reviewed manifest;
+   // do not suppress unrelated valid rows and never return its old URL.
+   if(switchVisualQuarantined(id))continue;
    const e=raw.items[id],trusted=reviewedRelease.items[id],pin=SWITCH1253_NATIVE_PINS[id];
    if(!ITEM.test(id)||!Number.isSafeInteger(Number(id))||
       !owns(reviewedRelease.items,id)||!owns(SWITCH1253_NATIVE_PINS,id)||
@@ -173,7 +181,7 @@ export function validateSwitch1253ItemImageCatalog(raw,reviewedRelease=SWITCH125
    target:Object.freeze({...SWITCH1253_TARGET}),
    assetVariant:SWITCH1253_ITEM_IMAGE_VARIANT,
    codec:'WEBP_LOSSLESS_RGBA_EXACT',
-   items:Object.freeze(safe),count:keys.length
+   items:Object.freeze(safe),count:Object.keys(safe).length
  });
 }
 
@@ -301,7 +309,7 @@ export function switch1253ItemImagePath(itemId,catalog){
     catalog.assetVariant!==SWITCH1253_ITEM_IMAGE_VARIANT||
     catalog.codec!=='WEBP_LOSSLESS_RGBA_EXACT')return null;
  const id=String(itemId);
- if(!ITEM.test(id)||!Number.isSafeInteger(Number(id)))return null;
+ if(!ITEM.test(id)||!Number.isSafeInteger(Number(id))||switchVisualQuarantined(id))return null;
  const item=catalog.items?.[id],pin=SWITCH1253_NATIVE_PINS[id];
  if(!item||!pin||item.originalNativeStreamSha256!==pin.originalNativeStreamSha256||
     item.sourcePngSha256!==pin.sourcePngSha256||
