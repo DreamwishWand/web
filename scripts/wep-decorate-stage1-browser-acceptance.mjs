@@ -38,8 +38,11 @@ async function verifyDownloadedSavePair(page,success,original,sourceName,expecte
     assert.equal(await file.failure(),null);
     return {name:file.suggestedFilename(),bytes:await readFile(await file.path())};
   };
-  const edited=await get(/Download edited save/i);
+  const downloadButtons=success.locator('.verified-export-downloads button');
+  assert.match(await downloadButtons.nth(0).innerText(),/Download original backup/i);
+  assert.match(await downloadButtons.nth(1).innerText(),/Download edited save/i);
   const backup=await get(/Download original backup/i);
+  const edited=await get(/Download edited save/i);
   const integrity=await get(/Download manifest/i);
   assert.equal(edited.name,'DDV_EDITED_copy_'+sourceName);
   assert.equal(backup.name,'DDV_BACKUP_original_'+sourceName);
@@ -545,6 +548,8 @@ try{
   assert.ok((await roomRoutes.innerText()).includes('Browser Room'));
   await roomRoutes.locator('article').first().getByRole('button').click();
   await page.locator('[data-wep-room-finish-toggle]').waitFor();
+  assert.equal(await page.locator('.toolbar-actions').getByRole('button',{name:'Download original backup',exact:true}).count(),1);
+  pass('ROOM_FINISH_SINGLE_ORIGINAL_BACKUP_CONTROL');
   pass('ROOM_FINISH_EXACT_ROOM_ROUTE',{
     houseItemId:20500005,
     floorIndex:0,
