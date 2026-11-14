@@ -101,6 +101,10 @@ fn collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
             return Err(denied("FE01_OCCUPIED_ANCHOR"));
         }
     }
+    layout_edits(b,&members,&del,objs,counter,n4,plan)
+}
+fn layout_edits(b:&[u8],members:&[(u32,usize,Span)],del:&[u32],objs:Span,
+    counter:Span,n4:u32,plan:&[Value])->CoreResult<Vec<Replacement>>{
     // Remove exact member ranges, including only their adjacent separators.
     // Consecutive targets are coalesced. All untouched raw records/unknown
     // values and bytes outside deleted ranges remain unchanged.
@@ -209,5 +213,243 @@ mod tests{
             let t=open(&q);assert!(t.stage_switch624_fence_fe01_archive(scope(&t,WorkerAction::Stage),&enc(&plan(&q)).unwrap()).is_err());
         }
         assert_eq!(s.receipt().unwrap().revision,0);
+    }
+}
+
+// ACT683: two explicit historical Fence layout operations. Both share the
+// existing validated scanner, exact lexical map splice and semantic ledger.
+// The supplied plan is CAS evidence, not proof of external rights/geometry.
+#[derive(Clone,Copy)]
+enum HistoricalFenceOp { Frp01, Fm01 }
+impl HistoricalFenceOp {
+    fn contract(self)->&'static str{match self{
+        Self::Frp01=>"wand.private.switch624.fence-frp01-archive@1",
+        Self::Fm01=>"wand.private.switch624.fence-fm01-archive@1",
+    }}
+    fn count(self)->usize{match self{Self::Frp01=>7,Self::Fm01=>8}}
+}
+const EXT1:u32=40700247;
+const REPLACEMENT_BASE:u32=40700268;
+const REPLACEMENT_EXT1:u32=40700269;
+fn fence_record(id:u32,item:u32,x:u32,y:u32,left:bool,diagonal:bool)->Value{
+    json!({"ID":id,"ItemID":item,"X":x,"Y":y,
+        "Orientation":if left{"GridOrientation_Left"}else{"GridOrientation_Down"},
+        "State":if diagonal{json!({"FenceMode":{"Diagonal":true}})}else{Value::Null}})
+}
+fn exact_ids(v:&Value,n:usize)->CoreResult<Vec<u32>>{
+    let a=v.as_array().filter(|v|v.len()==n).ok_or(denied("FENCE_LAYOUT_IDS"))?;
+    a.iter().map(uint).collect()
+}
+fn historical_plan_parse(bytes:&[u8],op:HistoricalFenceOp)->CoreResult<Value>{
+    if bytes.is_empty()||bytes.len()>16384{return Err(denied("FENCE_LAYOUT_PLAN_BOUNDS"));}
+    let v:Value=serde_json::from_slice(bytes).map_err(|_|denied("FENCE_LAYOUT_JSON"))?;
+    if enc(&v)?.as_slice()!=bytes{return Err(denied("FENCE_LAYOUT_NONCANONICAL"));}
+    let keys=["contract","layout","sourceDecodedSha256","gridId","expectedNextId","gridSha256",
+        "retainedIds","deletedIds","created","inventoryEntrySha256"];
+    let m=v.as_object().ok_or(denied("FENCE_LAYOUT_PLAN_OBJECT"))?;
+    if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||
+       v["contract"]!=op.contract()||v["layout"]!="PRESERVE_EXISTING"{
+        return Err(denied("FENCE_LAYOUT_PLAN_FIELDS"));
+    }
+    Ok(v)
+}
+fn historical_collect(s:&ProductSession,p:&Value,op:HistoricalFenceOp)->CoreResult<Vec<Replacement>>{
+    let b=&s.decoded;
+    if p["sourceDecodedSha256"]!=digest(b){return Err(denied("FENCE_LAYOUT_SOURCE_CAS"));}
+    let g=uint(&p["gridId"])?;let next=uint(&p["expectedNextId"])?;
+    let n3=next.checked_add(3).ok_or(denied("FENCE_LAYOUT_COUNTER_OVERFLOW"))?;
+    let frp=matches!(op,HistoricalFenceOp::Frp01);
+    let keep=exact_ids(&p["retainedIds"],if frp{0}else{1})?;
+    let del=exact_ids(&p["deletedIds"],if frp{3}else{4})?;
+    let ids:Vec<u32>=keep.iter().chain(del.iter()).copied().collect();
+    if g==0||n3>i32::MAX as u32||ids.iter().any(|id|*id==0||*id>=next)||
+       (0..ids.len()).any(|i|(i+1..ids.len()).any(|j|ids[i]==ids[j])){
+        return Err(denied("FENCE_LAYOUT_ID_BOUNDS"));
+    }
+    let roots=indexed_read::roots(b)?;
+    let gc=object_field(b,roots.world,"GridCollection")?;
+    let grid=object_field(b,object_field(b,gc,"Grids")?,&g.to_string())?;
+    if p["gridSha256"]!=digest(raw(b,grid)?)||num(b,grid,"ID")?!=g||
+       num(b,grid,"TessellationFactor")?!=2||val(b,object_field(b,grid,"GridDefaultLayoutPath")?)?!=""{
+        return Err(denied("FENCE_LAYOUT_GRID_CAS"));
+    }
+    let diffs=object_field(b,gc,"DiffGrids")?;
+    let mut pos=diffs.begin+1;let mut count=0;
+    while let Some((k,_))=next_object_member(b,diffs,&mut pos)?{
+        count+=1;if count>50000||k==g.to_string(){return Err(denied("FENCE_LAYOUT_OVERLAY"));}
+    }
+    let counter=object_field(b,grid,"NextGridObjectID")?;
+    if number(b,counter)?!=next as u64{return Err(denied("FENCE_LAYOUT_COUNTER_CAS"));}
+    let objs=object_field(b,grid,"Objects")?;
+    let mut pos=objs.begin+1;let mut members=Vec::new();let mut found=vec![None;ids.len()];
+    loop{
+        let start=indexed_read::skip_ws(b,pos);
+        let Some((k,entry))=next_object_member(b,objs,&mut pos)? else{break};
+        if members.len()>=250000{return Err(denied("FENCE_LAYOUT_OBJECT_BOUND"));}
+        let id=k.parse::<u32>().map_err(|_|denied("FENCE_LAYOUT_OBJECT_KEY"))?;
+        if id==0||id.to_string()!=k||id>=next||num(b,entry,"ID")?!=id{
+            return Err(denied("FENCE_LAYOUT_OBJECT_ID"));
+        }
+        if let Some(i)=ids.iter().position(|x|*x==id){found[i]=Some(entry);}
+        members.push((id,start,entry));
+    }
+    let old:Vec<Span>=found.into_iter().collect::<Option<Vec<_>>>().ok_or(denied("FENCE_LAYOUT_OLD_MISSING"))?;
+    let x=num(b,old[0],"X")?;let y=num(b,old[0],"Y")?;
+    let coord=|v:u32,d:u32|v.checked_add(d).filter(|v|*v<=i32::MAX as u32).ok_or(denied("FENCE_LAYOUT_COORD"));
+    let x2=coord(x,2)?;let x4=coord(x,4)?;let y2=coord(y,2)?;let y4=coord(y,4)?;let y6=coord(y,6)?;
+    let (expected,wanted,anchors)=if frp{
+        (vec![fence_record(ids[0],BASE,x,y,false,false),fence_record(ids[1],EXT1,x,y2,true,false),
+              fence_record(ids[2],BASE,x,y4,false,false)],
+         vec![fence_record(next,REPLACEMENT_BASE,x,y,false,false),fence_record(next+1,REPLACEMENT_EXT1,x,y2,true,false),
+              fence_record(next+2,REPLACEMENT_BASE,x,y4,false,false)],
+         vec![(x,y),(x,y2),(x,y4)])
+    }else{
+        (vec![fence_record(ids[0],BASE,x,y,false,false),fence_record(ids[1],EXT1,x2,y,false,false),
+              fence_record(ids[2],BASE,x4,y,false,false),fence_record(ids[3],EXT1,x4,y2,true,false),
+              fence_record(ids[4],BASE,x4,y4,false,false)],
+         vec![fence_record(next,EXT1,x,y2,true,false),fence_record(next+1,BASE,x,y4,false,false),
+              fence_record(next+2,BASE,x2,y6,false,true)],
+         vec![(x,y),(x2,y),(x4,y),(x4,y2),(x4,y4),(x,y2),(x,y4),(x2,y6)])
+    };
+    for (span,want) in old.iter().zip(expected.iter()){
+        if val(b,*span)?!=*want{return Err(denied("FENCE_LAYOUT_OLD_SHAPE"));}
+    }
+    let plan=p["created"].as_array().ok_or(denied("FENCE_LAYOUT_CREATED"))?;
+    if plan.as_slice()!=wanted.as_slice(){return Err(denied("FENCE_LAYOUT_PLAN_SHAPE"));}
+    for (id,_,entry) in &members{
+        if ids.contains(id){continue;}
+        let ox=val(b,object_field(b,*entry,"X")?)?;let oy=val(b,object_field(b,*entry,"Y")?)?;
+        let ox=ox.as_f64().filter(|v|v.is_finite()).ok_or(denied("FENCE_LAYOUT_COORD_TOKEN"))?;
+        let oy=oy.as_f64().filter(|v|v.is_finite()).ok_or(denied("FENCE_LAYOUT_COORD_TOKEN"))?;
+        if anchors.iter().any(|(a,c)|ox==*a as f64&&oy==*c as f64){
+            return Err(denied("FENCE_LAYOUT_OCCUPIED_ANCHOR"));
+        }
+    }
+    // Exact stored catalog witnesses only. Positive inventory is necessary
+    // for the scoped historical layout but does not confer entitlement.
+    let route=object_field(b,object_field(b,roots.player,"ListInventories")?,"0")?;
+    let inv=object_field(b,route,"Inventory")?;
+    let item_ids=if frp{vec![BASE,REPLACEMENT_BASE]}else{vec![BASE]};
+    let hashes=p["inventoryEntrySha256"].as_object().filter(|m|m.len()==item_ids.len())
+        .ok_or(denied("FENCE_LAYOUT_CATALOG_WITNESS"))?;
+    for item in item_ids{
+        inventory_route(b,route,0,item,"ItemType_Furniture")?;
+        let key=item.to_string();let entry=object_field(b,inv,&key)?;
+        let amount=num(b,entry,"Amount")?;
+        if amount==0||amount as u64>MAX_CONSERVATIVE_AMOUNT||
+           hashes.get(&key).and_then(Value::as_str)!=Some(digest(raw(b,entry)?).as_str()){
+            return Err(denied("FENCE_LAYOUT_CATALOG_CAS"));
+        }
+    }
+    layout_edits(b,&members,&del,objs,counter,n3,plan)
+}
+impl ProductSession{
+    fn stage_historical_fence(&self,e:WorkerEnvelope,plan:&[u8],op:HistoricalFenceOp)->CoreResult<SemanticStageReceipt>{
+        let build=&self.native_source_build;
+        if build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||build.build_id!=BID||
+           build.schema!=624||!build.externally_attested||self.worker_bound{
+            return Err(denied("FENCE_LAYOUT_EXACT_SWITCH624_REQUIRED"));
+        }
+        let p=historical_plan_parse(plan,op)?;
+        let edits=historical_collect(self,&p,op)?;
+        self.commit_semantic_replacements(e,edits,op.count())
+    }
+    pub fn stage_switch624_fence_frp01_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        self.stage_historical_fence(e,plan,HistoricalFenceOp::Frp01)
+    }
+    pub fn stage_switch624_fence_fm01_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        self.stage_historical_fence(e,plan,HistoricalFenceOp::Fm01)
+    }
+}
+#[cfg(test)]
+mod historical_layout_tests{
+    use super::*;
+    fn fixture(frp:bool)->(Value,Value){
+        let (old,created,retained,deleted)=if frp{
+            (vec![fence_record(10,BASE,40,20,false,false),fence_record(11,EXT1,40,22,true,false),fence_record(12,BASE,40,24,false,false)],
+             vec![fence_record(50,REPLACEMENT_BASE,40,20,false,false),fence_record(51,REPLACEMENT_EXT1,40,22,true,false),
+             fence_record(52,REPLACEMENT_BASE,40,24,false,false)],json!([]),json!([10,11,12]))
+        }else{
+            (vec![fence_record(10,BASE,40,20,false,false),fence_record(11,EXT1,42,20,false,false),
+             fence_record(12,BASE,44,20,false,false),fence_record(13,EXT1,44,22,true,false),fence_record(14,BASE,44,24,false,false)],
+             vec![fence_record(50,EXT1,40,22,true,false),fence_record(51,BASE,40,24,false,false),
+             fence_record(52,BASE,42,26,false,true)],json!([10]),json!([11,12,13,14]))
+        };
+        let mut objects=json!({"30":{"ID":30,"ItemID":40000001,"X":80,"Y":90,"Opaque":{"n":7}}});
+        for o in old{objects[o["ID"].as_u64().unwrap().to_string()]=o;}
+        let d=json!({"GameInfo":{"Version":624},"World":{"Ambient":{"opaque":8},"GridCollection":{"DiffGrids":{},
+            "Grids":{"9":{"ID":9,"TessellationFactor":2,"GridDefaultLayoutPath":"","NextGridObjectID":50,"Objects":objects}}}},
+            "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture",
+            "CompatibleFurnitureTypes":{"List":["FurnitureItemType_Fence"]},"Inventory":{
+            "40700246":{"Amount":30,"Marker":"Keep"},"40700268":{"Amount":22,"Marker":"Other"}}}}}});
+        let mut p=json!({"contract":if frp{HistoricalFenceOp::Frp01.contract()}else{HistoricalFenceOp::Fm01.contract()},
+            "layout":"PRESERVE_EXISTING","gridId":9,"expectedNextId":50,"retainedIds":retained,"deletedIds":deleted,
+            "created":created,"inventoryEntrySha256":{}});
+        bind(&d,&mut p,frp);
+        (d,p)
+    }
+    fn bind(d:&Value,p:&mut Value,frp:bool){
+        p["sourceDecodedSha256"]=json!(digest(&enc(d).unwrap()));
+        p["gridSha256"]=json!(digest(&enc(&d["World"]["GridCollection"]["Grids"]["9"]).unwrap()));
+        let inv=&d["Player"]["ListInventories"]["0"]["Inventory"];
+        for item in if frp{vec![BASE,REPLACEMENT_BASE]}else{vec![BASE]}{
+            let k=item.to_string();p["inventoryEntrySha256"][&k]=json!(digest(&enc(&inv[&k]).unwrap()));
+        }
+    }
+    fn open(d:&Value)->ProductSession{
+        let b=enc(d).unwrap();let h=sha(&b);
+        ProductSession::open_switch624_fe01_private(b,crate::BuildIdentity{platform:Platform::Switch,
+            build_kind:BuildKind::SwitchBid,build_id:BID.into(),schema:624,externally_attested:true},h).unwrap()
+    }
+    fn scope(s:&ProductSession,a:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();
+        WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
+            expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:a}}
+    fn stage(s:&ProductSession,e:WorkerEnvelope,p:&Value,frp:bool)->CoreResult<SemanticStageReceipt>{
+        if frp{s.stage_switch624_fence_frp01_archive(e,&enc(p).unwrap())}else{s.stage_switch624_fence_fm01_archive(e,&enc(p).unwrap())}
+    }
+    #[test]
+    fn frp7_and_fm8_isolated_exact_layout_no_inventory_or_ambient(){
+        for frp in [true,false]{
+            let (d,p)=fixture(frp);let s=open(&d);let e=scope(&s,WorkerAction::Stage);
+            let r=stage(&s,e,&p,frp).unwrap();assert_eq!(r.operation_count,if frp{7}else{8});
+            assert!(!r.product_writer_authorized);assert!(stage(&s,e,&p,frp).is_err());
+            s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+            s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+            let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(e).is_err());
+            let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["9"];g["NextGridObjectID"]=json!(53);
+            for id in p["deletedIds"].as_array().unwrap(){g["Objects"].as_object_mut().unwrap().remove(&id.as_u64().unwrap().to_string());}
+            for o in p["created"].as_array().unwrap(){g["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
+            assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),wanted);
+            assert_eq!(sha(&out),r.staged_decoded_sha256);
+        }
+    }
+    #[test]
+    fn frp_fm_cross_contract_stale_bad_shape_catalog_and_collision_deny(){
+        for frp in [true,false]{
+            let (d,p)=fixture(frp);let s=open(&d);let e=scope(&s,WorkerAction::Stage);
+            assert!(stage(&s,e,&p,!frp).is_err());
+            assert!(stage(&open(&d),e,&p,frp).is_err());
+            for (k,v) in [("layout",json!("EXPLICIT_USER_LAYOUT")),("expectedNextId",json!(51)),
+                ("sourceDecodedSha256",json!("bad")),("gridSha256",json!("bad")),
+                ("deletedIds",json!([10,10,10])),("created",json!([])),("refund",json!(1)),
+                ("inventoryEntrySha256",json!({}))]{
+                let mut q=p.clone();q[k]=v;assert!(stage(&s,e,&q,frp).is_err());
+            }
+            for i in 0..5{
+                let mut d=d.clone();let mut p=p.clone();
+                match i{
+                    0=>d["World"]["GridCollection"]["Grids"]["9"]["Objects"]["11"]["State"]=json!({"Opaque":1}),
+                    1=>{d["World"]["GridCollection"]["Grids"]["9"]["Objects"]["30"]["X"]=json!(40);
+                        d["World"]["GridCollection"]["Grids"]["9"]["Objects"]["30"]["Y"]=json!(22);},
+                    2=>d["World"]["GridCollection"]["DiffGrids"]["9"]=json!({}),
+                    3=>d["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(0),
+                    _=>d["Player"]["ListInventories"]["0"]["CompatibleFurnitureTypes"]["List"]=json!(["FurnitureItemType_Default"]),
+                }
+                bind(&d,&mut p,frp);let t=open(&d);assert!(stage(&t,scope(&t,WorkerAction::Stage),&p,frp).is_err());
+            }
+            assert_eq!(s.receipt().unwrap().revision,0);
+        }
     }
 }
