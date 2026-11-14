@@ -54,9 +54,16 @@ fn output_path(raw:&str)->PinnedPrivateOutput{
 fn output_path(_raw:&str)->PinnedPrivateOutput{fail("PRIVATE_OUTPUT_LINUX_ONLY")}
     pub fn run(){
         let argv:Vec<String>=env::args().skip(1).collect();
-        let (item,entry_sha,path)=match argv.as_slice(){
+        let (item,chest,entry_sha,path)=match argv.as_slice(){
             [m,i,h,o,p] if m=="--furniture-amount-dependencies"&&o=="--out"=>
-                (selector_id(i),selector_sha(h),output_path(p)),
+                (Some(selector_id(i)),None,selector_sha(h),output_path(p)),
+            [m,c,s,h,o,p] if m=="--chest-amount-dependencies"&&o=="--out"=>{
+                let id=c.parse::<u32>().ok().filter(|v|*v>1&&v.to_string()==*c)
+                    .unwrap_or_else(||fail("CHEST_CONTAINER_ID"));
+                let slot=s.parse::<usize>().ok().filter(|v|v.to_string()==*s)
+                    .unwrap_or_else(||fail("CHEST_SLOT_INDEX"));
+                (None,Some((id,slot)),selector_sha(h),output_path(p))
+            },
             _=>fail("ARGS"),
         };
         if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT{fail("EXACT_STEAM_BUILD")}
@@ -78,12 +85,21 @@ fn output_path(_raw:&str)->PinnedPrivateOutput{fail("PRIVATE_OUTPUT_LINUX_ONLY")
         let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
             expected_revision:r.revision,expected_index_generation:r.index_generation,
             expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain};
-        let mut receipt=session.read_private_furniture_amount_dependencies(e,item,entry_sha)
-            .unwrap_or_else(|_|fail("NO_EXACT_FURNITURE_DEPENDENCY_RECEIPT"));
+        let mut receipt=if let Some((id,slot))=chest{
+            session.read_private_chest_amount_dependencies(e,id,slot,entry_sha)
+        }else{session.read_private_furniture_amount_dependencies(e,item.unwrap_or_else(||fail("SELECTOR_ID")),entry_sha)}
+            .unwrap_or_else(|_|fail("NO_EXACT_AMOUNT_DEPENDENCY_RECEIPT"));
+        let target_scope=if let Some((id,slot))=chest{
+            receipt["contract"]=="wand.native.private.chest-amount-dependencies@1"&&
+            receipt["target"]["containerId"]==id&&receipt["target"]["slotIndex"]==slot
+        }else{
+            receipt["contract"]=="wand.native.private.furniture-amount-dependencies@1"&&
+            receipt["target"]["itemId"]==item.unwrap_or_else(||fail("SELECTOR_ID"))&&receipt["target"]["inventoryId"]==0
+        };
         if receipt["sessionId"]!=hex(&r.session_id)||receipt["decodedSha256"]!=decoded_sha||
            receipt["revision"]!=r.revision||receipt["indexGeneration"]!=r.index_generation||
-           receipt["target"]["itemId"]!=item||receipt["target"]["entrySha256"]!=hex(&entry_sha)||
-           receipt["target"]["inventoryId"]!=0||receipt["writerAuthorized"]!=false||
+           !target_scope||receipt["target"]["entrySha256"]!=hex(&entry_sha)||
+           receipt["writerAuthorized"]!=false||
            session.receipt().ok()!=Some(r){fail("TARGET_SCOPE")}
         receipt["originalSha256SuppliedExternally"]=serde_json::json!(original_sha);
         receipt["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
