@@ -5,6 +5,8 @@ on:
       - 'crates/ddv-save-core/src/indexed_read.rs'
       - 'crates/ddv-save-core/src/bin/wand-local-rust-v1.rs'
       - 'tests/private-character-skin-read.mjs'
+      - 'tests/private-collection-cli.mjs'
+      - 'crates/ddv-save-core/src/private_collection_read.rs'
       - '.github/workflows/01a-private-character-skin-read.yml'
 permissions:
   contents: read
@@ -29,6 +31,7 @@ jobs:
           cargo build --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1 --bin wand-local-rust-v1
           node tests/private-character-skin-read.mjs crates/ddv-save-core/target/debug/wand-local-rust-v1
           node tests/private-active-avatar-read.mjs crates/ddv-save-core/target/debug/wand-local-rust-v1
+          node tests/private-collection-cli.mjs crates/ddv-save-core/target/debug/wand-local-rust-v1
       - name: Existing native regressions and public WASM isolation
         run: |
           cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1
