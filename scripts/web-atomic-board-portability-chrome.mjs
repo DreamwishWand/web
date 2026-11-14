@@ -50,6 +50,52 @@ try{
   assert.equal(result.filter(Boolean).length,1);
   const row=await read(x,'');if(result[0])assert.deepEqual(row,original);else assert.equal(row.document.boards[0].title,'Synthetic competing create');
  }finally{await race.close();}
+ // QA1092 original actual file cases, expanded malformed sequences and Unicode.
+ const source=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});
+ try{
+  const probe=await source.newPage();await probe.goto(old+'/web/moodboards/atomic/',{waitUntil:'networkidle'});await ready(probe);
+  await create(probe,'ByteProbeX');
+  const snap=await read(probe,'/web'),raw=await exportFile(probe);
+  const at=raw.indexOf(Buffer.from('ByteProbeX'))+9;assert.ok(at>=9);
+  const mutate=bytes=>Buffer.concat([raw.subarray(0,at),Buffer.from(bytes),raw.subarray(at+1)]);
+  const cases=[
+   ['valid',raw,true],['invalid-utf8',mutate([0xff]),false],['utf8-bom',Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),raw]),false],
+   ['invalid-continuation',mutate([0xe3,0x28,0xa1]),false],['truncated',mutate([0xe3,0x81]),false],['overlong',mutate([0xc0,0xaf]),false],
+   ['isolated-continuation',mutate([0x80]),false],['surrogate',mutate([0xed,0xa0,0x80]),false],['out-of-range',mutate([0xf4,0x90,0x80,0x80]),false]
+  ];
+  for(const [label,buf,allow] of cases){
+   const dest=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});
+   try{
+    const p=await dest.newPage(),errs=[],unsafe=[];
+    p.on('pageerror',e=>errs.push(String(e)));dest.on('request',r=>{if(new URL(r.url()).origin!==next||!['GET','HEAD'].includes(r.method()))unsafe.push(r.method());});
+    await p.goto(next+'/moodboards/atomic/',{waitUntil:'networkidle'});await ready(p);assert.equal(await read(p,''),null);
+    await importFile(p,buf);
+    await p.locator('[data-atomic-outcome="PORTABLE_IMPORTED"],[data-atomic-outcome="PORTABLE_REJECTED"]').waitFor();
+    if(allow){
+     assert.equal(await p.locator('[data-atomic-outcome]').getAttribute('data-atomic-outcome'),'PORTABLE_IMPORTED');
+     assert.deepEqual(await read(p,''),snap);assert.deepEqual(await exportFile(p),buf);
+    }else{
+     assert.equal(await p.locator('[data-atomic-outcome]').getAttribute('data-atomic-outcome'),'PORTABLE_REJECTED');
+     assert.equal(await read(p,''),null);
+    }
+    assert.deepEqual(await legacy(p),[null,null]);assert.deepEqual(errs,[]);assert.deepEqual(unsafe,[]);
+    console.log('ACT533_ATOMIC_BYTES',label,allow?'ACCEPT_EXACT':'DENY_NO_ROW',buf.length);
+   }finally{await dest.close();}
+  }
+  assert.deepEqual(await read(probe,'/web'),snap);
+ }finally{await source.close();}
+ // Independently create and export a genuine valid multilingual snapshot.
+ const unicodeSource=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});
+ const unicodeDest=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});
+ try{
+  const p=await unicodeSource.newPage(),q=await unicodeDest.newPage();
+  await p.goto(old+'/web/moodboards/atomic/',{waitUntil:'networkidle'});await ready(p);await create(p,'QA é 日本語 � 🎹');
+  const raw=await exportFile(p),snapshot=await read(p,'/web');
+  await q.goto(next+'/moodboards/atomic/',{waitUntil:'networkidle'});await ready(q);await importFile(q,raw);
+  await q.locator('[data-atomic-outcome="PORTABLE_IMPORTED"]').waitFor();assert.deepEqual(await read(q,''),snapshot);assert.deepEqual(await exportFile(q),raw);
+  assert.deepEqual(await read(p,'/web'),snapshot);console.log('ACT533_ATOMIC_BYTES valid-unicode ACCEPT_EXACT',raw.length);
+ }finally{await unicodeSource.close();await unicodeDest.close();}
+ console.log('ACT533_QA1092_CAUSAL_REPLAY_AND_EXTENDED_UTF8_PASS');
  assert.deepEqual(errors,[]);assert.deepEqual(requests,[]);
  console.log('ATOMIC_PORTABLE_TOMBSTONE_CONCURRENT_CREATE_IMPORT_NO_NETWORK_PASS');
 }finally{await browser.close();}

@@ -26,7 +26,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE="${{ github.event.pull_request.base.sha }}"
+          EVENT_BASE="${{ github.event.pull_request.base.sha }}"
+          SOURCE="${{ github.event.pull_request.head.sha }}"
+          # Verify the actual checkout parents; a queued event base can lag protected main.
+          if test "$(git rev-parse HEAD)" = "$SOURCE"; then
+            BASE="$EVENT_BASE"
+          else
+            test "$(git rev-parse HEAD^2)" = "$SOURCE"
+            BASE="$(git rev-parse HEAD^1)"
+            git merge-base --is-ancestor "$EVENT_BASE" "$BASE"
+          fi
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           cat >/tmp/atomic-expected <<'ATOMIC_FILES'
           .github/workflows/web-moodboard-atomic-first.yml

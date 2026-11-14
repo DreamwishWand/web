@@ -11,7 +11,7 @@
  import { decodeCollectionRecord,loadCollectionRuntime } from '$lib/collection/runtime.js';
  import { ATOMIC_FIRST_BOARD_GATE,openAtomicFirstBoardDatabase,verifiedAtomicFirstBoardReopen,
   createAtomicFirstBoard,toggleAtomicFirstBoardItem,deleteAtomicFirstBoard,readAtomicFirstBoard,
-  exportAtomicBoardPortable,importAtomicBoardPortable,ATOMIC_BOARD_PORTABLE_MAX_BYTES
+  exportAtomicBoardPortable,importAtomicBoardPortable,ATOMIC_BOARD_PORTABLE_MAX_BYTES,decodeAtomicBoardPortableBytes
  } from '$lib/moodboards/atomic-first-board.mjs';
  let db:IDBDatabase|null=null, snapshot:any=null, ready=false, catalogReady=false;
  let portableInput:HTMLInputElement;
@@ -165,7 +165,9 @@
   busy=true;outcome='PENDING';
   try{
    if(!file.size||file.size>ATOMIC_BOARD_PORTABLE_MAX_BYTES)throw Error('PORTABLE_INVALID');
-   const receipt=await importAtomicBoardPortable(db,await file.text(),records);
+   const bytes=new Uint8Array(await file.arrayBuffer());
+   if(bytes.byteLength!==file.size)throw Error('PORTABLE_INVALID');
+   const receipt=await importAtomicBoardPortable(db,decodeAtomicBoardPortableBytes(bytes),records);
    snapshot=await verifiedAtomicFirstBoardReopen(db);
    if(!snapshot||snapshot.boardId!==receipt.boardId||snapshot.revision!==receipt.revision||snapshot.deleted!==receipt.deleted)
     throw Error('PORTABLE_REOPEN');

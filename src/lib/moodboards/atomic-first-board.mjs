@@ -152,6 +152,16 @@ export async function verifiedAtomicFirstBoardReopen(db){
    A portable file is untrusted planning data, not catalog/Writer authority. */
 export const ATOMIC_BOARD_PORTABLE_SCHEMA='wand.moodboards.atomic-first.portable@1';
 export const ATOMIC_BOARD_PORTABLE_MAX_BYTES=16*1024*1024;
+// Reject lossy File.text() decoding before the existing canonical/IDB gate.
+export function decodeAtomicBoardPortableBytes(bytes){
+ if(!(bytes instanceof Uint8Array)||!bytes.byteLength||bytes.byteLength>ATOMIC_BOARD_PORTABLE_MAX_BYTES)fail('PORTABLE_INVALID');
+ if(bytes.byteLength>=3&&bytes[0]===0xef&&bytes[1]===0xbb&&bytes[2]===0xbf)fail('PORTABLE_INVALID');
+ let raw;
+ try{raw=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);}catch{fail('PORTABLE_INVALID');}
+ const encoded=new TextEncoder().encode(raw);
+ if(encoded.byteLength!==bytes.byteLength||encoded.some((byte,index)=>byte!==bytes[index]))fail('PORTABLE_INVALID');
+ return raw;
+}
 function portableRow(row){
  const r=validateRow(row);
  if(!r||r.revision>=Number.MAX_SAFE_INTEGER||
