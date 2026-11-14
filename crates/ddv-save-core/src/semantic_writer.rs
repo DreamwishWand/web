@@ -710,7 +710,7 @@ impl ProductSession {
             return Err(denied("CHEST_DEP_EXACT_PRIVATE_SWITCH626_REQUIRED"));
         }
         let st=self.lock()?;indexed_read::validate_scope(self,&st,&e)?;
-        let view=observe_existing_amount(self,&e,ExistingAmountSelection::Chest{container_id:container,slot_index:slot})?.view();
+        let view=observe_existing_amount(self,&e,ExistingAmountSelection::Chest{container_id:container,slot_index:slot})?.view().clone();
         let facts=view.chest.as_ref().ok_or(denied("CHEST_DEP_TARGET_KIND"))?;
         if facts.size!=48||facts.extra_size!=0||facts.state_sha256!=sha(b"null"){
             return Err(denied("CHEST_DEP_SWITCH_EXACT_SHAPE_REQUIRED"));
