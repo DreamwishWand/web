@@ -192,3 +192,39 @@ test("Steam image identity uses exact FullVersion evidence, not a manufactured S
   assert.equal(preflightGameItemImage(image,ctx,[]).candidate,true);
   assert.equal(preflightGameItemImage({...image,sourceIdentity:{...source,bid:null}},ctx,[]).candidate,false);
 });
+
+test("Steam operator rejects noncanonical Build and evidence without normalizing sentinels", () => {
+  const steam={platform:"Steam Windows",fullVersion:"releases_1.25-synthetic-build",schema:626,
+    fullVersionSha256:digest("c")};
+  const row={...image,sourceIdentity:steam,targetIdentity:steam};
+  const context={targetIdentity:steam};
+  const expectDenied=(candidate,ctx,reason)=>{
+    const result=preflightGameItemImage(candidate,ctx,[]);
+    assert.equal(result.candidate,false);
+    assert.ok(result.reasons.includes(reason),JSON.stringify(result));
+  };
+  for(const fullVersion of ["UNKNOWN "," UNKNOWN","NOT_RUN\t","\nNOT_RUN","unknown","not_run",
+    "UNKNOWN\u00a0","\ufeffUNKNOWN","releases_1.25-synthetic-build "," releases_1.25-synthetic-build",
+    "releases_1.25-synthetic-build\n","release build","release\u200bbuild","release\u0000build"]) {
+    const invalid={...steam,fullVersion};
+    expectDenied({...row,sourceIdentity:invalid},context,"SOURCE_IDENTITY_UNVERIFIED");
+    expectDenied({...row,targetIdentity:invalid},{targetIdentity:invalid},"TARGET_VERSION_BID_SCHEMA_UNVERIFIED");
+    expectDenied(row,{targetIdentity:invalid},"TARGET_VERSION_BID_SCHEMA_UNVERIFIED");
+  }
+  for(const fullVersionSha256 of [digest("c")+"\n",digest("c")+" ",digest("c").slice(1)]) {
+    const invalid={...steam,fullVersionSha256};
+    expectDenied({...row,sourceIdentity:invalid},context,"SOURCE_IDENTITY_UNVERIFIED");
+    expectDenied({...row,targetIdentity:invalid},{targetIdentity:invalid},"TARGET_VERSION_BID_SCHEMA_UNVERIFIED");
+    expectDenied(row,{targetIdentity:invalid},"TARGET_VERSION_BID_SCHEMA_UNVERIFIED");
+  }
+  for(const ref of ["UNKNOWN "," UNKNOWN","NOT_RUN\t","unknown","not_run","\ufeffUNKNOWN",
+    "receipt "," receipt","receipt\n","receipt\u200b","receipt\u0000"]) {
+    expectDenied({...row,sourceEvidenceRef:ref},context,"SOURCE_IDENTITY_UNVERIFIED");
+    expectDenied({...row,targetEvidenceRef:ref},context,"TARGET_VERSION_BID_SCHEMA_UNVERIFIED");
+  }
+  assert.deepEqual(preflightGameItemImage({...row,sourceEvidenceRef:"verified source receipt",targetEvidenceRef:"verified target receipt"},context,[]),
+    {candidate:true,reasons:[]});
+  assert.deepEqual(preflightGameItemImage({...row,sourceIdentity:{...steam,fullVersionSha256:digest("C")}},context,[]),
+    {candidate:true,reasons:[]});
+  assert.deepEqual(preflightGameItemImage(image,ctx,[]),{candidate:true,reasons:[]});
+});
