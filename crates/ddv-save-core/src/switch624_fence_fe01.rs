@@ -457,7 +457,7 @@ mod historical_layout_tests{
 // ACT713: exact archived 01C shape validation only, no generic compiler.
 // Standalone layout adds never debit/refund inventory or replace existing IDs.
 #[derive(Clone,Copy)]
-enum FenceAddShape { OrthoL, Diagonal90, OrthoT, DiagonalN3Positive, DiagonalN3Mirrored, DiagonalN6Positive, Switch626Fd01, Switch626Fd02, Switch626Fd03 }
+enum FenceAddShape { OrthoL, Diagonal90, OrthoT, DiagonalN3Positive, DiagonalN3Mirrored, DiagonalN6Positive, Switch626Fd01, Switch626Fd02, Switch626Fd03, Switch626OrthoL, Switch626Diagonal90, Switch626OrthoT }
 impl FenceAddShape {
     fn contract(self)->&'static str{match self{
         Self::OrthoL=>"wand.private.switch624.fence-ortho-l-archive@1",
@@ -469,14 +469,17 @@ impl FenceAddShape {
         Self::Switch626Fd01=>"wand.private.switch626.fence-fd01-layout@1",
         Self::Switch626Fd02=>"wand.private.switch626.fence-fd02-layout@1",
         Self::Switch626Fd03=>"wand.private.switch626.fence-fd03-layout@1",
+        Self::Switch626OrthoL=>"wand.private.switch626.fence-ortho-l-layout@1",
+        Self::Switch626Diagonal90=>"wand.private.switch626.fence-diagonal90-layout@1",
+        Self::Switch626OrthoT=>"wand.private.switch626.fence-ortho-t-layout@1",
     }}
-    fn records(self)->u32{match self{Self::OrthoL|Self::Diagonal90=>5,Self::OrthoT=>7,Self::DiagonalN3Positive|Self::DiagonalN3Mirrored|Self::DiagonalN6Positive|Self::Switch626Fd01|Self::Switch626Fd02|Self::Switch626Fd03=>3}}
+    fn records(self)->u32{match self{Self::OrthoL|Self::Diagonal90|Self::Switch626OrthoL|Self::Switch626Diagonal90=>5,Self::OrthoT|Self::Switch626OrthoT=>7,Self::DiagonalN3Positive|Self::DiagonalN3Mirrored|Self::DiagonalN6Positive|Self::Switch626Fd01|Self::Switch626Fd02|Self::Switch626Fd03=>3}}
     fn descriptors(self)->&'static [(u32,i32,i32,bool,bool)]{match self{
-        Self::OrthoL=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
+        Self::OrthoL|Self::Switch626OrthoL=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
             (EXT1,4,2,true,false),(BASE,4,4,false,false)],
-        Self::Diagonal90=>&[(BASE,0,0,false,true),(40700253,2,2,false,true),(BASE,4,4,false,true),
+        Self::Diagonal90|Self::Switch626Diagonal90=>&[(BASE,0,0,false,true),(40700253,2,2,false,true),(BASE,4,4,false,true),
             (40700253,6,2,true,true),(BASE,8,0,false,true)],
-        Self::OrthoT=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
+        Self::OrthoT|Self::Switch626OrthoT=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
             (EXT1,6,0,false,false),(BASE,8,0,false,false),(EXT1,4,2,true,false),(BASE,4,4,false,false)],
         // ACT732 exact historical diagonal tranche A: N3 both slopes,
         // N6 positive single n4 extension, no inferred other lengths.
@@ -559,16 +562,25 @@ impl ProductSession{
         let build=&self.native_source_build;
         // ACT775/835/839: only the independently evidenced FD01/02/03
         // descriptors are transferred. Every archived shape retains its 624 gate.
-        let current=matches!(shape,FenceAddShape::Switch626Fd01|FenceAddShape::Switch626Fd02|FenceAddShape::Switch626Fd03);
+        let current=matches!(shape,FenceAddShape::Switch626Fd01|FenceAddShape::Switch626Fd02|FenceAddShape::Switch626Fd03|FenceAddShape::Switch626OrthoL|FenceAddShape::Switch626Diagonal90|FenceAddShape::Switch626OrthoT);
         let exact=if current{build.build_id=="9A239D3DB569756D"&&build.schema==626}
             else{build.build_id==BID&&build.schema==624};
         if build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||
            !exact||!build.externally_attested||self.worker_bound{
-            return Err(denied(match shape{FenceAddShape::Switch626Fd01=>"FENCE_FD01_EXACT_SWITCH626_REQUIRED",FenceAddShape::Switch626Fd02=>"FENCE_FD02_EXACT_SWITCH626_REQUIRED",FenceAddShape::Switch626Fd03=>"FENCE_FD03_EXACT_SWITCH626_REQUIRED",_=>"FENCE_ADD_EXACT_SWITCH624_REQUIRED"}));
+            return Err(denied(match shape{FenceAddShape::Switch626Fd01=>"FENCE_FD01_EXACT_SWITCH626_REQUIRED",FenceAddShape::Switch626Fd02=>"FENCE_FD02_EXACT_SWITCH626_REQUIRED",FenceAddShape::Switch626Fd03=>"FENCE_FD03_EXACT_SWITCH626_REQUIRED",FenceAddShape::Switch626OrthoL|FenceAddShape::Switch626Diagonal90|FenceAddShape::Switch626OrthoT=>"FENCE_NONSTRAIGHT_EXACT_SWITCH626_REQUIRED",_=>"FENCE_ADD_EXACT_SWITCH624_REQUIRED"}));
         }
         let p=add_plan_parse(plan,shape)?;
         let edits=add_collect(self,&p,shape)?;
         self.commit_semantic_replacements(e,edits,shape.records() as usize+1)
+    }
+    pub fn stage_switch626_fence_ortho_l_layout(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        self.stage_fence_add(e,plan,FenceAddShape::Switch626OrthoL)
+    }
+    pub fn stage_switch626_fence_diagonal90_layout(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        self.stage_fence_add(e,plan,FenceAddShape::Switch626Diagonal90)
+    }
+    pub fn stage_switch626_fence_ortho_t_layout(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        self.stage_fence_add(e,plan,FenceAddShape::Switch626OrthoT)
     }
     pub fn stage_switch626_fence_fd02_layout(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
         self.stage_fence_add(e,plan,FenceAddShape::Switch626Fd02)
@@ -771,6 +783,54 @@ mod add_tests{
             for o in wanted{let id=o["ID"].as_u64().unwrap().to_string();g["Objects"][id]=o;}
             assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),expected);
             assert_eq!(sha(&out),r.staged_decoded_sha256);
+        }
+    }
+    #[test]
+    fn switch626_nonstraight_exact_6_6_8_separate_contracts(){
+        let shapes=[FenceAddShape::Switch626OrthoL,FenceAddShape::Switch626Diagonal90,FenceAddShape::Switch626OrthoT];
+        let old=[FenceAddShape::OrthoL,FenceAddShape::Diagonal90,FenceAddShape::OrthoT];
+        let stage=|s:&ProductSession,e:WorkerEnvelope,p:&[u8],i:usize|match i{
+            0=>s.stage_switch626_fence_ortho_l_layout(e,p),
+            1=>s.stage_switch626_fence_diagonal90_layout(e,p),
+            _=>s.stage_switch626_fence_ortho_t_layout(e,p),
+        };
+        let wanted=[
+            vec![fence_record(50,BASE,40,20,false,false),fence_record(51,EXT1,42,20,false,false),fence_record(52,BASE,44,20,false,false),fence_record(53,EXT1,44,22,true,false),fence_record(54,BASE,44,24,false,false)],
+            vec![fence_record(50,BASE,40,20,false,true),fence_record(51,40700253,42,22,false,true),fence_record(52,BASE,44,24,false,true),fence_record(53,40700253,46,22,true,true),fence_record(54,BASE,48,20,false,true)],
+            vec![fence_record(50,BASE,40,20,false,false),fence_record(51,EXT1,42,20,false,false),fence_record(52,BASE,44,20,false,false),fence_record(53,EXT1,46,20,false,false),fence_record(54,BASE,48,20,false,false),fence_record(55,EXT1,44,22,true,false),fence_record(56,BASE,44,24,false,false)]
+        ];
+        for i in 0..3{
+            let (mut d,mut p)=fixture(shapes[i]);d["GameInfo"]["Version"]=json!(626);
+            p["created"]=json!(wanted[i]);bind(&d,&mut p);
+            let s=open626(&d);let e=scope(&s,WorkerAction::Stage);let bytes=enc(&p).unwrap();
+            for j in 0..3{if i!=j{assert!(stage(&s,e,&bytes,j).is_err());}}
+            let (old_doc,_)=fixture(old[i]);let old_s=open(&old_doc);
+            assert!(stage(&old_s,scope(&old_s,WorkerAction::Stage),&bytes,i).is_err());
+            assert!(open626(&d).stage_fence_add(e,&bytes,shapes[i]).is_err());
+            assert!(s.stage_fence_add(e,&bytes,old[i]).is_err());
+            for (k,v) in [("sourceDecodedSha256",json!("bad")),("gridSha256",json!("bad")),
+                ("inventoryEntrySha256",json!("bad")),("expectedNextId",json!(51)),("layout",json!("EXPLICIT_USER_LAYOUT"))]{
+                let mut q=p.clone();q[k]=v;assert!(stage(&s,e,&enc(&q).unwrap(),i).is_err());
+            }
+            let mut q=p.clone();q["created"][1]["Orientation"]=json!("GridOrientation_Up");
+            assert!(stage(&s,e,&enc(&q).unwrap(),i).is_err());
+            let mut q=p.clone();q["created"][1]["ItemID"]=json!(40000001);
+            assert!(stage(&s,e,&enc(&q).unwrap(),i).is_err());
+            assert_eq!(s.receipt().unwrap().revision,0);
+            let r=stage(&s,e,&bytes,i).unwrap();
+            let n=if i==2{8}else{6};
+            assert_eq!(r.operation_count,n);assert_eq!(r.exact_field_changed_count,n);
+            assert!(!r.product_writer_authorized);
+            assert!(stage(&s,e,&bytes,i).is_err());
+            s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+            s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+            let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(e).is_err());
+            let mut expected=d.clone();let g=&mut expected["World"]["GridCollection"]["Grids"]["9"];
+            g["NextGridObjectID"]=json!(50+shapes[i].records());
+            for o in &wanted[i]{let id=o["ID"].as_u64().unwrap().to_string();g["Objects"][id]=o.clone();}
+            assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),expected);assert_eq!(sha(&out),r.staged_decoded_sha256);
         }
     }
     fn fd01_fixture()->(Value,Value){
