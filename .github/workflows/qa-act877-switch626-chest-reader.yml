@@ -1,0 +1,95 @@
+name: QA ACT877 independent Switch626 chest reader
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-act877-switch626-chest-reader.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Fixed original blobs and approved lock
+        run: |
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = 969210368edac235a404602a058588987e913baa
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/indexed_read.rs)" = a214ef65f3f4a149337a50d0c7f4e6245962c421
+          test "$(git rev-parse HEAD:crates/ddv-save-core/examples/wand-private-furniture-amount-dependencies.rs)" = ca7ab81653252d37c1a6a112e9465c5346c13262
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          sha256sum crates/ddv-save-core/Cargo.lock
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1,semantic-writer-dev --example wand-private-furniture-amount-dependencies
+      - name: Independent raw byte receipt and refusal oracle
+        run: |
+          python3 - <<'PY'
+          import os, json, subprocess, tempfile, hashlib, copy, pathlib
+          B=pathlib.Path('crates/ddv-save-core/target/debug/examples/wand-private-furniture-amount-dependencies').resolve()
+          H=lambda b:hashlib.sha256(b).hexdigest()
+          raw=lambda d:json.dumps(d,sort_keys=True,separators=(',',':')).encode()
+          I=30200001
+          BID='9A239D3DB569756D'
+          STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22'
+          def fixture(slot=47,amount=5,size=48):
+              empty=lambda:{'ItemID':0,'Amount':0,'State':None}
+              slots=[empty() for _ in range(size)]
+              slots[slot]={'ItemID':I,'Amount':amount,'State':None,'Opaque':{'Keep':[1,2]}}
+              return {'GameInfo':{'Version':626},'Player':{'ContainerInventories':{
+                '0':{'ID':0,'BelongsToPlayer':True,'Size':1,'ExtraSize':0,'Inventory':[{'ItemID':I,'Amount':3,'State':None}]},
+                '19':{'ID':19,'ParentItemID':40000053,'BelongsToPlayer':True,'BlockMoveTo':False,'Size':size,'ExtraSize':0,'Inventory':slots},
+                '20':{'ID':20,'BelongsToPlayer':False,'Size':1,'ExtraSize':0,'Inventory':[{'ItemID':I,'Amount':4,'State':None}]}}},
+                'World':{'GridCollection':{'Grids':{'7':{'ID':7,'Objects':{'4':{'ID':4,'ItemID':40000053,'X':2,'Y':1,'Orientation':'GridOrientation_Up','State':{'Storage':{'ContainerInventoryID':19}}}}}}}}}
+          with tempfile.TemporaryDirectory() as td:
+              root=pathlib.Path(td); n=0
+              def call(d,slot=47,ok=False,over=None,mode='--switch626-chest-amount-dependencies',sha=None,container='19',out=None):
+                  global n
+                  n+=1; out=out or root/f'{n}.json'
+                  b=raw(d); entry=d['Player']['ContainerInventories']['19']['Inventory']
+                  digest=sha or H(raw(entry[min(slot,len(entry)-1)]))
+                  e={os.fsencode(k):os.fsencode(v) for k,v in os.environ.items() if not k.startswith('WAND_LOCAL_')}
+                  e.update({b'WAND_LOCAL_INSTALLED_SWITCH_BID':BID.encode(),b'WAND_LOCAL_ORIGINAL_SHA256':b'1'*64,b'WAND_LOCAL_ORIGINAL_SIZE_BYTES':b'123',b'WAND_LOCAL_DECODED_SHA256':H(b).encode()})
+                  e.update(over or {})
+                  p=subprocess.run([str(B),mode,container,str(slot),digest,'--out',str(out)],input=b,env=e,capture_output=True)
+                  assert p.stdout==b'',(n,p.stdout)
+                  assert p.returncode==(0 if ok else 12),(n,p.returncode,p.stderr)
+                  if not ok:
+                      if out.name!= 'existing.json': assert not out.exists(),(n,out)
+                      return
+                  v=json.loads(out.read_bytes())
+                  assert v['decodedSha256']==H(b) and v['target']['entrySha256']==digest and v['revision']==0 and v['indexGeneration']==1
+                  assert v['target']['slotIndex']==slot and v['target']['oldAmount']==entry[slot]['Amount']
+                  assert v['target']['stateSha256']==H(b'null') and v['target']['physicalSlotCount']==len(entry)
+                  assert v['savedPhysicalTotals']['ownedExplicitNullPhysicalAmount']==entry[slot]['Amount']+3
+                  assert v['savedPhysicalTotals']['nonOwnedPhysicalAmount']==4
+                  assert all(v[k] is False for k in ['writerAuthorized','productReadAccepted','editedCopyAuthorized','applyAuthorized','nativeV3Verified','rightsVerified','allEffectiveContainerLinksVerified'])
+                  if mode.startswith('--switch'):
+                      assert v['contract']=='wand.native.private.switch626.chest-amount-dependencies@1' and v['buildId']==BID and 'fullVersion' not in v
+                      assert v['target']['coreObservedExistingTarget'] is True and v['target']['coreMintedExistingTarget'] is False
+                  else:
+                      assert v['contract']=='wand.native.private.chest-amount-dependencies@1' and v['target']['coreMintedExistingTarget'] is True
+              call(fixture(),ok=True)
+              call(fixture(0,7),slot=0,ok=True)
+              call(fixture(0,5,2),slot=0,ok=True,mode='--chest-amount-dependencies',over={b'WAND_LOCAL_INSTALLED_STEAM_FULLVERSION':STEAM.encode()})
+              for v in [STEAM.encode(),b'\xff']:
+                  call(fixture(),over={b'WAND_LOCAL_INSTALLED_STEAM_FULLVERSION':v})
+              call(fixture(),over={b'WAND_LOCAL_INSTALLED_SWITCH_BID':b'52BD625D9B4E0053'})
+              call(fixture(),over={b'WAND_LOCAL_INSTALLED_SWITCH_BID':b'\xff'})
+              call(fixture(),sha='2'*64)
+              call(fixture(),over={b'WAND_LOCAL_DECODED_SHA256':b'2'*64})
+              call(fixture(),slot=48)
+              call(fixture(),container='0')
+              for field,val in [('Size',47),('ExtraSize',1),('BelongsToPlayer',False),('BlockMoveTo',True),('ParentItemID',I),('ID',18)]:
+                  d=fixture();d['Player']['ContainerInventories']['19'][field]=val;call(d)
+              for field,val in [('State',{}),('State',{'Opaque':1}),('Amount',0),('Amount',2147483647),('ItemID',40000053)]:
+                  d=fixture();d['Player']['ContainerInventories']['19']['Inventory'][47][field]=val;call(d)
+              d=fixture();d['GameInfo']['Version']=624;call(d)
+              d=fixture();d['Player']['ContainerInventories']['19']['Inventory'].pop(0);call(d,slot=46)
+              d=fixture();d['Player']['ContainerInventories']['19']['Inventory'].append({'ItemID':0,'Amount':0,'State':None});call(d)
+              existing=root/'existing.json';existing.write_bytes(b'unchanged');call(fixture(),out=existing);assert existing.read_bytes()==b'unchanged'
+              print('ACT877 independent 3POS plus 23 negative cases PASS; synthetic only; no private data, no Writer')
+          PY
