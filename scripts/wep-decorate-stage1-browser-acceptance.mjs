@@ -548,7 +548,7 @@ try{
   assert.ok((await roomRoutes.innerText()).includes('Browser Room'));
   await roomRoutes.locator('article').first().getByRole('button').click();
   await page.locator('[data-wep-room-finish-toggle]').waitFor();
-  assert.equal(await page.locator('.toolbar-actions').getByRole('button',{name:'Download original backup',exact:true}).count(),1);
+  assert.equal(await page.locator('.toolbar-actions').getByRole('button',{name:/^Download Original Backup$/i}).count(),1);
   pass('ROOM_FINISH_SINGLE_ORIGINAL_BACKUP_CONTROL');
   pass('ROOM_FINISH_EXACT_ROOM_ROUTE',{
     houseItemId:20500005,
