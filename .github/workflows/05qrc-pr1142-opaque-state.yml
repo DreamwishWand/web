@@ -1,0 +1,41 @@
+name: 05 QR-C PR1142 independent opaque State
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1142-opaque-state.mjs'
+      - '.github/workflows/05qrc-pr1142-opaque-state.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact fixed Source and independent QA delta
+        run: |
+          source=2861485b591a73f89931ade9170c640577f7fa0e
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git diff --diff-filter=A --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git diff --name-only 93f56504240d68909e0a266a87bd284e34c5aeda "$source" | wc -l)" -eq 5
+      - run: npm ci --no-audit --no-fund
+      - name: Actual causal replay on parent
+        run: |
+          git worktree add --detach /tmp/qa1142-parent 93f56504240d68909e0a266a87bd284e34c5aeda
+          mkdir -p /tmp/qa1142-parent/tests/qa
+          cp tests/qa/05qrc-pr1142-opaque-state.mjs /tmp/qa1142-parent/tests/qa/
+          ln -s "$PWD/node_modules" /tmp/qa1142-parent/node_modules
+          cd /tmp/qa1142-parent
+          QA1142_PARENT=1 node --test --test-name-pattern='causal parent' tests/qa/05qrc-pr1142-opaque-state.mjs
+      - name: Fixed compiler, transaction and independent reopen
+        run: |
+          node --test tests/qa/05qrc-pr1142-opaque-state.mjs
+          node --test tests/ddv-roadfence-persistent-compiler-v125.test.mjs tests/ddv-roadfence-persistent-transaction-v125.test.mjs
