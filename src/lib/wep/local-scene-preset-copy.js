@@ -10,3 +10,87 @@ const COPY={
 };
 export function localScenePresetCopy(locale='en'){return COPY[locale]??COPY.en;}
 export const LOCAL_SCENE_PRESET_LOCALES=Object.freeze(Object.keys(COPY));
+
+const PORTABLE={
+  "en": {
+    "export": "Export Scene file",
+    "choose": "Choose Scene file",
+    "import": "Import selected file",
+    "count": "Scenes in file",
+    "exported": "Scene file exported. Original library retained.",
+    "imported": "Imported and independently reopened.",
+    "blocked": "File unavailable, unsupported, or library changed. Reopen the library before retrying.",
+    "notice": "Local file only. Import appends; duplicate IDs are rejected. Keep the original file and old site data."
+  },
+  "fr": {
+    "export": "Exporter le fichier Scene",
+    "choose": "Choisir un fichier Scene",
+    "import": "Importer le fichier choisi",
+    "count": "Scenes dans le fichier",
+    "exported": "Fichier Scene exporté. Bibliothèque originale conservée.",
+    "imported": "Importé et rouvert avec vérification.",
+    "blocked": "Fichier indisponible, non pris en charge ou bibliothèque modifiée. Rouvrez la bibliothèque avant de réessayer.",
+    "notice": "Fichier local uniquement. L’import ajoute des Scenes et refuse les identifiants en double. Conservez le fichier et les données d’origine."
+  },
+  "it": {
+    "export": "Esporta file Scene",
+    "choose": "Scegli file Scene",
+    "import": "Importa file selezionato",
+    "count": "Scene nel file",
+    "exported": "File Scene esportato. Libreria originale conservata.",
+    "imported": "Importato e riaperto con verifica.",
+    "blocked": "File non disponibile, non supportato o libreria modificata. Riapri la libreria prima di riprovare.",
+    "notice": "Solo file locale. L’importazione aggiunge Scene e rifiuta ID duplicati. Conserva file e dati originali."
+  },
+  "de": {
+    "export": "Scene-Datei exportieren",
+    "choose": "Scene-Datei auswählen",
+    "import": "Gewählte Datei importieren",
+    "count": "Scenes in der Datei",
+    "exported": "Scene-Datei exportiert. Originalbibliothek bleibt erhalten.",
+    "imported": "Importiert und unabhängig erneut geöffnet.",
+    "blocked": "Datei fehlt, ist nicht unterstützt oder Bibliothek geändert. Bibliothek vor erneutem Versuch öffnen.",
+    "notice": "Nur lokale Datei. Import fügt Scenes hinzu und lehnt doppelte IDs ab. Originaldatei und alte Daten behalten."
+  },
+  "es-ES": {
+    "export": "Exportar archivo Scene",
+    "choose": "Elegir archivo Scene",
+    "import": "Importar archivo seleccionado",
+    "count": "Scenes en el archivo",
+    "exported": "Archivo Scene exportado. Biblioteca original conservada.",
+    "imported": "Importado y reabierto con verificación.",
+    "blocked": "Archivo no disponible, no compatible o biblioteca modificada. Reabre la biblioteca antes de reintentar.",
+    "notice": "Solo archivo local. La importación añade Scenes y rechaza IDs duplicados. Conserva el archivo y los datos originales."
+  },
+  "ja": {
+    "export": "Sceneファイルを出力",
+    "choose": "Sceneファイルを選択",
+    "import": "選択したファイルを取り込む",
+    "count": "ファイル内のScene数",
+    "exported": "Sceneファイルを出力しました。元のライブラリは保持されます。",
+    "imported": "取り込み後、別トランザクションで再Openしました。",
+    "blocked": "ファイルが未対応、またはライブラリが更新されています。再試行前にライブラリを再Openしてください。",
+    "notice": "端末内ファイルのみ。取り込みは追加のみで、重複IDは拒否します。元のファイルと旧サイトのデータは保持してください。"
+  },
+  "zh-CN": {
+    "export": "导出 Scene 文件",
+    "choose": "选择 Scene 文件",
+    "import": "导入所选文件",
+    "count": "文件中的 Scene 数量",
+    "exported": "已导出 Scene 文件，保留原资料库。",
+    "imported": "已导入并独立重开验证。",
+    "blocked": "文件不可用、不受支持或资料库已更改。重试前请重新打开资料库。",
+    "notice": "仅本地文件。导入仅追加，拒绝重复 ID。请保留原文件和旧站点数据。"
+  },
+  "pt-BR": {
+    "export": "Exportar arquivo Scene",
+    "choose": "Escolher arquivo Scene",
+    "import": "Importar arquivo selecionado",
+    "count": "Scenes no arquivo",
+    "exported": "Arquivo Scene exportado. Biblioteca original preservada.",
+    "imported": "Importado e reaberto com verificação.",
+    "blocked": "Arquivo indisponível, incompatível ou biblioteca alterada. Reabra a biblioteca antes de tentar novamente.",
+    "notice": "Somente arquivo local. A importação adiciona Scenes e rejeita IDs duplicados. Preserve o arquivo e os dados originais."
+  }
+};
+export function localScenePortableCopy(locale='en'){return PORTABLE[locale]??PORTABLE.en;}
