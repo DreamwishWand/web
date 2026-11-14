@@ -20,7 +20,8 @@ import {
   buildSwitchV125DestinationProgressionProjection
 } from './progression-destination-projection-v115.ts';
 import {
-  openWorldSaveBytes
+  openWorldSaveBytes,
+  listWorldAreaRoutes
 } from './world-save-source.ts';
 import {
   projectSwitchAreaGrid
@@ -52,6 +53,10 @@ function error(code:string, detail:unknown = null):never {
   e.detail = detail;
   throw e;
 }
+
+// Module-private receipts prevent a caller-supplied or altered plan from
+// bypassing the reviewed source/placement/progression checks at export.
+const issuedReviews = new WeakMap<object,AnyRecord>();
 
 function semanticEqual(a:unknown,b:unknown) {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -131,10 +136,12 @@ function documentShell(document:AnyRecord) {
 
 export function analyzeMinimumTransformDraft({
   baselineDocument,
-  draftDocument
+  draftDocument,
+  rotationGeometry=null
 }:{
   baselineDocument:AnyRecord;
   draftDocument:AnyRecord;
+  rotationGeometry?:AnyRecord|null;
 }) {
   if(!baselineDocument||!draftDocument) {
     error('WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE');
@@ -183,11 +190,7 @@ export function analyzeMinimumTransformDraft({
     delete beforeStable[key];
     delete afterStable[key];
   }
-  if(!semanticEqual(beforeStable,afterStable)) {
-    error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{
-      reason:'NON_TRANSFORM_OBJECT_FIELD_CHANGED'
-    });
-  }
+  const stableSame=semanticEqual(beforeStable,afterStable);
 
   const moved=Number(before.x)!==Number(after.x) ||
     Number(before.y)!==Number(after.y);
@@ -199,6 +202,35 @@ export function analyzeMinimumTransformDraft({
     error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{
       reason:'MOVE_ROTATE_COMBINATION_UNSUPPORTED'
     });
+  }
+
+  // The existing editor rotation service recomputes footprint, footprintSize
+  // and rotationSemantics. Accept its exact deterministic output, not a
+  // blanket exception for metadata or arbitrary caller-provided footprints.
+  let exactRotation=false;
+  if (operation==='ROTATE' && rotationGeometry) {
+    if (![0,4,8,12].includes(before.orientation) ||
+        ![0,4,8,12].includes(after.orientation)) {
+      error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{reason:'CARDINAL_ORIENTATION_REQUIRED'});
+    }
+    const turns=((after.orientation-before.orientation+16)%16)/4;
+    const inPlace=rotationGeometry.rotateObjectInPlace(clone(before),turns);
+    const scene=rotationGeometry.rotateSelectionLikeScene([clone(before)],turns);
+    if (!inPlace || !Array.isArray(scene) || scene.length!==1) {
+      error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{reason:'ROTATION_GEOMETRY_UNRESOLVED'});
+    }
+    // Legacy orientation-only draft is admissible only if the canonical
+    // footprint/size is genuinely unchanged (e.g. a square object).
+    const unchangedDerived=stableSame &&
+      semanticEqual(after.footprint,inPlace.footprint) &&
+      semanticEqual(after.metadata?.footprintSize,inPlace.metadata?.footprintSize);
+    exactRotation=semanticEqual(after,inPlace)||semanticEqual(after,scene[0])||unchangedDerived;
+    if (!exactRotation) {
+      error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{reason:'NON_TRANSFORM_OBJECT_FIELD_CHANGED'});
+    }
+  }
+  if (!stableSame && !exactRotation) {
+    error('WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',{reason:'NON_TRANSFORM_OBJECT_FIELD_CHANGED'});
   }
 
   if(
@@ -230,6 +262,66 @@ export function analyzeMinimumTransformDraft({
     beforeObject:clone(before),
     afterObject:clone(after)
   });
+}
+
+function placementSnapshot(document:AnyRecord) {
+  const rows = document?.objects;
+  if (!Array.isArray(rows)) error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+  const keys = new Set<string>();
+  const result = rows.map((object:AnyRecord) => {
+    const id = object?.editorId;
+    if (typeof id !== 'string' || !id || keys.has(id) ||
+        ![object.itemId,object.x,object.y,object.orientation].every(Number.isSafeInteger)) {
+      error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+    }
+    keys.add(id);
+    return [id,object.itemId,object.x,object.y,object.orientation,
+      object.source?.relation??null,object.source?.gridId??null,
+      object.source?.gridObjectId??null,object.source?.objectMapKey??null];
+  });
+  return result.sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+}
+
+function requireSourceBaseline({
+  profile,opened,baselineDocument,worldBinding,change
+}:{
+  profile:AnyRecord;opened:AnyRecord;baselineDocument:AnyRecord;
+  worldBinding:AnyRecord;change:AnyRecord;
+}) {
+  // A source profile used for progression/placement may not be from another
+  // load, even when the selected object's old fields happen to match.
+  if (!semanticEqual(opened.profile,profile)) {
+    error('WEP_EXPORT_SOURCE_PROFILE_MISMATCH');
+  }
+  const target=baselineDocument.target;
+  const areas=listWorldAreaRoutes(profile);
+  const matches=areas.filter(area=>
+    area.villageIndex===target?.villageIndex && area.areaId===target?.areaId &&
+    area.gridIds.includes(change.gridId));
+  if (matches.length!==1 || matches[0].unlocked!==true) {
+    error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+  }
+  const canonical=projectSwitchAreaGrid(
+    {...opened,profile,areas} as any,matches[0],change.gridId,worldBinding as any
+  );
+  const a=canonical.target,b=target;
+  if (a.rootGridId!==b.rootGridId || a.gridDataPath!==b.gridDataPath ||
+      a.tessellationFactor!==b.tessellationFactor ||
+      !semanticEqual(placementSnapshot(canonical),placementSnapshot(baselineDocument))) {
+    error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+  }
+  const object=(canonical.objects??[]).find((entry:AnyRecord)=>entry.editorId===change.editorId);
+  if (!object || object.metadata?.worldClass!=='FurnitureItemData' ||
+      object.metadata?.stateKind!=='NONE' || object.layer!=='furniture' ||
+      object.editability!=='editable' || (object.metadata?.reasons??[]).length!==0) {
+    error('WEP_EXPORT_OBJECT_NO_LONGER_ADMISSIBLE');
+  }
+  if (!semanticEqual(object.footprint,change.beforeObject.footprint) ||
+      !semanticEqual(object.metadata?.footprintSize,change.beforeObject.metadata?.footprintSize) ||
+      object.metadata?.gridTessellationFactor!==change.beforeObject.metadata?.gridTessellationFactor ||
+      !semanticEqual(object.source,change.beforeObject.source)) {
+    error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+  }
 }
 
 export async function reviewMinimumVerifiedTransform({
@@ -271,25 +363,27 @@ export async function reviewMinimumVerifiedTransform({
   ) error('WEP_EXPORT_UNSUPPORTED_VERSION_BUILD');
 
   const change=analyzeMinimumTransformDraft({
-    baselineDocument,draftDocument
+    baselineDocument,draftDocument,rotationGeometry:worldBinding?.adapter?.geometryService
   });
   if(
     Number(draftDocument?.target?.rootGridId)!==change.gridId ||
     Number(baselineDocument?.target?.rootGridId)!==change.gridId
   ) error('WEP_EXPORT_CROSS_GRID_UNSUPPORTED');
 
-  const [pack,progression,safeSession]=await Promise.all([
+  const safeSession=await SafeProfileEditSession.open({
+    sourceBytes:sourceBytes.slice(),
+    codec:p1gPackagedProfileCodec as any,
+    sourcePlatform:PlatformFamily.Switch
+  });
+  const profile:AnyRecord=safeSession.getSnapshot();
+  requireSourceBaseline({profile,opened,baselineDocument,worldBinding,change});
+  const [pack,progression]=await Promise.all([
     fetchScopePack(basePath,fetchImpl),
     buildSwitchV125DestinationProgressionProjection({
-      profile:opened.profile,
+      profile,
       progressionScopeIndex:worldBinding?.progressionScopeIndex,
       basePath,
       fetchImpl
-    }),
-    SafeProfileEditSession.open({
-      sourceBytes:sourceBytes.slice(),
-      codec:p1gPackagedProfileCodec as any,
-      sourcePlatform:PlatformFamily.Switch
     })
   ]);
 
@@ -346,14 +440,14 @@ export async function reviewMinimumVerifiedTransform({
     gridObjectId:change.gridObjectId,
     objectMapKey:change.objectMapKey
   };
-  const admissibility=classifyMinimumPersistentTransform({
+  const admissibility:AnyRecord=classifyMinimumPersistentTransform({
     source:{
       platform:'Nintendo Switch',
       gameVersion:'1.25.0',
       profileSchemaVersion:624,
       buildIdentity:SWITCH_V125_BID
     },
-    profile:opened.profile,
+    profile,
     target:{
       gridId:change.gridId,
       gridObjectId:change.gridObjectId,
@@ -375,7 +469,10 @@ export async function reviewMinimumVerifiedTransform({
   }
 
   const ctx=safeSession.getPreflightContext();
-  const grid=opened.profile?.World?.GridCollection?.Grids?.[
+  if (!semanticEqual(admissibility.beforeTransform,change.before)) {
+    error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+  }
+  const grid=profile?.World?.GridCollection?.Grids?.[
     String(change.gridId)
   ];
   if(!grid||!Number.isSafeInteger(Number(grid.NextGridObjectID))) {
@@ -399,7 +496,7 @@ export async function reviewMinimumVerifiedTransform({
     planId:`wep-${change.operation.toLowerCase()}-${change.gridId}-${change.gridObjectId}-${String(ctx.saveIdentity.sourceRawSha256).slice(0,12)}`
   });
 
-  return Object.freeze({
+  const review=Object.freeze({
     contract:MIN_VERIFIED_EXPORT_CONTRACT,
     status:'READY',
     sourceEpoch:Number(sourceEpoch),
@@ -416,6 +513,8 @@ export async function reviewMinimumVerifiedTransform({
     persistentWriteAuthorized:false,
     WORLD_PERSISTENT_WRITE_V125:false
   });
+  issuedReviews.set(review,clone(review));
+  return review;
 }
 
 export async function commitMinimumVerifiedTransform({
@@ -437,6 +536,10 @@ export async function commitMinimumVerifiedTransform({
     review?.contract!==MIN_VERIFIED_EXPORT_CONTRACT ||
     review?.status!=='READY'
   ) error('WEP_EXPORT_REVIEW_REQUIRED');
+  const issued=issuedReviews.get(review);
+  if (!issued || !semanticEqual(review,issued)) {
+    error('WEP_EXPORT_REVIEW_STALE');
+  }
   if(Number(currentSourceEpoch)!==Number(review.sourceEpoch)) {
     error('WEP_EXPORT_SOURCE_CHANGED_SINCE_PLAN');
   }
@@ -445,12 +548,17 @@ export async function commitMinimumVerifiedTransform({
   }
   const currentChange=analyzeMinimumTransformDraft({
     baselineDocument,
-    draftDocument
+    draftDocument,
+    rotationGeometry:worldBinding?.adapter?.geometryService
   });
   if(!semanticEqual(currentChange,review.change)) {
     error('WEP_EXPORT_REVIEW_STALE');
   }
 
+  // Consume synchronously before async work: repeated/overlapping export
+  // requires a new review. The private copy is not mutable through UI state.
+  issuedReviews.delete(review);
+  review=issued;
   const sourceHashBefore=await sha256Hex(sourceBytes);
   if(
     sourceHashBefore!==review.sourceSha256 ||
