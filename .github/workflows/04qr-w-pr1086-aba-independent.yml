@@ -1,0 +1,149 @@
+name: 04 QR-W PR1086 independent ABA repair
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1086-aba-independent.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = 'a24d7639f1ed2b99fa79fe8ba0c72225cf0bd405'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/04qr-w-pr1086-aba-independent.yml'
+          test "$(git diff --name-only ddfb8c107c3aab0293bb953e53811e1d93e9382f 'a24d7639f1ed2b99fa79fe8ba0c72225cf0bd405' | wc -l)" = 5
+          test "$(git rev-parse HEAD:src/lib/presets/native-local-file-import-contract.mjs)" = 6d86b04f5f260b21b522f86a4dd11b5d603df761
+          test "$(git rev-parse HEAD:src/lib/presets/NativePresetManager.svelte)" = adcb8da0b7390d5bfbfe192999299544244a6d6b
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {createNativePresetBackup,extractNativePresetSnapshots,createEmptyNativePresetLibrary,NATIVE_PRESET_LIBRARY_KEY as key} from './src/lib/presets/native-preset-runtime.js';
+          import {transactNativePresetLibrary as tx} from './src/lib/presets/native-local-file-import-contract.mjs';
+          const fixture=id=>createNativePresetBackup(extractNativePresetSnapshots({World:{DecorationPresets:[{GridCollection:{Grids:{'0':{ID:0,NextGridObjectID:1,Objects:{}}},DiffGrids:{},NextGridID:1},PresetName:id,ThumbnailItems:[],ShareInfo:null,StateFlags:0}]}})[0],{idFactory:()=>id,now:'2026-11-14T00:00:00Z'});
+          const a=fixture('a'),b=fixture('b'),c=fixture('c');let raw,writes=0;const storage={getItem:k=>{assert.equal(k,key);return raw},setItem:(k,v)=>{assert.equal(k,key);raw=v;writes++}};const locks={request:(n,o,f)=>f()};const run=o=>tx({storage,locks,...o});const base={...createEmptyNativePresetLibrary(),backups:[a,b]};const mk=(next,entries)=>JSON.stringify({...base,localEntryIncarnations:{next,entries}});
+          for(const [label,bytes] of [['duplicate',mk(3,{[a.id]:1,[b.id]:1})],['missing',mk(3,{[a.id]:1})],['future',mk(3,{[a.id]:3,[b.id]:1})],['fraction',mk(3,{[a.id]:1.5,[b.id]:1})],['unsafe-next',mk(Number.MAX_SAFE_INTEGER+1,{[a.id]:1,[b.id]:2})]]){
+           raw=bytes;await assert.rejects(run({operation:'read'}),/INCARNATION_INVALID/);await assert.rejects(run({operation:'merge',backups:[c]}),/INCARNATION_INVALID/);assert.equal(raw,bytes);assert.equal(writes,0);console.log('QA544_INVALID_GENERATION_DENY',label);
+          }
+          raw=mk(Number.MAX_SAFE_INTEGER,{[a.id]:1,[b.id]:2});const old=raw;await assert.rejects(run({operation:'merge',backups:[c]}),/INCARNATION_EXHAUSTED/);assert.equal(raw,old);assert.equal(writes,0);
+          await run({operation:'merge',backups:[a]});assert.equal(raw,old);assert.equal(writes,0);
+          await run({operation:'remove',id:a.id,expectedEntry:JSON.stringify(a),expectedIncarnation:1});assert.equal(JSON.parse(raw).localEntryIncarnations.next,Number.MAX_SAFE_INTEGER);assert.deepEqual(JSON.parse(raw).backups,[b]);console.log('QA544_EXHAUSTION_DUPLICATE_FRESH_REMOVE_PASS');
+          
+          JS
+      - name: Actual browser legacy and ABA
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4361 --strictPort >/tmp/qa544.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4361/presets/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4361/presets/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          import {readFile} from 'node:fs/promises';
+          import {createNativePresetBackup,extractNativePresetSnapshots,NATIVE_PRESET_LIBRARY_KEY as key} from './src/lib/presets/native-preset-runtime.js';
+          const old='http://127.0.0.1:4361',next='http://localhost:4361';
+          const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const context=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});
+          const errors=[],unsafe=[];
+          context.on('request',r=>{if(![old,next].includes(new URL(r.url()).origin)||!['GET','HEAD'].includes(r.method()))unsafe.push(r.url());});
+          const fixture=id=>createNativePresetBackup(extractNativePresetSnapshots({World:{DecorationPresets:[{GridCollection:{Grids:{'0':{ID:0,NextGridObjectID:1,Objects:{}}},DiffGrids:{},NextGridID:1},PresetName:id,ThumbnailItems:[],ShareInfo:null,StateFlags:0}]}})[0],{idFactory:()=>id,now:'2026-11-14T00:00:00Z'});
+          const one=fixture('source'),two=fixture('target');
+          async function open(origin){
+           const p=await context.newPage();p.on('pageerror',e=>errors.push(String(e)));
+           await p.goto(origin+'/presets/',{waitUntil:'networkidle'});
+           await p.locator('[data-preset-child="inGame"]').click();
+           await p.locator('[data-preset-ingame-child="decorations"]').click();
+           await p.locator('[data-native-library-file]').waitFor({state:'attached'});
+           return p;
+          }
+          const raw=p=>p.evaluate(k=>localStorage.getItem(k),key);
+          const load=(p,value)=>p.locator('[data-native-library-file]').setInputFiles({name:'local.json',mimeType:'application/json',buffer:Buffer.from(typeof value==='string'?value:JSON.stringify(value))});
+          const wait=p=>p.locator('[data-native-library-import]:not([disabled])').waitFor();
+          try{
+           const source=await open(old);await load(source,one);await source.locator('.backup-grid article').first().waitFor();await wait(source);
+           const sourceRaw=await raw(source);
+           const dl=source.waitForEvent('download');await source.locator('[data-native-library-export]').click();
+           const file=await readFile(await (await dl).path(),'utf8');
+           assert.deepEqual(JSON.parse(file).backups,[one]);assert.equal(Object.hasOwn(JSON.parse(file),'localEntryIncarnations'),false);assert.equal(await raw(source),sourceRaw);
+           const target=await open(next);assert.equal(await raw(target),null);
+           await load(target,two);await target.locator('.backup-grid article').first().waitFor();await wait(target);
+           await load(target,file);await target.locator('.backup-grid article').nth(1).waitFor();await wait(target);
+           const merged=await raw(target);assert.deepEqual(JSON.parse(merged).backups,[two,one]);
+           await load(target,file);await wait(target);assert.equal(await raw(target),merged);
+           const conflict={...one,payload:{...one.payload,PresetName:'conflict'}};
+           await load(target,conflict);await wait(target);assert.equal(await raw(target),merged);
+           const stale=await open(next);await stale.locator('.backup-grid article').nth(1).waitFor();
+           const third=fixture('third');await load(target,third);await target.locator('.backup-grid article').nth(2).waitFor();await wait(target);
+           const fourth=fixture('fourth');await load(stale,fourth);await stale.locator('.backup-grid article').nth(3).waitFor();await wait(stale);
+           assert.deepEqual(JSON.parse(await raw(target)).backups,[two,one,third,fourth]);
+           // Reproduce the independent stale-remove counterexample in real separate tabs.
+           const staleRemove=await open(next);await staleRemove.locator('.backup-grid article').nth(3).waitFor();
+           const card=(p,name)=>p.locator('.backup-grid article').filter({has:p.getByRole('heading',{name,exact:true})});
+           await card(target,'source').locator('[data-native-library-remove]').click();await wait(target);
+           assert.deepEqual(JSON.parse(await raw(target)).backups,[two,third,fourth]);
+           const replacement={...one,summary:{...one.summary,presetName:'replacement source'},payload:{...one.payload,PresetName:'replacement source',OpaqueFuture:{new:true}}};
+           await load(target,replacement);await card(target,'replacement source').waitFor();await wait(target);
+           const replaced=await raw(target);
+           await card(staleRemove,'source').locator('[data-native-library-remove]').click();await wait(staleRemove);
+           assert.equal(await raw(target),replaced);assert.deepEqual(JSON.parse(replaced).backups,[two,third,fourth,replacement]);
+           await card(staleRemove,'replacement source').waitFor();
+           const fifth=fixture('fifth');await load(target,fifth);await card(target,'fifth').waitFor();await wait(target);
+           await card(staleRemove,'replacement source').locator('[data-native-library-remove]').click();await wait(staleRemove);
+           assert.deepEqual(JSON.parse(await raw(target)).backups,[two,third,fourth,fifth]);
+           // Byte-identical reincarnation, not just same-ID changed payload.
+           const aba=await open(next);await card(aba,'fifth').waitFor();
+           const beforeABA=JSON.parse(await raw(target));
+           await card(staleRemove,'fifth').locator('[data-native-library-remove]').click();await wait(staleRemove);
+           await load(staleRemove,fifth);await card(staleRemove,'fifth').waitFor();await wait(staleRemove);
+           const afterABA=await raw(target);
+           assert.notEqual(JSON.parse(afterABA).localEntryIncarnations.entries[fifth.id],beforeABA.localEntryIncarnations.entries[fifth.id]);
+           assert.deepEqual(JSON.parse(afterABA).backups,[two,third,fourth,fifth]);
+           await card(aba,'fifth').locator('[data-native-library-remove]').click();await wait(aba);
+           assert.equal(await raw(target),afterABA,'stale identical incarnation must not delete');
+           await card(aba,'fifth').waitFor();
+           await card(aba,'fifth').locator('[data-native-library-remove]').click();await wait(aba);
+           assert.deepEqual(JSON.parse(await raw(target)).backups,[two,third,fourth]);
+           await load(aba,fifth);await card(aba,'fifth').waitFor();await wait(aba);
+           console.log('WEP_NATIVE_PRESET_IDENTICAL_REINCARNATION_CAS_PASS');
+           // New independent legacy/empty/forged portable lifecycle in actual browser.
+           const isolated=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});
+           try{
+            const p=await isolated.newPage();
+            const legacy={schema:JSON.parse(sourceRaw).schema,version:1,updatedAt:'2026-11-14T00:00:00Z',backups:[one],opaqueTop:{keep:true}};
+            await p.goto(next+'/presets/',{waitUntil:'networkidle'});
+            await p.evaluate(([k,v])=>localStorage.setItem(k,v),[key,JSON.stringify(legacy)]);
+            async function activate(p){await p.locator('[data-preset-child="inGame"]').click();await p.locator('[data-preset-ingame-child="decorations"]').click();await p.locator('[data-native-library-file]').waitFor({state:'attached'});await card(p,'source').waitFor();}
+            await activate(p);const t=await isolated.newPage();await t.goto(next+'/presets/',{waitUntil:'networkidle'});await activate(t);
+            const initial=await raw(p);assert.equal(initial,JSON.stringify(legacy));
+            await load(p,one);await wait(p);assert.equal(await raw(p),initial);
+            await card(p,'source').locator('[data-native-library-remove]').click();await wait(p);
+            const empty=JSON.parse(await raw(p));assert.deepEqual(empty.backups,[]);assert.equal(empty.localEntryIncarnations.next,1);assert.deepEqual(empty.opaqueTop,{keep:true});
+            const forged={...legacy,localEntryIncarnations:{next:999,entries:{[one.id]:998}}};
+            await load(p,forged);await card(p,'source').waitFor();await wait(p);
+            const fresh=await raw(p),parsed=JSON.parse(fresh);assert.equal(parsed.localEntryIncarnations.entries[one.id],1);assert.equal(parsed.localEntryIncarnations.next,2);assert.deepEqual(parsed.opaqueTop,{keep:true});
+            await card(t,'source').locator('[data-native-library-remove]').click();await wait(t);assert.equal(await raw(p),fresh);
+            await card(t,'source').locator('[data-native-library-remove]').click();await wait(t);const empty2=JSON.parse(await raw(p));assert.deepEqual(empty2.backups,[]);assert.equal(empty2.localEntryIncarnations.next,2);
+            await load(p,one);await card(p,'source').waitFor();await wait(p);assert.equal(JSON.parse(await raw(p)).localEntryIncarnations.entries[one.id],2);
+            const dl2=p.waitForEvent('download');await p.locator('[data-native-library-export]').click();const out=JSON.parse(await readFile(await(await dl2).path(),'utf8'));assert.equal(Object.hasOwn(out,'localEntryIncarnations'),false);assert.deepEqual(out.backups,[one]);
+            console.log('QA544_REAL_LEGACY_ZERO_EMPTY_COUNTER_FORGED_PORTABLE_STALE_REJECT_PASS');
+           }finally{await isolated.close();}
+          
+           const reopened=await open(next);await reopened.locator('.backup-grid article').nth(3).waitFor();
+           assert.equal(await raw(reopened),await raw(target));assert.equal(await raw(source),sourceRaw);
+           assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);
+           console.log('WEP_NATIVE_PRESET_TWO_ORIGIN_EXPLICIT_EXPORT_IMPORT_COLLISION_STALE_REOPEN_PASS');
+          }finally{await context.close();await browser.close();}
+          
+          JS
