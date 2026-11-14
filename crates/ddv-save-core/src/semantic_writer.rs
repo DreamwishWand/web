@@ -432,6 +432,12 @@ impl ProductSession{
         }
         self.commit_semantic_replacements(e,vec![Replacement{span,old:old.to_string().into_bytes(),new:new.to_string().into_bytes()}],1)
     }
+    #[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
+    pub(super) fn commit_private_skin_scalar(&self,e:WorkerEnvelope,span:Span,old:i32,new:i32)->CoreResult<SemanticStageReceipt>{
+        let valid=|v:i32|v>0&&v/10_000_000==17&&(v%10_000_000)/100_000==0;
+        if !valid(old)||!valid(new)||old==new{return Err(denied("SKIN_EXACT_SCALAR"));}
+        self.commit_semantic_replacements(e,vec![Replacement{span,old:old.to_string().into_bytes(),new:new.to_string().into_bytes()}],1)
+    }
     fn semantic_toggle(&self,e:WorkerEnvelope,apply:bool)
         ->CoreResult<SemanticStageReceipt>{
         let mut st=self.lock()?;
