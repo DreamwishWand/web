@@ -88,7 +88,15 @@ jobs:
           src/lib/item-media/switch1253-public-item-images.mjs
           tests/web-steam1253-door-primary-contract.test.mjs
           STEAM_EXACT1_SCOPE
-            if diff -q /tmp/steam1253-exact1-expected /tmp/switch1253-actual >/dev/null; then
+            cat > /tmp/steam1253-extension-expected <<'STEAM_EXTENSION_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-steam1253-door-primary-contract.test.mjs
+          STEAM_EXTENSION_SCOPE
+            if diff -q /tmp/steam1253-extension-expected /tmp/switch1253-actual >/dev/null; then
+              node --test tests/web-steam1253-door-primary-contract.test.mjs
+              echo WEB_STEAM1253_EXACT3_EXTENSION_SCOPE_PASS
+            elif diff -q /tmp/steam1253-exact1-expected /tmp/switch1253-actual >/dev/null; then
               node --test tests/web-steam1253-door-primary-contract.test.mjs
               echo WEB_STEAM1253_DOOR_EXACT4_SCOPE_PASS
             elif diff -q /tmp/switch1253-expected /tmp/switch1253-actual >/dev/null; then
