@@ -22,6 +22,13 @@ const call=(a,body=raw(doc),over={})=>spawnSync(exe,a,{input:body,encoding:'utf8
  WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
  WAND_LOCAL_ORIGINAL_SHA256:'a'.repeat(64),WAND_LOCAL_ORIGINAL_SIZE_BYTES:'123',
  WAND_LOCAL_DECODED_SHA256:sha(body),...over}});
+// Raw non-UTF8 environment values cannot be constructed by Node's string env.
+const rawEnvConflict=(a,body,key,over)=>spawnSync('python3',['-c',
+ 'import os,sys,subprocess; e=os.environb.copy(); e[os.fsencode(sys.argv[1])]=b"\\xff"; p=subprocess.run(sys.argv[2:],input=sys.stdin.buffer.read(),env=e,stdout=subprocess.PIPE,stderr=subprocess.PIPE); sys.stdout.buffer.write(p.stdout); sys.stderr.buffer.write(p.stderr); sys.exit(p.returncode)',
+ key,exe,...a],{input:body,encoding:'utf8',env:{...process.env,
+ WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+ WAND_LOCAL_ORIGINAL_SHA256:'a'.repeat(64),WAND_LOCAL_ORIGINAL_SIZE_BYTES:'123',
+ WAND_LOCAL_DECODED_SHA256:sha(body),...over}});
 const deny=(r,code)=>{assert.equal(r.status,12,r.stderr);assert.equal(r.stdout,'');assert.match(r.stderr,new RegExp(code));};
 try{
  const path=join(dir,'receipt.json'),bad=join(dir,'denied.json');
@@ -116,6 +123,7 @@ try{
   [swargs(bad,'2120000001','0','40000099'),'COLLECTION_GROUP_READ_DENIED']])deny(swcall(a),code);
  deny(swcall(swargs(bad),raw(swdoc),{WAND_LOCAL_INSTALLED_SWITCH_BID:'52BD625D9B4E0053'}),'EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED');
  deny(swcall(swargs(bad),raw(swdoc),{WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:'conflict'}),'EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED');
+ deny(rawEnvConflict(swargs(bad),raw(swdoc),'WAND_LOCAL_INSTALLED_STEAM_FULLVERSION',{WAND_LOCAL_INSTALLED_SWITCH_BID:'9A239D3DB569756D'}),'EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED');
  deny(swcall(swargs(bad),raw(swdoc),{WAND_LOCAL_DECODED_SHA256:'f'.repeat(64)}),'DECODED_SOURCE_SHA_MISMATCH');
  deny(call(args(bad,'2120000001','0','40000001'),raw(swdoc)),'COLLECTION_SELECTOR_ID');
  for(const mutate of [
@@ -152,6 +160,7 @@ try{
  deny(sfcall(sfargs(path)),'PRIVATE_OUTPUT_ALREADY_EXISTS');
  deny(sfcall(sfargs(bad,'30000001')),'COLLECTION_SELECTOR_ID');
  deny(sfcall(sfargs(bad),raw(swdoc),{WAND_LOCAL_INSTALLED_SWITCH_BID:'9A239D3DB569756D'}),'EXACT_EXTERNAL_STEAM_BUILD_REQUIRED');
+ deny(rawEnvConflict(sfargs(bad),raw(swdoc),'WAND_LOCAL_INSTALLED_SWITCH_BID',{}),'EXACT_EXTERNAL_STEAM_BUILD_REQUIRED');
  deny(sfcall(sfargs(bad),raw(swdoc),{WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:'wrong'}),'EXACT_EXTERNAL_STEAM_BUILD_REQUIRED');
  for(const mutate of [x=>x.GameInfo.Version=624,x=>x.Player.CollectionSets[0].GroupData[0].State=0,
  x=>x.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems['40000001']=true,
