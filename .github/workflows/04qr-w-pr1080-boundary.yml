@@ -64,10 +64,26 @@ jobs:
           trap 'rm -rf "$temp"' EXIT
           git checkout --detach "$B"
           npm ci --no-audit --no-fund
+          # Same test-only explicit version for BOTH builds. The production
+          # config leaves Kit's generated build version unspecified.
+          grep -R -n 'Date.now().toString()' node_modules/@sveltejs/kit/src/core/config | head -5
+          pin_version() {
+            node --input-type=module - <<'JS'
+            import {readFileSync,writeFileSync} from 'node:fs';
+            import assert from 'node:assert/strict';
+            const p='svelte.config.js',s=readFileSync(p,'utf8');
+            assert.equal(s.split('  kit: {').length,2);
+            assert.ok(!s.includes('version:'));
+            writeFileSync(p,s.replace('  kit: {','  kit: {\n    version: { name: "qrw1080-fixed-build-version" },'));
+          JS
+          }
+          pin_version
           npm run build > "$temp/base.log" 2>&1 || { tail -40 "$temp/base.log"; exit 1; }
           mv build "$temp/base"
           rm -rf .svelte-kit
+          git restore -- svelte.config.js
           git checkout --detach "$H"
+          pin_version
           npm run build > "$temp/head.log" 2>&1 || { tail -40 "$temp/head.log"; exit 1; }
           python3 - "$temp/base" build <<'PY'
           import pathlib,sys,hashlib
@@ -80,6 +96,7 @@ jobs:
           assert set(x)==set(y)
           diff=[p for p in x if x[p]!=y[p]]
           print('QRW1080_STATIC_BYTE_DELTA',len(diff),diff[:30])
+          assert not diff, diff[:30]
           stems=['dreamsnaps-golden-vertical-handoff-20261003','qa-release-privacy-legal-production-handoff-20261002','01d-tier-a-steam626-typed-operation-handoff-20261111','01e-native-operation-static-tier-handoff-20261111']
           for p in b.rglob('*'):
             if p.is_file():
@@ -88,3 +105,5 @@ jobs:
           assert all((b/p).is_file() for p in ['index.html','editor/index.html','gallery/dreamsnaps/index.html','dreamsnaps/index.html','community-ops/index.html','404.html'])
           print('QRW1080_ACTUAL_BASE_HEAD_STATIC_SAME_PATHS_NO_DELETED_DOC_REFERENCES_PASS')
           PY
+          git restore -- svelte.config.js
+          test -z "$(git diff --name-only)"
