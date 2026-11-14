@@ -60,3 +60,18 @@ fn zero_route_wire_integrity_not_mask_or_restore_authority(){
  let mut wrong=e;wrong.action=WorkerAction::Stage;assert!(s.review_inventory_amount_restore(wrong,&z,0,F).is_err());
  s.close().unwrap();assert!(s.capture_inventory_amount_backup(e,0,F).is_err());
 }
+
+#[test]
+fn existing_dev_core_zero_route_decrease_two_to_one_exact_and_no_product_authority(){
+ let mut expected=doc(2,2);let s=open(&expected);let e=env(&s,WorkerAction::ReadDomain);
+ let w=s.read_existing_amount_target(e,ExistingAmountSelection::Inventory{inventory_id:0,item_id:F}).unwrap();
+ assert_eq!(w.view().old_amount,2);
+ assert!(s.authorize_existing_amount_target(e,&w,1).is_err());
+ let cmd=TypedSemanticCommand::InventoryExistingAmountDecrease{inventory_id:0,canonical_item_id:F,expected_compatible_item_type:"ItemType_Furniture".into(),expected_old_amount:2,new_amount:1};
+ let staged=s.stage_typed_semantic_batch(env(&s,WorkerAction::Stage),&[cmd]).unwrap();
+ assert_eq!(staged.exact_field_changed_count,1);assert!(!staged.product_writer_authorized);assert!(!staged.native_v3_verified);
+ let bytes=s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).unwrap();
+ expected["Player"]["ListInventories"]["0"]["Inventory"]["40300011"]["Amount"]=json!(1);
+ assert_eq!(bytes,serde_json::to_vec(&expected).unwrap());
+ assert!(s.capture_inventory_amount_backup(e,0,F).is_err());
+}
