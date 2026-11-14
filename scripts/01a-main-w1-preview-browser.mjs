@@ -75,16 +75,46 @@ try{
  const downloadEvent=page.waitForEvent('download',{timeout:15000});
  await page.locator('[data-w1-original-backup]').click();
  const download=await downloadEvent;
- assert.match(download.suggestedFilename(),/original-backup\.p1g$/);
+ assert.equal(download.suggestedFilename(),'synthetic.p1g.original-backup.p1g');
  const localFile=await download.path();
  assert.equal(sha(await readFile(localFile)),before);
  assert.equal(sha(p1g),before);
  report.checks.push('ORIGINAL_FIRST_DOWNLOAD_BYTES_UNCHANGED');
+ const backupInput=page.locator('#w1-backup-candidate');
+ assert.equal(await backupInput.isEnabled(),true);
+ await backupInput.setInputFiles(localFile);
+ await page.locator('[data-w1-backup-status="backupMatched"]').waitFor();
+ assert.match(await page.locator('[data-w1-backup-status]').innerText(),/Disk path and persistence are not verified/);
+ const wrong=Buffer.from(p1g);wrong[0]^=1;
+ await backupInput.setInputFiles({name:'wrong.p1g',mimeType:'application/octet-stream',buffer:wrong});
+ await page.locator('[data-w1-backup-status="backupRejected"]').waitFor();
+ await backupInput.setInputFiles(localFile);
+ await page.locator('[data-w1-backup-status="backupMatched"]').waitFor();
+ report.checks.push('ORIGINAL_BACKUP_NATIVE_REIMPORT_MATCH_MISMATCH_RETRY_PASS');
  await page.locator('#w1-new-utc').fill('2026-02-29T00:00:00Z');
  await page.locator('[data-w1-preview-build]').click();
  await page.getByText('W1_PREVIEW_UTC_INVALID').waitFor({timeout:5000});
  assert.equal(await page.locator('[data-w1-diff]').count(),0);
  report.checks.push('INVALID_DATE_FAIL_CLOSED');
+ // Start a real candidate comparison then revoke the session within the same
+ // browser task, before the first async Blob read can complete.
+ await page.evaluate(bytes=>{
+  const input=document.querySelector('#w1-backup-candidate'),dt=new DataTransfer();
+  dt.items.add(new File([new Uint8Array(bytes)],'stale.p1g'));
+  input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+  document.querySelector('[data-w1-session-close]').click();
+ },Array.from(p1g));
+ await page.locator('[data-timing-loaded]').waitFor({state:'detached'});
+ await page.locator('#timing-file:not([disabled])').waitFor();
+ assert.equal(await page.locator('[data-w1-backup-status]').count(),0);
+ await page.locator('#timing-file').setInputFiles({name:'synthetic.p1g',mimeType:'application/octet-stream',buffer:p1g});
+ await page.locator('[data-timing-loaded="true"] .event').waitFor();
+ assert.equal(await page.locator('[data-w1-backup-status]').getAttribute('data-w1-backup-status'),'idle');
+ await backupInput.setInputFiles(localFile);
+ await page.locator('[data-w1-backup-status="backupMatched"]').waitFor();
+ await page.locator('[data-w1-session-close]').click();
+ await page.locator('[data-timing-loaded]').waitFor({state:'detached'});
+ report.checks.push('CLOSE_DURING_COMPARE_REOPEN_NO_STALE_STATUS_PASS');
  assert.deepEqual(nonGet,[]);
  assert.deepEqual(report.errors,[]);
  report.checks.push('NO_UPLOAD_NO_BROWSER_ERRORS');
