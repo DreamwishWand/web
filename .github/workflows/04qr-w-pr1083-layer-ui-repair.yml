@@ -1,0 +1,94 @@
+name: 04 QR-W PR1083 repaired layer UI independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1083-layer-ui-repair.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual repaired layer UI only
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4347 --strictPort >/tmp/qrw1083.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4347/presets/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4347/presets/ >/dev/null
+          node --experimental-strip-types --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFile} from 'node:fs/promises';
+          import {chromium} from 'playwright-core';
+          import {captureScenePreset} from './src/lib/wep/scene-capture-runtime.ts';
+          import {validatePublishablePreset} from './src/lib/wep/scene-preset-runtime.ts';
+          const S='8d9216121172ea461f2fec06e6fe1f419d62978a',B='ddfb8c107c3aab0293bb953e53811e1d93e9382f';
+          const pins={'src/lib/wep/local-scene-preset-store.mjs':'8691ea9ac17f486028a5999187480a601c57b75b','src/lib/wep/local-scene-preset-copy.js':'0d1fd1c2a95caac032e55b0166b5b00ecb8d78ab','src/routes/presets/+page.svelte':'3a180b6a1ada704159f302a7eeec20a408d0810c','tests/wep-local-scene-preset-cas.test.mjs':'8c015643d6f95d65c348b6ac43a773a138641333','scripts/wep-local-scene-preset-chrome.mjs':'2bcb5c09b6c8289b0cb42b77499ab8c77313b2f2'};
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim();
+          assert.deepEqual(git('diff','--name-status',B,S).split('\n').sort(),Object.keys(pins).map(p=>'M\t'+p).sort());
+          for(const [p,h] of Object.entries(pins))assert.equal(git('rev-parse','HEAD:'+p),h);
+          assert.deepEqual(git('diff','--name-status',S,'HEAD').split('\n').sort(),['A\t.github/workflows/04qr-w-pr1083-layer-ui-repair.yml']);
+          const title='QA é 日本語 �';
+          const doc={target:{gameVersion:'1.25.0',platform:'synthetic',areaKey:'test-only'},objects:[{editorId:'qa-object',itemId:40000048,layer:'furniture',x:3,y:4,orientation:0,footprint:[{x:0,y:0}],portableState:null,dependencyIds:[],editability:'editable'}]};
+          const cap=captureScenePreset(doc,{selectionIds:['qa-object'],includeRoads:false,includeFences:false,title},validatePublishablePreset);
+          assert.equal(cap.publicationReady,true);
+          const envelope={schema:'wand.wep.scene-library-portable@1',version:1,entries:[{id:'scene_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',title,createdAt:'2026-11-14T00:00:00Z',artifact:cap.artifact}]};
+          const raw=JSON.stringify(envelope),good=Buffer.from(raw);
+          const layerFile=(layer,id=envelope.entries[0].id)=>{const f=JSON.parse(raw);f.entries[0].id=id;f.entries[0].artifact.objects[0].layer=layer;return Buffer.from(JSON.stringify(f));};
+          const negatives=[['array',['furniture']],['nested',[['furniture']]],['object',{value:'furniture'}],['number',1],['null',null],['space','furniture '],['case','Furniture'],['unknown','floor']].map(([label,layer])=>[label,layerFile(layer)]);
+          const old='http://127.0.0.1:4347',next='http://localhost:4347',DB='dreamwishwand:wep:scene-presets:local:v1';
+          const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const ctx=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});
+          const errors=[],unsafe=[];
+          ctx.on('request',r=>{if(![old,next].includes(new URL(r.url()).origin)||!['GET','HEAD'].includes(r.method()))unsafe.push(r.url())});
+          const open=async origin=>{const p=await ctx.newPage();p.on('pageerror',e=>errors.push(String(e)));await p.goto(origin+'/presets/',{waitUntil:'networkidle'});await p.locator('[data-preset-child="my"]').click();await p.locator('[data-device-scenes-reopen]').click();await p.locator('[data-device-scenes-import-file]:not([disabled])').waitFor();return p};
+          const dbExists=p=>p.evaluate(async n=>(await indexedDB.databases()).some(d=>d.name===n),DB);
+          const read=p=>p.evaluate(n=>new Promise((yes,no)=>{const r=indexedDB.open(n,1);r.onerror=()=>no(r.error);r.onsuccess=()=>{const d=r.result,t=d.transaction('snapshots','readonly'),g=t.objectStore('snapshots').get('library');t.oncomplete=()=>{d.close();yes(g.result)};t.onerror=()=>{d.close();no(t.error)}}}),DB);
+          const choose=(p,bytes,name='scene.json')=>p.locator('[data-device-scenes-import-file]').setInputFiles({name,mimeType:'application/json',buffer:bytes});
+          const preview=async p=>{await p.locator('[data-device-scenes-import-count]').waitFor();assert.equal(await p.locator('[data-device-scenes-import]').isEnabled(),true)};
+          const blocked=async p=>{await p.locator('[data-device-scenes-portable-status]').filter({hasText:'Reopen the library'}).waitFor();assert.equal(await p.locator('[data-device-scenes-import-count]').count(),0);assert.equal(await p.locator('[data-device-scenes-import]').isDisabled(),true)};
+          const download=async p=>{const d=p.waitForEvent('download');await p.locator('[data-device-scenes-export]').focus();await p.keyboard.press('Enter');return readFile(await (await d).path())};
+          try{
+           const a=await open(old),b=await open(next);
+           assert.equal(await dbExists(a),false);assert.equal(await dbExists(b),false);
+           await choose(a,good);await preview(a);assert.equal(await dbExists(a),false);
+           await a.locator('[data-device-scenes-import]').click();await a.locator('[data-device-scenes-portable-status]').filter({hasText:'Imported and independently reopened'}).waitFor();
+           const original=await read(a),exported=await download(a);assert.ok(exported.equals(good));assert.deepEqual(await read(a),original);
+           for(const [label,bytes] of negatives){
+            await choose(b,exported);await preview(b);
+            await choose(b,bytes,label+'.json');await blocked(b);
+            assert.equal(await dbExists(b),false,label);assert.deepEqual(await read(a),original);
+            console.log('QRW1083_ACTUAL_PREVIEW_INVALIDATION_DENY',label);
+           }
+           // Commit valid file only after all invalid replacements; then repeat on occupied target.
+           await choose(b,exported);await preview(b);await b.locator('[data-device-scenes-import]').focus();await b.keyboard.press('Enter');
+           await b.locator('[data-device-scenes-portable-status]').filter({hasText:'Imported and independently reopened'}).waitFor();
+           const dest=await read(b);assert.equal(dest.revision,1);
+           const nextId='scene_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+           const validNext=layerFile('furniture',nextId);
+           for(const [label,layer] of [['array',['furniture']],['nested',[['furniture']]],['object',{value:'furniture'}],['space','furniture ']]){
+            await choose(b,validNext);await preview(b);
+            await choose(b,layerFile(layer,nextId),label+'.json');await blocked(b);
+            assert.deepEqual(await read(b),dest);assert.deepEqual(await read(a),original);
+            console.log('QRW1083_LAYER_POPULATED_DENY',label);
+           }
+           await choose(b,validNext);await preview(b);await b.locator('[data-device-scenes-import]').click();
+           await b.locator('[data-device-scenes-portable-status]').filter({hasText:'Imported and independently reopened'}).waitFor();
+           const final=await read(b);assert.equal(final.revision,2);assert.equal(final.backup,dest.primary);assert.equal(JSON.parse(final.primary).entries.length,2);assert.deepEqual(await read(a),original);
+           assert.deepEqual(errors,[]);assert.deepEqual(unsafe,[]);
+           console.log('QRW1083_LAYER_UI_EMPTY_POPULATED_PREVIEW_REVOKE_AND_FRESH_APPEND_PASS');
+          }finally{await browser.close()}
+          
+          JS
