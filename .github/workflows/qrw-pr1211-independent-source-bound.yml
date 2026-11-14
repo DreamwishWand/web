@@ -10,14 +10,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: |
-          test "$(git rev-parse HEAD^)" = 7c1da18a2a7f0dc073852963e25e3b6b9cc17fd9
-          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/qrw-pr1211-independent-source-bound.yml
+          git merge-base --is-ancestor 7c1da18a2a7f0dc073852963e25e3b6b9cc17fd9 HEAD
+          test "$(git diff --name-only 7c1da18a2a7f0dc073852963e25e3b6b9cc17fd9 HEAD)" = .github/workflows/qrw-pr1211-independent-source-bound.yml
           test "$(git rev-parse HEAD:src/lib/wep/min-verified-transform-export-v1.ts)" = 3556e07a614b0cb1f87613e89fad81821a7d5ff9
           test "$(git rev-parse HEAD:tests/wep-min-verified-transform-export-v1.test.mjs)" = bcbd36855b4844d7de348794aaae0e19b48940b2
       - run: |
@@ -103,3 +103,51 @@ jobs:
           console.log('QRW_PR1211_INDEPENDENT_SOURCE_BOUND_PASS positives=3 negatives='+negatives);
           EOF
           node tests/qrw-pr1211-runtime.mjs
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          export CHROME_BIN
+          "$CHROME_BIN" --version
+          npm run dev -- --host 127.0.0.1 --port 4173 >/tmp/qrw1211-vite.log 2>&1 &
+          for i in $(seq 1 60); do if curl --fail --silent http://127.0.0.1:4173/editor/world/ >/dev/null; then break; fi; sleep 1; done
+          test "$(git rev-parse HEAD:scripts/wep-primary-job-browser-acceptance.mjs)" = 2cc7b8a033a42be0aa8e8695965e9cc274d4db49
+          node --input-type=module <<'EOF'
+          import {readFile,writeFile} from 'node:fs/promises';
+          let s=await readFile('scripts/wep-primary-job-browser-acceptance.mjs','utf8');
+          for(const name of ['runSyntheticAcceptance','runRawSaveAcceptance','runLocaleLayoutAcceptance']){
+            const line='  await '+name+'(page, report);';
+            if(!s.includes(line))throw Error('missing exact inherited call '+name);
+            s=s.replace(line,'');
+          }
+          await writeFile('scripts/qrw1211-browser-move.mjs',s);
+          const start=s.indexOf('async function runVerifiedExportAcceptance('),end=s.indexOf('const browser = await chromium.launch',start);
+          if(start<0||end<0)throw Error('missing inherited function');
+          let f=s.slice(start,end);
+          const edits=[
+            ["name: 'Move right'","name: 'Rotate', exact: true"],
+            ["await expectContains(review, 'MOVE');","await expectContains(review, 'ROTATE');"],
+            ["assert.equal(editedObject.X, verifiedExportMove.afterX);","assert.equal(editedObject.X, verifiedExportMove.x);"],
+            ["assert.equal(editedObject.Y, verifiedExportMove.afterY);","assert.equal(editedObject.Y, verifiedExportMove.y);"],
+            ["assert.equal(editedObject.Orientation, 'GridOrientation_Up');","assert.equal(editedObject.Orientation, 'GridOrientation_Right');"],
+            ["assert.equal(manifest.operation.kind, 'MOVE');","assert.equal(manifest.operation.kind, 'ROTATE');"]
+          ];
+          for(const [a,b] of edits){if(f.split(a).length!==2)throw Error('not exact '+a);f=f.replace(a,b);}
+          await writeFile('scripts/qrw1211-browser-rotate.mjs',s.slice(0,start)+f+s.slice(end));
+          EOF
+          node scripts/qrw1211-browser-move.mjs
+          echo QRW_PR1211_ACTUAL_CHROME_MOVE_REVIEW_CONFIRM_EXPORT_REOPEN_PASS
+          node scripts/qrw1211-browser-rotate.mjs
+          echo QRW_PR1211_ACTUAL_CHROME_ROTATE_REVIEW_CONFIRM_EXPORT_REOPEN_PASS
