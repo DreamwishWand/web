@@ -1,0 +1,118 @@
+name: QR-W PR1261 independent DEV reselect barrier
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qrw-pr1261-reselect-qa.yml'
+permissions:
+  contents: read
+jobs:
+  independent-dev-reselect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Fixed source exact scope
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only 4a07cba502fbe3fb3e2868f942bf5549f0da13b5 HEAD)" = '.github/workflows/qrw-pr1261-reselect-qa.yml'
+          test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = 5ccdf94ac2675919ae74ff6c93f0090018068621
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-workflow.mjs)" = 4423efc41e20e61fead6d28871ca04c7b8170569
+          test "$(git rev-parse HEAD:tests/dev-amount-ui-chrome/chrome-smoke.mjs)" = 058a0751f1d07e18bc9c933f1a6af7feef11fd77
+          test "$(git rev-parse HEAD:tests/dev-amount-ui-chrome/ci-only-route.svelte)" = 0516485370635f9b2f344139a0e5aa07bafad8a5
+          test ! -e src/routes/test-dev-amount-ui/+page.svelte
+      - run: npm ci --no-audit --no-fund
+      - name: Temporary independent controlled mock route and CDP harness
+        run: |
+          mkdir -p src/routes/test-dev-amount-ui
+          node --input-type=module <<'NODE'
+          import {readFile,writeFile} from 'node:fs/promises';
+          const original='tests/dev-amount-ui-chrome/ci-only-route.svelte';
+          let s=await readFile(original,'utf8');
+          const replace=(a,b)=>{if(s.split(a).length!==2)throw Error('ANCHOR '+a);s=s.replace(a,b)};
+          replace('  let staged=false,backed=false;',`  let staged=false,backed=false,mounted=true;
+          const qa={holdClose:false,holdOpen:false,closeHeld:null,openHeld:null,opens:[],closes:0,stageCalls:0};
+          if(typeof window!=='undefined')window.__qa=qa;`);
+          replace('    async open({file,build,originalSha256}){',`    async open({file,build,originalSha256}){
+              qa.opens.push(file.name);
+              if(qa.holdOpen){qa.holdOpen=false;await new Promise(r=>qa.openHeld=r);qa.openHeld=null;}`);
+          replace('      const c=commands?.[0];','      qa.stageCalls++;const c=commands?.[0];');
+          replace("    async close(){epoch++;staged=false;backed=false;directory=null;await new Promise(r=>setTimeout(r,180));return kind('CLOSED')}","    async close(){epoch++;qa.closes++;staged=false;backed=false;directory=null;if(qa.holdClose){qa.holdClose=false;await new Promise(r=>qa.closeHeld=r);qa.closeHeld=null;}return kind('CLOSED')}");
+          replace('<LocalAmountEditorDev verifiedLocalDevGate={true} {trustedWorkerAdapter}/>','<button data-qa-toggle on:click={()=>mounted=!mounted}>Mount</button>{#if mounted}<LocalAmountEditorDev verifiedLocalDevGate={true} {trustedWorkerAdapter}/>{/if}');
+          await writeFile('src/routes/test-dev-amount-ui/+page.svelte',s);
+          const h='tests/dev-amount-ui-chrome/chrome-smoke.mjs';
+          let js=await readFile(h,'utf8');
+          const start=js.indexOf('const script=String.raw`'),end=js.indexOf('\ntry{\n server=',start);
+          if(start<0||end<0)throw Error('HARNESS_BOUNDS');
+          const script=String.raw`(async()=>{
+            const q=()=>window.__qa;
+            const el=s=>document.querySelector(s);
+            const need=(v,k)=>{if(!v)throw Error(k)};
+            const wait=async(fn,k)=>{for(let i=0;i<500;i++){if(fn())return;await new Promise(r=>setTimeout(r,20))}throw Error(k)};
+            const input=()=>el('#dev-amount-p1g');
+            const open=()=>el('[data-dev-open]');
+            const pick=name=>{const d=new DataTransfer();d.items.add(new File([new Uint8Array(64)],name));input().files=d.files;input().dispatchEvent(new Event('change',{bubbles:true}))};
+            const attest=()=>{const x=el('#dev-amount-sha');x.value='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b';x.dispatchEvent(new Event('input',{bubbles:true}));const c=el('.check input');c.checked=true;c.dispatchEvent(new Event('change',{bubbles:true}))};
+            const noOutput=()=>!el('[data-backup-verified],[data-dev-preview],[data-dev-edited-copy],[data-dev-download-backup],[data-dev-download-edited]');
+            const panel=()=>el('[data-dev-amount-editor]');
+            await wait(()=>input()&&q(),'MOUNT');
+            panel().open=true;
+            need(panel().dataset.productWriter==='off'&&panel().dataset.publicRoute==='off','OFF');
+            q().holdClose=true;pick('synthetic-ci.p1g');
+            await wait(()=>q().closeHeld&&input().disabled,'FIRST_CLOSE_HELD');
+            need(input().value===''&&open().disabled&&noOutput(),'FIRST_BARRIER');
+            // A second DOM change and forced click while the close is pending cannot replace A or open.
+            pick('wrong.p1g');open().dispatchEvent(new MouseEvent('click',{bubbles:true}));
+            await new Promise(r=>setTimeout(r,0));need(q().opens.length===0&&input().disabled,'PENDING_NO_OPEN');
+            q().closeHeld();await wait(()=>!input().disabled,'FIRST_SETTLED');
+            attest();await wait(()=>!open().disabled,'FIRST_OPEN_READY');open().click();
+            await wait(()=>el('[data-dev-backup]:not([disabled])'),'FIRST_OPEN');
+            need(q().opens.join(',')==='synthetic-ci.p1g','A_NOT_REPLACED');
+            el('[data-dev-backup]').click();await wait(()=>el('[data-dev-stage]:not([disabled])')||el('#dev-amount-new'),'BACKUP');
+            const amount=el('#dev-amount-new');amount.value='49';amount.dispatchEvent(new Event('input',{bubbles:true}));
+            await wait(()=>el('[data-dev-stage]:not([disabled])'),'STAGE_READY');el('[data-dev-stage]').click();
+            await wait(()=>el('[data-dev-preview]'),'STAGED');const old=el('[data-dev-export]');
+            q().holdClose=true;pick('synthetic-ci.p1g');await wait(()=>q().closeHeld&&input().disabled,'ACTIVE_RESELECT_HELD');
+            need(noOutput()&&open().disabled&&input().value==='','ACTIVE_REVOKED');
+            old.dispatchEvent(new MouseEvent('click',{bubbles:true}));need(q().stageCalls===1,'NO_OLD_ACTION');
+            q().closeHeld();await wait(()=>!input().disabled,'RESELECT_SETTLED');
+            need(open().disabled&&noOutput()&&el('#dev-amount-sha').value===''&&!el('.check input').checked,'FRESH_ATTESTATION');
+            attest();await wait(()=>!open().disabled,'NEXT_READY');
+            q().holdOpen=true;open().click();await wait(()=>q().openHeld,'OPEN_HELD');
+            need(input().disabled&&noOutput(),'OPEN_PENDING');
+            el('[data-qa-toggle]').click();await wait(()=>!panel(),'UNMOUNT');
+            q().openHeld();await wait(()=>!q().openHeld,'OLD_OPEN_SETTLED');
+            el('[data-qa-toggle]').click();await wait(()=>input()&&open(),'REMOUNT');
+            need(open().disabled&&input().value===''&&noOutput(),'REMOUNT_NO_RESURRECTION');
+            pick('synthetic-ci.p1g');await wait(()=>!input().disabled,'FRESH_PICK');attest();await wait(()=>!open().disabled,'FRESH_READY');open().click();
+            await wait(()=>el('[data-dev-backup]:not([disabled])'),'FRESH_OPEN');
+            q().holdClose=true;el('[data-dev-close]').click();await wait(()=>q().closeHeld&&input().disabled,'EXPLICIT_CLOSE_HELD');
+            need(noOutput()&&open().disabled,'CLOSE_REVOKED');
+            q().closeHeld();await wait(()=>!input().disabled,'CLOSE_SETTLED');
+            need(open().disabled&&input().value===''&&noOutput(),'FINAL_CLOSED');
+            return {pass:true,opens:q().opens.length,closes:q().closes,stageCalls:q().stageCalls,productWriter:false};
+          })()`;
+          js=js.slice(0,start)+'const script='+JSON.stringify(script)+';'+js.slice(end);
+          const first=js.indexOf(" // Native Chrome file chooser reselects"),last=js.indexOf('\n}catch(error)',first);
+          if(first<0||last<0)throw Error('POST_BOUNDS');
+          js=js.slice(0,first)+` assert.equal(result.opens,3);assert.equal(result.stageCalls,1);assert.equal(result.productWriter,false);
+          assert.equal(downloadGuids.size,0,'NO_OUTPUT_ON_STALE_OR_CLOSE');
+          assert.ok(network.every(r=>r.method==='GET'),'NO_UPLOAD');
+          console.log('QRW_PR1261_ACTUAL_CHROME_RESELECT_PENDING_UNMOUNT_PASS',result);
+          `+js.slice(last);
+          await writeFile(h,js);
+          NODE
+          command -v google-chrome
+      - name: Independent real Chrome controlled barriers
+        run: node tests/dev-amount-ui-chrome/chrome-smoke.mjs
+      - name: No public route or product change
+        run: |
+          test -z "$(git ls-files src/routes/test-dev-amount-ui)"
+          test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = 5ccdf94ac2675919ae74ff6c93f0090018068621
