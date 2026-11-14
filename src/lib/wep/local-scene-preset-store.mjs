@@ -106,24 +106,31 @@ export async function saveLocalScene({
  now=new Date().toISOString()
 }){
  if(typeof title!=='string'||!title.trim()||title.trim().length>120||
-  !Number.isSafeInteger(expectedRevision)||expectedRevision<0)fail('INPUT_INVALID');
+  !Number.isSafeInteger(expectedRevision)||expectedRevision<0||expectedRevision>=Number.MAX_SAFE_INTEGER)fail('INPUT_INVALID');
  if(typeof now!=='string'||Number.isNaN(Date.parse(now)))fail('TIMESTAMP_INVALID');
  const id='scene_'+String(idFactory()??'');
  if(!/^scene_[0-9a-f-]{36}$/.test(id))fail('ID_INVALID');
  // Canonical JSON preserves the exact portable artifact, no document mutation.
- let canonical;
- try{canonical=JSON.parse(JSON.stringify(artifact));}catch{fail('PRESET_INVALID');}
+ let canonical,raw;
+ try{raw=JSON.stringify(artifact);}catch{fail('PRESET_INVALID');}
+ if(typeof raw!=='string')fail('PRESET_INVALID');
+ // Bound the actual UTF-8 payload before opening or creating a database.
+ if(raw.length>MAX_BYTES||byteLength(raw)>MAX_BYTES)fail('LIMIT_REACHED');
+ try{canonical=JSON.parse(raw);}catch{fail('PRESET_INVALID');}
  checkArtifact(canonical);
  const db=await openLocalSceneDb({factory,create:true});
  try{
   const receipt=await transaction(db,'readwrite',row=>{
    if(row.revision!==expectedRevision)fail('STALE_REVISION');
+   if(row.document.entries.some(entry=>entry.id===id))fail('ID_COLLISION');
    if(row.document.entries.length>=MAX_SCENES)fail('LIMIT_REACHED');
    const nextDoc={schema:DOC_SCHEMA,version:1,entries:[
     ...row.document.entries,{id,title:title.trim(),createdAt:now,artifact:canonical}
    ]};
    const primary=encode(nextDoc);
-   if(primary.length>MAX_BYTES)fail('LIMIT_REACHED');
+   if(primary.length>MAX_BYTES||byteLength(primary)>MAX_BYTES)fail('LIMIT_REACHED');
+   // The newly committed primary must satisfy the same persisted-row reader.
+   parseDocument(primary);
    const next={schema:ROW_SCHEMA,revision:row.revision+1,
     backupRevision:row.revision,primary,backup:row.primary};
    return {next,value:{id,revision:next.revision,primary,backup:row.primary}};

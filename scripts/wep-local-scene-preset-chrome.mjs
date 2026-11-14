@@ -82,6 +82,35 @@ try{
  assert.equal(second.backupRevision,1);
  assert.equal(second.backup,first.primary);
  assert.equal(JSON.parse(second.primary).entries.length,2);
+ // Normal save, not portable import: a repeated ID must not commit a row
+ // that the independent reader would reject. Synthetic ID factory only.
+ const collision=await page.evaluate(async row=>{
+  const {saveLocalScene,reopenLocalScenes}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  const entry=JSON.parse(row.primary).entries[0];
+  let error;
+  try{await saveLocalScene({artifact:entry.artifact,title:'Collision',expectedRevision:row.revision,
+    idFactory:()=>entry.id.slice('scene_'.length)});error='ACCEPTED';}catch(e){error=e.message;}
+  const read=await reopenLocalScenes();
+  return {error,revision:read.revision,primary:read.primary,backup:read.backup};
+ },second);
+ assert.deepEqual(collision,{error:'WEP_LOCAL_SCENE_ID_COLLISION',revision:2,primary:second.primary,backup:second.backup});
+ assert.deepEqual(await snapshot(page),second,'normal-save collision must not mutate row');
+ // Oversize by UTF-8 bytes, not JS characters; no DB open even on existing DB.
+ const bounds=await page.evaluate(async row=>{
+  const {saveLocalScene}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  let opens=0;
+  const factory={open(...args){opens++;return indexedDB.open(...args);}};
+  const artifact=JSON.parse(row.primary).entries[0].artifact;
+  const input={factory,artifact,title:'Bounded',idFactory:()=> 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'};
+  const reject=async args=>{try{await saveLocalScene(args);return 'ACCEPTED';}catch(e){return e.message;}};
+  const exhaustion=await reject({...input,expectedRevision:Number.MAX_SAFE_INTEGER});
+  const huge=structuredClone(artifact);huge.source.areaKey='界'.repeat(1400000);
+  const utf8=await reject({...input,artifact:huge,expectedRevision:row.revision});
+  return {exhaustion,utf8,opens};
+ },second);
+ assert.deepEqual(bounds,{exhaustion:'WEP_LOCAL_SCENE_INPUT_INVALID',utf8:'WEP_LOCAL_SCENE_LIMIT_REACHED',opens:0});
+ assert.deepEqual(await snapshot(page),second);
+ console.log('WEP_SCENE_NORMAL_SAVE_COLLISION_REVISION_UTF8_NO_WRITE_PASS');
  // Independent second tab Reopen, choose saved Scene in readonly consumer.
  await staleTab.locator('[data-wep-local-scene-reopen]').click();
  await staleTab.locator('[data-wep-local-scene-entries] [data-wep-local-scene-read]').first().waitFor();
