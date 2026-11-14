@@ -129,9 +129,32 @@ test('Policy73 native backup refuses invalid scope without stdout or private val
   assert.doesNotMatch(p.stderr,/30000001|OriginalUnknown|future|ratio/);
  }
  for(const doc of [source.replace('"Version":626','"Version":624'),
-   source.replace('"Amount":50','"Amount":1'),
+   source.replace('"Amount":50','"Amount":0'),
    original]){
   const p=invoke('--inventory-amount-backup-only',{WAND_LOCAL_DECODED_SHA256:sha(doc)},doc);
   assert.notEqual(p.status,0);assert.equal(p.stdout,'');
  }
+});
+
+test('Backup includes quantity one and exact Furniture catalog zero, writer remains decrease-only',()=>{
+ const one=original.replace('ItemType_Ingredient','ItemType_ActivityItem').replace('"Amount":50','"Amount":1');
+ const p=invoke('--inventory-amount-backup-only',{WAND_LOCAL_DECODED_SHA256:sha(one)},one);
+ assert.equal(p.status,0,p.stderr.slice(0,200));
+ assert.equal(JSON.parse(p.stdout).payload.amount,1);
+ const root=JSON.parse(one);
+ root.Player.ListInventories={'0':{ID:0,CompatibleItemType:'ItemType_Furniture',
+  CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},
+  Inventory:{'40000053':{Amount:1,Marker:'ItemMarker_None'}}}};
+ const source=JSON.stringify(root),patch={WAND_LOCAL_DECODED_SHA256:sha(source),
+  WAND_LOCAL_INVENTORY_ID:'0',WAND_LOCAL_CANONICAL_ITEM_ID:'40000053'};
+ const z=invoke('--inventory-amount-backup-only',patch,source);
+ assert.equal(z.status,0,z.stderr.slice(0,200));
+ assert.deepEqual(JSON.parse(z.stdout).target,{inventoryId:0,itemId:40000053});
+ assert.equal(JSON.parse(z.stdout).payload.amount,1);
+ const blocked=source.replace('FurnitureItemType_Default','FurnitureItemType_Door');
+ const bad=invoke('--inventory-amount-backup-only',{...patch,WAND_LOCAL_DECODED_SHA256:sha(blocked)},blocked);
+ assert.notEqual(bad.status,0);assert.equal(bad.stdout,'');
+ const writer=invoke('--semantic-inventory-existing-decrease-only',{...patch,
+  WAND_LOCAL_COMPATIBLE_ITEM_TYPE:'ItemType_Furniture',WAND_LOCAL_EXPECTED_OLD_AMOUNT:'1',WAND_LOCAL_NEW_AMOUNT:'0'},source);
+ assert.notEqual(writer.status,0);assert.equal(writer.stdout,'');
 });

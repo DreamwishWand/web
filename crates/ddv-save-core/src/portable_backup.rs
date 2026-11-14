@@ -122,9 +122,19 @@ pub fn decode_inventory_amount_backup(bytes: &[u8]) -> CoreResult<InventoryAmoun
     let source = body["provenance"]["decodedSha256"].as_str()
         .filter(|s| sha_text(s)).ok_or(err("WAND_BACKUP_PROVENANCE"))?;
     let payload = &body["payload"];
+    let item_id = id(&body["target"]["itemId"])?;
+    // ID 0 is only the saved Furniture catalog route, never Container 0.
+    // Existing positive-route wire compatibility is unchanged. The new
+    // zero-route file is typed; current Core must still verify its mask.
+    let inventory_id = if body["target"]["inventoryId"].as_u64()==Some(0){
+        if item_id/10_000_000!=4 || payload["itemType"]!="ItemType_Furniture" {
+            return Err(err("WAND_BACKUP_ZERO_ROUTE_TYPE"));
+        }
+        0
+    }else{id(&body["target"]["inventoryId"])?};
     Ok(InventoryAmountBackup {
-        inventory_id: id(&body["target"]["inventoryId"])?,
-        item_id: id(&body["target"]["itemId"])?,
+        inventory_id,
+        item_id,
         amount: amount(payload)?,
         source_decoded_sha256: source.to_owned(),
         payload: payload.clone(),
@@ -199,8 +209,7 @@ mod tests {
 #[cfg(feature = "semantic-writer-dev")]
 mod session_adapter {
     use super::*;
-    use crate::{ExistingAmountItemType, ExistingAmountSelection, ProductSession,
-        WorkerEnvelope};
+    use crate::{ExistingAmountItemType, ProductSession, WorkerEnvelope};
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum InventoryRestoreDisposition {
@@ -246,12 +255,7 @@ mod session_adapter {
         pub fn capture_inventory_amount_backup(
             &self, envelope: WorkerEnvelope, inventory_id: u32, item_id: u32,
         ) -> CoreResult<Vec<u8>> {
-            if inventory_id == 0 {
-                return Err(err("WAND_BACKUP_ZERO_ROUTE_UNSUPPORTED"));
-            }
-            let target = self.read_existing_amount_target(envelope,
-                ExistingAmountSelection::Inventory { inventory_id, item_id })?;
-            let view = target.view();
+            let view = self.read_inventory_backup_amount(envelope,inventory_id,item_id)?;
             let payload = json!({
                 "amount":view.old_amount,
                 "entrySha256":digest_text(&view.entry_sha256),
@@ -278,9 +282,7 @@ mod session_adapter {
             keys(&backup.payload, &["amount", "entrySha256", "itemType"])?;
             let entry = backup.payload["entrySha256"].as_str()
                 .filter(|s| sha_text(s)).ok_or(err("WAND_BACKUP_ENTRY_HASH"))?;
-            let target = self.read_existing_amount_target(envelope,
-                ExistingAmountSelection::Inventory { inventory_id, item_id })?;
-            let view = target.view();
+            let view = self.read_inventory_backup_amount(envelope,inventory_id,item_id)?;
             if backup.payload["itemType"] != type_name(view.compatible_item_type) {
                 return Err(err("WAND_BACKUP_RESTORE_ITEM_TYPE_MISMATCH"));
             }
@@ -305,7 +307,7 @@ mod session_adapter {
     mod tests {
         use super::*;
         use crate::{BuildIdentity, BuildKind, Platform, WorkerAction,
-            PRODUCT_WORKER_CONTRACT, TypedSemanticCommand};
+            PRODUCT_WORKER_CONTRACT, TypedSemanticCommand, ExistingAmountSelection};
 
         const ITEM: u32 = 30000001;
         fn open(amount: u32) -> ProductSession {
@@ -380,6 +382,47 @@ mod session_adapter {
             assert!(decode_inventory_amount_backup(&opaque).is_ok());
             assert!(s.review_inventory_amount_restore(e,&opaque,4,ITEM).is_err());
             assert_eq!(s.receipt().unwrap().revision,0);
+        }
+        #[test]
+        fn read_only_amount_one_and_catalog_zero_preserve_writer_boundary() {
+            let s=open(1);
+            let e=scope(&s,WorkerAction::ReadDomain);
+            let bytes=s.capture_inventory_amount_backup(e,4,ITEM).unwrap();
+            assert_eq!(decode_inventory_amount_backup(&bytes).unwrap().amount,1);
+            assert_eq!(s.review_inventory_amount_restore(e,&bytes,4,ITEM).unwrap().disposition,
+                InventoryRestoreDisposition::AlreadyMatches);
+            assert!(s.read_existing_amount_target(e,ExistingAmountSelection::Inventory{
+                inventory_id:4,item_id:ITEM}).is_err());
+            let doc=json!({"GameInfo":{"Version":626},"World":{},"Player":{"ListInventories":{
+                "0":{"ID":0,"CompatibleItemType":"ItemType_Furniture",
+                    "CompatibleFurnitureTypes":{"List":["FurnitureItemType_Default"]},
+                    "Inventory":{"40000053":{"Amount":1,"Marker":"Keep"}}}}}});
+            let open_doc=|v:&Value| ProductSession::open_decoded_readonly(compact(v).unwrap(),BuildIdentity{
+                platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+                build_id:STEAM_BUILD.into(),schema:626,externally_attested:true}).unwrap();
+            let z=open_doc(&doc);let ze=scope(&z,WorkerAction::ReadDomain);
+            let saved=z.capture_inventory_amount_backup(ze,0,40000053).unwrap();
+            let snap=decode_inventory_amount_backup(&saved).unwrap();
+            assert_eq!((snap.inventory_id,snap.item_id,snap.amount),(0,40000053,1));
+            assert_eq!(z.review_inventory_amount_restore(ze,&saved,0,40000053).unwrap().disposition,
+                InventoryRestoreDisposition::AlreadyMatches);
+            assert!(z.read_existing_amount_target(ze,ExistingAmountSelection::Inventory{
+                inventory_id:0,item_id:40000053}).is_err());
+            for bad in [json!(null),json!({"List":["FurnitureItemType_Door"]}),
+                json!({"List":["FurnitureItemType_Default","FurnitureItemType_Default"]})]{
+                let mut d=doc.clone(); d["Player"]["ListInventories"]["0"]["CompatibleFurnitureTypes"]=bad;
+                let t=open_doc(&d);assert!(t.capture_inventory_amount_backup(
+                    scope(&t,WorkerAction::ReadDomain),0,40000053).is_err());
+            }
+            for n in [0,10000]{
+                let t=open(n);assert!(t.capture_inventory_amount_backup(
+                    scope(&t,WorkerAction::ReadDomain),4,ITEM).is_err());
+            }
+            assert!(encode_inventory_amount_backup(0,ITEM,&snap.source_decoded_sha256,
+                br#"{"amount":1,"itemType":"ItemType_Furniture"}"#).is_err());
+            assert!(encode_inventory_amount_backup(0,40000053,&snap.source_decoded_sha256,
+                br#"{"amount":1,"itemType":"ItemType_ActivityItem"}"#).is_err());
+            assert_eq!(z.receipt().unwrap().revision,0);
         }
         #[test]
         fn existing_stage_and_close_invalidate_capture_and_review() {

@@ -581,18 +581,25 @@ fn packaged_activity_bound(id:u32)->CoreResult<u32>{
         _=>Err(denied("AMOUNT_CHEST_PACKAGED_SUBTYPE_UNKNOWN")),
     }
 }
+// Single shared path/route for writer-eligible and read-only Backup targets.
+// The latter must not mint a mutation capability or relax writer bounds.
+fn inventory_amount_entry(bytes:&[u8],player:Span,inventory_id:u32,item_id:u32)
+    ->CoreResult<(ExistingAmountItemType,Span)>{
+    let item_type=native_amount_type(item_id)?;
+    let lists=object_field(bytes,player,"ListInventories")?;
+    let record=object_field(bytes,lists,&inventory_id.to_string())?;
+    inventory_route(bytes,record,inventory_id,item_id,native_type_token(item_type))?;
+    let items=object_field(bytes,record,"Inventory")?;
+    let entry=object_field(bytes,items,&item_id.to_string())?;
+    Ok((item_type,entry))
+}
 fn observe_existing_amount(s:&ProductSession,e:&WorkerEnvelope,selection:ExistingAmountSelection)
     ->CoreResult<CoreExistingAmountTarget>{
     let bytes=&s.decoded;
     let player=indexed_read::roots(bytes)?.player;
     let (item_id,item_type,entry,old_amount,chest)=match selection {
         ExistingAmountSelection::Inventory{inventory_id,item_id}=>{
-            let item_type=native_amount_type(item_id)?;
-            let lists=object_field(bytes,player,"ListInventories")?;
-            let record=object_field(bytes,lists,&inventory_id.to_string())?;
-            inventory_route(bytes,record,inventory_id,item_id,native_type_token(item_type))?;
-            let items=object_field(bytes,record,"Inventory")?;
-            let entry=object_field(bytes,items,&item_id.to_string())?;
+            let (item_type,entry)=inventory_amount_entry(bytes,player,inventory_id,item_id)?;
             let old=saved_positive_amount(bytes,object_field(bytes,entry,"Amount")?)?;
             (item_id,item_type,entry,old,None)
         }
@@ -690,6 +697,27 @@ impl ProductSession {
         let st=self.lock()?;
         indexed_read::validate_scope(self,&st,&e)?;
         observe_existing_amount(self,&e,selection)
+    }
+    /// Read-only positive amount snapshot, including 1. This returns a
+    /// view, not CoreExistingAmountTarget or an authorization capability.
+    pub(crate) fn read_inventory_backup_amount(&self,e:WorkerEnvelope,inventory_id:u32,item_id:u32)
+        ->CoreResult<ExistingAmountTargetView>{
+        build_check(self)?;
+        let st=self.lock()?;
+        indexed_read::validate_scope(self,&st,&e)?;
+        let bytes=&self.decoded;
+        let player=indexed_read::roots(bytes)?.player;
+        let (kind,entry)=inventory_amount_entry(bytes,player,inventory_id,item_id)?;
+        let amount=number(bytes,object_field(bytes,entry,"Amount")?)?;
+        if amount==0||amount>MAX_CONSERVATIVE_AMOUNT{
+            return Err(denied("BACKUP_POSITIVE_AMOUNT_BOUNDS"));
+        }
+        Ok(ExistingAmountTargetView{
+            selection:ExistingAmountSelection::Inventory{inventory_id,item_id},
+            session_id:e.session_id,revision:e.expected_revision,index_generation:e.expected_index_generation,
+            decoded_sha256:self.sha,item_id:item_id as i32,old_amount:amount as u32,
+            compatible_item_type:kind,entry_sha256:sha(&bytes[entry.begin..entry.end]),chest:None,
+        })
     }
     /// Native-local-only bounded selection of ONE fresh Inventory witness.
     /// This is a selector, not authorization or proof of E1172 target identity.
