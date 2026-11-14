@@ -68,6 +68,40 @@ try{
  console.log('WEP_NATIVE_PRESET_IDENTICAL_REINCARNATION_CAS_PASS');
  const reopened=await open(next);await reopened.locator('.backup-grid article').nth(3).waitFor();
  assert.equal(await raw(reopened),await raw(target));assert.equal(await raw(source),sourceRaw);
+
+ // Independent three-tab, repeated identical incarnation and forged portable envelope.
+ const lag1=await open(next),lag2=await open(next);
+ await card(lag1,'fifth').waitFor();await card(lag2,'fifth').waitFor();
+ const first=JSON.parse(await raw(reopened)),firstGen=first.localEntryIncarnations.entries[fifth.id];
+ const sixth=fixture('sixth');
+ for(let i=0;i<2;i++){
+  await card(reopened,'fifth').locator('[data-native-library-remove]').click();await wait(reopened);
+  await card(reopened,'fifth').waitFor({state:'detached'});
+  const before=JSON.parse(await raw(reopened));
+  const incoming={schema:'wand.in-game-preset-library@1',version:1,backups:i===0?[fifth,sixth]:[fifth],localEntryIncarnations:{next:999999,entries:{[fifth.id]:firstGen,[sixth.id]:999998}}};
+  await load(reopened,incoming);await card(reopened,'fifth').waitFor();await wait(reopened);
+  const after=JSON.parse(await raw(reopened));
+  assert.equal(after.localEntryIncarnations.entries[fifth.id],before.localEntryIncarnations.next);
+  assert.notEqual(after.localEntryIncarnations.entries[fifth.id],firstGen);
+  assert.ok(after.localEntryIncarnations.next<999999);
+  assert.deepEqual(after.backups.find(x=>x.id===fifth.id),fifth);
+  assert.deepEqual(after.backups.find(x=>x.id===sixth.id),sixth);
+ }
+ const stable=await raw(reopened);
+ for(const lag of [lag1,lag2]){
+  await card(lag,'fifth').locator('[data-native-library-remove]').click();await wait(lag);
+  assert.equal(await raw(reopened),stable,'stale generation must preserve identical reincarnation');
+  await card(lag,'fifth').waitFor();
+ }
+ const portableDL=reopened.waitForEvent('download');await reopened.locator('[data-native-library-export]').click();
+ const portable=JSON.parse(await readFile(await(await portableDL).path(),'utf8'));
+ assert.equal(Object.hasOwn(portable,'localEntryIncarnations'),false);
+ assert.deepEqual(portable.backups,JSON.parse(stable).backups);
+ await card(lag1,'fifth').locator('[data-native-library-remove]').click();await wait(lag1);
+ assert.deepEqual(JSON.parse(await raw(reopened)).backups,[two,third,fourth,sixth]);
+ assert.equal(JSON.parse(await raw(reopened)).localEntryIncarnations.entries[sixth.id],JSON.parse(stable).localEntryIncarnations.entries[sixth.id]);
+ assert.equal(await raw(source),sourceRaw);
+ console.log('QA544_THREE_TAB_REPEATED_INCARNATION_FORGED_ENVELOPE_EXPORT_ISOLATION_PASS');
  assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);
  console.log('WEP_NATIVE_PRESET_TWO_ORIGIN_EXPLICIT_EXPORT_IMPORT_COLLISION_STALE_REOPEN_PASS');
 }finally{await context.close();await browser.close();}
