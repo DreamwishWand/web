@@ -3,7 +3,7 @@
 // CI uses the committed scoped preformal route and a temporary synthetic
 // attestation/anchor only; never publishes this candidate Pages artifact.
 import {createServer} from 'node:https';
-import {readFile,mkdtemp,rm,readdir} from 'node:fs/promises';
+import {readFile,mkdtemp,rm,readdir,mkdir} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {spawn,spawnSync,execFileSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
@@ -23,7 +23,9 @@ const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript'
   '.p1g':'application/octet-stream','.svg':'image/svg+xml','.png':'image/png',
   '.woff2':'font/woff2'};
 const profile=await mkdtemp(join(tmpdir(),'wand-08web-real-chrome-'));
-let chrome,ws,server;
+let chrome,ws,server,browserWs;
+const downloadDir=join(profile,'verified-downloads');
+const downloads=new Map();
 let fault=null,assetRequests=0,mutationRequests=0;
 const binary=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium'].filter(Boolean)
  .find(bin=>spawnSync('which',[bin],{stdio:'ignore'}).status===0);
@@ -33,6 +35,30 @@ const rpc=(method,params={})=>new Promise((resolve,reject)=>{
  const id=++seq;pending.set(id,{resolve,reject});
  ws.send(JSON.stringify({id,method,params}));
 });
+async function configureBrowserDownloads(){
+ // Browser-level CDP, not the deprecated Page setting that can disappear
+ // when a navigation replaces the renderer. allowAndName pins disk names to
+ // Chromium's event GUID, while suggestedFilename is separately validated.
+ const [port,path]=(await readFile(join(profile,'DevToolsActivePort'),'utf8')).trim().split('\n');
+ if(!/^\d+$/.test(port)||!/^\/devtools\/browser\/[a-f0-9-]+$/.test(path))throw Error('BROWSER_CDP_ENDPOINT_INVALID');
+ await mkdir(downloadDir,{recursive:true});
+ browserWs=new WebSocket('ws://127.0.0.1:'+port+path);
+ await new Promise((ok,bad)=>{browserWs.addEventListener('open',ok,{once:true});browserWs.addEventListener('error',bad,{once:true})});
+ await new Promise((ok,bad)=>{
+  const timer=setTimeout(()=>bad(Error('BROWSER_DOWNLOAD_SETUP_TIMEOUT')),10000);
+  browserWs.addEventListener('message',e=>{
+   let m;try{m=JSON.parse(String(e.data))}catch{return}
+   if(m.id===1){clearTimeout(timer);if(m.error)bad(Error(JSON.stringify(m.error)));else ok();return}
+   if(m.method==='Browser.downloadWillBegin'){
+    const p=m.params;downloads.set(p.guid,{guid:p.guid,name:p.suggestedFilename,url:p.url,state:'started'});
+   }else if(m.method==='Browser.downloadProgress'){
+    const p=m.params,existing=downloads.get(p.guid);
+    if(existing){existing.state=p.state;existing.received=p.receivedBytes;existing.total=p.totalBytes}
+   }
+  });
+  browserWs.send(JSON.stringify({id:1,method:'Browser.setDownloadBehavior',params:{behavior:'allowAndName',downloadPath:downloadDir,eventsEnabled:true}}));
+ });
+}
 function serve(req,res){
  if(req.headers.host!==isolatedHost||req.socket.remoteAddress!=='127.0.0.1'){res.writeHead(403);res.end();return;}
  if(req.url===base+'/editor/steam-reader/'||req.url===base+'/editor/timing/')isolatedRouteRequests++;
@@ -324,7 +350,7 @@ try{
   '--host-resolver-rules=MAP '+isolatedHost+' 127.0.0.1:'+port+', MAP * ~NOTFOUND',
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  await attach();await rpc('Page.enable');await rpc('Runtime.enable');
- await rpc('Page.setDownloadBehavior',{behavior:'allow',downloadPath:profile});
+ await configureBrowserDownloads();
  await rpc('Emulation.setDeviceMetricsOverride',{width:320,height:800,deviceScaleFactor:1,mobile:false});
  // The regular Timing route must not instantiate the Steam Worker or load
  // signed reader assets, even with a valid preformal anchor in this build.
@@ -508,10 +534,22 @@ try{
  await rpc('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,x:point.x,y:point.y});
  await rpc('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:point.x,y:point.y});
  await waitDom('document.querySelector("[data-diffgrids-backup-status]")?.dataset.diffgridsBackupStatus==="backupRequested"');
- const downloaded=join(profile,'synthetic626-diffgrids.p1g.original-backup.p1g');
- for(let n=0;n<150&&!existsSync(downloaded);n++)await delay(100);
+ let completed;
+ for(let n=0;n<150;n++){
+  const items=[...downloads.values()];
+  if(items.some(x=>x.state==='canceled'))throw Error('ACTUAL_BROWSER_BACKUP_CANCELED');
+  completed=items.find(x=>x.state==='completed');
+  if(completed)break;
+  await delay(100);
+ }
+ assert.ok(completed,'ACTUAL_BROWSER_BACKUP_NO_COMPLETION_EVENT');
+ assert.equal(downloads.size,1,'ONE_EXPLICIT_BACKUP_DOWNLOAD');
+ assert.equal(completed.name,'synthetic626-diffgrids.p1g.original-backup.p1g','DISTINCT_SUGGESTED_BACKUP_NAME');
+ assert.ok(completed.url.startsWith('blob:'+testOrigin+'/'),'SAME_ORIGIN_LOCAL_BLOB_ONLY');
+ assert.match(completed.guid,/^[a-f0-9-]+$/);
+ const downloaded=join(downloadDir,completed.guid);
  const original=await readFile(fixturePath);
- assert.ok(existsSync(downloaded),'ACTUAL_BROWSER_BACKUP_FILE_MISSING');
+ assert.equal(completed.received,original.length,'COMPLETED_DOWNLOAD_BYTE_COUNT');
  assert.deepEqual(await readFile(downloaded),original,'ACTUAL_BROWSER_ORIGINAL_BACKUP_BYTES');
  const backupDoc=await rpc('DOM.getDocument');
  const backupNode=await rpc('DOM.querySelector',{nodeId:backupDoc.root.nodeId,selector:'#steam-diffgrids-backup-file'});
@@ -581,6 +619,7 @@ try{
 finally{
  for(const p of pending.values())p.reject(Error('CDP_CLOSED'));pending.clear();
  try{ws?.close()}catch{}
+ try{browserWs?.close()}catch{}
  if(chrome){chrome.kill('SIGTERM');await delay(250);
    if(chrome.exitCode===null)chrome.kill('SIGKILL')}
  if(server)await new Promise(r=>server.close(r));
