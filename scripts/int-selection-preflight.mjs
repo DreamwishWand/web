@@ -12,11 +12,19 @@ const git = (cwd, ...args) => execFileSync('git', args, {
   env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }, stdio: ['ignore', 'pipe', 'pipe']
 });
 function fixedCommit(cwd, sha) {
-  if (!SHA.test(sha) || git(cwd, 'rev-parse', '--verify', sha + '^{commit}').trim() !== sha)
+  if (typeof sha !== 'string' || !SHA.test(sha) || git(cwd, 'rev-parse', '--verify', sha + '^{commit}').trim() !== sha)
     deny('FIXED_COMMIT_REQUIRED');
   return sha;
 }
 function entry(cwd, sha, path) {
+  const parts = path.split('/');
+  for (let i=1; i<parts.length; i++) {
+    const parent = parts.slice(0,i).join('/');
+    const rawParent = git(cwd, 'ls-tree', '-z', sha, '--', parent);
+    if (!rawParent) break;
+    const m = /^040000 tree [0-9a-f]{40}\t([^\0]+)\0$/.exec(rawParent);
+    if (!m || m[1] !== parent) deny('PATH_NAMESPACE_CONFLICT:' + parent);
+  }
   const raw = git(cwd, 'ls-tree', '-z', sha, '--', path);
   if (raw === '') return null;
   const match = /^(100644|100755) blob ([0-9a-f]{40})\t([^\0]+)\0$/.exec(raw);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, symlinkSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -37,5 +37,10 @@ test('exact selection with stacked base, squash-equivalent main and deny cases',
     assert.throws(()=>inspectSelection(dir,{base,source:link,main,paths:['link']}),/NON_REGULAR_OR_AMBIGUOUS_PATH/);
     assert.throws(()=>inspectSelection(dir,{...input,base:root,paths:input.paths}),/SOURCE_PATH_SET_MISMATCH/);
     assert.throws(()=>inspectSelection(dir,{...input,extra:true}),/INVALID_SELECTION_INPUT/);
+    git('checkout','--detach',base); mkdirSync(join(dir,'nested')); write('nested/item.txt','new');
+    const nested=commit('nested add');
+    git('checkout','--detach',main); write('nested','blocking file'); const blocked=commit('namespace collision');
+    assert.throws(()=>inspectSelection(dir,{base,source:nested,main:blocked,paths:['nested/item.txt']}),/PATH_NAMESPACE_CONFLICT/);
+    assert.equal(inspectSelection(dir,{base,source:nested,main,paths:['nested/item.txt']}).entries[0].change,'ADD');
   } finally { rmSync(dir,{recursive:true,force:true}); }
 });
