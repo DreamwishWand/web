@@ -1,0 +1,54 @@
+name: 01A DEV official Codec Furniture zero route (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/semantic_writer.rs'
+      - 'crates/ddv-save-core/src/wasm_worker.rs'
+      - 'crates/ddv-save-core/src/worker_session.rs'
+      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
+      - 'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs'
+      - 'tests/official-dev-furniture-zero.mjs'
+      - '.github/workflows/01a-dev-official-furniture-zero.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-zero-route:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-official-zero-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact lock and native regression
+        run: |
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev furniture_zero_route_exact_saved_restriction_and_atomic_cas
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev chest_explicit_null_distinct_witness_and_positive_cas
+      - name: Build real DEV WASM in temporary local directory
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-zero-bindgen
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
+          mkdir -p /tmp/wand-zero-dev
+          /tmp/wand-zero-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --target web --out-dir /tmp/wand-zero-dev --no-typescript
+          echo '{"type":"module"}' > /tmp/wand-zero-dev/package.json
+          node tests/official-dev-furniture-zero.mjs /tmp/wand-zero-dev
+      - name: Public feature isolation and unchanged lock
+        run: |
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          mkdir -p /tmp/wand-zero-public
+          /tmp/wand-zero-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --target web --out-dir /tmp/wand-zero-public --no-typescript
+          ! grep -q 'dev_stage_typed_amounts\|dev_undo_typed_amounts\|dev_redo_typed_amounts\|dev_begin_encoded_export\|dev_take_edited' /tmp/wand-zero-public/ddv_save_core.js
+          node --input-type=module -e "import {readFileSync} from 'node:fs'; const e=WebAssembly.Module.exports(new WebAssembly.Module(readFileSync('/tmp/wand-zero-public/ddv_save_core_bg.wasm'))); if(e.some(x=>/dev_(stage|undo|redo|begin|take)/.test(x.name))) process.exit(2);"
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          echo 'PUBLIC_WASM_DEV_ABI_ABSENT_NO_ARTIFACT_UPLOAD'
