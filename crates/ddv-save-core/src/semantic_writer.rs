@@ -698,6 +698,25 @@ impl ProductSession {
         indexed_read::validate_scope(self,&st,&e)?;
         observe_existing_amount(self,&e,selection)
     }
+    /// Private Switch626 Chest observation only; never returns a mutation capability.
+    /// Do not widen build_check or the existing Writer entry points.
+    #[cfg(not(target_arch="wasm32"))]
+    pub(crate) fn read_private_switch626_chest_view(&self,e:WorkerEnvelope,container:u32,slot:usize)
+        ->CoreResult<ExistingAmountTargetView>{
+        let b=&self.native_source_build;
+        if b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||
+           b.build_id!="9A239D3DB569756D"||b.schema!=626||!b.externally_attested||
+           self.worker_bound||container<=1{
+            return Err(denied("CHEST_DEP_EXACT_PRIVATE_SWITCH626_REQUIRED"));
+        }
+        let st=self.lock()?;indexed_read::validate_scope(self,&st,&e)?;
+        let view=observe_existing_amount(self,&e,ExistingAmountSelection::Chest{container_id:container,slot_index:slot})?.view().clone();
+        let facts=view.chest.as_ref().ok_or(denied("CHEST_DEP_TARGET_KIND"))?;
+        if facts.size!=48||facts.extra_size!=0||facts.state_sha256!=sha(b"null"){
+            return Err(denied("CHEST_DEP_SWITCH_EXACT_SHAPE_REQUIRED"));
+        }
+        Ok(view)
+    }
     /// Read-only positive amount snapshot, including 1. This returns a
     /// view, not CoreExistingAmountTarget or an authorization capability.
     pub(crate) fn read_inventory_backup_amount(&self,e:WorkerEnvelope,inventory_id:u32,item_id:u32)
@@ -828,6 +847,111 @@ impl ProductSession {
     }
 }
 
+#[cfg(all(feature="private-native-v2",not(target_arch="wasm32")))]
+pub struct PrivateBoundAmountCandidate{
+    target:CoreExistingAmountTarget,
+    new_amount:u32,
+}
+#[cfg(all(feature="private-native-v2",not(target_arch="wasm32")))]
+fn private_amount_hex(v:&[u8])->String{v.iter().map(|x|format!("{x:02x}")).collect()}
+#[cfg(all(feature="private-native-v2",not(target_arch="wasm32")))]
+impl ProductSession{
+    /// Native-private DEV candidate only. The independently approved local
+    /// plan/fixture and exact encrypted original/Backup are external gates.
+    /// These hashes bind evidence; they do not mint product authority.
+    /// No AuthorizedExistingAmountTarget is created by this method.
+    pub fn mint_private_bound_amount_candidate(&self,e:WorkerEnvelope,plan:&[u8],
+        original:[u8;32],original_size:u64,backup:[u8;32],backup_size:u64,chest:bool)
+        ->CoreResult<PrivateBoundAmountCandidate>{
+        use serde_json::{json,Value};
+        build_check(self)?;
+        if self.worker_bound||e.expected_revision!=0||e.expected_index_generation!=1||
+           original==[0;32]||original!=backup||original_size==0||
+           original_size>128*1024*1024||original_size!=backup_size{
+            return Err(denied("PRIVATE_AMOUNT_EXTERNAL_BINDING"));
+        }
+        if plan.is_empty()||plan.len()>8192{return Err(denied("PRIVATE_AMOUNT_PLAN_BOUNDS"));}
+        let p:Value=serde_json::from_slice(plan).map_err(|_|denied("PRIVATE_AMOUNT_PLAN_JSON"))?;
+        if serde_json::to_vec(&p).map_err(|_|denied("PRIVATE_AMOUNT_PLAN_JSON"))?.as_slice()!=plan{
+            return Err(denied("PRIVATE_AMOUNT_PLAN_CANONICAL"));
+        }
+        let keys=["contract","fullVersion","sourceDecodedSha256","originalSha256","originalSizeBytes",
+            "backupSha256","backupSizeBytes","revision","indexGeneration","selector","target"];
+        let m=p.as_object().ok_or(denied("PRIVATE_AMOUNT_PLAN_OBJECT"))?;
+        let contract=if chest{"wand.private.steam626.chest-crop-existing-50-to-49@1"}
+            else{"wand.private.steam626.catalog0-ordinary-existing-decrease-one@1"};
+        if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||p["contract"]!=contract||
+           p["fullVersion"]!=EXACT_STEAM||p["sourceDecodedSha256"]!=private_amount_hex(&e.expected_decoded_sha256)||
+           p["originalSha256"]!=private_amount_hex(&original)||p["backupSha256"]!=private_amount_hex(&backup)||
+           p["originalSizeBytes"]!=original_size||p["backupSizeBytes"]!=backup_size||
+           p["revision"]!=0||p["indexGeneration"]!=1{
+            return Err(denied("PRIVATE_AMOUNT_PLAN_BINDING"));
+        }
+        let sel=&p["selector"];let target=&p["target"];
+        let uint=|v:&Value|v.as_u64().and_then(|n|u32::try_from(n).ok()).ok_or(denied("PRIVATE_AMOUNT_SELECTOR"));
+        let item=uint(&target["itemId"])?;
+        let selection=if chest{
+            let c=uint(&sel["containerId"])?;let slot=sel["slotIndex"].as_u64().and_then(|n|usize::try_from(n).ok())
+                .ok_or(denied("PRIVATE_AMOUNT_SELECTOR"))?;
+            if c<=1||sel!=&json!({"containerId":c,"slotIndex":slot})||
+               item/10_000_000!=3||(item%10_000_000)/100_000!=2{
+                return Err(denied("PRIVATE_AMOUNT_CHEST_SCOPE"));
+            }
+            ExistingAmountSelection::Chest{container_id:c,slot_index:slot}
+        }else{
+            if sel!=&json!({"inventoryId":0,"itemId":item})||
+               item/10_000_000!=4||(item%10_000_000)/100_000!=0{
+                return Err(denied("PRIVATE_AMOUNT_FURNITURE_SCOPE"));
+            }
+            ExistingAmountSelection::Inventory{inventory_id:0,item_id:item}
+        };
+        let witness=self.read_existing_amount_target(e,selection)?;
+        let v=witness.view();
+        let new=uint(&target["newAmount"])?;
+        if v.item_id as u32!=item||new.checked_add(1)!=Some(v.old_amount){
+            return Err(denied("PRIVATE_AMOUNT_EXACT_DECREASE"));
+        }
+        let chest_facts=if chest{
+            let f=v.chest.as_ref().ok_or(denied("PRIVATE_AMOUNT_CHEST_FACTS"))?;
+            if v.old_amount!=50||new!=49||f.size!=48||f.extra_size!=0||
+               f.physical_slot_count!=48||!f.belongs_to_player||f.block_move_to||
+               f.packaged_stack_bound!=50||f.state_sha256!=sha(b"null"){
+                return Err(denied("PRIVATE_AMOUNT_CHEST_EXACT_SHAPE"));
+            }
+            json!({"parentItemId":f.parent_item_id,"belongsToPlayer":f.belongs_to_player,
+              "blockMoveTo":f.block_move_to,"size":f.size,"extraSize":f.extra_size,
+              "physicalSlotCount":f.physical_slot_count,"stateSha256":private_amount_hex(&f.state_sha256),
+              "packagedStackBound":f.packaged_stack_bound})
+        }else{
+            if v.chest.is_some()||v.compatible_item_type!=ExistingAmountItemType::Furniture{
+                return Err(denied("PRIVATE_AMOUNT_FURNITURE_FACTS"));
+            }
+            Value::Null
+        };
+        if target!=&json!({"itemId":item,"oldAmount":v.old_amount,"newAmount":new,
+            "compatibleItemType":native_type_token(v.compatible_item_type),
+            "entrySha256":private_amount_hex(&v.entry_sha256),"chest":chest_facts}){
+            return Err(denied("PRIVATE_AMOUNT_TARGET_WITNESS_CAS"));
+        }
+        let _=command_from_target(&witness,new)?;
+        Ok(PrivateBoundAmountCandidate{target:witness,new_amount:new})
+    }
+    /// Only native private DEV path, not a product grant. Recheck the opaque
+    /// Core witness under the existing lock, then reuse existing typed stage.
+    pub fn stage_private_bound_amount_candidate(&self,e:WorkerEnvelope,c:&PrivateBoundAmountCandidate)
+        ->CoreResult<SemanticStageReceipt>{
+        build_check(self)?;
+        if self.worker_bound{return Err(denied("PRIVATE_AMOUNT_WORKER_DENIED"));}
+        let cmd={
+            let st=self.lock()?;check(self,&st,&e,WorkerAction::Stage)?;
+            if st.semantic.is_some(){return Err(denied("SEMANTIC_STAGE_ALREADY_EXISTS"));}
+            validate_target_snapshot(self,&e,&c.target)?;
+            command_from_target(&c.target,c.new_amount)?
+        };
+        self.stage_typed_semantic_batch(e,&[cmd])
+    }
+}
+
 #[cfg(test)]
 mod minted_amount_target_tests {
     use super::*;
@@ -862,6 +986,70 @@ mod minted_amount_target_tests {
     }
     fn read(s:&ProductSession,sel:ExistingAmountSelection)->CoreResult<CoreExistingAmountTarget>{
         s.read_existing_amount_target(scope(s.receipt().unwrap(),WorkerAction::ReadDomain),sel)
+    }
+    #[cfg(all(feature="private-native-v2",not(target_arch="wasm32")))]
+    #[test]
+    fn private_bound_amount_exact_chest_and_furniture_one_session_no_authority(){
+        let mut d=doc();
+        d["Player"]["ContainerInventories"]["12"]["Size"]=json!(48);
+        d["Player"]["ContainerInventories"]["12"]["Inventory"]=json!([
+            {"ItemID":30200001,"Amount":50,"State":null,"Unknown":7},
+            {"ItemID":30200001,"Amount":49,"State":null}]);
+        d["Player"]["ContainerInventories"]["12"]["Inventory"].as_array_mut().unwrap()
+            .resize(48,json!({"ItemID":0,"Amount":0,"State":null}));
+        d["Player"]["ListInventories"]["0"]=json!({"ID":0,"CompatibleItemType":"ItemType_Furniture",
+            "CompatibleFurnitureTypes":{"List":["FurnitureItemType_Default"]},
+            "Inventory":{"40000001":{"Amount":7,"Marker":"Keep","Unknown":4}}});
+        let original=[7;32];
+        for is_chest in [true,false]{
+            let s=open(&d);let r=s.receipt().unwrap();let e=scope(r,WorkerAction::ReadDomain);
+            let sel=if is_chest{chest()}else{ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000001}};
+            let t=s.read_existing_amount_target(e,sel).unwrap();let v=t.view();
+            let f=v.chest.as_ref().map(|f|json!({"parentItemId":f.parent_item_id,"belongsToPlayer":true,
+                "blockMoveTo":false,"size":48,"extraSize":0,"physicalSlotCount":48,
+                "stateSha256":private_amount_hex(&f.state_sha256),"packagedStackBound":50})).unwrap_or(Value::Null);
+            let plan=json!({"contract":if is_chest{"wand.private.steam626.chest-crop-existing-50-to-49@1"}else{"wand.private.steam626.catalog0-ordinary-existing-decrease-one@1"},
+                "fullVersion":EXACT_STEAM,"sourceDecodedSha256":private_amount_hex(&r.decoded_sha256),
+                "originalSha256":private_amount_hex(&original),"backupSha256":private_amount_hex(&original),
+                "originalSizeBytes":123,"backupSizeBytes":123,"revision":0,"indexGeneration":1,
+                "selector":if is_chest{json!({"containerId":12,"slotIndex":0})}else{json!({"inventoryId":0,"itemId":40000001})},
+                "target":{"itemId":v.item_id,"oldAmount":v.old_amount,"newAmount":v.old_amount-1,
+                    "entrySha256":private_amount_hex(&v.entry_sha256),"compatibleItemType":native_type_token(v.compatible_item_type),"chest":f}});
+            let mint=|p:&Value|s.mint_private_bound_amount_candidate(e,&serde_json::to_vec(p).unwrap(),original,123,original,123,is_chest);
+            for k in ["sourceDecodedSha256","originalSha256","backupSha256","fullVersion","contract","revision","indexGeneration"]{
+                let mut q=plan.clone();q[k]=json!("bad");assert!(mint(&q).is_err(),"{k}");
+            }
+            let mut q=plan.clone();q["target"]["rightsVerified"]=json!(true);assert!(mint(&q).is_err());
+            let mut q=plan.clone();q["target"]["entrySha256"]=json!("bad");assert!(mint(&q).is_err());
+            let mut q=plan.clone();q["target"]["newAmount"]=json!(0);assert!(mint(&q).is_err());
+            let mut q=plan.clone();q["target"]["newAmount"]=json!(v.old_amount-2);assert!(mint(&q).is_err());
+            assert!(s.mint_private_bound_amount_candidate(e,&serde_json::to_vec(&plan).unwrap(),original,123,[8;32],123,is_chest).is_err());
+            if is_chest{
+                let mut q=plan.clone();q["target"]["chest"]["stateSha256"]=json!("bad");assert!(mint(&q).is_err());
+                let mut q=plan.clone();q["target"]["chest"]["size"]=json!(47);assert!(mint(&q).is_err());
+                let mut q=plan.clone();q["selector"]["slotIndex"]=json!(1);assert!(mint(&q).is_err());
+            }
+            let c=mint(&plan).unwrap();
+            assert!(s.authorize_existing_amount_target(e,&t,v.old_amount-1).is_err());
+            let other=open(&d);assert!(other.stage_private_bound_amount_candidate(scope(other.receipt().unwrap(),WorkerAction::Stage),&c).is_err());
+            let mut stale=scope(r,WorkerAction::Stage);stale.expected_revision+=1;
+            assert!(s.stage_private_bound_amount_candidate(stale,&c).is_err());
+            let stage=scope(r,WorkerAction::Stage);
+            let out=s.stage_private_bound_amount_candidate(stage,&c).unwrap();
+            assert_eq!(out.operation_count,1);assert_eq!(out.exact_field_changed_count,1);assert!(!out.product_writer_authorized);
+            assert!(s.stage_private_bound_amount_candidate(stage,&c).is_err());
+            s.undo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());
+            assert!(s.stage_private_bound_amount_candidate(scope(s.receipt().unwrap(),WorkerAction::Stage),&c).is_err());
+            s.redo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+            let e=scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+            let bytes=s.take_typed_semantic_decoded_once(e).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(e).is_err());
+            let mut want=d.clone();
+            if is_chest{want["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);}
+            else{want["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]["Amount"]=json!(6);}
+            assert_eq!(bytes,serde_json::to_vec(&want).unwrap());
+        }
     }
     #[test]
     fn minted_real_saved_values_not_caller_authority(){

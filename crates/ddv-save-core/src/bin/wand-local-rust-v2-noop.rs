@@ -37,7 +37,9 @@ fn main(){
  if matches!(env::args().nth(1).as_deref(),
      Some("--semantic-inventory-existing-decrease-only"|
           "--semantic-chest-existing-decrease-only"|
-          "--semantic-inventory-and-chest-decrease-only")) {
+          "--semantic-inventory-and-chest-decrease-only"|
+          "--private-steam626-bound-chest-decrease-only"|
+          "--private-steam626-bound-catalog0-decrease-only")) {
    run_semantic_existing_decrease();
    return;
  }
@@ -137,14 +139,18 @@ fn run_semantic_existing_decrease(){
  const MAX_DECODED:u64=256*1024*1024;
  let args=env::args().collect::<Vec<_>>();
  if args.len()!=2{deny("SEMANTIC_ONE_EXPLICIT_OPERATION_REQUIRED");}
+ let bound_chest=args[1]=="--private-steam626-bound-chest-decrease-only";
+ let bound_furniture=args[1]=="--private-steam626-bound-catalog0-decrease-only";
+ let bound=bound_chest||bound_furniture;
  let inventory=matches!(args[1].as_str(),
      "--semantic-inventory-existing-decrease-only"|
      "--semantic-inventory-and-chest-decrease-only");
  let chest=matches!(args[1].as_str(),
      "--semantic-chest-existing-decrease-only"|
      "--semantic-inventory-and-chest-decrease-only");
- if !inventory&&!chest{deny("SEMANTIC_COMMAND_NOT_ALLOWLISTED");}
- if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM{
+ if !inventory&&!chest&&!bound{deny("SEMANTIC_COMMAND_NOT_ALLOWLISTED");}
+ if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM||
+    (bound&&env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty())){
    deny("SEMANTIC_EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
  }
  let original_sha=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
@@ -208,15 +214,29 @@ fn run_semantic_existing_decrease(){
  if session.dispatch(scope(0,1,WorkerAction::Stage)).is_ok(){
    deny("SEMANTIC_PRODUCT_WRITER_BYPASS");
  }
- let staged=session.stage_typed_semantic_batch(scope(0,1,WorkerAction::Stage),&cmds)
-   .unwrap_or_else(|_|deny("SEMANTIC_TYPED_STAGE_DENIED"));
+ let candidate=if bound{
+   let backup=hex32(&required("WAND_LOCAL_BACKUP_SHA256"));
+   let backup_size=required("WAND_LOCAL_BACKUP_SIZE_BYTES").parse::<u64>()
+      .unwrap_or_else(|_|deny("PRIVATE_AMOUNT_BACKUP_SIZE"));
+   let plan=required("WAND_LOCAL_PRIVATE_AMOUNT_PLAN");
+   let plan_sha=hex32(&required("WAND_LOCAL_PRIVATE_AMOUNT_PLAN_SHA256"));
+   if plan.len()>8192||plan_sha==[0;32]||Sha256::digest(plan.as_bytes()).as_slice()!=plan_sha{
+       deny("PRIVATE_AMOUNT_PLAN_SHA");
+   }
+   Some(session.mint_private_bound_amount_candidate(scope(0,1,WorkerAction::ReadDomain),plan.as_bytes(),
+       original_sha,source_size,backup,backup_size,bound_chest).unwrap_or_else(|_|deny("PRIVATE_AMOUNT_WITNESS_DENIED")))
+ }else{None};
+ let stage=|e|if let Some(c)=&candidate{session.stage_private_bound_amount_candidate(e,c)}
+      else{session.stage_typed_semantic_batch(e,&cmds)};
+ let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|_|deny("SEMANTIC_TYPED_STAGE_DENIED"));
+ let expected_count=if bound{1}else{cmds.len()};
  if staged.revision!=1||staged.index_generation!=2||
    !staged.applied||!staged.semantic_changed||
-   staged.operation_count!=cmds.len()||staged.product_writer_authorized||
+   staged.operation_count!=expected_count||staged.exact_field_changed_count!=expected_count||staged.product_writer_authorized||
    staged.native_v3_verified||staged.staged_decoded_sha256==expected{
      deny("SEMANTIC_ATOMIC_DIFF_INVARIANT");
  }
- if session.stage_typed_semantic_batch(scope(0,1,WorkerAction::Stage),&cmds).is_ok(){
+ if stage(scope(0,1,WorkerAction::Stage)).is_ok(){
    deny("SEMANTIC_STAGE_REPLAY_ACCEPTED");
  }
  let undo=session.undo_typed_semantic_batch(scope(1,2,WorkerAction::Stage))
@@ -244,7 +264,8 @@ fn run_semantic_existing_decrease(){
  // Private pipe ONLY. No plaintext, key, IDs, SHA or path in CI/logs.
  io::stdout().write_all(&edited).unwrap_or_else(|_|deny("SEMANTIC_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("SEMANTIC_PIPE_FLUSH"));
- eprintln!("PRIVATE_V2_RUST_REAL_AMOUNT_SEMANTIC_CHANGE_CAS_ATOMIC_UNDO_REDO_ONE_TIME_PIPE_PASS");
+ if bound{eprintln!("PRIVATE_STEAM626_CORE_BOUND_AMOUNT_EXACT1_PIPE_PASS");}
+ else{eprintln!("PRIVATE_V2_RUST_REAL_AMOUNT_SEMANTIC_CHANGE_CAS_ATOMIC_UNDO_REDO_ONE_TIME_PIPE_PASS");}
 }
 
 // Existing private executor, new read-only bounded file-format operation.
