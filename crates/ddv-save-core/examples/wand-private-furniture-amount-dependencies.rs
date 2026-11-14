@@ -54,10 +54,11 @@ fn output_path(raw:&str)->PinnedPrivateOutput{
 fn output_path(_raw:&str)->PinnedPrivateOutput{fail("PRIVATE_OUTPUT_LINUX_ONLY")}
     pub fn run(){
         let argv:Vec<String>=env::args().skip(1).collect();
+        let switch_chest=argv.first().is_some_and(|v|v=="--switch626-chest-amount-dependencies");
         let (item,chest,entry_sha,path)=match argv.as_slice(){
             [m,i,h,o,p] if m=="--furniture-amount-dependencies"&&o=="--out"=>
                 (Some(selector_id(i)),None,selector_sha(h),output_path(p)),
-            [m,c,s,h,o,p] if m=="--chest-amount-dependencies"&&o=="--out"=>{
+            [m,c,s,h,o,p] if (m=="--chest-amount-dependencies"||switch_chest)&&o=="--out"=>{
                 let id=c.parse::<u32>().ok().filter(|v|*v>1&&v.to_string()==*c)
                     .unwrap_or_else(||fail("CHEST_CONTAINER_ID"));
                 let slot=s.parse::<usize>().ok().filter(|v|v.to_string()==*s)
@@ -66,7 +67,12 @@ fn output_path(_raw:&str)->PinnedPrivateOutput{fail("PRIVATE_OUTPUT_LINUX_ONLY")
             },
             _=>fail("ARGS"),
         };
-        if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT{fail("EXACT_STEAM_BUILD")}
+        if switch_chest{
+            if required("WAND_LOCAL_INSTALLED_SWITCH_BID")!="9A239D3DB569756D"||
+                env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty()){
+                fail("EXACT_SWITCH_BUILD");
+            }
+        }else if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT{fail("EXACT_STEAM_BUILD")}
         let original_sha=sha_field("WAND_LOCAL_ORIGINAL_SHA256");
         let decoded_sha=sha_field("WAND_LOCAL_DECODED_SHA256");
         let original_size=required("WAND_LOCAL_ORIGINAL_SIZE_BYTES").parse::<u64>().unwrap_or_else(|_|fail("ORIGINAL_SIZE"));
@@ -75,8 +81,9 @@ fn output_path(_raw:&str)->PinnedPrivateOutput{fail("PRIVATE_OUTPUT_LINUX_ONLY")
         io::stdin().take(MAX+1).read_to_end(&mut decoded).unwrap_or_else(|_|fail("STDIN"));
         if decoded.is_empty()||decoded.len() as u64>MAX||hex(&Sha256::digest(&decoded))!=decoded_sha{fail("DECODED_SHA_OR_BOUNDS")}
         let session=ProductSession::open_decoded_readonly(decoded,BuildIdentity{
-            platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
-            build_id:EXACT.into(),schema:626,externally_attested:true,
+            platform:if switch_chest{Platform::Switch}else{Platform::SteamWindows},
+            build_kind:if switch_chest{BuildKind::SwitchBid}else{BuildKind::SteamFullVersion},
+            build_id:if switch_chest{"9A239D3DB569756D"}else{EXACT}.into(),schema:626,externally_attested:true,
         }).unwrap_or_else(|_|fail("FULL_DOCUMENT_OR_BUILD"));
         let r=session.receipt().unwrap_or_else(|_|fail("SESSION_RECEIPT"));
         if !r.full_document_json_validated||r.product_worker_bound||r.product_read_accepted||
@@ -90,8 +97,13 @@ fn output_path(_raw:&str)->PinnedPrivateOutput{fail("PRIVATE_OUTPUT_LINUX_ONLY")
         }else{session.read_private_furniture_amount_dependencies(e,item.unwrap_or_else(||fail("SELECTOR_ID")),entry_sha)}
             .unwrap_or_else(|_|fail("NO_EXACT_AMOUNT_DEPENDENCY_RECEIPT"));
         let target_scope=if let Some((id,slot))=chest{
-            receipt["contract"]=="wand.native.private.chest-amount-dependencies@1"&&
-            receipt["target"]["containerId"]==id&&receipt["target"]["slotIndex"]==slot
+            let build_ok=if switch_chest{
+                receipt["contract"]=="wand.native.private.switch626.chest-amount-dependencies@1"&&
+                receipt["platform"]=="Switch"&&receipt["buildKind"]=="SwitchBid"&&
+                receipt["buildId"]=="9A239D3DB569756D"&&receipt.get("fullVersion").is_none()&&
+                receipt["target"]["coreObservedExistingTarget"]==true&&receipt["target"]["coreMintedExistingTarget"]==false
+            }else{receipt["contract"]=="wand.native.private.chest-amount-dependencies@1"};
+            build_ok&&receipt["target"]["containerId"]==id&&receipt["target"]["slotIndex"]==slot
         }else{
             receipt["contract"]=="wand.native.private.furniture-amount-dependencies@1"&&
             receipt["target"]["itemId"]==item.unwrap_or_else(||fail("SELECTOR_ID"))&&receipt["target"]["inventoryId"]==0
