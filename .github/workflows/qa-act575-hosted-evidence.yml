@@ -1,0 +1,60 @@
+name: ACT575 hosted Steam Reader evidence only
+on:
+  push:
+    branches: ['qa/act575-hosted-steam-reader-93f56504']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  hosted:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 93f56504240d68909e0a266a87bd284e34c5aeda
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Wait only for exact protected Pages run and pin main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "93f56504240d68909e0a266a87bd284e34c5aeda"
+          for i in $(seq 1 60); do
+            state=$(gh api repos/DreamwishWand/web/actions/runs/43570666645 --jq '[.head_sha,.status,.conclusion] | @tsv')
+            echo "$state"
+            read -r head status conclusion <<< "$state"
+            test "$head" = "93f56504240d68909e0a266a87bd284e34c5aeda"
+            if test "$status" = completed; then
+              test "$conclusion" = success
+              break
+            fi
+            sleep 5
+          done
+          test "$status" = completed
+          test "$conclusion" = success
+          test "$(gh api repos/DreamwishWand/web/git/ref/heads/main --jq .object.sha)" = "93f56504240d68909e0a266a87bd284e34c5aeda"
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual deployed HTTPS Chrome, no private input
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object scripts/web-steam-reader-entry-chrome.mjs)" = 1d1c33615a4ae9cd17e4130a6de38b6f6b1bcc58
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          "$CHROME_BIN" --version
+          for route in /web/ /web/editor/ /web/rc-status/ /web/editor/steam-reader/; do
+            code=$(curl --fail --silent --show-error --max-time 30 -o /dev/null -w '%{http_code}' "https://dreamwishwand.github.io${route}")
+            test "$code" = 200
+            echo "HOST_HTTP_200 $route"
+          done
+          sed "s|http://127.0.0.1:4299|https://dreamwishwand.github.io|g" scripts/web-steam-reader-entry-chrome.mjs > scripts/.act575-hosted-probe.mjs
+          node scripts/.act575-hosted-probe.mjs
+          test "$(gh api repos/DreamwishWand/web/git/ref/heads/main --jq .object.sha)" = "93f56504240d68909e0a266a87bd284e34c5aeda"
+          echo ACT575_HOSTED_NAVIGATION_PASS_93F56504
