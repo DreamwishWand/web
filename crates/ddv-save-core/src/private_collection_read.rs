@@ -12,6 +12,7 @@ use std::collections::BTreeSet;
 const EXACT:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
 const SWITCH_EXACT:&str="9A239D3DB569756D";
 const SWITCH_CONTRACT:&str="wand.native.private.switch626.furniture-collection-group-readset@1";
+const STEAM_FURNITURE_CONTRACT:&str="wand.native.private.steam626.furniture-collection-group-readset@1";
 const MAX_SETS:usize=10000;
 const MAX_GROUPS_PER_SET:usize=257;
 const MAX_GROUPS:usize=4096;
@@ -58,7 +59,7 @@ fn state(b:&[u8],s:Option<Span>)->CoreResult<Value>{
     let token=std::str::from_utf8(t).map_err(|_|deny("COLLECTION_STATE_UTF8"))?;
     Ok(json!({"present":true,"token":token,"sha256":hash(b,s),"numericCode":numeric}))
 }
-fn stored_stock(b:&[u8],player:Span,target:i32,switch_furniture:bool)->CoreResult<Value>{
+fn stored_stock(b:&[u8],player:Span,target:i32,furniture:bool)->CoreResult<Value>{
     let Some(lists)=field(b,player,"ListInventories")? else{
         return Ok(json!({"listPresent":false,"routePresent":false,"entryPresent":false,"ownershipVerified":false}))};
     let mut routes=0;let mut selected=None;
@@ -72,7 +73,7 @@ fn stored_stock(b:&[u8],player:Span,target:i32,switch_furniture:bool)->CoreResul
         let ty=required(b,record,"CompatibleItemType")?;
         if ty.end-ty.begin>128{return Err(deny("COLLECTION_ROUTE_TYPE_BOUND"))}
         let token:String=serde_json::from_slice(&b[ty.begin..ty.end]).map_err(|_|deny("COLLECTION_ROUTE_TYPE"))?;
-        if switch_furniture {
+        if furniture {
             if id==0||token=="ItemType_Furniture"{
                 if id!=0||token!="ItemType_Furniture"||selected.replace((id,record)).is_some(){
                     return Err(deny("COLLECTION_FURNITURE_ROUTE_AMBIGUOUS"))
@@ -120,7 +121,9 @@ impl ProductSession{
         if (!steam&&!switch_furniture)||build.schema!=626||!build.externally_attested||self.worker_bound{
             return Err(deny("COLLECTION_EXACT_PRIVATE_BUILD_REQUIRED"))
         }
-        let major=if switch_furniture{4}else{3};
+        let steam_furniture=steam&&target/10_000_000==4;
+        let furniture=switch_furniture||steam_furniture;
+        let major=if furniture{4}else{3};
         if definition<=0||definition/10_000_000!=212||group_index>=MAX_GROUPS_PER_SET||
             target<=0||target/10_000_000!=major{return Err(deny("COLLECTION_SELECTOR"))}
         let st=self.lock()?;validate_scope(self,&st,&e)?;
@@ -173,16 +176,16 @@ impl ProductSession{
             Ok(())
         })?;
         let group=chosen.ok_or(deny("COLLECTION_SELECTED_GROUP_ABSENT"))?;
-        let stock=stored_stock(b,player,target,switch_furniture)?;
-        // Exact Switch626 non-completing candidate shape only. This verifies
+        let stock=stored_stock(b,player,target,furniture)?;
+        // Exact Furniture non-completing candidate shape only. This verifies
         // physical saved facts, not effective membership/rights or rewards.
-        if switch_furniture&&(
+        if furniture&&(
             group["state"]["token"]!="\"SetState_NotComplete\""||
             group["falseCount"].as_u64().unwrap_or(0)<2||
             group["targetEntry"]["collected"]!=false||
             memberships.len()!=1||
             stock["inventoryId"]!=0||stock["entry"]["amount"].as_i64().unwrap_or(0)<=0){
-            return Err(deny("COLLECTION_SWITCH_NONCOMPLETING_SHAPE_REQUIRED"));
+            return Err(deny(if switch_furniture{"COLLECTION_SWITCH_NONCOMPLETING_SHAPE_REQUIRED"}else{"COLLECTION_STEAM_FURNITURE_NONCOMPLETING_SHAPE_REQUIRED"}));
         }
         let mut value=json!({
             "contract":"wand.native.private.collection-group-readset@1","fullVersion":EXACT,"schema":626,
@@ -204,6 +207,12 @@ impl ProductSession{
             value["buildKind"]=json!("SwitchBid");
             value["buildId"]=json!(SWITCH_EXACT);
             value["selectedGroup"]["switchSavedNotCompleteMultiFalseShape"]=json!(true);
+        }else if steam_furniture{
+            value["contract"]=json!(STEAM_FURNITURE_CONTRACT);
+            value["platform"]=json!("SteamWindows");
+            value["buildKind"]=json!("SteamFullVersion");
+            value["buildId"]=json!(EXACT);
+            value["selectedGroup"]["steamSavedNotCompleteMultiFalseShape"]=json!(true);
         }
         Ok(PrivateCollectionGroupReceipt{value})
     }
@@ -307,6 +316,34 @@ mod switch_furniture_tests{
         contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
         expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
     fn read(s:&ProductSession)->CoreResult<Value>{Ok(s.read_private_collection_group(env(s),DEF,0,ITEM)?.to_private_receipt_json())}
+    #[test]
+    fn steam626_furniture_exact_shape_and_no_authority(){
+        let open_steam=|v:Value| ProductSession::open_decoded_readonly(serde_json::to_vec(&v).unwrap(),BuildIdentity{
+            platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT.into(),
+            schema:626,externally_attested:true}).unwrap();
+        let s=open_steam(doc());let before=s.receipt().unwrap();let v=read(&s).unwrap();
+        assert_eq!(v["contract"],STEAM_FURNITURE_CONTRACT);
+        assert_eq!(v["platform"],"SteamWindows");assert_eq!(v["fullVersion"],EXACT);
+        assert_eq!(v["buildKind"],"SteamFullVersion");assert_eq!(v["buildId"],EXACT);
+        assert_eq!(v["selectedGroup"]["steamSavedNotCompleteMultiFalseShape"],true);
+        assert!(v["selectedGroup"].get("switchSavedNotCompleteMultiFalseShape").is_none());
+        assert_eq!(v["selectedGroup"]["falseCount"],3);
+        assert_eq!(v["storedStock"]["inventoryId"],0);assert_eq!(v["storedMemberships"].as_array().unwrap().len(),1);
+        for k in ["writerAuthorized","ownershipVerified","effectiveEligibilityVerified","packagedMembershipVerified",
+            "nativeV3Verified","rightsVerified","subscriberClosureVerified","productReadAccepted","editedCopyAuthorized","applyAuthorized"]{
+            assert_eq!(v[k],false);
+        }
+        assert_eq!(s.receipt().unwrap(),before);
+        for state in [json!(0),json!("NotComplete"),json!("SetState_Complete")]{
+            let mut v=doc();v["Player"]["CollectionSets"][0]["GroupData"][0]["State"]=state;
+            assert!(read(&open_steam(v)).is_err());
+        }
+        let mut v=doc();v["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]["Amount"]=json!(0);
+        assert!(read(&open_steam(v)).is_err());
+        assert!(open_steam(doc()).read_private_collection_group(env(&s),DEF,0,ITEM).is_err());
+        let mut stale=env(&s);stale.expected_revision+=1;
+        assert!(s.read_private_collection_group(stale,DEF,0,ITEM).is_err());
+    }
     #[test]
     fn switch626_furniture_exact_saved_shape_no_authority(){
         let s=open(doc());let before=s.receipt().unwrap();let v=read(&s).unwrap();
