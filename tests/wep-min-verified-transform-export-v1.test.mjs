@@ -68,3 +68,113 @@ test('WEP placement binding exposes the exact promoted minimum-transform placeme
   assert.ok(source.includes('clearArea: false'));
   assert.ok(source.includes('automaticSpawning: false'));
 });
+
+import { makeSyntheticP1gProfile } from './helpers/p1g-fixture.mjs';
+import { openWorldSaveBytes } from '../src/lib/wep/world-save-source.ts';
+import { createSwitchWorldReadAdapter,projectSwitchAreaGrid } from '../src/lib/wep/world-browser-adapter.ts';
+import { createSwitchV125PlacementLegalityBinding } from '../src/lib/wep/placement-legality-v19.ts';
+import { normalizeEditorDocument } from '../src/lib/wep/editor-runtime.ts';
+import { reviewMinimumVerifiedTransform,commitMinimumVerifiedTransform } from '../src/lib/wep/min-verified-transform-export-v1.ts';
+
+const localFetch=async url=>{
+  const path=new URL(String(url),'https://wand.invalid').pathname;
+  try{return new Response(await readFile(new URL('../static'+path,import.meta.url)),{status:200});}
+  catch{return new Response('not found',{status:404});}
+};
+function profileForTransform(){
+  return {
+    GameInfo:{Version:624,InitialVersion:624,LastSaveDeviceInfo:{deviceType:'DeviceType_Switch'}},
+    Player:{},ProfileWorld:{Stores:[],Shops:[]},ConditionalEventHistory:{ActiveEvents:{}},
+    World:{
+      GridCollection:{Grids:{'10':{ID:10,GridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:102,Objects:{
+        '101':{ID:101,ItemID:40000048,X:452,Y:228,Orientation:'GridOrientation_Up',State:null}
+      }}},DiffGrids:{}},
+      Villages:[{SceneItemId:1540000000,Areas:{'7':{GridIDs:[10],Unlocked:true,EnvironmentEffectItemID:0,EnvironmentEffectOrientation:'GridOrientation_Up'}}}],
+      FloatingIslands:{},MissionSlots:{},QuestInfo:{},Keyholes:{}
+    },Opaque:{keep:true}
+  };
+}
+async function transformFixture(){
+  const profile=profileForTransform();
+  const sourceBytes=Uint8Array.from(makeSyntheticP1gProfile(profile));
+  const opened=await openWorldSaveBytes(sourceBytes,{sourcePlatform:'switch'});
+  const worldBinding=await createSwitchWorldReadAdapter({fetchImpl:localFetch});
+  const placementBinding=await createSwitchV125PlacementLegalityBinding({fetchImpl:localFetch});
+  const baselineDocument=normalizeEditorDocument(projectSwitchAreaGrid(opened,opened.areas[0],10,worldBinding));
+  const draftDocument=structuredClone(baselineDocument);
+  const object=draftDocument.objects[0];
+  assert.equal(object.itemId,40000048);
+  // Reuse the exact positive cell from accepted primary-job Chrome PR64
+  // run37113368314/job111175398809, then recheck against current pinned data.
+  const before=placementBinding.classifyMinimumTransformPlacement({document:baselineDocument,editorId:object.editorId});
+  assert.equal(before.result.verdict,'VALID');
+  object.x=453;object.y=228;
+  const after=placementBinding.classifyMinimumTransformPlacement({document:draftDocument,editorId:object.editorId});
+  assert.equal(after.result.valid,true);
+  assert.equal(after.result.verdict,'VALID');
+  const input={sourceBytes,sourceName:'profile',sourceEpoch:1,opened,baselineDocument,draftDocument,placementBinding,worldBinding,fetchImpl:localFetch,exactBuildConfirmed:true};
+  return {profile,input};
+}
+test('minimum transform Review rejects another packaged source and forged baseline before export',async()=>{
+  const {profile,input}=await transformFixture();
+  const other=structuredClone(profile);
+  other.Opaque.keep=false;
+  const bytes=Uint8Array.from(makeSyntheticP1gProfile(other));
+  await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,sourceBytes:bytes}),/WEP_EXPORT_SOURCE_PROFILE_MISMATCH/);
+  const baseline=structuredClone(input.baselineDocument),draft=structuredClone(input.draftDocument);
+  baseline.objects[0].x+=2;
+  await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,baselineDocument:baseline,draftDocument:draft}),/WEP_EXPORT_BASELINE_SOURCE_MISMATCH/);
+  const stale=structuredClone(input.opened);
+  stale.profile.World.GridCollection.Grids['10'].Objects['102']={ID:102,ItemID:40000048,X:1,Y:1,Orientation:'GridOrientation_Up',State:null};
+  await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,opened:stale}),/WEP_EXPORT_SOURCE_PROFILE_MISMATCH/);
+});
+test('minimum transform accepts one source-bound Review and denies cloned, changed and replayed plans',async()=>{
+  const {input}=await transformFixture();
+  const review=await reviewMinimumVerifiedTransform(input);
+  assert.equal(review.status,'READY');
+  const commit=review=>commitMinimumVerifiedTransform({review,currentSourceEpoch:1,sourceBytes:input.sourceBytes,baselineDocument:input.baselineDocument,draftDocument:input.draftDocument,worldBinding:input.worldBinding});
+  await assert.rejects(()=>commit(structuredClone(review)),/WEP_EXPORT_REVIEW_STALE/);
+  const changed=await reviewMinimumVerifiedTransform(input);
+  changed.plan.intent.finalTransform.x+=2;
+  await assert.rejects(()=>commit(changed),/WEP_EXPORT_REVIEW_STALE/);
+  const result=await commit(review);
+  assert.equal(result.status,'PASS');
+  assert.deepEqual(Array.from(result.artifacts.backup.bytes),Array.from(input.sourceBytes));
+  assert.notDeepEqual(Array.from(result.artifacts.edited.bytes),Array.from(input.sourceBytes));
+  await assert.rejects(()=>commit(review),/WEP_EXPORT_REVIEW_STALE/);
+});
+
+test('minimum transform real Core rotation derives exact footprint, size and marker and exports Orientation only',async()=>{
+  const {input}=await transformFixture();
+  const before=input.baselineDocument.objects[0];
+  const geometry=input.worldBinding.adapter.geometryService;
+  const after=geometry.rotateSelectionLikeScene([structuredClone(before)],1)[0];
+  assert.equal(after.metadata.rotationSemantics,'SCENE_CARDINAL_TOP_LEFT');
+  assert.equal(after.x,before.x);assert.equal(after.y,before.y);
+  const draft=structuredClone(input.baselineDocument);draft.objects=[after];
+  const review=await reviewMinimumVerifiedTransform({...input,draftDocument:draft});
+  assert.equal(review.change.operation,'ROTATE');
+  const result=await commitMinimumVerifiedTransform({review,currentSourceEpoch:1,sourceBytes:input.sourceBytes,baselineDocument:input.baselineDocument,draftDocument:draft,worldBinding:input.worldBinding});
+  assert.equal(result.status,'PASS');
+  const reopened=await openWorldSaveBytes(result.artifacts.edited.bytes,{sourcePlatform:'switch'});
+  const expected=structuredClone(input.opened.profile);
+  expected.World.GridCollection.Grids['10'].Objects['101'].Orientation='GridOrientation_Right';
+  assert.deepEqual(reopened.profile,expected);
+  assert.deepEqual(Array.from(result.artifacts.backup.bytes),Array.from(input.sourceBytes));
+  for(const alter of [
+    x=>x.footprint=[{x:999,y:999}],
+    x=>x.metadata.footprintSize={w:999,h:999},
+    x=>x.metadata.rotationSemantics='FORGED',
+    x=>x.metadata.rawState={forged:true},
+    x=>x.source.relation='CHILD',
+    x=>x.dependencyIds=['forged']
+  ]){
+    const bad=structuredClone(draft);alter(bad.objects[0]);
+    await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,draftDocument:bad}),/WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE|WEP_EXPORT_TARGET_IDENTITY_MISMATCH/);
+  }
+  const badBaseline=structuredClone(input.baselineDocument);
+  badBaseline.objects[0].footprint=[{x:999,y:999}];
+  const badDraft=structuredClone(badBaseline);
+  badDraft.objects=geometry.rotateSelectionLikeScene(badBaseline.objects,1);
+  await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,baselineDocument:badBaseline,draftDocument:badDraft}),/WEP_EXPORT_BASELINE_SOURCE_MISMATCH|WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE/);
+});
