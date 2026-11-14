@@ -49,4 +49,4 @@ x=fixture();x['Player']['ListInventories']['0']['Inventory'][str(F)]['Amount']=1
 legacy={'WAND_LOCAL_CONTAINER_ID':'29','WAND_LOCAL_SLOT_INDEX':'47','WAND_LOCAL_SLOT_ITEM_ID':str(C),'WAND_LOCAL_CHEST_EXPECTED_OLD_AMOUNT':'50','WAND_LOCAL_CHEST_NEW_AMOUNT':'49'}
 v=run(d,True,mode='--semantic-chest-existing-decrease-only',over=legacy)
 assert v.returncode==0 and v.stdout==run(d,True).stdout,v.stderr
-print('ACT893_PRIVATE_BOUND_AMOUNT_2POS_51NEG_LEGACY_CHEST_EQ_PASS')
+print('ACT893_PRIVATE_BOUND_AMOUNT_2POS_52NEG_LEGACY_CHEST_EQ_PASS')
