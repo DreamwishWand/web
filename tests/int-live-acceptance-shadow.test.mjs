@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {runLiveAcceptanceShadow} from '../scripts/int-live-acceptance-shadow.mjs';
-// Fixed actual public GitHub/Board snapshot, not a live authority or a new QA verdict.
+// Fixed historical public GitHub/Board snapshot. The old PR1260 acceptance was superseded by a later path-denial defect; this replay never confers live authority or a new QA verdict.
 // PR1260 original two files; actual CI run43590060819/attempt1/job132432688108.
 // Historic current main b48bd69f was read before and after receipt preparation.
 const repository='DreamwishWand/web',root='/repos/'+repository;
