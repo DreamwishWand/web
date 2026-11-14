@@ -1,0 +1,258 @@
+name: QR-W PR1219 independent original backup
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qrw-pr1219-original-backup-qa.yml'
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  independent-backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Exact Source / Owner Gate / published triple-pin immutable
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only 3c871194436f2368aaa74aa3c6ba6abe677d6845 HEAD)" = '.github/workflows/qrw-pr1219-original-backup-qa.yml'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/wep/SteamSavedDiffGridsReadonly.svelte)" = 5b609616fb327bb3280899ecba0bde02e563cd82
+          test "$(git rev-parse HEAD:tests/web-steam-saved-diffgrids-real-chrome.mjs)" = f1f469b588502cc3fd2e5cffa119226db9114271
+          test -z "$(git ls-files static/worker-wasm tests/stage-f/fixtures)"
+          grep -Fx 'const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
+          grep -Fx 'const PREFORMAL_STEAM_READER_ENABLED=true;' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
+          ! grep -F 'await import(/* @vite-ignore */ path.href)' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
+          test ! -e src/lib/ddv/core/save/product-wasm-distribution-flag-on.js
+      - name: Reuse exact already signed protected Pages artifact (no new upload)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          # Exact signed release reused from Source CI; no publication or new signing.
+          run=43584523548
+          source=f7bfa5e5cbbc9d59194540d65992cd2c010b8cf2
+          gh api "repos/DreamwishWand/web/actions/runs/$run" | jq -e --arg sha "$source" '.head_sha==$sha and .head_branch=="main" and .conclusion=="success"' >/dev/null
+          echo "R22_FIXED_TEST_RELEASE_RUN=$run SOURCE=$source"
+          mkdir -p "$dir/site/worker-wasm"
+          if gh api "repos/DreamwishWand/web/actions/runs/$run/artifacts" | jq -e '.artifacts[] | select(.name=="github-pages" and .expired==false)' >/dev/null; then
+            gh run download "$run" --repo DreamwishWand/web --name github-pages --dir "$dir"
+            archive="$(find "$dir" -maxdepth 1 -type f -name '*.tar*' -print -quit)"
+            test -n "$archive"
+            tar -xf "$archive" -C "$dir/site"
+          else
+            # A Pages artifact expires. The existing authorized HTTPS release
+            # remains usable only if its three exact bytes match the selected
+            # signed protected source. Any deployment race fails closed.
+            for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+              code="$(curl --silent --show-error --fail --max-time 40 --max-redirs 0 --proto '=https' -o "$dir/site/worker-wasm/$name" -w '%{http_code}' "https://dreamwishwand.github.io/web/worker-wasm/$name")"
+              test "$code" = 200
+            done
+          fi
+          test -s "$dir/site/worker-wasm/manifest.json"
+          # Reuse actual historical Sigstore bundles, then exercise the same
+          # offline-bundle verification path the protected Pages sealer uses.
+          mkdir "$dir/bundles"
+          for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+            (cd "$dir/bundles"; gh attestation download "$dir/site/worker-wasm/$name" --repo DreamwishWand/web)
+          done
+          cat "$dir/bundles/"*.jsonl > "$dir/signed-subjects.jsonl"
+          test -s "$dir/signed-subjects.jsonl"
+          node scripts/readonly-release/seal.mjs verify-only "$source" "$dir/site/worker-wasm" "$dir/signed-subjects.jsonl"
+          mkdir -p static/worker-wasm
+          cp "$dir/site/worker-wasm/"* static/worker-wasm/
+          echo "R22_HISTORICAL_SOURCE_HEAD=$source" >> "$GITHUB_ENV"
+          rm -rf "$dir"
+      - name: Existing UI Source static validation and focused normal tests
+        run: |
+          npm ci --no-audit --no-fund
+
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {compareOriginalBackupBytes as cmp,originalBackupFileName as name,requestOriginalByteBackup as request} from './src/lib/ddv/core/save/local-original-backup.mjs';
+          import {createHash} from 'node:crypto';
+          const data=Uint8Array.from({length:2*1024*1024+17},(_,i)=>i%251);
+          const a=new File([data],'α/hostile\\profile.P1G'),b=new Blob([data]),max=data.length;
+          const hash=async f=>createHash('sha256').update(new Uint8Array(await f.arrayBuffer())).digest('hex');
+          const before=await hash(a);
+          let pos=0,neg=0;
+          async function deny(label,fn,reason){await assert.rejects(fn,new RegExp(reason),label);neg++;console.log('DENY',label)}
+          async function yes(label,fn,len=max){assert.equal(await fn(),len,label);pos++;console.log('POS',label)}
+          await yes('multi-chunk-exact',()=>cmp(a,b,()=>true,max));
+          await yes('limit-exact-1',()=>cmp(new Blob([Uint8Array.of(1)]),new Blob([Uint8Array.of(1)]),()=>true,1),1);
+          for(const i of [0,1024*1024-1,1024*1024,2*1024*1024, data.length-1]){
+            const d=data.slice();d[i]^=1;await deny('mismatch-'+i,()=>cmp(a,new Blob([d]),()=>true,max),'BYTES_DIFFER');
+          }
+          for(const lim of [0,-1,1.1,NaN,Infinity,128*1024*1024+1,max-1])
+            await deny('limit-'+lim,()=>cmp(a,b,()=>true,lim),'NOT_DISTINCT_BOUNDED');
+          await deny('same-object',()=>cmp(a,a,()=>true,max),'NOT_DISTINCT_BOUNDED');
+          await deny('empty',()=>cmp(new Blob([]),new Blob([]),()=>true,max),'NOT_DISTINCT_BOUNDED');
+          await deny('truncated',()=>cmp(a,new Blob([data.slice(1)]),()=>true,max),'NOT_DISTINCT_BOUNDED');
+          await deny('fake-original',()=>cmp(Object.create(Blob.prototype),b,()=>true,max),'NOT_DISTINCT_BOUNDED');
+          await deny('fake-candidate',()=>cmp(a,Object.create(Blob.prototype),()=>true,max),'NOT_DISTINCT_BOUNDED');
+          const wrong=new Blob([new Uint8Array(data.length)]);
+          Object.defineProperties(wrong,{size:{value:max},slice:{value:()=>b},arrayBuffer:{value:()=>b.arrayBuffer()}});
+          await deny('shadowed-intrinsics',()=>cmp(a,wrong,()=>true,max),'BYTES_DIFFER');
+          const short=new Blob([data.slice(0,-1)]);Object.defineProperty(short,'size',{value:max});
+          await deny('shadowed-size',()=>cmp(a,short,()=>true,max),'NOT_DISTINCT_BOUNDED');
+          const good=new Blob([data]);Object.defineProperties(good,{size:{value:1},slice:{value:()=>{throw Error('shadow')}},arrayBuffer:{value:()=>{throw Error('shadow')}}});
+          await yes('good-shadowed-intrinsics',()=>cmp(a,good,()=>true,max));
+          for(const stop of [1,2,3,4,5,6,7,8]){
+            let count=0;await deny('revocation-checkpoint-'+stop,()=>cmp(a,b,()=>++count<stop,max),'SESSION_REVOKED');
+          }
+          let live=true;const old=cmp(a,b,()=>live,max);live=false;
+          const fresh=cmp(a,b,()=>true,max);
+          await deny('concurrent-revoked-old',()=>old,'SESSION_REVOKED');
+          await yes('concurrent-fresh',()=>fresh);
+          assert.equal(await hash(a),before);
+          for(const s of ['..','../../x.p1g','a\\b:c\n\u0000.p1g','A-9._.P1G','名.p1g','', 'x\u202ep1g']){
+            const out=name(s);assert.match(out,/^[A-Za-z0-9_.-]+\.original-backup\.p1g$/);assert.notEqual(out,s);
+          }
+          assert.equal(name('Profile_01.P1G'),'Profile_01.P1G.original-backup.p1g');
+          assert.throws(()=>request(a),/BROWSER_ONLY/);
+          assert.throws(()=>request({}),/STALE_OR_UNAVAILABLE/);
+          let link;
+          globalThis.document={createElement(tag){assert.equal(tag,'a');return {click(){link=this}}}};
+          const receipt=request(a);assert.deepEqual(receipt,{downloadRequested:true,persistedVerified:false,writerAuthorized:false});assert.ok(Object.isFrozen(receipt));
+          assert.equal(link.download,name(a.name));assert.deepEqual(new Uint8Array(await (await fetch(link.href)).arrayBuffer()),data);
+          delete globalThis.document;
+          console.log('QRW_PR1219_BACKUP_INTRINSICS_PASS positives='+pos+' negatives='+neg+' originalSHAInvariant=true');
+          NODE
+      - name: Generate PUBLIC synthetic encrypted P1G locally only
+        run: |
+          node tests/stage-f/generate-fixture.mjs
+          test -s tests/stage-f/fixtures/synthetic626-diffgrids.p1g
+          test -s tests/stage-f/fixtures/expected-diffgrids.json
+          test -z "$(git ls-files tests/stage-f/fixtures)"
+      - name: Test-only anchor for verified signed bytes at the exact legacy origin (Chrome isolated DNS)
+        run: |
+          node --input-type=module <<'NODE'
+          import {writeFile,readFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          import {inspectReleasePins} from './scripts/readonly-release/seal.mjs';
+          import {readonlyReleaseIdentityText} from './src/lib/ddv/core/save/product-rust-wasm-release-loader.mjs';
+          import {LEGACY_RELEASE_TUPLE,matchReleaseTuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          const path='src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs';
+          if(!(await readFile(path,'utf8')).includes('PROTECTED_READONLY_RELEASE_ANCHOR=null;'))
+            throw Error('TEST_ANCHOR_SOURCE_NOT_NULL');
+          const pins=await inspectReleasePins('static/worker-wasm',process.env.R22_HISTORICAL_SOURCE_HEAD);
+          const a={contract:'wand.r22.protected-readonly-release@1',...LEGACY_RELEASE_TUPLE,pins,attestationVerifiedAtBuild:true};
+          if(matchReleaseTuple(a)!==LEGACY_RELEASE_TUPLE)throw Error('TEST_LEGACY_TUPLE_DENIED');
+          a.releaseId=createHash('sha256').update(readonlyReleaseIdentityText(a)).digest('hex');
+          await writeFile(path,'// TEST ONLY; verified historical signed assets, exact legacy origin mapped to local TLS only.\nconst a='+JSON.stringify(a)+';Object.freeze(a.pins);export const PROTECTED_READONLY_RELEASE_ANCHOR=Object.freeze(a);\n');
+          console.log('08WEB_TEST_ONLY_RELEASE_ID',a.releaseId);
+          NODE
+      - name: QA-ONLY synthetic attestation (NEVER a product Source commit)
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFile,writeFile} from 'node:fs/promises';
+          const edits=[
+            ['src/lib/wep/steam-saved-diffgrids.consumer.worker.ts',[
+              ['allowSyntheticFixture:false','allowSyntheticFixture:true']]],
+            ['src/lib/wep/steam-saved-diffgrids-ui-client.mjs',[
+              ["evidenceKind:'owner-observed-installed-steam-fullversion'",
+               "evidenceKind:'ci-synthetic-fixture'"],
+              ['observedOutsideSave:true','observedOutsideSave:false']]]
+          ];
+          for(const [name,changes] of edits){
+            let file=await readFile(name,'utf8');
+            for(const [before,after] of changes){
+              if(file.split(before).length!==2)throw Error('TEST_ONLY_EXACT_REPLACEMENT_DENIED_'+name);
+              file=file.replace(before,after);
+            }
+            await writeFile(name,file);
+          }
+          console.log('08WEB_PREFORMAL_READER_SYNTHETIC_ATTESTATION_TEST_ONLY_NOT_COMMITTED');
+          NODE
+      - name: Build temporary local UI with signed real Rust byte assets
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run check
+          npm run build
+          test -s build/worker-wasm/manifest.json
+          test -s build/worker-wasm/ddv_save_core.js
+          test -s build/worker-wasm/ddv_save_core_bg.wasm
+          test -f build/editor/timing/index.html
+          test -f build/editor/steam-reader/index.html
+          command -v google-chrome
+
+      - name: Independent actual UI comparison revocation barrier (test harness only)
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFile,writeFile} from 'node:fs/promises';
+          const p='tests/web-steam-saved-diffgrids-real-chrome.mjs';
+          let s=await readFile(p,'utf8');
+          const replace=(a,b)=>{if(s.split(a).length!==2)throw Error('EXACT_HARNESS_ANCHOR '+a);s=s.replace(a,b)};
+          replace('  const Native=window.Worker;',`  const nativeArrayBuffer=Blob.prototype.arrayBuffer;
+          const qa=window.__qaBackupRead={armed:false,held:[],done:0};
+          Blob.prototype.arrayBuffer=function(){
+            const actual=nativeArrayBuffer.call(this);
+            if(!qa.armed)return actual;
+            return new Promise((resolve,reject)=>qa.held.push(()=>actual.then(x=>{qa.done++;resolve(x)},reject)));
+          };
+          qa.release=()=>{qa.armed=false;const calls=qa.held.splice(0);for(const call of calls)call()};
+          const Native=window.Worker;`);
+          replace(" console.log('08WEB_ACTUAL_LOCAL_ORIGINAL_BACKUP_DOWNLOAD_NATIVE_REIMPORT_PASS');",` console.log('08WEB_ACTUAL_LOCAL_ORIGINAL_BACKUP_DOWNLOAD_NATIVE_REIMPORT_PASS');
+          const armCompare=async()=>{
+            await evaluate('window.__qaBackupRead.armed=true');
+            const d=await rpc('DOM.getDocument');
+            const n=await rpc('DOM.querySelector',{nodeId:d.root.nodeId,selector:'#steam-diffgrids-backup-file'});
+            await rpc('DOM.setFileInputFiles',{nodeId:n.nodeId,files:[downloaded]});
+            await waitDom('window.__qaBackupRead.held.length===2&&document.querySelector("[data-diffgrids-backup-status]")?.dataset.diffgridsBackupStatus==="backupChecking"');
+            assert.equal(await evaluate('document.querySelector("[data-diffgrids-backup-download]").disabled&&document.querySelector("#steam-diffgrids-backup-file").disabled'),true,'CONCURRENT_COMPARE_CONTROLS_DISABLED');
+          };
+          await armCompare();
+          // Existing real Worker close barrier runs while native byte reads are pending.`);
+          replace(" assert.equal(await evaluate('window.__nativeChanges'),2,'SAME_NATIVE_FILE_CHANGE');",` assert.equal(await evaluate('window.__nativeChanges'),2,'SAME_NATIVE_FILE_CHANGE');
+          // Release old bytes after source reselect; no old result or controls may reappear.
+          await evaluate('window.__qaBackupRead.release()');
+          await waitDom('window.__qaBackupRead.done===2');
+          await delay(100);
+          assert.equal(await evaluate('!!document.querySelector("[data-diffgrids-backup]")'),false,'OLD_COMPARE_NO_RESURRECTION');
+          console.log('QRW_PR1219_PENDING_COMPARE_CLOSE_RESELECT_PASS');`);
+          replace(" await evaluate('document.querySelector(\"[data-diffgrids-close]\").click()');\n await waitDom('!document.querySelector(\"#steam-diffgrids-file\").disabled&&document.activeElement===document.querySelector(\"[data-diffgrids-summary]\")');\n console.log('08WEB_DEDICATED_DEFAULT_VISIBLE_MANUAL_ONLY_TIMING_COLLAPSED_PASS');",` assert.equal(await evaluate('document.querySelector("[data-diffgrids-backup-status]").dataset.diffgridsBackupStatus==="idle"'),true,'FRESH_SESSION_IDLE');
+          await armCompare();
+          // Native selection of a different File (same encrypted bytes, different path)
+          // revokes the pending comparison before the next Worker OPEN.
+          const reselectDoc=await rpc('DOM.getDocument');
+          const reselectNode=await rpc('DOM.querySelector',{nodeId:reselectDoc.root.nodeId,selector:'#steam-diffgrids-file'});
+          await rpc('DOM.setFileInputFiles',{nodeId:reselectNode.nodeId,files:[downloaded]});
+          await waitDom('!document.querySelector("#steam-diffgrids-file").disabled&&!document.querySelector("[data-diffgrids-backup]")');
+          await evaluate('window.__qaBackupRead.release()');
+          await waitDom('window.__qaBackupRead.done===4');
+          await delay(100);
+          assert.equal(await evaluate('!!document.querySelector("[data-diffgrids-backup]")'),false,'RESELECT_REVOKES_PENDING_COMPARE');
+          await selectNative();
+          await evaluate('document.querySelector("[data-diffgrids-open]").click()');
+          await waitDom('document.querySelector("[data-diffgrids-page]")?.dataset.diffgridsPage==="1"');
+          assert.equal(await evaluate('document.querySelector("[data-diffgrids-backup-status]").dataset.diffgridsBackupStatus==="idle"'),true,'FRESH_AFTER_RESELECT_IDLE');
+          await evaluate('document.querySelector("[data-diffgrids-close]").click()');
+          await waitDom('!document.querySelector("#steam-diffgrids-file").disabled&&document.activeElement===document.querySelector("[data-diffgrids-summary]")');
+          console.log('QRW_PR1219_PENDING_COMPARE_RESELECT_FRESH_SESSION_PASS');
+          console.log('08WEB_DEDICATED_DEFAULT_VISIBLE_MANUAL_ONLY_TIMING_COLLAPSED_PASS');`);
+          await writeFile(p,s);
+          NODE
+      - name: REAL installed Chrome actual Svelte UI manual P1G → signed Rust ProductSession
+        run: node tests/web-steam-saved-diffgrids-real-chrome.mjs
+      - name: Formal Reader and Writer OFF; no original/private Save in Source or outputs
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-files static/worker-wasm tests/stage-f/fixtures)"
+          ! git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -F 'PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=true'
+          git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -Fx 'const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;'
+          git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -Fx 'const PREFORMAL_STEAM_READER_ENABLED=true;'
+          git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -F 'allowSyntheticFixture:false'
+          ! git show HEAD:src/lib/wep/steam-saved-diffgrids-ui-client.mjs | grep -F "evidenceKind:'ci-synthetic-fixture'"
+          git show HEAD:src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs | grep -Fx 'export const PROTECTED_READONLY_RELEASE_ANCHOR=null;'
+          echo '08WEB_SYNTHETIC_CHROME_TEST_ONLY_REAL_PUBLIC_RUST_ASSETS_PREFORMAL_SCOPED_FORMAL_OFF'
