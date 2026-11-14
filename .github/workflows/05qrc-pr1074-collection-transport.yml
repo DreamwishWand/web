@@ -1,0 +1,46 @@
+name: 05 QR-C PR1074 independent Collection transport
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1074-collection-transport.py'
+      - '.github/workflows/05qrc-pr1074-collection-transport.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Fixed original3 and exact QA-only additions
+        run: |
+          git merge-base --is-ancestor d2ce5efc034d52e9ed7ac5d66f12635728a8441b HEAD
+          test "$(git diff --name-only d2ce5efc034d52e9ed7ac5d66f12635728a8441b HEAD | wc -l)" -eq 2
+          test "$(git diff --diff-filter=A --name-only d2ce5efc034d52e9ed7ac5d66f12635728a8441b HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v1.rs)" = 638685ce9db7acb74c37081951faab568096a9da
+          test "$(git rev-parse HEAD:tests/private-collection-cli.mjs)" = 3bdf0b3f8932251226d03c2bcc53df684db1c207
+          test "$(git rev-parse HEAD:.github/workflows/01a-private-character-skin-read.yml)" = b2b53dc8374a6f813110649fe7ba4839ad33dc88
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/private_collection_read.rs)" = 2051cf75b6ac2c28041bb44a8db42fac0b92963b
+      - name: Locked build and independent actual CLI transport
+        run: |
+          # Exact previously verified Owner lock, generic registry dependency metadata only.
+          printf '%s' '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' | base64 -d | gzip -d > crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --no-default-features --features private-native-v1 --bin wand-local-rust-v1
+          python3 tests/qa/05qrc-pr1074-collection-transport.py crates/ddv-save-core/target/release/wand-local-rust-v1
+      - name: Existing Collection and Avatar Skin regression
+        run: |
+          node tests/private-collection-cli.mjs crates/ddv-save-core/target/release/wand-local-rust-v1
+          node tests/private-character-skin-read.mjs crates/ddv-save-core/target/release/wand-local-rust-v1
+          node tests/private-active-avatar-read.mjs crates/ddv-save-core/target/release/wand-local-rust-v1
+      - name: Public and DEV WASM feature isolation
+        run: |
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
