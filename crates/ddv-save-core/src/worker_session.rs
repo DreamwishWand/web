@@ -53,6 +53,27 @@ impl WorkerSessionGuard {
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         self.session.read_saved_diffgrids_page(scope,cursor)
     }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn preview_scoped_amount(&self,e:WorkerEnvelope,selection:crate::ExistingAmountSelection,new:u32)->CoreResult<crate::CoreExistingAmountTarget>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_scoped_product_amount(e,selection,new)
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn stage_scoped_amount(&self,e:WorkerEnvelope,selection:crate::ExistingAmountSelection,old:u32,new:u32,entry:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.stage_scoped_product_amount(e,selection,old,new,entry)
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn toggle_scoped_amount(&self,e:WorkerEnvelope,redo:bool)->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        if redo{self.session.redo_typed_semantic_batch(e)}else{self.session.undo_typed_semantic_batch(e)}
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn take_scoped_amount(&mut self,e:WorkerEnvelope)->CoreResult<Vec<u8>>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        let out=self.session.take_typed_semantic_decoded_once(e)?;
+        self.closed=true;Ok(out)
+    }
     pub(crate) fn close(&mut self) -> CoreResult<()> {
         if self.closed { return Err(CoreError("WORKER_SESSION_ALREADY_CLOSED")); }
         self.closed = true;
