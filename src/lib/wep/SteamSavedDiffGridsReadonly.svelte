@@ -93,7 +93,8 @@
   }
 </script>
 
-<details class="diffgrids-readonly" data-steam-diffgrids-readonly data-writer="off"
+<!-- Dedicated Reader is immediately visible; optional Timing disclosure stays closed. -->
+<details open={preformal} class="diffgrids-readonly" data-steam-diffgrids-readonly data-writer="off"
  data-cloud="off" data-product-read="off" data-preformal-read={preformal?'scoped':'off'}>
   <summary bind:this={disclosure} data-diffgrids-summary>{words.title} · {words.subtitle}</summary>
   <div class="content">
