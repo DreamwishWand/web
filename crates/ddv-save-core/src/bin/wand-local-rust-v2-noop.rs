@@ -375,10 +375,13 @@ fn read_restore_backup(max:usize)->Vec<u8>{
  let expected=hex32(&required("WAND_LOCAL_RESTORE_BACKUP_SHA256"));
  if expected==[0;32]{deny("RESTORE_BACKUP_SHA");}
  let mut options=std::fs::OpenOptions::new();options.read(true);
- // Reject symlink final components on the supported private Linux runner.
+ // Precheck regular file and reject final symlinks. Linux nonblocking +
+ // nofollow prevents a race into a FIFO from hanging the private runner.
+ let pre=std::fs::symlink_metadata(p).unwrap_or_else(|_|deny("RESTORE_BACKUP_METADATA"));
+ if !pre.is_file()||pre.len()==0||pre.len()>max as u64{deny("RESTORE_BACKUP_SIZE");}
  #[cfg(target_os="linux")]{
    use std::os::unix::fs::OpenOptionsExt;
-   options.custom_flags(0x20000);
+   options.custom_flags(0x20000|0x800);
  }
  let file=options.open(p).unwrap_or_else(|_|deny("RESTORE_BACKUP_OPEN"));
  let meta=file.metadata().unwrap_or_else(|_|deny("RESTORE_BACKUP_METADATA"));

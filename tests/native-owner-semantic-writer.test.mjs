@@ -197,6 +197,8 @@ test('Policy73 exact target restore review same source and changed amount, never
    assert.doesNotMatch(p.stderr,/40000053|releases_1.25|Unknown/);
   }
   const link=join(dir,'link.wand.json');symlinkSync(path,link);
+  const fifo=join(dir,'fifo.wand.json');
+  assert.equal(spawnSync('mkfifo',[fifo]).status,0);
   for(const over of [
    {WAND_LOCAL_RESTORE_BACKUP_SHA256:'f'.repeat(64)},
    {WAND_LOCAL_RESTORE_BACKUP_SOURCE_SHA256:'f'.repeat(64)},
@@ -208,6 +210,8 @@ test('Policy73 exact target restore review same source and changed amount, never
    {WAND_LOCAL_INVENTORY_ID:'4'},
    {WAND_LOCAL_RESTORE_BACKUP_PATH:'relative.wand.json'},
    {WAND_LOCAL_RESTORE_BACKUP_PATH:link},
+   {WAND_LOCAL_RESTORE_BACKUP_PATH:dir},
+   {WAND_LOCAL_RESTORE_BACKUP_PATH:fifo},
    {WAND_LOCAL_DECODED_SHA256:'f'.repeat(64)}
   ]){const p=review(50,over);assert.notEqual(p.status,0);assert.equal(p.stdout,'');}
   assert.deepEqual(readFileSync(path),bytes);
