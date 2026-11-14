@@ -1,0 +1,28 @@
+name: 05 QR-C PR1233 independent scoped preflight
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1233-scoped.mjs'
+      - '.github/workflows/05qrc-pr1233-scoped.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          source=b5b175c201c8cea23c57fa7d5a7052372b22b338
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/save-preflight.js)" = 1635ca2265606c17ce8c2982e335e3be6fc5167f
+          test "$(git rev-parse HEAD:tests/ddv-switch626-scoped-transform-preflight.test.mjs)" = 9db338c3ec2ddc3c250c8a4de46af72b26174c7a
+          git show f7bfa5e5cbbc9d59194540d65992cd2c010b8cf2:src/lib/ddv/core/save/save-preflight.js > src/lib/ddv/core/save/.qa1233-parent.mjs
+          node tests/qa/05qrc-pr1233-scoped.mjs
