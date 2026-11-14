@@ -1424,6 +1424,176 @@ mod private_avatar {
             Ok(value)
         }
     }
+
+    // ACT410: physical saved Chest amount and dependency slice only.
+    // All totals count saved Container slots exactly once, NOT live
+    // ContainerInventoryManager.GetItemAmount or effective Pantry/overflow.
+    #[cfg(feature="semantic-writer-dev")]
+    fn chest_bool(bytes:&[u8],s:Span)->CoreResult<bool>{
+        match &bytes[s.begin..s.end]{b"true"=>Ok(true),b"false"=>Ok(false),
+            _=>Err(denied("CHEST_DEP_BOOL"))}
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    fn chest_saved_totals(bytes:&[u8],containers:Span,item:i32,container:u32,slot:usize,
+        entry_sha:&str,old:u32)->CoreResult<Value>{
+        let mut scanned=0usize;let mut found=false;let mut rows=Vec::new();
+        let mut owned_null=0u64;let mut owned_other=0u64;let mut not_owned=0u64;
+        let mut records=0usize;
+        for (k,c) in members(bytes,containers,4096)?{
+            records+=1;
+            let id=key_u32(&k)?;let fs=members(bytes,c,128)?;
+            if amount_uint(bytes,required(&fs,"ID")?)?!=id{return Err(denied("CHEST_DEP_CONTAINER_ID"));}
+            let owner=chest_bool(bytes,required(&fs,"BelongsToPlayer")?)?;
+            let size=amount_uint(bytes,required(&fs,"Size")?)? as usize;
+            let extra=amount_uint(bytes,required(&fs,"ExtraSize")?)? as usize;
+            if size>16384||extra>size{return Err(denied("CHEST_DEP_CAPACITY"));}
+            let arr=required(&fs,"Inventory")?;
+            let slots=array_spans(bytes,arr,16384)?;
+            if slots.len()>size{return Err(denied("CHEST_DEP_SLOT_COUNT"));}
+            let role=match id{0=>"BACKPACK_PHYSICAL",1=>"HOME_STORAGE_PHYSICAL",_=>"OTHER_PHYSICAL"};
+            for (pos,v) in slots.iter().enumerate(){
+                scanned+=1;if scanned>250000{return Err(denied("CHEST_DEP_TOTAL_SLOT_BOUND"));}
+                let f=members(bytes,*v,128)?;
+                let saved_item=int(bytes,required(&f,"ItemID")?)?;
+                let amount=amount_uint(bytes,required(&f,"Amount")?)?;
+                if saved_item<0||amount>i32::MAX as u32||(saved_item==0)!=(amount==0){
+                    return Err(denied("CHEST_DEP_SLOT_VALUE"));}
+                if saved_item!=item{continue;}
+                if rows.len()==16384{return Err(denied("CHEST_DEP_MATCH_BOUND"));}
+                let state=required(&f,"State")?;
+                let raw=&bytes[state.begin..state.end];
+                let class=if raw==b"null"{"EXPLICIT_NULL"}else{
+                    let fields=members(bytes,state,128)?;
+                    if fields.is_empty(){"EMPTY_OBJECT"}else{"OTHER_OBJECT"}
+                };
+                if id==container&&pos==slot{
+                    if !owner||class!="EXPLICIT_NULL"||amount!=old||
+                        sha(&bytes[v.begin..v.end])!=entry_sha{
+                        return Err(denied("CHEST_DEP_SELECTED_WITNESS"));
+                    }
+                    found=true;
+                }
+                let sum=if !owner{&mut not_owned}else if class=="EXPLICIT_NULL"{&mut owned_null}else{&mut owned_other};
+                *sum=sum.checked_add(amount as u64).ok_or(denied("CHEST_DEP_TOTAL_OVERFLOW"))?;
+                rows.push(json!({"containerId":id,"physicalRole":role,"slotIndex":pos,"amount":amount,
+                    "belongsToPlayer":owner,"stateKind":class,"stateSha256":sha(raw),
+                    "entrySha256":sha(&bytes[v.begin..v.end]),"containerSha256":sha(&bytes[c.begin..c.end]),
+                    "slotsSha256":sha(&bytes[arr.begin..arr.end]),"size":size,"extraSize":extra,
+                    "physicalSlotCount":slots.len(),"inUsableCapacity":pos<size-extra,
+                    "parent":dependency_hash(bytes,field(&fs,"ParentItemID"))}));
+            }
+        }
+        if !found{return Err(denied("CHEST_DEP_SELECTED_MISSING"));}
+        Ok(json!({"containerMapSha256":sha(&bytes[containers.begin..containers.end]),
+            "physicalContainerCount":records,"physicalSlotsScanned":scanned,"matches":rows,
+            "ownedExplicitNullPhysicalAmount":owned_null,"ownedOtherStatePhysicalAmount":owned_other,
+            "nonOwnedPhysicalAmount":not_owned,"nativeEffectiveTotalVerified":false,
+            "nativeStateEquivalenceVerified":false,"pantryOverflowEffectiveVerified":false}))
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    impl ProductSession{
+        pub fn read_private_chest_amount_dependencies(&self,e:WorkerEnvelope,container:u32,slot:usize,
+            entry_sha:[u8;32])->CoreResult<Value>{
+            use crate::ExistingAmountSelection;
+            if container<=1||entry_sha==[0;32]{return Err(denied("CHEST_DEP_SELECTOR"));}
+            let target=self.read_existing_amount_target(e,ExistingAmountSelection::Chest{container_id:container,slot_index:slot})?;
+            let tv=target.view();
+            let facts=tv.chest.ok_or(denied("CHEST_DEP_TARGET_KIND"))?;
+            if tv.entry_sha256!=entry_sha||tv.session_id!=e.session_id||
+                tv.revision!=e.expected_revision||tv.index_generation!=e.expected_index_generation||
+                tv.decoded_sha256!=e.expected_decoded_sha256||
+                facts.state_sha256!=<[u8;32]>::from(Sha256::digest(b"null")){
+                return Err(denied("CHEST_DEP_TARGET_WITNESS"));
+            }
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            let bytes=&self.decoded;let root=roots(bytes)?;
+            let player=members(bytes,root.player,1024)?;let world=members(bytes,root.world,1024)?;
+            let totals=chest_saved_totals(bytes,required(&player,"ContainerInventories")?,tv.item_id,
+                container,slot,&hex(&entry_sha),tv.old_amount)?;
+            let begin=skip_ws(bytes,0);let end=value_end(bytes,begin)?;
+            let top=members(bytes,Span{begin,end},1024)?;
+            let mut budget=DependencyBudget::default();
+            let missions=mission_dependencies_mode(bytes,field(&world,"MissionSlots"),&mut budget,true)?;
+            let evolve=evolve_dependencies_mode(bytes,field(&player,"EvolveStatesProfile"),&mut budget,true)?;
+            let value=json!({"contract":"wand.native.private.chest-amount-dependencies@1",
+                "platform":"SteamWindows","fullVersion":EXACT,"schema":626,
+                "sessionId":hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
+                "decodedSha256":hex(&e.expected_decoded_sha256),
+                "target":{"containerId":container,"slotIndex":slot,"itemId":tv.item_id,"oldAmount":tv.old_amount,
+                    "entrySha256":hex(&entry_sha),"stateSha256":hex(&facts.state_sha256),
+                    "parentItemId":facts.parent_item_id,"belongsToPlayer":facts.belongs_to_player,
+                    "blockMoveTo":facts.block_move_to,"size":facts.size,"extraSize":facts.extra_size,
+                    "physicalSlotCount":facts.physical_slot_count,"packagedStackBound":facts.packaged_stack_bound,
+                    "coreMintedExistingTarget":true},
+                "savedPhysicalTotals":totals,
+                "parentPlacementReadSet":amount_placement_dependencies(bytes,field(&world,"GridCollection"),facts.parent_item_id)?,
+                "subscriberReadSet":{"missionSlots":missions,
+                    "achievementsData":achievements_dependencies_mode(bytes,field(&player,"AchievementsData"),true,&mut budget)?,
+                    "evolveStatesProfile":evolve,"questInfo":dependency_hash(bytes,field(&world,"QuestInfo")),
+                    "conditionalEventHistory":amount_event_dependencies(bytes,field(&top,"ConditionalEventHistory"))?,
+                    "conditionAndDefinitionJoinRequired":true,"effectiveActiveSubscriberSetVerified":false,
+                    "runtimeGeneratedFiltersVerified":false,"nativeSubscriberClosureVerified":false},
+                "allEffectiveContainerLinksVerified":false,"runtimeOrphanOrderVerified":false,
+                "effectiveItemDbVerified":false,"rightsVerified":false,"variationVerified":false,
+                "nativeV3Verified":false,"productReadAccepted":false,"writerAuthorized":false,
+                "editedCopyAuthorized":false,"applyAuthorized":false});
+            if serde_json::to_vec(&value).map_err(|_|denied("CHEST_DEP_RECEIPT_ENCODE"))?.len()>8*1024*1024{
+                return Err(denied("CHEST_DEP_RECEIPT_BOUND"));}
+            Ok(value)
+        }
+    }
+    #[cfg(all(test,feature="semantic-writer-dev"))]
+    mod chest_dependency_tests{
+        use super::*;
+        use crate::{BuildIdentity,WorkerAction,PRODUCT_WORKER_CONTRACT};
+        fn doc()->Value{json!({"GameInfo":{"Version":626},"Player":{"ContainerInventories":{
+            "0":{"ID":0,"BelongsToPlayer":true,"Size":2,"ExtraSize":0,"Inventory":[
+                {"ItemID":30200001,"Amount":3,"State":null},{"ItemID":30200001,"Amount":4,"State":{}}]},
+            "1":{"ID":1,"BelongsToPlayer":true,"Size":1,"ExtraSize":0,"Inventory":[
+                {"ItemID":30200001,"Amount":2,"State":{"Unknown":7}}]},
+            "12":{"ID":12,"ParentItemID":40000053,"BelongsToPlayer":true,"BlockMoveTo":false,
+                "Size":2,"ExtraSize":0,"Inventory":[{"ItemID":30200001,"Amount":5,"State":null},
+                {"ItemID":0,"Amount":0,"State":null}]},
+            "13":{"ID":13,"BelongsToPlayer":false,"Size":1,"ExtraSize":0,"Inventory":[
+                {"ItemID":30200001,"Amount":6,"State":null}]},
+            "14":{"ID":14,"BelongsToPlayer":true,"Size":48,"ExtraSize":0,"Inventory":[]}}},
+            "World":{"GridCollection":{"Grids":{"7":{"ID":7,"Objects":{"4":{"ID":4,"ItemID":40000053,
+                "X":2,"Y":1,"Orientation":"GridOrientation_Up","State":{"Storage":{"ContainerInventoryID":12}}}}}}}}})}
+        fn open(d:&Value)->ProductSession{ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),
+            BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+                build_id:EXACT.into(),schema:626,externally_attested:true}).unwrap()}
+        fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
+            expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+        fn hash(d:&Value)->[u8;32]{Sha256::digest(serde_json::to_vec(&d["Player"]["ContainerInventories"]["12"]["Inventory"][0]).unwrap()).into()}
+        #[test]
+        fn exact_physical_totals_state_classes_and_parent_readset(){
+            let d=doc();let s=open(&d);let before=s.receipt().unwrap();let e=env(&s);
+            let v=s.read_private_chest_amount_dependencies(e,12,0,hash(&d)).unwrap();
+            assert_eq!(v["target"]["oldAmount"],5);assert_eq!(v["target"]["parentItemId"],40000053);
+            let t=&v["savedPhysicalTotals"];
+            assert_eq!(t["ownedExplicitNullPhysicalAmount"],8);assert_eq!(t["ownedOtherStatePhysicalAmount"],6);
+            assert_eq!(t["nonOwnedPhysicalAmount"],6);assert_eq!(t["matches"].as_array().unwrap().len(),5);
+            assert_eq!(t["physicalContainerCount"],5);assert_eq!(t["physicalSlotsScanned"],6);
+            assert_eq!(v["parentPlacementReadSet"]["matches"][0]["gridId"],7);
+            assert_eq!(v["allEffectiveContainerLinksVerified"],false);assert_eq!(v["writerAuthorized"],false);
+            assert_eq!(s.receipt().unwrap(),before);
+            assert!(s.read_private_chest_amount_dependencies(e,12,0,[1;32]).is_err());
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_chest_amount_dependencies(stale,12,0,hash(&d)).is_err());
+            assert!(open(&d).read_private_chest_amount_dependencies(e,12,0,hash(&d)).is_err());
+        }
+        #[test]
+        fn malformed_physical_totals_or_non_null_target_fail_closed(){
+            for (id,field,value) in [("0","ID",json!(1)),("1","ExtraSize",json!(2)),
+                ("13","BelongsToPlayer",json!("true")),("14","Inventory",json!([{"ItemID":0,"Amount":1,"State":null}]))]{
+                let mut d=doc();d["Player"]["ContainerInventories"][id][field]=value;
+                let s=open(&d);assert!(s.read_private_chest_amount_dependencies(env(&s),12,0,hash(&d)).is_err());
+            }
+            let mut d=doc();d["Player"]["ContainerInventories"]["12"]["Inventory"][0]["State"]=json!({});
+            let s=open(&d);assert!(s.read_private_chest_amount_dependencies(env(&s),12,0,hash(&d)).is_err());
+        }
+    }
     #[cfg(all(test,feature="semantic-writer-dev"))]
     mod amount_dependency_tests{
         use super::*;
