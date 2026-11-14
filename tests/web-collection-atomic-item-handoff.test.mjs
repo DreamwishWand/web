@@ -72,7 +72,7 @@ test('public preview is additive to accepted portable file boundaries',()=>{
  const a=source('src/routes/moodboards/atomic/+page.svelte');
  assert.match(a,/decodeAtomicBoardPortableBytes\(bytes\)/);
  assert.match(a,/importAtomicBoardPortable\(db,decodeAtomicBoardPortableBytes\(bytes\),records\)/);
- assert.match(a,/data-atomic-portable-import[^>]*disabled=\{!ready\|\|!catalogReady\|\|busy\|\|Boolean\(snapshot\)\}/);
+ assert.match(a,/data-atomic-portable-import type="button" on:click=\{\(\)=>portableInput\?\.click\(\)\} disabled=\{!ready\|\|!catalogReady\|\|busy\|\|Boolean\(snapshot\)\}/);
  assert.match(a,/data-atomic-portable-export/);
  const saved=a.split('<ul data-atomic-items>')[1].split('</ul>')[0];
  assert.doesNotMatch(saved,/ItemThumb|<img\b/);
