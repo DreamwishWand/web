@@ -20,8 +20,8 @@ jobs:
           node-version: '22'
       - run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = '165626e89ed361b72c2e047190b2ccfb6fefee11'
-          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/04qr-w-pr1164-steam-door-common.yml'
+          test "$(git merge-base HEAD '165626e89ed361b72c2e047190b2ccfb6fefee11')" = '165626e89ed361b72c2e047190b2ccfb6fefee11'
+          test "$(git diff --name-only '165626e89ed361b72c2e047190b2ccfb6fefee11' HEAD)" = '.github/workflows/04qr-w-pr1164-steam-door-common.yml'
           test "$(git diff --name-only d9608e16820d067caf4fecaa0624dcfbf0d1a8c0 165626e89ed361b72c2e047190b2ccfb6fefee11 | wc -l)" = 4
           test "$(git rev-parse HEAD:.github/workflows/web-shared-catalog-detail.yml)" = '7526e4f389ddb6071b7e25a862beef517e081507'
           test "$(git rev-parse HEAD:scripts/web-steam1253-door-collection-chrome.mjs)" = '67e0690fd71f0e8eca8115e13b17ed1c17bc67f0'
@@ -62,7 +62,7 @@ jobs:
           await ctx.route('**/ddv/item-images/**',async route=>{const path=new URL(route.request().url()).pathname;hits.push(path);if(path==='/'+data.path)return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(raw)});if([data.expectedDoor,data.expectedLegacy].includes(path))return route.fulfill({status:200,contentType:'image/webp',body:Buffer.from(data.swatch,'base64')});return route.fulfill({status:404,body:'denied'})});
           const refresh=()=>page.evaluate(()=>globalThis.__qa652.ctl.load('',fetch,true).then(x=>x?.count??null));assert.equal(await refresh(),2);
           async function show(id,path){const t=thumb(id);await t.waitFor();await t.scrollIntoViewIfNeeded();await t.locator('img').waitFor();assert.equal(await t.locator('img').getAttribute('src'),path);await page.waitForFunction(sel=>{const x=document.querySelector(sel);return x?.complete&&x.naturalWidth===160},'[data-stage1-search-groups] [data-item-thumb-id="'+id+'"] img');}
-          await show('40300045',data.expectedDoor);await page.locator('[data-stage1-search-groups] .item-card').first().click();const info=page.locator('[data-stage1-item-info] [data-item-thumb-id="40300045"] img');await info.waitFor();assert.equal(await info.getAttribute('src'),data.expectedDoor);
-          raw=structuredClone(raw);delete raw.items['40300045'];assert.equal(await refresh(),1);await page.waitForFunction(()=>!document.querySelector('[data-item-thumb-id="40300045"] img'));await search.fill('40000047');await show('40000047',data.expectedLegacy);const calls=hits.filter(x=>x.endsWith('/manifest.json'));assert.ok(calls.length===2&&calls.every(x=>x==='/'+data.path));assert.ok(hits.includes(data.expectedDoor)&&hits.includes(data.expectedLegacy));assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);console.log('QA652_REAL_CHROME_MIXED_SHARED_LIST_INFO_WITHDRAW_LEGACY_PASS');await ctx.close();
+          await show('40300045',data.expectedDoor);await page.locator('[data-stage1-search-groups] .item-card').first().click();await page.locator('[data-stage1-item-info] [data-item-thumb-id="40300045"]').waitFor();assert.equal(await refresh(),2);const info=page.locator('[data-stage1-item-info] [data-item-thumb-id="40300045"] img');await info.waitFor();assert.equal(await info.getAttribute('src'),data.expectedDoor);
+          raw=structuredClone(raw);delete raw.items['40300045'];assert.equal(await refresh(),1);await page.waitForFunction(()=>!document.querySelector('[data-item-thumb-id="40300045"] img'));await search.fill('40000047');await thumb('40000047').waitFor();assert.equal(await refresh(),1);await show('40000047',data.expectedLegacy);const calls=hits.filter(x=>x.endsWith('/manifest.json'));assert.ok(calls.length===4&&calls.every(x=>x==='/'+data.path));assert.ok(hits.includes(data.expectedDoor)&&hits.includes(data.expectedLegacy));assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);console.log('QA652_REAL_CHROME_MIXED_SHARED_LIST_INFO_WITHDRAW_LEGACY_PASS');await ctx.close();
           }finally{await browser.close()}
           JS
