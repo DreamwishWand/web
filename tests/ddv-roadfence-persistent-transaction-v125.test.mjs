@@ -402,3 +402,56 @@ test('direct adapter rejects omitted preserved entries and retains exact opaque 
   roadFenceStructuralMutationAdapterV125.apply(draft,structuredClone(plan.intent),plan);
   assert.deepEqual(draft.World.GridCollection.Grids['7'].Objects['10'],original);
 });
+
+test('direct adapter rejects coherent forged structural targets atomically',async()=>{
+  const root=profileForGrid(makeGrid([makeObject(10,40100068,0,0)],11));
+  const session=await open(root);
+  const mutationSet=compileRoadMutationV125({
+    buildIdentity:BUILD_V125_SWITCH,sourceGrid:snapshotGrid(session),sourceObjectIds:[10],
+    desiredNetwork:roadNetwork(40100068,[{x:1,y:0,mode:FenceMode.ORTHOGONAL}]),
+    transform:{originSave:{x:0,y:0},pitchX:4,pitchY:4},targetSurfaceValidated:true
+  });
+  assert.equal(mutationSet.ok,true);
+  const plan=buildRoadFenceStructuralTransactionPlanV125({session,mutationSet});
+  const adapter=roadFenceStructuralMutationAdapterV125;
+  const check=(change,code)=>{
+    const forged=structuredClone(plan),draft=structuredClone(root);
+    const target=forged.target,intent=forged.intent;
+    change(target,intent);
+    // Both declarations agree: equality alone must not authorize mutation.
+    intent.target=structuredClone(target);
+    assert.throws(()=>adapter.apply(draft,intent,forged),{code});
+    assert.deepEqual(draft,root);
+  };
+  check((t,i)=>{
+    t.preservedGridObjectIds=[10];
+    i.preservedObjects=[structuredClone(i.deletedObjects[0])];
+  },'ROADFENCE_TX_IDENTITY_SET_OVERLAP');
+  check(t=>{t.nextGridObjectIDAfter=13;},'ROADFENCE_TX_NEXT_TRANSITION_INVALID');
+  check((t,i)=>{
+    t.createdGridObjectIds=[12];
+    i.createdObjects[0].gridObjectId=12;i.createdObjects[0].object.ID=12;
+    t.replacementIdentityPairs=[{deletedGridObjectId:10,createdGridObjectId:12}];
+  },'ROADFENCE_TX_CREATED_IDS_NOT_CONTIGUOUS_FROM_NEXT');
+  check(t=>{t.replacementIdentityPairs=[{deletedGridObjectId:99,createdGridObjectId:11}];},
+    'ROADFENCE_TX_REPLACEMENT_PAIRS_INVALID');
+  check(t=>{
+    t.replacementIdentityPairs=[
+      {deletedGridObjectId:10,createdGridObjectId:11},
+      {deletedGridObjectId:10,createdGridObjectId:11}
+    ];
+  },'ROADFENCE_TX_REPLACEMENT_PAIRS_INVALID');
+  check(t=>{t.nextGridObjectIDAfter='12';},'ROADFENCE_TX_NEXT_AFTER_INVALID');
+  check((t,i)=>{
+    t.deletedGridObjectIds=[];t.createdGridObjectIds=[];
+    t.replacementIdentityPairs=[];t.nextGridObjectIDAfter=11;
+    i.deletedObjects=[];i.createdObjects=[];
+  },'ROADFENCE_TX_STRUCTURAL_NOOP');
+  const draft=structuredClone(root);
+  adapter.apply(draft,structuredClone(plan.intent),plan);
+  assert.equal(draft.World.GridCollection.Grids['7'].Objects['10'],undefined);
+  assert.deepEqual(draft.World.GridCollection.Grids['7'].Objects['11'],plan.intent.createdObjects[0].object);
+  assert.equal(draft.World.GridCollection.Grids['7'].NextGridObjectID,12);
+  assert.deepEqual(draft.Player,root.Player);
+  assert.deepEqual(session.getSnapshot(),root);
+});
