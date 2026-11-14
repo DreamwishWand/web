@@ -1,0 +1,125 @@
+name: 04 QR-W PR1211 independent derived rotation
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qrw-pr1211-rotation-derived-qa.yml'
+permissions:
+  contents: read
+jobs:
+  independent-rotation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed exact source and independent rectangle rotation
+        run: |
+          set -euo pipefail
+          SOURCE=cc73b419c4cb520ead2f4da570fa53297c1e6912
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          test "$(git diff --name-only "$SOURCE" HEAD)" = '.github/workflows/qrw-pr1211-rotation-derived-qa.yml'
+          test "$(git rev-parse HEAD:src/lib/wep/min-verified-transform-export-v1.ts)" = 32d348af20ec3484d0fa355880e4b0ce51fecf28
+          test "$(git rev-parse HEAD:src/lib/ddv/core/world/runtime-v125/adapter-v125.js)" = 535c785a983be358143712b8a013bab84f53bcc0
+          cat > tests/qrw-pr1211-rotation-derived-runtime.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {readFile,mkdtemp,writeFile,rm} from 'node:fs/promises';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {spawnSync} from 'node:child_process';
+          import {createHash} from 'node:crypto';
+          import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
+          import {openWorldSaveBytes} from '../src/lib/wep/world-save-source.ts';
+          import {createSwitchWorldReadAdapter,projectSwitchAreaGrid} from '../src/lib/wep/world-browser-adapter.ts';
+          import {createSwitchV125PlacementLegalityBinding} from '../src/lib/wep/placement-legality-v19.ts';
+          import {normalizeEditorDocument} from '../src/lib/wep/editor-runtime.ts';
+          import {reviewMinimumVerifiedTransform as review,commitMinimumVerifiedTransform as commit} from '../src/lib/wep/min-verified-transform-export-v1.ts';
+          const fetchImpl=async url=>{try{return new Response(await readFile(new URL('../static'+new URL(String(url),'https://wand.invalid').pathname,import.meta.url)));}catch{return new Response('',{status:404});}};
+          const worldBinding=await createSwitchWorldReadAdapter({fetchImpl});
+          const placementBinding=await createSwitchV125PlacementLegalityBinding({fetchImpl});
+          const g=worldBinding.adapter.geometryService, clone=structuredClone;
+          const profile={GameInfo:{Version:624,InitialVersion:624,LastSaveDeviceInfo:{deviceType:'DeviceType_Switch'}},Player:{},ProfileWorld:{Stores:[],Shops:[]},ConditionalEventHistory:{ActiveEvents:{}},World:{GridCollection:{Grids:{'10':{ID:10,GridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:102,Objects:{'101':{ID:101,ItemID:40000075,X:452,Y:228,Orientation:'GridOrientation_Up',State:null}}}},DiffGrids:{}},Villages:[{SceneItemId:1540000000,Areas:{'7':{GridIDs:[10],Unlocked:true,EnvironmentEffectItemID:0,EnvironmentEffectOrientation:'GridOrientation_Up'}}}],FloatingIslands:{},MissionSlots:{},QuestInfo:{},Keyholes:{}},Opaque:{keep:[1,'QRW synthetic derived geometry',null]}};
+          const pack=p=>Uint8Array.from(makeSyntheticP1gProfile(p));
+          const hash=b=>createHash('sha256').update(b).digest('hex');
+          let chosen=null;
+          // Three pre-identified scope-pack rectangles, local neighbourhood of the
+          // accepted PR64 placement cell, no whole-world search or fake validator.
+          outer: for(const itemId of [40000075,40000106,40000052]){
+            for(const dx of [0,2,-2,4,-4])for(const dy of [0,2,-2,4,-4]){
+              const p=clone(profile),o=p.World.GridCollection.Grids['10'].Objects['101'];
+              Object.assign(o,{ItemID:itemId,X:452+dx,Y:228+dy});
+              const bytes=pack(p),opened=await openWorldSaveBytes(bytes,{sourcePlatform:'switch'});
+              const baseline=normalizeEditorDocument(projectSwitchAreaGrid(opened,opened.areas[0],10,worldBinding));
+              const before=baseline.objects[0];
+              if(!before||before.editability!=='editable'||before.metadata.footprintSize.w===before.metadata.footprintSize.h)continue;
+              const draft=clone(baseline);
+              draft.objects=[g.rotateSelectionLikeScene([clone(before)],1)[0]];
+              const valid=d=>placementBinding.classifyMinimumTransformPlacement({document:d,editorId:before.editorId}).result.verdict==='VALID';
+              if(!valid(baseline)||!valid(draft))continue;
+              chosen={p,bytes,opened,baseline,before,draft};break outer;
+            }
+          }
+          assert.ok(chosen,'bounded real placement rectangle candidate');
+          const {bytes:sourceBytes,opened,baseline:baselineDocument,before,draft:draftDocument}=chosen, original=sourceBytes.slice();
+          const after=draftDocument.objects[0];
+          assert.notEqual(before.metadata.footprintSize.w,before.metadata.footprintSize.h);
+          assert.deepEqual(after.metadata.footprintSize,{w:before.metadata.footprintSize.h,h:before.metadata.footprintSize.w});
+          assert.notDeepEqual(after.footprint,before.footprint);
+          assert.equal(after.orientation,4);
+          const input={sourceBytes,sourceName:'qa-rectangle',sourceEpoch:31,opened,baselineDocument,draftDocument,worldBinding,placementBinding,fetchImpl,exactBuildConfirmed:true};
+          const call=(r,d=draftDocument)=>commit({review:r,currentSourceEpoch:31,sourceBytes,baselineDocument,draftDocument:d,worldBinding});
+          const neg=[];
+          async function deny(label,fn,reason){await assert.rejects(fn,e=>String(e.code||e.message).startsWith('WEP_EXPORT_')&&(!reason||String(e.detail?.reason||e.code||e.message).includes(reason)),label);neg.push(label);console.log('DENY',label);}
+          for(const [label,change] of [
+            ['stale-rectangle-footprint',o=>o.footprint=clone(before.footprint)],
+            ['stale-rectangle-size',o=>o.metadata.footprintSize=clone(before.metadata.footprintSize)],
+            ['reordered-cells',o=>o.footprint.reverse()],
+            ['forged-marker',o=>o.metadata.rotationSemantics='FORGED'],
+            ['foreign-metadata',o=>o.metadata.qaExtra='forged'],
+            ['foreign-source',o=>o.source.gridId=11],
+            ['wrong-tessellation',o=>o.metadata.gridTessellationFactor=1],
+            ['noncardinal',o=>o.orientation=5],
+            ['move-rotate-combination',o=>o.x++],
+            ['wrong-item',o=>o.itemId=40000048]
+          ]){const d=clone(draftDocument);change(d.objects[0]);await deny(label,()=>review({...input,draftDocument:d}));}
+          const stale=clone(baselineDocument);stale.objects[0].orientation=4;
+          await deny('orientation-only-rectangle',()=>review({...input,draftDocument:stale}),'NON_TRANSFORM_OBJECT_FIELD_CHANGED');
+          for(const [label,mutate] of [
+            ['forged-baseline-size',o=>o.metadata.footprintSize.w++],
+            ['forged-baseline-tessellation',o=>o.metadata.gridTessellationFactor=1],
+            ['forged-baseline-cell',o=>o.footprint[0].x=99]
+          ]){
+            const b=clone(baselineDocument);mutate(b.objects[0]);
+            const d=clone(b);d.objects=[g.rotateObjectInPlace(clone(b.objects[0]),1)];
+            await deny(label,()=>review({...input,baselineDocument:b,draftDocument:d}),'BASELINE_SOURCE_MISMATCH');
+          }
+          const dir=await mkdtemp(join(tmpdir(),'qrw-rectangle-'));
+          async function verify(label,result,expectedOrientation){
+            assert.equal(result.status,'PASS');assert.equal(result.persistentWriteAuthorized,false);assert.equal(result.WORLD_PERSISTENT_WRITE_V125,false);
+            assert.equal(hash(result.artifacts.backup.bytes),hash(original));assert.equal(hash(sourceBytes),hash(original));
+            const path=join(dir,label+'.p1g');await writeFile(path,result.artifacts.edited.bytes,{flag:'wx'});
+            assert.notEqual(hash(result.artifacts.edited.bytes),hash(original));
+            const child=spawnSync(process.execPath,['--input-type=module','-e',"import {readFile} from 'node:fs/promises';import {openWorldSaveBytes} from './src/lib/wep/world-save-source.ts';const r=await openWorldSaveBytes(new Uint8Array(await readFile(process.argv[1])),{sourcePlatform:'switch'});console.log(JSON.stringify(r.profile));",path],{encoding:'utf8'});
+            assert.equal(child.status,0,child.stderr);
+            const expected=clone(opened.profile);expected.World.GridCollection.Grids['10'].Objects['101'].Orientation=expectedOrientation;
+            assert.deepEqual(JSON.parse(child.stdout),expected);
+            console.log('POS',label,'FULL_DOCUMENT_ORIENTATION_ONLY_FRESH_REOPEN_BACKUP_INVARIANT');
+          }
+          try{
+            const r=await review(input);
+            const staleDraft=clone(draftDocument);staleDraft.objects[0].metadata.rotationSemantics='BAD';
+            await deny('commit-recomputed-draft-tamper',()=>call(r,staleDraft));
+            await verify('scene-rectangle',await call(r),'GridOrientation_Right');
+            await deny('scene-replay',()=>call(r),'REVIEW_STALE');
+            const inplace=clone(baselineDocument);inplace.objects=[g.rotateObjectInPlace(clone(before),1)];
+            const rr=await review({...input,draftDocument:inplace});
+            await verify('inplace-rectangle',await call(rr,inplace),'GridOrientation_Right');
+            console.log('QRW_PR1211_RECTANGLE_ROTATION_PASS positives=2 negatives='+neg.length+' item='+before.itemId+' dimensions='+JSON.stringify(before.metadata.footprintSize)+'->'+JSON.stringify(after.metadata.footprintSize));
+          }finally{await rm(dir,{recursive:true,force:true});}
+          EOF
+          node tests/qrw-pr1211-rotation-derived-runtime.mjs
