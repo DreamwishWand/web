@@ -312,3 +312,173 @@ impl SpatialCandidateIndex {
             .ok_or(denied("SPATIAL_OBJECT_ID_NOT_FOUND"))
     }
 }
+
+
+/// Same-Steam-v1.25.3 GridArea cardinal bounding dimensions ONLY.
+///
+/// IL2CPP GridArea.GetSizeForOrientation: orientation 0/8 uses SizeX/Y,
+/// 4/12 swaps X/Y, each multiplied by the grid tessellation and divided
+/// by the Area tessellation in signed int32 arithmetic. The source can
+/// truncate and overflow; to be safely portable we REJECT either case
+/// instead of approximating. 1..15 noncardinal calls MoreRotationSize,
+/// which this static helper does not attempt.
+///
+/// This does NOT enumerate GridArea mask layers, FloorType, occupancy,
+/// item restrictions, parent/subgrid, or authenticate the caller's values.
+/// Consequently it is NEVER sufficient to permit a Save Writer.
+impl SpatialExtent {
+    pub fn steam1253_cardinal_bounds(
+        self,
+        build: &BuildIdentity,
+        orientation: u8,
+        grid_tessellation_factor: u32,
+        area_tessellation_factor: u32,
+    ) -> CoreResult<SpatialExtent> {
+        const STEAM_V1253: &str =
+            "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
+        if build.platform != Platform::SteamWindows ||
+            build.build_kind != BuildKind::SteamFullVersion ||
+            build.build_id != STEAM_V1253 ||
+            build.schema != 626 || !build.externally_attested {
+            return Err(denied("SPATIAL_NATIVE_STEAM_BUILD_REQUIRED"));
+        }
+        let (x,y) = match orientation {
+            0 | 8 => (self.width,self.height),
+            4 | 12 => (self.height,self.width),
+            _ => return Err(denied("SPATIAL_NATIVE_NONCARDINAL_SIZE_UNVERIFIED")),
+        };
+        let max = i32::MAX as u32;
+        if x == 0 || y == 0 || grid_tessellation_factor == 0 ||
+            area_tessellation_factor == 0 || x > max || y > max ||
+            grid_tessellation_factor > max || area_tessellation_factor > max {
+            return Err(denied("SPATIAL_NATIVE_AREA_SIZE_OR_TESSELLATION_INVALID"));
+        }
+        let scaled = |dim:u32| -> CoreResult<u32> {
+            // Native signed int32 imul happens before idiv. Reject even if
+            // division would bring an overflowed numerator into range.
+            let product = u64::from(dim)
+                .checked_mul(u64::from(grid_tessellation_factor))
+                .ok_or(denied("SPATIAL_NATIVE_AREA_SCALE_OVERFLOW"))?;
+            if product > i32::MAX as u64 {
+                return Err(denied("SPATIAL_NATIVE_AREA_SCALE_OVERFLOW"));
+            }
+            if product % u64::from(area_tessellation_factor) != 0 {
+                return Err(denied("SPATIAL_NATIVE_AREA_SCALE_INEXACT"));
+            }
+            let n = product / u64::from(area_tessellation_factor);
+            if n == 0 || n > i32::MAX as u64 {
+                return Err(denied("SPATIAL_NATIVE_AREA_SCALE_INVALID"));
+            }
+            u32::try_from(n).map_err(|_| denied("SPATIAL_NATIVE_AREA_SCALE_OVERFLOW"))
+        };
+        Ok(SpatialExtent { width:scaled(x)?,height:scaled(y)? })
+    }
+}
+
+
+/// Source-only Steam v1.25.3 GridArea cell rules, reusing the accepted
+/// cardinal bounds helper. These functions never authenticate caller-owned
+/// masks, floors, object IDs, or occupancy, and never authorize a Writer.
+/// The unit-tessellation subset deliberately excludes mixed tessellation,
+/// noncardinal rotation, walls and higher-level object restrictions.
+impl SpatialExtent {
+    /// Raw GridArea layer word at an offset in the ROTATED rectangle.
+    /// Native GridArea.TryGetGridLocalPosition maps orientation 0/4/8/12
+    /// to the original x-major mask; GridArea.get_Item indexes x*SizeY+y.
+    pub fn steam1253_cardinal_layer_at(
+        self,
+        build: &BuildIdentity,
+        layers: &[u32],
+        orientation: u8,
+        dx: u32,
+        dy: u32,
+        grid_tessellation: u32,
+        area_tessellation: u32,
+    ) -> CoreResult<u32> {
+        if grid_tessellation != 1 || area_tessellation != 1 {
+            return Err(denied("SPATIAL_NATIVE_CELL_TESSELLATION_UNVERIFIED"));
+        }
+        let bounds = self.steam1253_cardinal_bounds(
+            build, orientation, grid_tessellation, area_tessellation)?;
+        let count = u64::from(self.width)*u64::from(self.height);
+        if count > i32::MAX as u64 || count != layers.len() as u64 {
+            return Err(denied("SPATIAL_NATIVE_LAYER_COUNT_INVALID"));
+        }
+        if dx >= bounds.width || dy >= bounds.height {
+            return Err(denied("SPATIAL_NATIVE_CELL_OUTSIDE_AREA"));
+        }
+        let (x,y) = match orientation {
+            0 => (self.width-1-dx,self.height-1-dy),
+            4 => (dy,self.height-1-dx),
+            8 => (dx,dy),
+            12 => (self.width-1-dy,dx),
+            _ => return Err(denied("SPATIAL_NATIVE_NONCARDINAL_SIZE_UNVERIFIED")),
+        };
+        // Keep both original axes checked even if the rotated bounds change.
+        if x >= self.width || y >= self.height {
+            return Err(denied("SPATIAL_NATIVE_CELL_OUTSIDE_AREA"));
+        }
+        let index = u64::from(x)*u64::from(self.height)+u64::from(y);
+        layers.get(index as usize).copied()
+            .ok_or(denied("SPATIAL_NATIVE_LAYER_COUNT_INVALID"))
+    }
+
+    /// Exact isolated GridLayersExtensions.Collide bit predicate (not
+    /// full Native placement legality). Native compares shared exclusive
+    /// bits 0..4, and Clear (0x20) versus Blocking (0x40) across the pair.
+    /// Other bits are preserved by the caller, not inferred to be permissions.
+    pub fn steam1253_layers_collide(
+        build: &BuildIdentity, a: u32, b: u32
+    ) -> CoreResult<bool> {
+        SpatialExtent {width:1,height:1}
+            .steam1253_cardinal_bounds(build,8,1,1)?;
+        Ok((a & b & 0x1f)!=0 ||
+            ((a & 0x40)!=0 && (b & 0x20)!=0) ||
+            ((a & 0x20)!=0 && (b & 0x40)!=0))
+    }
+
+    /// Local non-wall, manual-placement cell predicate ONLY. In the native
+    /// ordinary branch a zero candidate layer skips floor and collisions;
+    /// otherwise actual floor flags must intersect the area's accepted floor
+    /// flags and no other object's layer at this cell may collide.
+    ///
+    /// No GridData decoder, occupancy completeness, parent/SubGrid, Stride,
+    /// restrictions, automatic spawning, or clearing authority here. The
+    /// caller's data can be forged. A true result means only this predicate,
+    /// not an authentic object or legal Move/Rotate. The product must bind
+    /// all inputs inside its single ProductSession before using the result.
+    pub fn steam1253_nonwall_cell_predicate(
+        build: &BuildIdentity,
+        candidate_layer: u32,
+        accepted_floor: u32,
+        actual_floor: u32,
+        other_layers: &[u32],
+    ) -> CoreResult<bool> {
+        SpatialExtent {width:1,height:1}
+            .steam1253_cardinal_bounds(build,8,1,1)?;
+        if accepted_floor & 0x800 != 0 {
+            return Err(denied("SPATIAL_NATIVE_WALL_CELL_UNVERIFIED"));
+        }
+        if (accepted_floor | actual_floor) & !0x07ff_ffff != 0 {
+            return Err(denied("SPATIAL_NATIVE_FLOOR_BITS_UNVERIFIED"));
+        }
+        // Keep the initial ordinary subset conservative. The native isolated
+        // Collide routine ignores high bits, but a full placement with these
+        // masks is not established by that isolated bit test.
+        if candidate_layer & !0x7f != 0 ||
+            other_layers.iter().any(|v|v & !0x7f != 0) {
+            return Err(denied("SPATIAL_NATIVE_LAYER_BITS_UNVERIFIED"));
+        }
+        if other_layers.len() > 4096 {
+            return Err(denied("SPATIAL_NATIVE_CELL_OCCUPANCY_BOUNDS"));
+        }
+        if candidate_layer == 0 { return Ok(true); }
+        if accepted_floor & actual_floor == 0 { return Ok(false); }
+        for &other in other_layers {
+            if Self::steam1253_layers_collide(build,candidate_layer,other)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+}

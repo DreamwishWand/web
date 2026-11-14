@@ -8,6 +8,7 @@ on:
       - 'src/lib/ui/ItemThumb.svelte'
       - 'src/lib/ui/ItemImagePreferences.svelte'
       - 'tests/web-switch1253-item-thumb-contract.test.mjs'
+      - 'scripts/web-switch1253-private-preview-build.mjs'
       - 'src/lib/entity/shared-catalog-directory.mjs'
       - 'src/lib/entity/SharedCatalogDiscovery.svelte'
       - 'tests/web-item-detail-static-link-gate.test.mjs'
@@ -67,9 +68,30 @@ jobs:
           CURRENT_IMAGE_SCOPE
             git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/switch1253-actual
             LC_ALL=C sort /tmp/switch1253-approved > /tmp/switch1253-expected
-            diff -u /tmp/switch1253-expected /tmp/switch1253-actual
+            cat > /tmp/switch1253-policy-expected <<'CURRENT_IMAGE_POLICY_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-switch1253-item-thumb-contract.test.mjs
+          CURRENT_IMAGE_POLICY_SCOPE
+            cat > /tmp/switch1253-prep-expected <<'CURRENT_IMAGE_PREP_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          scripts/web-switch1253-private-preview-build.mjs
+          src/lib/item-media/switch1253-public-item-images.mjs
+          src/lib/ui/ItemThumb.svelte
+          tests/web-switch1253-item-thumb-contract.test.mjs
+          CURRENT_IMAGE_PREP_SCOPE
+            if diff -q /tmp/switch1253-expected /tmp/switch1253-actual >/dev/null; then
+              echo WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS
+            elif diff -q /tmp/switch1253-policy-expected /tmp/switch1253-actual >/dev/null; then
+              echo WEB_CURRENT_SWITCH1253_ISSUE604_POLICY_EXACT3_SCOPE_PASS
+            elif diff -q /tmp/switch1253-prep-expected /tmp/switch1253-actual >/dev/null; then
+              echo WEB_CURRENT_SWITCH1253_ELIGIBLE2_PREP_EXACT5_SCOPE_PASS
+              node scripts/web-switch1253-private-preview-build.mjs
+            else
+              diff -u /tmp/switch1253-policy-expected /tmp/switch1253-actual || true
+              exit 1
+            fi
             node --test tests/web-switch1253-item-thumb-contract.test.mjs
-            echo WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS
           fi
           # The original Item gate protected Collection/Explore against unrelated edits.
           # The only exception is the exact nine-path Stage1 public ItemThumb change,
@@ -166,3 +188,5 @@ jobs:
         env:
           SHARED_DETAIL_E2E_URL: http://127.0.0.1:4194
         run: node scripts/web-shared-catalog-e2e-chrome.mjs
+      - name: Actual shared ItemThumb isolated synthetic-only positive and negative UX
+        run: node scripts/web-switch1253-private-preview-build.mjs --synthetic-browser

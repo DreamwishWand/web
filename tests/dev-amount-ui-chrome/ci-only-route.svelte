@@ -6,6 +6,7 @@
   const target={kind:'InventoryExistingAmountDecrease',targetId:4,
     itemId:30000001,slotIndex:0,compatibleItemType:'ItemType_Ingredient',
     oldAmount:50,registryVerified:true,sourceVerified:true,rightsAllowed:true};
+  const furnitureZero={...target,targetId:0,itemId:40000001,compatibleItemType:'ItemType_Furniture',oldAmount:7};
   let staged=false,backed=false;
   const trustedWorkerAdapter={
     async open({file,build,originalSha256}){
@@ -19,11 +20,13 @@
       originalName:'synthetic-ci.p1g',originalSha256:'a'.repeat(64),originalSizeBytes:64,
       backupName:'backup-ci.p1g'}},
     async listVerifiedTargets(){if(!backed)throw Error('DENIED');
-      return {targets:[target],rawDocumentExposed:false}},
+      return {targets:[target,furnitureZero],rawDocumentExposed:false}},
     async stageTyped(commands){
-      if(commands?.length!==1||commands[0].kind!==target.kind||
-        commands[0].expectedOldAmount!==50||commands[0].newAmount!==49)
-        throw Error('DENIED');
+      const c=commands?.[0];
+      const exact=t=>c?.kind===t.kind&&c.inventoryId===t.targetId&&
+        c.canonicalItemId===t.itemId&&c.compatibleItemType===t.compatibleItemType&&
+        c.expectedOldAmount===t.oldAmount&&c.newAmount===t.oldAmount-1;
+      if(commands?.length!==1||![target,furnitureZero].some(exact))throw Error('DENIED');
       staged=true;return kind('STAGED');
     },
     async undo(){staged=false;return kind('UNDONE')},

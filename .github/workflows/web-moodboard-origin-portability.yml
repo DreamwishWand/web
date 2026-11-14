@@ -1,0 +1,45 @@
+name: WEB migration Moodboard origin continuity
+on:
+  pull_request:
+    paths:
+      - 'src/lib/moodboards/origin-portability.mjs'
+      - 'src/routes/moodboards/+page.svelte'
+      - 'src/lib/moodboards/copy.js'
+      - 'tests/web-moodboard-origin-portability.test.mjs'
+      - 'scripts/web-moodboard-origin-portability-chrome.mjs'
+      - '.github/workflows/web-moodboard-origin-portability.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/web-moodboard-origin-portability.test.mjs tests/moodboards-local-store.test.mjs
+      - run: npm run check
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual isolated two-origin product UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          BASE_PATH=/web npm run dev -- --host 127.0.0.1 --port 4481 --strictPort >/tmp/wand-origin-old.log 2>&1 &
+          mkdir -p /tmp/wand-origin-root
+          tar --exclude=.git --exclude=node_modules --exclude=.svelte-kit -cf - . | tar -xf - -C /tmp/wand-origin-root
+          ln -s "$PWD/node_modules" /tmp/wand-origin-root/node_modules
+          (cd /tmp/wand-origin-root && BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4482 --strictPort) >/tmp/wand-origin-new.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:4481/web/moodboards/ >/dev/null && curl -fsS http://127.0.0.1:4482/moodboards/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4481/web/moodboards/ >/dev/null
+          curl -fsS http://127.0.0.1:4482/moodboards/ >/dev/null
+          node scripts/web-moodboard-origin-portability-chrome.mjs

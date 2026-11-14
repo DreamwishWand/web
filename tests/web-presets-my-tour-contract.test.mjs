@@ -129,5 +129,197 @@ test('real installed Chrome: new-only pilot 4 anchors, no passive launch or pers
  if(p.stderr)process.stderr.write(p.stderr);
  assert.equal(p.error,undefined,p.error?.message);
  assert.equal(p.status,0,'real Chrome pilot '+String(p.signal));
+ assert.match(p.stdout||'',/WEB_TOUR_CDP_PRIVATE_PIPE_VERIFIED/);
+ assert.match(p.stdout||'',/WEB_TOUR_VITE_READY_MS \d+[\s\S]*WEB_TOUR_CDP_COLDSTART_BEGIN[\s\S]*WEB_TOUR_CDP_COLDSTART_READY attempt=[12]/);
  assert.match(p.stdout||'',/WEB_TOUR_INSTALLED_CHROME_FINAL_PASS/);
+});
+
+test('CDP startup validates exact loopback browser endpoint; rejects incomplete and remote inputs',async()=>{
+ const {parseDevToolsActivePort,parseDevToolsStderr,startupDiagnostic}=await import('../scripts/web-tour-cdp-startup.mjs');
+ const id='/devtools/browser/12345678-1234-1234-1234-123456789abc';
+ const endpoint='ws://127.0.0.1:49152'+id;
+ assert.equal(parseDevToolsActivePort('49152\n'+id+'\n'),endpoint);
+ assert.equal(parseDevToolsStderr('noise\nDevTools listening on '+endpoint+'\n'),endpoint);
+ for(const bad of ['49152\n','0\n'+id,'65536\n'+id,'49152\n/devtools/page/abc','49152\n'+id+'?x=1','49152\n'+id+'\nextra'])assert.equal(parseDevToolsActivePort(bad),null);
+ assert.equal(parseDevToolsStderr('DevTools listening on ws://evil.invalid:49152'+id),null);
+ assert.equal(startupDiagnostic('ERROR /private/path token=secret'), 'ERROR');
+});
+test('CDP startup uses actual port file without stderr; validates /json/version and fails early',async()=>{
+ const {waitForBrowserEndpoint}=await import('../scripts/web-tour-cdp-startup.mjs');
+ const {mkdtemp,writeFile,rm}=await import('node:fs/promises');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const workspace=await mkdtemp(join(tmpdir(),'wand-cdp-contract-'));
+ const path='/devtools/browser/12345678-1234-1234-1234-123456789abc';
+ const endpoint='ws://127.0.0.1:49152'+path;
+ const child={exitCode:null,signalCode:null};
+ const opts={workspace,child,getStderr:()=>'',getSpawnError:()=>null,timeoutMs:250,
+  fetcher:async(url,options)=>{assert.equal(url,'http://127.0.0.1:49152/json/version');assert.equal(options.redirect,'error');return {ok:true,json:async()=>({webSocketDebuggerUrl:endpoint})}}};
+ try{
+  await writeFile(join(workspace,'DevToolsActivePort'),'49152\n'+path+'\n');
+  assert.deepEqual(await waitForBrowserEndpoint(opts),{endpoint,discovery:'active-port-file'});
+  await assert.rejects(waitForBrowserEndpoint({...opts,fetcher:async()=>({ok:true,json:async()=>({webSocketDebuggerUrl:'ws://evil.invalid:49152'+path})})}),/CHROME_CDP_STARTUP_TIMEOUT/);
+  await assert.rejects(waitForBrowserEndpoint({...opts,child:{exitCode:1,signalCode:null}}),/EARLY_EXIT/);
+  await assert.rejects(waitForBrowserEndpoint({...opts,getSpawnError:()=>Error('private path')}),/SPAWN_ERROR/);
+  await rm(join(workspace,'DevToolsActivePort'));
+  assert.deepEqual(await waitForBrowserEndpoint({...opts,getStderr:()=> 'DevTools listening on '+endpoint+'\n'}),{endpoint,discovery:'stderr'});
+ }finally{await rm(workspace,{recursive:true,force:true})}
+});
+
+test('actual localhost probe: completed observations and deadlines are separate contracts', {timeout:30000},async()=>{
+ const {probeBrowserEndpoint,waitForBrowserEndpoint}=await import('../scripts/web-tour-cdp-startup.mjs');
+ const {createServer}=await import('node:http');
+ const {mkdtemp,writeFile,rm}=await import('node:fs/promises');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const workspace=await mkdtemp(join(tmpdir(),'wand-cdp-http-'));
+ const path='/devtools/browser/12345678-1234-1234-1234-123456789abc';
+ const foreign='/devtools/browser/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+ let mode='foreign',port,deadlineController=null,deadlineTimer=null;
+ const seen=[];
+ const server=createServer((req,res)=>{
+  const record={mode,path:req.url,completed:false};seen.push(record);
+  res.on('finish',()=>{record.completed=true});
+  if(mode==='redirect'){res.writeHead(302,{location:'/foreign'});res.end();return}
+  if(mode==='bad-json'){res.end('not-json');return}
+  if(mode==='deadline'){
+   // Real request and partial response, never a completed identity. Start
+   // the short deadline only after this request is witnessed on the server.
+   res.writeHead(200,{'content-type':'application/json'});
+   res.write('{"webSocketDebuggerUrl":');
+   deadlineTimer=setTimeout(()=>deadlineController.abort(new DOMException('probe deadline','TimeoutError')),50);
+   return;
+  }
+  if(mode==='delayed'&&seen.filter(x=>x.mode==='delayed').length<3){res.writeHead(503);res.end();return}
+  res.setHeader('content-type','application/json');
+  res.end(JSON.stringify({webSocketDebuggerUrl:'ws://127.0.0.1:'+port+(mode==='foreign'?foreign:path)}));
+ });
+ const opts={workspace,child:{exitCode:null,signalCode:null},getStderr:()=>'',getSpawnError:()=>null};
+ try{
+  await new Promise((ok,bad)=>{server.once('error',bad);server.listen(0,'127.0.0.1',ok)});
+  port=server.address().port;
+  const endpoint='ws://127.0.0.1:'+port+path;
+  await writeFile(join(workspace,'DevToolsActivePort'),port+'\n'+path+'\n');
+  // Observe exactly one complete HTTP transaction per diagnostic. The
+  // watchdog is test-local; no extra retries or change to the 500ms
+  // production-default probe / 15s polling deadline.
+  const observation=async(next,expected)=>{
+   mode=next;const before=seen.length;
+   assert.equal(await probeBrowserEndpoint(endpoint,{signal:AbortSignal.timeout(5000)}),expected,next);
+   assert.equal(seen.length,before+1,'ONE_ACTUAL_REQUEST_'+next);
+   assert.equal(seen.at(-1).path,'/json/version');
+   assert.equal(seen.at(-1).completed,true,'ACTUAL_RESPONSE_COMPLETED_'+next);
+  };
+  await observation('foreign','ENDPOINT_IDENTITY_MISMATCH');
+  await observation('bad-json','JSON_INVALID');
+  await observation('redirect','HTTP_REDIRECT');
+  await observation('match','MATCH');
+  await observation('foreign','ENDPOINT_IDENTITY_MISMATCH'); // replaced identity
+  const beforeRemote=seen.length;
+  assert.equal(await probeBrowserEndpoint('ws://evil.invalid:'+port+path),'ENDPOINT_INVALID');
+  assert.equal(seen.length,beforeRemote,'REMOTE_NO_REQUEST');
+  mode='delayed';
+  assert.deepEqual(await waitForBrowserEndpoint({...opts,timeoutMs:5000}),{endpoint,discovery:'active-port-file'});
+  const delayed=seen.filter(x=>x.mode==='delayed');
+  assert.ok(delayed.length>=3&&delayed.slice(0,3).every(x=>x.path==='/json/version'&&x.completed),'REAL_DELAYED_RESPONSES');
+  mode='deadline';deadlineController=new AbortController();
+  const beforeDeadline=seen.length;
+  const started=performance.now();
+  assert.equal(await probeBrowserEndpoint(endpoint,{signal:AbortSignal.any([deadlineController.signal,AbortSignal.timeout(5000)])}),'PROBE_DEADLINE');
+  assert.equal(seen.length,beforeDeadline+1,'DEADLINE_REAL_REQUEST_WITNESS');
+  assert.equal(deadlineController.signal.aborted,true,'DEADLINE_AFTER_SERVER_WITNESS');
+  assert.equal(seen.at(-1).completed,false,'DEADLINE_NO_COMPLETE_IDENTITY');
+  console.log('WEB_TOUR_LEGACY_PROBE_HTTP_WITNESSES count='+seen.length+' deadlineElapsedMs='+Math.round(performance.now()-started));
+  server.closeAllConnections();
+  await new Promise(ok=>server.close(ok));
+  assert.match(await probeBrowserEndpoint(endpoint,{signal:AbortSignal.timeout(5000)}),/^(TCP_REFUSED|TCP_RESET|TCP_SOCKET)$/);
+ }finally{
+  clearTimeout(deadlineTimer);server.closeAllConnections();
+  if(server.listening)await new Promise(ok=>server.close(ok));
+  await rm(workspace,{recursive:true,force:true});
+ }
+});
+test('real concurrent Chrome private pipes, isolated targets, killed child fails closed', {timeout:45000},async()=>{
+ if(process.env.CI!=='true'&&process.env.WEB_TOUR_CHROME!=='1')return;
+ const {startVerifiedChrome}=await import('../scripts/web-tour-cdp-startup.mjs');
+ const {access}=await import('node:fs/promises');
+ const {join}=await import('node:path');
+ const {once}=await import('node:events');
+ const chrome=process.env.CHROME_BIN||['google-chrome-stable','google-chrome','chromium','chromium-browser']
+  .map(x=>spawnSync('which',[x],{encoding:'utf8'}).stdout?.trim()).find(Boolean);
+ assert.ok(chrome,'actual installed Chrome required');
+ const instances=[];
+ try{
+  const outcomes=await Promise.allSettled([0,1].map(async()=>{
+   const x=await startVerifiedChrome({chrome,log:console.log});
+   instances.push({...x,dir:x.workspace});
+  }));
+  for(const x of outcomes)if(x.status==='rejected')throw x.reason;
+ const results=await Promise.all(instances.map(async(x,i)=>{
+   await assert.rejects(access(join(x.dir,'DevToolsActivePort')),e=>e.code==='ENOENT');
+   const t=await x.transport.send('Target.createTarget',{url:'about:blank'});
+   const a=await x.transport.send('Target.attachToTarget',{targetId:t.targetId,flatten:true});
+   const v=await x.transport.send('Runtime.evaluate',{expression:JSON.stringify('private-pipe-'+i),returnByValue:true},a.sessionId);
+   assert.equal(v.result.value,'private-pipe-'+i);
+   return {target:t.targetId,session:a.sessionId};
+  }));
+  assert.notEqual(results[0].target,results[1].target);
+  assert.notEqual(results[0].session,results[1].session);
+  await assert.rejects(instances[0].transport.send('Runtime.evaluate',{expression:'1'},results[1].session),/CHROME_CDP_COMMAND_ERROR|CHROME_CDP_PIPE_SESSION_MISMATCH/);
+  const dead=instances[0],exited=once(dead.child,'exit');
+  dead.child.kill('SIGKILL');await exited;
+  await assert.rejects(dead.transport.send('Browser.getVersion'),/CHROME_CDP_PIPE_NOT_LIVE/);
+  await instances[1].transport.verifyBrowser();
+  console.log('WEB_TOUR_REAL_CONCURRENT_PRIVATE_CDP_PIPES_ISOLATION_PASS');
+ }finally{
+  await Promise.all(instances.map(x=>x.dispose()));
+ }
+});
+
+test('cold-start lifecycle retries only first version deadline with fresh child/profile, never identity/exit', {timeout:20000},async()=>{
+ const {startVerifiedChrome}=await import('../scripts/web-tour-cdp-startup.mjs');
+ const {spawn}=await import('node:child_process');
+ const {access}=await import('node:fs/promises');
+ const {join}=await import('node:path');
+ // Synthetic child protocol fixtures only: actual Chrome is required in the
+ // separate Tour and concurrent tests above. No fixture can satisfy them.
+ const childSource=`const fs=require('node:fs');let b='';const mode=process.argv[1];
+ const r=fs.createReadStream(null,{fd:3});r.on('data',c=>{b+=c;
+ if(!b.includes('\\0'))return;const m=JSON.parse(b.split('\\0')[0]);
+ if(mode==='dead'){process.exit(3)}
+ if(mode==='hang')return;
+ const send=()=>{try{fs.writeSync(4,JSON.stringify({id:m.id,result:{product:mode==='wrong'?'Foreign/1':'Chrome/1',protocolVersion:'1.3'}})+'\\0')}catch{}};
+ if(mode==='late')setTimeout(send,3000);else send();
+ });setInterval(()=>{},1000);`;
+ const run=async(modes,timeout=1000)=>{
+  const seen=[],logs=[];
+  const spawnChild=(_binary,args,opts)=>{
+   const profile=args.find(x=>x.startsWith('--user-data-dir=')).slice('--user-data-dir='.length);
+   const mode=modes[seen.length];
+   assert.ok(mode,'unexpected extra startup attempt');
+   const child=spawn(process.execPath,['-e',childSource,mode],opts);
+   seen.push({profile,child});return child;
+  };
+  const promise=startVerifiedChrome({chrome:'fixture-only',spawnChild,startupTimeoutMs:timeout,log:x=>logs.push(x)});
+  return {seen,logs,promise};
+ };
+ const cleaned=async x=>{assert.ok(x.child.exitCode!==null||x.child.signalCode!==null);await assert.rejects(access(x.profile),e=>e.code==='ENOENT')};
+ const good=await run(['late','ok']);const instance=await good.promise;
+ try{
+  assert.equal(instance.attempt,2);assert.equal(good.seen.length,2);
+  assert.notEqual(good.seen[0].profile,good.seen[1].profile);
+  assert.notEqual(good.seen[0].child.pid,good.seen[1].child.pid);
+  await cleaned(good.seen[0]);
+  assert.ok(good.logs.includes('WEB_TOUR_CDP_COLDSTART_FRESH_RETRY'));
+  assert.equal(instance.child.exitCode,null);
+ }finally{await instance.dispose()}
+ await cleaned(good.seen[1]);
+ for(const [modes,pattern] of [
+  [['hang','hang'],/COMMAND_DEADLINE_Browser.getVersion/],
+  [['wrong'],/BROWSER_IDENTITY/],
+  [['dead'],/EARLY_EXIT|EOF|CLOSED/]
+ ]){
+  const x=await run(modes);
+  await assert.rejects(x.promise,pattern);
+  assert.equal(x.seen.length,modes.length);
+  for(const item of x.seen)await cleaned(item);
+ }
 });

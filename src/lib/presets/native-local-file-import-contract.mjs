@@ -6,6 +6,10 @@
  */
 import {
   NATIVE_PRESET_BACKUP_SCHEMA,
+  NATIVE_PRESET_LIBRARY_KEY,
+  createEmptyNativePresetLibrary,
+  normalizeNativePresetLibrary,
+  serializeNativePresetLibrary,
   NATIVE_PRESET_LIBRARY_SCHEMA,
   NATIVE_PRESET_LOCAL_BACKUP_LIMIT,
   NATIVE_PRESET_PROFILE_SCHEMA,
@@ -124,4 +128,108 @@ export async function inspectNativePresetLocalFileBytes(bytes,{cryptoRef=globalT
 /** ToM designs are NOT native DecorationPreset backups or Community Presets. */
 export function inspectNativeToMLocalFileContract(){
   return rejected('NATIVE_TOM_FORMAT_AND_OWNER_PROVENANCE_NOT_YET_VERIFIED');
+}
+
+// Local migration continuity. All current UI mutations use this same origin
+// lock; a fresh storage read and an exact raw-value guard precede the write.
+// Old/uncooperative tabs are not lock participants: close them before migration.
+export const NATIVE_PRESET_LIBRARY_LOCK=NATIVE_PRESET_LIBRARY_KEY+':exclusive';
+const fail=code=>{throw Error('NATIVE_PRESET_LIBRARY_'+code);};
+const utf8=text=>new TextEncoder().encode(text);
+// Origin-local lifecycle metadata lives in the same atomic storage value as
+// the backups. Legacy entries have incarnation 0; only new insertions consume
+// the monotonic counter. Never reset it when the last entry is removed.
+// Portable files carry backup data, not local incarnation authority.
+const INCARNATIONS='localEntryIncarnations';
+function readIncarnations(library){
+ const ids=library.backups.map(b=>b.id);
+ if(!Object.hasOwn(library,INCARNATIONS))
+  return {next:1,entries:Object.fromEntries(ids.map(id=>[id,0]))};
+ const value=library[INCARNATIONS];
+ if(!object(value)||Object.keys(value).length!==2||!Object.hasOwn(value,'next')||
+  !Object.hasOwn(value,'entries')||!Number.isSafeInteger(value.next)||value.next<1||
+  !object(value.entries)||Object.keys(value.entries).length!==ids.length)fail('INCARNATION_INVALID');
+ const seen=new Set();
+ for(const id of ids){
+  if(!Object.hasOwn(value.entries,id))fail('INCARNATION_INVALID');
+  const n=value.entries[id];
+  if(!Number.isSafeInteger(n)||n<0||n>=value.next||(n!==0&&seen.has(n)))fail('INCARNATION_INVALID');
+  if(n!==0)seen.add(n);
+ }
+ return {next:value.next,entries:{...value.entries}};
+}
+async function readCurrentLibrary(storage){
+ const raw=storage.getItem(NATIVE_PRESET_LIBRARY_KEY);
+ if(raw===null)return {raw,library:createEmptyNativePresetLibrary()};
+ if(typeof raw!=='string'||!raw.length||utf8(raw).length>NATIVE_LOCAL_PRESET_FILE_MAX_BYTES)fail('STORAGE_BOUNDS');
+ let parsed;
+ try{parsed=JSON.parse(raw,reviver);}catch{fail('STORAGE_INVALID');}
+ if(parsed?.schema!==NATIVE_PRESET_LIBRARY_SCHEMA||parsed.version!==1||!Array.isArray(parsed.backups))fail('STORAGE_INVALID');
+ const library=normalizeNativePresetLibrary(parsed);
+ if(library.backups.length){
+  const reviewed=await inspectNativePresetLocalFileBytes(utf8(raw));
+  if(!reviewed.localFileReady||!reviewed.backups)fail('STORAGE_INVALID');
+ }
+ readIncarnations(library); // validate even for an empty persisted library
+ return {raw,library};
+}
+export function mergeNativePresetBackups(library,incoming,{now=new Date().toISOString()}={}){
+ const current=normalizeNativePresetLibrary(library);
+ const byId=new Map(current.backups.map(b=>[b.id,b]));
+ let added=0;
+ for(const entry of incoming){
+  if(byId.has(entry.id)){
+   // Conservative exact JSON equality: no same-ID replacement, including
+   // changes to opaque fields, quarantine metadata, tombstones or payload.
+   if(JSON.stringify(byId.get(entry.id))!==JSON.stringify(entry))fail('ID_COLLISION');
+   continue;
+  }
+  byId.set(entry.id,entry);added++;
+ }
+ if(byId.size>NATIVE_PRESET_LOCAL_BACKUP_LIMIT)fail('LIMIT');
+ return {added,library:added?normalizeNativePresetLibrary({...current,updatedAt:now,backups:[...byId.values()]}):current};
+}
+/** @param {{storage?:Storage,locks?:LockManager,operation:'read'|'merge'|'remove',backups?:any[],id?:string,expectedEntry?:string,expectedIncarnation?:number}} options */
+export async function transactNativePresetLibrary({storage=globalThis.localStorage,locks=globalThis.navigator?.locks,operation,backups=[],id,expectedEntry,expectedIncarnation}){
+ if(!storage||typeof locks?.request!=='function')fail('LOCK_UNAVAILABLE');
+ return locks.request(NATIVE_PRESET_LIBRARY_LOCK,{mode:'exclusive'},async()=>{
+  const {raw,library}=await readCurrentLibrary(storage);
+  if(operation==='read')return {library,raw,changed:false};
+  const generations=readIncarnations(library);
+  let next,changed;
+  if(operation==='merge'){
+   if(!Array.isArray(backups)||!backups.length)fail('EMPTY_IMPORT');
+   const reviewed=await inspectNativePresetLocalFileBytes(utf8(JSON.stringify({
+    schema:NATIVE_PRESET_LIBRARY_SCHEMA,version:1,backups
+   })));
+   if(!reviewed.localFileReady||!reviewed.backups)fail('IMPORT_INVALID');
+   const merged=mergeNativePresetBackups(library,reviewed.backups.map(x=>x.backup));
+   next=merged.library;changed=merged.added>0;
+   if(changed)for(const entry of next.backups){
+    if(Object.hasOwn(generations.entries,entry.id))continue;
+    if(generations.next>=Number.MAX_SAFE_INTEGER)fail('INCARNATION_EXHAUSTED');
+    generations.entries[entry.id]=generations.next++;
+   }
+  }else if(operation==='remove'){
+   // Compare the exact displayed entry under the same lock as the write.
+   // An equal ID with different content is not the same entry.
+   if(typeof expectedEntry!=='string'||!expectedEntry.length||utf8(expectedEntry).length>NATIVE_LOCAL_PRESET_FILE_MAX_BYTES)fail('EXPECTED_ENTRY_REQUIRED');
+   const current=library.backups.find(b=>b.id===id);
+   if(!current)fail('ENTRY_MISSING');
+   if(JSON.stringify(current)!==expectedEntry)fail('STALE_ENTRY');
+   if(!Number.isSafeInteger(expectedIncarnation)||expectedIncarnation<0)fail('EXPECTED_INCARNATION_REQUIRED');
+   if(generations.entries[id]!==expectedIncarnation)fail('STALE_INCARNATION');
+   delete generations.entries[id];
+   next=normalizeNativePresetLibrary({...library,updatedAt:new Date().toISOString(),backups:library.backups.filter(b=>b.id!==id)});
+   changed=true;
+  }else fail('OPERATION_INVALID');
+  if(storage.getItem(NATIVE_PRESET_LIBRARY_KEY)!==raw)fail('STALE_STORAGE');
+  if(!changed)return {library,raw,changed:false};
+  next={...next,[INCARNATIONS]:generations};
+  const serialized=serializeNativePresetLibrary(next);
+  if(utf8(serialized).length>NATIVE_LOCAL_PRESET_FILE_MAX_BYTES)fail('STORAGE_BOUNDS');
+  storage.setItem(NATIVE_PRESET_LIBRARY_KEY,serialized);
+  if(storage.getItem(NATIVE_PRESET_LIBRARY_KEY)!==serialized)fail('REOPEN_MISMATCH');
+  return {library:next,raw:serialized,changed:true};
+ });
 }

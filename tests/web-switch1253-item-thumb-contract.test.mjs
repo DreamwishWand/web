@@ -4,23 +4,30 @@ import {readFileSync} from 'node:fs';
 import {
  SWITCH1253_ITEM_IMAGE_SCHEMA,SWITCH1253_TARGET,
  SWITCH1253_ITEM_IMAGE_VARIANT,SWITCH1253_ORIGINAL_BUNDLE_SHA256,
- SWITCH1253_REVIEWED_RELEASE,SWITCH1253_NATIVE_PINS,
+ SWITCH1253_REVIEWED_RELEASE,SWITCH1253_NATIVE_PINS,SWITCH1253_OWNER_SCOPE,
  validateSwitch1253ItemImageCatalog,switch1253ItemImagePath,
- scopedSwitch1253ItemImageHref,loadSwitch1253PublicItemImageSource
+ scopedSwitch1253ItemImageHref,loadSwitch1253PublicItemImageSource,
+ prepareSwitch1253ItemImageManifest,SWITCH1253_PREPARED_WEBP_SIZES,
+ createSwitch1253ManifestController,attachSwitch1253ManifestLifecycle,SWITCH1253_MANIFEST_REFRESH_MS
 } from '../src/lib/item-media/switch1253-public-item-images.mjs';
 
+import {ITEM_IMAGE_OWNER_DECISION_ID} from '../src/lib/item-media/public-item-images.mjs';
 const item='40006096';
 const pin=SWITCH1253_NATIVE_PINS[item];
 function approvedRelease(){
  // Synthetic authorization fixture, NOT a real accepted licence or prod flag.
  return {
-  mediaPublic:true,rightsHolderLicense:'DOCUMENTED_SCOPE_LICENSE',
+  mediaPublic:true,decisionId:ITEM_IMAGE_OWNER_DECISION_ID,scope:SWITCH1253_OWNER_SCOPE,
+  rightsHolderLicense:'DOCUMENTED_SCOPE_LICENSE',licenseEvidenceSha256:'a'.repeat(64),
   rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',
   takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',
+  attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',
+  operatorReceiptSha256:'b'.repeat(64),
   items:{[item]:{
     originalNativeStreamSha256:pin.originalNativeStreamSha256,
     sourcePngSha256:pin.sourcePngSha256,webpSha256:pin.webpSha256,
-    rightsStatus:'DOCUMENTED_LICENSE_APPROVED'
+    rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',
+    visibility:'RELEASED_PLAYER_FACING'
   }}
  };
 }
@@ -31,13 +38,16 @@ function manifest(){
   codec:'WEBP_LOSSLESS_RGBA_EXACT',format:'webp',lossless:true,
   source:{...SWITCH1253_TARGET,originalBundleSha256:SWITCH1253_ORIGINAL_BUNDLE_SHA256},
   target:{...SWITCH1253_TARGET},
-  publication:{gate:'MEDIA_PUBLIC_SCOPED_ON',rightsReview:'OPERATOR_ACCEPTED',
-    receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',
-    managedHttps:'MANAGED_VERIFIED'},
+  publication:{gate:'MEDIA_PUBLIC_SCOPED_ON',decisionId:ITEM_IMAGE_OWNER_DECISION_ID,
+    scope:SWITCH1253_OWNER_SCOPE,rightsHolderLicense:'DOCUMENTED_SCOPE_LICENSE',
+    licenseEvidenceSha256:'a'.repeat(64),rightsReview:'OPERATOR_ACCEPTED',
+    receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',
+    attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',
+    operatorReceiptSha256:'b'.repeat(64)},
   items:{[item]:{
     ...pin,pixelStatus:'SWITCH_RGBA_EXACT_VERIFIED',
     visibility:'RELEASED_PLAYER_FACING',
-    rightsStatus:'DOCUMENTED_LICENSE_APPROVED',
+    rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',
     assetStatus:'WEBP_LOSSLESS_VERIFIED_160'
   }}
  };
@@ -47,9 +57,9 @@ test('current Switch 1.25.3 BID/schema626 source explicitly unapproved in real r
  assert.equal(SWITCH1253_TARGET.schema,626);
  assert.equal(SWITCH1253_REVIEWED_RELEASE.mediaPublic,false);
  assert.deepEqual(Object.keys(SWITCH1253_REVIEWED_RELEASE.items),[]);
- assert.equal(Object.keys(SWITCH1253_NATIVE_PINS).length,1,'only one verified Switch raster');
- assert.equal(SWITCH1253_NATIVE_PINS['40000047'],undefined,'format50 raster NOT_RUN');
- assert.equal(SWITCH1253_NATIVE_PINS['40002422'],undefined,'format50 raster NOT_RUN');
+ assert.deepEqual(Object.keys(SWITCH1253_NATIVE_PINS),['40000047','40006096']);
+ assert.equal(SWITCH1253_NATIVE_PINS['40000047'].rasterStatus,'SWITCH_ASTC6X6_SRGB_RGBA_EXACT_PRIVATE');
+ assert.equal(SWITCH1253_NATIVE_PINS['40002422'],undefined,'hidden, independently excluded');
  assert.throws(()=>validateSwitch1253ItemImageCatalog(manifest()),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
  let requested=0;
  const fake=async()=>{requested++;throw new Error('OFF must not request');};
@@ -87,7 +97,7 @@ test('old R39/schema624/Steam/other BID/unknown game build never promote a curre
    schema:624,originalBundleSha256:SWITCH1253_ORIGINAL_BUNDLE_SHA256}
  ])assert.throws(()=>validateSwitch1253ItemImageCatalog({...manifest(),source},approvedRelease()),/PLATFORM_VERSION_BID_SCHEMA/);
 });
-test('format50 two unknown sprites, unreviewed DLC, SHA or pixel mismatch and Rights OFF all deny',()=>{
+test('unreviewed eligible sprite, hidden sprite, unknown item, SHA or pixel mismatch and Rights OFF all deny',()=>{
  for(const id of ['40000047','40002422','999000123']){
   const m=manifest();m.items={[id]:{...m.items[item]}};
   assert.throws(()=>validateSwitch1253ItemImageCatalog(m,approvedRelease()),/ITEM_ID_NATIVE_SHA/);
@@ -190,4 +200,154 @@ test('QA802 regression: undeclared root/publication/source/item/release media fi
      section+' '+key+' must never be accepted'
    );
  }
+});
+
+test('Issue604 scoped Owner decision and UNKNOWN license remain separate facts',()=>{
+ const make=()=>{
+  const r=approvedRelease(),m=manifest();
+  for(const p of [r,m.publication]){p.rightsHolderLicense='UNKNOWN';p.licenseEvidenceSha256=null}
+  r.items[item].rightsStatus='UNKNOWN';m.items[item].rightsStatus='UNKNOWN';
+  return {r,m};
+ };
+ let {r,m}=make();
+ assert.equal(validateSwitch1253ItemImageCatalog(m,r).count,1);
+ assert.equal(r.rightsHolderLicense,'UNKNOWN');
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
+ for(const key of ['decisionId','scope','rightsReview','receivingContact','takedown','managedHttps',
+  'attribution','oldUrlAndCache','rollback','operatorReceiptSha256']){
+  for(const invalid of [undefined,'NOT_RUN','FORGED']){
+   ({r,m}=make());r[key]=invalid;
+   assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/,key);
+  }
+  ({r,m}=make());m.publication[key]='FORGED';
+  assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MANIFEST_PUBLICATION_UNVERIFIED/,key);
+ }
+ for(const visibility of ['UNRELEASED','HIDDEN','PRIVATE','UGC','UNKNOWN']){
+  ({r,m}=make());m.items[item].visibility=visibility;r.items[item].visibility=visibility;
+  assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/ITEM_ID_NATIVE_SHA/);
+ }
+ for(const key of ['publicationDecision','rightsStatus','visibility']){
+  ({r,m}=make());delete r.items[item][key];
+  assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/ITEM_ID_NATIVE_SHA/);
+ }
+ ({r,m}=make());m.items[item].rightsStatus='DOCUMENTED_LICENSE_APPROVED';
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/ITEM_ID_NATIVE_SHA/);
+ ({r,m}=make());r.licenseEvidenceSha256='a'.repeat(64);
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
+ ({r,m}=make());r.rightsHolderLicense='DOCUMENTED_SCOPE_LICENSE';
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
+});
+
+test('ACT397 exact eligible2 draft is versioned metadata only, and cannot authorize publication',()=>{
+ const m=prepareSwitch1253ItemImageManifest();
+ assert.deepEqual(Object.keys(m.items),['40000047','40006096']);
+ assert.equal(m.publication.gate,'MEDIA_PUBLIC_PREPARED_OFF');
+ assert.equal(m.publication.rightsHolderLicense,'UNKNOWN');
+ assert.equal(m.publication.operatorReceiptSha256,null);
+ assert.equal(m.publication.receivingContact,'NOT_RUN');
+ assert.deepEqual(SWITCH1253_PREPARED_WEBP_SIZES,{'40000047':19064,'40006096':29314});
+ assert.equal(m.items['40000047'].originalNativeStreamSha256,'b0352f4fde178c423dbfa0f02c1f3f6fbfdb24bd4edf2603b67ce2f74485a68c');
+ assert.equal(m.items['40000047'].sourcePngSha256,'c156d4e1a32de6e61a851704349f17333098bab39f20ace06f56a7ecf591cc26');
+ assert.equal(m.items['40000047'].webpSha256,'b3d130ebf054038655970ed6b9a963b387b2c82be4a1658c2835775ac61d1f54');
+ assert.equal(m.items['40006096'].webpSha256,'4d2cbdf8cac7ad46ee5f7baa112ae5af34d2fc05de271db1a49d98d003a03858');
+ for(const id of Object.keys(m.items)){
+  assert.equal(m.items[id].publicationDecision,'NOT_RUN');
+  assert.equal(m.items[id].rightsStatus,'UNKNOWN');
+ }
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m,approvedRelease()),/MANIFEST_PUBLICATION_UNVERIFIED/);
+ m.items['40000047'].webpSha256='f'.repeat(64);
+ assert.equal(prepareSwitch1253ItemImageManifest().items['40000047'].webpSha256,SWITCH1253_NATIVE_PINS['40000047'].webpSha256);
+});
+test('synthetic operator fixture validates both exact per-item raster pins and immutable URL paths, but no hidden or cross-pinned item',()=>{
+ const r=approvedRelease(),m=manifest(),id='40000047',p=SWITCH1253_NATIVE_PINS[id];
+ r.rightsHolderLicense='UNKNOWN';r.licenseEvidenceSha256=null;
+ m.publication.rightsHolderLicense='UNKNOWN';m.publication.licenseEvidenceSha256=null;
+ r.items[item].rightsStatus='UNKNOWN';m.items[item].rightsStatus='UNKNOWN';
+ r.items[id]={originalNativeStreamSha256:p.originalNativeStreamSha256,sourcePngSha256:p.sourcePngSha256,webpSha256:p.webpSha256,rightsStatus:'UNKNOWN',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',visibility:'RELEASED_PLAYER_FACING'};
+ m.items[id]={...p,pixelStatus:'SWITCH_RGBA_EXACT_VERIFIED',visibility:'RELEASED_PLAYER_FACING',rightsStatus:'UNKNOWN',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',assetStatus:'WEBP_LOSSLESS_VERIFIED_160'};
+ const good=validateSwitch1253ItemImageCatalog(m,r);
+ assert.equal(good.count,2);
+ for(const k of [id,item]){
+  const p=SWITCH1253_NATIVE_PINS[k];
+  assert.equal(scopedSwitch1253ItemImageHref('/web',k,good),'/web/ddv/item-images/'+SWITCH1253_ITEM_IMAGE_VARIANT+'/'+p.originalNativeStreamSha256.slice(0,2)+'/'+p.originalNativeStreamSha256+'-'+p.sourcePngSha256+'-'+p.webpSha256+'.webp');
+ }
+ assert.equal(scopedSwitch1253ItemImageHref('/web','40002422',good),null);
+ for(const change of [
+  x=>{x.items[id].rasterStatus=pin.rasterStatus;},
+  x=>{x.items[id].webpSha256=pin.webpSha256;},
+  x=>{x.items[id].sourcePngSha256=pin.sourcePngSha256;},
+  x=>{x.items[id].originalNativeStreamSha256=pin.originalNativeStreamSha256;},
+  x=>{x.items[id].visibility='HIDDEN';},
+  x=>{x.items[id].publicationDecision='NOT_RUN';},
+  x=>{x.items[id].url='https://example.invalid/a.webp';},
+  x=>{x.items['40002422']={...x.items[id]};}
+ ]){
+  const x=structuredClone(m);change(x);
+  assert.throws(()=>validateSwitch1253ItemImageCatalog(x,r),/ITEM_ID_NATIVE_SHA/);
+ }
+ const hidden=structuredClone(m),hiddenReview=structuredClone(r);
+ hidden.items['40002422']={...m.items[id]};
+ hiddenReview.items['40002422']={...r.items[id]};
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(hidden,hiddenReview),/ITEM_ID_NATIVE_SHA/);
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(m),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
+ // Partial rollout allowed: one eligible item may be removed independently.
+ delete m.items[id];delete r.items[id];
+ const one=validateSwitch1253ItemImageCatalog(m,r);
+ assert.equal(one.count,1);
+ assert.equal(scopedSwitch1253ItemImageHref('/web',id,one),null);
+});
+
+test('mutable manifest revalidates with no-store; stale open catalog clears and one withdrawn item cannot render',async()=>{
+ let now=1000,states=[],calls=[],reply=manifest();
+ const review=approvedRelease(),controller=createSwitch1253ManifestController(review,s=>states.push(s),()=>now);
+ const fetcher=async(url,init)=>{calls.push({url,init});return new Response(JSON.stringify(reply),{headers:{'content-type':'application/json'}})};
+ const a=await controller.load('/web',fetcher);
+ assert.equal(a.count,1);assert.equal(calls.length,1);
+ assert.equal(calls[0].init.cache,'no-store');assert.equal(calls[0].init.credentials,'omit');assert.equal(calls[0].init.redirect,'error');
+ assert.equal(await controller.load('/web',fetcher),a);
+ now+=SWITCH1253_MANIFEST_REFRESH_MS;
+ reply={...manifest(),items:{}};
+ const b=controller.load('/web',fetcher);
+ assert.equal(states.at(-1).catalog,null,'old catalog clears before async refresh');
+ assert.equal(await b,null);assert.equal(states.at(-1).catalog,null);assert.equal(calls.length,2);
+ reply=manifest();assert.equal((await controller.load('/web',fetcher)).count,1);
+ const bad=async()=>new Response(JSON.stringify(reply),{headers:{'content-type':'text/html'}});
+ assert.equal(await controller.load('/web',bad,true),null);assert.equal(states.at(-1).catalog,null);
+ controller.clear();
+});
+test('refresh cancels on hidden/dispose, no stale delayed response resurrection or old catalog retention',async()=>{
+ const review=approvedRelease(),states=[],controller=createSwitch1253ManifestController(review,s=>states.push(s));
+ let resolveOld;
+ const old=controller.load('/web',()=>new Promise(resolve=>{resolveOld=resolve}));
+ controller.clear('DOCUMENT_NOT_VISIBLE');
+ assert.equal(await old,null);
+ const good=await controller.load('/web',async()=>new Response(JSON.stringify(manifest()),{headers:{'content-type':'application/json'}}));
+ assert.equal(good.count,1);const before=states.length;
+ resolveOld(new Response(JSON.stringify(manifest()),{headers:{'content-type':'application/json'}}));
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(states.length,before,'cancelled old manifest cannot republish');
+ const win=new EventTarget(),doc=new EventTarget();let tick=null;
+ doc.visibilityState='visible';win.setInterval=(f,ms)=>{assert.equal(ms,SWITCH1253_MANIFEST_REFRESH_MS);tick=f;return 1};win.clearInterval=id=>{assert.equal(id,1);tick=null};
+ const calls=[];const fake={load:(...args)=>{calls.push(['load',args[0],args[2]]);return Promise.resolve(null)},clear:reason=>calls.push(['clear',reason])};
+ const detach=attachSwitch1253ManifestLifecycle(fake,'/web',win,doc,()=>{});
+ win.dispatchEvent(new Event('focus'));tick();doc.visibilityState='hidden';doc.dispatchEvent(new Event('visibilitychange'));
+ win.dispatchEvent(new Event('pagehide'));doc.visibilityState='visible';win.dispatchEvent(new Event('pageshow'));
+ detach();const n=calls.length;win.dispatchEvent(new Event('focus'));doc.dispatchEvent(new Event('visibilitychange'));
+ assert.deepEqual(calls,[['load','/web',true],['load','/web',true],['load','/web',true],['clear','DOCUMENT_NOT_VISIBLE'],['clear','DOCUMENT_NOT_VISIBLE'],['load','/web',true],['clear','NO_VISIBLE_CONSUMER']]);
+ assert.equal(calls.length,n);assert.equal(tick,null);
+ assert.match(readFileSync(new URL('../src/lib/ui/ItemThumb.svelte',import.meta.url),'utf8'),/onMount\(\(\) => retainSwitch1253PublicItemImageSource\(base\)\)/);
+});
+test('eligible two manifest refresh removes only withdrawn row; same-BID survivor stays available',async()=>{
+ const r=approvedRelease(),m=manifest(),id='40000047',p=SWITCH1253_NATIVE_PINS[id];
+ r.items[id]={originalNativeStreamSha256:p.originalNativeStreamSha256,sourcePngSha256:p.sourcePngSha256,webpSha256:p.webpSha256,rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',visibility:'RELEASED_PLAYER_FACING'};
+ m.items[id]={...p,pixelStatus:'SWITCH_RGBA_EXACT_VERIFIED',visibility:'RELEASED_PLAYER_FACING',rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',assetStatus:'WEBP_LOSSLESS_VERIFIED_160'};
+ let raw=m;const states=[],c=createSwitch1253ManifestController(r,v=>states.push(v));
+ const fetcher=async()=>new Response(JSON.stringify(raw),{headers:{'content-type':'application/json'}});
+ assert.equal((await c.load('/web',fetcher)).count,2);
+ raw=structuredClone(m);delete raw.items[id];
+ assert.equal((await c.load('/web',fetcher,true)).count,1);
+ assert.equal(scopedSwitch1253ItemImageHref('/web',id,states.at(-1).catalog),null);
+ assert.ok(scopedSwitch1253ItemImageHref('/web',item,states.at(-1).catalog));
+ c.clear();
 });

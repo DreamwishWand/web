@@ -1,0 +1,92 @@
+name: 01A stable protected read-only release loader (no deploy)
+on:
+  pull_request:
+    paths:
+      - 'src/lib/ddv/core/save/product-rust-wasm-*loader.mjs'
+      - 'src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs'
+      - 'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs'
+      - 'scripts/readonly-release/**'
+      - 'tests/protected-readonly-release.test.mjs'
+      - 'tests/readonly-release/**'
+      - '.github/workflows/01a-stable-readonly-release-loader.yml'
+      - '.github/workflows/pages.yml'
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  fixed-signed-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Local source boundary and immutable identity
+        run: node --test tests/protected-readonly-release.test.mjs
+      - name: Reuse exact already signed protected Pages artifact (no new upload)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          # Select the latest successful protected Pages run from trusted GitHub
+          # metadata, never from a fetched manifest. Capture its immutable run/head.
+          runs="$(gh api 'repos/DreamwishWand/web/actions/workflows/pages.yml/runs?branch=main&status=success&per_page=10')"
+          selected="$(jq -cer '[.workflow_runs[] | select(.head_branch=="main" and .head_repository.full_name=="DreamwishWand/web" and .head_repository.id==1371485649 and .conclusion=="success" and (.event=="push" or .event=="workflow_dispatch"))][0]' <<< "$runs")"
+          run="$(jq -er '.id' <<< "$selected")"
+          source="$(jq -er '.head_sha' <<< "$selected")"
+          [[ "$run" =~ ^[0-9]+$ && "$source" =~ ^[0-9a-f]{40}$ ]]
+          echo "R22_FIXED_TEST_RELEASE_RUN=$run SOURCE=$source"
+          mkdir -p "$dir/site/worker-wasm"
+          if gh api "repos/DreamwishWand/web/actions/runs/$run/artifacts" | jq -e '.artifacts[] | select(.name=="github-pages" and .expired==false)' >/dev/null; then
+            gh run download "$run" --repo DreamwishWand/web --name github-pages --dir "$dir"
+            archive="$(find "$dir" -maxdepth 1 -type f -name '*.tar*' -print -quit)"
+            test -n "$archive"
+            tar -xf "$archive" -C "$dir/site"
+          else
+            # A Pages artifact expires. The existing authorized HTTPS release
+            # remains usable only if its three exact bytes match the selected
+            # signed protected source. Any deployment race fails closed.
+            for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+              code="$(curl --silent --show-error --fail --max-time 40 --max-redirs 0 --proto '=https' -o "$dir/site/worker-wasm/$name" -w '%{http_code}' "https://dreamwishwand.github.io/web/worker-wasm/$name")"
+              test "$code" = 200
+            done
+          fi
+          test -s "$dir/site/worker-wasm/manifest.json"
+          # Reuse actual historical Sigstore bundles, then exercise the same
+          # offline-bundle verification path the protected Pages sealer uses.
+          mkdir "$dir/bundles"
+          for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+            (cd "$dir/bundles"; gh attestation download "$dir/site/worker-wasm/$name" --repo DreamwishWand/web)
+          done
+          cat "$dir/bundles/"*.jsonl > "$dir/signed-subjects.jsonl"
+          test -s "$dir/signed-subjects.jsonl"
+          node scripts/readonly-release/seal.mjs verify-only "$source" "$dir/site/worker-wasm" "$dir/signed-subjects.jsonl"
+          # Valid JSON with unchanged internal asset digests is not signed:
+          # exact signed original bundle must reject a changed manifest byte.
+          cp -a "$dir/site/worker-wasm" "$dir/forged"
+          printf '\n' >> "$dir/forged/manifest.json"
+          if node scripts/readonly-release/seal.mjs verify-only "$source" "$dir/forged" "$dir/signed-subjects.jsonl" >"$dir/forged.log" 2>&1; then
+            echo 'FORGED_MANIFEST_SIGNATURE_FALSE_ACCEPT'; exit 1
+          fi
+          grep -F 'R22_RELEASE_SEAL_SIGNATURE_VERIFICATION_DENIED' "$dir/forged.log"
+          echo 'R22_SELF_PINNED_UNSIGNED_MANIFEST_DENIED'
+          if node scripts/readonly-release/seal.mjs seal >"$dir/seal.log" 2>&1; then
+            echo 'PR_CONTEXT_PRODUCTION_ANCHOR_FALSE_ACCEPT'; exit 1
+          fi
+          grep -F 'R22_RELEASE_SEAL_PROTECTED_PAGES_CONTEXT_REQUIRED' "$dir/seal.log"
+          echo 'R22_PR_CONTEXT_CANNOT_SEAL_PRODUCTION_ANCHOR'
+          echo "R22_HISTORICAL_ASSET_DIR=$dir/site/worker-wasm" >> "$GITHUB_ENV"
+          echo "R22_HISTORICAL_SOURCE_HEAD=$source" >> "$GITHUB_ENV"
+      - name: Real Chrome isolated HTTPS Worker (test-only embedded origin and historical signed assets)
+        run: node tests/readonly-release/smoke.mjs "$R22_HISTORICAL_ASSET_DIR" "$R22_HISTORICAL_SOURCE_HEAD"
+      - name: No anchor minted in PR, no Reader or Writer flag
+        run: |
+          grep -Fx 'export const PROTECTED_READONLY_RELEASE_ANCHOR=null;' src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs
+          test -z "$(git diff --name-only)"
+          grep -Fq 'PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts

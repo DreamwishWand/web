@@ -58,13 +58,87 @@ fn page_count(session:&ProductSession,scope:WorkerEnvelope,domain:IndexedDomain)
     }
     denied("NATIVE_INDEX_PAGE_BOUND");
 }
+fn hex_bytes(b:&[u8])->String{b.iter().map(|x|format!("{x:02x}")).collect()}
+fn private_output_path(raw:&str)->std::path::PathBuf{
+    use std::{path::Path,fs};
+    let p=Path::new(raw);
+    if !p.is_absolute()||p.file_name().is_none(){denied("PRIVATE_OUTPUT_ABSOLUTE_REQUIRED")}
+    let parent=fs::canonicalize(p.parent().unwrap_or_else(||denied("PRIVATE_OUTPUT_PARENT")))
+        .unwrap_or_else(|_|denied("PRIVATE_OUTPUT_PARENT"));
+    let meta=fs::metadata(&parent).unwrap_or_else(|_|denied("PRIVATE_OUTPUT_PARENT"));
+    if !meta.is_dir(){denied("PRIVATE_OUTPUT_PARENT")}
+    #[cfg(unix)]{use std::os::unix::fs::PermissionsExt;
+        if meta.permissions().mode()&0o077!=0{denied("PRIVATE_OUTPUT_DIRECTORY_PERMISSIONS")}}
+    let out=parent.join(p.file_name().unwrap());
+    if fs::symlink_metadata(&out).is_ok(){denied("PRIVATE_OUTPUT_ALREADY_EXISTS")}
+    out
+}
+fn write_private_receipt(path:&std::path::Path,v:&serde_json::Value){
+    use std::{fs::{self,OpenOptions},io::Write};
+    let bytes=serde_json::to_vec(v).unwrap_or_else(|_|denied("PRIVATE_RECEIPT_ENCODE"));
+    let mut opts=OpenOptions::new();opts.write(true).create_new(true);
+    #[cfg(unix)]{use std::os::unix::fs::OpenOptionsExt;opts.mode(0o600);}
+    let mut out=opts.open(path).unwrap_or_else(|_|denied("PRIVATE_OUTPUT_CREATE_NEW"));
+    if out.write_all(&bytes).and_then(|_|out.sync_all()).is_err(){
+        drop(out);let _=fs::remove_file(path);denied("PRIVATE_OUTPUT_WRITE");
+    }
+}
+// New dependency transport uses the independently accepted ACT407 Linux
+// pinned-directory approach. Legacy V1 modes retain their existing contract.
+struct PinnedPrivateOutput{path:std::path::PathBuf,_dir:std::fs::File}
+#[cfg(target_os="linux")]
+fn pinned_private_output(raw:&str)->PinnedPrivateOutput{
+    use std::{fs,path::{Path,PathBuf},os::unix::{fs::{MetadataExt,PermissionsExt},io::AsRawFd}};
+    let p=Path::new(raw);
+    if !p.is_absolute()||p.file_name().is_none(){denied("PRIVATE_OUTPUT_ABSOLUTE_REQUIRED")}
+    let real=fs::canonicalize(p.parent().unwrap_or_else(||denied("PRIVATE_OUTPUT_PARENT")))
+        .unwrap_or_else(|_|denied("PRIVATE_OUTPUT_PARENT"));
+    let meta=fs::metadata(&real).unwrap_or_else(|_|denied("PRIVATE_OUTPUT_PARENT"));
+    if !meta.is_dir()||meta.permissions().mode()&0o077!=0{denied("PRIVATE_OUTPUT_DIRECTORY_PERMISSIONS")}
+    let dir=fs::File::open(&real).unwrap_or_else(|_|denied("PRIVATE_OUTPUT_PARENT_OPEN"));
+    let actual=dir.metadata().unwrap_or_else(|_|denied("PRIVATE_OUTPUT_PARENT"));
+    if !actual.is_dir()||actual.dev()!=meta.dev()||actual.ino()!=meta.ino()||
+       actual.permissions().mode()&0o077!=0{denied("PRIVATE_OUTPUT_DIRECTORY_CHANGED")}
+    let anchor=PathBuf::from(format!("/proc/self/fd/{}",dir.as_raw_fd()));
+    if fs::read_link(&anchor).ok().as_ref()!=Some(&real){denied("PRIVATE_OUTPUT_DIRECTORY_CHANGED")}
+    let out=anchor.join(p.file_name().unwrap());
+    if fs::symlink_metadata(&out).is_ok(){denied("PRIVATE_OUTPUT_ALREADY_EXISTS")}
+    PinnedPrivateOutput{path:out,_dir:dir}
+}
+#[cfg(not(target_os="linux"))]
+fn pinned_private_output(_raw:&str)->PinnedPrivateOutput{denied("PRIVATE_OUTPUT_LINUX_ONLY")}
+fn selector_id(s:&str)->i32{
+    let n=s.parse::<i32>().unwrap_or_else(|_|denied("CHARACTER_SKIN_SELECTOR_ID"));
+    if n<=0||n.to_string()!=s{denied("CHARACTER_SKIN_SELECTOR_ID");}
+    n
+}
+fn collection_selector(s:&str,major:i32)->i32{
+    let n=s.parse::<i32>().unwrap_or_else(|_|denied("COLLECTION_SELECTOR_ID"));
+    if n<=0||n.to_string()!=s||n/10_000_000!=major{denied("COLLECTION_SELECTOR_ID")}
+    n
+}
+fn collection_group_index(s:&str)->usize{
+    let n=s.parse::<usize>().unwrap_or_else(|_|denied("COLLECTION_GROUP_SELECTOR"));
+    if n>=257||n.to_string()!=s{denied("COLLECTION_GROUP_SELECTOR")}
+    n
+}
 fn run(){
     // The accepted no-argument V1 path remains byte-for-byte behaviorally
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
-    let native_slice=match argv.as_slice(){
-      []=>false,
-      [flag] if flag=="--native-area-grid-slice-only"=>true,
+    let (native_slice,avatar_output,skin_output,dependency_output,skin_dependency_output,collection_output)=match argv.as_slice(){
+      []=>(false,None,None,None,None,None),
+      [flag] if flag=="--native-area-grid-slice-only"=>(true,None,None,None,None,None),
+      [flag,out,path] if flag=="--active-avatar-receipt-only"&&out=="--out"=>
+        (false,Some(private_output_path(path)),None,None,None,None),
+      [flag,out,path] if flag=="--avatar-dependencies-receipt-only"&&out=="--out"=>
+        (false,None,None,Some(private_output_path(path)),None,None),
+      [flag,c,k,out,path] if flag=="--character-skin-receipt-only"&&out=="--out"=>
+        (false,None,Some((selector_id(c),selector_id(k),private_output_path(path))),None,None,None),
+      [flag,c,k,f,out,path] if flag=="--character-skin-dependencies-receipt-only"&&out=="--out"=>
+        (false,None,None,None,Some((selector_id(c),selector_id(k),selector_id(f),pinned_private_output(path))),None),
+      [flag,d,g,t,out,path] if flag=="--collection-group-receipt-only"&&out=="--out"=>
+        (false,None,None,None,None,Some((collection_selector(d,212),collection_group_index(g),collection_selector(t,3),pinned_private_output(path)))),
       _=>denied("UNTRUSTED_CLI_ARGS"),
     };
     if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION{
@@ -112,6 +186,88 @@ fn run(){
       expected_decoded_sha256:receipt.decoded_sha256,
       action:WorkerAction::ReadDomain
     };
+    if let Some((definition,group,target,path))=collection_output{
+        let witness=session.read_private_collection_group(scope,definition,group,target)
+            .unwrap_or_else(|_|denied("COLLECTION_GROUP_READ_DENIED"));
+        let mut out=witness.to_private_receipt_json();
+        if out["contract"]!="wand.native.private.collection-group-readset@1"||
+           out["fullVersion"]!=EXACT_STEAM_VERSION||out["schema"]!=626||
+           out["sessionId"]!=hex_bytes(&receipt.session_id)||
+           out["decodedSha256"]!=hex_bytes(&receipt.decoded_sha256)||
+           out["revision"]!=receipt.revision||out["indexGeneration"]!=receipt.index_generation||
+           out["selectedGroup"]["definitionId"]!=definition||
+           out["selectedGroup"]["groupPosition"]!=group||
+           out["targetItemId"]!=target||
+           out["fullDocumentRustValidated"]!=true||
+           ["packagedMembershipVerified","effectiveEligibilityVerified","ownershipVerified","rightsVerified",
+            "subscriberClosureVerified","nativeV3Verified","productReadAccepted","writerAuthorized",
+            "editedCopyAuthorized","applyAuthorized"].iter().any(|k|out[*k]!=false)||
+           session.receipt().ok()!=Some(receipt){denied("COLLECTION_GROUP_RECEIPT_SCOPE_DENIED");}
+        out["originalSha256SuppliedExternally"]=serde_json::json!(hex_bytes(&original_sha));
+        out["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+        out["cloudUploadPerformed"]=serde_json::json!(false);
+        out["originalModifiedByHarness"]=serde_json::json!(false);
+        session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
+        write_private_receipt(&path.path,&out);
+        eprintln!("LOCAL_RUST_V1_PRIVATE_COLLECTION_GROUP_RECEIPT_WRITTEN");
+        return;
+    }
+    if let Some((character,skin,flag,path))=skin_dependency_output{
+        let witness=session.read_private_character_skin_dependencies(scope,character,skin,flag)
+            .unwrap_or_else(|_|denied("CHARACTER_SKIN_DEPENDENCIES_READ_DENIED"));
+        let mut out=witness.to_private_receipt_json();
+        out["originalSha256SuppliedExternally"]=serde_json::json!(hex_bytes(&original_sha));
+        out["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+        out["cloudUploadPerformed"]=serde_json::json!(false);
+        out["originalModifiedByHarness"]=serde_json::json!(false);
+        if session.receipt().ok()!=Some(receipt){denied("CHARACTER_SKIN_DEPENDENCIES_EPOCH_CHANGED");}
+        session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
+        write_private_receipt(&path.path,&out);
+        eprintln!("LOCAL_RUST_V1_PRIVATE_CHARACTER_SKIN_DEPENDENCIES_RECEIPT_WRITTEN");
+        return;
+    }
+    if let Some(path)=dependency_output{
+        let witness=session.read_private_avatar_dependencies(scope)
+            .unwrap_or_else(|_|denied("AVATAR_DEPENDENCIES_READ_DENIED"));
+        let mut out=witness.to_private_receipt_json();
+        out["originalSha256SuppliedExternally"]=serde_json::json!(hex_bytes(&original_sha));
+        out["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+        out["cloudUploadPerformed"]=serde_json::json!(false);
+        out["originalModifiedByHarness"]=serde_json::json!(false);
+        if session.receipt().ok()!=Some(receipt){denied("AVATAR_DEPENDENCIES_EPOCH_CHANGED");}
+        session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
+        write_private_receipt(&path,&out);
+        eprintln!("LOCAL_RUST_V1_PRIVATE_AVATAR_DEPENDENCIES_RECEIPT_WRITTEN");
+        return;
+    }
+    if let Some((character,skin,path))=skin_output{
+        let witness=session.read_private_character_skin(scope,character,skin)
+            .unwrap_or_else(|_|denied("CHARACTER_SKIN_READ_DENIED"));
+        let mut out=witness.to_private_receipt_json();
+        out["originalSha256SuppliedExternally"]=serde_json::json!(hex_bytes(&original_sha));
+        out["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+        out["cloudUploadPerformed"]=serde_json::json!(false);
+        out["originalModifiedByHarness"]=serde_json::json!(false);
+        if session.receipt().ok()!=Some(receipt){denied("CHARACTER_SKIN_EPOCH_CHANGED");}
+        session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
+        write_private_receipt(&path,&out);
+        eprintln!("LOCAL_RUST_V1_PRIVATE_CHARACTER_SKIN_RECEIPT_WRITTEN");
+        return;
+    }
+    if let Some(path)=avatar_output{
+        let witness=session.read_private_active_avatar(scope)
+            .unwrap_or_else(|_|denied("ACTIVE_AVATAR_READ_DENIED"));
+        let mut out=witness.to_private_receipt_json();
+        out["originalSha256SuppliedExternally"]=serde_json::json!(hex_bytes(&original_sha));
+        out["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+        out["cloudUploadPerformed"]=serde_json::json!(false);
+        out["originalModifiedByHarness"]=serde_json::json!(false);
+        if session.receipt().ok()!=Some(receipt){denied("ACTIVE_AVATAR_EPOCH_CHANGED");}
+        session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
+        write_private_receipt(&path,&out);
+        eprintln!("LOCAL_RUST_V1_PRIVATE_AVATAR_RECEIPT_WRITTEN");
+        return;
+    }
     let player=page_count(&session,scope,IndexedDomain::Player);
     let world=page_count(&session,scope,IndexedDomain::World);
     let slice=if native_slice {
@@ -160,5 +316,23 @@ fn run(){
       });
     }
     println!("{}",out);
+}
+#[cfg(all(test,target_os="linux"))]
+#[test]
+fn skin_dependency_pinned_output_does_not_follow_replaced_parent(){
+    use std::{fs,path::PathBuf,os::unix::fs::{DirBuilderExt,symlink},time::{SystemTime,UNIX_EPOCH}};
+    let root=std::env::temp_dir().join(format!("wand-skin-pinned-{}-{}",std::process::id(),
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+    fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
+    struct Cleanup(PathBuf);impl Drop for Cleanup{fn drop(&mut self){let _=fs::remove_dir_all(&self.0);}}
+    let _cleanup=Cleanup(root.clone());
+    let parent=root.join("parent");let moved=root.join("moved");let other=root.join("other");
+    for p in [&parent,&other]{fs::DirBuilder::new().mode(0o700).create(p).unwrap();}
+    let out=pinned_private_output(parent.join("receipt.json").to_str().unwrap());
+    fs::rename(&parent,&moved).unwrap();symlink(&other,&parent).unwrap();
+    let v=serde_json::json!({"writerAuthorized":false});
+    write_private_receipt(&out.path,&v);
+    assert!(!other.join("receipt.json").exists());
+    assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(moved.join("receipt.json")).unwrap()).unwrap(),v);
 }
 fn main(){run()}

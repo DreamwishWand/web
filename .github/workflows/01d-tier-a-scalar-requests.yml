@@ -1,0 +1,36 @@
+name: "01D CORE Tier A scalar request focused (source-only, no game data)"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/lib/ddv/core/items/tier-a-edit-requests.mjs"
+      - "tests/ddv-core-tier-a-edit-requests.test.mjs"
+      - ".github/workflows/01d-tier-a-scalar-requests.yml"
+  push:
+    branches:
+      - "core/01d-tier-a-typed-amount626-contract-20261111"
+permissions:
+  contents: read
+jobs:
+  focused-tier-a:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reject private data injection into CI environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env | grep -Eq '^(DDV_PRIVATE_SAVE_PATH|WAND_PRIVATE_MEDIA_PATH|WEP_PRIVATE_P1G_PATH|STEAM_GAME_ROOT)='; then
+            echo PRIVATE_INPUT_FORBIDDEN
+            exit 1
+          fi
+      - name: Fixed-scope synthetic typed request positives and negative boundaries
+        run: node --test tests/ddv-core-tier-a-edit-requests.test.mjs
+      - name: Product Writer stays disabled, genuine Save V2/Native V3 not inferred
+        run: echo '01D_TIER_A_TYPED_CANDIDATE_ONLY_NO_WRITER_OFF_NO_PRIVATE_ORIGINAL'

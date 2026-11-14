@@ -92,7 +92,8 @@ const script=String.raw`
  backup.click();
  await wait(()=>document.querySelector('[data-backup-verified]'),'BACKUP_VALID');
  const field=await wait(()=>document.querySelector('#dev-amount-target'),'VERIFIED_ONLY');
- need(field.options.length===1,'TRUSTED_TARGETS_ONLY');
+ need(field.options.length===2,'TRUSTED_TARGETS_ONLY');
+ need(field.options[1].textContent.includes('40000001'),'FURNITURE_ZERO_VISIBLE');
  const newAmount=document.querySelector('#dev-amount-new');
  newAmount.value='49';newAmount.dispatchEvent(new Event('input',{bubbles:true}));
  const stage=await wait(()=>document.querySelector('[data-dev-stage]:not([disabled])'),'CAS_READY');
@@ -110,6 +111,27 @@ const script=String.raw`
  close.click();
  await wait(()=>!document.querySelector('[data-dev-edited-copy]'),'CLOSE_REVOKED');
  need(document.activeElement===summary,'FOCUS_RESTORED');
+ // Same UI, fresh explicit selection: numeric zero InventoryID is a valid
+ // exact Furniture descriptor, not a falsey/missing target.
+ chooser.files=data.files;chooser.dispatchEvent(new Event('change',{bubbles:true}));
+ sha.value='a'.repeat(64);sha.dispatchEvent(new Event('input',{bubbles:true}));
+ ck.checked=true;ck.dispatchEvent(new Event('change',{bubbles:true}));
+ (await wait(()=>document.querySelector('[data-dev-open]:not([disabled])'),'ZERO_OPEN_READY')).click();
+ (await wait(()=>document.querySelector('[data-dev-backup]:not([disabled])'),'ZERO_BACKUP_READY')).click();
+ const second=await wait(()=>document.querySelector('#dev-amount-target'),'ZERO_TARGET');
+ second.selectedIndex=1;second.dispatchEvent(new Event('change',{bubbles:true}));
+ const amount=document.querySelector('#dev-amount-new');
+ amount.value='6';amount.dispatchEvent(new Event('input',{bubbles:true}));
+ (await wait(()=>document.querySelector('[data-dev-stage]:not([disabled])'),'ZERO_CAS_READY')).click();
+ await wait(()=>document.querySelector('[data-dev-preview]'),'ZERO_STAGED');
+ need(document.querySelector('[data-dev-preview]').textContent.includes('7'),'ZERO_OLD');
+ need(document.querySelector('[data-dev-preview]').textContent.includes('6'),'ZERO_NEW');
+ (await wait(()=>document.querySelector('[data-dev-undo]'),'ZERO_UNDO')).click();
+ (await wait(()=>document.querySelector('[data-dev-redo]'),'ZERO_REDO')).click();
+ (await wait(()=>document.querySelector('[data-dev-export]'),'ZERO_EXPORT')).click();
+ await wait(()=>document.querySelector('[data-dev-edited-copy]'),'ZERO_COPY');
+ (await wait(()=>document.querySelector('[data-dev-close]'),'ZERO_CLOSE')).click();
+ await wait(()=>!document.querySelector('[data-dev-edited-copy]'),'ZERO_CLOSE_REVOKED');
  document.documentElement.style.zoom='1';
  return {pass:true,at100,at200,backupBeforeStage:true,casUndoRedo:true,
   editedCopySeparate:true,focusRestored:true,productWriter:false,

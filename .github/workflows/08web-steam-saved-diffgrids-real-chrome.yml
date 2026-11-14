@@ -1,14 +1,17 @@
-name: 08 WEB PR901 signed public Rust WASM synthetic Chrome Consumer QA (Owner OFF)
+name: 08 WEB protected signed Rust preformal read-only Consumer
 on:
   pull_request:
     paths:
       - 'src/lib/wep/SteamSavedDiffGridsReadonly.svelte'
       - 'src/lib/wep/steam-saved-diffgrids*'
       - 'src/routes/editor/timing/+page.svelte'
+      - 'src/routes/editor/steam-reader/+page.svelte'
       - 'tests/web-steam-saved-diffgrids*'
       - '.github/workflows/08web-steam-saved-diffgrids-real-chrome.yml'
 permissions:
   contents: read
+  actions: read
+  attestations: read
 jobs:
   signed-public-rust-chrome-consumer:
     runs-on: ubuntu-24.04
@@ -17,6 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -26,63 +30,94 @@ jobs:
           set -euo pipefail
           test -z "$(git ls-files static/worker-wasm tests/stage-f/fixtures)"
           grep -Fx 'const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
+          grep -Fx 'const PREFORMAL_STEAM_READER_ENABLED=true;' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
           ! grep -F 'await import(/* @vite-ignore */ path.href)' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
           test ! -e src/lib/ddv/core/save/product-wasm-distribution-flag-on.js
-      - name: Download and independently verify ACTUAL released HTTPS JS, WASM, Manifest
+      - name: Reuse exact already signed protected Pages artifact (no new upload)
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          # Select the latest successful protected Pages run from trusted GitHub
+          # metadata, never from a fetched manifest. Capture its immutable run/head.
+          runs="$(gh api 'repos/DreamwishWand/web/actions/workflows/pages.yml/runs?branch=main&status=success&per_page=10')"
+          selected="$(jq -cer '[.workflow_runs[] | select(.head_branch=="main" and .head_repository.full_name=="DreamwishWand/web" and .conclusion=="success" and (.event=="push" or .event=="workflow_dispatch"))][0]' <<< "$runs")"
+          run="$(jq -er '.id' <<< "$selected")"
+          source="$(jq -er '.head_sha' <<< "$selected")"
+          [[ "$run" =~ ^[0-9]+$ && "$source" =~ ^[0-9a-f]{40}$ ]]
+          echo "R22_FIXED_TEST_RELEASE_RUN=$run SOURCE=$source"
+          mkdir -p "$dir/site/worker-wasm"
+          if gh api "repos/DreamwishWand/web/actions/runs/$run/artifacts" | jq -e '.artifacts[] | select(.name=="github-pages" and .expired==false)' >/dev/null; then
+            gh run download "$run" --repo DreamwishWand/web --name github-pages --dir "$dir"
+            archive="$(find "$dir" -maxdepth 1 -type f -name '*.tar*' -print -quit)"
+            test -n "$archive"
+            tar -xf "$archive" -C "$dir/site"
+          else
+            # A Pages artifact expires. The existing authorized HTTPS release
+            # remains usable only if its three exact bytes match the selected
+            # signed protected source. Any deployment race fails closed.
+            for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+              code="$(curl --silent --show-error --fail --max-time 40 --max-redirs 0 --proto '=https' -o "$dir/site/worker-wasm/$name" -w '%{http_code}' "https://dreamwishwand.github.io/web/worker-wasm/$name")"
+              test "$code" = 200
+            done
+          fi
+          test -s "$dir/site/worker-wasm/manifest.json"
+          # Reuse actual historical Sigstore bundles, then exercise the same
+          # offline-bundle verification path the protected Pages sealer uses.
+          mkdir "$dir/bundles"
+          for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+            (cd "$dir/bundles"; gh attestation download "$dir/site/worker-wasm/$name" --repo DreamwishWand/web)
+          done
+          cat "$dir/bundles/"*.jsonl > "$dir/signed-subjects.jsonl"
+          test -s "$dir/signed-subjects.jsonl"
+          node scripts/readonly-release/seal.mjs verify-only "$source" "$dir/site/worker-wasm" "$dir/signed-subjects.jsonl"
           mkdir -p static/worker-wasm
-          node --input-type=module <<'NODE'
-          import {writeFile} from 'node:fs/promises';
-          import {createHash} from 'node:crypto';
-          const origin='https://dreamwishwand.github.io';
-          const names=[
-           ['manifest.json',1915,'9a0515d259163ab80ba070f15918dcba1e59c3d5726c8efaeb8934ec5e5f6b50','application/json'],
-           ['ddv_save_core.js',16904,'4704a19c6e2962583d03a0bf8e7d5bf5ad2a802fd664259117eff4b2bbcbac0d','text/javascript'],
-           ['ddv_save_core_bg.wasm',258719,'5383f76a7228493d720e1e2734a26738d1165f92cbcfae48f3e1df5c38b10207','application/wasm']
-          ];
-          for(const [name,size,sha,mime] of names){
-           const url=origin+'/web/worker-wasm/'+name;
-           let response;
-           for(let i=0;i<5;i++){
-             try{response=await fetch(url,{redirect:'error',cache:'no-store'});if(response.ok)break;}catch{}
-             await new Promise(r=>setTimeout(r,600));
-           }
-           if(response?.status!==200||response.redirected||response.url!==url)
-             throw Error('LIVE_RUST_WASM_ORIGIN_STATUS_DENIED_'+name);
-           const actualMime=response.headers.get('content-type')?.split(';')[0]?.trim();
-           if(actualMime!==mime&&!(mime==='text/javascript'&&actualMime==='application/javascript'))
-             throw Error('LIVE_RUST_WASM_MIME_DENIED_'+name);
-           const bytes=Buffer.from(await response.arrayBuffer());
-           if(bytes.length!==size||createHash('sha256').update(bytes).digest('hex')!==sha)
-             throw Error('LIVE_RUST_WASM_SHA_SIZE_DENIED_'+name);
-           await writeFile('static/worker-wasm/'+name,bytes,{flag:'wx'});
-          }
-          const obj=JSON.parse(await (await import('node:fs/promises')).readFile('static/worker-wasm/manifest.json','utf8'));
-          if(obj.source?.commit!=='ef0372a58b9619a442c65b31cecbb88c3cca0029'||
-             obj.abi?.writerAuthorized!==false||
-             obj.release?.productConsumerEnabled!==false)
-             throw Error('LIVE_RUST_WASM_PROTECTED_SOURCE_OR_ABI_DENIED');
-          console.log('08WEB_PUBLIC_HOSTED_TRIPLE_EXACT_SHA_MIME_SOURCE_ACCEPTED_TEST_ONLY');
-          NODE
+          cp "$dir/site/worker-wasm/"* static/worker-wasm/
+          echo "R22_HISTORICAL_SOURCE_HEAD=$source" >> "$GITHUB_ENV"
+          rm -rf "$dir"
       - name: Existing UI Source static validation and focused normal tests
         run: |
           npm ci --no-audit --no-fund
           npm run check
-          npm test
+          node --test tests/web-steam-saved-diffgrids-consumer.test.mjs
       - name: Generate PUBLIC synthetic encrypted P1G locally only
         run: |
           node tests/stage-f/generate-fixture.mjs
           test -s tests/stage-f/fixtures/synthetic626-diffgrids.p1g
           test -s tests/stage-f/fixtures/expected-diffgrids.json
           test -z "$(git ls-files tests/stage-f/fixtures)"
-      - name: QA-ONLY ephemeral opt-in (NEVER a product Source commit)
+      - name: Test-only anchor for verified signed bytes at isolated HTTPS origin
+        run: |
+          node --input-type=module <<'NODE'
+          import {writeFile,readFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          import {inspectReleasePins} from './scripts/readonly-release/seal.mjs';
+          import {readonlyReleaseIdentityText} from './src/lib/ddv/core/save/product-rust-wasm-release-loader.mjs';
+          const path='src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs';
+          if(!(await readFile(path,'utf8')).includes('PROTECTED_READONLY_RELEASE_ANCHOR=null;'))
+            throw Error('TEST_ANCHOR_SOURCE_NOT_NULL');
+          const pins=await inspectReleasePins('static/worker-wasm',process.env.R22_HISTORICAL_SOURCE_HEAD);
+          const a={contract:'wand.r22.protected-readonly-release@1',repository:'DreamwishWand/web',
+            signerWorkflow:'DreamwishWand/web/.github/workflows/pages.yml',sourceRef:'refs/heads/main',
+            origin:'https://127.0.0.1:19443',basePath:'/web',pins,attestationVerifiedAtBuild:true};
+          a.releaseId=createHash('sha256').update(readonlyReleaseIdentityText(a)).digest('hex');
+          await writeFile(path,'// TEST ONLY; verified historical signed assets, isolated origin.\nconst a='+JSON.stringify(a)+';Object.freeze(a.pins);export const PROTECTED_READONLY_RELEASE_ANCHOR=Object.freeze(a);\n');
+          console.log('08WEB_TEST_ONLY_RELEASE_ID',a.releaseId);
+          NODE
+      - name: Build exact preformal Source with test-origin verified anchor only
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run build
+          test -f build/editor/steam-reader/index.html
+          WAND_PREFORMAL_PRODUCTION_NEGATIVE=1 node tests/web-steam-saved-diffgrids-real-chrome.mjs
+      - name: QA-ONLY synthetic attestation (NEVER a product Source commit)
         run: |
           node --input-type=module <<'NODE'
           import {readFile,writeFile} from 'node:fs/promises';
           const edits=[
             ['src/lib/wep/steam-saved-diffgrids.consumer.worker.ts',[
-              ['const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;',
-               'const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=true;'],
               ['allowSyntheticFixture:false','allowSyntheticFixture:true']]],
             ['src/lib/wep/steam-saved-diffgrids-ui-client.mjs',[
               ["evidenceKind:'owner-observed-installed-steam-fullversion'",
@@ -97,7 +132,7 @@ jobs:
             }
             await writeFile(name,file);
           }
-          console.log('08WEB_QA_ONLY_EPHEMERAL_LOCAL_RUST_READER_ON_SYNTHETIC_NOT_COMMITTED');
+          console.log('08WEB_PREFORMAL_READER_SYNTHETIC_ATTESTATION_TEST_ONLY_NOT_COMMITTED');
           NODE
       - name: Build temporary local UI with signed real Rust byte assets
         env:
@@ -109,14 +144,18 @@ jobs:
           test -s build/worker-wasm/ddv_save_core.js
           test -s build/worker-wasm/ddv_save_core_bg.wasm
           test -f build/editor/timing/index.html
+          test -f build/editor/steam-reader/index.html
           command -v google-chrome
       - name: REAL installed Chrome actual Svelte UI manual P1G → signed Rust ProductSession
         run: node tests/web-steam-saved-diffgrids-real-chrome.mjs
-      - name: No runtime ON or original/private Save in Source or outputs
+      - name: Formal Reader and Writer OFF; no original/private Save in Source or outputs
         run: |
           set -euo pipefail
           test -z "$(git ls-files static/worker-wasm tests/stage-f/fixtures)"
           ! git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -F 'PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=true'
           git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -Fx 'const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;'
+          git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -Fx 'const PREFORMAL_STEAM_READER_ENABLED=true;'
+          git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -F 'allowSyntheticFixture:false'
           ! git show HEAD:src/lib/wep/steam-saved-diffgrids-ui-client.mjs | grep -F "evidenceKind:'ci-synthetic-fixture'"
-          echo '08WEB_SYNTHETIC_CHROME_TEST_ONLY_REAL_PUBLIC_RUST_ASSETS_PRODUCT_CONSUMER_OFF'
+          git show HEAD:src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs | grep -Fx 'export const PROTECTED_READONLY_RELEASE_ANCHOR=null;'
+          echo '08WEB_SYNTHETIC_CHROME_TEST_ONLY_REAL_PUBLIC_RUST_ASSETS_PREFORMAL_SCOPED_FORMAL_OFF'

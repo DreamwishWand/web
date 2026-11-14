@@ -61,6 +61,7 @@ function replyFile(req,res){
  const allowed=rel.startsWith('/tests/wasm-distribution/')||
    rel.startsWith('/tests/stage-f/')||
    ['/src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs',
+    '/src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',
     '/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
     '/src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs',
     '/src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs',

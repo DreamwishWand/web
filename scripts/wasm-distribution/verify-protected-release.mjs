@@ -8,6 +8,8 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {resolve,join} from 'node:path';
 
+import {ACTIVE_RELEASE_TUPLE,RELEASE_REPOSITORY_ID,manifestMatchesRelease,protectedPagesContextMatches} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+
 const root=resolve(import.meta.dirname,'../..');
 const fail=s=>{throw Error('R22_PROTECTED_RELEASE_'+s)};
 const sha=b=>createHash('sha256').update(b).digest('hex');
@@ -27,8 +29,24 @@ if(!/^[0-9a-f]{40}$/.test(expectedSource??'')||
 if(!['pull_request','push','workflow_dispatch'].includes(event))fail('EVENT_NOT_ALLOWED');
 if(event!=='pull_request'&&process.env.GITHUB_REF!=='refs/heads/main')
  fail('NOT_PROTECTED_MAIN_PUSH');
-if(event==='pull_request'&&process.env.WAND_PR_BASE_SHA!==
-   config.acceptedAncestorProtectedMain)fail('PR_BASE_NOT_FIXED_PROTECTED_MAIN');
+const tuple=ACTIVE_RELEASE_TUPLE;
+if(process.env.GITHUB_ACTIONS!=='true'||process.env.GITHUB_REPOSITORY_ID!==RELEASE_REPOSITORY_ID||
+ process.env.GITHUB_REPOSITORY!==tuple.repository)fail('REPOSITORY_IDENTITY_DENIED');
+const workflow=process.env.GITHUB_WORKFLOW_REF;
+const pages=workflow===tuple.signerWorkflow+'@'+tuple.sourceRef;
+const candidate=workflow===tuple.repository+'/.github/workflows/01a-protected-main-signed-wasm-release-off.yml@'+process.env.GITHUB_REF;
+if(pages){
+ if(!protectedPagesContextMatches(process.env,expectedSource,git('rev-parse','HEAD'))||
+    process.env.WAND_RELEASE_BASE_PATH!==tuple.basePath)fail('PROTECTED_PAGES_TUPLE_DENIED');
+}else if(!candidate)fail('RELEASE_WORKFLOW_DENIED');
+const prBase=process.env.WAND_PR_BASE_SHA;
+if(event==='pull_request'){
+ // A release maintenance PR must be based on the current protected main,
+ // not a stale reviewed ancestor or a caller-selected alternate base.
+ if(!/^[0-9a-f]{40}$/.test(prBase??'')||
+    git('rev-parse','refs/remotes/origin/main')!==prBase)
+  fail('PR_BASE_NOT_LIVE_PROTECTED_MAIN');
+}
 if(config.contract!=='wand.r22.protected-main-signed-wasm-release-inputs@1'||
  config.releasePermission!=='OWNER_APPROVED_20261111_THREE_READONLY_PUBLIC_ASSETS_ONLY'||
  config.publicReadonlyAssetsApproved!==true||
@@ -61,13 +79,19 @@ if(!pagesOriginal){
 try{
  git('merge-base','--is-ancestor',config.acceptedAncestorProtectedMain,expectedSource);
  if(event==='pull_request'){
-  // Accepted Rust Session must remain untouched by *this* release PR.
-  execFileSync('git',['diff','--quiet',config.acceptedAncestorProtectedMain,
+  // Preserve the historical approved ancestor AND prohibit any Rust
+  // Session delta in the release maintenance PR relative to its live base.
+  git('merge-base','--is-ancestor',config.acceptedAncestorProtectedMain,prBase);
+  git('merge-base','--is-ancestor',prBase,expectedSource);
+  execFileSync('git',['diff','--quiet',prBase,
    expectedSource,'--','crates/ddv-save-core/'],{cwd:root});
  }
 }catch{fail('ACCEPTED_RUST_ANCESTOR_CHANGED')}
+const approvedLock=await read('scripts/wasm-distribution/approved-Cargo.lock');
 const locked=await read('crates/ddv-save-core/Cargo.lock');
-if(sha(locked)!==config.approvedCargoLockSha256)
+if(process.env.WAND_APPROVED_RELEASE_LOCK!=='1'||
+   sha(approvedLock)!==config.approvedCargoLockSha256||
+   sha(locked)!==config.approvedCargoLockSha256||!locked.equals(approvedLock))
  fail('CARGO_LOCK_SHA_DRIFT_NEEDS_NEW_REVIEW');
 const rustc=cmd('rustc',['--version','--verbose']);
 if(!rustc.startsWith('rustc 1.99.1 '))fail('RUSTC_VERSION_DRIFT');
@@ -98,8 +122,9 @@ for(let i=0;i<files.length;i++){
 const manifest=JSON.parse(sourceBytes[2].toString('utf8'));
 if(manifest.contract!=='wand.r22.rust-wasm-source-provenance-candidate@1'||
  manifest.source?.commit!==expectedSource||
- manifest.source?.repository!=='DreamwishWand/web'||
+ !manifestMatchesRelease(manifest,tuple)||
  manifest.source?.cargoLockSha256!==sha(locked)||
+ manifest.source?.cargoLockOrigin!=='approved-repository-lock'||
  manifest.source?.wasmBindgen!=='0.2.105'||
  !manifest.source?.toolchain?.startsWith('rustc 1.99.1 ')||
  manifest.source?.profile!=='release'||

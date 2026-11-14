@@ -1,6 +1,7 @@
 // 01A CORE R22 – candidate source-pinned JS + WASM loader.
 // No product UI invokes this. This is NOT signature verification.
 // Actual production enablement requires separate authentic provenance/Owner QA.
+import {LEGACY_RELEASE_TUPLE,matchReleaseTuple,manifestMatchesRelease} from './product-rust-wasm-release-trust.mjs';
 const fail=code=>{throw Error('R22_WASM_CANDIDATE_'+code)};
 const hex64=/^[a-f0-9]{64}$/;
 const hex40=/^[a-f0-9]{40}$/;
@@ -10,6 +11,14 @@ const sha256=async bytes=>[...new Uint8Array(await crypto.subtle.digest('SHA-256
   .map(x=>x.toString(16).padStart(2,'0')).join('');
 const strictSize=(n,max)=>Number.isSafeInteger(n)&&n>0&&n<=max;
 const version='wand.r22.rust-wasm-source-provenance-candidate@1';
+// The protected release lock is the previously reviewed exact dependency set.
+// Historical synthetic candidates retain their generated-lock contract.
+const approvedCargoLockSha256='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
+function validCargoLockProvenance(source){
+ return source?.cargoLockOrigin==='cargo-generated-this-ci-job'||
+  (source?.cargoLockOrigin==='approved-repository-lock'&&
+   source.cargoLockSha256===approvedCargoLockSha256);
+}
 
 function baseRoute(basePath){
  if(basePath!==''&&basePath!=='/web')fail('UNSUPPORTED_BASE_PATH');
@@ -63,9 +72,20 @@ async function checkedFetch(url,length,digest,contentType,fetcher){
 export async function loadSourcePinnedRustWasmCandidate({
  basePath,trustedPins,qaCandidate=false,fetcher=fetch
 }={}){
- if(typeof document!=='undefined'||typeof self?.location==='undefined')
+ if(typeof document!=='undefined'||typeof globalThis.self?.location==='undefined')
    fail('WORKER_ONLY');
  if(qaCandidate!==true)fail('UNSIGNED_PRODUCT_DISTRIBUTION_OFF');
+ const loaded=await loadPinnedReadOnlyRustBytes({basePath,trustedPins,fetcher});
+ return Object.freeze({...loaded,signatureVerified:false,
+   productConsumerEnabled:false,nativeV3Verified:false,writerAuthorized:false});
+}
+
+// Shared byte/ABI pipeline ONLY. This receipt does not authenticate the pin
+// issuer and cannot authorize a product operation. The protected loader
+// obtains pins from a separate build-sealed module, never from this API's caller.
+export async function loadPinnedReadOnlyRustBytes({basePath,trustedPins,fetcher=fetch,releaseTuple=LEGACY_RELEASE_TUPLE}={}){
+ if(typeof document!=='undefined'||typeof globalThis.self?.location==='undefined')
+   fail('WORKER_ONLY');
  if(!exact(trustedPins,
   'contract,sourceHead,manifestSha256,manifestSizeBytes,jsSha256,wasmSha256,jsSizeBytes,wasmSizeBytes,sourceProvenanceOnly,verifiedSignature')||
   trustedPins.contract!=='wand.r22.candidate-pinned-digests@1'||
@@ -77,6 +97,8 @@ export async function loadSourcePinnedRustWasmCandidate({
   !strictSize(trustedPins.wasmSizeBytes,20*1024*1024)||
   trustedPins.sourceProvenanceOnly!==true||
   trustedPins.verifiedSignature!==false)fail('TRUSTED_SOURCE_PIN_MISSING');
+ const tuple=matchReleaseTuple(releaseTuple);
+ if(!tuple)fail('RELEASE_TUPLE_DENIED');
  const base=baseRoute(basePath);
  const urls=['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm']
    .map(name=>new URL(name,base));
@@ -91,14 +113,14 @@ export async function loadSourcePinnedRustWasmCandidate({
  try{manifest=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(mf))}
  catch{fail('MANIFEST_INVALID_JSON')}
  if(!manifest||manifest.contract!==version||
-   manifest.source?.repository!=='DreamwishWand/web'||
+   !manifestMatchesRelease(manifest,tuple)||
    manifest.source?.commit!==trustedPins.sourceHead||
    manifest.source?.wasmBindgen!=='0.2.105'||
    manifest.source?.wasmTarget!=='wasm32-unknown-unknown'||
    manifest.source?.profile!=='release'||
    manifest.source?.defaultFeatures!==false||
    JSON.stringify(manifest.source?.features)!=='["indexed-read","worker-wasm"]'||
-   manifest.source?.cargoLockOrigin!=='cargo-generated-this-ci-job'||
+   !validCargoLockProvenance(manifest.source)||
    !hex64.test(manifest.source?.cargoLockSha256??'')||
    !hex64.test(manifest.source?.cargoTomlSha256??'')||
    manifest.signature?.status!=='UNKNOWN'||manifest.signature?.verified!==false||
@@ -129,6 +151,10 @@ export async function loadSourcePinnedRustWasmCandidate({
  let compiled,blobUrl,mod;
  try{
    compiled=await WebAssembly.compile(wasm);
+   const devSymbol=/(?:dev_(?:stage|undo|redo|begin|take)|semantic_writer|private_native)/i;
+   if(WebAssembly.Module.exports(compiled).some(x=>devSymbol.test(x.name))||
+      devSymbol.test(new TextDecoder('utf-8',{fatal:true}).decode(js)))
+     fail('PUBLIC_DEV_SYMBOL_DENIED');
    blobUrl=URL.createObjectURL(new Blob([js],{type:'text/javascript'}));
    mod=await import(/* @vite-ignore */blobUrl);
  }catch{fail('VERIFIED_JS_OR_WASM_COMPILE_DENIED')}

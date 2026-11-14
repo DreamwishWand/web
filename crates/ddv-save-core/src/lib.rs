@@ -23,7 +23,8 @@ pub use product_session::{SyntheticChangeSet, SyntheticStageReceipt, SyntheticEx
 pub use product_session::NativeAreaGridSliceReceipt;
 #[cfg(feature = "semantic-writer-dev")]
 pub use product_session::{TypedOperationKind,TypedOperationRegistryEntry,
-    TypedSemanticCommand,SemanticStageReceipt,TYPED_OPERATION_REGISTRY};
+    TypedSemanticCommand,SemanticStageReceipt,TYPED_OPERATION_REGISTRY,
+    ExistingAmountSelection,ExistingAmountItemType,ExistingChestFacts,ExistingAmountTargetView,CoreExistingAmountTarget,AuthorizedExistingAmountTarget};
 #[cfg(feature = "private-native-v2")]
 pub use product_session::PrivateOfflineReceipt;
 #[cfg(feature = "indexed-read")]
@@ -41,6 +42,13 @@ pub use spatial_reference_index::{
 // Private-native only: count concordance cannot grant Native V3 or Writer.
 #[cfg(feature="private-native-v1")]
 pub use spatial_reference_index::SpatialNativeCensusReceipt;
+mod steam_spatial_preflight;
+pub use steam_spatial_preflight::{
+    preflight_steam_move_rotate,steam_orientation_cardinal,steam_orientation_defined,
+    PreviewCell,PreviewObjectKey,PreviewTransform,PreviewGrid,
+    PreviewRestrictions,PreviewOccupiedCell,PreviewSnapshot,PreviewRequest,
+    PreviewReceipt,STEAM_SPATIAL_PREFLIGHT_CONTRACT,
+};
 mod worker_session;
 #[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]
 mod wasm_worker;
@@ -52,3 +60,6 @@ pub use product_session::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CoreError(pub &'static str);
 pub type CoreResult<T> = Result<T, CoreError>;
+
+// Policy73 portable file format only; no new SaveSession or WASM export.
+pub mod portable_backup;

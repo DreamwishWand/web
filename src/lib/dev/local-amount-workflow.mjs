@@ -19,7 +19,10 @@ const protectedEnum=['Premium','DLC','Entitlement','Receipt','Auth','Currency','
 function trustedTarget(t){
   if(!only(t,'kind,targetId,itemId,slotIndex,compatibleItemType,oldAmount,registryVerified,sourceVerified,rightsAllowed')||
      !['InventoryExistingAmountDecrease','ChestExistingSlotAmountDecrease'].includes(t.kind)||
-     !uint(t.targetId,true)||!uint(t.itemId,true)||!uint(t.slotIndex)||
+     // PR1034/Core: zero is the exact Furniture inventory route only.
+     !(uint(t.targetId,true)||(t.targetId===0&&
+       t.kind==='InventoryExistingAmountDecrease'&&t.compatibleItemType==='ItemType_Furniture'))||
+     !uint(t.itemId,true)||!uint(t.slotIndex)||
      !uint(t.oldAmount,true)||t.oldAmount<=1||t.oldAmount>MAX_CONSERVATIVE_AMOUNT||
      t.registryVerified!==true||t.sourceVerified!==true||t.rightsAllowed!==true||
      (t.kind==='InventoryExistingAmountDecrease'&&

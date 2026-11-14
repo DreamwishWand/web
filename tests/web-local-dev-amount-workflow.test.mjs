@@ -212,3 +212,35 @@ test('QA941 regression: Rust DEV amount bound 9999 and exact protected enum subs
   assert.equal(createExistingAmountDecrease({...base,oldAmount:9999},9998).newAmount,9998);
  }
 });
+
+test('Steam626 Furniture inventory zero matches PR1034 only; positive IDs and rights gates unchanged',()=>{
+ const target={...inventory(),targetId:0,itemId:40000001,compatibleItemType:'ItemType_Furniture',oldAmount:7};
+ assert.deepEqual(createExistingAmountDecrease(target,6),{kind:'InventoryExistingAmountDecrease',inventoryId:0,
+  canonicalItemId:40000001,compatibleItemType:'ItemType_Furniture',expectedOldAmount:7,newAmount:6});
+ for(const bad of [
+  {...inventory(),targetId:0},{...chest(),targetId:0},
+  {...target,targetId:'0'},{...target,targetId:-1},{...target,targetId:0.5},
+  {...target,compatibleItemType:'ItemType_FurnitureExtra'},
+  {...target,compatibleItemType:'ItemType_furniture'},
+  {...target,rightsAllowed:false},{...target,registryVerified:false},{...target,sourceVerified:false},
+  {...target,itemId:0},{...target,oldAmount:1},{...target,slotIndex:-1},
+  {...target,unexpectedWriter:true}
+ ])assert.throws(()=>createExistingAmountDecrease(bad,6));
+ for(const n of [0,7,8,-1,1.5])assert.throws(()=>createExistingAmountDecrease(target,n));
+});
+test('verified Furniture zero descriptor survives backup, typed CAS, undo/redo and distinct export receipt',async()=>{
+ const target={...inventory(),targetId:0,itemId:40000001,compatibleItemType:'ItemType_Furniture',oldAmount:7};
+ const f=fake({listVerifiedTargets:async()=>({targets:[target],rawDocumentExposed:false})});
+ const w=createLocalAmountDevWorkflow(f.adapter,{trustedLocalHarness:true});
+ await w.open(args);await w.backupAndRead();assert.equal(w.snapshot().targets[0].targetId,0);
+ await w.stage(0,6);assert.deepEqual(f.log.find(x=>x[0]==='stage')[1],[createExistingAmountDecrease(target,6)]);
+ await w.undo();await w.redo();await w.exportEditedCopy();
+ assert.equal(w.snapshot().phase,'exported');assert.equal(w.snapshot().editedCopy.independentProcessReopenVerified,false);
+ await w.close();closed(w);
+ for(const invalid of [{...inventory(),targetId:0},{...chest(),targetId:0},{...target,rightsAllowed:false}]){
+  const x=fake({listVerifiedTargets:async()=>({targets:[invalid],rawDocumentExposed:false})});
+  const v=createLocalAmountDevWorkflow(x.adapter,{trustedLocalHarness:true});
+  await v.open(args);await assert.rejects(v.backupAndRead(),/UNVERIFIED_ITEM_OR_RIGHTS_TARGET/);closed(v);
+  assert.equal(x.log.some(z=>z[0]==='stage'),false);
+ }
+});
