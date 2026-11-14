@@ -4035,6 +4035,7 @@
                 baselineDocument: verifiedExportBaselineDocument,
                 draftDocument: editorDocument,
                 placementBinding: placementLegalityBinding,
+                worldBinding: switchWorldBinding,
                 basePath: base,
                 exactBuildConfirmed: verifiedExportBuildConfirmed
               })

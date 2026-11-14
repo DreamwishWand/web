@@ -16,7 +16,7 @@ import {
   classifyOrdinaryFurnitureAdd,
   ordinaryFurnitureAddAdapter
 } from '../ddv/core/world/ordinary-furniture-add-v125.js';
-import { openWorldSaveBytes } from './world-save-source.ts';
+import { openWorldSaveBytes, listWorldAreaRoutes } from './world-save-source.ts';
 import { projectSwitchAreaGrid } from './world-browser-adapter.ts';
 
 type AnyRecord = Record<string, any>;
@@ -60,6 +60,8 @@ function error(code:string, detail:unknown = null):never {
   e.detail = detail;
   throw e;
 }
+
+const issuedReviews=new WeakMap<object,AnyRecord>();
 
 function clone<T>(value:T):T {
   return structuredClone(value);
@@ -183,6 +185,10 @@ export function analyzeOrdinaryFurnitureAddDraft({
   const afterById=new Map(
     afterObjects.map((object:any)=>[String(object.editorId),object])
   );
+  if(beforeById.size!==beforeObjects.length || afterById.size!==afterObjects.length ||
+     [...beforeObjects,...afterObjects].some(o=>typeof o?.editorId!=='string'||!o.editorId)) {
+    error('WEP_ADD_UNSUPPORTED_PENDING_CHANGE',{reason:'DUPLICATE_OR_INVALID_EDITOR_ID'});
+  }
   for(const before of beforeObjects) {
     const after=afterById.get(String(before.editorId));
     if(!after || !semanticEqual(before,after)) {
@@ -242,6 +248,36 @@ export function analyzeOrdinaryFurnitureAddDraft({
   });
 }
 
+// Reuse the same existing world projection used by the route. Compare the
+// complete placement-relevant object set, not caller occupancy assertions.
+function placementSnapshot(document:AnyRecord) {
+  const rows=document?.objects;
+  if(!Array.isArray(rows)) error('WEP_ADD_BASELINE_SOURCE_MISMATCH');
+  const ids=new Set<string>();
+  return rows.map((o:AnyRecord)=>{
+    if(typeof o?.editorId!=='string'||!o.editorId||ids.has(o.editorId)||
+       ![o.itemId,o.x,o.y,o.orientation].every(Number.isSafeInteger)) {
+      error('WEP_ADD_BASELINE_SOURCE_MISMATCH');
+    }
+    ids.add(o.editorId);
+    return [o.editorId,o.itemId,o.x,o.y,o.orientation,o.source?.relation??null,
+      o.source?.gridId??null,o.source?.gridObjectId??null,o.source?.objectMapKey??null];
+  }).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+}
+function requireSourceBaseline(profile:AnyRecord,opened:AnyRecord,baseline:AnyRecord,worldBinding:AnyRecord,gridId:number) {
+  if(!semanticEqual(opened?.profile,profile)) error('WEP_ADD_SOURCE_PROFILE_MISMATCH');
+  const target=baseline?.target,areas=listWorldAreaRoutes(profile);
+  const matches=areas.filter(a=>a.villageIndex===target?.villageIndex&&a.areaId===target?.areaId&&a.gridIds.includes(gridId));
+  if(matches.length!==1||matches[0].unlocked!==true||!worldBinding?.adapter) error('WEP_ADD_BASELINE_SOURCE_MISMATCH');
+  const canonical=projectSwitchAreaGrid({...opened,profile,areas} as any,matches[0],gridId,worldBinding as any);
+  const c=canonical.target;
+  if(c.rootGridId!==target.rootGridId||c.gridDataPath!==target.gridDataPath||
+     c.tessellationFactor!==target.tessellationFactor||
+     !semanticEqual(placementSnapshot(canonical),placementSnapshot(baseline))) {
+    error('WEP_ADD_BASELINE_SOURCE_MISMATCH');
+  }
+}
+
 export async function reviewOrdinaryFurnitureAddVerifiedExport({
   sourceBytes,
   sourceName,
@@ -250,6 +286,7 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
   baselineDocument,
   draftDocument,
   placementBinding,
+  worldBinding,
   basePath='',
   fetchImpl=globalThis.fetch.bind(globalThis),
   exactBuildConfirmed=false
@@ -261,6 +298,7 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
   baselineDocument:AnyRecord;
   draftDocument:AnyRecord;
   placementBinding:AnyRecord;
+  worldBinding:AnyRecord;
   basePath?:string;
   fetchImpl?:FetchLike;
   exactBuildConfirmed?:boolean;
@@ -278,18 +316,25 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
     Number(opened?.profileSchemaVersion)!==624
   ) error('WEP_ADD_UNSUPPORTED_VERSION_BUILD');
 
+  // Snapshot before *any* asynchronous callback, including fetchImpl.
+  const baselineSnapshot=clone(baselineDocument);
+  const draftSnapshot=clone(draftDocument);
+  const openedSnapshot=clone(opened);
+  const sourceSnapshot=sourceBytes.slice();
   const change=analyzeOrdinaryFurnitureAddDraft({
-    baselineDocument,draftDocument
+    baselineDocument:baselineSnapshot,draftDocument:draftSnapshot
   });
 
   const [pack,safeSession]=await Promise.all([
     fetchAddScopePack(basePath,fetchImpl),
     SafeProfileEditSession.open({
-      sourceBytes:sourceBytes.slice(),
+      sourceBytes:sourceSnapshot,
       codec:p1gPackagedProfileCodec as any,
       sourcePlatform:PlatformFamily.Switch
     })
   ]);
+  const profile:AnyRecord=safeSession.getSnapshot();
+  requireSourceBaseline(profile,openedSnapshot,baselineSnapshot,worldBinding,change.gridId);
 
   const scope=scopeRecord(pack,change.itemId);
   if(
@@ -298,7 +343,7 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
 
   const rawPlacement=
     placementBinding.classifyMinimumTransformPlacement({
-      document:draftDocument,
+      document:draftSnapshot,
       editorId:change.editorId
     });
   const placementEvidence=Object.freeze({
@@ -345,7 +390,7 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
       profileSchemaVersion:624,
       buildIdentity:SWITCH_V125_BID
     },
-    profile:opened.profile,
+    profile,
     target:{
       gridId:change.gridId,
       itemId:change.itemId,
@@ -365,7 +410,7 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
   }
 
   const ctx=safeSession.getPreflightContext();
-  const grid=opened.profile?.World?.GridCollection?.Grids?.[
+  const grid=profile?.World?.GridCollection?.Grids?.[
     String(change.gridId)
   ];
   if(
@@ -394,7 +439,9 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
       String(ctx.saveIdentity.sourceRawSha256).slice(0,12)
   });
 
-  return Object.freeze({
+  if(!semanticEqual(baselineDocument,baselineSnapshot)||!semanticEqual(draftDocument,draftSnapshot)||
+     !semanticEqual(opened,openedSnapshot)) error('WEP_ADD_DRAFT_CHANGED');
+  const review=Object.freeze({
     contract:ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT,
     status:'READY',
     sourceEpoch:Number(sourceEpoch),
@@ -403,7 +450,7 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
     sourceByteLength:safeSession.source.length,
     targetBuild,
     change,
-    baselineTarget:clone(baselineDocument.target),
+    baselineTarget:clone(baselineSnapshot.target),
     plan,
     admissibility:clone(admissibility),
     placementEvidence:clone(placementEvidence),
@@ -415,6 +462,8 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
     productApplyAuthorized:false,
     directSourceReplacementAuthorized:false
   });
+  issuedReviews.set(review,{review:clone(review),baseline:baselineSnapshot,draft:draftSnapshot});
+  return review;
 }
 
 /**
@@ -441,6 +490,11 @@ export async function verifyOrdinaryFurnitureAddReplacementArtifactPipeline({
     review?.contract!==ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT ||
     review?.status!=='READY'
   ) error('WEP_ADD_REVIEW_REQUIRED');
+  const issued=issuedReviews.get(review);
+  if(!issued||!semanticEqual(review,issued.review)||
+     !semanticEqual(baselineDocument,issued.baseline)||!semanticEqual(draftDocument,issued.draft)) {
+    error('WEP_ADD_REVIEW_STALE');
+  }
   if(Number(currentSourceEpoch)!==Number(review.sourceEpoch)) {
     error('WEP_ADD_SOURCE_CHANGED_SINCE_PLAN');
   }
@@ -454,14 +508,18 @@ export async function verifyOrdinaryFurnitureAddReplacementArtifactPipeline({
     error('WEP_ADD_SOURCE_REQUIRED');
   }
 
-  const sourceHashBefore=await sha256Hex(sourceBytes);
+  // Consume synchronously before asynchronous work, including overlapping calls.
+  issuedReviews.delete(review);
+  review=issued.review;
+  const sourceSnapshot=sourceBytes.slice();
+  const sourceHashBefore=await sha256Hex(sourceSnapshot);
   if(
     sourceHashBefore!==review.sourceSha256 ||
     sourceBytes.length!==review.sourceByteLength
   ) error('WEP_ADD_SOURCE_CHANGED_SINCE_PLAN');
 
   const safeSession=await SafeProfileEditSession.open({
-    sourceBytes:sourceBytes.slice(),
+    sourceBytes:sourceSnapshot,
     codec:p1gPackagedProfileCodec as any,
     sourcePlatform:PlatformFamily.Switch
   });
