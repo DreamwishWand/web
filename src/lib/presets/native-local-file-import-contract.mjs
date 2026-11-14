@@ -166,6 +166,7 @@ export function mergeNativePresetBackups(library,incoming,{now=new Date().toISOS
  if(byId.size>NATIVE_PRESET_LOCAL_BACKUP_LIMIT)fail('LIMIT');
  return {added,library:added?normalizeNativePresetLibrary({...current,updatedAt:now,backups:[...byId.values()]}):current};
 }
+/** @param {{storage?:Storage,locks?:LockManager,operation:'read'|'merge'|'remove',backups?:any[],id?:string}} options */
 export async function transactNativePresetLibrary({storage=globalThis.localStorage,locks=globalThis.navigator?.locks,operation,backups=[],id}){
  if(!storage||typeof locks?.request!=='function')fail('LOCK_UNAVAILABLE');
  return locks.request(NATIVE_PRESET_LIBRARY_LOCK,{mode:'exclusive'},async()=>{
