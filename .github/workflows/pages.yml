@@ -29,6 +29,7 @@ jobs:
       wasm_sha: ${{ steps.asset_pins.outputs.wasm_sha }}
       manifest_sha: ${{ steps.asset_pins.outputs.manifest_sha }}
       expected_root: ${{ steps.release_tuple.outputs.root }}
+      ci_receipt: ${{ steps.protected_ci.outputs.ci_receipt }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -194,7 +195,8 @@ jobs:
           test -f build/community-ops/index.html
           test -f build/404.html
       - name: Require successful exact protected-main CI before Pages upload
-        run: node scripts/int-protected-ci-gate.mjs
+        id: protected_ci
+        run: node scripts/int-protected-ci-gate.mjs build
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -210,17 +212,33 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - name: Refuse stale main immediately before Pages deployment
+      - name: Set up Node.js for exact deploy-time CI revalidation
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse stale main or CI receipt immediately before Pages deployment
+        env:
+          WAND_CI_RECEIPT: ${{ needs.build.outputs.ci_receipt }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$GITHUB_REPOSITORY_ID" == 1371485649 && "$GITHUB_REF" == refs/heads/main ]]
           [[ "$GITHUB_REPOSITORY" == DreamwishWand/web || "$GITHUB_REPOSITORY" == DreamwishWand/site ]]
-          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
-          curl --fail --silent --show-error --max-time 20 --max-filesize 65536 --max-redirs 0 --proto '=https' \
-            -H 'Accept: application/vnd.github+json' \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/git/ref/heads/main" |
-            jq -e --arg sha "$GITHUB_SHA" '.ref=="refs/heads/main" and .object.type=="commit" and .object.sha==$sha' >/dev/null
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ && -n "$WAND_CI_RECEIPT" ]]
+          # Public exact commit, no token and no additional job permissions.
+          # Read only the two pinned scripts from a disposable Git repository.
+          dir="$(mktemp -d)"
+          trap 'rm -rf "$dir"' EXIT
+          export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0
+          git -C "$dir" init -q
+          git -C "$dir" -c core.hooksPath=/dev/null -c core.fsmonitor=false fetch --no-tags --no-recurse-submodules --depth=1 "https://github.com/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          test "$(git -C "$dir" rev-parse FETCH_HEAD)" = "$GITHUB_SHA"
+          git -C "$dir" -c core.hooksPath=/dev/null update-ref HEAD "$GITHUB_SHA"
+          mkdir "$dir/scripts"
+          for script in int-protected-ci-gate.mjs int-ci-evidence-preflight.mjs; do
+            git -C "$dir" show "$GITHUB_SHA:scripts/$script" > "$dir/scripts/$script"
+          done
+          (cd "$dir" && node scripts/int-protected-ci-gate.mjs deploy)
       - name: Deploy existing Pages including only verified three read-only assets
         id: deployment
         uses: actions/deploy-pages@v4

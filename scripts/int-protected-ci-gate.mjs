@@ -1,6 +1,7 @@
 // Protected Pages CI predecessor: public GitHub GET only; no credentials, no writes.
 // This gate supplements existing signatures/lock/host checks; never changes them.
 import { execFileSync } from 'node:child_process';
+import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { inspectRunEvidence } from './int-ci-evidence-preflight.mjs';
 
@@ -21,7 +22,7 @@ export async function githubPublicJson(path,fetcher=fetch) {
   const response=await fetcher(url,{method:'GET',redirect:'error',
     headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'DreamwishWand-protected-CI'},
     signal:AbortSignal.timeout(20000)});
-  if(!response.ok||response.redirected||!response.headers.get('content-type')?.toLowerCase().includes('application/json'))
+  if(response.status!==200||response.redirected||!response.headers.get('content-type')?.toLowerCase().includes('application/json'))
     deny('GITHUB_API_DENIED:'+response.status);
   const chunks=[];let n=0;
   if(!response.body)deny('GITHUB_API_EMPTY');
@@ -55,23 +56,45 @@ export async function inspectProtectedCi({repository,head,workflowBlob},get=gith
   const after=await get(root+'/actions/runs/'+run.id);
   const evidence=inspectRunEvidence(expected,after,jobs);
   await ref();
-  return {status:'PROTECTED_CI_PREDECESSOR_MATCH',head,runId:evidence.runId,attempt:evidence.attempt,jobId:evidence.jobs[0].id,mergeAuthorized:false,writerAuthorized:false};
+  return {status:'PROTECTED_CI_PREDECESSOR_MATCH',repositoryId:REPO_ID,workflowId:CI_ID,workflowPath:CI_PATH,workflowBlob:CI_BLOB,head,runId:evidence.runId,attempt:evidence.attempt,jobId:evidence.jobs[0].id,mergeAuthorized:false,writerAuthorized:false};
+}
+
+// A build receipt is not authority. It must match the current exact successful
+// predecessor again at the deploy boundary, including run attempt and job.
+export async function revalidateProtectedCi(input,receipt,get=githubPublicJson){
+  if(!receipt||typeof receipt!=='object'||Array.isArray(receipt))deny('CI_RECEIPT_INVALID');
+  const actual=await inspectProtectedCi(input,get);
+  if(actual.status!=='PROTECTED_CI_PREDECESSOR_MATCH')deny('CI_RECEIPT_NO_LONGER_SUCCESS');
+  const keys=Object.keys(actual);
+  if(Object.keys(receipt).length!==keys.length||keys.some(k=>!Object.hasOwn(receipt,k)||receipt[k]!==actual[k]))
+    deny('CI_RECEIPT_CHANGED');
+  return actual;
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   try{
-    const e=process.env;
-    if(e.GITHUB_ACTIONS!=='true'||e.GITHUB_REPOSITORY_ID!==String(REPO_ID)||e.GITHUB_REF!=='refs/heads/main'||!['push','workflow_dispatch'].includes(e.GITHUB_EVENT_NAME))deny('PROTECTED_WORKFLOW_CONTEXT_DENIED');
+    const e=process.env, phase=process.argv[2];
+    if(process.argv.length!==3||!['build','deploy'].includes(phase))deny('PROTECTED_CI_PHASE_DENIED');
+    if(e.GITHUB_ACTIONS!=='true'||e.GITHUB_REPOSITORY_ID!==String(REPO_ID)||e.GITHUB_REF!=='refs/heads/main'||!['push','workflow_dispatch'].includes(e.GITHUB_EVENT_NAME)||
+       !repos.has(e.GITHUB_REPOSITORY)||e.GITHUB_WORKFLOW_REF!==e.GITHUB_REPOSITORY+'/.github/workflows/pages.yml@refs/heads/main')deny('PROTECTED_WORKFLOW_CONTEXT_DENIED');
     const git=(...args)=>execFileSync('git',args,{encoding:'utf8',env:{...e,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
     if(git('rev-parse','HEAD')!==e.GITHUB_SHA||e.GITHUB_WORKFLOW_SHA!==e.GITHUB_SHA)deny('PROTECTED_CHECKOUT_MISMATCH');
+    const input={repository:e.GITHUB_REPOSITORY,head:e.GITHUB_SHA,workflowBlob:git('rev-parse','HEAD:'+CI_PATH)};
     let result;
-    // Bounded wait only for a missing/pending CI, no retry of actual failure.
-    for(let i=0;i<6;i++){
-      result=await inspectProtectedCi({repository:e.GITHUB_REPOSITORY,head:e.GITHUB_SHA,workflowBlob:git('rev-parse','HEAD:'+CI_PATH)});
-      if(result.status==='PROTECTED_CI_PREDECESSOR_MATCH')break;
-      if(i<5)await wait(10000);
+    if(phase==='build'){
+      for(let i=0;i<6;i++){
+        result=await inspectProtectedCi(input);
+        if(result.status==='PROTECTED_CI_PREDECESSOR_MATCH')break;
+        if(i<5)await wait(10000);
+      }
+      if(result?.status!=='PROTECTED_CI_PREDECESSOR_MATCH')deny('PROTECTED_CI_WAIT_TIMEOUT');
+      if(!e.GITHUB_OUTPUT)deny('CI_RECEIPT_OUTPUT_MISSING');
+      appendFileSync(e.GITHUB_OUTPUT,'ci_receipt='+JSON.stringify(result)+'\n');
+    }else{
+      const raw=e.WAND_CI_RECEIPT;
+      if(typeof raw!=='string'||raw.length>4096||raw.length===0)deny('CI_RECEIPT_INVALID');
+      result=await revalidateProtectedCi(input,JSON.parse(raw));
     }
-    if(result?.status!=='PROTECTED_CI_PREDECESSOR_MATCH')deny('PROTECTED_CI_WAIT_TIMEOUT');
     console.log(JSON.stringify(result));
   }catch(error){console.error('PROTECTED_CI_GATE_DENIED:',error.message);process.exitCode=1;}
 }

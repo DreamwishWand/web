@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {inspectProtectedCi,githubPublicJson} from '../scripts/int-protected-ci-gate.mjs';
+import {inspectProtectedCi,revalidateProtectedCi,githubPublicJson} from '../scripts/int-protected-ci-gate.mjs';
 const head='a'.repeat(40),other='b'.repeat(40),root='/repos/DreamwishWand/web';
 const input={repository:'DreamwishWand/web',head,workflowBlob:'4dbc0572b70a9a8245695fed5e4a6369ee2f529a'};
 const repo={id:1371485649,full_name:'DreamwishWand/web',default_branch:'main',private:false};
@@ -23,7 +23,7 @@ function mock(options={}){
 }
 test('protected main CI exact successful predecessor and latest ref readback',async()=>{
  const m=mock(),result=await inspectProtectedCi(input,m.get);
- assert.deepEqual(result,{status:'PROTECTED_CI_PREDECESSOR_MATCH',head,runId:123,attempt:1,jobId:456,mergeAuthorized:false,writerAuthorized:false});
+ assert.deepEqual(result,{status:'PROTECTED_CI_PREDECESSOR_MATCH',repositoryId:1371485649,workflowId:370723530,workflowPath:'.github/workflows/ci.yml',workflowBlob:input.workflowBlob,head,runId:123,attempt:1,jobId:456,mergeAuthorized:false,writerAuthorized:false});
  assert.equal(m.calls.filter(p=>p.endsWith('/git/ref/heads/main')).length,2);
  assert.equal(m.calls.filter(p=>p.endsWith('/actions/runs/123')).length,2);
 });
@@ -59,10 +59,34 @@ test('public transport rejects redirects and errors; no credentials or writes',a
 });
 test('existing signed Pages preserves order, permissions and push context',()=>{
  const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
- const order=['actions/attest-build-provenance@v2','gh attestation verify static/worker-wasm/manifest.json','node scripts/int-protected-ci-gate.mjs','actions/upload-pages-artifact@v3','Refuse stale main immediately before Pages deployment','actions/deploy-pages@v4','Verify actual same-origin HTTPS bytes'];
+ const order=['actions/attest-build-provenance@v2','gh attestation verify static/worker-wasm/manifest.json','node scripts/int-protected-ci-gate.mjs','actions/upload-pages-artifact@v3','Refuse stale main or CI receipt immediately before Pages deployment','actions/deploy-pages@v4','Verify actual same-origin HTTPS bytes'];
  let i=-1;for(const marker of order){const n=y.indexOf(marker);assert.ok(n>i,marker);i=n;}
  assert.match(y,/on:\s+push:\s+branches: \[main\]\s+workflow_dispatch:/);
  assert.doesNotMatch(y,/workflow_run:/);
  assert.match(y,/permissions:\s+pages: write\s+id-token: write/);
  assert.match(y,/concurrency:\s+group: github-pages\s+cancel-in-progress: false/);
+});
+
+test('deploy receipt requires same latest successful CI attempt and exact job',async()=>{
+ const receipt=await inspectProtectedCi(input,mock().get);
+ assert.deepEqual(await revalidateProtectedCi(input,receipt,mock().get),receipt);
+ await assert.rejects(revalidateProtectedCi(input,receipt,mock({run:{...run,run_attempt:2,status:'in_progress',conclusion:null}}).get),/CI_RECEIPT_NO_LONGER_SUCCESS/);
+ await assert.rejects(revalidateProtectedCi(input,receipt,mock({run:{...run,conclusion:'failure'}}).get),/PROTECTED_CI_NOT_SUCCESS/);
+ const changed=async p=>{
+  if(p===root+'/actions/runs/123')return {...run,run_attempt:2};
+  if(p===root+'/actions/runs/123/attempts/2/jobs?per_page=100')return {total_count:1,jobs:[{...job,id:789,run_attempt:2}]};
+  return mock().get(p);
+ };
+ await assert.rejects(revalidateProtectedCi(input,receipt,changed),/CI_RECEIPT_CHANGED/);
+ for(const bad of [{...receipt,jobId:999},{...receipt,workflowBlob:other},{...receipt,extra:true}])
+  await assert.rejects(revalidateProtectedCi(input,bad,mock().get),/CI_RECEIPT_CHANGED/);
+ await assert.rejects(githubPublicJson(root+'/git/ref/heads/main',async()=>new Response(JSON.stringify(ref),{status:302,headers:{'content-type':'application/json',location:'https://api.github.com/other'}})),/GITHUB_API_DENIED:302/);
+ await assert.rejects(githubPublicJson(root+'/git/ref/heads/main',async()=>new Response(JSON.stringify(ref),{status:201,headers:{'content-type':'application/json'}})),/GITHUB_API_DENIED:201/);
+});
+test('deploy consumes build receipt and reuses strict gate before deployment',()=>{
+ const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
+ assert.match(y,/ci_receipt: \$\{\{ steps\.protected_ci\.outputs\.ci_receipt \}\}/);
+ assert.match(y,/WAND_CI_RECEIPT: \$\{\{ needs\.build\.outputs\.ci_receipt \}\}/);
+ assert.ok(y.indexOf('node scripts/int-protected-ci-gate.mjs deploy')<y.indexOf('actions/deploy-pages@v4'));
+ assert.doesNotMatch(y,/curl[^\n]*git\/ref\/heads\/main/);
 });
