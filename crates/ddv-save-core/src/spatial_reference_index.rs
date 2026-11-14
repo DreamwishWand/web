@@ -379,8 +379,9 @@ impl SpatialExtent {
 /// Source-only Steam v1.25.3 GridArea cell rules, reusing the accepted
 /// cardinal bounds helper. These functions never authenticate caller-owned
 /// masks, floors, object IDs, or occupancy, and never authorize a Writer.
-/// The unit-tessellation subset deliberately excludes mixed tessellation,
-/// noncardinal rotation, walls and higher-level object restrictions.
+/// The layer lookup supports unit tessellation and the exact Grid/Area
+/// 2:1 subset. Other ratios, noncardinal rotation, walls and higher-level
+/// object restrictions are outside this source-only scope.
 impl SpatialExtent {
     /// Raw GridArea layer word at an offset in the ROTATED rectangle.
     /// Native GridArea.TryGetGridLocalPosition maps orientation 0/4/8/12
@@ -395,9 +396,11 @@ impl SpatialExtent {
         grid_tessellation: u32,
         area_tessellation: u32,
     ) -> CoreResult<u32> {
-        if grid_tessellation != 1 || area_tessellation != 1 {
-            return Err(denied("SPATIAL_NATIVE_CELL_TESSELLATION_UNVERIFIED"));
-        }
+        let scale = match (grid_tessellation, area_tessellation) {
+            (1, 1) => 1,
+            (2, 1) => 2,
+            _ => return Err(denied("SPATIAL_NATIVE_CELL_TESSELLATION_UNVERIFIED")),
+        };
         let bounds = self.steam1253_cardinal_bounds(
             build, orientation, grid_tessellation, area_tessellation)?;
         let count = u64::from(self.width)*u64::from(self.height);
@@ -407,6 +410,11 @@ impl SpatialExtent {
         if dx >= bounds.width || dy >= bounds.height {
             return Err(denied("SPATIAL_NATIVE_CELL_OUTSIDE_AREA"));
         }
+        // Native TryGetGridLocalPosition divides nonnegative grid offsets
+        // by grid tessellation before inverse cardinal rotation (area tess=1).
+        // Each raw layer repeats over a 2x2 block in the exact 2:1 subset.
+        // The preceding bounds use grid units; the following use area units.
+        let (dx, dy) = (dx / scale, dy / scale);
         let (x,y) = match orientation {
             0 => (self.width-1-dx,self.height-1-dy),
             4 => (dy,self.height-1-dx),
