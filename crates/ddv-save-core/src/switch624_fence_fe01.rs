@@ -768,7 +768,7 @@ mod add_tests{
             assert!(s.take_typed_semantic_decoded_once(e).is_err());
             let mut expected=d.clone();let g=&mut expected["World"]["GridCollection"]["Grids"]["9"];
             g["NextGridObjectID"]=json!(53);
-            for o in wanted{g["Objects"][o["ID"].as_u64().unwrap().to_string()]=o;}
+            for o in wanted{let id=o["ID"].as_u64().unwrap().to_string();g["Objects"][id]=o;}
             assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),expected);
             assert_eq!(sha(&out),r.staged_decoded_sha256);
         }
