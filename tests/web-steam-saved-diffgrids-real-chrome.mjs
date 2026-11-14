@@ -205,6 +205,7 @@ const script=String.raw`
  inspect(present('[data-diffgrids-summary]','SUMMARY_200'),'320_ROOT_ZOOM200_CLOSED_MANUAL_PANEL');
  // Initial state: no implicit local Save read / no session.
  need(!document.querySelector('[data-diffgrids-count]'),'NO_AUTO_SAVE');
+ need(!document.querySelector('[data-diffgrids-backup]'),'NO_BACKUP_BEFORE_OPEN');
  const response=await Promise.all([
   fetch('/web/__synthetic__/synthetic626-diffgrids.p1g',{cache:'no-store'}),
   fetch('/web/__synthetic__/expected-diffgrids.json',{cache:'no-store'})
@@ -253,6 +254,20 @@ const script=String.raw`
   }
  }
  need(pages.join(',')==='8,8,1','THREE_PAGES');
+ const backup=present('[data-diffgrids-backup-download]','BACKUP_DOWNLOAD');
+ need(!backup.disabled,'BACKUP_AVAILABLE_AFTER_OPEN');
+ backup.click();
+ await element('[data-diffgrids-backup-status="backupRequested"]','BACKUP_REQUESTED_ONLY');
+ const chooseBackup=async(candidate,status)=>{
+  const input=present('#steam-diffgrids-backup-file','BACKUP_CANDIDATE');
+  const dt=new DataTransfer();dt.items.add(candidate);input.files=dt.files;
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+  await element('[data-diffgrids-backup-status="'+status+'"]','BACKUP_'+status);
+ };
+ await chooseBackup(new File([await file.arrayBuffer()],'candidate.p1g'),'backupMatched');
+ const changed=new Uint8Array(await file.arrayBuffer());changed[0]^=1;
+ await chooseBackup(new File([changed],'wrong.p1g'),'backupRejected');
+ await chooseBackup(new File([await file.arrayBuffer()],'candidate.p1g'),'backupMatched');
  present('[data-diffgrids-summary]','SUMMARY_SCROLL').scrollIntoView({block:'center',inline:'nearest'});
  await new Promise(r=>setTimeout(r,100));
  const afterScroll=inspect(present('[data-diffgrids-summary]','SUMMARY_AFTER_SCROLL'),'320_ROOT_ZOOM200_AFTER_VERTICAL_SCROLL');
@@ -275,6 +290,7 @@ const script=String.raw`
  await wait(()=>pair()?.summary===document.activeElement&&currentElement('#steam-diffgrids-file')&&!currentElement('#steam-diffgrids-file').disabled,'FOCUS_RESTORED',18000);
  need(document.activeElement===present('[data-diffgrids-summary]','FOCUS'),'FOCUS_RESTORED');
  need(!document.querySelector('[data-diffgrids-next]'),'NO_STALE_PAGE_AFTER_CLOSE');
+ need(!document.querySelector('[data-diffgrids-backup]'),'NO_STALE_BACKUP_AFTER_CLOSE');
  need(document.activeElement.tabIndex>=0,'NATIVE_KEYBOARD_SUMMARY');
  // Bad externally supplied original SHA must never resurrect the closed
  // ProductSession; a fresh explicit selection is required to try again.
@@ -310,6 +326,7 @@ try{
   '--host-resolver-rules=MAP '+isolatedHost+' 127.0.0.1:'+port+', MAP * ~NOTFOUND',
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  await attach();await rpc('Page.enable');await rpc('Runtime.enable');
+ await rpc('Page.setDownloadBehavior',{behavior:'allow',downloadPath:profile});
  await rpc('Emulation.setDeviceMetricsOverride',{width:320,height:800,deviceScaleFactor:1,mobile:false});
  // The regular Timing route must not instantiate the Steam Worker or load
  // signed reader assets, even with a valid preformal anchor in this build.
@@ -411,6 +428,12 @@ try{
  for(const k of ['manualClickOnly','sameRustWorker','strictUiMetadata',
    'closed','focusRestored','gridIdZeroLiteral','viewport320','zoom200','badShaDenied','reopenFresh','keyboard','readinessContract'])assert.equal(result[k],true,k);
  assert.equal(result.pages,'8,8,1');
+ // Verify the browser's actual downloaded file, not merely its click receipt.
+ const downloaded=join(profile,'synthetic-ci-only.p1g.original-backup.p1g');
+ for(let n=0;n<120&&!existsSync(downloaded);n++)await delay(100);
+ const original=await readFile(join(root,'tests/stage-f/fixtures/synthetic626-diffgrids.p1g'));
+ assert.deepEqual(await readFile(downloaded),original,'ACTUAL_BROWSER_ORIGINAL_BACKUP_BYTES');
+ console.log('08WEB_ACTUAL_LOCAL_ORIGINAL_BACKUP_DOWNLOAD_COMPARE_PASS');
  assert.equal(result.allEightLocales,true);assert.equal(result.originalImmutable,true);
  assert.equal(result.innerTableScroll,true,'5_COLUMN_TABLE_SCROLL_INTERNAL');
  const zoomRects=[result.geometry100,result.geometry200];

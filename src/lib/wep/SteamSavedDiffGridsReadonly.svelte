@@ -5,9 +5,12 @@
   export let preformal=false;
   import {savedDiffGridsCopy} from './steam-saved-diffgrids-copy.mjs';
   import {createSavedDiffGridsUiClient,STEAM_FULL_VERSION} from './steam-saved-diffgrids-ui-client.mjs';
+  import {requestOriginalByteBackup,compareOriginalBackupBytes} from '$lib/ddv/core/save/local-original-backup.mjs';
   let client=null,ready=false,busy=false,opened=false,error=false;
   let chosenFile=null,originalSha='',buildConfirmed=false;
   let count=null,rows=[],page=0,hasNext=false;
+  let backupScope=null,backupBusy=false,backupStatus='',backupInput=null;
+  const backupCurrent=scope=>scope!==null&&backupScope===scope&&chosenFile===scope.file&&opened&&ready&&client?.getState().hasSession===true;
   let disclosure=null,fileInput=null,closing=false,epoch=0;
   const current=token=>token===epoch&&client!==null;
   $: words=savedDiffGridsCopy($locale);
@@ -36,6 +39,7 @@
   });
   function resetResults(){
     opened=false;rows=[];page=0;count=null;hasNext=false;
+    backupScope=null;backupBusy=false;backupStatus='';if(backupInput)backupInput.value='';
   }
   function resetSelection(){
     chosenFile=null;originalSha='';buildConfirmed=false;
@@ -69,6 +73,7 @@
       if(!current(token))return;
       if(!receipt||receipt.writerAuthorized!==false)throw Error('DENIED');
       count=receipt.recordCount;opened=true;
+      backupScope=Object.freeze({file,sha});
       if(count>0)await loadPage(token);
     }catch{
       if(current(token)){error=true;await clear()}
@@ -86,6 +91,23 @@
     try{await loadPage(token)}
     catch{if(current(token)){error=true;await clear()}}
     finally{if(current(token))busy=false}
+  }
+  function downloadBackup(){
+    const scope=backupScope;
+    if(busy||backupBusy||!backupCurrent(scope))return;
+    try{requestOriginalByteBackup(scope.file);backupStatus='backupRequested'}
+    catch{backupStatus='backupRejected'}
+  }
+  async function verifyBackup(event){
+    const candidate=event.currentTarget.files?.[0]||null,scope=backupScope;
+    event.currentTarget.value='';
+    if(!candidate||busy||backupBusy||!backupCurrent(scope))return;
+    backupBusy=true;backupStatus='backupChecking';
+    try{
+      await compareOriginalBackupBytes(scope.file,candidate,()=>backupCurrent(scope),128*1024*1024);
+      if(backupCurrent(scope))backupStatus='backupMatched';
+    }catch{if(backupCurrent(scope))backupStatus='backupRejected'}
+    finally{if(backupCurrent(scope))backupBusy=false}
   }
   async function closeSession(){
     if(closing||(!opened&&!busy))return;
@@ -126,6 +148,12 @@
     {#if error}<p role="alert" data-diffgrids-error>{words.error}</p>{/if}
     {#if opened}
       <div class="results" data-diffgrids-count={count} data-diffgrids-page={page}>
+        <div class="backup-controls" data-diffgrids-backup>
+          <button type="button" data-diffgrids-backup-download disabled={busy||backupBusy} on:click={downloadBackup}>{words.backupDownload}</button>
+          <label for="steam-diffgrids-backup-file">{words.backupCandidate}</label>
+          <input id="steam-diffgrids-backup-file" type="file" accept=".p1g,application/octet-stream" bind:this={backupInput} disabled={busy||backupBusy} on:change={verifyBackup}/>
+          <p role="status" data-diffgrids-backup-status={backupStatus||'idle'}>{backupStatus?words[backupStatus]:words.backupHint}</p>
+        </div>
         <p role="status">{words.count}: <strong>{count}</strong>
           {#if count>0} · {words.page} {page}{/if}</p>
         {#if rows.length}
@@ -176,7 +204,8 @@
   .content{box-sizing:border-box;display:grid;gap:12px;padding:0 18px 18px;min-width:0;max-width:100%;
     overflow-wrap:anywhere;font-size:clamp(12px,1rem,16px);line-height:1.55}
   p{margin:0;overflow-wrap:anywhere}
-  .controls{display:grid;gap:9px;min-width:0;max-width:100%}
+  .controls,.backup-controls{display:grid;gap:9px;min-width:0;max-width:100%}
+  .backup-controls{border:1px solid var(--border);border-radius:9px;padding:10px;overflow-wrap:anywhere}
   input[type="text"],input[type="file"]{box-sizing:border-box;min-width:0;
     max-width:100%;width:100%;padding:10px;border:1px solid var(--border);
     background:var(--surface-raised);color:var(--ink);border-radius:8px}

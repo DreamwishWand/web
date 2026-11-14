@@ -161,3 +161,15 @@ test('dedicated Reader starts expanded; optional Timing panel remains collapsed'
  assert.match(read('src/routes/editor/steam-reader/+page.svelte'),/<SteamSavedDiffGridsReadonly preformal=\{true\}/);
  assert.match(read('src/routes/editor/timing/+page.svelte'),/<SteamSavedDiffGridsReadonly \/>/);
 });
+
+import {compareOriginalBackupBytes} from '../src/lib/ddv/core/save/local-original-backup.mjs';
+test('shared encrypted original byte comparison: exact, same handle, mismatch, forged methods and revoke',async()=>{
+ const bytes=new Uint8Array(1024*1024+13).fill(33),a=new Blob([bytes]),b=new Blob([bytes]);
+ assert.equal(await compareOriginalBackupBytes(a,b,()=>true,2*1024*1024),bytes.length);
+ await assert.rejects(compareOriginalBackupBytes(a,a,()=>true,2*1024*1024),/NOT_DISTINCT_BOUNDED/);
+ const bad=new Blob([new Uint8Array(bytes.length).fill(34)]);bad.slice=()=>b;bad.arrayBuffer=()=>b.arrayBuffer();
+ await assert.rejects(compareOriginalBackupBytes(a,bad,()=>true,2*1024*1024),/BYTES_DIFFER/);
+ await assert.rejects(compareOriginalBackupBytes(a,new Blob([bytes.slice(1)]),()=>true,2*1024*1024),/NOT_DISTINCT_BOUNDED/);
+ let calls=0;await assert.rejects(compareOriginalBackupBytes(a,b,()=>++calls<3,2*1024*1024),/SESSION_REVOKED/);
+ for(const locale of STEAM_DIFFGRIDS_LOCALES)for(const k of ['backupDownload','backupCandidate','backupHint','backupRequested','backupChecking','backupMatched','backupRejected'])assert.ok(savedDiffGridsCopy(locale)[k]);
+});
