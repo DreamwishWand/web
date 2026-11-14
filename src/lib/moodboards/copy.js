@@ -1,5 +1,6 @@
 export const MOODBOARD_COPY = Object.freeze({
   en: {
+    exportPrevious:"Export previous snapshot", portableNote:"For a site move, export the current and previous snapshots separately. Import the current JSON only into an empty destination. Close other Moodboard tabs before importing. Files stay on this device.", portableCollision:"Import blocked: destination has data or changed while reading. Existing data and backup were preserved.", portableInvalid:"Use an unchanged current-format Moodboard export. Missing, invalid, oversized or unavailable local data was not imported.",
     eyebrow:'PLAN YOUR NEXT CREATION', title:'Moodboards', intro:'Collect items, Wand Presets, Gallery works and notes before editing your Valley.',
     local:'Local-first', localDetail:'Free Moodboards stay in this browser profile. No Wand Account is required.',
     newBoard:'New Moodboard', titleLabel:'Title', description:'Description', create:'Create', boards:'Moodboards', empty:'No Moodboards yet.',
@@ -15,6 +16,7 @@ export const MOODBOARD_COPY = Object.freeze({
     openWorldEditor:"Open in World Editor", assignGroups:"Groups", collapse:"Collapse", expand:"Expand", noRefs:"No references in this section.", atomicLink:"Open isolated local Board preview", atomicNote:"Optional: this preview saves to separate IndexedDB storage. Existing Moodboards and their localStorage backups are not migrated, merged, replaced or deleted. Changes here do not appear in the original Moodboards. The usual Collection first-board creation remains off."
   },
   fr: {
+    exportPrevious:"Exporter l’instantané précédent", portableNote:"Pour changer de site, exportez séparément les instantanés actuel et précédent. Importez le JSON actuel uniquement dans une destination vide. Fermez les autres onglets Moodboards avant l’importation. Les fichiers restent sur cet appareil.", portableCollision:"Importation bloquée : la destination contient des données ou a changé. Les données et la sauvegarde sont conservées.", portableInvalid:"Utilisez un export Moodboard intact au format actuel. Aucune donnée manquante, invalide, trop volumineuse ou indisponible n’a été importée.",
     eyebrow:'PRÉPAREZ VOTRE PROCHAINE CRÉATION', title:'Moodboards', intro:'Rassemblez objets, Presets Wand, œuvres Gallery et notes avant de modifier votre vallée.',
     local:'Local d’abord', localDetail:'Les Moodboards gratuits restent dans ce profil de navigateur. Aucun compte Wand requis.',
     newBoard:'Nouveau Moodboard', titleLabel:'Titre', description:'Description', create:'Créer', boards:'Moodboards', empty:'Aucun Moodboard.',
@@ -30,6 +32,7 @@ export const MOODBOARD_COPY = Object.freeze({
     openWorldEditor:"Ouvrir dans World Editor", assignGroups:"Groupes", collapse:"Réduire", expand:"Développer", noRefs:"Aucune référence dans cette section.", atomicLink:"Ouvrir l’aperçu du tableau local isolé", atomicNote:"Facultatif : cet aperçu utilise un stockage IndexedDB distinct. Les Moodboards existants et leurs sauvegardes localStorage ne sont ni migrés, ni fusionnés, ni remplacés, ni supprimés. Les modifications ne se retrouvent pas dans les Moodboards d’origine. La première création dans Collection reste désactivée."
   },
   it: {
+    exportPrevious:"Esporta snapshot precedente", portableNote:"Per cambiare sito, esporta separatamente gli snapshot attuale e precedente. Importa il JSON attuale solo in una destinazione vuota. Chiudi le altre schede Moodboards prima dell’importazione. I file restano sul dispositivo.", portableCollision:"Importazione bloccata: la destinazione contiene dati o è cambiata. Dati e backup sono conservati.", portableInvalid:"Usa un export Moodboard integro nel formato attuale. Dati mancanti, non validi, troppo grandi o non disponibili non sono stati importati.",
     eyebrow:'PIANIFICA LA PROSSIMA CREAZIONE', title:'Moodboards', intro:'Raccogli oggetti, Preset Wand, opere Gallery e note prima di modificare la tua Valley.',
     local:'Prima locale', localDetail:'I Moodboard gratuiti restano in questo profilo del browser. Non serve un account Wand.',
     newBoard:'Nuovo Moodboard', titleLabel:'Titolo', description:'Descrizione', create:'Crea', boards:'Moodboards', empty:'Nessun Moodboard.',
@@ -45,6 +48,7 @@ export const MOODBOARD_COPY = Object.freeze({
     openWorldEditor:"Apri in World Editor", assignGroups:"Gruppi", collapse:"Comprimi", expand:"Espandi", noRefs:"Nessun riferimento in questa sezione.", atomicLink:"Apri l’anteprima del Board locale isolato", atomicNote:"Facoltativo: questa anteprima usa uno spazio IndexedDB separato. I Moodboard esistenti e i relativi backup localStorage non vengono migrati, uniti, sostituiti o eliminati. Le modifiche non appaiono nei Moodboard originali. La creazione iniziale da Collection rimane disattivata."
   },
   de: {
+    exportPrevious:"Vorherigen Snapshot exportieren", portableNote:"Beim Site-Wechsel aktuellen und vorherigen Snapshot getrennt exportieren. Aktuelles JSON nur in ein leeres Ziel importieren. Andere Moodboard-Tabs vorher schließen. Dateien bleiben auf diesem Gerät.", portableCollision:"Import blockiert: Ziel enthält Daten oder wurde geändert. Daten und Sicherung bleiben erhalten.", portableInvalid:"Einen unveränderten Moodboard-Export im aktuellen Format verwenden. Fehlende, ungültige, zu große oder nicht verfügbare Daten wurden nicht importiert.",
     eyebrow:'PLANE DEINE NÄCHSTE KREATION', title:'Moodboards', intro:'Sammle Gegenstände, Wand Presets, Gallery-Werke und Notizen vor der Bearbeitung deines Valley.',
     local:'Lokal zuerst', localDetail:'Kostenlose Moodboards bleiben in diesem Browserprofil. Kein Wand-Konto erforderlich.',
     newBoard:'Neues Moodboard', titleLabel:'Titel', description:'Beschreibung', create:'Erstellen', boards:'Moodboards', empty:'Noch keine Moodboards.',
@@ -60,6 +64,7 @@ export const MOODBOARD_COPY = Object.freeze({
     openWorldEditor:"In World Editor öffnen", assignGroups:"Gruppen", collapse:"Einklappen", expand:"Ausklappen", noRefs:"Keine Referenzen in diesem Abschnitt.", atomicLink:"Isolierte lokale Board-Vorschau öffnen", atomicNote:"Optional: Diese Vorschau nutzt einen eigenen IndexedDB-Speicher. Bestehende Moodboards und ihre localStorage-Backups werden weder migriert noch zusammengeführt, ersetzt oder gelöscht. Änderungen erscheinen nicht in den ursprünglichen Moodboards. Die erste Erstellung in Collection bleibt deaktiviert."
   },
   'es-ES': {
+    exportPrevious:"Exportar instantánea anterior", portableNote:"Para cambiar de sitio, exporta por separado las instantáneas actual y anterior. Importa el JSON actual solo en un destino vacío. Cierra las demás pestañas de Moodboards antes de importar. Los archivos permanecen en este dispositivo.", portableCollision:"Importación bloqueada: el destino contiene datos o ha cambiado. Se conservan los datos y la copia de seguridad.", portableInvalid:"Usa una exportación de Moodboard intacta en el formato actual. No se importaron datos ausentes, inválidos, demasiado grandes o no disponibles.",
     eyebrow:'PLANIFICA TU PRÓXIMA CREACIÓN', title:'Moodboards', intro:'Reúne objetos, Presets de Wand, obras de Gallery y notas antes de editar tu Valle.',
     local:'Primero local', localDetail:'Los Moodboards gratuitos permanecen en este perfil del navegador. No hace falta una cuenta Wand.',
     newBoard:'Nuevo Moodboard', titleLabel:'Título', description:'Descripción', create:'Crear', boards:'Moodboards', empty:'Aún no hay Moodboards.',
@@ -75,6 +80,7 @@ export const MOODBOARD_COPY = Object.freeze({
     openWorldEditor:"Abrir en World Editor", assignGroups:"Grupos", collapse:"Contraer", expand:"Expandir", noRefs:"No hay referencias en esta sección.", atomicLink:"Abrir vista previa del tablero local aislado", atomicNote:"Opcional: esta vista previa usa un almacenamiento IndexedDB separado. Los Moodboards existentes y sus copias en localStorage no se migran, combinan, reemplazan ni eliminan. Los cambios no aparecen en los Moodboards originales. La creación inicial en Collection sigue desactivada."
   },
   ja: {
+    exportPrevious:"前のスナップショットを出力", portableNote:"サイト移行時は現在と前のスナップショットを別々に出力し、現在のJSONを空の移行先にのみ入力してください。入力前に他のMoodboardタブを閉じてください。ファイルは端末内に留まります。", portableCollision:"入力を拒否しました。移行先にデータがあるか、読込中に変更されました。既存データとバックアップは保持されます。", portableInvalid:"現在の形式で出力した未変更のMoodboardファイルを使用してください。欠落・不正・容量超過・利用不可のデータは入力していません。",
     eyebrow:'次の飾り付けを計画する', title:'Moodboards', intro:'Valleyを編集する前に、アイテム、Wand Preset、Gallery作品、メモを集めて構想を整理します。',
     local:'ローカル優先', localDetail:'無料のMoodboardはこのブラウザープロファイル内に保存されます。Wand Accountは不要です。',
     newBoard:'新しいMoodboard', titleLabel:'タイトル', description:'説明', create:'作成', boards:'Moodboards', empty:'Moodboardはまだありません。',
@@ -90,6 +96,7 @@ export const MOODBOARD_COPY = Object.freeze({
     openWorldEditor:"World Editorで開く", assignGroups:"Groups", collapse:"折りたたむ", expand:"展開", noRefs:"このセクションに参照はありません。", atomicLink:"隔離されたローカルBoardを試す", atomicNote:"任意のプレビューです。新しいIndexedDBと従来のMoodboard用localStorageは別の保存領域です。既存Boardやバックアップを自動移行・統合・上書き・削除せず、ここでの変更は従来のMoodboardには反映されません。Collectionの通常の初回作成は引き続きOFFです。"
   },
   'zh-CN': {
+    exportPrevious:"导出上一个快照", portableNote:"迁移站点时，请分别导出当前和上一个快照。仅将当前 JSON 导入空白目标。导入前关闭其他 Moodboard 标签页。文件保留在此设备上。", portableCollision:"导入已阻止：目标已有数据或读取时发生变化。现有数据和备份已保留。", portableInvalid:"请使用未修改的当前格式 Moodboard 导出文件。缺失、无效、过大或不可用的数据未导入。",
     eyebrow:'规划下一次创作', title:'Moodboards', intro:'在编辑山谷前收集物品、Wand Preset、Gallery 作品和笔记。',
     local:'本地优先', localDetail:'免费的 Moodboard 保存在当前浏览器配置中，无需 Wand 账户。',
     newBoard:'新建 Moodboard', titleLabel:'标题', description:'说明', create:'创建', boards:'Moodboards', empty:'还没有 Moodboard。',
@@ -105,6 +112,7 @@ export const MOODBOARD_COPY = Object.freeze({
     openWorldEditor:"在 World Editor 中打开", assignGroups:"分组", collapse:"折叠", expand:"展开", noRefs:"此分区没有引用。", atomicLink:"打开隔离的本地 Board 预览", atomicNote:"此功能为可选预览，使用独立的 IndexedDB 存储。现有 Moodboard 及其 localStorage 备份不会自动迁移、合并、覆盖或删除。此处的更改不会出现在原有 Moodboard 中。Collection 中的首次创建仍处于关闭状态。"
   },
   'pt-BR': {
+    exportPrevious:"Exportar snapshot anterior", portableNote:"Para mudar de site, exporte os snapshots atual e anterior separadamente. Importe o JSON atual apenas em um destino vazio. Feche outras abas de Moodboards antes de importar. Os arquivos ficam neste dispositivo.", portableCollision:"Importação bloqueada: o destino contém dados ou foi alterado. Dados e backup foram preservados.", portableInvalid:"Use uma exportação Moodboard intacta no formato atual. Dados ausentes, inválidos, grandes demais ou indisponíveis não foram importados.",
     eyebrow:'PLANEJE SUA PRÓXIMA CRIAÇÃO', title:'Moodboards', intro:'Reúna itens, Presets do Wand, obras da Gallery e notas antes de editar o seu Vale.',
     local:'Local primeiro', localDetail:'Moodboards gratuitos ficam neste perfil do navegador. Nenhuma conta Wand é necessária.',
     newBoard:'Novo Moodboard', titleLabel:'Título', description:'Descrição', create:'Criar', boards:'Moodboards', empty:'Ainda não há Moodboards.',

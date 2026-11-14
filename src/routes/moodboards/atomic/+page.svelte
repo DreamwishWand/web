@@ -4,15 +4,19 @@
  import { locale } from '$lib/i18n/runtime.js';
  import { moodboardCopy } from '$lib/moodboards/copy.js';
  import ItemThumb from '$lib/ui/ItemThumb.svelte';
+ import { atomicPortabilityCopy } from '$lib/moodboards/atomic-portability-copy.mjs';
  import { exploreCopy } from '$lib/explore/copy.js';
  import { worldEditorStage1Copy } from '$lib/wep/world-editor-stage1-copy.js';
  import { createAtomicMoodboardHandoff, writeWorldEditorHandoff } from '$lib/wep/world-editor-handoff';
  import { verifyAtomicBoardReference } from '$lib/wep/world-editor-atomic-board-guard.mjs';
  import { decodeCollectionRecord,loadCollectionRuntime } from '$lib/collection/runtime.js';
  import { ATOMIC_FIRST_BOARD_GATE,openAtomicFirstBoardDatabase,verifiedAtomicFirstBoardReopen,
-  createAtomicFirstBoard,toggleAtomicFirstBoardItem,deleteAtomicFirstBoard,readAtomicFirstBoard
+  createAtomicFirstBoard,toggleAtomicFirstBoardItem,deleteAtomicFirstBoard,readAtomicFirstBoard,
+  exportAtomicBoardPortable,importAtomicBoardPortable,ATOMIC_BOARD_PORTABLE_MAX_BYTES,decodeAtomicBoardPortableBytes
  } from '$lib/moodboards/atomic-first-board.mjs';
  let db:IDBDatabase|null=null, snapshot:any=null, ready=false, catalogReady=false;
+ let portableInput:HTMLInputElement;
+ $: portableCopy=atomicPortabilityCopy($locale);
  let records:any[]=[],title='',itemIdInput='',message='',outcome='NOT_STARTED',busy=false;
  let handoffItemId:number|null=null,handoffRequested=false,handoffInvalid=false;
  let wepSending=false,wepSendStatus='',wepSendOutcome='NOT_STARTED';
@@ -146,6 +150,31 @@
    message=copy.deleted;outcome='DELETED';
   }catch(e){message=String(e);outcome='REJECTED';}finally{busy=false;}
  }
+ async function exportPortable(){
+  if(!db||busy)return;
+  busy=true;
+  try{
+   const raw=await exportAtomicBoardPortable(db);
+   const u=URL.createObjectURL(new Blob([raw],{type:'application/json'}));
+   const a=window.document.createElement('a');a.href=u;a.download='dreamwish-wand-atomic-board-portable.json';
+   a.click();URL.revokeObjectURL(u);message=portableCopy.exported;outcome='PORTABLE_EXPORTED';
+  }catch{message=portableCopy.rejected;outcome='PORTABLE_REJECTED';}finally{busy=false;}
+ }
+ async function importPortable(event:Event){
+  const input=event.currentTarget as HTMLInputElement,file=input.files?.[0];
+  if(!file||!db||busy||!catalogReady){input.value='';return;}
+  busy=true;outcome='PENDING';
+  try{
+   if(!file.size||file.size>ATOMIC_BOARD_PORTABLE_MAX_BYTES)throw Error('PORTABLE_INVALID');
+   const bytes=new Uint8Array(await file.arrayBuffer());
+   if(bytes.byteLength!==file.size)throw Error('PORTABLE_INVALID');
+   const receipt=await importAtomicBoardPortable(db,decodeAtomicBoardPortableBytes(bytes),records);
+   snapshot=await verifiedAtomicFirstBoardReopen(db);
+   if(!snapshot||snapshot.boardId!==receipt.boardId||snapshot.revision!==receipt.revision||snapshot.deleted!==receipt.deleted)
+    throw Error('PORTABLE_REOPEN');
+   message=portableCopy.imported;outcome='PORTABLE_IMPORTED';
+  }catch{message=portableCopy.rejected;outcome='PORTABLE_REJECTED';}finally{input.value='';busy=false;}
+ }
  function backup(){
   if(!snapshot)return;
   const u=URL.createObjectURL(new Blob([snapshot.backup],{type:'application/json'}));
@@ -170,8 +199,7 @@
    {:else if !catalogReady}
     <p data-atomic-handoff-pending role="status">{inspire.loading}</p>
    {:else if handoffRecord}
-    <!-- The explicit public catalog selection only. Never derive image requests
-         from saved local Board references, notes, labels or private media. -->
+    <!-- Explicit public catalog selection only; never derive images from saved Board references. -->
     <div class="atomic-handoff-preview" data-atomic-handoff-preview>
      <ItemThumb itemId={handoffRecord.itemId} label={handoffRecord.label} />
      <p data-atomic-handoff-label>{handoffRecord.label} · {inspire.itemId} {handoffRecord.itemId}</p>
@@ -229,6 +257,12 @@
    <button data-atomic-delete type="button" on:click={remove} disabled={busy}>{copy.delete}</button>
   </article>
  {/if}
+ <aside data-atomic-portability class="atomic-portability">
+  <p>{portableCopy.note}</p>
+  <button data-atomic-portable-export type="button" on:click={exportPortable} disabled={!ready||!snapshot||busy}>{portableCopy.export}</button>
+  <button data-atomic-portable-import type="button" on:click={()=>portableInput?.click()} disabled={!ready||!catalogReady||busy||Boolean(snapshot)}>{portableCopy.import}</button>
+  <input data-atomic-portable-file bind:this={portableInput} type="file" accept=".json,application/json" hidden on:change={importPortable}/>
+ </aside>
  <button data-atomic-reopen type="button" on:click={reopen} disabled={!ready||busy}>Reopen local transaction</button>
 </section>
 <style>
@@ -251,5 +285,6 @@
 .atomic-first label{display:grid;gap:8px}.atomic-first input{width:100%;box-sizing:border-box;padding:10px;background:var(--surface-raised);color:var(--ink);border:1px solid var(--border);border-radius:10px}
 .atomic-first button{padding:10px 14px;margin:8px 6px 8px 0;border:1px solid var(--border);border-radius:9px;background:var(--surface-raised);color:var(--ink);cursor:pointer}
 .atomic-first button:disabled{opacity:.45}.atomic-first a:focus-visible,.atomic-first button:focus-visible,.atomic-first input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.atomic-portability{min-width:0;overflow-wrap:anywhere}.atomic-portability button{max-width:100%;white-space:normal}.atomic-portability input[hidden]{display:none}
 .atomic-first code{overflow-wrap:anywhere}@media(max-width:480px){.atomic-first{padding-block:35px 65px}.atomic-first button{width:100%}}
 </style>

@@ -122,7 +122,8 @@ test('Native manager imports both single/local-library backups ONLY after valida
   const ui=readFileSync('src/lib/presets/NativePresetManager.svelte','utf8');
   assert.match(ui,/inspectNativePresetLocalFileBytes\(new Uint8Array\(await file\.arrayBuffer\(\)\)\)/);
   assert.match(ui,/!reviewed\.localFileReady\|\|!reviewed\.backups/);
-  assert.match(ui,/byId\.size>100/);
+  assert.match(ui,/transactNativePresetLibrary/);
+  assert.match(ui,/await mergeBackups\(/);
   assert.match(ui,/file\.size>NATIVE_LOCAL_PRESET_FILE_MAX_BYTES/);
   assert.match(ui,/reviewed\.backups\.map\(\(x:any\)=>x\.backup\)/);
   assert.match(ui,/disabled title=\{copy\.blocked\}>\{copy\.restore\}/);
@@ -157,4 +158,95 @@ test('QA674 exact import hook: incomplete schema624 SubGrid and DiffGrid entries
   const ok=await inspectNativePresetLocalFileBytes(bytes(clean));
   assert.equal(ok.status,'LOCAL_FILE_VALIDATED_PRESERVE_ONLY');
   assert.equal(ok.gameSaveApplyAuthorized,false);
+});
+
+test('migration transaction preserves latest target, exact duplicate idempotence, collision and corrupt bytes',async()=>{
+ const m=await import('../src/lib/presets/native-local-file-import-contract.mjs');
+ const {NATIVE_PRESET_LIBRARY_KEY:key}=await import('../src/lib/presets/native-preset-runtime.js');
+ let raw=null,writes=0;
+ const storage={getItem:k=>{assert.equal(k,key);return raw;},setItem:(k,v)=>{assert.equal(k,key);raw=v;writes++;}};
+ const locks={request:async(name,opts,fn)=>{assert.equal(name,m.NATIVE_PRESET_LIBRARY_LOCK);assert.equal(opts.mode,'exclusive');return fn();}};
+ const run=(backups,operation='merge')=>m.transactNativePresetLibrary({storage,locks,operation,backups});
+ const first=backup(), second={...backup(),id:'native_second'};
+ await run([first]);const one=raw;
+ await run([first]);assert.equal(raw,one);assert.equal(writes,1);
+ await assert.rejects(run([{...first,payload:{...first.payload,PresetName:'conflict'}}]),/ID_COLLISION/);
+ assert.equal(raw,one);assert.equal(writes,1);
+ await run([second]);assert.deepEqual(JSON.parse(raw).backups,[first,second]);
+ const before=raw;raw='{"corrupt":true}';
+ await assert.rejects(run([first]),/STORAGE_INVALID/);assert.equal(raw,'{"corrupt":true}');
+ raw=before;await assert.rejects(m.transactNativePresetLibrary({storage,locks:null,operation:'merge',backups:[first]}),/LOCK_UNAVAILABLE/);
+ assert.equal(raw,before);
+});
+
+test('stale native preset removal rejects a replaced same-ID entry and retains disjoint data',async()=>{
+ const m=await import('../src/lib/presets/native-local-file-import-contract.mjs');
+ const {NATIVE_PRESET_LIBRARY_KEY:key}=await import('../src/lib/presets/native-preset-runtime.js');
+ let raw=null,writes=0,tail=Promise.resolve();
+ const storage={getItem:k=>{assert.equal(k,key);return raw;},setItem:(k,v)=>{assert.equal(k,key);raw=v;writes++;}};
+ const locks={request:(name,opts,fn)=>{assert.equal(name,m.NATIVE_PRESET_LIBRARY_LOCK);assert.equal(opts.mode,'exclusive');const next=tail.then(fn);tail=next.catch(()=>{});return next;}};
+ const run=options=>m.transactNativePresetLibrary({storage,locks,...options});
+ const a=backup(),b={...a,payload:{...a.payload,PresetName:'replacement',OpaqueFuture:{replacement:true}}},c={...backup(),id:'native_disjoint'};
+ const remove=(entry,expectedIncarnation)=>run({operation:'remove',id:entry.id,expectedEntry:JSON.stringify(entry),expectedIncarnation});
+ await run({operation:'merge',backups:[a]});
+ const old=(await run({operation:'read'})).library;
+ const stale=old.backups[0],oldGeneration=old.localEntryIncarnations.entries[a.id];
+ await remove(a,oldGeneration);await run({operation:'merge',backups:[b]});
+ const replaced=raw;assert.equal(writes,3);
+ await assert.rejects(remove(stale,oldGeneration),/STALE_ENTRY/);assert.equal(raw,replaced);assert.equal(writes,3);
+ await assert.rejects(run({operation:'remove',id:b.id}),/EXPECTED_ENTRY_REQUIRED/);
+ await assert.rejects(run({operation:'remove',id:b.id,expectedEntry:'{}'}),/STALE_ENTRY/);
+ await assert.rejects(remove(c),/ENTRY_MISSING/);assert.equal(raw,replaced);assert.equal(writes,3);
+ await run({operation:'merge',backups:[c]});
+ await remove(b,JSON.parse(replaced).localEntryIncarnations.entries[b.id]);assert.deepEqual(JSON.parse(raw).backups,[c]);assert.equal(writes,5);
+ const ui=readFileSync('src/lib/presets/NativePresetManager.svelte','utf8');
+ assert.match(ui,/expectedEntry=JSON.stringify\(backup\)/);
+ assert.match(ui,/operation:'remove',id,expectedEntry/);
+ assert.match(ui,/removeBackup\(backup\)/);
+});
+
+test('local incarnation CAS rejects identical reincarnation and preserves legacy/disjoint/portable boundaries',async()=>{
+ const m=await import('../src/lib/presets/native-local-file-import-contract.mjs');
+ const {NATIVE_PRESET_LIBRARY_KEY:key,createEmptyNativePresetLibrary,serializeNativePresetLibrary}=await import('../src/lib/presets/native-preset-runtime.js');
+ const a=backup(),b={...backup(),id:'native_disjoint'},c={...backup(),id:'native_third'};
+ const legacy={...createEmptyNativePresetLibrary(),backups:[a],opaqueTop:{keep:true}};
+ let raw=serializeNativePresetLibrary(legacy),writes=0,tail=Promise.resolve();
+ const storage={getItem:k=>{assert.equal(k,key);return raw;},setItem:(k,v)=>{assert.equal(k,key);raw=v;writes++;}};
+ const locks={request:(name,opts,fn)=>{const next=tail.then(fn);tail=next.catch(()=>{});return next;}};
+ const run=options=>m.transactNativePresetLibrary({storage,locks,...options});
+ const remove=(entry,expectedIncarnation)=>run({operation:'remove',id:entry.id,expectedEntry:JSON.stringify(entry),expectedIncarnation});
+ const initial=raw;assert.deepEqual((await run({operation:'read'})).library,legacy);assert.equal(raw,initial);assert.equal(writes,0);
+ await run({operation:'merge',backups:[a]});assert.equal(raw,initial);assert.equal(writes,0);
+ await run({operation:'merge',backups:[b]});
+ const migrated=JSON.parse(raw);assert.equal(migrated.localEntryIncarnations.entries[a.id],0);
+ assert.deepEqual(migrated.opaqueTop,legacy.opaqueTop);assert.deepEqual(migrated.backups,[a,b]);
+ await remove(a,0);await run({operation:'merge',backups:[a]});
+ const reincarnated=raw,gen=JSON.parse(raw).localEntryIncarnations.entries[a.id];
+ assert.ok(gen>0);assert.equal(writes,3);
+ await assert.rejects(remove(a,0),/STALE_INCARNATION/);
+ await assert.rejects(remove(a),/EXPECTED_INCARNATION_REQUIRED/);
+ assert.equal(raw,reincarnated);assert.equal(writes,3);
+ await run({operation:'merge',backups:[c]});await remove(a,gen);
+ assert.deepEqual(JSON.parse(raw).backups,[b,c]);assert.equal(writes,5);
+ await remove(b,JSON.parse(raw).localEntryIncarnations.entries[b.id]);
+ await remove(c,JSON.parse(raw).localEntryIncarnations.entries[c.id]);
+ const empty=JSON.parse(raw);assert.deepEqual(empty.backups,[]);assert.deepEqual(empty.localEntryIncarnations.entries,{});
+ await run({operation:'merge',backups:[a]});
+ const again=JSON.parse(raw);assert.ok(again.localEntryIncarnations.entries[a.id]>=empty.localEntryIncarnations.next);
+ await assert.rejects(remove(a,gen),/STALE_INCARNATION/);
+ const good=raw,goodWrites=writes;
+ for(const value of [null,{next:1,entries:{}},{next:1,entries:{[a.id]:1}},{next:2,entries:{[a.id]:0,extra:0}},{next:2,entries:{[a.id]:'0'}}]){
+  raw=JSON.stringify({...again,localEntryIncarnations:value});
+  const corrupt=raw;await assert.rejects(run({operation:'read'}),/INCARNATION_INVALID/);
+  await assert.rejects(run({operation:'merge',backups:[b]}),/INCARNATION_INVALID/);
+  assert.equal(raw,corrupt);assert.equal(writes,goodWrites);
+ }
+ raw=good;
+ // Imported envelope metadata is not trusted to grant an origin incarnation.
+ const forged=await m.inspectNativePresetLocalFileBytes(bytes({...again,localEntryIncarnations:{next:1,entries:{[a.id]:0}}}));
+ assert.equal(forged.localFileReady,true);assert.deepEqual(forged.backups.map(x=>x.backup),[a]);
+ const ui=readFileSync('src/lib/presets/NativePresetManager.svelte','utf8');
+ assert.match(ui,/expectedIncarnation=library\.localEntryIncarnations\?\.entries\[id\]\?\?0/);
+ assert.match(ui,/operation:'remove',id,expectedEntry,expectedIncarnation/);
+ assert.match(ui,/localEntryIncarnations,\.\.\.portable/);
 });

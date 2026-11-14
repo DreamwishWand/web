@@ -9,6 +9,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {inspectReleasePins} from '../../scripts/readonly-release/seal.mjs';
+import {RELEASE_TUPLES,releaseDelivery} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
 import {readonlyReleaseIdentityText} from '../../src/lib/ddv/core/save/product-rust-wasm-release-loader.mjs';
 const dir=resolve(process.argv[2]);
 const source=process.argv[3];
@@ -16,18 +17,28 @@ if(!/^[0-9a-f]{40}$/.test(source??''))throw Error('R22_FIXED_TEST_SOURCE_REQUIRE
 const pins=await inspectReleasePins(dir,source);
 const root=resolve(import.meta.dirname,'../..');
 const profile=await mkdtemp(join(tmpdir(),'wand-release-chrome-'));
-let server,browser,ws,origin;let seq=0;const pending=new Map();
+let server,browser,ws;const origin=RELEASE_TUPLES[0].origin,rootOrigin=RELEASE_TUPLES[1].origin;
+let rootScenario='web';let seq=0;const pending=new Map();
 const chrome=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium','chromium-browser'].filter(Boolean)
  .find(x=>spawnSync('which',[x],{stdio:'ignore'}).status===0);
 if(!chrome)throw Error('ENV_CHROME_NOT_INSTALLED');
-const files=['product-rust-wasm-candidate-loader.mjs','product-rust-wasm-release-loader.mjs'];
+const files=['product-rust-wasm-candidate-loader.mjs','product-rust-wasm-release-loader.mjs','product-rust-wasm-release-trust.mjs'];
 const modules=new Map(await Promise.all(files.map(async n=>[n,await readFile(join(root,'src/lib/ddv/core/save',n))])));
 const assets=new Map(await Promise.all(['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm'].map(async n=>[n,await readFile(join(dir,n))])));
 const hash=x=>createHash('sha256').update(x).digest('hex');
+// Only this isolated HTTPS fixture synthesizes a root manifest. Its bytes
+// are NOT signed root provenance. Historical bytes remain legacy-only.
+const rootManifest=t=>Buffer.from(JSON.stringify({...JSON.parse(assets.get('manifest.json')),
+ source:{...JSON.parse(assets.get('manifest.json')).source,repository:t.repository},
+ delivery:releaseDelivery(t)}));
+const webRootManifest=rootManifest(RELEASE_TUPLES[1]),siteRootManifest=rootManifest(RELEASE_TUPLES[2]);
+const rootFixture=()=>rootScenario==='legacy'?assets.get('manifest.json'):
+ rootScenario==='site'?siteRootManifest:webRootManifest;
+const rootFixturePins=()=>({...pins,manifestSha256:hash(rootFixture()),manifestSizeBytes:rootFixture().length});
 const anchor=(base='/web',mode='good')=>{
- const a={contract:'wand.r22.protected-readonly-release@1',repository:'DreamwishWand/web',
- signerWorkflow:'DreamwishWand/web/.github/workflows/pages.yml',sourceRef:'refs/heads/main',
- origin:mode==='origin'?'https://wrong.invalid':origin,basePath:base,pins,
+ const t=base===''?RELEASE_TUPLES[rootScenario==='site'||rootScenario==='cross'?2:1]:RELEASE_TUPLES[0];
+ const a={contract:'wand.r22.protected-readonly-release@1',...t,
+ origin:mode==='origin'?'https://wrong.invalid':t.origin,pins:base===''?rootFixturePins():pins,
  attestationVerifiedAtBuild:true};
  const id=hash(readonlyReleaseIdentityText(a));
  return mode==='null'?null:{...a,releaseId:mode==='identity'?'f'.repeat(64):id};
@@ -57,10 +68,10 @@ self.onmessage=async({data:mode})=>{
     native:r.nativeV3Verified,apply:r.applyAuthorized,abi:typeof r.WorkerWasmSource==='function'});
  }catch(e){self.postMessage({ok:false,count,error:String(e)})}
 };`;
-const page=`<!doctype html><html><body><script type="module" src="/web/runner.mjs"></script></body></html>`;
+const page=base=>`<!doctype html><html><body><script type="module" src="${base}/runner.mjs"></script></body></html>`;
 const runner=`window.result=(async()=>{
  const results={};
- for(const mode of ['good','caller','null','identity','origin','manifest','js','wasm','redirect','mime','stale','wrongbase','root']){
+ for(const mode of location.pathname.startsWith('/web/')?['good','caller','null','identity','origin','manifest','js','wasm','redirect','mime','stale','wrongbase']:['root']){
   const path=mode==='root'? '/_app/root/worker.mjs':mode==='wrongbase'? '/_app/wrongbase/worker.mjs':'/web/_app/'+mode+'/worker.mjs';
   results[mode]=await new Promise((resolve,reject)=>{
    const w=new Worker(path,{type:'module'});w.onmessage=e=>{w.terminate();resolve(e.data)};
@@ -73,8 +84,8 @@ function respond(req,res){
  const path=new URL(req.url,origin).pathname;
  const headers={'content-security-policy':"default-src 'none'; script-src 'self' blob: 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'",'cache-control':'no-store','x-content-type-options':'nosniff'};
  let body,type='text/javascript';
- if(path==='/web/test.html'){body=page;type='text/html'}
- else if(path==='/web/runner.mjs')body=runner;
+ if(path==='/web/test.html'||path==='/test.html'){body=page(path.startsWith('/web/')?'/web':'');type='text/html'}
+ else if(path==='/web/runner.mjs'||path==='/runner.mjs')body=runner;
  else if(/^\/(?:web\/)?_app\/[a-z]+\/[a-z0-9.-]+$/.test(path)){
   const parts=path.split('/'),n=parts.at(-1),mode=parts.at(-2);
   if(n==='worker.mjs')body=worker;
@@ -87,7 +98,7 @@ function respond(req,res){
    body='const a='+JSON.stringify(a)+';if(a)Object.freeze(a.pins);export const PROTECTED_READONLY_RELEASE_ANCHOR=a?Object.freeze(a):null;';
   }else body=modules.get(n);
  }else if(/^\/(?:web\/)?worker-wasm\/(?:manifest\.json|ddv_save_core\.js|ddv_save_core_bg\.wasm)$/.test(path)){
-  const n=path.split('/').at(-1);body=assets.get(n);
+  const n=path.split('/').at(-1);body=n==='manifest.json'&&req.headers.host==='dreamwishwand.com'?rootFixture():assets.get(n);
   type=n.endsWith('.json')?'application/json':n.endsWith('.wasm')?'application/wasm':'text/javascript';
  }
  if(body===undefined){res.writeHead(404,headers);res.end();return}
@@ -99,8 +110,9 @@ const rpc=(method,params={})=>new Promise((resolve,reject)=>{
 try{
  execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=127.0.0.1','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem')],{stdio:'ignore'});
  server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},respond);
- await new Promise(r=>server.listen(0,'127.0.0.1',r));origin='https://127.0.0.1:'+server.address().port;
- browser=spawn(chrome,['--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--ignore-certificate-errors','--remote-allow-origins=*','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ const fixturePort=server.address().port;
+ browser=spawn(chrome,['--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--ignore-certificate-errors','--remote-allow-origins=*','--no-proxy-server',`--host-resolver-rules=MAP dreamwishwand.github.io 127.0.0.1:${fixturePort}, MAP dreamwishwand.com 127.0.0.1:${fixturePort}`,'--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  let port;for(let i=0;i<240;i++){try{port=Number((await readFile(join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0]);if(port)break}catch{}await delay(125)}
  if(!port)throw Error('ENV_CHROME_DEBUG_PORT_UNAVAILABLE');
  let target;for(let i=0;i<160;i++){try{target=(await (await fetch('http://127.0.0.1:'+port+'/json/list')).json()).find(t=>t.type==='page')?.webSocketDebuggerUrl;if(target)break}catch{}await delay(125)}
@@ -116,16 +128,36 @@ try{
  finally{watchdog.abort()}
  if(result.exceptionDetails)throw Error(JSON.stringify(result.exceptionDetails).slice(0,1000));
  const r=result.result.value;
- for(const mode of ['good','root']){
+ // Navigate the second exact origin in the same isolated browser. No
+ // network access to the real hosts: Chrome resolver maps both to fixture.
+ const rootProbe=async()=>{
+  const target=rootOrigin+'/test.html?case='+rootScenario;
+  await rpc('Page.navigate',{url:target});
+  let ready=false;
+  for(let i=0;i<200;i++){try{const x=await rpc('Runtime.evaluate',{expression:'location.href',returnByValue:true});if(x.result.value===target){ready=true;break}}catch{}await delay(50)}
+  if(!ready)throw Error('ENV_CHROME_ROOT_NAVIGATION');
+  const x=await rpc('Runtime.evaluate',{expression:`new Promise((r,j)=>{let n=0;function tick(){if(window.result)window.result.then(r,j);else if(++n>3000)j(Error('no root runner'));else setTimeout(tick,30)}tick()})`,awaitPromise:true,returnByValue:true});
+  if(x.exceptionDetails)throw Error(JSON.stringify(x.exceptionDetails).slice(0,1000));
+  return x.result.value.root;
+ };
+ r.root=await rootProbe();
+ rootScenario='site';r.site=await rootProbe();
+ for(const scenario of ['legacy','cross']){
+  rootScenario=scenario;
+  const denied=await rootProbe();
+  assert.equal(denied.ok,false,scenario);assert.match(denied.error,/MANIFEST_PROVENANCE_OR_ABI_DENIED/,scenario);
+  assert.equal(denied.count,1,scenario);
+ }
+ for(const mode of ['good','root','site']){
   const x=r[mode];assert.equal(x.ok,true,JSON.stringify(x));assert.equal(x.count,3);assert.equal(x.replay,true);
   assert.equal(x.contract,'wand.r22.protected-readonly-loader-receipt@1');assert.equal(x.source,source);
   assert.equal(x.verified,true);assert.equal(x.abi,true);
   for(const flag of ['runtime','qa','reader','writer','native','apply'])assert.equal(x[flag],false,flag);
  }
- for(const [mode,pattern] of [['caller','CALLER_AUTHORITY_DENIED'],['null','BUILD_ANCHOR_MISSING'],['identity','BUILD_IDENTITY_MISMATCH'],['origin','WORKER_DELIVERY_SCOPE_DENIED'],['manifest','ASSET_SHA256_MISMATCH'],['js','ASSET_SHA256_MISMATCH'],['wasm','ASSET_SHA256_MISMATCH'],['redirect','ASSET_ORIGIN_STATUS_REDIRECT'],['mime','ASSET_CONTENT_TYPE'],['stale','MANIFEST_PROVENANCE_OR_ABI_DENIED'],['wrongbase','WORKER_DELIVERY_SCOPE_DENIED']]){
+ for(const [mode,pattern] of [['caller','CALLER_AUTHORITY_DENIED'],['null','BUILD_ANCHOR_MISSING'],['identity','BUILD_IDENTITY_MISMATCH'],['origin','BUILD_ANCHOR_MISSING_OR_INVALID'],['manifest','ASSET_SHA256_MISMATCH'],['js','ASSET_SHA256_MISMATCH'],['wasm','ASSET_SHA256_MISMATCH'],['redirect','ASSET_ORIGIN_STATUS_REDIRECT'],['mime','ASSET_CONTENT_TYPE'],['stale','MANIFEST_PROVENANCE_OR_ABI_DENIED'],['wrongbase','WORKER_DELIVERY_SCOPE_DENIED']]){
   assert.equal(r[mode].ok,false,mode);assert.match(r[mode].error,new RegExp(pattern),mode);
  }
- console.log('R22_BUILD_ANCHORED_READONLY_REAL_CHROME_2POS_11NEG_PASS; HISTORICAL_SIGNED_BYTES; TEST_ORIGIN_ONLY; PRODUCT_OFF');
+ console.log('R22_BUILD_ANCHORED_READONLY_REAL_CHROME_3POS_13NEG_PASS; HISTORICAL_LEGACY_SIGNED_BYTES; SYNTHETIC_WEB_AND_SITE_ROOT_MANIFESTS_ONLY; LOCAL_HOST_MAPPING; PRODUCT_OFF');
 }finally{
  for(const p of pending.values())p.reject(Error('CDP_CLOSED'));pending.clear();try{ws?.close()}catch{}
  if(browser){browser.kill('SIGTERM');await delay(250);if(browser.exitCode===null)browser.kill('SIGKILL')}

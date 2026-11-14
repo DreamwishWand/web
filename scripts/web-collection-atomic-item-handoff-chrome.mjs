@@ -136,6 +136,43 @@ try{
  assert.equal(reopenedRow.backup,saved.backup);
  assert.deepEqual(await checkOld(),old);
  console.log('WEB_COLLECTION_ATOMIC_BACKUP_DOWNLOAD_FRESH_TAB_REOPEN_LEGACY_INTACT_PASS');
+ // Portable file + explicit public selection in a fresh storage partition.
+ const portableDownload=page.waitForEvent('download');
+ await page.locator('[data-atomic-portable-export]').click();
+ const portable=await portableDownload;
+ assert.equal(portable.suggestedFilename(),'dreamwish-wand-atomic-board-portable.json');
+ const bytes=await readFile(await portable.path());
+ const dest=await browser.newContext({acceptDownloads:true,serviceWorkers:'block'});
+ try{
+  const p=await dest.newPage(),bad=[],errs=[];
+  dest.on('request',r=>{if(new URL(r.url()).origin!==origin||!['GET','HEAD'].includes(r.method()))bad.push(r.method())});
+  p.on('pageerror',e=>errs.push(String(e)));
+  await p.goto(origin+url,{waitUntil:'domcontentloaded'});
+  await p.locator('[data-atomic-ready="true"][data-atomic-catalog="ready"]').waitFor({timeout:30000});
+  assert.equal(await readIdb(p),null);
+  const input=p.locator('[data-atomic-portable-file]');
+  await input.setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from([0xff])});
+  await p.locator('[data-atomic-outcome="PORTABLE_REJECTED"]').waitFor();
+  assert.equal(await readIdb(p),null);
+  await input.setInputFiles({name:'board.json',mimeType:'application/json',buffer:bytes});
+  await p.locator('[data-atomic-outcome="PORTABLE_IMPORTED"]').waitFor();
+  assert.deepEqual(await readIdb(p),saved);
+  assert.equal(await p.locator('[data-atomic-handoff-preview] [data-item-thumb-id="40000047"]').count(),1);
+  assert.equal(await p.locator('[data-atomic-items] [data-item-thumb-id]').count(),0);
+  assert.equal(await p.locator('[data-atomic-handoff-add]').count(),0);
+  assert.equal(await p.locator('[data-atomic-portable-import]').isDisabled(),true);
+  const reexport=p.waitForEvent('download');
+  await p.locator('[data-atomic-portable-export]').click();
+  assert.deepEqual(await readFile(await(await reexport).path()),bytes);
+  await p.goto(origin+'/moodboards/atomic/',{waitUntil:'domcontentloaded'});
+  await p.locator('[data-atomic-item="40000047"]').waitFor();
+  assert.equal(await p.locator('[data-item-thumb-id]').count(),0);
+  assert.deepEqual(await readIdb(p),saved);
+  assert.deepEqual(await p.evaluate(()=>[localStorage.getItem('dreamwishwand:moodboards:v1'),localStorage.getItem('dreamwishwand:moodboards:v1:backup')]),[null,null]);
+  assert.deepEqual(bad,[]);assert.deepEqual(errs,[]);
+ }finally{await dest.close()}
+ assert.deepEqual(await readIdb(page),saved);
+ console.log('WEB_ATOMIC_PUBLIC_THUMB_PORTABLE_IMPORT_EXPORT_EXACT_NO_SAVED_LOOKUP_PASS');
  const adversarial=[
   '/moodboards/atomic/?item=999999',
   '/moodboards/atomic/?item=00040000047',

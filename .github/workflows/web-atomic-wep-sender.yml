@@ -25,7 +25,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE="${{ github.event.pull_request.base.sha }}"
+          EVENT_BASE="${{ github.event.pull_request.base.sha }}"
+          SOURCE="${{ github.event.pull_request.head.sha }}"
+          # Verify the actual checkout parents; a queued event base can lag protected main.
+          if test "$(git rev-parse HEAD)" = "$SOURCE"; then
+            BASE="$EVENT_BASE"
+          else
+            test "$(git rev-parse HEAD^2)" = "$SOURCE"
+            BASE="$(git rev-parse HEAD^1)"
+            git merge-base --is-ancestor "$EVENT_BASE" "$BASE"
+          fi
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           cat >/tmp/source-allowed <<'SCOPE'
           .github/workflows/web-atomic-wep-sender.yml
@@ -36,18 +45,56 @@ jobs:
           SCOPE
           git diff --name-only "$BASE" HEAD | LC_ALL=C sort >/tmp/source-changed
           LC_ALL=C sort /tmp/source-allowed >/tmp/source-expected
-          diff -u /tmp/source-expected /tmp/source-changed
-          for p in src/routes/moodboards/atomic/+page.svelte tests/web-collection-atomic-item-handoff.test.mjs; do
-            test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M
-          done
-          for p in scripts/web-atomic-wep-sender-chrome.mjs tests/web-atomic-wep-sender.test.mjs .github/workflows/web-atomic-wep-sender.yml; do
-            test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
-          done
-          git diff --exit-code "$BASE" HEAD -- \
-            src/lib/moodboards/ src/lib/wep/ src/lib/collection/ src/routes/collection/ \
-            src/routes/editor/ src/routes/moodboards/+page.svelte crates/ \
-            supabase/ static/ .github/workflows/pages.yml
-          echo WEB_ATOMIC_WEP_SENDER_EXACT5_NO_WEP_OR_STORE_FORK_PASS
+          # Explicit six-MOD public catalog thumbnail successor. Keep both historic gates below.
+          git diff --name-status "$BASE" HEAD | LC_ALL=C sort >/tmp/atomic-thumb-current
+          cat >/tmp/atomic-thumb-scope <<'SCOPE'
+          M	.github/workflows/web-atomic-wep-sender.yml
+          M	.github/workflows/web-collection-atomic-item-handoff.yml
+          M	.github/workflows/web-moodboard-atomic-first.yml
+          M	scripts/web-collection-atomic-item-handoff-chrome.mjs
+          M	src/routes/moodboards/atomic/+page.svelte
+          M	tests/web-collection-atomic-item-handoff.test.mjs
+          SCOPE
+          LC_ALL=C sort /tmp/atomic-thumb-scope >/tmp/atomic-thumb-expected
+          if cmp -s /tmp/atomic-thumb-expected /tmp/atomic-thumb-current; then
+            diff -u /tmp/atomic-thumb-expected /tmp/atomic-thumb-current
+            git diff --exit-code "$BASE" HEAD -- src/lib/ crates/ supabase/ static/ .github/workflows/pages.yml
+            echo WEB_ATOMIC_PUBLIC_THUMB_EXACT6_NO_STORE_CORE_CHANGE_PASS
+          elif cmp -s /tmp/source-expected /tmp/source-changed; then
+            diff -u /tmp/source-expected /tmp/source-changed
+            for p in src/routes/moodboards/atomic/+page.svelte tests/web-collection-atomic-item-handoff.test.mjs; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M
+            done
+            for p in scripts/web-atomic-wep-sender-chrome.mjs tests/web-atomic-wep-sender.test.mjs .github/workflows/web-atomic-wep-sender.yml; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+            done
+            git diff --exit-code "$BASE" HEAD -- \
+              src/lib/moodboards/ src/lib/wep/ src/lib/collection/ src/routes/collection/ \
+              src/routes/editor/ src/routes/moodboards/+page.svelte crates/ \
+              supabase/ static/ .github/workflows/pages.yml
+            echo WEB_ATOMIC_WEP_SENDER_EXACT5_NO_WEP_OR_STORE_FORK_PASS
+          else
+            # Explicit isolated Atomic Board portability successor; no other paths.
+            cat >/tmp/atomic-portable-scope <<'SCOPE'
+          .github/workflows/web-atomic-wep-sender.yml
+          .github/workflows/web-collection-atomic-item-handoff.yml
+          .github/workflows/web-moodboard-atomic-first.yml
+          scripts/web-atomic-board-portability-chrome.mjs
+          src/lib/moodboards/atomic-first-board.mjs
+          src/lib/moodboards/atomic-portability-copy.mjs
+          src/routes/moodboards/atomic/+page.svelte
+          tests/web-atomic-board-portability.test.mjs
+          SCOPE
+            LC_ALL=C sort /tmp/atomic-portable-scope >/tmp/atomic-portable-expected
+            diff -u /tmp/atomic-portable-expected /tmp/source-changed
+            for p in src/lib/moodboards/atomic-first-board.mjs src/routes/moodboards/atomic/+page.svelte .github/workflows/web-moodboard-atomic-first.yml .github/workflows/web-atomic-wep-sender.yml .github/workflows/web-collection-atomic-item-handoff.yml; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M
+            done
+            for p in src/lib/moodboards/atomic-portability-copy.mjs tests/web-atomic-board-portability.test.mjs scripts/web-atomic-board-portability-chrome.mjs; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+            done
+            echo WEB_ATOMIC_PORTABILITY_EXACT8_SCOPE_PASS
+          fi
       - name: Node contracts, Svelte check, /web build and noindex static
         env:
           BASE_PATH: /web

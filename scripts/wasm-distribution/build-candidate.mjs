@@ -6,6 +6,8 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {join,resolve} from 'node:path';
 
+import {ACTIVE_RELEASE_TUPLE,LEGACY_RELEASE_TUPLE,RELEASE_REPOSITORY_ID,releaseDelivery,protectedPagesContextMatches} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+
 const root=resolve(import.meta.dirname,'../..');
 const generated=join(root,'tests/stage-e/pkg');
 const target=join(root,'static/worker-wasm');
@@ -20,6 +22,16 @@ if(!/^[a-f0-9]{40}$/.test(expectedHead??''))
   fail('SOURCE_HEAD_REQUIRED');
 if(textCommand('git',['rev-parse','HEAD'])!==expectedHead)
   fail('SOURCE_HEAD_DIFFERENT_FROM_CHECKOUT');
+// Non-deploying synthetic builds keep the current committed tuple; no
+// caller/env-selected repository, origin or signer. Pages additionally binds
+// the exact protected context before producing any signed subject.
+const tuple=ACTIVE_RELEASE_TUPLE;
+if(process.env.GITHUB_ACTIONS==='true'&&
+ (process.env.GITHUB_REPOSITORY!==tuple.repository||process.env.GITHUB_REPOSITORY_ID!==RELEASE_REPOSITORY_ID))
+ fail('REPOSITORY_IDENTITY_DENIED');
+if(process.env.GITHUB_WORKFLOW_REF?.includes('/.github/workflows/pages.yml@')&&
+ !protectedPagesContextMatches(process.env,expectedHead,textCommand('git',['rev-parse','HEAD'])))
+ fail('PROTECTED_PAGES_CONTEXT_DENIED');
 const features=['indexed-read','worker-wasm'];
 const cargo=await readFile(join(root,'crates/ddv-save-core/Cargo.toml'));
 const cargoText=cargo.toString('utf8');
@@ -32,6 +44,16 @@ for(const required of [
 ])if(!cargoText.includes(required))fail('RUST_FEATURE_ABI_CHANGED');
 const lock=await readFile(join(root,'crates/ddv-save-core/Cargo.lock'))
   .catch(()=>fail('CARGO_LOCK_NOT_AVAILABLE'));
+// Protected release jobs use the exact previously reviewed dependency lock.
+// Other synthetic candidate jobs may still generate a DEV-only lock.
+const approvedLockMode=process.env.WAND_APPROVED_RELEASE_LOCK==='1';
+if(approvedLockMode){
+ const approved=await readFile(join(root,'scripts/wasm-distribution/approved-Cargo.lock'))
+  .catch(()=>fail('APPROVED_CARGO_LOCK_NOT_AVAILABLE'));
+ const config=JSON.parse(await readFile(join(root,'scripts/wasm-distribution/protected-release-inputs.json'),'utf8'));
+ if(sha(approved)!==config.approvedCargoLockSha256||!lock.equals(approved))
+  fail('APPROVED_CARGO_LOCK_MISMATCH');
+}
 const toolchain=textCommand('rustc',['--version','--verbose']);
 const cargoVersion=textCommand('cargo',['--version']);
 const bindgenCli=process.env.WAND_BINDGEN_CLI;
@@ -55,11 +77,11 @@ for(const name of names)await copyFile(join(generated,name),join(target,name));
 const statPair=await Promise.all(names.map(n=>stat(join(target,n))));
 if(statPair.some((s,i)=>s.size!==bytes[i].length))fail('COPIED_LENGTH_MISMATCH');
 const source={
-  repository:'DreamwishWand/web',
+  repository:tuple.repository,
   commit:expectedHead,
   cargoTomlSha256:sha(cargo),
-  cargoLockSha256:sha(lock), // generated dependency lock, not a signed attest
-  cargoLockOrigin:'cargo-generated-this-ci-job',
+  cargoLockSha256:sha(lock), // exact dependency lock; signature checked separately
+  cargoLockOrigin:approvedLockMode?'approved-repository-lock':'cargo-generated-this-ci-job',
   cargoVersion,toolchain,
   wasmBindgen:'0.2.105',
   wasmTarget:'wasm32-unknown-unknown',
@@ -71,6 +93,7 @@ const manifest={
   contract:'wand.r22.rust-wasm-source-provenance-candidate@1',
   kind:publicOnly?'PUBLIC_READONLY_SIGNED_ASSET_ONLY_UI_OFF':'DEV_READY_PUBLIC_SYNTHETIC_NOT_A_PRODUCT_GATE',
   source,
+  ...(tuple===LEGACY_RELEASE_TUPLE?{}:{delivery:releaseDelivery(tuple)}),
   assets:{
     js:{path:'ddv_save_core.js',sizeBytes:glue.length,sha256:sha(glue)},
     wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:wasm.length,sha256:sha(wasm)}

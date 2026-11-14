@@ -559,13 +559,357 @@ mod private_avatar {
                 }
                 pos=skip_ws(bytes,next);if done{break}
             }
-            let gender=required(&selected,"AvatarIsMale")?;
-            let is_male=match &bytes[gender.begin..gender.end]{
-                b"true"=>true,b"false"=>false,_=>return Err(denied("AVATAR_GENDER_BOOL_REQUIRED")),
-            };
-            Ok(PrivateActiveAvatarReceipt{scope:e,is_male,
-                female:branch(bytes,required(&selected,"FemaleAvatar")?)?,
-                male:branch(bytes,required(&selected,"MaleAvatar")?)?})
+            avatar_snapshot(bytes,&selected,e)
+        }
+    }
+
+    fn avatar_snapshot(bytes:&[u8],fields:&[(String,Span)],e:WorkerEnvelope)
+        ->CoreResult<PrivateActiveAvatarReceipt>{
+        let gender=required(fields,"AvatarIsMale")?;
+        let is_male=match &bytes[gender.begin..gender.end]{
+            b"true"=>true,b"false"=>false,_=>return Err(denied("AVATAR_GENDER_BOOL_REQUIRED")),
+        };
+        Ok(PrivateActiveAvatarReceipt{scope:e,is_male,
+            female:branch(bytes,required(fields,"FemaleAvatar")?)?,
+            male:branch(bytes,required(fields,"MaleAvatar")?)?})
+    }
+    // ACT357: private, bounded dependency evidence for one existing Avatar
+    // hair candidate. Same native ProductSession and lexical spans; no
+    // caller paths, general JSON reader, condition evaluator or authority.
+    pub struct PrivateAvatarDependencyReceipt{value:Value}
+    impl PrivateAvatarDependencyReceipt{
+        pub fn to_private_receipt_json(&self)->Value{self.value.clone()}
+    }
+    fn dependency_hash(bytes:&[u8],s:Option<Span>)->Value{
+        json!({"present":s.is_some(),"sha256":s.map(|v|sha(&bytes[v.begin..v.end]))})
+    }
+    fn array_spans(bytes:&[u8],s:Span,max:usize)->CoreResult<Vec<Span>>{
+        if s.begin>=s.end||s.end>bytes.len()||bytes.get(s.begin)!=Some(&b'[')||
+            bytes.get(s.end-1)!=Some(&b']'){return Err(denied("AVATAR_DEP_ARRAY_REQUIRED"));}
+        let mut pos=skip_ws(bytes,s.begin+1);let mut out=Vec::new();
+        while pos<s.end-1{
+            if out.len()>=max{return Err(denied("AVATAR_DEP_ARRAY_BOUND"));}
+            let end=value_end(bytes,pos)?;
+            if end>=s.end||end-pos>1024*1024{return Err(denied("AVATAR_DEP_RECORD_BOUND"));}
+            out.push(Span{begin:pos,end});
+            pos=skip_ws(bytes,end);
+            match bytes.get(pos){
+                Some(b',') if pos<s.end-1=>pos=skip_ws(bytes,pos+1),
+                Some(b']') if pos==s.end-1=>break,
+                _=>return Err(denied("AVATAR_DEP_ARRAY_TERMINATOR")),
+            }
+        }
+        Ok(out)
+    }
+    fn scalar_witness(bytes:&[u8],fs:&[(String,Span)],key:&str)->CoreResult<Value>{
+        let v=field(fs,key);
+        Ok(json!({"present":v.is_some(),"value":v.map(|s|int(bytes,s)).transpose()?,
+            "sha256":v.map(|s|sha(&bytes[s.begin..s.end]))}))
+    }
+    fn token_witness(bytes:&[u8],fs:&[(String,Span)],key:&str)->CoreResult<Value>{
+        let v=field(fs,key);
+        Ok(json!({"present":v.is_some(),"value":v.map(|s|text_token(bytes,s,128)).transpose()?,
+            "sha256":v.map(|s|sha(&bytes[s.begin..s.end]))}))
+    }
+    fn enum_token(bytes:&[u8],s:Span,prefix:&str)->CoreResult<String>{
+        let v=text_token(bytes,s,128)?;
+        if !v.starts_with(prefix)||v.len()<=prefix.len()||
+           !v.bytes().all(|b|b.is_ascii_alphanumeric()||b==b'_'){
+            return Err(denied("AVATAR_DEP_ENUM_TOKEN"));}
+        Ok(v)
+    }
+    fn branch_dependencies(bytes:&[u8],s:Span)->CoreResult<Value>{
+        let fs=members(bytes,s,MAX_AVATAR_FIELDS)?;
+        let mut scalars=serde_json::Map::new();
+        for key in ["Id","SkinColorIndex","HairColorIndex","HairHighlightColor","BodyType","SprintEffectID"]{
+            scalars.insert(key.into(),scalar_witness(bytes,&fs,key)?);
+        }
+        let mut makeup=Vec::new();
+        if let Some(m)=field(&fs,"Makeup"){
+            for (key,entry) in members(bytes,m,MAX_MAKEUP)?{
+                let slot=key_u32(&key)?;if slot>=32{return Err(denied("AVATAR_MAKEUP_SLOT_BOUND"));}
+                let f=members(bytes,entry,32)?;
+                let item=int(bytes,required(&f,"MakeupItemID")?)?;
+                if item<=0||item/10_000_000!=14{return Err(denied("AVATAR_MAKEUP_ID_PREFIX"));}
+                let mut colors=serde_json::Map::new();
+                for k in ["ColorIndex1","ColorIndex2","ColorIndex3"]{
+                    colors.insert(k.into(),scalar_witness(bytes,&f,k)?);
+                }
+                // Physical numeric token, bounded and finite. No float
+                // reconstruction or assumption about Native accepted range.
+                for k in ["Opacity","Gloss"]{
+                    let span=field(&f,k);
+                    let raw=span.map(|v|{
+                        let b=&bytes[v.begin..v.end];
+                        if b.len()>64{return Err(denied("AVATAR_DEP_NUMBER_BOUND"));}
+                        let n=serde_json::from_slice::<f64>(b).map_err(|_|denied("AVATAR_DEP_NUMBER_REQUIRED"))?;
+                        if !n.is_finite(){return Err(denied("AVATAR_DEP_NUMBER_REQUIRED"));}
+                        std::str::from_utf8(b).map(str::to_owned).map_err(|_|denied("AVATAR_DEP_NUMBER_REQUIRED"))
+                    }).transpose()?;
+                    colors.insert(k.into(),json!({"present":span.is_some(),"numericToken":raw,
+                        "sha256":span.map(|v|sha(&bytes[v.begin..v.end]))}));
+                }
+                makeup.push(json!({"slot":slot,"itemId":item,"entrySha256":sha(&bytes[entry.begin..entry.end]),"scalars":colors}));
+            }
+        }
+        let mut face=Vec::new();
+        if let Some(v)=field(&fs,"FaceType"){
+            for (key,entry) in members(bytes,v,32)?{
+                let n=key_u32(&key)?;
+                face.push(json!({"key":n,"savedValue":int(bytes,entry)?,"sha256":sha(&bytes[entry.begin..entry.end])}));
+            }
+        }
+        let mut eye=serde_json::Map::new();
+        if let Some(v)=field(&fs,"Eyeball"){
+            // Explicit null stays distinct from a present object. No default
+            // or invented color/item ID when the object is missing/null.
+            if &bytes[v.begin..v.end]!=b"null"{
+                let f=members(bytes,v,32)?;
+                for k in ["EyeballItemID","ColorIndex1","ColorIndex2","ColorIndex3"]{
+                    eye.insert(k.into(),scalar_witness(bytes,&f,k)?);
+                }
+            }
+        }
+        Ok(json!({"branchSha256":sha(&bytes[s.begin..s.end]),"scalars":scalars,
+            "faceType":dependency_hash(bytes,field(&fs,"FaceType")),"faceTypeEntries":face,
+            "eyeball":dependency_hash(bytes,field(&fs,"Eyeball")),"eyeballScalars":eye,
+            "makeup":makeup,"otherFieldsRetainedByBranchHash":true}))
+    }
+    fn inventory_dependencies(bytes:&[u8],lists:Span,avatar:&PrivateActiveAvatarReceipt)->CoreResult<Value>{
+        use std::collections::BTreeSet;
+        let mut clothes=BTreeSet::new();let mut makeup=BTreeSet::new();
+        for b in [&avatar.female,&avatar.male]{
+            for m in [&b.clothes,&b.incompatible]{
+                for e in &m.entries{if e.value>0{clothes.insert(e.value);}}
+            }
+            for e in &b.customization.entries{clothes.insert(e.key as i32);}
+            for e in &b.makeup.entries{makeup.insert(e.value);}
+        }
+        let mut selected=[None,None];
+        for (key,rec) in members(bytes,lists,128)?{
+            let id=key_u32(&key)?;
+            let f=members(bytes,rec,64)?;
+            let id_span=required(&f,"ID")?;let id_token=&bytes[id_span.begin..id_span.end];
+            let saved=serde_json::from_slice::<u32>(id_token)
+                .map_err(|_|denied("AVATAR_DEP_INVENTORY_ID"))?;
+            if id!=saved||id_token!=saved.to_string().as_bytes(){return Err(denied("AVATAR_DEP_INVENTORY_ID"));}
+            let ty=text_token(bytes,required(&f,"CompatibleItemType")?,128)?;
+            if id==1||ty=="ItemType_Clothing"{
+                if id!=1||ty!="ItemType_Clothing"||selected[0].replace((rec,required(&f,"Inventory")?)).is_some(){
+                    return Err(denied("AVATAR_DEP_CLOTHING_ROUTE"));}
+            }
+            if id==3||ty=="ItemType_Makeup"{
+                if id!=3||ty!="ItemType_Makeup"||selected[1].replace((rec,required(&f,"Inventory")?)).is_some(){
+                    return Err(denied("AVATAR_DEP_MAKEUP_ROUTE"));}
+            }
+        }
+        let reference_count=clothes.len()+makeup.len();
+        let all_maps_present=[&avatar.female,&avatar.male].iter().all(|b|
+            b.clothes.present&&b.incompatible.present&&b.makeup.present&&b.customization.present);
+        let mut all_positive=true;let mut routes=Vec::new();
+        for (i,wanted) in [clothes,makeup].into_iter().enumerate(){
+            let (rec,items)=selected[i].ok_or(denied("AVATAR_DEP_REQUIRED_ROUTE_ABSENT"))?;
+            let (id,major,ty)=if i==0{(1,5,"ItemType_Clothing")}else{(3,14,"ItemType_Makeup")};
+            let mut found=std::collections::BTreeMap::new();
+            for (k,v) in members(bytes,items,16384)?{
+                let n=key_u32(&k)?;
+                if n==0||n>i32::MAX as u32||n/10_000_000!=major{
+                    return Err(denied("AVATAR_DEP_INVENTORY_ITEM_KEY"));}
+                if wanted.contains(&(n as i32)){found.insert(n as i32,v);}
+            }
+            let mut entries=Vec::new();
+            for n in wanted{
+                let span=found.get(&n).copied();
+                let mut amount=None;let mut marker=None;let mut marker_sha=None;
+                if let Some(v)=span{
+                    let f=members(bytes,v,64)?;
+                    amount=Some(int(bytes,required(&f,"Amount")?)?);
+                    if let Some(m)=field(&f,"Marker"){
+                        marker=Some(enum_token(bytes,m,"ItemMarker_")?);
+                        marker_sha=Some(sha(&bytes[m.begin..m.end]));
+                    }
+                }
+                let positive=amount.is_some_and(|a|a>0);
+                all_positive&=positive;
+                entries.push(json!({"itemId":n,"present":span.is_some(),"savedAmount":amount,
+                    "entrySha256":span.map(|v|sha(&bytes[v.begin..v.end])),
+                    "markerPresent":marker.is_some(),"savedMarker":marker,"markerSha256":marker_sha,
+                    "positiveSavedAmount":positive,"nativeHasItemVerified":false,"rightsVerified":false}));
+            }
+            routes.push(json!({"inventoryId":id,"compatibleItemType":ty,
+                "recordSha256":sha(&bytes[rec.begin..rec.end]),"mapSha256":sha(&bytes[items.begin..items.end]),
+                "entries":entries}));
+        }
+        Ok(json!({"listInventoriesSha256":sha(&bytes[lists.begin..lists.end]),"routes":routes,
+            "observedUniqueReferenceCount":reference_count,"allFourMapsPerBranchPresent":all_maps_present,
+            "allObservedReferencesHavePositiveSavedAmount":all_positive,
+            "nativeExtractClothesAndMakeupVerified":false,"adequateDressVerified":false,
+            "variationVerified":false,"rightsVerified":false}))
+    }
+    fn achievements_dependencies(bytes:&[u8],s:Option<Span>)->CoreResult<Value>{
+        let Some(span)=s else{return Ok(json!({"present":false,"sha256":null,"entries":[],"completeNativeClosureVerified":false}))};
+        let mut seen=std::collections::BTreeSet::new();let mut out=Vec::new();
+        for v in array_spans(bytes,span,4096)?{
+            let f=members(bytes,v,64)?;
+            let id=int(bytes,required(&f,"AchievementID")?)?;
+            if id<=0||id/10_000_000!=211||!seen.insert(id){return Err(denied("AVATAR_DEP_ACHIEVEMENT_ID"));}
+            let state=field(&f,"State").map(|x|enum_token(bytes,x,"AchievementState_")).transpose()?;
+            out.push(json!({"achievementId":id,"recordSha256":sha(&bytes[v.begin..v.end]),
+                "state":state,"statePresent":state.is_some(),
+                "curAmount":scalar_witness(bytes,&f,"CurAmount")?,
+                "maxAmount":scalar_witness(bytes,&f,"MaxAmount")?,
+                "claimedRewardMilestone":scalar_witness(bytes,&f,"ClaimedRewardMilestone")?,
+                "typesCollected":dependency_hash(bytes,field(&f,"TypesCollected")),
+                "itemsUsed":dependency_hash(bytes,field(&f,"ItemsUsed"))}));
+        }
+        Ok(json!({"present":true,"sha256":sha(&bytes[span.begin..span.end]),"entries":out,
+            "completeNativeClosureVerified":false}))
+    }
+    #[derive(Default)]
+    struct DependencyBudget{nodes:usize,progress_entries:usize,progress_bytes:usize}
+    impl DependencyBudget{
+        fn node(&mut self)->CoreResult<()>{
+            self.nodes+=1;
+            if self.nodes>8192{return Err(denied("AVATAR_DEP_SUBSCRIBER_NODE_BOUND"));}
+            Ok(())
+        }
+        fn progress(&mut self,key:&str,value_bytes:usize)->CoreResult<()>{
+            self.progress_entries+=1;
+            self.progress_bytes=self.progress_bytes.checked_add(key.len()+value_bytes)
+                .ok_or(denied("AVATAR_DEP_PROGRESS_BOUND"))?;
+            if self.progress_entries>4096||self.progress_bytes>2*1024*1024{
+                return Err(denied("AVATAR_DEP_PROGRESS_BOUND"));}
+            Ok(())
+        }
+    }
+    fn objective_dependencies(bytes:&[u8],v:Span,budget:&mut DependencyBudget)->CoreResult<Value>{
+        budget.node()?;
+        let f=members(bytes,v,128)?;
+        let mut progress=Vec::new();
+        if let Some(s)=field(&f,"ProgressKeys"){
+            for (key,val) in members(bytes,s,64)?{
+                // Exact persisted scalar string, bounded; no caller paths,
+                // no interpretation or defaulting of the Native progress key.
+                if key.len()>128{return Err(denied("AVATAR_DEP_PROGRESS_KEY_BOUND"));}
+                budget.progress(&key,val.end-val.begin)?;
+                progress.push(json!({"key":key,"savedValue":text_token(bytes,val,512)?,
+                    "sha256":sha(&bytes[val.begin..val.end])}));
+            }
+        }
+        Ok(json!({"recordSha256":sha(&bytes[v.begin..v.end]),
+            "targetAmount":scalar_witness(bytes,&f,"TargetAmount")?,
+            "curAmount":scalar_witness(bytes,&f,"CurAmount")?,
+            "status":token_witness(bytes,&f,"Status")?,
+            "stepType":token_witness(bytes,&f,"StepType")?,
+            "progressKeys":dependency_hash(bytes,field(&f,"ProgressKeys")),"progressEntries":progress,
+            "itemIdsCollected":dependency_hash(bytes,field(&f,"ItemIdsCollected")),
+            "gridObjectIdsCollected":dependency_hash(bytes,field(&f,"GridObjectIdsCollected")),
+            "itemFilter":dependency_hash(bytes,field(&f,"ItemFilter"))}))
+    }
+    fn mission_dependencies(bytes:&[u8],s:Option<Span>,budget:&mut DependencyBudget)->CoreResult<Value>{
+        let Some(span)=s else{return Ok(json!({"present":false,"sha256":null,"groups":[],"completeNativeClosureVerified":false}))};
+        let mut groups=Vec::new();let mut total_slots=0usize;let mut total_objectives=0usize;
+        for (key,g) in members(bytes,span,128)?{
+            let group=key_u32(&key)?;let fs=members(bytes,g,64)?;
+            let a=required(&fs,"Slots")?;let mut slots=Vec::new();let mut ids=std::collections::BTreeSet::new();
+            for v in array_spans(bytes,a,512)?{
+                budget.node()?;
+                total_slots+=1;if total_slots>1024{return Err(denied("AVATAR_DEP_MISSION_SLOT_BOUND"));}
+                let f=members(bytes,v,128)?;
+                let slot=int(bytes,required(&f,"SlotId")?)?;
+                let mission=int(bytes,required(&f,"MissionId")?)?;
+                if slot<0||!ids.insert(slot)||mission<0||(mission>0&&mission/10_000_000!=207){
+                    return Err(denied("AVATAR_DEP_MISSION_ID"));}
+                let state=field(&f,"State").map(|s|enum_token(bytes,s,"MissionSlotState_")).transpose()?;
+                let current=optional_int(bytes,&f,"CurrentStepIndex")?;
+                let mut steps=Vec::new();
+                if let Some(a)=field(&f,"MissionSteps"){
+                    for (si,step) in array_spans(bytes,a,256)?.into_iter().enumerate(){
+                        budget.node()?;
+                        let sf=members(bytes,step,64)?;let mut substeps=Vec::new();
+                        if let Some(ss)=field(&sf,"SubSteps"){
+                            for (ui,sub) in array_spans(bytes,ss,256)?.into_iter().enumerate(){
+                                budget.node()?;
+                                let uf=members(bytes,sub,64)?;let mut objectives=Vec::new();
+                                if let Some(o)=field(&uf,"Objectives"){
+                                    for (oi,obj) in array_spans(bytes,o,256)?.into_iter().enumerate(){
+                                        total_objectives+=1;
+                                        if total_objectives>4096{return Err(denied("AVATAR_DEP_OBJECTIVE_BOUND"));}
+                                        objectives.push(json!({"physicalIndex":oi,"witness":objective_dependencies(bytes,obj,budget)?}));
+                                    }
+                                }
+                                substeps.push(json!({"physicalIndex":ui,"recordSha256":sha(&bytes[sub.begin..sub.end]),
+                                    "objectivesPresent":field(&uf,"Objectives").is_some(),"objectives":objectives}));
+                            }
+                        }
+                        steps.push(json!({"physicalIndex":si,"recordSha256":sha(&bytes[step.begin..step.end]),
+                            "subStepsPresent":field(&sf,"SubSteps").is_some(),"subSteps":substeps}));
+                    }
+                }
+                slots.push(json!({"slotId":slot,"missionId":mission,"recordSha256":sha(&bytes[v.begin..v.end]),
+                    "state":state,"statePresent":state.is_some(),"currentStepIndex":current,
+                    "currentStepIndexPresent":current.is_some(),
+                    "characterId":scalar_witness(bytes,&f,"CharacterId")?,
+                    "missionSteps":dependency_hash(bytes,field(&f,"MissionSteps")),"steps":steps}));
+            }
+            groups.push(json!({"groupKey":group,"recordSha256":sha(&bytes[g.begin..g.end]),"slots":slots}));
+        }
+        Ok(json!({"present":true,"sha256":sha(&bytes[span.begin..span.end]),"groups":groups,
+            "completeNativeClosureVerified":false}))
+    }
+    fn evolve_dependencies(bytes:&[u8],s:Option<Span>,budget:&mut DependencyBudget)->CoreResult<Value>{
+        let Some(span)=s else{return Ok(json!({"present":false,"sha256":null,"entries":[],"completeNativeClosureVerified":false}))};
+        let fs=members(bytes,span,64)?;
+        let map=field(&fs,"EvolveProgressState");
+        let mut out=Vec::new();
+        if let Some(a)=map{
+            for (k,v) in members(bytes,a,4096)?{
+                budget.node()?;
+                let id=key_u32(&k)?;
+                let f=members(bytes,v,64)?;
+                if id==0||id>i32::MAX as u32||int(bytes,required(&f,"ItemID")?)?!=id as i32{
+                    return Err(denied("AVATAR_DEP_EVOLVE_ID"));}
+                let o=field(&f,"Objective").map(|x|objective_dependencies(bytes,x,budget)).transpose()?;
+                out.push(json!({"itemId":id,"recordSha256":sha(&bytes[v.begin..v.end]),
+                    "level":scalar_witness(bytes,&f,"Level")?,"objectivePresent":o.is_some(),"objective":o}));
+            }
+        }
+        Ok(json!({"present":true,"sha256":sha(&bytes[span.begin..span.end]),
+            "map":dependency_hash(bytes,map),"entries":out,"completeNativeClosureVerified":false}))
+    }
+    impl ProductSession{
+        pub fn read_private_avatar_dependencies(&self,e:WorkerEnvelope)->CoreResult<PrivateAvatarDependencyReceipt>{
+            let b=&self.native_source_build;
+            if b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||
+               b.build_id!=EXACT||b.schema!=626||!b.externally_attested{
+                return Err(denied("AVATAR_EXACT_STEAM626_REQUIRED"));}
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            let bytes=&self.decoded;let root=roots(bytes)?;
+            let player=members(bytes,root.player,1024)?;let world=members(bytes,root.world,1024)?;
+            let avatar=avatar_snapshot(bytes,&player,e)?;
+            let ownership=inventory_dependencies(bytes,required(&player,"ListInventories")?,&avatar)?;
+            let mut budget=DependencyBudget::default();
+            let missions=mission_dependencies(bytes,field(&world,"MissionSlots"),&mut budget)?;
+            let evolve=evolve_dependencies(bytes,field(&player,"EvolveStatesProfile"),&mut budget)?;
+            let value=json!({"contract":"wand.native.private.avatar-dependencies@1","avatar":avatar.to_private_receipt_json(),
+                "femaleDependencies":branch_dependencies(bytes,required(&player,"FemaleAvatar")?)?,
+                "maleDependencies":branch_dependencies(bytes,required(&player,"MaleAvatar")?)?,
+                "ownership":ownership,"subscriberReadSet":{
+                    "playerSha256":sha(&bytes[root.player.begin..root.player.end]),
+                    "worldSha256":sha(&bytes[root.world.begin..root.world.end]),
+                    "achievementsData":achievements_dependencies(bytes,field(&player,"AchievementsData"))?,
+                    "missionSlots":missions,
+                    "questInfo":dependency_hash(bytes,field(&world,"QuestInfo")),
+                    "evolveStatesProfile":evolve,
+                    "conditionAndDefinitionJoinRequired":true,"nativeSubscriberClosureVerified":false,
+                    "effectiveActiveSubscriberSetVerified":false},
+                "rightsVerified":false,"writerAuthorized":false,"productReadAccepted":false,
+                "editedCopyAuthorized":false,"applyAuthorized":false,"nativeV3Verified":false});
+            // A bounded private receipt, never a full document or generic
+            // caller-selected JSON. Keep the output bound before CLI writes.
+            if serde_json::to_vec(&value).map_err(|_|denied("AVATAR_DEP_RECEIPT_ENCODE"))?.len()>8*1024*1024{
+                return Err(denied("AVATAR_DEP_RECEIPT_BOUND"));}
+            Ok(PrivateAvatarDependencyReceipt{value})
         }
     }
 
@@ -680,7 +1024,11 @@ mod private_avatar {
             if !character_id(character)||!character_skin_id(skin){
                 return Err(denied("SKIN_SELECTOR_ID_OR_SUBTYPE"));
             }
-            let bytes=&self.decoded;
+            let value=skin_receipt_value(&self.decoded,e,character,skin)?;
+            Ok(PrivateCharacterSkinReceipt{value})
+        }
+    }
+    fn skin_receipt_value(bytes:&[u8],e:WorkerEnvelope,character:i32,skin:i32)->CoreResult<Value>{
             let root=roots(bytes)?;
             let world=members(bytes,root.world,1024)?;
             let player=members(bytes,root.player,1024)?;
@@ -723,9 +1071,113 @@ mod private_avatar {
                 "productReadAccepted":false,"writerAuthorized":false,"editedCopyAuthorized":false,
                 "applyAuthorized":false,"nativeV3Verified":false
             });
-            Ok(PrivateCharacterSkinReceipt{value})
+            Ok(value)
+    }
+
+    // ACT395: physical saved DialogueFlags are NOT the initialized runtime
+    // DialogueFlagsOverride dictionary. Only an independent Native runtime
+    // witness or exact producer exclusion can resolve the effective value.
+    fn skin_dialogue_flags(bytes:&[u8],span:Option<Span>,target:i32)->CoreResult<Value>{
+        let mut entries=Vec::new();let mut target_positions=Vec::new();
+        if let Some(s)=span{
+            for (i,v) in array_spans(bytes,s,16384)?.into_iter().enumerate(){
+                let n=int(bytes,v)?;
+                // Only the physical int32 is attested here. Native flag-ID
+                // classification is part of the exact condition/catalog join.
+                let digest=sha(&bytes[v.begin..v.end]);
+                if n==target{target_positions.push(i);}
+                // Repeated int32 is not assumed to be a set; retain physical
+                // duplicate positions, do not silently normalize the list.
+                entries.push(json!({"position":i,"flagId":n,"tokenSha256":digest}));
+            }
+        }
+        let membership=span.map(|_|!target_positions.is_empty());
+        Ok(json!({"targetFlagId":target,"persistedList":dependency_hash(bytes,span),
+            "entries":entries,"targetPositions":target_positions,"persistedMembership":membership,
+            "runtimeOverrideInitialized":null,"runtimeOverrideKeyPresent":null,"runtimeOverrideValue":null,
+            "effectiveFlagValue":null,"effectiveFlagVerified":false,"runtimeOverrideVerified":false}))
+    }
+    fn conditional_event_dependencies(bytes:&[u8],span:Option<Span>)->CoreResult<Value>{
+        let Some(s)=span else{return Ok(json!({"present":false,"sha256":null,
+            "activeEvents":{"present":false,"sha256":null,"entries":[]},"inboxSpawnCount":{"present":false,"sha256":null},
+            "effectiveRegistryVerified":false,"completeNativeClosureVerified":false}))};
+        let f=members(bytes,s,64)?;
+        let active=field(&f,"ActiveEvents");let mut events=Vec::new();
+        if let Some(a)=active{
+            for (key,v) in members(bytes,a,4096)?{
+                let id=key_u32(&key)?;
+                if id==0||id>i32::MAX as u32{return Err(denied("SKIN_DEP_EVENT_ID"));}
+                let fs=members(bytes,v,128)?;
+                events.push(json!({"eventId":id,"recordSha256":sha(&bytes[v.begin..v.end]),
+                    "spawnState":dependency_hash(bytes,field(&fs,"SpawnState"))}));
+            }
+        }
+        Ok(json!({"present":true,"sha256":sha(&bytes[s.begin..s.end]),
+            "activeEvents":{"present":active.is_some(),"sha256":active.map(|v|sha(&bytes[v.begin..v.end])),"entries":events},
+            "inboxSpawnCount":dependency_hash(bytes,field(&f,"InboxSpawnCount")),
+            "effectiveRegistryVerified":false,"completeNativeClosureVerified":false}))
+    }
+    fn skin_selection_dependencies(bytes:&[u8],chars:Span)->CoreResult<Vec<Value>>{
+        let mut seen=std::collections::BTreeSet::new();let mut out=Vec::new();
+        for (i,v) in array_spans(bytes,chars,512)?.into_iter().enumerate(){
+            let fs=members(bytes,v,128)?;let base=required(&fs,"Base")?;
+            let id=int(bytes,required(&members(bytes,base,32)?,"id")?)?;
+            if !character_id(id)||!seen.insert(id){return Err(denied("SKIN_DEP_CHARACTER_ID"));}
+            out.push(json!({"characterId":id,"physicalIndex":i,"recordSha256":sha(&bytes[v.begin..v.end]),
+                "skinId":scalar_witness(bytes,&fs,"SkinID")?}));
+        }
+        Ok(out)
+    }
+    pub struct PrivateCharacterSkinDependencyReceipt{value:Value}
+    impl PrivateCharacterSkinDependencyReceipt{
+        pub fn to_private_receipt_json(&self)->Value{self.value.clone()}
+    }
+    impl ProductSession{
+        pub fn read_private_character_skin_dependencies(&self,e:WorkerEnvelope,character:i32,skin:i32,flag:i32)
+            ->CoreResult<PrivateCharacterSkinDependencyReceipt>{
+            let b=&self.native_source_build;
+            if b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||
+               b.build_id!=EXACT||b.schema!=626||!b.externally_attested{return Err(denied("SKIN_EXACT_STEAM626_REQUIRED"));}
+            if !character_id(character)||!character_skin_id(skin)||flag<=0{
+                return Err(denied("SKIN_DEP_SELECTOR"));}
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            let bytes=&self.decoded;let root=roots(bytes)?;
+            // Existing Skin reader factored into a pure span projection. Both
+            // old and new stock + all dependencies are in THIS mutex epoch.
+            let selected=skin_receipt_value(bytes,e,character,skin)?;
+            let old=selected["character"]["currentSkinId"].as_i64()
+                .and_then(|v|i32::try_from(v).ok()).ok_or(denied("SKIN_DEP_OLD_SKIN_ABSENT"))?;
+            if !character_skin_id(old)||old==skin{return Err(denied("SKIN_DEP_DISTINCT_EXISTING_SKINS"));}
+            let player=members(bytes,root.player,1024)?;let world=members(bytes,root.world,1024)?;
+            let lists=required(&player,"ListInventories")?;
+            let old_stock=skin_inventory(bytes,lists,old)?;
+            let flags=skin_dialogue_flags(bytes,field(&world,"DialogueFlags"),flag)?;
+            let top_begin=skip_ws(bytes,0);let top_end=value_end(bytes,top_begin)?;
+            let top=members(bytes,Span{begin:top_begin,end:top_end},1024)?;
+            let history=conditional_event_dependencies(bytes,field(&top,"ConditionalEventHistory"))?;
+            let mut budget=DependencyBudget::default();
+            let missions=mission_dependencies(bytes,field(&world,"MissionSlots"),&mut budget)?;
+            let evolve=evolve_dependencies(bytes,field(&player,"EvolveStatesProfile"),&mut budget)?;
+            let value=json!({"contract":"wand.native.private.character-skin-dependencies@1",
+                "sessionId":hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
+                "decodedSha256":hex(&e.expected_decoded_sha256),"fullVersion":EXACT,"schema":626,
+                "selectedSkin":selected,"oldSkinInventory":old_stock,"dialogueFlag":flags,
+                "savedCharacterSelections":skin_selection_dependencies(bytes,required(&world,"Characters")?)?,
+                "subscriberReadSet":{"missionSlots":missions,
+                    "achievementsData":achievements_dependencies(bytes,field(&player,"AchievementsData"))?,
+                    "evolveStatesProfile":evolve,"questInfo":dependency_hash(bytes,field(&world,"QuestInfo")),
+                    "conditionalEventHistory":history,
+                    "conditionAndDefinitionJoinRequired":true,"activeAutoSelectionVerified":false,
+                    "nativeSubscriberClosureVerified":false,"effectiveActiveSubscriberSetVerified":false},
+                "selectedConditionFlagJoinVerified":false,"effectiveItemDbVerified":false,
+                "rightsVerified":false,"writerAuthorized":false,"productReadAccepted":false,
+                "editedCopyAuthorized":false,"applyAuthorized":false,"nativeV3Verified":false});
+            if serde_json::to_vec(&value).map_err(|_|denied("SKIN_DEP_RECEIPT_ENCODE"))?.len()>8*1024*1024{
+                return Err(denied("SKIN_DEP_RECEIPT_BOUND"));}
+            Ok(PrivateCharacterSkinDependencyReceipt{value})
         }
     }
+
     #[cfg(test)]
     mod character_skin_tests{
         use super::*;
@@ -749,6 +1201,64 @@ mod private_avatar {
         }}})}
         fn read(s:&ProductSession)->CoreResult<PrivateCharacterSkinReceipt>{
             s.read_private_character_skin(env(s.receipt().unwrap()),10000053,170000000)
+        }
+        fn dep_doc()->Value{
+            let mut d=doc();
+            d["Player"]["ListInventories"]["42"]["Inventory"]["170000001"]=json!({"Amount":1,"Marker":"ItemMarker_None"});
+            d["World"]["DialogueFlags"]=json!([50000001,50000002,50000001]);
+            d["World"]["MissionSlots"]=json!({"0":{"Slots":[{"SlotId":0,"MissionId":2070000001,
+                "State":"MissionSlotState_OnGoing","CurrentStepIndex":0,"MissionSteps":[{"SubSteps":[{"Objectives":[
+                {"TargetAmount":2,"CurAmount":1,"ProgressKeys":{"CurrentAmount":"1"}}]}]}]}]}});
+            d["ConditionalEventHistory"]=json!({"ActiveEvents":{"1520000001":{"SpawnState":{"Unknown":1}}},"InboxSpawnCount":{}});
+            d
+        }
+        fn dep(s:&ProductSession)->CoreResult<Value>{
+            Ok(s.read_private_character_skin_dependencies(env(s.receipt()?),10000053,170000000,50000001)?.to_private_receipt_json())
+        }
+        #[test]
+        fn skin_dependency_same_epoch_physical_flags_and_active_refs(){
+            let s=open(dep_doc());let before=s.receipt().unwrap();let v=dep(&s).unwrap();
+            assert_eq!(v["dialogueFlag"]["persistedMembership"],true);
+            assert_eq!(v["dialogueFlag"]["targetPositions"],json!([0,2]));
+            assert_eq!(v["dialogueFlag"]["entries"][1]["flagId"],50000002);
+            assert_eq!(v["dialogueFlag"]["runtimeOverrideKeyPresent"],Value::Null);
+            assert_eq!(v["dialogueFlag"]["effectiveFlagValue"],Value::Null);
+            assert_eq!(v["oldSkinInventory"]["itemId"],170000001);
+            assert_eq!(v["savedCharacterSelections"].as_array().unwrap().len(),2);
+            assert_eq!(v["subscriberReadSet"]["conditionalEventHistory"]["activeEvents"]["entries"][0]["eventId"],1520000001);
+            assert_eq!(v["subscriberReadSet"]["conditionalEventHistory"]["inboxSpawnCount"]["present"],true);
+            assert_eq!(v["subscriberReadSet"]["missionSlots"]["groups"][0]["slots"][0]["steps"][0]["subSteps"][0]["objectives"][0]["witness"]["curAmount"]["value"],1);
+            assert_eq!(v["writerAuthorized"],false);assert_eq!(v["rightsVerified"],false);
+            assert_eq!(s.receipt().unwrap(),before);
+            let mut d=dep_doc();d["World"]["DialogueFlags"]=json!([50000002]);
+            d["World"]["DialogueFlagsOverride"]=json!({"50000001":true});
+            let x=dep(&open(d)).unwrap();
+            assert_eq!(x["dialogueFlag"]["persistedMembership"],false);
+            assert_eq!(x["dialogueFlag"]["effectiveFlagValue"],Value::Null);
+            let mut d=dep_doc();d["World"].as_object_mut().unwrap().remove("DialogueFlags");
+            d.as_object_mut().unwrap().remove("ConditionalEventHistory");
+            let x=dep(&open(d)).unwrap();
+            assert_eq!(x["dialogueFlag"]["persistedMembership"],Value::Null);
+            assert_eq!(x["subscriberReadSet"]["conditionalEventHistory"]["present"],false);
+        }
+        #[test]
+        fn skin_dependency_malformed_and_stale_fail_closed(){
+            for bad in [json!(null),json!({}),json!(["50000001"]),json!([false]),json!([1.5]),json!([2147483648u64])]{
+                let mut d=dep_doc();d["World"]["DialogueFlags"]=bad;assert!(dep(&open(d)).is_err());
+            }
+            let mut d=dep_doc();d["ConditionalEventHistory"]["ActiveEvents"]=json!({"01520000001":{}});
+            assert!(dep(&open(d)).is_err());
+            let mut d=dep_doc();d["ConditionalEventHistory"]["ActiveEvents"]=json!({"1520000001":null});
+            assert!(dep(&open(d)).is_err());
+            let mut d=dep_doc();d["Player"]["ListInventories"]["42"]["Inventory"].as_object_mut().unwrap().remove("170000001");
+            assert!(dep(&open(d)).is_err());
+            let s=open(dep_doc());let r=s.receipt().unwrap();let e=env(r);
+            assert!(s.read_private_character_skin_dependencies(e,10000053,170000001,50000001).is_err());
+            assert!(s.read_private_character_skin_dependencies(e,10000053,170000000,0).is_err());
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_character_skin_dependencies(stale,10000053,170000000,50000001).is_err());
+            assert!(open(dep_doc()).read_private_character_skin_dependencies(e,10000053,170000000,50000001).is_err());
+            s.close().unwrap();assert!(s.read_private_character_skin_dependencies(e,10000053,170000000,50000001).is_err());
         }
         #[test]
         fn exact_character_and_compatible_route_read_only(){
@@ -876,6 +1386,88 @@ mod private_avatar {
             "MaleAvatar":{"HairColorIndex":89,"HairHighlightColor":1,
                 "Clothes":{"5":50000002},"Makeup":{"1":{"MakeupItemID":140000001,"Unknown":"preserve"}},"ClothingCustomization":{"50000002":0}}
         }})}
+        fn dependency_doc()->Value{
+            let mut v=doc();
+            v["Player"]["ListInventories"]=json!({
+                "0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":{}},
+                "1":{"ID":1,"CompatibleItemType":"ItemType_Clothing","Inventory":{
+                    "50000001":{"Amount":3,"Marker":"ItemMarker_None"},
+                    "50000002":{"Amount":1}}},
+                "3":{"ID":3,"CompatibleItemType":"ItemType_Makeup","Inventory":{
+                    "140000001":{"Amount":2,"Marker":"ItemMarker_None"}}}
+            });
+            v["Player"]["MaleAvatar"]["SprintEffectID"]=json!(70100001);
+            v["Player"]["MaleAvatar"]["Makeup"]["1"]["Opacity"]=json!(0.5);
+            v["Player"]["AchievementsData"]=json!([{"AchievementID":2110000001,"CurAmount":2,
+                "MaxAmount":10,"ClaimedRewardMilestone":0,"State":"AchievementState_OnGoing",
+                "TypesCollected":[],"ItemsUsed":[]}]);
+            v["Player"]["EvolveStatesProfile"]=json!({"EvolveProgressState":{"40000001":{
+                "ItemID":40000001,"Level":1,"Objective":{"CurAmount":2,"TargetAmount":5,"ItemIdsCollected":[]}}}});
+            v["World"]["MissionSlots"]=json!({"0":{"Slots":[{"SlotId":0,"MissionId":2070000001,
+                "CurrentStepIndex":0,"CharacterId":10000001,"State":"MissionSlotState_OnGoing",
+                "MissionSteps":[{"SubSteps":[{"Objectives":[{"TargetAmount":4,
+                    "ProgressKeys":{"CurrentAmount":"2"},"Status":"MissionStepStatus_Ongoing","StepType":"StepGameplay"}]}]}]}]}});
+            v["World"]["QuestInfo"]=json!({"MissionsCompleted":[]});
+            v
+        }
+        #[test]
+        fn dependency_readset_exact_ownership_and_subscriber_witness(){
+            let v=dependency_doc();let s=open(v.clone());let before=s.receipt().unwrap();
+            let e=env(before);
+            let r=s.read_private_avatar_dependencies(e).unwrap().to_private_receipt_json();
+            assert_eq!(r["avatar"],s.read_private_active_avatar(e).unwrap().to_private_receipt_json());
+            assert_eq!(r["ownership"]["routes"][0]["entries"].as_array().unwrap().len(),2);
+            assert_eq!(r["ownership"]["routes"][0]["entries"][0]["savedAmount"],3);
+            assert_eq!(r["ownership"]["routes"][1]["entries"][0]["savedAmount"],2);
+            assert_eq!(r["ownership"]["allObservedReferencesHavePositiveSavedAmount"],true);
+            assert_eq!(r["maleDependencies"]["scalars"]["SprintEffectID"]["value"],70100001);
+            assert_eq!(r["maleDependencies"]["makeup"][0]["scalars"]["Opacity"]["numericToken"],"0.5");
+            assert_eq!(r["subscriberReadSet"]["achievementsData"]["entries"][0]["curAmount"]["value"],2);
+            assert_eq!(r["subscriberReadSet"]["missionSlots"]["groups"][0]["slots"][0]["steps"][0]["subSteps"][0]["objectives"][0]["witness"]["progressEntries"][0]["savedValue"],"2");
+            assert_eq!(r["subscriberReadSet"]["evolveStatesProfile"]["entries"][0]["objective"]["curAmount"]["value"],2);
+            assert_eq!(r["subscriberReadSet"]["nativeSubscriberClosureVerified"],false);
+            assert_eq!(r["rightsVerified"],false);assert_eq!(r["writerAuthorized"],false);
+            assert_eq!(s.receipt().unwrap(),before);
+            let mut d=v.clone();d["Player"]["ListInventories"]["1"]["Inventory"].as_object_mut().unwrap().remove("50000001");
+            let x=open(d);let r=x.read_private_avatar_dependencies(env(x.receipt().unwrap())).unwrap().to_private_receipt_json();
+            assert_eq!(r["ownership"]["routes"][0]["entries"][0]["present"],false);
+            assert_eq!(r["ownership"]["allObservedReferencesHavePositiveSavedAmount"],false);
+            let mut d=v.clone();d["Player"]["AchievementsData"]=json!([]);
+            let x=open(d);let r=x.read_private_avatar_dependencies(env(x.receipt().unwrap())).unwrap().to_private_receipt_json();
+            assert_eq!(r["subscriberReadSet"]["achievementsData"]["present"],true);
+            let mut d=v.clone();d["Player"].as_object_mut().unwrap().remove("AchievementsData");
+            let x=open(d);let r=x.read_private_avatar_dependencies(env(x.receipt().unwrap())).unwrap().to_private_receipt_json();
+            assert_eq!(r["subscriberReadSet"]["achievementsData"]["present"],false);
+            for (path,bad) in [
+                ("route",json!(2)),("type",json!("ItemType_Skin")),("amount",json!("3")),
+                ("achievement",json!("2")),("evolve",json!(40000002)),("progress",json!(2))
+            ]{
+                let mut d=v.clone();
+                match path{
+                    "route"=>d["Player"]["ListInventories"]["1"]["ID"]=bad,
+                    "type"=>d["Player"]["ListInventories"]["3"]["CompatibleItemType"]=bad,
+                    "amount"=>d["Player"]["ListInventories"]["1"]["Inventory"]["50000001"]["Amount"]=bad,
+                    "achievement"=>d["Player"]["AchievementsData"][0]["CurAmount"]=bad,
+                    "evolve"=>d["Player"]["EvolveStatesProfile"]["EvolveProgressState"]["40000001"]["ItemID"]=bad,
+                    "progress"=>d["World"]["MissionSlots"]["0"]["Slots"][0]["MissionSteps"][0]["SubSteps"][0]["Objectives"][0]["ProgressKeys"]["CurrentAmount"]=bad,
+                    _=>unreachable!(),
+                }
+                let x=open(d);assert!(x.read_private_avatar_dependencies(env(x.receipt().unwrap())).is_err(),"{path}");
+            }
+            let mut d=v.clone();let a=d["Player"]["AchievementsData"][0].clone();
+            d["Player"]["AchievementsData"].as_array_mut().unwrap().push(a);
+            let x=open(d);assert!(x.read_private_avatar_dependencies(env(x.receipt().unwrap())).is_err());
+            let mut budget=DependencyBudget{nodes:8192,..Default::default()};
+            assert!(budget.node().is_err());
+            let mut budget=DependencyBudget{progress_entries:4096,..Default::default()};
+            assert!(budget.progress("x",1).is_err());
+            let mut budget=DependencyBudget{progress_bytes:2*1024*1024,..Default::default()};
+            assert!(budget.progress("x",1).is_err());
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_avatar_dependencies(stale).is_err());
+            assert!(open(v).read_private_avatar_dependencies(e).is_err());
+            s.close().unwrap();assert!(s.read_private_avatar_dependencies(e).is_err());
+        }
         #[test]
         fn actual_branch_and_absence_zero_exact_refs(){
             let s=open(doc());let r=s.receipt().unwrap();let e=env(r);

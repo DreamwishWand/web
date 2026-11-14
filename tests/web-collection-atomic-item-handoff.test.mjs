@@ -67,3 +67,13 @@ test('explicit verified public catalog handoff alone uses the shared ItemThumb, 
  assert.doesNotMatch(a,/<img\b|loadSwitch1253PublicItemImageSource|scopedSwitch1253ItemImageHref/);
  assert.match(a,/data-writer="off" data-media-public="off"/);
 });
+
+test('public preview is additive to accepted portable file boundaries',()=>{
+ const a=source('src/routes/moodboards/atomic/+page.svelte');
+ assert.match(a,/decodeAtomicBoardPortableBytes\(bytes\)/);
+ assert.match(a,/importAtomicBoardPortable\(db,decodeAtomicBoardPortableBytes\(bytes\),records\)/);
+ assert.match(a,/data-atomic-portable-import[^>]*disabled=\{!ready\|\|!catalogReady\|\|busy\|\|Boolean\(snapshot\)\}/);
+ assert.match(a,/data-atomic-portable-export/);
+ const saved=a.split('<ul data-atomic-items>')[1].split('</ul>')[0];
+ assert.doesNotMatch(saved,/ItemThumb|<img\b/);
+});
