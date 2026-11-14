@@ -143,3 +143,38 @@ test('minimum transform accepts one source-bound Review and denies cloned, chang
   assert.notDeepEqual(Array.from(result.artifacts.edited.bytes),Array.from(input.sourceBytes));
   await assert.rejects(()=>commit(review),/WEP_EXPORT_REVIEW_STALE/);
 });
+
+test('minimum transform real Core rotation derives exact footprint, size and marker and exports Orientation only',async()=>{
+  const {input}=await transformFixture();
+  const before=input.baselineDocument.objects[0];
+  const geometry=input.worldBinding.adapter.geometryService;
+  const after=geometry.rotateSelectionLikeScene([structuredClone(before)],1)[0];
+  assert.equal(after.metadata.rotationSemantics,'SCENE_CARDINAL_TOP_LEFT');
+  assert.equal(after.x,before.x);assert.equal(after.y,before.y);
+  const draft=structuredClone(input.baselineDocument);draft.objects=[after];
+  const review=await reviewMinimumVerifiedTransform({...input,draftDocument:draft});
+  assert.equal(review.change.operation,'ROTATE');
+  const result=await commitMinimumVerifiedTransform({review,currentSourceEpoch:1,sourceBytes:input.sourceBytes,baselineDocument:input.baselineDocument,draftDocument:draft,worldBinding:input.worldBinding});
+  assert.equal(result.status,'PASS');
+  const reopened=await openWorldSaveBytes(result.artifacts.edited.bytes,{sourcePlatform:'switch'});
+  const expected=structuredClone(input.opened.profile);
+  expected.World.GridCollection.Grids['10'].Objects['101'].Orientation='GridOrientation_Right';
+  assert.deepEqual(reopened.profile,expected);
+  assert.deepEqual(Array.from(result.artifacts.backup.bytes),Array.from(input.sourceBytes));
+  for(const alter of [
+    x=>x.footprint=[{x:999,y:999}],
+    x=>x.metadata.footprintSize={w:999,h:999},
+    x=>x.metadata.rotationSemantics='FORGED',
+    x=>x.metadata.rawState={forged:true},
+    x=>x.source.relation='CHILD',
+    x=>x.dependencyIds=['forged']
+  ]){
+    const bad=structuredClone(draft);alter(bad.objects[0]);
+    await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,draftDocument:bad}),/WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE|WEP_EXPORT_TARGET_IDENTITY_MISMATCH/);
+  }
+  const badBaseline=structuredClone(input.baselineDocument);
+  badBaseline.objects[0].footprint=[{x:999,y:999}];
+  const badDraft=structuredClone(badBaseline);
+  badDraft.objects=geometry.rotateSelectionLikeScene(badBaseline.objects,1);
+  await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,baselineDocument:badBaseline,draftDocument:badDraft}),/WEP_EXPORT_BASELINE_SOURCE_MISMATCH|WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE/);
+});
