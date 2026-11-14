@@ -1,0 +1,76 @@
+name: 04 QR-W PR1156 output independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1156-output-independent.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = '0dff75ee7ea4309f4f0fd154bc1b8317d3acb942'
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/04qr-w-pr1156-output-independent.yml'
+          test "$(git diff --name-only df04a14c296c2cd0f5817bec08f32f0403b7c93f 0dff75ee7ea4309f4f0fd154bc1b8317d3acb942 | wc -l)" = 8
+          test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = 'fa739fdc584fa265f08e762a3050fbc9fedec7de'
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-copy.mjs)" = '1b7c3980d98e7260d1d362227ab4f515a883fe2c'
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-worker-adapter.mjs)" = 'b33235fd8199fb91be031f6b857c8fec5efae774'
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-workflow.mjs)" = '4423efc41e20e61fead6d28871ca04c7b8170569'
+          test "$(git rev-parse HEAD:tests/dev-amount-ui-chrome/chrome-smoke.mjs)" = '9071fd470b8dbb3bb457039c611a7103f1c6c586'
+          test "$(git rev-parse HEAD:tests/dev-amount-ui-chrome/ci-only-route.svelte)" = '2f83afdcf9814a89f6df24deb1fa5e527bee7924'
+          test "$(git rev-parse HEAD:tests/web-local-dev-amount-worker-port.test.mjs)" = 'd86203dde49a43490e904c5b8fb87812386163a1'
+          test "$(git rev-parse HEAD:tests/web-local-dev-amount-workflow.test.mjs)" = '6ec30e459adb1f993ee7f6f8e49f9a84eec6f8ab'
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          trap 'rm -rf src/routes/test-dev-amount-ui' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/routes/test-dev-amount-ui/+page.svelte')
+          s=Path('tests/dev-amount-ui-chrome/ci-only-route.svelte').read_text()
+          old="const token=epoch;return readBoundEncryptedCopy({directory,name:which==='backup'?'backup-ci.p1g':'edited-ci.p1g',sha:which==='backup'?aSha:bSha,size:64},()=>{if(epoch!==token)throw Error('STALE')});"
+          new="""const token=epoch,mode=new URL(location.href).searchParams.get('mode');
+                if(mode==='tamper')await persist('backup-ci.p1g',new Uint8Array(64).fill(4));
+                if(mode==='truncate')await persist('backup-ci.p1g',new Uint8Array(63));
+                if(mode==='missing')await directory.removeEntry('backup-ci.p1g');
+                const r=await readBoundEncryptedCopy({directory,name:which==='backup'?'backup-ci.p1g':'edited-ci.p1g',sha:which==='backup'?aSha:bSha,size:64},()=>{if(epoch!==token)throw Error('STALE')});
+                const patch={name:{name:'synthetic-ci.p1g'},sha:{sha256:bSha},size:{sizeBytes:63},bytes:{encryptedBytes:new Uint8Array(64).fill(3)},extra:{decodedJson:'not permitted'},foreign:{name:'edited-ci.p1g',sha256:bSha,encryptedBytes:editedBytes}}[mode];
+                return patch?{...r,...patch}:r;"""
+          assert old in s
+          p.parent.mkdir(parents=True,exist_ok=True);p.write_text(s.replace(old,new))
+          
+          PY
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4372 --strictPort >/tmp/qa621.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4372/test-dev-amount-ui/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4372/test-dev-amount-ui/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {readFile} from 'node:fs/promises';
+          const origin='http://127.0.0.1:4372',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{const ctx=await browser.newContext({serviceWorkers:'block',acceptDownloads:true,viewport:{width:320,height:850}});const p=await ctx.newPage(),errors=[],unsafe=[],downloads=[];p.on('pageerror',e=>errors.push(e.message));p.on('download',d=>downloads.push(d.suggestedFilename()));ctx.on('request',r=>{if(!r.url().startsWith(origin+'/')||!['GET','HEAD'].includes(r.method()))unsafe.push(r.method())});
+          async function start(mode){await p.goto(origin+'/test-dev-amount-ui/?mode='+mode,{waitUntil:'networkidle'});await p.locator('[data-dev-amount-summary]').click();await p.locator('#dev-amount-p1g').setInputFiles({name:'synthetic-ci.p1g',mimeType:'application/octet-stream',buffer:Buffer.alloc(64)});await p.locator('#dev-amount-sha').fill('f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b');await p.locator('.check input').check();await p.locator('[data-dev-open]').click();await p.locator('[data-dev-backup]').click();await p.locator('[data-backup-verified]').waitFor();}
+          async function edit(){await p.locator('#dev-amount-target').selectOption({index:1});await p.locator('#dev-amount-new').fill('6');await p.locator('[data-dev-stage]').click();await p.locator('[data-dev-preview]').waitFor();await p.locator('[data-dev-export]').click();await p.locator('[data-dev-edited-copy]').waitFor();}
+          async function download(which,expected){const before=downloads.length,pending=p.waitForEvent('download');await p.locator('[data-dev-download-'+which+']').click();const d=await pending;assert.equal(await d.failure(),null);assert.equal(d.suggestedFilename(),which+'-ci.p1g');assert.deepEqual(await readFile(await d.path()),expected);await p.locator('[data-dev-download-'+which+']:not([disabled])').waitFor();assert.equal(downloads.length,before+1);}
+          await start('good');assert.equal(downloads.length,0);await download('backup',Buffer.alloc(64));await edit();assert.equal(downloads.length,1);await download('edited',Buffer.from([1,...Buffer.alloc(63)]));await download('backup',Buffer.alloc(64));await p.locator('[data-dev-close]').click();await p.locator('[data-dev-open]').waitFor();assert.equal(await p.locator('[data-dev-download-backup],[data-dev-download-edited]').count(),0);
+          for(const mode of ['name','sha','size','bytes','extra','foreign','tamper','truncate','missing']){await start(mode);const before=downloads.length;await p.locator('[data-dev-download-backup]').click();await p.locator('[data-dev-error]').waitFor();assert.equal(await p.locator('[data-dev-download-backup],[data-dev-download-edited]').count(),0);assert.equal(downloads.length,before);}
+          await start('good');const proof=await p.evaluate(async()=>{
+           const {readBoundEncryptedCopy,installLocalDevAmountWorker}=await import('/src/lib/dev/local-amount-worker-adapter.mjs');const root=await navigator.storage.getDirectory(),h=await root.getFileHandle('backup-ci.p1g'),file=await h.getFile();const bind={directory:root,name:file.name,size:file.size,sha:'f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b'};
+           let release,entered;const gate=new Promise(r=>release=r),started=new Promise(r=>entered=r);const delayed={...bind,directory:{async getFileHandle(n){const real=await root.getFileHandle(n);return {async getFile(){const f=await real.getFile();return {name:f.name,size:f.size,async arrayBuffer(){entered();await gate;return f.arrayBuffer()}}}}}}};
+           let epoch=0;const out=[],port={postMessage:x=>out.push(x)};installLocalDevAmountWorker(port,{downloadVerifiedCopy:()=>{const token=epoch;return readBoundEncryptedCopy(delayed,()=>{if(token!==epoch)throw Error('STALE')})},close:async()=>{epoch++;return {kind:'CLOSED'}}});
+           const send=(id,method,args=[])=>port.onmessage({data:{id,method,args}});const pending=send(1,'downloadVerifiedCopy',['backup']);await started;await send(2,'close');release();await pending;
+           if(out.find(x=>x.id===1)?.ok!==false||out.find(x=>x.id===2)?.ok!==true)throw Error('late bytes escaped');
+           await send(3,'downloadVerifiedCopy',['../backup-ci.p1g']);if(out.at(-1).ok!==false)throw Error('path admitted');return {lateDenied:true,pathDenied:true};
+           });assert.deepEqual(proof,{lateDenied:true,pathDenied:true});assert.deepEqual(errors,[]);assert.deepEqual(unsafe,[]);console.log('QA621_ACTUAL_CHROME_3_DOWNLOAD_9_RECEIPT_OPFS_DENY_LATE_PORT_PASS');await ctx.close();
+          }finally{await browser.close()}
+          
+          JS
