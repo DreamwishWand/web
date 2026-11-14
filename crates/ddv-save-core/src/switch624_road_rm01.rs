@@ -240,6 +240,7 @@ mod tests{
 // atomic ledger. No generic road cost, refund, or new topology compiler.
 const R02_CONTRACT:&str="wand.private.switch624.road-r02-native-q4-archive@1";
 const R02_626_CONTRACT:&str="wand.private.switch626.road-r02-native-q4@1";
+const R01_626_CONTRACT:&str="wand.private.switch626.road-r01-orthogonal-q3-layout@1";
 fn r02_plan_parse(bytes:&[u8],contract:&str)->CoreResult<Value>{
     if bytes.is_empty()||bytes.len()>16384{return Err(denied("R02_PLAN_BOUNDS"));}
     let v:Value=serde_json::from_slice(bytes).map_err(|_|denied("R02_PLAN_JSON"))?;
@@ -253,19 +254,30 @@ fn r02_plan_parse(bytes:&[u8],contract:&str)->CoreResult<Value>{
     Ok(v)
 }
 fn r02_collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
+    road_add_collect(s,p,false)
+}
+// R01 layout only: exact horizontal three orthogonal anchors. Reuse the
+// same direct-grid scanner and append/atomic ledger; never debit inventory.
+fn road_add_collect(s:&ProductSession,p:&Value,r01:bool)->CoreResult<Vec<Replacement>>{
     let b=&s.decoded;
     if p["sourceDecodedSha256"]!=digest(b){return Err(denied("R02_SOURCE_SHA_CAS"));}
     let g=uint(&p["gridId"])?;let next=uint(&p["expectedNextId"])?;let amount=uint(&p["expectedAmount"])?;
-    let n4=next.checked_add(4).ok_or(denied("R02_COUNTER_OVERFLOW"))?;
-    if g==0||next==0||n4>i32::MAX as u32||amount<=4||amount as u64>MAX_CONSERVATIVE_AMOUNT{
+    let count_new=if r01{3}else{4};
+    let n4=next.checked_add(count_new).ok_or(denied("R02_COUNTER_OVERFLOW"))?;
+    if g==0||next==0||n4>i32::MAX as u32||amount<=if r01{0}else{4}||amount as u64>MAX_CONSERVATIVE_AMOUNT{
         return Err(denied("R02_TARGET_OR_COST_BOUNDS"));
     }
-    let plan=p["objects"].as_array().filter(|a|a.len()==4).ok_or(denied("R02_PLAN_OBJECTS"))?;
+    let plan=p["objects"].as_array().filter(|a|a.len()==count_new as usize).ok_or(denied("R02_PLAN_OBJECTS"))?;
     let x=uint(&plan[0]["X"])?;let y=uint(&plan[0]["Y"])?;
     let x4=x.checked_add(4).filter(|n|*n<=i32::MAX as u32).ok_or(denied("R02_COORD_BOUND"))?;
-    let y4=y.checked_add(4).filter(|n|*n<=i32::MAX as u32).ok_or(denied("R02_COORD_BOUND"))?;
-    // Observed exact Native allocation order; direct layout plan is separate.
-    let wanted=[obj(next,x,y,true),obj(next+1,x4,y4,true),obj(next+2,x4,y,true),obj(next+3,x,y4,true)];
+    let wanted=if r01{
+        let x8=x.checked_add(8).filter(|n|*n<=i32::MAX as u32).ok_or(denied("R01_COORD_BOUND"))?;
+        if y>i32::MAX as u32{return Err(denied("R01_COORD_BOUND"));}
+        vec![obj(next,x,y,false),obj(next+1,x4,y,false),obj(next+2,x8,y,false)]
+    }else{
+        let y4=y.checked_add(4).filter(|n|*n<=i32::MAX as u32).ok_or(denied("R02_COORD_BOUND"))?;
+        vec![obj(next,x,y,true),obj(next+1,x4,y4,true),obj(next+2,x4,y,true),obj(next+3,x,y4,true)]
+    };
     if plan.as_slice()!=wanted.as_slice(){return Err(denied("R02_EXACT_PLAN_SHAPE"));}
     let roots=indexed_read::roots(b)?;
     let gc=object_field(b,roots.world,"GridCollection")?;
@@ -290,7 +302,7 @@ fn r02_collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
         let ox=val(b,object_field(b,entry,"X")?)?;let oy=val(b,object_field(b,entry,"Y")?)?;
         let ox=ox.as_f64().filter(|v|v.is_finite()).ok_or(denied("R02_COORD_TOKEN"))?;
         let oy=oy.as_f64().filter(|v|v.is_finite()).ok_or(denied("R02_COORD_TOKEN"))?;
-        if [(x,y),(x4,y4),(x4,y),(x,y4)].iter().any(|(a,c)|ox==*a as f64&&oy==*c as f64){
+        if wanted.iter().any(|v|v["X"].as_f64()==Some(ox)&&v["Y"].as_f64()==Some(oy)){
             return Err(denied("R02_OCCUPIED_ANCHOR"));
         }
     }
@@ -301,8 +313,12 @@ fn r02_collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
     inventory_route(b,route,0,ROAD,"ItemType_Furniture")?;
     let entry=object_field(b,object_field(b,route,"Inventory")?,&ROAD.to_string())?;
     if p["inventoryEntrySha256"]!=digest(raw(b,entry)?){return Err(denied("R02_INVENTORY_ENTRY_CAS"));}
-    let debit=validate_old_amount(b,object_field(b,entry,"Amount")?,amount,amount-4)?;
-    Ok(vec![append_road_objects(b,objs,plan)?,repl(b,counter,n4.to_string().into_bytes())?,debit])
+    let amount_span=object_field(b,entry,"Amount")?;
+    let mut edits=vec![append_road_objects(b,objs,plan)?,repl(b,counter,n4.to_string().into_bytes())?];
+    if r01{
+        if raw(b,amount_span)?!=amount.to_string().as_bytes(){return Err(denied("R01_AMOUNT_CAS"));}
+    }else{edits.push(validate_old_amount(b,amount_span,amount,amount-4)?);}
+    Ok(edits)
 }
 impl ProductSession{
     pub fn stage_switch624_road_r02_native_q4_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
@@ -328,6 +344,15 @@ impl ProductSession{
         let p=r02_plan_parse(plan,R02_626_CONTRACT)?;
         let edits=r02_collect(self,&p)?;
         self.commit_semantic_replacements(e,edits,6)
+    }
+}
+impl ProductSession{
+    /// Current exact Switch626 direct layout. No Native cost or generic graph grant.
+    pub fn stage_switch626_road_r01_orthogonal_q3(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        let b=&self.native_source_build;
+        if b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||b.build_id!="9A239D3DB569756D"||b.schema!=626||!b.externally_attested||self.worker_bound{return Err(denied("R01_EXACT_SWITCH626_REQUIRED"));}
+        let p=r02_plan_parse(plan,R01_626_CONTRACT)?;
+        self.commit_semantic_replacements(e,road_add_collect(self,&p,true)?,4)
     }
 }
 #[cfg(test)]
@@ -356,6 +381,31 @@ mod r02_tests{
     fn scope(s:&ProductSession,a:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();
         WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
         expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:a}}
+    #[test]
+    fn r01_switch626_exact4_layout_inventory_unchanged(){
+        let (old,mut p)=fixture();let mut d=old.clone();d["GameInfo"]["Version"]=json!(626);
+        p["contract"]=json!(R01_626_CONTRACT);p["objects"]=json!([obj(50,40,20,false),obj(51,44,20,false),obj(52,48,20,false)]);bind(&d,&mut p);
+        let make=|v:&Value|ProductSession::open_decoded_readonly(enc(v).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+        let s=make(&d);let e=scope(&s,WorkerAction::Stage);
+        let t=open(&old);assert!(t.stage_switch626_road_r01_orthogonal_q3(scope(&t,WorkerAction::Stage),&enc(&p).unwrap()).is_err());
+        assert!(s.stage_switch626_road_r02_native_q4(e,&enc(&p).unwrap()).is_err());
+        assert!(make(&d).stage_switch626_road_r01_orthogonal_q3(e,&enc(&p).unwrap()).is_err());
+        for(k,v)in [("expectedAmount",json!(29)),("expectedNextId",json!(51)),("gridSha256",json!("bad")),("inventoryEntrySha256",json!("bad")),("sourceDecodedSha256",json!("bad")),("refund",json!(1))]{
+            let mut q=p.clone();q[k]=v;assert!(s.stage_switch626_road_r01_orthogonal_q3(e,&enc(&q).unwrap()).is_err());
+        }
+        for (k,v) in [("State",json!({"FenceMode":{"Diagonal":true}})),("X",json!(45)),("Orientation",json!("GridOrientation_Up")),("ID",json!(52))]{
+            let mut q=p.clone();q["objects"][1][k]=v;assert!(s.stage_switch626_road_r01_orthogonal_q3(e,&enc(&q).unwrap()).is_err());
+        }
+        let mut q=p.clone();q["objects"].as_array_mut().unwrap().swap(0,1);assert!(s.stage_switch626_road_r01_orthogonal_q3(e,&enc(&q).unwrap()).is_err());
+        let mut bad=d.clone();bad["World"]["GridCollection"]["Grids"]["9"]["Objects"]["12"]["X"]=json!(48);bad["World"]["GridCollection"]["Grids"]["9"]["Objects"]["12"]["Y"]=json!(20);let mut q=p.clone();bind(&bad,&mut q);let t=make(&bad);assert!(t.stage_switch626_road_r01_orthogonal_q3(scope(&t,WorkerAction::Stage),&enc(&q).unwrap()).is_err());
+        let r=s.stage_switch626_road_r01_orthogonal_q3(e,&enc(&p).unwrap()).unwrap();assert_eq!(r.operation_count,4);assert_eq!(r.exact_field_changed_count,4);assert!(!r.product_writer_authorized);
+        assert!(s.stage_switch626_road_r01_orthogonal_q3(e,&enc(&p).unwrap()).is_err());
+        s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();assert!(s.take_typed_semantic_decoded_once(e).is_err());
+        let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["9"];g["NextGridObjectID"]=json!(53);
+        for o in p["objects"].as_array().unwrap(){g["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
+        assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),wanted);assert_eq!(sha(&out),r.staged_decoded_sha256);
+    }
     #[test]
     fn r02_switch626_exact6_current_debit4(){
         let (old,mut p)=fixture();let mut d=old.clone();
