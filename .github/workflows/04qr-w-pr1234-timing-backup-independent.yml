@@ -1,0 +1,76 @@
+name: 04 QR-W PR1234 Timing backup lifecycle independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1234-timing-backup-independent.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          test "$(git diff --name-only 6a95b5a1b527d216d80d464415bf70e7c2d47923 HEAD)" = '.github/workflows/04qr-w-pr1234-timing-backup-independent.yml'
+          test "$(git diff --name-only 3c871194436f2368aaa74aa3c6ba6abe677d6845 6a95b5a1b527d216d80d464415bf70e7c2d47923 | wc -l)" = 2
+          test "$(git rev-parse HEAD:src/routes/editor/timing/+page.svelte)" = '659763b3b3e9240300934003d2dc5dae07fc6bde'
+          test "$(git rev-parse HEAD:scripts/01a-main-w1-preview-browser.mjs)" = 'a67b0195043f6b394b1c39d1b2f314e3e4e964c2'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-save-session-bridge.mjs)" = '38964739c679de2cf304cd3af58ecdabfcd3928b'
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4393 --strictPort >/tmp/qa843-vite.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4393/editor/timing/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4393/editor/timing/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {createHash} from 'node:crypto';import {readFile} from 'node:fs/promises';import {makeSyntheticP1gProfile} from './tests/helpers/p1g-fixture.mjs';
+          const root='http://127.0.0.1:4393',sha=b=>createHash('sha256').update(b).digest('hex');
+          const profile=tag=>({GameInfo:{Version:626,InitialVersion:518,LastSaveDeviceInfo:{deviceType:'DeviceType_Windows'}},Player:{Opaque:{tag}},World:{Villages:[],GridCollection:{Grids:{}},RecurringEvents:{'155':{ItemSpawning:{RecurringEventItemID:2010000021,NextOccurrence:'2126-08-20T00:00:00Z',LastOccurrence:'2026-10-01T00:00:00Z',UnknownNative:{tag}}}},UnknownFuture:{tag}}});
+          const A=Buffer.from(makeSyntheticP1gProfile(profile('A'))),B=Buffer.from(makeSyntheticP1gProfile(profile('B')));assert.notEqual(sha(A),sha(B));
+          const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+           const ctx=await browser.newContext({acceptDownloads:true,serviceWorkers:'block',viewport:{width:1280,height:900}}),p=await ctx.newPage(),err=[],bad=[];p.setDefaultTimeout(45000);
+           p.on('pageerror',e=>err.push(e.message));ctx.on('request',r=>{if(r.method()!=='GET'||!r.url().startsWith(root+'/'))bad.push(r.method()+' '+r.url())});
+           await p.addInitScript(()=>{const W=window.Worker;window.qa843Workers=0;window.Worker=class extends W{constructor(...args){super(...args);window.qa843Workers++}};const old=Blob.prototype.arrayBuffer;Blob.prototype.arrayBuffer=async function(){const gate=window.qa843Gate;if(gate)await gate;return old.call(this)};});
+           await p.goto(root+'/editor/timing/',{waitUntil:'domcontentloaded'});
+           const loaded=p.locator('[data-timing-loaded="true"]'),status=p.locator('[data-w1-backup-status]'),file=p.locator('#timing-file'),candidate=p.locator('#w1-backup-candidate');
+           const payload=(name,buffer)=>({name,mimeType:'application/octet-stream',buffer});
+           const attest=async()=>{await p.locator('#timing-bid').fill('9A239D3DB569756D');await p.locator('.attest input').check();};
+           const open=async b=>{await file.setInputFiles(payload('same.p1g',b));await loaded.locator('.event').waitFor();assert.equal(await file.inputValue(),'');};
+           const state=async v=>{await p.locator('[data-w1-backup-status="'+v+'"]').waitFor();};
+           const receipt=()=>p.evaluate(async()=>{const m=await import('/src/lib/timing/local-timing-worker-client.ts');const s=m.getLocalSaveSessionBridge().getSession();return {sessionId:s.sessionId,sourceSha256:s.sourceSha256,revision:s.revision,indexGeneration:s.indexGeneration,writerAuthorized:s.writerAuthorized};});
+           const download=async bytes=>{const wait=p.waitForEvent('download');await p.locator('[data-w1-original-backup]').click();const d=await wait;assert.equal(d.suggestedFilename(),'same.p1g.original-backup.p1g');assert.deepEqual(await readFile(await d.path()),bytes);return d.path();};
+           const select=async (name,b,v)=>{await candidate.setInputFiles(payload(name,b));await state(v);assert.equal(await candidate.inputValue(),'');};
+           await p.locator('[data-w1-ui-ready="true"]').waitFor();await attest();await open(A);await state('idle');
+           const ar=await receipt(),aPath=await download(A);assert.equal(ar.sourceSha256,sha(A));assert.equal(ar.writerAuthorized,false);
+           await candidate.setInputFiles(await aPath);await state('backupMatched');await select('same.p1g',B,'backupRejected');await select('same.p1g',A,'backupMatched');
+           assert.match(await status.innerText(),/Disk path and persistence are not verified/);
+           // A pending comparison is deliberately delayed at the real Blob read boundary.
+           const pause=()=>p.evaluate(()=>{let release;window.qa843Gate=new Promise(r=>release=r);window.qa843Release=()=>{window.qa843Gate=null;release()};});
+           await pause();await candidate.setInputFiles(payload('late.p1g',A));await state('backupChecking');
+           console.log('QA843_DELAYED_COMPARE_REACHED');await p.locator('.timing-page a').first().click();await p.waitForURL(/\/editor\/?$/);
+           await p.evaluate(()=>window.qa843Release());await p.goBack();await p.waitForURL(/\/editor\/timing\/?$/);await loaded.locator('.event').waitFor();await state('idle');
+           console.log('QA843_UNMOUNT_REENTERED');assert.deepEqual(await receipt(),ar);assert.equal(await p.evaluate(()=>window.qa843Workers),1);
+           await attest();await pause();await candidate.setInputFiles(payload('late.p1g',A));await state('backupChecking');
+           // Source B replaces A before delayed comparison returns; source file reads in Worker are independent.
+           await file.setInputFiles(payload('same.p1g',B));await loaded.locator('.event').waitFor();await state('idle');await p.evaluate(()=>window.qa843Release());
+           const br=await receipt();assert.equal(br.sourceSha256,sha(B));assert.notEqual(br.sessionId,ar.sessionId);assert.equal(br.writerAuthorized,false);
+           await select('stale-a.p1g',A,'backupRejected');await select('source-b.p1g',B,'backupMatched');await download(B);
+           // Close revokes current scope, same native file can be selected again.
+           await p.locator('[data-w1-session-close]').click();await loaded.waitFor({state:'detached'});assert.equal(await status.count(),0);await file.waitFor({state:'visible'});await open(B);await state('idle');
+           assert.notEqual((await receipt()).sessionId,br.sessionId);assert.equal(await p.evaluate(()=>window.qa843Workers),1);await select('b.p1g',B,'backupMatched');
+           await p.locator('[data-w1-preview-select]').click();await p.locator('#w1-new-utc').fill('2026-11-03T00:00:00Z');await p.locator('[data-w1-preview-build]').click();assert.match(await p.locator('[data-w1-diff]').innerText(),/2126-08-20T00:00:00Z/);assert.equal(await p.locator('[data-w1-export-off]').isDisabled(),true);
+           await p.locator('[data-w1-session-close]').click();await loaded.waitFor({state:'detached'});assert.equal(await p.locator('[data-writer="on"]').count(),0);assert.deepEqual(err,[]);assert.deepEqual(bad,[]);
+           console.log('QA843_ACTUAL_CHROME_TWO_DISTINCT_P1G_A_B_UNMOUNT_DELAYED_COMPARE_RESELECT_CLOSE_SAME_WORKER_BACKUP_EXACT_PASS');
+           await ctx.close();
+          }finally{await browser.close()}
+          JS
