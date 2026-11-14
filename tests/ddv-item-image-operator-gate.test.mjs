@@ -151,3 +151,44 @@ test("damaged linked derivative or alias cannot be silently omitted from takedow
   // A corrupted UNLINKED row cannot force a false global takedown of unrelated source.
   assert.deepEqual(planGameImageTakedown([A,{...B,sourcePngSha256:digest("f")}],{kind:"ITEM_ID",value:A.itemId}).itemIds,[A.itemId]);
 });
+
+test("Steam image identity uses exact FullVersion evidence, not a manufactured Switch BID", () => {
+  const steam = {platform:"Steam Windows",fullVersion:"releases_1.25-synthetic-build",schema:626,
+    fullVersionSha256:digest("c")};
+  const row={...image,sourceIdentity:steam,targetIdentity:steam};
+  const context={targetIdentity:steam};
+  assert.deepEqual(preflightGameItemImage(row,context,[]),{candidate:true,reasons:[]});
+  assert.deepEqual(preflightGameItemImage({...row,sourceIdentity:{...steam,bid:null}},
+    {targetIdentity:{...steam,bid:null}},[]),{candidate:true,reasons:[]});
+  for (const invalid of [
+    {...steam,fullVersionSha256:undefined}, {...steam,fullVersionSha256:"not-a-sha"},
+    {...steam,bid:"9A239D3DB569756D"}, {...steam,bid:""},
+    {...steam,fullVersion:"UNKNOWN"}, {...steam,fullVersion:"NOT_RUN"},
+    {...steam,schema:-1}, {...steam,platform:"Unknown Platform"}
+  ]) {
+    const result=preflightGameItemImage({...row,sourceIdentity:invalid},context,[]);
+    assert.equal(result.candidate,false);
+    assert.ok(result.reasons.includes("SOURCE_IDENTITY_UNVERIFIED"));
+  }
+  for (const mismatch of [
+    {...steam,fullVersionSha256:digest("d")}, {...steam,fullVersion:"releases_other_build"},
+    {...steam,schema:624}, {...steam,bid:"9A239D3DB569756D"}, {...steam,fullVersionSha256:undefined},
+    target, {...steam,platform:"Unknown Platform"}
+  ]) {
+    const result=preflightGameItemImage(row,{targetIdentity:mismatch},[]);
+    assert.equal(result.candidate,false);
+    assert.ok(result.reasons.includes("TARGET_VERSION_BID_SCHEMA_UNVERIFIED"));
+  }
+  assert.equal(preflightGameItemImage({...row,sourceEvidenceRef:"UNKNOWN"},context,[]).candidate,false);
+  assert.equal(preflightGameItemImage({...row,targetEvidenceRef:"NOT_RUN"},context,[]).candidate,false);
+  assert.equal(preflightGameItemImage({...row,targetMappingVerified:false},context,[]).candidate,false);
+  assert.equal(preflightGameItemImage({...row,unreleased:true},context,[]).candidate,false);
+  assert.equal(preflightGameItemImage(row,context,undefined).candidate,false);
+  assert.equal(preflightGameItemImage(row,context,[{kind:"ITEM_ID",value:row.itemId,state:"HIDDEN",
+    incidentRef:"SYNTHETIC_TAKEDOWN"}]).candidate,false);
+  // Explicit cross-platform target mapping remains possible; same schema alone is not a mapping.
+  assert.equal(preflightGameItemImage({...row,sourceIdentity:source},context,[]).candidate,true);
+  assert.equal(preflightGameItemImage({...row,sourceIdentity:source,targetMappingVerified:false},context,[]).candidate,false);
+  assert.equal(preflightGameItemImage(image,ctx,[]).candidate,true);
+  assert.equal(preflightGameItemImage({...image,sourceIdentity:{...source,bid:null}},ctx,[]).candidate,false);
+});

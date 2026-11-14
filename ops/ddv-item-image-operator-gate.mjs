@@ -10,11 +10,23 @@ const itemId = value => (Number.isSafeInteger(value) && value > 0) ||
   (typeof value === "string" && /^[1-9][0-9]{0,15}$/.test(value));
 const normalizeId = value => String(value);
 const evidence = value => hasText(value) && value !== "UNKNOWN" && value !== "NOT_RUN";
-const identity = value => !!value && hasText(value.platform) && hasText(value.fullVersion) &&
-  hasText(value.bid) && Number.isSafeInteger(value.schema) && value.schema >= 0;
+// Build identity is platform-specific. Steam FullVersion SHA is evidence from the
+// installed original version file, not a hash guessed from a schema or version label.
+// Never manufacture a Switch BID for Steam; preserve the legacy Switch BID contract.
+const identity = value => {
+  if (!value || !evidence(value.fullVersion) || !Number.isSafeInteger(value.schema) || value.schema < 0)
+    return false;
+  if (value.platform === "Nintendo Switch") return evidence(value.bid);
+  if (value.platform === "Steam Windows") {
+    return (value.bid === null || value.bid === undefined) && sha(value.fullVersionSha256);
+  }
+  return false;
+};
 const sameIdentity = (a, b) => identity(a) && identity(b) &&
-  a.platform === b.platform && a.fullVersion === b.fullVersion &&
-  a.bid === b.bid && a.schema === b.schema;
+  a.platform === b.platform && a.fullVersion === b.fullVersion && a.schema === b.schema &&
+  (a.platform === "Nintendo Switch"
+    ? a.bid === b.bid
+    : a.fullVersionSha256.toLowerCase() === b.fullVersionSha256.toLowerCase());
 
 // A suppression ledger is authoritative only if valid. Never treat corrupt/absent ledger as empty.
 export function validateImageSuppressionLedger(ledger) {
