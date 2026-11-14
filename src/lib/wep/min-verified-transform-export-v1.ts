@@ -20,7 +20,8 @@ import {
   buildSwitchV125DestinationProgressionProjection
 } from './progression-destination-projection-v115.ts';
 import {
-  openWorldSaveBytes
+  openWorldSaveBytes,
+  listWorldAreaRoutes
 } from './world-save-source.ts';
 import {
   projectSwitchAreaGrid
@@ -52,6 +53,10 @@ function error(code:string, detail:unknown = null):never {
   e.detail = detail;
   throw e;
 }
+
+// Module-private receipts prevent a caller-supplied or altered plan from
+// bypassing the reviewed source/placement/progression checks at export.
+const issuedReviews = new WeakMap<object,AnyRecord>();
 
 function semanticEqual(a:unknown,b:unknown) {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -232,6 +237,60 @@ export function analyzeMinimumTransformDraft({
   });
 }
 
+function placementSnapshot(document:AnyRecord) {
+  const rows = document?.objects;
+  if (!Array.isArray(rows)) error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+  const keys = new Set<string>();
+  const result = rows.map((object:AnyRecord) => {
+    const id = object?.editorId;
+    if (typeof id !== 'string' || !id || keys.has(id) ||
+        ![object.itemId,object.x,object.y,object.orientation].every(Number.isSafeInteger)) {
+      error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+    }
+    keys.add(id);
+    return [id,object.itemId,object.x,object.y,object.orientation,
+      object.source?.relation??null,object.source?.gridId??null,
+      object.source?.gridObjectId??null,object.source?.objectMapKey??null];
+  });
+  return result.sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+}
+
+function requireSourceBaseline({
+  profile,opened,baselineDocument,worldBinding,change
+}:{
+  profile:AnyRecord;opened:AnyRecord;baselineDocument:AnyRecord;
+  worldBinding:AnyRecord;change:AnyRecord;
+}) {
+  // A source profile used for progression/placement may not be from another
+  // load, even when the selected object's old fields happen to match.
+  if (!semanticEqual(opened.profile,profile)) {
+    error('WEP_EXPORT_SOURCE_PROFILE_MISMATCH');
+  }
+  const target=baselineDocument.target;
+  const areas=listWorldAreaRoutes(profile);
+  const matches=areas.filter(area=>
+    area.villageIndex===target?.villageIndex && area.areaId===target?.areaId &&
+    area.gridIds.includes(change.gridId));
+  if (matches.length!==1 || matches[0].unlocked!==true) {
+    error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+  }
+  const canonical=projectSwitchAreaGrid(
+    {...opened,profile,areas} as any,matches[0],change.gridId,worldBinding as any
+  );
+  const a=canonical.target,b=target;
+  if (a.rootGridId!==b.rootGridId || a.gridDataPath!==b.gridDataPath ||
+      a.tessellationFactor!==b.tessellationFactor ||
+      !semanticEqual(placementSnapshot(canonical),placementSnapshot(baselineDocument))) {
+    error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+  }
+  const object=(canonical.objects??[]).find((entry:AnyRecord)=>entry.editorId===change.editorId);
+  if (!object || object.metadata?.worldClass!=='FurnitureItemData' ||
+      object.metadata?.stateKind!=='NONE' || object.layer!=='furniture' ||
+      object.editability!=='editable' || (object.metadata?.reasons??[]).length!==0) {
+    error('WEP_EXPORT_OBJECT_NO_LONGER_ADMISSIBLE');
+  }
+}
+
 export async function reviewMinimumVerifiedTransform({
   sourceBytes,
   sourceName,
@@ -278,18 +337,20 @@ export async function reviewMinimumVerifiedTransform({
     Number(baselineDocument?.target?.rootGridId)!==change.gridId
   ) error('WEP_EXPORT_CROSS_GRID_UNSUPPORTED');
 
-  const [pack,progression,safeSession]=await Promise.all([
+  const safeSession=await SafeProfileEditSession.open({
+    sourceBytes:sourceBytes.slice(),
+    codec:p1gPackagedProfileCodec as any,
+    sourcePlatform:PlatformFamily.Switch
+  });
+  const profile=safeSession.getSnapshot();
+  requireSourceBaseline({profile,opened,baselineDocument,worldBinding,change});
+  const [pack,progression]=await Promise.all([
     fetchScopePack(basePath,fetchImpl),
     buildSwitchV125DestinationProgressionProjection({
-      profile:opened.profile,
+      profile,
       progressionScopeIndex:worldBinding?.progressionScopeIndex,
       basePath,
       fetchImpl
-    }),
-    SafeProfileEditSession.open({
-      sourceBytes:sourceBytes.slice(),
-      codec:p1gPackagedProfileCodec as any,
-      sourcePlatform:PlatformFamily.Switch
     })
   ]);
 
@@ -353,7 +414,7 @@ export async function reviewMinimumVerifiedTransform({
       profileSchemaVersion:624,
       buildIdentity:SWITCH_V125_BID
     },
-    profile:opened.profile,
+    profile,
     target:{
       gridId:change.gridId,
       gridObjectId:change.gridObjectId,
@@ -375,7 +436,10 @@ export async function reviewMinimumVerifiedTransform({
   }
 
   const ctx=safeSession.getPreflightContext();
-  const grid=opened.profile?.World?.GridCollection?.Grids?.[
+  if (!semanticEqual(admissibility.beforeTransform,change.before)) {
+    error('WEP_EXPORT_BASELINE_SOURCE_MISMATCH');
+  }
+  const grid=profile?.World?.GridCollection?.Grids?.[
     String(change.gridId)
   ];
   if(!grid||!Number.isSafeInteger(Number(grid.NextGridObjectID))) {
@@ -399,7 +463,7 @@ export async function reviewMinimumVerifiedTransform({
     planId:`wep-${change.operation.toLowerCase()}-${change.gridId}-${change.gridObjectId}-${String(ctx.saveIdentity.sourceRawSha256).slice(0,12)}`
   });
 
-  return Object.freeze({
+  const review=Object.freeze({
     contract:MIN_VERIFIED_EXPORT_CONTRACT,
     status:'READY',
     sourceEpoch:Number(sourceEpoch),
@@ -416,6 +480,8 @@ export async function reviewMinimumVerifiedTransform({
     persistentWriteAuthorized:false,
     WORLD_PERSISTENT_WRITE_V125:false
   });
+  issuedReviews.set(review,clone(review));
+  return review;
 }
 
 export async function commitMinimumVerifiedTransform({
@@ -437,6 +503,10 @@ export async function commitMinimumVerifiedTransform({
     review?.contract!==MIN_VERIFIED_EXPORT_CONTRACT ||
     review?.status!=='READY'
   ) error('WEP_EXPORT_REVIEW_REQUIRED');
+  const issued=issuedReviews.get(review);
+  if (!issued || !semanticEqual(review,issued)) {
+    error('WEP_EXPORT_REVIEW_STALE');
+  }
   if(Number(currentSourceEpoch)!==Number(review.sourceEpoch)) {
     error('WEP_EXPORT_SOURCE_CHANGED_SINCE_PLAN');
   }
@@ -451,6 +521,10 @@ export async function commitMinimumVerifiedTransform({
     error('WEP_EXPORT_REVIEW_STALE');
   }
 
+  // Consume synchronously before async work: repeated/overlapping export
+  // requires a new review. The private copy is not mutable through UI state.
+  issuedReviews.delete(review);
+  review=issued;
   const sourceHashBefore=await sha256Hex(sourceBytes);
   if(
     sourceHashBefore!==review.sourceSha256 ||
