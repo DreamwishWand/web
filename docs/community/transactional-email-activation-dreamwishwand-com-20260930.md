@@ -1,153 +1,36 @@
-# Dreamwish Wand transactional email activation — dreamwishwand.com — 2026-09-30
+# Dreamwish Wand transactional email public contract
 
-Status: **OPS EMAIL ACCEPTANCE COMPLETE / AUTH FLOW NEXT**
+This contract specifies the selected launch email architecture and acceptance boundaries. It is not a configuration runbook, evidence of current provider activation, or authorization to send mail, change DNS, provision resources, or enable production.
 
-## Canonical launch configuration
+## Public configuration and separation
 
-Provider:
+The selected transactional provider is Resend, with sending domain `dreamwishwand.com`. The Auth sender is `Dreamwish Wand <no-reply@dreamwishwand.com>`; the operator-critical sender is `Dreamwish Wand Ops <ops@dreamwishwand.com>`. The operator recipient is server-only configuration and is never committed or included in acceptance evidence.
 
-- Resend
+Auth custom SMTP uses `smtp.resend.com`, TLS (465 SSL or 587 STARTTLS where supported), and the public SMTP username `resend`. **Dreamwish Wand Auth SMTP** denotes the dedicated Auth credential role; **Dreamwish Wand Ops Edge** denotes the separate HTTPS API credential role for `community-email-resend`. These labels are not credential values. The Auth credential is never exposed to Edge/browser code. Credentials, provider-issued DNS verification values, actual recipients and environment identifiers are excluded from public source and evidence.
 
-Verified sending domain:
+The domain must be provider-verified; exact provider-issued DNS values, existing unrelated DNS/MX records, and reviewed DMARC policy are preserved. Domain configuration or a provider UI observation alone is not independent DNS or delivery acceptance. Email/password sign-in, required email confirmation, PKCE recovery and Wand session controls remain intact; rate-limit and endpoint/IP abuse protection must not be weakened for throughput.
 
-- `dreamwishwand.com`
+## Operator delivery and authorization
 
-Auth sender:
+The relay requires the server-side symbolic configuration names `RESEND_API_KEY` and `DREAMWISH_OPERATOR_EMAIL`. The From address is fixed in code to `Dreamwish Wand Ops <ops@dreamwishwand.com>`. No new relay secret is required. The `community-ops-email -> community-email-resend` hop uses the existing Vault-backed `operations_escalation` worker token, forwarded internally as `x-community-worker-token`; the relay verifies worker authorization and rejects invalid authorization. Neither credential values nor worker tokens are public.
 
-- display name: `Dreamwish Wand`
-- address: `no-reply@dreamwishwand.com`
+The durable escalation channel is `operator_email`, bound to the authorized internal adapter. Delivery is conditional on verified provider/sender and required server-side configuration; no public feature or provider enablement follows from this contract. The persistent Operations Alert remains canonical; email is only its external projection.
 
-Operator critical sender:
+## Staging acceptance criteria
 
-- display name: `Dreamwish Wand Ops`
-- address: `ops@dreamwishwand.com`
+Auth acceptance requires real browser signup, verification mail from the Auth sender, verified sign-in, PKCE recovery mail and callback, password update, and old/new session-cutoff behavior. Provider/SMTP configuration alone is not browser acceptance.
 
-Operator recipient:
+Operator acceptance requires one minimized mail per critical occurrence from the operator sender, canonical alert acknowledgment and resolution, recurrence as a new occurrence/new mail, and visible retry/dead-letter behavior on delivery failure. Canonical alerts survive delivery failure; self-monitor alerts do not recurse into the same failed email path. Payloads exclude provider subjects, Wizard email addresses, raw report detail, signed media URLs, passwords, tokens and private DDV data.
 
-- the operator's normal mailbox;
-- stored only as server-side secret/configuration;
-- never committed to source control or canonical docs.
+Normal Community activity remains in-app only:
 
-Normal Community activity remains in-app only. Comment / Reply / Reaction / Follow / Save do not
-produce transactional email.
+- Comment / Reply -> no email
+- Reaction -> no email
+- Follow -> no email
+- Save -> no email
 
-## Phase A — Resend domain verification — COMPLETE
+## Production and outage boundary
 
-**CONFIRMED (user-observed Resend UI, 2026-10-01):** `dreamwishwand.com` is `Verified` in Resend.
+Sender reputation/deliverability, bounce/complaint handling, appropriate Auth email capacity and abuse limits, separate credentials and rotation without repository changes are release acceptance requirements. Any provider plan or capacity change is a separate Owner decision, never implied by this contract. A Resend outage cannot notify through Resend. No second independent alert channel is required for first launch under the current single-operator, non-life-safety/non-financial workload; the boundary must be reconsidered if operational criticality or staffing changes.
 
-1. Create or sign in to the Resend account that will own Dreamwish Wand transactional mail.
-2. Add `dreamwishwand.com` as a sending domain.
-3. Copy the exact DNS records shown by Resend into the authoritative DNS provider for
-   `dreamwishwand.com`.
-4. Do not invent or normalize record values. Use exactly the host/type/value Resend displays.
-5. Wait until Resend marks the domain verified.
-6. Preserve any pre-existing unrelated DNS/MX records. Do not replace existing mail configuration
-   unless explicitly required by the provider and reviewed first.
-7. Do not change DMARC policy blindly. If a DMARC record already exists, inspect it before editing.
-
-The exact SPF/DKIM record values are provider-issued runtime configuration and are intentionally not
-stored in the repo. Independent public-DNS re-resolution was not available from the current execution environment, so the evidence source is the Resend provider UI rather than a second resolver.
-
-## Phase B — separate Resend credentials — COMPLETE
-
-Create two separate credentials where the provider allows it:
-
-1. `Dreamwish Wand Auth SMTP`
-   - used only by Supabase Auth custom SMTP;
-   - never exposed to Edge/browser code.
-
-2. `Dreamwish Wand Ops Edge`
-   - used only by `community-email-resend`;
-   - HTTPS API credential.
-
-Do not paste either credential into chat or commit them to the repo.
-
-## Phase C — Supabase Auth SMTP
-
-Configure staging Supabase Auth with:
-
-- host: `smtp.resend.com`
-- port: `465` for SSL, or `587` for STARTTLS if the dashboard/provider path requires it;
-- username: `resend`
-- password: dedicated `Dreamwish Wand Auth SMTP` credential;
-- sender email: `no-reply@dreamwishwand.com`
-- sender name: `Dreamwish Wand`
-
-Keep:
-
-- email/password sign-in enabled;
-- email confirmation required;
-- PKCE recovery enabled;
-- Wand-side session controls unchanged.
-
-After enabling custom SMTP, review the Supabase Auth email rate-limit configuration. Do not weaken
-endpoint/IP abuse protections merely to increase throughput.
-
-## Phase D — operator critical Edge secrets — COMPLETE
-
-Configure only these server-side secrets for `community-email-resend`:
-
-- `RESEND_API_KEY` = dedicated `Dreamwish Wand Ops Edge` credential;
-- `DREAMWISH_OPERATOR_EMAIL` = operator normal mailbox.
-
-The From address is fixed in code to `Dreamwish Wand Ops <ops@dreamwishwand.com>`.
-
-No new relay secret is required. The internal
-`community-ops-email -> community-email-resend` hop reuses the existing Vault-backed
-`operations_escalation` worker token.
-
-## Phase E — operator destination — COMPLETE
-
-Configure the durable Operations escalation destination:
-
-- channel: `operator_email`;
-- endpoint: deployed `community-email-resend` Edge URL;
-- authentication: existing Operations worker token forwarded internally;
-- enabled only after Phase D is complete.
-
-The persistent Operations Alert remains canonical. Email is only an external projection.
-
-## Phase F — staging acceptance — OPS COMPLETE / AUTH PENDING
-
-Auth path:
-
-1. real browser signup;
-2. receive verification mail from `no-reply@dreamwishwand.com`;
-3. verify -> sign in;
-4. start PKCE password recovery;
-5. receive recovery mail;
-6. complete recovery callback/password update;
-7. confirm old/new session-cutoff behavior remains correct.
-
-Operator path:
-
-1. induce one safe critical Operations Alert;
-2. confirm exactly one mail arrives from `ops@dreamwishwand.com`;
-3. verify payload contains only minimized operational data;
-4. acknowledge and resolve the canonical alert;
-5. recur the same condition and confirm a new occurrence/new mail;
-6. induce a controlled provider/delivery failure;
-7. confirm canonical alert state remains and external delivery retries/dead-letters visibly;
-8. confirm self-monitor alerts do not recurse into the same failed email path.
-
-Community activity negative acceptance:
-
-- Comment / Reply -> no email;
-- Reaction -> no email;
-- Follow -> no email;
-- Save -> no email.
-
-## Production hardening
-
-Before public release:
-
-- confirm sender reputation/deliverability;
-- review bounce/complaint signals;
-- review Auth email rate limits against expected launch traffic;
-- move to an appropriate Resend plan if free-tier daily/monthly limits are insufficient;
-- keep Auth and Ops credentials separate;
-- rotate credentials without repository changes;
-- retain the documented first-launch limitation that a Resend outage cannot notify through Resend.
-
-No second independent alert channel is required for first launch under the current single-operator
-non-life-safety/non-financial workload. Revisit this if operational criticality or staffing changes.
+Actual domain, mailbox, delivery, security, provider, privacy and production acceptance remains separately evidenced. No historical execution result is asserted here and no staging acceptance is promoted to production approval.
