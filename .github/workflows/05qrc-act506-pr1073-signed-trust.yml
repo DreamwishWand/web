@@ -54,10 +54,39 @@ jobs:
           done
           cat "$dir/bundles/"*.jsonl > "$dir/bundle.jsonl"
           node scripts/readonly-release/seal.mjs verify-only "$source" "$assets" "$dir/bundle.jsonl"
-          # Actual signed bytes, valid bundle, change only one cryptographic verification constraint.
+          # Identical bytes may have genuine attestations from multiple workflows.
+          # Isolate one cryptographically verified Pages-only bundle line and one
+          # offline candidate-only line; never conflate a multi-bundle match
+          # with acceptance of the wrong signer.
+          manifest_bundle="$dir/bundles/sha256:c35ac62499ec12bb70eae806b50ea924536871f000dc05fc3f84d264d7646096.jsonl"
+          test -s "$manifest_bundle"
+          pages_workflow=DreamwishWand/web/.github/workflows/pages.yml
+          offline_workflow=DreamwishWand/web/.github/workflows/01a-protected-main-signed-wasm-release-off.yml
+          check() {
+            gh attestation verify "$assets/manifest.json" --bundle "$1" --repo DreamwishWand/web --deny-self-hosted-runners --predicate-type https://slsa.dev/provenance/v1 --signer-workflow "$2" --source-ref refs/heads/main --source-digest "$source"
+          }
+          n=0
+          while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ -n "$line" ]] || continue
+            n=$((n+1))
+            one="$dir/one-$n.jsonl"
+            printf '%s\n' "$line" > "$one"
+            if check "$one" "$pages_workflow" >"$dir/p-$n.log" 2>&1; then
+              cp "$one" "$dir/pages-only.jsonl"
+            fi
+            if check "$one" "$offline_workflow" >"$dir/o-$n.log" 2>&1; then
+              cp "$one" "$dir/offline-only.jsonl"
+            fi
+          done < "$manifest_bundle"
+          test -s "$dir/pages-only.jsonl"
+          test -s "$dir/offline-only.jsonl"
+          check "$dir/pages-only.jsonl" "$pages_workflow"
+          check "$dir/offline-only.jsonl" "$offline_workflow"
+          echo "ACT506_MULTI_ATTESTATION_DISTINCT_SIGNERS_CONFIRMED"
+          # Same single Pages signature, change only one verification constraint.
           deny() {
             local label="$1"; shift
-            if gh attestation verify "$assets/manifest.json" --bundle "$dir/bundle.jsonl" --repo DreamwishWand/web --deny-self-hosted-runners --predicate-type https://slsa.dev/provenance/v1 "$@" >"$dir/$label.log" 2>&1; then
+            if gh attestation verify "$assets/manifest.json" --bundle "$dir/pages-only.jsonl" --repo DreamwishWand/web --deny-self-hosted-runners --predicate-type https://slsa.dev/provenance/v1 "$@" >"$dir/$label.log" 2>&1; then
               echo "FALSE_ACCEPT $label"; exit 1
             fi
             cat "$dir/$label.log"
@@ -68,6 +97,12 @@ jobs:
           deny wrong-ref --signer-workflow DreamwishWand/web/.github/workflows/pages.yml --source-ref refs/heads/dev --source-digest "$source"
           deny wrong-source --signer-workflow DreamwishWand/web/.github/workflows/pages.yml --source-ref refs/heads/main --source-digest ca38dbca655fcf5fd54a9193a7bd18fad2ec892d
           deny successor-workflow --signer-workflow DreamwishWand/site/.github/workflows/pages.yml --source-ref refs/heads/main --source-digest "$source"
+          # A genuinely signed candidate bundle is still NOT a Pages signer.
+          if node scripts/readonly-release/seal.mjs verify-only "$source" "$assets" "$dir/offline-only.jsonl" >"$dir/candidate.log" 2>&1; then
+            cat "$dir/candidate.log"; echo 'CANDIDATE_ONLY_FALSE_ACCEPT'; exit 1
+          fi
+          grep -F 'R22_RELEASE_SEAL_SIGNATURE_VERIFICATION_DENIED' "$dir/candidate.log"
+          echo 'ACT506_REAL_OFFLINE_SIGNER_CANNOT_SUBSTITUTE_PAGES'
           echo "QA_LEGACY_ASSET_DIR=$assets" >> "$GITHUB_ENV"
       - name: Actual CLI boundaries and historical manifest identity
         run: node --test tests/qa/05qrc-act506-pr1073-signed-trust.mjs
