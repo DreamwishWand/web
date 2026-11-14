@@ -107,7 +107,7 @@ fn stored_stock(b:&[u8],player:Span,target:i32,switch_furniture:bool)->CoreResul
         "inventoryId":id,"routeSha256":hash(b,record),"inventorySha256":hash(b,items),
         "entryPresent":found.is_some(),"entry":entry,"ownershipVerified":false}))
 }
-pub struct PrivateCollectionGroupReceipt{value:Value}
+pub struct PrivateCollectionGroupReceipt{value:Value,selected_span:Option<Span>}
 impl PrivateCollectionGroupReceipt{
     pub fn to_private_receipt_json(&self)->Value{self.value.clone()}
 }
@@ -129,7 +129,7 @@ impl ProductSession{
         let sets=required(b,player,"CollectionSets")?;
         let mut set_ids=BTreeSet::new();let mut set_count=0;
         let mut group_count=0;let mut total_entries=0;
-        let mut chosen=None;let mut memberships=Vec::new();
+        let mut chosen=None;let mut selected_span=None;let mut memberships=Vec::new();
         array(b,sets,|set|{
             let set_pos=set_count;count(&mut set_count,MAX_SETS)?;
             let id=integer(b,required(b,set,"CollectionDefinitionID")?)?;
@@ -147,7 +147,7 @@ impl ProductSession{
                     count(&mut map_count,MAX_MAP)?;count(&mut total_entries,MAX_TOTAL_ENTRIES)?;
                     let item=key(&k)?;let flag=bool_token(b,s)?;
                     if !flag{false_count+=1}
-                    if item==target{target_entry=Some((flag,hash(b,s)))}
+                    if item==target{target_entry=Some((flag,hash(b,s)));if selected{selected_span=Some(s)}}
                     if selected{entries.push(json!({"itemId":item,"collected":flag,"tokenSha256":hash(b,s)}))}
                     Ok(())
                 })?;
@@ -205,7 +205,75 @@ impl ProductSession{
             value["buildId"]=json!(SWITCH_EXACT);
             value["selectedGroup"]["switchSavedNotCompleteMultiFalseShape"]=json!(true);
         }
-        Ok(PrivateCollectionGroupReceipt{value})
+        Ok(PrivateCollectionGroupReceipt{value,selected_span})
+    }
+}
+
+#[cfg(feature="semantic-writer-dev")]
+pub struct PrivateSwitchCollectionTarget{
+    scope:WorkerEnvelope,
+    span:Span,
+}
+#[cfg(feature="semantic-writer-dev")]
+impl ProductSession{
+    /// Native private source-only exact one-token candidate. The canonical
+    /// plan binds the independently reviewed source and raw readset; it is
+    /// NOT proof of effective rights, eligibility, or product authorization.
+    pub fn mint_private_switch626_collection_target(&self,e:WorkerEnvelope,plan:&[u8])
+        ->CoreResult<PrivateSwitchCollectionTarget>{
+        let b=&self.native_source_build;
+        if b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||
+           b.build_id!=SWITCH_EXACT||b.schema!=626||!b.externally_attested||self.worker_bound{
+            return Err(deny("COLLECTION_STAGE_EXACT_PRIVATE_SWITCH626_REQUIRED"));
+        }
+        if plan.is_empty()||plan.len()>8192{return Err(deny("COLLECTION_PLAN_BOUNDS"))}
+        let v:Value=serde_json::from_slice(plan).map_err(|_|deny("COLLECTION_PLAN_JSON"))?;
+        if serde_json::to_vec(&v).map_err(|_|deny("COLLECTION_PLAN_JSON"))?.as_slice()!=plan{
+            return Err(deny("COLLECTION_PLAN_CANONICAL"))
+        }
+        let keys=["contract","definitionId","groupIndex","itemId","sourceDecodedSha256",
+            "collectionSetsSha256","groupSha256","mapSha256","entrySha256","stateSha256",
+            "stockEntrySha256","stockRouteSha256"];
+        let m=v.as_object().ok_or(deny("COLLECTION_PLAN_OBJECT"))?;
+        if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||
+            v["contract"]!="wand.private.switch626.collection-existing-bool-exact1@1"{
+            return Err(deny("COLLECTION_PLAN_FIELDS"))
+        }
+        let definition=v["definitionId"].as_i64().and_then(|n|i32::try_from(n).ok()).ok_or(deny("COLLECTION_PLAN_SELECTOR"))?;
+        let group=v["groupIndex"].as_u64().and_then(|n|usize::try_from(n).ok()).ok_or(deny("COLLECTION_PLAN_SELECTOR"))?;
+        let item=v["itemId"].as_i64().and_then(|n|i32::try_from(n).ok()).ok_or(deny("COLLECTION_PLAN_SELECTOR"))?;
+        let r=self.read_private_collection_group(e,definition,group,item)?;
+        let x=&r.value;let g=&x["selectedGroup"];let stock=&x["storedStock"];
+        if x["contract"]!=SWITCH_CONTRACT||v["sourceDecodedSha256"]!=x["decodedSha256"]||
+           v["collectionSetsSha256"]!=x["collectionSetsSha256"]||
+           v["groupSha256"]!=g["groupSha256"]||v["mapSha256"]!=g["mapSha256"]||
+           v["entrySha256"]!=g["targetEntry"]["tokenSha256"]||
+           v["stateSha256"]!=g["state"]["sha256"]||
+           v["stockEntrySha256"]!=stock["entry"]["entrySha256"]||
+           v["stockRouteSha256"]!=stock["routeSha256"]||
+           g["switchSavedNotCompleteMultiFalseShape"]!=true{
+            return Err(deny("COLLECTION_PLAN_READSET_CAS"))
+        }
+        let span=r.selected_span.ok_or(deny("COLLECTION_TARGET_SPAN"))?;
+        if self.decoded.get(span.begin..span.end)!=Some(b"false".as_slice()){
+            return Err(deny("COLLECTION_TARGET_OLD_BOOL"))
+        }
+        Ok(PrivateSwitchCollectionTarget{scope:e,span})
+    }
+    pub fn stage_private_switch626_collection_bool(&self,e:WorkerEnvelope,target:&PrivateSwitchCollectionTarget)
+        ->CoreResult<super::SemanticStageReceipt>{
+        let old=&target.scope;
+        if e.contract!=old.contract||e.session_id!=old.session_id||
+           e.expected_revision!=old.expected_revision||e.expected_index_generation!=old.expected_index_generation||
+           e.expected_decoded_sha256!=old.expected_decoded_sha256{
+            return Err(deny("COLLECTION_TARGET_EPOCH_CAS"))
+        }
+        let b=&self.native_source_build;
+        if b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||
+           b.build_id!=SWITCH_EXACT||b.schema!=626||!b.externally_attested||self.worker_bound{
+            return Err(deny("COLLECTION_STAGE_EXACT_PRIVATE_SWITCH626_REQUIRED"))
+        }
+        self.commit_private_collection_bool(e,target.span)
     }
 }
 
@@ -307,6 +375,47 @@ mod switch_furniture_tests{
         contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
         expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
     fn read(s:&ProductSession)->CoreResult<Value>{Ok(s.read_private_collection_group(env(s),DEF,0,ITEM)?.to_private_receipt_json())}
+    #[cfg(feature="semantic-writer-dev")]
+    fn plan(s:&ProductSession)->Value{
+        let x=read(s).unwrap();let g=&x["selectedGroup"];let t=&x["storedStock"];
+        json!({"contract":"wand.private.switch626.collection-existing-bool-exact1@1",
+          "definitionId":DEF,"groupIndex":0,"itemId":ITEM,
+          "sourceDecodedSha256":x["decodedSha256"],"collectionSetsSha256":x["collectionSetsSha256"],
+          "groupSha256":g["groupSha256"],"mapSha256":g["mapSha256"],"entrySha256":g["targetEntry"]["tokenSha256"],
+          "stateSha256":g["state"]["sha256"],"stockEntrySha256":t["entry"]["entrySha256"],"stockRouteSha256":t["routeSha256"]})
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    #[test]
+    fn switch626_collection_exact1_typed_stage_and_epoch_denials(){
+        let d=doc();let s=open(d.clone());let e=env(&s);let p=plan(&s);
+        let bytes=serde_json::to_vec(&p).unwrap();
+        for k in ["sourceDecodedSha256","collectionSetsSha256","groupSha256","mapSha256","entrySha256","stateSha256","stockEntrySha256","stockRouteSha256","contract"]{
+            let mut q=p.clone();q[k]=json!("wrong");
+            assert!(s.mint_private_switch626_collection_target(e,&serde_json::to_vec(&q).unwrap()).is_err(),"{k}");
+        }
+        let mut q=p.clone();q["rightsVerified"]=json!(true);
+        assert!(s.mint_private_switch626_collection_target(e,&serde_json::to_vec(&q).unwrap()).is_err());
+        let t=s.mint_private_switch626_collection_target(e,&bytes).unwrap();
+        let mut stage=e;stage.action=WorkerAction::Stage;
+        assert!(s.stage_private_switch626_collection_bool(e,&t).is_err());
+        let other=open(d.clone());let mut foreign=env(&other);foreign.action=WorkerAction::Stage;
+        assert!(other.stage_private_switch626_collection_bool(foreign,&t).is_err());
+        let mut stale=stage;stale.expected_revision+=1;
+        assert!(s.stage_private_switch626_collection_bool(stale,&t).is_err());
+        let r=s.stage_private_switch626_collection_bool(stage,&t).unwrap();
+        assert_eq!(r.operation_count,1);assert_eq!(r.exact_field_changed_count,1);
+        assert!(!r.product_writer_authorized);assert!(s.stage_private_switch626_collection_bool(stage,&t).is_err());
+        let mut now=env(&s);now.action=WorkerAction::Stage;s.undo_typed_semantic_batch(now).unwrap();
+        let mut now=env(&s);now.action=WorkerAction::ExportEditedCopy;
+        assert!(s.take_typed_semantic_decoded_once(now).is_err());
+        now.action=WorkerAction::Stage;assert!(s.stage_private_switch626_collection_bool(now,&t).is_err());
+        s.redo_typed_semantic_batch(now).unwrap();
+        let mut now=env(&s);now.action=WorkerAction::ExportEditedCopy;
+        let out=s.take_typed_semantic_decoded_once(now).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(now).is_err());
+        let mut want=d;want["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"]["40000001"]=json!(true);
+        assert_eq!(out,serde_json::to_vec(&want).unwrap());
+    }
     #[test]
     fn switch626_furniture_exact_saved_shape_no_authority(){
         let s=open(doc());let before=s.receipt().unwrap();let v=read(&s).unwrap();

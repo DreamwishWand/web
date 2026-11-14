@@ -28,6 +28,10 @@ fn required(k:&str)->String{
    .unwrap_or_else(||deny("MISSING_EXTERNAL_ATTESTATION"))
 }
 fn main(){
+ #[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+ if env::args().nth(1).as_deref()==Some("--switch626-collection-existing-bool-exact1-only"){
+   run_switch_collection_bool();return;
+ }
  #[cfg(feature="semantic-writer-dev")]
  if env::args().nth(1).as_deref()==Some("--inventory-amount-backup-only") {
    run_inventory_amount_backup();
@@ -314,4 +318,49 @@ fn run_inventory_amount_backup(){
  io::stdout().write_all(&bytes).unwrap_or_else(|_|deny("BACKUP_PRIVATE_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("BACKUP_PRIVATE_PIPE_FLUSH"));
  eprintln!("PRIVATE_V2_INVENTORY_AMOUNT_BACKUP_READONLY_PIPE_PASS");
+}
+
+#[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+fn run_switch_collection_bool(){
+ if env::args().len()!=2||required("WAND_LOCAL_INSTALLED_SWITCH_BID")!="9A239D3DB569756D"||
+    env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty()){
+    deny("COLLECTION_EXACT_SWITCH626_REQUIRED")
+ }
+ let original=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
+ let size=required("WAND_LOCAL_ORIGINAL_SIZE_BYTES").parse::<u64>().unwrap_or_else(|_|deny("ORIGINAL_SIZE_REQUIRED"));
+ if original==[0;32]||size==0||size>128*1024*1024{deny("ORIGINAL_BOUNDS")}
+ let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
+ let plan=required("WAND_LOCAL_COLLECTION_EXACT_PLAN");
+ let mut input=Vec::new();
+ io::stdin().take(256*1024*1024+1).read_to_end(&mut input).unwrap_or_else(|_|deny("COLLECTION_PIPE_READ"));
+ if input.is_empty()||input.len()>256*1024*1024||Sha256::digest(&input).as_slice()!=expected{
+    deny("COLLECTION_DECODED_CAS")
+ }
+ let s=ProductSession::open_decoded_readonly(input,BuildIdentity{platform:Platform::Switch,
+    build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true})
+    .unwrap_or_else(|_|deny("COLLECTION_FULL_DOCUMENT"));
+ let r=s.receipt().unwrap_or_else(|_|deny("COLLECTION_SESSION"));
+ if r.writer_authorized||r.product_worker_bound||r.product_read_accepted||r.revision!=0||r.index_generation!=1||r.decoded_sha256!=expected{
+    deny("COLLECTION_SESSION_SCOPE")
+ }
+ let scope=|rev,gen,action|WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
+    expected_revision:rev,expected_index_generation:gen,expected_decoded_sha256:expected,action};
+ let target=s.mint_private_switch626_collection_target(scope(0,1,WorkerAction::ReadDomain),plan.as_bytes())
+    .unwrap_or_else(|_|deny("COLLECTION_TARGET_PLAN"));
+ let stage=s.stage_private_switch626_collection_bool(scope(0,1,WorkerAction::Stage),&target)
+    .unwrap_or_else(|_|deny("COLLECTION_STAGE"));
+ if stage.operation_count!=1||stage.exact_field_changed_count!=1||!stage.applied||
+    stage.product_writer_authorized||stage.original_overwrite_authorized||!stage.semantic_changed{
+    deny("COLLECTION_EXACT1_RECEIPT")
+ }
+ if s.stage_private_switch626_collection_bool(scope(0,1,WorkerAction::Stage),&target).is_ok(){deny("COLLECTION_REPLAY")}
+ s.undo_typed_semantic_batch(scope(1,2,WorkerAction::Stage)).unwrap_or_else(|_|deny("COLLECTION_UNDO"));
+ if s.take_typed_semantic_decoded_once(scope(2,3,WorkerAction::ExportEditedCopy)).is_ok(){deny("COLLECTION_UNDONE_EXPORT")}
+ s.redo_typed_semantic_batch(scope(2,3,WorkerAction::Stage)).unwrap_or_else(|_|deny("COLLECTION_REDO"));
+ let out=s.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).unwrap_or_else(|_|deny("COLLECTION_EXPORT"));
+ if Sha256::digest(&out).as_slice()!=stage.staged_decoded_sha256||
+    s.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).is_ok(){deny("COLLECTION_EXPORT_REPLAY_OR_SHA")}
+ io::stdout().write_all(&out).unwrap_or_else(|_|deny("COLLECTION_PIPE_WRITE"));
+ io::stdout().flush().unwrap_or_else(|_|deny("COLLECTION_PIPE_FLUSH"));
+ eprintln!("PRIVATE_SWITCH626_COLLECTION_EXISTING_BOOL_EXACT1_PIPE_PASS");
 }
