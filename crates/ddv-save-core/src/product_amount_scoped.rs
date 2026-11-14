@@ -109,11 +109,53 @@ fn saved_objective(b:&[u8],s:Span,item:i32,furniture:bool,refs:&mut usize)->Core
     if let Some(x)=opt(b,s,"ItemFilter")?{let v=leaf(b,x)?;need(v.is_null()||filter_disjoint(&v,item,furniture),"PRODUCT_AMOUNT_FILTER")?;}
     Ok(())
 }
+// History IDs alone do not prove current registration. Only the typed saved
+// state variants of this scoped build are understood; never ignore new state.
+fn saved_event_states(b:&[u8],active:Span)->CoreResult<()>{
+    need(b.get(active.begin)==Some(&b'{'),"PRODUCT_AMOUNT_EVENT_STATE")?;
+    let mut refs=0usize;
+    for(k,event)in members(b,active,4096)?{
+        need(key(&k)?>0,"PRODUCT_AMOUNT_EVENT_ID")?;
+        need(b.get(event.begin)==Some(&b'{'),"PRODUCT_AMOUNT_EVENT_STATE")?;
+        let fields=members(b,event,1)?;
+        if fields.is_empty(){continue}
+        let (kind,state)=&fields[0];
+        need(b.get(state.begin)==Some(&b'{'),"PRODUCT_AMOUNT_EVENT_STATE")?;
+        let field=match kind.as_str(){
+            "SpawnState"=>"SpawnedObjects",
+            "RecurringEventsState"=>"RecurringEventIDs",
+            "RecurringEventState"=>"RecurringEventID",
+            "SendMailboxState"=>"MailID",
+            "AddTimeLostTreasureState"=>"TimeLostTreasureID",
+            "SpawnSnippetState"=>"SnippetIDs",
+            _=>return reject("PRODUCT_AMOUNT_EVENT_STATE"),
+        };
+        let payload=members(b,*state,1)?;
+        need(payload.len()==1&&payload[0].0==field,"PRODUCT_AMOUNT_EVENT_STATE")?;
+        let v=payload[0].1;
+        match kind.as_str(){
+            "SpawnState"=>for a in array(b,v,16384)?{
+                refs+=1;need(refs<=65536,"PRODUCT_AMOUNT_EVENT_BOUND")?;
+                need(b.get(a.begin)==Some(&b'{'),"PRODUCT_AMOUNT_EVENT_STATE")?;
+                let fs=members(b,a,2)?;
+                need(fs.len()==2&&fs.iter().any(|(k,_)|k=="GridID")&&fs.iter().any(|(k,_)|k=="GridObjectID"),"PRODUCT_AMOUNT_EVENT_STATE")?;
+                n(b,a,"GridID")?;n(b,a,"GridObjectID")?;
+            },
+            "RecurringEventsState"|"SpawnSnippetState"=>for a in array(b,v,16384)?{
+                refs+=1;need(refs<=65536,"PRODUCT_AMOUNT_EVENT_BOUND")?;
+                need(number(b,a)?<=u32::MAX as u64,"PRODUCT_AMOUNT_EVENT_STATE")?;
+            },
+            "SendMailboxState"=>{strv(b,*state,field)?;},
+            _=>{n(b,*state,field)?;},
+        }
+    }
+    Ok(())
+}
 fn subscribers(b:&[u8],player:Span,world:Span,top:Span,d:&Value,item:i32,furniture:bool)->CoreResult<()>{
     let mut refs=0usize;let mut nodes=0usize;let mut slots=0usize;
     excludes(&d["events"],item)?;
     let hist=f(b,top,"ConditionalEventHistory")?;
-    for(k,_)in members(b,f(b,hist,"ActiveEvents")?,4096)?{need(key(&k)?>0,"PRODUCT_AMOUNT_EVENT_ID")?;}
+    saved_event_states(b,f(b,hist,"ActiveEvents")?)?;
     for(_,g)in members(b,f(b,world,"MissionSlots")?,4096)?{
         for s in array(b,f(b,g,"Slots")?,4096)?{
             slots+=1;need(slots<=4096,"PRODUCT_AMOUNT_MISSION_BOUND")?;
@@ -378,6 +420,27 @@ mod tests{
                 2=>q["Player"]["BackpackOverflow"]["Items"]=json!([{"ItemID":30200000,"Amount":1}]),
                 _=>q["ConditionalEventHistory"]["ActiveEvents"]["15299998"]=json!({"GridID":7,"GridObjectID":4})
             }let x=open(&q);assert!(x.preview_scoped_product_amount(scope(&x,WorkerAction::ReadDomain),sel,49).is_err());
+        }
+    }
+    #[test]fn saved_event_state_typed_history_and_unknown_denial(){
+        for chest in [false,true]{
+            let mut d=if chest{chest_doc()}else{doc()};
+            let (sel,new)=if chest{(ExistingAmountSelection::Chest{container_id:12,slot_index:0},49)}else{(ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},2)};
+            d["ConditionalEventHistory"]["ActiveEvents"]=json!({
+                "1":{},"2":{"SpawnState":{"SpawnedObjects":[{"GridID":1,"GridObjectID":2}]}},
+                "3":{"RecurringEventsState":{"RecurringEventIDs":[1,2]}},"4":{"RecurringEventState":{"RecurringEventID":1}},
+                "5":{"SendMailboxState":{"MailID":"synthetic"}},"6":{"AddTimeLostTreasureState":{"TimeLostTreasureID":1}},
+                "7":{"SpawnSnippetState":{"SnippetIDs":[1]}}});
+            let s=open(&d);assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new).is_ok());
+            for bad in [json!({"UnrecognizedEventState":{"ItemID":40000048}}),
+                json!({"SpawnState":{"SpawnedObjects":[{"GridID":1,"GridObjectID":2,"ItemID":40000048}]}}),
+                json!({"SpawnState":{"SpawnedObjects":[],"Other":1}}),
+                json!({"RecurringEventState":{"RecurringEventID":"1"}}),
+                json!({"SendMailboxState":{"MailID":1}}),json!({"SpawnSnippetState":{"SnippetIDs":[-1]}}),
+                json!({"RecurringEventsState":{"RecurringEventIDs":[{}]}}),json!([]),json!(null)]{
+                let mut q=d.clone();q["ConditionalEventHistory"]["ActiveEvents"]["8"]=bad;
+                let s=open(&q);assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new).is_err());
+            }
         }
     }
     #[test]fn unknown_active_subscriber_denied(){
