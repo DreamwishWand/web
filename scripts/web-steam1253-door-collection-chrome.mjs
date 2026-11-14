@@ -43,13 +43,15 @@ try{
   },{id:ID,withdraw});
  }
  const thumb='[data-item-thumb-id="'+ID+'"]';
- async function rendered(label){
-  await page.locator(thumb).first().waitFor({timeout:35000});
+ async function rendered(label,scope=''){
+  const selector=scope+thumb;
+  const target=page.locator(selector).first();
+  await target.waitFor({timeout:35000});
   await setCatalog();
-  const img=page.locator(thumb+' img').first();
+  const img=target.locator('img');
   await img.waitFor({timeout:15000});
   await img.scrollIntoViewIfNeeded();
-  await page.waitForFunction(sel=>{const x=document.querySelector(sel);return x?.complete&&x.naturalWidth===160&&x.naturalHeight===160;},thumb+' img',{timeout:15000});
+  await page.waitForFunction(sel=>{const x=document.querySelector(sel);return x?.complete&&x.naturalWidth===160&&x.naturalHeight===160;},selector+' img',{timeout:15000});
   assert.equal(await img.getAttribute('src'),imgPath);console.log('ACT628_'+label+'_PASS');
  }
  await page.goto(root+'/collection/',{waitUntil:'domcontentloaded'});
@@ -57,14 +59,14 @@ try{
  await page.locator('[data-stage1-search]').fill(ID);
  await page.locator('[data-stage1-search-groups] .item-card').first().waitFor({timeout:20000});
  assert.equal(await page.locator(thumb+' img').count(),0);assert.equal(hits.length,0);
- await rendered('COLLECTION_LIST');
+ await rendered('COLLECTION_LIST','[data-stage1-search-groups] ');
  await page.locator('[data-stage1-search-groups] .item-card').first().click();
  await page.locator('[data-stage1-item-info]').waitFor({timeout:20000});
- await rendered('COLLECTION_INFO');
+ await rendered('COLLECTION_INFO','[data-stage1-item-info] ');
  await setCatalog(true);await page.waitForFunction(sel=>!document.querySelector(sel),thumb+' img');
  await page.locator('[data-stage1-item-info] .info-actions > a').click();
  await page.locator('[data-shared-discovery="READY"]').waitFor({timeout:35000});
- await rendered('SHARED_DETAIL');
+ await rendered('SHARED_DETAIL','[data-shared-entity-detail] ');
  await page.goto(root+'/explore/',{waitUntil:'domcontentloaded'});
  await page.locator('.grid .card').first().waitFor({timeout:35000});
  await page.locator('.controls input[type="search"]').fill(ID);
