@@ -19,7 +19,7 @@ fn val(b:&[u8],s:Span)->CoreResult<Value>{
     serde_json::from_slice(raw(b,s)?).map_err(|_|denied("RM01_RECORD"))
 }
 fn enc(v:&Value)->CoreResult<Vec<u8>>{serde_json::to_vec(v).map_err(|_|denied("RM01_ENCODE"))}
-fn plan_parse(bytes:&[u8])->CoreResult<Value>{
+fn plan_parse(bytes:&[u8],contract:&str)->CoreResult<Value>{
     if bytes.is_empty()||bytes.len()>16384{return Err(denied("RM01_PLAN_BOUNDS"));}
     let v:Value=serde_json::from_slice(bytes).map_err(|_|denied("RM01_PLAN_JSON"))?;
     if enc(&v)?.as_slice()!=bytes{return Err(denied("RM01_PLAN_NONCANONICAL"));}
@@ -27,7 +27,7 @@ fn plan_parse(bytes:&[u8])->CoreResult<Value>{
         "expectedNextId","expectedAmount","gridSha256","inventoryEntrySha256","objects"];
     let m=v.as_object().ok_or(denied("RM01_PLAN_OBJECT"))?;
     if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||
-       v["contract"]!="wand.private.switch624.road-rm01-archive@1"{return Err(denied("RM01_PLAN_FIELDS"));}
+       v["contract"]!=contract{return Err(denied("RM01_PLAN_FIELDS"));}
     Ok(v)
 }
 fn obj(id:u32,x:u32,y:u32,diagonal:bool)->Value{
@@ -118,7 +118,19 @@ impl ProductSession{
            build.build_id!=BID||build.schema!=624||!build.externally_attested||self.worker_bound{
             return Err(denied("RM01_EXACT_SWITCH624_REQUIRED"));
         }
-        let p=plan_parse(plan)?;
+        let p=plan_parse(plan,"wand.private.switch624.road-rm01-archive@1")?;
+        let edits=collect(self,&p)?;
+        self.commit_semantic_replacements(e,edits,8)
+    }
+}
+impl ProductSession{
+    /// Exact Switch626 Native mixed q5 transition; retained/moved identities,
+    /// three fresh objects, exact debit3. No generic cost/topology grant.
+    pub fn stage_switch626_road_rm01_native_mixed_q5(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        let b=&self.native_source_build;
+        if b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||b.build_id!="9A239D3DB569756D"||
+           b.schema!=626||!b.externally_attested||self.worker_bound{return Err(denied("RM01_EXACT_SWITCH626_REQUIRED"));}
+        let p=plan_parse(plan,"wand.private.switch626.road-rm01-native-mixed-q5@1")?;
         let edits=collect(self,&p)?;
         self.commit_semantic_replacements(e,edits,8)
     }
@@ -146,6 +158,40 @@ mod tests{
         "gridSha256":digest(&enc(&d["World"]["GridCollection"]["Grids"]["9"]).unwrap()),
         "inventoryEntrySha256":digest(&enc(&d["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]).unwrap()),
         "objects":[obj(10,40,20,false),obj(11,48,24,true),obj(50,44,20,true),obj(51,44,24,true),obj(52,48,20,true)]})}
+    #[test]
+    fn rm01_switch626_mixed_q5_exact8_debit3_preserve_identity(){
+        let old=doc();let mut d=old.clone();d["GameInfo"]["Version"]=json!(626);
+        d["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(7025);
+        let mut p=plan(&d);p["contract"]=json!("wand.private.switch626.road-rm01-native-mixed-q5@1");
+        p["expectedAmount"]=json!(7025);
+        let make=|v:&Value|ProductSession::open_decoded_readonly(enc(v).unwrap(),crate::BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),
+            schema:626,externally_attested:true}).unwrap();
+        let s=make(&d);let e=scope(&s,WorkerAction::Stage);let bytes=enc(&p).unwrap();
+        assert!(s.stage_switch624_road_rm01_archive(e,&bytes).is_err());
+        assert!(s.stage_switch626_road_r02_native_q4(e,&bytes).is_err());
+        let t=open(&old);assert!(t.stage_switch626_road_rm01_native_mixed_q5(scope(&t,WorkerAction::Stage),&bytes).is_err());
+        assert!(make(&d).stage_switch626_road_rm01_native_mixed_q5(e,&bytes).is_err());
+        for (k,v) in [("contract",json!("wand.private.switch624.road-rm01-archive@1")),("retainedId",json!(11)),
+            ("expectedAmount",json!(7024)),("expectedNextId",json!(51)),("sourceDecodedSha256",json!("bad")),
+            ("gridSha256",json!("bad")),("inventoryEntrySha256",json!("bad")),("refund",json!(1))]{
+            let mut q=p.clone();q[k]=v;assert!(s.stage_switch626_road_rm01_native_mixed_q5(e,&enc(&q).unwrap()).is_err());
+        }
+        let mut q=p.clone();q["objects"][1]["ID"]=json!(50);assert!(s.stage_switch626_road_rm01_native_mixed_q5(e,&enc(&q).unwrap()).is_err());
+        let mut q=p.clone();q["objects"][1]["State"]=Value::Null;assert!(s.stage_switch626_road_rm01_native_mixed_q5(e,&enc(&q).unwrap()).is_err());
+        let r=s.stage_switch626_road_rm01_native_mixed_q5(e,&bytes).unwrap();
+        assert_eq!(r.operation_count,8);assert_eq!(r.exact_field_changed_count,8);assert!(!r.product_writer_authorized);
+        assert!(s.stage_switch626_road_rm01_native_mixed_q5(e,&bytes).is_err());
+        s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(e).is_err());
+        let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["9"];g["NextGridObjectID"]=json!(53);
+        for o in p["objects"].as_array().unwrap().iter().skip(1){g["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
+        wanted["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(7022);
+        assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),wanted);assert_eq!(sha(&out),r.staged_decoded_sha256);
+    }
     #[test]
     fn rm01_atomic_exact8_preserve_unknown_undo_redo_one_time(){
         let d=doc();let s=open(&d);let p=plan(&d);let e=scope(&s,WorkerAction::Stage);
