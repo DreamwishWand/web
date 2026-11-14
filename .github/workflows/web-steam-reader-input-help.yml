@@ -1,0 +1,43 @@
+name: WEB Steam Reader Windows input help
+on:
+  pull_request:
+    paths:
+      - 'src/lib/wep/steam-reader-input-help.mjs'
+      - 'tests/web-steam-reader-input-help.test.mjs'
+      - 'scripts/web-steam-reader-input-help-chrome.mjs'
+      - '.github/workflows/web-steam-reader-input-help.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/web-steam-reader-input-help.test.mjs
+      - run: npm run check
+      - name: Static Pages and actual Chrome display-only input help
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          test -f build/editor/steam-reader/index.html
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          root="$(mktemp -d)"
+          ln -s "$PWD/build" "$root/web"
+          python3 -m http.server 4298 --bind 127.0.0.1 --directory "$root" >/tmp/reader-help-http.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true; rm -rf "$root"' EXIT
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4298/web/editor/steam-reader/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4298/web/editor/steam-reader/ >/dev/null
+          node scripts/web-steam-reader-input-help-chrome.mjs
