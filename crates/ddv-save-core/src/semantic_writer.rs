@@ -425,6 +425,13 @@ impl ProductSession{
     pub(super) fn commit_private_collection_bool(&self,e:WorkerEnvelope,span:Span)->CoreResult<SemanticStageReceipt>{
         self.commit_semantic_replacements(e,vec![Replacement{span,old:b"false".to_vec(),new:b"true".to_vec()}],1)
     }
+    #[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
+    pub(super) fn commit_private_hair_scalar(&self,e:WorkerEnvelope,span:Span,old:i32,new:i32)->CoreResult<SemanticStageReceipt>{
+        if !(0..90).contains(&old)||!(0..90).contains(&new)||old==new{
+            return Err(denied("HAIR_EXACT_PALETTE"));
+        }
+        self.commit_semantic_replacements(e,vec![Replacement{span,old:old.to_string().into_bytes(),new:new.to_string().into_bytes()}],1)
+    }
     fn semantic_toggle(&self,e:WorkerEnvelope,apply:bool)
         ->CoreResult<SemanticStageReceipt>{
         let mut st=self.lock()?;
