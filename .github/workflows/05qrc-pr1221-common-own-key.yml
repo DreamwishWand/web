@@ -1,0 +1,33 @@
+name: 05 QR-C PR1221 independent common own key CAS hash
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1221-common-own-key.mjs'
+      - '.github/workflows/05qrc-pr1221-common-own-key.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact original2 and QA-only2; full old/fixed candidate and hash oracle
+        run: |
+          source=9b3d60122f16ba51b8e6c9ddecefb8421f5d109d
+          parent=89a333589216905f5bb4cfdeaa38b894c703e718
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git diff --diff-filter=A --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/transaction-foundation-base-v125.js)" = f2f32164fb98918f6b898de83213ac125f582568
+          test "$(git rev-parse HEAD:tests/ddv-save-transaction-foundation-v125.test.mjs)" = df9c3e70f0081076699fdcf57f7a10f3ad93009d
+          test "$(git rev-parse "$parent:src/lib/ddv/core/save/transaction-foundation-base-v125.js")" = ab68bb3bdc161ef48da30dbf6f293907ed292b20
+          git show "$parent:src/lib/ddv/core/save/transaction-foundation-base-v125.js" > src/lib/ddv/core/save/.qa1221-parent.mjs
+          node tests/qa/05qrc-pr1221-common-own-key.mjs
+          rm src/lib/ddv/core/save/.qa1221-parent.mjs
