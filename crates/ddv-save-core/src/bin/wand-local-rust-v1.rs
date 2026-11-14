@@ -13,6 +13,7 @@ use std::{env,io::{self,Read}};
 const EXACT_STEAM_VERSION:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
 const EXACT_SWITCH_BID:&str="9A239D3DB569756D";
 const SWITCH_COLLECTION_CONTRACT:&str="wand.native.private.switch626.furniture-collection-group-readset@1";
+const STEAM_FURNITURE_CONTRACT:&str="wand.native.private.steam626.furniture-collection-group-readset@1";
 const MAX_BYTES:u64=256*1024*1024;
 const MAX_PAGES:usize=8192;
 fn denied(code:&str)->!{
@@ -129,6 +130,7 @@ fn run(){
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
     let switch_collection=argv.first().is_some_and(|s|s=="--switch626-collection-furniture-receipt-only");
+    let steam_furniture=argv.first().is_some_and(|s|s=="--steam626-collection-furniture-receipt-only");
     let (native_slice,avatar_output,skin_output,dependency_output,skin_dependency_output,collection_output)=match argv.as_slice(){
       []=>(false,None,None,None,None,None),
       [flag] if flag=="--native-area-grid-slice-only"=>(true,None,None,None,None,None),
@@ -140,9 +142,9 @@ fn run(){
         (false,None,Some((selector_id(c),selector_id(k),private_output_path(path))),None,None,None),
       [flag,c,k,f,out,path] if flag=="--character-skin-dependencies-receipt-only"&&out=="--out"=>
         (false,None,None,None,Some((selector_id(c),selector_id(k),selector_id(f),pinned_private_output(path))),None),
-      [flag,d,g,t,out,path] if (flag=="--collection-group-receipt-only"||switch_collection)&&out=="--out"=>
+      [flag,d,g,t,out,path] if (flag=="--collection-group-receipt-only"||switch_collection||steam_furniture)&&out=="--out"=>
         (false,None,None,None,None,Some((collection_selector(d,212),collection_group_index(g),
-            collection_selector(t,if switch_collection{4}else{3}),pinned_private_output(path)))),
+            collection_selector(t,if switch_collection||steam_furniture{4}else{3}),pinned_private_output(path)))),
       _=>denied("UNTRUSTED_CLI_ARGS"),
     };
     if switch_collection{
@@ -150,7 +152,8 @@ fn run(){
          env::var("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_ok_and(|v|!v.is_empty()){
         denied("EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED");
       }
-    }else if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION{
+    }else if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION||
+        (steam_furniture&&env::var("WAND_LOCAL_INSTALLED_SWITCH_BID").is_ok_and(|v|!v.is_empty())){
       denied("EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
     }
     let original_sha=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
@@ -203,6 +206,10 @@ fn run(){
             out["contract"]==SWITCH_COLLECTION_CONTRACT&&out["platform"]=="Switch"&&
             out["buildKind"]=="SwitchBid"&&out["buildId"]==EXACT_SWITCH_BID&&out.get("fullVersion").is_none()&&
             out["selectedGroup"]["switchSavedNotCompleteMultiFalseShape"]==true
+        }else if steam_furniture{
+            out["contract"]==STEAM_FURNITURE_CONTRACT&&out["platform"]=="SteamWindows"&&
+            out["buildKind"]=="SteamFullVersion"&&out["buildId"]==EXACT_STEAM_VERSION&&out["fullVersion"]==EXACT_STEAM_VERSION&&
+            out["selectedGroup"]["steamSavedNotCompleteMultiFalseShape"]==true
         }else{out["contract"]=="wand.native.private.collection-group-readset@1"&&out["fullVersion"]==EXACT_STEAM_VERSION};
         if !build_ok||out["schema"]!=626||
            out["sessionId"]!=hex_bytes(&receipt.session_id)||
