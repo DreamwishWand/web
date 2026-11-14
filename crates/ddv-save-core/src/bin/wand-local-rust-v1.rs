@@ -149,11 +149,11 @@ fn run(){
     };
     if switch_collection{
       if required("WAND_LOCAL_INSTALLED_SWITCH_BID")!=EXACT_SWITCH_BID||
-         env::var("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_ok_and(|v|!v.is_empty()){
+         env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty()){
         denied("EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED");
       }
     }else if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION||
-        (steam_furniture&&env::var("WAND_LOCAL_INSTALLED_SWITCH_BID").is_ok_and(|v|!v.is_empty())){
+        (steam_furniture&&env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty())){
       denied("EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
     }
     let original_sha=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
