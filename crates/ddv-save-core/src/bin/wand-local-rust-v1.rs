@@ -11,6 +11,8 @@ use ddv_save_core::{
 use sha2::{Digest,Sha256};
 use std::{env,io::{self,Read}};
 const EXACT_STEAM_VERSION:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
+const EXACT_SWITCH_BID:&str="9A239D3DB569756D";
+const SWITCH_COLLECTION_CONTRACT:&str="wand.native.private.switch626.furniture-collection-group-readset@1";
 const MAX_BYTES:u64=256*1024*1024;
 const MAX_PAGES:usize=8192;
 fn denied(code:&str)->!{
@@ -126,6 +128,7 @@ fn run(){
     // The accepted no-argument V1 path remains byte-for-byte behaviorally
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
+    let switch_collection=argv.first().is_some_and(|s|s=="--switch626-collection-furniture-receipt-only");
     let (native_slice,avatar_output,skin_output,dependency_output,skin_dependency_output,collection_output)=match argv.as_slice(){
       []=>(false,None,None,None,None,None),
       [flag] if flag=="--native-area-grid-slice-only"=>(true,None,None,None,None,None),
@@ -137,11 +140,17 @@ fn run(){
         (false,None,Some((selector_id(c),selector_id(k),private_output_path(path))),None,None,None),
       [flag,c,k,f,out,path] if flag=="--character-skin-dependencies-receipt-only"&&out=="--out"=>
         (false,None,None,None,Some((selector_id(c),selector_id(k),selector_id(f),pinned_private_output(path))),None),
-      [flag,d,g,t,out,path] if flag=="--collection-group-receipt-only"&&out=="--out"=>
-        (false,None,None,None,None,Some((collection_selector(d,212),collection_group_index(g),collection_selector(t,3),pinned_private_output(path)))),
+      [flag,d,g,t,out,path] if (flag=="--collection-group-receipt-only"||switch_collection)&&out=="--out"=>
+        (false,None,None,None,None,Some((collection_selector(d,212),collection_group_index(g),
+            collection_selector(t,if switch_collection{4}else{3}),pinned_private_output(path)))),
       _=>denied("UNTRUSTED_CLI_ARGS"),
     };
-    if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION{
+    if switch_collection{
+      if required("WAND_LOCAL_INSTALLED_SWITCH_BID")!=EXACT_SWITCH_BID||
+         env::var("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_ok_and(|v|!v.is_empty()){
+        denied("EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED");
+      }
+    }else if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION{
       denied("EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
     }
     let original_sha=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
@@ -163,9 +172,9 @@ fn run(){
       denied("DECODED_SOURCE_SHA_MISMATCH");
     }
     let build=BuildIdentity{
-      platform:Platform::SteamWindows,
-      build_kind:BuildKind::SteamFullVersion,
-      build_id:EXACT_STEAM_VERSION.to_owned(),
+      platform:if switch_collection{Platform::Switch}else{Platform::SteamWindows},
+      build_kind:if switch_collection{BuildKind::SwitchBid}else{BuildKind::SteamFullVersion},
+      build_id:if switch_collection{EXACT_SWITCH_BID}else{EXACT_STEAM_VERSION}.to_owned(),
       schema:626,externally_attested:true
     };
     let session=ProductSession::open_decoded_readonly(decoded,build)
@@ -190,8 +199,12 @@ fn run(){
         let witness=session.read_private_collection_group(scope,definition,group,target)
             .unwrap_or_else(|_|denied("COLLECTION_GROUP_READ_DENIED"));
         let mut out=witness.to_private_receipt_json();
-        if out["contract"]!="wand.native.private.collection-group-readset@1"||
-           out["fullVersion"]!=EXACT_STEAM_VERSION||out["schema"]!=626||
+        let build_ok=if switch_collection{
+            out["contract"]==SWITCH_COLLECTION_CONTRACT&&out["platform"]=="Switch"&&
+            out["buildKind"]=="SwitchBid"&&out["buildId"]==EXACT_SWITCH_BID&&out.get("fullVersion").is_none()&&
+            out["selectedGroup"]["switchSavedNotCompleteMultiFalseShape"]==true
+        }else{out["contract"]=="wand.native.private.collection-group-readset@1"&&out["fullVersion"]==EXACT_STEAM_VERSION};
+        if !build_ok||out["schema"]!=626||
            out["sessionId"]!=hex_bytes(&receipt.session_id)||
            out["decodedSha256"]!=hex_bytes(&receipt.decoded_sha256)||
            out["revision"]!=receipt.revision||out["indexGeneration"]!=receipt.index_generation||
