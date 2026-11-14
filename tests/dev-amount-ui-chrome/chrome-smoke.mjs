@@ -3,7 +3,7 @@
 // it is not committed into src/routes and cannot be on protected Pages.
 // This checks UI behavior/geometry, NOT PR929 real Rust or real owner P1G.
 import {spawn,spawnSync} from 'node:child_process';
-import {mkdtemp,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,rm,mkdir,readdir} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
@@ -13,10 +13,11 @@ import assert from 'node:assert/strict';
 const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
 const port=4187,origin='http://127.0.0.1:'+port;
 const profile=await mkdtemp(join(tmpdir(),'wand-dev-amount-chrome-'));
+const downloadPath=join(profile,'downloads');await mkdir(downloadPath);
 const browserBin=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium']
  .filter(Boolean).find(bin=>spawnSync('which',[bin],{stdio:'ignore'}).status===0);
 if(!browserBin)throw Error('ENV_WAIT_DEP_GOOGLE_CHROME');
-let server,chrome,ws,sequence=0;const pending=new Map(),network=[];
+let server,chrome,ws,sequence=0;const pending=new Map(),network=[],downloadGuids=new Set();
 const rpc=(method,params={})=>new Promise((resolve,reject)=>{
  const id=++sequence;pending.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));
 });
@@ -39,6 +40,7 @@ async function attach(){
   ws.addEventListener('error',bad,{once:true})});
  ws.addEventListener('message',e=>{
   let m;try{m=JSON.parse(String(e.data))}catch{return}
+  if(['Browser.downloadWillBegin','Page.downloadWillBegin'].includes(m.method)&&m.params?.guid)downloadGuids.add(m.params.guid);
   if(m.method==='Network.requestWillBeSent')network.push({method:m.params?.request?.method,
     url:m.params?.request?.url});
   const p=pending.get(m.id);if(!p)return;pending.delete(m.id);
@@ -56,9 +58,14 @@ const script=String.raw`
   }
   throw Error('LOCAL_DEV_WAIT_'+code+' BODY='+document.body?.textContent?.slice(0,360))
  };
- const detail=await wait(()=>document.querySelector('[data-dev-amount-editor]'),'PANEL');
+ // Wait for the same mounted DEV panel, summary and hydrated open control.
+ // SSR can expose the outer details element before children are parsed.
+ const detail=await wait(()=>{
+  const d=document.querySelector('[data-dev-amount-editor]');
+  return d?.isConnected&&d.querySelector('[data-dev-amount-summary]')&&d.querySelector('[data-dev-open]')?d:null;
+ },'MOUNTED_PANEL_SUMMARY_OPEN');
  const summary=detail.querySelector('[data-dev-amount-summary]');
- need(summary,'SEMANTIC_SUMMARY');
+ need(summary?.isConnected,'SEMANTIC_SUMMARY');
  summary.focus();need(document.activeElement===summary,'KEYBOARD_FOCUS');
  summary.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
  detail.open=true;need(window.innerWidth===320,'VIEWPORT');
@@ -81,7 +88,7 @@ const script=String.raw`
    {type:'application/octet-stream'}));
  chooser.files=data.files;chooser.dispatchEvent(new Event('change',{bubbles:true}));
  const sha=document.querySelector('#dev-amount-sha');
- sha.value='a'.repeat(64);sha.dispatchEvent(new Event('input',{bubbles:true}));
+ sha.value='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b';sha.dispatchEvent(new Event('input',{bubbles:true}));
  const ck=document.querySelector('.check input[type=checkbox]');
  ck.checked=true;ck.dispatchEvent(new Event('change',{bubbles:true}));
  const open=await wait(()=>document.querySelector('[data-dev-open]:not([disabled])'),'OPEN_READY');
@@ -91,6 +98,10 @@ const script=String.raw`
  need(!document.querySelector('[data-backup-verified]'),'BACKUP_NOT_AUTOMATIC');
  backup.click();
  await wait(()=>document.querySelector('[data-backup-verified]'),'BACKUP_VALID');
+ need(!document.querySelector('[data-dev-download-edited]'),'EDITED_NOT_EXPORTED');
+ const bd=await wait(()=>document.querySelector('[data-dev-download-backup]:not([disabled])'),'BACKUP_DOWNLOAD_READY');
+ bd.click();await new Promise(r=>setTimeout(r,0));
+ await wait(()=>bd.isConnected&&!bd.disabled&&!document.querySelector('[data-dev-error]'),'BACKUP_DOWNLOAD_SETTLED');
  const field=await wait(()=>document.querySelector('#dev-amount-target'),'VERIFIED_ONLY');
  need(field.options.length===2,'TRUSTED_TARGETS_ONLY');
  need(field.options[1].textContent.includes('40000001'),'FURNITURE_ZERO_VISIBLE');
@@ -107,14 +118,18 @@ const script=String.raw`
  exportButton.click();
  await wait(()=>document.querySelector('[data-dev-edited-copy]'),'COPY_REOPEN');
  need(document.body.textContent.includes('edited-ci.p1g'),'DIFFERENT_FILENAME');
- const close=await wait(()=>document.querySelector('[data-dev-close]'),'CLOSE_READY');
+ const ed=await wait(()=>document.querySelector('[data-dev-download-edited]:not([disabled])'),'EDITED_DOWNLOAD_READY');
+ ed.click();await new Promise(r=>setTimeout(r,0));
+ await wait(()=>ed.isConnected&&!ed.disabled&&!document.querySelector('[data-dev-error]'),'EDITED_DOWNLOAD_SETTLED');
+ const close=await wait(()=>document.querySelector('[data-dev-close]:not([disabled])'),'CLOSE_READY');
  close.click();
  await wait(()=>!document.querySelector('[data-dev-edited-copy]'),'CLOSE_REVOKED');
  need(document.activeElement===summary,'FOCUS_RESTORED');
+ need(!document.querySelector('[data-dev-download-backup],[data-dev-download-edited]'),'CLOSED_NO_OUTPUT');
  // Same UI, fresh explicit selection: numeric zero InventoryID is a valid
  // exact Furniture descriptor, not a falsey/missing target.
  chooser.files=data.files;chooser.dispatchEvent(new Event('change',{bubbles:true}));
- sha.value='a'.repeat(64);sha.dispatchEvent(new Event('input',{bubbles:true}));
+ sha.value='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b';sha.dispatchEvent(new Event('input',{bubbles:true}));
  ck.checked=true;ck.dispatchEvent(new Event('change',{bubbles:true}));
  (await wait(()=>document.querySelector('[data-dev-open]:not([disabled])'),'ZERO_OPEN_READY')).click();
  (await wait(()=>document.querySelector('[data-dev-backup]:not([disabled])'),'ZERO_BACKUP_READY')).click();
@@ -130,8 +145,22 @@ const script=String.raw`
  (await wait(()=>document.querySelector('[data-dev-redo]'),'ZERO_REDO')).click();
  (await wait(()=>document.querySelector('[data-dev-export]'),'ZERO_EXPORT')).click();
  await wait(()=>document.querySelector('[data-dev-edited-copy]'),'ZERO_COPY');
- (await wait(()=>document.querySelector('[data-dev-close]'),'ZERO_CLOSE')).click();
+ (await wait(()=>document.querySelector('[data-dev-close]:not([disabled])'),'ZERO_CLOSE')).click();
  await wait(()=>!document.querySelector('[data-dev-edited-copy]'),'ZERO_CLOSE_REVOKED');
+ // Actual OPFS re-read and causal corruption / stale check (synthetic bytes).
+ const m=await import('/src/lib/dev/local-amount-worker-adapter.mjs');
+ const directory=await navigator.storage.getDirectory(),name='download-probe.p1g';
+ const handle=await directory.getFileHandle(name,{create:true});
+ let w=await handle.createWritable();await w.write(new Uint8Array(64));await w.close();
+ const bound={directory,name,sha:'f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b',size:64};
+ const good=await m.readBoundEncryptedCopy(bound,()=>{});need(good.encryptedBytes.length===64,'OPFS_EXACT');
+ const denied=async fn=>{try{await fn();return false}catch{return true}};
+ need(await denied(()=>m.readBoundEncryptedCopy({...bound,name:'../download-probe.p1g'},()=>{})),'OPFS_PATH_DENY');
+ need(await denied(()=>m.readBoundEncryptedCopy({...bound,size:63},()=>{})),'OPFS_SIZE_DENY');
+ let checks=0;need(await denied(()=>m.readBoundEncryptedCopy(bound,()=>{if(++checks===3)throw Error('STALE')})),'OPFS_STALE_DENY');
+ w=await handle.createWritable();await w.write(new Uint8Array(64).fill(1));await w.close();
+ need(await denied(()=>m.readBoundEncryptedCopy(bound,()=>{})),'OPFS_TAMPER_DENY');
+ await directory.removeEntry(name);
  document.documentElement.style.zoom='1';
  return {pass:true,at100,at200,backupBeforeStage:true,casUndoRedo:true,
   editedCopySeparate:true,focusRestored:true,productWriter:false,
@@ -152,6 +181,7 @@ try{
   '--disable-gpu','--remote-allow-origins=*','--remote-debugging-port=0',
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  await attach();await rpc('Page.enable');await rpc('Runtime.enable');await rpc('Network.enable');
+ await rpc('Browser.setDownloadBehavior',{behavior:'allow',downloadPath,eventsEnabled:true});
  await rpc('Emulation.setDeviceMetricsOverride',{width:320,height:800,
   deviceScaleFactor:1,mobile:false});
  await rpc('Page.navigate',{url:origin+'/test-dev-amount-ui/'});
@@ -176,6 +206,13 @@ try{
  assert.equal(result.syntheticMockWorkerOnly,true);
  assert.equal(result.realOwnerPrivateP1g,false);
  assert.ok(network.every(r=>r.method==='GET'),'NO_POST_PUT_UPLOAD');
+ const backupPath=join(downloadPath,'backup-ci.p1g'),editedPath=join(downloadPath,'edited-ci.p1g');
+ for(let n=0;n<100&&(!existsSync(backupPath)||!existsSync(editedPath));n++)await sleep(100);
+ assert.deepEqual(await readFile(backupPath),Buffer.alloc(64));
+ assert.deepEqual(await readFile(editedPath),Buffer.from([1,...new Uint8Array(63)]));
+ assert.deepEqual((await readdir(downloadPath)).sort(),['backup-ci.p1g','edited-ci.p1g']);
+ assert.equal(downloadGuids.size,2,'only explicit backup/edited downloads');
+ console.log('08WEB_DEV_ACTUAL_OPFS_EXACT_TWO_EXPLICIT_DOWNLOADS_TAMPER_CLOSE_PASS');
  console.log('08WEB_DEV_OFF_LOCAL_AMOUNT_UI_REAL_CHROME_MOCK_WORKER_PASS',
   {at100:result.at100,at200:result.at200,manualBackup:true,
    CAS:true,undoRedo:true,localEditedCopy:true,

@@ -30,7 +30,7 @@ test('single Worker RPC exposes no raw Save/Session/decoded hash and never grant
   async undo(){calls.push(['UNDO']);return ok('UNDONE')},
   async redo(){calls.push(['REDO']);return ok('REDONE')},
   async exportEditedCopy(){calls.push(['EXPORT']);return{kind:'EXPORTED',
-   ok:true,backupName:'backup-opfs.p1g',editedCopyName:'edited-opfs.p1g',
+   ok:true,backupName:'backup-opfs.p1g',editedCopyName:'edited-opfs.p1g',editedSha256:'b'.repeat(64),editedSizeBytes:122,
    editedCiphertextVerified:true,freshWorkerReopenVerified:true,
    independentProcessReopenVerified:false,originalUnchanged:true,
    writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false}},
@@ -139,4 +139,23 @@ test('QA955 regression: Close preempts active work, settles failure, and never u
  await send(6,'undo');assert.deepEqual(calls,['OPEN','CLOSE','UNDO']);
  assert.equal(replies.at(-1).ok,true);
  await send(5,'undo');assert.equal(replies.at(-1).ok,false);
+});
+
+test('download RPC only accepts exact enum, consumes denied IDs, and revokes in-flight result on Close',async()=>{
+ const replies=[],calls=[];let release,entered;
+ const hold=new Promise(r=>{release=r}),started=new Promise(r=>{entered=r});
+ const server={postMessage:r=>replies.push(r)};
+ installLocalDevAmountWorker(server,{
+  async downloadVerifiedCopy(which){calls.push(which);entered();await hold;return{kind:'VERIFIED_DOWNLOAD'}},
+  async close(){calls.push('CLOSE');return ok('CLOSED')}
+ });
+ const send=(id,method,args=[])=>server.onmessage({data:{id,method,args}});
+ await send(1,'downloadVerifiedCopy',['../private.p1g']);
+ await send(2,'downloadVerifiedCopy',['backup','other']);
+ const pending=send(3,'downloadVerifiedCopy',['backup']);await started;
+ await send(4,'close');release();await pending;
+ assert.deepEqual(calls,['backup','CLOSE']);
+ assert.equal(replies.find(r=>r.id===1).ok,false);assert.equal(replies.find(r=>r.id===2).ok,false);
+ assert.equal(replies.find(r=>r.id===3).ok,false);assert.equal(replies.find(r=>r.id===4).ok,true);
+ await send(3,'downloadVerifiedCopy',['edited']);assert.equal(replies.at(-1).ok,false);
 });

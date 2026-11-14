@@ -23,9 +23,10 @@ function fake(overrides={}){
   async undo(){log.push(['undo']);return{kind:'UNDONE',ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false}},
   async redo(){log.push(['redo']);return{kind:'REDONE',ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false}},
   async exportEditedCopy(){log.push(['export']);return{kind:'EXPORTED',ok:true,
-    editedCopyName:'edited-copy-different.p1g',backupName:'original-backup.p1g',
+    editedCopyName:'edited-copy-different.p1g',editedSha256:'b'.repeat(64),editedSizeBytes:4096,backupName:'original-backup.p1g',
     editedCiphertextVerified:true,freshWorkerReopenVerified:true,independentProcessReopenVerified:false,originalUnchanged:true,
     writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false}},
+  async downloadVerifiedCopy(){throw Error('NO_BOUND_OUTPUT')},
   async close(){selected=null;log.push(['close'])}
  };
  return {adapter:Object.assign(ad,overrides),log};
@@ -38,7 +39,7 @@ test('8 locale DEV/OFF copy exists and is non-empty, without public Writer claim
  for(const l of DEV_AMOUNT_UI_LOCALES){
   const r=localAmountCopy(l);
   for(const key of ['title','file','build','sha','confirm','open','backup',
-    'target','newAmount','stage','undo','redo','export','close','empty','waiting'])
+    'target','newAmount','stage','undo','redo','export','close','empty','waiting','downloadBackup','downloadEdited'])
     assert.ok(typeof r[key]==='string'&&r[key].length>0,l+':'+key);
  }
 });
@@ -243,4 +244,46 @@ test('verified Furniture zero descriptor survives backup, typed CAS, undo/redo a
   await v.open(args);await assert.rejects(v.backupAndRead(),/UNVERIFIED_ITEM_OR_RIGHTS_TARGET/);closed(v);
   assert.equal(x.log.some(z=>z[0]==='stage'),false);
  }
+});
+
+test('download is an explicit read-only encrypted output bound to backup and edited receipts',async()=>{
+ const source=new Uint8Array(64),edited=Uint8Array.from([1,...new Uint8Array(63)]);
+ const aSha='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b',bSha='16abab341fb7f370e27e4dadcf81766dd0dfd0ae64469477bb2cf6614938b2af';
+ const args2={...args,file:{name:'steam-original.p1g',size:64},originalSha256:aSha};
+ const receipt=(which)=>({kind:'VERIFIED_DOWNLOAD',name:which==='backup'?'original-backup.p1g':'edited-copy-different.p1g',
+  sha256:which==='backup'?aSha:bSha,sizeBytes:64,encryptedBytes:which==='backup'?source:edited});
+ const baseline=fake().adapter,calls=[];
+ const f=fake({
+  exportEditedCopy:async()=>({...await baseline.exportEditedCopy(),editedSha256:bSha,editedSizeBytes:64}),
+  downloadVerifiedCopy:async which=>{calls.push(which);return receipt(which)}
+ });
+ const w=createLocalAmountDevWorkflow(f.adapter,{trustedLocalHarness:true});
+ await assert.rejects(w.downloadVerifiedCopy('backup'),/DOWNLOAD_SCOPE_DENIED/);
+ await w.open(args2);await w.backupAndRead();
+ for(const kind of ['edited','source','../original.p1g',null])await assert.rejects(w.downloadVerifiedCopy(kind),/DOWNLOAD_SCOPE_DENIED/);
+ const before=w.snapshot(),backup=await w.downloadVerifiedCopy('backup');
+ assert.deepEqual(backup.encryptedBytes,source);assert.equal(backup.name,'original-backup.p1g');assert.deepEqual(w.snapshot(),before);
+ await w.stage(0,49);await w.exportEditedCopy();
+ const out=await w.downloadVerifiedCopy('edited');
+ assert.deepEqual(out.encryptedBytes,edited);assert.equal(out.name,'edited-copy-different.p1g');
+ assert.deepEqual((await w.downloadVerifiedCopy('edited')).encryptedBytes,edited);
+ assert.deepEqual(calls,['backup','edited','edited']);
+ assert.equal(JSON.stringify(w.snapshot()).includes('encryptedBytes'),false);
+ await assert.rejects(w.exportEditedCopy());await w.close();await assert.rejects(w.downloadVerifiedCopy('edited'));closed(w);
+});
+test('download rejects altered name, size, digest, bytes, extra payload and late completion after Close',async()=>{
+ const bytes=new Uint8Array(64),aSha='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b';
+ const input={...args,file:{name:'steam-original.p1g',size:64},originalSha256:aSha};
+ const receipt={kind:'VERIFIED_DOWNLOAD',name:'original-backup.p1g',sha256:aSha,sizeBytes:64,encryptedBytes:bytes};
+ for(const patch of [{name:'steam-original.p1g'},{name:'../original-backup.p1g'},{sha256:'b'.repeat(64)},
+  {sizeBytes:63},{encryptedBytes:new Uint8Array(63)},{encryptedBytes:new Uint8Array(64).fill(1)},
+  {rawJson:'not allowed'},{encryptedBytes:[...bytes]}]){
+  const w=createLocalAmountDevWorkflow(fake({downloadVerifiedCopy:async()=>({...receipt,...patch})}).adapter,{trustedLocalHarness:true});
+  await w.open(input);await w.backupAndRead();await assert.rejects(w.downloadVerifiedCopy('backup'));closed(w);
+ }
+ const entered=deferred(),hold=deferred();
+ const w=createLocalAmountDevWorkflow(fake({downloadVerifiedCopy:async()=>{entered.resolve();await hold.promise;return receipt}}).adapter,{trustedLocalHarness:true});
+ await w.open(input);await w.backupAndRead();
+ const pending=w.downloadVerifiedCopy('backup'),denied=assert.rejects(pending,/STALE_FILE_OR_CLOSE/);
+ await entered.promise;await w.close();hold.resolve();await denied;closed(w);
 });
