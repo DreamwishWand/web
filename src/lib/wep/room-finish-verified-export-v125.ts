@@ -193,10 +193,18 @@ export function resolveRoomFinishTrimmingEvidenceV125({
   );
   const roleHint = int(record[2], 'WEP_ROOM_FINISH_INVENTORY_ROLE_INVALID');
   const data = trimmingInventory(profile, roleHint);
-  const raw = asObj(data[String(canonicalItemId)] ?? data[canonicalItemId]);
-  const amount = raw ? Number(raw.Amount) : 0;
-  if (!Number.isSafeInteger(amount) || amount < 0) {
-    fail('WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID');
+  const key = String(canonicalItemId);
+  let amount = 0;
+  if (Object.hasOwn(data, key)) {
+    const raw = asObj(data[key]);
+    // Saved Item.Amount is int32. Missing entry means unowned; a present
+    // malformed entry must not be coerced into an ownership witness.
+    if (!raw || !Object.hasOwn(raw, 'Amount') ||
+        typeof raw.Amount !== 'number' || !Number.isInteger(raw.Amount) ||
+        raw.Amount < 0 || raw.Amount > 0x7fffffff) {
+      fail('WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID');
+    }
+    amount = raw.Amount;
   }
   return Object.freeze({
     itemId: id,
