@@ -69,7 +69,7 @@ fn output_path(_raw:&str)->PinnedPrivateOutput{fail("PRIVATE_OUTPUT_LINUX_ONLY")
         };
         if switch_chest{
             if required("WAND_LOCAL_INSTALLED_SWITCH_BID")!="9A239D3DB569756D"||
-                env::var("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_ok_and(|v|!v.is_empty()){
+                env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty()){
                 fail("EXACT_SWITCH_BUILD");
             }
         }else if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT{fail("EXACT_STEAM_BUILD")}
