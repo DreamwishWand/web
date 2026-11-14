@@ -1,9 +1,0 @@
-# 01B Steam v1.25.3 bounded spatial preview
-
-Operation SOURCE_ONLY_SYNTHETIC, READ_ONLY_PREVIEW. Writer/NativeV3 OFF.
-
-Proven same-build facts: GridObject stores uint32 ID, signed int32 ItemID/X/Y and GridOrientation 0..15. Cardinal orientations are 0/4/8/12. Native placement depends on GridArea orientation-specific footprint, Tessellation, GridData, FloorType, GridCells conflict rules and item-specific CanMove/CanRotate. Source paths are GridArea.GetSizeForOrientation, GridExtensions.IsAreaInside/IsAreaValidFor/VerifyConflicts and IGridEditRestriction; these dependencies are NOT implemented here.
-
-New pure Rust preflight is exactly Steam FullVersion/schema626 gated. It checks only asserted current ObjectKey, stored enum validity, optional permissions, unit tessellation, one-cell orientation or unchanged multi-cell footprints, asserted in-bounds, other-cell collision and malformed/duplicate proposed masks. Missing footprint, item restrictions or rotation geometry fails closed. Source authentication is explicitly false, native floor/parent/footprint false, Native placement legality false, Writer authority false EVEN ON PASS. No second SaveSession or decoder, no 01C Road/Fence, no PR820 remerge. Current Switch-only SpatialCandidateIndex is NOT a Steam-legal gate despite shared schema626.
-
-01A handoff: Core-mint saved ObjectID/old X/Y/Orientation and verified actual GridData+GridArea footprint/occupancy source inside the SINGLE ProductSession, CAS Revision/IndexGeneration/decoded SHA; only then may a later command validator be considered. 02 WEP handoff: read-only candidate highlight only; unknown Native collision/floor/area layers or multi-cell rotation must show Unknown, never Apply. Existing typed DiffGrids and 2D Scene/Hit/Move/Undo unchanged. Synthetic tests only, original Private Save and GameAssembly absent from repository and CI. Rollback only this source, test, export and documentation; no Writer flags changed.
