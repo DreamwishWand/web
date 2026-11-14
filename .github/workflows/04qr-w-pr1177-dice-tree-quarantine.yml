@@ -1,0 +1,77 @@
+name: 04 QR-W PR1177 Dice Tree quarantine independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1177-dice-tree-quarantine.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          test "$(git merge-base HEAD 'af2af991e1d037afe070d80b32312e12c6720ba9')" = 'af2af991e1d037afe070d80b32312e12c6720ba9'
+          test "$(git diff --name-only 'af2af991e1d037afe070d80b32312e12c6720ba9' HEAD)" = '.github/workflows/04qr-w-pr1177-dice-tree-quarantine.yml'
+          test "$(git diff --name-only '1f45d0ca062d1fa0a0c039f5ad64aeee20bfd0c7' 'af2af991e1d037afe070d80b32312e12c6720ba9' | wc -l)" = 4
+          test "$(git rev-parse HEAD:.github/workflows/web-shared-catalog-detail.yml)" = 'a6c556a2551e513f0699af327514aa3b1e45d07f'
+          test "$(git rev-parse HEAD:scripts/web-switch1253-private-preview-build.mjs)" = '579698d2f56403eaf2c0cf851a80ace7651d1df8'
+          test "$(git rev-parse HEAD:src/lib/item-media/switch1253-public-item-images.mjs)" = '3a34acc622c280a5d415b462a71125ea207dfe6e'
+          test "$(git rev-parse HEAD:tests/web-switch1253-item-thumb-contract.test.mjs)" = '2de838ea98edb6887f77ef07a5e56755ad86f911'
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          git show 1f45d0ca062d1fa0a0c039f5ad64aeee20bfd0c7:src/lib/item-media/switch1253-public-item-images.mjs > src/lib/item-media/qa670-old.mjs
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import * as M from './src/lib/item-media/switch1253-public-item-images.mjs';import * as Old from './src/lib/item-media/qa670-old.mjs';
+          const tree='40006096',ward='40000047',ids=['40300045','40006110','40005160'];
+          const review=o=>({...o,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'c'.repeat(64),items:{}});
+          const fields=['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'];
+          function bind(m,r){for(const [id,e] of Object.entries(m.items)){e.publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';r.items[id]=Object.fromEntries(fields.map(k=>[k,e[k]]))}const {mediaPublic,items,...p}=r;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...p};return m}
+          const wr=review(M.SWITCH1253_REVIEWED_RELEASE),sr=review(M.STEAM1253_REVIEWED_RELEASE),wm=M.prepareSwitch1253ItemImageManifest(),sm=M.prepareSteam1253ItemImageManifest(ids);
+          wm.items[tree]={...wm.items[ward],...M.SWITCH1253_NATIVE_PINS[tree]};bind(wm,wr);bind(sm,sr);sm.switch=wm;
+          const pathFor=id=>{const p=M.SWITCH1253_NATIVE_PINS[id];return '/ddv/item-images/'+M.SWITCH1253_ITEM_IMAGE_VARIANT+'/'+p.originalNativeStreamSha256.slice(0,2)+'/'+p.originalNativeStreamSha256+'-'+p.sourcePngSha256+'-'+p.webpSha256+'.webp'};
+          const stale={target:M.SWITCH1253_TARGET,assetVariant:M.SWITCH1253_ITEM_IMAGE_VARIANT,codec:'WEBP_LOSSLESS_RGBA_EXACT',items:{[tree]:M.SWITCH1253_NATIVE_PINS[tree],[ward]:M.SWITCH1253_NATIVE_PINS[ward]},count:2};
+          
+          assert.deepEqual(M.SWITCH1253_NATIVE_PINS,Old.SWITCH1253_NATIVE_PINS);assert.deepEqual(M.STEAM1253_NATIVE_PINS,Old.STEAM1253_NATIVE_PINS);
+          assert.equal(Old.scopedSwitch1253ItemImageHref('',tree,Old.validateSwitch1253ItemImageCatalog(wm,wr)),pathFor(tree));assert.equal(M.scopedSwitch1253ItemImageHref('',tree,stale),null);
+          const c=M.validateSteam1253ItemImageCatalog(sm,sr,wr);assert.equal(c.count,4);assert.equal(M.scopedSwitch1253ItemImageHref('',tree,c),null);assert.equal(M.scopedSwitch1253ItemImageHref('',ward,c),pathFor(ward));for(const id of ids)assert.ok(M.scopedSwitch1253ItemImageHref('',id,c));assert.equal(M.scopedSwitch1253ItemImageHref('','40002422',c),null);
+          const only=structuredClone(wm);delete only.items[ward];assert.equal(M.validateSwitch1253ItemImageCatalog(only,wr).count,0);const bad=structuredClone(wm);bad.items[ward].webpSha256='0'.repeat(64);assert.throws(()=>M.validateSwitch1253ItemImageCatalog(bad,wr));assert.throws(()=>M.validateSwitch1253ItemImageCatalog(wm));
+          const states=[],ctl=M.createSteam1253ManifestController(sr,wr,s=>states.push(s));let resolve;const delayed=new Promise(r=>resolve=r);const old=ctl.load('/old',()=>delayed);ctl.clear('QA');const newer=await ctl.load('/new',async()=>new Response(JSON.stringify(sm),{headers:{'content-type':'application/json'}}));resolve(new Response(JSON.stringify(sm),{headers:{'content-type':'application/json'}}));assert.equal(await old,null);assert.equal(newer.count,4);assert.equal(states.at(-1).catalog,newer);assert.equal(M.scopedSwitch1253ItemImageHref('/new',tree,newer),null);console.log('QA670_CAUSAL_PARENT_TREE_ON_FIXED_QUARANTINE_STALE_AND_STEAM3_PASS');
+          JS
+          rm src/lib/item-media/qa670-old.mjs
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4373 --strictPort >/tmp/qa670.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4373/collection/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4373/collection/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';
+          const origin='http://127.0.0.1:4373',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{const ctx=await browser.newContext({serviceWorkers:'block',viewport:{width:1280,height:900}}),page=await ctx.newPage(),hits=[],errors=[],unsafe=[];page.on('pageerror',e=>errors.push(e.message));ctx.on('request',r=>{if(!r.url().startsWith(origin+'/')||!['GET','HEAD'].includes(r.method()))unsafe.push(r.method())});
+          await page.goto(origin+'/collection/',{waitUntil:'domcontentloaded'});await page.locator('[data-stage1-category-grid] .category-card').first().waitFor();const search=page.locator('[data-stage1-search]');const thumb=id=>page.locator('[data-stage1-search-groups] [data-item-thumb-id="'+id+'"]').first();await search.fill('40006096');await thumb('40006096').waitFor();
+          const data=await page.evaluate(async()=>{const M=await import('/src/lib/item-media/switch1253-public-item-images.mjs');const tree='40006096',ward='40000047',ids=['40300045','40006110','40005160'];
+          const review=o=>({...o,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'c'.repeat(64),items:{}});
+          const fields=['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'];
+          function bind(m,r){for(const [id,e] of Object.entries(m.items)){e.publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';r.items[id]=Object.fromEntries(fields.map(k=>[k,e[k]]))}const {mediaPublic,items,...p}=r;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...p};return m}
+          const wr=review(M.SWITCH1253_REVIEWED_RELEASE),sr=review(M.STEAM1253_REVIEWED_RELEASE),wm=M.prepareSwitch1253ItemImageManifest(),sm=M.prepareSteam1253ItemImageManifest(ids);
+          wm.items[tree]={...wm.items[ward],...M.SWITCH1253_NATIVE_PINS[tree]};bind(wm,wr);bind(sm,sr);sm.switch=wm;
+          const pathFor=id=>{const p=M.SWITCH1253_NATIVE_PINS[id];return '/ddv/item-images/'+M.SWITCH1253_ITEM_IMAGE_VARIANT+'/'+p.originalNativeStreamSha256.slice(0,2)+'/'+p.originalNativeStreamSha256+'-'+p.sourcePngSha256+'-'+p.webpSha256+'.webp'};
+          const stale={target:M.SWITCH1253_TARGET,assetVariant:M.SWITCH1253_ITEM_IMAGE_VARIANT,codec:'WEBP_LOSSLESS_RGBA_EXACT',items:{[tree]:M.SWITCH1253_NATIVE_PINS[tree],[ward]:M.SWITCH1253_NATIVE_PINS[ward]},count:2};
+          
+          const cv=document.createElement('canvas');cv.width=cv.height=160;const g=cv.getContext('2d');g.fillStyle='#3f7aa0';g.fillRect(0,0,160,160);globalThis.__q={M,stale,ctl:M.createSteam1253ManifestController(sr,wr,s=>M.switch1253PublicItemImageSource.set(s))};return {sm,tree:pathFor(tree),ward:pathFor(ward),path:M.STEAM1253_MANIFEST_PATH,swatch:cv.toDataURL('image/webp').split(',')[1]};});
+          let raw=data.sm;await ctx.route('**/ddv/item-images/**',async r=>{const p=new URL(r.request().url()).pathname;hits.push(p);if(p==='/'+data.path)return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(raw)});if(p===data.ward||p===data.tree)return r.fulfill({status:200,contentType:'image/webp',body:Buffer.from(data.swatch,'base64')});return r.fulfill({status:404,body:'denied'});});
+          const refresh=()=>page.evaluate(()=>globalThis.__q.ctl.load('',fetch,true).then(c=>c?.count??null));assert.equal(await refresh(),4);assert.equal(await thumb('40006096').locator('img').count(),0);
+          await page.evaluate(()=>globalThis.__q.M.switch1253PublicItemImageSource.set({status:'VERIFIED',catalog:globalThis.__q.stale,reason:'QA_OLD_CACHED'}));assert.equal(await thumb('40006096').locator('img').count(),0);
+          await page.locator('[data-stage1-search-groups] .item-card').first().click();await page.locator('[data-stage1-item-info] [data-item-thumb-id="40006096"]').waitFor();assert.equal(await refresh(),4);assert.equal(await page.locator('[data-stage1-item-info] [data-item-thumb-id="40006096"] img').count(),0);
+          await search.fill('40000047');await thumb('40000047').waitFor();assert.equal(await refresh(),4);await thumb('40000047').locator('img').waitFor();assert.equal(await thumb('40000047').locator('img').getAttribute('src'),data.ward);await page.waitForFunction(()=>{const x=document.querySelector('[data-stage1-search-groups] [data-item-thumb-id="40000047"] img');return x?.complete&&x.naturalWidth===160});
+          raw=structuredClone(raw);delete raw.switch.items['40000047'];assert.equal(await refresh(),3);await page.waitForFunction(()=>!document.querySelector('[data-stage1-search-groups] [data-item-thumb-id="40000047"] img'));await search.fill('40006096');await thumb('40006096').waitFor();assert.equal(await refresh(),3);assert.equal(await thumb('40006096').locator('img').count(),0);assert.ok(!hits.includes(data.tree));assert.ok(hits.includes(data.ward));assert.deepEqual(errors,[]);assert.deepEqual(unsafe,[]);console.log('QA670_ACTUAL_CHROME_STALE_REVIEWED_AND_CACHED_TREE_ZERO_REQUEST_WARD_SURVIVES_PASS');await ctx.close();
+          }finally{await browser.close()}
+          JS
