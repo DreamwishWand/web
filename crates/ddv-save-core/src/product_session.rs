@@ -141,6 +141,18 @@ impl ProductSession {
     #[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
     pub fn open_switch624_rm01_private(decoded:Vec<u8>,build:BuildIdentity,
         expected_archive_decoded_sha:[u8;32])->CoreResult<Self>{
+        Self::open_switch624_archive_private(decoded,build,expected_archive_decoded_sha)
+    }
+    /// FE01 uses the identical validated native session. The separate
+    /// operation stage validates its own exact layout-only typed plan.
+    #[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+    pub fn open_switch624_fe01_private(decoded:Vec<u8>,build:BuildIdentity,
+        expected_archive_decoded_sha:[u8;32])->CoreResult<Self>{
+        Self::open_switch624_archive_private(decoded,build,expected_archive_decoded_sha)
+    }
+    #[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+    fn open_switch624_archive_private(decoded:Vec<u8>,build:BuildIdentity,
+        expected_archive_decoded_sha:[u8;32])->CoreResult<Self>{
         if decoded.is_empty()||decoded.len()>MAX_DECODED_BYTES||
            build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||
            build.build_id!="52BD625D9B4E0053"||build.schema!=624||!build.externally_attested||
