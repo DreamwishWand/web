@@ -1,0 +1,109 @@
+name: 04 QR-W PR1080 exact deletion boundary
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1080-boundary.yml'
+permissions:
+  contents: read
+jobs:
+  boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent raw tree equality and dependency scan
+        run: |
+          python3 - <<'PY'
+          import subprocess as s, pathlib, hashlib
+          B='ddfb8c107c3aab0293bb953e53811e1d93e9382f'
+          H='d04aea62b1988b7d1d518c14440e8ef0cb88c2a1'
+          paths={
+            'docs/community/dreamsnaps-golden-vertical-handoff-20261003.md':'c3133b1722a1a264a9d1796ecfe235f120b00123',
+            'docs/community/qa-release-privacy-legal-production-handoff-20261002.md':'ff9ac717d94dc247730f5c6803d14304efc85321',
+            'docs/core/01d-tier-a-steam626-typed-operation-handoff-20261111.md':'3bdcc6acfc4bcfb427ca86cf0ee95c296b16e833',
+            'docs/core/01e-native-operation-static-tier-handoff-20261111.md':'c467ec158db1c2318e2713baf72de3115197a118'}
+          git=lambda *a:s.check_output(['git',*a])
+          def tree(ref):
+            out={}
+            for entry in git('ls-tree','-r','-z',ref).split(b'\0'):
+              if entry:
+                meta,p=entry.split(b'\t',1)
+                out[p.decode()]=meta.decode()
+            return out
+          b,h,q=tree(B),tree(H),tree('HEAD')
+          assert git('rev-parse',H+'^').decode().strip()==B
+          assert set(b)-set(h)==set(paths) and not set(h)-set(b)
+          assert all(b[p]==h[p] for p in h)
+          assert set(q)-set(h)=={'.github/workflows/04qr-w-pr1080-boundary.yml'} and all(q[p]==h[p] for p in h)
+          for p,sha in paths.items():
+            assert b[p].endswith(sha)
+            raw=git('show',B+':'+p)
+            assert hashlib.sha1(('blob '+str(len(raw))+'\0').encode()+raw).hexdigest()==sha
+            for needle in (p,pathlib.PurePosixPath(p).name,pathlib.PurePosixPath(p).stem):
+              r=s.run(['git','grep','-I','-l','-F','-e',needle,H,'--'],capture_output=True)
+              assert r.returncode==1,(needle,r.returncode,r.stdout.decode()[:500])
+          print('QRW1080_FIXED4_RAW_TREE_ALL_RETAINED_MODES_BLOBS_IDENTICAL_PASS',len(b),len(h),'dependency_queries',12)
+          PY
+      - name: Compare actual static builds before and after deletion (no upload)
+        env:
+          BASE_PATH: /web
+          VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          B=ddfb8c107c3aab0293bb953e53811e1d93e9382f
+          H=d04aea62b1988b7d1d518c14440e8ef0cb88c2a1
+          temp="$(mktemp -d)"
+          trap 'rm -rf "$temp"' EXIT
+          git checkout --detach "$B"
+          npm ci --no-audit --no-fund
+          # Same test-only explicit version for BOTH builds. The production
+          # config leaves Kit's generated build version unspecified.
+          grep -R -n 'Date.now().toString()' node_modules/@sveltejs/kit/src/core/config | head -5
+          pin_version() {
+            node --input-type=module - <<'JS'
+            import {readFileSync,writeFileSync} from 'node:fs';
+            import assert from 'node:assert/strict';
+            const p='svelte.config.js',s=readFileSync(p,'utf8');
+            assert.equal(s.split('  kit: {').length,2);
+            assert.ok(!s.includes('version:'));
+            writeFileSync(p,s.replace('  kit: {','  kit: {\n    version: { name: "qrw1080-fixed-build-version" },'));
+          JS
+          }
+          pin_version
+          npm run build > "$temp/base.log" 2>&1 || { tail -40 "$temp/base.log"; exit 1; }
+          mv build "$temp/base"
+          rm -rf .svelte-kit
+          git restore -- svelte.config.js
+          git checkout --detach "$H"
+          pin_version
+          npm run build > "$temp/head.log" 2>&1 || { tail -40 "$temp/head.log"; exit 1; }
+          python3 - "$temp/base" build <<'PY'
+          import pathlib,sys,hashlib
+          a,b=map(pathlib.Path,sys.argv[1:])
+          def inv(d):
+            return {p.relative_to(d).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in d.rglob('*') if p.is_file()}
+          x,y=inv(a),inv(b)
+          print('QRW1080_STATIC_COUNTS',len(x),len(y),'html',sum(p.endswith('.html') for p in y))
+          print('QRW1080_STATIC_PATH_DELTA',sorted(set(x)-set(y)),sorted(set(y)-set(x)))
+          assert set(x)==set(y)
+          diff=[p for p in x if x[p]!=y[p]]
+          print('QRW1080_STATIC_BYTE_DELTA',len(diff),diff[:30])
+          assert not diff, diff[:30]
+          stems=['dreamsnaps-golden-vertical-handoff-20261003','qa-release-privacy-legal-production-handoff-20261002','01d-tier-a-steam626-typed-operation-handoff-20261111','01e-native-operation-static-tier-handoff-20261111']
+          for p in b.rglob('*'):
+            if p.is_file():
+              data=p.read_bytes()
+              assert not any(s in str(p) or s.encode() in data for s in stems),p
+          assert all((b/p).is_file() for p in ['index.html','editor/index.html','gallery/dreamsnaps/index.html','dreamsnaps/index.html','community-ops/index.html','404.html'])
+          print('QRW1080_ACTUAL_BASE_HEAD_STATIC_SAME_PATHS_NO_DELETED_DOC_REFERENCES_PASS')
+          PY
+          git restore -- svelte.config.js
+          test -z "$(git diff --name-only)"
