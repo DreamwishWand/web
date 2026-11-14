@@ -193,3 +193,214 @@ mod tests {
         assert!(decode_inventory_amount_backup(&reseal(v)).is_err());
     }
 }
+
+// Policy73 capture and restore review on the existing single Rust session.
+// DEV feature only. No new worker ABI, reader, writer or capability.
+#[cfg(feature = "semantic-writer-dev")]
+mod session_adapter {
+    use super::*;
+    use crate::{ExistingAmountItemType, ExistingAmountSelection, ProductSession,
+        WorkerEnvelope};
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum InventoryRestoreDisposition {
+        AlreadyMatches,
+        PositiveDecreaseCandidate,
+        IncreaseUnsupported,
+    }
+
+    /// A read-only review of an exact original target, not a mutation grant.
+    /// The receipt is advisory; any future writer must re-resolve and CAS.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct InventoryRestoreReview {
+        pub inventory_id: u32,
+        pub item_id: u32,
+        pub current_amount: u32,
+        pub backup_amount: u32,
+        pub session_id: [u8; 16],
+        pub revision: u64,
+        pub index_generation: u64,
+        pub current_decoded_sha256: [u8; 32],
+        pub current_entry_sha256: [u8; 32],
+        pub backup_decoded_sha256: String,
+        pub backup_entry_sha256: String,
+        pub disposition: InventoryRestoreDisposition,
+    }
+
+    fn digest_text(digest: &[u8; 32]) -> String {
+        digest.iter().map(|b| format!("{b:02x}")).collect::<Vec<_>>().concat()
+    }
+
+    fn type_name(kind: ExistingAmountItemType) -> &'static str {
+        match kind {
+            ExistingAmountItemType::ActivityItem => "ItemType_ActivityItem",
+            ExistingAmountItemType::Furniture => "ItemType_Furniture",
+        }
+    }
+
+    impl ProductSession {
+        /// Capture only the existing Amount field and typed source provenance
+        /// from the Core-owned target. Unknown saved fields remain in the
+        /// original Save; this is not a full Inventory row/domain backup.
+        /// Capture is a historical snapshot at the validated read epoch.
+        pub fn capture_inventory_amount_backup(
+            &self, envelope: WorkerEnvelope, inventory_id: u32, item_id: u32,
+        ) -> CoreResult<Vec<u8>> {
+            if inventory_id == 0 {
+                return Err(err("WAND_BACKUP_ZERO_ROUTE_UNSUPPORTED"));
+            }
+            let target = self.read_existing_amount_target(envelope,
+                ExistingAmountSelection::Inventory { inventory_id, item_id })?;
+            let view = target.view();
+            let payload = json!({
+                "amount":view.old_amount,
+                "entrySha256":digest_text(&view.entry_sha256),
+                "itemType":type_name(view.compatible_item_type),
+            });
+            encode_inventory_amount_backup(inventory_id, item_id,
+                &digest_text(&view.decoded_sha256), &compact(&payload)?)
+        }
+
+        /// Review Restore-to-original-target only. Different target Apply
+        /// is intentionally not implemented. No implicit increase, no command,
+        /// no trust in a recomputed file hash or claimed source provenance.
+        pub fn review_inventory_amount_restore(
+            &self, envelope: WorkerEnvelope, bytes: &[u8],
+            inventory_id: u32, item_id: u32,
+        ) -> CoreResult<InventoryRestoreReview> {
+            let backup = decode_inventory_amount_backup(bytes)?;
+            if (backup.inventory_id, backup.item_id) != (inventory_id, item_id) {
+                return Err(err("WAND_BACKUP_RESTORE_TARGET_MISMATCH"));
+            }
+            // Only this amount-only adapter's exact payload is eligible for
+            // review; generic envelopes with opaque extra restore fields
+            // remain readable by the format, not silently discarded.
+            keys(&backup.payload, &["amount", "entrySha256", "itemType"])?;
+            let entry = backup.payload["entrySha256"].as_str()
+                .filter(|s| sha_text(s)).ok_or(err("WAND_BACKUP_ENTRY_HASH"))?;
+            let target = self.read_existing_amount_target(envelope,
+                ExistingAmountSelection::Inventory { inventory_id, item_id })?;
+            let view = target.view();
+            if backup.payload["itemType"] != type_name(view.compatible_item_type) {
+                return Err(err("WAND_BACKUP_RESTORE_ITEM_TYPE_MISMATCH"));
+            }
+            let disposition = match backup.amount.cmp(&view.old_amount) {
+                std::cmp::Ordering::Equal => InventoryRestoreDisposition::AlreadyMatches,
+                std::cmp::Ordering::Less => InventoryRestoreDisposition::PositiveDecreaseCandidate,
+                std::cmp::Ordering::Greater => InventoryRestoreDisposition::IncreaseUnsupported,
+            };
+            Ok(InventoryRestoreReview {
+                inventory_id, item_id, current_amount:view.old_amount,
+                backup_amount:backup.amount, session_id:view.session_id,
+                revision:view.revision, index_generation:view.index_generation,
+                current_decoded_sha256:view.decoded_sha256,
+                current_entry_sha256:view.entry_sha256,
+                backup_decoded_sha256:backup.source_decoded_sha256,
+                backup_entry_sha256:entry.to_owned(), disposition,
+            })
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::{BuildIdentity, BuildKind, Platform, WorkerAction,
+            PRODUCT_WORKER_CONTRACT, TypedSemanticCommand};
+
+        const ITEM: u32 = 30000001;
+        fn open(amount: u32) -> ProductSession {
+            let doc = json!({"GameInfo":{"Version":626},"World":{},
+                "Player":{"ListInventories":{"4":{"ID":4,
+                    "CompatibleItemType":"ItemType_ActivityItem",
+                    "Inventory":{"30000001":{"Amount":amount,"Marker":"Keep",
+                        "Unknown":{"Retain":true}}}}}}});
+            ProductSession::open_decoded_readonly(compact(&doc).unwrap(), BuildIdentity {
+                platform:Platform::SteamWindows, build_kind:BuildKind::SteamFullVersion,
+                build_id:STEAM_BUILD.into(), schema:626, externally_attested:true,
+            }).unwrap()
+        }
+        fn scope(s: &ProductSession, action: WorkerAction) -> WorkerEnvelope {
+            let r=s.receipt().unwrap();
+            WorkerEnvelope { contract:PRODUCT_WORKER_CONTRACT, session_id:r.session_id,
+                expected_revision:r.revision, expected_index_generation:r.index_generation,
+                expected_decoded_sha256:r.decoded_sha256, action }
+        }
+        #[test]
+        fn capture_exact_core_amount_and_review_same_target_without_mutation() {
+            let source=open(49);
+            let e=scope(&source,WorkerAction::ReadDomain);
+            let bytes=source.capture_inventory_amount_backup(e,4,ITEM).unwrap();
+            let decoded=decode_inventory_amount_backup(&bytes).unwrap();
+            let witness=source.read_existing_amount_target(e,
+                ExistingAmountSelection::Inventory{inventory_id:4,item_id:ITEM}).unwrap();
+            assert_eq!(decoded.amount,49);
+            assert_eq!(decoded.source_decoded_sha256,digest_text(&witness.view().decoded_sha256));
+            assert_eq!(decoded.payload["entrySha256"],digest_text(&witness.view().entry_sha256));
+            assert_eq!(decoded.payload["itemType"],"ItemType_ActivityItem");
+            assert_eq!(source.receipt().unwrap().revision,0);
+            let current=open(50);
+            let review=current.review_inventory_amount_restore(
+                scope(&current,WorkerAction::ReadDomain),&bytes,4,ITEM).unwrap();
+            assert_eq!(review.disposition,InventoryRestoreDisposition::PositiveDecreaseCandidate);
+            assert_eq!((review.current_amount,review.backup_amount),(50,49));
+            assert_eq!(current.receipt().unwrap().revision,0);
+            assert_eq!(source.review_inventory_amount_restore(e,&bytes,4,ITEM).unwrap().disposition,
+                InventoryRestoreDisposition::AlreadyMatches);
+            let lower=open(48);
+            assert_eq!(lower.review_inventory_amount_restore(scope(&lower,WorkerAction::ReadDomain),
+                &bytes,4,ITEM).unwrap().disposition,InventoryRestoreDisposition::IncreaseUnsupported);
+            assert_eq!(lower.receipt().unwrap().revision,0);
+            eprintln!("WAND_INVENTORY_CAPTURE_SYNTHETIC_BYTES={}",bytes.len());
+        }
+        #[test]
+        fn capture_and_review_reject_wrong_target_forged_epoch_and_opaque_restore_fields() {
+            let s=open(50);
+            let e=scope(&s,WorkerAction::ReadDomain);
+            let bytes=s.capture_inventory_amount_backup(e,4,ITEM).unwrap();
+            assert!(s.capture_inventory_amount_backup(e,0,ITEM).is_err());
+            assert!(s.capture_inventory_amount_backup(e,4,ITEM+1).is_err());
+            assert!(s.review_inventory_amount_restore(e,&bytes,4,ITEM+1).is_err());
+            let foreign=open(50);
+            assert!(foreign.capture_inventory_amount_backup(e,4,ITEM).is_err());
+            let mut bad=e; bad.expected_revision=1;
+            assert!(s.capture_inventory_amount_backup(bad,4,ITEM).is_err());
+            bad=e; bad.expected_index_generation=2;
+            assert!(s.review_inventory_amount_restore(bad,&bytes,4,ITEM).is_err());
+            bad=e; bad.action=WorkerAction::Stage;
+            assert!(s.capture_inventory_amount_backup(bad,4,ITEM).is_err());
+            let mut p=decode_inventory_amount_backup(&bytes).unwrap();
+            p.payload["itemType"]=json!("ItemType_Furniture");
+            let forged=encode_inventory_amount_backup(4,ITEM,&p.source_decoded_sha256,
+                &compact(&p.payload).unwrap()).unwrap();
+            assert!(s.review_inventory_amount_restore(e,&forged,4,ITEM).is_err());
+            p.payload["itemType"]=json!("ItemType_ActivityItem");
+            p.payload["unknownRestore"]=json!(true);
+            let opaque=encode_inventory_amount_backup(4,ITEM,&p.source_decoded_sha256,
+                &compact(&p.payload).unwrap()).unwrap();
+            assert!(decode_inventory_amount_backup(&opaque).is_ok());
+            assert!(s.review_inventory_amount_restore(e,&opaque,4,ITEM).is_err());
+            assert_eq!(s.receipt().unwrap().revision,0);
+        }
+        #[test]
+        fn existing_stage_and_close_invalidate_capture_and_review() {
+            let s=open(50);
+            let e=scope(&s,WorkerAction::ReadDomain);
+            let bytes=s.capture_inventory_amount_backup(e,4,ITEM).unwrap();
+            s.stage_typed_semantic_batch(scope(&s,WorkerAction::Stage),
+                &[TypedSemanticCommand::InventoryExistingAmountDecrease {
+                    inventory_id:4,canonical_item_id:ITEM,
+                    expected_compatible_item_type:"ItemType_ActivityItem".into(),
+                    expected_old_amount:50,new_amount:49,
+                }]).unwrap();
+            assert!(s.capture_inventory_amount_backup(e,4,ITEM).is_err());
+            let fresh=scope(&s,WorkerAction::ReadDomain);
+            assert!(s.review_inventory_amount_restore(fresh,&bytes,4,ITEM).is_err());
+            s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+            assert!(s.capture_inventory_amount_backup(scope(&s,WorkerAction::ReadDomain),4,ITEM).is_err());
+            s.close().unwrap();
+            assert!(s.capture_inventory_amount_backup(e,4,ITEM).is_err());
+        }
+    }
+}
+#[cfg(feature = "semantic-writer-dev")]
+pub use session_adapter::{InventoryRestoreDisposition, InventoryRestoreReview};
