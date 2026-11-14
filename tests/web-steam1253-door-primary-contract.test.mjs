@@ -43,7 +43,7 @@ test('one neutral no-store manifest, withdrawal clears, refresh never uses Switc
 test('ACT648 exact2 shared Steam pins and one combined manifest; no hidden or cross-pin fallback',async()=>{
  const mod=await import('../src/lib/item-media/switch1253-public-item-images.mjs');
  const ids=[id,'40006110','40005160'],pins=mod.STEAM1253_NATIVE_PINS;
- assert.deepEqual(Object.keys(pins).sort(),[...ids].sort());
+ assert.deepEqual(Object.keys(pins).sort(),[...ids,'40000047','40006096'].sort());
  assert.deepEqual(pins[id],pin);assert.equal(off.mediaPublic,false);
  assert.deepEqual(Object.keys(mod.prepareSteam1253ItemImageManifest().items),[id]);
  const {release}=fixture(),m=mod.prepareSteam1253ItemImageManifest(ids);
@@ -71,4 +71,46 @@ test('ACT648 exact2 shared Steam pins and one combined manifest; no hidden or cr
  for(const invalid of [[],[id,id],['40003299'],[40006110],null])assert.throws(()=>mod.prepareSteam1253ItemImageManifest(invalid));
  const pair=mod.prepareSteam1253ItemImageManifest(['40006110','40005160']);assert.deepEqual(Object.keys(pair.items).sort(),['40005160','40006110']);
  assert.throws(()=>validateSteam1253ItemImageCatalog(m),/GATE_OFF/);
+});
+
+test('ACT676 Steam512 exact two pins and no old Switch Tree fallback',async()=>{
+ const mod=await import('../src/lib/item-media/switch1253-public-item-images.mjs');
+ const ids=['40000047','40006096'],pins=mod.STEAM1253_NATIVE_PINS;
+ const {release}=fixture(),m=mod.prepareSteam1253ItemImageManifest(ids);
+ for(const k of ids){
+  m.items[k].publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';
+  release.items[k]=Object.fromEntries(['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'].map(key=>[key,m.items[k][key]]));
+ }
+ const {mediaPublic,items,...publication}=release;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...publication};
+ assert.equal(pins[ids[0]].fallbackPolicy,'EXPLICIT_FALLBACK_ONLY');
+ assert.equal(pins[ids[1]].fallbackPolicy,'NO_FALLBACK_SWITCH_VISUAL_QUARANTINED');
+ for(const k of ['fallbackPlatform','fallbackBuildID','fallbackBundleSha256','fallbackNativeStreamSha256'])assert.equal(pins[ids[1]][k],null);
+ assert.equal(pins[ids[0]].webpSha256,'30ab4e9c59d87e2796a56a2bdda2b87bfc03bb39364b3d2267d31db2804865e0');
+ assert.equal(pins[ids[1]].webpSha256,'75292936edd3ed82fd97e69f7e8e09771ce4c9ec36d867c7703b066a95b1854c');
+ const cat=validateSteam1253ItemImageCatalog(m,release);assert.equal(cat.count,2);
+ for(const k of ids){
+  const p=pins[k],url='/web/ddv/item-images/steam-1.25.3-schema626-lossless160-v1/'+p.webpSha256.slice(0,2)+'/'+p.webpSha256+'.webp';
+  assert.equal(scopedSwitch1253ItemImageHref('/web',k,cat),url);
+  for(const field of Object.keys(p)){
+   const x=structuredClone(m);x.items[k][field]=p[field]===null?'FORGED':null;
+   assert.throws(()=>validateSteam1253ItemImageCatalog(x,release));
+  }
+ }
+ assert.equal(scopedSwitch1253ItemImageHref('/web','40002422',cat),null);
+ assert.throws(()=>mod.prepareSteam1253ItemImageManifest(['40002422']));
+ const legacy=mod.prepareSwitch1253ItemImageManifest(),legacyReview={...mod.SWITCH1253_REVIEWED_RELEASE,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'b'.repeat(64),items:{}};
+ // Model an old reviewed legacy manifest containing both historical rows.
+ for(const k of ids){
+  const p=mod.SWITCH1253_NATIVE_PINS[k];legacy.items[k]={...p,pixelStatus:'SWITCH_RGBA_EXACT_VERIFIED',visibility:'RELEASED_PLAYER_FACING',rightsStatus:'UNKNOWN',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',assetStatus:'WEBP_LOSSLESS_VERIFIED_160'};
+  legacyReview.items[k]=Object.fromEntries(['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'].map(key=>[key,legacy.items[k][key]]));
+ }
+ const {mediaPublic:legacyOn,items:legacyItems,...legacyPub}=legacyReview;legacy.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...legacyPub};
+ const old=mod.validateSwitch1253ItemImageCatalog(legacy,legacyReview);assert.equal(old.count,1);assert.ok(mod.scopedSwitch1253ItemImageHref('/web',ids[0],old));assert.equal(mod.scopedSwitch1253ItemImageHref('/web',ids[1],old),null);
+ const mixed={...m,switch:legacy},c=validateSteam1253ItemImageCatalog(mixed,release,legacyReview);assert.equal(c.count,2);
+ assert.equal(scopedSwitch1253ItemImageHref('/web',ids[1],c),scopedSwitch1253ItemImageHref('/web',ids[1],cat));
+ assert.equal(scopedSwitch1253ItemImageHref('/web',ids[0],c),scopedSwitch1253ItemImageHref('/web',ids[0],cat));
+ const withdrawn=structuredClone(mixed);delete withdrawn.items[ids[1]];
+ const d=validateSteam1253ItemImageCatalog(withdrawn,release,legacyReview);assert.equal(d.count,1);assert.equal(scopedSwitch1253ItemImageHref('/web',ids[1],d),null);
+ const x=structuredClone(m);x.items[ids[1]].fallbackPolicy='EXPLICIT_FALLBACK_ONLY';x.items[ids[1]].fallbackPlatform='Nintendo Switch';assert.throws(()=>validateSteam1253ItemImageCatalog(x,release));
+ assert.equal(off.mediaPublic,false);assert.throws(()=>validateSteam1253ItemImageCatalog(m),/GATE_OFF/);
 });

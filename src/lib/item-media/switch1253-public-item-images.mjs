@@ -237,6 +237,33 @@ export const STEAM1253_NATIVE_PINS=Object.freeze({
   fallbackBundleSha256:'b126813d38899c52c440d9c5d0e4b2fc47fd7719d44b058ec277f6cce2e53c3f',
   fallbackNativeStreamSha256:'de98322ba8fa85da9fd19cdc3e5d5db361bbdfbedb1cfa503aa652a86827e74a',
   fallbackPolicy:'EXPLICIT_FALLBACK_ONLY',codec:'WEBP_LOSSLESS_RGBA_EXACT',visibility:'RELEASED_PLAYER_FACING'
+ }),
+ // ACT676: independently accepted Steam512 derivatives, E1675.
+ '40000047':Object.freeze({
+  platform:'Steam Windows',gameVersion:'1.25.3',schema:626,
+  fullVersion:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+  originalBundleSha256:'9fbf4b75e50bd08b7479e4dc372ca0568254051c64872b66ba9332ecf139cdb0',
+  originalNativeStreamSha256:'3667a7212306096b69896e7304be9982fd1f95e718b27f742b3ffe0cabb32972',
+  sourcePngSha256:'1e195cb2c3a28acd7cd6a6d68ede35928c77245fadd1f465b506162ffd3bd474',
+  webpSha256:'30ab4e9c59d87e2796a56a2bdda2b87bfc03bb39364b3d2267d31db2804865e0',
+  rgba160Sha256:'a1476605f1f553aae4c5c71c52bb32ea36f57c2c5b14529188e56f2f4f0974b3',
+  iconGuid:'26d1b07fac5a07a4ebea467b962fb6a4',width:160,height:160,bytes:19944,
+  fallbackPlatform:'Nintendo Switch',fallbackBuildID:'9A239D3DB569756D',
+  fallbackBundleSha256:'346d9da74c03d93e3db71fe703724a7a1cadf72aa693474da813765e9f54f5ff',
+  fallbackNativeStreamSha256:'b0352f4fde178c423dbfa0f02c1f3f6fbfdb24bd4edf2603b67ce2f74485a68c',
+  fallbackPolicy:'EXPLICIT_FALLBACK_ONLY',codec:'WEBP_LOSSLESS_RGBA_EXACT',visibility:'RELEASED_PLAYER_FACING'
+ }),
+ '40006096':Object.freeze({
+  platform:'Steam Windows',gameVersion:'1.25.3',schema:626,
+  fullVersion:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+  originalBundleSha256:'9fbf4b75e50bd08b7479e4dc372ca0568254051c64872b66ba9332ecf139cdb0',
+  originalNativeStreamSha256:'7daefc7646df6b25fc07859b28536027323ad12edcbdef4eb19e388ea972e1d4',
+  sourcePngSha256:'e1a6a39a50a38acf6f69b70cf4d53c6092396930c41dc3327510ba307e3969f1',
+  webpSha256:'75292936edd3ed82fd97e69f7e8e09771ce4c9ec36d867c7703b066a95b1854c',
+  rgba160Sha256:'066cb52a9f265a3001833e3a99826e9e56f31058929845b6f64e09180909e2f6',
+  iconGuid:'b569dad82cd3de74397780d1fa7be96a',width:160,height:160,bytes:17638,
+  fallbackPlatform:null,fallbackBuildID:null,fallbackBundleSha256:null,fallbackNativeStreamSha256:null,
+  fallbackPolicy:'NO_FALLBACK_SWITCH_VISUAL_QUARANTINED',codec:'WEBP_LOSSLESS_RGBA_EXACT',visibility:'RELEASED_PLAYER_FACING'
  })
 });
 // Compiled OFF; fetched JSON cannot grant release authority.
