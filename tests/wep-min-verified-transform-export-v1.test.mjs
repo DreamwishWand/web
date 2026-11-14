@@ -178,3 +178,71 @@ test('minimum transform real Core rotation derives exact footprint, size and mar
   badDraft.objects=geometry.rotateSelectionLikeScene(badBaseline.objects,1);
   await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,baselineDocument:badBaseline,draftDocument:badDraft}),/WEP_EXPORT_BASELINE_SOURCE_MISMATCH|WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE/);
 });
+
+test('minimum transform review binds the same draft to asynchronous placement and the exported plan',async()=>{
+  const {input}=await transformFixture();
+  const valid=structuredClone(input.draftDocument);
+  const invalid=structuredClone(valid);
+  invalid.objects[0].x=-100000;
+  const editorId=invalid.objects[0].editorId;
+  assert.equal(input.placementBinding.classifyMinimumTransformPlacement({document:invalid,editorId}).result.valid,false);
+  // Start with an illegal destination, then substitute a legal destination
+  // exactly during the awaited scope fetch. Restore the illegal draft before
+  // commit. The plan must never use a different destination than the check.
+  let swapped=false;
+  const fetchImpl=async url=>{
+    if(String(url).includes('min-transform-scope-pack-v125.json')){
+      invalid.objects[0].x=valid.objects[0].x;
+      swapped=true;
+    }
+    return localFetch(url);
+  };
+  let review;
+  try {
+    review=await reviewMinimumVerifiedTransform({...input,draftDocument:invalid,fetchImpl});
+  } catch(e) {
+    assert.match(String(e?.code??e?.message),/WEP_EXPORT_INVALID_DESTINATION|WEP_EXPORT_REVIEW_STALE|WEP_EXPORT_DRAFT_CHANGED/);
+    assert.equal(swapped,true);
+    return;
+  }
+  invalid.objects[0].x=-100000;
+  // A safe rejection is allowed either at Review or at commit. If both succeed,
+  // this is a real encrypted-output safety regression, not merely a UI race.
+  let result;
+  try {
+    result=await commitMinimumVerifiedTransform({review,currentSourceEpoch:1,sourceBytes:input.sourceBytes,baselineDocument:input.baselineDocument,draftDocument:invalid,worldBinding:input.worldBinding});
+  } catch(e) {
+    assert.match(String(e?.code??e?.message),/WEP_EXPORT_INVALID_DESTINATION|WEP_EXPORT_REVIEW_STALE|WEP_EXPORT_DRAFT_CHANGED/);
+    return;
+  }
+  const reopened=await openWorldSaveBytes(result.artifacts.edited.bytes,{sourcePlatform:'switch'});
+  assert.fail('unsafe async placement review emitted illegal X='+reopened.profile.World.GridCollection.Grids['10'].Objects['101'].X);
+});
+
+test('minimum transform rejects changes to both baseline and draft after review, even when selected delta is unchanged',async()=>{
+  const {input}=await transformFixture();
+  const review=await reviewMinimumVerifiedTransform(input);
+  const baseline=structuredClone(input.baselineDocument);
+  const draft=structuredClone(input.draftDocument);
+  baseline.target.areaId=999;draft.target.areaId=999;
+  const commit=(baselineDocument,draftDocument)=>commitMinimumVerifiedTransform({review,currentSourceEpoch:1,sourceBytes:input.sourceBytes,baselineDocument,draftDocument,worldBinding:input.worldBinding});
+  await assert.rejects(()=>commit(baseline,draft),/WEP_EXPORT_REVIEW_STALE/);
+  // The rejected stale attempt did not consume the original genuine receipt.
+  const result=await commit(input.baselineDocument,input.draftDocument);
+  assert.equal(result.status,'PASS');
+  assert.deepEqual(Array.from(result.artifacts.backup.bytes),Array.from(input.sourceBytes));
+});
+test('minimum transform rejects a valid draft changed during async fetch, and a fresh unchanged review succeeds',async()=>{
+  const {input}=await transformFixture();
+  const draft=structuredClone(input.draftDocument);
+  const x=draft.objects[0].x;
+  const fetchImpl=async url=>{
+    if(String(url).includes('min-transform-scope-pack-v125.json'))draft.objects[0].x=-100000;
+    return localFetch(url);
+  };
+  await assert.rejects(()=>reviewMinimumVerifiedTransform({...input,draftDocument:draft,fetchImpl}),/WEP_EXPORT_DRAFT_CHANGED/);
+  draft.objects[0].x=x;
+  const review=await reviewMinimumVerifiedTransform({...input,draftDocument:draft});
+  const result=await commitMinimumVerifiedTransform({review,currentSourceEpoch:1,sourceBytes:input.sourceBytes,baselineDocument:input.baselineDocument,draftDocument:draft,worldBinding:input.worldBinding});
+  assert.equal(result.status,'PASS');
+});
