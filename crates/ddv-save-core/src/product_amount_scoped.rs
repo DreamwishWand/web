@@ -392,4 +392,24 @@ mod tests{
         let mut d=doc();d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]=json!({"Amount":3});let s=open(&d);
         assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000001},2).is_err());
     }
+    // Independent ACT944: unknown saved event variant carrying a target
+    // reference must not be treated as proven disjoint merely by a numeric ID.
+    #[test]fn qa_act944_unknown_saved_event_variant_is_not_disjoint(){
+        for chest in [false,true]{
+            let d=if chest{chest_doc()}else{doc()};
+            let (sel,new,item) = if chest{
+                (ExistingAmountSelection::Chest{container_id:12,slot_index:0},49,30200000)
+            }else{
+                (ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},2,40000048)
+            };
+            let ok=open(&d);
+            assert!(ok.preview_scoped_product_amount(scope(&ok,WorkerAction::ReadDomain),sel,new).is_ok(),"control profile");
+            let mut q=d.clone();
+            q["ConditionalEventHistory"]["ActiveEvents"]["2147483647"]=json!({"UnrecognizedEventState":{"ItemID":item}});
+            let bad=open(&q);
+            assert!(bad.preview_scoped_product_amount(scope(&bad,WorkerAction::ReadDomain),sel,new).is_err(),
+                "ACT944 UNKNOWN_SAVED_EVENT_VARIANT_ACCEPTED chest={chest}");
+        }
+    }
+
 }
