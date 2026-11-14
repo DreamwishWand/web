@@ -483,3 +483,61 @@ test('Switch624 Floating Island rejects aliased child Grids across sibling and c
     assert.equal(JSON.stringify(opened.profile), before, c.name);
   }
 });
+
+
+test('QA615 independent direct-root graph: unequal-depth aliases and nonempty shared child fail closed; scoped IDs remain valid', async () => {
+ const fixture=JSON.parse(new TextDecoder().decode(await repoFile('./tests/fixtures/ddv-world/core-world-v125-observed-fixture.json')));
+ const p=fixture.profile.World.GridCollection.Grids['5'].Objects['13802'];
+ const g=fixture.profile.World.GridCollection.Grids['1395'];
+ const rootPath='GridData/FloatingIslands/FloatingIsland_Urban/FloatingIsland_UrbanGrid-GridData.json';
+ const parent=(oid,cid)=>({...structuredClone(p),ID:oid,State:{SubGrid:{GridID:cid,DesignID:null}}});
+ const leaf=oid=>({ID:oid,ItemID:40000047,X:2,Y:3,Orientation:'GridOrientation_Up',State:null});
+ const map=(edges,withLeaf=false)=>Object.fromEntries([...edges.map(([oid,cid])=>[String(oid),parent(oid,cid)]),...(withLeaf?[['71',leaf(71)]]:[])]);
+ const child=(id,edges,withLeaf=false)=>({...structuredClone(g),ID:id,Objects:map(edges,withLeaf),NextGridObjectID:72});
+ const binding=await createSwitchWorldReadAdapter({basePath:'',fetchImpl:localFetch});
+ const loc=globalThis.DdvCoreWorldV125Location;
+ const c1=910001,c2=910002,c3=910003,c4=910004,c5=910005;
+ const cases=[
+  {name:'direct child also reachable through a deeper branch',roots:[[1,c1],[2,c2]],nodes:[[c1,[],true],[c2,[[1,c3]]],[c3,[[1,c1]]]],duplicate:true},
+  {name:'unequal-depth cross-branch nonempty shared leaf',roots:[[1,c1],[2,c2]],nodes:[[c1,[[1,c3]]],[c2,[[1,c4]]],[c4,[[1,c3]]],[c3,[],true]],duplicate:true},
+  {name:'same object IDs and same child GridDataPath, distinct GridIDs',roots:[[1,c1],[2,c2]],nodes:[[c1,[[1,c3]],true],[c2,[[1,c4]],true],[c3,[],true],[c4,[],true]],ids:[c1,c2,c3,c4]},
+  {name:'single deep unique path',roots:[[1,c1]],nodes:[[c1,[[1,c2]]],[c2,[[1,c3]]],[c3,[[1,c4]]],[c4,[[1,c5]]],[c5,[],true]],ids:[c1,c2,c3,c4,c5]},
+  {name:'self-cycle',roots:[[1,c1]],nodes:[[c1,[[1,c1]]]],block:'DIRECT_ROOT_SUBGRID_CYCLE'},
+  {name:'back-edge to root',roots:[[1,c1]],nodes:[[c1,[[1,760]]]],block:'DIRECT_ROOT_SUBGRID_CYCLE'},
+  {name:'deep back-edge to ancestor',roots:[[1,c1]],nodes:[[c1,[[1,c2]]],[c2,[[1,c3]]],[c3,[[1,c1]]]],block:'DIRECT_ROOT_SUBGRID_CYCLE'},
+  {name:'missing child',roots:[[1,c1]],nodes:[[c1,[[1,c5]]]],block:'DIRECT_ROOT_SUBGRID_GRID_MISSING'}
+ ];
+ for(const c of cases){
+  const input=structuredClone(profile);
+  Object.assign(input.World.GridCollection.Grids,Object.fromEntries(c.nodes.map(([gid,edges,hasLeaf])=>[String(gid),child(gid,edges,hasLeaf)])),{'760':{ID:760,GridDataPath:rootPath,GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:72,Objects:map(c.roots)}});
+  input.World.FloatingIslands={'1540000147':{SceneItemId:1540000147,GridIDs:[760],Unlocked:true,CustomLocationPositionsPath:'SceneLayouts/FloatingIslands/FloatingIsland_Urban/CustomLocations.json'}};
+  const raw=JSON.stringify(input),opened=await openWorldSaveBytes(new TextEncoder().encode(raw),{sourcePlatform:'switch'});
+  const island=opened.floatingIslands.find(x=>x.sceneItemId===1540000147);
+  assert.ok(island,c.name);
+  const before=JSON.stringify(opened.profile);
+  const projectRaw=()=>binding.directRootProjector.project(opened.profile,{locationRef:loc.locationRefFloatingIsland(island.sceneItemId),directRootRoute:{codec:loc.DIRECT_GRID_ROUTE_CODEC,gridDataPath:rootPath},source:binding.source});
+  const native=projectRaw();
+  const project=()=>projectSwitchFloatingIslandGrid(opened,island,island.roots[0],binding);
+  if(c.duplicate){
+   assert.equal(native.status,'RESOLVED',c.name);
+   const seen=[],stack=[...native.document.metadata.subGridHierarchy];while(stack.length){const n=stack.pop();seen.push(n.gridId);stack.push(...n.children);}
+   assert.ok(new Set(seen).size<seen.length,c.name+' original projector must actually resolve alias');
+   assert.throws(project,/WEP_WORLD_DIRECT_ROOT_SUBGRID_DUPLICATE_PARENT/,c.name);
+  }else if(c.block){
+   assert.notEqual(native.status,'RESOLVED',c.name);
+   assert.equal(native.blockers[0].code,c.block,c.name);
+   assert.throws(project,new RegExp(c.block),c.name);
+  }else{
+   assert.equal(native.status,'RESOLVED',c.name);
+   const actual=project();
+   const ids=[],stack=[...actual.metadata.subGridHierarchy];
+   while(stack.length){const n=stack.pop();ids.push(n.gridId);assert.ok(n.parentAddress,c.name);for(const ch of n.children){assert.equal(ch.parentAddress.gridId,n.gridId,c.name);stack.push(ch);}}
+   assert.deepEqual(ids.sort((a,b)=>a-b),c.ids,c.name);
+   assert.deepEqual(actual.metadata.subGridHierarchy,native.document.metadata.subGridHierarchy,c.name+' exact hierarchy');
+   assert.equal(actual.target.rootGridId,760);assert.equal(actual.target.exactBuildKnown,false);
+   assert.equal(actual.target.persistentWriteAuthorized,false);assert.equal(actual.capabilities.worldPersistentWrite,'unsupported');
+  }
+  assert.equal(JSON.stringify(opened.profile),before,c.name+' opened input unchanged');
+  assert.equal(JSON.stringify(input),raw,c.name+' original input unchanged');
+ }
+});
