@@ -6,6 +6,7 @@ on:
       - 'tools/owner-local-steam-v1/dev-read*'
       - 'tools/owner-local-steam-v1/server.mjs'
       - 'tests/stage-h/**'
+      - 'tests/owner-local-steam-v1-ci-boundary.test.mjs'
       - '.github/workflows/01a-stageh-dev-metadata-read.yml'
       - 'crates/ddv-save-core/**'
   push:
@@ -24,11 +25,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Check all new Worker and UI syntax, no product import
+      - name: Check shared Worker and synthetic UI syntax, verify public boundary
         run: |
           node --check tools/owner-local-steam-v1/worker-core.mjs
           node --check tools/owner-local-steam-v1/dev-read.worker.mjs
-          node --check tools/owner-local-steam-v1/dev-read-page.mjs
+          node --check tools/owner-local-steam-v1/server.mjs
+          node --test tests/owner-local-steam-v1-ci-boundary.test.mjs
           node --check tests/stage-h/page.mjs
           node --check tests/stage-h/worker.mjs
           node --check tests/stage-h/chrome-smoke.mjs
