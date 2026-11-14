@@ -1,0 +1,143 @@
+name: 04 QR-W PR1144 verified export context independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1144-export-context.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual real export pipeline with QA-only completion barrier
+        run: |
+          set -euo pipefail
+          test "$(git merge-base HEAD 'd74d12e06cfe30e09717b85cc33a53f0fbb5eab2')" = 'd74d12e06cfe30e09717b85cc33a53f0fbb5eab2'
+          test "$(git diff --name-only 'd74d12e06cfe30e09717b85cc33a53f0fbb5eab2' HEAD)" = '.github/workflows/04qr-w-pr1144-export-context.yml'
+          test "$(git rev-parse HEAD:src/routes/editor/world/+page.svelte)" = bc8d11be8d34a83933b9f481b7c062240227d452
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          trap 'git restore src/lib/wep/room-finish-verified-export-v125.ts' EXIT
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/lib/wep/room-finish-verified-export-v125.ts')
+          s=p.read_text()
+          for name,kind in [('reviewRoomFinishVerifiedExportV125','review'),('commitRoomFinishVerifiedExportV125','commit')]:
+           old='export async function '+name+'('
+           assert s.count(old)==1
+           s=s.replace(old,'async function '+name+'Real(')
+           s+='\nexport async function '+name+'(input:Parameters<typeof '+name+'Real>[0]) {\n const value=await '+name+'Real(input);\n const gate=(globalThis as any).__qa602;\n if(gate?.kind==="'+kind+'" && !gate.entered){gate.entered=true;await new Promise<void>(resolve=>gate.release=resolve);gate.finished=true;if(gate.error)throw Error("QA602_CONTROLLED_LATE_ERROR");}\n return value;\n}\n'
+          p.write_text(s)
+          
+          PY
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4365 --strictPort >/tmp/qa602.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4365/editor/world/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4365/editor/world/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {readFile} from 'node:fs/promises';import {makeSyntheticP1gProfile} from './tests/helpers/p1g-fixture.mjs';
+          const roomFinishProfile={
+            GameInfo:{Version:624,InitialVersion:624,LastSaveDeviceInfo:{deviceType:'DeviceType_Switch'}},
+            Player:{
+              ListInventories:{
+                '4':{
+                  ID:4,
+                  CompatibleItemType:'ItemType_Trimming',
+                  Inventory:{
+                    '160000000':{Amount:1,Marker:'ItemMarker_None'},
+                    '160000224':{Amount:1,Marker:'ItemMarker_None'},
+                    '160100000':{Amount:1,Marker:'ItemMarker_None'},
+                    '160100001':{Amount:1,Marker:'ItemMarker_None'}
+                  }
+                }
+              }
+            },
+            ProfileWorld:{Stores:[],Shops:[]},
+            ConditionalEventHistory:{ActiveEvents:{}},
+            World:{
+              DecorationPresets:[],
+              PlayerHouses:[{
+                HouseItemID:20500005,
+                Floors:[{
+                  BoughtRooms:{},
+                  Rooms:{
+                    '0':{
+                      Name:'Browser Room',
+                      FloorGridID:900,
+                      WallGridIDs:{'0':901,'1':902,'2':903,'3':904},
+                      RoomPrefabAddress:'Room/Browser',
+                      Flooring:160100000,
+                      Wallpapers:{
+                        '0':160000224,
+                        '1':160000224,
+                        '2':160000224,
+                        '3':160000224
+                      },
+                      WallpaperOffsetById:{'160000224':0.4623557},
+                      Ceiling:160000000,
+                      OpaqueRoom:{keep:true}
+                    }
+                  }
+                }],
+                OpaqueHouse:{keep:true}
+              }],
+              GridCollection:{
+                Grids:{
+                  '900':{ID:900,Objects:{}},
+                  '901':{ID:901,Objects:{}},
+                  '902':{ID:902,Objects:{}},
+                  '903':{ID:903,Objects:{}},
+                  '904':{ID:904,Objects:{}}
+                },
+                DiffGrids:{}
+              },
+              Villages:[],
+              FloatingIslands:{},
+              MissionSlots:{},
+              QuestInfo:{},
+              Keyholes:{},
+              OpaqueWorld:{keep:{roomFinishAcceptance:true}}
+            }
+          };
+          
+          
+          const origin='http://127.0.0.1:4365',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+           const ctx=await browser.newContext({acceptDownloads:true,viewport:{width:1440,height:1100},serviceWorkers:'block'}),page=await ctx.newPage(),errors=[],unsafe=[];
+           page.on('pageerror',e=>errors.push(String(e)));page.on('request',r=>{if(r.url().startsWith('http')&&(!r.url().startsWith(origin+'/')||!['GET','HEAD'].includes(r.method())))unsafe.push(r.method())});
+           await page.goto(origin+'/editor/world/',{waitUntil:'networkidle'});
+           const fileA=Buffer.from(makeSyntheticP1gProfile(roomFinishProfile));const B=structuredClone(roomFinishProfile);B.OpaqueWorld={distinct:'B'};const fileB=Buffer.from(makeSyntheticP1gProfile(B));assert.notDeepEqual(fileA,fileB);
+           async function open(bytes,name){await page.locator('.platform-select select').selectOption('switch');await page.locator('.load-panel input[type="file"]').setInputFiles({name,mimeType:'application/octet-stream',buffer:bytes});await page.getByText(/DDV save loaded locally/).waitFor();const routes=page.locator('[data-wep-room-finish-routes]');await routes.waitFor();await routes.locator('article').first().getByRole('button').click();await page.locator('[data-wep-room-finish-toggle]').waitFor();}
+           async function edit(){const panel=page.locator('[data-wep-room-finish]');if(!(await panel.isVisible()))await page.locator('[data-wep-room-finish-toggle]').click();await panel.waitFor();const floor=panel.locator('.room-finish-edit-grid section').nth(0);await floor.locator('select').selectOption('160100001');await floor.getByRole('button',{name:'Scope preview'}).click();await panel.locator('[data-wep-room-finish-preview]').getByRole('button',{name:'Add to draft'}).click();await page.locator('[data-wep-stage1-review] [data-wep-room-finish-change="FLOORING"]').waitFor();}
+           const ex=page.locator('[data-wep-verified-export]'),review=ex.getByRole('button',{name:'Review Changes'}),result=ex.locator('.verified-export-success'),panel=ex.locator('[data-wep-room-finish-export-review]'),build=ex.locator('.verified-export-build-confirm input');
+           async function arm(kind){await page.evaluate(kind=>{globalThis.__qa602={kind,entered:false,release:null,error:false}},kind)}
+           async function entered(){await page.waitForFunction(()=>globalThis.__qa602?.entered===true)}
+           async function release(error=false){await page.evaluate(error=>{globalThis.__qa602.error=error;globalThis.__qa602.release()},error)}
+           async function currentReview(){await build.check();await review.click();await panel.waitFor();await ex.locator('.verified-export-confirm input').check()}
+           async function assertNoOld(){assert.equal(await panel.count(),0);assert.equal(await result.count(),0);assert.equal(await ex.locator('.verified-export-downloads').count(),0);assert.equal(await ex.locator('.verified-export-error').count(),0)}
+           await open(fileA,'qa602-a.p1g');await edit();await build.check();await arm('review');await review.click();await entered();
+           await open(fileB,'qa602-b.p1g');await release();await page.waitForFunction(()=>globalThis.__qa602?.finished===true);await page.waitForTimeout(150);await assertNoOld();
+           console.log('QA602_LATE_REVIEW_A_TO_B_NO_ATTACH_PASS');
+           await edit();await build.check();await arm('review');await review.click();await entered();await page.locator('.toolbar-actions').getByRole('button',{name:'Undo'}).click();await release(true);await page.waitForFunction(()=>globalThis.__qa602?.finished===true);await page.waitForTimeout(150);await assertNoOld();console.log('QA602_LATE_REVIEW_ERROR_AFTER_DRAFT_UNDO_NO_ATTACH_PASS');
+           await edit();await currentReview();await arm('commit');await ex.getByRole('button',{name:'Apply / Export'}).click();await entered();
+           await page.locator('.toolbar-actions').getByRole('button',{name:'Undo'}).click();
+           const stale=await ex.locator('.verified-export-error').innerText();assert.match(stale,/WEP_EXPORT_REVIEW_STALE/);
+           await release();await page.waitForFunction(()=>globalThis.__qa602?.finished===true);await page.waitForTimeout(150);
+           assert.equal(await panel.count(),0);assert.equal(await result.count(),0);assert.equal(await ex.locator('.verified-export-downloads').count(),0);
+           assert.equal(await ex.locator('.verified-export-error').innerText(),stale);console.log('QA602_LATE_COMMIT_DRAFT_CHANGED_NO_DOWNLOAD_PASS');
+           await edit();await currentReview();await build.uncheck();assert.equal(await ex.getByRole('button',{name:'Apply / Export'}).isDisabled(),true);await build.check();await ex.getByRole('button',{name:'Apply / Export'}).click();await result.waitFor();assert.match(await result.innerText(),/PASS/);
+           const btns=ex.locator('.verified-export-downloads button');const backup=page.waitForEvent('download');await btns.nth(1).click();assert.deepEqual(await readFile(await(await backup).path()),fileB);const edited=page.waitForEvent('download');await btns.nth(0).click();const dl=await edited;assert.notDeepEqual(await readFile(await dl.path()),fileB);assert.notEqual(dl.suggestedFilename(),'qa602-b.p1g');assert.deepEqual(errors,[]);assert.deepEqual(unsafe,[]);console.log('QA602_CURRENT_REVIEW_COMMIT_BUILD_CONFIRM_DISTINCT_EDITED_EXACT_BACKUP_PASS');await ctx.close();
+          }finally{await browser.close()}
+          
+          JS
+          git restore src/lib/wep/room-finish-verified-export-v125.ts
+          test -z "$(git status --porcelain)"
