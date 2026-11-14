@@ -1455,3 +1455,70 @@ impl ProductSession{
         self.commit_amount_replacements(e,vec![Replacement{span,old,new}],Some(ancestor_sha))
     }
 }
+
+#[cfg(all(test,feature="private-native-v2",not(target_arch="wasm32")))]
+mod exact_lineage_restore_tests{
+    use super::*;
+    use crate::{BuildIdentity,SessionReceipt};
+    use serde_json::{json,Value};
+    fn doc(n:u32)->Vec<u8>{
+        serde_json::to_vec(&json!({"GameInfo":{"Version":626},"World":{},
+          "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture",
+            "CompatibleFurnitureTypes":{"List":["FurnitureItemType_Default"]},
+            "Inventory":{"40000048":{"Amount":n,"Marker":"Keep"}}}}},"Unknown":{"Keep":true}})).unwrap()
+    }
+    fn open(b:Vec<u8>)->ProductSession{
+        ProductSession::open_decoded_readonly(b,BuildIdentity{
+            platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+            build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap()
+    }
+    fn scope(r:SessionReceipt,action:WorkerAction)->WorkerEnvelope{
+        WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
+            expected_revision:r.revision,expected_index_generation:r.index_generation,
+            expected_decoded_sha256:r.decoded_sha256,action}
+    }
+    fn hex(v:&[u8;32])->String{v.iter().map(|n|format!("{n:02x}")).collect()}
+    #[test]
+    fn restore_exact_ancestor_digit_boundary_and_reject_other_changes(){
+        let ancestor=doc(100);let original=open(ancestor.clone());
+        let backup=original.capture_inventory_amount_backup(scope(original.receipt().unwrap(),WorkerAction::ReadDomain),0,40000048).unwrap();
+        let s=open(doc(99));let before=s.receipt().unwrap();let read=scope(before,WorkerAction::ReadDomain);
+        let r=s.review_inventory_amount_restore(read,&backup,0,40000048).unwrap();
+        let current=[1;32];let prior=[2;32];
+        let plan=json!({"contract":"wand.private.catalog0-exact-lineage-restore-one@1","build":EXACT_STEAM,
+            "inventoryId":0,"itemId":40000048,"currentAmount":99,"restoreAmount":100,
+            "currentDecodedSha256":hex(&before.decoded_sha256),"ancestorDecodedSha256":hex(&sha(&ancestor)),
+            "currentEntrySha256":hex(&r.current_entry_sha256),"ancestorEntrySha256":r.backup_entry_sha256,
+            "portableBackupSha256":hex(&sha(&backup)),"currentPackagedSha256":hex(&current),
+            "currentPackagedSize":50,"currentBackupSha256":hex(&current),"currentBackupSize":50,
+            "ancestorPackagedSha256":hex(&prior),"ancestorPackagedSize":51});
+        let stage=scope(before,WorkerAction::Stage);
+        let run=|p:&Value,a:&[u8],b:&[u8],e:WorkerEnvelope,bs:[u8;32]|s.stage_private_catalog0_exact_lineage_restore(
+            e,b,a,&serde_json::to_vec(p).unwrap(),current,50,bs,50,prior,51);
+        let mut forged=plan.clone();forged["restoreAmount"]=json!(101);
+        assert!(run(&forged,&ancestor,&backup,stage,current).is_err());
+        assert!(run(&plan,&ancestor,&backup,stage,[3;32]).is_err());
+        assert!(run(&plan,&ancestor,&backup,scope(before,WorkerAction::ReadDomain),current).is_err());
+        let mut stale=stage;stale.expected_revision+=1;
+        assert!(run(&plan,&ancestor,&backup,stale,current).is_err());
+        assert!(run(&plan,&ancestor,&backup,scope(original.receipt().unwrap(),WorkerAction::Stage),current).is_err());
+        let other=open(doc(101));
+        let wrong=other.capture_inventory_amount_backup(scope(other.receipt().unwrap(),WorkerAction::ReadDomain),0,40000048).unwrap();
+        assert!(run(&plan,&doc(101),&wrong,stage,current).is_err());
+        let mut changed:Value=serde_json::from_slice(&ancestor).unwrap();changed["Unknown"]["Keep"]=json!(false);
+        let changed=serde_json::to_vec(&changed).unwrap();let other=open(changed.clone());
+        let wrong=other.capture_inventory_amount_backup(scope(other.receipt().unwrap(),WorkerAction::ReadDomain),0,40000048).unwrap();
+        let mut p=plan.clone();p["ancestorDecodedSha256"]=json!(hex(&sha(&changed)));p["portableBackupSha256"]=json!(hex(&sha(&wrong)));
+        assert!(run(&p,&changed,&wrong,stage,current).is_err());
+        assert_eq!(s.receipt().unwrap(),before);
+        let r=run(&plan,&ancestor,&backup,stage,current).unwrap();assert_eq!(r.staged_decoded_sha256,sha(&ancestor));
+        assert_eq!(r.exact_field_changed_count,1);assert!(!r.product_writer_authorized);
+        assert!(run(&plan,&ancestor,&backup,stage,current).is_err());
+        let undone=s.undo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();assert!(!undone.applied);
+        assert!(s.take_typed_semantic_decoded_once(scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        let export=scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+        assert_eq!(s.take_typed_semantic_decoded_once(export).unwrap(),ancestor);
+        assert!(s.take_typed_semantic_decoded_once(export).is_err());
+    }
+}
