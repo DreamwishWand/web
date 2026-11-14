@@ -100,7 +100,8 @@ const script=String.raw`
  await wait(()=>document.querySelector('[data-backup-verified]'),'BACKUP_VALID');
  need(!document.querySelector('[data-dev-download-edited]'),'EDITED_NOT_EXPORTED');
  const bd=await wait(()=>document.querySelector('[data-dev-download-backup]:not([disabled])'),'BACKUP_DOWNLOAD_READY');
- bd.click();await wait(()=>!bd.disabled,'BACKUP_DOWNLOAD_SETTLED');
+ bd.click();await new Promise(r=>setTimeout(r,0));
+ await wait(()=>bd.isConnected&&!bd.disabled&&!document.querySelector('[data-dev-error]'),'BACKUP_DOWNLOAD_SETTLED');
  const field=await wait(()=>document.querySelector('#dev-amount-target'),'VERIFIED_ONLY');
  need(field.options.length===2,'TRUSTED_TARGETS_ONLY');
  need(field.options[1].textContent.includes('40000001'),'FURNITURE_ZERO_VISIBLE');
@@ -118,8 +119,9 @@ const script=String.raw`
  await wait(()=>document.querySelector('[data-dev-edited-copy]'),'COPY_REOPEN');
  need(document.body.textContent.includes('edited-ci.p1g'),'DIFFERENT_FILENAME');
  const ed=await wait(()=>document.querySelector('[data-dev-download-edited]:not([disabled])'),'EDITED_DOWNLOAD_READY');
- ed.click();await wait(()=>!ed.disabled,'EDITED_DOWNLOAD_SETTLED');
- const close=await wait(()=>document.querySelector('[data-dev-close]'),'CLOSE_READY');
+ ed.click();await new Promise(r=>setTimeout(r,0));
+ await wait(()=>ed.isConnected&&!ed.disabled&&!document.querySelector('[data-dev-error]'),'EDITED_DOWNLOAD_SETTLED');
+ const close=await wait(()=>document.querySelector('[data-dev-close]:not([disabled])'),'CLOSE_READY');
  close.click();
  await wait(()=>!document.querySelector('[data-dev-edited-copy]'),'CLOSE_REVOKED');
  need(document.activeElement===summary,'FOCUS_RESTORED');
@@ -143,7 +145,7 @@ const script=String.raw`
  (await wait(()=>document.querySelector('[data-dev-redo]'),'ZERO_REDO')).click();
  (await wait(()=>document.querySelector('[data-dev-export]'),'ZERO_EXPORT')).click();
  await wait(()=>document.querySelector('[data-dev-edited-copy]'),'ZERO_COPY');
- (await wait(()=>document.querySelector('[data-dev-close]'),'ZERO_CLOSE')).click();
+ (await wait(()=>document.querySelector('[data-dev-close]:not([disabled])'),'ZERO_CLOSE')).click();
  await wait(()=>!document.querySelector('[data-dev-edited-copy]'),'ZERO_CLOSE_REVOKED');
  // Actual OPFS re-read and causal corruption / stale check (synthetic bytes).
  const m=await import('/src/lib/dev/local-amount-worker-adapter.mjs');
