@@ -1,4 +1,9 @@
-<script lang="ts">import { base } from '$app/paths';</script>
+<script lang="ts">
+  import { base } from '$app/paths';
+  import { locale } from '$lib/i18n/runtime.js';
+  import { savedDiffGridsCopy } from '$lib/wep/steam-saved-diffgrids-copy.mjs';
+  $: reader = savedDiffGridsCopy($locale);
+</script>
 <svelte:head><title>Editor | Dreamwish Wand</title></svelte:head>
 <section class="inside-page container">
   <p class="eyebrow">THE WAND WORKSHOP</p>
@@ -7,6 +12,12 @@
     飾り付けを探し、選び、組み替え、Presetとして残すための制作workspaceです。
     World EditorはWEP EditorDocument-backedの安全なproduct surfaceへ移行中です。
   </p>
+
+  <a class="feature-tile reader-entry" data-steam-reader-entry data-sveltekit-reload href={base + '/editor/steam-reader/'}>
+    <span class="tile-emoji" aria-hidden="true">◇</span>
+    <h2>{reader.preformal}</h2>
+    <p>{reader.title} · {reader.subtitle}</p>
+  </a>
 
   <div class="feature-grid">
     <a class="feature-tile" href={`${base}/editor/items/`}>
@@ -38,3 +49,8 @@
     実DDV targetのmutationはCore capabilityがweb側へ明示的にbindingされるまでfail-closedです。
   </div>
 </section>
+
+<style>
+  .reader-entry { display:block; margin-block:20px; min-width:0; overflow-wrap:anywhere; }
+  .reader-entry:focus-visible { outline:3px solid var(--focus-ring); outline-offset:3px; }
+</style>

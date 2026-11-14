@@ -2,6 +2,8 @@
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { WAND_RC_PRODUCTS, WAND_RC_RESTRICTED_OPERATIONS, WAND_RC_TARGET } from '$lib/product-home/rc-manifest.js';
+  import { savedDiffGridsCopy } from '$lib/wep/steam-saved-diffgrids-copy.mjs';
+  $: reader = savedDiffGridsCopy($locale);
   $: ja = $locale === 'ja';
   const availability = {
     RC_REQUIRED: { en:'RC scope · not yet accepted', ja:'内部RC対象・未受入' },
@@ -31,6 +33,11 @@
     {ja ? 'Community Owner・公開・認証済み管理・Writerは未受入のためOFFです。' :
       'Community Owner, publishing, authenticated management and Save Writer remain OFF pending independent acceptance.'}
   </p>
+  <section class="reader-entry" aria-labelledby="rc-reader-title">
+    <h2 id="rc-reader-title">{reader.preformal}</h2>
+    <p>{reader.title} · {reader.subtitle}</p>
+    <a data-steam-reader-entry data-sveltekit-reload href={base + '/editor/steam-reader/'}>{reader.open}</a>
+  </section>
   <div class="status-legend" aria-label={ja ? '状態の凡例' : 'Status legend'}>
     {#each Object.keys(availability) as state}
       <span class="legend-item" data-rc-legend={state}>{statusLabel(state, ja)}</span>
@@ -77,6 +84,8 @@
   .explain{max-width:75ch;line-height:1.7;color:var(--ink-soft)}
   .version,.boundary{padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow-wrap:anywhere}
   .version{font-size:13px}.boundary{font-size:14px;color:var(--ink-soft)}
+  .reader-entry{margin-block:18px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow-wrap:anywhere}
+  .reader-entry h2{font-size:18px;margin:0 0 8px}.reader-entry p{font-size:13px;color:var(--ink-soft);margin:0 0 10px}.reader-entry a{display:inline-flex;align-items:center;min-height:44px;font-weight:700;color:var(--gold)}
   .status-legend{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0}
   .legend-item,.status{font-size:12px;border:1px solid var(--border);padding:6px 8px;border-radius:9px;background:var(--surface-raised)}
   .product-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:14px}
