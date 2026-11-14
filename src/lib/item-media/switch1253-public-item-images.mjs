@@ -1,4 +1,5 @@
 import {STEAM1253_HOLD10_PINS} from './steam1253-hold10-pins.mjs';
+import {STEAM1253_HOLD5_CHEST2_PINS} from './steam1253-hold5-chest2-pins.mjs';
 import {STEAM1253_OTHER36_PINS} from './steam1253-other36-pins.mjs';
 import {STEAM1253_FURNITURE146_PINS} from './steam1253-furniture146-pins.mjs';
 // Current-version ItemThumb policy, built over accepted shared ItemThumb/Preferences.
@@ -215,6 +216,7 @@ export const STEAM1253_NATIVE_PINS=Object.freeze({
  ...STEAM1253_FURNITURE146_PINS,
  ...STEAM1253_OTHER36_PINS,
  ...STEAM1253_HOLD10_PINS,
+ ...STEAM1253_HOLD5_CHEST2_PINS,
  [STEAM1253_DOOR_ID]:STEAM1253_DOOR_PIN,
  '40006110':Object.freeze({
   platform:'Steam Windows',gameVersion:'1.25.3',schema:626,
