@@ -1,0 +1,44 @@
+name: CTRL ACT502 public legacy HTTPS recovery probe (read only)
+on:
+  push:
+    branches:
+      - ctrl/act502-legacy-https-recovery-20261114
+permissions: {}
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Direct HTTPS GET without redirects and exact previously accepted signed bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=https://dreamwishwand.github.io/web
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          failed=0
+          probe() {
+            local path="$1" expected="$2" mime="$3" code rc=0 actual type location
+            : > "$tmp/headers"
+            : > "$tmp/body"
+            code="$(curl --silent --show-error --connect-timeout 8 --max-time 20 --max-redirs 0 -D "$tmp/headers" -o "$tmp/body" -w '%{http_code}' "$root$path")" || rc=$?
+            actual="$(sha256sum "$tmp/body" | cut -d' ' -f1)"
+            type="$(awk 'tolower($1)=="content-type:" {print tolower($2)}' "$tmp/headers" | tr -d '\r' | tail -1)"
+            location="$(awk 'tolower($1)=="location:" {print $2}' "$tmp/headers" | tr -d '\r' | tail -1)"
+            printf 'PATH=%s CURL=%s HTTP=%s MIME=%s SHA256=%s LOCATION=%s\n' "$path" "$rc" "$code" "$type" "$actual" "$location"
+            grep -iE '^(age|x-cache|x-github-request-id|date):' "$tmp/headers" || true
+            if [[ "$rc" != 0 || "$code" != 200 || -n "$location" ]]; then failed=1; return; fi
+            case "$mime:$type" in
+              html:text/html*|js:text/javascript*|js:application/javascript*|wasm:application/wasm*|json:application/json*) ;;
+              *) failed=1 ;;
+            esac
+            if [[ "$expected" != - && "$actual" != "$expected" ]]; then failed=1; fi
+          }
+          probe / - html
+          probe /index.html - html
+          probe /rc-status/ - html
+          probe /worker-wasm/ddv_save_core.js 4704a19c6e2962583d03a0bf8e7d5bf5ad2a802fd664259117eff4b2bbcbac0d js
+          probe /worker-wasm/ddv_save_core_bg.wasm 2e6949cdf6d4173af9274ade7cd99416424b80675450de828ed763245403f375 wasm
+          probe /worker-wasm/manifest.json c35ac62499ec12bb70eae806b50ea924536871f000dc05fc3f84d264d7646096 json
+          test "$failed" -eq 0
+          echo ACT502_LEGACY_ROOT_AND_SIGNED3_TRANSPORT_PASS
