@@ -5,6 +5,8 @@
 import {PROTECTED_READONLY_RELEASE_ANCHOR as anchor} from './product-rust-wasm-release-anchor.mjs';
 import {loadPinnedReadOnlyRustBytes} from './product-rust-wasm-candidate-loader.mjs';
 
+import {matchReleaseTuple} from './product-rust-wasm-release-trust.mjs';
+
 const fail=code=>{throw Error('R22_PROTECTED_READONLY_'+code)};
 const hex64=/^[a-f0-9]{64}$/;
 const hex40=/^[a-f0-9]{40}$/;
@@ -25,10 +27,8 @@ export function readonlyReleaseIdentityText(a){
 async function validateBuildAnchor(a){
  if(!exact(a,'contract,repository,signerWorkflow,sourceRef,origin,basePath,pins,releaseId,attestationVerifiedAtBuild')||
    a.contract!=='wand.r22.protected-readonly-release@1'||
-   a.repository!=='DreamwishWand/web'||
-   a.signerWorkflow!=='DreamwishWand/web/.github/workflows/pages.yml'||
-   a.sourceRef!=='refs/heads/main'||a.attestationVerifiedAtBuild!==true||
-   !['','/web'].includes(a.basePath)||!hex64.test(a.releaseId??''))
+   !matchReleaseTuple(a)||a.attestationVerifiedAtBuild!==true||
+   !hex64.test(a.releaseId??''))
    fail('BUILD_ANCHOR_MISSING_OR_INVALID');
  let u;
  try{u=new URL(a.origin)}catch{fail('BUILD_ORIGIN_INVALID')}
@@ -59,7 +59,7 @@ export async function loadProtectedReadonlyRustWasm(){
    !where.pathname.startsWith(anchor.basePath+'/_app/'))
    fail('WORKER_DELIVERY_SCOPE_DENIED');
  const loaded=await loadPinnedReadOnlyRustBytes({
-   basePath:anchor.basePath,trustedPins:anchor.pins
+   basePath:anchor.basePath,trustedPins:anchor.pins,releaseTuple:anchor
  });
  if(loaded.sourceHead!==anchor.pins.sourceHead||loaded.checkedBothJsAndWasm!==true||
    loaded.sameOriginFetchOnly!==true||loaded.writerAuthorized!==false||

@@ -4,6 +4,7 @@ on:
     paths:
       - 'src/lib/ddv/core/save/product-rust-wasm-*loader.mjs'
       - 'src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs'
+      - 'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs'
       - 'scripts/readonly-release/**'
       - 'tests/protected-readonly-release.test.mjs'
       - 'tests/readonly-release/**'
@@ -36,7 +37,7 @@ jobs:
           # Select the latest successful protected Pages run from trusted GitHub
           # metadata, never from a fetched manifest. Capture its immutable run/head.
           runs="$(gh api 'repos/DreamwishWand/web/actions/workflows/pages.yml/runs?branch=main&status=success&per_page=10')"
-          selected="$(jq -cer '[.workflow_runs[] | select(.head_branch=="main" and .head_repository.full_name=="DreamwishWand/web" and .conclusion=="success" and (.event=="push" or .event=="workflow_dispatch"))][0]' <<< "$runs")"
+          selected="$(jq -cer '[.workflow_runs[] | select(.head_branch=="main" and .head_repository.full_name=="DreamwishWand/web" and .head_repository.id==1371485649 and .conclusion=="success" and (.event=="push" or .event=="workflow_dispatch"))][0]' <<< "$runs")"
           run="$(jq -er '.id' <<< "$selected")"
           source="$(jq -er '.head_sha' <<< "$selected")"
           [[ "$run" =~ ^[0-9]+$ && "$source" =~ ^[0-9a-f]{40}$ ]]

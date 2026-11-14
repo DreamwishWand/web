@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {RELEASE_TUPLES,LEGACY_RELEASE_TUPLE,ACTIVE_RELEASE_TUPLE,RELEASE_REPOSITORY_ID,matchReleaseTuple,releaseDelivery,manifestMatchesRelease,protectedPagesContextMatches} from '../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
 import {createHash} from 'node:crypto';
 import {readonlyReleaseIdentityText,loadProtectedReadonlyRustWasm} from '../src/lib/ddv/core/save/product-rust-wasm-release-loader.mjs';
 import {PROTECTED_READONLY_RELEASE_ANCHOR} from '../src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs';
@@ -116,4 +117,57 @@ test('shared loader accepts reviewed lock provenance only with the approved dige
   assert.match(v.error,/MANIFEST_PROVENANCE_OR_ABI_DENIED/);
   assert.deepEqual(v.calls,['/web/worker-wasm/manifest.json']);
  }
+});
+
+test('ACT505 finite trust tuples: exact cross product, no dev/fork or unknown origin',()=>{
+ assert.equal(ACTIVE_RELEASE_TUPLE,LEGACY_RELEASE_TUPLE);
+ assert.equal(RELEASE_REPOSITORY_ID,'1371485649');
+ assert.equal(RELEASE_TUPLES.length,3);
+ const repos=['DreamwishWand/web','DreamwishWand/site','DreamwishWand/dev','fork/web'];
+ const workflows=[...repos.map(r=>r+'/.github/workflows/pages.yml'),'DreamwishWand/web/.github/workflows/other.yml'];
+ const origins=['https://dreamwishwand.github.io','https://dreamwishwand.com','https://other.invalid','https://dreamwishwand.com:444','http://dreamwishwand.com'];
+ const bases=['/web','','/site','/web/','//web'];
+ let positive=0,negative=0;
+ for(const repository of repos)for(const signerWorkflow of workflows)for(const sourceRef of ['refs/heads/main','refs/heads/dev','refs/pull/1/merge'])for(const origin of origins)for(const basePath of bases){
+  const value={repository,signerWorkflow,sourceRef,origin,basePath};
+  const match=matchReleaseTuple(value);
+  const expected=sourceRef==='refs/heads/main'&&signerWorkflow===repository+'/.github/workflows/pages.yml'&&
+   ((repository==='DreamwishWand/web'&&origin==='https://dreamwishwand.github.io'&&basePath==='/web')||
+    (['DreamwishWand/web','DreamwishWand/site'].includes(repository)&&origin==='https://dreamwishwand.com'&&basePath===''));
+  assert.equal(!!match,expected,JSON.stringify(value));if(expected)positive++;else negative++;
+ }
+ assert.equal(positive,3);assert.equal(negative,1497);
+ assert.ok(Object.isFrozen(RELEASE_TUPLES)&&RELEASE_TUPLES.every(Object.isFrozen));
+});
+test('ACT505 historical manifest is legacy only; root signed delivery metadata exact, no relabel',()=>{
+ for(const t of RELEASE_TUPLES){
+  const manifest={source:{repository:t.repository},...(t===LEGACY_RELEASE_TUPLE?{}:{delivery:releaseDelivery(t)})};
+  for(const other of RELEASE_TUPLES)assert.equal(manifestMatchesRelease(manifest,other),t===other);
+  if(t!==LEGACY_RELEASE_TUPLE){
+   for(const key of Object.keys(manifest.delivery)){
+    assert.equal(manifestMatchesRelease({...manifest,delivery:{...manifest.delivery,[key]:'wrong'}},t),false,key);
+    const missing={...manifest.delivery};delete missing[key];assert.equal(manifestMatchesRelease({...manifest,delivery:missing},t),false,key);
+   }
+   assert.equal(manifestMatchesRelease({...manifest,delivery:{...manifest.delivery,extra:true}},t),false);
+  }
+ }
+});
+test('ACT505 Pages context binds immutable repo ID, exact workflow/ref/source and committed legacy selector',()=>{
+ const sha='a'.repeat(40),t=ACTIVE_RELEASE_TUPLE;
+ const e={GITHUB_ACTIONS:'true',GITHUB_REPOSITORY_ID:RELEASE_REPOSITORY_ID,GITHUB_REPOSITORY:t.repository,
+  GITHUB_REF:t.sourceRef,GITHUB_SHA:sha,GITHUB_WORKFLOW_SHA:sha,GITHUB_WORKFLOW_REF:t.signerWorkflow+'@'+t.sourceRef,
+  GITHUB_EVENT_NAME:'push',WAND_PUBLIC_READONLY_ASSET_GATE:'OWNER_APPROVED_THREE_FILES_20261111'};
+ assert.equal(protectedPagesContextMatches(e,sha,sha),true);
+ assert.equal(protectedPagesContextMatches({...e,GITHUB_EVENT_NAME:'workflow_dispatch'},sha,sha),true);
+ for(const [key,value] of Object.entries(e)){
+  assert.equal(protectedPagesContextMatches({...e,[key]:'wrong'},sha,sha),false,key);
+  const missing={...e};delete missing[key];assert.equal(protectedPagesContextMatches(missing,sha,sha),false,key);
+ }
+ assert.equal(protectedPagesContextMatches(e,'b'.repeat(40),sha),false);
+ assert.equal(protectedPagesContextMatches(e,sha,'b'.repeat(40)),false);
+ const next=RELEASE_TUPLES[2];
+ assert.equal(protectedPagesContextMatches({...e,GITHUB_REPOSITORY:next.repository,GITHUB_WORKFLOW_REF:next.signerWorkflow+'@'+next.sourceRef},sha,sha),false);
+ // Env cannot select the future root or change the active tuple.
+ assert.equal(protectedPagesContextMatches({...e,WAND_RELEASE_BASE_PATH:'',WAND_RELEASE_ORIGIN:'https://dreamwishwand.com'},sha,sha),true);
+ assert.equal(ACTIVE_RELEASE_TUPLE,LEGACY_RELEASE_TUPLE);
 });
