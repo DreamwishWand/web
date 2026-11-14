@@ -9,11 +9,10 @@ import {tmpdir} from 'node:os';
 import {pathToFileURL} from 'node:url';
 import {readonlyReleaseIdentityText} from '../../src/lib/ddv/core/save/product-rust-wasm-release-loader.mjs';
 
+import {ACTIVE_RELEASE_TUPLE,LEGACY_RELEASE_TUPLE,manifestMatchesRelease,protectedPagesContextMatches} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+
 const root=resolve(import.meta.dirname,'../..');
 const names=['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm'];
-const sourceRef='refs/heads/main',repository='DreamwishWand/web';
-const signerWorkflow=repository+'/.github/workflows/pages.yml';
-const liveOrigin='https://dreamwishwand.github.io',liveBase='/web';
 const anchorPath=join(root,'src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs');
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const fail=code=>{throw Error('R22_RELEASE_SEAL_'+code)};
@@ -29,7 +28,7 @@ async function snapshot(dir){
  if(bytes.some((b,i)=>!b.length||b.length>max[i]))fail('ASSET_BOUNDS');
  return bytes;
 }
-function inspect(bytes,source){
+function inspect(bytes,source,tuple){
  if(!hex40.test(source??''))fail('SOURCE_HEAD');
  const [mf,js,wasm]=bytes;
  let m;
@@ -37,7 +36,7 @@ function inspect(bytes,source){
  catch{fail('MANIFEST_JSON')}
  if(m?.contract!=='wand.r22.rust-wasm-source-provenance-candidate@1'||
   m.kind!=='PUBLIC_READONLY_SIGNED_ASSET_ONLY_UI_OFF'||
-  m.source?.repository!==repository||m.source?.commit!==source||
+  !manifestMatchesRelease(m,tuple)||m.source?.commit!==source||
   m.source?.wasmBindgen!=='0.2.105'||m.source?.wasmTarget!=='wasm32-unknown-unknown'||
   m.source?.profile!=='release'||m.source?.defaultFeatures!==false||
   JSON.stringify(m.source?.features)!=='["indexed-read","worker-wasm"]'||
@@ -64,17 +63,17 @@ function inspect(bytes,source){
   sourceProvenanceOnly:true,verifiedSignature:false});
 }
 // Pure byte inspection; NOT signature verification or authorization.
-export async function inspectReleasePins(dir,source){return inspect(await snapshot(dir),source)}
-async function verifySigned(dir,source,bundle){
- const bytes=await snapshot(dir),pins=inspect(bytes,source);
+export async function inspectReleasePins(dir,source){return inspect(await snapshot(dir),source,LEGACY_RELEASE_TUPLE)}
+async function verifySigned(dir,source,bundle,tuple){
+ const bytes=await snapshot(dir),pins=inspect(bytes,source,tuple);
  const work=await mkdtemp(join(tmpdir(),'wand-release-signature-'));
  try{
   // Verify an immutable snapshot of each exact subject; then compare the
   // original directory again before sealing. No trust in manifest self-pins.
   for(let i=0;i<names.length;i++){
    const file=join(work,names[i]);await writeFile(file,bytes[i],{mode:0o600,flag:'wx'});
-   const args=['attestation','verify',file,'--repo',repository,
-    '--signer-workflow',signerWorkflow,'--source-ref',sourceRef,
+   const args=['attestation','verify',file,'--repo',tuple.repository,
+    '--signer-workflow',tuple.signerWorkflow,'--source-ref',tuple.sourceRef,
     '--source-digest',source,'--deny-self-hosted-runners',
     '--predicate-type','https://slsa.dev/provenance/v1'];
    if(bundle)args.push('--bundle',bundle);
@@ -89,18 +88,12 @@ async function verifySigned(dir,source,bundle){
 }
 function protectedContext(){
  const e=process.env,s=e.WAND_SOURCE_HEAD;
- if(!hex40.test(s??'')||e.GITHUB_ACTIONS!=='true'||e.GITHUB_REPOSITORY!==repository||
-  e.GITHUB_REF!==sourceRef||e.GITHUB_SHA!==s||e.GITHUB_WORKFLOW_SHA!==s||
-  e.GITHUB_WORKFLOW_REF!==signerWorkflow+'@'+sourceRef||
-  !['push','workflow_dispatch'].includes(e.GITHUB_EVENT_NAME)||
-  e.WAND_PUBLIC_READONLY_ASSET_GATE!=='OWNER_APPROVED_THREE_FILES_20261111'||
-  git('rev-parse','HEAD')!==s)
+ if(!protectedPagesContextMatches(e,s,git('rev-parse','HEAD')))
    fail('PROTECTED_PAGES_CONTEXT_REQUIRED');
  return s;
 }
 function identity(pins){
- const a={contract:'wand.r22.protected-readonly-release@1',repository,signerWorkflow,
-  sourceRef,origin:liveOrigin,basePath:liveBase,pins,attestationVerifiedAtBuild:true};
+ const a={contract:'wand.r22.protected-readonly-release@1',...ACTIVE_RELEASE_TUPLE,pins,attestationVerifiedAtBuild:true};
  return Object.freeze({...a,releaseId:sha(readonlyReleaseIdentityText(a))});
 }
 async function main(){
@@ -109,7 +102,7 @@ async function main(){
   // Historical fixed signed release audit: NO anchor emitted, NO deployment.
   const [source,dir,bundle]=process.argv.slice(3);
   if(!dir||process.argv.length>6)fail('VERIFY_ONLY_ARGUMENTS');
-  const pins=await verifySigned(resolve(dir),source,bundle?resolve(bundle):undefined);
+  const pins=await verifySigned(resolve(dir),source,bundle?resolve(bundle):undefined,LEGACY_RELEASE_TUPLE);
   console.log('R22_EXACT_PROTECTED_SIGNED_SUBJECTS_VERIFIED',JSON.stringify(pins));
   return;
  }
@@ -121,7 +114,7 @@ async function main(){
   const prior=await readFile(anchorPath,'utf8');
   if(!prior.includes('PROTECTED_READONLY_RELEASE_ANCHOR=null;')||
     git('diff','--',anchorPath)!=='')fail('ANCHOR_NOT_CLEAN_DEFAULT');
-  const pins=await verifySigned(dir,source,resolve(bundle));
+  const pins=await verifySigned(dir,source,resolve(bundle),ACTIVE_RELEASE_TUPLE);
   const a=identity(pins);
   const output='// GENERATED in protected Pages checkout; do not commit.\n'+
    'const data='+JSON.stringify(a)+';\nObject.freeze(data.pins);\n'+
@@ -132,8 +125,8 @@ async function main(){
   console.log('R22_BUILD_SEALED_PROTECTED_RELEASE',a.releaseId);
  }else if(cmd==='check-built'){
   const {PROTECTED_READONLY_RELEASE_ANCHOR:a}=await import(pathToFileURL(anchorPath).href);
-  const p=await inspectReleasePins(dir,source);
-  const b=await inspectReleasePins(join(root,'build/worker-wasm'),source);
+  const p=inspect(await snapshot(dir),source,ACTIVE_RELEASE_TUPLE);
+  const b=inspect(await snapshot(join(root,'build/worker-wasm')),source,ACTIVE_RELEASE_TUPLE);
   if(!a||JSON.stringify(a)!==JSON.stringify(identity(p))||
     JSON.stringify(b)!==JSON.stringify(p))fail('BUILT_ANCHOR_OR_SUBJECT_DRIFT');
   console.log('R22_BUILD_SEALED_ANCHOR_MATCHES_EXACT_THREE_BYTES',a.releaseId);
