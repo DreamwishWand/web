@@ -1496,8 +1496,10 @@ mod private_avatar {
             entry_sha:[u8;32])->CoreResult<Value>{
             use crate::ExistingAmountSelection;
             if container<=1||entry_sha==[0;32]{return Err(denied("CHEST_DEP_SELECTOR"));}
-            let target=self.read_existing_amount_target(e,ExistingAmountSelection::Chest{container_id:container,slot_index:slot})?;
-            let tv=target.view();
+            let switch=self.native_source_build.platform==Platform::Switch;
+            let tv=if switch{self.read_private_switch626_chest_view(e,container,slot)?}
+                else{self.read_existing_amount_target(e,ExistingAmountSelection::Chest{container_id:container,slot_index:slot})?.view()};
+
             let facts=tv.chest.ok_or(denied("CHEST_DEP_TARGET_KIND"))?;
             if tv.entry_sha256!=entry_sha||tv.session_id!=e.session_id||
                 tv.revision!=e.expected_revision||tv.index_generation!=e.expected_index_generation||
@@ -1515,7 +1517,7 @@ mod private_avatar {
             let mut budget=DependencyBudget::default();
             let missions=mission_dependencies_mode(bytes,field(&world,"MissionSlots"),&mut budget,true)?;
             let evolve=evolve_dependencies_mode(bytes,field(&player,"EvolveStatesProfile"),&mut budget,true)?;
-            let value=json!({"contract":"wand.native.private.chest-amount-dependencies@1",
+            let mut value=json!({"contract":"wand.native.private.chest-amount-dependencies@1",
                 "platform":"SteamWindows","fullVersion":EXACT,"schema":626,
                 "sessionId":hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
                 "decodedSha256":hex(&e.expected_decoded_sha256),
@@ -1537,6 +1539,14 @@ mod private_avatar {
                 "effectiveItemDbVerified":false,"rightsVerified":false,"variationVerified":false,
                 "nativeV3Verified":false,"productReadAccepted":false,"writerAuthorized":false,
                 "editedCopyAuthorized":false,"applyAuthorized":false});
+            if switch{
+                value["contract"]=json!("wand.native.private.switch626.chest-amount-dependencies@1");
+                value["platform"]=json!("Switch");value["buildKind"]=json!("SwitchBid");
+                value["buildId"]=json!("9A239D3DB569756D");
+                value.as_object_mut().ok_or(denied("CHEST_DEP_RECEIPT_OBJECT"))?.remove("fullVersion");
+                value["target"]["coreMintedExistingTarget"]=json!(false);
+                value["target"]["coreObservedExistingTarget"]=json!(true);
+            }
             if serde_json::to_vec(&value).map_err(|_|denied("CHEST_DEP_RECEIPT_ENCODE"))?.len()>8*1024*1024{
                 return Err(denied("CHEST_DEP_RECEIPT_BOUND"));}
             Ok(value)
@@ -1582,6 +1592,38 @@ mod private_avatar {
             let mut stale=e;stale.expected_revision+=1;
             assert!(s.read_private_chest_amount_dependencies(stale,12,0,hash(&d)).is_err());
             assert!(open(&d).read_private_chest_amount_dependencies(e,12,0,hash(&d)).is_err());
+        }
+        #[test]
+        fn switch626_exact_private_chest_view_preserves_writer_build_gate(){
+            let mut d=doc();let c=&mut d["Player"]["ContainerInventories"]["12"];
+            c["Size"]=json!(48);
+            let slots=c["Inventory"].as_array_mut().unwrap();
+            slots.resize(48,json!({"ItemID":0,"Amount":0,"State":null}));
+            let open_sw=|v:&Value,bid:&str|ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),
+                BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:bid.into(),
+                    schema:626,externally_attested:true}).unwrap();
+            let s=open_sw(&d,"9A239D3DB569756D");let before=s.receipt().unwrap();let e=env(&s);
+            let v=s.read_private_chest_amount_dependencies(e,12,0,hash(&d)).unwrap();
+            assert_eq!(v["contract"],"wand.native.private.switch626.chest-amount-dependencies@1");
+            assert_eq!(v["platform"],"Switch");assert_eq!(v["buildId"],"9A239D3DB569756D");
+            assert!(v.get("fullVersion").is_none());assert_eq!(v["target"]["coreMintedExistingTarget"],false);
+            assert_eq!(v["target"]["coreObservedExistingTarget"],true);assert_eq!(v["writerAuthorized"],false);
+            assert_eq!(v["target"]["oldAmount"],5);assert_eq!(v["savedPhysicalTotals"]["ownedExplicitNullPhysicalAmount"],8);
+            assert!(s.read_existing_amount_target(e,crate::ExistingAmountSelection::Chest{container_id:12,slot_index:0}).is_err());
+            assert!(s.read_private_chest_amount_dependencies(e,12,0,[1;32]).is_err());
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_chest_amount_dependencies(stale,12,0,hash(&d)).is_err());
+            let other=open_sw(&d,"9A239D3DB569756D");
+            assert!(other.read_private_chest_amount_dependencies(e,12,0,hash(&d)).is_err());
+            for (key,value) in [("Size",json!(47)),("ExtraSize",json!(1)),("BlockMoveTo",json!(true))]{
+                let mut bad=d.clone();bad["Player"]["ContainerInventories"]["12"][key]=value;
+                let x=open_sw(&bad,"9A239D3DB569756D");
+                assert!(x.read_private_chest_amount_dependencies(env(&x),12,0,hash(&bad)).is_err());
+            }
+            let mut bad=d.clone();bad["Player"]["ContainerInventories"]["12"]["Inventory"][0]["State"]=json!({});
+            let x=open_sw(&bad,"9A239D3DB569756D");
+            assert!(x.read_private_chest_amount_dependencies(env(&x),12,0,hash(&bad)).is_err());
+            assert_eq!(s.receipt().unwrap(),before);
         }
         #[test]
         fn malformed_physical_totals_or_non_null_target_fail_closed(){
