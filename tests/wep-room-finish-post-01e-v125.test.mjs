@@ -140,6 +140,51 @@ test('Room Finish ownership uses exact Trimming role Data.Amount and never guess
   }).some(x=>x.itemId===160100001),true);
 });
 
+test('Room Finish ownership rejects non-int32 quantities and malformed present records before draft creation',async()=>{
+  const f=await fixture();
+  const slots=p=>p.Player.ListInventories['4'].Inventory;
+  const invalid=[true,false,'1','0','',null,[1],[],{},-1,1.5,2147483648,NaN,Infinity,undefined];
+  for (const [itemId,subtype] of [[160100001,1],[160000000,0]]) {
+    const evidence=p=>resolveRoomFinishTrimmingEvidenceV125({
+      profile:p,pack:f.pack,itemId,requiredSubtype:subtype
+    });
+    const compile=p=>subtype===1
+      ? compileRoomFinishFlooringDraftV125({document:f.document,profile:p,pack:f.pack,itemId})
+      : compileRoomFinishWallpaperDraftV125({document:f.document,profile:p,pack:f.pack,itemId,scope:WALLPAPER_SCOPE.ALL_WALLS});
+    const key=String(itemId);
+    for (const value of invalid) {
+      const p=structuredClone(f.opened.profile);
+      slots(p)[key].Amount=value;
+      const before=structuredClone(p);
+      assert.throws(()=>evidence(p),/WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID/);
+      assert.throws(()=>compile(p),/WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID/);
+      assert.throws(()=>listOwnedRoomFinishTrimmingV125({profile:p,pack:f.pack,subtype}),/WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID/);
+      assert.deepEqual(p,before);
+    }
+    for (const value of [null,true,'1',[],{}, {Marker:'ItemMarker_None'}]) {
+      const p=structuredClone(f.opened.profile);
+      slots(p)[key]=value;
+      assert.throws(()=>evidence(p),/WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID/);
+      assert.throws(()=>compile(p),/WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID/);
+    }
+    for (const value of [0,1,2147483647]) {
+      const p=structuredClone(f.opened.profile);
+      slots(p)[key].Amount=value;
+      assert.equal(evidence(p).ownedAmount,value);
+      assert.equal(evidence(p).owned,value>0);
+      assert.equal(listOwnedRoomFinishTrimmingV125({profile:p,pack:f.pack,subtype}).some(x=>x.itemId===itemId),value>0);
+      if (value>0) assert.ok(compile(p).mutationSet);
+      else assert.throws(()=>compile(p),/COMPILE_REJECTED/);
+    }
+    const absent=structuredClone(f.opened.profile);
+    delete slots(absent)[key];
+    assert.equal(evidence(absent).owned,false);
+    assert.equal(evidence(absent).ownedAmount,0);
+    assert.throws(()=>compile(absent),/COMPILE_REJECTED/);
+  }
+  assert.equal(f.document.roomFinish.pendingMutationSet,null);
+});
+
 test('Indoor Room binding is exact and current wall identity cross-checks wall Grid identity',async()=>{
   const f=await fixture();
   const route=f.routes.routes[0];
