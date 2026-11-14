@@ -20,6 +20,8 @@ mod switch624_road_rm01;
 #[cfg(not(target_arch="wasm32"))]
 #[path="switch624_fence_fe01.rs"]
 mod switch624_fence_fe01;
+#[path="subgrid_exact_rotate.rs"]
+mod subgrid_exact_rotate;
 
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum TypedOperationKind{

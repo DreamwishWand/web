@@ -29,7 +29,7 @@ fn required(k:&str)->String{
 }
 fn main(){
  #[cfg(feature="semantic-writer-dev")]
- if matches!(env::args().nth(1).as_deref(),Some("--switch624-road-rm01-archive-only"|"--switch624-fence-fe01-archive-only"|"--switch624-fence-frp01-archive-only"|"--switch624-fence-fm01-archive-only"|"--switch624-road-r02-native-q4-archive-only"|"--switch624-fence-ortho-l-archive-only"|"--switch624-fence-diagonal90-archive-only"|"--switch624-fence-ortho-t-archive-only"|"--switch624-fence-diagonal-n3-positive-archive-only"|"--switch624-fence-diagonal-n3-mirrored-archive-only"|"--switch624-fence-diagonal-n6-positive-archive-only"|"--switch626-fence-fd01-layout-only")){
+ if matches!(env::args().nth(1).as_deref(),Some("--switch624-road-rm01-archive-only"|"--switch624-fence-fe01-archive-only"|"--switch624-fence-frp01-archive-only"|"--switch624-fence-fm01-archive-only"|"--switch624-road-r02-native-q4-archive-only"|"--switch624-fence-ortho-l-archive-only"|"--switch624-fence-diagonal90-archive-only"|"--switch624-fence-ortho-t-archive-only"|"--switch624-fence-diagonal-n3-positive-archive-only"|"--switch624-fence-diagonal-n3-mirrored-archive-only"|"--switch624-fence-diagonal-n6-positive-archive-only"|"--switch626-fence-fd01-layout-only"|"--steam626-subgrid-same-anchor-rotate-only"|"--switch626-subgrid-same-anchor-rotate-only")){
    run_switch624_archive_operation();
    return;
  }
@@ -338,28 +338,35 @@ fn run_switch624_archive_operation(){
  let add_n6p=mode=="--switch624-fence-diagonal-n6-positive-archive-only";
  let add_diag_a=add_n3p||add_n3m||add_n6p;
  let fd01=mode=="--switch626-fence-fd01-layout-only";
+ let rotate_steam=mode=="--steam626-subgrid-same-anchor-rotate-only";
+ let rotate_switch=mode=="--switch626-subgrid-same-anchor-rotate-only";
+ let rotate=rotate_steam||rotate_switch;
  let add_fence=add_l||add_d90||add_t||add_diag_a||fd01;
- let (bid,schema)=if fd01{("9A239D3DB569756D",626)}else{("52BD625D9B4E0053",624)};
- if env::args().len()!=2||required("WAND_LOCAL_INSTALLED_SWITCH_BID")!=bid{
-   deny(if fd01{"FD01_EXACT_SWITCH626_REQUIRED"}else{"RM01_EXACT_SWITCH624_REQUIRED"});
+ let (bid,schema)=if rotate_steam{(STEAM,626)}else if fd01||rotate_switch{("9A239D3DB569756D",626)}else{("52BD625D9B4E0053",624)};
+ let attested=required(if rotate_steam{"WAND_LOCAL_INSTALLED_STEAM_FULLVERSION"}else{"WAND_LOCAL_INSTALLED_SWITCH_BID"});
+ if env::args().len()!=2||attested!=bid||
+    (rotate_steam&&env::var("WAND_LOCAL_INSTALLED_SWITCH_BID").is_ok_and(|v|!v.is_empty()))||
+    (rotate_switch&&env::var("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_ok_and(|v|!v.is_empty())){
+   deny(if rotate{"SUBGRID_ROTATE_EXACT_BUILD_REQUIRED"}else if fd01{"FD01_EXACT_SWITCH626_REQUIRED"}else{"RM01_EXACT_SWITCH624_REQUIRED"});
  }
  let original=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
  let size=required("WAND_LOCAL_ORIGINAL_SIZE_BYTES").parse::<u64>()
     .unwrap_or_else(|_|deny("RM01_ORIGINAL_SIZE"));
  if original==[0;32]||size==0||size>128*1024*1024{deny("RM01_ORIGINAL_ATTESTATION");}
  let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
- let plan=required(if add_fence{"WAND_LOCAL_FENCE_ADD_CANONICAL_PLAN"}else if r02{"WAND_LOCAL_R02_CANONICAL_PLAN"}else if frp{"WAND_LOCAL_FRP01_CANONICAL_PLAN"}else if fm{"WAND_LOCAL_FM01_CANONICAL_PLAN"}
+ let plan=required(if rotate{"WAND_LOCAL_SUBGRID_ROTATE_CANONICAL_PLAN"}else if add_fence{"WAND_LOCAL_FENCE_ADD_CANONICAL_PLAN"}else if r02{"WAND_LOCAL_R02_CANONICAL_PLAN"}else if frp{"WAND_LOCAL_FRP01_CANONICAL_PLAN"}else if fm{"WAND_LOCAL_FM01_CANONICAL_PLAN"}
     else if fence{"WAND_LOCAL_FE01_CANONICAL_PLAN"}else{"WAND_LOCAL_RM01_CANONICAL_PLAN"});
  if plan.len()>16384{deny("RM01_PLAN_BOUNDS");}
- let plan_sha=hex32(&required(if add_fence{"WAND_LOCAL_FENCE_ADD_PLAN_SHA256"}else if r02{"WAND_LOCAL_R02_PLAN_SHA256"}else if frp{"WAND_LOCAL_FRP01_PLAN_SHA256"}else if fm{"WAND_LOCAL_FM01_PLAN_SHA256"}
+ let plan_sha=hex32(&required(if rotate{"WAND_LOCAL_SUBGRID_ROTATE_PLAN_SHA256"}else if add_fence{"WAND_LOCAL_FENCE_ADD_PLAN_SHA256"}else if r02{"WAND_LOCAL_R02_PLAN_SHA256"}else if frp{"WAND_LOCAL_FRP01_PLAN_SHA256"}else if fm{"WAND_LOCAL_FM01_PLAN_SHA256"}
     else if fence{"WAND_LOCAL_FE01_PLAN_SHA256"}else{"WAND_LOCAL_RM01_PLAN_SHA256"}));
  if plan_sha==[0;32]||Sha256::digest(plan.as_bytes()).as_slice()!=plan_sha{deny("RM01_PLAN_SHA_CAS");}
  let mut input=Vec::new();
  io::stdin().take(256*1024*1024+1).read_to_end(&mut input)
    .unwrap_or_else(|_|deny("RM01_PRIVATE_PIPE_READ"));
- let build=BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+ let build=BuildIdentity{platform:if rotate_steam{Platform::SteamWindows}else{Platform::Switch},
+    build_kind:if rotate_steam{BuildKind::SteamFullVersion}else{BuildKind::SwitchBid},
     build_id:bid.into(),schema,externally_attested:true};
- let session=if fd01{ProductSession::open_decoded_readonly(input,build)}
+ let session=if fd01||rotate{ProductSession::open_decoded_readonly(input,build)}
    else if fence||frp||fm||add_fence{ProductSession::open_switch624_fe01_private(input,build,expected)}
    else{ProductSession::open_switch624_rm01_private(input,build,expected)}
    .unwrap_or_else(|_|deny("RM01_FULL_DOCUMENT_OR_ARCHIVE"));
@@ -371,7 +378,8 @@ fn run_switch624_archive_operation(){
  let scope=|rev,gen,action|WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
     session_id:before.session_id,expected_revision:rev,expected_index_generation:gen,
     expected_decoded_sha256:expected,action};
- let stage=|e|if fd01{session.stage_switch626_fence_fd01_layout(e,plan.as_bytes())}
+ let stage=|e|if rotate{session.stage_subgrid_same_anchor_rotate(e,plan.as_bytes())}
+     else if fd01{session.stage_switch626_fence_fd01_layout(e,plan.as_bytes())}
      else if add_n3p{session.stage_switch624_fence_diagonal_n3_positive_archive(e,plan.as_bytes())}
      else if add_n3m{session.stage_switch624_fence_diagonal_n3_mirrored_archive(e,plan.as_bytes())}
      else if add_n6p{session.stage_switch624_fence_diagonal_n6_positive_archive(e,plan.as_bytes())}
@@ -384,7 +392,7 @@ fn run_switch624_archive_operation(){
      else if fence{session.stage_switch624_fence_fe01_archive(e,plan.as_bytes())}
      else{session.stage_switch624_road_rm01_archive(e,plan.as_bytes())};
  let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|_|deny("RM01_STAGE"));
- let count=if fd01||add_diag_a{4}else if r02||add_l||add_d90{6}else if fence||frp{7}else{8};
+ let count=if rotate{1}else if fd01||add_diag_a{4}else if r02||add_l||add_d90{6}else if fence||frp{7}else{8};
  if staged.operation_count!=count||staged.exact_field_changed_count!=count||!staged.applied||
     staged.product_writer_authorized||staged.original_overwrite_authorized||!staged.semantic_changed{
    deny("RM01_EXACT_STAGE");
@@ -399,7 +407,8 @@ fn run_switch624_archive_operation(){
     session.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).is_ok(){deny("RM01_EXPORT_REPLAY_OR_SHA");}
  io::stdout().write_all(&out).unwrap_or_else(|_|deny("RM01_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("RM01_PIPE_FLUSH"));
- if fd01{eprintln!("PRIVATE_V2_SWITCH626_FENCE_FD01_EXACT4_PIPE_PASS");}
+ if rotate{eprintln!("PRIVATE_V2_SUBGRID_SAME_ANCHOR_ROTATE_EXACT1_PIPE_PASS");}
+ else if fd01{eprintln!("PRIVATE_V2_SWITCH626_FENCE_FD01_EXACT4_PIPE_PASS");}
  else if add_n3p{eprintln!("PRIVATE_V2_SWITCH624_FENCE_DIAGONAL_N3_POSITIVE_EXACT4_PIPE_PASS");}
  else if add_n3m{eprintln!("PRIVATE_V2_SWITCH624_FENCE_DIAGONAL_N3_MIRRORED_EXACT4_PIPE_PASS");}
  else if add_n6p{eprintln!("PRIVATE_V2_SWITCH624_FENCE_DIAGONAL_N6_POSITIVE_EXACT4_PIPE_PASS");}
