@@ -37,3 +37,26 @@ test('strict original portable UTF8 bytes, legitimate Unicode retained, malforme
  // A valid UTF8 file with noncanonical JSON still fails before storage.
  await assert.rejects(importAtomicBoardPortable(db,decodeAtomicBoardPortableBytes(Buffer.from(enc(row).trim())),catalog),/PORTABLE_INVALID/);
 });
+
+
+test('QA537 independent UTF8 subview, embedded U+FEFF, and canonical transaction boundary',async()=>{
+ const valid={...row,primary:row.primary.replace('Portable','A\uFEFFB é 漢字 🎹'),backup:row.backup.replace('Portable','A\uFEFFB é 漢字 🎹')};
+ const raw=enc(valid),bytes=Buffer.from(raw);
+ const carrier=Buffer.concat([Buffer.from([0xef,0xbb,0xbf,0xff]),bytes,Buffer.from([0xff])]);
+ const view=new Uint8Array(carrier.buffer,carrier.byteOffset+4,bytes.length);
+ assert.equal(decodeAtomicBoardPortableBytes(view),raw);
+ assert.deepEqual(decodeAtomicBoardPortable(decodeAtomicBoardPortableBytes(view),catalog),valid);
+ const marker=bytes.indexOf(Buffer.from('A\uFEFFB'));assert.ok(marker>=0);
+ let transactions=0;const db={transaction(){transactions++;throw Error('UNEXPECTED_TX');}};
+ for(const invalid of [
+   Buffer.concat([Buffer.from([0xef,0xbb,0xbf,0xef,0xbb,0xbf]),bytes]),
+   Buffer.concat([bytes,Buffer.from([0xf0,0x9f,0x8e])]),
+   Buffer.concat([bytes.subarray(0,marker),Buffer.from([0xf5,0x80,0x80,0x80]),bytes.subarray(marker+1)]),
+   Buffer.concat([bytes.subarray(0,marker),Buffer.from([0xc1,0xbf]),bytes.subarray(marker+1)]),
+   new Uint8Array(carrier.buffer,carrier.byteOffset,carrier.byteLength)
+ ]) assert.throws(()=>decodeAtomicBoardPortableBytes(invalid),/PORTABLE_INVALID/);
+ for(const noncanonical of [raw.replace('"version": 1','"version": 1, "version": 1'),raw.replace(/\n/g,'\r\n'),raw+' ',raw.replace('A\uFEFFB','A\\ufeffB')]){
+  await assert.rejects(importAtomicBoardPortable(db,decodeAtomicBoardPortableBytes(Buffer.from(noncanonical)),catalog),/PORTABLE_INVALID/);
+ }
+ assert.equal(transactions,0);
+});
