@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createEmptyMoodboardDocument,createMoodboard,serializeMoodboardDocument,MOODBOARD_STORAGE_KEY as P,MOODBOARD_BACKUP_KEY as B} from '../src/lib/moodboards/store.js';
-import {exportPortableMoodboard,importPortableMoodboard,readMoodboardMigrationSnapshot as read,MOODBOARD_PORTABLE_MAX_BYTES} from '../src/lib/moodboards/origin-portability.mjs';
+import {exportPortableMoodboard,importPortableMoodboard,readMoodboardMigrationSnapshot as read,MOODBOARD_PORTABLE_MAX_BYTES,decodePortableMoodboardBytes} from '../src/lib/moodboards/origin-portability.mjs';
 const t='2026-11-14T00:00:00.000Z';
 const raw=(title)=>serializeMoodboardDocument(createMoodboard(createEmptyMoodboardDocument(t),{title},{now:t,idFactory:()=>title}).document);
 const empty=serializeMoodboardDocument(createEmptyMoodboardDocument(t));
@@ -36,4 +36,24 @@ test('quota error leaves existing empty primary and backup unchanged; noncanonic
  assert.throws(()=>importPortableMoodboard(target,before,a),/QUOTA/);assert.deepEqual(read(target),before);
  assert.throws(()=>exportPortableMoodboard(store('bad',null)),/INVALID/);
  assert.throws(()=>exportPortableMoodboard(store(a,null),true),/INVALID/);
+});
+
+test('original UTF-8 file boundary retains legitimate Unicode and rejects lossy byte forms before writes',()=>{
+ const canonical=raw('QA é 日本語 � 🎹');
+ const good=Buffer.from(canonical);
+ const target=store(),before=read(target);
+ const replacement=Buffer.from(raw('QA X'));
+ const at=replacement.indexOf(Buffer.from('QA X'))+3;
+ assert.ok(at>=3);
+ const mutate=bytes=>Buffer.concat([replacement.subarray(0,at),Buffer.from(bytes),replacement.subarray(at+1)]);
+ const bad=[mutate([0xff]),mutate([0x80]),mutate([0xe3,0x28,0xa1]),mutate([0xe3,0x81]),mutate([0xc0,0xaf]),mutate([0xed,0xa0,0x80]),mutate([0xf4,0x90,0x80,0x80]),Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),good]),Buffer.alloc(0),Buffer.alloc(MOODBOARD_PORTABLE_MAX_BYTES+1)];
+ for(const bytes of bad){
+  assert.throws(()=>importPortableMoodboard(target,before,decodePortableMoodboardBytes(bytes)),/MOODBOARD_PORTABLE_INVALID/);
+  assert.deepEqual(read(target),before);
+ }
+ assert.equal(decodePortableMoodboardBytes(good),canonical);
+ assert.equal(importPortableMoodboard(target,before,decodePortableMoodboardBytes(good)).status,'IMPORTED');
+ assert.deepEqual(Buffer.from(exportPortableMoodboard(target)),good);
+ assert.equal(read(target).backup,null);
+ assert.throws(()=>decodePortableMoodboardBytes('not bytes'),/MOODBOARD_PORTABLE_INVALID/);
 });

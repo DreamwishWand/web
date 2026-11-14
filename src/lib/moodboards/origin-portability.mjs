@@ -3,6 +3,17 @@
 import {MOODBOARD_STORAGE_KEY,MOODBOARD_BACKUP_KEY,parseMoodboardDocument,serializeMoodboardDocument} from './store.js';
 export const MOODBOARD_PORTABLE_MAX_BYTES=16*1024*1024;
 const fail=code=>{throw Error('MOODBOARD_PORTABLE_'+code);};
+// Validate the ORIGINAL file bytes before the string-level canonical check.
+// File.text() is lossy: replacement decoding and BOM stripping are forbidden.
+export function decodePortableMoodboardBytes(bytes){
+ if(!(bytes instanceof Uint8Array)||!bytes.byteLength||bytes.byteLength>MOODBOARD_PORTABLE_MAX_BYTES)fail('INVALID');
+ if(bytes.byteLength>=3&&bytes[0]===0xef&&bytes[1]===0xbb&&bytes[2]===0xbf)fail('INVALID');
+ let raw;
+ try{raw=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);}catch{fail('INVALID');}
+ const encoded=new TextEncoder().encode(raw);
+ if(encoded.byteLength!==bytes.byteLength||encoded.some((byte,index)=>byte!==bytes[index]))fail('INVALID');
+ return raw;
+}
 function exactDocument(raw){
  if(typeof raw!=='string'||!raw.length||raw.length>MOODBOARD_PORTABLE_MAX_BYTES||
     new TextEncoder().encode(raw).byteLength>MOODBOARD_PORTABLE_MAX_BYTES)fail('INVALID');

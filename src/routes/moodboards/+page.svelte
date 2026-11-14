@@ -4,7 +4,7 @@
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { moodboardCopy } from '$lib/moodboards/copy.js';
-  import { MOODBOARD_PORTABLE_MAX_BYTES, readMoodboardMigrationSnapshot, importPortableMoodboard, exportPortableMoodboard } from '$lib/moodboards/origin-portability.mjs';
+  import { MOODBOARD_PORTABLE_MAX_BYTES, readMoodboardMigrationSnapshot, importPortableMoodboard, exportPortableMoodboard, decodePortableMoodboardBytes } from '$lib/moodboards/origin-portability.mjs';
   import {
     MOODBOARD_BACKUP_KEY,
     MOODBOARD_REFERENCE_TYPES,
@@ -117,7 +117,9 @@
     try{
       const expected=readMoodboardMigrationSnapshot(localStorage);
       if(!file.size||file.size>MOODBOARD_PORTABLE_MAX_BYTES)throw Error('MOODBOARD_PORTABLE_INVALID');
-      const result=importPortableMoodboard(localStorage,expected,await file.text());
+      const bytes=new Uint8Array(await file.arrayBuffer());
+      if(bytes.byteLength!==file.size)throw Error('MOODBOARD_PORTABLE_INVALID');
+      const result=importPortableMoodboard(localStorage,expected,decodePortableMoodboardBytes(bytes));
       document=result.document;selectedId=document.boards[0]?.id??'';status=copy.imported;
     }catch(e){status=e instanceof Error&&/MOODBOARD_PORTABLE_(?:COLLISION|STALE)/.test(e.message)?copy.portableCollision:copy.portableInvalid;}
     finally{input.value='';importing=false;}
