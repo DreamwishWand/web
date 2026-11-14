@@ -140,6 +140,91 @@ test('Room Finish ownership uses exact Trimming role Data.Amount and never guess
   }).some(x=>x.itemId===160100001),true);
 });
 
+test('Room Finish ownership rejects non-int32 quantities and malformed present records before draft creation',async()=>{
+  const f=await fixture();
+  const slots=p=>p.Player.ListInventories['4'].Inventory;
+  const invalid=[true,false,'1','0','',null,[1],[],{},-1,1.5,2147483648,NaN,Infinity,undefined];
+  for (const [itemId,subtype] of [[160100001,1],[160000000,0]]) {
+    const evidence=p=>resolveRoomFinishTrimmingEvidenceV125({
+      profile:p,pack:f.pack,itemId,requiredSubtype:subtype
+    });
+    const compile=p=>subtype===1
+      ? compileRoomFinishFlooringDraftV125({document:f.document,profile:p,pack:f.pack,itemId})
+      : compileRoomFinishWallpaperDraftV125({document:f.document,profile:p,pack:f.pack,itemId,scope:WALLPAPER_SCOPE.ALL_WALLS});
+    const key=String(itemId);
+    for (const value of invalid) {
+      const p=structuredClone(f.opened.profile);
+      slots(p)[key].Amount=value;
+      const before=structuredClone(p);
+      assert.throws(()=>evidence(p),/WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID/);
+      assert.throws(()=>compile(p),/WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID/);
+      assert.throws(()=>listOwnedRoomFinishTrimmingV125({profile:p,pack:f.pack,subtype}),/WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID/);
+      assert.deepEqual(p,before);
+    }
+    for (const value of [null,true,'1',[],{}, {Marker:'ItemMarker_None'}]) {
+      const p=structuredClone(f.opened.profile);
+      slots(p)[key]=value;
+      assert.throws(()=>evidence(p),/WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID/);
+      assert.throws(()=>compile(p),/WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID/);
+    }
+    for (const value of [0,1,2147483647]) {
+      const p=structuredClone(f.opened.profile);
+      slots(p)[key].Amount=value;
+      assert.equal(evidence(p).ownedAmount,value);
+      assert.equal(evidence(p).owned,value>0);
+      assert.equal(listOwnedRoomFinishTrimmingV125({profile:p,pack:f.pack,subtype}).some(x=>x.itemId===itemId),value>0);
+      if (value>0) assert.ok(compile(p).mutationSet);
+      else assert.throws(()=>compile(p),/COMPILE_REJECTED/);
+    }
+    const absent=structuredClone(f.opened.profile);
+    delete slots(absent)[key];
+    assert.equal(evidence(absent).owned,false);
+    assert.equal(evidence(absent).ownedAmount,0);
+    assert.throws(()=>compile(absent),/COMPILE_REJECTED/);
+  }
+  assert.equal(f.document.roomFinish.pendingMutationSet,null);
+});
+
+test('Room Finish review and export recompile ownership and exact mutation from actual source, not a forged draft',async()=>{
+  const f=await fixture();
+  assert.equal(Object.isFrozen(f.pack.records),true);
+  assert.equal(Object.isFrozen(f.pack.records['160100001']),true);
+  for (const [itemId,subtype] of [[160100001,1],[160000000,0]]) {
+    const compiled=subtype===1
+      ? compileRoomFinishFlooringDraftV125({document:f.document,profile:f.opened.profile,pack:f.pack,itemId})
+      : compileRoomFinishWallpaperDraftV125({document:f.document,profile:f.opened.profile,pack:f.pack,itemId,scope:WALLPAPER_SCOPE.ALL_WALLS});
+    const draft=applyRoomFinishDraftMutationV125(f.document,compiled);
+    const good=await reviewRoomFinishVerifiedExportV125({
+      sourceBytes:f.sourceBytes,sourceName:'profile',sourceEpoch:1,opened:f.opened,draftDocument:draft,exactBuildConfirmed:true
+    });
+    for (const value of [0,true,'1',[1]]) {
+      const p=profile();
+      p.Player.ListInventories['4'].Inventory[String(itemId)].Amount=value;
+      const bytes=Uint8Array.from(makeSyntheticP1gProfile(p));
+      const opened=await openWorldSaveBytes(bytes,{sourcePlatform:'switch'});
+      await assert.rejects(()=>reviewRoomFinishVerifiedExportV125({
+        sourceBytes:bytes,sourceName:'profile',sourceEpoch:1,opened,draftDocument:draft,exactBuildConfirmed:true
+      }),/OWNED_AMOUNT_INVALID|COMPILE_REJECTED/);
+      const forged=structuredClone(good);
+      forged.sourceSha256=sha(bytes);
+      forged.sourceByteLength=bytes.length;
+      await assert.rejects(()=>commitRoomFinishVerifiedExportV125({
+        review:forged,currentSourceEpoch:1,sourceBytes:bytes,draftDocument:draft
+      }),/OWNED_AMOUNT_INVALID|COMPILE_REJECTED/);
+    }
+    const wrong=structuredClone(draft);
+    wrong.roomFinish.pendingMutationSet.changes.find(x=>x.kind==='REPLACE').after=123456789;
+    await assert.rejects(()=>reviewRoomFinishVerifiedExportV125({
+      sourceBytes:f.sourceBytes,sourceName:'profile',sourceEpoch:1,opened:f.opened,draftDocument:wrong,exactBuildConfirmed:true
+    }),/SOURCE_MUTATION_MISMATCH/);
+    const forged=structuredClone(good);
+    forged.mutationSet=structuredClone(wrong.roomFinish.pendingMutationSet);
+    await assert.rejects(()=>commitRoomFinishVerifiedExportV125({
+      review:forged,currentSourceEpoch:1,sourceBytes:f.sourceBytes,draftDocument:wrong
+    }),/SOURCE_MUTATION_MISMATCH/);
+  }
+});
+
 test('Indoor Room binding is exact and current wall identity cross-checks wall Grid identity',async()=>{
   const f=await fixture();
   const route=f.routes.routes[0];
