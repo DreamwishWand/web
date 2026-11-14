@@ -342,7 +342,7 @@ export async function reviewMinimumVerifiedTransform({
     codec:p1gPackagedProfileCodec as any,
     sourcePlatform:PlatformFamily.Switch
   });
-  const profile=safeSession.getSnapshot();
+  const profile:AnyRecord=safeSession.getSnapshot();
   requireSourceBaseline({profile,opened,baselineDocument,worldBinding,change});
   const [pack,progression]=await Promise.all([
     fetchScopePack(basePath,fetchImpl),
@@ -407,7 +407,7 @@ export async function reviewMinimumVerifiedTransform({
     gridObjectId:change.gridObjectId,
     objectMapKey:change.objectMapKey
   };
-  const admissibility=classifyMinimumPersistentTransform({
+  const admissibility:AnyRecord=classifyMinimumPersistentTransform({
     source:{
       platform:'Nintendo Switch',
       gameVersion:'1.25.0',
