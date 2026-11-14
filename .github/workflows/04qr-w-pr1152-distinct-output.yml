@@ -1,0 +1,125 @@
+name: 04 QR-W PR1152 distinct output independent
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr1152-distinct-output.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact source and actual browser downloads
+        run: |
+          set -euo pipefail
+          test "$(git merge-base HEAD 81a9a995e4895e79b555e0daabd45a4a12594c07)" = '81a9a995e4895e79b555e0daabd45a4a12594c07'
+          test "$(git diff --name-only 81a9a995e4895e79b555e0daabd45a4a12594c07 HEAD)" = '.github/workflows/04qr-w-pr1152-distinct-output.yml'
+          test "$(git diff --name-only 9598a2fbb2ae8c345c135048b8dd6f4a26aace08 81a9a995e4895e79b555e0daabd45a4a12594c07 | wc -l)" = 3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/verified-export-bundle.js)" = a549cbdf9da7e5466fde054a378de810e34b333f
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4365 --strictPort >/tmp/qa613.log 2>&1 &
+          for i in $(seq 1 75); do if curl -fsS http://127.0.0.1:4365/editor/world/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4365/editor/world/ >/dev/null
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {readFile,writeFile,mkdtemp} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {execFileSync} from 'node:child_process';import {createHash} from 'node:crypto';import {makeSyntheticP1gProfile} from './tests/helpers/p1g-fixture.mjs';import {p1gPackagedProfileCodec} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
+          const roomFinishProfile={
+            GameInfo:{Version:624,InitialVersion:624,LastSaveDeviceInfo:{deviceType:'DeviceType_Switch'}},
+            Player:{
+              ListInventories:{
+                '4':{
+                  ID:4,
+                  CompatibleItemType:'ItemType_Trimming',
+                  Inventory:{
+                    '160000000':{Amount:1,Marker:'ItemMarker_None'},
+                    '160000224':{Amount:1,Marker:'ItemMarker_None'},
+                    '160100000':{Amount:1,Marker:'ItemMarker_None'},
+                    '160100001':{Amount:1,Marker:'ItemMarker_None'}
+                  }
+                }
+              }
+            },
+            ProfileWorld:{Stores:[],Shops:[]},
+            ConditionalEventHistory:{ActiveEvents:{}},
+            World:{
+              DecorationPresets:[],
+              PlayerHouses:[{
+                HouseItemID:20500005,
+                Floors:[{
+                  BoughtRooms:{},
+                  Rooms:{
+                    '0':{
+                      Name:'Browser Room',
+                      FloorGridID:900,
+                      WallGridIDs:{'0':901,'1':902,'2':903,'3':904},
+                      RoomPrefabAddress:'Room/Browser',
+                      Flooring:160100000,
+                      Wallpapers:{
+                        '0':160000224,
+                        '1':160000224,
+                        '2':160000224,
+                        '3':160000224
+                      },
+                      WallpaperOffsetById:{'160000224':0.4623557},
+                      Ceiling:160000000,
+                      OpaqueRoom:{keep:true}
+                    }
+                  }
+                }],
+                OpaqueHouse:{keep:true}
+              }],
+              GridCollection:{
+                Grids:{
+                  '900':{ID:900,Objects:{}},
+                  '901':{ID:901,Objects:{}},
+                  '902':{ID:902,Objects:{}},
+                  '903':{ID:903,Objects:{}},
+                  '904':{ID:904,Objects:{}}
+                },
+                DiffGrids:{}
+              },
+              Villages:[],
+              FloatingIslands:{},
+              MissionSlots:{},
+              QuestInfo:{},
+              Keyholes:{},
+              OpaqueWorld:{keep:{roomFinishAcceptance:true}}
+            }
+          };
+          
+          
+          const origin='http://127.0.0.1:4365',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+           const ctx=await browser.newContext({acceptDownloads:true,viewport:{width:1440,height:1100},serviceWorkers:'block'}),page=await ctx.newPage(),errors=[],unsafe=[];
+           page.on('pageerror',e=>errors.push(String(e)));page.on('request',r=>{if(r.url().startsWith('http')&&(!r.url().startsWith(origin+'/')||!['GET','HEAD'].includes(r.method())))unsafe.push(r.method())});
+           await page.goto(origin+'/editor/world/',{waitUntil:'networkidle'});
+           const fileB=Buffer.from(makeSyntheticP1gProfile(roomFinishProfile));
+           async function open(bytes,name){await page.locator('.platform-select select').selectOption('switch');await page.locator('.load-panel input[type="file"]').setInputFiles({name,mimeType:'application/octet-stream',buffer:bytes});await page.getByText(/DDV save loaded locally/).waitFor();const routes=page.locator('[data-wep-room-finish-routes]');await routes.waitFor();await routes.locator('article').first().getByRole('button').click();await page.locator('[data-wep-room-finish-toggle]').waitFor();}
+           async function edit(){const panel=page.locator('[data-wep-room-finish]');if(!(await panel.isVisible()))await page.locator('[data-wep-room-finish-toggle]').click();await panel.waitFor();const floor=panel.locator('.room-finish-edit-grid section').nth(0);await floor.locator('select').selectOption('160100001');await floor.getByRole('button',{name:'Scope preview'}).click();await panel.locator('[data-wep-room-finish-preview]').getByRole('button',{name:'Add to draft'}).click();await page.locator('[data-wep-stage1-review] [data-wep-room-finish-change="FLOORING"]').waitFor();}
+           const ex=page.locator('[data-wep-verified-export]'),review=ex.getByRole('button',{name:'Review Changes'}),result=ex.locator('.verified-export-success'),panel=ex.locator('[data-wep-room-finish-export-review]'),build=ex.locator('.verified-export-build-confirm input');
+           
+          const compare=x=>x.normalize('NFC').toLowerCase().replace(/[. ]+$/g,'');const sha=x=>createHash('sha256').update(x).digest('hex');const expected=structuredClone(roomFinishProfile);expected.World.PlayerHouses[0].Floors[0].Rooms['0'].Flooring=160100001;
+          for(const sourceName of ['qa602-b.p1g','DDV_WAND_EXPORT_MANIFEST.json','DreamwishWand_DDV_VerifiedExport_v1_25_0.zip','DDV_EDITED_copy_'.repeat(13),'界'.repeat(70)+'.p1g']){
+           await page.goto(origin+'/editor/world/',{waitUntil:'networkidle'});await open(fileB,sourceName);await edit();await build.check();await review.click();await panel.waitFor();await ex.locator('.verified-export-confirm input').check();await ex.getByRole('button',{name:'Apply / Export'}).click();await result.waitFor();assert.match(await result.innerText(),/PASS/);
+           const buttons=result.locator('.verified-export-downloads button');assert.equal(await buttons.count(),4);const dl=async index=>{console.log('QA613_DOWNLOAD_BUTTON',index,await buttons.nth(index).innerText());const pending=page.waitForEvent('download',{timeout:15000});await buttons.nth(index).click({timeout:5000});const d=await pending;assert.equal(await d.failure(),null);return {name:d.suggestedFilename(),bytes:await readFile(await d.path())}};
+           const e=await dl(0),b=await dl(1),m=await dl(3),z=await dl(2);const names=[e.name,b.name,m.name,z.name];assert.equal(new Set(names.map(compare)).size,4);assert.ok(names.every(n=>compare(n)!==compare(sourceName)&&Buffer.byteLength(n)<=255));assert.deepEqual(b.bytes,fileB);assert.notDeepEqual(e.bytes,fileB);const manifest=JSON.parse(m.bytes.toString());assert.equal(manifest.editedFile,e.name);assert.equal(manifest.backupFile,b.name);assert.equal(manifest.editedSha256,sha(e.bytes));assert.equal(manifest.sourceSha256,sha(fileB));const decoded=await p1gPackagedProfileCodec.loadProfile(new Uint8Array(e.bytes));assert.equal(decoded.inputType,'packaged');assert.deepEqual(JSON.parse(decoded.jsonText),expected);
+           const dir=await mkdtemp(join(tmpdir(),'qa613-'));await writeFile(join(dir,'z.zip'),z.bytes);await writeFile(join(dir,'e'),e.bytes);await writeFile(join(dir,'b'),b.bytes);await writeFile(join(dir,'m'),m.bytes);execFileSync('python3',['-c',`import zipfile,sys,pathlib
+          d=pathlib.Path(sys.argv[1])
+          with zipfile.ZipFile(d/'z.zip') as z:
+           assert z.testzip() is None
+           assert set(z.namelist())==set(sys.argv[2:5])
+           for n,p in zip(sys.argv[2:5],['e','b','m']): assert z.read(n)==(d/p).read_bytes()
+          `,dir,e.name,b.name,m.name]);console.log('QA613_ACTUAL_DOWNLOAD_ZIP_EXACT_REOPEN_PASS',sourceName.length, names.map(n=>Buffer.byteLength(n)));
+          }
+          assert.deepEqual(errors,[]);assert.deepEqual(unsafe,[]);await ctx.close();}finally{await browser.close()}
+          JS
