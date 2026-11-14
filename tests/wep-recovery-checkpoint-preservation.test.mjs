@@ -77,3 +77,36 @@ test('fresh empty storage and valid empty index remain accepted; storage read fa
  assert.throws(()=>saveRecoveryRoute(denied,input()),/read denied/);
  unchanged(s,before);
 });
+
+test('checkpoint refuses inherited and reserved recovery routes without replacing original bytes',()=>{
+ const good=record();
+ const make=(routes,activeRouteKey)=>JSON.stringify({...good,routes,activeRouteKey});
+ const snap=routeKey=>({...good.routes['area-1'],routeKey});
+ const invalid=[
+  make({},'toString'),make({},'constructor'),
+  make(Object.fromEntries([['__proto__',snap('__proto__')]]),'__proto__'),
+  make(Object.fromEntries([['prototype',snap('prototype')]]),'prototype'),
+  make(Object.fromEntries([['hasOwnProperty',snap('hasOwnProperty')]]),'hasOwnProperty'),
+  make(null,'area-1'),make([], 'area-1'),make('area-1','area-1'),
+  make({'area-1':snap('area-1')},['area-1']),
+  make({'area-1':snap('different')},'area-1'),
+  make({'area-1':snap('area-1')},'missing'),
+  make({'area-1':snap('area-1'),constructor:snap('constructor')},'area-1')
+ ];
+ for(const raw of invalid){
+  const s=store([[key(a),raw],[indexKey,JSON.stringify([a])],[key(b),'other raw']]);
+  const before=[...s.data];
+  assert.throws(()=>saveRecoveryRoute(s.storage,input()),/WEP_RECOVERY_EXISTING_RECORD_INVALID/);
+  unchanged(s,before);
+  assert.equal(getRecoveryRecord(s.storage,a),null);
+  assert.deepEqual(listRecoveryRecords(s.storage),[]);
+ }
+ for(const routeKey of ['__proto__','constructor','toString','prototype',['area-1']]){
+  const s=store();assert.throws(()=>saveRecoveryRoute(s.storage,input({routeKey})),/WEP_RECOVERY_ROUTE_KEY_REQUIRED/);
+  unchanged(s,[]);
+ }
+ const s=store([[key(a),JSON.stringify(good)],[indexKey,JSON.stringify([a])]]);
+ const next=saveRecoveryRoute(s.storage,input({routeKey:'area-2'}));
+ assert.deepEqual(next.routes['area-1'],good.routes['area-1']);
+ assert.equal(next.activeRouteKey,'area-2');
+});

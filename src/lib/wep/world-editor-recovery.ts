@@ -80,10 +80,16 @@ function keyFor(fingerprint: string) {
   return PREFIX + normalizeFingerprint(fingerprint);
 }
 
+function validRouteKey(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 &&
+    !Object.hasOwn(Object.prototype, value) &&
+    value !== '__proto__' && value !== 'prototype' && value !== 'constructor';
+}
+
 function normalizeSnapshot(value: any): RecoveryRouteSnapshot {
   assert(value && typeof value === 'object', 'WEP_RECOVERY_ROUTE_INVALID');
-  const routeKey = String(value.routeKey ?? '');
-  assert(routeKey, 'WEP_RECOVERY_ROUTE_KEY_REQUIRED');
+  const routeKey = value.routeKey;
+  assert(validRouteKey(routeKey), 'WEP_RECOVERY_ROUTE_KEY_REQUIRED');
   assert(value.session && typeof value.session === 'object', 'WEP_RECOVERY_SESSION_REQUIRED');
   const savedAt = new Date(value.savedAt ?? '').toISOString();
   return {
@@ -107,14 +113,25 @@ export function normalizeRecoveryRecord(value: unknown): WorldEditorRecoveryReco
   ]) {
     assert(input[key] === false, 'WEP_RECOVERY_SAFETY_FLAG_INVALID');
   }
+  assert(
+    input.routes !== null && typeof input.routes === 'object' &&
+      !Array.isArray(input.routes) &&
+      (Object.getPrototypeOf(input.routes) === Object.prototype ||
+        Object.getPrototypeOf(input.routes) === null),
+    'WEP_RECOVERY_ROUTES_INVALID'
+  );
   const routes: Record<string, RecoveryRouteSnapshot> = {};
-  for (const [key, route] of Object.entries(input.routes ?? {})) {
+  for (const [key, route] of Object.entries(input.routes)) {
+    assert(validRouteKey(key), 'WEP_RECOVERY_ROUTE_KEY_REQUIRED');
     const normalized = normalizeSnapshot(route);
     assert(normalized.routeKey === key, 'WEP_RECOVERY_ROUTE_INDEX_MISMATCH');
     routes[key] = normalized;
   }
-  const activeRouteKey = String(input.activeRouteKey ?? '');
-  assert(activeRouteKey && routes[activeRouteKey], 'WEP_RECOVERY_ACTIVE_ROUTE_INVALID');
+  const activeRouteKey = input.activeRouteKey;
+  assert(
+    validRouteKey(activeRouteKey) && Object.hasOwn(routes, activeRouteKey),
+    'WEP_RECOVERY_ACTIVE_ROUTE_INVALID'
+  );
   return {
     schema: WORLD_EDITOR_RECOVERY_SCHEMA,
     version: 1,
