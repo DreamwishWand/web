@@ -133,3 +133,32 @@ try{
  await assert.rejects(access(bad));assert.deepEqual(await readFile(path),bytes);
  console.log('ACT767_SWITCH626_FURNITURE_COLLECTION_PRIVATE_CLI_1POS_19NEG_PASS');
 }finally{await rm(swdir,{recursive:true,force:true})}
+
+// ACT816: explicit Steam Furniture mode, same bounded scanner; synthetic only.
+const sfdir=await mkdtemp(join(tmpdir(),'wand-steam-furniture-collection-cli-'));
+const sfargs=(path,t='40000001')=>['--steam626-collection-furniture-receipt-only','2120000001','0',t,'--out',path];
+const sfcall=(a,body=raw(swdoc),over={})=>call(a,body,{WAND_LOCAL_INSTALLED_SWITCH_BID:'',...over});
+try{
+ const path=join(sfdir,'receipt.json'),bad=join(sfdir,'denied.json');
+ const p=sfcall(sfargs(path));assert.equal(p.status,0,p.stderr);assert.equal(p.stdout,'');
+ const bytes=await readFile(path),v=JSON.parse(bytes);
+ assert.equal(v.contract,'wand.native.private.steam626.furniture-collection-group-readset@1');
+ assert.equal(v.platform,'SteamWindows');assert.equal(v.buildKind,'SteamFullVersion');assert.equal(v.buildId,v.fullVersion);
+ assert.equal(v.schema,626);assert.equal(v.decodedSha256,sha(raw(swdoc)));
+ assert.equal(v.selectedGroup.steamSavedNotCompleteMultiFalseShape,true);
+ assert.equal(v.selectedGroup.switchSavedNotCompleteMultiFalseShape,undefined);
+ assert.equal(v.selectedGroup.falseCount,3);assert.equal(v.storedMemberships.length,1);assert.equal(v.storedStock.inventoryId,0);
+ for(const k of ['writerAuthorized','productReadAccepted','editedCopyAuthorized','applyAuthorized','nativeV3Verified','effectiveEligibilityVerified','ownershipVerified','rightsVerified'])assert.equal(v[k],false,k);
+ deny(sfcall(sfargs(path)),'PRIVATE_OUTPUT_ALREADY_EXISTS');
+ deny(sfcall(sfargs(bad,'30000001')),'COLLECTION_SELECTOR_ID');
+ deny(sfcall(sfargs(bad),raw(swdoc),{WAND_LOCAL_INSTALLED_SWITCH_BID:'9A239D3DB569756D'}),'EXACT_EXTERNAL_STEAM_BUILD_REQUIRED');
+ deny(sfcall(sfargs(bad),raw(swdoc),{WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:'wrong'}),'EXACT_EXTERNAL_STEAM_BUILD_REQUIRED');
+ for(const mutate of [x=>x.GameInfo.Version=624,x=>x.Player.CollectionSets[0].GroupData[0].State=0,
+ x=>x.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems['40000001']=true,
+ x=>x.Player.ListInventories['0'].Inventory['40000001'].Amount=0,
+ x=>x.Player.ListInventories['9']={ID:9,CompatibleItemType:'ItemType_Furniture',Inventory:{}}]){
+  const x=structuredClone(swdoc);mutate(x);const r=sfcall(sfargs(bad),raw(x));assert.equal(r.status,12,r.stderr);assert.equal(r.stdout,'');
+ }
+ await assert.rejects(access(bad));assert.deepEqual(await readFile(path),bytes);
+ console.log('ACT816_STEAM626_FURNITURE_COLLECTION_PRIVATE_CLI_1POS_9NEG_PASS');
+}finally{await rm(sfdir,{recursive:true,force:true})}
