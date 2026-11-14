@@ -41,11 +41,11 @@ export async function runLiveAcceptanceShadow(cwd,{repository,raw,expectedDigest
   const readPr=async()=>{
     const p=await get(root+'/pulls/'+s.pr);
     if(p?.number!==s.pr||p.state!=='open'||p.merged!==false||p.draft!==false||p.head?.sha!==s.head||
-       p.head?.repo?.id!==REPO_ID||p.base?.repo?.id!==REPO_ID||p.base?.ref!=='main')deny('SHADOW_PR_CHANGED_OR_NOT_READY');
-    return p;
+       p.head?.repo?.id!==REPO_ID||p.base?.repo?.id!==REPO_ID||p.base?.ref!=='main'||!sha(p.base?.sha))deny('SHADOW_PR_CHANGED_OR_NOT_READY');
+    return p.base.sha;
   };
   const main=await readMain();
-  await readPr();
+  const prBase=await readPr();
   const run=await get(root+'/actions/runs/'+c.runId);
   const jobs=await get(root+'/actions/runs/'+c.runId+'/attempts/'+c.attempt+'/jobs?per_page=100');
   const result=localInspect(cwd,{raw,expectedDigest,main,run,jobs});
@@ -54,7 +54,7 @@ export async function runLiveAcceptanceShadow(cwd,{repository,raw,expectedDigest
   const after=await get(root+'/actions/runs/'+c.runId);
   inspectRunEvidence({repositoryId:REPO_ID,workflowId:370723530,workflowPath:'.github/workflows/ci.yml',
     head:s.head,event:'pull_request',base:s.base,pr:s.pr,runId:c.runId,attempt:c.attempt,jobs:['verify']},after,jobs);
-  await readPr();
+  if(await readPr()!==prBase)deny('SHADOW_PR_BASE_CHANGED');
   if(await readMain()!==main)deny('SHADOW_MAIN_CHANGED');
   return {...result,status:'LIVE_ACCEPTANCE_SHADOW_MATCH_ONLY',remoteSnapshotMatched:true,
     issuerVerified:false,qaSemanticsVerified:false,remoteFreshnessVerified:false,

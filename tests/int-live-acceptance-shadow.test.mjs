@@ -22,7 +22,7 @@ function transport(options={}){
    calls.push(p);
    if(p===root)return options.repo??repo;
    if(p===root+'/git/ref/heads/main'){refs++;return {ref:'refs/heads/main',object:{type:'commit',sha:refs===2&&options.staleMain?head:main}};}
-   if(p===root+'/pulls/1260'){prs++;return prs===2&&options.stalePr?{...pr,state:'closed'}:options.pr??pr;}
+   if(p===root+'/pulls/1260'){prs++;return prs===2&&options.stalePr?{...pr,state:'closed'}:prs===2&&Object.hasOwn(options,'finalPr')?options.finalPr:options.pr??pr;}
    if(p===root+'/actions/runs/43590060819'){runs++;return runs===2&&options.rerun?{...run,run_attempt:2}:options.run??run;}
    if(p===root+'/actions/runs/43590060819/attempts/1/jobs?per_page=100')return options.jobs??jobs;
    throw Error('UNEXPECTED_REQUEST:'+p);
@@ -43,6 +43,18 @@ test('actual historical receipt/CI metadata and exact Git objects compose throug
   [{repo:{...repo,id:1}},/SHADOW_REPO_IDENTITY/],[{pr:{...pr,head:{...pr.head,sha:main}}},/SHADOW_PR_CHANGED/]]){
   await assert.rejects(runLiveAcceptanceShadow(cwd,input,transport(o).get),re);
  }
+ // PR base is an independent snapshot identity, not the historical CI base.
+ for(const baseSha of [undefined,null,'','not-a-sha',head.toUpperCase()]){
+   const bad={...pr,base:{...pr.base,sha:baseSha}};
+   await assert.rejects(runLiveAcceptanceShadow(cwd,input,transport({pr:bad}).get),/SHADOW_PR_CHANGED_OR_NOT_READY/);
+   await assert.rejects(runLiveAcceptanceShadow(cwd,input,transport({finalPr:bad}).get),/SHADOW_PR_CHANGED_OR_NOT_READY/);
+ }
+ await assert.rejects(runLiveAcceptanceShadow(cwd,input,transport({finalPr:{...pr,base:{...pr.base,sha:head}}}).get),/SHADOW_PR_BASE_CHANGED/);
+ const stable={...pr,base:{...pr.base,sha:base}};
+ const stableResult=await runLiveAcceptanceShadow(cwd,input,transport({pr:stable}).get);
+ assert.equal(stableResult.remoteSnapshotMatched,true);
+ assert.equal(stableResult.main,main);
+ assert.equal(stableResult.mergeAuthorized,false);
  assert.equal(git('show-ref'),before);
  assert.equal(m.calls.length,8);
 });
