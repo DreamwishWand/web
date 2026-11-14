@@ -1,4 +1,4 @@
-name: 01A ACT425 immutable public Source transfer (no private data)
+name: 01A ACT559 fixed public CI source transfer (synthetic only)
 on:
   push:
     branches: ['01a/act438-fixed-source-transfer']
@@ -11,18 +11,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 'd2ce5efc034d52e9ed7ac5d66f12635728a8441b'
-      - name: Archive exact tracked public Core and synthetic CLI tests
-        shell: bash
+          ref: '21e1506e3df766a712b6c16c21c2aff98f2a49de'
+      - name: Archive exact retained public test source only
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 'd2ce5efc034d52e9ed7ac5d66f12635728a8441b'
-          git ls-tree -r HEAD crates/ddv-save-core tests/private-collection-cli.mjs tests/private-character-skin-read.mjs tests/private-active-avatar-read.mjs > source-blobs.txt
-          git archive --format=tar HEAD crates/ddv-save-core tests/private-collection-cli.mjs tests/private-character-skin-read.mjs tests/private-active-avatar-read.mjs | gzip -n > source.tar.gz
+          test "$(git rev-parse HEAD)" = '21e1506e3df766a712b6c16c21c2aff98f2a49de'
+          git ls-tree -r HEAD tools/owner-local-steam-v1 tests/stage-g tests/stage-h tests/stage-f tests/owner-local-steam-v1-attestation.test.mjs tests/owner-local-steam-v1-ci-boundary.test.mjs src/lib/ddv/core/save .github/workflows/01a-stageh-dev-metadata-read.yml .github/workflows/01a-owner-local-steam-v1.yml > source-blobs.txt
+          git archive --format=tar HEAD tools/owner-local-steam-v1 tests/stage-g tests/stage-h tests/stage-f tests/owner-local-steam-v1-attestation.test.mjs tests/owner-local-steam-v1-ci-boundary.test.mjs src/lib/ddv/core/save .github/workflows/01a-stageh-dev-metadata-read.yml .github/workflows/01a-owner-local-steam-v1.yml | gzip -n > source.tar.gz
           sha256sum source.tar.gz source-blobs.txt > source.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: act425-fixed-public-source-only
+          name: act559-fixed-public-synthetic-source
           path: |
             source.tar.gz
             source-blobs.txt
