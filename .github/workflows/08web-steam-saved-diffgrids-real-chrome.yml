@@ -87,22 +87,22 @@ jobs:
           test -s tests/stage-f/fixtures/synthetic626-diffgrids.p1g
           test -s tests/stage-f/fixtures/expected-diffgrids.json
           test -z "$(git ls-files tests/stage-f/fixtures)"
-      - name: Test-only anchor for verified signed bytes at isolated HTTPS origin
+      - name: Test-only anchor for verified signed bytes at the exact legacy origin (Chrome isolated DNS)
         run: |
           node --input-type=module <<'NODE'
           import {writeFile,readFile} from 'node:fs/promises';
           import {createHash} from 'node:crypto';
           import {inspectReleasePins} from './scripts/readonly-release/seal.mjs';
           import {readonlyReleaseIdentityText} from './src/lib/ddv/core/save/product-rust-wasm-release-loader.mjs';
+          import {LEGACY_RELEASE_TUPLE,matchReleaseTuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
           const path='src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs';
           if(!(await readFile(path,'utf8')).includes('PROTECTED_READONLY_RELEASE_ANCHOR=null;'))
             throw Error('TEST_ANCHOR_SOURCE_NOT_NULL');
           const pins=await inspectReleasePins('static/worker-wasm',process.env.R22_HISTORICAL_SOURCE_HEAD);
-          const a={contract:'wand.r22.protected-readonly-release@1',repository:'DreamwishWand/web',
-            signerWorkflow:'DreamwishWand/web/.github/workflows/pages.yml',sourceRef:'refs/heads/main',
-            origin:'https://127.0.0.1:19443',basePath:'/web',pins,attestationVerifiedAtBuild:true};
+          const a={contract:'wand.r22.protected-readonly-release@1',...LEGACY_RELEASE_TUPLE,pins,attestationVerifiedAtBuild:true};
+          if(matchReleaseTuple(a)!==LEGACY_RELEASE_TUPLE)throw Error('TEST_LEGACY_TUPLE_DENIED');
           a.releaseId=createHash('sha256').update(readonlyReleaseIdentityText(a)).digest('hex');
-          await writeFile(path,'// TEST ONLY; verified historical signed assets, isolated origin.\nconst a='+JSON.stringify(a)+';Object.freeze(a.pins);export const PROTECTED_READONLY_RELEASE_ANCHOR=Object.freeze(a);\n');
+          await writeFile(path,'// TEST ONLY; verified historical signed assets, exact legacy origin mapped to local TLS only.\nconst a='+JSON.stringify(a)+';Object.freeze(a.pins);export const PROTECTED_READONLY_RELEASE_ANCHOR=Object.freeze(a);\n');
           console.log('08WEB_TEST_ONLY_RELEASE_ID',a.releaseId);
           NODE
       - name: Build exact preformal Source with test-origin verified anchor only
