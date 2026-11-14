@@ -121,9 +121,11 @@ export async function createVerifiedCandidateExportBundle({
   }
 
   const safeSourceName = sanitizeSourceName(sourceName);
-  const backupName = `DDV_BACKUP_original_${safeSourceName}`;
-  const editedName = safeSourceName;
-  const integrityName = 'DDV_WAND_EXPORT_MANIFEST.json';
+  // Browser downloads must never suggest the selected original's name.
+  // The same names are used in the standalone files, ZIP and integrity data.
+  const backupName = distinctDownloadName(`DDV_BACKUP_original_${safeSourceName}`, sourceName);
+  const editedName = distinctDownloadName(`DDV_EDITED_copy_${safeSourceName}`, sourceName);
+  const integrityName = distinctDownloadName('DDV_WAND_EXPORT_MANIFEST.json', sourceName);
   const integrity = Object.freeze({
     artifact: 'dreamwish.ddv.verified-candidate-export-bundle',
     schemaVersion: 2,
@@ -157,7 +159,7 @@ export async function createVerifiedCandidateExportBundle({
   return Object.freeze({
     contract: 'dreamwish.ddv.verified-candidate-browser-export@1',
     bundle: Object.freeze({
-      fileName: `DreamwishWand_DDV_VerifiedExport_v${gameVersion.replaceAll('.', '_')}.zip`,
+      fileName: distinctDownloadName(`DreamwishWand_DDV_VerifiedExport_v${gameVersion.replaceAll('.', '_')}.zip`, sourceName),
       mimeType: 'application/zip',
       bytes: zipBytes,
       sha256: bundleSha256
@@ -200,9 +202,24 @@ function requireVerifiedCandidate(candidate, verification) {
 }
 
 function sanitizeSourceName(value) {
-  const name = String(value ?? '').trim().replace(/[\\/\u0000-\u001f\u007f]/g, '_');
-  if (!name || name === '.' || name === '..') return 'profile';
-  return name.slice(0, 180);
+  const name = String(value ?? '').trim().replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '_').replace(/[. ]+$/g, '');
+  if (!name) return 'profile';
+  // Keep generated filenames below common filesystem UTF-8 component limits;
+  // do not cut a Unicode code point in half.
+  let result = '', bytes = 0;
+  for (const char of name) {
+    const size = encoder.encode(char).length;
+    if (bytes + size > 180) break;
+    result += char;
+    bytes += size;
+  }
+  return result.replace(/[. ]+$/g, '') || 'profile';
+}
+
+function distinctDownloadName(name, sourceName) {
+  // Case-insensitive/normalized comparison is conservative for Windows/macOS.
+  const comparable = value => String(value ?? '').normalize('NFC').toLowerCase().replace(/[. ]+$/g, '');
+  return comparable(name) === comparable(sourceName) ? 'WAND_copy_' + name : name;
 }
 
 function requireExportResult(value) {
