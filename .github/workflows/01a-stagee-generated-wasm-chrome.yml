@@ -53,3 +53,75 @@ jobs:
           ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
           test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
           test -f crates/ddv-save-core/src/wasm_worker.rs
+
+      - name: QA ONLY PR1311 actual opt-in discovery ABI
+        run: |
+          set -euo pipefail
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped
+          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-pr1311-wasm --target nodejs --no-typescript
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict');
+          const {WorkerWasmSource}=require('/tmp/wand-pr1311-wasm/ddv_save_core.js');
+          const {createHash}=require('node:crypto');
+          const steam='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          const bytes=v=>Buffer.from(JSON.stringify(v));
+          const ids=[40000048,40000050,40000066,40000076,40000077,40000079,40000080,40000081,40000082,40000093,40000094,40000095,40000106,40000113,40000174,40000201,40000202];
+          const F='catalog0-furniture',C='linked-crop-chest48';
+          function doc(chest=false){
+            const d={GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{GridCollection:{Grids:{},DiffGrids:{}},MissionSlots:{},Villages:[]},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{40000048:{Amount:3,Marker:'ItemMarker_None'}}}},ContainerInventories:{},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Unknown:{x:1}};
+            if(chest){
+              const p=d.Player; p.ListInventories[2]={ID:2,CompatibleItemType:'ItemType_ActivityItem',Inventory:{30200000:{Amount:2}}};
+              const empty=()=>({ItemID:0,Amount:0,State:null}), slots=Array.from({length:48},empty);
+              for(let i=0;i<17;i++)slots[i]={ItemID:30200000,Amount:50,State:null,Unknown:i};
+              p.ContainerInventories={0:{ID:0,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:30200000,Amount:5,State:{}}]},1:{ID:1,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[empty()]},12:{ID:12,ParentItemID:40001680,BelongsToPlayer:true,BlockMoveTo:false,Size:48,ExtraSize:0,Inventory:slots}};
+              p.BackpackOverflow={Items:[]};d.World.GridCollection.Grids[7]={ID:7,GridDefaultLayoutPath:'',Objects:{4:{ID:4,ItemID:40001680,State:{Storage:{ContainerInventoryID:12,DefaultContainerInventoryData:'',UnlockKeyItemID:0,UnlockLocId:'',DesignID:null}}}}};
+              d.World.Villages=[{Areas:{2:{GridIDs:[7],Unlocked:true}}}];
+            }return d;
+          }
+          let nonce=1,checks=0;
+          function open(d){const b=bytes(d),w=new WorkerWasmSource('steam-windows','steam-full-version',steam,626,true,new Uint8Array(32).fill(nonce++));for(let i=0;i<b.length;i+=1048576)w.append_chunk(b.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(b));return [w,r];}
+          const scope=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256];
+          const deny=f=>{assert.throws(f);checks++};
+          function page(w,r,p,o){const v=JSON.parse(w.discover_scoped_amount(p,o,...scope(r)));assert.equal(v.contract,'wand.worker.steam626.scoped-amount-discovery@1');assert.equal(v.profile,p);assert.equal(v.offset,o);assert.equal(v.sessionId,r.sessionId);assert.equal(v.revision,r.revision);assert.equal(v.indexGeneration,r.indexGeneration);assert.equal(v.decodedSha256,r.decodedSha256);assert.equal(v.writerAuthorized,false);assert.equal(v.editedCopyAuthorized,false);assert(v.scanned<=16);assert(v.rows.length<=v.scanned);return v;}
+          for(const chest of [false,true]){
+            const d=doc(chest),p=chest?C:F;
+            if(!chest){
+              d.Player.ListInventories[0].Inventory=Object.fromEntries(ids.map(id=>[id,{Amount:3,Marker:'ItemMarker_None'}]));
+              // First 16 candidates are valid stock but physically placed:
+              // a wholly empty first page must still advance scan offset.
+              d.World.GridCollection.Grids[7]={ID:7,GridDefaultLayoutPath:'',Objects:Object.fromEntries(ids.slice(0,16).map((id,i)=>[i+1,{ID:i+1,ItemID:id,State:null}]))};
+            }
+            const [w,r]=open(d);const a=page(w,r,p,0),b=page(w,r,p,16),end=page(w,r,p,17);
+            assert.equal(a.scanned,16);assert.equal(a.nextOffset,16);assert.equal(a.rows.length,chest?16:0);
+            assert.equal(b.scanned,1);assert.equal(b.nextOffset,null);assert.equal(b.rows.length,1);
+            assert.equal(end.scanned,0);assert.equal(end.rows.length,0);assert.equal(end.nextOffset,null);
+            assert.deepEqual(page(w,r,p,0),a);
+            if(chest)assert.deepEqual(a.rows.map(x=>x.selector),Array.from({length:16},(_,i)=>i));
+            const row=b.rows[0],old=chest?50:3,newAmount=old-1;
+            assert.deepEqual(row,{profile:p,id:chest?12:0,selector:chest?16:ids[16],itemId:chest?30200000:ids[16],oldAmount:old});
+            deny(()=>w.discover_scoped_amount('unknown',0,...scope(r)));
+            deny(()=>w.discover_scoped_amount(p,18,...scope(r)));
+            deny(()=>w.discover_scoped_amount(p,4294967295,...scope(r)));
+            const [foreign,fr]=open(d);deny(()=>foreign.discover_scoped_amount(p,0,...scope(r)));foreign.close();foreign.free();
+            deny(()=>w.discover_scoped_amount(p,0,r.sessionId,0n,2n,r.decodedSha256));
+            deny(()=>w.discover_scoped_amount(p,0,r.sessionId,0n,1n,'00'.repeat(32)));
+            const pr=JSON.parse(w.preview_scoped_amount(p,row.id,row.selector,newAmount,...scope(r)));
+            deny(()=>w.stage_scoped_amount(p,row.id,row.selector,old,newAmount,'00'.repeat(32),...scope(r)));
+            if(!chest)deny(()=>w.stage_scoped_amount(p,0,ids[0],3,2,pr.entrySha256,...scope(r)));
+            const st=JSON.parse(w.stage_scoped_amount(p,row.id,row.selector,old,newAmount,pr.entrySha256,...scope(r)));
+            assert.equal(st.exactFieldChangedCount,1);assert.equal(st.writerAuthorized,false);
+            deny(()=>w.discover_scoped_amount(p,16,...scope(r)));deny(()=>w.discover_scoped_amount(p,16,...scope(st)));
+            const u=JSON.parse(w.toggle_scoped_amount(false,...scope(st)));deny(()=>w.discover_scoped_amount(p,0,...scope(u)));
+            const rr=JSON.parse(w.toggle_scoped_amount(true,...scope(u)));deny(()=>w.discover_scoped_amount(p,0,...scope(rr)));
+            const outReceipt=JSON.parse(w.begin_scoped_amount_output(...scope(rr))), chunks=[];let size=0;while(size<outReceipt.decodedBytes){const c=Buffer.from(w.next_scoped_amount_output_chunk());assert(c.length>0);size+=c.length;chunks.push(c);}
+            const expected=structuredClone(d);if(chest)expected.Player.ContainerInventories[12].Inventory[16].Amount=newAmount;else expected.Player.ListInventories[0].Inventory[ids[16]].Amount=newAmount;
+            const actual=Buffer.concat(chunks);assert.deepEqual(actual,bytes(expected));assert.equal(sha(actual),outReceipt.decodedSha256);
+            deny(()=>w.discover_scoped_amount(p,0,...scope(rr)));w.close();w.free();
+            const bad=doc(chest);bad.ConditionalEventHistory.ActiveEvents[2147483647]={UnrecognizedEventState:{ItemID:chest?30200000:40000048}};
+            const [bw,br]=open(bad);const badPage=page(bw,br,p,0);assert.equal(badPage.rows.length,0);assert.equal(badPage.scanned,chest?16:1);
+            bw.close();deny(()=>bw.discover_scoped_amount(p,0,...scope(br)));bw.free();
+            console.log('PR1311 GENERATED_WASM '+p+' paging/omission/exact1/epoch PASS');
+          }
+          console.log('PR1311 GENERATED_WASM 2POS '+checks+'NEG PASS');
+          JS
