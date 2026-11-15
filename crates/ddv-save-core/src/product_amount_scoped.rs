@@ -455,4 +455,43 @@ mod tests{
         let mut d=doc();d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]=json!({"Amount":3});let s=open(&d);
         assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000001},2).is_err());
     }
+
+    // Independent ACT944 fixed-head causal test, both actual target item IDs.
+    // Check direct stage as well as preview; known typed SpawnState must not
+    // bypass the linked chest address reference restriction.
+    #[test]fn qa_act944_fixed_event_causal_and_chest_address(){
+        for chest in [false,true]{
+            let d=if chest{chest_doc()}else{doc()};
+            let (sel,old,new,item)=if chest{
+                (ExistingAmountSelection::Chest{container_id:12,slot_index:0},50,49,30200000)
+            }else{(ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},3,2,40000048)};
+            let ok=open(&d);
+            let t=ok.preview_scoped_product_amount(scope(&ok,WorkerAction::ReadDomain),sel,new).unwrap();
+            let entry=t.view().entry_sha256;
+            let bads=[
+                json!({"UnrecognizedEventState":{"ItemID":item}}),
+                json!({"SpawnState":{"SpawnedObjects":[{"GridID":1,"GridObjectID":2,"ItemID":item}]}}),
+                json!({"RecurringEventState":{"RecurringEventID":1,"ItemID":item}}),
+                json!({"SpawnState":{"SpawnedObjects":[]},"SendMailboxState":{"MailID":"x"}}),
+            ];
+            for bad in bads{
+                let mut q=d.clone();q["ConditionalEventHistory"]["ActiveEvents"]["2147483647"]=bad;
+                let s=open(&q);let before=s.receipt().unwrap();
+                assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new).is_err());
+                assert!(s.stage_scoped_product_amount(scope(&s,WorkerAction::Stage),sel,old,new,entry).is_err());
+                assert_eq!(s.receipt().unwrap(),before);
+                assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+            }
+            let mut q=d.clone();
+            q["ConditionalEventHistory"]["ActiveEvents"]["2147483647"]=json!({"SpawnState":{"SpawnedObjects":[{"GridID":7,"GridObjectID":4}]}});
+            let s=open(&q);
+            if chest{
+                assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new).is_err());
+                assert!(s.stage_scoped_product_amount(scope(&s,WorkerAction::Stage),sel,old,new,entry).is_err());
+            }else{
+                assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new).is_ok());
+            }
+        }
+    }
+
 }
