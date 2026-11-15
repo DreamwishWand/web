@@ -1754,6 +1754,77 @@ mod private_avatar {
             expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
         fn hash(d:&Value)->[u8;32]{Sha256::digest(serde_json::to_vec(&d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]).unwrap()).into()}
         fn read(d:&Value)->CoreResult<Value>{let s=open(d);s.read_private_furniture_amount_dependencies(env(&s),40000001,hash(d))}
+
+        #[test]
+        fn qa_pr1339_ordinary_readset_actual_session_and_counter(){
+            let mut d=doc();
+            d["World"]["GridCollection"]["Grids"]["7"]=json!({"ID":7,"NextGridObjectID":9,
+                "Objects":{"0":{"ID":0,"ItemID":40000002,"State":{"Opaque":true}},
+                    "4":{"ID":4,"ItemID":40000001,"X":-3,"Y":2,"Orientation":"GridOrientation_Up","State":null,"From":null},
+                    "8":{"ID":8,"ItemID":40000003,"State":null}},"Unknown":{"Keep":7}});
+            d["World"]["GridCollection"]["Grids"]["9"]=json!({"ID":9,"NextGridObjectID":1,
+                "Objects":{"4":{"ID":4,"ItemID":40000002,"State":null}}});
+            // Same ObjectID in a different grid is not a local counter collision.
+            // Its own counter is deliberately not attested by the selected-grid reader.
+            let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();let raw=s.decoded.to_vec();
+            let digest=hash(&d);let read=|x:&ProductSession,env:WorkerEnvelope,oid:Option<u32>|x.read_private_ordinary_adddel_dependencies(env,40000001,digest,7,oid);
+            let g=&d["World"]["GridCollection"]["Grids"]["7"];
+            let sha_value=|v:&Value|sha(&serde_json::to_vec(v).unwrap());
+            let a=read(&s,e,None).unwrap();
+            let r=&a["ordinaryStoredGridReadSet"];
+            assert_eq!(a["contract"],"wand.native.private.ordinary-adddel-dependencies@1");
+            assert_eq!(r["gridSha256"],sha_value(g));assert_eq!(r["objectsSha256"],sha_value(&g["Objects"]));
+            assert_eq!(r["nextGridObjectIdSha256"],sha(b"9"));assert_eq!(r["storedObjectCount"],3);
+            assert_eq!(r["nextGridObjectId"],9);assert_eq!(r["nextAfterAdd"],10);assert_eq!(r["nextAfterDelete"],9);
+            assert_eq!(r["nextUnusedInStoredMap"],true);assert!(r["selectedStoredObject"].is_null());
+            for k in ["effectiveRootVerified","effectivePlacementVerified","eventAddressClosureVerified","quotaVerified","writerAuthorized"]{assert_eq!(r[k],false);}
+            let del=read(&s,e,Some(4)).unwrap();let o=&del["ordinaryStoredGridReadSet"]["selectedStoredObject"];
+            assert_eq!(o["objectId"],4);assert_eq!(o["itemId"],40000001);assert_eq!(o["recordSha256"],sha_value(&g["Objects"]["4"]));
+            assert_eq!(o["x"]["value"],-3);assert_eq!(o["y"]["value"],2);assert_eq!(o["orientation"]["value"],"GridOrientation_Up");
+            assert_eq!(o["state"]["sha256"],sha(b"null"));assert_eq!(o["from"]["sha256"],sha(b"null"));
+            let ancestor=s.read_private_furniture_amount_dependencies(e,40000001,digest).unwrap();
+            let mut normalized=del.clone();normalized.as_object_mut().unwrap().remove("ordinaryStoredGridReadSet");
+            normalized["contract"]=ancestor["contract"].clone();assert_eq!(normalized,ancestor);
+            let mut pos=2;let mut neg=0;
+            // An empty selected grid and near-overflow counter are observations, not grants.
+            let mut empty=d.clone();empty["World"]["GridCollection"]["Grids"]["7"]["Objects"]=json!({});
+            empty["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(4294967294u32);
+            let x=open(&empty);let v=read(&x,env(&x),None).unwrap();
+            assert_eq!(v["ordinaryStoredGridReadSet"]["nextAfterAdd"],4294967295u32);pos+=1;
+            let mut missing=d.clone();let o=missing["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"].as_object_mut().unwrap();
+            o.remove("X");o.remove("Orientation");o.remove("From");
+            let x=open(&missing);let v=read(&x,env(&x),Some(4)).unwrap();let o=&v["ordinaryStoredGridReadSet"]["selectedStoredObject"];
+            assert_eq!(o["x"]["present"],false);assert_eq!(o["orientation"]["present"],false);assert_eq!(o["from"]["present"],false);
+            assert_eq!(v["ordinaryStoredGridReadSet"]["writerAuthorized"],false);pos+=1;
+            let mut bads=Vec::new();
+            for n in [json!(0),json!(8),json!(4294967295u32),json!(-1),json!(9.0),json!("9"),json!(4294967296u64)]{
+                let mut x=d.clone();x["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=n;bads.push(x);
+            }
+            for (k,v) in [("ID",json!(3)),("ItemID",json!(40000002)),("State",json!({})),("X",json!(1.5)),("Orientation",json!(3))]{
+                let mut x=d.clone();x["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"][k]=v;bads.push(x);
+            }
+            for k in ["NextGridObjectID","Objects","ID"]{
+                let mut x=d.clone();x["World"]["GridCollection"]["Grids"]["7"].as_object_mut().unwrap().remove(k);bads.push(x);
+            }
+            let mut x=d.clone();x["World"]["GridCollection"]["DiffGrids"]["7"]=json!({"ID":7,"ModifiedObjects":{}});bads.push(x);
+            let mut x=d.clone();x["World"]["GridCollection"]["DiffGrids"]["8"]["ID"]=json!(7);bads.push(x);
+            let mut x=d.clone();x["World"]["GridCollection"]["Grids"]["7"]["Objects"]["8"].as_object_mut().unwrap().remove("ItemID");bads.push(x);
+            let mut x=d.clone();x["World"]["GridCollection"]["Grids"]["7"]["Objects"]["04"]=json!({"ID":4,"ItemID":40000001});bads.push(x);
+            let mut x=d.clone();x["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"].as_object_mut().unwrap().remove("State");bads.push(x);
+            for x in bads {let x=open(&x);let b=x.receipt().unwrap();assert!(read(&x,env(&x),Some(4)).is_err());assert_eq!(x.receipt().unwrap(),b);neg+=1;}
+            for oid in [Some(0),Some(8),Some(9),Some(4294967295u32)]{assert!(read(&s,e,oid).is_err());neg+=1;}
+            assert!(s.read_private_ordinary_adddel_dependencies(e,40000001,digest,6,None).is_err());neg+=1;
+            assert!(s.read_private_ordinary_adddel_dependencies(e,40000001,[7;32],7,None).is_err());neg+=1;
+            for bad in [WorkerEnvelope{expected_revision:1,..e},WorkerEnvelope{expected_index_generation:2,..e},
+                WorkerEnvelope{expected_decoded_sha256:[0;32],..e},WorkerEnvelope{action:WorkerAction::Stage,..e}]{
+                assert!(read(&s,bad,None).is_err());neg+=1;
+            }
+            assert!(read(&open(&d),e,None).is_err());neg+=1;
+            assert_eq!(s.receipt().unwrap(),before);assert_eq!(s.decoded.as_ref(),raw.as_slice());
+            s.close().unwrap();assert!(read(&s,e,None).is_err());neg+=1;
+            assert_eq!((pos,neg),(4,32));
+        }
+
         #[test]
         fn exact_amount_dependency_saved_float_refs_and_effective_unknown(){
             let d=doc();let s=open(&d);let before=s.receipt().unwrap();let e=env(&s);
