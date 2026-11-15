@@ -54,6 +54,12 @@ impl WorkerSessionGuard {
         self.session.read_saved_diffgrids_page(scope,cursor)
     }
     #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn discover_scoped_amount(&self,e:WorkerEnvelope,profile:&str,offset:u32)
+        ->CoreResult<(Vec<crate::CoreExistingAmountTarget>,Option<u32>,u32)>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.discover_scoped_product_amount(e,profile,offset)
+    }
+    #[cfg(feature="product-amount-scoped")]
     pub(crate) fn preview_scoped_amount(&self,e:WorkerEnvelope,selection:crate::ExistingAmountSelection,new:u32)->CoreResult<crate::CoreExistingAmountTarget>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         self.session.preview_scoped_product_amount(e,selection,new)

@@ -285,6 +285,25 @@ impl WorkerWasmSource {
         }
         Ok(out)
     }
+    /// ACT916 opt-in bounded same-session discovery. No caller eligibility.
+    #[cfg(feature="product-amount-scoped")]
+    pub fn discover_scoped_amount(&self,profile:&str,offset:u32,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        let (targets,next,scanned)=guard.discover_scoped_amount(e,profile,offset).map_err(|e|err(e.0))?;
+        let mut rows=Vec::new();
+        for t in targets{
+            let v=t.view();let (id,selector)=match v.selection{
+                crate::ExistingAmountSelection::Inventory{inventory_id,item_id}=>(inventory_id,item_id),
+                crate::ExistingAmountSelection::Chest{container_id,slot_index}=>(container_id,slot_index as u32),
+            };
+            rows.push(serde_json::json!({"profile":profile,"id":id,"selector":selector,"itemId":v.item_id,"oldAmount":v.old_amount}));
+        }
+        Ok(serde_json::json!({"contract":"wand.worker.steam626.scoped-amount-discovery@1","profile":profile,
+            "sessionId":session_id,"revision":revision,"indexGeneration":index_generation,"decodedSha256":decoded_sha256,
+            "offset":offset,"nextOffset":next,"scanned":scanned,"rows":rows,"writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
+    }
     /// ACT916 opt-in ABI, absent from the existing Pages feature set.
     #[cfg(feature="product-amount-scoped")]
     pub fn preview_scoped_amount(&self,profile:&str,id:u32,selector:u32,new:u32,session_id:&str,
