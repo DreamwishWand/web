@@ -10,6 +10,16 @@ const rows={
  'zh-CN':['收藏 — 本地单项编辑','仅将一个已验证的现有条目从未收集改为已收集。不修改奖励、库存或组完成状态，不上传、不覆盖原文件。','读取当前会话','验证加密原始备份','已验证收藏条目','确认更改','暂存单项更改','撤销','重做','另存加密副本','关闭会话','下载原始备份','下载编辑副本','没有已验证的合格条目。','未收集','已收集','剩余未收集条目','独立加密副本已在新 Codec Worker 中重新打开；独立操作系统进程验收另行进行。','拒绝，会话已关闭。','产品编辑不可用。'],
  'pt-BR':['Coleção — edição local única','Apenas uma entrada existente verificada pode passar a coletada. Sem alterar recompensas, estoque ou conclusão, sem envio ou sobrescrita.','Ler sessão ativa','Verificar backup original criptografado','Entrada verificada','Revisar alteração','Preparar alteração única','Desfazer','Refazer','Salvar cópia criptografada separada','Fechar sessão','Baixar backup original','Baixar cópia editada','Nenhuma entrada elegível verificada.','Não coletada','Coletada','Entradas não coletadas restantes','Cópia reaberta em novo Worker Codec; validação por processo OS independente separada.','Negado. Sessão encerrada.','Edição de produto indisponível.']
 };
+const closeFailed=Object.freeze({
+ en:'Session closure could not be verified. Retry Close before reading another session.',
+ ja:'Sessionの終了を確認できません。別のSessionを読む前に、もう一度閉じてください。',
+ fr:'La fermeture de la session n’a pas pu être vérifiée. Réessayez de fermer avant de lire une autre session.',
+ de:'Das Schließen der Sitzung konnte nicht bestätigt werden. Vor dem Lesen einer anderen Sitzung erneut schließen.',
+ it:'Impossibile verificare la chiusura della sessione. Riprovare a chiudere prima di leggere un’altra sessione.',
+ 'es-ES':'No se pudo verificar el cierre de la sesión. Vuelve a cerrarla antes de leer otra sesión.',
+ 'zh-CN':'无法验证会话已关闭。读取其他会话前，请重试关闭。',
+ 'pt-BR':'Não foi possível verificar o encerramento da sessão. Tente fechar novamente antes de ler outra sessão.'
+});
 export const COLLECTION_EXACT1_LOCALES=Object.freeze(Object.keys(rows));
-const map=Object.freeze(Object.fromEntries(Object.entries(rows).map(([k,v])=>[k,Object.freeze(Object.fromEntries(keys.map((key,i)=>[key,v[i]])))])));
+const map=Object.freeze(Object.fromEntries(Object.entries(rows).map(([k,v])=>[k,Object.freeze({...Object.fromEntries(keys.map((key,i)=>[key,v[i]])),closeFailed:closeFailed[k]})])));
 export const collectionExact1Copy=locale=>map[locale]||map.en;
