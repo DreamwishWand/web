@@ -528,12 +528,45 @@ try{
  // Trusted physical mouse input, not a JavaScript synthetic click.
  // Download the exact native-selected fixture, independently read the disk file,
  // and re-select that file through the actual second native file input.
- const point=await evaluate('(()=>{const b=document.querySelector("[data-diffgrids-backup-download]");if(!b||b.disabled)throw Error("BACKUP_BUTTON_NOT_READY");b.scrollIntoView({block:"center",inline:"nearest"});const r=b.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}})()');
+ // app.css uses smooth scrolling. A synchronous rectangle after the
+ // default scrollIntoView can refer to the old viewport while CDP moves
+ // the mouse during animation. Force instant scroll in this test only,
+ // then verify stable geometry and the actual hit element before input.
+ const point=await evaluate(`(async()=>{
+   const sel='[data-diffgrids-backup-download]';
+   const b=document.querySelector(sel);
+   if(!b||b.disabled)throw Error('BACKUP_BUTTON_NOT_READY');
+   b.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+   const rect=b.getBoundingClientRect(),x=rect.left+rect.width/2,y=rect.top+rect.height/2;
+   if(!b.isConnected||document.querySelector(sel)!==b||b.disabled||
+      rect.width<=0||rect.height<=0||x<0||y<0||x>=innerWidth||y>=innerHeight||
+      !b.contains(document.elementFromPoint(x,y)))
+    throw Error('BACKUP_PHYSICAL_HIT_DENIED '+JSON.stringify({x,y,viewport:[innerWidth,innerHeight],
+      scrollY,connected:b.isConnected,disabled:b.disabled,hit:document.elementFromPoint(x,y)?.tagName}));
+   const probe={down:0,click:0,trustedDown:false,trustedClick:false};
+   window.__readerBackupClickProbe=probe;
+   b.addEventListener('pointerdown',e=>{probe.down++;probe.trustedDown=e.isTrusted},{once:true});
+   b.addEventListener('click',e=>{probe.click++;probe.trustedClick=e.isTrusted},{once:true});
+   return {x,y,scrollY};
+ })()`);
  assert.ok(point.x>=0&&point.x<1280&&point.y>=0&&point.y<800,'BACKUP_CLICK_VISIBLE');
  await rpc('Input.dispatchMouseEvent',{type:'mouseMoved',x:point.x,y:point.y});
+ assert.equal(await evaluate(`(()=>{const b=document.querySelector('[data-diffgrids-backup-download]');return !!b&&!b.disabled&&b.contains(document.elementFromPoint(${point.x},${point.y}))&&Math.abs(scrollY-${point.scrollY})<=1})()`),true,'BACKUP_PHYSICAL_HIT_STABLE');
  await rpc('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,x:point.x,y:point.y});
  await rpc('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:point.x,y:point.y});
- await waitDom('document.querySelector("[data-diffgrids-backup-status]")?.dataset.diffgridsBackupStatus==="backupRequested"');
+ try{
+  await waitDom('document.querySelector("[data-diffgrids-backup-status]")?.dataset.diffgridsBackupStatus==="backupRequested"');
+ }catch(e){
+  const state=await evaluate(`(()=>({probe:window.__readerBackupClickProbe,
+    status:document.querySelector('[data-diffgrids-backup-status]')?.dataset.diffgridsBackupStatus??null,
+    disabled:document.querySelector('[data-diffgrids-backup-download]')?.disabled??null,
+    hasResults:!!document.querySelector('[data-diffgrids-count]')}))()`);
+  throw Error('NATIVE_BACKUP_REQUEST_FAILED '+JSON.stringify({state,downloadEvents:downloads.size}));
+ }
+ assert.deepEqual(await evaluate('window.__readerBackupClickProbe'),
+  {down:1,click:1,trustedDown:true,trustedClick:true},'BACKUP_ONE_TRUSTED_PHYSICAL_CLICK');
+ console.log('08WEB_NATIVE_BACKUP_PHYSICAL_HIT_STABLE_TRUSTED_PASS');
  let completed;
  for(let n=0;n<150;n++){
   const items=[...downloads.values()];
