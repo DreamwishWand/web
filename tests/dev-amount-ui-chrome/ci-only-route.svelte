@@ -16,7 +16,10 @@
     itemId:30000001,slotIndex:0,compatibleItemType:'ItemType_Ingredient',
     oldAmount:50,registryVerified:true,sourceVerified:true,rightsAllowed:true};
   const furnitureZero={...target,targetId:0,itemId:40000001,compatibleItemType:'ItemType_Furniture',oldAmount:7};
-  let staged=false,backed=false;
+  const chestFirst={...target,kind:'ChestExistingSlotAmountDecrease',targetId:48,
+    itemId:30000002,slotIndex:0,compatibleItemType:null,oldAmount:7};
+  const chestSecond={...chestFirst,slotIndex:1};
+  let staged=false,backed=false,lastChestSlot=null;
   const trustedWorkerAdapter={
     async open({file,build,originalSha256}){
       if(file?.name!=='synthetic-ci.p1g'||file.size!==64||
@@ -29,13 +32,16 @@
       originalName:'synthetic-ci.p1g',originalSha256:aSha,originalSizeBytes:64,
       backupName:'backup-ci.p1g'}},
     async listVerifiedTargets(){if(!backed)throw Error('DENIED');
-      return {targets:[target,furnitureZero],rawDocumentExposed:false}},
+      return {targets:[target,furnitureZero,chestFirst,chestSecond],rawDocumentExposed:false}},
     async stageTyped(commands){
       const c=commands?.[0];
       const exact=t=>c?.kind===t.kind&&c.inventoryId===t.targetId&&
         c.canonicalItemId===t.itemId&&c.compatibleItemType===t.compatibleItemType&&
         c.expectedOldAmount===t.oldAmount&&c.newAmount===t.oldAmount-1;
-      if(commands?.length!==1||![target,furnitureZero].some(exact))throw Error('DENIED');
+      const exactChest=t=>c?.kind===t.kind&&c.containerId===t.targetId&&c.slotIndex===t.slotIndex&&
+        c.expectedItemId===t.itemId&&c.expectedOldAmount===t.oldAmount&&c.newAmount===t.oldAmount-1;
+      if(commands?.length!==1||(![target,furnitureZero].some(exact)&&![chestFirst,chestSecond].some(exactChest)))throw Error('DENIED');
+      lastChestSlot=c.kind==='ChestExistingSlotAmountDecrease'?c.slotIndex:null;
       staged=true;return kind('STAGED');
     },
     async undo(){staged=false;return kind('UNDONE')},
@@ -56,3 +62,5 @@
   };
 </script>
 <LocalAmountEditorDev verifiedLocalDevGate={true} {trustedWorkerAdapter}/>
+<!-- CI-only observation: verifies selected display matches actual typed slot. -->
+<output data-ci-last-chest-slot>{lastChestSlot??''}</output>

@@ -5,7 +5,7 @@
   // as a semantic writer. PR929 QA-C/QA-L acceptance is a separate gate.
   import {onMount,tick} from 'svelte';
   import {locale} from '$lib/i18n/runtime.js';
-  import {localAmountCopy} from './local-amount-copy.mjs';
+  import {localAmountCopy,localAmountTargetLabel} from './local-amount-copy.mjs';
   import {createLocalAmountDevWorkflow,STEAM626_FULL_VERSION} from './local-amount-workflow.mjs';
 
   export let trustedWorkerAdapter=null;
@@ -154,10 +154,10 @@
         {:else}
           <label for="dev-amount-target">{words.target}</label>
           <select id="dev-amount-target" bind:value={chosen}
+            aria-describedby={phase==='ready'?'dev-amount-target-review':undefined}
             disabled={pending||phase!=='ready'}>
             {#each state.targets as t,i}
-              <option value={i}>{t.kind==='InventoryExistingAmountDecrease'?'Inventory':'Chest'} ·
-                {t.itemId} · {words.before} {t.oldAmount}</option>
+              <option value={i}>{localAmountTargetLabel(t,words)}</option>
             {/each}
           </select>
           <label for="dev-amount-new">{words.newAmount}</label>
@@ -170,12 +170,20 @@
               step="1" inputmode="numeric" bind:value={newAmount} disabled={pending||phase!=='ready'}/>
           {/if}
           {#if phase==='ready'}
+            {#if current}
+              <div id="dev-amount-target-review" class="preview" aria-live="polite" data-dev-target-review>
+                <strong>{words.review}</strong>
+                <p>{localAmountTargetLabel(current,words)}</p>
+                {#if validDecrease}<p>{words.before}: {current.oldAmount} → {words.after}: {proposedAmount}</p>{/if}
+              </div>
+            {/if}
             <button type="button" data-dev-stage on:click={stage}
               disabled={pending||!validDecrease}>{words.stage}</button>
           {/if}
           {#if state.preview}
             <div class="preview" data-dev-preview aria-live="polite">
               <strong>{words.preview}</strong>
+              <p>{localAmountTargetLabel(state.targets[state.choice],words)}</p>
               <p>{words.before}: {state.preview.oldAmount} → {words.after}: {state.preview.newAmount}</p>
             </div>
           {/if}
