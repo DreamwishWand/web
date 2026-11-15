@@ -33,8 +33,8 @@ jobs:
         run: |
           set -euo pipefail
           grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
-          # Reproduce the exact accepted dependency lock before building; the crate lock is not tracked.
-          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          # Existing accepted lock fixture; preserve exact bytes, no registry re-resolution.
+          cp tests/fixtures/ddv-save-core-accepted.Cargo.lock crates/ddv-save-core/Cargo.lock
           printf '%s\n' 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
           cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-amount-tools
