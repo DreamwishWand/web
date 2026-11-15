@@ -44,7 +44,7 @@ const output=r=>Object.freeze({
 export function createSavedDiffGridsUiClient(workerFactory){
  if(typeof workerFactory!=='function')fail();
  let worker,ready=false,epoch=0,seq=0,selection=null,openRequestId=null,
-   nextIndex=null,total=null,countSeen=0,terminated=false;
+   nextIndex=null,total=null,countSeen=0,terminated=false,closing=null;
  const waiting=new Map(),listeners=new Set();
  const notify=state=>{for(const listener of listeners)listener(state)};
  const clear=()=>{
@@ -55,11 +55,20 @@ export function createSavedDiffGridsUiClient(workerFactory){
    waiting.clear();
  };
  const requireReady=()=>{if(!ready||terminated)fail()};
+ const stop=()=>{
+   if(terminated)return;
+   // A failed Close acknowledgement cannot attest that the old Rust
+   // session is gone. Destroy the one Worker, not just the page receipt.
+   terminated=true;ready=false;clear();rejectAll();
+   try{worker?.terminate()}finally{notify({ready:false,unsupported:true})}
+ };
+
  const send=(kind,payload={})=>{
    requireReady();
    const requestId=++seq;
-   const promise=new Promise((resolve,reject)=>waiting.set(requestId,{resolve,reject}));
-   worker.postMessage({kind,requestId,...payload});
+   const promise=new Promise((resolve,reject)=>waiting.set(requestId,{resolve,reject,kind}));
+   try{worker.postMessage({kind,requestId,...payload})}
+   catch{const p=waiting.get(requestId);waiting.delete(requestId);p?.reject(Error('DIFFGRIDS_UI_FAILED_CLOSED'))}
    return {requestId,promise};
  };
  function start(listener=()=>{}){
@@ -67,6 +76,7 @@ export function createSavedDiffGridsUiClient(workerFactory){
    listeners.add(listener);
    worker=workerFactory();
    worker.onmessage=({data})=>{
+     if(terminated)return;
      if(data?.kind==='DIFFGRIDS_RUNTIME_READY'){
        ready=data.ready===true&&data.writerAuthorized===false;
        notify({ready,unsupported:!ready});
@@ -75,19 +85,30 @@ export function createSavedDiffGridsUiClient(workerFactory){
      const p=waiting.get(data?.requestId);
      if(!p)return;
      waiting.delete(data.requestId);
-     if(data.ok!==true||!isRecord(data.summary))p.reject(Error('DIFFGRIDS_UI_FAILED_CLOSED'));
-     else p.resolve(data.summary);
+     if(data.ok!==true||!isRecord(data.summary)){
+       const e=Error('DIFFGRIDS_UI_FAILED_CLOSED');
+       // The existing exact OPEN_FAILED_CLOSED branch revokes its own
+       // current epoch before replying. This is the sole nonfatal OPEN
+       // denial; malformed/ambiguous acknowledgements require cleanup.
+       if(p.kind==='OPEN_LOCAL_STORED_DIFFGRIDS'&&
+          only(data,'requestId,ok,error')&&data.ok===false&&
+          data.error==='LOCAL_DIFFGRIDS_OPEN_FAILED_CLOSED')
+         e.workerOpenRevoked=true;
+       p.reject(e);
+     }else p.resolve(data.summary);
    };
-   worker.onerror=()=>{ready=false;clear();rejectAll();worker?.terminate();notify({ready:false,unsupported:true})};
+   worker.onerror=stop;
    return ()=>{listeners.delete(listener)};
  }
  async function open(file,originalSha256,confirmed){
    requireReady();
    // A must be revoked even if B is malformed before any Worker OPEN.
-   await close();
+   const barrier=close(),token=epoch;
+   await barrier;
+   if(token!==epoch)fail();
+   requireReady();
    if(!(file instanceof Blob)||file.size<16||file.size>128*1024*1024||
       file.size%16!==0||!SHA.test(originalSha256)||confirmed!==true)fail();
-   const token=epoch;
    const {requestId,promise}=send('OPEN_LOCAL_STORED_DIFFGRIDS',{
      file,expectedEncryptedSizeBytes:file.size,
      attestation:{
@@ -104,7 +125,13 @@ export function createSavedDiffGridsUiClient(workerFactory){
      if(token!==epoch||!openOk(s))fail();
      selection=s.selection;total=s.recordCount;nextIndex=0;
      return Object.freeze({recordCount:total,pageIndex:0,writerAuthorized:false});
-   }catch(e){if(token===epoch)await close();throw Error('DIFFGRIDS_UI_FAILED_CLOSED')}
+   }catch(e){
+     if(token===epoch){
+       if(e?.workerOpenRevoked===true){clear();rejectAll()}
+       else {try{await close()}catch{}}
+     }
+     throw Error('DIFFGRIDS_UI_FAILED_CLOSED')
+   }
  }
  async function readNext(){
    requireReady();
@@ -124,18 +151,25 @@ export function createSavedDiffGridsUiClient(workerFactory){
        hasNext:nextIndex!==null,recordCount:total});
    }catch{if(token===epoch)await close();throw Error('DIFFGRIDS_UI_FAILED_CLOSED')}
  }
- async function close(){
-   if(terminated)return;
+ function close(){
+   if(terminated)return Promise.resolve();
    const selected=selection,pending=openRequestId;
-   clear();rejectAll();
-   if(!ready)return;
-   try{
-     const payload=selected===null?
-       {selection:null,openRequestId:pending}:{selection:selected};
-     if(selected!==null||pending!==null){
-       const x=send('CLOSE_LOCAL_STORED_DIFFGRIDS',payload);await x.promise;
-     }
-   }catch{ /* state already locally revoked; no authority from failure */ }
+   clear(); // Every later caller invalidates earlier OPEN before any await.
+   if(closing)return closing; // Never reject the in-flight CLOSE waiter.
+   rejectAll();
+   if(!ready||(selected===null&&pending===null))return Promise.resolve();
+   const payload=selected===null?
+     {selection:null,openRequestId:pending}:{selection:selected};
+   const p=(async()=>{
+     try{
+       const {promise}=send('CLOSE_LOCAL_STORED_DIFFGRIDS',payload);
+       const ack=await promise;
+       if(!only(ack,'closed,writerAuthorized')||ack.closed!==true||
+          ack.writerAuthorized!==false)fail();
+     }catch{stop();fail()}
+   })();
+   closing=p;const settled=()=>{if(closing===p)closing=null};p.then(settled,settled);
+   return p;
  }
  function dispose(){
    terminated=true;ready=false;clear();rejectAll();worker?.terminate();
