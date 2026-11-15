@@ -1,3 +1,4 @@
+import {readCollectionCandidate} from '../../../collection/collection-candidate-read.mjs';
 // R04 opt-in read-only boundary owned by the SAME local Worker. No product UI
 // export/import path until a signed wasm build and independent QA are accepted.
 export const PRODUCT_WASM_READ_CONTRACT='wand.product.single-save-session.boundary@1';
@@ -350,19 +351,19 @@ export function createProductWasmReadOwner(wasmFactory,{allowCollectionCandidate
    });
  };
  // ACT965: opt-in Worker-private candidate query; no second owner or edit target.
- // Lazy import keeps default Reader build/harness behavior unchanged. Capture the
- // active instance before awaiting import: Close/Open/Stage cannot rebind A to B.
+ // Static import keeps the existing IIFE Worker bundle single-chunk. Capture
+ // active instance before async dispatch: Close/Open/Stage cannot rebind A to B.
  const readCollectionCandidateSource=async selector=>{
    const a=active;
    const current=()=>active===a&&a!==null&&!a.scoped?.hasMutation();
    if(allowCollectionCandidateSource!==true||!current())
      fail('PRODUCT_WORKER_COLLECTION_CANDIDATE_OFF');
-   // Snapshot exact numeric selector before the asynchronous import boundary.
+   // Snapshot exact numeric selector before the asynchronous dispatch boundary.
    if(!exactKeys(selector,'definitionId,groupIndex,itemId')||
       !['definitionId','groupIndex','itemId'].every(k=>Number.isSafeInteger(selector[k])&&selector[k]>=0&&selector[k]<=0xffffffff))
      fail('PRODUCT_WORKER_COLLECTION_CANDIDATE_SELECTOR');
    const selected=Object.freeze({definitionId:selector.definitionId,groupIndex:selector.groupIndex,itemId:selector.itemId});
-   const {readCollectionCandidate}=await import('../../../collection/collection-candidate-read.mjs');
+   await Promise.resolve(); // Retain the stale-session boundary without code splitting.
    if(!current())fail('PRODUCT_WORKER_COLLECTION_CANDIDATE_OFF');
    return readCollectionCandidate({wasm:a.wasm,receipt:a.receipt,identity:a.identity,
      parse:strictTypedJson,current,revoke:()=>{if(current())revoke()}},selected);
