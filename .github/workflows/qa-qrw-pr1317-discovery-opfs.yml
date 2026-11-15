@@ -26,8 +26,8 @@ jobs:
       - name: Fixed Web and compatible accepted Core blobs (QA workspace only)
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = 1faa98a0860fab1fb37106cde5f6b079ef255ca3
-          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/qa-qrw-pr1317-discovery-opfs.yml'
+          git merge-base --is-ancestor 1faa98a0860fab1fb37106cde5f6b079ef255ca3 HEAD
+          test "$(git diff --name-only 1faa98a0860fab1fb37106cde5f6b079ef255ca3 HEAD)" = '.github/workflows/qa-qrw-pr1317-discovery-opfs.yml'
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = a14f97946b1698909d3f070475664ae22a5e713e
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 2c0a9901dd46f63e203ad244856161448fcb0f77
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = ff609e6d39050b9f7f554c55c9a85dd93e5ed4f8
@@ -69,11 +69,13 @@ jobs:
             const file=new File([bytes],'synthetic.p1g'),s=meta.sel,chest=profile==='linked-crop-chest48',itemId=chest?30200000:s.selector;
             const args={file,build,originalSha256:meta.originalSha256};
             const command=chest?{kind:'ChestExistingSlotAmountDecrease',containerId:s.id,slotIndex:s.selector,expectedItemId:itemId,expectedOldAmount:s.newAmount+1,newAmount:s.newAmount}:{kind:'InventoryExistingAmountDecrease',inventoryId:0,canonicalItemId:itemId,compatibleItemType:'ItemType_Furniture',expectedOldAmount:s.newAmount+1,newAmount:s.newAmount};
-            const names=new Set(),calls=[];let mode='real';
+            const names=new Set(),calls=[];let mode='real',firstReceipt=null;
             const make=(extra={})=>createProductScopedAmountLocalAdapter({wasmFactory:async()=>({WorkerWasmSource}),allowCoreDiscoverySource:true,coreDiscoveryProfile:profile,...extra});
             WorkerWasmSource.prototype.discover_scoped_amount=function(p,o,...a){
              calls.push([p,o]);if(p!==profile)throw Error('UNRELATED_PROFILE_MUST_NOT_RUN');
-             const r=JSON.parse(native.call(this,p,o,...a));
+             const artificial=mode==='bound'||mode==='cap';
+             const r=artificial&&o>0?{...firstReceipt,offset:o}:JSON.parse(native.call(this,p,o,...a));
+             if(artificial&&o===0)firstReceipt={...r};
              if(mode==='scope')r.sessionId='f'.repeat(32);
              if(mode==='revision')r.revision=1;
              if(mode==='profile')r.profile=p==='catalog0-furniture'?'linked-crop-chest48':'catalog0-furniture';
@@ -94,7 +96,7 @@ jobs:
              await neg(()=>Promise.resolve(make({discoverScopedTargets:async()=>[]})));
              const off=make({allowCoreDiscoverySource:false});await ready(off);
              ensure((await off.listVerifiedTargets()).targets.length===0,'DEFAULT_OFF');await off.close();
-             for(const bad of ['scope','revision','profile','loop','flag','duplicate']){
+             for(const bad of ['scope','revision','profile','loop','flag','duplicate','bound','cap']){
               mode=bad;await ready();await neg(()=>a.listVerifiedTargets());await a.close();
              }
              mode='real';await ready();calls.length=0;
@@ -157,7 +159,7 @@ jobs:
            const source=makeSyntheticP1gProfile(d),originalSha256=hash(source),dir='tests/stage-f/fixtures';await mkdir(dir,{recursive:true});const expected=structuredClone(d);apply(expected);await writeFile(join(dir,sel.profile+'.p1g'),source);await writeFile(join(dir,sel.profile+'.json'),JSON.stringify({sel,originalSha256,expected:JSON.stringify(expected)}));
           }
           NODE
-          sed -i 's/positive:2,negative:6/positive:2,negative:20/;s/ACT951_REAL_CHROME_OPFS_SCOPED_ADAPTER_PASS/QRW_ACT978_COMBINED_CORE_DISCOVERY_OPFS_PASS/' tests/stage-f/chrome-smoke.mjs
+          sed -i 's/positive:2,negative:6/positive:2,negative:24/;s/ACT951_REAL_CHROME_OPFS_SCOPED_ADAPTER_PASS/QRW_ACT978_COMBINED_CORE_DISCOVERY_OPFS_PASS/' tests/stage-f/chrome-smoke.mjs
           node --check tests/stage-f/scoped-product-opfs.mjs
           node --check tests/.qrw1317-fixtures.mjs
       - name: Build opt-in ACT916 generated WASM only (no product artifact or Save)
