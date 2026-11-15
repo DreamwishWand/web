@@ -675,7 +675,7 @@ mod comp03_tests{
         json!({"GameInfo":{"Version":626},"World":{"FloatingIslands":{"10":{"Unlocked":true,"GridIDs":[7]},"11":{"Unlocked":true,"GridIDs":[8]}},
         "GridCollection":{"Grids":{"7":{"ID":7,"TessellationFactor":2,"GridDefaultLayoutPath":"","NextGridObjectID":10,"Objects":{"0":well.clone(),"2":comp03_obj(2,0,0)}},
         "8":{"ID":8,"GridDefaultLayoutPath":"","Objects":{"0":well}}},"DiffGrids":{}}},
-        "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_Default"]},
+        "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_GroundAlteration"]},
         "Inventory":{"40100038":{"Amount":99,"Marker":"ItemMarker_None"}}}}},"Unknown":{"keep":true}})
     }
     fn open(d:&Value)->ProductSession{ProductSession::open_decoded_readonly(enc(d).unwrap(),crate::BuildIdentity{
