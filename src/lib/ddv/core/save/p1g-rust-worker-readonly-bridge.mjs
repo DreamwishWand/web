@@ -3,7 +3,6 @@
 // Writer, filesystem path, network, Cloud or UI Save payload response.
 // DEV_READY synthetic testing only. Not imported by production Worker/UI.
 import {p1gPackagedProfileCodec} from './p1g-packaged-profile-codec.js';
-import {compareOriginalBackupBytes,originalBackupFileName} from './local-original-backup.mjs';
 import {
   createProductWasmReadOwner,
   PRODUCT_WASM_CHUNK_MAX_BYTES,
@@ -133,6 +132,8 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
     const source=scopedReady(),token=epoch;backupMatched=false;scopedBusy=true;
     const current=()=>token===epoch&&scopedSource===source;
     try{
+      const {compareOriginalBackupBytes}=await import('./local-original-backup.mjs');
+      if(!current())fail('P1G_WORKER_OPEN_REVOKED');
       await compareOriginalBackupBytes(source.file,candidate,current,MAX_ENCRYPTED_BYTES);
       if(!current())fail('P1G_WORKER_OPEN_REVOKED');
       backupMatched=true;
@@ -160,6 +161,8 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
       const editedSha=await hash(encrypted);
       if(!current()||reopenedSha!==result.decodedSha256||editedSha===source.sha)
         fail('P1G_WORKER_SCOPED_OUTPUT_DENIED');
+      const {originalBackupFileName}=await import('./local-original-backup.mjs');
+      if(!current())fail('P1G_WORKER_OPEN_REVOKED');
       const backupName=originalBackupFileName(source.name);
       const name=backupName.slice(0,-'.original-backup.p1g'.length)+'.edited-copy.p1g';
       if(name.toLowerCase()===source.name.toLowerCase()||name===backupName)fail('P1G_WORKER_SCOPED_OUTPUT_DENIED');
