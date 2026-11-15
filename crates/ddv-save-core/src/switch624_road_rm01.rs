@@ -707,8 +707,9 @@ mod comp03_tests{
         assert!(s.stage_steam626_road_comp03_seed_merge_q9(e,&enc(&p).unwrap()).is_err());
         for o in p["objects"].as_array().unwrap(){d["World"]["GridCollection"]["Grids"]["7"]["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
         d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(18);
-        let out=s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).unwrap();
+        let export=env(&s,WorkerAction::ExportEditedCopy);
+        let out=s.take_typed_semantic_decoded_once(export).unwrap();
         assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),d);
-        assert!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).is_err());
+        assert!(s.take_typed_semantic_decoded_once(export).is_err());
     }
 }
