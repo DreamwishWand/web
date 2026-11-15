@@ -472,6 +472,78 @@ fn eligible(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32)->CoreResult<(
     };
     subscribers(b,r.player,r.world,top,d,item,furniture)
 }
+
+const DISCOVERY_SCAN_PAGE:usize=16;
+const DISCOVERY_MAX_CANDIDATES:usize=4096;
+fn discovery_selections(b:&[u8],player:Span,profile:&str)->CoreResult<Vec<ExistingAmountSelection>>{
+    let (catalog,_)=pack()?;let mut out=Vec::new();
+    match profile{
+        "catalog0-furniture"=>{
+            let lists=f(b,player,"ListInventories")?;
+            let route=f(b,lists,"0")?;
+            need(n(b,route,"ID")?==0&&strv(b,route,"CompatibleItemType")?=="ItemType_Furniture","PRODUCT_AMOUNT_DISCOVERY_CATALOG_ROUTE")?;
+            for(k,e)in members(b,f(b,route,"Inventory")?,16384)?{
+                let id=key(&k)?;
+                if id<=i32::MAX as u32&&in_rows(&catalog["profiles"]["catalog0Furniture"]["entries"],id as i32){
+                    let old=n(b,e,"Amount")?;
+                    if (2..=9999).contains(&old){out.push(ExistingAmountSelection::Inventory{inventory_id:0,item_id:id});}
+                }
+            }
+        }
+        "linked-crop-chest48"=>{
+            let p=&catalog["profiles"]["linkedCropChest48"];
+            for(k,c)in members(b,f(b,player,"ContainerInventories")?,4096)?{
+                let id=key(&k)?;if id<=1{continue;}
+                need(n(b,c,"ID")?==id,"PRODUCT_AMOUNT_DISCOVERY_CONTAINER_ID")?;
+                let parent=n(b,c,"ParentItemID")?;
+                if parent>i32::MAX as u32||!in_rows(&p["parents"],parent as i32)||
+                   n(b,c,"Size")?!=48||n(b,c,"ExtraSize")?!=0||
+                   !boolean(b,c,"BelongsToPlayer")?||boolean(b,c,"BlockMoveTo")?{continue;}
+                let slots=array(b,f(b,c,"Inventory")?,48)?;
+                if slots.len()!=48{continue;}
+                for (slot,s) in slots.into_iter().enumerate(){
+                    let item=n(b,s,"ItemID")?;
+                    if item<=i32::MAX as u32&&in_rows(&p["items"],item as i32)&&n(b,s,"Amount")?==50{
+                        let state=f(b,s,"State")?;
+                        if &b[state.begin..state.end]==b"null"{
+                            out.push(ExistingAmountSelection::Chest{container_id:id,slot_index:slot});
+                            need(out.len()<=DISCOVERY_MAX_CANDIDATES,"PRODUCT_AMOUNT_DISCOVERY_BOUND")?;
+                        }
+                    }
+                }
+            }
+        }
+        _=>return reject("PRODUCT_AMOUNT_DISCOVERY_PROFILE"),
+    }
+    need(out.len()<=DISCOVERY_MAX_CANDIDATES,"PRODUCT_AMOUNT_DISCOVERY_BOUND")?;
+    Ok(out)
+}
+impl ProductSession{
+    /// Bounded same-session discovery, never a mutation grant. Candidate
+    /// enumeration is just a lookup; every returned row passes the SAME
+    /// observation and eligible predicate as preview/stage. Denied rows are
+    /// omitted and nextOffset is a scan offset, not a capability.
+    pub(crate) fn discover_scoped_product_amount(&self,e:WorkerEnvelope,profile:&str,offset:u32)
+        ->CoreResult<(Vec<CoreExistingAmountTarget>,Option<u32>,u32)>{
+        build_check(self)?;let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+        need(st.semantic.is_none()&&st.revision==0&&st.generation==1,"PRODUCT_AMOUNT_FRESH_EPOCH")?;
+        let b=&self.decoded;let roots=indexed_read::roots(b)?;
+        let all=discovery_selections(b,roots.player,profile)?;
+        let start=offset as usize;need(start<=all.len(),"PRODUCT_AMOUNT_DISCOVERY_OFFSET")?;
+        let end=start.saturating_add(DISCOVERY_SCAN_PAGE).min(all.len());
+        let mut accepted=Vec::new();
+        for &sel in &all[start..end]{
+            if let Ok(t)=observe_existing_amount(self,&e,sel){
+                let old=t.view().old_amount;
+                if let Some(new)=old.checked_sub(1){
+                    if eligible(self,&t,new).is_ok(){accepted.push(t);}
+                }
+            }
+        }
+        Ok((accepted,(end<all.len()).then_some(end as u32),(end-start) as u32))
+    }
+}
+
 impl ProductSession{
     /// Source candidate only; separate opt-in Worker feature. The sealed grant
     /// never leaves Rust. The caller supplies selectors/old/new only, not
@@ -640,6 +712,33 @@ mod tests{
             "DefaultGridDataHashCode":6,"ModifiedObjects":{},"RemovedObjects":[]});
         let raw=serde_json::to_vec(&d).unwrap();let r=indexed_read::roots(&raw).unwrap();
         assert_eq!(scan_grids(&raw,r.world,30200000,Some((cid,parent))).err().unwrap().0,"PRODUCT_AMOUNT_LAYOUT_BASE_CHEST_ALIAS");
+    }
+
+    #[test]fn bounded_discovery_reuses_exact_eligible_and_epoch(){
+        let d=chest_doc();let s=open(&d);let e=scope(&s,WorkerAction::ReadDomain);
+        let (f,next,n)=s.discover_scoped_product_amount(e,"catalog0-furniture",0).unwrap();
+        assert_eq!((f.len(),next,n),(1,None,1));assert_eq!(f[0].view().item_id,40000048);
+        let (c,next,n)=s.discover_scoped_product_amount(e,"linked-crop-chest48",0).unwrap();
+        assert_eq!((c.len(),next,n),(1,None,1));assert_eq!(c[0].view().old_amount,50);
+        assert!(s.discover_scoped_product_amount(e,"linked-crop-chest48",2).is_err());
+        assert!(s.discover_scoped_product_amount(e,"unknown",0).is_err());
+        let mut q=d.clone();q["Player"]["ContainerInventories"]["12"]["Inventory"][0]["State"]=json!({});
+        let t=open(&q);assert!(t.discover_scoped_product_amount(scope(&t,WorkerAction::ReadDomain),"linked-crop-chest48",0).unwrap().0.is_empty());
+        let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"]=json!({"ID":19});
+        let t=open(&q);assert!(t.discover_scoped_product_amount(scope(&t,WorkerAction::ReadDomain),"catalog0-furniture",0).unwrap().0.is_empty());
+        let mut q=doc();let mut inventory=serde_json::Map::new();
+        for row in pack().unwrap().0["profiles"]["catalog0Furniture"]["entries"].as_array().unwrap().iter().take(17){
+            inventory.insert(row[0].as_i64().unwrap().to_string(),json!({"Amount":3,"Marker":"ItemMarker_None"}));
+        }
+        q["Player"]["ListInventories"]["0"]["Inventory"]=Value::Object(inventory);
+        let t=open(&q);let x=scope(&t,WorkerAction::ReadDomain);
+        let (rows,next,scanned)=t.discover_scoped_product_amount(x,"catalog0-furniture",0).unwrap();
+        assert_eq!((rows.len(),next,scanned),(16,Some(16),16));
+        let (rows,next,scanned)=t.discover_scoped_product_amount(x,"catalog0-furniture",16).unwrap();
+        assert_eq!((rows.len(),next,scanned),(1,None,1));
+        let v=c[0].view();s.stage_scoped_product_amount(scope(&s,WorkerAction::Stage),v.selection,v.old_amount,49,v.entry_sha256).unwrap();
+        assert!(s.discover_scoped_product_amount(e,"linked-crop-chest48",0).is_err());
+        assert!(s.discover_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),"linked-crop-chest48",0).is_err());
     }
     #[test]fn unresolved_default_and_unlisted_item_fail_closed(){
         let mut d=doc();d["World"]["GridCollection"]["DiffGrids"]["1"]=json!({"ID":1});let s=open(&d);
