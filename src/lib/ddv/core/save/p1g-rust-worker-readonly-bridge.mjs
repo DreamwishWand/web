@@ -44,17 +44,22 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
   const scopedEnabled=allowScopedAmountSource===true||allowScopedCollectionSource===true;
   // Constructor itself enforces Worker-only (document must be absent).
   const rust=createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource});
-  let epoch=0,scopedSource=null,scopedMetadata=null,backupMatched=false,scopedBusy=false,durableName=null;
+  let epoch=0,scopedSource=null,scopedMetadata=null,backupMatched=false,scopedBusy=false,durableName=null,collectionCloseUnverified=false;
   const resetScoped=()=>{scopedSource=null;scopedMetadata=null;backupMatched=false;scopedBusy=false;durableName=null};
   const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
+  const closeRust=()=>{
+    try{const ack=rust.close();collectionCloseUnverified=false;return ack}
+    catch(e){if(allowScopedCollectionSource===true)collectionCloseUnverified=true;throw e}
+  };
   const close=()=>{
     epoch++;resetScoped();
-    return rust.close();
+    return closeRust();
   };
   const openEncrypted=async args=>{
     // A is synchronously invalidated before validating/decoding B.
+    if(collectionCloseUnverified)fail('P1G_WORKER_COLLECTION_CLOSE_UNVERIFIED');
     const token=++epoch;
-    resetScoped();rust.close();
+    resetScoped();closeRust();
     if(!exact(args,'build,encryptedBytes')||
        !(args.encryptedBytes instanceof Uint8Array)||
        args.encryptedBytes.byteLength===0||
@@ -95,7 +100,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
       });
     }catch(e){
       // A's stale rejection must never kill newer B.
-      if(token===epoch)rust.close();
+      if(token===epoch)closeRust();
       if(e instanceof Error&&(/^P1G_WORKER_|^PRODUCT_WORKER_/).test(e.message))
         throw e;
       fail('P1G_WORKER_CODEC_OR_RUST_REJECTED');
@@ -107,6 +112,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
     fail('P1G_WORKER_SCOPED_SOURCE_OFF');return scopedSource};
   // Explicit local File; ordinary public read-only API remains unchanged.
   const openScopedEncrypted=async args=>{
+    if(collectionCloseUnverified)fail('P1G_WORKER_COLLECTION_CLOSE_UNVERIFIED');
     close();const token=epoch;
     if(!scopedEnabled||!exact(args,'file,build,originalSha256')||
        !(args.file instanceof File)||!(args.build?.platform==='steam-windows'||(allowScopedCollectionSource===true&&args.build?.platform==='switch'))||
@@ -207,7 +213,8 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
       // router/automatic download. Same-process reopen != independent OS V2.
       const out=Object.freeze({name,encryptedBytes:encrypted,sha256:editedSha,sizeBytes:encrypted.length,decodedSha256:result.decodedSha256,
         codecReopenVerified:true,independentProcessReopenVerified:false,writerAuthorized:false,originalOverwriteAuthorized:false});
-      encrypted=null;return out;
+      // Never return an output receipt when final cleanup was unverified.
+      if(current())close();encrypted=null;return out;
     }finally{if(decoded)decoded.fill(0);if(encrypted)encrypted.fill(0);if(current())close()}
   };
   return Object.freeze({
