@@ -1876,7 +1876,8 @@ mod private_avatar {
             assert_eq!(m["recordSha256"],sha(&serde_json::to_vec(&event["SpawnState"]["SpawnedObjects"][0]).unwrap()));
             assert_eq!(add["ordinarySpawnAddressReadSet"]["scannedAddressCount"],6);
             let s=open(&d);let e=env(&s);let legacy=s.read_private_furniture_amount_dependencies(e,40000001,hash(&d)).unwrap();
-            let mut normalized=del.clone();normalized.as_object_mut().unwrap().remove("ordinaryStoredGridReadSet");
+            let same_session=s.read_private_ordinary_adddel_dependencies(e,40000001,hash(&d),7,Some(4)).unwrap();
+            let mut normalized=same_session;normalized.as_object_mut().unwrap().remove("ordinaryStoredGridReadSet");
             normalized.as_object_mut().unwrap().remove("ordinarySpawnAddressReadSet");normalized["contract"]=legacy["contract"].clone();assert_eq!(normalized,legacy);
             let mut pos=2;let mut neg=0;
             let mut x=d.clone();x["ConditionalEventHistory"]["ActiveEvents"]=json!({"1520000001":{"SpawnState":{"SpawnedObjects":[addr(9,4),addr(7,8)]}}});
