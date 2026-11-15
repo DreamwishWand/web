@@ -114,8 +114,11 @@ jobs:
                   except OSError:pass
                   if fd_kind=="pipe":os.dup2(b,3);passed=(3,)
                   elif fd_kind=="regular":
-                      with tempfile.TemporaryFile() as f:os.dup2(f.fileno(),3)
-                      passed=(3,)
+                      # Keep the duplicated FD3 open even if TemporaryFile
+                      # originally occupied descriptor 3.
+                      with tempfile.TemporaryFile() as f:
+                          fd=fcntl.fcntl(f.fileno(),fcntl.F_DUPFD_CLOEXEC,20)
+                      os.dup2(fd,3);os.close(fd);passed=(3,)
                   else:passed=()
                   p=subprocess.Popen(argv,env=e,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,pass_fds=passed)
               finally:
