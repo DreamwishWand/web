@@ -65,3 +65,6 @@ jobs:
           test -f crates/ddv-save-core/src/product_session.rs
           test -f crates/ddv-save-core/src/strict_document.rs
           ! grep -R -E 'include_(bytes|str)!|STEAM_SAVE_OWNER_PRIVATE|writer_authorized: *true|apply_authorized: *true' crates/ddv-save-core/src
+
+      - name: QA ONLY ACT493 ordinary stored-grid full ProductSession test
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1,semantic-writer-dev --lib qa_pr1339_ordinary_readset_actual_session_and_counter -- --nocapture
