@@ -20,6 +20,9 @@ mod switch624_road_rm01;
 #[cfg(not(target_arch="wasm32"))]
 #[path="switch624_fence_fe01.rs"]
 mod switch624_fence_fe01;
+// ACT999 domain-local read-only target preparation; no Writer or public ABI.
+#[path="comp03_product_target.rs"]
+mod comp03_product_target;
 
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum TypedOperationKind{
