@@ -30,7 +30,7 @@
  async function download(which){
   if(!consumer||pending)return;const a=consumer,t=epoch;pending=true;error=false;
   try{
-   const r=await a.downloadVerifiedCopy(which);if(consumer!==a||t!==epoch||a.snapshot().phase==='closed')return;
+   const r=await a.downloadVerifiedCopy(which);if(consumer!==a||t!==epoch||a.snapshot().phase==='closed'){r.encryptedBytes.fill(0);return}
    const url=URL.createObjectURL(new Blob([r.encryptedBytes],{type:'application/octet-stream'}));
    try{const link=document.createElement('a');link.href=url;link.download=r.name;document.body.append(link);try{link.click()}finally{link.remove()}}
    finally{r.encryptedBytes.fill(0);setTimeout(()=>URL.revokeObjectURL(url),1000)}
@@ -55,7 +55,7 @@
       {#each state.targets as t,i}<option value={i}>{t.itemId} · {t.definitionId}/{t.groupIndex}</option>{/each}
      </select>
      <button type="button" on:click={()=>act(a=>a.preview(choice))} disabled={pending}>{words.review}</button>
-     {#if phase==='previewed'}<button type="button" on:click={()=>act(a=>a.stage())} disabled={pending||state.preview?.itemId!==state.targets[choice]?.itemId}>{words.stage}</button>{/if}
+     {#if phase==='previewed'}<button type="button" on:click={()=>act(a=>a.stage())} disabled={pending||state.preview?.choice!==choice}>{words.stage}</button>{/if}
     {/if}
    {/if}
    {#if state.preview}<div class="preview" aria-live="polite"><strong>{state.preview.itemId}: {words.before} → {words.after}</strong><p>{words.remaining}: {state.preview.remainingFalseCount}</p></div>{/if}

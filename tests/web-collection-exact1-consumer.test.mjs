@@ -25,7 +25,7 @@ const ready=async c=>{await c.load();await c.backupOriginal();await c.preview(0)
 test('exact one collection bool UI positive both builds and separate verified downloads',async()=>{
  for(const b of [build,sw]){
   const a=adapter(),inspect=a.inspectCollectionTargets;a.inspectCollectionTargets=async()=>({...await inspect(),build:b});
-  const c=make(a);await ready(c);assert.deepEqual(c.snapshot().preview,{itemId:target.itemId,oldValue:false,newValue:true,remainingFalseCount:2});
+  const c=make(a);await ready(c);assert.deepEqual(c.snapshot().preview,{choice:0,itemId:target.itemId,oldValue:false,newValue:true,remainingFalseCount:2});
   await c.stage();await c.undo();await assert.rejects(c.exportEditedCopy());await c.redo();await c.exportEditedCopy();
   assert.deepEqual((await c.downloadVerifiedCopy('backup')).encryptedBytes,original);assert.deepEqual((await c.downloadVerifiedCopy('edited')).encryptedBytes,edited);
   await c.close();assert.equal(c.snapshot().phase,'closed');
@@ -58,4 +58,12 @@ test('eight locales have all labels; no gate without explicit trusted harness',(
  assert.equal(COLLECTION_EXACT1_LOCALES.length,8);const keys=Object.keys(collectionExact1Copy('en'));
  for(const l of COLLECTION_EXACT1_LOCALES){assert.deepEqual(Object.keys(collectionExact1Copy(l)),keys);for(const v of Object.values(collectionExact1Copy(l)))assert.ok(typeof v==='string'&&v.length>0)}
  assert.throws(()=>createCollectionExact1Consumer(adapter()));
+});
+
+test('same ItemID in distinct groups remains bound to preview choice, not item identity',async()=>{
+ const a=adapter(),inspect=a.inspectCollectionTargets;a.inspectCollectionTargets=async()=>({...await inspect(),targets:[target,{...target,groupIndex:1}]});
+ let chosen=-1;a.stageCollectionTarget=async(s,i)=>{chosen=i;return {...mutation('STAGED'),choice:i}};
+ const c=make(a);await c.load();await c.backupOriginal();await c.preview(1);
+ assert.equal(c.snapshot().preview.choice,1);assert.equal(c.snapshot().preview.itemId,target.itemId);
+ await c.stage();assert.equal(chosen,1);
 });

@@ -71,7 +71,7 @@ export function createCollectionExact1Consumer(adapter,{trustedLocalHarness=fals
   if(!keys(r,'selection,choice,oldValue,newValue,groupState,remainingFalseCount,exactFieldChangedCount,writerAuthorized,originalOverwriteAuthorized')||
    !sourceScope(r)||r.choice!==i||r.oldValue!==false||r.newValue!==true||r.groupState!=='NotComplete'||
    r.remainingFalseCount!==target.falseCount-1||r.exactFieldChangedCount!==1)fail();
-  choice=i;return set({phase:'previewed',preview:Object.freeze({itemId:target.itemId,oldValue:false,newValue:true,remainingFalseCount:r.remainingFalseCount})});
+  choice=i;return set({phase:'previewed',preview:Object.freeze({choice:i,itemId:target.itemId,oldValue:false,newValue:true,remainingFalseCount:r.remainingFalseCount})});
  });
  const stage=()=>run(['previewed'],async check=>{
   if(!backup||choice===null)fail();const r=await adapter.stageCollectionTarget(source.selection,choice);check();
@@ -93,7 +93,7 @@ export function createCollectionExact1Consumer(adapter,{trustedLocalHarness=fals
   if(!keys(r,'kind,name,sha256,sizeBytes,encryptedBytes')||r.kind!=='VERIFIED_DOWNLOAD'||r.name!==b.name||r.sha256!==b.sha||r.sizeBytes!==b.size||
    !(r.encryptedBytes instanceof Uint8Array)||r.encryptedBytes.length!==b.size)fail();
   const bytes=new Uint8Array(r.encryptedBytes);
-  if(await hash(bytes)!==b.sha){bytes.fill(0);fail()}check();return {name:b.name,encryptedBytes:bytes};
+  try{if(await hash(bytes)!==b.sha)fail();check();return {name:b.name,encryptedBytes:bytes}}catch(e){bytes.fill(0);throw e}
  });
  return Object.freeze({snapshot,load,backupOriginal,preview,stage,undo,redo,exportEditedCopy,downloadVerifiedCopy,close});
 }
