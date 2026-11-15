@@ -859,4 +859,98 @@ mod tests{
         let mut d=doc();d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]=json!({"Amount":3});let s=open(&d);
         assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000001},2).is_err());
     }
+
+    #[test]
+    fn qa_act982_saved_state_stage_and_preserve() {
+        let states=vec![
+            json!({"BuildingWithSkinData":{"CurrentSkinItemID":170200005,"UpgradeState":{"Level":1}}}),
+            json!({"HouseData":{"Built":true,"PlayerHouseIndex":1,"UpgradeState":{"Level":1}}}),
+            json!({"Keyhole":{"KeyholeConfigDataGUID":"synthetic"}}),
+            json!({"StallData":{"CurrentSkinItemID":0,"ShopData":{"Slots":[{"Item":{"id":1,"amount":1}},{"Item":null}]},"UpgradeState":{"Level":1}}}),
+            json!({"Toggle":{"DesignID":null,"Value":true}}),json!({"FenceMode":{"Diagonal":false}}),
+            json!({"SubGrid":{"DesignID":null,"GridID":99}}),
+            json!({"GardenData":{"Slots":[{"PlantedSeedItemID":1}]}}),
+            json!({"ItemList":{"Items":[1,2]}}),
+            json!({"FishingStallData":{"LastCollect":0,"PendingFishes":[],"UpgradeState":{"Level":1}}}),
+            json!({"Storage":{"ContainerInventoryID":99,"DefaultContainerInventoryData":"","DesignID":null,"UnlockKeyItemID":0,"UnlockLocId":""}}),
+            json!({"FlowerData":{"BelongingAreasCount":0,"DriedInBeeHouse":false,"Dry":false,"GlowEnd":0,"PollinationEnd":0,"PollinationStart":0,"Resource":1}}),
+            json!({"Mannequin":{"BodyType":0,"Clothes":{"1":2},"ClothingCustomization":["3"],"HairColorIndex":0,"HairHighlightColor":0,"IsMale":false}}),
+            json!({"BlockerData":{"Stage":0,"Treasure":{"ItemID":1,"State":{"LootPresentData":{"Items":[]}}}}}),
+            json!({"ItemAmountState":{"Amount":1,"AssignedPlayer":0,"State":null}}),
+            json!({"Index":{"CurrentIndex":0}}),
+            json!({"ObstacleCourseStartLine":{"DurationOverride":0,"InteractionConditions":null,"Rewards":null}})
+        ];
+        let mut positives=0;let mut negatives=0;
+        for chest in [false,true] {
+            let item=if chest{30200000}else{40000048};
+            let (sel,old,new)=if chest{(ExistingAmountSelection::Chest{container_id:12,slot_index:0},50,49)}
+                else{(ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},3,2)};
+            let d=if chest{chest_doc()}else{doc()};
+            let with=|v:Vec<Value>| {
+                let mut q=d.clone();let mut objects=serde_json::Map::new();
+                for (i,s) in v.into_iter().enumerate(){let id=i+1;objects.insert(id.to_string(),json!({"ID":id,"ItemID":1,"State":s}));}
+                q["World"]["GridCollection"]["Grids"]["8"]=json!({"ID":8,"GridDefaultLayoutPath":"","Objects":objects});
+                q
+            };
+            let q=with(states.clone());let s=open(&q);let t=s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new).unwrap();
+            let entry=t.view().entry_sha256;let rec=s.stage_scoped_product_amount(scope(&s,WorkerAction::Stage),sel,old,new,entry).unwrap();
+            assert_eq!(rec.exact_field_changed_count,1);assert!(!rec.product_writer_authorized);
+            let mut expected=q.clone();if chest{expected["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);}
+            else{expected["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);}
+            let e=scope(&s,WorkerAction::ExportEditedCopy);assert_eq!(s.take_typed_semantic_decoded_once(e).unwrap(),serde_json::to_vec(&expected).unwrap());
+            assert!(s.take_typed_semantic_decoded_once(e).is_err());positives+=1;
+            let bad=vec![
+                (json!({"ItemList":{"Items":[item]}}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                (json!({"BuildingWithSkinData":{"CurrentSkinItemID":item,"UpgradeState":{"Level":1}}}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                (json!({"StallData":{"CurrentSkinItemID":0,"ShopData":{"Slots":[{"Item":{"id":item,"amount":1}}]},"UpgradeState":{}}}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                (json!({"GardenData":{"Slots":[{"PlantedSeedItemID":item}]}}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                (json!({"Mannequin":{"BodyType":0,"Clothes":{"1":item},"ClothingCustomization":[],"HairColorIndex":0,"HairHighlightColor":0,"IsMale":false}}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                (json!({"Mannequin":{"BodyType":0,"Clothes":{},"ClothingCustomization":[item.to_string()],"HairColorIndex":0,"HairHighlightColor":0,"IsMale":false}}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                (json!({"Storage":{"ContainerInventoryID":99,"DefaultContainerInventoryData":"","DesignID":null,"UnlockKeyItemID":item,"UnlockLocId":""}}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                (json!({"BlockerData":{"Stage":0,"Treasure":{"ItemID":item,"State":null}}}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                (json!({"BlockerData":{"Stage":0,"Treasure":{"ItemID":1,"State":{"LootPresentData":{"Items":[{"ItemID":1}]}}}}}),"PRODUCT_AMOUNT_STATE_LOOT_UNPROVEN"),
+                (json!({"ItemAmountState":{"Amount":1,"AssignedPlayer":0,"State":{"LootPresentData":{"Items":[]}}}}),"PRODUCT_AMOUNT_STATE_NESTED_UNPROVEN"),
+                (json!({"FishingStallData":{"LastCollect":0,"PendingFishes":[1],"UpgradeState":{}}}),"PRODUCT_AMOUNT_STATE_FISH_UNPROVEN"),
+                (json!({"ObstacleCourseStartLine":{"DurationOverride":0,"InteractionConditions":{},"Rewards":null}}),"PRODUCT_AMOUNT_STATE_REWARD_UNPROVEN"),
+                (json!({"ObstacleCourseStartLine":{"DurationOverride":0,"InteractionConditions":null,"Rewards":[]}}),"PRODUCT_AMOUNT_STATE_REWARD_UNPROVEN"),
+                (json!({"UnknownState":{}}),"PRODUCT_AMOUNT_STATE_UNKNOWN"),
+                (json!({"Index":{"CurrentIndex":0},"FenceMode":{"Diagonal":false}}),"PRODUCT_AMOUNT_STATE_ONEOF"),
+                (json!({"Index":{"CurrentIndex":0,"Unknown":0}}),"PRODUCT_AMOUNT_STATE_FIELDS"),
+                (json!({"SubGrid":{"DesignID":null,"GridID":"99"}}),"PRODUCT_AMOUNT_STATE_UINT"),
+                (json!({"ItemList":{"Items":[-1]}}),"PRODUCT_AMOUNT_STATE_UINT"),
+                (json!({"ItemList":{"Items":[4294967296u64]}}),"PRODUCT_AMOUNT_STATE_UINT"),
+                (json!({"ItemList":{"Items":[1.0]}}),"PRODUCT_AMOUNT_STATE_UINT"),
+                (json!({"StallData":{"CurrentSkinItemID":0,"ShopData":{"Slots":[{"Item":{"id":"1"}}]},"UpgradeState":{}}}),"PRODUCT_AMOUNT_STATE_UINT"),
+                (json!({"GardenData":{"Slots":[{}]}}),"PRODUCT_AMOUNT_STATE_UINT"),
+                (json!({"Storage":{"ContainerInventoryID":99,"DefaultContainerInventoryData":1,"DesignID":null,"UnlockKeyItemID":0,"UnlockLocId":""}}),"PRODUCT_AMOUNT_STATE_STORAGE_TYPE"),
+                (json!({"Index":{"CurrentIndex":item}}),"PRODUCT_AMOUNT_STATE_LITERAL_REFERENCE"),
+                (json!({"Keyhole":{"KeyholeConfigDataGUID":item.to_string()}}),"PRODUCT_AMOUNT_STATE_LITERAL_REFERENCE"),
+                (json!({"BuildingWithSkinData":{"CurrentSkinItemID":1,"UpgradeState":{(item.to_string()):0}}}),"PRODUCT_AMOUNT_STATE_LITERAL_REFERENCE"),
+                (json!({"ItemList":{"Items":vec![1;4097]}}),"PRODUCT_AMOUNT_STATE_ARRAY"),
+                (json!({"Keyhole":{"KeyholeConfigDataGUID":"x".repeat(1024*1024)}}),"PRODUCT_AMOUNT_LEAF_BOUND"),
+            ];
+            for (v,code) in bad {
+                let q=with(vec![v]);let x=open(&q);let before=x.receipt().unwrap();
+                assert_eq!(x.preview_scoped_product_amount(scope(&x,WorkerAction::ReadDomain),sel,new).unwrap_err().0,code);
+                assert_eq!(x.stage_scoped_product_amount(scope(&x,WorkerAction::Stage),sel,old,new,entry).unwrap_err().0,code);
+                assert_eq!(x.receipt().unwrap(),before);assert!(x.take_typed_semantic_decoded_once(scope(&x,WorkerAction::ExportEditedCopy)).is_err());negatives+=1;
+            }
+            // Equal container and grid integers are not an alias, but a
+            // SubGrid into the selected chest's actual grid is forbidden.
+            if chest {
+                let q=with(vec![json!({"SubGrid":{"DesignID":null,"GridID":12}})]);
+                let x=open(&q);assert!(x.preview_scoped_product_amount(scope(&x,WorkerAction::ReadDomain),sel,new).is_ok());positives+=1;
+                let q=with(vec![json!({"SubGrid":{"DesignID":null,"GridID":7}})]);
+                let x=open(&q);assert_eq!(x.preview_scoped_product_amount(scope(&x,WorkerAction::ReadDomain),sel,new).unwrap_err().0,"PRODUCT_AMOUNT_CHEST_SUBGRID");negatives+=1;
+            }
+            let mut q=with(vec![json!({"ItemList":{"Items":[1]}})]);
+            q["World"]["GridCollection"]["DiffGrids"]["19"]=json!({"ID":19,"GridDefaultLayoutPath":"SceneLayouts/Houses/AliceHouse/AliceHouse.json","GridDefaultLayoutType":"Meta.DefaultCharacterHouseData, Meta","DefaultLayoutGridID":0,"DefaultGridHashCode":-4,"DefaultGridDataHashCode":6,"RemovedObjects":[],"ModifiedObjects":{"9":{"ID":9,"ItemID":1,"State":{"ItemList":{"Items":[item]}}}}});
+            let x=open(&q);assert_eq!(x.preview_scoped_product_amount(scope(&x,WorkerAction::ReadDomain),sel,new).unwrap_err().0,"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE");negatives+=1;
+        }
+        let mut budget=1_000_000;assert_eq!(state_literals(&json!(1),40000048,&mut budget,0).unwrap_err().0,"PRODUCT_AMOUNT_STATE_BOUND");negatives+=1;
+        let mut v=json!(1);for _ in 0..34{v=json!([v]);}
+        assert_eq!(state_literals(&v,40000048,&mut 0,0).unwrap_err().0,"PRODUCT_AMOUNT_STATE_BOUND");negatives+=1;
+        assert_eq!((positives,negatives),(3,61));
+    }
+
 }
