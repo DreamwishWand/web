@@ -21,6 +21,20 @@ export function plain(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+// Destructive reconciliation may discard only a known Road/Fence mode state.
+// Empty legacy State is equivalent to absent mode in the existing reader.
+// Other oneofs and unknown nested fields must remain opaque.
+export function isKnownRoadFenceModeState(state) {
+  if (state == null) return true;
+  if (!plain(state)) return false;
+  const keys = Object.keys(state);
+  if (keys.length === 0) return true;
+  if (keys.length !== 1 || keys[0] !== 'FenceMode') return false;
+  const mode = state.FenceMode;
+  return plain(mode) && Object.keys(mode).length === 1 &&
+    Object.hasOwn(mode, 'Diagonal') && mode.Diagonal === true;
+}
+
 export function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
 }
