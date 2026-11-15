@@ -28,6 +28,8 @@ pub struct WorkerWasmSource {
     entropy:[u8;32],
     session:Option<WorkerSessionGuard>,
     closed:bool,
+    #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+    scoped_output:Option<(Vec<u8>,usize)>,
 }
 #[wasm_bindgen]
 impl WorkerWasmSource {
@@ -50,7 +52,9 @@ impl WorkerWasmSource {
         let mut seed=[0_u8;32];seed.copy_from_slice(entropy);
         Ok(Self{buffer:Vec::new(),
             build:BuildIdentity{platform,build_kind,build_id,schema:schema.into(),externally_attested},
-            entropy:seed,session:None,closed:false})
+            entropy:seed,session:None,closed:false,
+            #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+            scoped_output:None})
     }
     /// No JS-owned second session, raw Save, UI readset, or unbounded transferable.
     pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{
@@ -287,8 +291,55 @@ impl WorkerWasmSource {
         let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(session_id)?,expected_revision:revision,expected_index_generation:index_generation,expected_decoded_sha256:from_hex(decoded_sha256)?,action:WorkerAction::ReadDomain};
         Ok(guard.preview_collection_candidate(e,definition,group as usize,item).map_err(|e|err(e.0))?.to_string())
     }
+    // Exact fixed Collection command; old=false/new=true is intrinsic,
+    // never a JS-coerced boolean or a generic path/value mutation.
+    #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+    pub fn preview_fixed_collection(&self,definition:u32,group:u32,item:u32,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        Ok(guard.preview_fixed_collection(e,definition,group as usize,item).map_err(|e|err(e.0))?.to_string())
+    }
+    #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+    pub fn stage_fixed_collection(&self,definition:u32,group:u32,item:u32,entry_sha256:&str,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        let r=guard.stage_fixed_collection(e,definition,group as usize,item,from_hex(entry_sha256)?).map_err(|e|err(e.0))?;
+        Ok(scoped_edit_receipt(r))
+    }
+    // Domain-neutral lifecycle uses the existing ledger and the same
+    // bounded one-time chunk transport as ACT916. No direct UI byte route.
+    #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+    pub fn toggle_scoped_edit(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        Ok(scoped_edit_receipt(guard.toggle_scoped_edit(e,redo).map_err(|e|err(e.0))?))
+    }
+    #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+    pub fn begin_scoped_edit_output(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        if self.scoped_output.is_some(){return Err(err("WORKER_SCOPED_OUTPUT_EXISTS"));}
+        let guard=self.session.as_mut().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ExportEditedCopy)?;
+        let out=guard.take_scoped_edit(e).map_err(|e|err(e.0))?;
+        use sha2::{Digest,Sha256};let size=out.len();let sha=hex(&Sha256::digest(&out));
+        self.session=None;
+        self.scoped_output=Some((out,0));
+        Ok(serde_json::json!({"contract":"wand.worker.scoped-edit-output@1",
+            "decodedBytes":size,"decodedSha256":sha,"writerAuthorized":false,"originalOverwriteAuthorized":false}).to_string())
+    }
+    #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+    pub fn next_scoped_edit_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+        let (out,pos)=self.scoped_output.as_mut().ok_or(err("WORKER_SCOPED_OUTPUT_CONSUMED"))?;
+        let end=pos.saturating_add(MAX_CHUNK).min(out.len());
+        let chunk=out[*pos..end].to_vec();out[*pos..end].fill(0);*pos=end;
+        if end==out.len(){self.scoped_output=None;}
+        Ok(chunk)
+    }
     pub fn close(&mut self)->Result<(),JsValue>{
         self.closed=true;self.buffer.clear();self.entropy.fill(0);
+        #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+        if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);}
         if let Some(mut session)=self.session.take(){
             session.close().map_err(|e|err(e.0))?;
         }
@@ -304,8 +355,24 @@ impl Drop for WorkerWasmSource {
         self.buffer.fill(0);
         self.buffer.clear();
         self.entropy.fill(0);
+        #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+        if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);}
         if let Some(mut guard)=self.session.take() {
             let _=guard.close();
         }
     }
+}
+
+#[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+fn scoped_edit_envelope(id:&str,revision:u64,generation:u64,sha:&str,action:WorkerAction)->Result<WorkerEnvelope,JsValue>{
+    Ok(WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(id)?,expected_revision:revision,
+        expected_index_generation:generation,expected_decoded_sha256:from_hex(sha)?,action})
+}
+#[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+fn scoped_edit_receipt(r:crate::SemanticStageReceipt)->String{
+    serde_json::json!({"contract":"wand.worker.scoped-edit@1","sessionId":hex(&r.session_id),
+        "revision":r.revision,"indexGeneration":r.index_generation,"decodedSha256":hex(&r.original_decoded_sha256),
+        "stagedDecodedSha256":hex(&r.staged_decoded_sha256),"operationCount":r.operation_count,
+        "exactFieldChangedCount":r.exact_field_changed_count,"applied":r.applied,"writerAuthorized":false,
+        "originalOverwriteAuthorized":false}).to_string()
 }
