@@ -59,9 +59,16 @@ jobs:
         run: node --test tests/product-wasm-read-owner.test.mjs
       - name: Stage D trusted Worker typed metadata and entropy negative tests
         run: node --test tests/product-wasm-typed-read-owner.test.mjs
+      - name: Collection product candidate only (dual Build native and WASM typecheck)
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-collection-scoped --lib product_collection_source_tests --verbose
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-collection-scoped
       - name: Reject embedded private files or Writer promotion
         shell: bash
         run: |
           test -f crates/ddv-save-core/src/product_session.rs
           test -f crates/ddv-save-core/src/strict_document.rs
-          ! grep -R -E 'include_(bytes|str)!|STEAM_SAVE_OWNER_PRIVATE|writer_authorized: *true|apply_authorized: *true' crates/ddv-save-core/src
+          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|writer_authorized: *true|apply_authorized: *true' crates/ddv-save-core/src
+          # Exact reviewed public catalog include only; inspect committed bytes, not cargo fmt output.
+          test "$(git grep -n -E 'include_(bytes|str)!' HEAD -- crates/ddv-save-core/src | cut -d: -f1,2,4-)" = 'HEAD:crates/ddv-save-core/src/private_collection_read.rs:const PRODUCT_PACK:&[u8]=include_bytes!("../data/collection-furniture-626.json");'
+          echo 'b9ebc7bebf2c3e1df274b9a98a7b7276896270faa303a41657ecc6c56db84f4f  crates/ddv-save-core/data/collection-furniture-626.json' | sha256sum -c -

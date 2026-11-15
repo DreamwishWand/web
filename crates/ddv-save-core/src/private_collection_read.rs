@@ -3,7 +3,7 @@
 //! completion, reward, or Native V3 authority. Not linked into public WASM.
 use super::{ProductSession,WorkerEnvelope,Platform,BuildKind};
 use super::indexed_read::{roots,validate_scope,Span};
-use super::native_reference_slice::{object,array,field,required};
+use super::reference_span_walk::{object,array,field,required};
 use crate::{CoreError,CoreResult};
 use serde_json::{json,Value};
 use sha2::{Digest,Sha256};
@@ -110,15 +110,21 @@ fn stored_stock(b:&[u8],player:Span,target:i32,furniture:bool)->CoreResult<Value
 }
 pub struct PrivateCollectionGroupReceipt{value:Value,selected_span:Option<Span>}
 impl PrivateCollectionGroupReceipt{
+    #[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
     pub fn to_private_receipt_json(&self)->Value{self.value.clone()}
 }
 impl ProductSession{
+    #[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
     pub fn read_private_collection_group(&self,e:WorkerEnvelope,definition:i32,group_index:usize,target:i32)
+        ->CoreResult<PrivateCollectionGroupReceipt>{
+        self.scan_collection_group(e,definition,group_index,target,false)
+    }
+    fn scan_collection_group(&self,e:WorkerEnvelope,definition:i32,group_index:usize,target:i32,product:bool)
         ->CoreResult<PrivateCollectionGroupReceipt>{
         let build=&self.native_source_build;
         let steam=build.platform==Platform::SteamWindows&&build.build_kind==BuildKind::SteamFullVersion&&build.build_id==EXACT;
         let switch_furniture=build.platform==Platform::Switch&&build.build_kind==BuildKind::SwitchBid&&build.build_id==SWITCH_EXACT;
-        if (!steam&&!switch_furniture)||build.schema!=626||!build.externally_attested||self.worker_bound{
+        if (!steam&&!switch_furniture)||build.schema!=626||!build.externally_attested||self.worker_bound!=product{
             return Err(deny("COLLECTION_EXACT_PRIVATE_BUILD_REQUIRED"))
         }
         let steam_furniture=steam&&target/10_000_000==4;
@@ -127,6 +133,7 @@ impl ProductSession{
         if definition<=0||definition/10_000_000!=212||group_index>=MAX_GROUPS_PER_SET||
             target<=0||target/10_000_000!=major{return Err(deny("COLLECTION_SELECTOR"))}
         let st=self.lock()?;validate_scope(self,&st,&e)?;
+        if product && (e.expected_revision!=0 || e.expected_index_generation!=1 || target/10_000_000!=4){return Err(deny("COLLECTION_PRODUCT_FRESH_FURNITURE_REQUIRED"))}
         let b=&self.decoded;
         let player=roots(b)?.player;
         let sets=required(b,player,"CollectionSets")?;
@@ -218,20 +225,20 @@ impl ProductSession{
     }
 }
 
-#[cfg(feature="semantic-writer-dev")]
+#[cfg(all(feature="semantic-writer-dev",feature="private-native-v1",not(target_arch="wasm32")))]
 #[derive(Clone,Copy,PartialEq,Eq)]
 enum CollectionBoolMode{Switch,Steam}
-#[cfg(feature="semantic-writer-dev")]
+#[cfg(all(feature="semantic-writer-dev",feature="private-native-v1",not(target_arch="wasm32")))]
 pub struct PrivateCollectionBoolTarget{
     scope:WorkerEnvelope,
     span:Span,
     mode:CollectionBoolMode,
 }
-#[cfg(feature="semantic-writer-dev")]
+#[cfg(all(feature="semantic-writer-dev",feature="private-native-v1",not(target_arch="wasm32")))]
 pub type PrivateSwitchCollectionTarget=PrivateCollectionBoolTarget;
-#[cfg(feature="semantic-writer-dev")]
+#[cfg(all(feature="semantic-writer-dev",feature="private-native-v1",not(target_arch="wasm32")))]
 pub type PrivateSteamCollectionTarget=PrivateCollectionBoolTarget;
-#[cfg(feature="semantic-writer-dev")]
+#[cfg(all(feature="semantic-writer-dev",feature="private-native-v1",not(target_arch="wasm32")))]
 impl CollectionBoolMode{
     fn plan_contract(self)->&'static str{match self{
         Self::Switch=>"wand.private.switch626.collection-existing-bool-exact1@1",
@@ -254,7 +261,7 @@ impl CollectionBoolMode{
         Ok(())
     }
 }
-#[cfg(feature="semantic-writer-dev")]
+#[cfg(all(feature="semantic-writer-dev",feature="private-native-v1",not(target_arch="wasm32")))]
 impl ProductSession{
     /// Private source-only exact one-token candidate. Canonical plan binds
     /// the independently reviewed raw readset, never effective rights or
@@ -325,7 +332,7 @@ impl ProductSession{
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test,feature="private-native-v1",not(target_arch="wasm32")))]
 mod tests{
     use super::*;
     use crate::{BuildIdentity,SessionReceipt,WorkerAction,PRODUCT_WORKER_CONTRACT};
@@ -401,7 +408,7 @@ mod tests{
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test,feature="private-native-v1",not(target_arch="wasm32")))]
 mod switch_furniture_tests{
     use super::*;
     use crate::{BuildIdentity,WorkerAction,PRODUCT_WORKER_CONTRACT};
@@ -451,7 +458,7 @@ mod switch_furniture_tests{
         let mut stale=env(&s);stale.expected_revision+=1;
         assert!(s.read_private_collection_group(stale,DEF,0,ITEM).is_err());
     }
-    #[cfg(feature="semantic-writer-dev")]
+    #[cfg(all(feature="semantic-writer-dev",feature="private-native-v1",not(target_arch="wasm32")))]
     fn plan(s:&ProductSession)->Value{
         let x=read(s).unwrap();let g=&x["selectedGroup"];let t=&x["storedStock"];
         json!({"contract":"wand.private.switch626.collection-existing-bool-exact1@1",
@@ -460,7 +467,7 @@ mod switch_furniture_tests{
           "groupSha256":g["groupSha256"],"mapSha256":g["mapSha256"],"entrySha256":g["targetEntry"]["tokenSha256"],
           "stateSha256":g["state"]["sha256"],"stockEntrySha256":t["entry"]["entrySha256"],"stockRouteSha256":t["routeSha256"]})
     }
-    #[cfg(feature="semantic-writer-dev")]
+    #[cfg(all(feature="semantic-writer-dev",feature="private-native-v1",not(target_arch="wasm32")))]
     #[test]
     fn switch626_collection_exact1_typed_stage_and_epoch_denials(){
         let d=doc();let s=open(d.clone());let e=env(&s);let p=plan(&s);
@@ -493,7 +500,7 @@ mod switch_furniture_tests{
         assert_eq!(out,serde_json::to_vec(&want).unwrap());
     }
 
-    #[cfg(feature="semantic-writer-dev")]
+    #[cfg(all(feature="semantic-writer-dev",feature="private-native-v1",not(target_arch="wasm32")))]
     #[test]
     fn steam626_collection_exact1_typed_stage_and_cross_build_denials(){
         let open_steam=|v:Value| ProductSession::open_decoded_readonly(serde_json::to_vec(&v).unwrap(),BuildIdentity{
@@ -582,5 +589,69 @@ mod switch_furniture_tests{
             assert!(read(&open(v)).is_err(),"case {k}");
         }
         assert_eq!(s.receipt().unwrap().revision,0);
+    }
+}
+
+#[cfg(feature="product-collection-scoped")]
+const PRODUCT_PACK:&[u8]=include_bytes!("../data/collection-furniture-626.json");
+
+#[cfg(feature="product-collection-scoped")]
+impl ProductSession{
+    /// A product-facing physical + packaged candidate, never a write grant.
+    /// Effective installed definitions, visibility and rights are a separate
+    /// fail-closed prerequisite. No raw JSON, private plan or caller pack.
+    pub(crate) fn preview_product_collection_candidate(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32)->CoreResult<Value>{
+        let candidate=crate::collection_packaged_eligibility::packaged_collection_candidate(PRODUCT_PACK,&self.native_source_build,item,definition,group)
+            .ok_or(deny("COLLECTION_PACKAGED_CANDIDATE_REQUIRED"))?;
+        let r=self.scan_collection_group(e,i32::try_from(definition).map_err(|_|deny("COLLECTION_SELECTOR"))?,group,
+            i32::try_from(item).map_err(|_|deny("COLLECTION_SELECTOR"))?,true)?;
+        let g=&r.value["selectedGroup"];
+        let false_count=g["falseCount"].as_u64().ok_or(deny("COLLECTION_FALSE_COUNT"))?;
+        if self.native_source_build.platform==Platform::SteamWindows && false_count!=3{
+            return Err(deny("COLLECTION_STEAM_EXACT_THREE_FALSE_REQUIRED"))
+        }
+        if r.selected_span.is_none(){return Err(deny("COLLECTION_SELECTED_ENTRY_ABSENT"))}
+        Ok(json!({"contract":"wand.worker.collection-scoped-candidate@1","platform":r.value["platform"],"buildKind":r.value["buildKind"],"buildId":r.value["buildId"],
+            "sessionId":hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,"decodedSha256":hex(&e.expected_decoded_sha256),
+            "definitionId":candidate.definition_id,"groupIndex":group,"itemId":candidate.item_id,"old":false,"new":true,"falseCount":false_count,
+            "itemDefinitionSha256":candidate.item_definition_sha256,"collectionDefinitionSha256":candidate.collection_definition_sha256,"groupDefinitionSha256":candidate.group_definition_sha256,
+            "entrySha256":g["targetEntry"]["tokenSha256"],"groupSha256":g["groupSha256"],"mapSha256":g["mapSha256"],
+            "stockEntrySha256":r.value["storedStock"]["entry"]["entrySha256"],"positiveStock":r.value["storedStock"]["entry"]["amount"],
+            "packagedCandidateVerified":true,"sourcePhysicalVerified":true,"effectiveEligibilityVerified":false,
+            "writerAuthorized":false,"editedCopyAuthorized":false,"applyAuthorized":false}))
+    }
+}
+
+#[cfg(all(test,feature="product-collection-scoped",not(target_arch="wasm32")))]
+mod product_collection_source_tests{
+    use super::*;
+    use crate::{BuildIdentity,WorkerAction,PRODUCT_WORKER_CONTRACT};
+    fn fixture(steam:bool,stock:i32,last_false:bool,duplicate:bool)->(ProductSession,u32,u32){
+        let pack=crate::collection_packaged_eligibility::pinned(PRODUCT_PACK).unwrap();
+        let row=&pack["items"][0]; let item=row[0].as_u64().unwrap() as u32;let def=row[1].as_u64().unwrap() as u32;
+        let mut items=serde_json::Map::new();items.insert(item.to_string(),json!(false));
+        items.insert("400000001".into(),json!(last_false));items.insert("400000002".into(),json!(false));
+        let mut sets=vec![json!({"CollectionDefinitionID":def,"GroupData":[{"GroupIndex":0,"State":"SetState_NotComplete","GroupsCollectionItems":items}]})];
+        if duplicate{sets.push(json!({"CollectionDefinitionID":2120000001,"GroupData":[{"GroupIndex":0,"State":"SetState_NotComplete","GroupsCollectionItems":{(item.to_string()):false}}]}))}
+        let b=serde_json::to_vec(&json!({"GameInfo":{"Version":626},"World":{},"Player":{"CollectionSets":sets,"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":{(item.to_string()):{"Amount":stock}}}}}})).unwrap();
+        let mut s=ProductSession::open_decoded_readonly(b,BuildIdentity{platform:if steam{Platform::SteamWindows}else{Platform::Switch},build_kind:if steam{BuildKind::SteamFullVersion}else{BuildKind::SwitchBid},build_id:if steam{EXACT.into()}else{SWITCH_EXACT.into()},schema:626,externally_attested:true}).unwrap();
+        s.worker_bound=true;(s,def,item)
+    }
+    fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+    #[test]
+    fn dual_build_physical_candidate_never_grants_authority(){
+        for steam in [false,true]{let (s,d,i)=fixture(steam,1,false,false);let e=env(&s);
+            let r=s.preview_product_collection_candidate(e,d,0,i).unwrap();
+            assert_eq!(r["falseCount"],3);assert_eq!(r["sourcePhysicalVerified"],true);
+            assert_eq!(r["effectiveEligibilityVerified"],false);assert_eq!(r["writerAuthorized"],false);
+            assert!(s.preview_product_collection_candidate(e,d,1,i).is_err());
+            assert!(s.preview_product_collection_candidate(e,d,0,1).is_err());
+            let mut stale=e;stale.expected_revision+=1;assert!(s.preview_product_collection_candidate(stale,d,0,i).is_err());
+            let (other,_,_)=fixture(steam,1,false,false);assert!(other.preview_product_collection_candidate(e,d,0,i).is_err());
+            s.close().unwrap();assert!(s.preview_product_collection_candidate(e,d,0,i).is_err());
+            for (stock,dup) in [(0,false),(1,true)]{let (bad,d,i)=fixture(steam,stock,false,dup);assert!(bad.preview_product_collection_candidate(env(&bad),d,0,i).is_err());}
+        }
+        let (s,d,i)=fixture(true,1,true,false);assert!(s.preview_product_collection_candidate(env(&s),d,0,i).is_err());
+        let (s,d,i)=fixture(false,1,true,false);assert_eq!(s.preview_product_collection_candidate(env(&s),d,0,i).unwrap()["falseCount"],2);
     }
 }
