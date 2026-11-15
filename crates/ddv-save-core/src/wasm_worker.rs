@@ -28,6 +28,8 @@ pub struct WorkerWasmSource {
     entropy:[u8;32],
     session:Option<WorkerSessionGuard>,
     closed:bool,
+    #[cfg(feature="product-amount-scoped")]
+    scoped_output:Option<(Vec<u8>,usize)>,
 }
 #[wasm_bindgen]
 impl WorkerWasmSource {
@@ -50,7 +52,9 @@ impl WorkerWasmSource {
         let mut seed=[0_u8;32];seed.copy_from_slice(entropy);
         Ok(Self{buffer:Vec::new(),
             build:BuildIdentity{platform,build_kind,build_id,schema:schema.into(),externally_attested},
-            entropy:seed,session:None,closed:false})
+            entropy:seed,session:None,closed:false,
+            #[cfg(feature="product-amount-scoped")]
+            scoped_output:None})
     }
     /// No JS-owned second session, raw Save, UI readset, or unbounded transferable.
     pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{
@@ -281,8 +285,62 @@ impl WorkerWasmSource {
         }
         Ok(out)
     }
+    /// ACT916 opt-in ABI, absent from the existing Pages feature set.
+    #[cfg(feature="product-amount-scoped")]
+    pub fn preview_scoped_amount(&self,profile:&str,id:u32,selector:u32,new:u32,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let selection=scoped_selection(profile,id,selector)?;
+        let e=scoped_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        let t=guard.preview_scoped_amount(e,selection,new).map_err(|e|err(e.0))?;
+        let v=t.view();
+        Ok(serde_json::json!({"contract":"wand.worker.steam626.scoped-amount@1","profile":profile,
+            "id":id,"selector":selector,"itemId":v.item_id,"oldAmount":v.old_amount,"newAmount":new,
+            "entrySha256":hex(&v.entry_sha256),"sessionId":hex(&v.session_id),"revision":v.revision,
+            "indexGeneration":v.index_generation,"decodedSha256":hex(&v.decoded_sha256),
+            "scopedCandidate":true,"writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn stage_scoped_amount(&self,profile:&str,id:u32,selector:u32,old:u32,new:u32,entry_sha256:&str,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let selection=scoped_selection(profile,id,selector)?;
+        let e=scoped_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        let r=guard.stage_scoped_amount(e,selection,old,new,from_hex(entry_sha256)?).map_err(|e|err(e.0))?;
+        Ok(scoped_receipt(r))
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn toggle_scoped_amount(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        Ok(scoped_receipt(guard.toggle_scoped_amount(e,redo).map_err(|e|err(e.0))?))
+    }
+    /// Consume the staged Rust ledger once. Output stays in the trusted
+    /// Worker for Codec, not UI; use the existing bounded chunk size.
+    #[cfg(feature="product-amount-scoped")]
+    pub fn begin_scoped_amount_output(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        if self.scoped_output.is_some(){return Err(err("WORKER_SCOPED_OUTPUT_EXISTS"));}
+        let guard=self.session.as_mut().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ExportEditedCopy)?;
+        let out=guard.take_scoped_amount(e).map_err(|e|err(e.0))?;
+        use sha2::{Digest,Sha256};let size=out.len();let sha=hex(&Sha256::digest(&out));
+        self.session=None;
+        self.scoped_output=Some((out,0));
+        Ok(serde_json::json!({"contract":"wand.worker.steam626.scoped-amount-output@1",
+            "decodedBytes":size,"decodedSha256":sha,"writerAuthorized":false,"originalOverwriteAuthorized":false}).to_string())
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn next_scoped_amount_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+        let (out,pos)=self.scoped_output.as_mut().ok_or(err("WORKER_SCOPED_OUTPUT_CONSUMED"))?;
+        let end=pos.saturating_add(MAX_CHUNK).min(out.len());
+        let chunk=out[*pos..end].to_vec();out[*pos..end].fill(0);*pos=end;
+        if end==out.len(){self.scoped_output=None;}
+        Ok(chunk)
+    }
     pub fn close(&mut self)->Result<(),JsValue>{
         self.closed=true;self.buffer.clear();self.entropy.fill(0);
+        #[cfg(feature="product-amount-scoped")]
+        if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);}
         if let Some(mut session)=self.session.take(){
             session.close().map_err(|e|err(e.0))?;
         }
@@ -298,8 +356,32 @@ impl Drop for WorkerWasmSource {
         self.buffer.fill(0);
         self.buffer.clear();
         self.entropy.fill(0);
+        #[cfg(feature="product-amount-scoped")]
+        if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);}
         if let Some(mut guard)=self.session.take() {
             let _=guard.close();
         }
     }
+}
+
+#[cfg(feature="product-amount-scoped")]
+fn scoped_selection(profile:&str,id:u32,selector:u32)->Result<crate::ExistingAmountSelection,JsValue>{
+    match profile{
+        "catalog0-furniture" if id==0=>Ok(crate::ExistingAmountSelection::Inventory{inventory_id:0,item_id:selector}),
+        "linked-crop-chest48" if id>1&&selector<48=>Ok(crate::ExistingAmountSelection::Chest{container_id:id,slot_index:selector as usize}),
+        _=>Err(err("WORKER_SCOPED_PROFILE")),
+    }
+}
+#[cfg(feature="product-amount-scoped")]
+fn scoped_envelope(id:&str,revision:u64,generation:u64,sha:&str,action:WorkerAction)->Result<WorkerEnvelope,JsValue>{
+    Ok(WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(id)?,expected_revision:revision,
+        expected_index_generation:generation,expected_decoded_sha256:from_hex(sha)?,action})
+}
+#[cfg(feature="product-amount-scoped")]
+fn scoped_receipt(r:crate::SemanticStageReceipt)->String{
+    serde_json::json!({"contract":"wand.worker.steam626.scoped-amount@1","sessionId":hex(&r.session_id),
+        "revision":r.revision,"indexGeneration":r.index_generation,"decodedSha256":hex(&r.original_decoded_sha256),
+        "stagedDecodedSha256":hex(&r.staged_decoded_sha256),"operationCount":r.operation_count,
+        "exactFieldChangedCount":r.exact_field_changed_count,"applied":r.applied,"writerAuthorized":false,
+        "originalOverwriteAuthorized":false}).to_string()
 }

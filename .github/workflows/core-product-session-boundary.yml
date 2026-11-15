@@ -51,6 +51,10 @@ jobs:
             --features worker-wasm,indexed-read,semantic-writer-dev
           # Public Pages feature set is strictly worker-wasm,indexed-read.
           grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+      - name: ACT916 scoped amount candidate native and opt-in Worker compile
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped --lib product_amount_scoped --verbose
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped
       - name: Compile WASM Worker plus opt-in indexed-read types without binding to UI
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read
       - name: Rust wasm32 ABI compilation (no UI/bundle assumption)
@@ -64,4 +68,10 @@ jobs:
         run: |
           test -f crates/ddv-save-core/src/product_session.rs
           test -f crates/ddv-save-core/src/strict_document.rs
-          ! grep -R -E 'include_(bytes|str)!|STEAM_SAVE_OWNER_PRIVATE|writer_authorized: *true|apply_authorized: *true' crates/ddv-save-core/src
+          # Only two exact public-derived metadata includes, SHA-pinned.
+          # Preserve the private-data and authority denylist for all sources.
+          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|writer_authorized: *true|apply_authorized: *true' crates/ddv-save-core/src
+          includes="$(git grep -h -E 'include_(bytes|str)!' HEAD -- crates/ddv-save-core/src || true)"
+          expected="$(printf '%s\n' 'const ELIG:&str=include_str!("../data/steam626-amount-packaged-candidates.json");' 'const DEP:&str=include_str!("../data/steam626-amount-dependency-projection.json");')"
+          test "$includes" = "$expected"
+          printf '%s\n' '05a6bea5582232b27569dbb71f8666d7d60c11a35515d844d2f21b2ae557b23d  crates/ddv-save-core/data/steam626-amount-packaged-candidates.json' '78a1ba539b2e6f43182cea2c2ea35c9d10e51f27d4adbb8d4dbc6cce7f7dcd65  crates/ddv-save-core/data/steam626-amount-dependency-projection.json' | sha256sum -c -

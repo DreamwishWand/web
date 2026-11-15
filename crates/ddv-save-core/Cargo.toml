@@ -19,6 +19,8 @@ private-native-v1 = ["indexed-read"]
 private-native-v2 = ["private-native-v1"]
 # DEV/Owner-private semantic existing-field V2, excluded from Pages WASM release.
 semantic-writer-dev = ["indexed-read"]
+# ACT916 scoped product candidate, explicitly excluded from current Pages.
+product-amount-scoped = ["semantic-writer-dev"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
