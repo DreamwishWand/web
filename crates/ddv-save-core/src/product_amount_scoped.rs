@@ -335,12 +335,100 @@ fn subscribers(b:&[u8],player:Span,world:Span,top:Span,d:&Value,item:i32,furnitu
     }
     Ok(())
 }
+
+// E1999: known saved GridState oneof shapes. This checks stored direct
+// dependencies only; it does not prove initialized base/generator closure.
+fn state_fields(v:&Value,keys:&[&str])->CoreResult<()>{
+    need(v.as_object().is_some_and(|m|m.len()==keys.len()&&keys.iter().all(|k|m.contains_key(*k))),"PRODUCT_AMOUNT_STATE_FIELDS")
+}
+fn state_uint(v:&Value)->CoreResult<u32>{
+    v.as_u64().and_then(|x|u32::try_from(x).ok()).ok_or(denied("PRODUCT_AMOUNT_STATE_UINT"))
+}
+fn state_item(v:&Value,item:i32)->CoreResult<()>{
+    need(state_uint(v)?!=item as u32,"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE")
+}
+fn state_array(v:&Value)->CoreResult<&Vec<Value>>{
+    v.as_array().filter(|a|a.len()<=4096).ok_or(denied("PRODUCT_AMOUNT_STATE_ARRAY"))
+}
+fn state_literals(v:&Value,item:i32,budget:&mut usize,depth:usize)->CoreResult<()>{
+    *budget+=1;need(*budget<=1_000_000&&depth<=32,"PRODUCT_AMOUNT_STATE_BOUND")?;
+    match v{
+        Value::Object(m)=>{need(m.len()<=4096,"PRODUCT_AMOUNT_STATE_MAP")?;for(k,x)in m{
+            need(k!=&item.to_string(),"PRODUCT_AMOUNT_STATE_LITERAL_REFERENCE")?;
+            state_literals(x,item,budget,depth+1)?;
+        }},
+        Value::Array(a)=>{need(a.len()<=4096,"PRODUCT_AMOUNT_STATE_ARRAY")?;for x in a{state_literals(x,item,budget,depth+1)?;}},
+        Value::Number(n)=>need(n.as_i64()!=Some(item as i64)&&n.as_f64()!=Some(item as f64),"PRODUCT_AMOUNT_STATE_LITERAL_REFERENCE")?,
+        Value::String(x)=>need(x!=&item.to_string(),"PRODUCT_AMOUNT_STATE_LITERAL_REFERENCE")?,
+        _=>{}
+    }Ok(())
+}
+fn saved_grid_state(b:&[u8],s:Span,item:i32,budget:&mut usize)->CoreResult<()>{
+    if &b[s.begin..s.end]==b"null"{return Ok(())}
+    let v=leaf(b,s)?;
+    let m=v.as_object().filter(|m|m.len()==1).ok_or(denied("PRODUCT_AMOUNT_STATE_ONEOF"))?;
+    let (k,p)=m.iter().next().ok_or(denied("PRODUCT_AMOUNT_STATE_ONEOF"))?;
+    let fields:&[&str]=match k.as_str(){
+        "BuildingWithSkinData"=>&["CurrentSkinItemID","UpgradeState"],
+        "HouseData"=>&["Built","PlayerHouseIndex","UpgradeState"],
+        "Keyhole"=>&["KeyholeConfigDataGUID"],
+        "StallData"=>&["CurrentSkinItemID","ShopData","UpgradeState"],
+        "Toggle"=>&["DesignID","Value"],"FenceMode"=>&["Diagonal"],
+        "SubGrid"=>&["DesignID","GridID"],"GardenData"=>&["Slots"],
+        "ItemList"=>&["Items"],"FishingStallData"=>&["LastCollect","PendingFishes","UpgradeState"],
+        "Storage"=>&["ContainerInventoryID","DefaultContainerInventoryData","DesignID","UnlockKeyItemID","UnlockLocId"],
+        "FlowerData"=>&["BelongingAreasCount","DriedInBeeHouse","Dry","GlowEnd","PollinationEnd","PollinationStart","Resource"],
+        "Mannequin"=>&["BodyType","Clothes","ClothingCustomization","HairColorIndex","HairHighlightColor","IsMale"],
+        "BlockerData"=>&["Stage","Treasure"],"ItemAmountState"=>&["Amount","AssignedPlayer","State"],
+        "Index"=>&["CurrentIndex"],"ObstacleCourseStartLine"=>&["DurationOverride","InteractionConditions","Rewards"],
+        _=>return reject("PRODUCT_AMOUNT_STATE_UNKNOWN")
+    };
+    state_fields(p,fields)?;
+    match k.as_str(){
+        "BuildingWithSkinData"=>state_item(&p["CurrentSkinItemID"],item)?,
+        "StallData"=>{
+            state_item(&p["CurrentSkinItemID"],item)?;
+            for q in state_array(&p["ShopData"]["Slots"])?{
+                let i=q.get("Item").ok_or(denied("PRODUCT_AMOUNT_STATE_SHOP_SLOT"))?;
+                if !i.is_null(){state_item(&i["id"],item)?;}
+            }
+        },
+        "GardenData"=>for q in state_array(&p["Slots"])?{state_item(&q["PlantedSeedItemID"],item)?;},
+        "ItemList"=>for q in state_array(&p["Items"])?{state_item(q,item)?;},
+        "Storage"=>{state_uint(&p["ContainerInventoryID"])?;state_item(&p["UnlockKeyItemID"],item)?;
+            need(p["DefaultContainerInventoryData"].is_string()&&p["UnlockLocId"].is_string(),"PRODUCT_AMOUNT_STATE_STORAGE_TYPE")?;},
+        "SubGrid"=>{state_uint(&p["GridID"])?;},
+        "Mannequin"=>{
+            let clothes=p["Clothes"].as_object().ok_or(denied("PRODUCT_AMOUNT_STATE_CLOTHES"))?;
+            for q in clothes.values(){state_item(q,item)?;}
+            for q in state_array(&p["ClothingCustomization"])?{
+                let x=q.as_str().and_then(|x|x.parse::<u32>().ok()).ok_or(denied("PRODUCT_AMOUNT_STATE_CUSTOMIZATION"))?;
+                need(x!=item as u32,"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE")?;
+            }
+        },
+        "BlockerData"=>{
+            let t=&p["Treasure"];state_fields(t,&["ItemID","State"])?;state_item(&t["ItemID"],item)?;
+            let st=&t["State"];if !st.is_null(){
+                state_fields(st,&["LootPresentData"])?;let l=&st["LootPresentData"];state_fields(l,&["Items"])?;
+                need(state_array(&l["Items"])?.is_empty(),"PRODUCT_AMOUNT_STATE_LOOT_UNPROVEN")?;
+            }
+        },
+        "ItemAmountState"=>need(p["State"].is_null(),"PRODUCT_AMOUNT_STATE_NESTED_UNPROVEN")?,
+        "FishingStallData"=>need(state_array(&p["PendingFishes"])?.is_empty(),"PRODUCT_AMOUNT_STATE_FISH_UNPROVEN")?,
+        "ObstacleCourseStartLine"=>need(p["Rewards"].is_null()&&p["InteractionConditions"].is_null(),"PRODUCT_AMOUNT_STATE_REWARD_UNPROVEN")?,
+        _=>{}
+    }
+    // A literal equal to the target is a conservative rejection, not a
+    // semantic claim about its namespace. Container vs Grid IDs stay separate.
+    state_literals(&v,item,budget,0)
+}
+
 #[derive(Clone,Copy)]struct Link{grid:u32,object:u32,record:Span,grid_span:Span}
 
 fn scan_grids(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>)->CoreResult<Option<Link>>{
     let gc=f(b,world,"GridCollection")?;let mut count=0usize;let mut total=0usize;let mut link=None;
     let mut subgrid=std::collections::BTreeSet::new();let mut grids=std::collections::BTreeSet::new();
-    let mut native_unresolved=false;
+    let mut native_unresolved=false;let mut state_budget=0usize;
     let mut checked_assets=std::collections::BTreeSet::new();
     for (map,objects,diff) in [("Grids","Objects",false),("DiffGrids","ModifiedObjects",true)]{
         for(k,g)in members(b,f(b,gc,map)?,50000)?{
@@ -363,6 +451,7 @@ fn scan_grids(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>)->CoreResult<O
                 let id=n(b,o,"ItemID")?;need(id<=i32::MAX as u32,"PRODUCT_AMOUNT_OBJECT_ITEM")?;
                 if chest.is_none(){need(id!=item as u32,"PRODUCT_AMOUNT_PLACEMENT_TARGET")?;}
                 let s=f(b,o,"State")?;if &b[s.begin..s.end]==b"null"{continue}
+                saved_grid_state(b,s,item,&mut state_budget)?;
                 let fs=members(b,s,128)?;
                 for(k,v)in fs{
                     if k=="Storage"{
@@ -673,10 +762,10 @@ mod tests{
             let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"][k]=v;verify(&q,error);
         }
         let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"]["ModifiedObjects"]["9"]=json!({
-            "ID":9,"ItemID":40001680,"State":{"Storage":{"ContainerInventoryID":12,"DefaultContainerInventoryData":""}}});
+            "ID":9,"ItemID":40001680,"State":{"Storage":{"ContainerInventoryID":12,"DefaultContainerInventoryData":"","DesignID":null,"UnlockKeyItemID":0,"UnlockLocId":""}}});
         verify(&q,"PRODUCT_AMOUNT_CHEST_DUPLICATE_LINK");
         let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"]["ModifiedObjects"]["9"]=json!({
-            "ID":9,"ItemID":40001680,"State":{"Storage":{"ContainerInventoryID":0,"DefaultContainerInventoryData":"template"}}});
+            "ID":9,"ItemID":40001680,"State":{"Storage":{"ContainerInventoryID":0,"DefaultContainerInventoryData":"template","DesignID":null,"UnlockKeyItemID":0,"UnlockLocId":""}}});
         verify(&q,"PRODUCT_AMOUNT_CHEST_TEMPLATE_ALIAS");
         let (p,a,id,item)=ix.iter().find_map(|(p,a)|a.grids.iter().find_map(|(id,g)|g.items.first().map(|i|(p,a,*id,*i)))).unwrap();
         let mut q=doc();q["Player"]["ListInventories"]["0"]["Inventory"]=json!({(item.to_string()):{"Amount":3,"Marker":"ItemMarker_None"}});
@@ -739,6 +828,29 @@ mod tests{
         let v=c[0].view();s.stage_scoped_product_amount(scope(&s,WorkerAction::Stage),v.selection,v.old_amount,49,v.entry_sha256).unwrap();
         assert!(s.discover_scoped_product_amount(e,"linked-crop-chest48",0).is_err());
         assert!(s.discover_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),"linked-crop-chest48",0).is_err());
+    }
+
+    #[test]fn saved_grid_state_known_literal_and_typed_dependencies(){
+        let check=|v:Value,item:i32|{let b=serde_json::to_vec(&v).unwrap();saved_grid_state(&b,Span{begin:0,end:b.len()},item,&mut 0)};
+        for item in [40000048,30200000]{
+            assert!(check(json!({"ItemList":{"Items":[1,2]}}),item).is_ok());
+            assert!(check(json!({"SubGrid":{"DesignID":null,"GridID":12}}),item).is_ok());
+            for v in [
+                json!({"ItemList":{"Items":[item]}}),
+                json!({"BlockerData":{"Stage":0,"Treasure":{"ItemID":item,"State":null}}}),
+                json!({"StallData":{"CurrentSkinItemID":0,"UpgradeState":{},"ShopData":{"Slots":[{"Item":{"id":item,"amount":1}}]}}}),
+                json!({"ItemAmountState":{"Amount":1,"AssignedPlayer":0,"State":{"LootPresentData":{"Items":[{"ItemID":item}]}}}}),
+                json!({"BlockerData":{"Stage":0,"Treasure":{"ItemID":1,"State":{"LootPresentData":{"Items":[{"ItemID":item}]}}}}}),
+                json!({"SubGrid":{"DesignID":null,"GridID":"12"}}),
+                json!({"SubGrid":{"DesignID":null,"GridID":12,"Unknown":0}}),
+                json!({"SubGrid":{"DesignID":null,"GridID":12},"Index":{"CurrentIndex":0}}),
+                json!({"UnknownState":{}}),
+                json!({"Index":{"CurrentIndex":item}}),
+            ]{assert!(check(v,item).is_err());}
+            let mut d=doc();d["World"]["GridCollection"]["Grids"]["7"]=json!({"ID":7,"GridDefaultLayoutPath":"","Objects":{"1":{"ID":1,"ItemID":1,"State":{"ItemList":{"Items":[item]}}}}});
+            let b=serde_json::to_vec(&d).unwrap();let r=indexed_read::roots(&b).unwrap();
+            assert_eq!(scan_grids(&b,r.world,item,None).err().unwrap().0,"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE");
+        }
     }
     #[test]fn unresolved_default_and_unlisted_item_fail_closed(){
         let mut d=doc();d["World"]["GridCollection"]["DiffGrids"]["1"]=json!({"ID":1});let s=open(&d);
