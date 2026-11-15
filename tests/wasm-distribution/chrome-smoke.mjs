@@ -64,6 +64,8 @@ function replyFile(req,res){
     '/src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',
     '/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
     '/src/lib/ddv/core/save/product-scoped-amount-transport.mjs',
+    '/src/lib/ddv/core/save/product-fixed-collection-transport.mjs',
+    '/src/lib/collection/collection-candidate-read.mjs',
     '/src/lib/ddv/core/save/local-original-backup.mjs',
     '/src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs',
     '/src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs',
