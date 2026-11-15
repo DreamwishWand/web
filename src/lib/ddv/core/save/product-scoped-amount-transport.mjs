@@ -19,11 +19,14 @@ export function createScopedAmountTransport(wasm,initial,{parse,current,revoke,m
   oldAmount:preview.oldAmount,newAmount:preview.newAmount,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false});
  // PR1311 fixed Worker-private ABI. Only Core may enumerate/accept rows.
  // The existing transport owns scope and revocation; no UI offsets or plans.
- function discoverTargets(){
+ function discoverTargets(profile){
   return checked(()=>{
-   if(ledger||scope.revision!==0||scope.indexGeneration!==1||typeof wasm.discover_scoped_amount!=='function')fail();
+   if(ledger||scope.revision!==0||scope.indexGeneration!==1||typeof wasm.discover_scoped_amount!=='function'||
+    !['linked-crop-chest48','catalog0-furniture'].includes(profile))fail();
    const targets=[],seen=new Set();
-   for(const profile of ['linked-crop-chest48','catalog0-furniture']){
+   // One independent profile per discovery: an unrelated inventory failure
+   // must not stop an otherwise valid Chest route (and vice versa).
+   {
     let offset=0;
     for(let pages=0;;pages++){
      if(pages>=256)fail();

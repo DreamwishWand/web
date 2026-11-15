@@ -379,7 +379,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
    issueSavedDiffGridsCursor,readSavedDiffGridsPage,
    close,submitOperation,getCapabilities,
    getReceipt:()=>active&&!active.scoped?.hasMutation()?active.receipt:null,
-   ...(allowScopedAmountSource===true?{discoverScopedTargets:()=>scoped().discoverTargets(),previewScopedAmount:selection=>scoped().previewTarget(selection),
+   ...(allowScopedAmountSource===true?{discoverScopedTargets:profile=>scoped().discoverTargets(profile),previewScopedAmount:selection=>scoped().previewTarget(selection),
      stageScopedAmount:()=>scoped().stage(),toggleScopedAmount:redo=>scoped().toggle(redo),
      takeScopedAmountOutput:()=>scoped().takeOutput()}: {})});
 }
