@@ -46,7 +46,7 @@ export type ProductWorkerWasmFactory=()=>Promise<{
   WorkerWasmSource:new(platform:string,kind:string,buildId:string,schema:number,
     externallyAttested:boolean,entropy:Uint8Array)=>WorkerWasmSource
 }>;
-export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory):
+export type ProductWasmReadOwner=
  Readonly<{
   openDecoded(args:{build:WorkerBuildEvidence;decodedChunks:AsyncIterable<Uint8Array>}):
     Promise<ProductWasmReceipt>;
@@ -93,3 +93,20 @@ export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFact
     canOriginalOverwrite:false;maxChunkBytes:number;maxDecodedBytes:number;
   }>;
  }>;
+
+/** Opt-in source-only transport; no authority or public route. The decoded
+ * result is Worker-private and must go directly to the existing P1G Codec. */
+export type ScopedAmountSelection=Readonly<{
+ profile:'catalog0-furniture'|'linked-crop-chest48';id:number;selector:number;newAmount:number;
+}>;
+export type ScopedAmountPreview=Readonly<ScopedAmountSelection & {
+ itemId:number;oldAmount:number;scopedCandidate:true;writerAuthorized:false;editedCopyAuthorized:false;
+}>;
+export type ScopedAmountSourceOwner=ProductWasmReadOwner & Readonly<{
+ previewScopedAmount(selection:ScopedAmountSelection):ScopedAmountPreview;
+ stageScopedAmount():Readonly<ScopedAmountPreview & {applied:true;exactFieldChangedCount:1}>;
+ toggleScopedAmount(redo:boolean):Readonly<ScopedAmountPreview & {applied:boolean;exactFieldChangedCount:1}>;
+ takeScopedAmountOutput():Promise<Readonly<{decodedBytes:Uint8Array;decodedSha256:string}>>;
+}>;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowScopedAmountSource:true}):ScopedAmountSourceOwner;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options?:{allowScopedAmountSource?:false}):ProductWasmReadOwner;
