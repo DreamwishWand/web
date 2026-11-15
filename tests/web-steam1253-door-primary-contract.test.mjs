@@ -39,3 +39,36 @@ test('one neutral no-store manifest, withdrawal clears, refresh never uses Switc
  const p=c.load('/web',fetcher,true);assert.equal(states.at(-1).catalog,null);
  assert.equal((await p).count,0);assert.equal(scopedSwitch1253ItemImageHref('/web',id,states.at(-1).catalog),null);c.clear();
 });
+
+test('ACT648 exact2 shared Steam pins and one combined manifest; no hidden or cross-pin fallback',async()=>{
+ const mod=await import('../src/lib/item-media/switch1253-public-item-images.mjs');
+ const ids=[id,'40006110','40005160'],pins=mod.STEAM1253_NATIVE_PINS;
+ assert.deepEqual(Object.keys(pins).sort(),[...ids].sort());
+ assert.deepEqual(pins[id],pin);assert.equal(off.mediaPublic,false);
+ assert.deepEqual(Object.keys(mod.prepareSteam1253ItemImageManifest().items),[id]);
+ const {release}=fixture(),m=mod.prepareSteam1253ItemImageManifest(ids);
+ for(const k of ids){
+  m.items[k].publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';
+  release.items[k]=Object.fromEntries(['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'].map(key=>[key,m.items[k][key]]));
+ }
+ const {mediaPublic,items,...publication}=release;m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...publication};
+ const cat=validateSteam1253ItemImageCatalog(m,release);assert.equal(cat.count,3);
+ for(const k of ids){
+  const p=pins[k],url='/web/ddv/item-images/steam-1.25.3-schema626-lossless160-v1/'+p.webpSha256.slice(0,2)+'/'+p.webpSha256+'.webp';
+  assert.equal(scopedSwitch1253ItemImageHref('/web',k,cat),url);
+  assert.equal(p.platform,'Steam Windows');assert.equal(p.fallbackPolicy,'EXPLICIT_FALLBACK_ONLY');
+  for(const field of Object.keys(p)){
+   const x=structuredClone(m);x.items[k][field]=null;
+   assert.throws(()=>validateSteam1253ItemImageCatalog(x,release));
+  }
+ }
+ const paths=ids.map(k=>scopedSwitch1253ItemImageHref('/web',k,cat));assert.equal(new Set(paths).size,3);
+ for(const bad of ['40003299','40300001','40002422','00040005160','__proto__','constructor','0280873a7ea805d4199a49df193f1c0d'])assert.equal(scopedSwitch1253ItemImageHref('/web',bad,cat),null);
+ const x=structuredClone(m);x.items['40006110']=x.items['40005160'];assert.throws(()=>validateSteam1253ItemImageCatalog(x,release));
+ const y=structuredClone(m);delete y.items['40006110'];const withdrawn=validateSteam1253ItemImageCatalog(y,release);
+ assert.equal(withdrawn.count,2);assert.equal(scopedSwitch1253ItemImageHref('/web','40006110',withdrawn),null);
+ assert.equal(scopedSwitch1253ItemImageHref('/web','40005160',withdrawn),paths[2]);
+ for(const invalid of [[],[id,id],['40003299'],[40006110],null])assert.throws(()=>mod.prepareSteam1253ItemImageManifest(invalid));
+ const pair=mod.prepareSteam1253ItemImageManifest(['40006110','40005160']);assert.deepEqual(Object.keys(pair.items).sort(),['40005160','40006110']);
+ assert.throws(()=>validateSteam1253ItemImageCatalog(m),/GATE_OFF/);
+});

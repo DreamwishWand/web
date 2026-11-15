@@ -199,6 +199,38 @@ export const STEAM1253_DOOR_PIN=Object.freeze({
  fallbackPolicy:'EXPLICIT_FALLBACK_ONLY',codec:'WEBP_LOSSLESS_RGBA_EXACT',
  visibility:'RELEASED_PLAYER_FACING'
 });
+// ACT648: exact two new Steam primary provenance pins from E1641/E1642.
+export const STEAM1253_NATIVE_PINS=Object.freeze({
+ [STEAM1253_DOOR_ID]:STEAM1253_DOOR_PIN,
+ '40006110':Object.freeze({
+  platform:'Steam Windows',gameVersion:'1.25.3',schema:626,
+ fullVersion:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+  originalBundleSha256:'acb7b4da1b360e37a9dc7b1b0781199d64c5269a37524335c68f4050e89161b7',
+  originalNativeStreamSha256:'751dde857a70040b8704b4228c0282f10f54967738d64c7ed482ac69efe409ee',
+  sourcePngSha256:'d9a59309f9192e56a79f87dcddae324585b534cd680c38b7b58a2dfa9cc5c511',
+  webpSha256:'4f1ed414b3f554a69dbc7b4e682507274c58ad327ace7e22808469aa1e56eff4',
+  rgba160Sha256:'306c52a3fd70c5e12f8349bfc68b5140a890859350342c10659e385d08edd870',
+  iconGuid:'0280873a7ea805d4199a49df193f1c0d',width:160,height:160,bytes:28176,
+  fallbackPlatform:'Nintendo Switch',fallbackBuildID:'9A239D3DB569756D',
+  fallbackBundleSha256:'de9d4b0daf14dce505aceb182e66b9c38fd774a4bcbfb91fb257f05797e75532',
+  fallbackNativeStreamSha256:'945359c7bee25a461c34d14d97f4d28aa2ae198594e4a147f9b3a3972406d149',
+  fallbackPolicy:'EXPLICIT_FALLBACK_ONLY',codec:'WEBP_LOSSLESS_RGBA_EXACT',visibility:'RELEASED_PLAYER_FACING'
+ }),
+ '40005160':Object.freeze({
+  platform:'Steam Windows',gameVersion:'1.25.3',schema:626,
+ fullVersion:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+  originalBundleSha256:'9ddf2abc3bb61d0b1420dd615af2507a7b8f08831c96c8f81670c9937f1bb13a',
+  originalNativeStreamSha256:'8d28c26aed54bf50021641a898bcbb396b4075fcf21e3bf7c985518369ce5803',
+  sourcePngSha256:'011b569722d0e4e19e20262994e51ced2f57ef8ef7e1c69ff036b1496a881b12',
+  webpSha256:'461f6484256c69e5a528adc3af7054301841fc324c237d8bc0d4534830345bec',
+  rgba160Sha256:'278d57ff8d42b3e64a9f7abe597e6db7d2938c39b19f39d95526834669d46796',
+  iconGuid:'ee85e95b0e61be642af03833a4942ae7',width:160,height:160,bytes:5796,
+  fallbackPlatform:'Nintendo Switch',fallbackBuildID:'9A239D3DB569756D',
+  fallbackBundleSha256:'b126813d38899c52c440d9c5d0e4b2fc47fd7719d44b058ec277f6cce2e53c3f',
+  fallbackNativeStreamSha256:'de98322ba8fa85da9fd19cdc3e5d5db361bbdfbedb1cfa503aa652a86827e74a',
+  fallbackPolicy:'EXPLICIT_FALLBACK_ONLY',codec:'WEBP_LOSSLESS_RGBA_EXACT',visibility:'RELEASED_PLAYER_FACING'
+ })
+});
 // Compiled OFF; fetched JSON cannot grant release authority.
 export const STEAM1253_REVIEWED_RELEASE=Object.freeze({
  mediaPublic:false,decisionId:ITEM_IMAGE_OWNER_DECISION_ID,scope:SWITCH1253_OWNER_SCOPE,
@@ -209,11 +241,13 @@ export const STEAM1253_REVIEWED_RELEASE=Object.freeze({
 const STEAM_PUBLICATION_KEYS=['decisionId','scope','rightsHolderLicense','licenseEvidenceSha256',
  'rightsReview','managedHttps','takedown','receivingContact','attribution','oldUrlAndCache','rollback','operatorReceiptSha256'];
 const steamCatalogs=new WeakSet();
-export function prepareSteam1253ItemImageManifest(){
+export function prepareSteam1253ItemImageManifest(ids=[STEAM1253_DOOR_ID]){
+ if(!Array.isArray(ids)||ids.length<1||ids.length>Object.keys(STEAM1253_NATIVE_PINS).length||
+  ids.some(id=>typeof id!=='string'||!owns(STEAM1253_NATIVE_PINS,id))||new Set(ids).size!==ids.length)fail('STEAM_PREPARE_SCOPE_DENIED');
  const publication=Object.fromEntries(STEAM_PUBLICATION_KEYS.map(k=>[k,STEAM1253_REVIEWED_RELEASE[k]]));
  return {schema:STEAM1253_ITEM_IMAGE_SCHEMA,assetVariant:STEAM1253_ITEM_IMAGE_VARIANT,
   publication:{gate:'MEDIA_PUBLIC_PREPARED_OFF',...publication},
-  items:{[STEAM1253_DOOR_ID]:{...STEAM1253_DOOR_PIN,rightsStatus:'UNKNOWN',publicationDecision:'NOT_RUN'}},
+  items:Object.fromEntries(ids.map(id=>[id,{...STEAM1253_NATIVE_PINS[id],rightsStatus:'UNKNOWN',publicationDecision:'NOT_RUN'}])),
   switch:null};
 }
 export function validateSteam1253ItemImageCatalog(raw,release=STEAM1253_REVIEWED_RELEASE,switchRelease=SWITCH1253_REVIEWED_RELEASE){
@@ -224,12 +258,12 @@ export function validateSteam1253ItemImageCatalog(raw,release=STEAM1253_REVIEWED
     raw.publication.gate!=='MEDIA_PUBLIC_SCOPED_ON'||
     STEAM_PUBLICATION_KEYS.some(k=>raw.publication[k]!==release[k]))fail('STEAM_MANIFEST_UNVERIFIED');
  if(!raw.items||typeof raw.items!=='object'||Array.isArray(raw.items))fail('STEAM_ITEMS_INVALID');
- const keys=Object.keys(raw.items),pin=STEAM1253_DOOR_PIN;
- if(keys.some(id=>id!==STEAM1253_DOOR_ID))fail('STEAM_ITEM_NOT_PINNED');
+ const keys=Object.keys(raw.items);
+ if(keys.some(id=>!owns(STEAM1253_NATIVE_PINS,id)))fail('STEAM_ITEM_NOT_PINNED');
  const rights=release.rightsHolderLicense==='UNKNOWN'?'UNKNOWN':'DOCUMENTED_LICENSE_APPROVED';
  const items=Object.create(null);
  for(const id of keys){
-  const e=raw.items[id],r=release.items[id];
+  const e=raw.items[id],r=release.items[id],pin=STEAM1253_NATIVE_PINS[id];
   if(!owns(release.items,id)||!exactKeys(e,[...Object.keys(pin),'rightsStatus','publicationDecision'])||
     Object.entries(pin).some(([k,v])=>e[k]!==v)||
     e.rightsStatus!==rights||e.publicationDecision!=='OWNER_SCOPED_PUBLICATION_ACCEPTED'||
@@ -246,13 +280,16 @@ export function validateSteam1253ItemImageCatalog(raw,release=STEAM1253_REVIEWED
   if(raw.switch!==null)fallback=validateSwitch1253ItemImageCatalog(raw.switch,switchRelease);
  }else if(raw.switch!==null)fail('SWITCH_FALLBACK_GATE_OFF');
  const catalog=Object.freeze({assetVariant:STEAM1253_ITEM_IMAGE_VARIANT,items:Object.freeze(items),
-  switch:fallback,count:keys.length+(fallback?.count??0)});
+  switch:fallback,count:keys.length+Object.keys(fallback?.items??{}).filter(id=>!owns(STEAM1253_NATIVE_PINS,id)).length});
  steamCatalogs.add(catalog);return catalog;
 }
 export function scopedSteam1253ItemImageHref(base,itemId,catalog){
  if(!baseOk(base)||!steamCatalogs.has(catalog))return null;
  const id=String(itemId),p=catalog.items[id];
- if(id===STEAM1253_DOOR_ID&&p){
+ // A known Steam-primary ID can be withdrawn independently. Its absence
+ // is authoritative; a legacy Switch slice must never resurrect it.
+ if(owns(STEAM1253_NATIVE_PINS,id)){
+  if(!p)return null;
   const prefix=base?'/'+base.replace(/^\/+|\/+$/g,''):'';
   return prefix+'/ddv/item-images/'+STEAM1253_ITEM_IMAGE_VARIANT+'/'+p.webpSha256.slice(0,2)+'/'+p.webpSha256+'.webp';
  }
