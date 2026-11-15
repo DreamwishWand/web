@@ -28,6 +28,7 @@ function replyFile(req,res){
   const allowed=p.startsWith('/tests/stage-f/')||
     p.startsWith('/tests/stage-e/pkg/')||
     ['/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
+     '/src/lib/collection/collection-candidate-read.mjs',
      '/src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs',
      '/src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs',
      '/tools/owner-local-steam-v1/attestation.mjs',
