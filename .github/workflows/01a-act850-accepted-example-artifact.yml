@@ -1,7 +1,6 @@
 name: ACT850 accepted Switch626 reader artifact recovery (source only)
 on:
-  push:
-    branches: ['01a/act850-accepted-example-artifact']
+  pull_request:
     paths: ['.github/workflows/01a-act850-accepted-example-artifact.yml']
 permissions:
   contents: read
