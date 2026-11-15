@@ -662,6 +662,8 @@ mod tests{
             deny(&q,"PRODUCT_AMOUNT_LAYOUT_HASH_TYPE");
             q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(19,2);
             q["World"]["GridCollection"]["DiffGrids"]["19"]["RemovedObjects"]=json!([-1]);
+            deny(&q,"SEMANTIC_UNSIGNED_INTEGER_REQUIRED");
+            q["World"]["GridCollection"]["DiffGrids"]["19"]["RemovedObjects"]=json!([4294967296u64]);
             deny(&q,"PRODUCT_AMOUNT_LAYOUT_REMOVED_ID");
             q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(19,2);
             q["World"]["GridCollection"]["Grids"]["19"]=json!({"ID":19,"GridDefaultLayoutPath":"","Objects":{}});
@@ -692,8 +694,8 @@ mod tests{
                 deny(&q,"PRODUCT_AMOUNT_PLACEMENT_TARGET");
             }
         }
-        assert_eq!(denials,16);
-        println!("QA_PR1299_LAYOUT_CAUSAL 2POS 16NEG each Preview+Stage+unchanged+noExport");
+        assert_eq!(denials,18);
+        println!("QA_PR1299_LAYOUT_CAUSAL 2POS 18NEG each Preview+Stage+unchanged+noExport");
     }
 
 }
