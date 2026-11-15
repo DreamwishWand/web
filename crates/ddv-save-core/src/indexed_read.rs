@@ -1491,14 +1491,17 @@ mod private_avatar {
                 // as the accepted amount-dependency reference projection.
                 let refs=amount_grid_refs(bytes,Some(list),"GridID","GridObjectID",budget)?;
                 let entries=refs["entries"].as_array().ok_or(denied("ORDINARY_SPAWN_ENTRIES"))?;
+                // Hash an event at most once even when its list repeats the target.
+                let mut event_sha=None;
                 for r in entries{
                     if r["completePhysicalAddress"]!=true{return Err(denied("ORDINARY_SPAWN_ADDRESS_INCOMPLETE"));}
                     addresses+=1;
                     if r["gridId"].as_u64()==Some(u64::from(grid_id))&&
                         r["objectId"].as_u64()==Some(u64::from(object_id)){
                         if matches.len()>=4096{return Err(denied("ORDINARY_SPAWN_MATCH_BOUND"));}
+                        let digest=event_sha.get_or_insert_with(||sha(&bytes[event.begin..event.end]));
                         matches.push(json!({"eventId":event_id,"position":r["position"],
-                            "recordSha256":r["recordSha256"],"eventSha256":sha(&bytes[event.begin..event.end])}));
+                            "recordSha256":r["recordSha256"],"eventSha256":digest.as_str()}));
                     }
                 }
             }
@@ -1846,7 +1849,6 @@ mod private_avatar {
             expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
         fn hash(d:&Value)->[u8;32]{Sha256::digest(serde_json::to_vec(&d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]).unwrap()).into()}
         fn read(d:&Value)->CoreResult<Value>{let s=open(d);s.read_private_furniture_amount_dependencies(env(&s),40000001,hash(d))}
-
         #[test]
         fn qa_pr1341_spawn_composite_actual_session_and_shared_budget(){
             let prepare=|mut d:Value|{d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(9);d};
@@ -1927,6 +1929,33 @@ mod private_avatar {
             assert!(s.read_private_furniture_amount_dependencies(stale,40000001,hash(&d)).is_err());
             assert!(open(&d).read_private_furniture_amount_dependencies(e,40000001,hash(&d)).is_err());
             s.close().unwrap();assert!(s.read_private_furniture_amount_dependencies(e,40000001,hash(&d)).is_err());
+        }
+        #[test]
+        fn ordinary_address_receipt_uses_same_epoch_and_legacy_budget(){
+            let mut d=doc();
+            d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(9);
+            d["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["SpawnState"]=json!({"SpawnedObjects":[
+                {"GridID":7,"GridObjectID":4},{"GridID":8,"GridObjectID":9}]});
+            let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();let old=hash(&d);
+            let legacy=s.read_private_furniture_amount_dependencies(e,40000001,old).unwrap();
+            let add=s.read_private_ordinary_adddel_dependencies(e,40000001,old,7,None).unwrap();
+            let del=s.read_private_ordinary_adddel_dependencies(e,40000001,old,7,Some(4)).unwrap();
+            assert_eq!(add["ordinarySpawnAddressReadSet"]["objectId"],9);
+            assert_eq!(add["ordinarySpawnAddressReadSet"]["noExactSavedSpawnAddress"],true);
+            assert_eq!(del["ordinarySpawnAddressReadSet"]["objectId"],4);
+            assert_eq!(del["ordinarySpawnAddressReadSet"]["noExactSavedSpawnAddress"],false);
+            assert_eq!(del["ordinaryStoredGridReadSet"]["eventAddressClosureVerified"],false);
+            let mut unchanged=add.clone();
+            let m=unchanged.as_object_mut().unwrap();
+            m.remove("ordinarySpawnAddressReadSet");m.remove("ordinaryStoredGridReadSet");
+            m.insert("contract".into(),legacy["contract"].clone());
+            assert_eq!(unchanged,legacy);assert_eq!(s.receipt().unwrap(),before);
+            assert!(s.read_private_ordinary_adddel_dependencies(e,40000001,[0;32],7,None).is_err());
+            assert!(s.read_private_ordinary_adddel_dependencies(WorkerEnvelope{expected_revision:1,..e},40000001,old,7,None).is_err());
+            assert!(s.read_private_ordinary_adddel_dependencies(WorkerEnvelope{expected_index_generation:2,..e},40000001,old,7,None).is_err());
+            assert!(open(&d).read_private_ordinary_adddel_dependencies(e,40000001,old,7,None).is_err());
+            assert!(s.read_private_ordinary_adddel_dependencies(e,40000001,old,8,None).is_err());
+            s.close().unwrap();assert!(s.read_private_ordinary_adddel_dependencies(e,40000001,old,7,None).is_err());
         }
         // Count every emitted typed reference, including the filter record
         // itself. Per-array limits and the final receipt byte cap remain
