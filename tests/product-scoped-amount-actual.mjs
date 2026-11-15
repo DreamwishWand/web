@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createHash} from 'node:crypto';
-import {mkdtemp,open,readFile,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,open,readFile,writeFile,rm,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
@@ -37,6 +37,12 @@ for(const [d,sel,apply] of [
  [chest(),{profile:'linked-crop-chest48',id:12,selector:0,newAmount:49},x=>x.Player.ContainerInventories[12].Inventory[0].Amount=49]
 ]){
  const source=makeSyntheticP1gProfile(d),originalSha256=hash(source);
+ if(process.env.WAND_SCOPED_BROWSER_FIXTURE_DIR){
+  const dir=process.env.WAND_SCOPED_BROWSER_FIXTURE_DIR;await mkdir(dir,{recursive:true});
+  const expected=structuredClone(d);apply(expected);
+  await writeFile(join(dir,sel.profile+'.p1g'),source);
+  await writeFile(join(dir,sel.profile+'.json'),JSON.stringify({sel,originalSha256,expected:JSON.stringify(expected)}));
+ }
  const file=new File([source],'synthetic.p1g');
  const backup=new File([source],'synthetic.p1g.original-backup.p1g');
  const dir=await mkdtemp(join(tmpdir(),'wand-scoped-backup-'));

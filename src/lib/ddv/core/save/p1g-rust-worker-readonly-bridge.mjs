@@ -197,7 +197,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
       if(name.toLowerCase()===source.name.toLowerCase()||name===backupName||name.toLowerCase()===durableName.toLowerCase())fail('P1G_WORKER_SCOPED_OUTPUT_DENIED');
       // Only encrypted bytes leave the Worker-private codec path. No public
       // router/automatic download. Same-process reopen != independent OS V2.
-      const out=Object.freeze({name,encryptedBytes:encrypted,sha256:editedSha,sizeBytes:encrypted.length,
+      const out=Object.freeze({name,encryptedBytes:encrypted,sha256:editedSha,sizeBytes:encrypted.length,decodedSha256:result.decodedSha256,
         codecReopenVerified:true,independentProcessReopenVerified:false,writerAuthorized:false,originalOverwriteAuthorized:false});
       encrypted=null;return out;
     }finally{if(decoded)decoded.fill(0);if(encrypted)encrypted.fill(0);if(current())close()}
