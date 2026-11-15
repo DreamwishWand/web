@@ -1425,6 +1425,94 @@ mod private_avatar {
         }
     }
 
+    // ACT493: extend the existing private amount dependency receipt with a
+    // bounded, same-session physical ordinary-object/counter readset. No
+    // effective root, defaults, collision, quota, event or Writer authority.
+    #[cfg(feature="semantic-writer-dev")]
+    fn ordinary_stored_grid_readset(bytes:&[u8],grid:Span,grid_id:u32,item:u32,object_id:Option<u32>)->CoreResult<Value>{
+        let gf=members(bytes,grid,128)?;
+        if amount_uint(bytes,required(&gf,"ID")?)?!=grid_id{return Err(denied("ORDINARY_READ_GRID_ID"));}
+        let next_span=required(&gf,"NextGridObjectID")?;
+        let next=amount_uint(bytes,next_span)?;
+        let after=next.checked_add(1).ok_or(denied("ORDINARY_READ_NEXT_OVERFLOW"))?;
+        let os=required(&gf,"Objects")?;
+        let mut selected=None;let mut seen=std::collections::BTreeSet::new();
+        for (k,o) in members(bytes,os,16384)?{
+            let oid=key_u32(&k)?;let of=members(bytes,o,128)?;
+            if amount_uint(bytes,required(&of,"ID")?)?!=oid||!seen.insert(oid){return Err(denied("ORDINARY_READ_OBJECT_ID"));}
+            if oid>=next{return Err(denied("ORDINARY_READ_NEXT_NOT_ABOVE_STORED"));}
+            let saved_item=amount_uint(bytes,required(&of,"ItemID")?)?;
+            if Some(oid)==object_id{
+                if saved_item!=item{return Err(denied("ORDINARY_READ_ITEM_MISMATCH"));}
+                let state=required(&of,"State")?;
+                if &bytes[state.begin..state.end]!=b"null"{return Err(denied("ORDINARY_READ_STATE_NOT_NULL"));}
+                selected=Some(json!({"objectId":oid,"itemId":item,"recordSha256":sha(&bytes[o.begin..o.end]),
+                    "x":scalar_witness(bytes,&of,"X")?,"y":scalar_witness(bytes,&of,"Y")?,
+                    "orientation":token_witness(bytes,&of,"Orientation")?,
+                    "state":dependency_hash(bytes,Some(state)),"from":dependency_hash(bytes,field(&of,"From"))}));
+            }
+        }
+        if object_id.is_some()&&selected.is_none(){return Err(denied("ORDINARY_READ_OBJECT_MISSING"));}
+        Ok(json!({"gridId":grid_id,"gridSha256":sha(&bytes[grid.begin..grid.end]),
+            "objectsSha256":sha(&bytes[os.begin..os.end]),"storedObjectCount":seen.len(),
+            "nextGridObjectId":next,"nextGridObjectIdSha256":sha(&bytes[next_span.begin..next_span.end]),
+            "nextAfterAdd":after,"nextAfterDelete":next,"nextUnusedInStoredMap":true,
+            "selectedStoredObject":selected,"effectiveRootVerified":false,"effectivePlacementVerified":false,
+            "eventAddressClosureVerified":false,"quotaVerified":false,"writerAuthorized":false}))
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    impl ProductSession{
+        pub fn read_private_ordinary_adddel_dependencies(&self,e:WorkerEnvelope,item:u32,entry_sha:[u8;32],
+            grid_id:u32,object_id:Option<u32>)->CoreResult<Value>{
+            // Existing Core-minted inventory target, subscriber and placement
+            // projection, then revalidate the same source before reading the
+            // selected plain stored grid. No alternative Reader or decoder.
+            let mut receipt=self.read_private_furniture_amount_dependencies(e,item,entry_sha)?;
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            let bytes=&self.decoded;let root=roots(bytes)?;
+            let world=members(bytes,root.world,1024)?;
+            let gc=members(bytes,required(&world,"GridCollection")?,64)?;
+            let mut selected=None;
+            for (k,g) in members(bytes,required(&gc,"Grids")?,50000)?{
+                let id=key_u32(&k)?;let gf=members(bytes,g,128)?;
+                if amount_uint(bytes,required(&gf,"ID")?)?!=id{return Err(denied("ORDINARY_READ_GRID_ID"));}
+                if id==grid_id&&selected.replace(g).is_some(){return Err(denied("ORDINARY_READ_GRID_DUPLICATE"));}
+            }
+            // Exclude a competing stored DiffGrid identity. This is not a
+            // proof about packaged defaults or the effective native graph.
+            for (k,g) in members(bytes,required(&gc,"DiffGrids")?,50000)?{
+                let id=key_u32(&k)?;let gf=members(bytes,g,128)?;
+                if amount_uint(bytes,required(&gf,"ID")?)?!=id{return Err(denied("ORDINARY_READ_DIFF_ID"));}
+                if id==grid_id{return Err(denied("ORDINARY_READ_DIFF_OVERLAP"));}
+            }
+            receipt["contract"]=json!("wand.native.private.ordinary-adddel-dependencies@1");
+            receipt["ordinaryStoredGridReadSet"]=ordinary_stored_grid_readset(bytes,selected.ok_or(denied("ORDINARY_READ_GRID_MISSING"))?,grid_id,item,object_id)?;
+            if serde_json::to_vec(&receipt).map_err(|_|denied("ORDINARY_READ_RECEIPT_ENCODE"))?.len()>8*1024*1024{
+                return Err(denied("ORDINARY_READ_RECEIPT_BOUND"));}
+            Ok(receipt)
+        }
+    }
+    #[cfg(all(test,feature="semantic-writer-dev"))]
+    #[test]
+    fn ordinary_stored_grid_counter_and_target_are_fail_closed(){
+        let valid=r#"{"ID":7,"NextGridObjectID":9,"Objects":{"8":{"ID":8,"ItemID":40000066,"X":1,"Y":2,"Orientation":"GridOrientation_Up","State":null}}}"#;
+        let check=|raw:&str,oid:Option<u32>|ordinary_stored_grid_readset(raw.as_bytes(),Span{begin:0,end:raw.len()},7,40000066,oid);
+        let add=check(valid,None).unwrap();
+        assert_eq!(add["nextGridObjectId"],9);assert_eq!(add["nextAfterAdd"],10);
+        assert!(add["selectedStoredObject"].is_null());assert_eq!(add["writerAuthorized"],false);
+        let del=check(valid,Some(8)).unwrap();
+        assert_eq!(del["nextAfterDelete"],9);assert_eq!(del["selectedStoredObject"]["objectId"],8);
+        assert_eq!(del["effectivePlacementVerified"],false);
+        for bad in [valid.replace("\"NextGridObjectID\":9","\"NextGridObjectID\":8"),
+            valid.replace("\"NextGridObjectID\":9","\"NextGridObjectID\":4294967295"),
+            valid.replace("\"NextGridObjectID\":9","\"NextGridObjectID\":9.0"),
+            valid.replace("\"ID\":8","\"ID\":6"),valid.replace("\"ItemID\":40000066","\"ItemID\":40000067"),
+            valid.replace("\"State\":null","\"State\":{}"),valid.replace("\"ID\":7","\"ID\":6")]{
+            assert!(check(&bad,Some(8)).is_err());
+        }
+        assert!(check(valid,Some(6)).is_err());
+    }
+
     // ACT410: physical saved Chest amount and dependency slice only.
     // All totals count saved Container slots exactly once, NOT live
     // ContainerInventoryManager.GetItemAmount or effective Pantry/overflow.
