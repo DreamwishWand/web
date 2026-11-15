@@ -595,6 +595,83 @@ mod switch_furniture_tests{
 #[cfg(feature="product-collection-scoped")]
 const PRODUCT_PACK:&[u8]=include_bytes!("../data/collection-furniture-626.json");
 
+
+#[cfg(feature="product-collection-scoped")]
+#[allow(dead_code)]
+struct ProductCollectionPhysicalPair {
+    scope: WorkerEnvelope,
+    target: crate::collection_packaged_eligibility::PackagedCollectionCandidate,
+    peer: crate::collection_packaged_eligibility::PackagedCollectionCandidate,
+    target_span: Span,
+    peer_span: Span,
+    group_sha: String,
+    map_sha: String,
+    target_stock_sha: String,
+    peer_stock_sha: String,
+}
+#[cfg(feature="product-collection-scoped")]
+fn receipt_sha(v:&Value)->CoreResult<String>{
+    v.as_str().filter(|s|s.len()==64&&s.bytes().all(|b|matches!(b,b'0'..=b'9'|b'a'..=b'f')))
+        .map(str::to_owned).ok_or(deny("COLLECTION_PAIR_DIGEST"))
+}
+#[cfg(feature="product-collection-scoped")]
+impl ProductSession{
+    /// E2035 physical/packaged half of the noncompletion proof. This
+    /// witness is Core-local, not a grant or a new Worker ABI. The future
+    /// typed Stage must additionally prove effective target AND peer,
+    /// update/subscriber closure, and revalidate epoch/CAS before commit.
+    /// The existing scanner is reused; at most the fixed 33 catalog rows
+    /// can be considered, not an unbounded caller selector list.
+    #[allow(dead_code)]
+    fn mint_product_collection_physical_pair(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32)
+        ->CoreResult<ProductCollectionPhysicalPair>{
+        if e.action!=super::WorkerAction::ReadDomain{return Err(deny("COLLECTION_PAIR_ACTION"))}
+        let lookup=|id|crate::collection_packaged_eligibility::packaged_collection_candidate(
+            PRODUCT_PACK,&self.native_source_build,id,definition,group);
+        let target=lookup(item).ok_or(deny("COLLECTION_PACKAGED_CANDIDATE_REQUIRED"))?;
+        let def=i32::try_from(definition).map_err(|_|deny("COLLECTION_SELECTOR"))?;
+        let r=self.scan_collection_group(e,def,group,i32::try_from(item).map_err(|_|deny("COLLECTION_SELECTOR"))?,true)?;
+        let g=&r.value["selectedGroup"];
+        if self.native_source_build.platform==Platform::SteamWindows&&g["falseCount"]!=3{
+            return Err(deny("COLLECTION_STEAM_EXACT_THREE_FALSE_REQUIRED"))
+        }
+        let target_span=r.selected_span.ok_or(deny("COLLECTION_SELECTED_ENTRY_ABSENT"))?;
+        let pack=crate::collection_packaged_eligibility::pinned(PRODUCT_PACK).ok_or(deny("COLLECTION_PACK_DIGEST"))?;
+        let peers=pack["items"].as_array().ok_or(deny("COLLECTION_PACK_SHAPE"))?;
+        let entries=g["entries"].as_array().ok_or(deny("COLLECTION_PAIR_GROUP_ENTRIES"))?;
+        let ids:BTreeSet<u32>=entries.iter().filter(|x|x["collected"]==false)
+            .filter_map(|x|x["itemId"].as_u64().and_then(|n|u32::try_from(n).ok())).collect();
+        let same=|other:&PrivateCollectionGroupReceipt|->bool{
+            let p=&other.value["selectedGroup"];
+            p["groupSha256"]==g["groupSha256"]&&p["mapSha256"]==g["mapSha256"]&&p["state"]==g["state"]&&
+            other.value["collectionSetsSha256"]==r.value["collectionSetsSha256"]&&
+            other.value["storedStock"]["listSha256"]==r.value["storedStock"]["listSha256"]&&
+            other.value["storedStock"]["routeSha256"]==r.value["storedStock"]["routeSha256"]&&
+            other.value["storedStock"]["inventorySha256"]==r.value["storedStock"]["inventorySha256"]
+        };
+        for row in peers{
+            let Some(peer_id)=row[0].as_u64().and_then(|n|u32::try_from(n).ok())else{continue};
+            if peer_id==item||row[1].as_u64()!=Some(definition as u64)||!ids.contains(&peer_id){continue}
+            let Some(peer)=lookup(peer_id)else{continue};
+            // Existing scan verifies the peer's unique global membership,
+            // literal false, NotComplete and positive canonical Catalog0.
+            let Ok(other)=self.scan_collection_group(e,def,group,peer_id as i32,true)else{continue};
+            if !same(&other){return Err(deny("COLLECTION_PAIR_SOURCE_MISMATCH"))}
+            let peer_span=other.selected_span.ok_or(deny("COLLECTION_PAIR_PEER_SPAN"))?;
+            if target_span.begin==peer_span.begin||&self.decoded[target_span.begin..target_span.end]!=b"false"||
+                &self.decoded[peer_span.begin..peer_span.end]!=b"false"{return Err(deny("COLLECTION_PAIR_LITERAL"))}
+            // The receipt is an immutable observation, not an effective
+            // eligibility proof. Recheck the same live scope before return.
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            return Ok(ProductCollectionPhysicalPair{scope:e,target,peer,target_span,peer_span,
+                group_sha:receipt_sha(&g["groupSha256"])?,map_sha:receipt_sha(&g["mapSha256"])?,
+                target_stock_sha:receipt_sha(&r.value["storedStock"]["entry"]["entrySha256"])?,
+                peer_stock_sha:receipt_sha(&other.value["storedStock"]["entry"]["entrySha256"])?});
+        }
+        Err(deny("COLLECTION_PAIR_NO_DISTINCT_PACKAGED_FALSE_PEER"))
+    }
+}
+
 #[cfg(feature="product-collection-scoped")]
 impl ProductSession{
     /// A product-facing physical + packaged candidate, never a write grant.
@@ -638,6 +715,58 @@ mod product_collection_source_tests{
         s.worker_bound=true;(s,def,item)
     }
     fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+
+    fn pair_doc()->(Value,u32,u32,u32){
+        let p=crate::collection_packaged_eligibility::pinned(PRODUCT_PACK).unwrap();
+        let rows=p["items"].as_array().unwrap();
+        let (t,p)=rows.iter().find_map(|t|rows.iter().find(|p|p[0]!=t[0]&&p[1]==t[1]).map(|p|(t,p))).unwrap();
+        let target=t[0].as_u64().unwrap() as u32;let peer=p[0].as_u64().unwrap() as u32;
+        let def=t[1].as_u64().unwrap() as u32;
+        let d=json!({"GameInfo":{"Version":626},"World":{},"Player":{
+            "CollectionSets":[{"CollectionDefinitionID":def,"GroupData":[{"GroupIndex":0,"State":"SetState_NotComplete",
+                "GroupsCollectionItems":{(target.to_string()):false,(peer.to_string()):false,"499999999":false}}]}],
+            "ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":{
+                (target.to_string()):{"Amount":1},(peer.to_string()):{"Amount":2}}}}}});
+        (d,def,target,peer)
+    }
+    fn pair_open(d:&Value,steam:bool)->ProductSession{
+        let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),
+            BuildIdentity{platform:if steam{Platform::SteamWindows}else{Platform::Switch},
+                build_kind:if steam{BuildKind::SteamFullVersion}else{BuildKind::SwitchBid},
+                build_id:if steam{EXACT.into()}else{SWITCH_EXACT.into()},schema:626,externally_attested:true}).unwrap();
+        s.worker_bound=true;s
+    }
+    #[test]
+    fn core_local_distinct_packaged_false_peer_requires_same_group_stock_epoch(){
+        let (d,def,item,peer)=pair_doc();
+        for steam in [false,true]{
+            let s=pair_open(&d,steam);let e=env(&s);let before=s.receipt().unwrap();
+            let pair=s.mint_product_collection_physical_pair(e,def,0,item).unwrap();
+            assert_eq!(pair.scope,e);assert_eq!(pair.target.item_id,item);assert_eq!(pair.peer.item_id,peer);
+            assert_ne!(pair.target_span.begin,pair.peer_span.begin);
+            assert_eq!(pair.target.definition_id,pair.peer.definition_id);
+            assert_eq!(pair.group_sha.len(),64);assert_eq!(pair.map_sha.len(),64);
+            assert_ne!(pair.target_stock_sha,pair.peer_stock_sha);assert_eq!(s.receipt().unwrap(),before);
+            assert!(s.mint_product_collection_physical_pair(WorkerEnvelope{action:WorkerAction::Stage,..e},def,0,item).is_err());
+            assert!(s.mint_product_collection_physical_pair(WorkerEnvelope{expected_revision:1,..e},def,0,item).is_err());
+            assert!(pair_open(&d,steam).mint_product_collection_physical_pair(e,def,0,item).is_err());
+            for case in 0..7{
+                let mut q=d.clone();let k=peer.to_string();
+                match case{
+                    0=>q["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"][&k]=json!(true),
+                    1=>q["Player"]["ListInventories"]["0"]["Inventory"][&k]["Amount"]=json!(0),
+                    2=>{q["Player"]["ListInventories"]["0"]["Inventory"].as_object_mut().unwrap().remove(&k);},
+                    3=>{q["Player"]["CollectionSets"].as_array_mut().unwrap().push(json!({"CollectionDefinitionID":2129999999,
+                        "GroupData":[{"GroupIndex":0,"State":"SetState_NotComplete","GroupsCollectionItems":{(k):false}}]}));},
+                    4=>{q["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"].as_object_mut().unwrap().remove(&k);},
+                    5=>q["Player"]["ListInventories"]["0"]["CompatibleItemType"]=json!("ItemType_ActivityItem"),
+                    _=>q["Player"]["CollectionSets"][0]["GroupData"][0]["State"]=json!("SetState_Complete")
+                }
+                let t=pair_open(&q,steam);assert!(t.mint_product_collection_physical_pair(env(&t),def,0,item).is_err());
+            }
+            s.close().unwrap();assert!(s.mint_product_collection_physical_pair(e,def,0,item).is_err());
+        }
+    }
     #[test]
     fn dual_build_physical_candidate_never_grants_authority(){
         for steam in [false,true]{let (s,d,i)=fixture(steam,1,false,false);let e=env(&s);
