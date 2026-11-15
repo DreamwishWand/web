@@ -1,3 +1,4 @@
+import {createScopedAmountTransport} from './product-scoped-amount-transport.mjs';
 // R04 opt-in read-only boundary owned by the SAME local Worker. No product UI
 // export/import path until a signed wasm build and independent QA are accepted.
 export const PRODUCT_WASM_READ_CONTRACT='wand.product.single-save-session.boundary@1';
@@ -81,10 +82,9 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
      const receipt=strictReceipt(JSON.parse(wasm.finish()));
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
      const a={wasm,receipt,identity,cursors:new Map(),scoped:null};
-     // Existing read-only Worker never loads the opt-in transport module.
+     // Existing read-only Worker never instantiates the opt-in transport.
      if(allowScopedAmountSource===true){
        if(identity.platform!=='steam-windows')fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
-       const {createScopedAmountTransport}=await import('./product-scoped-amount-transport.mjs');
        if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
        a.scoped=createScopedAmountTransport(wasm,receipt,{
          parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},

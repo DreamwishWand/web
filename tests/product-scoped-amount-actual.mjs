@@ -3,6 +3,9 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createHash} from 'node:crypto';
+import {mkdtemp,open,readFile,writeFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
 import {p1gPackagedProfileCodec} from '../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
 import {createP1gRustWorkerReadOnlyBridge} from '../src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
@@ -36,20 +39,29 @@ for(const [d,sel,apply] of [
  const source=makeSyntheticP1gProfile(d),originalSha256=hash(source);
  const file=new File([source],'synthetic.p1g');
  const backup=new File([source],'synthetic.p1g.original-backup.p1g');
- const b=createP1gRustWorkerReadOnlyBridge(factory,{allowScopedAmountSource:true});
+ const dir=await mkdtemp(join(tmpdir(),'wand-scoped-backup-'));
+ try{
+ const backupPath=join(dir,'durable-original.p1g');
+ const fd=await open(backupPath,'wx',0o600);
+ try{await fd.writeFile(source);await fd.sync()}finally{await fd.close()}
+ const readDurableOriginalBackup=async binding=>{
+   assert.deepEqual(binding,{originalName:file.name,originalSha256,originalSizeBytes:source.length});
+   return new File([await readFile(backupPath)],'durable-original.p1g');
+ };
+ const b=createP1gRustWorkerReadOnlyBridge(factory,{allowScopedAmountSource:true,readDurableOriginalBackup});
  const opened=await b.openScopedEncrypted({file,build:BUILD,originalSha256});
  assert.deepEqual(opened,{sourceShaMatched:true,originalSizeMatched:true,fullDocumentValidated:true,writerAuthorized:false,editedCopyAuthorized:false});
  assert.throws(()=>b.previewScopedAmount(sel),/BACKUP_REQUIRED/);
  await assert.rejects(b.verifyScopedOriginalBackup(file));
  const wrong=source.slice();wrong[0]^=1;
  await assert.rejects(b.verifyScopedOriginalBackup(new File([wrong],'wrong.p1g')));
- assert.throws(()=>b.stageScopedAmount(),/BACKUP_REQUIRED/);
+ await assert.rejects(b.stageScopedAmount(),/BACKUP_REQUIRED/);
  const compared=await b.verifyScopedOriginalBackup(backup);
  assert.equal(compared.candidateBytesMatchOriginal,true);assert.equal(compared.persistedVerified,false);
  const preview=b.previewScopedAmount(sel);
  assert.equal(preview.oldAmount,sel.newAmount+1);assert.equal(preview.newAmount,sel.newAmount);
  assert.equal(preview.writerAuthorized,false);assert.equal('entrySha256' in preview,false);assert.equal('sessionId' in preview,false);
- assert.equal(b.stageScopedAmount().exactFieldChangedCount,1);
+ assert.equal((await b.stageScopedAmount()).exactFieldChangedCount,1);
  assert.equal(b.toggleScopedAmount(false).applied,false);
  assert.equal(b.toggleScopedAmount(true).applied,true);
  const out=await b.exportScopedEditedCopy();
@@ -67,5 +79,17 @@ for(const [d,sel,apply] of [
  const pending=b.verifyScopedOriginalBackup(new File([source],'second.p1g'));
  const rejected=assert.rejects(pending);b.close();await rejected;
  assert.throws(()=>b.previewScopedAmount(sel),/OFF/);
+ const noProvider=createP1gRustWorkerReadOnlyBridge(factory,{allowScopedAmountSource:true});
+ await noProvider.openScopedEncrypted({file,build:BUILD,originalSha256});
+ await noProvider.verifyScopedOriginalBackup(backup);noProvider.previewScopedAmount(sel);
+ await assert.rejects(noProvider.stageScopedAmount(),/DURABLE_BACKUP_REQUIRED/);
+ assert.equal(noProvider.getReceipt(),null);
+ await b.openScopedEncrypted({file,build:BUILD,originalSha256});await b.verifyScopedOriginalBackup(backup);
+ b.previewScopedAmount(sel);await b.stageScopedAmount();
+ await writeFile(backupPath,wrong);
+ await assert.rejects(b.exportScopedEditedCopy());
+ assert.equal(b.getReceipt(),null);
+ assert.equal(hash(new Uint8Array(await file.arrayBuffer())),originalSha256);
  console.log('ACT916_ACTUAL_SYNTHETIC_P1G_SCOPED_TRANSPORT_PASS',sel.profile);
+ }finally{await rm(dir,{recursive:true,force:true})}
 }

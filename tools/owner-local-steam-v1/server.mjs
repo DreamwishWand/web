@@ -14,6 +14,8 @@ const staticShared=new Set([
   '/tools/owner-local-steam-v1/attestation.mjs',
   '/src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs',
   '/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
+    '/src/lib/ddv/core/save/product-scoped-amount-transport.mjs',
+    '/src/lib/ddv/core/save/local-original-backup.mjs',
   '/src/lib/ddv/core/save/p1g-packaged-profile-codec.js',
   '/src/lib/ddv/core/save/safe-edit-session.js',
   '/src/lib/ddv/core/save/versioning.js',
