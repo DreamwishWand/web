@@ -93,7 +93,7 @@ jobs:
             const s=stage(w,r);receipt(s,r,true);
             deny(()=>preview(w,r));deny(()=>preview(w,s));deny(()=>stage(w,r));deny(()=>stage(w,s));deny(()=>toggle(w,r,false));deny(()=>toggle(w,s,true));deny(()=>begin(w,r));
             const u=toggle(w,s,false);receipt(u,s,false);
-            deny(()=>begin(w,u));deny(()=>toggle(w,u,false));deny(()=>stage(w,u));
+            deny(()=>begin(w,u));deny(()=>toggle(w,u,false));deny(()=>stage(w,u));deny(()=>preview(w,u));
             const v=toggle(w,u,true);receipt(v,u,true);
             const want=structuredClone(d);want.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems[target]=true;
             const expected=Buffer.from(JSON.stringify(want,null,2));assert.equal(s.stagedDecodedSha256,sha(expected));assert.equal(v.stagedDecodedSha256,sha(expected));assert.equal(raw.length,expected.length+1);
@@ -111,5 +111,5 @@ jobs:
             }
           }
           console.log('ACT974_COLLECTION_GENERATED_WASM '+pos+'POS '+neg+'NEG PASS; public-off exports absent; exact1 output and 1MiB chunks');
-          assert.equal(pos,4);assert.equal(neg,96);
+          assert.equal(pos,4);assert.equal(neg,98);
           JS
