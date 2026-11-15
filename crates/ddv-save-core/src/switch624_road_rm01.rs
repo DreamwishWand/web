@@ -105,7 +105,7 @@ fn collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
         repl(b,object_field(b,ms,"State")?,enc(&plan[1]["State"])?)?,
         append_road_objects(b,objs,&plan[2..])?,repl(b,counter,n3.to_string().into_bytes())?,debit])
 }
-fn append_road_objects(b:&[u8],objs:Span,records:&[Value])->CoreResult<Replacement>{
+pub(super) fn append_road_objects(b:&[u8],objs:Span,records:&[Value])->CoreResult<Replacement>{
     let mut insert=Vec::new();
     for o in records{let id=uint(&o["ID"])?;insert.extend_from_slice(format!(",\"{id}\":").as_bytes());insert.extend_from_slice(&enc(o)?);}
     insert.push(b'}');
