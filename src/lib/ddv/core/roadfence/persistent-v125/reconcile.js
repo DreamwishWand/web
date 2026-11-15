@@ -3,6 +3,7 @@ import {
   descriptorKey,
   descriptorOrder,
   fail,
+  isKnownRoadFenceModeState,
   nativeDescriptor,
   normalizeGridObjects,
   positiveInteger,
@@ -146,6 +147,13 @@ export function reconcileNativeRepresentation({
         'ROADFENCE_SOURCE_OBJECT_UNKNOWN_FIELD_REPLACEMENT_UNSUPPORTED',
         'owned Road/Fence object with unknown fields cannot be deleted or replaced',
         { gridObjectId: object.id, unknownFields }
+      );
+    }
+    if (!isKnownRoadFenceModeState(object.raw.State)) {
+      fail(
+        'ROADFENCE_SOURCE_OBJECT_STATE_REPLACEMENT_UNSUPPORTED',
+        'owned Road/Fence object with unknown State cannot be deleted or replaced',
+        { gridObjectId: object.id }
       );
     }
   }
