@@ -67,3 +67,31 @@ test('same ItemID in distinct groups remains bound to preview choice, not item i
  assert.equal(c.snapshot().preview.choice,1);assert.equal(c.snapshot().preview.itemId,target.itemId);
  await c.stage();assert.equal(chosen,1);
 });
+
+test('failed close blocks new inspection until explicit successful close retry',async()=>{
+ for(const failure of ['sync','async']){
+  const a=adapter(),inspect=a.inspectCollectionTargets;let calls=0,closeCalls=0;
+  a.inspectCollectionTargets=async()=>{calls++;return inspect()};
+  a.close=()=>{closeCalls++;if(closeCalls===1){if(failure==='sync')throw Error('close failed');return Promise.reject(Error('close failed'))}return Promise.resolve()};
+  const c=make(a);await c.load();await assert.rejects(c.close(),/close failed/);
+  assert.equal(c.snapshot().phase,'close-failed');await assert.rejects(c.load());assert.equal(calls,1);
+  await c.close();assert.equal(c.snapshot().phase,'closed');await c.load();assert.equal(calls,2);await c.close();
+ }
+});
+test('failed deferred close denies stale completion and concurrent reopen; retry is explicit',async()=>{
+ const a=adapter(),inspect=a.inspectCollectionTargets;let release,rejectClose,calls=0,closeCalls=0;
+ const barrier=new Promise(r=>release=r),closing=new Promise((_,r)=>rejectClose=r);
+ a.inspectCollectionTargets=async()=>{calls++;await barrier;return inspect()};
+ a.close=()=>++closeCalls===1?closing:Promise.resolve();
+ const c=make(a),pending=assert.rejects(c.load()),one=assert.rejects(c.close()),two=assert.rejects(c.close());
+ await assert.rejects(c.load());rejectClose(Error('close failed'));await Promise.all([one,two]);release();await pending;
+ assert.equal(c.snapshot().phase,'close-failed');assert.equal(closeCalls,1);await assert.rejects(c.load());assert.equal(calls,1);
+ await c.close();await c.load();assert.equal(calls,2);await c.close();
+});
+test('invalid receipt with failed cleanup also blocks reopening',async()=>{
+ const a=adapter(),inspect=a.inspectCollectionTargets;let calls=0;
+ a.inspectCollectionTargets=async()=>{calls++;return {...await inspect(),writerAuthorized:true}};
+ a.close=async()=>{throw Error('close failed')};
+ const c=make(a);await assert.rejects(c.load());assert.equal(c.snapshot().phase,'close-failed');
+ await assert.rejects(c.load());assert.equal(calls,1);
+});

@@ -13,7 +13,7 @@
  onMount(()=>{
   if(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter)return;
   try{consumer=createCollectionExact1Consumer(trustedWorkerAdapter,{trustedLocalHarness:true});state=consumer.snapshot()}catch{}
-  return ()=>{epoch++;const active=consumer;consumer=null;if(active)void active.close()};
+  return ()=>{epoch++;const active=consumer;consumer=null;if(active)void active.close().catch(()=>{})};
  });
  async function act(fn){
   if(!consumer||pending)return;
@@ -24,8 +24,9 @@
  }
  async function close(){
   if(!consumer)return;const a=consumer,t=++epoch;pending=true;error=false;choice=0;
-  const p=a.close();state=a.snapshot();await p;
-  if(consumer===a&&epoch===t){state=a.snapshot();pending=false}
+  const p=a.close();state=a.snapshot();
+  try{await p}catch{if(consumer===a&&epoch===t)error=true}
+  finally{if(consumer===a&&epoch===t){state=a.snapshot();pending=false}}
  }
  async function download(which){
   if(!consumer||pending)return;const a=consumer,t=epoch;pending=true;error=false;
@@ -43,6 +44,8 @@
  {#if !consumer}<p role="status">{words.off}</p>
  {:else}
   {#if phase==='closed'}<button type="button" on:click={()=>act(a=>a.load())} disabled={pending}>{words.load}</button>
+  {:else if phase==='close-failed'}
+   <button type="button" on:click={close} disabled={pending}>{words.close}</button>
   {:else}
    <p><code>{state.sourceName}</code></p><button type="button" on:click={close}>{words.close}</button>
    {#if phase==='opened'}<button type="button" on:click={()=>act(a=>a.backupOriginal())} disabled={pending}>{words.backup}</button>{/if}

@@ -28,8 +28,8 @@ export function createCollectionExact1Consumer(adapter,{trustedLocalHarness=fals
  const close=()=>{
   epoch++;reset();busy=false;
   if(!closing){
-   const p=Promise.resolve().then(()=>adapter.close()).catch(()=>null);
-   closing=p;p.finally(()=>{if(closing===p)closing=null});
+   const p=Promise.resolve().then(()=>adapter.close()).catch(e=>{set({phase:'close-failed'});throw e});
+   closing=p;const settled=()=>{if(closing===p)closing=null};p.then(settled,settled);
   }
   return closing.then(snapshot);
  };
