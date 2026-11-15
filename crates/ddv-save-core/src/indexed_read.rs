@@ -1491,14 +1491,17 @@ mod private_avatar {
                 // as the accepted amount-dependency reference projection.
                 let refs=amount_grid_refs(bytes,Some(list),"GridID","GridObjectID",budget)?;
                 let entries=refs["entries"].as_array().ok_or(denied("ORDINARY_SPAWN_ENTRIES"))?;
+                // Hash an event at most once even when its list repeats the target.
+                let mut event_sha=None;
                 for r in entries{
                     if r["completePhysicalAddress"]!=true{return Err(denied("ORDINARY_SPAWN_ADDRESS_INCOMPLETE"));}
                     addresses+=1;
                     if r["gridId"].as_u64()==Some(u64::from(grid_id))&&
                         r["objectId"].as_u64()==Some(u64::from(object_id)){
                         if matches.len()>=4096{return Err(denied("ORDINARY_SPAWN_MATCH_BOUND"));}
+                        let digest=event_sha.get_or_insert_with(||sha(&bytes[event.begin..event.end]));
                         matches.push(json!({"eventId":event_id,"position":r["position"],
-                            "recordSha256":r["recordSha256"],"eventSha256":sha(&bytes[event.begin..event.end])}));
+                            "recordSha256":r["recordSha256"],"eventSha256":digest.as_str()}));
                     }
                 }
             }
