@@ -176,6 +176,89 @@ export function validateSwitch1253ItemImageCatalog(raw,reviewedRelease=SWITCH125
    items:Object.freeze(safe),count:keys.length
  });
 }
+
+/* ACT628: one platform-neutral manifest, one existing ItemThumb/store/lifecycle.
+ * Steam Windows is the primary source; exact Switch fallback provenance is
+ * retained but never authorizes a second URL or an unreviewed item. */
+export const STEAM1253_ITEM_IMAGE_SCHEMA='wand.item-images.steam-primary-release@1';
+export const STEAM1253_ITEM_IMAGE_VARIANT='steam-1.25.3-schema626-lossless160-v1';
+export const STEAM1253_MANIFEST_PATH='ddv/item-images/'+STEAM1253_ITEM_IMAGE_VARIANT+'/manifest.json';
+export const STEAM1253_DOOR_ID='40300045';
+export const STEAM1253_DOOR_PIN=Object.freeze({
+ platform:'Steam Windows',gameVersion:'1.25.3',schema:626,
+ fullVersion:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+ originalBundleSha256:'c00a6b3a8e4b8f766636d181736df5d695ac1bedd644e6950c09dfc327a4d85d',
+ originalNativeStreamSha256:'f65d21970cd838e8c52328fd5589f3108d148ff027eec77e5ea5ab9def9abe06',
+ sourcePngSha256:'689eed6968e86a71d80f97e3abcde0625838559c71791fa725c537cdbdd81dfa',
+ webpSha256:'be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489',
+ rgba160Sha256:'e5eda84719c1b4010de8773692042ff7f9af6676f2dfaf34bfc0e694c6766f6c',
+ iconGuid:'cbca5424e61157f4fb9121cfe7d2e035',width:160,height:160,bytes:15310,
+ fallbackPlatform:'Nintendo Switch',fallbackBuildID:'9A239D3DB569756D',
+ fallbackBundleSha256:'2cd38041061059eea26ca98a4bc783022e8e9d2066705c65094f100f0258187f',
+ fallbackNativeStreamSha256:'a31dff851b7c11194cc363187178ad543e86e40b1604ef425c024aa8683d4cd5',
+ fallbackPolicy:'EXPLICIT_FALLBACK_ONLY',codec:'WEBP_LOSSLESS_RGBA_EXACT',
+ visibility:'RELEASED_PLAYER_FACING'
+});
+// Compiled OFF; fetched JSON cannot grant release authority.
+export const STEAM1253_REVIEWED_RELEASE=Object.freeze({
+ mediaPublic:false,decisionId:ITEM_IMAGE_OWNER_DECISION_ID,scope:SWITCH1253_OWNER_SCOPE,
+ rightsHolderLicense:'UNKNOWN',licenseEvidenceSha256:null,rightsReview:'NOT_RUN',
+ receivingContact:'NOT_RUN',takedown:'NOT_RUN',managedHttps:'NOT_RUN',attribution:'NOT_RUN',
+ oldUrlAndCache:'NOT_RUN',rollback:'NOT_RUN',operatorReceiptSha256:null,items:Object.freeze({})
+});
+const STEAM_PUBLICATION_KEYS=['decisionId','scope','rightsHolderLicense','licenseEvidenceSha256',
+ 'rightsReview','managedHttps','takedown','receivingContact','attribution','oldUrlAndCache','rollback','operatorReceiptSha256'];
+const steamCatalogs=new WeakSet();
+export function prepareSteam1253ItemImageManifest(){
+ const publication=Object.fromEntries(STEAM_PUBLICATION_KEYS.map(k=>[k,STEAM1253_REVIEWED_RELEASE[k]]));
+ return {schema:STEAM1253_ITEM_IMAGE_SCHEMA,assetVariant:STEAM1253_ITEM_IMAGE_VARIANT,
+  publication:{gate:'MEDIA_PUBLIC_PREPARED_OFF',...publication},
+  items:{[STEAM1253_DOOR_ID]:{...STEAM1253_DOOR_PIN,rightsStatus:'UNKNOWN',publicationDecision:'NOT_RUN'}},
+  switch:null};
+}
+export function validateSteam1253ItemImageCatalog(raw,release=STEAM1253_REVIEWED_RELEASE,switchRelease=SWITCH1253_REVIEWED_RELEASE){
+ if(!reviewedReleaseOn(release))fail('STEAM_MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF');
+ if(!exactKeys(raw,['schema','assetVariant','publication','items','switch'])||
+    raw.schema!==STEAM1253_ITEM_IMAGE_SCHEMA||raw.assetVariant!==STEAM1253_ITEM_IMAGE_VARIANT||
+    !exactKeys(raw.publication,['gate',...STEAM_PUBLICATION_KEYS])||
+    raw.publication.gate!=='MEDIA_PUBLIC_SCOPED_ON'||
+    STEAM_PUBLICATION_KEYS.some(k=>raw.publication[k]!==release[k]))fail('STEAM_MANIFEST_UNVERIFIED');
+ if(!raw.items||typeof raw.items!=='object'||Array.isArray(raw.items))fail('STEAM_ITEMS_INVALID');
+ const keys=Object.keys(raw.items),pin=STEAM1253_DOOR_PIN;
+ if(keys.some(id=>id!==STEAM1253_DOOR_ID))fail('STEAM_ITEM_NOT_PINNED');
+ const rights=release.rightsHolderLicense==='UNKNOWN'?'UNKNOWN':'DOCUMENTED_LICENSE_APPROVED';
+ const items=Object.create(null);
+ for(const id of keys){
+  const e=raw.items[id],r=release.items[id];
+  if(!owns(release.items,id)||!exactKeys(e,[...Object.keys(pin),'rightsStatus','publicationDecision'])||
+    Object.entries(pin).some(([k,v])=>e[k]!==v)||
+    e.rightsStatus!==rights||e.publicationDecision!=='OWNER_SCOPED_PUBLICATION_ACCEPTED'||
+    !exactKeys(r,['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'])||
+    ['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'].some(k=>r[k]!==e[k]))
+   fail('STEAM_ITEM_PIN_RIGHTS_OR_VISIBILITY_UNVERIFIED');
+  items[id]=Object.freeze({...pin});
+ }
+ // Existing reviewed Switch items remain available during transition. The
+ // single fetched manifest carries their legacy validated subcatalog; never
+ // fetch a second manifest or silently treat Steam pins as Switch pins.
+ let fallback=null;
+ if(reviewedReleaseOn(switchRelease)){
+  if(raw.switch!==null)fallback=validateSwitch1253ItemImageCatalog(raw.switch,switchRelease);
+ }else if(raw.switch!==null)fail('SWITCH_FALLBACK_GATE_OFF');
+ const catalog=Object.freeze({assetVariant:STEAM1253_ITEM_IMAGE_VARIANT,items:Object.freeze(items),
+  switch:fallback,count:keys.length+(fallback?.count??0)});
+ steamCatalogs.add(catalog);return catalog;
+}
+export function scopedSteam1253ItemImageHref(base,itemId,catalog){
+ if(!baseOk(base)||!steamCatalogs.has(catalog))return null;
+ const id=String(itemId),p=catalog.items[id];
+ if(id===STEAM1253_DOOR_ID&&p){
+  const prefix=base?'/'+base.replace(/^\/+|\/+$/g,''):'';
+  return prefix+'/ddv/item-images/'+STEAM1253_ITEM_IMAGE_VARIANT+'/'+p.webpSha256.slice(0,2)+'/'+p.webpSha256+'.webp';
+ }
+ return scopedSwitch1253ItemImageHref(base,itemId,catalog.switch);
+}
+
 export function switch1253ItemImagePath(itemId,catalog){
  if(!catalog||!exactTarget(catalog.target)||
     catalog.assetVariant!==SWITCH1253_ITEM_IMAGE_VARIANT||
@@ -191,6 +274,7 @@ export function switch1253ItemImagePath(itemId,catalog){
    item.originalNativeStreamSha256+'-'+item.sourcePngSha256+'-'+item.webpSha256+'.webp';
 }
 export function scopedSwitch1253ItemImageHref(base,itemId,catalog){
+ if(catalog&&steamCatalogs.has(catalog))return scopedSteam1253ItemImageHref(base,itemId,catalog);
  if(!baseOk(base))return null;
  const path=switch1253ItemImagePath(itemId,catalog);
  if(!path)return null;
@@ -205,7 +289,10 @@ export const SWITCH1253_MANIFEST_TIMEOUT_MS=10000;
 
 // Test-only callers may construct an isolated controller with an explicit
 // synthetic review. The production singleton below uses only compiled review.
-export function createSwitch1253ManifestController(reviewedRelease,publish,clock=Date.now){
+export function createSwitch1253ManifestController(reviewedRelease,publish,clock=Date.now,profile=null){
+ const gate=profile?.gate??(()=>reviewedReleaseOn(reviewedRelease));
+ const manifestPath=profile?.path??SWITCH1253_MANIFEST_PATH;
+ const validate=profile?.validate??(raw=>validateSwitch1253ItemImageCatalog(raw,reviewedRelease));
  let pending=null,last=null;
  const state=(reason)=>publish({status:'NOT_CONFIGURED',catalog:null,reason});
  function clear(reason='MANIFEST_REFRESH_REQUIRED'){
@@ -213,7 +300,7 @@ export function createSwitch1253ManifestController(reviewedRelease,publish,clock
   old?.stop();state(reason);
  }
  function load(base='',fetchImpl=globalThis.fetch,force=false){
-  if(!reviewedReleaseOn(reviewedRelease)){clear('MEDIA_PUBLIC_OFF');return Promise.resolve(null);}
+  if(!gate()){clear('MEDIA_PUBLIC_OFF');return Promise.resolve(null);}
   if(!baseOk(base)||typeof fetchImpl!=='function'){clear('BASE_OR_FETCH_INVALID');return Promise.resolve(null);}
   if(pending&&pending.base===base)return pending.promise;
   const now=clock();
@@ -230,12 +317,12 @@ export function createSwitch1253ManifestController(reviewedRelease,publish,clock
   },SWITCH1253_MANIFEST_TIMEOUT_MS);
   const prefix=base?'/'+base.replace(/^\/+|\/+$/g,''):'';
   const request=(async()=>{
-   const response=await fetchImpl(prefix+'/'+SWITCH1253_MANIFEST_PATH,
+   const response=await fetchImpl(prefix+'/'+manifestPath,
     {credentials:'omit',redirect:'error',cache:'no-store',signal:abort.signal});
    if(!response.ok)fail('PUBLISHED_MANIFEST_UNAVAILABLE');
    const mime=response.headers?.get('content-type')?.split(';')[0].trim().toLowerCase();
    if(mime!=='application/json')fail('PUBLISHED_MANIFEST_MIME_INVALID');
-   return validateSwitch1253ItemImageCatalog(await response.json(),reviewedRelease);
+   return validate(await response.json());
   })();
   slot.promise=Promise.race([request,stopped]).then(catalog=>{
    if(pending!==slot)return null;
@@ -250,9 +337,16 @@ export function createSwitch1253ManifestController(reviewedRelease,publish,clock
  }
  return Object.freeze({load,clear});
 }
-const productionController=createSwitch1253ManifestController(
- SWITCH1253_REVIEWED_RELEASE,value=>switch1253PublicItemImageSource.set(value)
-);
+export function createSteam1253ManifestController(release,switchRelease,publish,clock=Date.now){
+ return createSwitch1253ManifestController(release,publish,clock,{
+  gate:()=>reviewedReleaseOn(release),path:STEAM1253_MANIFEST_PATH,
+  validate:raw=>validateSteam1253ItemImageCatalog(raw,release,switchRelease)
+ });
+}
+const steamPrimaryOn=reviewedReleaseOn(STEAM1253_REVIEWED_RELEASE);
+const productionController=steamPrimaryOn
+ ?createSteam1253ManifestController(STEAM1253_REVIEWED_RELEASE,SWITCH1253_REVIEWED_RELEASE,value=>switch1253PublicItemImageSource.set(value))
+ :createSwitch1253ManifestController(SWITCH1253_REVIEWED_RELEASE,value=>switch1253PublicItemImageSource.set(value));
 export function loadSwitch1253PublicItemImageSource(base='',fetchImpl=globalThis.fetch){
  return productionController.load(base,fetchImpl);
 }
@@ -278,7 +372,7 @@ export function attachSwitch1253ManifestLifecycle(controller,base,win,doc,fetchI
 }
 let consumers=0,detach=null,consumerBase=null;
 export function retainSwitch1253PublicItemImageSource(base=''){
- if(!reviewedReleaseOn(SWITCH1253_REVIEWED_RELEASE)||typeof window==='undefined'||typeof document==='undefined'){
+ if((!steamPrimaryOn&&!reviewedReleaseOn(SWITCH1253_REVIEWED_RELEASE))||typeof window==='undefined'||typeof document==='undefined'){
   void loadSwitch1253PublicItemImageSource(base);return ()=>{};
  }
  if(!baseOk(base)||(consumers&&consumerBase!==base)){
