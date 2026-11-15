@@ -108,7 +108,7 @@ fn stored_stock(b:&[u8],player:Span,target:i32,furniture:bool)->CoreResult<Value
         "inventoryId":id,"routeSha256":hash(b,record),"inventorySha256":hash(b,items),
         "entryPresent":found.is_some(),"entry":entry,"ownershipVerified":false}))
 }
-pub struct PrivateCollectionGroupReceipt{value:Value}
+pub struct PrivateCollectionGroupReceipt{value:Value,selected_span:Option<Span>}
 impl PrivateCollectionGroupReceipt{
     pub fn to_private_receipt_json(&self)->Value{self.value.clone()}
 }
@@ -132,7 +132,7 @@ impl ProductSession{
         let sets=required(b,player,"CollectionSets")?;
         let mut set_ids=BTreeSet::new();let mut set_count=0;
         let mut group_count=0;let mut total_entries=0;
-        let mut chosen=None;let mut memberships=Vec::new();
+        let mut chosen=None;let mut selected_span=None;let mut memberships=Vec::new();
         array(b,sets,|set|{
             let set_pos=set_count;count(&mut set_count,MAX_SETS)?;
             let id=integer(b,required(b,set,"CollectionDefinitionID")?)?;
@@ -150,7 +150,7 @@ impl ProductSession{
                     count(&mut map_count,MAX_MAP)?;count(&mut total_entries,MAX_TOTAL_ENTRIES)?;
                     let item=key(&k)?;let flag=bool_token(b,s)?;
                     if !flag{false_count+=1}
-                    if item==target{target_entry=Some((flag,hash(b,s)))}
+                    if item==target{target_entry=Some((flag,hash(b,s)));if selected{selected_span=Some(s)}}
                     if selected{entries.push(json!({"itemId":item,"collected":flag,"tokenSha256":hash(b,s)}))}
                     Ok(())
                 })?;
@@ -214,7 +214,114 @@ impl ProductSession{
             value["buildId"]=json!(EXACT);
             value["selectedGroup"]["steamSavedNotCompleteMultiFalseShape"]=json!(true);
         }
-        Ok(PrivateCollectionGroupReceipt{value})
+        Ok(PrivateCollectionGroupReceipt{value,selected_span})
+    }
+}
+
+#[cfg(feature="semantic-writer-dev")]
+#[derive(Clone,Copy,PartialEq,Eq)]
+enum CollectionBoolMode{Switch,Steam}
+#[cfg(feature="semantic-writer-dev")]
+pub struct PrivateCollectionBoolTarget{
+    scope:WorkerEnvelope,
+    span:Span,
+    mode:CollectionBoolMode,
+}
+#[cfg(feature="semantic-writer-dev")]
+pub type PrivateSwitchCollectionTarget=PrivateCollectionBoolTarget;
+#[cfg(feature="semantic-writer-dev")]
+pub type PrivateSteamCollectionTarget=PrivateCollectionBoolTarget;
+#[cfg(feature="semantic-writer-dev")]
+impl CollectionBoolMode{
+    fn plan_contract(self)->&'static str{match self{
+        Self::Switch=>"wand.private.switch626.collection-existing-bool-exact1@1",
+        Self::Steam=>"wand.private.steam626.collection-existing-bool-exact1@1",
+    }}
+    fn read_contract(self)->&'static str{match self{Self::Switch=>SWITCH_CONTRACT,Self::Steam=>STEAM_FURNITURE_CONTRACT}}
+    fn shape(self)->&'static str{match self{
+        Self::Switch=>"switchSavedNotCompleteMultiFalseShape",
+        Self::Steam=>"steamSavedNotCompleteMultiFalseShape",
+    }}
+    fn check(self,s:&ProductSession)->CoreResult<()>{
+        let b=&s.native_source_build;
+        let exact=match self{
+            Self::Switch=>b.platform==Platform::Switch&&b.build_kind==BuildKind::SwitchBid&&b.build_id==SWITCH_EXACT,
+            Self::Steam=>b.platform==Platform::SteamWindows&&b.build_kind==BuildKind::SteamFullVersion&&b.build_id==EXACT,
+        };
+        if !exact||b.schema!=626||!b.externally_attested||s.worker_bound{
+            return Err(deny("COLLECTION_STAGE_EXACT_PRIVATE_BUILD_REQUIRED"));
+        }
+        Ok(())
+    }
+}
+#[cfg(feature="semantic-writer-dev")]
+impl ProductSession{
+    /// Private source-only exact one-token candidate. Canonical plan binds
+    /// the independently reviewed raw readset, never effective rights or
+    /// authorization. Steam and Switch have distinct sealed mode contracts.
+    fn mint_private_collection_bool_target(&self,e:WorkerEnvelope,plan:&[u8],mode:CollectionBoolMode)
+        ->CoreResult<PrivateCollectionBoolTarget>{
+        mode.check(self)?;
+        if plan.is_empty()||plan.len()>8192{return Err(deny("COLLECTION_PLAN_BOUNDS"))}
+        let v:Value=serde_json::from_slice(plan).map_err(|_|deny("COLLECTION_PLAN_JSON"))?;
+        if serde_json::to_vec(&v).map_err(|_|deny("COLLECTION_PLAN_JSON"))?.as_slice()!=plan{
+            return Err(deny("COLLECTION_PLAN_CANONICAL"))
+        }
+        let keys=["contract","definitionId","groupIndex","itemId","sourceDecodedSha256",
+            "collectionSetsSha256","groupSha256","mapSha256","entrySha256","stateSha256",
+            "stockEntrySha256","stockRouteSha256"];
+        let m=v.as_object().ok_or(deny("COLLECTION_PLAN_OBJECT"))?;
+        if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||v["contract"]!=mode.plan_contract(){
+            return Err(deny("COLLECTION_PLAN_FIELDS"))
+        }
+        let definition=v["definitionId"].as_i64().and_then(|n|i32::try_from(n).ok()).ok_or(deny("COLLECTION_PLAN_SELECTOR"))?;
+        let group=v["groupIndex"].as_u64().and_then(|n|usize::try_from(n).ok()).ok_or(deny("COLLECTION_PLAN_SELECTOR"))?;
+        let item=v["itemId"].as_i64().and_then(|n|i32::try_from(n).ok()).ok_or(deny("COLLECTION_PLAN_SELECTOR"))?;
+        if item<=0||item/10_000_000!=4{return Err(deny("COLLECTION_PLAN_FURNITURE_REQUIRED"));}
+        let r=self.read_private_collection_group(e,definition,group,item)?;
+        let x=&r.value;let g=&x["selectedGroup"];let stock=&x["storedStock"];
+        if x["contract"]!=mode.read_contract()||v["sourceDecodedSha256"]!=x["decodedSha256"]||
+           v["collectionSetsSha256"]!=x["collectionSetsSha256"]||
+           v["groupSha256"]!=g["groupSha256"]||v["mapSha256"]!=g["mapSha256"]||
+           v["entrySha256"]!=g["targetEntry"]["tokenSha256"]||
+           v["stateSha256"]!=g["state"]["sha256"]||
+           v["stockEntrySha256"]!=stock["entry"]["entrySha256"]||
+           v["stockRouteSha256"]!=stock["routeSha256"]||g[mode.shape()]!=true||
+           (mode==CollectionBoolMode::Steam&&g["falseCount"].as_u64()!=Some(3)){
+            return Err(deny("COLLECTION_PLAN_READSET_CAS"))
+        }
+        let span=r.selected_span.ok_or(deny("COLLECTION_TARGET_SPAN"))?;
+        if self.decoded.get(span.begin..span.end)!=Some(b"false".as_slice()){
+            return Err(deny("COLLECTION_TARGET_OLD_BOOL"))
+        }
+        Ok(PrivateCollectionBoolTarget{scope:e,span,mode})
+    }
+    pub fn mint_private_switch626_collection_target(&self,e:WorkerEnvelope,plan:&[u8])
+        ->CoreResult<PrivateSwitchCollectionTarget>{
+        self.mint_private_collection_bool_target(e,plan,CollectionBoolMode::Switch)
+    }
+    pub fn mint_private_steam626_collection_target(&self,e:WorkerEnvelope,plan:&[u8])
+        ->CoreResult<PrivateSteamCollectionTarget>{
+        self.mint_private_collection_bool_target(e,plan,CollectionBoolMode::Steam)
+    }
+    fn stage_private_collection_bool(&self,e:WorkerEnvelope,target:&PrivateCollectionBoolTarget,mode:CollectionBoolMode)
+        ->CoreResult<super::SemanticStageReceipt>{
+        let old=&target.scope;
+        if target.mode!=mode||e.contract!=old.contract||e.session_id!=old.session_id||
+           e.expected_revision!=old.expected_revision||e.expected_index_generation!=old.expected_index_generation||
+           e.expected_decoded_sha256!=old.expected_decoded_sha256{
+            return Err(deny("COLLECTION_TARGET_EPOCH_CAS"))
+        }
+        mode.check(self)?;
+        self.commit_private_collection_bool(e,target.span)
+    }
+    pub fn stage_private_switch626_collection_bool(&self,e:WorkerEnvelope,target:&PrivateSwitchCollectionTarget)
+        ->CoreResult<super::SemanticStageReceipt>{
+        self.stage_private_collection_bool(e,target,CollectionBoolMode::Switch)
+    }
+    pub fn stage_private_steam626_collection_bool(&self,e:WorkerEnvelope,target:&PrivateSteamCollectionTarget)
+        ->CoreResult<super::SemanticStageReceipt>{
+        self.stage_private_collection_bool(e,target,CollectionBoolMode::Steam)
     }
 }
 
@@ -343,6 +450,91 @@ mod switch_furniture_tests{
         assert!(open_steam(doc()).read_private_collection_group(env(&s),DEF,0,ITEM).is_err());
         let mut stale=env(&s);stale.expected_revision+=1;
         assert!(s.read_private_collection_group(stale,DEF,0,ITEM).is_err());
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    fn plan(s:&ProductSession)->Value{
+        let x=read(s).unwrap();let g=&x["selectedGroup"];let t=&x["storedStock"];
+        json!({"contract":"wand.private.switch626.collection-existing-bool-exact1@1",
+          "definitionId":DEF,"groupIndex":0,"itemId":ITEM,
+          "sourceDecodedSha256":x["decodedSha256"],"collectionSetsSha256":x["collectionSetsSha256"],
+          "groupSha256":g["groupSha256"],"mapSha256":g["mapSha256"],"entrySha256":g["targetEntry"]["tokenSha256"],
+          "stateSha256":g["state"]["sha256"],"stockEntrySha256":t["entry"]["entrySha256"],"stockRouteSha256":t["routeSha256"]})
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    #[test]
+    fn switch626_collection_exact1_typed_stage_and_epoch_denials(){
+        let d=doc();let s=open(d.clone());let e=env(&s);let p=plan(&s);
+        let bytes=serde_json::to_vec(&p).unwrap();
+        for k in ["sourceDecodedSha256","collectionSetsSha256","groupSha256","mapSha256","entrySha256","stateSha256","stockEntrySha256","stockRouteSha256","contract"]{
+            let mut q=p.clone();q[k]=json!("wrong");
+            assert!(s.mint_private_switch626_collection_target(e,&serde_json::to_vec(&q).unwrap()).is_err(),"{k}");
+        }
+        let mut q=p.clone();q["rightsVerified"]=json!(true);
+        assert!(s.mint_private_switch626_collection_target(e,&serde_json::to_vec(&q).unwrap()).is_err());
+        let t=s.mint_private_switch626_collection_target(e,&bytes).unwrap();
+        let mut stage=e;stage.action=WorkerAction::Stage;
+        assert!(s.stage_private_switch626_collection_bool(e,&t).is_err());
+        let other=open(d.clone());let mut foreign=env(&other);foreign.action=WorkerAction::Stage;
+        assert!(other.stage_private_switch626_collection_bool(foreign,&t).is_err());
+        let mut stale=stage;stale.expected_revision+=1;
+        assert!(s.stage_private_switch626_collection_bool(stale,&t).is_err());
+        let r=s.stage_private_switch626_collection_bool(stage,&t).unwrap();
+        assert_eq!(r.operation_count,1);assert_eq!(r.exact_field_changed_count,1);
+        assert!(!r.product_writer_authorized);assert!(s.stage_private_switch626_collection_bool(stage,&t).is_err());
+        let mut now=env(&s);now.action=WorkerAction::Stage;s.undo_typed_semantic_batch(now).unwrap();
+        let mut now=env(&s);now.action=WorkerAction::ExportEditedCopy;
+        assert!(s.take_typed_semantic_decoded_once(now).is_err());
+        now.action=WorkerAction::Stage;assert!(s.stage_private_switch626_collection_bool(now,&t).is_err());
+        s.redo_typed_semantic_batch(now).unwrap();
+        let mut now=env(&s);now.action=WorkerAction::ExportEditedCopy;
+        let out=s.take_typed_semantic_decoded_once(now).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(now).is_err());
+        let mut want=d;want["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"]["40000001"]=json!(true);
+        assert_eq!(out,serde_json::to_vec(&want).unwrap());
+    }
+
+    #[cfg(feature="semantic-writer-dev")]
+    #[test]
+    fn steam626_collection_exact1_typed_stage_and_cross_build_denials(){
+        let open_steam=|v:Value| ProductSession::open_decoded_readonly(serde_json::to_vec(&v).unwrap(),BuildIdentity{
+            platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT.into(),
+            schema:626,externally_attested:true}).unwrap();
+        let d=doc();let s=open_steam(d.clone());let e=env(&s);let mut p=plan(&s);
+        p["contract"]=json!("wand.private.steam626.collection-existing-bool-exact1@1");
+        let bytes=serde_json::to_vec(&p).unwrap();
+        let sw=open(d.clone());
+        assert!(sw.mint_private_steam626_collection_target(env(&sw),&bytes).is_err());
+        assert!(s.mint_private_switch626_collection_target(e,&bytes).is_err());
+        for k in ["sourceDecodedSha256","collectionSetsSha256","groupSha256","mapSha256","entrySha256","stateSha256","stockEntrySha256","stockRouteSha256","contract"]{
+            let mut q=p.clone();q[k]=json!("wrong");
+            assert!(s.mint_private_steam626_collection_target(e,&serde_json::to_vec(&q).unwrap()).is_err(),"{k}");
+        }
+        let mut q=p.clone();q["rightsVerified"]=json!(true);
+        assert!(s.mint_private_steam626_collection_target(e,&serde_json::to_vec(&q).unwrap()).is_err());
+        let mut other_shape=d.clone();other_shape["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"]["40000002"]=json!(true);
+        let other=open_steam(other_shape);let mut q=plan(&other);q["contract"]=p["contract"].clone();
+        assert!(other.mint_private_steam626_collection_target(env(&other),&serde_json::to_vec(&q).unwrap()).is_err());
+        let t=s.mint_private_steam626_collection_target(e,&bytes).unwrap();
+        let mut stage=e;stage.action=WorkerAction::Stage;
+        assert!(s.stage_private_switch626_collection_bool(stage,&t).is_err());
+        assert!(s.stage_private_steam626_collection_bool(e,&t).is_err());
+        let other=open_steam(d.clone());let mut foreign=env(&other);foreign.action=WorkerAction::Stage;
+        assert!(other.stage_private_steam626_collection_bool(foreign,&t).is_err());
+        let mut stale=stage;stale.expected_revision+=1;
+        assert!(s.stage_private_steam626_collection_bool(stale,&t).is_err());
+        let r=s.stage_private_steam626_collection_bool(stage,&t).unwrap();
+        assert_eq!(r.operation_count,1);assert_eq!(r.exact_field_changed_count,1);
+        assert!(!r.product_writer_authorized);assert!(s.stage_private_steam626_collection_bool(stage,&t).is_err());
+        let mut now=env(&s);now.action=WorkerAction::Stage;s.undo_typed_semantic_batch(now).unwrap();
+        let mut now=env(&s);now.action=WorkerAction::ExportEditedCopy;
+        assert!(s.take_typed_semantic_decoded_once(now).is_err());
+        now.action=WorkerAction::Stage;assert!(s.stage_private_steam626_collection_bool(now,&t).is_err());
+        s.redo_typed_semantic_batch(now).unwrap();
+        let mut now=env(&s);now.action=WorkerAction::ExportEditedCopy;
+        let out=s.take_typed_semantic_decoded_once(now).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(now).is_err());
+        let mut want=d;want["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"]["40000001"]=json!(true);
+        assert_eq!(out,serde_json::to_vec(&want).unwrap());
     }
     #[test]
     fn switch626_furniture_exact_saved_shape_no_authority(){

@@ -28,6 +28,10 @@ fn required(k:&str)->String{
    .unwrap_or_else(||deny("MISSING_EXTERNAL_ATTESTATION"))
 }
 fn main(){
+ #[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+ if matches!(env::args().nth(1).as_deref(),Some("--switch626-collection-existing-bool-exact1-only"|"--steam626-collection-existing-bool-exact1-only")){
+   run_collection_bool(env::args().nth(1).as_deref()==Some("--steam626-collection-existing-bool-exact1-only"));return;
+ }
  #[cfg(feature="semantic-writer-dev")]
  if env::args().nth(1).as_deref()==Some("--private-steam626-catalog0-exact-lineage-restore-one-only") {
    run_catalog0_exact_lineage_restore();return;
@@ -43,6 +47,7 @@ fn main(){
           "--semantic-chest-existing-decrease-only"|
           "--semantic-inventory-and-chest-decrease-only"|
           "--private-steam626-bound-chest-decrease-only"|
+          "--private-switch626-bound-chest-decrease-only"|
           "--private-steam626-bound-catalog0-decrease-only")) {
    run_semantic_existing_decrease();
    return;
@@ -145,7 +150,8 @@ fn run_semantic_existing_decrease(){
  if args.len()!=2{deny("SEMANTIC_ONE_EXPLICIT_OPERATION_REQUIRED");}
  let bound_chest=args[1]=="--private-steam626-bound-chest-decrease-only";
  let bound_furniture=args[1]=="--private-steam626-bound-catalog0-decrease-only";
- let bound=bound_chest||bound_furniture;
+ let switch_chest=args[1]=="--private-switch626-bound-chest-decrease-only";
+ let bound=bound_chest||bound_furniture||switch_chest;
  let inventory=matches!(args[1].as_str(),
      "--semantic-inventory-existing-decrease-only"|
      "--semantic-inventory-and-chest-decrease-only");
@@ -153,7 +159,12 @@ fn run_semantic_existing_decrease(){
      "--semantic-chest-existing-decrease-only"|
      "--semantic-inventory-and-chest-decrease-only");
  if !inventory&&!chest&&!bound{deny("SEMANTIC_COMMAND_NOT_ALLOWLISTED");}
- if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM||
+ if switch_chest{
+   if required("WAND_LOCAL_INSTALLED_SWITCH_BID")!="9A239D3DB569756D"||
+      env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty()){
+      deny("SEMANTIC_EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED");
+   }
+ }else if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM||
     (bound&&env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty())){
    deny("SEMANTIC_EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
  }
@@ -172,9 +183,10 @@ fn run_semantic_existing_decrease(){
    Sha256::digest(&input).as_slice()!=expected{
     deny("SEMANTIC_SOURCE_SHA_CAS");
  }
- let build=BuildIdentity{platform:Platform::SteamWindows,
-   build_kind:BuildKind::SteamFullVersion,build_id:STEAM.into(),
-   schema:626,externally_attested:true};
+ let build=if switch_chest{BuildIdentity{platform:Platform::Switch,
+   build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}}
+   else{BuildIdentity{platform:Platform::SteamWindows,
+   build_kind:BuildKind::SteamFullVersion,build_id:STEAM.into(),schema:626,externally_attested:true}};
  let session=ProductSession::open_decoded_readonly(input,build)
    .unwrap_or_else(|_|deny("SEMANTIC_FULL_DOCUMENT_OR_VERSION"));
  let before=session.receipt().unwrap_or_else(|_|deny("SEMANTIC_RECEIPT"));
@@ -227,10 +239,13 @@ fn run_semantic_existing_decrease(){
    if plan.len()>8192||plan_sha==[0;32]||Sha256::digest(plan.as_bytes()).as_slice()!=plan_sha{
        deny("PRIVATE_AMOUNT_PLAN_SHA");
    }
-   Some(session.mint_private_bound_amount_candidate(scope(0,1,WorkerAction::ReadDomain),plan.as_bytes(),
-       original_sha,source_size,backup,backup_size,bound_chest).unwrap_or_else(|_|deny("PRIVATE_AMOUNT_WITNESS_DENIED")))
+   let e=scope(0,1,WorkerAction::ReadDomain);
+   Some((if switch_chest{session.mint_private_switch626_bound_chest_candidate(e,plan.as_bytes(),
+       original_sha,source_size,backup,backup_size)}else{session.mint_private_bound_amount_candidate(e,plan.as_bytes(),
+       original_sha,source_size,backup,backup_size,bound_chest)}).unwrap_or_else(|_|deny("PRIVATE_AMOUNT_WITNESS_DENIED")))
  }else{None};
- let stage=|e|if let Some(c)=&candidate{session.stage_private_bound_amount_candidate(e,c)}
+ let stage=|e|if let Some(c)=&candidate{if switch_chest{session.stage_private_switch626_bound_chest_candidate(e,c)}
+      else{session.stage_private_bound_amount_candidate(e,c)}}
       else{session.stage_typed_semantic_batch(e,&cmds)};
  let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|_|deny("SEMANTIC_TYPED_STAGE_DENIED"));
  let expected_count=if bound{1}else{cmds.len()};
@@ -268,7 +283,8 @@ fn run_semantic_existing_decrease(){
  // Private pipe ONLY. No plaintext, key, IDs, SHA or path in CI/logs.
  io::stdout().write_all(&edited).unwrap_or_else(|_|deny("SEMANTIC_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("SEMANTIC_PIPE_FLUSH"));
- if bound{eprintln!("PRIVATE_STEAM626_CORE_BOUND_AMOUNT_EXACT1_PIPE_PASS");}
+ if switch_chest{eprintln!("PRIVATE_SWITCH626_CORE_BOUND_CHEST_EXACT1_PIPE_PASS");}
+ else if bound{eprintln!("PRIVATE_STEAM626_CORE_BOUND_AMOUNT_EXACT1_PIPE_PASS");}
  else{eprintln!("PRIVATE_V2_RUST_REAL_AMOUNT_SEMANTIC_CHANGE_CAS_ATOMIC_UNDO_REDO_ONE_TIME_PIPE_PASS");}
 }
 
@@ -471,4 +487,69 @@ fn run_catalog0_exact_lineage_restore(){
  io::stdout().write_all(&out).unwrap_or_else(|_|deny("RESTORE_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("RESTORE_PIPE_FLUSH"));
  eprintln!("PRIVATE_CATALOG0_EXACT_LINEAGE_RESTORE_ONE_PIPE_PASS");
+}
+
+#[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+fn run_collection_bool(steam:bool){
+ if env::args_os().count()!=2{deny("COLLECTION_EXPLICIT_MODE_REQUIRED")}
+ if steam{
+   if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM||
+      env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty()){
+      deny("COLLECTION_EXACT_STEAM626_REQUIRED")
+   }
+ }else if required("WAND_LOCAL_INSTALLED_SWITCH_BID")!="9A239D3DB569756D"||
+    env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty()){
+    deny("COLLECTION_EXACT_SWITCH626_REQUIRED")
+ }
+ let original=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
+ let size=required("WAND_LOCAL_ORIGINAL_SIZE_BYTES").parse::<u64>().unwrap_or_else(|_|deny("ORIGINAL_SIZE_REQUIRED"));
+ if original==[0;32]||size==0||size>128*1024*1024{deny("ORIGINAL_BOUNDS")}
+ let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
+ let plan=required("WAND_LOCAL_COLLECTION_EXACT_PLAN");
+ if steam{
+   let backup=hex32(&required("WAND_LOCAL_BACKUP_SHA256"));
+   let backup_size=required("WAND_LOCAL_BACKUP_SIZE_BYTES").parse::<u64>().unwrap_or_else(|_|deny("COLLECTION_BACKUP_SIZE"));
+   let plan_sha=hex32(&required("WAND_LOCAL_COLLECTION_EXACT_PLAN_SHA256"));
+   if backup!=original||backup_size!=size||plan.len()>8192||plan_sha==[0;32]||Sha256::digest(plan.as_bytes()).as_slice()!=plan_sha{
+      deny("COLLECTION_BACKUP_OR_PLAN_BINDING")
+   }
+ }
+ let mut input=Vec::new();
+ io::stdin().take(256*1024*1024+1).read_to_end(&mut input).unwrap_or_else(|_|deny("COLLECTION_PIPE_READ"));
+ if input.is_empty()||input.len()>256*1024*1024||Sha256::digest(&input).as_slice()!=expected{
+    deny("COLLECTION_DECODED_CAS")
+ }
+ let build=if steam{BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+    build_id:STEAM.into(),schema:626,externally_attested:true}}else{BuildIdentity{platform:Platform::Switch,
+    build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}};
+ let s=ProductSession::open_decoded_readonly(input,build)
+    .unwrap_or_else(|_|deny("COLLECTION_FULL_DOCUMENT"));
+ let r=s.receipt().unwrap_or_else(|_|deny("COLLECTION_SESSION"));
+ if r.writer_authorized||r.product_worker_bound||r.product_read_accepted||r.revision!=0||r.index_generation!=1||r.decoded_sha256!=expected{
+    deny("COLLECTION_SESSION_SCOPE")
+ }
+ let scope=|rev,gen,action|WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
+    expected_revision:rev,expected_index_generation:gen,expected_decoded_sha256:expected,action};
+ let read=scope(0,1,WorkerAction::ReadDomain);
+ let target=(if steam{s.mint_private_steam626_collection_target(read,plan.as_bytes())}
+    else{s.mint_private_switch626_collection_target(read,plan.as_bytes())})
+    .unwrap_or_else(|_|deny("COLLECTION_TARGET_PLAN"));
+ let stage_once=|e|if steam{s.stage_private_steam626_collection_bool(e,&target)}
+    else{s.stage_private_switch626_collection_bool(e,&target)};
+ let stage=stage_once(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|_|deny("COLLECTION_STAGE"));
+ if stage.operation_count!=1||stage.exact_field_changed_count!=1||!stage.applied||
+    stage.product_writer_authorized||stage.original_overwrite_authorized||!stage.semantic_changed{
+    deny("COLLECTION_EXACT1_RECEIPT")
+ }
+ if stage_once(scope(0,1,WorkerAction::Stage)).is_ok(){deny("COLLECTION_REPLAY")}
+ s.undo_typed_semantic_batch(scope(1,2,WorkerAction::Stage)).unwrap_or_else(|_|deny("COLLECTION_UNDO"));
+ if s.take_typed_semantic_decoded_once(scope(2,3,WorkerAction::ExportEditedCopy)).is_ok(){deny("COLLECTION_UNDONE_EXPORT")}
+ s.redo_typed_semantic_batch(scope(2,3,WorkerAction::Stage)).unwrap_or_else(|_|deny("COLLECTION_REDO"));
+ let out=s.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).unwrap_or_else(|_|deny("COLLECTION_EXPORT"));
+ if Sha256::digest(&out).as_slice()!=stage.staged_decoded_sha256||
+    s.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).is_ok(){deny("COLLECTION_EXPORT_REPLAY_OR_SHA")}
+ io::stdout().write_all(&out).unwrap_or_else(|_|deny("COLLECTION_PIPE_WRITE"));
+ io::stdout().flush().unwrap_or_else(|_|deny("COLLECTION_PIPE_FLUSH"));
+ if steam{eprintln!("PRIVATE_STEAM626_COLLECTION_EXISTING_BOOL_EXACT1_PIPE_PASS");}
+ else{eprintln!("PRIVATE_SWITCH626_COLLECTION_EXISTING_BOOL_EXACT1_PIPE_PASS");}
 }
