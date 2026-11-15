@@ -78,3 +78,50 @@ test('missing WASM source or entropy and UI-context deny fail closed',async()=>{
  await assert.rejects(w.openDecoded({build:identity,decodedChunks:source()}),/PRODUCT_WORKER_WASM_UNAVAILABLE/);
  await assert.rejects(w.openDecoded({build:identity,decodedChunks:null}),/PRODUCT_WORKER_CHUNK_SOURCE_REQUIRED/);
 });
+
+const collSelector={definitionId:2120000001,groupIndex:0,itemId:40000001};
+const collReceipt=(build,selector,id,rev,gen,sha)=>({contract:'wand.worker.collection-scoped-candidate@1',
+ platform:build.platform==='steam-windows'?'SteamWindows':'Switch',buildKind:build.platform==='steam-windows'?'SteamFullVersion':'SwitchBid',buildId:build.buildId,
+ sessionId:id,revision:Number(rev),indexGeneration:Number(gen),decodedSha256:sha,...selector,old:false,new:true,falseCount:3,positiveStock:1,
+ itemDefinitionSha256:sha,collectionDefinitionSha256:sha,groupDefinitionSha256:sha,entrySha256:sha,groupSha256:sha,mapSha256:sha,stockEntrySha256:sha,
+ packagedCandidateVerified:true,sourcePhysicalVerified:true,effectiveEligibilityVerified:false,writerAuthorized:false,editedCopyAuthorized:false,applyAuthorized:false});
+class CollectionRust extends FakeRustWasm{
+ constructor(p,k,b,...rest){super(p,k,b,...rest);this.build={platform:p,buildKind:k,buildId:b};}
+ preview_scoped_collection_candidate(def,group,item,id,rev,gen,sha){
+  assert.equal(this.closed,false);assert.equal(id,receipt().sessionId);assert.equal(rev,0n);assert.equal(gen,1n);assert.equal(sha,receipt().decodedSha256);
+  assert.deepEqual({definitionId:def,groupIndex:group,itemId:item},collSelector);
+  return JSON.stringify(collReceipt(this.build,collSelector,id,rev,gen,sha));
+ }
+}
+const collectionOwner=(C=CollectionRust)=>createProductWasmReadOwner(async()=>({WorkerWasmSource:C}),{allowCollectionCandidateSource:true});
+test('Collection candidate opt-in uses same existing owner, both Builds, no authority',async()=>{
+ const off=make();await off.openDecoded({build:identity,decodedChunks:source()});assert.equal(off.readCollectionCandidate,undefined);off.close();
+ for(const build of [identity,{...identity,platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D'}]){
+  const w=collectionOwner();await assert.rejects(w.readCollectionCandidate(collSelector),/CANDIDATE_OFF/);
+  const r=await w.openDecoded({build,decodedChunks:source()});const x=await w.readCollectionCandidate(collSelector);
+  assert.equal(x.platform,build.platform);assert.equal(x.kind,'COLLECTION_CANDIDATE_READ_ONLY');assert.equal(x.effectiveEligibilityVerified,false);
+  assert.equal(x.writerAuthorized,false);assert.equal(x.editedCopyAuthorized,false);assert.equal(x.applyAuthorized,false);
+  assert.equal(w.getReceipt(),r);assert.equal(w.getCapabilities().canStage,false);assert.throws(()=>w.submitOperation({kind:'STAGE'}),/WRITER_DISABLED/);
+  assert.equal('sessionId' in x,false);assert.equal('entrySha256' in x,false);w.close();
+  await assert.rejects(w.readCollectionCandidate(collSelector),/CANDIDATE_OFF/);
+ }
+});
+test('Collection candidate import boundary snapshots selector and rejects stale A after close/reopen',async()=>{
+ const w=collectionOwner();await w.openDecoded({build:identity,decodedChunks:source()});
+ const s={...collSelector},pending=w.readCollectionCandidate(s);s.itemId=40000002;
+ assert.equal((await pending).itemId,collSelector.itemId);
+ const old=w.readCollectionCandidate(collSelector);w.close();
+ const rejected=assert.rejects(old,/CANDIDATE_OFF/);
+ const newer=await w.openDecoded({build:identity,decodedChunks:source()});await rejected;
+ assert.equal(w.getReceipt(),newer);assert.equal((await w.readCollectionCandidate(collSelector)).itemId,collSelector.itemId);w.close();
+});
+test('Collection candidate strict parser rejects duplicate keys and forged authority; exact active session revoked',async()=>{
+ for(const type of ['duplicate','authority']){
+  class Bad extends CollectionRust{preview_scoped_collection_candidate(...args){const raw=super.preview_scoped_collection_candidate(...args);return type==='duplicate'?raw.slice(0,-1)+',"writerAuthorized":false}':JSON.stringify({...JSON.parse(raw),writerAuthorized:true});}}
+  const w=collectionOwner(Bad);await w.openDecoded({build:identity,decodedChunks:source()});
+  await assert.rejects(w.readCollectionCandidate(collSelector),/COLLECTION_CANDIDATE_READ_DENIED/);assert.equal(w.getReceipt(),null);
+ }
+ const w=collectionOwner(FakeRustWasm);const r=await w.openDecoded({build:identity,decodedChunks:source()});
+ await assert.rejects(w.readCollectionCandidate({...collSelector,sessionId:r.sessionId}),/CANDIDATE_SELECTOR/);
+ await assert.rejects(w.readCollectionCandidate(collSelector),/COLLECTION_CANDIDATE_READ_DENIED/);assert.equal(w.getReceipt(),r);w.close();
+});
