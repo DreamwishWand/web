@@ -1507,7 +1507,8 @@ mod private_avatar {
             }
         }
         let complete=history.is_some()&&active.is_some()&&missing_lists==0;
-        let clear=if complete{json!(matches.is_empty())}else{Value::Null};
+        // A positive exact reference is decisive even if other lists are absent.
+        let clear=if !matches.is_empty(){json!(false)}else if complete{json!(true)}else{Value::Null};
         Ok(json!({"history":dependency_hash(bytes,history),"activeEvents":dependency_hash(bytes,active),
             "gridId":grid_id,"objectId":object_id,"activeEventCount":events,"nonnullSpawnStateCount":spawn_states,
             "missingSpawnedObjectsListCount":missing_lists,"scannedAddressCount":addresses,
@@ -1592,6 +1593,8 @@ mod private_avatar {
         let absent=scan("{}",7,8).unwrap();assert!(absent["noExactSavedSpawnAddress"].is_null());
         let missing=scan(r#"{"ActiveEvents":{"1":{"SpawnState":{}}}}"#,7,8).unwrap();
         assert_eq!(missing["missingSpawnedObjectsListCount"],1);assert!(missing["noExactSavedSpawnAddress"].is_null());
+        let mixed=scan(r#"{"ActiveEvents":{"1":{"SpawnState":{}},"2":{"SpawnState":{"SpawnedObjects":[{"GridID":7,"GridObjectID":8}]}}}}"#,7,8).unwrap();
+        assert_eq!(mixed["knownSavedPathComplete"],false);assert_eq!(mixed["noExactSavedSpawnAddress"],false);
         assert!(ordinary_spawn_address_readset(b"{}",None,7,8,&mut DependencyBudget::default()).unwrap()["noExactSavedSpawnAddress"].is_null());
         for invalid in [
             r#"{"ActiveEvents":{"1":{"SpawnState":{"SpawnedObjects":[{"GridID":7}]}}}}"#,
