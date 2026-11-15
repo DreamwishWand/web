@@ -674,6 +674,48 @@ impl ProductSession{
 
 #[cfg(feature="product-collection-scoped")]
 impl ProductSession{
+    /// Prepare the sole physical token for a future exact Collection Stage.
+    /// This is NOT effective eligibility and does not commit a ledger, expose
+    /// an ABI, or return a write grant. The effective target/peer and subscriber
+    /// closure must be proven before using the existing atomic ledger.
+    #[allow(dead_code)]
+    fn recheck_product_collection_stage_pair(&self,e:WorkerEnvelope,pair:&ProductCollectionPhysicalPair,
+        expected_entry:[u8;32])->CoreResult<Span>{
+        if e.action!=super::WorkerAction::Stage{
+            return Err(deny("COLLECTION_PAIR_STAGE_ACTION"));
+        }
+        let read=WorkerEnvelope{action:super::WorkerAction::ReadDomain,..e};
+        if read!=pair.scope{
+            return Err(deny("COLLECTION_PAIR_STAGE_EPOCH_CAS"));
+        }
+        // The existing scoped scanner/mint is the only physical authority.
+        // Rebind at the Stage request, not a caller-provided span or flag.
+        let current=self.mint_product_collection_physical_pair(read,pair.target.definition_id,0,pair.target.item_id)?;
+        let same_span=|a:Span,b:Span|a.begin==b.begin&&a.end==b.end;
+        if current.target!=pair.target||current.peer!=pair.peer||
+            !same_span(current.target_span,pair.target_span)||!same_span(current.peer_span,pair.peer_span)||
+            current.group_sha!=pair.group_sha||current.map_sha!=pair.map_sha||
+            current.target_stock_sha!=pair.target_stock_sha||current.peer_stock_sha!=pair.peer_stock_sha{
+            return Err(deny("COLLECTION_PAIR_STAGE_READSET_CAS"));
+        }
+        let old=self.decoded.get(current.target_span.begin..current.target_span.end)
+            .ok_or(deny("COLLECTION_PAIR_STAGE_SPAN"))?;
+        let peer=self.decoded.get(current.peer_span.begin..current.peer_span.end)
+            .ok_or(deny("COLLECTION_PAIR_STAGE_SPAN"))?;
+        let digest:[u8;32]=Sha256::digest(old).into();
+        if old!=b"false"||peer!=b"false"||digest!=expected_entry||
+            current.target_span.begin==current.peer_span.begin{
+            return Err(deny("COLLECTION_PAIR_STAGE_OLD_CAS"));
+        }
+        // Final live scope check. The eventual common ledger must also
+        // perform its atomic Stage epoch/CAS under the same Session lock.
+        let st=self.lock()?;validate_scope(self,&st,&read)?;
+        Ok(current.target_span)
+    }
+}
+
+#[cfg(feature="product-collection-scoped")]
+impl ProductSession{
     /// A product-facing physical + packaged candidate, never a write grant.
     /// Effective installed definitions, visibility and rights are a separate
     /// fail-closed prerequisite. No raw JSON, private plan or caller pack.
@@ -765,6 +807,46 @@ mod product_collection_source_tests{
                 let t=pair_open(&q,steam);assert!(t.mint_product_collection_physical_pair(env(&t),def,0,item).is_err());
             }
             s.close().unwrap();assert!(s.mint_product_collection_physical_pair(e,def,0,item).is_err());
+        }
+    }
+
+    #[test]
+    fn exact_stage_pair_rebind_never_commits_or_grants_authority(){
+        let (d,def,item,peer)=pair_doc();
+        let entry:[u8;32]=Sha256::digest(b"false").into();
+        for steam in [false,true]{
+            let s=pair_open(&d,steam);let read=env(&s);
+            let stage=WorkerEnvelope{action:WorkerAction::Stage,..read};
+            let before=s.receipt().unwrap();
+            let pair=s.mint_product_collection_physical_pair(read,def,0,item).unwrap();
+            let span=s.recheck_product_collection_stage_pair(stage,&pair,entry).unwrap();
+            let mut expected=d.clone();
+            expected["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"][item.to_string()]=json!(true);
+            let mut proposed=s.decoded.to_vec();
+            proposed.splice(span.begin..span.end,b"true".iter().copied());
+            assert_eq!(proposed,serde_json::to_vec(&expected).unwrap());
+            assert_eq!(expected["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"][peer.to_string()],false);
+            assert!(s.recheck_product_collection_stage_pair(read,&pair,entry).is_err());
+            assert!(s.recheck_product_collection_stage_pair(stage,&pair,[0;32]).is_err());
+            assert!(s.recheck_product_collection_stage_pair(WorkerEnvelope{expected_revision:1,..stage},&pair,entry).is_err());
+            assert!(s.recheck_product_collection_stage_pair(WorkerEnvelope{expected_index_generation:2,..stage},&pair,entry).is_err());
+            assert!(pair_open(&d,steam).recheck_product_collection_stage_pair(stage,&pair,entry).is_err());
+            for n in 0..6{
+                let mut forged=s.mint_product_collection_physical_pair(read,def,0,item).unwrap();
+                match n{
+                    0=>forged.target_span=forged.peer_span,
+                    1=>forged.peer_span=forged.target_span,
+                    2=>forged.group_sha="0".repeat(64),
+                    3=>forged.map_sha="0".repeat(64),
+                    4=>forged.target_stock_sha="0".repeat(64),
+                    _=>forged.peer_stock_sha="0".repeat(64),
+                }
+                assert!(s.recheck_product_collection_stage_pair(stage,&forged,entry).is_err());
+            }
+            assert_eq!(s.receipt().unwrap(),before);
+            assert_eq!(s.decoded.as_ref(),serde_json::to_vec(&d).unwrap().as_slice());
+            s.close().unwrap();
+            assert!(s.recheck_product_collection_stage_pair(stage,&pair,entry).is_err());
         }
     }
     #[test]
