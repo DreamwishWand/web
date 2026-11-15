@@ -10,6 +10,9 @@
 
   export let trustedWorkerAdapter=null;
   export let verifiedLocalDevGate=false;
+  // Trusted caller fixes this scope at mount; no user-editable mode selector.
+  export let scopedExactOne=false;
+  let exactOne=false;
   let workflow=null,available=false,pending=false,error=false;
   let file=null,sourceSha='',buildConfirmed=false,newAmount='';
   let chosen=0,focusTarget=null,fileInput=null,uiEpoch=0;
@@ -18,20 +21,21 @@
   $: openable=available&&!pending&&file!==null&&
     /^[0-9a-f]{64}$/.test(sourceSha)&&buildConfirmed;
   $: current=state.targets?.[chosen]||null;
-  $: validDecrease=current&&/^[1-9][0-9]*$/.test(newAmount)&&
-    Number.isSafeInteger(Number(newAmount))&&
-    Number(newAmount)>0&&Number(newAmount)<current.oldAmount;
+  $: proposedAmount=exactOne&&current?current.oldAmount-1:Number(newAmount);
+  $: validDecrease=current&&(exactOne||/^[1-9][0-9]*$/.test(newAmount))&&
+    Number.isSafeInteger(proposedAmount)&&proposedAmount>0&&proposedAmount<current.oldAmount;
   $: phase=state.phase;
   onMount(()=>{
     // Compile-time Vite guard plus explicit trusted capability. DEV/OFF here
     // never means Owner has authorized PRODUCT_OPERATION_ENABLED or Writer ON.
     if(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter)return;
     try{
-      workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true});
+      exactOne=scopedExactOne===true;
+      workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,exactOneDecrease:exactOne});
       available=true;state=workflow.snapshot();
     }catch{available=false}
     return ()=>{++uiEpoch;const active=workflow;workflow=null;available=false;
-      if(active)void active.close()};
+      if(active)void active.close().catch(()=>{})};
   });
   function resetInput(){
     file=null;sourceSha='';buildConfirmed=false;newAmount='';chosen=0;
@@ -72,7 +76,7 @@
     buildConfirmed
   }));
   const backup=()=>act(()=>workflow.backupAndRead());
-  const stage=()=>act(()=>workflow.stage(chosen,Number(newAmount)));
+  const stage=()=>act(()=>workflow.stage(chosen,proposedAmount));
   const undo=()=>act(()=>workflow.undo());
   const redo=()=>act(()=>workflow.redo());
   const exportCopy=()=>act(()=>workflow.exportEditedCopy());
@@ -157,9 +161,14 @@
             {/each}
           </select>
           <label for="dev-amount-new">{words.newAmount}</label>
-          <input id="dev-amount-new" type="number" min="1"
-            max={Math.max(1,(current?.oldAmount||1)-1)}
-            step="1" inputmode="numeric" bind:value={newAmount} disabled={pending||phase!=='ready'}/>
+          {#if exactOne}
+            <input id="dev-amount-new" type="number" value={proposedAmount} readonly
+              disabled={pending||phase!=='ready'} data-scoped-exact-one/>
+          {:else}
+            <input id="dev-amount-new" type="number" min="1"
+              max={Math.max(1,(current?.oldAmount||1)-1)}
+              step="1" inputmode="numeric" bind:value={newAmount} disabled={pending||phase!=='ready'}/>
+          {/if}
           {#if phase==='ready'}
             <button type="button" data-dev-stage on:click={stage}
               disabled={pending||!validDecrease}>{words.stage}</button>

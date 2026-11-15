@@ -287,3 +287,35 @@ test('download rejects altered name, size, digest, bytes, extra payload and late
  const pending=w.downloadVerifiedCopy('backup'),denied=assert.rejects(pending,/STALE_FILE_OR_CLOSE/);
  await entered.promise;await w.close();hold.resolve();await denied;closed(w);
 });
+
+const closedAck=()=>({kind:'CLOSED',ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false});
+test('scoped Amount workflow accepts exact old minus one only; other decrements never reach Worker',async()=>{
+ for(const [index,old] of [[0,50],[1,12]]){
+  const f=fake({close:async()=>closedAck()}),w=createLocalAmountDevWorkflow(f.adapter,{trustedLocalHarness:true,exactOneDecrease:true});
+  await w.open(args);await w.backupAndRead();
+  for(const n of [0,old,old+1,old-2])await assert.rejects(w.stage(index,n),/SCOPED_EXACT_ONE_DECREASE_REQUIRED/);
+  assert.equal(f.log.filter(x=>x[0]==='stage').length,0);assert.equal(w.snapshot().phase,'ready');
+  await w.stage(index,old-1);assert.equal(w.snapshot().preview.newAmount,old-1);
+  await w.undo();await w.redo();await w.exportEditedCopy();await w.close();
+ }
+ const legacy=fake(),w=createLocalAmountDevWorkflow(legacy.adapter,{trustedLocalHarness:true});
+ await w.open(args);await w.backupAndRead();await w.stage(0,48);assert.equal(w.snapshot().preview.newAmount,48);await w.close();
+});
+test('failed Close blocks scoped reopen until acknowledged; no OPEN on failure',async()=>{
+ for(const failMode of ['throw','invalid-receipt']){
+  let failClose=true,closeCalls=0;
+  const f=fake({close:async()=>{closeCalls++;if(failClose){if(failMode==='throw')throw Error('CLOSE_FAILED');return {...closedAck(),writerAuthorized:true}}return closedAck()}});
+  const w=createLocalAmountDevWorkflow(f.adapter,{trustedLocalHarness:true,exactOneDecrease:true});
+  await assert.rejects(w.open(args));assert.equal(w.snapshot().phase,'close-failed');assert.equal(f.log.filter(x=>x[0]==='open').length,0);
+  await assert.rejects(w.close());assert.equal(w.snapshot().phase,'close-failed');assert.equal(closeCalls,2);
+  failClose=false;await w.close();assert.equal(w.snapshot().phase,'closed');await w.open(args);assert.equal(f.log.filter(x=>x[0]==='open').length,1);
+  failClose=true;await assert.rejects(w.close());assert.equal(w.snapshot().phase,'close-failed');
+ }
+});
+test('scoped Close barrier deduplicates and stale OPEN cannot dispatch after cleanup',async()=>{
+ let release,closeCalls=0;const barrier=new Promise(r=>release=r);
+ const f=fake({close:async()=>{closeCalls++;await barrier;return closedAck()}}),w=createLocalAmountDevWorkflow(f.adapter,{trustedLocalHarness:true,exactOneDecrease:true});
+ const opening=w.open(args),rejected=assert.rejects(opening,/STALE_FILE_OR_CLOSE/),closing=w.close();release();await Promise.all([rejected,closing]);
+ assert.equal(closeCalls,1);assert.equal(f.log.filter(x=>x[0]==='open').length,0);assert.equal(w.snapshot().phase,'closed');
+ await w.open(args);assert.equal(f.log.filter(x=>x[0]==='open').length,1);await w.close();
+});
