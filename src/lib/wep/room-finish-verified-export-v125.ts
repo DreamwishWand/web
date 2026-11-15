@@ -60,6 +60,10 @@ export const ROOM_FINISH_WALLS = Object.freeze([
   Object.freeze({ wallPosition: 3, name: 'Left' })
 ]);
 
+// Only the SHA-verified canonical pack may authorize export revalidation.
+// This is immutable build data, not a second Save session or reader.
+let verifiedRoomFinishTrimmingPack:AnyRecord|null = null;
+
 function clone<T>(value:T):T { return structuredClone(value); }
 function asObj(value:any):AnyRecord|null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -139,7 +143,13 @@ export async function loadRoomFinishTrimmingPackV125({
   ) {
     fail('WEP_ROOM_FINISH_TRIMMING_PACK_CONTRACT_MISMATCH');
   }
-  return Object.freeze(pack);
+  const records = Object.freeze(Object.fromEntries(
+    Object.entries(pack.records).map(([key, value]) =>
+      [key, Object.freeze([...(value as any[])])])
+  ));
+  const verified = Object.freeze({...pack, records});
+  verifiedRoomFinishTrimmingPack = verified;
+  return verified;
 }
 
 function trimmingInventory(profile:any, roleHint:number) {
@@ -193,10 +203,18 @@ export function resolveRoomFinishTrimmingEvidenceV125({
   );
   const roleHint = int(record[2], 'WEP_ROOM_FINISH_INVENTORY_ROLE_INVALID');
   const data = trimmingInventory(profile, roleHint);
-  const raw = asObj(data[String(canonicalItemId)] ?? data[canonicalItemId]);
-  const amount = raw ? Number(raw.Amount) : 0;
-  if (!Number.isSafeInteger(amount) || amount < 0) {
-    fail('WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID');
+  const key = String(canonicalItemId);
+  let amount = 0;
+  if (Object.hasOwn(data, key)) {
+    const raw = asObj(data[key]);
+    // Saved Item.Amount is int32. Missing entry means unowned; a present
+    // malformed entry must not be coerced into an ownership witness.
+    if (!raw || !Object.hasOwn(raw, 'Amount') ||
+        typeof raw.Amount !== 'number' || !Number.isInteger(raw.Amount) ||
+        raw.Amount < 0 || raw.Amount > 0x7fffffff) {
+      fail('WEP_ROOM_FINISH_OWNED_AMOUNT_INVALID');
+    }
+    amount = raw.Amount;
   }
   return Object.freeze({
     itemId: id,
@@ -549,6 +567,55 @@ function mutationSame(a:any,b:any) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+// Recompile against the actual decoded source already held by the existing
+// SafeProfileEditSession. Never accept a caller's draft as ownership evidence.
+function requireCanonicalSourceRoomMutation(profile:any, mutation:any) {
+  const pack = verifiedRoomFinishTrimmingPack;
+  if (!pack) fail('WEP_ROOM_FINISH_VERIFIED_TRIMMING_PACK_REQUIRED');
+  const target = mutation?.target;
+  if (!target ||
+      ![target.playerHouseIndex,target.houseItemId,target.floorIndex,target.roomSlot,mutation.itemId]
+        .every(value => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) ||
+      target.houseItemId === 0 || mutation.itemId === 0 || target.roomSlot > 3) {
+    fail('WEP_ROOM_FINISH_SOURCE_MUTATION_TARGET_INVALID');
+  }
+  const resolved:any = (resolveIndoorRoomFinishV125 as any)({
+    source:coreSource(), profile,
+    locator:{
+      playerHouseIndex:target.playerHouseIndex,houseItemId:target.houseItemId,
+      floorIndex:target.floorIndex,roomSlot:target.roomSlot
+    }
+  });
+  if (resolved?.status !== 'VALID' || !resolved?.projection) {
+    fail('WEP_ROOM_FINISH_SOURCE_MUTATION_TARGET_INVALID');
+  }
+  const document = createRoomFinishEditorDocumentV125(resolved.projection);
+  let canonical:any;
+  if (mutation.operation === ROOM_FINISH_OPERATION.SET_FLOORING) {
+    canonical = compileRoomFinishFlooringDraftV125({document,profile,pack,itemId:mutation.itemId});
+  } else if (mutation.operation === ROOM_FINISH_OPERATION.SET_WALLPAPER) {
+    const scope = mutation.scope;
+    if (scope !== WALLPAPER_SCOPE.CURRENT_WALL && scope !== WALLPAPER_SCOPE.ALL_WALLS) {
+      fail('WEP_ROOM_FINISH_SOURCE_MUTATION_SCOPE_INVALID');
+    }
+    const positions = mutation.selectedWallPositions;
+    if (scope === WALLPAPER_SCOPE.CURRENT_WALL &&
+        (!Array.isArray(positions) || positions.length !== 1 ||
+         !Number.isInteger(positions[0]) || positions[0] < 0 || positions[0] > 3)) {
+      fail('WEP_ROOM_FINISH_SOURCE_MUTATION_SCOPE_INVALID');
+    }
+    canonical = compileRoomFinishWallpaperDraftV125({
+      document,profile,pack,itemId:mutation.itemId,scope,
+      wallPosition:scope === WALLPAPER_SCOPE.CURRENT_WALL ? positions[0] : null
+    });
+  } else {
+    fail('WEP_ROOM_FINISH_SOURCE_MUTATION_SCOPE_INVALID');
+  }
+  if (!mutationSame(canonical.mutationSet,mutation)) {
+    fail('WEP_ROOM_FINISH_SOURCE_MUTATION_MISMATCH');
+  }
+}
+
 export async function reviewRoomFinishVerifiedExportV125({
   sourceBytes,
   sourceName,
@@ -580,6 +647,7 @@ export async function reviewRoomFinishVerifiedExportV125({
     codec:p1gPackagedProfileCodec as any,
     sourcePlatform:PlatformFamily.Switch
   });
+  requireCanonicalSourceRoomMutation(safeSession.getSnapshot(), mutationSet);
   const ctx = safeSession.getPreflightContext();
   const plan:any = (buildRoomFinishTransactionPlanV125 as any)({
     session:safeSession,
@@ -688,6 +756,7 @@ export async function verifyRoomFinishReplacementArtifactPipelineV125({
     codec:p1gPackagedProfileCodec as any,
     sourcePlatform:PlatformFamily.Switch
   });
+  requireCanonicalSourceRoomMutation(safeSession.getSnapshot(), review.mutationSet);
   let result:any;
   try {
     result = await (createRoomFinishVerifiedWriteCandidateV125 as any)({
