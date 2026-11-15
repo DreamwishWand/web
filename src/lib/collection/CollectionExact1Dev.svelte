@@ -66,7 +66,7 @@
    {:else if phase==='undone'}<button type="button" disabled={pending} on:click={()=>act(a=>a.redo())}>{words.redo}</button>
    {:else if phase==='exported'}<p role="status">{words.done}</p><p><code>{state.editedName}</code></p><button type="button" disabled={pending} on:click={()=>download('edited')}>{words.downloadEdited}</button>{/if}
   {/if}
-  {#if error}<p role="alert">{words.denied}</p>{/if}
+  {#if error}<p role="alert">{phase==='close-failed'?words.closeFailed:words.denied}</p>{/if}
  {/if}
 </section>
 <style>
