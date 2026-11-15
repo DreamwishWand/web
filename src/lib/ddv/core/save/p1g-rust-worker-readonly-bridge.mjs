@@ -3,6 +3,7 @@
 // Writer, filesystem path, network, Cloud or UI Save payload response.
 // DEV_READY synthetic testing only. Not imported by production Worker/UI.
 import {p1gPackagedProfileCodec} from './p1g-packaged-profile-codec.js';
+import {compareOriginalBackupBytes,originalBackupFileName} from './local-original-backup.mjs';
 import {
   createProductWasmReadOwner,
   PRODUCT_WASM_CHUNK_MAX_BYTES,
@@ -39,18 +40,20 @@ async function* decodedUtf8Chunks(text){
     offset=end;
   }
 }
-export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
+export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource=false,readDurableOriginalBackup=null}={}){
   // Constructor itself enforces Worker-only (document must be absent).
-  const rust=createProductWasmReadOwner(wasmFactory);
-  let epoch=0;
+  const rust=createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource});
+  let epoch=0,scopedSource=null,scopedMetadata=null,backupMatched=false,scopedBusy=false,durableName=null;
+  const resetScoped=()=>{scopedSource=null;scopedMetadata=null;backupMatched=false;scopedBusy=false;durableName=null};
+  const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
   const close=()=>{
-    epoch++;
+    epoch++;resetScoped();
     return rust.close();
   };
   const openEncrypted=async args=>{
     // A is synchronously invalidated before validating/decoding B.
     const token=++epoch;
-    rust.close();
+    resetScoped();rust.close();
     if(!exact(args,'build,encryptedBytes')||
        !(args.encryptedBytes instanceof Uint8Array)||
        args.encryptedBytes.byteLength===0||
@@ -82,6 +85,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
          close();
          fail('P1G_WORKER_RUST_GATE_VIOLATION');
       }
+      if(allowScopedAmountSource===true)scopedMetadata=decoded.metadata;
       return Object.freeze({
         ...receipt,
         decodedByExistingP1gCodec:true,
@@ -98,8 +102,110 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
       isolated.fill(0); // never zero the caller's original bytes
     }
   };
+  const scopedReady=()=>{if(allowScopedAmountSource!==true||!scopedSource||!scopedMetadata||scopedBusy)
+    fail('P1G_WORKER_SCOPED_SOURCE_OFF');return scopedSource};
+  // Explicit local File; ordinary public read-only API remains unchanged.
+  const openScopedEncrypted=async args=>{
+    close();const token=epoch;
+    if(allowScopedAmountSource!==true||!exact(args,'file,build,originalSha256')||
+       !(args.file instanceof File)||args.build?.platform!=='steam-windows'||
+       typeof args.originalSha256!=='string'||!(/^[0-9a-f]{64}$/).test(args.originalSha256))
+      fail('P1G_WORKER_SCOPED_INPUT_DENIED');
+    const {file,build,originalSha256}=args;
+    const size=Object.getOwnPropertyDescriptor(Blob.prototype,'size').get.call(file);
+    const name=Object.getOwnPropertyDescriptor(File.prototype,'name').get.call(file);
+    if(size<16||size>MAX_ENCRYPTED_BYTES||size%16||!name.toLowerCase().endsWith('.p1g'))
+      fail('P1G_WORKER_SCOPED_INPUT_DENIED');
+    let bytes;
+    try{
+      bytes=new Uint8Array(await Blob.prototype.arrayBuffer.call(file));
+      if(token!==epoch||bytes.length!==size||await hash(bytes)!==originalSha256||token!==epoch)
+        fail('P1G_WORKER_SCOPED_INPUT_DENIED');
+      const opened=openEncrypted({build,encryptedBytes:bytes}),opening=epoch;
+      const receipt=await opened;
+      if(opening!==epoch)fail('P1G_WORKER_OPEN_REVOKED');
+      scopedSource=Object.freeze({file,sha:originalSha256,size,name});
+      return Object.freeze({sourceShaMatched:true,originalSizeMatched:true,fullDocumentValidated:receipt.fullDocumentJsonValidated,
+        writerAuthorized:false,editedCopyAuthorized:false});
+    }finally{if(bytes)bytes.fill(0)}
+  };
+  const verifyScopedOriginalBackup=async candidate=>{
+    const source=scopedReady(),token=epoch;backupMatched=false;scopedBusy=true;
+    const current=()=>token===epoch&&scopedSource===source;
+    try{
+      if(!current())fail('P1G_WORKER_OPEN_REVOKED');
+      await compareOriginalBackupBytes(source.file,candidate,current,MAX_ENCRYPTED_BYTES);
+      if(!current())fail('P1G_WORKER_OPEN_REVOKED');
+      backupMatched=true;
+      return Object.freeze({candidateBytesMatchOriginal:true,persistedVerified:false,distinctDiskPathVerified:false,writerAuthorized:false});
+    }finally{if(current())scopedBusy=false}
+  };
+  const requireBackup=()=>{scopedReady();if(!backupMatched)fail('P1G_WORKER_SCOPED_BACKUP_REQUIRED')};
+  const scopedCall=fn=>{requireBackup();try{return fn()}catch(e){close();throw e}};
+  const previewScopedAmount=selection=>scopedCall(()=>rust.previewScopedAmount(selection));
+  // The provider is a trusted Worker constructor dependency, never a message
+  // field. User-selected candidate bytes alone do not prove durable backup.
+  const verifyDurable=async(source,current,expectedName=null)=>{
+    if(typeof readDurableOriginalBackup!=='function'||!current())
+      fail('P1G_WORKER_SCOPED_DURABLE_BACKUP_REQUIRED');
+    const file=await readDurableOriginalBackup(Object.freeze({
+      originalName:source.name,originalSha256:source.sha,originalSizeBytes:source.size}));
+    if(!current()||!(file instanceof File))fail('P1G_WORKER_SCOPED_DURABLE_BACKUP_REQUIRED');
+    const name=Object.getOwnPropertyDescriptor(File.prototype,'name').get.call(file);
+    if(!/^[A-Za-z0-9._-]+\.p1g$/i.test(name)||name.toLowerCase()===source.name.toLowerCase()||
+       (expectedName!==null&&name!==expectedName))fail('P1G_WORKER_SCOPED_DURABLE_BACKUP_REQUIRED');
+    await compareOriginalBackupBytes(source.file,file,current,MAX_ENCRYPTED_BYTES);
+    if(!current())fail('P1G_WORKER_OPEN_REVOKED');
+    return name;
+  };
+  const stageScopedAmount=async()=>{
+    requireBackup();const source=scopedSource,token=epoch;scopedBusy=true;
+    const current=()=>token===epoch&&scopedSource===source;
+    try{
+      const name=await verifyDurable(source,current);
+      if(!current())fail('P1G_WORKER_OPEN_REVOKED');
+      const r=rust.stageScopedAmount();durableName=name;return r;
+    }catch(e){if(current())close();throw e}
+    finally{if(current())scopedBusy=false}
+  };
+  const toggleScopedAmount=redo=>scopedCall(()=>{
+    if(!durableName)fail('P1G_WORKER_SCOPED_DURABLE_BACKUP_REQUIRED');
+    return rust.toggleScopedAmount(redo);
+  });
+  const exportScopedEditedCopy=async()=>{
+    requireBackup();const source=scopedSource,metadata=scopedMetadata,token=epoch;
+    scopedBusy=true;let decoded,encrypted;
+    const current=()=>token===epoch&&scopedSource===source;
+    try{
+      if(!durableName)fail('P1G_WORKER_SCOPED_DURABLE_BACKUP_REQUIRED');
+      await verifyDurable(source,current,durableName);
+      if(!current())fail('P1G_WORKER_OPEN_REVOKED');
+      const result=await rust.takeScopedAmountOutput();decoded=result.decodedBytes;
+      if(!current())fail('P1G_WORKER_OPEN_REVOKED');
+      const text=new TextDecoder('utf-8',{fatal:true}).decode(decoded);
+      encrypted=await p1gPackagedProfileCodec.createEncodedProfile(text,metadata);
+      if(!current()||!(encrypted instanceof Uint8Array)||encrypted.length<16||encrypted.length>MAX_ENCRYPTED_BYTES)
+        fail('P1G_WORKER_SCOPED_OUTPUT_DENIED');
+      const reopened=await p1gPackagedProfileCodec.loadProfile(encrypted);
+      const reopenedSha=await hash(new TextEncoder().encode(reopened.jsonText));
+      const editedSha=await hash(encrypted);
+      if(!current()||reopenedSha!==result.decodedSha256||editedSha===source.sha)
+        fail('P1G_WORKER_SCOPED_OUTPUT_DENIED');
+      if(!current())fail('P1G_WORKER_OPEN_REVOKED');
+      const backupName=originalBackupFileName(source.name);
+      const name=backupName.slice(0,-'.original-backup.p1g'.length)+'.edited-copy.p1g';
+      if(name.toLowerCase()===source.name.toLowerCase()||name===backupName||name.toLowerCase()===durableName.toLowerCase())fail('P1G_WORKER_SCOPED_OUTPUT_DENIED');
+      // Only encrypted bytes leave the Worker-private codec path. No public
+      // router/automatic download. Same-process reopen != independent OS V2.
+      const out=Object.freeze({name,encryptedBytes:encrypted,sha256:editedSha,sizeBytes:encrypted.length,
+        codecReopenVerified:true,independentProcessReopenVerified:false,writerAuthorized:false,originalOverwriteAuthorized:false});
+      encrypted=null;return out;
+    }finally{if(decoded)decoded.fill(0);if(encrypted)encrypted.fill(0);if(current())close()}
+  };
   return Object.freeze({
     openEncrypted,close,
+    ...(allowScopedAmountSource===true?{openScopedEncrypted,verifyScopedOriginalBackup,previewScopedAmount,
+      stageScopedAmount,toggleScopedAmount,exportScopedEditedCopy}:{}),
     readCoreVersion:scope=>rust.readCoreVersion(scope),
     issueTypedCursor:(scope,domain)=>rust.issueTypedCursor(scope,domain),
     readTypedPage:(scope,cursor)=>rust.readTypedPage(scope,cursor),
