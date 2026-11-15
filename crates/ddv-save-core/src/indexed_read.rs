@@ -1846,6 +1846,66 @@ mod private_avatar {
             expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
         fn hash(d:&Value)->[u8;32]{Sha256::digest(serde_json::to_vec(&d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]).unwrap()).into()}
         fn read(d:&Value)->CoreResult<Value>{let s=open(d);s.read_private_furniture_amount_dependencies(env(&s),40000001,hash(d))}
+
+        #[test]
+        fn qa_pr1341_spawn_composite_actual_session_and_shared_budget(){
+            let prepare=|mut d:Value|{d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(9);d};
+            let mut d=prepare(doc());
+            let addr=|g:u32,o:u32|json!({"GridID":g,"GridObjectID":o,"Opaque":true});
+            d["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["SpawnState"]=json!({"SpawnedObjects":[addr(7,4),addr(9,4),addr(7,9),addr(7,4),addr(9,9)]});
+            d["ConditionalEventHistory"]["ActiveEvents"]["1520000002"]=json!({"SpawnState":{"SpawnedObjects":[addr(7,9)]}});
+            let read=|d:&Value,oid:Option<u32>|{let s=open(d);let before=s.receipt().unwrap();
+                let v=s.read_private_ordinary_adddel_dependencies(env(&s),40000001,hash(d),7,oid);
+                assert_eq!(s.receipt().unwrap(),before);v};
+            let check=|v:&Value,id:u32,positions:&[(u32,u32)]|{
+                let r=&v["ordinarySpawnAddressReadSet"];assert_eq!(r["gridId"],7);assert_eq!(r["objectId"],id);
+                assert_eq!(r["knownSavedPathComplete"],true);assert_eq!(r["noExactSavedSpawnAddress"],positions.is_empty());
+                let got:Vec<_>=r["matches"].as_array().unwrap().iter().map(|a|(a["eventId"].as_u64().unwrap() as u32,a["position"].as_u64().unwrap() as u32)).collect();
+                assert_eq!(got,positions);for k in ["effectiveEventRegistryVerified","fullReferenceClosureVerified","writerAuthorized"]{assert_eq!(r[k],false);}
+            };
+            let del=read(&d,Some(4)).unwrap();check(&del,4,&[(1520000001,0),(1520000001,3)]);
+            let add=read(&d,None).unwrap();check(&add,9,&[(1520000001,2),(1520000002,0)]);
+            let event=&d["ConditionalEventHistory"]["ActiveEvents"]["1520000001"];
+            let m=&del["ordinarySpawnAddressReadSet"]["matches"][0];
+            assert_eq!(m["eventSha256"],sha(&serde_json::to_vec(event).unwrap()));
+            assert_eq!(m["recordSha256"],sha(&serde_json::to_vec(&event["SpawnState"]["SpawnedObjects"][0]).unwrap()));
+            assert_eq!(add["ordinarySpawnAddressReadSet"]["scannedAddressCount"],6);
+            let s=open(&d);let e=env(&s);let legacy=s.read_private_furniture_amount_dependencies(e,40000001,hash(&d)).unwrap();
+            let mut normalized=del.clone();normalized.as_object_mut().unwrap().remove("ordinaryStoredGridReadSet");
+            normalized.as_object_mut().unwrap().remove("ordinarySpawnAddressReadSet");normalized["contract"]=legacy["contract"].clone();assert_eq!(normalized,legacy);
+            let mut pos=2;let mut neg=0;
+            let mut x=d.clone();x["ConditionalEventHistory"]["ActiveEvents"]=json!({"1520000001":{"SpawnState":{"SpawnedObjects":[addr(9,4),addr(7,8)]}}});
+            check(&read(&x,Some(4)).unwrap(),4,&[]);pos+=1;
+            for variant in 0..3{
+                let mut x=d.clone();match variant{
+                    0=>{x.as_object_mut().unwrap().remove("ConditionalEventHistory");},
+                    1=>{x["ConditionalEventHistory"].as_object_mut().unwrap().remove("ActiveEvents");},
+                    _=>{x["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["SpawnState"].as_object_mut().unwrap().remove("SpawnedObjects");}
+                }
+                let v=read(&x,None).unwrap();let r=&v["ordinarySpawnAddressReadSet"];
+                assert_eq!(r["knownSavedPathComplete"],false);assert!(r["noExactSavedSpawnAddress"].is_null());pos+=1;
+            }
+            let mut x=d.clone();x["ConditionalEventHistory"]["ActiveEvents"]=json!({"1520000001":{"SpawnState":null}});
+            check(&read(&x,None).unwrap(),9,&[]);pos+=1;
+            for v in [json!([{"GridID":7}]),json!([{"GridObjectID":4}]),json!([{"GridID":"7","GridObjectID":4}]),
+                json!([{"GridID":7,"GridObjectID":-1}]),json!([{"GridID":7.0,"GridObjectID":4}]),
+                json!([{"GridID":4294967296u64,"GridObjectID":4}]),json!(null),json!({}),json!([false])]{
+                let mut x=d.clone();x["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["SpawnState"]["SpawnedObjects"]=v;
+                assert!(read(&x,None).is_err());neg+=1;
+            }
+            let mut x=d.clone();x["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["SpawnState"]["SpawnedObjects"]=json!(vec![addr(7,9);4097]);
+            assert!(read(&x,None).is_err());neg+=1;
+            // Parent cumulative budget is 65536; one additional persisted
+            // address must consume the SAME budget rather than a fresh one.
+            let mut big=prepare(cumulative_doc(false,0));
+            big["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["SpawnState"]=json!({"SpawnedObjects":[addr(7,9)]});
+            let x=open(&big);assert!(x.read_private_furniture_amount_dependencies(env(&x),40000001,hash(&big)).is_ok());
+            assert_eq!(read(&big,None).err().unwrap().0,"AMOUNT_DEP_REFERENCE_BOUND");neg+=1;
+            big["Player"]["AchievementsData"][0]["ItemsUsed"].as_array_mut().unwrap().pop();
+            let v=read(&big,None).unwrap();assert_eq!(v["ordinarySpawnAddressReadSet"]["scannedAddressCount"],1);pos+=1;
+            assert_eq!((pos,neg),(8,11));
+        }
+
         #[test]
         fn exact_amount_dependency_saved_float_refs_and_effective_unknown(){
             let d=doc();let s=open(&d);let before=s.receipt().unwrap();let e=env(&s);
