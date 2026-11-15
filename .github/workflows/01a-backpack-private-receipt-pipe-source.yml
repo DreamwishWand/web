@@ -1,0 +1,77 @@
+name: 01A Backpack private receipt pipe source (synthetic only)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/examples/wand-private-backpack-slot-pair-read.rs'
+      - '.github/workflows/01a-backpack-private-receipt-pipe-source.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-receipt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Exact native example unit and build
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --example wand-private-backpack-slot-pair-read
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --example wand-private-backpack-slot-pair-read --release
+      - name: Synthetic anonymous pipe positive and filesystem counterexamples
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os,sys,subprocess,tempfile,hashlib,json,fcntl,pathlib
+          exe=str(pathlib.Path('crates/ddv-save-core/target/release/examples/wand-private-backpack-slot-pair-read').resolve())
+          d={"GameInfo":{"Version":626},"World":{},"Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":{}}},"ContainerInventories":{"0":{"ID":0,"Size":3,"ExtraSize":1,"BelongsToPlayer":True,"BlockMoveTo":False,"ParentItemID":None,"Inventory":[{"ItemID":30200001,"Amount":4,"State":None},{"ItemID":0,"Amount":0,"State":None},{"ItemID":0,"Amount":0,"State":None}]}}}}
+          raw=json.dumps(d,separators=(',',':')).encode()
+          env=dict(os.environ,WAND_LOCAL_INSTALLED_STEAM_FULLVERSION="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22",WAND_LOCAL_ORIGINAL_SHA256="1"*64,WAND_LOCAL_DECODED_SHA256=hashlib.sha256(raw).hexdigest(),WAND_LOCAL_ORIGINAL_SIZE_BYTES="100")
+          args=[exe,"--backpack-pair","0","1","--receipt-fd3"]
+          def high(fd):
+              x=fcntl.fcntl(fd,fcntl.F_DUPFD_CLOEXEC,20);os.close(fd);return x
+          def pipe():
+              a,b=os.pipe();return high(a),high(b)
+          def run(fd=None,argv=args,stdin=None,stdout=subprocess.PIPE):
+              saved=None
+              try:
+                  if fd is not None:
+                      try:saved=fcntl.fcntl(3,fcntl.F_DUPFD_CLOEXEC,20)
+                      except OSError:pass
+                      os.dup2(fd,3)
+                  kw={"stdin":stdin} if stdin is not None else {"input":raw}
+                  return subprocess.run(argv,env=env,stdout=stdout,stderr=subprocess.PIPE,pass_fds=(3,) if fd is not None else (),timeout=15,**kw)
+              finally:
+                  if fd is not None:
+                      if saved is None:os.close(3)
+                      else:os.dup2(saved,3);os.close(saved)
+          def denied(p):
+              assert p.returncode==12 and p.stdout in (b"",None),(p.returncode,p.stderr)
+          a,b=pipe();p=run(b);os.close(b)
+          assert p.returncode==0 and p.stdout==b"",p.stderr
+          with os.fdopen(a,'rb') as f:receipt=json.load(f)
+          assert receipt["source"]["slotIndex"]==0 and receipt["source"]["oldAmount"]==4 and receipt["destination"]["slotIndex"]==1 and receipt["writerAuthorized"] is False
+          denied(run())
+          a,b=pipe();denied(run(a));os.close(a);os.close(b)
+          a,b=pipe();denied(run(b,stdin=a));os.close(a);os.close(b)
+          a,b=pipe();denied(run(b,stdout=b));os.close(b);assert os.read(a,1)==b"";os.close(a)
+          with tempfile.TemporaryDirectory() as td:
+              t=pathlib.Path(td);repo=t/"worktree";repo.mkdir(mode=0o700);(repo/".git").mkdir()
+              dest=repo/"receipt.json";denied(run(argv=[exe,"--backpack-pair","0","1","--out",str(dest)]));assert not dest.exists()
+              parent=t/"private";parent.mkdir(mode=0o700)
+              p=subprocess.Popen([exe,"--backpack-pair","0","1","--out",str(parent/"receipt.json")],env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+              moved=repo/"moved";parent.rename(moved)
+              out,err=p.communicate(raw,timeout=15);assert p.returncode==12 and out==b"" and not (moved/"receipt.json").exists(),err
+              sentinel=repo/"sentinel";sentinel.write_bytes(b"keep")
+              fd=high(os.open(sentinel,os.O_WRONLY));denied(run(fd));os.close(fd);assert sentinel.read_bytes()==b"keep"
+              fifo=t/"named";os.mkfifo(fifo);rd=high(os.open(fifo,os.O_RDONLY|os.O_NONBLOCK));wr=high(os.open(fifo,os.O_WRONLY|os.O_NONBLOCK));denied(run(wr));os.close(wr);os.close(rd)
+          print("BACKPACK_PRIVATE_PIPE_SOURCE_SYNTHETIC_PASS 1POS8NEG stdout0")
+          PY
+      - name: Package exact source-only executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: backpack-private-receipt-pipe-source
+          path: crates/ddv-save-core/target/release/examples/wand-private-backpack-slot-pair-read
+          if-no-files-found: error
+          retention-days: 7
