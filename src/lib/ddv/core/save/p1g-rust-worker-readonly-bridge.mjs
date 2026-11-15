@@ -142,6 +142,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
   };
   const requireBackup=()=>{scopedReady();if(!backupMatched)fail('P1G_WORKER_SCOPED_BACKUP_REQUIRED')};
   const scopedCall=fn=>{requireBackup();try{return fn()}catch(e){close();throw e}};
+  const discoverScopedTargets=profile=>scopedCall(()=>rust.discoverScopedTargets(profile));
   const previewScopedAmount=selection=>scopedCall(()=>rust.previewScopedAmount(selection));
   // The provider is a trusted Worker constructor dependency, never a message
   // field. User-selected candidate bytes alone do not prove durable backup.
@@ -204,7 +205,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
   };
   return Object.freeze({
     openEncrypted,close,
-    ...(allowScopedAmountSource===true?{openScopedEncrypted,verifyScopedOriginalBackup,previewScopedAmount,
+    ...(allowScopedAmountSource===true?{openScopedEncrypted,verifyScopedOriginalBackup,discoverScopedTargets,previewScopedAmount,
       stageScopedAmount,toggleScopedAmount,exportScopedEditedCopy}:{}),
     readCoreVersion:scope=>rust.readCoreVersion(scope),
     issueTypedCursor:(scope,domain)=>rust.issueTypedCursor(scope,domain),

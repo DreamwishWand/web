@@ -50,3 +50,41 @@ test('actual bounded output corruption and stale async digest cannot export or c
  const q=make();await open(q);q.previewScopedAmount(sel);q.stageScopedAmount();const out=q.takeScopedAmountOutput();q.close();await open(q);
  await assert.rejects(out,/DENIED/);assert.equal(q.getReceipt().revision,0);q.close();
 });
+
+const dc='wand.worker.steam626.scoped-amount-discovery@1';
+const chestRow={profile:'linked-crop-chest48',id:12,selector:0,itemId:30000001,oldAmount:50};
+const furnitureRow={profile:'catalog0-furniture',id:0,selector:40000048,itemId:40000048,oldAmount:3};
+class Discovery extends Mock{
+ discover_scoped_amount(profile,offset,...a){
+  this.check(...a);const row=profile==='linked-crop-chest48'?chestRow:furnitureRow;
+  return JSON.stringify({contract:dc,profile,sessionId:id,revision:0,indexGeneration:1,decodedSha256:sha,offset,
+   scanned:offset===0&&profile==='catalog0-furniture'?16:1,
+   nextOffset:offset===0&&profile==='catalog0-furniture'?16:null,
+   rows:offset===0&&profile==='catalog0-furniture'?[]:[row],writerAuthorized:false,editedCopyAuthorized:false});
+ }
+}
+test('Core discovery independent profiles and bounded pages including empty nonterminal page, projects only rows',async()=>{
+ const w=make(Discovery);await open(w);assert.deepEqual(w.discoverScopedTargets('linked-crop-chest48'),[chestRow]);
+ assert.deepEqual(w.discoverScopedTargets('catalog0-furniture'),[furnitureRow]);w.previewScopedAmount(sel);w.stageScopedAmount();
+ assert.throws(()=>w.discoverScopedTargets('linked-crop-chest48'),/DENIED/);assert.equal(w.getReceipt(),null);
+ const off=make(Discovery,false);await open(off);assert.equal(off.discoverScopedTargets,undefined);off.close();
+ const old=make();await open(old);assert.throws(()=>old.discoverScopedTargets('linked-crop-chest48'),/DENIED/);assert.equal(old.getReceipt(),null);
+});
+test('Core discovery denies forged scope, cursor, row, duplicate and flags; revokes exact session',async()=>{
+ for(const patch of [{sessionId:'c'.repeat(32)},{decodedSha256:'c'.repeat(64)},{revision:1},{indexGeneration:2},{offset:1},
+  {nextOffset:0},{scanned:17},{scanned:0},{nextOffset:16},{writerAuthorized:true},{editedCopyAuthorized:true},
+  {rows:[{...chestRow,oldAmount:49}]},{rows:[{...chestRow,selector:48}]},{rows:[furnitureRow]},
+  {rows:[chestRow,chestRow],scanned:2},{rows:[{...chestRow,extra:true}]}]){
+  class Bad extends Discovery{discover_scoped_amount(...a){return JSON.stringify({...JSON.parse(super.discover_scoped_amount(...a)),...patch})}}
+  const w=make(Bad);await open(w);assert.throws(()=>w.discoverScopedTargets('linked-crop-chest48'),/DENIED/);assert.equal(w.getReceipt(),null);
+ }
+});
+
+test('Chest discovery does not consult unrelated Inventory profile; explicit unsupported profile denies',async()=>{
+ let inventoryCalls=0;
+ class InventoryUnavailable extends Discovery{discover_scoped_amount(p,...a){if(p==='catalog0-furniture'){inventoryCalls++;throw Error('unavailable inventory')}return super.discover_scoped_amount(p,...a)}}
+ const w=make(InventoryUnavailable);await open(w);
+ assert.deepEqual(w.discoverScopedTargets('linked-crop-chest48'),[chestRow]);assert.equal(inventoryCalls,0);
+ assert.throws(()=>w.discoverScopedTargets('unknown'),/DENIED/);assert.equal(w.getReceipt(),null);
+ const v=make(InventoryUnavailable);await open(v);assert.throws(()=>v.discoverScopedTargets('catalog0-furniture'),/DENIED/);assert.equal(inventoryCalls,1);
+});

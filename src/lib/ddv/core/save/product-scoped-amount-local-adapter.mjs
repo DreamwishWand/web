@@ -20,8 +20,11 @@ function freshReopen(ciphertext,expectedDecodedSha256){
  });
 }
 const STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
-export function createProductScopedAmountLocalAdapter({wasmFactory,discoverScopedTargets=async()=>[],freshCodecReopen=freshReopen,getDirectory}={}){
- if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof discoverScopedTargets!=='function')fail();
+export function createProductScopedAmountLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={}){
+ if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||
+  (discoverScopedTargets!==undefined&&typeof discoverScopedTargets!=='function')||
+  (allowCoreDiscoverySource&&discoverScopedTargets!==undefined)||
+  !['linked-crop-chest48','catalog0-furniture'].includes(coreDiscoveryProfile))fail();
  const store=createLocalEncryptedCopyStore(getDirectory?{getDirectory}:{});
  const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:true,readDurableOriginalBackup:b=>store.durable(b)});
  let epoch=0,source=null,backup=null,targets=[],phase='closed',busy=false;
@@ -64,7 +67,8 @@ export function createProductScopedAmountLocalAdapter({wasmFactory,discoverScope
   })},
   listVerifiedTargets(){requirePhase('backed');return run(async t=>{
    // Provider may only use this active Worker-owned session. No UI selectors.
-   const rows=await discoverScopedTargets(Object.freeze({bridge,receipt:bridge.getReceipt()}));check(t);
+   const rows=allowCoreDiscoverySource?bridge.discoverScopedTargets(coreDiscoveryProfile):
+    discoverScopedTargets?await discoverScopedTargets(Object.freeze({bridge,receipt:bridge.getReceipt()})):[];check(t);
    if(!Array.isArray(rows)||rows.length>256)fail();
    const seen=new Set();targets=rows.map(r=>{
     const ui=cleanTarget(r),key=r.profile+':'+r.id+':'+r.selector;

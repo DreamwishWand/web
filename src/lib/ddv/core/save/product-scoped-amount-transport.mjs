@@ -17,6 +17,42 @@ export function createScopedAmountTransport(wasm,initial,{parse,current,revoke,m
  const scopeMatches=r=>r.sessionId===scope.sessionId&&r.decodedSha256===scope.decodedSha256;
  const summary=()=>Object.freeze({profile:preview.profile,id:preview.id,selector:preview.selector,itemId:preview.itemId,
   oldAmount:preview.oldAmount,newAmount:preview.newAmount,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false});
+ // PR1311 fixed Worker-private ABI. Only Core may enumerate/accept rows.
+ // The existing transport owns scope and revocation; no UI offsets or plans.
+ function discoverTargets(profile){
+  return checked(()=>{
+   if(ledger||scope.revision!==0||scope.indexGeneration!==1||typeof wasm.discover_scoped_amount!=='function'||
+    !['linked-crop-chest48','catalog0-furniture'].includes(profile))fail();
+   const targets=[],seen=new Set();
+   // One independent profile per discovery: an unrelated inventory failure
+   // must not stop an otherwise valid Chest route (and vice versa).
+   {
+    let offset=0;
+    for(let pages=0;;pages++){
+     if(pages>=256)fail();
+     const r=parse(wasm.discover_scoped_amount(profile,offset,...args()),8192);
+     if(!only(r,'contract,profile,sessionId,revision,indexGeneration,decodedSha256,offset,nextOffset,scanned,rows,writerAuthorized,editedCopyAuthorized')||
+      r.contract!=='wand.worker.steam626.scoped-amount-discovery@1'||r.profile!==profile||!scopeMatches(r)||
+      r.revision!==scope.revision||r.indexGeneration!==scope.indexGeneration||r.offset!==offset||
+      !uint(r.scanned)||r.scanned>16||offset+r.scanned>4096||(offset>0&&r.scanned===0)||
+      !(r.nextOffset===null||(r.scanned===16&&r.nextOffset===offset+16&&r.nextOffset<4096))||
+      !Array.isArray(r.rows)||r.rows.length>r.scanned||r.writerAuthorized!==false||r.editedCopyAuthorized!==false)fail();
+     for(const row of r.rows){
+      if(!only(row,'profile,id,selector,itemId,oldAmount')||row.profile!==profile||!uint(row.id)||!uint(row.selector)||
+       !uint(row.itemId)||row.itemId===0||!uint(row.oldAmount)||
+       !(profile==='linked-crop-chest48'?row.id>1&&row.selector<48&&row.oldAmount===50:
+        row.id===0&&row.selector===row.itemId&&row.oldAmount>=2&&row.oldAmount<=9999))fail();
+      const key=profile+':'+row.id+':'+row.selector;
+      if(seen.has(key)||targets.length>=256)fail();
+      seen.add(key);targets.push(Object.freeze({...row}));
+     }
+     if(r.nextOffset===null)break;
+     offset=r.nextOffset;
+    }
+   }
+   return Object.freeze(targets);
+  });
+ }
  function previewTarget(s){
   return checked(()=>{
    if(ledger||!only(s,'profile,id,selector,newAmount')||!uint(s.id)||!uint(s.selector)||!uint(s.newAmount)||s.newAmount<1||
@@ -72,5 +108,5 @@ export function createScopedAmountTransport(wasm,initial,{parse,current,revoke,m
   }catch{if(current())revoke();fail()}
   finally{if(bytes)bytes.fill(0)}
  }
- return Object.freeze({previewTarget,stage,toggle,takeOutput,hasMutation:()=>ledger!==null||consumed});
+ return Object.freeze({discoverTargets,previewTarget,stage,toggle,takeOutput,hasMutation:()=>ledger!==null||consumed});
 }
