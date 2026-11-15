@@ -40,9 +40,10 @@ async function* decodedUtf8Chunks(text){
     offset=end;
   }
 }
-export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource=false,readDurableOriginalBackup=null}={}){
+export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,readDurableOriginalBackup=null}={}){
+  const scopedEnabled=allowScopedAmountSource===true||allowScopedCollectionSource===true;
   // Constructor itself enforces Worker-only (document must be absent).
-  const rust=createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource});
+  const rust=createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource});
   let epoch=0,scopedSource=null,scopedMetadata=null,backupMatched=false,scopedBusy=false,durableName=null;
   const resetScoped=()=>{scopedSource=null;scopedMetadata=null;backupMatched=false;scopedBusy=false;durableName=null};
   const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
@@ -85,7 +86,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
          close();
          fail('P1G_WORKER_RUST_GATE_VIOLATION');
       }
-      if(allowScopedAmountSource===true)scopedMetadata=decoded.metadata;
+      if(scopedEnabled)scopedMetadata=decoded.metadata;
       return Object.freeze({
         ...receipt,
         decodedByExistingP1gCodec:true,
@@ -102,13 +103,13 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
       isolated.fill(0); // never zero the caller's original bytes
     }
   };
-  const scopedReady=()=>{if(allowScopedAmountSource!==true||!scopedSource||!scopedMetadata||scopedBusy)
+  const scopedReady=()=>{if(!scopedEnabled||!scopedSource||!scopedMetadata||scopedBusy)
     fail('P1G_WORKER_SCOPED_SOURCE_OFF');return scopedSource};
   // Explicit local File; ordinary public read-only API remains unchanged.
   const openScopedEncrypted=async args=>{
     close();const token=epoch;
-    if(allowScopedAmountSource!==true||!exact(args,'file,build,originalSha256')||
-       !(args.file instanceof File)||args.build?.platform!=='steam-windows'||
+    if(!scopedEnabled||!exact(args,'file,build,originalSha256')||
+       !(args.file instanceof File)||!(args.build?.platform==='steam-windows'||(allowScopedCollectionSource===true&&args.build?.platform==='switch'))||
        typeof args.originalSha256!=='string'||!(/^[0-9a-f]{64}$/).test(args.originalSha256))
       fail('P1G_WORKER_SCOPED_INPUT_DENIED');
     const {file,build,originalSha256}=args;
@@ -144,6 +145,12 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
   const scopedCall=fn=>{requireBackup();try{return fn()}catch(e){close();throw e}};
   const discoverScopedTargets=profile=>scopedCall(()=>rust.discoverScopedTargets(profile));
   const previewScopedAmount=selection=>scopedCall(()=>rust.previewScopedAmount(selection));
+  // Fixed preview may inspect the active source before durable Backup; the
+  // Stage/Undo/Redo/Export boundary below remains backup-gated.
+  const inspectFixedCollection=selector=>{
+    scopedReady();try{return rust.previewFixedCollection(selector)}catch(e){close();throw e}
+  };
+  const previewFixedCollection=selector=>scopedCall(()=>rust.previewFixedCollection(selector));
   // The provider is a trusted Worker constructor dependency, never a message
   // field. User-selected candidate bytes alone do not prove durable backup.
   const verifyDurable=async(source,current,expectedName=null)=>{
@@ -159,19 +166,19 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
     if(!current())fail('P1G_WORKER_OPEN_REVOKED');
     return name;
   };
-  const stageScopedAmount=async()=>{
+  const stageScoped=async()=>{
     requireBackup();const source=scopedSource,token=epoch;scopedBusy=true;
     const current=()=>token===epoch&&scopedSource===source;
     try{
       const name=await verifyDurable(source,current);
       if(!current())fail('P1G_WORKER_OPEN_REVOKED');
-      const r=rust.stageScopedAmount();durableName=name;return r;
+      const r=allowScopedCollectionSource===true?rust.stageFixedCollection():rust.stageScopedAmount();durableName=name;return r;
     }catch(e){if(current())close();throw e}
     finally{if(current())scopedBusy=false}
   };
-  const toggleScopedAmount=redo=>scopedCall(()=>{
+  const toggleScoped=redo=>scopedCall(()=>{
     if(!durableName)fail('P1G_WORKER_SCOPED_DURABLE_BACKUP_REQUIRED');
-    return rust.toggleScopedAmount(redo);
+    return allowScopedCollectionSource===true?rust.toggleFixedCollection(redo):rust.toggleScopedAmount(redo);
   });
   const exportScopedEditedCopy=async()=>{
     requireBackup();const source=scopedSource,metadata=scopedMetadata,token=epoch;
@@ -181,7 +188,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
       if(!durableName)fail('P1G_WORKER_SCOPED_DURABLE_BACKUP_REQUIRED');
       await verifyDurable(source,current,durableName);
       if(!current())fail('P1G_WORKER_OPEN_REVOKED');
-      const result=await rust.takeScopedAmountOutput();decoded=result.decodedBytes;
+      const result=await (allowScopedCollectionSource===true?rust.takeFixedCollectionOutput():rust.takeScopedAmountOutput());decoded=result.decodedBytes;
       if(!current())fail('P1G_WORKER_OPEN_REVOKED');
       const text=new TextDecoder('utf-8',{fatal:true}).decode(decoded);
       encrypted=await p1gPackagedProfileCodec.createEncodedProfile(text,metadata);
@@ -205,8 +212,10 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
   };
   return Object.freeze({
     openEncrypted,close,
-    ...(allowScopedAmountSource===true?{openScopedEncrypted,verifyScopedOriginalBackup,discoverScopedTargets,previewScopedAmount,
-      stageScopedAmount,toggleScopedAmount,exportScopedEditedCopy}:{}),
+    ...(scopedEnabled?{openScopedEncrypted,verifyScopedOriginalBackup,exportScopedEditedCopy}:{}),
+    ...(allowScopedAmountSource===true?{discoverScopedTargets,previewScopedAmount,stageScopedAmount:stageScoped,toggleScopedAmount:toggleScoped}:{}),
+    ...(allowScopedCollectionSource===true?{inspectFixedCollection,previewFixedCollection,stageFixedCollection:stageScoped,toggleFixedCollection:toggleScoped}:{}),
+    ...(allowCollectionCandidateSource===true?{readCollectionCandidate:selector=>rust.readCollectionCandidate(selector)}:{}),
     readCoreVersion:scope=>rust.readCoreVersion(scope),
     issueTypedCursor:(scope,domain)=>rust.issueTypedCursor(scope,domain),
     readTypedPage:(scope,cursor)=>rust.readTypedPage(scope,cursor),
