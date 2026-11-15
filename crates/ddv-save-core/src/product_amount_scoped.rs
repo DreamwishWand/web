@@ -10,6 +10,109 @@ const DEP:&str=include_str!("../data/steam626-amount-dependency-projection.json"
 const ELIG_SHA:&str="05a6bea5582232b27569dbb71f8666d7d60c11a35515d844d2f21b2ae557b23d";
 const DEP_SHA:&str="78a1ba539b2e6f43182cea2c2ea35c9d10e51f27d4adbb8d4dbc6cce7f7dcd65";
 static PACK:OnceLock<CoreResult<(Value,Value)>>=OnceLock::new();
+
+const LAYOUT:&str=include_str!("../data/steam626-amount-layout-reference.jsonl");
+const LAYOUT_SHA:&str="501ba50d0a6f02ff09080357424f3ae5b3f17644ed64d7830566586baf6fce6f";
+const LAYOUT_PARENT_SHA:&str="e2f392465ebfd9a8516f4ddee7b2bce77340115e9d660006eae459ae50366269";
+type LayoutIndex=std::collections::BTreeMap<String,LayoutAsset>;
+struct LayoutAsset{kind:String,grids:std::collections::BTreeMap<u32,LayoutGrid>}
+struct LayoutGrid{items:Vec<i32>,storage:Vec<(i32,u32,bool)>}
+static LAYOUT_INDEX:OnceLock<CoreResult<LayoutIndex>>=OnceLock::new();
+fn safe_layout_path(path:&str)->bool{
+    path.starts_with("SceneLayouts/")&&path.len()<=1024&&!path.contains('\\')&&
+        !path.chars().any(char::is_control)&&path.split('/').all(|p|!p.is_empty()&&p!="."&&p!="..")
+}
+fn ref_u32(v:&Value)->CoreResult<u32>{
+    v.as_u64().and_then(|x|u32::try_from(x).ok()).ok_or(denied("PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE"))
+}
+fn ref_item(v:&Value)->CoreResult<i32>{
+    v.as_i64().and_then(|x|i32::try_from(x).ok()).filter(|x|*x>0).ok_or(denied("PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE"))
+}
+fn ref_row(v:&Value,n:usize)->CoreResult<&Vec<Value>>{
+    v.as_array().filter(|a|a.len()==n).ok_or(denied("PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE"))
+}
+fn ref_str(v:&Value)->CoreResult<&str>{
+    v.as_str().ok_or(denied("PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE"))
+}
+fn layout_index()->CoreResult<&'static LayoutIndex>{
+    LAYOUT_INDEX.get_or_init(||{
+        need(hex(&sha(LAYOUT.as_bytes()))==LAYOUT_SHA,"PRODUCT_AMOUNT_LAYOUT_REFERENCE_DIGEST")?;
+        let mut lines=LAYOUT.lines();
+        let h:Value=serde_json::from_str(lines.next().ok_or(denied("PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE"))?)
+            .map_err(|_|denied("PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE"))?;
+        need(h["contract"]=="wand.core.steam626.amount-layout-reference@1"&&h["build"]==EXACT_STEAM&&h["schema"]==626&&
+            h["authority"]=="REFERENCE_ONLY_NO_NATIVE_HASH_PARITY"&&h["assets"]==154&&h["localGrids"]==1048&&
+            h["sourceProjectionSha256"]==LAYOUT_PARENT_SHA&&h["catalogPackSha256"]==ELIG_SHA,
+            "PRODUCT_AMOUNT_LAYOUT_REFERENCE_CONTRACT")?;
+        let (catalog,_)=pack()?;
+        let mut index=LayoutIndex::new();let mut count=0usize;let mut storage_count=0usize;let mut item_count=0usize;
+        for line in lines{
+            let v:Value=serde_json::from_str(line).map_err(|_|denied("PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE"))?;
+            let a=ref_row(&v,5)?;let path=ref_str(&a[0])?;let kind=ref_str(&a[1])?;
+            let raw_sha=ref_str(&a[2])?;
+            need(safe_layout_path(path)&&kind.starts_with("Meta.")&&kind.ends_with(", Meta")&&
+                raw_sha.len()==64&&raw_sha.bytes().all(|b|b.is_ascii_digit()||(b'a'..=b'f').contains(&b))&&ref_u32(&a[3])?>0,
+                "PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE")?;
+            let mut grids=std::collections::BTreeMap::new();
+            let ga=a[4].as_array().ok_or(denied("PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE"))?;
+            need(!ga.is_empty()&&ga.len()<=1048,"PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE")?;
+            for g in ga{
+                count+=1;need(count<=1048,"PRODUCT_AMOUNT_LAYOUT_REFERENCE_BOUND")?;
+                let g=ref_row(g,3)?;let id=ref_u32(&g[0])?;
+                let mut items=Vec::new();let mut storage=Vec::new();
+                for i in g[1].as_array().ok_or(denied("PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE"))?{
+                    let i=ref_item(i)?;need(in_rows(&catalog["profiles"]["catalog0Furniture"]["entries"],i)&&
+                        items.last().is_none_or(|last|*last<i),"PRODUCT_AMOUNT_LAYOUT_REFERENCE_ITEM")?;
+                    items.push(i);item_count+=1;
+                }
+                for st in g[2].as_array().ok_or(denied("PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE"))?{
+                    let st=ref_row(st,3)?;storage.push((ref_item(&st[0])?,ref_u32(&st[1])?,
+                        st[2].as_bool().ok_or(denied("PRODUCT_AMOUNT_LAYOUT_REFERENCE_SHAPE"))?));storage_count+=1;
+                }
+                need(grids.insert(id,LayoutGrid{items,storage}).is_none(),"PRODUCT_AMOUNT_LAYOUT_REFERENCE_DUPLICATE")?;
+            }
+            need(index.insert(path.to_owned(),LayoutAsset{kind:kind.to_owned(),grids}).is_none(),
+                "PRODUCT_AMOUNT_LAYOUT_REFERENCE_DUPLICATE")?;
+        }
+        need(index.len()==154&&count==1048&&storage_count==58&&item_count==80,"PRODUCT_AMOUNT_LAYOUT_REFERENCE_COUNT")?;
+        Ok(index)
+    }).as_ref().map_err(|e|*e)
+}
+fn signed_hash(b:&[u8],g:Span,k:&str)->CoreResult<i32>{
+    let s=f(b,g,k)?;need(s.end-s.begin<=11,"PRODUCT_AMOUNT_LAYOUT_HASH_TYPE")?;
+    let v:i32=serde_json::from_slice(&b[s.begin..s.end]).map_err(|_|denied("PRODUCT_AMOUNT_LAYOUT_HASH_TYPE"))?;
+    need(v.to_string().as_bytes()==&b[s.begin..s.end],"PRODUCT_AMOUNT_LAYOUT_HASH_TYPE")?;Ok(v)
+}
+fn layout_grid(b:&[u8],g:Span)->CoreResult<&'static LayoutGrid>{
+    // Only the bounded exact asset path/type/local ID can select a reference
+    // row. Saved hash codes are typed observations, never trusted evidence
+    // that the installed Native loaded layout or override matches this row.
+    need(opt(b,g,"GridDefaultLayoutPath")?.is_some(),"PRODUCT_AMOUNT_EFFECTIVE_DEFAULT_UNRESOLVED")?;
+    let path=strv(b,g,"GridDefaultLayoutPath")?.replace('\\',"/");
+    need(safe_layout_path(&path),"PRODUCT_AMOUNT_LAYOUT_PATH")?;
+    let a=layout_index()?.get(&path).ok_or(denied("PRODUCT_AMOUNT_LAYOUT_PATH_UNKNOWN"))?;
+    need(strv(b,g,"GridDefaultLayoutType")?==a.kind,"PRODUCT_AMOUNT_LAYOUT_TYPE")?;
+    let q=a.grids.get(&n(b,g,"DefaultLayoutGridID")?).ok_or(denied("PRODUCT_AMOUNT_LAYOUT_LOCAL_ID"))?;
+    signed_hash(b,g,"DefaultGridHashCode")?;signed_hash(b,g,"DefaultGridDataHashCode")?;
+    let mut removed=std::collections::BTreeSet::new();
+    for x in array(b,f(b,g,"RemovedObjects")?,16384)?{
+        let id=u32::try_from(number(b,x)?).map_err(|_|denied("PRODUCT_AMOUNT_LAYOUT_REMOVED_ID"))?;
+        need(removed.insert(id),"PRODUCT_AMOUNT_LAYOUT_REMOVED_DUPLICATE")?;
+    }
+    Ok(q)
+}
+fn layout_reference_excludes(q:&LayoutGrid,item:i32,chest:Option<(u32,i32)>)->CoreResult<()>{
+    // Conservative base + saved modified union. Removed/replaced base entries
+    // never provide a permission to subtract a placement or alias.
+    if let Some((cid,parent))=chest{
+        need(q.storage.iter().all(|(p,id,template)|*id!=cid&&(!*template||*p!=parent)),
+            "PRODUCT_AMOUNT_LAYOUT_BASE_CHEST_ALIAS")?;
+    }else{
+        need(!q.items.contains(&item),"PRODUCT_AMOUNT_LAYOUT_BASE_PLACEMENT")?;
+    }
+    Ok(())
+}
+
 fn hex(v:&[u8])->String{v.iter().map(|x|format!("{x:02x}")).collect()}
 fn pack()->CoreResult<&'static (Value,Value)>{
     PACK.get_or_init(||{
@@ -225,16 +328,26 @@ fn subscribers(b:&[u8],player:Span,world:Span,top:Span,d:&Value,item:i32,furnitu
     Ok(())
 }
 #[derive(Clone,Copy)]struct Link{grid:u32,object:u32,record:Span,grid_span:Span}
-fn scan_grids(b:&[u8],world:Span,item:i32,chest:Option<u32>)->CoreResult<Option<Link>>{
-    let gc=f(b,world,"GridCollection")?;let mut count=0usize;let mut total=0usize;let mut link=None;let mut subgrid=std::collections::BTreeSet::new();
-    let mut overlays=std::collections::BTreeSet::new();
+
+fn scan_grids(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>)->CoreResult<Option<Link>>{
+    let gc=f(b,world,"GridCollection")?;let mut count=0usize;let mut total=0usize;let mut link=None;
+    let mut subgrid=std::collections::BTreeSet::new();let mut grids=std::collections::BTreeSet::new();
+    let mut native_unresolved=false;
     for (map,objects,diff) in [("Grids","Objects",false),("DiffGrids","ModifiedObjects",true)]{
         for(k,g)in members(b,f(b,gc,map)?,50000)?{
-            count+=1;need(count<=50000,"PRODUCT_AMOUNT_GRID_BOUND")?;let gid=key(&k)?;need(n(b,g,"ID")?==gid,"PRODUCT_AMOUNT_GRID_ID")?;
-            // Initial supported subset: no unresolved external layout which
-            // could supply an effective placement or container alias.
-            if diff{overlays.insert(gid);return reject("PRODUCT_AMOUNT_EFFECTIVE_DEFAULT_UNRESOLVED");}
-            need(strv(b,g,"GridDefaultLayoutPath")?.is_empty(),"PRODUCT_AMOUNT_EFFECTIVE_DEFAULT_UNRESOLVED")?;
+            count+=1;need(count<=50000,"PRODUCT_AMOUNT_GRID_BOUND")?;let gid=key(&k)?;
+            need(n(b,g,"ID")?==gid&&grids.insert(gid),"PRODUCT_AMOUNT_GRID_ID")?;
+            if diff{
+                let q=layout_grid(b,g)?;
+                layout_reference_excludes(q,item,chest)?;
+                // ACT946 static reference is not a Native hash/loaded override
+                // proof. Retain a separate fail-closed gate until the applicable
+                // source-bound Native/static closure is accepted. No caller
+                // argument, saved hash alone, or source SHA can satisfy it.
+                native_unresolved=true;
+            }else{
+                need(strv(b,g,"GridDefaultLayoutPath")?.is_empty(),"PRODUCT_AMOUNT_EFFECTIVE_DEFAULT_UNRESOLVED")?;
+            }
             for(k,o)in members(b,f(b,g,objects)?,16384)?{
                 total+=1;need(total<=250000,"PRODUCT_AMOUNT_GRID_OBJECT_BOUND")?;let oid=key(&k)?;
                 need(n(b,o,"ID")?==oid,"PRODUCT_AMOUNT_OBJECT_ID")?;
@@ -245,18 +358,22 @@ fn scan_grids(b:&[u8],world:Span,item:i32,chest:Option<u32>)->CoreResult<Option<
                 for(k,v)in fs{
                     if k=="Storage"{
                         let cid=n(b,v,"ContainerInventoryID")?;
-                        if Some(cid)==chest{
-                            need(link.is_none(),"PRODUCT_AMOUNT_CHEST_DUPLICATE_LINK")?;
-                            link=Some(Link{grid:gid,object:oid,record:o,grid_span:g});
+                        if let Some((selected,parent))=chest{
+                            if id==parent as u32{
+                                need(strv(b,v,"DefaultContainerInventoryData")?.is_empty(),"PRODUCT_AMOUNT_CHEST_TEMPLATE_ALIAS")?;
+                            }
+                            if cid==selected{
+                                need(!diff&&link.is_none(),"PRODUCT_AMOUNT_CHEST_DUPLICATE_LINK")?;
+                                link=Some(Link{grid:gid,object:oid,record:o,grid_span:g});
+                            }
                         }
                     }else if k=="SubGrid"{subgrid.insert(n(b,v,"GridID")?);}
                 }
             }
         }
     }
-    if let Some(l)=link{
-        need(!subgrid.contains(&l.grid)&&!overlays.contains(&l.grid),"PRODUCT_AMOUNT_CHEST_SUBGRID")?;
-    }
+    if let Some(l)=link{need(!subgrid.contains(&l.grid),"PRODUCT_AMOUNT_CHEST_SUBGRID")?;}
+    need(!native_unresolved,"PRODUCT_AMOUNT_EFFECTIVE_NATIVE_BINDING_UNPROVEN")?;
     Ok(link)
 }
 fn physical_totals(b:&[u8],player:Span,item:i32,chest:Option<(u32,usize)>,old:u32)->CoreResult<u64>{
@@ -337,7 +454,7 @@ fn eligible(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32)->CoreResult<(
             if let Some(x)=opt(b,f(b,pantry,"Inventory")?,&item.to_string())?{total=total.checked_add(n(b,x,"Amount")? as u64).ok_or(denied("PRODUCT_AMOUNT_TOTAL"))?;}
             for x in array(b,f(b,f(b,r.player,"BackpackOverflow")?,"Items")?,16384)?{need(n(b,x,"ItemID")?!=item as u32,"PRODUCT_AMOUNT_OVERFLOW")?;}
             need(total>=v.old_amount as u64&&total<=i32::MAX as u64,"PRODUCT_AMOUNT_TOTAL")?;
-            let link=scan_grids(b,r.world,item,Some(container_id))?.ok_or(denied("PRODUCT_AMOUNT_CHEST_LINK"))?;
+            let link=scan_grids(b,r.world,item,Some((container_id,facts.parent_item_id)))?.ok_or(denied("PRODUCT_AMOUNT_CHEST_LINK"))?;
             check_parent(b,r.world,link,facts.parent_item_id,container_id)?;
             let mut budget=0;for x in [f(b,top,"ConditionalEventHistory")?,f(b,r.world,"MissionSlots")?,f(b,r.player,"AchievementsData")?]{address_refs(b,x,link.grid,link.object,&mut budget,0)?;}
             false
@@ -447,6 +564,48 @@ mod tests{
         let mut d=doc();d["Player"]["DutySlots"]["0"]=json!({"Slots":[{"State":"DutySlotState_OnGoing","DutyId":2119999999,"DifficultyLayer":0}]});
         let s=open(&d);let sel=ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048};
         assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,2).is_err());
+    }
+
+    #[test]fn static_layout_reference_bound_no_native_authority(){
+        let ix=layout_index().unwrap();assert_eq!(ix.len(),154);
+        let (path,asset,local)=ix.iter().find_map(|(p,a)|a.grids.iter().find(|(_,g)|g.items.is_empty()&&g.storage.is_empty()).map(|(id,_)|(p,a,*id))).unwrap();
+        let overlay=|path:&str,kind:&str,local:u32|json!({"ID":19,"GridDefaultLayoutPath":path,
+            "GridDefaultLayoutType":kind,"DefaultLayoutGridID":local,"DefaultGridHashCode":-4,
+            "DefaultGridDataHashCode":6,"ModifiedObjects":{},"RemovedObjects":[]});
+        let mut d=chest_doc();
+        d["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(path,&asset.kind,local);
+        let sel=ExistingAmountSelection::Chest{container_id:12,slot_index:0};
+        let verify=|d:&Value,expected:&str|{
+            let s=open(d);let before=s.receipt().unwrap();
+            assert_eq!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,49).unwrap_err().0,expected);
+            assert_eq!(s.receipt().unwrap(),before);
+        };
+        verify(&d,"PRODUCT_AMOUNT_EFFECTIVE_NATIVE_BINDING_UNPROVEN");
+        let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"]["GridDefaultLayoutPath"]=json!(path.replace('/',"\\"));
+        verify(&q,"PRODUCT_AMOUNT_EFFECTIVE_NATIVE_BINDING_UNPROVEN");
+        for(k,v,error)in [("GridDefaultLayoutPath",json!("SceneLayouts/Unknown.json"),"PRODUCT_AMOUNT_LAYOUT_PATH_UNKNOWN"),
+            ("GridDefaultLayoutPath",json!("SceneLayouts/../Unknown.json"),"PRODUCT_AMOUNT_LAYOUT_PATH"),
+            ("GridDefaultLayoutType",json!("Meta.Other, Meta"),"PRODUCT_AMOUNT_LAYOUT_TYPE"),
+            ("DefaultLayoutGridID",json!(4294967295u32),"PRODUCT_AMOUNT_LAYOUT_LOCAL_ID"),
+            ("DefaultGridHashCode",json!("-4"),"PRODUCT_AMOUNT_LAYOUT_HASH_TYPE"),
+            ("RemovedObjects",json!([1,1]),"PRODUCT_AMOUNT_LAYOUT_REMOVED_DUPLICATE")]{
+            let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"][k]=v;verify(&q,error);
+        }
+        let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"]["ModifiedObjects"]["9"]=json!({
+            "ID":9,"ItemID":40001680,"State":{"Storage":{"ContainerInventoryID":12,"DefaultContainerInventoryData":""}}});
+        verify(&q,"PRODUCT_AMOUNT_CHEST_DUPLICATE_LINK");
+        let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"]["ModifiedObjects"]["9"]=json!({
+            "ID":9,"ItemID":40001680,"State":{"Storage":{"ContainerInventoryID":0,"DefaultContainerInventoryData":"template"}}});
+        verify(&q,"PRODUCT_AMOUNT_CHEST_TEMPLATE_ALIAS");
+        let (p,a,id,item)=ix.iter().find_map(|(p,a)|a.grids.iter().find_map(|(id,g)|g.items.first().map(|i|(p,a,*id,*i)))).unwrap();
+        let mut q=doc();q["Player"]["ListInventories"]["0"]["Inventory"]=json!({(item.to_string()):{"Amount":3,"Marker":"ItemMarker_None"}});
+        q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(p,&a.kind,id);
+        q["World"]["GridCollection"]["DiffGrids"]["19"]["RemovedObjects"]=json!([0]);
+        let raw=serde_json::to_vec(&q).unwrap();let r=indexed_read::roots(&raw).unwrap();
+        assert_eq!(scan_grids(&raw,r.world,item,None).err().unwrap().0,"PRODUCT_AMOUNT_LAYOUT_BASE_PLACEMENT");
+        let g=ix.values().flat_map(|a|a.grids.values()).find(|g|!g.storage.is_empty()).unwrap();
+        let (parent,cid,_)=g.storage[0];
+        assert_eq!(layout_reference_excludes(g,30200000,Some((cid,parent))).unwrap_err().0,"PRODUCT_AMOUNT_LAYOUT_BASE_CHEST_ALIAS");
     }
     #[test]fn unresolved_default_and_unlisted_item_fail_closed(){
         let mut d=doc();d["World"]["GridCollection"]["DiffGrids"]["1"]=json!({"ID":1});let s=open(&d);
