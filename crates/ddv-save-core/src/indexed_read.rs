@@ -1434,6 +1434,7 @@ mod private_avatar {
         if amount_uint(bytes,required(&gf,"ID")?)?!=grid_id{return Err(denied("ORDINARY_READ_GRID_ID"));}
         let next_span=required(&gf,"NextGridObjectID")?;
         let next=amount_uint(bytes,next_span)?;
+        if next==0{return Err(denied("ORDINARY_READ_NEXT_ZERO"));}
         let after=next.checked_add(1).ok_or(denied("ORDINARY_READ_NEXT_OVERFLOW"))?;
         let os=required(&gf,"Objects")?;
         let mut selected=None;let mut seen=std::collections::BTreeSet::new();
@@ -1511,6 +1512,7 @@ mod private_avatar {
             assert!(check(&bad,Some(8)).is_err());
         }
         assert!(check(valid,Some(6)).is_err());
+        assert!(check(r#"{"ID":7,"NextGridObjectID":0,"Objects":{}}"#,None).is_err());
     }
 
     // ACT410: physical saved Chest amount and dependency slice only.
