@@ -42,6 +42,10 @@ jobs:
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features indexed-read,synthetic-stage-b --test indexed_read_stagec --verbose
       - name: One ProductSession true semantic batch DEV-only feature native compile and tests
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --test semantic_inventory_writer_dev --verbose
+      - name: Private ordinary Vase exact3 synthetic lifecycle
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1,semantic-writer-dev --lib ordinary_vase_tests --verbose
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v2,semantic-writer-dev --bin wand-local-rust-v2-noop
       - name: Prove one typed Rust Writer module typechecks in wasm32 without public ABI export
         run: |
           set -euo pipefail
