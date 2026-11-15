@@ -63,6 +63,10 @@ jobs:
         run: |
           cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-collection-scoped --lib product_collection_source_tests --verbose
           cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-collection-scoped
+      - name: Collection fixed effective Stage (same ledger, both Build scopes, no public ABI)
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-collection-scoped,semantic-writer-dev --lib product_collection_source_tests --verbose
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-collection-scoped,semantic-writer-dev
       - name: Reject embedded private files or Writer promotion
         shell: bash
         run: |

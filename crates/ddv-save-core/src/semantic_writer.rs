@@ -423,7 +423,10 @@ impl ProductSession{
         st.generation=gen;
         receipt(self,&st)
     }
-    #[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
+    // Same exact typed Bool replacement for the private native and the
+    // separately scoped fixed-definition product Core Stage. Neither path
+    // may pass caller spans; both resolve/recheck via the domain scanner.
+    #[cfg(any(all(feature="private-native-v1",not(target_arch="wasm32")),feature="product-collection-scoped"))]
     pub(super) fn commit_private_collection_bool(&self,e:WorkerEnvelope,span:Span)->CoreResult<SemanticStageReceipt>{
         self.commit_semantic_replacements(e,vec![Replacement{span,old:b"false".to_vec(),new:b"true".to_vec()}],1,None)
     }
