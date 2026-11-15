@@ -8,6 +8,8 @@ on:
       - 'src/lib/ui/ItemThumb.svelte'
       - 'src/lib/ui/ItemImagePreferences.svelte'
       - 'tests/web-switch1253-item-thumb-contract.test.mjs'
+      - 'tests/web-steam1253-door-primary-contract.test.mjs'
+      - 'scripts/web-steam1253-door-collection-chrome.mjs'
       - 'scripts/web-switch1253-private-preview-build.mjs'
       - 'src/lib/entity/shared-catalog-directory.mjs'
       - 'src/lib/entity/SharedCatalogDiscovery.svelte'
@@ -80,7 +82,16 @@ jobs:
           src/lib/ui/ItemThumb.svelte
           tests/web-switch1253-item-thumb-contract.test.mjs
           CURRENT_IMAGE_PREP_SCOPE
-            if diff -q /tmp/switch1253-expected /tmp/switch1253-actual >/dev/null; then
+            cat > /tmp/steam1253-exact1-expected <<'STEAM_EXACT1_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          scripts/web-steam1253-door-collection-chrome.mjs
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-steam1253-door-primary-contract.test.mjs
+          STEAM_EXACT1_SCOPE
+            if diff -q /tmp/steam1253-exact1-expected /tmp/switch1253-actual >/dev/null; then
+              node --test tests/web-steam1253-door-primary-contract.test.mjs
+              echo WEB_STEAM1253_DOOR_EXACT4_SCOPE_PASS
+            elif diff -q /tmp/switch1253-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS
             elif diff -q /tmp/switch1253-policy-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ISSUE604_POLICY_EXACT3_SCOPE_PASS
@@ -190,3 +201,75 @@ jobs:
         run: node scripts/web-shared-catalog-e2e-chrome.mjs
       - name: Actual shared ItemThumb isolated synthetic-only positive and negative UX
         run: node scripts/web-switch1253-private-preview-build.mjs --synthetic-browser
+
+      - name: Steam exact1 actual Collection shared ItemThumb synthetic fixture (no game pixels)
+        if: ${{ hashFiles('scripts/web-steam1253-door-collection-chrome.mjs') != '' }}
+        env:
+          SHARED_DETAIL_E2E_URL: http://127.0.0.1:4194
+        run: node scripts/web-steam1253-door-collection-chrome.mjs
+
+  # Source-only isolated preview: real WebP supplied ONLY to local loopback.
+  act628-private-preview:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == '08web/act628-steam-door-exact1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Build isolated source-only preview with temporary test hook
+        env:
+          BASE_PATH: ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=src/lib/item-media/switch1253-public-item-images.mjs
+          cp "$src" /tmp/act628-original.mjs
+          trap 'cp /tmp/act628-original.mjs "$src"' EXIT
+          cat >> "$src" <<'PRIVATE_TEST_HOOK'
+          // TEMPORARY LOCAL PREVIEW ONLY — never deployed to Pages.
+          if(typeof window!=='undefined' && ['127.0.0.1','localhost'].includes(window.location.hostname)){
+            window.__wandAct628PrivateTest=(withdraw=false)=>{
+              const m=prepareSteam1253ItemImageManifest(),id=STEAM1253_DOOR_ID;
+              const release={...STEAM1253_REVIEWED_RELEASE,mediaPublic:true,
+                rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',
+                takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',
+                attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',
+                rollback:'MANAGED_TESTED',operatorReceiptSha256:'b'.repeat(64),items:{}};
+              m.items[id].publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';
+              release.items[id]=Object.fromEntries(['originalNativeStreamSha256','sourcePngSha256',
+                'webpSha256','rightsStatus','publicationDecision','visibility'].map(k=>[k,m.items[id][k]]));
+              const {mediaPublic,items,...publication}=release;
+              m.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...publication};
+              if(withdraw)m.items={};
+              const catalog=validateSteam1253ItemImageCatalog(m,release);
+              switch1253PublicItemImageSource.set({status:'VERIFIED',catalog,reason:''});
+              return catalog.count;
+            };
+          }
+          PRIVATE_TEST_HOOK
+          npm run build
+          cp /tmp/act628-original.mjs "$src"
+          git diff --exit-code
+          test -f build/collection/index.html
+          test -f build/explore/index.html
+          test -f build/404.html
+          test ! -d build/ddv/item-images/steam-1.25.3-schema626-lossless160-v1
+          grep -Rl '__wandAct628PrivateTest' build/_app > /tmp/act628-test-hook-paths
+          test -s /tmp/act628-test-hook-paths
+          git rev-parse HEAD > build/ACT628_SOURCE_HEAD.txt
+          sha256sum "$src" > build/ACT628_SOURCE_SHA256.txt
+          echo ACT628_SOURCE_ONLY_PRIVATE_PREVIEW_BUILD_PASS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: act628-source-only-private-preview
+          path: build/
+          retention-days: 1
+          if-no-files-found: error
