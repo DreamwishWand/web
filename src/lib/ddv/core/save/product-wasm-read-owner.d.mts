@@ -108,5 +108,27 @@ export type ScopedAmountSourceOwner=ProductWasmReadOwner & Readonly<{
  toggleScopedAmount(redo:boolean):Readonly<ScopedAmountPreview & {applied:boolean;exactFieldChangedCount:1}>;
  takeScopedAmountOutput():Promise<Readonly<{decodedBytes:Uint8Array;decodedSha256:string}>>;
 }>;
-export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowScopedAmountSource:true}):ScopedAmountSourceOwner;
-export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options?:{allowScopedAmountSource?:false}):ProductWasmReadOwner;
+export type FixedCollectionSelection=Readonly<{definitionId:number;groupIndex:number;itemId:number}>;
+export type FixedCollectionPreview=Readonly<FixedCollectionSelection & {
+ oldValue:false;newValue:true;groupState:'NotComplete';falseCount:3;remainingFalseCount:2;
+ fixedDefinitionVerified:true;installedRuntimeParityVerified:false;
+ writerAuthorized:false;editedCopyAuthorized:false;applyAuthorized:false;
+}>;
+export type FixedCollectionSourceOwner=ProductWasmReadOwner & Readonly<{
+ previewFixedCollection(selection:FixedCollectionSelection):FixedCollectionPreview;
+ stageFixedCollection():Readonly<FixedCollectionPreview & {applied:true;exactFieldChangedCount:1}>;
+ toggleFixedCollection(redo:boolean):Readonly<FixedCollectionPreview & {applied:boolean;exactFieldChangedCount:1}>;
+ takeFixedCollectionOutput():Promise<Readonly<{decodedBytes:Uint8Array;decodedSha256:string}>>;
+}>;
+export type CollectionCandidateSourceOwner=ProductWasmReadOwner & Readonly<{
+ readCollectionCandidate(selection:FixedCollectionSelection):Promise<Readonly<{
+ kind:'COLLECTION_CANDIDATE_READ_ONLY';definitionId:number;groupIndex:number;itemId:number;
+ platform:'steam-windows'|'switch';falseCount:number;positiveStock:number;
+ packagedCandidateVerified:true;sourcePhysicalVerified:true;effectiveEligibilityVerified:false;
+ writerAuthorized:false;editedCopyAuthorized:false;applyAuthorized:false;
+ }>>;
+}>;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowScopedAmountSource:true;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false}):ScopedAmountSourceOwner;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowScopedCollectionSource:true;allowScopedAmountSource?:false;allowCollectionCandidateSource?:false}):FixedCollectionSourceOwner;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowCollectionCandidateSource:true;allowScopedAmountSource?:false;allowScopedCollectionSource?:false}):CollectionCandidateSourceOwner;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options?:{allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false}):ProductWasmReadOwner;
