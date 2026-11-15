@@ -865,4 +865,74 @@ mod product_collection_source_tests{
         let (s,d,i)=fixture(true,1,true,false);assert!(s.preview_product_collection_candidate(env(&s),d,0,i).is_err());
         let (s,d,i)=fixture(false,1,true,false);assert_eq!(s.preview_product_collection_candidate(env(&s),d,0,i).unwrap()["falseCount"],2);
     }
+
+    #[test]
+    fn qa_pr1336_stage_pair_identity_and_no_commit(){
+        let def=2120000183u32;let first=40003806u32;let alt=40003832u32;let item=40003833u32;
+        let d=json!({"GameInfo":{"Version":626},"World":{"Opaque":false},"Player":{
+            "CollectionSets":[{"CollectionDefinitionID":def,"GroupData":[{"GroupIndex":0,"State":"SetState_NotComplete",
+                "GroupsCollectionItems":{(first.to_string()):false,(alt.to_string()):false,(item.to_string()):false}}]}],
+            "ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":{
+                (first.to_string()):{"Amount":5},(alt.to_string()):{"Amount":5},(item.to_string()):{"Amount":5}}}}},
+            "Unknown":{"keep":false}});
+        let entry:[u8;32]=Sha256::digest(b"false").into();
+        let open=|d:&Value,steam:bool|{
+            let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec_pretty(d).unwrap(),BuildIdentity{
+                platform:if steam{Platform::SteamWindows}else{Platform::Switch},
+                build_kind:if steam{BuildKind::SteamFullVersion}else{BuildKind::SwitchBid},
+                build_id:if steam{EXACT.into()}else{SWITCH_EXACT.into()},schema:626,externally_attested:true}).unwrap();
+            s.worker_bound=true;s
+        };
+        let mut pos=0;let mut neg=0;
+        for steam in [true,false]{
+            let s=open(&d,steam);let read=env(&s);let stage=WorkerEnvelope{action:WorkerAction::Stage,..read};
+            let before=s.receipt().unwrap();let original=s.decoded.to_vec();
+            let mint=||s.mint_product_collection_physical_pair(read,def,0,item).unwrap();
+            let pair=mint();assert_eq!(pair.peer.item_id,first);
+            assert_eq!(pair.target_stock_sha,pair.peer_stock_sha);
+            let needle=format!("\"{item}\": false");
+            let start=original.windows(needle.len()).position(|x|x==needle.as_bytes()).unwrap()+needle.len()-5;
+            let span=s.recheck_product_collection_stage_pair(stage,&pair,entry).unwrap();
+            assert_eq!((span.begin,span.end),(start,start+5));
+            let again=s.recheck_product_collection_stage_pair(stage,&pair,entry).unwrap();
+            assert_eq!((again.begin,again.end),(start,start+5));
+            let mut hypothetical=original.clone();hypothetical.splice(start..start+5,b"true".iter().copied());
+            let mut expected=d.clone();expected["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"][item.to_string()]=json!(true);
+            assert_eq!(hypothetical,serde_json::to_vec_pretty(&expected).unwrap());pos+=1;
+            for n in 0..4{
+                let mut forged=mint();match n{
+                    0=>forged.target.item_definition_sha256="1".repeat(64),
+                    1=>forged.peer.item_definition_sha256="2".repeat(64),
+                    2=>forged.target.collection_definition_sha256="3".repeat(64),
+                    _=>forged.peer.group_definition_sha256="4".repeat(64)
+                }
+                assert_eq!(s.recheck_product_collection_stage_pair(stage,&forged,entry).err().unwrap().0,"COLLECTION_PAIR_STAGE_READSET_CAS");neg+=1;
+            }
+            // Alternate peer is a fully legitimate Pack row with its real
+            // lexical span and stock digest, but not this minted pair.
+            let other=s.mint_product_collection_physical_pair(read,def,0,alt).unwrap();
+            let mut forged=mint();forged.peer=other.target;forged.peer_span=other.target_span;forged.peer_stock_sha=other.target_stock_sha;
+            assert_eq!(s.recheck_product_collection_stage_pair(stage,&forged,entry).err().unwrap().0,"COLLECTION_PAIR_STAGE_READSET_CAS");neg+=1;
+            for target in [true,false]{
+                let mut forged=mint();let bad=Span{begin:usize::MAX,end:usize::MAX};
+                if target{forged.target_span=bad;}else{forged.peer_span=bad;}
+                assert_eq!(s.recheck_product_collection_stage_pair(stage,&forged,entry).err().unwrap().0,"COLLECTION_PAIR_STAGE_READSET_CAS");neg+=1;
+            }
+            let wrong:[u8;32]=Sha256::digest(b"true").into();
+            assert_eq!(s.recheck_product_collection_stage_pair(stage,&pair,wrong).err().unwrap().0,"COLLECTION_PAIR_STAGE_OLD_CAS");neg+=1;
+            let foreign=open(&d,!steam);let e=WorkerEnvelope{action:WorkerAction::Stage,..env(&foreign)};
+            assert_eq!(foreign.recheck_product_collection_stage_pair(e,&pair,entry).err().unwrap().0,"COLLECTION_PAIR_STAGE_EPOCH_CAS");neg+=1;
+            let mut changed=d.clone();changed["Unknown"]["keep"]=json!(true);
+            let fresh=open(&changed,steam);let fr=env(&fresh);let fs=WorkerEnvelope{action:WorkerAction::Stage,..fr};
+            assert_eq!(fresh.recheck_product_collection_stage_pair(fs,&pair,entry).err().unwrap().0,"COLLECTION_PAIR_STAGE_EPOCH_CAS");neg+=1;
+            let fp=fresh.mint_product_collection_physical_pair(fr,def,0,item).unwrap();
+            assert!(fresh.recheck_product_collection_stage_pair(fs,&fp,entry).is_ok());pos+=1;
+            for action in [WorkerAction::Stage,WorkerAction::ExportEditedCopy,WorkerAction::Apply,WorkerAction::OriginalOverwrite]{
+                assert_eq!(s.dispatch(WorkerEnvelope{action,..read}).err().unwrap().0,"PRODUCT_WRITER_DISABLED");neg+=1;
+            }
+            assert_eq!(s.receipt().unwrap(),before);assert_eq!(s.decoded.as_ref(),original.as_slice());
+        }
+        assert_eq!((pos,neg),(4,28));
+    }
+
 }
