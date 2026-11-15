@@ -1,0 +1,104 @@
+name: QR-W ACT958 independent scoped P1G transport
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1294-transport.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-scoped-amount-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Exact fixed source and independent synthetic harness
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor b36dc08c738b355d6ddddff18b894c739b7e90f8 HEAD
+          test "$(git diff --name-only b36dc08c738b355d6ddddff18b894c739b7e90f8 HEAD)" = '.github/workflows/qa-qrw-pr1294-transport.yml'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 18f49ff5e1f88d5229a8c1fb39b8be9c98871ec0
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 2239860f1e3f1096131a7c3c068e5ffe30a89711
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = ec1d826cb05017b0d2014629315a98c2494cf401
+          test "$(git rev-parse HEAD:tests/product-scoped-amount-actual.mjs)" = 351607a041f70fdc7971372019fdcf7bf8801c5a
+          sed '/^for(const \[d,sel,apply\] of \[/,$d' tests/product-scoped-amount-actual.mjs > tests/.qrw1294-independent.mjs
+          cat >> tests/.qrw1294-independent.mjs <<'NODE'
+          import {execFileSync} from 'node:child_process';
+          const reject=async f=>assert.rejects(async()=>f());
+          const gate=()=>{let release;const promise=new Promise(r=>release=r);return {promise,release}};
+          for(const [d,sel,apply] of [
+           [doc(),{profile:'catalog0-furniture',id:0,selector:40000048,newAmount:2},x=>x.Player.ListInventories[0].Inventory[40000048].Amount=2],
+           [chest(),{profile:'linked-crop-chest48',id:12,selector:0,newAmount:49},x=>x.Player.ContainerInventories[12].Inventory[0].Amount=49]
+          ]){
+           const bytes=makeSyntheticP1gProfile(d),originalSha256=hash(bytes),file=new File([bytes],'original.p1g'),candidate=new File([bytes],'candidate.p1g');
+           const dir=await mkdtemp(join(tmpdir(),'qrw1294-'));
+           try{
+           const path=join(dir,'backup.p1g');await writeFile(path,bytes,{flag:'wx',mode:0o600});
+           let mode='good',held=null,entered=null,reads=0;
+           const provider=async binding=>{
+            assert.deepEqual(binding,{originalName:'original.p1g',originalSha256,originalSizeBytes:bytes.length});assert.ok(Object.isFrozen(binding));reads++;
+            if(held){const g=held;held=null;entered.release();await g.promise;}
+            if(mode==='original')return file;
+            if(mode==='same-name')return new File([await readFile(path)],'ORIGINAL.P1G');
+            if(mode==='non-file')return new Blob([await readFile(path)]);
+            if(mode==='forged'){const bad=bytes.slice();bad[0]^=1;const f=new File([bad],'backup.p1g');Object.defineProperty(f,'arrayBuffer',{value:async()=>bytes.slice().buffer});return f;}
+            return new File([await readFile(path)],mode==='renamed'?'different.p1g':mode==='alias'?'original.p1g.edited-copy.p1g':'backup.p1g');
+           };
+           const b=createP1gRustWorkerReadOnlyBridge(factory,{allowScopedAmountSource:true,readDurableOriginalBackup:provider});
+           const args={file,build:BUILD,originalSha256};
+           const ready=async()=>{mode='good';await b.openScopedEncrypted(args);await b.verifyScopedOriginalBackup(candidate);b.previewScopedAmount(sel);};
+           let neg=0;
+           for(const m of ['original','same-name','non-file','forged']){
+            await ready();mode=m;await reject(()=>b.stageScopedAmount());assert.equal(b.getReceipt(),null);neg++;
+           }
+           await ready();mode='alias';await b.stageScopedAmount();await reject(()=>b.exportScopedEditedCopy());assert.equal(b.getReceipt(),null);neg++;
+           await ready();await b.stageScopedAmount();mode='renamed';await reject(()=>b.exportScopedEditedCopy());assert.equal(b.getReceipt(),null);neg++;
+           await ready();await b.stageScopedAmount();b.toggleScopedAmount(false);await reject(()=>b.exportScopedEditedCopy());assert.equal(b.getReceipt(),null);neg++;
+           await ready();let g=gate();held=g;entered=gate();const pending=b.stageScopedAmount();const denied=reject(()=>pending);await entered.promise;
+           assert.throws(()=>b.previewScopedAmount(sel),/OFF/);neg++;await reject(()=>b.exportScopedEditedCopy());neg++;
+           b.close();await ready();g.release();await denied;neg++;
+           assert.ok(b.getReceipt());await b.stageScopedAmount();g=gate();held=g;entered=gate();const outPending=b.exportScopedEditedCopy();const stale=reject(()=>outPending);await entered.promise;
+           await reject(()=>b.exportScopedEditedCopy());neg++;b.close();await ready();g.release();await stale;neg++;
+           assert.ok(b.getReceipt());await b.stageScopedAmount();
+           // Exactly one output when overlapping exports contend; a new session cannot be closed by old completion.
+           g=gate();held=g;entered=gate();const winner=b.exportScopedEditedCopy();await entered.promise;await reject(()=>b.exportScopedEditedCopy());neg++;g.release();
+           const out=await winner;assert.equal(hash(out.encryptedBytes),out.sha256);assert.equal(out.independentProcessReopenVerified,false);assert.equal(out.writerAuthorized,false);
+           assert.equal(out.name,'original.p1g.edited-copy.p1g');const editedPath=join(dir,out.name);await writeFile(editedPath,out.encryptedBytes,{flag:'wx',mode:0o600});
+           const expected=structuredClone(d);apply(expected);
+           const codec=new URL('../src/lib/ddv/core/save/p1g-packaged-profile-codec.js',import.meta.url).href;
+           const code="import {readFile} from 'node:fs/promises';import {p1gPackagedProfileCodec} from "+JSON.stringify(codec)+";const x=await p1gPackagedProfileCodec.loadProfile(new Uint8Array(await readFile(process.argv[1])));process.stdout.write(x.jsonText);";
+           const reopened=execFileSync(process.execPath,['--input-type=module','-e',code,editedPath],{encoding:'utf8',maxBuffer:4*1024*1024});
+           assert.equal(reopened,JSON.stringify(expected));assert.equal(hash(await readFile(path)),originalSha256);assert.equal(hash(new Uint8Array(await file.arrayBuffer())),originalSha256);
+           await reject(()=>b.exportScopedEditedCopy());neg++;assert.equal(b.getReceipt(),null);
+           console.log('QRW_ACT958_ACTUAL_SCOPED_TRANSPORT_PASS',JSON.stringify({profile:sel.profile,positives:1,negatives:neg,providerReads:reads,independentSyntheticProcessReopen:true,originalInvariant:true,writer:false}));
+           }finally{await rm(dir,{recursive:true,force:true})}
+          }
+          NODE
+          node --check tests/.qrw1294-independent.mjs
+      - name: Build opt-in ACT916 generated WASM only (no product artifact or Save)
+        run: |
+          set -euo pipefail
+          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
+          # Existing accepted lock fixture; preserve exact bytes, no registry re-resolution.
+          cp tests/fixtures/ddv-save-core-accepted.Cargo.lock crates/ddv-save-core/Cargo.lock
+          printf '%s\n' 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-amount-tools
+          mkdir -p /tmp/wand-scoped-amount-pkg
+          /tmp/wand-scoped-amount-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-scoped-amount-pkg --target nodejs --no-typescript
+          WAND_SCOPED_WASM_MODULE=/tmp/wand-scoped-amount-pkg/ddv_save_core.js node tests/.qrw1294-independent.mjs
+      - name: No product change or private Save
+        run: |
+          test -z "$(git ls-files '*.p1g')"
+          ! git grep -n 'allowScopedAmountSource:true' -- src/routes src/lib/wep
