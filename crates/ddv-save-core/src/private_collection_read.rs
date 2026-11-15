@@ -758,6 +758,34 @@ const EFFECTIVE_GROUP_KEYS_SHA:&str="1226bc92f5c8c63e86eaa6aedfeca1b56a6e3ece86d
 
 #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
 impl ProductSession{
+    fn mint_fixed_effective_collection_pair(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32)
+        ->CoreResult<ProductCollectionPhysicalPair>{
+        if e.action!=super::WorkerAction::ReadDomain||definition!=EFFECTIVE_GROUP_DEF||
+            group!=0||item!=EFFECTIVE_TARGET{return Err(deny("COLLECTION_FIXED_STAGE_SCOPE"));}
+        let pair=self.mint_product_collection_physical_pair_for_peer(e,definition,group,item,Some(EFFECTIVE_PEER))?;
+        if pair.target.definition_id!=EFFECTIVE_GROUP_DEF||pair.peer.definition_id!=EFFECTIVE_GROUP_DEF||
+            pair.target.item_id!=EFFECTIVE_TARGET||pair.peer.item_id!=EFFECTIVE_PEER||
+            pair.set_group_count!=1||pair.group_entry_count!=27||pair.false_count!=3||
+            pair.group_keys_sha!=EFFECTIVE_GROUP_KEYS_SHA{
+            return Err(deny("COLLECTION_FIXED_EFFECTIVE_DEFINITION"));
+        }
+        Ok(pair)
+    }
+    /// Bounded trusted Worker preview for the exact Stage scope only.
+    /// Same Core mint, no caller-supplied pack, Span or effective flag.
+    pub(crate) fn preview_fixed_effective_collection(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32)->CoreResult<Value>{
+        let pair=self.mint_fixed_effective_collection_pair(e,definition,group,item)?;
+        let entry=self.decoded.get(pair.target_span.begin..pair.target_span.end)
+            .ok_or(deny("COLLECTION_PAIR_STAGE_SPAN"))?;
+        if entry!=b"false"{return Err(deny("COLLECTION_PAIR_STAGE_OLD_CAS"));}
+        let st=self.lock()?;validate_scope(self,&st,&e)?;
+        Ok(json!({"contract":"wand.worker.collection-fixed-edit@1","definitionId":definition,
+            "groupIndex":group,"itemId":item,"peerItemId":pair.peer.item_id,
+            "old":false,"new":true,"falseCount":pair.false_count,"entrySha256":hex(&Sha256::digest(entry)),
+            "sessionId":hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
+            "decodedSha256":hex(&e.expected_decoded_sha256),"fixedDefinitionVerified":true,
+            "installedRuntimeParityVerified":false,"writerAuthorized":false,"editedCopyAuthorized":false,"applyAuthorized":false}))
+    }
     /// Core-only fixed source Stage. The pinned catalog is the normal-retail
     /// definition provider, not an assertion of installed/live override
     /// parity. Build declaration is immutable in the existing Session. No
@@ -775,13 +803,7 @@ impl ProductSession{
         // worker-bound Session, canonical positive stock and unique physical
         // membership are all checked by the reused mint. Require the actual
         // E2065 ordered peer, never an arbitrary packaged false candidate.
-        let pair=self.mint_product_collection_physical_pair_for_peer(read,definition,group,item,Some(EFFECTIVE_PEER))?;
-        if pair.target.definition_id!=EFFECTIVE_GROUP_DEF||pair.peer.definition_id!=EFFECTIVE_GROUP_DEF||
-            pair.target.item_id!=EFFECTIVE_TARGET||pair.peer.item_id!=EFFECTIVE_PEER||
-            pair.set_group_count!=1||pair.group_entry_count!=27||pair.false_count!=3||
-            pair.group_keys_sha!=EFFECTIVE_GROUP_KEYS_SHA{
-            return Err(deny("COLLECTION_FIXED_EFFECTIVE_DEFINITION"));
-        }
+        let pair=self.mint_fixed_effective_collection_pair(read,definition,group,item)?;
         // The pack itself pins both raw definitions, collection and group
         // source records; ACT983 additionally proved the exact effective
         // key-set reconciliation and affected subscriber boundary.
@@ -944,6 +966,41 @@ mod product_collection_source_tests{
             "ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":{
                 (EFFECTIVE_TARGET.to_string()):{"Amount":2},"40004668":{"Amount":1}}}}}})
     }
+    #[cfg(feature="semantic-writer-dev")]
+    #[test]
+    fn fixed_collection_worker_guard_preview_stage_lifecycle(){
+        use crate::worker_session::WorkerSessionGuard;
+        let d=fixed_stage_doc();let entry:[u8;32]=Sha256::digest(b"false").into();
+        for steam in [true,false]{
+            let s=pair_open(&d,steam);let read=env(&s);let mut guard=WorkerSessionGuard::attach(s);
+            let preview=guard.preview_fixed_collection(read,EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET).unwrap();
+            assert_eq!(preview["contract"],"wand.worker.collection-fixed-edit@1");
+            assert_eq!(preview["entrySha256"],hex(&entry));assert_eq!(preview["peerItemId"],EFFECTIVE_PEER);
+            assert_eq!(preview["writerAuthorized"],false);assert_eq!(preview["installedRuntimeParityVerified"],false);
+            let stage=WorkerEnvelope{action:WorkerAction::Stage,..read};
+            assert!(guard.stage_fixed_collection(stage,EFFECTIVE_GROUP_DEF,0,EFFECTIVE_PEER,entry).is_err());
+            assert!(guard.stage_fixed_collection(stage,EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET,[0;32]).is_err());
+            assert!(guard.stage_fixed_collection(read,EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET,entry).is_err());
+            let r=guard.stage_fixed_collection(stage,EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET,entry).unwrap();
+            assert_eq!(r.exact_field_changed_count,1);assert!(r.applied);
+            assert!(guard.preview_fixed_collection(read,EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET).is_err());
+            assert!(guard.stage_fixed_collection(stage,EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET,entry).is_err());
+            assert!(guard.toggle_scoped_edit(stage,false).is_err());
+            let current=|r:&crate::SemanticStageReceipt,action|WorkerEnvelope{action,expected_revision:r.revision,
+                expected_index_generation:r.index_generation,..read};
+            let undo=guard.toggle_scoped_edit(current(&r,WorkerAction::Stage),false).unwrap();
+            assert!(!undo.applied);
+            assert!(guard.take_scoped_edit(current(&undo,WorkerAction::ExportEditedCopy)).is_err());
+            let redo=guard.toggle_scoped_edit(current(&undo,WorkerAction::Stage),true).unwrap();
+            let export=current(&redo,WorkerAction::ExportEditedCopy);
+            let out=guard.take_scoped_edit(export).unwrap();
+            let mut want=d.clone();want["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"][EFFECTIVE_TARGET.to_string()]=json!(true);
+            assert_eq!(out,serde_json::to_vec(&want).unwrap());
+            assert!(guard.take_scoped_edit(export).is_err());
+            assert!(guard.receipt().is_err());
+        }
+    }
+
     #[cfg(feature="semantic-writer-dev")]
     #[test]
     fn fixed_effective_collection_stage_dual_build_atomic_exact1(){
