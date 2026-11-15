@@ -79,3 +79,72 @@ jobs:
           path: crates/ddv-save-core/target/release/examples/wand-private-backpack-slot-pair-read
           if-no-files-found: error
           retention-days: 7
+      - name: Exact ordinary unified ReadSet build (same transport, accepted Reader)
+        run: |
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1,semantic-writer-dev --example wand-private-backpack-slot-pair-read --release --target-dir crates/ddv-save-core/target/ordinary-readset
+      - name: Synthetic ordinary ADD and DELETE actual private receipt
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os,subprocess,hashlib,json,fcntl,pathlib,threading,tempfile
+          exe=str(pathlib.Path('crates/ddv-save-core/target/ordinary-readset/release/examples/wand-private-backpack-slot-pair-read').resolve())
+          d={"GameInfo":{"Version":626},"Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_Default"]},"Inventory":{"40000001":{"Amount":4,"Marker":"ItemMarker_None"}}}}},"World":{"GridCollection":{"Grids":{"7":{"ID":7,"NextGridObjectID":9,"Objects":{"4":{"ID":4,"ItemID":40000001,"X":1,"Y":2,"Orientation":"GridOrientation_Up","State":None}}}},"DiffGrids":{}}},"ConditionalEventHistory":{"ActiveEvents":{"1520000001":{"SpawnState":{"SpawnedObjects":[{"GridID":7,"GridObjectID":4},{"GridID":8,"GridObjectID":9}]}}}}}
+          enc=lambda x:json.dumps(x,separators=(',',':')).encode()
+          digest=lambda x:hashlib.sha256(x).hexdigest()
+          raw=enc(d);entry=digest(enc(d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]))
+          env=dict(os.environ,WAND_LOCAL_INSTALLED_STEAM_FULLVERSION="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22",WAND_LOCAL_ORIGINAL_SHA256="1"*64,WAND_LOCAL_ORIGINAL_SIZE_BYTES="100",WAND_LOCAL_BACKUP_SHA256="1"*64,WAND_LOCAL_BACKUP_SIZE_BYTES="100",WAND_LOCAL_DECODED_SHA256=digest(raw))
+          env.pop("WAND_LOCAL_INSTALLED_SWITCH_BID",None)
+          add=[exe,"--ordinary-adddel-readset","add","40000001","7",entry,"--receipt-fd3"]
+          delete=[exe,"--ordinary-adddel-readset","delete","40000001","7","4",entry,"--receipt-fd3"]
+          def high(fd):
+              x=fcntl.fcntl(fd,fcntl.F_DUPFD_CLOEXEC,20);os.close(fd);return x
+          def run(argv,change=None,fd_kind="pipe"):
+              e=dict(env)
+              for k,v in (change or {}).items():
+                  if v is None:e.pop(k,None)
+                  else:e[k]=v
+              a,b=map(high,os.pipe())
+              collected=[]
+              def drain():
+                  with os.fdopen(a,"rb") as f:collected.append(f.read())
+              t=threading.Thread(target=drain);t.start()
+              saved=None
+              try:
+                  try:saved=fcntl.fcntl(3,fcntl.F_DUPFD_CLOEXEC,20)
+                  except OSError:pass
+                  if fd_kind=="pipe":os.dup2(b,3);passed=(3,)
+                  elif fd_kind=="regular":
+                      with tempfile.TemporaryFile() as f:os.dup2(f.fileno(),3)
+                      passed=(3,)
+                  else:passed=()
+                  p=subprocess.Popen(argv,env=e,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,pass_fds=passed)
+              finally:
+                  os.close(b)
+                  if saved is None:
+                      try:os.close(3)
+                      except OSError:pass
+                  else:os.dup2(saved,3);os.close(saved)
+              out,err=p.communicate(raw,timeout=20);t.join(20);assert not t.is_alive()
+              return p.returncode,out,err,collected[0]
+          for argv,op,oid,clear in [(add,"add",9,True),(delete,"delete",4,False)]:
+              rc,out,err,receipt=run(argv)
+              assert rc==0 and out==b"" and b"LOCAL_ORDINARY_ADDDEL_READ_PRIVATE_RECEIPT_WRITTEN" in err,err
+              v=json.loads(receipt);g=v["ordinaryStoredGridReadSet"];s=v["ordinarySpawnAddressReadSet"]
+              assert v["operationReadOnly"]==op and v["target"]["oldAmount"]==4 and v["target"]["entrySha256"]==entry
+              assert g["nextGridObjectId"]==9 and g["nextAfterAdd"]==10 and g["nextAfterDelete"]==9
+              assert s["gridId"]==7 and s["objectId"]==oid and s["noExactSavedSpawnAddress"] is clear
+              assert v["backupSha256SuppliedExternally"]=="1"*64 and v["originalBackupBytesIndependentlyVerifiedByHarness"] is False
+              assert not v["writerAuthorized"] and not v["applyAuthorized"] and not v["editedCopyAuthorized"] and not g["effectivePlacementVerified"] and not s["fullReferenceClosureVerified"]
+          neg=[(add,{"WAND_LOCAL_BACKUP_SHA256":None},"pipe"),(add,{"WAND_LOCAL_BACKUP_SHA256":"2"*64},"pipe"),(add,{"WAND_LOCAL_BACKUP_SIZE_BYTES":"99"},"pipe"),(add,{"WAND_LOCAL_INSTALLED_SWITCH_BID":"9A239D3DB569756D"},"pipe"),(add,{"WAND_LOCAL_DECODED_SHA256":"2"*64},"pipe"),(add,{"WAND_LOCAL_INSTALLED_STEAM_FULLVERSION":"unknown"},"pipe"),(add[:5]+["2"*64,add[-1]],{},"pipe"),(add[:4]+["07",entry,add[-1]],{},"pipe"),(delete[:5]+["5",entry,delete[-1]],{},"pipe"),(add,{},"none"),(add,{},"regular"),(add[:-1]+["--out","never-write"],{},"pipe")]
+          for argv,change,fd in neg:
+              rc,out,err,receipt=run(argv,change,fd)
+              assert rc==12 and out==b"" and receipt==b"",(rc,err)
+          print("ORDINARY_UNIFIED_PRIVATE_READSET_SOURCE_PASS 2POS12NEG stdout0")
+          PY
+      - name: Package ordinary exact source-only executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: ordinary-private-readset-source
+          path: crates/ddv-save-core/target/ordinary-readset/release/examples/wand-private-backpack-slot-pair-read
+          if-no-files-found: error
+          retention-days: 7
