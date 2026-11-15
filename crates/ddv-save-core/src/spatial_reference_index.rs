@@ -209,23 +209,37 @@ impl SpatialCandidateIndex {
                 return Err(denied("SPATIAL_ROOT_SUBGRID_OWNERSHIP_CONFLICT"));
             }
         }
-        // Iterative walk: no recursion depth dependent on malformed Source.
+        // Iterative, memoized root resolution: every unresolved Grid enters
+        // a path at most once. Cache only after reaching a verified Area root
+        // (or a previously resolved path); a cycle or orphan cannot publish
+        // a partial owner. The old per-Grid walk was quadratic on deep chains.
         let mut owner_for_grid = HashMap::<u64,(u64,u32,u64)>::new();
         for grid in grids {
+            if owner_for_grid.contains_key(&grid.grid_id) {
+                continue;
+            }
             let mut seen = HashSet::new();
+            let mut path = Vec::new();
             let mut current = grid.grid_id;
-            while let Some(parent) = parent_of.get(&current) {
+            let owner = loop {
+                if let Some(&resolved) = owner_for_grid.get(&current) {
+                    break resolved;
+                }
                 if !seen.insert(current) {
                     return Err(denied("SPATIAL_SUBGRID_PARENT_CYCLE"));
                 }
-                current = parent.grid_id;
+                path.push(current);
+                if let Some(parent) = parent_of.get(&current) {
+                    current = parent.grid_id;
+                } else {
+                    let &(village, area_key) = root_owner.get(&current)
+                        .ok_or(denied("SPATIAL_GRID_NOT_REACHABLE_FROM_AREA"))?;
+                    break (current, village, area_key);
+                }
+            };
+            for id in path {
+                owner_for_grid.insert(id, owner);
             }
-            if !seen.insert(current) {
-                return Err(denied("SPATIAL_SUBGRID_PARENT_CYCLE"));
-            }
-            let &(village, area_key) = root_owner.get(&current)
-                .ok_or(denied("SPATIAL_GRID_NOT_REACHABLE_FROM_AREA"))?;
-            owner_for_grid.insert(grid.grid_id, (current, village, area_key));
         }
         let mut by_object = HashMap::new();
         for object in objects {
