@@ -52,21 +52,34 @@ const cleanState=()=>({
   phase:'closed',fileName:'',backupVerified:false,targets:[],
   choice:-1,newAmount:'',preview:null,editedCopy:null,error:''
 });
-export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false}={}){
-  if(trustedLocalHarness!==true||!adapter||typeof adapter!=='object')
+export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false}={}){
+  if(trustedLocalHarness!==true||typeof exactOneDecrease!=='boolean'||!adapter||typeof adapter!=='object')
     fail('LOCAL_HARNESS_GATE_OFF');
   for(const method of ['open','backupOriginal','listVerifiedTargets','stageTyped',
     'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])
     if(typeof adapter[method]!=='function')fail('TRUSTED_WORKER_API_MISSING');
-  let epoch=0,busy=false,state=cleanState(),sourceBinding=null,backupBinding=null,editedBinding=null;
+  let epoch=0,busy=false,closing=null,state=cleanState(),sourceBinding=null,backupBinding=null,editedBinding=null;
   const reset=()=>{state=cleanState();sourceBinding=null;backupBinding=null;editedBinding=null};
   const snapshot=()=>Object.freeze({...state,targets:Object.freeze([...state.targets]),
     preview:state.preview?Object.freeze({...state.preview}):null,
     editedCopy:state.editedCopy?Object.freeze({...state.editedCopy}):null});
   const set=patch=>{state={...state,...patch};return snapshot()};
-  const ensureReady=phase=>{if(state.phase!==phase||busy)fail('INVALID_STATE_OR_BUSY')};
+  const ensureReady=phase=>{if(state.phase!==phase||busy||closing)fail('INVALID_STATE_OR_BUSY')};
+  // Same adapter and one close barrier. Failed cleanup is not a CLOSED ack.
+  const closeAdapter=()=>{
+    if(!closing){
+      const p=Promise.resolve().then(()=>adapter.close()).then(r=>{
+        if(exactOneDecrease&&!safeReceipt(r,'CLOSED'))fail('CLOSE_RECEIPT_DENIED');
+        return r;
+      });
+      closing=p;const settled=()=>{if(closing===p)closing=null};p.then(settled,settled);
+    }
+    return closing;
+  };
+  const closeFailed=token=>{if(token===epoch)set({phase:'close-failed'})};
+
   const execute=async work=>{
-    if(busy)fail('PENDING_OPERATION');
+    if(busy||closing)fail('PENDING_OPERATION');
     const token=epoch;busy=true;
     const check=()=>{if(token!==epoch)fail('STALE_FILE_OR_CLOSE')};
     // A receipt is not a commit. Only this generation may mutate state or
@@ -78,15 +91,15 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false}
       return value;
     }catch(error){
       if(token===epoch){
-        epoch++;reset();
-        try{await adapter.close()}catch{}
+        const cleanup=++epoch;reset();
+        try{await closeAdapter()}catch{closeFailed(cleanup)}
       }
       throw error;
     }finally{busy=false}
   };
   const close=async()=>{
-    epoch++;reset();
-    try{await adapter.close()}catch{}
+    const token=++epoch;reset();
+    try{await closeAdapter()}catch(e){closeFailed(token);throw e}
     return snapshot();
   };
   const open=async({file,fullVersion,originalSha256,buildConfirmed})=>{
@@ -95,7 +108,7 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false}
     // after its stale Worker close resolves (A→B / Close during OPEN).
     const openingEpoch=++epoch;
     reset();
-    try{await adapter.close()}catch{}
+    try{await closeAdapter()}catch(e){closeFailed(openingEpoch);throw e}
     if(openingEpoch!==epoch)fail('STALE_FILE_OR_CLOSE');
     if(!file||typeof file.name!=='string'||!file.name.toLowerCase().endsWith('.p1g')||
        !Number.isSafeInteger(file.size)||file.size<1||
@@ -141,7 +154,9 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false}
     ensureReady('ready');
     if(state.backupVerified!==true||backupBinding?.source!==sourceBinding||!Number.isSafeInteger(index)||
       index<0||index>=state.targets.length)fail('TARGET_SELECTION_DENIED');
-    const command=createExistingAmountDecrease(state.targets[index],newAmount);
+    const target=state.targets[index];
+    if(exactOneDecrease&&newAmount!==target.oldAmount-1)fail('SCOPED_EXACT_ONE_DECREASE_REQUIRED');
+    const command=createExistingAmountDecrease(target,newAmount);
     return execute(async(check,commit)=>{
       const r=await adapter.stageTyped([command]); // PR929 exact command, CAS in Rust
       if(!safeReceipt(r,'STAGED'))fail('DEV_CAS_STAGE_RECEIPT_DENIED');
