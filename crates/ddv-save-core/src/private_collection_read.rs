@@ -1035,4 +1035,103 @@ mod product_collection_source_tests{
         let (s,d,i)=fixture(true,1,true,false);assert!(s.preview_product_collection_candidate(env(&s),d,0,i).is_err());
         let (s,d,i)=fixture(false,1,true,false);assert_eq!(s.preview_product_collection_candidate(env(&s),d,0,i).unwrap()["falseCount"],2);
     }
+
+    #[cfg(feature="semantic-writer-dev")]
+    #[test]
+    fn qa_act1004_fixed_effective_stage_raw_output_and_lifecycle(){
+        let base=fixed_stage_doc();let digest:[u8;32]=Sha256::digest(b"false").into();
+        let open=|d:&Value,steam:bool|{
+            let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec_pretty(d).unwrap(),BuildIdentity{
+                platform:if steam{Platform::SteamWindows}else{Platform::Switch},
+                build_kind:if steam{BuildKind::SteamFullVersion}else{BuildKind::SwitchBid},
+                build_id:if steam{EXACT.into()}else{SWITCH_EXACT.into()},schema:626,externally_attested:true}).unwrap();
+            s.worker_bound=true;s
+        };
+        let call=|s:&ProductSession,e:WorkerEnvelope|s.stage_scoped_product_collection(e,2120000159,0,40004511,false,true,digest);
+        let mut pos=0;let mut neg=0;
+        for steam in [true,false]{
+            // A different, earlier Pack peer is false and has stock. Only
+            // the exact effective peer is permitted, not arbitrary fallback.
+            let mut d=base.clone();
+            d["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"]["40001887"]=json!(true);
+            d["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"]["40004510"]=json!(true);
+            d["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"]["40004510"]=json!(false);
+            d["Player"]["ListInventories"]["0"]["Inventory"]["40004510"]=json!({"Amount":2});
+            d["Opaque"]=json!({"40004511":false,"Text":"false","Nested":[false,{"State":null}]});
+            let s=open(&d,steam);let read=env(&s);let stage=WorkerEnvelope{action:WorkerAction::Stage,..read};
+            let before=s.receipt().unwrap();let raw=s.decoded.to_vec();
+            let needle=b"\"40004511\": false";
+            let locs:Vec<_>=raw.windows(needle.len()).enumerate().filter(|(_,w)|*w==needle).map(|(i,_)|i+needle.len()-5).collect();
+            assert_eq!(locs.len(),2);
+            let receipt=s.preview_product_collection_candidate(read,2120000159,0,40004511).unwrap();
+            assert_eq!(receipt["effectiveEligibilityVerified"],false);assert_eq!(receipt["writerAuthorized"],false);
+            let mut expected=d.clone();expected["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"]["40004511"]=json!(true);
+            let expected=serde_json::to_vec_pretty(&expected).unwrap();
+            let r=call(&s,stage).unwrap();assert_eq!(r.operation_count,1);assert_eq!(r.exact_field_changed_count,1);
+            assert_eq!(r.revision,before.revision+1);assert_eq!(r.index_generation,before.index_generation+1);
+            assert!(r.applied&&r.semantic_changed);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+            let after=s.receipt().unwrap();
+            assert!(call(&s,stage).is_err());neg+=1;
+            let current=|action|WorkerEnvelope{action,..env(&s)};
+            assert!(call(&s,current(WorkerAction::Stage)).is_err());neg+=1;
+            assert!(s.preview_product_collection_candidate(current(WorkerAction::ReadDomain),2120000159,0,40004511).is_err());neg+=1;
+            assert!(s.redo_typed_semantic_batch(current(WorkerAction::Stage)).is_err());neg+=1;
+            assert_eq!(s.receipt().unwrap(),after);
+            let undo=s.undo_typed_semantic_batch(current(WorkerAction::Stage)).unwrap();
+            assert!(!undo.applied);assert_eq!(undo.revision,after.revision+1);
+            assert!(s.undo_typed_semantic_batch(current(WorkerAction::Stage)).is_err());neg+=1;
+            assert!(s.take_typed_semantic_decoded_once(current(WorkerAction::ExportEditedCopy)).is_err());neg+=1;
+            assert!(call(&s,current(WorkerAction::Stage)).is_err());neg+=1;
+            let redo=s.redo_typed_semantic_batch(current(WorkerAction::Stage)).unwrap();
+            assert!(redo.applied);assert_eq!(redo.revision,undo.revision+1);
+            let export=current(WorkerAction::ExportEditedCopy);
+            let out=s.take_typed_semantic_decoded_once(export).unwrap();
+            assert_eq!(out,expected);assert_eq!(s.decoded.as_ref(),raw.as_slice());
+            let changed=locs.iter().filter(|p|{let mut x=raw.clone();x.splice(**p..**p+5,b"true".iter().copied());x==out}).count();
+            assert_eq!(changed,1);
+            assert!(s.take_typed_semantic_decoded_once(export).is_err());neg+=1;
+            assert!(s.redo_typed_semantic_batch(current(WorkerAction::Stage)).is_err());neg+=1;
+            pos+=1;
+            for n in 0..8{
+                let mut x=d.clone();
+                let g=&mut x["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"];
+                match n{
+                    0=>{g["40004668"]=json!(true);g["40001887"]=json!(false);},
+                    1=>{g.as_object_mut().unwrap().remove("40001888");g["40009999"]=json!(true);},
+                    2=>{g["40001887"]=json!(false);},
+                    3=>{x["Player"]["ListInventories"]["0"]["Inventory"]["40004668"]["Amount"]=json!(0);},
+                    4=>{x["Player"]["ListInventories"]["0"]["Inventory"]["40004511"]["Amount"]=json!(0);},
+                    5=>{x["Player"]["CollectionSets"][0]["GroupData"].as_array_mut().unwrap().push(json!({"GroupIndex":1,"State":"SetState_NotComplete","GroupsCollectionItems":{"40009999":true}}));},
+                    6=>{x["Player"]["ListInventories"]["1"]=json!({"ID":1,"CompatibleItemType":"ItemType_Furniture","Inventory":{"40004668":{"Amount":1}}});},
+                    _=>{x["Player"]["CollectionSets"][0]["GroupData"][0]["State"]=json!("SetState_Complete");}
+                }
+                let t=open(&x,steam);let e=WorkerEnvelope{action:WorkerAction::Stage,..env(&t)};let b=t.receipt().unwrap();
+                assert!(call(&t,e).is_err());assert_eq!(t.receipt().unwrap(),b);
+                assert!(t.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..e}).is_err());neg+=1;
+            }
+            let s=open(&d,steam);let read=env(&s);let stage=WorkerEnvelope{action:WorkerAction::Stage,..read};
+            let before=s.receipt().unwrap();
+            for e in [WorkerEnvelope{expected_decoded_sha256:[0;32],..stage},WorkerEnvelope{expected_index_generation:2,..stage},WorkerEnvelope{action:WorkerAction::Apply,..stage}]{
+                assert!(call(&s,e).is_err());neg+=1;
+            }
+            let foreign=open(&d,!steam);assert!(call(&foreign,stage).is_err());neg+=1;
+            assert!(s.stage_scoped_product_collection(stage,2120000159,0,40004668,false,true,digest).is_err());neg+=1;
+            assert!(s.stage_scoped_product_collection(stage,2120000159,0,40004511,false,true,[0;32]).is_err());neg+=1;
+            assert_eq!(s.receipt().unwrap(),before);
+            // A different ordering of the same exact definition keys is
+            // not a semantic change: the lexical output must preserve it.
+            let d=base.clone();let compact=serde_json::to_string(&d).unwrap();
+            let swapped=compact.replace("\"40001887\":false,\"40001888\":true","\"40001888\":true,\"40001887\":false");
+            assert_ne!(compact,swapped);
+            let mut t=ProductSession::open_decoded_readonly(swapped.as_bytes().to_vec(),BuildIdentity{
+                platform:if steam{Platform::SteamWindows}else{Platform::Switch},
+                build_kind:if steam{BuildKind::SteamFullVersion}else{BuildKind::SwitchBid},
+                build_id:if steam{EXACT.into()}else{SWITCH_EXACT.into()},schema:626,externally_attested:true}).unwrap();
+            t.worker_bound=true;let e=WorkerEnvelope{action:WorkerAction::Stage,..env(&t)};call(&t,e).unwrap();
+            let out=t.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&t)}).unwrap();
+            assert_eq!(out,swapped.replace("\"40004511\":false","\"40004511\":true").as_bytes());pos+=1;
+        }
+        assert_eq!((pos,neg),(4,46));
+    }
+
 }
