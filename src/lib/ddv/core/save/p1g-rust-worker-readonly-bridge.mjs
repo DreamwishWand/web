@@ -39,9 +39,9 @@ async function* decodedUtf8Chunks(text){
     offset=end;
   }
 }
-export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
+export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowCollectionCandidateSource=false}={}){
   // Constructor itself enforces Worker-only (document must be absent).
-  const rust=createProductWasmReadOwner(wasmFactory);
+  const rust=createProductWasmReadOwner(wasmFactory,{allowCollectionCandidateSource});
   let epoch=0;
   const close=()=>{
     epoch++;
@@ -100,6 +100,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
   };
   return Object.freeze({
     openEncrypted,close,
+    ...(allowCollectionCandidateSource===true?{readCollectionCandidate:selector=>rust.readCollectionCandidate(selector)}:{}),
     readCoreVersion:scope=>rust.readCoreVersion(scope),
     issueTypedCursor:(scope,domain)=>rust.issueTypedCursor(scope,domain),
     readTypedPage:(scope,cursor)=>rust.readTypedPage(scope,cursor),
