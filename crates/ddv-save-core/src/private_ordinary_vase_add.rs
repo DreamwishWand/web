@@ -65,7 +65,8 @@ impl ProductSession{
         let area=f(f(village,"Areas")?,"6")?;
         raw_boolean_true(b,f(area,"Unlocked")?)?;
         if read_value(b,f(area,"GridIDs")?)?!=json!([gid]){return Err(denied("VASE_AREA_ROOT"));}
-        let grid=f(f(f(root.world,"GridCollection")?,"Grids")?,&gid.to_string())?;
+        let grid_key=gid.to_string();
+        let grid=f(f(f(root.world,"GridCollection")?,"Grids")?,&grid_key)?;
         if read_value(b,f(grid,"GridDataPath")?)?!="GridData/Villages/Village04-DarkLevel-GridData.json"||
            read_value(b,f(grid,"GridDefaultLayoutPath")?)?!=""||
            number(b,f(grid,"TessellationFactor")?)?!=2{return Err(denied("VASE_GRID_DEFINITION"));}
