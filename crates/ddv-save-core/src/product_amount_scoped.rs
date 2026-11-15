@@ -614,4 +614,88 @@ mod tests{
         let mut d=doc();d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]=json!({"Amount":3});let s=open(&d);
         assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000001},2).is_err());
     }
+
+    // Independent fixed PR1299: explicit real public reference row and
+    // rebound direct stage, not the owner's first-empty-row smoke test.
+    #[test]
+    fn qa_pr1299_layout_causal_both_profiles() {
+        let path="SceneLayouts/Houses/MickeyHouse/MickeyHouse.json";
+        let kind="Meta.DefaultCharacterHouseData, Meta";
+        let overlay=|gid:u32,local:u32|json!({"ID":gid,"GridDefaultLayoutPath":path,
+            "GridDefaultLayoutType":kind,"DefaultLayoutGridID":local,
+            "DefaultGridHashCode":-2147483648i32,"DefaultGridDataHashCode":2147483647i32,
+            "RemovedObjects":[],"ModifiedObjects":{}});
+        let ix=layout_index().unwrap();
+        assert_eq!(ix[path].grids[&1].items,vec![40000048]);
+        assert!(ix[path].grids[&2].items.is_empty());
+        let mut denials=0;
+        for chest in [false,true] {
+            let d=if chest{chest_doc()}else{doc()};
+            let (sel,old,new)=if chest{(ExistingAmountSelection::Chest{container_id:12,slot_index:0},50,49)}
+                else{(ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},3,2)};
+            let clean=open(&d);
+            let t=clean.preview_scoped_product_amount(scope(&clean,WorkerAction::ReadDomain),sel,new).unwrap();
+            let entry=t.view().entry_sha256;
+            let r=clean.stage_scoped_product_amount(scope(&clean,WorkerAction::Stage),sel,old,new,entry).unwrap();
+            assert_eq!(r.exact_field_changed_count,1);
+            let out=clean.take_typed_semantic_decoded_once(scope(&clean,WorkerAction::ExportEditedCopy)).unwrap();
+            let mut expected=d.clone();
+            if chest{expected["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(new);}
+            else{expected["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(new);}
+            assert_eq!(out,serde_json::to_vec(&expected).unwrap());
+            let mut deny=|q:&Value,code:&str|{
+                let s=open(q);let before=s.receipt().unwrap();
+                assert_eq!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new).unwrap_err().0,code);
+                assert_eq!(s.stage_scoped_product_amount(scope(&s,WorkerAction::Stage),sel,old,new,entry).unwrap_err().0,code);
+                assert_eq!(s.receipt().unwrap(),before);
+                assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+                denials+=1;
+            };
+            let mut q=d.clone();
+            q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(19,2);
+            deny(&q,"PRODUCT_AMOUNT_EFFECTIVE_NATIVE_BINDING_UNPROVEN");
+            // Neither extreme signed hash codes nor a caller assertion may
+            // make the otherwise benign static row authoritative.
+            q["World"]["GridCollection"]["DiffGrids"]["19"]["NativeBindingVerified"]=json!(true);
+            deny(&q,"PRODUCT_AMOUNT_EFFECTIVE_NATIVE_BINDING_UNPROVEN");
+            q["World"]["GridCollection"]["DiffGrids"]["19"]["DefaultGridDataHashCode"]=json!(2147483648u64);
+            deny(&q,"PRODUCT_AMOUNT_LAYOUT_HASH_TYPE");
+            q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(19,2);
+            q["World"]["GridCollection"]["DiffGrids"]["19"]["RemovedObjects"]=json!([-1]);
+            deny(&q,"SEMANTIC_UNSIGNED_INTEGER_REQUIRED");
+            q["World"]["GridCollection"]["DiffGrids"]["19"]["RemovedObjects"]=json!([4294967296u64]);
+            deny(&q,"PRODUCT_AMOUNT_LAYOUT_REMOVED_ID");
+            q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(19,2);
+            q["World"]["GridCollection"]["Grids"]["19"]=json!({"ID":19,"GridDefaultLayoutPath":"","Objects":{}});
+            deny(&q,"PRODUCT_AMOUNT_GRID_ID");
+            q=d.clone();
+            q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(19,1);
+            q["World"]["GridCollection"]["DiffGrids"]["19"]["RemovedObjects"]=json!([0,1,2,3,4,5,6,7,8,9]);
+            if chest{
+                // Placement-only row cannot authorize chest either.
+                deny(&q,"PRODUCT_AMOUNT_EFFECTIVE_NATIVE_BINDING_UNPROVEN");
+                q=d.clone();
+                q["World"]["GridCollection"]["Grids"]["8"]=json!({"ID":8,"GridDefaultLayoutPath":"","Objects":{
+                    "9":{"ID":9,"ItemID":40001680,"State":{"Storage":{"ContainerInventoryID":0,"DefaultContainerInventoryData":"template"}}}}});
+                deny(&q,"PRODUCT_AMOUNT_CHEST_TEMPLATE_ALIAS");
+                q=d.clone();
+                q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(19,2);
+                q["World"]["GridCollection"]["DiffGrids"]["19"]["ModifiedObjects"]["9"]=json!({"ID":9,"ItemID":40000048,"State":{"Storage":{"ContainerInventoryID":12}}});
+                deny(&q,"PRODUCT_AMOUNT_CHEST_DUPLICATE_LINK");
+                q=d.clone();
+                q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(19,2);
+                q["World"]["GridCollection"]["DiffGrids"]["19"]["ModifiedObjects"]["9"]=json!({"ID":9,"ItemID":40000048,"State":{"SubGrid":{"GridID":7}}});
+                deny(&q,"PRODUCT_AMOUNT_CHEST_SUBGRID");
+            }else{
+                deny(&q,"PRODUCT_AMOUNT_LAYOUT_BASE_PLACEMENT");
+                q=d.clone();
+                q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(19,2);
+                q["World"]["GridCollection"]["DiffGrids"]["19"]["ModifiedObjects"]["9"]=json!({"ID":9,"ItemID":40000048,"State":null});
+                deny(&q,"PRODUCT_AMOUNT_PLACEMENT_TARGET");
+            }
+        }
+        assert_eq!(denials,18);
+        println!("QA_PR1299_LAYOUT_CAUSAL 2POS 18NEG each Preview+Stage+unchanged+noExport");
+    }
+
 }
