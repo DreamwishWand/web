@@ -534,11 +534,10 @@ mod r02_tests{
 
  // ACT940: exact Steam626 FloatingIsland 3x3 seed merge. Native-private
  // external ReadSet/affected closure remains required; no generic ID0 grant.
-const COMP03_ROAD:u32=40100038;
+#[path = "comp03_shape.rs"]
+mod comp03_shape;
+use comp03_shape::{ROAD as COMP03_ROAD, object as comp03_obj, additions as comp03_additions};
 const COMP03_CONTRACT:&str="wand.private.steam626.road-comp03-seed-merge-q9@1";
-fn comp03_obj(id:u32,x:u32,y:u32)->Value{
-    json!({"ID":id,"ItemID":COMP03_ROAD,"X":x,"Y":y,"Orientation":"GridOrientation_Down","State":null})
-}
 fn comp03_plan(bytes:&[u8])->CoreResult<Value>{
     if bytes.is_empty()||bytes.len()>16384{return Err(denied("COMP03_PLAN_BOUND"));}
     let p:Value=serde_json::from_slice(bytes).map_err(|_|denied("COMP03_PLAN_JSON"))?;
@@ -618,11 +617,7 @@ fn comp03_collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
     let x=num(b,ss,"X")?;let y=num(b,ss,"Y")?;
     if x%4!=0||y%4!=0||x.checked_add(12).is_none_or(|v|v>260)||y.checked_add(12).is_none_or(|v|v>260)||
         val(b,ss)?!=comp03_obj(seed,x,y){return Err(denied("COMP03_SEED_SHAPE"));}
-    let mut want=Vec::new();
-    for dy in 0..3{for dx in 0..3{
-        if dx==0&&dy==0{continue;}
-        want.push(comp03_obj(next+want.len() as u32,x+4*dx,y+4*dy));
-    }}
+    let want=comp03_additions(next,x,y).ok_or(denied("COMP03_PLAN_SHAPE"))?;
     if p["objects"].as_array()!=Some(&want){return Err(denied("COMP03_PLAN_SHAPE"));}
     let mut pos=objs.begin+1;let mut count=0;
     while let Some((k,o))=next_object_member(b,objs,&mut pos)?{
