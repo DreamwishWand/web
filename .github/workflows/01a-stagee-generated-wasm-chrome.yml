@@ -53,3 +53,66 @@ jobs:
           ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
           test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
           test -f crates/ddv-save-core/src/wasm_worker.rs
+
+      - name: QA ONLY ACT981 generated dual-Build Collection candidate
+        run: |
+          set -euo pipefail
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-collection-scoped
+          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-act981-wasm --target nodejs --no-typescript
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict');
+          const {WorkerWasmSource}=require('/tmp/wand-act981-wasm/ddv_save_core.js');
+          const {createHash}=require('node:crypto');
+          const fs=require('node:fs');
+          const sha=b=>createHash('sha256').update(b).digest('hex'), bytes=v=>Buffer.from(JSON.stringify(v));
+          const rawPack=fs.readFileSync('crates/ddv-save-core/data/collection-furniture-626.json');
+          assert.equal(sha(rawPack),'b9ebc7bebf2c3e1df274b9a98a7b7276896270faa303a41657ecc6c56db84f4f');
+          const pack=JSON.parse(rawPack), STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',SWITCH='9A239D3DB569756D';
+          let nonce=0,pos=0,neg=0;
+          function fixture(item,def,count=3){
+            const m={[item]:false,40000001:false,40000002:count===2};
+            return {GameInfo:{Version:626},World:{},Player:{CollectionSets:[{CollectionDefinitionID:def,GroupData:[{GroupIndex:0,State:'SetState_NotComplete',GroupsCollectionItems:m}]}],ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',Inventory:{[item]:{Amount:7,Marker:'ItemMarker_None'}}}}},Unknown:{sentinel:'DO_NOT_RETURN_RAW_COLLECTION'}};
+          }
+          const builds={steam:['steam-windows','steam-full-version',STEAM,626,true],sw:['switch','switch-bid',SWITCH,626,true]};
+          function open(d,build){const b=typeof d==='string'?Buffer.from(d):bytes(d);const w=new WorkerWasmSource(...build,new Uint8Array(32).fill(++nonce));for(let i=0;i<b.length;i+=1048576)w.append_chunk(b.subarray(i,i+1048576));try{const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(b));assert.equal(r.writerAuthorized,false);return [w,r];}catch(e){w.free();throw e;}}
+          const scope=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256];
+          const deny=f=>{assert.throws(f);neg++};
+          const get=(w,r,def,item,group=0)=>JSON.parse(w.preview_scoped_collection_candidate(def,group,item,...scope(r)));
+          function check(d,kind,row){const [item,def,ih]=row,[w,r]=open(d,builds[kind]);const c=get(w,r,def,item),g=d.Player.CollectionSets[0].GroupData[0],stock=d.Player.ListInventories[0].Inventory[item],gr=pack.groups.find(x=>x[0]===def);
+            const keys=['contract','platform','buildKind','buildId','sessionId','revision','indexGeneration','decodedSha256','definitionId','groupIndex','itemId','old','new','falseCount','itemDefinitionSha256','collectionDefinitionSha256','groupDefinitionSha256','entrySha256','groupSha256','mapSha256','stockEntrySha256','positiveStock','packagedCandidateVerified','sourcePhysicalVerified','effectiveEligibilityVerified','writerAuthorized','editedCopyAuthorized','applyAuthorized'];
+            assert.deepEqual(Object.keys(c).sort(),keys.sort());assert.equal(c.contract,'wand.worker.collection-scoped-candidate@1');
+            assert.equal(c.platform,kind==='steam'?'SteamWindows':'Switch');assert.equal(c.buildKind,kind==='steam'?'SteamFullVersion':'SwitchBid');assert.equal(c.buildId,builds[kind][2]);
+            for(const k of ['sessionId','revision','indexGeneration','decodedSha256'])assert.equal(c[k],r[k]);
+            assert.equal(c.itemId,item);assert.equal(c.definitionId,def);assert.equal(c.groupIndex,0);assert.equal(c.old,false);assert.equal(c.new,true);
+            assert.equal(c.falseCount,Object.values(g.GroupsCollectionItems).filter(x=>x===false).length);assert.equal(c.positiveStock,stock.Amount);
+            assert.equal(c.itemDefinitionSha256,ih);assert.equal(c.collectionDefinitionSha256,gr[1]);assert.equal(c.groupDefinitionSha256,gr[2]);
+            assert.equal(c.entrySha256,sha(Buffer.from('false')));assert.equal(c.groupSha256,sha(bytes(g)));assert.equal(c.mapSha256,sha(bytes(g.GroupsCollectionItems)));assert.equal(c.stockEntrySha256,sha(bytes(stock)));
+            assert.equal(c.packagedCandidateVerified,true);assert.equal(c.sourcePhysicalVerified,true);
+            for(const k of ['effectiveEligibilityVerified','writerAuthorized','editedCopyAuthorized','applyAuthorized'])assert.equal(c[k],false);
+            assert.deepEqual(get(w,r,def,item),c);assert(!JSON.stringify(c).includes('DO_NOT_RETURN_RAW_COLLECTION'));
+            assert.equal(typeof w.stage_scoped_collection,'undefined');assert.equal(typeof w.read_private_collection_group,'undefined');assert.equal(typeof w.stage_private_steam_collection_bool,'undefined');
+            const witness=JSON.parse(w.read_core_version_witness(...scope(r)));assert.equal(witness.revision,0);assert.equal(witness.indexGeneration,1);assert.equal(witness.decodedSha256,r.decodedSha256);w.close();w.free();pos++;
+          }
+          for(const kind of ['steam','sw']){
+            for(const row of pack.items)check(fixture(row[0],row[1]),kind,row);
+            const row=pack.items[0],[item,def]=row,d=fixture(item,def),[w,r]=open(d,builds[kind]);
+            const [foreign,fr]=open(d,builds[kind]);deny(()=>get(foreign,r,def,item));foreign.close();foreign.free();
+            deny(()=>get(w,r,pack.groups[1][0],item));deny(()=>get(w,r,def,item+1));deny(()=>get(w,r,def,item,1));deny(()=>get(w,r,def,item,4294967295));
+            deny(()=>w.preview_scoped_collection_candidate(def,0,item,r.sessionId,1n,1n,r.decodedSha256));deny(()=>w.preview_scoped_collection_candidate(def,0,item,r.sessionId,0n,2n,r.decodedSha256));
+            deny(()=>w.preview_scoped_collection_candidate(def,0,item,r.sessionId,0n,1n,'00'.repeat(32)));deny(()=>w.preview_scoped_collection_candidate(def,0,item,'00'.repeat(16),0n,1n,r.decodedSha256));
+            w.close();deny(()=>get(w,r,def,item));w.free();
+            const bad=(mut)=>{let q=fixture(item,def);mut(q,q.Player.CollectionSets[0].GroupData[0],q.Player.ListInventories[0]);const [x,y]=open(q,builds[kind]);deny(()=>get(x,y,def,item));x.close();x.free();};
+            bad((q,g)=>g.GroupsCollectionItems[item]=true);bad((q,g)=>g.GroupsCollectionItems[item]='false');bad((q,g)=>delete g.GroupsCollectionItems[item]);bad((q,g)=>g.State=0);bad((q,g)=>g.State='SetState_Complete');bad((q,g)=>g.GroupIndex=1);bad((q,g)=>{delete g.State});
+            bad((q,g,inv)=>inv.Inventory[item].Amount=0);bad((q,g,inv)=>inv.Inventory[item].Amount=-1);bad((q,g,inv)=>inv.Inventory[item].Amount='7');bad((q,g,inv)=>delete inv.Inventory[item]);bad((q,g,inv)=>inv.CompatibleItemType='ItemType_ActivityItem');
+            bad((q,g,inv)=>q.Player.ListInventories[9]={...inv,ID:9});bad(q=>q.Player.CollectionSets.push(structuredClone(q.Player.CollectionSets[0])));
+            bad(q=>q.Player.CollectionSets.push({CollectionDefinitionID:2120000001,GroupData:[{GroupIndex:0,State:'SetState_NotComplete',GroupsCollectionItems:{[item]:false}}]}));
+            bad(q=>q.Player.CollectionSets[0].GroupData.push({GroupIndex:1,State:'SetState_NotComplete',GroupsCollectionItems:{[item]:false}}));
+            bad((q,g)=>{g.GroupsCollectionItems[40000001]=true;g.GroupsCollectionItems[40000002]=true});
+            if(kind==='steam')bad((q,g)=>g.GroupsCollectionItems[40000002]=true);else check(fixture(item,def,2),kind,row);
+            for(const b of [[...builds[kind].slice(0,2),'wrong',626,true],[...builds[kind].slice(0,3),626,false],[builds[kind][0],builds[kind==='steam'?'sw':'steam'][1],builds[kind][2],626,true]]){
+              deny(()=>{const [x,y]=open(d,b);try{return get(x,y,def,item)}finally{x.close();x.free()}});
+            }
+            console.log('ACT981 GENERATED_WASM '+kind+' all pack rows and physical/epoch controls PASS');
+          }
+          console.log('ACT981 GENERATED_WASM '+pos+'POS '+neg+'NEG PASS');
+          JS
