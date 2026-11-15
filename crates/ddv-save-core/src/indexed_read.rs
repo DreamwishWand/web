@@ -1507,7 +1507,8 @@ mod private_avatar {
             }
         }
         let complete=history.is_some()&&active.is_some()&&missing_lists==0;
-        let clear=if complete{json!(matches.is_empty())}else{Value::Null};
+        // A positive exact reference is decisive even if other lists are absent.
+        let clear=if !matches.is_empty(){json!(false)}else if complete{json!(true)}else{Value::Null};
         Ok(json!({"history":dependency_hash(bytes,history),"activeEvents":dependency_hash(bytes,active),
             "gridId":grid_id,"objectId":object_id,"activeEventCount":events,"nonnullSpawnStateCount":spawn_states,
             "missingSpawnedObjectsListCount":missing_lists,"scannedAddressCount":addresses,
@@ -1592,6 +1593,8 @@ mod private_avatar {
         let absent=scan("{}",7,8).unwrap();assert!(absent["noExactSavedSpawnAddress"].is_null());
         let missing=scan(r#"{"ActiveEvents":{"1":{"SpawnState":{}}}}"#,7,8).unwrap();
         assert_eq!(missing["missingSpawnedObjectsListCount"],1);assert!(missing["noExactSavedSpawnAddress"].is_null());
+        let mixed=scan(r#"{"ActiveEvents":{"1":{"SpawnState":{}},"2":{"SpawnState":{"SpawnedObjects":[{"GridID":7,"GridObjectID":8}]}}}}"#,7,8).unwrap();
+        assert_eq!(mixed["knownSavedPathComplete"],false);assert_eq!(mixed["noExactSavedSpawnAddress"],false);
         assert!(ordinary_spawn_address_readset(b"{}",None,7,8,&mut DependencyBudget::default()).unwrap()["noExactSavedSpawnAddress"].is_null());
         for invalid in [
             r#"{"ActiveEvents":{"1":{"SpawnState":{"SpawnedObjects":[{"GridID":7}]}}}}"#,
@@ -1878,14 +1881,15 @@ mod private_avatar {
             let mut pos=2;let mut neg=0;
             let mut x=d.clone();x["ConditionalEventHistory"]["ActiveEvents"]=json!({"1520000001":{"SpawnState":{"SpawnedObjects":[addr(9,4),addr(7,8)]}}});
             check(&read(&x,Some(4)).unwrap(),4,&[]);pos+=1;
-            for variant in 0..3{
+            for variant in 0..4{
                 let mut x=d.clone();match variant{
                     0=>{x.as_object_mut().unwrap().remove("ConditionalEventHistory");},
                     1=>{x["ConditionalEventHistory"].as_object_mut().unwrap().remove("ActiveEvents");},
-                    _=>{x["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["SpawnState"].as_object_mut().unwrap().remove("SpawnedObjects");}
+                    2=>{x["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["SpawnState"].as_object_mut().unwrap().remove("SpawnedObjects");},
+                    _=>{x["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["SpawnState"].as_object_mut().unwrap().remove("SpawnedObjects");x["ConditionalEventHistory"]["ActiveEvents"]["1520000002"]["SpawnState"]["SpawnedObjects"]=json!([addr(9,9)]); }
                 }
                 let v=read(&x,None).unwrap();let r=&v["ordinarySpawnAddressReadSet"];
-                assert_eq!(r["knownSavedPathComplete"],false);assert!(r["noExactSavedSpawnAddress"].is_null());pos+=1;
+                assert_eq!(r["knownSavedPathComplete"],false);if variant==2{assert_eq!(r["noExactSavedSpawnAddress"],false);assert_eq!(r["matches"].as_array().unwrap().len(),1);}else{assert!(r["noExactSavedSpawnAddress"].is_null());}pos+=1;
             }
             let mut x=d.clone();x["ConditionalEventHistory"]["ActiveEvents"]=json!({"1520000001":{"SpawnState":null}});
             check(&read(&x,None).unwrap(),9,&[]);pos+=1;
@@ -1905,7 +1909,7 @@ mod private_avatar {
             assert_eq!(read(&big,None).err().unwrap().0,"AMOUNT_DEP_REFERENCE_BOUND");neg+=1;
             big["Player"]["AchievementsData"][0]["ItemsUsed"].as_array_mut().unwrap().pop();
             let v=read(&big,None).unwrap();assert_eq!(v["ordinarySpawnAddressReadSet"]["scannedAddressCount"],1);pos+=1;
-            assert_eq!((pos,neg),(8,11));
+            assert_eq!((pos,neg),(9,11));
         }
 
         #[test]
