@@ -379,12 +379,16 @@ impl ProductSession{
         let roots=indexed_read::roots(&self.decoded)?;
         let mut edits=Vec::with_capacity(commands.len());
         for cmd in commands{edits.push(target(&self.decoded,roots.player,cmd)?);}
-        self.commit_amount_replacements(e,edits,None)
+        let count=edits.len();
+        self.commit_semantic_replacements(e,edits,count,None)
     }
-    // Same transaction ledger for ordinary decreases and exact inverse lineage.
-    fn commit_amount_replacements(&self,e:WorkerEnvelope,mut edits:Vec<Replacement>,
-        expected_output:Option<[u8;32]>)->CoreResult<SemanticStageReceipt>{
-        if edits.is_empty()||edits.len()>MAX_TX_COMMANDS{return Err(denied("SEMANTIC_BATCH_BOUNDS"));}
+    // Shared atomic ledger for Core-resolved replacements only.
+    fn commit_semantic_replacements(&self,e:WorkerEnvelope,mut edits:Vec<Replacement>,logical_count:usize,
+        expected_output:Option<[u8;32]>)
+        ->CoreResult<SemanticStageReceipt>{
+        if edits.is_empty()||edits.len()>MAX_TX_COMMANDS||logical_count==0||logical_count>MAX_TX_COMMANDS{
+            return Err(denied("SEMANTIC_BATCH_BOUNDS"));
+        }
         edits.sort_by_key(|r|r.span.begin);
         for pair in edits.windows(2){
             if pair[0].span.end>pair[1].span.begin {
@@ -412,12 +416,16 @@ impl ProductSession{
         if st.lab.is_some(){return Err(denied("SEMANTIC_SYNTHETIC_LAB_CONFLICT"));}
         let rev=st.revision.checked_add(1).ok_or(denied("REVISION_OVERFLOW"))?;
         let gen=st.generation.checked_add(1).ok_or(denied("GENERATION_OVERFLOW"))?;
-        st.semantic=Some(SemanticLedger{edited,edited_sha,operation_count:edits.len(),
+        st.semantic=Some(SemanticLedger{edited,edited_sha,operation_count:logical_count,
                                       applied:true,consumed:false});
         st.indexed=None; // Existing Indexed Cursor grant table revoked.
         st.revision=rev;
         st.generation=gen;
         receipt(self,&st)
+    }
+    #[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
+    pub(super) fn commit_private_collection_bool(&self,e:WorkerEnvelope,span:Span)->CoreResult<SemanticStageReceipt>{
+        self.commit_semantic_replacements(e,vec![Replacement{span,old:b"false".to_vec(),new:b"true".to_vec()}],1,None)
     }
     fn semantic_toggle(&self,e:WorkerEnvelope,apply:bool)
         ->CoreResult<SemanticStageReceipt>{
@@ -1452,7 +1460,7 @@ impl ProductSession{
             if st.semantic.is_some(){return Err(denied("SEMANTIC_STAGE_ALREADY_EXISTS"));}
             validate_target_snapshot(self,&e,&witness)?;
         }
-        self.commit_amount_replacements(e,vec![Replacement{span,old,new}],Some(ancestor_sha))
+        self.commit_semantic_replacements(e,vec![Replacement{span,old,new}],1,Some(ancestor_sha))
     }
 }
 
@@ -1519,6 +1527,38 @@ mod exact_lineage_restore_tests{
         s.redo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
         let export=scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
         assert_eq!(s.take_typed_semantic_decoded_once(export).unwrap(),ancestor);
+        assert!(s.take_typed_semantic_decoded_once(export).is_err());
+    }
+}
+
+
+#[cfg(all(test,feature="private-native-v2",not(target_arch="wasm32")))]
+mod collection_restore_shared_ledger_tests {
+    use super::*;
+    use crate::{BuildIdentity,BuildKind,Platform,WorkerAction,PRODUCT_WORKER_CONTRACT};
+    #[test]
+    fn shared_ledger_digest_and_count_refuse_before_commit() {
+        let raw=br#"{"GameInfo":{"Version":626},"World":{},"Player":{},"Opaque":false}"#;
+        let s=ProductSession::open_decoded_readonly(raw.to_vec(),BuildIdentity{
+            platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+            build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap();
+        let r=s.receipt().unwrap();
+        let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
+            expected_revision:r.revision,expected_index_generation:r.index_generation,
+            expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::Stage};
+        let pos=raw.windows(5).position(|v|v==b"false").unwrap();
+        let edits=||vec![Replacement{span:Span{begin:pos,end:pos+5},old:b"false".to_vec(),new:b"true".to_vec()}];
+        assert_eq!(s.commit_semantic_replacements(e,edits(),1,Some([0;32])).unwrap_err().0,"RESTORE_OUTPUT_LINEAGE_MISMATCH");
+        assert_eq!(s.commit_semantic_replacements(e,edits(),0,None).unwrap_err().0,"SEMANTIC_BATCH_BOUNDS");
+        assert_eq!(s.receipt().unwrap(),r);
+        let mut expected=raw.to_vec();expected.splice(pos..pos+5,b"true".iter().copied());
+        let pass=s.commit_semantic_replacements(e,edits(),1,Some(sha(&expected))).unwrap();
+        assert_eq!(pass.staged_decoded_sha256,sha(&expected));
+        assert_eq!(pass.operation_count,1);
+        assert!(s.commit_semantic_replacements(e,edits(),1,None).is_err());
+        let now=s.receipt().unwrap();
+        let export=WorkerEnvelope{expected_revision:now.revision,expected_index_generation:now.index_generation,action:WorkerAction::ExportEditedCopy,..e};
+        assert_eq!(s.take_typed_semantic_decoded_once(export).unwrap(),expected);
         assert!(s.take_typed_semantic_decoded_once(export).is_err());
     }
 }
