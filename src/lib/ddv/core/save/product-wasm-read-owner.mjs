@@ -1,6 +1,5 @@
 // R04 opt-in read-only boundary owned by the SAME local Worker. No product UI
 // export/import path until a signed wasm build and independent QA are accepted.
-import {createScopedAmountTransport} from './product-scoped-amount-transport.mjs';
 export const PRODUCT_WASM_READ_CONTRACT='wand.product.single-save-session.boundary@1';
 export const PRODUCT_WASM_WORKER_MAX_BYTES=128*1024*1024;
 export const PRODUCT_WASM_CHUNK_MAX_BYTES=1024*1024;
@@ -81,7 +80,17 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
      if(bytes===0)fail('PRODUCT_WORKER_EMPTY_DOCUMENT');
      const receipt=strictReceipt(JSON.parse(wasm.finish()));
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
-     active={wasm,receipt,identity,cursors:new Map(),scoped:null};wasm=null;
+     const a={wasm,receipt,identity,cursors:new Map(),scoped:null};
+     // Existing read-only Worker never loads the opt-in transport module.
+     if(allowScopedAmountSource===true){
+       if(identity.platform!=='steam-windows')fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
+       const {createScopedAmountTransport}=await import('./product-scoped-amount-transport.mjs');
+       if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
+       a.scoped=createScopedAmountTransport(wasm,receipt,{
+         parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},
+         maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
+     }
+     active=a;wasm=null;
      return receipt;
    }catch(error){
      // Already fail closed: no stale A is retained if B fails.
@@ -353,11 +362,8 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
  // ACT916 opt-in, Worker-private only. One existing wasm instance.
  const scoped=()=>{
    const a=active;
-   if(allowScopedAmountSource!==true||!a||a.identity.platform!=='steam-windows')
+   if(allowScopedAmountSource!==true||!a||a.identity.platform!=='steam-windows'||!a.scoped)
      fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
-   if(!a.scoped)a.scoped=createScopedAmountTransport(a.wasm,a.receipt,{
-     parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},
-     maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
    return a.scoped;
  };
  const submitOperation=()=>fail('PRODUCT_WORKER_WRITER_DISABLED');
