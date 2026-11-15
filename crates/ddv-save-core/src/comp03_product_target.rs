@@ -98,6 +98,18 @@ fn aliases(b:&[u8],s:Span,ids:[u32;2],expected:[Span;2],hits:&mut [usize;2],budg
     }
     Ok(())
 }
+// Scan each typed identity namespace once before resolving either root.
+// Alternate keys with the same internal ID cannot be unique identities.
+fn validate_identity_map(b:&[u8],map:Span,id_field:&str,limit:usize)->CoreResult<()>{
+    let mut pos=map.begin+1;let mut count=0;
+    while let Some((k,record))=next_object_member(b,map,&mut pos)?{
+        count+=1;
+        if count>limit||key(&k)?!=n(b,record,id_field)?{
+            return Err(denied("COMP03_TARGET_NAMESPACE_IDENTITY"));
+        }
+    }
+    Ok(())
+}
 fn grid(b:&[u8],grids:Span,diffs:Span,id:u32,def:&Value)->CoreResult<Span>{
     let g=field(b,grids,&id.to_string())?;
     if n(b,g,"ID")?!=id||n(b,g,"TessellationFactor")?!=2||
@@ -148,10 +160,13 @@ impl ProductSession{
         let defs=&pack.data()["roots"];
         let b=&self.decoded;let roots=indexed_read::roots(b)?;
         let world=roots.world;let islands=field(b,world,"FloatingIslands")?;
+        validate_identity_map(b,islands,"SceneItemId",4096)?;
         let (g,r,ga)=root(b,islands,&defs[0])?;
         let (s,sr,sa)=root(b,islands,&defs[1])?;
         if g==s{return Err(denied("COMP03_TARGET_SIBLING"))}
         let gc=field(b,world,"GridCollection")?;let grids=field(b,gc,"Grids")?;let diffs=field(b,gc,"DiffGrids")?;
+        validate_identity_map(b,grids,"ID",50000)?;
+        validate_identity_map(b,diffs,"ID",50000)?;
         let target=grid(b,grids,diffs,g,&defs[0])?;
         let sibling=grid(b,grids,diffs,s,&defs[1])?;
         let obs=field(b,target,"Objects")?;
@@ -209,6 +224,31 @@ mod tests{
             assert!(t.mint_comp03_physical_target(e,0).is_err());
             t.close().unwrap();assert!(t.mint_comp03_physical_target(e,seed).is_err());
         }
+    }
+    #[test]
+    fn comp03_target_and_sibling_namespace_contradictions(){
+        let d=doc(90001,90002,500);
+        for id in [90001,90002]{
+            for map in ["Grids","DiffGrids"]{
+                let mut q=d.clone();
+                q["World"]["GridCollection"][map]["70001"]=json!({"ID":id});
+                let t=open(&q);let before=t.receipt().unwrap();
+                assert!(t.mint_comp03_physical_target(env(&t),500).is_err());
+                assert_eq!(t.receipt().unwrap(),before);
+            }
+        }
+        for id in [1540000150,1540000153]{
+            let mut q=d.clone();
+            q["World"]["FloatingIslands"]["1540000159"]=json!({"SceneItemId":id,"GridIDs":[]});
+            let t=open(&q);let before=t.receipt().unwrap();
+            assert!(t.mint_comp03_physical_target(env(&t),500).is_err());
+            assert_eq!(t.receipt().unwrap(),before);
+        }
+        let mut q=d.clone();
+        q["World"]["GridCollection"]["Grids"]["70001"]=json!({"ID":70001});
+        q["World"]["GridCollection"]["DiffGrids"]["70002"]=json!({"ID":70002});
+        q["World"]["FloatingIslands"]["1540000159"]=json!({"SceneItemId":1540000159,"GridIDs":[70001]});
+        let t=open(&q);assert!(t.mint_comp03_physical_target(env(&t),500).is_ok());
     }
     #[test]
     fn comp03_physical_target_root_alias_stock_and_unknown_denials(){
