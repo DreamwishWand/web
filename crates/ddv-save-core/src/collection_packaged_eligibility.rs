@@ -7,7 +7,6 @@ use crate::{BuildIdentity, BuildKind, Platform};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-const PACK: &[u8] = include_bytes!("../data/collection-furniture-626.json");
 const SHA: &str = "b9ebc7bebf2c3e1df274b9a98a7b7276896270faa303a41657ecc6c56db84f4f";
 const STEAM: &str = "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
 const SWITCH: &str = "9A239D3DB569756D";
@@ -75,11 +74,13 @@ fn supported(b: &BuildIdentity) -> bool {
 
 /// Static membership only. Group zero means the single packaged group;
 /// it is not proof of the saved group or any current false flag/stock.
+/// The trusted bytes are supplied internally by Core; their exact digest is
+/// pinned here. This is not a Worker-facing API or a permission token.
 pub(crate) fn packaged_collection_candidate(
-    build: &BuildIdentity, item_id: u32, definition_id: u32, group_index: usize,
+    trusted_pack: &[u8], build: &BuildIdentity, item_id: u32, definition_id: u32, group_index: usize,
 ) -> Option<PackagedCollectionCandidate> {
     if !supported(build) || group_index != 0 { return None; }
-    let p = pinned(PACK)?;
+    let p = pinned(trusted_pack)?;
     let row = p["items"].as_array()?.iter().find(|r|
         r[0].as_u64()==Some(u64::from(item_id)) && r[1].as_u64()==Some(u64::from(definition_id)))?;
     let group = p["groups"].as_array()?.iter().find(|r|r[0].as_u64()==Some(u64::from(definition_id)))?;
@@ -94,6 +95,7 @@ pub(crate) fn packaged_collection_candidate(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::PACK;
     fn steam()->BuildIdentity { BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:STEAM.into(),schema:626,externally_attested:true} }
     fn switch()->BuildIdentity { BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:SWITCH.into(),schema:626,externally_attested:true} }
     #[test]
@@ -102,8 +104,8 @@ mod tests {
         for r in p["items"].as_array().unwrap() {
             let i=r[0].as_u64().unwrap() as u32;
             let g=r[1].as_u64().unwrap() as u32;
-            let a=packaged_collection_candidate(&steam(),i,g,0).unwrap();
-            let b=packaged_collection_candidate(&switch(),i,g,0).unwrap();
+            let a=packaged_collection_candidate(PACK,&steam(),i,g,0).unwrap();
+            let b=packaged_collection_candidate(PACK,&switch(),i,g,0).unwrap();
             assert_eq!(a,b);
             assert_eq!(a.item_definition_sha256,r[2].as_str().unwrap());
         }
@@ -115,17 +117,17 @@ mod tests {
         let i=r[0].as_u64().unwrap() as u32;
         let g=r[1].as_u64().unwrap() as u32;
         let mut a=steam();
-        a.schema=624; assert!(packaged_collection_candidate(&a,i,g,0).is_none());
-        a=steam(); a.externally_attested=false; assert!(packaged_collection_candidate(&a,i,g,0).is_none());
-        a=steam(); a.build_id=SWITCH.into(); assert!(packaged_collection_candidate(&a,i,g,0).is_none());
-        a=switch(); a.build_kind=BuildKind::SteamFullVersion; assert!(packaged_collection_candidate(&a,i,g,0).is_none());
-        a=switch(); a.build_id="9a239d3db569756d".into(); assert!(packaged_collection_candidate(&a,i,g,0).is_none());
-        a=steam(); a.build_id.push(' '); assert!(packaged_collection_candidate(&a,i,g,0).is_none());
+        a.schema=624; assert!(packaged_collection_candidate(PACK,&a,i,g,0).is_none());
+        a=steam(); a.externally_attested=false; assert!(packaged_collection_candidate(PACK,&a,i,g,0).is_none());
+        a=steam(); a.build_id=SWITCH.into(); assert!(packaged_collection_candidate(PACK,&a,i,g,0).is_none());
+        a=switch(); a.build_kind=BuildKind::SteamFullVersion; assert!(packaged_collection_candidate(PACK,&a,i,g,0).is_none());
+        a=switch(); a.build_id="9a239d3db569756d".into(); assert!(packaged_collection_candidate(PACK,&a,i,g,0).is_none());
+        a=steam(); a.build_id.push(' '); assert!(packaged_collection_candidate(PACK,&a,i,g,0).is_none());
         for a in [steam(),switch()] {
-            assert!(packaged_collection_candidate(&a,i,g,1).is_none());
-            assert!(packaged_collection_candidate(&a,i,g+1,0).is_none());
-            assert!(packaged_collection_candidate(&a,0,g,0).is_none());
-            assert!(packaged_collection_candidate(&a,30_000_001,g,0).is_none());
+            assert!(packaged_collection_candidate(PACK,&a,i,g,1).is_none());
+            assert!(packaged_collection_candidate(PACK,&a,i,g+1,0).is_none());
+            assert!(packaged_collection_candidate(PACK,&a,0,g,0).is_none());
+            assert!(packaged_collection_candidate(PACK,&a,30_000_001,g,0).is_none());
         }
     }
     #[test]
