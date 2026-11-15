@@ -180,6 +180,11 @@ impl ProductSession{
                 }
                 Ok(())
             })?;
+            // Product-only internal receipt: the fixed effective provider
+            // must not accept a second saved group for a one-group definition.
+            if product&&id==definition{
+                if let Some(g)=chosen.as_mut(){g["setGroupCount"]=json!(pos);}
+            }
             Ok(())
         })?;
         let group=chosen.ok_or(deny("COLLECTION_SELECTED_GROUP_ABSENT"))?;
@@ -608,6 +613,10 @@ struct ProductCollectionPhysicalPair {
     map_sha: String,
     target_stock_sha: String,
     peer_stock_sha: String,
+    group_keys_sha: String,
+    group_entry_count: usize,
+    set_group_count: u64,
+    false_count: u64,
 }
 #[cfg(feature="product-collection-scoped")]
 fn receipt_sha(v:&Value)->CoreResult<String>{
@@ -625,6 +634,10 @@ impl ProductSession{
     #[allow(dead_code)]
     fn mint_product_collection_physical_pair(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32)
         ->CoreResult<ProductCollectionPhysicalPair>{
+        self.mint_product_collection_physical_pair_for_peer(e,definition,group,item,None)
+    }
+    fn mint_product_collection_physical_pair_for_peer(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32,
+        expected_peer:Option<u32>)->CoreResult<ProductCollectionPhysicalPair>{
         if e.action!=super::WorkerAction::ReadDomain{return Err(deny("COLLECTION_PAIR_ACTION"))}
         let lookup=|id|crate::collection_packaged_eligibility::packaged_collection_candidate(
             PRODUCT_PACK,&self.native_source_build,id,definition,group);
@@ -639,6 +652,16 @@ impl ProductSession{
         let pack=crate::collection_packaged_eligibility::pinned(PRODUCT_PACK).ok_or(deny("COLLECTION_PACK_DIGEST"))?;
         let peers=pack["items"].as_array().ok_or(deny("COLLECTION_PACK_SHAPE"))?;
         let entries=g["entries"].as_array().ok_or(deny("COLLECTION_PAIR_GROUP_ENTRIES"))?;
+        let mut keys=Vec::with_capacity(entries.len());
+        for row in entries{
+            keys.push(row["itemId"].as_u64().and_then(|n|u32::try_from(n).ok())
+                .ok_or(deny("COLLECTION_PAIR_GROUP_KEY"))?);
+        }
+        keys.sort_unstable();
+        if keys.windows(2).any(|k|k[0]==k[1]){return Err(deny("COLLECTION_PAIR_GROUP_KEY_DUPLICATE"));}
+        let group_keys_sha=hex(&Sha256::digest(serde_json::to_vec(&keys).map_err(|_|deny("COLLECTION_PAIR_GROUP_KEY_ENCODE"))?));
+        let set_group_count=g["setGroupCount"].as_u64().ok_or(deny("COLLECTION_PAIR_GROUP_COUNT"))?;
+        let false_count=g["falseCount"].as_u64().ok_or(deny("COLLECTION_FALSE_COUNT"))?;
         let ids:BTreeSet<u32>=entries.iter().filter(|x|x["collected"]==false)
             .filter_map(|x|x["itemId"].as_u64().and_then(|n|u32::try_from(n).ok())).collect();
         let same=|other:&PrivateCollectionGroupReceipt|->bool{
@@ -651,7 +674,8 @@ impl ProductSession{
         };
         for row in peers{
             let Some(peer_id)=row[0].as_u64().and_then(|n|u32::try_from(n).ok())else{continue};
-            if peer_id==item||row[1].as_u64()!=Some(definition as u64)||!ids.contains(&peer_id){continue}
+            if peer_id==item||expected_peer.is_some_and(|p|p!=peer_id)||
+                row[1].as_u64()!=Some(definition as u64)||!ids.contains(&peer_id){continue}
             let Some(peer)=lookup(peer_id)else{continue};
             // Existing scan verifies the peer's unique global membership,
             // literal false, NotComplete and positive canonical Catalog0.
@@ -666,7 +690,8 @@ impl ProductSession{
             return Ok(ProductCollectionPhysicalPair{scope:e,target,peer,target_span,peer_span,
                 group_sha:receipt_sha(&g["groupSha256"])?,map_sha:receipt_sha(&g["mapSha256"])?,
                 target_stock_sha:receipt_sha(&r.value["storedStock"]["entry"]["entrySha256"])?,
-                peer_stock_sha:receipt_sha(&other.value["storedStock"]["entry"]["entrySha256"])?});
+                peer_stock_sha:receipt_sha(&other.value["storedStock"]["entry"]["entrySha256"])?,
+                group_keys_sha,group_entry_count:keys.len(),set_group_count,false_count});
         }
         Err(deny("COLLECTION_PAIR_NO_DISTINCT_PACKAGED_FALSE_PEER"))
     }
@@ -690,12 +715,15 @@ impl ProductSession{
         }
         // The existing scoped scanner/mint is the only physical authority.
         // Rebind at the Stage request, not a caller-provided span or flag.
-        let current=self.mint_product_collection_physical_pair(read,pair.target.definition_id,0,pair.target.item_id)?;
+        let current=self.mint_product_collection_physical_pair_for_peer(read,pair.target.definition_id,0,
+            pair.target.item_id,Some(pair.peer.item_id))?;
         let same_span=|a:Span,b:Span|a.begin==b.begin&&a.end==b.end;
         if current.target!=pair.target||current.peer!=pair.peer||
             !same_span(current.target_span,pair.target_span)||!same_span(current.peer_span,pair.peer_span)||
             current.group_sha!=pair.group_sha||current.map_sha!=pair.map_sha||
-            current.target_stock_sha!=pair.target_stock_sha||current.peer_stock_sha!=pair.peer_stock_sha{
+            current.target_stock_sha!=pair.target_stock_sha||current.peer_stock_sha!=pair.peer_stock_sha||
+            current.group_keys_sha!=pair.group_keys_sha||current.group_entry_count!=pair.group_entry_count||
+            current.set_group_count!=pair.set_group_count||current.false_count!=pair.false_count{
             return Err(deny("COLLECTION_PAIR_STAGE_READSET_CAS"));
         }
         let old=self.decoded.get(current.target_span.begin..current.target_span.end)
@@ -711,6 +739,57 @@ impl ProductSession{
         // perform its atomic Stage epoch/CAS under the same Session lock.
         let st=self.lock()?;validate_scope(self,&st,&read)?;
         Ok(current.target_span)
+    }
+}
+
+// ACT983/E2065: fixed normal-retail definition projection, reconstructed
+// from the exact Furniture/Set/CollectionSet/ActivityData/Trimming source
+// definitions independently of any player's save. The 27 sorted IDs digest
+// binds the complete effective key set (including the two Trimming entries).
+// This is one ordered ordinary item/peer scope, not the 33-candidate pack.
+#[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+const EFFECTIVE_GROUP_DEF:u32=2120000159;
+#[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+const EFFECTIVE_TARGET:u32=40004511;
+#[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+const EFFECTIVE_PEER:u32=40004668;
+#[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+const EFFECTIVE_GROUP_KEYS_SHA:&str="1226bc92f5c8c63e86eaa6aedfeca1b56a6e3ece86d574edb532cee595466127";
+
+#[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+impl ProductSession{
+    /// Core-only fixed source Stage. The pinned catalog is the normal-retail
+    /// definition provider, not an assertion of installed/live override
+    /// parity. Build declaration is immutable in the existing Session. No
+    /// caller pack, effective boolean, private receipt or arbitrary key set
+    /// can grant a target. Product ABI/route and genuine V2 remain separate.
+    #[allow(dead_code)]
+    pub(crate) fn stage_scoped_product_collection(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32,
+        old:bool,new:bool,expected_entry:[u8;32])->CoreResult<super::SemanticStageReceipt>{
+        if e.action!=super::WorkerAction::Stage||definition!=EFFECTIVE_GROUP_DEF||group!=0||
+            item!=EFFECTIVE_TARGET||old||!new{
+            return Err(deny("COLLECTION_FIXED_STAGE_SCOPE"));
+        }
+        let read=WorkerEnvelope{action:super::WorkerAction::ReadDomain,..e};
+        // Exact compiled pack, distinct externally declared Build, same
+        // worker-bound Session, canonical positive stock and unique physical
+        // membership are all checked by the reused mint. Require the actual
+        // E2065 ordered peer, never an arbitrary packaged false candidate.
+        let pair=self.mint_product_collection_physical_pair_for_peer(read,definition,group,item,Some(EFFECTIVE_PEER))?;
+        if pair.target.definition_id!=EFFECTIVE_GROUP_DEF||pair.peer.definition_id!=EFFECTIVE_GROUP_DEF||
+            pair.target.item_id!=EFFECTIVE_TARGET||pair.peer.item_id!=EFFECTIVE_PEER||
+            pair.set_group_count!=1||pair.group_entry_count!=27||pair.false_count!=3||
+            pair.group_keys_sha!=EFFECTIVE_GROUP_KEYS_SHA{
+            return Err(deny("COLLECTION_FIXED_EFFECTIVE_DEFINITION"));
+        }
+        // The pack itself pins both raw definitions, collection and group
+        // source records; ACT983 additionally proved the exact effective
+        // key-set reconciliation and affected subscriber boundary.
+        let span=self.recheck_product_collection_stage_pair(e,&pair,expected_entry)?;
+        // No new transaction ledger. The common commit rechecks Stage epoch,
+        // literal old token and full document, atomically increments the
+        // revision/generation and revokes indexed cursors.
+        self.commit_private_collection_bool(e,span)
     }
 }
 
@@ -849,6 +928,97 @@ mod product_collection_source_tests{
             assert!(s.recheck_product_collection_stage_pair(stage,&pair,entry).is_err());
         }
     }
+    // Definition-only synthetic fixture: IDs reconstructed from pinned
+    // game definitions (ACT983 source hashes), never copied from a Save.
+    #[cfg(feature="semantic-writer-dev")]
+    fn fixed_stage_doc()->Value{
+        let keys=[40001887u32,40001888,40002657,40002680,40002959,40004417,40004507,
+            40004508,40004509,40004510,40004511,40004512,40004518,40004520,40004521,
+            40004522,40004559,40004561,40004562,40004563,40004572,40004573,40004576,
+            40004580,40004668,160000205,160100139];
+        let mut items=serde_json::Map::new();
+        for id in keys{items.insert(id.to_string(),json!(id!=EFFECTIVE_TARGET&&id!=EFFECTIVE_PEER&&id!=40001887));}
+        json!({"GameInfo":{"Version":626},"World":{"Unrelated":[1,2,3]},"Player":{
+            "CollectionSets":[{"CollectionDefinitionID":EFFECTIVE_GROUP_DEF,"GroupData":[{"GroupIndex":0,
+                "State":"SetState_NotComplete","GroupsCollectionItems":items,"UnknownMarker":"preserve"}]}],
+            "ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":{
+                (EFFECTIVE_TARGET.to_string()):{"Amount":2},"40004668":{"Amount":1}}}}}})
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    #[test]
+    fn fixed_effective_collection_stage_dual_build_atomic_exact1(){
+        let d=fixed_stage_doc();let entry:[u8;32]=Sha256::digest(b"false").into();
+        for steam in [true,false]{
+            let s=pair_open(&d,steam);let read=env(&s);let e=WorkerEnvelope{action:WorkerAction::Stage,..read};
+            let before=s.receipt().unwrap();
+            let run=|s:&ProductSession,e:WorkerEnvelope|s.stage_scoped_product_collection(e,EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET,false,true,entry);
+            let r=run(&s,e).unwrap();
+            assert_eq!(r.operation_count,1);assert_eq!(r.exact_field_changed_count,1);
+            assert_eq!(r.revision,before.revision+1);assert_eq!(r.index_generation,before.index_generation+1);
+            assert!(r.semantic_changed&&r.applied);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+            assert!(run(&s,e).is_err());
+            assert_eq!(s.decoded.as_ref(),serde_json::to_vec(&d).unwrap().as_slice());
+            let current=|action|WorkerEnvelope{action,..env(&s)};
+            let undo=s.undo_typed_semantic_batch(current(WorkerAction::Stage)).unwrap();assert!(!undo.applied);
+            assert!(s.take_typed_semantic_decoded_once(current(WorkerAction::ExportEditedCopy)).is_err());
+            let redo=s.redo_typed_semantic_batch(current(WorkerAction::Stage)).unwrap();assert!(redo.applied);
+            let export=current(WorkerAction::ExportEditedCopy);
+            let out=s.take_typed_semantic_decoded_once(export).unwrap();
+            let mut expected=d.clone();expected["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"][EFFECTIVE_TARGET.to_string()]=json!(true);
+            assert_eq!(out,serde_json::to_vec(&expected).unwrap());
+            assert_eq!(expected["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"][EFFECTIVE_PEER.to_string()],false);
+            assert!(s.take_typed_semantic_decoded_once(export).is_err());
+        }
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    #[test]
+    fn fixed_effective_collection_stage_scope_and_cas_denials(){
+        let d=fixed_stage_doc();let entry:[u8;32]=Sha256::digest(b"false").into();
+        for steam in [true,false]{
+            let s=pair_open(&d,steam);let read=env(&s);let stage=WorkerEnvelope{action:WorkerAction::Stage,..read};
+            let before=s.receipt().unwrap();
+            let run=|s:&ProductSession,e:WorkerEnvelope|s.stage_scoped_product_collection(e,EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET,false,true,entry);
+            assert!(run(&s,read).is_err());
+            assert!(run(&s,WorkerEnvelope{expected_revision:1,..stage}).is_err());
+            assert!(run(&s,WorkerEnvelope{expected_index_generation:2,..stage}).is_err());
+            assert!(run(&pair_open(&d,steam),stage).is_err());
+            for (def,group,item,old,new,digest) in [
+                (EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET,false,true,[0;32]),
+                (EFFECTIVE_GROUP_DEF,0,EFFECTIVE_PEER,false,true,entry),
+                (EFFECTIVE_GROUP_DEF,0,40004510,false,true,entry),
+                (EFFECTIVE_GROUP_DEF,1,EFFECTIVE_TARGET,false,true,entry),
+                (2120000063,0,EFFECTIVE_TARGET,false,true,entry),
+                (EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET,true,true,entry),
+                (EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET,false,false,entry)
+            ]{assert!(s.stage_scoped_product_collection(stage,def,group,item,old,new,digest).is_err());}
+            for n in 0..11{
+                let mut q=d.clone();
+                let g=&mut q["Player"]["CollectionSets"][0]["GroupData"][0];
+                match n{
+                    0=>g["GroupsCollectionItems"][EFFECTIVE_TARGET.to_string()]=json!(true),
+                    1=>g["GroupsCollectionItems"][EFFECTIVE_PEER.to_string()]=json!(true),
+                    2=>g["GroupsCollectionItems"]["40001887"]=json!(true),
+                    3=>{g["GroupsCollectionItems"].as_object_mut().unwrap().remove("160000205");},
+                    4=>{g["GroupsCollectionItems"]["160000205"]=json!(true);g["GroupsCollectionItems"].as_object_mut().unwrap().remove("160100139");},
+                    5=>{g["GroupsCollectionItems"]["499999999"]=json!(true);g["GroupsCollectionItems"].as_object_mut().unwrap().remove("160000205");},
+                    6=>g["State"]=json!("SetState_Completed"),
+                    7=>q["Player"]["ListInventories"]["0"]["Inventory"][EFFECTIVE_PEER.to_string()]["Amount"]=json!(0),
+                    8=>q["Player"]["ListInventories"]["0"]["Inventory"][EFFECTIVE_TARGET.to_string()]["Amount"]=json!(0),
+                    9=>q["Player"]["CollectionSets"][0]["GroupData"].as_array_mut().unwrap().push(json!({"GroupIndex":1,"State":"SetState_NotComplete","GroupsCollectionItems":{"40009999":true}})),
+                    _=>q["Player"]["CollectionSets"].as_array_mut().unwrap().push(json!({"CollectionDefinitionID":2120000001,"GroupData":[{"GroupIndex":0,"State":"SetState_NotComplete","GroupsCollectionItems":{(EFFECTIVE_PEER.to_string()):false}}]}))
+                }
+                let t=pair_open(&q,steam);let original=t.receipt().unwrap();
+                assert!(run(&t,WorkerEnvelope{action:WorkerAction::Stage,..env(&t)}).is_err());
+                assert_eq!(t.receipt().unwrap(),original);
+            }
+            let mut unbound=pair_open(&d,steam);unbound.worker_bound=false;
+            assert!(run(&unbound,WorkerEnvelope{action:WorkerAction::Stage,..env(&unbound)}).is_err());
+            let mut unknown=pair_open(&d,steam);unknown.native_source_build.externally_attested=false;
+            assert!(run(&unknown,WorkerEnvelope{action:WorkerAction::Stage,..env(&unknown)}).is_err());
+            assert_eq!(s.receipt().unwrap(),before);s.close().unwrap();assert!(run(&s,stage).is_err());
+        }
+    }
+
     #[test]
     fn dual_build_physical_candidate_never_grants_authority(){
         for steam in [false,true]{let (s,d,i)=fixture(steam,1,false,false);let e=env(&s);
