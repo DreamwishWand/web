@@ -8,8 +8,19 @@ const keys=(r,k)=>r&&typeof r==='object'&&!Array.isArray(r)&&Object.keys(r).sort
 const uint=n=>Number.isSafeInteger(n)&&n>=0&&n<=0xffffffff;
 const kind=k=>({kind:k,ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false});
 const digest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
+// Exact existing DEV codec-only Reopen worker (PR1261 original blob).
+function freshReopen(ciphertext,expectedDecodedSha256){
+ return new Promise((resolve,reject)=>{
+  const w=new Worker(new URL('../../../dev/local-amount-codec-reopen.worker.mjs',import.meta.url),{type:'module'});
+  const timer=setTimeout(()=>{w.terminate();reject(Error('REOPEN_TIMEOUT'))},30000);
+  const finish=(ok)=>{clearTimeout(timer);w.terminate();resolve(ok)};
+  w.onerror=()=>finish(false);
+  w.onmessage=e=>finish(e.data?.freshWorkerReopenVerified===true&&e.data?.privatePayloadPosted===false);
+  w.postMessage({ciphertext:new Uint8Array(ciphertext),expectedDecodedSha256});
+ });
+}
 const STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
-export function createProductScopedAmountLocalAdapter({wasmFactory,discoverScopedTargets=async()=>[],freshCodecReopen,getDirectory}={}){
+export function createProductScopedAmountLocalAdapter({wasmFactory,discoverScopedTargets=async()=>[],freshCodecReopen=freshReopen,getDirectory}={}){
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof discoverScopedTargets!=='function')fail();
  const store=createLocalEncryptedCopyStore(getDirectory?{getDirectory}:{});
  const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:true,readDurableOriginalBackup:b=>store.durable(b)});
@@ -57,6 +68,8 @@ export function createProductScopedAmountLocalAdapter({wasmFactory,discoverScope
    if(!Array.isArray(rows)||rows.length>256)fail();
    const seen=new Set();targets=rows.map(r=>{
     const ui=cleanTarget(r),key=r.profile+':'+r.id+':'+r.selector;
+    const p=bridge.previewScopedAmount({profile:r.profile,id:r.id,selector:r.selector,newAmount:r.oldAmount-1});
+    if(p.oldAmount!==r.oldAmount||p.itemId!==r.itemId||p.writerAuthorized!==false)fail();
     if(seen.has(key))fail();seen.add(key);return {raw:Object.freeze({...r}),ui:Object.freeze(ui)};
    });
    phase='ready';return {targets:targets.map(t=>t.ui),rawDocumentExposed:false};

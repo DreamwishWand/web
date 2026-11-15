@@ -7,6 +7,9 @@ on:
       - 'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs'
       - 'tests/product-scoped-amount-transport.test.mjs'
       - 'tests/product-scoped-amount-actual.mjs'
+      - 'src/lib/ddv/core/save/local-encrypted-copy-store.mjs'
+      - 'src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs'
+      - 'tests/stage-f/scoped-product-opfs.mjs'
       - '.github/workflows/08web-scoped-amount-p1g-transport.yml'
 permissions:
   contents: read
@@ -40,7 +43,11 @@ jobs:
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-amount-tools
           mkdir -p /tmp/wand-scoped-amount-pkg
           /tmp/wand-scoped-amount-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-scoped-amount-pkg --target nodejs --no-typescript
-          WAND_SCOPED_WASM_MODULE=/tmp/wand-scoped-amount-pkg/ddv_save_core.js node tests/product-scoped-amount-actual.mjs
+          WAND_SCOPED_BROWSER_FIXTURE_DIR=tests/stage-f/fixtures WAND_SCOPED_WASM_MODULE=/tmp/wand-scoped-amount-pkg/ddv_save_core.js node tests/product-scoped-amount-actual.mjs
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-scoped-amount-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node tests/stage-f/generate-fixture.mjs
+          WAND_REQUIRE_SCOPED_OPFS=1 node tests/stage-f/chrome-smoke.mjs
       - name: Public Writer remains OFF
         run: |
           grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
