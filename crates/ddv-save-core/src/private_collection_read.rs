@@ -762,6 +762,15 @@ impl ProductSession{
         ->CoreResult<ProductCollectionPhysicalPair>{
         if e.action!=super::WorkerAction::ReadDomain||definition!=EFFECTIVE_GROUP_DEF||
             group!=0||item!=EFFECTIVE_TARGET{return Err(deny("COLLECTION_FIXED_STAGE_SCOPE"));}
+        {
+            // The immutable decoded original is not the staged view. Reject
+            // even the CURRENT post-Stage/Undo epoch rather than displaying
+            // the original false token as a new editable candidate.
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            if st.semantic.is_some()||st.revision!=0||st.generation!=1{
+                return Err(deny("COLLECTION_FIXED_FRESH_EPOCH"));
+            }
+        }
         let pair=self.mint_product_collection_physical_pair_for_peer(e,definition,group,item,Some(EFFECTIVE_PEER))?;
         if pair.target.definition_id!=EFFECTIVE_GROUP_DEF||pair.peer.definition_id!=EFFECTIVE_GROUP_DEF||
             pair.target.item_id!=EFFECTIVE_TARGET||pair.peer.item_id!=EFFECTIVE_PEER||
@@ -988,8 +997,10 @@ mod product_collection_source_tests{
             assert!(guard.toggle_scoped_edit(stage,false).is_err());
             let current=|r:&crate::SemanticStageReceipt,action|WorkerEnvelope{action,expected_revision:r.revision,
                 expected_index_generation:r.index_generation,..read};
+            assert!(guard.preview_fixed_collection(current(&r,WorkerAction::ReadDomain),EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET).is_err());
             let undo=guard.toggle_scoped_edit(current(&r,WorkerAction::Stage),false).unwrap();
             assert!(!undo.applied);
+            assert!(guard.preview_fixed_collection(current(&undo,WorkerAction::ReadDomain),EFFECTIVE_GROUP_DEF,0,EFFECTIVE_TARGET).is_err());
             assert!(guard.take_scoped_edit(current(&undo,WorkerAction::ExportEditedCopy)).is_err());
             let redo=guard.toggle_scoped_edit(current(&undo,WorkerAction::Stage),true).unwrap();
             let export=current(&redo,WorkerAction::ExportEditedCopy);
