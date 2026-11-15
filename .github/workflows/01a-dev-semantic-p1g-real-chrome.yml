@@ -1,0 +1,63 @@
+name: 01A P0 DEV-only real Rust WASM semantic P1G Codec Chrome (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/wasm_worker.rs'
+      - 'crates/ddv-save-core/src/worker_session.rs'
+      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
+      - 'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs'
+      - 'tests/stage-i/**'
+      - '.github/workflows/01a-dev-semantic-p1g-real-chrome.yml'
+permissions:
+  contents: read
+jobs:
+  semantic-p1g-rust-wasm-real-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-01a-dev-semantic
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: JavaScript syntax and no product UI route
+        run: |
+          node --check src/lib/ddv/core/save/product-wasm-read-owner.mjs
+          node --check src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
+          node --check tests/stage-i/worker.mjs
+          node --check tests/stage-i/reopen-worker.mjs
+          node --check tests/stage-i/chrome-smoke.mjs
+          ! git ls-files | grep -E '\.p1g$|STEAM_SAVE_OWNER_PRIVATE'
+      - name: Existing Rust DEV-only semantic core positive and negative tests
+        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --test semantic_inventory_writer_dev
+      - name: Compile exact DEV Rust real WASM with excluded production feature
+        run: |
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+      - name: Generate genuine wasm-bindgen 0.2.105 JS plus WASM in ignored fixtures
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagei-bindgen
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-stagei-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          grep -q 'dev_stage_typed_amounts' tests/stage-e/pkg/ddv_save_core.js
+      - name: Generate ONLY public synthetic Steam626 fixture
+        run: node tests/stage-i/generate-fixture.mjs
+      - name: Real Chrome module Worker P1G Codec Rust semantic/backup/new edited-copy
+        run: node tests/stage-i/chrome-smoke.mjs
+      - name: Public default WASM remains writer ABI OFF
+        run: |
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          mkdir -p tests/stage-i/public-pkg
+          /tmp/wand-stagei-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-i/public-pkg --target web --no-typescript
+          ! grep -q 'dev_stage_typed_amounts' tests/stage-i/public-pkg/ddv_save_core.js
+          test -z "$(git ls-files tests/stage-e/pkg tests/stage-i/fixtures tests/stage-i/public-pkg)"
+          echo 'DEV_SEMANTIC_WASM_PRIVATE_ONLY_PAGES_WRITER_OFF'

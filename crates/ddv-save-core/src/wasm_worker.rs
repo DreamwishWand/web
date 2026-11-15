@@ -28,6 +28,11 @@ pub struct WorkerWasmSource {
     entropy:[u8;32],
     session:Option<WorkerSessionGuard>,
     closed:bool,
+    // DEV feature is excluded from the signed public Pages Worker WASM.
+    #[cfg(feature="semantic-writer-dev")]
+    semantic_export:Option<Vec<u8>>,
+    #[cfg(feature="semantic-writer-dev")]
+    semantic_export_offset:usize,
 }
 #[wasm_bindgen]
 impl WorkerWasmSource {
@@ -50,7 +55,11 @@ impl WorkerWasmSource {
         let mut seed=[0_u8;32];seed.copy_from_slice(entropy);
         Ok(Self{buffer:Vec::new(),
             build:BuildIdentity{platform,build_kind,build_id,schema:schema.into(),externally_attested},
-            entropy:seed,session:None,closed:false})
+            entropy:seed,session:None,closed:false,
+            #[cfg(feature="semantic-writer-dev")]
+            semantic_export:None,
+            #[cfg(feature="semantic-writer-dev")]
+            semantic_export_offset:0})
     }
     /// No JS-owned second session, raw Save, UI readset, or unbounded transferable.
     pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{
@@ -281,8 +290,190 @@ impl WorkerWasmSource {
         }
         Ok(out)
     }
+
+    /// DEV-only: no UI message route or product-Writer feature. JSON is a
+    /// bounded *typed command envelope*, never arbitrary JSON patch/path.
+    /// Existing Rust ProductSession resolves every target from saved bytes.
+    #[cfg(feature="semantic-writer-dev")]
+    pub fn dev_stage_typed_amounts(&mut self,commands_json:&str,
+        session_id:&str,revision:u64,index_generation:u64,
+        decoded_sha256:&str)->Result<String,JsValue>{
+        if self.semantic_export.is_some()||commands_json.is_empty()||
+           commands_json.len()>8192 {
+            return Err(err("DEV_SEMANTIC_COMMAND_BOUNDS"));
+        }
+        // Reuse the accepted streaming duplicate-key validator, including
+        // escaped-equivalent keys, BEFORE serde_json::Value can collapse keys.
+        let framed=format!(
+            "{{\"GameInfo\":{{\"Version\":626}},\"Player\":{{\"devCommands\":{}}},\"World\":{{}}}}",
+            commands_json);
+        crate::strict_document::validate_entire_document(framed.as_bytes(),626)
+            .map_err(|_|err("DEV_SEMANTIC_COMMAND_JSON_DUPLICATE_OR_INVALID"))?;
+        let raw:serde_json::Value=serde_json::from_str(commands_json)
+            .map_err(|_|err("DEV_SEMANTIC_COMMAND_JSON_INVALID"))?;
+        let arr=raw.as_array().ok_or(err("DEV_SEMANTIC_COMMAND_ARRAY_REQUIRED"))?;
+        if arr.is_empty()||arr.len()>16{return Err(err("DEV_SEMANTIC_BATCH_BOUNDS"));}
+        let mut commands=Vec::with_capacity(arr.len());
+        for v in arr {
+            let map=v.as_object().ok_or(err("DEV_SEMANTIC_COMMAND_OBJECT_REQUIRED"))?;
+            let kind=map.get("kind").and_then(|v|v.as_str())
+                .ok_or(err("DEV_SEMANTIC_KIND_REQUIRED"))?;
+            let number=|name:&str|->Result<u32,JsValue>{
+                let n=map.get(name).and_then(|v|v.as_u64())
+                    .ok_or(err("DEV_SEMANTIC_UINT_REQUIRED"))?;
+                u32::try_from(n).map_err(|_|err("DEV_SEMANTIC_UINT_BOUNDS"))
+            };
+            let old=number("expectedOldAmount")?;
+            let new=number("newAmount")?;
+            match kind {
+                "InventoryExistingAmountDecrease"=>{
+                    if map.len()!=6||
+                       !["kind","inventoryId","canonicalItemId",
+                         "compatibleItemType","expectedOldAmount","newAmount"]
+                         .iter().all(|k|map.contains_key(*k)){
+                        return Err(err("DEV_SEMANTIC_INVENTORY_KEYS_DENIED"));
+                    }
+                    let value=map.get("compatibleItemType").and_then(|v|v.as_str())
+                        .ok_or(err("DEV_SEMANTIC_COMPATIBLE_TYPE_REQUIRED"))?;
+                    if value.len()>64{return Err(err("DEV_SEMANTIC_COMPATIBLE_TYPE_BOUNDS"));}
+                    commands.push(crate::TypedSemanticCommand::InventoryExistingAmountDecrease{
+                        inventory_id:number("inventoryId")?,
+                        canonical_item_id:number("canonicalItemId")?,
+                        expected_compatible_item_type:value.to_owned(),
+                        expected_old_amount:old,new_amount:new
+                    });
+                },
+                "ChestExistingSlotAmountDecrease"=>{
+                    if map.len()!=6||
+                       !["kind","containerId","slotIndex","expectedItemId",
+                         "expectedOldAmount","newAmount"]
+                         .iter().all(|k|map.contains_key(*k)){
+                        return Err(err("DEV_SEMANTIC_CHEST_KEYS_DENIED"));
+                    }
+                    commands.push(crate::TypedSemanticCommand::ChestExistingSlotAmountDecrease{
+                        container_id:number("containerId")?,
+                        slot_index:usize::try_from(number("slotIndex")?)
+                            .map_err(|_|err("DEV_SEMANTIC_SLOT_BOUNDS"))?,
+                        expected_item_id:number("expectedItemId")?,
+                        expected_old_amount:old,new_amount:new
+                    });
+                },
+                _=>return Err(err("DEV_SEMANTIC_OPERATION_NOT_ACCEPTED"))
+            }
+        }
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let scope=WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,
+            session_id:from_hex(session_id)?,
+            expected_revision:revision,
+            expected_index_generation:index_generation,
+            expected_decoded_sha256:from_hex(decoded_sha256)?,
+            action:WorkerAction::Stage
+        };
+        let r=guard.stage_dev_semantic(scope,&commands).map_err(|e|err(e.0))?;
+        Ok(Self::dev_semantic_receipt(&r))
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    fn dev_semantic_receipt(r:&crate::SemanticStageReceipt)->String{
+        serde_json::json!({
+            "contract":"wand.worker.dev-semantic-amount@1",
+            "sessionId":hex(&r.session_id),
+            "revision":r.revision,
+            "indexGeneration":r.index_generation,
+            "originalDecodedSha256":hex(&r.original_decoded_sha256),
+            "stagedDecodedSha256":hex(&r.staged_decoded_sha256),
+            "operationCount":r.operation_count,
+            "applied":r.applied,
+            "semanticChanged":r.semantic_changed,
+            "nativeV3Verified":false,
+            "writerAuthorized":false,
+            "originalOverwriteAuthorized":false
+        }).to_string()
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    pub fn dev_undo_typed_amounts(&mut self,
+        session_id:&str,revision:u64,index_generation:u64,
+        decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let scope=WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,
+            session_id:from_hex(session_id)?,
+            expected_revision:revision,expected_index_generation:index_generation,
+            expected_decoded_sha256:from_hex(decoded_sha256)?,
+            action:WorkerAction::Stage
+        };
+        let r=guard.undo_dev_semantic(scope).map_err(|e|err(e.0))?;
+        Ok(Self::dev_semantic_receipt(&r))
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    pub fn dev_redo_typed_amounts(&mut self,
+        session_id:&str,revision:u64,index_generation:u64,
+        decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let scope=WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,
+            session_id:from_hex(session_id)?,
+            expected_revision:revision,expected_index_generation:index_generation,
+            expected_decoded_sha256:from_hex(decoded_sha256)?,
+            action:WorkerAction::Stage
+        };
+        let r=guard.redo_dev_semantic(scope).map_err(|e|err(e.0))?;
+        Ok(Self::dev_semantic_receipt(&r))
+    }
+    /// One-time DEV export from the existing Rust ledger. The returned
+    /// plaintext never goes to the UI; the trusted Worker feeds the existing
+    /// official P1G Codec. Only <=1MiB chunks cross the Rust Worker ABI.
+    #[cfg(feature="semantic-writer-dev")]
+    pub fn dev_begin_edited_copy(&mut self,
+        session_id:&str,revision:u64,index_generation:u64,
+        decoded_sha256:&str)->Result<String,JsValue>{
+        if self.semantic_export.is_some(){return Err(err("DEV_SEMANTIC_EXPORT_ALREADY_STARTED"));}
+        let guard=self.session.take().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let scope=WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,
+            session_id:from_hex(session_id)?,
+            expected_revision:revision,expected_index_generation:index_generation,
+            expected_decoded_sha256:from_hex(decoded_sha256)?,
+            action:WorkerAction::ExportEditedCopy
+        };
+        let mut bytes=guard.take_dev_edited_once(scope).map_err(|e|err(e.0))?;
+        drop(guard); // no second session; Rust original source now closed
+        if bytes.is_empty()||bytes.len()>MAX_WORKER_DOCUMENT {
+            bytes.fill(0);
+            return Err(err("DEV_SEMANTIC_EXPORT_BOUNDS"));
+        }
+        use sha2::Digest;
+        let digest:[u8;32]=sha2::Sha256::digest(&bytes).into();
+        self.semantic_export_offset=0;
+        let length=bytes.len();
+        self.semantic_export=Some(bytes);
+        Ok(serde_json::json!({
+            "contract":"wand.worker.dev-semantic-export@1",
+            "totalBytes":length,"stagedDecodedSha256":hex(&digest),
+            "writerAuthorized":false,"originalOverwriteAuthorized":false
+        }).to_string())
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    pub fn dev_take_edited_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+        let bytes=self.semantic_export.as_mut()
+            .ok_or(err("DEV_SEMANTIC_EXPORT_NOT_STARTED_OR_CONSUMED"))?;
+        let start=self.semantic_export_offset;
+        if start>=bytes.len(){return Err(err("DEV_SEMANTIC_EXPORT_CONSUMED"));}
+        let end=start.saturating_add(MAX_CHUNK).min(bytes.len());
+        let chunk=bytes[start..end].to_vec();
+        bytes[start..end].fill(0);
+        self.semantic_export_offset=end;
+        if end==bytes.len(){
+            if let Some(mut finished)=self.semantic_export.take(){finished.fill(0);}
+            self.semantic_export_offset=0;
+        }
+        Ok(chunk)
+    }
     pub fn close(&mut self)->Result<(),JsValue>{
         self.closed=true;self.buffer.clear();self.entropy.fill(0);
+        #[cfg(feature="semantic-writer-dev")]
+        {if let Some(mut exported)=self.semantic_export.take(){exported.fill(0);}
+         self.semantic_export_offset=0;}
         if let Some(mut session)=self.session.take(){
             session.close().map_err(|e|err(e.0))?;
         }
@@ -298,6 +489,9 @@ impl Drop for WorkerWasmSource {
         self.buffer.fill(0);
         self.buffer.clear();
         self.entropy.fill(0);
+        #[cfg(feature="semantic-writer-dev")]
+        {if let Some(mut exported)=self.semantic_export.take(){exported.fill(0);}
+         self.semantic_export_offset=0;}
         if let Some(mut guard)=self.session.take() {
             let _=guard.close();
         }

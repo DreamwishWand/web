@@ -53,6 +53,36 @@ impl WorkerSessionGuard {
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         self.session.read_saved_diffgrids_page(scope,cursor)
     }
+    // DEV/OFF only. Delegate to the SAME Rust ProductSession; this guard
+    // never creates a second Session, decoder or writer ledger.
+    #[cfg(feature="semantic-writer-dev")]
+    pub(crate) fn stage_dev_semantic(
+        &self, scope:WorkerEnvelope, commands:&[crate::TypedSemanticCommand]
+    )->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.stage_typed_semantic_batch(scope,commands)
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    pub(crate) fn undo_dev_semantic(
+        &self,scope:WorkerEnvelope
+    )->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.undo_typed_semantic_batch(scope)
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    pub(crate) fn redo_dev_semantic(
+        &self,scope:WorkerEnvelope
+    )->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.redo_typed_semantic_batch(scope)
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    pub(crate) fn take_dev_edited_once(
+        &self,scope:WorkerEnvelope
+    )->CoreResult<Vec<u8>>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.take_typed_semantic_decoded_once(scope)
+    }
     pub(crate) fn close(&mut self) -> CoreResult<()> {
         if self.closed { return Err(CoreError("WORKER_SESSION_ALREADY_CLOSED")); }
         self.closed = true;

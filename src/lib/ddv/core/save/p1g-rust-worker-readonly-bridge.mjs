@@ -39,17 +39,32 @@ async function* decodedUtf8Chunks(text){
     offset=end;
   }
 }
-export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
+export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{
+  allowDevSemanticWriter=false,verifyDurableBackupDev=null
+}={}){
   // Constructor itself enforces Worker-only (document must be absent).
-  const rust=createProductWasmReadOwner(wasmFactory);
+  if(typeof allowDevSemanticWriter!=='boolean'||
+    (allowDevSemanticWriter&&typeof verifyDurableBackupDev!=='function'))
+    fail('P1G_WORKER_DEV_TRUSTED_BACKUP_REQUIRED');
+  const rust=createProductWasmReadOwner(wasmFactory,{allowDevSemanticWriter});
+  let devOriginal=null;
+  const clearDev=()=>{
+    if(devOriginal?.bytes)devOriginal.bytes.fill(0);
+    devOriginal=null;
+  };
+  const hex=bytes=>[...new Uint8Array(bytes)]
+    .map(v=>v.toString(16).padStart(2,'0')).join('');
+  const hash=async bytes=>hex(await crypto.subtle.digest('SHA-256',bytes));
   let epoch=0;
   const close=()=>{
     epoch++;
+    clearDev();
     return rust.close();
   };
   const openEncrypted=async args=>{
     // A is synchronously invalidated before validating/decoding B.
     const token=++epoch;
+    clearDev();
     rust.close();
     if(!exact(args,'build,encryptedBytes')||
        !(args.encryptedBytes instanceof Uint8Array)||
@@ -82,6 +97,20 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
          close();
          fail('P1G_WORKER_RUST_GATE_VIOLATION');
       }
+      if(allowDevSemanticWriter){
+        const initialDecodedSha=await hash(new TextEncoder().encode(decoded.jsonText));
+        if(initialDecodedSha!==receipt.decodedSha256)
+          fail('P1G_WORKER_DEV_INITIAL_DECODED_HASH_MISMATCH');
+        devOriginal={
+          bytes:new Uint8Array(isolated),
+          encryptedSha256:await hash(isolated),
+          encryptedSizeBytes:isolated.length,
+          codecMetadata:decoded.metadata,
+          originalDecodedSha256:receipt.decodedSha256,
+          token
+        };
+        if(token!==epoch){clearDev();fail('P1G_WORKER_DEV_OPEN_REVOKED');}
+      }
       return Object.freeze({
         ...receipt,
         decodedByExistingP1gCodec:true,
@@ -98,6 +127,73 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
       isolated.fill(0); // never zero the caller's original bytes
     }
   };
+
+  // The trusted local DEV executor binds durable original backup verification.
+  // UI postMessage never reaches these methods. Export produces ONLY bytes
+  // for a separately named file; it cannot replace the original.
+  const devSource=()=>{
+    if(!allowDevSemanticWriter||!devOriginal||devOriginal.token!==epoch)
+      fail('P1G_WORKER_DEV_SESSION_OFF');
+    return devOriginal;
+  };
+  const devStageTypedAmounts=(scope,commands)=>{
+    devSource();return rust.devStageTypedAmounts(scope,commands);
+  };
+  const devUndoTypedAmounts=scope=>{
+    devSource();return rust.devUndoTypedAmounts(scope);
+  };
+  const devRedoTypedAmounts=scope=>{
+    devSource();return rust.devRedoTypedAmounts(scope);
+  };
+  const devCreateEncodedEditedOnce=async scope=>{
+    const original=devSource();
+    const token=epoch;
+    // The caller must provide a trusted Worker-local backup persister which
+    // uses create-new, fsync/readback and cryptographic SHA+Size. Merely
+    // supplying a UI boolean or pathname is not accepted here.
+    let receipt;
+    try{
+      receipt=await verifyDurableBackupDev({
+        originalBytes:new Uint8Array(original.bytes),
+        originalEncryptedSha256:original.encryptedSha256,
+        originalEncryptedSizeBytes:original.encryptedSizeBytes
+      });
+    }catch{fail('P1G_WORKER_DEV_BACKUP_REJECTED')}
+    if(epoch!==token)fail('P1G_WORKER_DEV_BACKUP_STALE');
+    if(!receipt||receipt.backupReadbackVerified!==true||
+       receipt.sha256!==original.encryptedSha256||
+       receipt.sizeBytes!==original.encryptedSizeBytes||
+       receipt.editedCopyWillUseDifferentName!==true)
+      fail('P1G_WORKER_DEV_BACKUP_NOT_CONFIRMED');
+    const edited=rust.devTakeDecodedEditedOnce(scope);
+    if(epoch!==token)fail('P1G_WORKER_DEV_EXPORT_STALE');
+    const decodedHash=await hash(new TextEncoder().encode(edited.jsonText));
+    if(decodedHash!==edited.stagedDecodedSha256||
+       decodedHash===original.originalDecodedSha256)
+      fail('P1G_WORKER_DEV_RUST_SHA_MISMATCH');
+    const ciphertext=await p1gPackagedProfileCodec.createEncodedProfile(
+      edited.jsonText,original.codecMetadata);
+    const reopened=await p1gPackagedProfileCodec.loadProfile(ciphertext);
+    if(reopened.jsonText!==edited.jsonText||
+       await hash(new TextEncoder().encode(reopened.jsonText))!==decodedHash)
+      fail('P1G_WORKER_DEV_CODEC_EXACT_REOPEN_FAILED');
+    if(epoch!==token)fail('P1G_WORKER_DEV_EXPORT_STALE');
+    const result=Object.freeze({
+      contract:'wand.dev.p1g.typed-edited-copy@1',
+      editedCiphertext:ciphertext,
+      editedSha256:await hash(ciphertext),
+      editedSizeBytes:ciphertext.length,
+      originalSha256:original.encryptedSha256,
+      stagedDecodedSha256:decodedHash,
+      writerAuthorized:false,nativeV3Verified:false,
+      originalOverwriteAuthorized:false,
+      // Same-Worker Codec self-check only. Independent PROCESS evidence
+      // remains a separate 05 QR-L operation-specific acceptance gate.
+      independentProcessReopenVerified:false
+    });
+    clearDev();
+    return result;
+  };
   return Object.freeze({
     openEncrypted,close,
     readCoreVersion:scope=>rust.readCoreVersion(scope),
@@ -107,6 +203,10 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
     issueSavedDiffGridsCursor:scope=>rust.issueSavedDiffGridsCursor(scope),
     readSavedDiffGridsPage:(scope,cursor)=>rust.readSavedDiffGridsPage(scope,cursor),
     getReceipt:()=>rust.getReceipt(),
+    ...(allowDevSemanticWriter?{
+      devStageTypedAmounts,devUndoTypedAmounts,devRedoTypedAmounts,
+      devCreateEncodedEditedOnce
+    }:{}),
     getCapabilities:()=>Object.freeze({
       ...rust.getCapabilities(),
       p1gWorkerReadOnlyBridge:true,
