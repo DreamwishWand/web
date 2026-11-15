@@ -26,8 +26,8 @@ jobs:
       - name: Exact fixed source and independent synthetic harness
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = b36dc08c738b355d6ddddff18b894c739b7e90f8
-          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/qa-qrw-pr1294-transport.yml'
+          git merge-base --is-ancestor b36dc08c738b355d6ddddff18b894c739b7e90f8 HEAD
+          test "$(git diff --name-only b36dc08c738b355d6ddddff18b894c739b7e90f8 HEAD)" = '.github/workflows/qa-qrw-pr1294-transport.yml'
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 18f49ff5e1f88d5229a8c1fb39b8be9c98871ec0
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 2239860f1e3f1096131a7c3c068e5ffe30a89711
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = ec1d826cb05017b0d2014629315a98c2494cf401
@@ -84,7 +84,7 @@ jobs:
            console.log('QRW_ACT958_ACTUAL_SCOPED_TRANSPORT_PASS',JSON.stringify({profile:sel.profile,positives:1,negatives:neg,providerReads:reads,independentSyntheticProcessReopen:true,originalInvariant:true,writer:false}));
            }finally{await rm(dir,{recursive:true,force:true})}
           }
-                    NODE
+          NODE
           node --check tests/.qrw1294-independent.mjs
       - name: Build opt-in ACT916 generated WASM only (no product artifact or Save)
         run: |
