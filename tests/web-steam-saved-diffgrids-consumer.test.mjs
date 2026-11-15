@@ -182,3 +182,70 @@ test('original backup filename preserves safe ASCII basename and distinct suffix
  assert.equal(originalBackupFileName('a/b\\c:\n名.p1g'),'a_b_c___.p1g.original-backup.p1g');
  assert.doesNotMatch(originalBackupFileName('a/b\\c:\n名.p1g'),/[\/\\:\n]/);
 });
+
+function controlledReader(){
+ let w;const messages=[],pending=new Map(),states=[];
+ const client=createSavedDiffGridsUiClient(()=>w={
+  postMessage(m){messages.push(m);pending.set(m.requestId,m)},
+  terminate(){this.terminated=true}
+ });
+ client.start(s=>states.push(s));w.onmessage({data:{kind:'DIFFGRIDS_RUNTIME_READY',ready:true,writerAuthorized:false}});
+ const take=kind=>{const m=[...pending.values()].find(x=>x.kind===kind);assert.ok(m,kind);pending.delete(m.requestId);return m};
+ const reply=(m,summary)=>w.onmessage({data:{requestId:m.requestId,ok:true,summary}});
+ const deny=(m,error)=>w.onmessage({data:{requestId:m.requestId,ok:false,error}});
+ return {client,w,messages,states,take,reply,deny};
+}
+const OPEN='OPEN_LOCAL_STORED_DIFFGRIDS',CLOSE='CLOSE_LOCAL_STORED_DIFFGRIDS';
+const closeAck={closed:true,writerAuthorized:false};
+async function openedReader(c){
+ const p=c.client.open(encrypted,sha,true);await flush();c.reply(c.take(OPEN),safeOpen());await p;
+}
+test('failed or forged Close acknowledgement destroys old Worker and denies subsequent file OPEN',async()=>{
+ for(const mode of ['deny','missing','authority','extra','post-throw']){
+  const c=controlledReader();await openedReader(c);
+  if(mode==='post-throw')c.w.postMessage=()=>{throw Error('POST_FAILED')};
+  const p=c.client.close(),denied=assert.rejects(p,/FAILED_CLOSED/);
+  if(mode!=='post-throw'){
+   const m=c.take(CLOSE);
+   if(mode==='deny')c.deny(m,'LOCAL_DIFFGRIDS_STALE_SELECTION');
+   else c.reply(m,mode==='missing'?{}:mode==='authority'?{closed:true,writerAuthorized:true}:{...closeAck,sessionId:'not-for-ui'});
+  }
+  await denied;assert.equal(c.w.terminated,true);assert.equal(c.client.getState().ready,false);
+  assert.equal(c.client.getState().hasSession,false);assert.equal(c.states.at(-1).ready,false);
+  const before=c.messages.length;await assert.rejects(c.client.open(encrypted,sha,true),/FAILED_CLOSED/);
+  assert.equal(c.messages.length,before);
+  c.w.onmessage({data:{kind:'DIFFGRIDS_RUNTIME_READY',ready:true,writerAuthorized:false}});
+  assert.equal(c.client.getState().ready,false);c.client.dispose();
+ }
+});
+test('concurrent OPENs share one Close barrier; latest selection alone may dispatch',async()=>{
+ const c=controlledReader();await openedReader(c);
+ const a=c.client.open(encrypted,sha,true),aDenied=assert.rejects(a,/FAILED_CLOSED/);
+ const b=c.client.open(encrypted,sha,true);await flush();
+ assert.equal(c.messages.filter(m=>m.kind===CLOSE).length,1);
+ assert.equal(c.messages.filter(m=>m.kind===OPEN).length,1);
+ c.reply(c.take(CLOSE),closeAck);await aDenied;await flush();
+ const latest=c.take(OPEN);c.reply(latest,{...safeOpen(),selection:2});await b;
+ assert.equal(c.messages.filter(m=>m.kind===OPEN).length,2);
+ assert.equal(c.client.getState().hasSession,true);c.client.dispose();
+});
+test('explicit Close during pending cleanup invalidates OPEN without a second Close post',async()=>{
+ const c=controlledReader();await openedReader(c);
+ const opening=c.client.open(encrypted,sha,true),denied=assert.rejects(opening,/FAILED_CLOSED/);
+ const closing=c.client.close();await flush();
+ assert.equal(c.messages.filter(m=>m.kind===CLOSE).length,1);
+ c.reply(c.take(CLOSE),closeAck);await Promise.all([denied,closing]);await flush();
+ assert.equal(c.messages.filter(m=>m.kind===OPEN).length,1);assert.equal(c.client.getState().hasSession,false);
+ c.client.dispose();
+});
+test('exact current Worker OPEN_FAILED_CLOSED permits manual retry; ambiguous OPEN success requires verified cleanup',async()=>{
+ const c=controlledReader();const a=c.client.open(encrypted,sha,true),denied=assert.rejects(a,/FAILED_CLOSED/);
+ await flush();c.deny(c.take(OPEN),'LOCAL_DIFFGRIDS_OPEN_FAILED_CLOSED');await denied;
+ assert.equal(c.client.getState().ready,true);assert.equal(c.messages.filter(m=>m.kind===CLOSE).length,0);
+ const b=c.client.open(encrypted,sha,true);await flush();c.reply(c.take(OPEN),safeOpen());await b;
+ const x=c.client.close();c.reply(c.take(CLOSE),closeAck);await x;
+ const d=c.client.open(encrypted,sha,true),bad=assert.rejects(d,/FAILED_CLOSED/);
+ await flush();c.reply(c.take(OPEN),{...safeOpen(),writerAuthorized:true});await flush();
+ c.deny(c.take(CLOSE),'LOCAL_DIFFGRIDS_STALE_SELECTION');await bad;
+ assert.equal(c.w.terminated,true);assert.equal(c.client.getState().ready,false);c.client.dispose();
+});
