@@ -1090,7 +1090,8 @@ mod product_collection_source_tests{
             let changed=locs.iter().filter(|p|{let mut x=raw.clone();x.splice(**p..**p+5,b"true".iter().copied());x==out}).count();
             assert_eq!(changed,1);
             assert!(s.take_typed_semantic_decoded_once(export).is_err());neg+=1;
-            assert!(s.redo_typed_semantic_batch(current(WorkerAction::Stage)).is_err());neg+=1;
+            assert!(s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..export}).is_err());neg+=1;
+            assert!(s.receipt().is_err());
             pos+=1;
             for n in 0..8{
                 let mut x=d.clone();
