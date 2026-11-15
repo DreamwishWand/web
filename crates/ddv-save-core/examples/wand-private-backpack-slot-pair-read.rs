@@ -6,7 +6,7 @@
 mod local {
     use ddv_save_core::{BuildIdentity,BuildKind,Platform,ProductSession,WorkerAction,WorkerEnvelope,PRODUCT_WORKER_CONTRACT};
     use sha2::{Digest,Sha256};
-    use std::{env,fs::{self,File,OpenOptions},io::{self,Read,Write},path::{Path,PathBuf}};
+    use std::{env,fs::File,io::{self,Read,Write}};
     const EXACT:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
     const MAX:u64=256*1024*1024;
     fn fail(code:&str)->!{eprintln!("LOCAL_BACKPACK_PAIR_READ_DENIED:{code}");std::process::exit(12)}
@@ -18,36 +18,41 @@ mod local {
         h
     }
     fn id(s:&str,allow_zero:bool)->u32{let v=s.parse::<u32>().unwrap_or_else(|_|fail("SELECTOR_ID"));if (!allow_zero&&v==0)||v.to_string()!=s{fail("SELECTOR_ID")}v}
-struct PinnedPrivateOutput{path:PathBuf,_dir:File}
+// Fixed inherited anonymous pipe, never a caller-provided output path.
+// The authorized Private Lab parent owns the reader and all persistence.
+// No direct files, named FIFO, socket, stdout/stderr, or stdin alias.
 #[cfg(target_os="linux")]
-fn output_path(raw:&str)->PinnedPrivateOutput{
-    use std::{fs,path::{Path,PathBuf},os::unix::{fs::{MetadataExt,PermissionsExt},io::AsRawFd}};
-    let p=Path::new(raw);
-    if !p.is_absolute()||p.file_name().is_none(){fail("PRIVATE_OUTPUT_ABSOLUTE_REQUIRED")}
-    let real=fs::canonicalize(p.parent().unwrap_or_else(||fail("PRIVATE_OUTPUT_PARENT")))
-        .unwrap_or_else(|_|fail("PRIVATE_OUTPUT_PARENT"));
-    let meta=fs::metadata(&real).unwrap_or_else(|_|fail("PRIVATE_OUTPUT_PARENT"));
-    if !meta.is_dir()||meta.permissions().mode()&0o077!=0{fail("PRIVATE_OUTPUT_DIRECTORY_PERMISSIONS")}
-    let dir=fs::File::open(&real).unwrap_or_else(|_|fail("PRIVATE_OUTPUT_PARENT_OPEN"));
-    let actual=dir.metadata().unwrap_or_else(|_|fail("PRIVATE_OUTPUT_PARENT"));
-    if !actual.is_dir()||actual.dev()!=meta.dev()||actual.ino()!=meta.ino()||
-       actual.permissions().mode()&0o077!=0{fail("PRIVATE_OUTPUT_DIRECTORY_CHANGED")}
-    let anchor=PathBuf::from(format!("/proc/self/fd/{}",dir.as_raw_fd()));
-    if fs::read_link(&anchor).ok().as_ref()!=Some(&real){fail("PRIVATE_OUTPUT_DIRECTORY_CHANGED")}
-    let out=anchor.join(p.file_name().unwrap());
-    if fs::symlink_metadata(&out).is_ok(){fail("PRIVATE_OUTPUT_ALREADY_EXISTS")}
-    PinnedPrivateOutput{path:out,_dir:dir}
+fn private_pipe(fd:i32)->Result<File,&'static str>{
+    use std::{fs,os::unix::{fs::{FileTypeExt,MetadataExt},io::FromRawFd}};
+    let p=format!("/proc/self/fd/{fd}");
+    let link=fs::read_link(&p).map_err(|_|"PRIVATE_RECEIPT_FD_MISSING")?;
+    let m=fs::metadata(&p).map_err(|_|"PRIVATE_RECEIPT_FD_MISSING")?;
+    if !m.file_type().is_fifo()||link.to_str()!=Some(&format!("pipe:[{}]",m.ino())){
+        return Err("PRIVATE_RECEIPT_ANONYMOUS_PIPE_REQUIRED")
+    }
+    for i in 0..3{
+        if let Ok(other)=fs::metadata(format!("/proc/self/fd/{i}")){
+            if other.dev()==m.dev()&&other.ino()==m.ino(){return Err("PRIVATE_RECEIPT_STDIO_ALIAS")}
+        }
+    }
+    let info=fs::read_to_string(format!("/proc/self/fdinfo/{fd}")).map_err(|_|"PRIVATE_RECEIPT_FD_FLAGS")?;
+    let flags=info.lines().find_map(|l|l.strip_prefix("flags:")).and_then(|x|u32::from_str_radix(x.trim(),8).ok()).ok_or("PRIVATE_RECEIPT_FD_FLAGS")?;
+    if flags&3!=1{return Err("PRIVATE_RECEIPT_WRITE_ONLY_REQUIRED")}
+    // Single-threaded example, descriptor inherited from verified parent.
+    // No caller-controlled open/create/rename; ownership transfers once.
+    Ok(unsafe{File::from_raw_fd(fd)})
 }
 #[cfg(not(target_os="linux"))]
-fn output_path(_raw:&str)->PinnedPrivateOutput{fail("PRIVATE_OUTPUT_LINUX_ONLY")}
+fn private_pipe(_fd:i32)->Result<File,&'static str>{Err("PRIVATE_RECEIPT_LINUX_ONLY")}
     pub fn run(){
         let argv:Vec<String>=env::args().skip(1).collect();
-        let (source,destination,path)=match argv.as_slice(){
-            [m,i,j,o,p] if m=="--backpack-pair"&&o=="--out"=>
-                (id(i,true) as usize,id(j,true) as usize,output_path(p)),
+        let (source,destination)=match argv.as_slice(){
+            [m,i,j,o] if m=="--backpack-pair"&&o=="--receipt-fd3"=>
+                (id(i,true) as usize,id(j,true) as usize),
             _=>fail("ARGS"),
         };
         if source==destination||source>=256||destination>=256{fail("SLOT_INDEX_BOUND")}
+        let mut out=private_pipe(3).unwrap_or_else(|code|fail(code));
         if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT{fail("EXACT_STEAM_BUILD")}
         let original_sha=sha_field("WAND_LOCAL_ORIGINAL_SHA256");
         let decoded_sha=sha_field("WAND_LOCAL_DECODED_SHA256");
@@ -81,31 +86,26 @@ fn output_path(_raw:&str)->PinnedPrivateOutput{fail("PRIVATE_OUTPUT_LINUX_ONLY")
         receipt["cloudUploadPerformed"]=serde_json::json!(false);
         session.close().unwrap_or_else(|_|fail("SESSION_CLOSE"));
         let bytes=serde_json::to_vec(&receipt).unwrap_or_else(|_|fail("RECEIPT_ENCODE"));
-        let mut opt=OpenOptions::new();opt.write(true).create_new(true);
-        #[cfg(unix)]{use std::os::unix::fs::OpenOptionsExt;opt.mode(0o600);}
-        let mut out=opt.open(&path.path).unwrap_or_else(|_|fail("PRIVATE_OUTPUT_CREATE_NEW"));
-        if out.write_all(&bytes).and_then(|_|out.sync_all()).is_err(){drop(out);let _=fs::remove_file(&path.path);fail("PRIVATE_OUTPUT_WRITE")}
+        if bytes.len()>65536{fail("PRIVATE_RECEIPT_BOUND")}
+        if out.write_all(&bytes).and_then(|_|out.flush()).is_err(){fail("PRIVATE_RECEIPT_WRITE")}
+        drop(out);
         // No target fields, SHA, path, or original data in console.
         eprintln!("LOCAL_BACKPACK_PAIR_READ_PRIVATE_RECEIPT_WRITTEN");
     }
 #[cfg(all(test,target_os="linux"))]
 #[test]
-fn backpack_pair_pinned_output_does_not_follow_replaced_parent(){
-    use std::{fs,path::PathBuf,os::unix::fs::{DirBuilderExt,symlink},time::{SystemTime,UNIX_EPOCH}};
-    let root=std::env::temp_dir().join(format!("wand-backpack-pinned-{}-{}",std::process::id(),
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
-    fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
-    struct Cleanup(PathBuf);impl Drop for Cleanup{fn drop(&mut self){let _=fs::remove_dir_all(&self.0);}}
-    let _cleanup=Cleanup(root.clone());
-    let parent=root.join("parent");let moved=root.join("moved");let other=root.join("other");
-    for p in [&parent,&other]{fs::DirBuilder::new().mode(0o700).create(p).unwrap();}
-    let out=output_path(parent.join("receipt.json").to_str().unwrap());
-    fs::rename(&parent,&moved).unwrap();symlink(&other,&parent).unwrap();
-    let v=serde_json::json!({"writerAuthorized":false});
-    let mut f=OpenOptions::new().write(true).create_new(true).open(&out.path).unwrap();
-    f.write_all(&serde_json::to_vec(&v).unwrap()).unwrap();drop(f);
-    assert!(!other.join("receipt.json").exists());
-    assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(moved.join("receipt.json")).unwrap()).unwrap(),v);
+fn backpack_pair_anonymous_pipe_only(){
+    use std::os::fd::{AsRawFd,IntoRawFd};
+    let (mut reader,writer)=io::pipe().unwrap();
+    assert!(private_pipe(reader.as_raw_fd()).is_err());
+    let fd=writer.into_raw_fd();
+    let mut out=private_pipe(fd).unwrap();
+    out.write_all(b"synthetic receipt").unwrap();drop(out);
+    let mut got=Vec::new();reader.read_to_end(&mut got).unwrap();
+    assert_eq!(got,b"synthetic receipt");
+    let f=File::open("/dev/null").unwrap();
+    assert!(private_pipe(f.as_raw_fd()).is_err());
+    assert!(private_pipe(-1).is_err());
 }
 
 }
