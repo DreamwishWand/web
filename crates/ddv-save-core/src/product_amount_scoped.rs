@@ -648,4 +648,75 @@ mod tests{
         let mut d=doc();d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]=json!({"Amount":3});let s=open(&d);
         assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000001},2).is_err());
     }
+
+    // Independent affected L2: concrete cross-local reference at the
+    // ProductSession preview AND direct-stage boundary, dedup never skips
+    // per-record type/local/hash or modified saved links.
+    #[test]
+    fn qa_pr1309_all_local_stage_and_dedup() {
+        let overlay=|gid:u32,path:&str,kind:&str,local:u32|json!({"ID":gid,
+            "GridDefaultLayoutPath":path,"GridDefaultLayoutType":kind,"DefaultLayoutGridID":local,
+            "DefaultGridHashCode":-4,"DefaultGridDataHashCode":6,"RemovedObjects":[],"ModifiedObjects":{}});
+        let alice="SceneLayouts/Houses/AliceHouse/AliceHouse.json";
+        let mickey="SceneLayouts/Houses/MickeyHouse/MickeyHouse.json";
+        let beast="SceneLayouts/Realms/BeautyBeast/BeautyBeastRealm.json";
+        let house="Meta.DefaultCharacterHouseData, Meta";
+        let realm="Meta.DefaultRealmData, Meta";
+        let ix=layout_index().unwrap();
+        assert!(ix[mickey].grids[&2].items.is_empty());
+        assert!(ix[mickey].grids[&1].items.contains(&40000048));
+        assert!(ix[beast].grids[&0].storage.is_empty());
+        assert!(ix[beast].grids[&3].storage.iter().any(|(_,id,_)|*id==3));
+        let mut denials=0;
+        for chest in [false,true] {
+            let mut d=if chest{chest_doc()}else{doc()};
+            if chest {
+                let mut c=d["Player"]["ContainerInventories"].as_object_mut().unwrap().remove("12").unwrap();
+                c["ID"]=json!(3);d["Player"]["ContainerInventories"]["3"]=c;
+                d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"]["State"]["Storage"]["ContainerInventoryID"]=json!(3);
+            }
+            let (sel,old,new)=if chest{(ExistingAmountSelection::Chest{container_id:3,slot_index:0},50,49)}
+                else{(ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},3,2)};
+            let s=open(&d);let t=s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new).unwrap();
+            let entry=t.view().entry_sha256;
+            let rec=s.stage_scoped_product_amount(scope(&s,WorkerAction::Stage),sel,old,new,entry).unwrap();
+            assert_eq!(rec.exact_field_changed_count,1);
+            let out=s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).unwrap();
+            let mut expected=d.clone();
+            if chest{expected["Player"]["ContainerInventories"]["3"]["Inventory"][0]["Amount"]=json!(49);}
+            else{expected["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);}
+            assert_eq!(out,serde_json::to_vec(&expected).unwrap());
+            let mut deny=|q:&Value,code:&str|{
+                let s=open(q);let before=s.receipt().unwrap();
+                assert_eq!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new).unwrap_err().0,code);
+                assert_eq!(s.stage_scoped_product_amount(scope(&s,WorkerAction::Stage),sel,old,new,entry).unwrap_err().0,code);
+                assert_eq!(s.receipt().unwrap(),before);
+                assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+                denials+=1;
+            };
+            let mut q=d.clone();
+            let (path,kind,local,code)=if chest{(beast,realm,0,"PRODUCT_AMOUNT_LAYOUT_BASE_CHEST_ALIAS")}
+                else{(mickey,house,2,"PRODUCT_AMOUNT_LAYOUT_BASE_PLACEMENT")};
+            q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(19,path,kind,local);
+            deny(&q,code);
+            q["World"]["GridCollection"]["DiffGrids"]["19"]["RemovedObjects"]=json!([0,1,2,3,4,5,6,7,8,9]);
+            deny(&q,code);
+            q=d.clone();
+            q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(19,alice,house,0);
+            q["World"]["GridCollection"]["DiffGrids"]["20"]=overlay(20,&alice.replace('/',"\\"),house,7);
+            deny(&q,"PRODUCT_AMOUNT_EFFECTIVE_NATIVE_BINDING_UNPROVEN");
+            for (key,value,err) in [("DefaultLayoutGridID",json!(4294967295u32),"PRODUCT_AMOUNT_LAYOUT_LOCAL_ID"),
+                ("GridDefaultLayoutType",json!("Meta.Other, Meta"),"PRODUCT_AMOUNT_LAYOUT_TYPE"),
+                ("DefaultGridHashCode",json!(2147483648u64),"PRODUCT_AMOUNT_LAYOUT_HASH_TYPE"),
+                ("RemovedObjects",json!([1,1]),"PRODUCT_AMOUNT_LAYOUT_REMOVED_DUPLICATE")] {
+                let mut x=q.clone();x["World"]["GridCollection"]["DiffGrids"]["20"][key]=value;deny(&x,err);
+            }
+            q["World"]["GridCollection"]["DiffGrids"]["20"]["ModifiedObjects"]["9"]=if chest {
+                json!({"ID":9,"ItemID":40000048,"State":{"Storage":{"ContainerInventoryID":3}}})
+            }else{json!({"ID":9,"ItemID":40000048,"State":null})};
+            deny(&q,if chest{"PRODUCT_AMOUNT_CHEST_DUPLICATE_LINK"}else{"PRODUCT_AMOUNT_PLACEMENT_TARGET"});
+        }
+        assert_eq!(denials,16);
+    }
+
 }
