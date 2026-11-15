@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
 import {createFixedCollectionTransport} from '../src/lib/ddv/core/save/product-fixed-collection-transport.mjs';
+import {createProductWasmReadOwner} from '../src/lib/ddv/core/save/product-wasm-read-owner.mjs';
+import {createP1gRustWorkerReadOnlyBridge} from '../src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const src=new Uint8Array([1,2,3]),edited=new Uint8Array([1,2,4]),id='a'.repeat(32),sha=hash(src),outSha=hash(edited),entry='b'.repeat(64);
 const STEAM={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626};
@@ -46,4 +49,83 @@ test('shared lifecycle rejects stale or forged Stage, undo export, replay and ma
  const corrupt=new Mock();corrupt.next_scoped_edit_output_chunk=()=>new Uint8Array([9]);x=make(STEAM,corrupt);x.t.previewTarget(sel);x.t.stage();await assert.rejects(x.t.takeOutput());assert.equal(x.active(),false);
  x=make();x.t.previewTarget(sel);x.close();assert.throws(()=>x.t.stage());assert.equal(x.wasm.calls.length,1);
  x=make();x.t.previewTarget(sel);x.t.stage();const pending=x.t.takeOutput();x.close();await assert.rejects(pending);
+});
+
+const ownerReceipt={...initial,allDomainReferencesVerified:false,productReadAccepted:false};
+const chunks=async function*(){yield src};
+const opened=(w,b=STEAM)=>w.openDecoded({build:{...b,externallyConfirmed:true},decodedChunks:chunks()});
+class OwnerMock extends Mock{
+ static instances=[];
+ constructor(){super();OwnerMock.instances.push(this)}
+ append_chunk(){}
+ finish(){return JSON.stringify(ownerReceipt)}
+ close(){this.closed=true}
+}
+const owner=(C=OwnerMock,opts={allowScopedCollectionSource:true})=>createProductWasmReadOwner(async()=>({WorkerWasmSource:C}),opts);
+test('one existing owner selects only one scoped domain; default read-only stays off; candidate is not edit grant',async()=>{
+ assert.throws(()=>owner(OwnerMock,{allowScopedAmountSource:true,allowScopedCollectionSource:true}));
+ assert.throws(()=>createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource:OwnerMock}),{allowScopedAmountSource:true,allowScopedCollectionSource:true}));
+ const off=owner(OwnerMock,{});await opened(off);assert.equal(off.stageFixedCollection,undefined);assert.equal(off.getCapabilities().canStage,false);off.close();
+ for(const b of [STEAM,SWITCH]){
+  const w=owner();await opened(w,b);const n=OwnerMock.instances.length;w.previewFixedCollection(sel);w.stageFixedCollection();assert.equal(w.getReceipt(),null);
+  assert.equal(w.toggleFixedCollection(false).applied,false);assert.equal(w.toggleFixedCollection(true).applied,true);
+  // Owner uses production 1MiB chunk bound.
+  OwnerMock.instances.at(-1).next_scoped_edit_output_chunk=()=>edited.slice();
+  const out=await w.takeFixedCollectionOutput();assert.deepEqual(out.decodedBytes,edited);
+  assert.equal(OwnerMock.instances.length,n);assert.equal(OwnerMock.instances.at(-1).closed,true);assert.equal(w.getReceipt(),null);
+ }
+});
+test('Collection owner failed close retains old instance for explicit retry; no new wasm is constructed',async()=>{
+ class BadClose extends OwnerMock{close(){if(!this.failed){this.failed=true;throw Error('close denied')}super.close()}}
+ const w=owner(BadClose);await opened(w);const n=OwnerMock.instances.length;
+ assert.throws(()=>w.close(),/CLOSE_UNVERIFIED/);assert.equal(w.getReceipt(),null);
+ await assert.rejects(opened(w,SWITCH),/CLOSE_UNVERIFIED/);assert.equal(OwnerMock.instances.length,n);
+ assert.deepEqual(w.close(),{closed:true,writerAuthorized:false});await opened(w,SWITCH);assert.equal(OwnerMock.instances.length,n+1);
+ assert.throws(()=>w.close(),/CLOSE_UNVERIFIED/);w.close();
+});
+test('Collection owner pending open cannot acknowledge close or construct B before cleanup',async()=>{
+ let release,entered;const held=new Promise(r=>release=r),started=new Promise(r=>entered=r);
+ const w=createProductWasmReadOwner(async()=>{entered();await held;return {WorkerWasmSource:OwnerMock}},{allowScopedCollectionSource:true});
+ const pending=assert.rejects(opened(w),/OPEN_REVOKED/);await started;
+ assert.throws(()=>w.close(),/CLOSE_PENDING/);await assert.rejects(opened(w,SWITCH),/CLOSE_UNVERIFIED/);
+ release();await pending;assert.deepEqual(w.close(),{closed:true,writerAuthorized:false});await opened(w,SWITCH);w.close();
+});
+test('shared lifecycle never releases decoded output if final owner cleanup fails',async()=>{
+ // The common output helper must not deliver a valid byte receipt if close fails.
+ const w=owner(class extends OwnerMock{close(){throw Error('denied')}});await opened(w);w.previewFixedCollection(sel);w.stageFixedCollection();
+ OwnerMock.instances.at(-1).next_scoped_edit_output_chunk=()=>edited.slice();
+ await assert.rejects(w.takeFixedCollectionOutput());assert.equal(w.getReceipt(),null);await assert.rejects(opened(w,SWITCH),/CLOSE_UNVERIFIED/);
+});
+
+test('existing candidate projection can coexist with one fixed edit domain but cannot read after Stage',async()=>{
+ class CandidateAndEdit extends OwnerMock{
+  constructor(p,k,b,...rest){super(p,k,b,...rest);this.build={platform:p,kind:k,id:b}}
+  preview_scoped_collection_candidate(d,g,i,s,r,n,dig){
+   this.check([s,r,n,dig]);return JSON.stringify({contract:'wand.worker.collection-scoped-candidate@1',
+    platform:this.build.platform==='steam-windows'?'SteamWindows':'Switch',
+    buildKind:this.build.kind==='steam-full-version'?'SteamFullVersion':'SwitchBid',buildId:this.build.id,
+    sessionId:s,revision:Number(r),indexGeneration:Number(n),decodedSha256:dig,definitionId:d,groupIndex:g,itemId:i,old:false,new:true,falseCount:3,positiveStock:1,
+    itemDefinitionSha256:dig,collectionDefinitionSha256:dig,groupDefinitionSha256:dig,entrySha256:dig,groupSha256:dig,mapSha256:dig,stockEntrySha256:dig,
+    packagedCandidateVerified:true,sourcePhysicalVerified:true,effectiveEligibilityVerified:false,writerAuthorized:false,editedCopyAuthorized:false,applyAuthorized:false})
+  }
+ }
+ const w=owner(CandidateAndEdit,{allowScopedCollectionSource:true,allowCollectionCandidateSource:true});
+ await opened(w,SWITCH);const x=await w.readCollectionCandidate(sel);assert.equal(x.effectiveEligibilityVerified,false);
+ w.previewFixedCollection(sel);w.stageFixedCollection();
+ await assert.rejects(w.readCollectionCandidate(sel),/CANDIDATE_OFF/);w.close();
+});
+test('same P1G bridge blocks Stage before Backup and blocks both OPEN APIs after failed close',async()=>{
+ class CloseOnce extends OwnerMock{close(){if(!this.failed){this.failed=true;throw Error('close denied')}super.close()}}
+ const bytes=makeSyntheticP1gProfile({GameInfo:{Version:626},World:{},Player:{},Unknown:1}),file=new File([bytes],'source.p1g'),originalSha256=hash(bytes);
+ const build={...SWITCH,externallyConfirmed:true},args={file,build,originalSha256};
+ const b=createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource:CloseOnce}),{allowScopedCollectionSource:true,readDurableOriginalBackup:async()=>new File([bytes],'durable.p1g')});
+ await b.openScopedEncrypted(args);assert.equal(b.inspectFixedCollection(sel).fixedDefinitionVerified,true);
+ await assert.rejects(b.stageFixedCollection(),/BACKUP_REQUIRED/);
+ const n=OwnerMock.instances.length;assert.throws(()=>b.close(),/CLOSE_UNVERIFIED/);
+ await assert.rejects(b.openScopedEncrypted(args),/CLOSE_UNVERIFIED/);
+ await assert.rejects(b.openEncrypted({build,encryptedBytes:bytes}),/CLOSE_UNVERIFIED/);
+ assert.equal(OwnerMock.instances.length,n);assert.deepEqual(b.close(),{closed:true,writerAuthorized:false});
+ await b.openScopedEncrypted(args);await b.verifyScopedOriginalBackup(new File([bytes],'candidate.p1g'));
+ b.previewFixedCollection(sel);assert.equal((await b.stageFixedCollection()).applied,true);
+ assert.throws(()=>b.close(),/CLOSE_UNVERIFIED/);b.close();
 });
