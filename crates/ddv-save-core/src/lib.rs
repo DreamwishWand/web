@@ -14,6 +14,8 @@ compile_error!("private-native-v1 is native-only and cannot enter WASM");
 compile_error!("semantic-writer-dev wasm32 requires the existing Worker binding");
 mod product_session;
 mod strict_document;
+#[cfg(feature="product-collection-scoped")]
+mod collection_packaged_eligibility;
 // Source-only synthetic transaction lab is compiled out of the product Worker.
 #[cfg(all(feature = "synthetic-stage-b", target_arch = "wasm32"))]
 compile_error!("synthetic-stage-b must not be linked into WASM/Worker release");

@@ -53,6 +53,11 @@ impl WorkerSessionGuard {
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         self.session.read_saved_diffgrids_page(scope,cursor)
     }
+    #[cfg(feature="product-collection-scoped")]
+    pub(crate) fn preview_collection_candidate(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32)->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_product_collection_candidate(e,definition,group,item)
+    }
     pub(crate) fn close(&mut self) -> CoreResult<()> {
         if self.closed { return Err(CoreError("WORKER_SESSION_ALREADY_CLOSED")); }
         self.closed = true;

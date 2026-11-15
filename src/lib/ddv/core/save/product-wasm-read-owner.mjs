@@ -1,3 +1,4 @@
+import {readCollectionCandidate} from '../../../collection/collection-candidate-read.mjs';
 // R04 opt-in read-only boundary owned by the SAME local Worker. No product UI
 // export/import path until a signed wasm build and independent QA are accepted.
 export const PRODUCT_WASM_READ_CONTRACT='wand.product.single-save-session.boundary@1';
@@ -34,7 +35,7 @@ function strictReceipt(r){
  * wasmFactory is a trusted static Worker import, not a message field. The
  * worker-side decode source owns the async decoded-chunk iterable.
  */
-export function createProductWasmReadOwner(wasmFactory){
+export function createProductWasmReadOwner(wasmFactory,{allowCollectionCandidateSource=false}={}){
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
  if(typeof document!=='undefined')fail('PRODUCT_WORKER_NOT_ISOLATED');
  let epoch=0,active=null;
@@ -349,6 +350,24 @@ export function createProductWasmReadOwner(wasmFactory){
       writerAuthorized:false
    });
  };
+ // ACT965: opt-in Worker-private candidate query; no second owner or edit target.
+ // Static import keeps the existing IIFE Worker bundle single-chunk. Capture
+ // active instance before async dispatch: Close/Open/Stage cannot rebind A to B.
+ const readCollectionCandidateSource=async selector=>{
+   const a=active;
+   const current=()=>active===a&&a!==null&&!a.scoped?.hasMutation();
+   if(allowCollectionCandidateSource!==true||!current())
+     fail('PRODUCT_WORKER_COLLECTION_CANDIDATE_OFF');
+   // Snapshot exact numeric selector before the asynchronous dispatch boundary.
+   if(!exactKeys(selector,'definitionId,groupIndex,itemId')||
+      !['definitionId','groupIndex','itemId'].every(k=>Number.isSafeInteger(selector[k])&&selector[k]>=0&&selector[k]<=0xffffffff))
+     fail('PRODUCT_WORKER_COLLECTION_CANDIDATE_SELECTOR');
+   const selected=Object.freeze({definitionId:selector.definitionId,groupIndex:selector.groupIndex,itemId:selector.itemId});
+   await Promise.resolve(); // Retain the stale-session boundary without code splitting.
+   if(!current())fail('PRODUCT_WORKER_COLLECTION_CANDIDATE_OFF');
+   return readCollectionCandidate({wasm:a.wasm,receipt:a.receipt,identity:a.identity,
+     parse:strictTypedJson,current,revoke:()=>{if(current())revoke()}},selected);
+ };
  const submitOperation=()=>fail('PRODUCT_WORKER_WRITER_DISABLED');
  const getCapabilities=()=>Object.freeze({
    productWorkerBoundary:true,productReadAccepted:false,
@@ -361,5 +380,6 @@ export function createProductWasmReadOwner(wasmFactory){
  return Object.freeze({openDecoded,readCoreVersion,issueTypedCursor,readTypedPage,
    issueSavedDiffGridsCursor,readSavedDiffGridsPage,
    close,submitOperation,getCapabilities,
-   getReceipt:()=>active?.receipt??null});
+   getReceipt:()=>active?.receipt??null,
+   ...(allowCollectionCandidateSource===true?{readCollectionCandidate:readCollectionCandidateSource}:{})});
 }

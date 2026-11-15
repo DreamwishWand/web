@@ -281,6 +281,12 @@ impl WorkerWasmSource {
         }
         Ok(out)
     }
+    #[cfg(feature="product-collection-scoped")]
+    pub fn preview_scoped_collection_candidate(&self,definition:u32,group:u32,item:u32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(session_id)?,expected_revision:revision,expected_index_generation:index_generation,expected_decoded_sha256:from_hex(decoded_sha256)?,action:WorkerAction::ReadDomain};
+        Ok(guard.preview_collection_candidate(e,definition,group as usize,item).map_err(|e|err(e.0))?.to_string())
+    }
     pub fn close(&mut self)->Result<(),JsValue>{
         self.closed=true;self.buffer.clear();self.entropy.fill(0);
         if let Some(mut session)=self.session.take(){

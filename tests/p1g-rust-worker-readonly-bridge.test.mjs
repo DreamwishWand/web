@@ -139,3 +139,24 @@ test('S04 stale/forged source revision and readset never request Writer',async()
  assert.equal(bridge.getCapabilities().canApply,false);
  bridge.close();
 });
+
+test('P1G bridge Collection candidate opt-in uses decoded same Session; no default or mutation grant',async()=>{
+ const {source}=fixture(),original=source.slice(),selector={definitionId:2120000001,groupIndex:0,itemId:40000001};
+ class CandidateRust extends MockRust{
+  preview_scoped_collection_candidate(def,g,item,id,rev,gen,sha){
+   assert.equal(this.closed,false);assert.equal(id,this.id);assert.equal(sha,this.sha);assert.equal(rev,0n);assert.equal(gen,1n);
+   assert.deepEqual({definitionId:def,groupIndex:g,itemId:item},selector);
+   return JSON.stringify({contract:'wand.worker.collection-scoped-candidate@1',platform:'SteamWindows',buildKind:'SteamFullVersion',buildId:BUILD.buildId,
+    sessionId:id,revision:0,indexGeneration:1,decodedSha256:sha,...selector,old:false,new:true,falseCount:3,positiveStock:1,
+    itemDefinitionSha256:sha,collectionDefinitionSha256:sha,groupDefinitionSha256:sha,entrySha256:sha,groupSha256:sha,mapSha256:sha,stockEntrySha256:sha,
+    packagedCandidateVerified:true,sourcePhysicalVerified:true,effectiveEligibilityVerified:false,writerAuthorized:false,editedCopyAuthorized:false,applyAuthorized:false});
+  }
+ }
+ const off=make();assert.equal(off.readCollectionCandidate,undefined);
+ const bridge=createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource:CandidateRust}),{allowCollectionCandidateSource:true});
+ const r=await bridge.openEncrypted({build:BUILD,encryptedBytes:source});
+ const x=await bridge.readCollectionCandidate(selector);assert.equal(x.kind,'COLLECTION_CANDIDATE_READ_ONLY');assert.equal(x.effectiveEligibilityVerified,false);
+ assert.equal(x.writerAuthorized,false);assert.equal(bridge.getReceipt().sessionId,r.sessionId);assert.deepEqual(source,original);
+ assert.equal(bridge.getCapabilities().canExportEditedCopy,false);
+ const stale=bridge.readCollectionCandidate(selector);bridge.close();await assert.rejects(stale,/CANDIDATE_OFF/);
+});
