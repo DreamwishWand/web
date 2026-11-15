@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
 import {createFixedCollectionTransport} from '../src/lib/ddv/core/save/product-fixed-collection-transport.mjs';
 import {createProductWasmReadOwner} from '../src/lib/ddv/core/save/product-wasm-read-owner.mjs';
 import {createP1gRustWorkerReadOnlyBridge} from '../src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
@@ -89,9 +90,42 @@ test('Collection owner pending open cannot acknowledge close or construct B befo
  assert.throws(()=>w.close(),/CLOSE_PENDING/);await assert.rejects(opened(w,SWITCH),/CLOSE_UNVERIFIED/);
  release();await pending;assert.deepEqual(w.close(),{closed:true,writerAuthorized:false});await opened(w,SWITCH);w.close();
 });
-test('shared lifecycle wipes decoded bytes if final owner cleanup fails',async()=>{
+test('shared lifecycle never releases decoded output if final owner cleanup fails',async()=>{
  // The common output helper must not deliver a valid byte receipt if close fails.
  const w=owner(class extends OwnerMock{close(){throw Error('denied')}});await opened(w);w.previewFixedCollection(sel);w.stageFixedCollection();
  OwnerMock.instances.at(-1).next_scoped_edit_output_chunk=()=>edited.slice();
  await assert.rejects(w.takeFixedCollectionOutput());assert.equal(w.getReceipt(),null);await assert.rejects(opened(w,SWITCH),/CLOSE_UNVERIFIED/);
+});
+
+test('existing candidate projection can coexist with one fixed edit domain but cannot read after Stage',async()=>{
+ class CandidateAndEdit extends OwnerMock{
+  constructor(p,k,b,...rest){super(p,k,b,...rest);this.build={platform:p,kind:k,id:b}}
+  preview_scoped_collection_candidate(d,g,i,s,r,n,dig){
+   this.check([s,r,n,dig]);return JSON.stringify({contract:'wand.worker.collection-scoped-candidate@1',
+    platform:this.build.platform==='steam-windows'?'SteamWindows':'Switch',
+    buildKind:this.build.kind==='steam-full-version'?'SteamFullVersion':'SwitchBid',buildId:this.build.id,
+    sessionId:s,revision:Number(r),indexGeneration:Number(n),decodedSha256:dig,definitionId:d,groupIndex:g,itemId:i,old:false,new:true,falseCount:3,positiveStock:1,
+    itemDefinitionSha256:dig,collectionDefinitionSha256:dig,groupDefinitionSha256:dig,entrySha256:dig,groupSha256:dig,mapSha256:dig,stockEntrySha256:dig,
+    packagedCandidateVerified:true,sourcePhysicalVerified:true,effectiveEligibilityVerified:false,writerAuthorized:false,editedCopyAuthorized:false,applyAuthorized:false})
+  }
+ }
+ const w=owner(CandidateAndEdit,{allowScopedCollectionSource:true,allowCollectionCandidateSource:true});
+ await opened(w,SWITCH);const x=await w.readCollectionCandidate(sel);assert.equal(x.effectiveEligibilityVerified,false);
+ w.previewFixedCollection(sel);w.stageFixedCollection();
+ await assert.rejects(w.readCollectionCandidate(sel),/CANDIDATE_OFF/);w.close();
+});
+test('same P1G bridge blocks Stage before Backup and blocks both OPEN APIs after failed close',async()=>{
+ class CloseOnce extends OwnerMock{close(){if(!this.failed){this.failed=true;throw Error('close denied')}super.close()}}
+ const bytes=makeSyntheticP1gProfile({GameInfo:{Version:626},World:{},Player:{},Unknown:1}),file=new File([bytes],'source.p1g'),originalSha256=hash(bytes);
+ const build={...SWITCH,externallyConfirmed:true},args={file,build,originalSha256};
+ const b=createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource:CloseOnce}),{allowScopedCollectionSource:true,readDurableOriginalBackup:async()=>new File([bytes],'durable.p1g')});
+ await b.openScopedEncrypted(args);assert.equal(b.inspectFixedCollection(sel).fixedDefinitionVerified,true);
+ await assert.rejects(b.stageFixedCollection(),/BACKUP_REQUIRED/);
+ const n=OwnerMock.instances.length;assert.throws(()=>b.close(),/CLOSE_UNVERIFIED/);
+ await assert.rejects(b.openScopedEncrypted(args),/CLOSE_UNVERIFIED/);
+ await assert.rejects(b.openEncrypted({build,encryptedBytes:bytes}),/CLOSE_UNVERIFIED/);
+ assert.equal(OwnerMock.instances.length,n);assert.deepEqual(b.close(),{closed:true,writerAuthorized:false});
+ await b.openScopedEncrypted(args);await b.verifyScopedOriginalBackup(new File([bytes],'candidate.p1g'));
+ b.previewFixedCollection(sel);assert.equal((await b.stageFixedCollection()).applied,true);
+ assert.throws(()=>b.close(),/CLOSE_UNVERIFIED/);b.close();
 });
