@@ -1868,6 +1868,33 @@ mod private_avatar {
             assert!(open(&d).read_private_furniture_amount_dependencies(e,40000001,hash(&d)).is_err());
             s.close().unwrap();assert!(s.read_private_furniture_amount_dependencies(e,40000001,hash(&d)).is_err());
         }
+        #[test]
+        fn ordinary_address_receipt_uses_same_epoch_and_legacy_budget(){
+            let mut d=doc();
+            d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(9);
+            d["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["SpawnState"]=json!({"SpawnedObjects":[
+                {"GridID":7,"GridObjectID":4},{"GridID":8,"GridObjectID":9}]});
+            let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();let old=hash(&d);
+            let legacy=s.read_private_furniture_amount_dependencies(e,40000001,old).unwrap();
+            let add=s.read_private_ordinary_adddel_dependencies(e,40000001,old,7,None).unwrap();
+            let del=s.read_private_ordinary_adddel_dependencies(e,40000001,old,7,Some(4)).unwrap();
+            assert_eq!(add["ordinarySpawnAddressReadSet"]["objectId"],9);
+            assert_eq!(add["ordinarySpawnAddressReadSet"]["noExactSavedSpawnAddress"],true);
+            assert_eq!(del["ordinarySpawnAddressReadSet"]["objectId"],4);
+            assert_eq!(del["ordinarySpawnAddressReadSet"]["noExactSavedSpawnAddress"],false);
+            assert_eq!(del["ordinaryStoredGridReadSet"]["eventAddressClosureVerified"],false);
+            let mut unchanged=add.clone();
+            let m=unchanged.as_object_mut().unwrap();
+            m.remove("ordinarySpawnAddressReadSet");m.remove("ordinaryStoredGridReadSet");
+            m.insert("contract".into(),legacy["contract"].clone());
+            assert_eq!(unchanged,legacy);assert_eq!(s.receipt().unwrap(),before);
+            assert!(s.read_private_ordinary_adddel_dependencies(e,40000001,[0;32],7,None).is_err());
+            assert!(s.read_private_ordinary_adddel_dependencies(WorkerEnvelope{expected_revision:1,..e},40000001,old,7,None).is_err());
+            assert!(s.read_private_ordinary_adddel_dependencies(WorkerEnvelope{expected_index_generation:2,..e},40000001,old,7,None).is_err());
+            assert!(open(&d).read_private_ordinary_adddel_dependencies(e,40000001,old,7,None).is_err());
+            assert!(s.read_private_ordinary_adddel_dependencies(e,40000001,old,8,None).is_err());
+            s.close().unwrap();assert!(s.read_private_ordinary_adddel_dependencies(e,40000001,old,7,None).is_err());
+        }
         // Count every emitted typed reference, including the filter record
         // itself. Per-array limits and the final receipt byte cap remain
         // independent; no separate budget may reset at a domain boundary.
