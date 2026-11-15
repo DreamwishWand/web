@@ -1,0 +1,42 @@
+name: INT ACT744 fixed hosted Editor observation
+on:
+  push:
+    branches: ['09int/act744-hosted-observation-45be385b']
+    paths: ['.github/workflows/int-act744-hosted-observation.yml']
+permissions:
+  contents: read
+jobs:
+  hosted:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '45be385bb821552d15b419eee88f9d9aff4bace8'
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual HTTPS Editor route and static markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://dreamwishwand.github.io/web/editor/'
+          code=$(curl --proto '=https' --tlsv1.2 --max-time 30 -sS -D /tmp/editor.headers -o /tmp/editor.html -w '%{http_code}' "$url")
+          test "$code" = 200
+          grep -i '^content-type: text/html' /tmp/editor.headers
+          for marker in data-editor-hub data-editor-catalog data-editor-world data-editor-timing data-editor-writer-boundary; do
+            grep -q "$marker" /tmp/editor.html
+          done
+          echo ACT744_HOSTED_EDITOR_HTTP200_HTML_MARKERS_PASS
+      - name: Reuse accepted Chrome contract against actual hosted URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          sed "s|http://127.0.0.1:4299|https://dreamwishwand.github.io|g" scripts/web-steam-reader-entry-chrome.mjs > scripts/.act744-hosted-observation.mjs
+          node scripts/.act744-hosted-observation.mjs
+          echo ACT744_HOSTED_EDITOR_FIXED_SOURCE_8LOCALE_PASS
