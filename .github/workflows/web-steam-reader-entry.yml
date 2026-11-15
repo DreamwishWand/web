@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'src/routes/editor/+page.svelte'
+      - 'src/lib/product-home/editor-hub-copy.mjs'
       - 'src/routes/rc-status/+page.svelte'
       - 'tests/web-steam-reader-entry.test.mjs'
       - 'scripts/web-steam-reader-entry-chrome.mjs'
@@ -32,7 +33,10 @@ jobs:
           git merge-base --is-ancestor "${{ github.event.pull_request.base.sha }}" "$BASE"
           printf '%s\n' '.github/workflows/web-steam-reader-entry.yml' 'scripts/web-steam-reader-entry-chrome.mjs' 'src/routes/editor/+page.svelte' 'src/routes/rc-status/+page.svelte' 'tests/web-steam-reader-entry.test.mjs' | sort >/tmp/reader-entry-expected
           git diff --name-only "$BASE" HEAD | sort >/tmp/reader-entry-actual
-          diff -u /tmp/reader-entry-expected /tmp/reader-entry-actual
+          printf '%s\n' '.github/workflows/web-steam-reader-entry.yml' 'scripts/web-steam-reader-entry-chrome.mjs' 'src/lib/product-home/editor-hub-copy.mjs' 'src/routes/editor/+page.svelte' 'tests/web-steam-reader-entry.test.mjs' | sort >/tmp/editor-hub-expected
+          if ! diff -q /tmp/reader-entry-expected /tmp/reader-entry-actual >/dev/null; then
+            diff -u /tmp/editor-hub-expected /tmp/reader-entry-actual
+          fi
       - run: node --test tests/web-steam-reader-entry.test.mjs
       - run: npm run check
       - name: Static Pages and actual Chrome navigation only
