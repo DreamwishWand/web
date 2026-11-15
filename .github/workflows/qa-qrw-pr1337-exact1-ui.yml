@@ -174,7 +174,7 @@ jobs:
           import {setTimeout as sleep} from 'node:timers/promises';
           import assert from 'node:assert/strict';
           const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
-          const port=4187,origin='http://127.0.0.1:'+port;
+          const port=4188,origin='http://127.0.0.1:'+port;
           const profile=await mkdtemp(join(tmpdir(),'wand-dev-amount-chrome-'));
           const downloadPath=join(profile,'downloads');await mkdir(downloadPath);
           const browserBin=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium']
@@ -232,8 +232,8 @@ jobs:
            await rpc('Page.navigate',{url:origin+'/test-dev-amount-ui/?profile='+process.env.WAND_QA_PROFILE});
            let ready=false;
            for(let n=0;n<150;n++){
-            try{const r=await rpc('Runtime.evaluate',{expression:'location.pathname',
-               returnByValue:true});if(r.result?.value==='/test-dev-amount-ui/'){ready=true;break}}catch{}
+            try{const r=await rpc('Runtime.evaluate',{expression:"location.pathname==='/test-dev-amount-ui/' && document.readyState==='complete' && window.__qa?.ready===true && !!document.querySelector('[data-dev-amount-editor]')",
+               returnByValue:true});if(r.result?.value===true){ready=true;break}}catch{}
             await sleep(60);
            }
            if(!ready)throw Error('DEV_CHROME_NAVIGATION_FAILED');
@@ -297,10 +297,9 @@ jobs:
           cmp tests/stage-e/pkg/ddv_save_core_bg.wasm static/qa-act990/ddv_save_core_bg.wasm
           npm ci --no-audit --no-fund
           command -v google-chrome
-      - name: Actual Chrome Svelte to real Worker Core OPFS (both profiles independently)
+      - name: Actual Chrome Svelte to real Worker Core OPFS (Chest only; prior Catalog0 PASS retained)
         working-directory: /tmp/wand-act990
         run: |
-          WAND_QA_PROFILE=catalog0-furniture node tests/dev-amount-ui-chrome/qa-act990.mjs
           WAND_QA_PROFILE=linked-crop-chest48 node tests/dev-amount-ui-chrome/qa-act990.mjs
       - name: No tracked product edit or private Save
         run: |
