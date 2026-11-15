@@ -1,0 +1,93 @@
+name: INT ACT997 fixed hosted Reader observation
+on:
+  push:
+    branches: ['09int/act997-hosted-observation-a371e053']
+    paths: ['.github/workflows/int-act997-hosted-observation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  hosted:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Exact protected Pages route bytes, actual HTTPS
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          mkdir "$dir/site"
+          gh run download 43774355927 --repo DreamwishWand/web --name github-pages --dir "$dir"
+          archive="$(find "$dir" -maxdepth 1 -type f -name '*.tar*' -print -quit)"
+          test -n "$archive"
+          tar -xf "$archive" -C "$dir/site"
+          for route in steam-reader timing; do
+            code="$(curl --proto '=https' --tlsv1.2 --max-time 30 -sS -D "$dir/headers" -o "$dir/actual.html" -w '%{http_code}' "https://dreamwishwand.github.io/web/editor/$route/")"
+            test "$code" = 200
+            grep -i '^content-type: text/html' "$dir/headers"
+            cmp "$dir/site/editor/$route/index.html" "$dir/actual.html"
+          done
+          echo ACT997_HOSTED_ROUTE_EXACT_ARTIFACT_HTTP200_HTML_PASS
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual public Reader manual-only failure and reselect lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/act997-observe
+          cd /tmp/act997-observe
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          cat > observe.mjs <<'NODE'
+          import {chromium} from 'playwright-core';
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          const origin='https://dreamwishwand.github.io';
+          const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox']});
+          try {
+            const context=await browser.newContext({viewport:{width:1280,height:800}});
+            const mutations=[];
+            await context.route('**/*',async route=>{
+              const req=route.request();
+              if(!['GET','HEAD'].includes(req.method())){mutations.push(req.method());return route.abort();}
+              return route.continue();
+            });
+            const page=await context.newPage();
+            let response=await page.goto(origin+'/web/editor/timing/',{waitUntil:'networkidle'});
+            assert.equal(response.status(),200);
+            const timing=page.locator('[data-steam-diffgrids-readonly]');
+            await timing.waitFor();
+            assert.equal(await timing.getAttribute('data-preformal-read'),'off');
+            assert.equal(await timing.locator('#steam-diffgrids-file').count(),0);
+            response=await page.goto(origin+'/web/editor/steam-reader/',{waitUntil:'networkidle'});
+            assert.equal(response.status(),200);
+            assert.equal(page.url(),origin+'/web/editor/steam-reader/');
+            const panel=page.locator('[data-steam-diffgrids-readonly]');
+            const input=panel.locator('#steam-diffgrids-file');
+            await input.waitFor({state:'visible',timeout:30000});
+            assert.equal(await panel.getAttribute('data-preformal-read'),'scoped');
+            for(const flag of ['data-writer','data-cloud','data-product-read'])assert.equal(await panel.getAttribute(flag),'off');
+            assert.equal(await input.isEnabled(),true);
+            assert.equal(await panel.locator('[data-diffgrids-open]').isDisabled(),true);
+            assert.equal(await input.evaluate(e=>e.files.length),0);
+            for(let i=0;i<2;i++){
+              const bytes=Buffer.alloc(16,i);
+              const sha=createHash('sha256').update(bytes).digest('hex');
+              await input.setInputFiles({name:'public-synthetic-invalid-'+i+'.p1g',mimeType:'application/octet-stream',buffer:bytes});
+              await panel.locator('#steam-diffgrids-sha').fill(sha);
+              await panel.locator('[data-diffgrids-manual-only] input[type=checkbox]').check();
+              await panel.locator('[data-diffgrids-open]').click();
+              await panel.locator('[data-diffgrids-error]').waitFor({state:'visible',timeout:30000});
+              assert.equal(await panel.locator('[data-diffgrids-count]').count(),0);
+              assert.equal(await input.isEnabled(),true);
+              assert.equal(await panel.locator('[data-diffgrids-close]').isDisabled(),true);
+            }
+            assert.deepEqual(mutations,[]);
+            console.log('ACT997_HOSTED_MANUAL_READER_INVALID_INPUT_RESELECT_DENY_PASS');
+          } finally {await browser.close()}
+          NODE
+          node observe.mjs
