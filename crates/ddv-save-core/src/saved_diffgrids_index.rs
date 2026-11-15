@@ -582,15 +582,7 @@ mod private_storage {
             })
         }
     }
-    fn candidate(b:&[u8],c:&Census,selector:Option<(u64,u64)>)->CoreResult<Link>{
-        // First physical candidate only, or explicit exact composite selector.
-        // A failed selected candidate does not silently fall back to another.
-        let x=c.links.iter().find(|x|!x.diff&&x.item==ITEM&&
-            selector.map_or(true,|(g,o)|x.grid==g&&x.object==o))
-            .copied().ok_or(denied("STORAGE_NO_PHYSICAL_CANDIDATE"))?;
-        if x.container<=1||c.links.iter().filter(|y|y.container==x.container).count()!=1{
-            return Err(denied("STORAGE_STORED_LINK_AMBIGUOUS"));
-        }
+    fn validate_stored_link_state(b:&[u8],x:Link)->CoreResult<()>{
         // Physical duplicate of selected composite in DiffGrids remains an
         // unresolved overlay even if the modified object has another state.
         let mut sole=true;
@@ -605,6 +597,18 @@ mod private_storage {
         if let Some(s)=find_field(b,x.storage,"UnlockKeyItemID")?{if number(b,s)?!=0{return Err(denied("STORAGE_UNLOCK_KEY"));}}
         if let Some(s)=find_field(b,x.storage,"UnlockLocId")?{if !text_field(b,s)?.is_empty(){return Err(denied("STORAGE_UNLOCK_LOCATION"));}}
         if let Some(s)=find_field(b,x.storage,"DesignID")?{if !raw(b,s,b"null"){return Err(denied("STORAGE_DESIGN_UNRESOLVED"));}}
+        Ok(())
+    }
+    fn candidate(b:&[u8],c:&Census,selector:Option<(u64,u64)>)->CoreResult<Link>{
+        // First physical candidate only, or explicit exact composite selector.
+        // A failed selected candidate does not silently fall back to another.
+        let x=c.links.iter().find(|x|!x.diff&&x.item==ITEM&&
+            selector.map_or(true,|(g,o)|x.grid==g&&x.object==o))
+            .copied().ok_or(denied("STORAGE_NO_PHYSICAL_CANDIDATE"))?;
+        if x.container<=1||c.links.iter().filter(|y|y.container==x.container).count()!=1{
+            return Err(denied("STORAGE_STORED_LINK_AMBIGUOUS"));
+        }
+        validate_stored_link_state(b,x)?;
         Ok(x)
     }
     fn slots(b:&[u8],s:Span)->CoreResult<Vec<Value>>{
@@ -755,6 +759,42 @@ mod private_storage {
         Ok(v)
     }
     impl ProductSession{
+        // Stored link only. Native effective/default closure stays external.
+        #[cfg(feature="private-native-v2")]
+        pub(crate) fn read_private_switch626_chest_link_witness(&self,e:WorkerEnvelope,container:u32,parent:i32)->CoreResult<Value>{
+            let build=&self.native_source_build;
+            if self.worker_bound||build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||
+               build.build_id!="9A239D3DB569756D"||build.schema!=626||!build.externally_attested||container<=1||parent<=0{
+                return Err(denied("PRIVATE_SWITCH_LINK_BUILD"));
+            }
+            let st=self.lock()?;indexed_read::validate_scope(self,&st,&e)?;
+            let b=&self.decoded;let roots=indexed_read::roots(b)?;
+            let world=required(b,roots.world,"GridCollection")?;
+            let grids=required(b,world,"Grids")?;
+            let diffs=find_field(b,world,"DiffGrids")?;
+            let mut census=Census::new();census.scan(b,grids,false)?;
+            if let Some(diff)=diffs{census.scan(b,diff,true)?;}
+            let mut hits=census.links.iter().filter(|x|x.container==u64::from(container));
+            let x=hits.next().copied().ok_or(denied("PRIVATE_SWITCH_LINK_MISSING"))?;
+            if hits.next().is_some()||x.diff||x.item!=parent as u64{
+                return Err(denied("PRIVATE_SWITCH_LINK_AMBIGUOUS"));
+            }
+            let grid=required(b,grids,&x.grid.to_string())?;
+            if let Some(p)=find_field(b,grid,"GridDefaultLayoutPath")?{
+                if !text_field(b,p)?.is_empty(){return Err(denied("PRIVATE_SWITCH_LINK_DEFAULT"));}
+            }
+            if let Some(diff)=diffs{
+                if find_field(b,diff,&x.grid.to_string())?.is_some(){return Err(denied("PRIVATE_SWITCH_LINK_OVERLAY"));}
+            }
+            validate_stored_link_state(b,x)?;
+            if number(b,required(b,x.storage,"UnlockKeyItemID")?)?!=0||
+               !text_field(b,required(b,x.storage,"UnlockLocId")?)?.is_empty()||
+               !raw(b,required(b,x.storage,"DesignID")?,b"null"){
+                return Err(denied("PRIVATE_SWITCH_LINK_LOCKED"));
+            }
+            Ok(json!({"gridId":x.grid,"objectId":x.object,"parentItemId":parent,
+                "containerId":container,"stateSha256":digest(b,x.state)}))
+        }
         pub fn read_private_storage_stored_candidate(&self,e:WorkerEnvelope,selector:Option<(u64,u64)>)->CoreResult<Value>{
             self.check_saved_diffgrids_build()?;
             let st=self.lock()?;
