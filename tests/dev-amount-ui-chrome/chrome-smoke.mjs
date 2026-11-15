@@ -106,8 +106,11 @@ const script=String.raw`
  bd.click();await new Promise(r=>setTimeout(r,0));
  await wait(()=>bd.isConnected&&!bd.disabled&&!document.querySelector('[data-dev-error]'),'BACKUP_DOWNLOAD_SETTLED');
  const field=await wait(()=>document.querySelector('#dev-amount-target'),'VERIFIED_ONLY');
- need(field.options.length===2,'TRUSTED_TARGETS_ONLY');
- need(field.options[1].textContent.includes('40000001'),'FURNITURE_ZERO_VISIBLE');
+ need(field.options.length===4,'TRUSTED_TARGETS_ONLY');
+ need(field.options[1].textContent.includes('40000001')&&field.options[1].textContent.includes('Inventory ID 0'),'FURNITURE_ZERO_VISIBLE');
+ need(field.options[2].textContent!==field.options[3].textContent&&
+   field.options[2].textContent.includes('Slot index (0-based) 0')&&
+   field.options[3].textContent.includes('Slot index (0-based) 1'),'SAME_ITEM_SLOTS_DISTINCT');
  const newAmount=document.querySelector('#dev-amount-new');
  newAmount.value='49';newAmount.dispatchEvent(new Event('input',{bubbles:true}));
  const stage=await wait(()=>document.querySelector('[data-dev-stage]:not([disabled])'),'CAS_READY');
@@ -155,6 +158,30 @@ const script=String.raw`
  await wait(()=>document.querySelector('[data-dev-edited-copy]'),'ZERO_COPY');
  (await wait(()=>document.querySelector('[data-dev-close]:not([disabled])'),'ZERO_CLOSE')).click();
  await wait(()=>!document.querySelector('[data-dev-edited-copy]')&&!chooser.disabled,'ZERO_CLOSE_REVOKED');
+ // New selection: equal item/amount in two Chest slots; the typed command
+ // must bind the reviewed physical address, not the indistinguishable item.
+ const thirdSelection=new DataTransfer();
+ thirdSelection.items.add(new File([new Uint8Array(64)],'synthetic-ci.p1g',{type:'application/octet-stream'}));
+ chooser.files=thirdSelection.files;chooser.dispatchEvent(new Event('change',{bubbles:true}));
+ await wait(()=>chooser.disabled&&chooser.value==='','CHEST_SELECTION_CLOSE');
+ await wait(()=>!chooser.disabled,'CHEST_SELECTION_SETTLED');
+ sha.value='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b';sha.dispatchEvent(new Event('input',{bubbles:true}));
+ ck.checked=true;ck.dispatchEvent(new Event('change',{bubbles:true}));
+ (await wait(()=>document.querySelector('[data-dev-open]:not([disabled])'),'CHEST_OPEN')).click();
+ (await wait(()=>document.querySelector('[data-dev-backup]:not([disabled])'),'CHEST_BACKUP')).click();
+ const chestSelect=await wait(()=>document.querySelector('#dev-amount-target'),'CHEST_TARGETS');
+ chestSelect.selectedIndex=3;chestSelect.dispatchEvent(new Event('change',{bubbles:true}));
+ const review=await wait(()=>{const p=document.querySelector('[data-dev-target-review]');return p?.textContent.includes('Slot index (0-based) 1')?p:null},'CHEST_REVIEW');
+ need(review.textContent.includes('Container ID 48')&&review.textContent.includes('30000002'),'CHEST_REVIEW_ADDRESS');
+ bbox(review);
+ const chestAmount=document.querySelector('#dev-amount-new');chestAmount.value='6';chestAmount.dispatchEvent(new Event('input',{bubbles:true}));
+ await wait(()=>review.textContent.includes('7 →')&&review.textContent.includes('6'),'CHEST_BEFORE_AFTER');
+ need(!document.querySelector('[data-dev-preview]'),'REVIEW_IS_NOT_STAGED');
+ (await wait(()=>document.querySelector('[data-dev-stage]:not([disabled])'),'CHEST_STAGE')).click();
+ const stagedChest=await wait(()=>document.querySelector('[data-dev-preview]'),'CHEST_STAGED');
+ need(stagedChest.textContent.includes('Slot index (0-based) 1')&&document.querySelector('[data-ci-last-chest-slot]').textContent.trim()==='1','CHEST_TYPED_SLOT_MATCH');
+ (await wait(()=>document.querySelector('[data-dev-close]:not([disabled])'),'CHEST_CLOSE')).click();
+ await wait(()=>!document.querySelector('[data-dev-preview],[data-dev-target-review]')&&!chooser.disabled,'CHEST_REVIEW_REVOKED');
  // Actual OPFS re-read and causal corruption / stale check (synthetic bytes).
  const m=await import('/src/lib/dev/local-amount-worker-adapter.mjs');
  const directory=await navigator.storage.getDirectory(),name='download-probe.p1g';
