@@ -1,0 +1,329 @@
+name: QR-W ACT993 actual Chrome Collection candidate owner
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1335-collection-owner.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-act993-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed Web and compatible accepted Core exact8 preimages
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only 132a978e7df4ce10358ba9fc776d10fa531dd7a2 HEAD)" = '.github/workflows/qa-qrw-pr1335-collection-owner.yml'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = ad2fb924323b3b35a02ef81f9225935a1ee5113d
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 1c5a6dd944f4cc335a802dd980feecf3ebcad18d
+          test "$(git rev-parse HEAD:src/lib/collection/collection-candidate-read.mjs)" = 0fe5943f6dc891aa537a0b93ce36de386ee225b2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/data/collection-furniture-626.json)" = 90b1f6bcb916056da4808973c93c8f36212c7ffd
+          git cat-file -e c0e489a0f5e3866e6c688c567ac9cae9708bd333^{commit} || git fetch --no-tags origin c0e489a0f5e3866e6c688c567ac9cae9708bd333
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 27cc74609bc818741ff068bdd00c0b7d430aa257
+          test "$(git rev-parse c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/Cargo.toml)" = 0958ef32c17e6b45b3d6c6e24d0ec21343547c9d
+          git show c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/Cargo.toml > 'crates/ddv-save-core/Cargo.toml'
+          test "$(git hash-object 'crates/ddv-save-core/Cargo.toml')" = 0958ef32c17e6b45b3d6c6e24d0ec21343547c9d
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/lib.rs)" = 6e47eb5d2d2c829c0b0fe6a741db550b1faf70e5
+          test "$(git rev-parse c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/lib.rs)" = 9cc0dfdde15399d2797f30c861684f530635c4ef
+          git show c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/lib.rs > 'crates/ddv-save-core/src/lib.rs'
+          test "$(git hash-object 'crates/ddv-save-core/src/lib.rs')" = 9cc0dfdde15399d2797f30c861684f530635c4ef
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/native_reference_slice.rs)" = 84c010a851bd1324d1ba716e3ac20ee7ff97e69e
+          test "$(git rev-parse c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/native_reference_slice.rs)" = 061df02b8d8a8b9ed8c4d0ccd549ed4ea5ab3a2c
+          git show c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/native_reference_slice.rs > 'crates/ddv-save-core/src/native_reference_slice.rs'
+          test "$(git hash-object 'crates/ddv-save-core/src/native_reference_slice.rs')" = 061df02b8d8a8b9ed8c4d0ccd549ed4ea5ab3a2c
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/private_collection_read.rs)" = dd4364c14004e4b577b63b20138e0b366c4d67fb
+          test "$(git rev-parse c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/private_collection_read.rs)" = b0661b65c171369c54187cd95e829d873c6f8c88
+          git show c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/private_collection_read.rs > 'crates/ddv-save-core/src/private_collection_read.rs'
+          test "$(git hash-object 'crates/ddv-save-core/src/private_collection_read.rs')" = b0661b65c171369c54187cd95e829d873c6f8c88
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = 16fb65a15fa3f00c249e91ffaad655c508a917c8
+          test "$(git rev-parse c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/product_session.rs)" = ba167bce04045f91bd53a20e72ff7b1043412f71
+          git show c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/product_session.rs > 'crates/ddv-save-core/src/product_session.rs'
+          test "$(git hash-object 'crates/ddv-save-core/src/product_session.rs')" = ba167bce04045f91bd53a20e72ff7b1043412f71
+          ! git cat-file -e HEAD:crates/ddv-save-core/src/reference_span_walk.rs 2>/dev/null
+          test "$(git rev-parse c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/reference_span_walk.rs)" = f12edf8eed2d6575bb0c581679e038658f126692
+          git show c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/reference_span_walk.rs > 'crates/ddv-save-core/src/reference_span_walk.rs'
+          test "$(git hash-object 'crates/ddv-save-core/src/reference_span_walk.rs')" = f12edf8eed2d6575bb0c581679e038658f126692
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 387afcb5bc151942fcc7f5848e3d9d5722b90de5
+          test "$(git rev-parse c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/wasm_worker.rs)" = e76367efe988e733459a19519f00ec5bd8fa76d5
+          git show c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/wasm_worker.rs > 'crates/ddv-save-core/src/wasm_worker.rs'
+          test "$(git hash-object 'crates/ddv-save-core/src/wasm_worker.rs')" = e76367efe988e733459a19519f00ec5bd8fa76d5
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/worker_session.rs)" = d84fcd08849c9eaae046aeaa16d217b77d0b3b0d
+          test "$(git rev-parse c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/worker_session.rs)" = d8b8ba7479e9f057d08a65e798d757daf3c3ae3a
+          git show c0e489a0f5e3866e6c688c567ac9cae9708bd333:crates/ddv-save-core/src/worker_session.rs > 'crates/ddv-save-core/src/worker_session.rs'
+          test "$(git hash-object 'crates/ddv-save-core/src/worker_session.rs')" = d8b8ba7479e9f057d08a65e798d757daf3c3ae3a
+          cat > tests/stage-f/worker.mjs <<'NODE'
+          import init,{WorkerWasmSource} from '../stage-e/pkg/ddv_save_core.js';
+          import {createP1gRustWorkerReadOnlyBridge} from '../../src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+          const need=(v,k)=>{if(!v)throw Error('ACT993_'+k)};
+          const digest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
+          const scope=r=>({sessionId:r.sessionId,revision:r.revision,indexGeneration:r.indexGeneration,decodedSha256:r.decodedSha256});
+          async function run(){
+           await init(new URL('../stage-e/pkg/ddv_save_core_bg.wasm',import.meta.url));
+           const native=WorkerWasmSource.prototype.preview_scoped_collection_candidate;need(typeof native==='function','REAL_ABI');
+           const meta=await (await fetch('./fixtures/collection-qa.json')).json(),selector=meta.selector;
+           const source=new Uint8Array(await (await fetch('./fixtures/collection-qa.p1g')).arrayBuffer());
+           const bad=new Uint8Array(await (await fetch('./fixtures/collection-qa-bad.p1g')).arrayBuffer());
+           const two=new Uint8Array(await (await fetch('./fixtures/collection-qa-two.p1g')).arrayBuffer());
+           need(await digest(source)===meta.sourceSha,'FIXTURE_SHA');
+           const buildList=[{platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true},{platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626,externallyConfirmed:true}];
+           let positive=0,negative=0,mode='real';
+           const deny=async f=>{try{await f()}catch{negative++;return}throw Error('ACT993_UNEXPECTED_ACCEPT')};
+           const factory=async()=>({WorkerWasmSource});
+           WorkerWasmSource.prototype.preview_scoped_collection_candidate=function(...a){
+            const raw=native.apply(this,a);if(mode==='real')return raw;
+            if(mode==='duplicate')return raw.slice(0,-1)+',"writerAuthorized":false}';
+            const r=JSON.parse(raw);
+            if(mode==='authority')r.writerAuthorized=true;
+            if(mode==='session')r.sessionId='f'.repeat(32);
+            if(mode==='revision')r.revision=1;
+            if(mode==='platform')r.platform='Unknown';
+            if(mode==='digest')r.decodedSha256='0'.repeat(64);
+            if(mode==='stock')r.positiveStock=0;
+            if(mode==='extra')r.rawSource='DENIED';
+            return JSON.stringify(r);
+           };
+           try{
+            for(const build of buildList){
+             const off=createP1gRustWorkerReadOnlyBridge(factory);await off.openEncrypted({build,encryptedBytes:source});
+             need(off.readCollectionCandidate===undefined&&off.getCapabilities().canExportEditedCopy===false,'DEFAULT_OFF');off.close();
+             const b=createP1gRustWorkerReadOnlyBridge(factory,{allowCollectionCandidateSource:true});
+             const open=async(bytes=source)=>{const r=await b.openEncrypted({build,encryptedBytes:bytes});need(r.decodedByExistingP1gCodec===true&&r.writerAuthorized===false&&r.productReadAccepted===false,'P1G_OPEN');return b.getReceipt()};
+             const check=(x,count=3)=>{
+              need(Object.keys(x).sort().join(',')==='applyAuthorized,definitionId,editedCopyAuthorized,effectiveEligibilityVerified,falseCount,groupIndex,itemId,kind,packagedCandidateVerified,platform,positiveStock,sourcePhysicalVerified,writerAuthorized','EXACT_PROJECTION');
+              need(x.kind==='COLLECTION_CANDIDATE_READ_ONLY'&&x.definitionId===selector.definitionId&&x.groupIndex===0&&x.itemId===selector.itemId&&x.platform===build.platform&&x.falseCount===count&&x.positiveStock===7,'TARGET');
+              need(x.packagedCandidateVerified===true&&x.sourcePhysicalVerified===true&&x.effectiveEligibilityVerified===false&&x.writerAuthorized===false&&x.editedCopyAuthorized===false&&x.applyAuthorized===false,'AUTHORITY');
+             };
+             await deny(()=>b.readCollectionCandidate(selector));
+             const a=await open(),before=b.readCoreVersion(scope(a));
+             const s={...selector},pending=b.readCollectionCandidate(s);s.itemId=40000001;check(await pending);
+             check(await b.readCollectionCandidate(selector));need(b.getReceipt()===a&&JSON.stringify(b.readCoreVersion(scope(a)))===JSON.stringify(before),'SAME_SESSION');
+             need(b.getCapabilities().canStage===false&&b.getCapabilities().canExportEditedCopy===false&&b.getCapabilities().canApply===false,'READ_ONLY');
+             positive++;
+             await deny(()=>b.readCollectionCandidate({...selector,groupIndex:1}));
+             await deny(()=>b.readCollectionCandidate({...selector,itemId:40000001}));
+             await deny(()=>b.readCollectionCandidate({...selector,sessionId:a.sessionId}));
+             await deny(()=>b.readCollectionCandidate({...selector,groupIndex:0.5}));
+             need(b.getReceipt()===a,'CORE_DENY_RETAIN_UNRELATED_READ');
+             const stale=b.readCollectionCandidate(selector);const rejected=deny(()=>stale);b.close();const newer=await open();await rejected;
+             need(b.getReceipt()===newer&&newer.sessionId!==a.sessionId,'STALE_NOT_CLOSE_NEW');check(await b.readCollectionCandidate(selector));
+             b.close();await deny(()=>b.readCollectionCandidate(selector));
+             const deniedSource=await open(bad);await deny(()=>b.readCollectionCandidate(selector));need(b.getReceipt()===deniedSource,'CORE_PHYSICAL_DENY');
+             b.close();
+             for(const m of ['duplicate','authority','session','revision','platform','digest','stock','extra']){
+              mode='real';await open();mode=m;await deny(()=>b.readCollectionCandidate(selector));need(b.getReceipt()===null,'MALFORMED_REVOKE_'+m);
+             }
+             mode='real';
+             if(build.platform==='switch'){await open(two);check(await b.readCollectionCandidate(selector),2);positive++;}
+             b.close();need(await digest(source)===meta.sourceSha,'ORIGINAL_UNCHANGED');
+            }
+           }finally{WorkerWasmSource.prototype.preview_scoped_collection_candidate=native}
+           return {result:'ACT993_COLLECTION_CANDIDATE_OWNER_PASS',positive,negative,actualChrome:true,actualGeneratedWasm:true,existingP1g:true,writerAuthorized:false,productReadAccepted:false,originalInvariant:true};
+          }
+          self.onmessage=async e=>{if(e.data?.kind!=='RUN_STAGE_F')return;try{self.postMessage({status:'PASS',summary:await run()})}catch(err){self.postMessage({status:'FAIL',error:String(err?.stack||err).slice(0,650)})}};
+          NODE
+          cat > tests/.qa-act993-fixture.mjs <<'NODE'
+          import {readFile,mkdir,writeFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
+          const hash=b=>createHash('sha256').update(b).digest('hex');
+          const raw=await readFile('crates/ddv-save-core/data/collection-furniture-626.json');
+          if(hash(raw)!=='b9ebc7bebf2c3e1df274b9a98a7b7276896270faa303a41657ecc6c56db84f4f')throw Error('PACK_SHA');
+          const [item,def]=JSON.parse(raw).items[0],selector={definitionId:def,groupIndex:0,itemId:item};
+          const doc=(count=3)=>({GameInfo:{Version:626},World:{},Player:{CollectionSets:[{CollectionDefinitionID:def,GroupData:[{GroupIndex:0,State:'SetState_NotComplete',GroupsCollectionItems:{[item]:false,40000001:false,40000002:count===2}}]}],ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',Inventory:{[item]:{Amount:7,Marker:'ItemMarker_None'}}}}},Unknown:{sentinel:'QA_SYNTHETIC_ONLY'}});
+          const d=doc(),bad=doc();bad.Player.ListInventories[0].Inventory[item].Amount=0;
+          const b=makeSyntheticP1gProfile(d),dir='tests/stage-f/fixtures';await mkdir(dir,{recursive:true});
+          await writeFile(dir+'/collection-qa.p1g',b);
+          await writeFile(dir+'/collection-qa-bad.p1g',makeSyntheticP1gProfile(bad));
+          await writeFile(dir+'/collection-qa-two.p1g',makeSyntheticP1gProfile(doc(2)));
+          await writeFile(dir+'/collection-qa.json',JSON.stringify({selector,sourceSha:hash(b)}));
+          NODE
+          cat > tests/stage-f/chrome-smoke.mjs <<'NODE'
+          // W-CORE-REAL-WASM-BROWSER-099: use REAL Chromium/Chrome headless CDP,
+          // REAL browser Worker and generated wasm-bindgen; zero third-party JS packages.
+          // No user Save, keys, media, Cloud or UI JSON transport.
+          import {createServer} from 'node:http';
+          import {readFile,mkdtemp,rm} from 'node:fs/promises';
+          import {existsSync} from 'node:fs';
+          import {spawn,spawnSync} from 'node:child_process';
+          import {tmpdir} from 'node:os';
+          import {join,resolve,extname} from 'node:path';
+          import {fileURLToPath} from 'node:url';
+          import {setTimeout as delay} from 'node:timers/promises';
+          import assert from 'node:assert/strict';
+          
+          const repoRoot=resolve(fileURLToPath(new URL('../../',import.meta.url)));
+          const profile=await mkdtemp(join(tmpdir(),'wand-stagee-chrome-'));
+          let browser,ws,server;
+          const mime={'.html':'text/html;charset=utf-8','.js':'text/javascript;charset=utf-8',
+            '.mjs':'text/javascript;charset=utf-8','.wasm':'application/wasm',
+            '.p1g':'application/octet-stream','.json':'application/json'};
+          const chromeCandidates=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium','chromium-browser'].filter(Boolean);
+          const binary=chromeCandidates.find(bin=>spawnSync('which',[bin],{stdio:'ignore'}).status===0);
+          if(!binary)throw Error('ENV_WAIT_DEP_CHROME_NOT_INSTALLED');
+          function replyFile(req,res){
+            let p;
+            try{p=decodeURIComponent(new URL(req.url,'http://localhost').pathname)}catch{
+              res.writeHead(400);res.end();return;
+            }
+            const allowed=p.startsWith('/tests/stage-f/')||
+              p.startsWith('/tests/stage-e/pkg/')||
+              ['/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
+               '/src/lib/collection/collection-candidate-read.mjs',
+               '/src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs',
+               '/src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs',
+               '/tools/owner-local-steam-v1/attestation.mjs',
+               '/src/lib/ddv/core/save/p1g-packaged-profile-codec.js',
+               '/src/lib/ddv/core/save/safe-edit-session.js',
+               '/src/lib/ddv/core/save/versioning.js'].includes(p);
+            if(!allowed||p.includes('..')||p.includes('/.')){
+              res.writeHead(403);res.end();return;
+            }
+            const path=resolve(repoRoot,'.'+p);
+            if(!path.startsWith(repoRoot+'/')){res.writeHead(403);res.end();return;}
+            readFile(path).then(bytes=>{
+              res.writeHead(200,{'content-type':mime[extname(path)]||'application/octet-stream',
+                'cache-control':'no-store','x-content-type-options':'nosniff'});
+              res.end(bytes);
+            }).catch(()=>{res.writeHead(404);res.end()});
+          }
+          const pending=new Map();let seq=0;
+          function rpc(method,params={}){
+            return new Promise((resolve,reject)=>{
+              const id=++seq;
+              pending.set(id,{resolve,reject});
+              ws.send(JSON.stringify({id,method,params}));
+            });
+          }
+          async function connect(){
+            const file=join(profile,'DevToolsActivePort');
+            let port;
+            for(let i=0;i<240;i++){
+              if(existsSync(file)){
+                const raw=(await readFile(file,'utf8')).trim().split('\n');
+                port=Number(raw[0]);if(port>0)break;
+              }
+              await delay(125);
+            }
+            if(!port)throw Error('ENV_WAIT_DEP_CHROME_DEBUG_PORT_UNAVAILABLE');
+            let url;
+            for(let i=0;i<160;i++){
+              try{
+                const data=await fetch('http://127.0.0.1:'+port+'/json/list');
+                const arr=await data.json();
+                url=arr.find(t=>t.type==='page')?.webSocketDebuggerUrl;
+                if(url)break;
+              }catch{}
+              await delay(125);
+            }
+            if(!url)throw Error('ENV_WAIT_DEP_CHROME_PAGE_DEBUG_TARGET_MISSING');
+            ws=new WebSocket(url);
+            await new Promise((resolve,reject)=>{
+              ws.addEventListener('open',resolve,{once:true});
+              ws.addEventListener('error',reject,{once:true});
+            });
+            ws.addEventListener('message',event=>{
+              let msg;try{msg=JSON.parse(String(event.data))}catch{return}
+              const task=pending.get(msg.id);
+              if(task){pending.delete(msg.id);if(msg.error)task.reject(Error(JSON.stringify(msg.error)));
+                else task.resolve(msg.result);}
+            });
+          }
+          try{
+            server=createServer(replyFile);
+            await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+            const port=server.address().port;
+            browser=spawn(binary,[
+              '--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu',
+              '--no-first-run','--no-default-browser-check','--remote-allow-origins=*',
+              '--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'
+            ],{stdio:'ignore'});
+            await connect();
+            await rpc('Page.enable');
+            await rpc('Runtime.enable');
+            await rpc('Page.navigate',{url:'http://127.0.0.1:'+port+'/tests/stage-f/index.html'});
+            // Navigation may destroy the old about:blank execution context. Wait until
+            // the *new* document exists before creating an awaitPromise CDP task.
+            let navigated=false;
+            for(let i=0;i<200;i++){
+              try{
+                const state=await rpc('Runtime.evaluate',{expression:'location.pathname',
+                  returnByValue:true});
+                if(state.result?.value==='/tests/stage-f/index.html'){
+                  navigated=true;break;
+                }
+              }catch{} // context swap is expected during Page.navigate
+              await delay(50);
+            }
+            if(!navigated)throw Error('ENV_STAGEF_CHROME_NAVIGATION_NOT_READY');
+            // Abort the 150s watchdog on success/failure, otherwise Node's timer
+            // unnecessarily holds the GitHub runner open even after a verdict.
+            const watchdog=new AbortController();
+            let result;
+            try{
+              result=await Promise.race([
+                rpc('Runtime.evaluate',{expression:`
+                  new Promise((resolve,reject)=>{
+                    let count=0;
+                    const tick=()=>{
+                      if(window.__stageF){
+                        window.__stageF.then(resolve,reject);
+                      }else if(++count>3000){reject(Error('BROWSER_WORKER_BOOT_TIMEOUT'))}
+                      else setTimeout(tick,30);
+                    };
+                    tick();
+                  })`,awaitPromise:true,returnByValue:true}),
+                delay(150000,undefined,{signal:watchdog.signal})
+                  .then(()=>{throw Error('ENV_STAGEF_CHROME_TIMEOUT_150S')})
+              ]);
+            }finally{watchdog.abort()}
+            if(result.exceptionDetails)throw Error('CHROME_WORKER_EXCEPTION:'+
+              (result.exceptionDetails.exception?.description||
+                result.exceptionDetails.text||'unknown').slice(0,900));
+            const report=result.result?.value;
+            assert.deepEqual(report,{result:'ACT993_COLLECTION_CANDIDATE_OWNER_PASS',positive:3,negative:32,actualChrome:true,actualGeneratedWasm:true,existingP1g:true,writerAuthorized:false,productReadAccepted:false,originalInvariant:true});
+            console.log('QRW_ACT993_REAL_CHROME_COLLECTION_OWNER_PASS',JSON.stringify(report));
+          
+          }catch(error){
+            console.error('STAGE_F_CHROME_REAL_WASM_FAIL:',String(error?.stack||error).slice(0,1200));
+            process.exitCode=1;
+          }finally{
+            for(const task of pending.values())task.reject(Error('CDP_CLOSED'));
+            pending.clear();
+            try{ws?.close()}catch{}
+            if(browser){browser.kill('SIGTERM');await delay(250);if(browser.exitCode===null)browser.kill('SIGKILL');}
+            if(server)await new Promise(done=>server.close(done));
+            await rm(profile,{recursive:true,force:true,maxRetries:3});
+          }
+          NODE
+          node --check tests/stage-f/worker.mjs
+          node --check tests/.qa-act993-fixture.mjs
+          node --check tests/stage-f/chrome-smoke.mjs
+      - name: Build locked real Collection candidate WASM and run Chrome
+        run: |
+          set -euo pipefail
+          git cat-file -e 1faa98a0860fab1fb37106cde5f6b079ef255ca3^{commit} || git fetch --no-tags origin 1faa98a0860fab1fb37106cde5f6b079ef255ca3
+          git show 1faa98a0860fab1fb37106cde5f6b079ef255ca3:tests/fixtures/ddv-save-core-accepted.Cargo.lock > crates/ddv-save-core/Cargo.lock
+          printf '%s\n' 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-collection-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-act993-tools
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-act993-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node tests/.qa-act993-fixture.mjs
+          node tests/stage-f/chrome-smoke.mjs
+      - name: No tracked Web source edit or private Save
+        run: |
+          git diff --exit-code HEAD -- src/
+          test -z "$(git ls-files '*.p1g')"
