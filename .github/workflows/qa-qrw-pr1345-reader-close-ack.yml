@@ -1,0 +1,289 @@
+name: QR-W PR1345 live Reader Close ack real signed Chrome
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1345-reader-close-ack.yml'
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Fixed Source and exact changed safety scope
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only bbfa6b62341d509679f6f3ba7afe51d2b9cbfdcd HEAD)" = '.github/workflows/qa-qrw-pr1345-reader-close-ack.yml'
+          test "$(git rev-parse HEAD:src/lib/wep/steam-saved-diffgrids-ui-client.mjs)" = fbfc371ceecfd57d0083d543e39eb1e41bd635d5
+          test "$(git rev-parse HEAD:tests/web-steam-saved-diffgrids-consumer.test.mjs)" = 2c5c87043561e14125367ea3bf9211f6aa16e41d
+          test "$(git rev-parse HEAD:src/lib/wep/SteamSavedDiffGridsReadonly.svelte)" = 5b609616fb327bb3280899ecba0bde02e563cd82
+          test "$(git rev-parse HEAD:tests/web-steam-saved-diffgrids-real-chrome.mjs)" = f1f469b588502cc3fd2e5cffa119226db9114271
+          test "$(git rev-parse HEAD:.github/workflows/08web-steam-saved-diffgrids-real-chrome.yml)" = fe9338fc87def0917f834091958a19a88c79ed37
+          test -z "$(git ls-files static/worker-wasm tests/stage-f/fixtures)"
+      - name: Reuse exact already signed protected Pages artifact (no new upload)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          # Select the latest successful protected Pages run from trusted GitHub
+          # metadata, never from a fetched manifest. Capture its immutable run/head.
+          run=43763939292
+          source=d87e7c16a28fea340ffcb8d70005d8493c8e8608
+          meta="$(gh api "repos/DreamwishWand/web/actions/runs/$run")"
+          test "$(jq -r .head_sha <<< "$meta")" = "$source"
+          test "$(jq -r .head_branch <<< "$meta")" = main
+          test "$(jq -r .conclusion <<< "$meta")" = success
+          test "$(jq -r .head_repository.full_name <<< "$meta")" = DreamwishWand/web
+          [[ "$run" =~ ^[0-9]+$ && "$source" =~ ^[0-9a-f]{40}$ ]]
+          echo "R22_FIXED_TEST_RELEASE_RUN=$run SOURCE=$source"
+          mkdir -p "$dir/site/worker-wasm"
+          if gh api "repos/DreamwishWand/web/actions/runs/$run/artifacts" | jq -e '.artifacts[] | select(.name=="github-pages" and .expired==false)' >/dev/null; then
+            gh run download "$run" --repo DreamwishWand/web --name github-pages --dir "$dir"
+            archive="$(find "$dir" -maxdepth 1 -type f -name '*.tar*' -print -quit)"
+            test -n "$archive"
+            tar -xf "$archive" -C "$dir/site"
+          else
+            # A Pages artifact expires. The existing authorized HTTPS release
+            # remains usable only if its three exact bytes match the selected
+            # signed protected source. Any deployment race fails closed.
+            for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+              code="$(curl --silent --show-error --fail --max-time 40 --max-redirs 0 --proto '=https' -o "$dir/site/worker-wasm/$name" -w '%{http_code}' "https://dreamwishwand.github.io/web/worker-wasm/$name")"
+              test "$code" = 200
+            done
+          fi
+          test -s "$dir/site/worker-wasm/manifest.json"
+          # Reuse actual historical Sigstore bundles, then exercise the same
+          # offline-bundle verification path the protected Pages sealer uses.
+          mkdir "$dir/bundles"
+          for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+            (cd "$dir/bundles"; gh attestation download "$dir/site/worker-wasm/$name" --repo DreamwishWand/web)
+          done
+          cat "$dir/bundles/"*.jsonl > "$dir/signed-subjects.jsonl"
+          test -s "$dir/signed-subjects.jsonl"
+          node scripts/readonly-release/seal.mjs verify-only "$source" "$dir/site/worker-wasm" "$dir/signed-subjects.jsonl"
+          mkdir -p static/worker-wasm
+          cp "$dir/site/worker-wasm/"* static/worker-wasm/
+          echo "R22_HISTORICAL_SOURCE_HEAD=$source" >> "$GITHUB_ENV"
+          rm -rf "$dir"
+      - run: npm ci --no-audit --no-fund
+      - name: Generate PUBLIC synthetic encrypted P1G locally only
+        run: |
+          node tests/stage-f/generate-fixture.mjs
+          test -s tests/stage-f/fixtures/synthetic626-diffgrids.p1g
+          test -s tests/stage-f/fixtures/expected-diffgrids.json
+          test -z "$(git ls-files tests/stage-f/fixtures)"
+      - name: Test-only anchor for verified signed bytes at the exact legacy origin (Chrome isolated DNS)
+        run: |
+          node --input-type=module <<'NODE'
+          import {writeFile,readFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          import {inspectReleasePins} from './scripts/readonly-release/seal.mjs';
+          import {readonlyReleaseIdentityText} from './src/lib/ddv/core/save/product-rust-wasm-release-loader.mjs';
+          import {LEGACY_RELEASE_TUPLE,matchReleaseTuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          const path='src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs';
+          if(!(await readFile(path,'utf8')).includes('PROTECTED_READONLY_RELEASE_ANCHOR=null;'))
+            throw Error('TEST_ANCHOR_SOURCE_NOT_NULL');
+          const pins=await inspectReleasePins('static/worker-wasm',process.env.R22_HISTORICAL_SOURCE_HEAD);
+          const a={contract:'wand.r22.protected-readonly-release@1',...LEGACY_RELEASE_TUPLE,pins,attestationVerifiedAtBuild:true};
+          if(matchReleaseTuple(a)!==LEGACY_RELEASE_TUPLE)throw Error('TEST_LEGACY_TUPLE_DENIED');
+          a.releaseId=createHash('sha256').update(readonlyReleaseIdentityText(a)).digest('hex');
+          await writeFile(path,'// TEST ONLY; verified historical signed assets, exact legacy origin mapped to local TLS only.\nconst a='+JSON.stringify(a)+';Object.freeze(a.pins);export const PROTECTED_READONLY_RELEASE_ANCHOR=Object.freeze(a);\n');
+          console.log('08WEB_TEST_ONLY_RELEASE_ID',a.releaseId);
+          NODE
+      - name: QA-ONLY synthetic attestation (NEVER a product Source commit)
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFile,writeFile} from 'node:fs/promises';
+          const edits=[
+            ['src/lib/wep/steam-saved-diffgrids.consumer.worker.ts',[
+              ['allowSyntheticFixture:false','allowSyntheticFixture:true']]],
+            ['src/lib/wep/steam-saved-diffgrids-ui-client.mjs',[
+              ["evidenceKind:'owner-observed-installed-steam-fullversion'",
+               "evidenceKind:'ci-synthetic-fixture'"],
+              ['observedOutsideSave:true','observedOutsideSave:false']]]
+          ];
+          for(const [name,changes] of edits){
+            let file=await readFile(name,'utf8');
+            for(const [before,after] of changes){
+              if(file.split(before).length!==2)throw Error('TEST_ONLY_EXACT_REPLACEMENT_DENIED_'+name);
+              file=file.replace(before,after);
+            }
+            await writeFile(name,file);
+          }
+          console.log('08WEB_PREFORMAL_READER_SYNTHETIC_ATTESTATION_TEST_ONLY_NOT_COMMITTED');
+          NODE
+      - name: Temporary local signed Reader build and independent focused harness
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run build
+          test -f build/editor/steam-reader/index.html
+          cp src/lib/wep/steam-saved-diffgrids-ui-client.mjs build/qa-reader-client.mjs
+          printf '%s\n' '<!doctype html><meta charset="utf-8"><title>QA only</title>' > build/qa-reader-direct.html
+          cat > tests/qa-qrw-pr1345-real-chrome.mjs <<'NODE'
+          // 08 WEB R22 public-SYNTHETIC only: REAL installed Chrome, REAL Vite/Svelte
+          // build, REAL pinned public JS+WASM and accepted Rust Worker; no private Save.
+          // CI uses the committed scoped preformal route and a temporary synthetic
+          // attestation/anchor only; never publishes this candidate Pages artifact.
+          import {createServer} from 'node:https';
+          import {readFile,mkdtemp,rm,readdir,mkdir} from 'node:fs/promises';
+          import {existsSync} from 'node:fs';
+          import {spawn,spawnSync,execFileSync} from 'node:child_process';
+          import {tmpdir} from 'node:os';
+          import {join,resolve,extname} from 'node:path';
+          import {fileURLToPath} from 'node:url';
+          import {setTimeout as delay} from 'node:timers/promises';
+          import assert from 'node:assert/strict';
+          const root=resolve(fileURLToPath(new URL('../',import.meta.url)));
+          const base='/web';
+          // Preserve the real finite release tuple while serving only isolated local bytes.
+          const testOrigin='https://dreamwishwand.github.io';
+          const isolatedHost='dreamwishwand.github.io';
+          let isolatedRouteRequests=0;
+          const csp="default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-inline'; worker-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'";
+          const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript',
+            '.wasm':'application/wasm','.json':'application/json','.css':'text/css',
+            '.p1g':'application/octet-stream','.svg':'image/svg+xml','.png':'image/png',
+            '.woff2':'font/woff2'};
+          const profile=await mkdtemp(join(tmpdir(),'wand-08web-real-chrome-'));
+          let chrome,ws,server,browserWs;
+          const downloadDir=join(profile,'verified-downloads');
+          const downloads=new Map();
+          let fault=null,assetRequests=0,mutationRequests=0;
+          const binary=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium'].filter(Boolean)
+           .find(bin=>spawnSync('which',[bin],{stdio:'ignore'}).status===0);
+          if(!binary)throw Error('ENV_WAIT_DEP_CHROME_NOT_INSTALLED');
+          let seq=0;const pending=new Map();
+          const rpc=(method,params={})=>new Promise((resolve,reject)=>{
+           const id=++seq;pending.set(id,{resolve,reject});
+           ws.send(JSON.stringify({id,method,params}));
+          });
+          async function configureBrowserDownloads(){
+           // Browser-level CDP, not the deprecated Page setting that can disappear
+           // when a navigation replaces the renderer. allowAndName pins disk names to
+           // Chromium's event GUID, while suggestedFilename is separately validated.
+           const [port,path]=(await readFile(join(profile,'DevToolsActivePort'),'utf8')).trim().split('\n');
+           if(!/^\d+$/.test(port)||!/^\/devtools\/browser\/[a-f0-9-]+$/.test(path))throw Error('BROWSER_CDP_ENDPOINT_INVALID');
+           await mkdir(downloadDir,{recursive:true});
+           browserWs=new WebSocket('ws://127.0.0.1:'+port+path);
+           await new Promise((ok,bad)=>{browserWs.addEventListener('open',ok,{once:true});browserWs.addEventListener('error',bad,{once:true})});
+           await new Promise((ok,bad)=>{
+            const timer=setTimeout(()=>bad(Error('BROWSER_DOWNLOAD_SETUP_TIMEOUT')),10000);
+            browserWs.addEventListener('message',e=>{
+             let m;try{m=JSON.parse(String(e.data))}catch{return}
+             if(m.id===1){clearTimeout(timer);if(m.error)bad(Error(JSON.stringify(m.error)));else ok();return}
+             if(m.method==='Browser.downloadWillBegin'){
+              const p=m.params;downloads.set(p.guid,{guid:p.guid,name:p.suggestedFilename,url:p.url,state:'started'});
+             }else if(m.method==='Browser.downloadProgress'){
+              const p=m.params,existing=downloads.get(p.guid);
+              if(existing){existing.state=p.state;existing.received=p.receivedBytes;existing.total=p.totalBytes}
+             }
+            });
+            browserWs.send(JSON.stringify({id:1,method:'Browser.setDownloadBehavior',params:{behavior:'allowAndName',downloadPath:downloadDir,eventsEnabled:true}}));
+           });
+          }
+          function serve(req,res){
+           if(req.headers.host!==isolatedHost||req.socket.remoteAddress!=='127.0.0.1'){res.writeHead(403);res.end();return;}
+           if(req.url===base+'/editor/steam-reader/'||req.url===base+'/editor/timing/')isolatedRouteRequests++;
+           if(req.method!=='GET'&&req.method!=='HEAD'){mutationRequests++;res.writeHead(405);res.end();return;}
+           let pathname;
+           try{pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname)}
+           catch{res.writeHead(400);res.end();return}
+           if(!pathname.startsWith(base+'/')||pathname.includes('..')||pathname.includes('\\')){
+            res.writeHead(403);res.end();return;
+           }
+           const suffix=pathname.slice(base.length);
+           const isSynthetic=['/__synthetic__/synthetic626-diffgrids.p1g',
+            '/__synthetic__/expected-diffgrids.json'].includes(suffix);
+           const source=isSynthetic?join(root,'tests/stage-f/fixtures/',suffix.split('/').at(-1)):
+             join(root,'build',suffix.endsWith('/')?suffix+'index.html':suffix);
+           if(!resolve(source).startsWith(root+'/')||(!isSynthetic&&suffix.startsWith('/__synthetic__/'))){
+            res.writeHead(403);res.end();return;
+           }
+           readFile(source).then(data=>{
+             const asset=suffix.startsWith('/worker-wasm/');
+             if(asset)assetRequests++;
+             if(asset&&fault==='redirect'&&suffix.endsWith('.js')){res.writeHead(302,{location:'/web/worker-wasm/manifest.json'});res.end();return}
+             if(asset&&fault==='manifest'&&suffix.endsWith('manifest.json')){data=Buffer.from(data);data[data.length-1]^=1}
+             if(asset&&fault==='wasm'&&suffix.endsWith('.wasm')){data=Buffer.from(data);data[data.length-1]^=1}
+             res.writeHead(200,{'content-type':asset&&fault==='mime'&&suffix.endsWith('.js')?'text/html':mime[extname(source)]||'application/octet-stream',
+              'cache-control':'no-store','x-content-type-options':'nosniff',
+              'content-security-policy':csp});
+             res.end(data);
+           }).catch(()=>{res.writeHead(404);res.end()});
+          }
+          async function attach(){
+           const file=join(profile,'DevToolsActivePort');
+           let port;
+           for(let i=0;i<240;i++){
+            if(existsSync(file)){port=Number((await readFile(file,'utf8')).split('\n')[0]);if(port)break;}
+            await delay(125);
+           }
+           if(!port)throw Error('ENV_CHROME_DEBUG_PORT_UNAVAILABLE');
+           let url;
+           for(let i=0;i<160;i++){
+            try{const r=await fetch('http://127.0.0.1:'+port+'/json/list');
+              url=(await r.json()).find(x=>x.type==='page')?.webSocketDebuggerUrl;if(url)break}
+            catch{}await delay(125);
+           }
+           if(!url)throw Error('ENV_CHROME_TARGET_UNAVAILABLE');
+           ws=new WebSocket(url);
+           await new Promise((ok,bad)=>{ws.addEventListener('open',ok,{once:true});
+             ws.addEventListener('error',bad,{once:true})});
+           ws.addEventListener('message',e=>{
+            let r;try{r=JSON.parse(String(e.data))}catch{return}
+            const p=pending.get(r.id);
+            if(!p)return;pending.delete(r.id);
+            if(r.error)p.reject(Error(JSON.stringify(r.error)));else p.resolve(r.result);
+           });
+          }
+          const hook="(()=>{\n const Native=window.Worker;\n const h=window.__qa={mode:'ok',posts:[],terminated:0,held:null,release:null,lateReady:null};\n window.Worker=class extends Native{\n  constructor(url,opts){\n   super(url,opts);\n   if(opts?.name!=='wand-steam-diffgrids-readonly')return;\n   const ids=new Map(),send=this.postMessage.bind(this),stop=this.terminate.bind(this);\n   let cb=null;\n   Object.defineProperty(this,'onmessage',{configurable:true,get:()=>cb,set:v=>{cb=v}});\n   this.terminate=()=>{h.terminated++;return stop()};\n   h.lateReady=()=>cb?.call(this,{data:{kind:'DIFFGRIDS_RUNTIME_READY',ready:true,writerAuthorized:false}});\n   this.postMessage=(data,...rest)=>{\n    h.posts.push({kind:data.kind,requestId:data.requestId,fileName:data.file?.name??null});\n    ids.set(data.requestId,data.kind);\n    if(data.kind==='CLOSE_LOCAL_STORED_DIFFGRIDS'){\n     const mode=h.mode;\n     if(mode==='post-throw')throw Error('QA_CLOSE_POST_THROW');\n     if(['deny','missing','authority','extra'].includes(mode)){\n      const reply=mode==='deny'?{requestId:data.requestId,ok:false,error:'LOCAL_DIFFGRIDS_STALE_SELECTION'}:\n       {requestId:data.requestId,ok:true,summary:mode==='missing'?{}:mode==='authority'?{closed:true,writerAuthorized:true}:{closed:true,writerAuthorized:false,sessionId:'QA_FORGED'}};\n      // Do not deliver CLOSE to the real Worker; its old Rust session is live\n      // until the product client destroys the Native Worker.\n      queueMicrotask(()=>cb?.call(this,{data:reply}));return;\n     }\n    }\n    return send(data,...rest);\n   };\n   this.addEventListener('message',event=>{\n    if(h.mode==='hold-close'&&ids.get(event.data?.requestId)==='CLOSE_LOCAL_STORED_DIFFGRIDS'&&!h.held){\n     h.held='CLOSE';h.release=()=>{h.mode='ok';h.held=null;h.release=null;cb?.call(this,event)};\n    }else cb?.call(this,event);\n   });\n  }\n };\n})()";
+          const ui="(async()=>{\n const need=(v,k)=>{if(!v)throw Error('QRW_READER_'+k)};\n const wait=async(fn,k)=>{for(let i=0;i<750;i++){if(fn())return;await new Promise(r=>setTimeout(r,25))}throw Error('QRW_WAIT_'+k)};\n const q=window.__qa,el=s=>document.querySelector(s),fileInput=()=>el('#steam-diffgrids-file'),open=()=>el('[data-diffgrids-open]');\n await wait(()=>fileInput()&&!fileInput().disabled&&open(),'READY');\n const [p,j]=await Promise.all([fetch('/web/__synthetic__/synthetic626-diffgrids.p1g'),fetch('/web/__synthetic__/expected-diffgrids.json')]);\n need(p.ok&&j.ok,'FIXTURE');const meta=await j.json(),bytes=new Uint8Array(await p.arrayBuffer()),file=new File([bytes],'synthetic-ci-only.p1g');\n const hash=async()=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))].map(x=>x.toString(16).padStart(2,'0')).join('');\n const setSha=v=>{const x=el('#steam-diffgrids-sha');x.value=v;x.dispatchEvent(new Event('input',{bubbles:true}))};\n const pick=()=>{const d=new DataTransfer();d.items.add(file);fileInput().files=d.files;fileInput().dispatchEvent(new Event('change',{bubbles:true}));const c=el('.confirmation input');c.checked=true;c.dispatchEvent(new Event('change',{bubbles:true}))};\n const opens=()=>q.posts.filter(x=>x.kind==='OPEN_LOCAL_STORED_DIFFGRIDS').length;\n need(await hash()===meta.originalSha256,'ORIGINAL_BEFORE');\n const mode=new URL(location.href).searchParams.get('qa');\n pick();setSha(mode==='retry'?'0'.repeat(64):meta.originalSha256);\n await wait(()=>open()&&!open().disabled,'OPEN_READY');open().click();\n if(mode==='retry'){\n  await wait(()=>el('[data-diffgrids-error]')&&fileInput()&&!fileInput().disabled,'BAD_SHA_DENIED');\n  need(q.terminated===0&&!el('[data-diffgrids-count]')&&opens()===1,'BAD_SHA_SELF_REVOKED');\n  setSha(meta.originalSha256);await wait(()=>!open().disabled,'RETRY_READY');open().click();\n  await wait(()=>el('[data-diffgrids-page=\"1\"]'),'RETRY_PAGE');\n  need(opens()===2&&q.terminated===0,'RETRY_SAME_WORKER');\n  el('[data-diffgrids-close]').click();await wait(()=>fileInput()&&!fileInput().disabled&&!el('[data-diffgrids-count]'),'NORMAL_CLOSE');\n  need(q.terminated===0&&fileInput().files.length===0&&await hash()===meta.originalSha256,'NORMAL_CLOSE_INVARIANT');\n  return {mode,positive:true,opens:opens(),terminated:q.terminated,writer:false};\n }\n await wait(()=>el('[data-diffgrids-page=\"1\"]'),'ACTUAL_PAGE');need(opens()===1,'ONE_OPEN');\n const staleOpen=open(),staleInput=fileInput();q.mode=mode;\n el('[data-diffgrids-close]').click();\n await wait(()=>q.terminated===1&&!el('[data-diffgrids-manual-only]'),'TERMINATED');\n need(!el('[data-diffgrids-count],[data-diffgrids-backup],[data-diffgrids-next]'),'OUTPUT_REVOKED');\n q.lateReady();staleOpen?.dispatchEvent(new MouseEvent('click',{bubbles:true}));\n const d=new DataTransfer();d.items.add(file);staleInput.files=d.files;staleInput.dispatchEvent(new Event('change',{bubbles:true}));\n await new Promise(r=>setTimeout(r,80));\n need(!el('[data-diffgrids-manual-only],[data-diffgrids-count]')&&opens()===1&&q.terminated===1,'NO_RESURRECTION');\n need(await hash()===meta.originalSha256,'ORIGINAL_AFTER');\n return {mode,negative:true,opens:opens(),terminated:q.terminated,writer:false};\n})()";
+          const direct="(async()=>{\n const need=(v,k)=>{if(!v)throw Error('QRW_DIRECT_'+k)};\n const wait=async(fn,k)=>{for(let i=0;i<750;i++){if(fn())return;await new Promise(r=>setTimeout(r,25))}throw Error('QRW_DIRECT_WAIT_'+k)};\n const {createSavedDiffGridsUiClient}=await import('/web/qa-reader-client.mjs');\n const [p,j]=await Promise.all([fetch('/web/__synthetic__/synthetic626-diffgrids.p1g'),fetch('/web/__synthetic__/expected-diffgrids.json')]);\n const meta=await j.json(),bytes=new Uint8Array(await p.arrayBuffer()),sha=meta.originalSha256;\n const f=name=>new File([bytes],name),q=window.__qa;\n const client=createSavedDiffGridsUiClient(()=>new Worker(WORKER_URL,{type:'module',name:'wand-steam-diffgrids-readonly'}));client.start();\n const count=kind=>q.posts.filter(x=>x.kind===kind).length,O='OPEN_LOCAL_STORED_DIFFGRIDS',C='CLOSE_LOCAL_STORED_DIFFGRIDS';\n const rejected=async p=>{try{await p}catch{return true}return false};\n try{\n  await wait(()=>client.getState().ready,'READY');\n  need((await client.open(f('initial.p1g'),sha,true)).recordCount===17,'INITIAL_OPEN');\n  q.mode='hold-close';\n  const a=rejected(client.open(f('A.p1g'),sha,true)),b=client.open(f('B.p1g'),sha,true);\n  await wait(()=>q.held==='CLOSE','SHARED_CLOSE');\n  need(count(C)===1&&count(O)===1,'ONE_CLOSE_NO_EARLY_OPEN');\n  q.release();need(await a,'STALE_A_DENIED');need((await b).recordCount===17,'LATEST_B_OPEN');\n  need(count(O)===2&&q.posts.filter(x=>x.kind===O).at(-1).fileName==='B.p1g','ONLY_B_DISPATCH');\n  need((await client.readNext()).records.length===8,'B_READ');\n  q.mode='hold-close';const c=rejected(client.open(f('C.p1g'),sha,true)),close=client.close();\n  await wait(()=>q.held==='CLOSE','EXPLICIT_CLOSE_RACE');\n  need(count(C)===2&&count(O)===2,'NO_DUPLICATE_CLOSE');\n  q.release();need(await c,'C_DENIED');await close;\n  need(!client.getState().hasSession&&count(O)===2&&client.getState().ready,'CLOSED_NO_OPEN');\n  return {positive:true,negative:2,opens:count(O),closes:count(C),writer:false};\n }finally{client.dispose()}\n})()";
+          try{
+           execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=dreamwishwand.github.io','-keyout',join(profile,'key.pem'),'-out',join(profile,'cert.pem')],{stdio:'ignore'});
+           server=createServer({key:await readFile(join(profile,'key.pem')),cert:await readFile(join(profile,'cert.pem'))},serve);
+           await new Promise((r,j)=>{server.once('error',j);server.listen(19443,'127.0.0.1',r)});
+           chrome=spawn(binary,['--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--ignore-certificate-errors','--remote-allow-origins=*','--remote-debugging-port=0','--no-proxy-server','--disable-background-networking','--host-resolver-rules=MAP '+isolatedHost+' 127.0.0.1:19443, MAP * ~NOTFOUND','--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
+           await attach();await rpc('Page.enable');await rpc('Runtime.enable');await rpc('Page.addScriptToEvaluateOnNewDocument',{source:hook});
+           const evalPage=async expression=>{const r=await rpc('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(String(r.exceptionDetails.exception?.description||r.exceptionDetails.text).slice(0,1200));return r.result?.value};
+           const nav=async suffix=>{await rpc('Page.navigate',{url:testOrigin+suffix});for(let i=0;i<200;i++){try{if(await evalPage('location.pathname+location.search')===suffix&&await evalPage('!!window.__qa'))return}catch{}await delay(40)}throw Error('NAVIGATION_WAIT')};
+           for(const mode of ['deny','missing','authority','extra','post-throw','retry']){
+            await nav('/web/editor/steam-reader/?qa='+mode);
+            const r=await evalPage(ui);assert.equal(r.mode,mode);assert.equal(r.writer,false);
+            if(mode==='retry'){assert.equal(r.positive,true);assert.equal(r.opens,2);assert.equal(r.terminated,0)}else{assert.equal(r.negative,true);assert.equal(r.opens,1);assert.equal(r.terminated,1)}
+            console.log('QRW_PR1345_ACTUAL_CHROME_CLOSE_CASE_PASS',JSON.stringify(r));
+           }
+           const candidates=[];
+           for(const name of await readdir(join(root,'build/_app'),{recursive:true})){
+            if(!name.endsWith('.js'))continue;const body=await readFile(join(root,'build/_app',name),'utf8');
+            if(body.includes('DIFFGRIDS_PRODUCT_LOADER_RECEIPT_DENIED')&&body.includes('DIFFGRIDS_RUNTIME_READY'))candidates.push('/web/_app/'+name.replaceAll('\\\\','/'));
+           }
+           assert.equal(candidates.length,1,'ONE_REAL_SIGNED_CONSUMER');
+           await nav('/web/qa-reader-direct.html');const r=await evalPage(direct.replace('WORKER_URL',JSON.stringify(candidates[0])));
+           assert.deepEqual(r,{positive:true,negative:2,opens:2,closes:2,writer:false});assert.equal(mutationRequests,0);assert.ok(assetRequests>=3);
+           console.log('QRW_PR1345_REAL_SIGNED_READER_CLOSE_L2_PASS',JSON.stringify({uiPositive:1,uiNegative:5,directPositive:1,directNegative:2,actualNativeWorker:true,actualSignedWasm:true,writer:false}));
+          }catch(e){console.error('QRW_PR1345_REAL_CHROME_FAIL',String(e?.stack||e).slice(0,1600));process.exitCode=1}
+          finally{for(const p of pending.values())p.reject(Error('CDP_CLOSED'));pending.clear();try{ws?.close()}catch{}if(chrome){chrome.kill('SIGTERM');await delay(250);if(chrome.exitCode===null)chrome.kill('SIGKILL')}if(server)await new Promise(r=>server.close(r));await rm(profile,{recursive:true,force:true,maxRetries:3})}
+          NODE
+          node --check tests/qa-qrw-pr1345-real-chrome.mjs
+          command -v google-chrome
+          node tests/qa-qrw-pr1345-real-chrome.mjs
+      - name: Tracked product source and flags unchanged
+        run: |
+          test -z "$(git ls-files static/worker-wasm tests/stage-f/fixtures build/qa-reader-direct.html build/qa-reader-client.mjs)"
+          git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -Fx 'const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;'
+          git show HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts | grep -F 'allowSyntheticFixture:false'
+          git show HEAD:src/lib/ddv/core/save/product-rust-wasm-release-anchor.mjs | grep -Fx 'export const PROTECTED_READONLY_RELEASE_ANCHOR=null;'
