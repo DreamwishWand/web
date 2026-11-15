@@ -530,3 +530,185 @@ mod r02_tests{
         assert_eq!(s.receipt().unwrap().revision,0);
     }
 }
+
+
+ // ACT940: exact Steam626 FloatingIsland 3x3 seed merge. Native-private
+ // external ReadSet/affected closure remains required; no generic ID0 grant.
+const COMP03_ROAD:u32=40100038;
+const COMP03_CONTRACT:&str="wand.private.steam626.road-comp03-seed-merge-q9@1";
+fn comp03_obj(id:u32,x:u32,y:u32)->Value{
+    json!({"ID":id,"ItemID":COMP03_ROAD,"X":x,"Y":y,"Orientation":"GridOrientation_Down","State":null})
+}
+fn comp03_plan(bytes:&[u8])->CoreResult<Value>{
+    if bytes.is_empty()||bytes.len()>16384{return Err(denied("COMP03_PLAN_BOUND"));}
+    let p:Value=serde_json::from_slice(bytes).map_err(|_|denied("COMP03_PLAN_JSON"))?;
+    let keys=["contract","sourceDecodedSha256","gridId","seedId","expectedNextId","gridSha256",
+        "seedSha256","ambientWellSha256","inventoryEntrySha256","rootKey","objects"];
+    if enc(&p)?.as_slice()!=bytes||p.as_object().is_none_or(|m|m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k)))||
+        p["contract"]!=COMP03_CONTRACT{return Err(denied("COMP03_PLAN_FIELDS"));}
+    Ok(p)
+}
+fn comp03_root_grid(b:&[u8],r:Span)->CoreResult<u32>{
+    if raw(b,object_field(b,r,"Unlocked")?)?!=b"true"{return Err(denied("COMP03_ROOT_LOCK"));}
+    let ids=val(b,object_field(b,r,"GridIDs")?)?;
+    let v=ids.as_array().filter(|x|x.len()==1).ok_or(denied("COMP03_ROOT_GRID"))?;
+    uint(&v[0])
+}
+fn comp03_well(b:&[u8],w:Span)->CoreResult<Value>{
+    let v=val(b,w)?;
+    if num(b,w,"ID")?!=0||num(b,w,"ItemID")?!=20300048||
+        v["State"]!=json!({"BuildingWithSkinData":{"UpgradeState":{"Level":1},"CurrentSkinItemID":170200005}}){
+        return Err(denied("COMP03_AMBIENT_WELL_SHAPE"));
+    }
+    Ok(v)
+}
+fn comp03_collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
+    let b=&s.decoded;
+    if p["sourceDecodedSha256"]!=digest(b){return Err(denied("COMP03_SOURCE_CAS"));}
+    let g=uint(&p["gridId"])?;let seed=uint(&p["seedId"])?;let next=uint(&p["expectedNextId"])?;
+    let n8=next.checked_add(8).filter(|x|*x<=i32::MAX as u32).ok_or(denied("COMP03_COUNTER_BOUND"))?;
+    if g==0||seed==0||seed>=next{return Err(denied("COMP03_SELECTOR"));}
+    let roots=indexed_read::roots(b)?;
+    let gc=object_field(b,roots.world,"GridCollection")?;
+    let grids=object_field(b,gc,"Grids")?;
+    let grid=object_field(b,grids,&g.to_string())?;
+    if p["gridSha256"]!=digest(raw(b,grid)?)||num(b,grid,"ID")?!=g||
+       num(b,grid,"TessellationFactor")?!=2||val(b,object_field(b,grid,"GridDefaultLayoutPath")?)?!=""{
+        return Err(denied("COMP03_GRID_CAS"));
+    }
+    let diffs=object_field(b,gc,"DiffGrids")?;
+    let mut dp=diffs.begin+1;let mut dc=0;
+    while let Some((k,_))=next_object_member(b,diffs,&mut dp)?{
+        dc+=1;if dc>50000||k==g.to_string(){return Err(denied("COMP03_OVERLAY"));}
+    }
+    let root_key=p["rootKey"].as_str().filter(|k|k.len()<=10&&k.parse::<u32>().is_ok_and(|n|n.to_string()==*k))
+        .ok_or(denied("COMP03_ROOT_KEY"))?;
+    let islands=object_field(b,roots.world,"FloatingIslands")?;
+    let root=object_field(b,islands,root_key)?;
+    if comp03_root_grid(b,root)?!=g{return Err(denied("COMP03_ROOT_BINDING"));}
+    let counter=object_field(b,grid,"NextGridObjectID")?;
+    if raw(b,counter)?!=next.to_string().as_bytes(){return Err(denied("COMP03_COUNTER_CAS"));}
+    let objs=object_field(b,grid,"Objects")?;
+    let ws=object_field(b,objs,"0")?;
+    if p["ambientWellSha256"]!=digest(raw(b,ws)?){return Err(denied("COMP03_WELL_CAS"));}
+    let well=comp03_well(b,ws)?;
+    // Independent saved sibling FloatingIsland well equivalence, not a
+    // caller-provided claim or a global relaxation of ID0.
+    let mut ip=islands.begin+1;let mut ic=0;let mut siblings=0;
+    while let Some((k,r))=next_object_member(b,islands,&mut ip)?{
+        ic+=1;if ic>4096{return Err(denied("COMP03_ROOT_BOUND"));}
+        if k==root_key{continue;}
+        let ids=val(b,object_field(b,r,"GridIDs")?)?;
+        if ids.as_array().is_some_and(|v|v.iter().any(|x|x.as_u64()==Some(g as u64))){
+            return Err(denied("COMP03_DUPLICATE_ROOT"));
+        }
+        if let Ok(sib)=comp03_root_grid(b,r){
+            if sib==0||sib==g{continue;}
+            if let Ok(sg)=object_field(b,grids,&sib.to_string()){
+                if num(b,sg,"ID")?!=sib||val(b,object_field(b,sg,"GridDefaultLayoutPath")?)?!=""{continue;}
+                if let Ok(w)=object_field(b,object_field(b,sg,"Objects")?,"0"){
+                    if comp03_well(b,w).is_ok_and(|v|v==well){siblings+=1;}
+                }
+            }
+        }
+    }
+    if siblings==0{return Err(denied("COMP03_WELL_SIBLING"));}
+    let ss=object_field(b,objs,&seed.to_string())?;
+    if p["seedSha256"]!=digest(raw(b,ss)?){return Err(denied("COMP03_SEED_CAS"));}
+    let x=num(b,ss,"X")?;let y=num(b,ss,"Y")?;
+    if x%4!=0||y%4!=0||x.checked_add(12).is_none_or(|v|v>260)||y.checked_add(12).is_none_or(|v|v>260)||
+        val(b,ss)?!=comp03_obj(seed,x,y){return Err(denied("COMP03_SEED_SHAPE"));}
+    let mut want=Vec::new();
+    for dy in 0..3{for dx in 0..3{
+        if dx==0&&dy==0{continue;}
+        want.push(comp03_obj(next+want.len() as u32,x+4*dx,y+4*dy));
+    }}
+    if p["objects"].as_array()!=Some(&want){return Err(denied("COMP03_PLAN_SHAPE"));}
+    let mut pos=objs.begin+1;let mut count=0;
+    while let Some((k,o))=next_object_member(b,objs,&mut pos)?{
+        count+=1;if count>250000{return Err(denied("COMP03_OBJECT_BOUND"));}
+        let id=k.parse::<u32>().map_err(|_|denied("COMP03_OBJECT_KEY"))?;
+        if id.to_string()!=k||id>=next||num(b,o,"ID")?!=id{return Err(denied("COMP03_OBJECT_ID"));}
+        if id==0&&(o.begin!=ws.begin||o.end!=ws.end){return Err(denied("COMP03_OTHER_ZERO"));}
+        if id==seed{continue;}
+        let ox=val(b,object_field(b,o,"X")?)?.as_f64().ok_or(denied("COMP03_COORD"))?;
+        let oy=val(b,object_field(b,o,"Y")?)?.as_f64().ok_or(denied("COMP03_COORD"))?;
+        if !ox.is_finite()||!oy.is_finite(){return Err(denied("COMP03_COORD"));}
+        if (ox>=x as f64&&ox<(x+12) as f64&&oy>=y as f64&&oy<(y+12) as f64)||
+            (num(b,o,"ItemID")?==COMP03_ROAD&&ox>=x as f64-4.0&&ox<=x as f64+12.0&&oy>=y as f64-4.0&&oy<=y as f64+12.0){
+            return Err(denied("COMP03_OCCUPIED"));
+        }
+    }
+    // Geometry/footprint and all external saved references are the separate
+    // ACT938/939 exact-source gate. This collector edits only append + counter.
+    let lists=object_field(b,roots.player,"ListInventories")?;
+    let route=object_field(b,lists,"0")?;
+    inventory_route(b,route,0,COMP03_ROAD,"ItemType_Furniture")?;
+    let entry=object_field(b,object_field(b,route,"Inventory")?,&COMP03_ROAD.to_string())?;
+    if p["inventoryEntrySha256"]!=digest(raw(b,entry)?)||num(b,entry,"Amount")?==0{
+        return Err(denied("COMP03_STOCK_CAS"));
+    }
+    let mut lp=lists.begin+1;let mut lc=0;let mut matches=0;
+    while let Some((k,r))=next_object_member(b,lists,&mut lp)?{
+        lc+=1;if lc>4096{return Err(denied("COMP03_ROUTE_BOUND"));}
+        if object_field(b,object_field(b,r,"Inventory")?,&COMP03_ROAD.to_string()).is_ok(){
+            if k!="0"{return Err(denied("COMP03_OTHER_ROUTE"));}matches+=1;
+        }
+    }
+    if matches!=1{return Err(denied("COMP03_STOCK_ROUTE"));}
+    Ok(vec![append_road_objects(b,objs,&want)?,repl(b,counter,n8.to_string().into_bytes())?])
+}
+impl ProductSession{
+    pub fn stage_steam626_road_comp03_seed_merge_q9(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
+        let b=&self.native_source_build;
+        if b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||b.build_id!=EXACT_STEAM||
+           b.schema!=626||!b.externally_attested||self.worker_bound{return Err(denied("COMP03_EXACT_STEAM626_REQUIRED"));}
+        let p=comp03_plan(plan)?;
+        self.commit_semantic_replacements(e,comp03_collect(self,&p)?,9)
+    }
+}
+#[cfg(test)]
+mod comp03_tests{
+    use super::*;
+    fn fixture()->Value{
+        let well=json!({"ID":0,"ItemID":20300048,"X":40,"Y":40,"Orientation":"GridOrientation_Down","State":{"BuildingWithSkinData":{"UpgradeState":{"Level":1},"CurrentSkinItemID":170200005}}});
+        json!({"GameInfo":{"Version":626},"World":{"FloatingIslands":{"10":{"Unlocked":true,"GridIDs":[7]},"11":{"Unlocked":true,"GridIDs":[8]}},
+        "GridCollection":{"Grids":{"7":{"ID":7,"TessellationFactor":2,"GridDefaultLayoutPath":"","NextGridObjectID":10,"Objects":{"0":well.clone(),"2":comp03_obj(2,0,0)}},
+        "8":{"ID":8,"GridDefaultLayoutPath":"","Objects":{"0":well}}},"DiffGrids":{}}},
+        "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_Default"]},
+        "Inventory":{"40100038":{"Amount":99,"Marker":"ItemMarker_None"}}}}},"Unknown":{"keep":true}})
+    }
+    fn open(d:&Value)->ProductSession{ProductSession::open_decoded_readonly(enc(d).unwrap(),crate::BuildIdentity{
+        platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap()}
+    fn env(s:&ProductSession,a:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:crate::PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:a}}
+    fn plan(d:&Value)->Value{
+        let g=&d["World"]["GridCollection"]["Grids"]["7"];let mut objects=Vec::new();
+        for y in 0..3{for x in 0..3{if x+y>0{objects.push(comp03_obj(10+objects.len() as u32,4*x,4*y));}}}
+        json!({"contract":COMP03_CONTRACT,"sourceDecodedSha256":digest(&enc(d).unwrap()),"gridId":7,"seedId":2,"expectedNextId":10,
+            "gridSha256":digest(&enc(g).unwrap()),"seedSha256":digest(&enc(&g["Objects"]["2"]).unwrap()),"ambientWellSha256":digest(&enc(&g["Objects"]["0"]).unwrap()),
+            "inventoryEntrySha256":digest(&enc(&d["Player"]["ListInventories"]["0"]["Inventory"]["40100038"]).unwrap()),"rootKey":"10","objects":objects})
+    }
+    #[test]fn comp03_exact9_and_bounded_zero(){
+        let mut d=fixture();let p=plan(&d);let s=open(&d);let e=env(&s,WorkerAction::Stage);
+        for k in ["ambientWellSha256","gridSha256","seedSha256","inventoryEntrySha256","rootKey","sourceDecodedSha256"]{
+            let mut q=p.clone();q[k]=json!("bad");assert!(s.stage_steam626_road_comp03_seed_merge_q9(e,&enc(&q).unwrap()).is_err());
+        }
+        for case in 0..5{
+            let mut q=d.clone();match case{
+                0=>q["World"]["GridCollection"]["Grids"]["7"]["Objects"]["0"]["ItemID"]=json!(20300049),
+                1=>q["World"]["GridCollection"]["Grids"]["7"]["Objects"]["0"]["X"]=json!(41),
+                2=>q["World"]["GridCollection"]["Grids"]["7"]["Objects"]["2"]["State"]=json!({"FenceMode":{"Diagonal":true}}),
+                3=>q["World"]["GridCollection"]["DiffGrids"]["7"]=json!({"ID":7}),
+                _=>q["World"]["FloatingIslands"]["10"]["Unlocked"]=json!(false)
+            }let t=open(&q);assert!(t.stage_steam626_road_comp03_seed_merge_q9(env(&t,WorkerAction::Stage),&enc(&plan(&q)).unwrap()).is_err());
+        }
+        let rec=s.stage_steam626_road_comp03_seed_merge_q9(e,&enc(&p).unwrap()).unwrap();
+        assert_eq!(rec.operation_count,9);assert!(!rec.product_writer_authorized);
+        assert!(s.stage_steam626_road_comp03_seed_merge_q9(e,&enc(&p).unwrap()).is_err());
+        for o in p["objects"].as_array().unwrap(){d["World"]["GridCollection"]["Grids"]["7"]["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
+        d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(18);
+        let out=s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).unwrap();
+        assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),d);
+        assert!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).is_err());
+    }
+}
