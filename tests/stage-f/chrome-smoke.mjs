@@ -29,6 +29,8 @@ function replyFile(req,res){
     p.startsWith('/tests/stage-e/pkg/')||
     ['/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
     '/src/lib/ddv/core/save/product-scoped-amount-transport.mjs',
+    '/src/lib/ddv/core/save/product-fixed-collection-transport.mjs',
+    '/src/lib/collection/collection-candidate-read.mjs',
     '/src/lib/ddv/core/save/local-original-backup.mjs',
     '/src/lib/ddv/core/save/local-encrypted-copy-store.mjs',
     '/src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs',
