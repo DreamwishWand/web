@@ -1,0 +1,307 @@
+name: QR-W ACT990 actual exact1 UI and Core OPFS
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1337-exact1-ui.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-act990-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed sources and disposable nonmerge workspace
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only 2a7875fa8173fab77f76085ff4a481283bd2b804 HEAD)" = '.github/workflows/qa-qrw-pr1337-exact1-ui.yml'
+          git cat-file -e 1faa98a0860fab1fb37106cde5f6b079ef255ca3^{commit} || git fetch --no-tags origin 1faa98a0860fab1fb37106cde5f6b079ef255ca3
+          git cat-file -e 89e9923102fc2991f933cdc31803afa369279374^{commit} || git fetch --no-tags origin 89e9923102fc2991f933cdc31803afa369279374
+          git worktree add --detach /tmp/wand-act990 1faa98a0860fab1fb37106cde5f6b079ef255ca3
+          cd /tmp/wand-act990
+          test "$(git rev-parse HEAD)" = 1faa98a0860fab1fb37106cde5f6b079ef255ca3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 2c0a9901dd46f63e203ad244856161448fcb0f77
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = a14f97946b1698909d3f070475664ae22a5e713e
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/i18n/runtime.js)" = faed7e6815ad7e3a9b18ae79ff2726ba2bfcc42c
+          ! git cat-file -e HEAD:crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl 2>/dev/null
+          test "$(git rev-parse 89e9923102fc2991f933cdc31803afa369279374:crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl)" = 82b9e1c3f53ffce85f2277a81d0cab195be1aff8
+          git show 89e9923102fc2991f933cdc31803afa369279374:crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl > 'crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl'
+          test "$(git hash-object 'crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl')" = 82b9e1c3f53ffce85f2277a81d0cab195be1aff8
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = b0a1f15878cca88391a1b915d0c84c7a8e9ce472
+          test "$(git rev-parse 89e9923102fc2991f933cdc31803afa369279374:crates/ddv-save-core/src/product_amount_scoped.rs)" = d62bccfcd2f13a184dbe9b3061cda3e616b21ad7
+          git show 89e9923102fc2991f933cdc31803afa369279374:crates/ddv-save-core/src/product_amount_scoped.rs > 'crates/ddv-save-core/src/product_amount_scoped.rs'
+          test "$(git hash-object 'crates/ddv-save-core/src/product_amount_scoped.rs')" = d62bccfcd2f13a184dbe9b3061cda3e616b21ad7
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 529d35dca72b06ff5d24528e41786323b30251a1
+          test "$(git rev-parse 89e9923102fc2991f933cdc31803afa369279374:crates/ddv-save-core/src/wasm_worker.rs)" = d8435517b1bba3cf9e2916fccfaf1b57ced4bb16
+          git show 89e9923102fc2991f933cdc31803afa369279374:crates/ddv-save-core/src/wasm_worker.rs > 'crates/ddv-save-core/src/wasm_worker.rs'
+          test "$(git hash-object 'crates/ddv-save-core/src/wasm_worker.rs')" = d8435517b1bba3cf9e2916fccfaf1b57ced4bb16
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/worker_session.rs)" = ee7c2f8c381505fc094b21f13e2327d00e903c53
+          test "$(git rev-parse 89e9923102fc2991f933cdc31803afa369279374:crates/ddv-save-core/src/worker_session.rs)" = d7ae9b73152c95372512f64d2c14f5fb91b0d9e4
+          git show 89e9923102fc2991f933cdc31803afa369279374:crates/ddv-save-core/src/worker_session.rs > 'crates/ddv-save-core/src/worker_session.rs'
+          test "$(git hash-object 'crates/ddv-save-core/src/worker_session.rs')" = d7ae9b73152c95372512f64d2c14f5fb91b0d9e4
+          ! git cat-file -e HEAD:src/lib/dev/LocalAmountEditorDev.svelte 2>/dev/null
+          test "$(git rev-parse 2a7875fa8173fab77f76085ff4a481283bd2b804:src/lib/dev/LocalAmountEditorDev.svelte)" = 87deb6bd553fa5fa67d9d38ae87c55757ab72ade
+          git show 2a7875fa8173fab77f76085ff4a481283bd2b804:src/lib/dev/LocalAmountEditorDev.svelte > 'src/lib/dev/LocalAmountEditorDev.svelte'
+          test "$(git hash-object 'src/lib/dev/LocalAmountEditorDev.svelte')" = 87deb6bd553fa5fa67d9d38ae87c55757ab72ade
+          ! git cat-file -e HEAD:src/lib/dev/local-amount-workflow.mjs 2>/dev/null
+          test "$(git rev-parse 2a7875fa8173fab77f76085ff4a481283bd2b804:src/lib/dev/local-amount-workflow.mjs)" = a100fc5f00e4ee5225b09e03c7fd21858120d522
+          git show 2a7875fa8173fab77f76085ff4a481283bd2b804:src/lib/dev/local-amount-workflow.mjs > 'src/lib/dev/local-amount-workflow.mjs'
+          test "$(git hash-object 'src/lib/dev/local-amount-workflow.mjs')" = a100fc5f00e4ee5225b09e03c7fd21858120d522
+          ! git cat-file -e HEAD:src/lib/dev/local-amount-copy.mjs 2>/dev/null
+          test "$(git rev-parse 2a7875fa8173fab77f76085ff4a481283bd2b804:src/lib/dev/local-amount-copy.mjs)" = 1b7c3980d98e7260d1d362227ab4f515a883fe2c
+          git show 2a7875fa8173fab77f76085ff4a481283bd2b804:src/lib/dev/local-amount-copy.mjs > 'src/lib/dev/local-amount-copy.mjs'
+          test "$(git hash-object 'src/lib/dev/local-amount-copy.mjs')" = 1b7c3980d98e7260d1d362227ab4f515a883fe2c
+          mkdir -p src/routes/test-dev-amount-ui tests/dev-amount-ui-chrome
+          cat > src/routes/test-dev-amount-ui/+page.svelte <<'SVELTE'
+          <script>
+           import {onMount} from 'svelte';
+           import LocalAmountEditorDev from '$lib/dev/LocalAmountEditorDev.svelte';
+           let adapter=null;
+           onMount(()=>{
+            const profile=new URL(location.href).searchParams.get('profile');
+            const w=new Worker(new URL('./qa.worker.mjs',import.meta.url),{type:'module'});
+            let seq=0;const pending=new Map();
+            const q={profile,mode:'ok',holdClose:false,closeHeld:null,opens:0,closes:0,closeSettled:0,downloadDone:0,commands:[],backup:null,exported:null,ready:false};
+            window.__qa=q;
+            w.onmessage=({data:d})=>{const p=pending.get(d.id);if(!p)return;pending.delete(d.id);d.ok?p.resolve(d.value):p.reject(Error(d.error))};
+            w.onerror=e=>{for(const p of pending.values())p.reject(Error('QA_WORKER_BOOT:'+e.message));pending.clear();q.error=e.message};
+            const rpc=(method,...args)=>new Promise((resolve,reject)=>{const id=++seq;pending.set(id,{resolve,reject});w.postMessage({id,method,args})});
+            rpc('init',profile).then(()=>{
+             adapter=Object.freeze({
+              async open(a){q.opens++;return rpc('open',a)},
+              async close(){
+               q.closes++;const mode=q.mode;
+               try{
+                if(mode==='reject')throw Error('QA_CLOSE_REJECT');
+                const r=await rpc('close');
+                if(q.holdClose){q.holdClose=false;await new Promise(resolve=>q.closeHeld=resolve);q.closeHeld=null}
+                if(mode==='forged')return {...r,writerAuthorized:true};
+                return r;
+               }finally{q.closeSettled++;}
+              },
+              async backupOriginal(){const r=await rpc('backupOriginal');q.backup=r;return r},
+              listVerifiedTargets:()=>rpc('listVerifiedTargets'),
+              stageTyped(c){q.commands.push(structuredClone(c));return rpc('stageTyped',c)},
+              undo:()=>rpc('undo'),redo:()=>rpc('redo'),
+              async exportEditedCopy(){const r=await rpc('exportEditedCopy');q.exported=r;return r},
+              async downloadVerifiedCopy(which){try{return await rpc('downloadVerifiedCopy',which)}finally{q.downloadDone++}}
+             });q.ready=true;
+            }).catch(e=>{q.error=String(e)});
+            return ()=>{w.terminate();for(const p of pending.values())p.reject(Error('QA_UNMOUNT'));pending.clear()};
+           });
+          </script>
+          {#if adapter}<LocalAmountEditorDev verifiedLocalDevGate={true} scopedExactOne={true} trustedWorkerAdapter={adapter}/>{/if}
+          SVELTE
+          cat > src/routes/test-dev-amount-ui/qa.worker.mjs <<'NODE'
+          import init,{WorkerWasmSource} from '../../../tests/stage-e/pkg/ddv_save_core.js';
+          import {createProductScopedAmountLocalAdapter} from '$lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          let adapter=null;
+          self.onmessage=async({data:{id,method,args}})=>{
+           try{
+            let value;
+            if(method==='init'){
+             if(adapter||!['catalog0-furniture','linked-crop-chest48'].includes(args[0]))throw Error('QA_INIT');
+             const wasmResponse=await fetch(new URL('/qa-act990/ddv_save_core_bg.wasm',self.location.origin),{cache:'no-store'});
+             if(!wasmResponse.ok)throw Error('QA_WASM_HTTP_'+wasmResponse.status);
+             if(!(wasmResponse.headers.get('content-type')||'').startsWith('application/wasm'))throw Error('QA_WASM_MIME');
+             await init({module_or_path:await wasmResponse.arrayBuffer()});
+             adapter=createProductScopedAmountLocalAdapter({wasmFactory:async()=>({WorkerWasmSource}),allowCoreDiscoverySource:true,coreDiscoveryProfile:args[0]});
+             value=true;
+            }else{
+             if(!adapter||!['open','close','backupOriginal','listVerifiedTargets','stageTyped','undo','redo','exportEditedCopy','downloadVerifiedCopy'].includes(method))throw Error('QA_METHOD');
+             value=await adapter[method](...args);
+            }
+            self.postMessage({id,ok:true,value});
+           }catch(e){self.postMessage({id,ok:false,error:String(e?.message||e)})}
+          };
+          NODE
+          cat > tests/.qa-act990-fixtures.mjs <<'NODE'
+          import {createHash} from 'node:crypto';
+          import {mkdir,writeFile} from 'node:fs/promises';
+          import {join} from 'node:path';
+          import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
+          const hash=b=>createHash('sha256').update(b).digest('hex');
+          const BUILD={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true};
+          const doc=()=>({GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},
+           World:{GridCollection:{Grids:{},DiffGrids:{}},MissionSlots:{},Villages:[]},
+           Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{40000048:{Amount:3,Marker:'ItemMarker_None'}}}},
+           ContainerInventories:{},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},
+           BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Unknown:{x:1}});
+          const chest=()=>{
+           const d=doc(),p=d.Player;
+           p.ListInventories[2]={ID:2,CompatibleItemType:'ItemType_ActivityItem',Inventory:{30200000:{Amount:2}}};
+           const empty=()=>({ItemID:0,Amount:0,State:null});
+           const slots=Array.from({length:48},empty);slots[0]={ItemID:30200000,Amount:50,State:null,Unknown:7};
+           p.ContainerInventories={0:{ID:0,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:30200000,Amount:5,State:{}}]},
+           1:{ID:1,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[empty()]},
+           12:{ID:12,ParentItemID:40001680,BelongsToPlayer:true,BlockMoveTo:false,Size:48,ExtraSize:0,Inventory:slots}};
+           p.BackpackOverflow={Items:[]};
+           d.World.GridCollection.Grids[7]={ID:7,GridDefaultLayoutPath:'',Objects:{4:{ID:4,ItemID:40001680,State:{Storage:{ContainerInventoryID:12,DefaultContainerInventoryData:'',UnlockKeyItemID:0,UnlockLocId:'',DesignID:null}}}}};
+           d.World.Villages=[{Areas:{2:{GridIDs:[7],Unlocked:true}}}];return d;
+          };
+          
+          const f=doc();f.Player.ListInventories[0].Inventory[40000050]={Amount:7,Marker:'ItemMarker_None'};
+          const c=chest();c.Player.ContainerInventories[12].Inventory[1]={ItemID:30200000,Amount:50,State:null,Unknown:8};
+          for(const [d,profile,apply] of [[f,'catalog0-furniture',x=>x.Player.ListInventories[0].Inventory[40000050].Amount=6],[c,'linked-crop-chest48',x=>x.Player.ContainerInventories[12].Inventory[1].Amount=49]]){
+           const source=makeSyntheticP1gProfile(d),dir='static/qa-act990';await mkdir(dir,{recursive:true});const expected=structuredClone(d);apply(expected);
+           await writeFile(join(dir,profile+'.p1g'),source);await writeFile(join(dir,profile+'.json'),JSON.stringify({originalSha256:hash(source),expected:JSON.stringify(expected)}));
+          }
+          NODE
+          cat > tests/dev-amount-ui-chrome/qa-act990.mjs <<'NODE'
+          // 08 WEB DEV/OFF local-only Svelte GUI Chrome check, PUBLIC MOCK Worker only.
+          // The temporary /test-dev-amount-ui route is created exclusively inside CI;
+          // it is not committed into src/routes and cannot be on protected Pages.
+          // This checks UI behavior/geometry, NOT PR929 real Rust or real owner P1G.
+          import {spawn,spawnSync} from 'node:child_process';
+          import {mkdtemp,readFile,rm,mkdir,readdir,writeFile} from 'node:fs/promises';
+          import {existsSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join,resolve} from 'node:path';
+          import {fileURLToPath} from 'node:url';
+          import {setTimeout as sleep} from 'node:timers/promises';
+          import assert from 'node:assert/strict';
+          const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
+          const port=4188,origin='http://127.0.0.1:'+port;
+          const profile=await mkdtemp(join(tmpdir(),'wand-dev-amount-chrome-'));
+          const downloadPath=join(profile,'downloads');await mkdir(downloadPath);
+          const browserBin=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium']
+           .filter(Boolean).find(bin=>spawnSync('which',[bin],{stdio:'ignore'}).status===0);
+          if(!browserBin)throw Error('ENV_WAIT_DEP_GOOGLE_CHROME');
+          let server,chrome,ws,sequence=0;const pending=new Map(),network=[],downloadGuids=new Set();
+          const rpc=(method,params={})=>new Promise((resolve,reject)=>{
+           const id=++sequence;pending.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));
+          });
+          async function attach(){
+           const file=join(profile,'DevToolsActivePort');let debugPort=0;
+           for(let n=0;n<150;n++){
+            if(existsSync(file)){debugPort=Number((await readFile(file,'utf8')).split('\n')[0]);if(debugPort)break}
+            await sleep(120);
+           }
+           if(!debugPort)throw Error('ENV_CHROME_NO_DEBUG_PORT');
+           let url;
+           for(let n=0;n<100;n++){
+            try{const r=await fetch('http://127.0.0.1:'+debugPort+'/json/list');
+              url=(await r.json()).find(x=>x.type==='page')?.webSocketDebuggerUrl;if(url)break}catch{}
+            await sleep(100);
+           }
+           if(!url)throw Error('ENV_CHROME_NO_TARGET');
+           ws=new WebSocket(url);
+           await new Promise((ok,bad)=>{ws.addEventListener('open',ok,{once:true});
+            ws.addEventListener('error',bad,{once:true})});
+           ws.addEventListener('message',e=>{
+            let m;try{m=JSON.parse(String(e.data))}catch{return}
+            if(['Browser.downloadWillBegin','Page.downloadWillBegin'].includes(m.method)&&m.params?.guid)downloadGuids.add(m.params.guid);
+            if(m.method==='Network.requestWillBeSent')network.push({method:m.params?.request?.method,
+              url:m.params?.request?.url});
+            const p=pending.get(m.id);if(!p)return;pending.delete(m.id);
+            if(m.error)p.reject(Error(JSON.stringify(m.error)));else p.resolve(m.result);
+           });
+          }
+          const script="(async()=>{\n const q=()=>window.__qa,el=s=>document.querySelector(s),need=(v,k)=>{if(!v)throw Error('ACT990_'+k)};\n const wait=async(fn,k)=>{for(let i=0;i<1000;i++){if(q()?.error)throw Error(q().error);if(fn())return;await new Promise(r=>setTimeout(r,25))}throw Error('ACT990_WAIT_'+k+' '+document.body.textContent.slice(0,260))};\n const panel=()=>el('[data-dev-amount-editor]'),input=()=>el('#dev-amount-p1g'),open=()=>el('[data-dev-open]'),close=()=>el('[data-dev-close]'),err=()=>el('[data-dev-error]');\n const noOutput=()=>!el('[data-backup-verified],[data-dev-preview],[data-dev-edited-copy],[data-dev-download-backup],[data-dev-download-edited]');\n await wait(()=>q()?.ready&&input()&&open(),'MOUNT');panel().open=true;\n const profile=q().profile,chest=profile==='linked-crop-chest48';\n const [p,j]=await Promise.all([fetch('/qa-act990/'+profile+'.p1g'),fetch('/qa-act990/'+profile+'.json')]);\n need(p.ok&&j.ok,'FIXTURE');const bytes=new Uint8Array(await p.arrayBuffer()),meta=await j.json();\n const pick=(name='synthetic.p1g')=>{const d=new DataTransfer();d.items.add(new File([bytes],name));input().files=d.files;input().dispatchEvent(new Event('change',{bubbles:true}))};\n const attest=()=>{const s=el('#dev-amount-sha');s.value=meta.originalSha256;s.dispatchEvent(new Event('input',{bubbles:true}));const c=el('.check input');c.checked=true;c.dispatchEvent(new Event('change',{bubbles:true}))};\n const click=s=>{const x=el(s);need(x&&!x.disabled,'CLICK_'+s);x.click()};\n const settled=()=>input()&&!input().disabled;\n need(panel().dataset.productWriter==='off'&&panel().dataset.publicRoute==='off','FLAGS');\n let before=q().closeSettled;q().mode='reject';pick();await wait(()=>q().closeSettled===before+1&&settled()&&err()&&close(),'CLOSE_REJECT');\n need(!open()&&q().opens===0&&noOutput(),'REJECT_NO_OPEN');\n before=q().closeSettled;q().mode='forged';click('[data-dev-close]');await wait(()=>q().closeSettled===before+1&&settled()&&err()&&close(),'FORGED_ACK');\n need(!open()&&q().opens===0&&noOutput(),'FORGED_NO_OPEN');\n before=q().closeSettled;q().mode='ok';click('[data-dev-close]');await wait(()=>q().closeSettled===before+1&&settled()&&open(),'RETRY_CLOSE');\n need(open().disabled&&input().value==='','RETRY_CLOSED');\n q().holdClose=true;pick();await wait(()=>q().closeHeld&&input().disabled,'PENDING_CLOSE');\n need(open().disabled&&noOutput()&&input().value==='','PENDING_BARRIER');\n pick('wrong.p1g');open().dispatchEvent(new MouseEvent('click',{bubbles:true}));\n need(q().opens===0,'PENDING_NO_OPEN');q().closeHeld();\n await wait(()=>settled()&&open(),'SELECTION_SETTLED');attest();await wait(()=>!open().disabled,'ATTEST');open().click();\n await wait(()=>el('[data-dev-backup]:not([disabled])'),'OPEN');need(q().opens===1,'ONE_OPEN');\n click('[data-dev-backup]');await wait(()=>el('#dev-amount-target')&&el('#dev-amount-new')&&el('[data-dev-stage]:not([disabled])'),'TARGETS');\n const target=el('#dev-amount-target'),amount=()=>el('#dev-amount-new');\n need(target.options.length===2&&amount().readOnly&&amount().hasAttribute('data-scoped-exact-one'),'EXACT_MODE');\n need(Number(amount().value)===(chest?49:2),'FIRST_PROPOSAL');\n target.selectedIndex=1;target.dispatchEvent(new Event('change',{bubbles:true}));\n await wait(()=>Number(amount().value)===(chest?49:6),'SECOND_PROPOSAL');\n // DOM tamper must not change the internally computed exact-one command.\n amount().value='1';amount().dispatchEvent(new Event('input',{bubbles:true}));\n click('[data-dev-stage]');await wait(()=>el('[data-dev-preview]'),'STAGE');\n const cmd=q().commands[0]?.[0];\n need(q().commands.length===1&&q().commands[0].length===1&&cmd.newAmount===(chest?49:6)&&cmd.expectedOldAmount===(chest?50:7),'EXACT_COMMAND');\n need(chest?cmd.containerId===12&&cmd.slotIndex===1&&cmd.expectedItemId===30200000:cmd.inventoryId===0&&cmd.canonicalItemId===40000050,'SELECTED_TARGET');\n click('[data-dev-undo]');await wait(()=>el('[data-dev-redo]'),'UNDO');click('[data-dev-redo]');\n await wait(()=>el('[data-dev-export]:not([disabled])'),'REDO');\n let downloadBefore=q().downloadDone;click('[data-dev-download-backup]');await wait(()=>q().downloadDone===downloadBefore+1&&el('[data-dev-download-backup]:not([disabled])'),'BACKUP_DOWNLOAD');\n click('[data-dev-export]');await wait(()=>el('[data-dev-edited-copy]')&&q().exported,'EXPORT');\n need(q().exported.freshWorkerReopenVerified===true&&q().exported.independentProcessReopenVerified===false&&q().exported.writerAuthorized===false,'REOPEN');\n downloadBefore=q().downloadDone;click('[data-dev-download-edited]');await wait(()=>q().downloadDone===downloadBefore+1&&el('[data-dev-download-edited]:not([disabled])'),'EDITED_DOWNLOAD');\n // Fail actual active-session cleanup (wrapper does not forward Close).\n before=q().closeSettled;q().mode='reject';click('[data-dev-close]');await wait(()=>q().closeSettled===before+1&&settled()&&err()&&close(),'ACTIVE_CLOSE_REJECT');\n need(!open()&&noOutput()&&q().opens===1,'ACTIVE_REVOKED');\n q().mode='ok';q().holdClose=true;click('[data-dev-close]');\n await wait(()=>q().closeHeld&&input().disabled,'ACTIVE_CLOSE_HELD');\n need(noOutput()&&q().opens===1,'STALE_OUTPUT');\n pick('wrong.p1g');q().closeHeld();await wait(()=>settled()&&open(),'ACTIVE_RETRY');\n need(open().disabled&&input().value===''&&noOutput(),'FINAL_CLOSED');\n return {pass:true,profile,opens:q().opens,commands:q().commands.length,closes:q().closes,backup:q().backup.backupName,edited:q().exported.editedCopyName,editedSha:q().exported.editedSha256,sourceSha:meta.originalSha256,productWriter:false};\n})()";
+          try{
+           server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port',String(port),'--strictPort'],
+            {cwd:root,env:{...process.env,BASE_PATH:''},stdio:'ignore'});
+           let served=false;
+           for(let n=0;n<180;n++){
+            if(server.exitCode!==null)throw Error('DEV_SERVER_EXITED');
+            try{const r=await fetch(origin+'/test-dev-amount-ui/');
+             if(r.status===200){served=true;break}}catch{}
+            await sleep(130);
+           }
+           if(!served)throw Error('ENV_DEV_SERVER_UNAVAILABLE');
+           chrome=spawn(browserBin,['--headless=new','--no-sandbox','--disable-dev-shm-usage',
+            '--disable-gpu','--remote-allow-origins=*','--remote-debugging-port=0',
+            '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
+           await attach();await rpc('Page.enable');await rpc('Runtime.enable');await rpc('Network.enable');
+           await rpc('Browser.setDownloadBehavior',{behavior:'allow',downloadPath,eventsEnabled:true});
+           await rpc('Emulation.setDeviceMetricsOverride',{width:320,height:800,
+            deviceScaleFactor:1,mobile:false});
+           await rpc('Page.navigate',{url:origin+'/test-dev-amount-ui/?profile='+process.env.WAND_QA_PROFILE});
+           let ready=false;
+           for(let n=0;n<150;n++){
+            try{const r=await rpc('Runtime.evaluate',{expression:"location.pathname==='/test-dev-amount-ui/' && document.readyState==='complete' && window.__qa?.ready===true && !!document.querySelector('[data-dev-amount-editor]')",
+               returnByValue:true});if(r.result?.value===true){ready=true;break}}catch{}
+            await sleep(60);
+           }
+           if(!ready)throw Error('DEV_CHROME_NAVIGATION_FAILED');
+           const controller=new AbortController();
+           let evaluation;
+           try{evaluation=await Promise.race([
+            rpc('Runtime.evaluate',{expression:script,returnByValue:true,awaitPromise:true}),
+            sleep(110000,undefined,{signal:controller.signal}).then(()=>{throw Error('DEV_CHROME_TIMEOUT')})
+           ])}finally{controller.abort()}
+           if(evaluation.exceptionDetails)throw Error(
+            'DEV_CHROME_EVAL_'+String(evaluation.exceptionDetails.exception?.description||
+              evaluation.exceptionDetails.text).slice(0,800));
+           const result=evaluation.result?.value;
+           assert.equal(result?.pass,true,'DEV_UI_CHROME_PASS');
+          
+           const {p1gPackagedProfileCodec}=await import('../../src/lib/ddv/core/save/p1g-packaged-profile-codec.js');
+           const {createHash}=await import('node:crypto');
+           const meta=JSON.parse(await readFile(join(root,'static/qa-act990',result.profile+'.json'),'utf8'));
+           assert.equal(result.opens,1);assert.equal(result.commands,1);assert.equal(result.productWriter,false);
+           assert.notEqual(result.backup,result.edited);
+           const backupPath=join(downloadPath,result.backup),editedPath=join(downloadPath,result.edited);
+           for(let n=0;n<150&&(!existsSync(backupPath)||!existsSync(editedPath));n++)await sleep(100);
+           const backup=await readFile(backupPath),edited=await readFile(editedPath);
+           assert.deepEqual(backup,await readFile(join(root,'static/qa-act990',result.profile+'.p1g')));
+           assert.equal(createHash('sha256').update(edited).digest('hex'),result.editedSha);
+           assert.equal((await p1gPackagedProfileCodec.loadProfile(new Uint8Array(edited))).jsonText,meta.expected);
+           assert.equal(createHash('sha256').update(backup).digest('hex'),meta.originalSha256);
+           assert.equal(downloadGuids.size,2);assert.deepEqual((await readdir(downloadPath)).sort(),[result.backup,result.edited].sort());
+           assert.ok(network.every(r=>r.method==='GET'),'NO_POST_PUT_UPLOAD');
+           console.log('QRW_ACT990_ACTUAL_UI_CORE_OPFS_EXACT1_CLOSE_PASS',JSON.stringify({profile:result.profile,opens:result.opens,commands:result.commands,closes:result.closes,actualDiskDownloads:2,exactFullDocument:true,writerAuthorized:false}));
+          
+          }catch(error){
+           console.error('08WEB_DEV_UI_CHROME_FAIL',String(error?.stack||error).slice(0,1300));
+           process.exitCode=1;
+          }finally{
+           for(const p of pending.values())p.reject(Error('CLOSED'));pending.clear();
+           try{ws?.close()}catch{}
+           if(chrome){chrome.kill('SIGTERM');await sleep(180);
+            if(chrome.exitCode===null)chrome.kill('SIGKILL')}
+           if(server){server.kill('SIGTERM');await sleep(180);
+            if(server.exitCode===null)server.kill('SIGKILL')}
+           await rm(profile,{recursive:true,force:true,maxRetries:3});
+          }
+          NODE
+          node --check tests/.qa-act990-fixtures.mjs
+          node --check tests/dev-amount-ui-chrome/qa-act990.mjs
+          node --check src/routes/test-dev-amount-ui/qa.worker.mjs
+      - name: Build fixed generated opt-in WASM and synthetic fixtures
+        working-directory: /tmp/wand-act990
+        run: |
+          set -euo pipefail
+          sed -i 's/wasm-bindgen = { version = "0.2", optional = true }/wasm-bindgen = { version = "=0.2.105", optional = true }/' crates/ddv-save-core/Cargo.toml
+          cp tests/fixtures/ddv-save-core-accepted.Cargo.lock crates/ddv-save-core/Cargo.lock
+          printf '%s\n' 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-act990-tools
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-act990-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node tests/.qa-act990-fixtures.mjs
+          cp tests/stage-e/pkg/ddv_save_core_bg.wasm static/qa-act990/ddv_save_core_bg.wasm
+          cmp tests/stage-e/pkg/ddv_save_core_bg.wasm static/qa-act990/ddv_save_core_bg.wasm
+          npm ci --no-audit --no-fund
+          command -v google-chrome
+      - name: Actual Chrome Svelte to real Worker Core OPFS (Chest only; prior Catalog0 PASS retained)
+        working-directory: /tmp/wand-act990
+        run: |
+          WAND_QA_PROFILE=linked-crop-chest48 node tests/dev-amount-ui-chrome/qa-act990.mjs
+      - name: No tracked product edit or private Save
+        run: |
+          git diff --exit-code HEAD
+          test -z "$(git ls-files '*.p1g')"
