@@ -1355,6 +1355,12 @@ mod private_avatar {
     #[cfg(feature="semantic-writer-dev")]
     impl ProductSession{
         pub fn read_private_furniture_amount_dependencies(&self,e:WorkerEnvelope,item:u32,entry_sha:[u8;32])->CoreResult<Value>{
+            self.read_private_furniture_amount_dependencies_with_budget(e,item,entry_sha).map(|(value,_)|value)
+        }
+        // Retain the existing cumulative reference budget for the narrow
+        // ordinary ADD/DELETE extension. The legacy receipt stays identical.
+        fn read_private_furniture_amount_dependencies_with_budget(&self,e:WorkerEnvelope,item:u32,entry_sha:[u8;32])
+            ->CoreResult<(Value,DependencyBudget)>{
             use crate::ExistingAmountSelection;
             // Reuse the accepted Core-minted target and exact physical
             // Furniture zero-route restriction. First read owns its lock.
@@ -1421,8 +1427,190 @@ mod private_avatar {
                 "editedCopyAuthorized":false,"applyAuthorized":false});
             if serde_json::to_vec(&value).map_err(|_|denied("AMOUNT_DEP_RECEIPT_ENCODE"))?.len()>8*1024*1024{
                 return Err(denied("AMOUNT_DEP_RECEIPT_BOUND"));}
-            Ok(value)
+            Ok((value,budget))
         }
+    }
+
+    // ACT493: extend the existing private amount dependency receipt with a
+    // bounded, same-session physical ordinary-object/counter readset. No
+    // effective root, defaults, collision, quota, event or Writer authority.
+    #[cfg(feature="semantic-writer-dev")]
+    fn ordinary_stored_grid_readset(bytes:&[u8],grid:Span,grid_id:u32,item:u32,object_id:Option<u32>)->CoreResult<Value>{
+        let gf=members(bytes,grid,128)?;
+        if amount_uint(bytes,required(&gf,"ID")?)?!=grid_id{return Err(denied("ORDINARY_READ_GRID_ID"));}
+        let next_span=required(&gf,"NextGridObjectID")?;
+        let next=amount_uint(bytes,next_span)?;
+        if next==0{return Err(denied("ORDINARY_READ_NEXT_ZERO"));}
+        let after=next.checked_add(1).ok_or(denied("ORDINARY_READ_NEXT_OVERFLOW"))?;
+        let os=required(&gf,"Objects")?;
+        let mut selected=None;let mut seen=std::collections::BTreeSet::new();
+        for (k,o) in members(bytes,os,16384)?{
+            let oid=key_u32(&k)?;let of=members(bytes,o,128)?;
+            if amount_uint(bytes,required(&of,"ID")?)?!=oid||!seen.insert(oid){return Err(denied("ORDINARY_READ_OBJECT_ID"));}
+            if oid>=next{return Err(denied("ORDINARY_READ_NEXT_NOT_ABOVE_STORED"));}
+            let saved_item=amount_uint(bytes,required(&of,"ItemID")?)?;
+            if Some(oid)==object_id{
+                if saved_item!=item{return Err(denied("ORDINARY_READ_ITEM_MISMATCH"));}
+                let state=required(&of,"State")?;
+                if &bytes[state.begin..state.end]!=b"null"{return Err(denied("ORDINARY_READ_STATE_NOT_NULL"));}
+                selected=Some(json!({"objectId":oid,"itemId":item,"recordSha256":sha(&bytes[o.begin..o.end]),
+                    "x":scalar_witness(bytes,&of,"X")?,"y":scalar_witness(bytes,&of,"Y")?,
+                    "orientation":token_witness(bytes,&of,"Orientation")?,
+                    "state":dependency_hash(bytes,Some(state)),"from":dependency_hash(bytes,field(&of,"From"))}));
+            }
+        }
+        if object_id.is_some()&&selected.is_none(){return Err(denied("ORDINARY_READ_OBJECT_MISSING"));}
+        Ok(json!({"gridId":grid_id,"gridSha256":sha(&bytes[grid.begin..grid.end]),
+            "objectsSha256":sha(&bytes[os.begin..os.end]),"storedObjectCount":seen.len(),
+            "nextGridObjectId":next,"nextGridObjectIdSha256":sha(&bytes[next_span.begin..next_span.end]),
+            "nextAfterAdd":after,"nextAfterDelete":next,"nextUnusedInStoredMap":true,
+            "selectedStoredObject":selected,"effectiveRootVerified":false,"effectivePlacementVerified":false,
+            "eventAddressClosureVerified":false,"quotaVerified":false,"writerAuthorized":false}))
+    }
+    // ACT493: exact persisted GridObjectAddress path, not a general numeric
+    // identifier search. Report absent list/roots as incomplete, not zero
+    // verified references. Never infer effective event/subscriber closure.
+    #[cfg(feature="semantic-writer-dev")]
+    fn ordinary_spawn_address_readset(bytes:&[u8],history:Option<Span>,grid_id:u32,object_id:u32,
+        budget:&mut DependencyBudget)->CoreResult<Value>{
+        let active=match history{Some(s)=>field(&members(bytes,s,64)?,"ActiveEvents"),None=>None};
+        let mut events=0usize;let mut spawn_states=0usize;let mut missing_lists=0usize;
+        let mut addresses=0usize;let mut matches=Vec::new();
+        if let Some(active)=active{
+            for (k,event) in members(bytes,active,4096)?{
+                let event_id=key_u32(&k)?;
+                if event_id==0||event_id>i32::MAX as u32{return Err(denied("ORDINARY_SPAWN_EVENT_ID"));}
+                events+=1;
+                let ef=members(bytes,event,128)?;
+                let Some(spawn)=field(&ef,"SpawnState") else{continue};
+                if &bytes[spawn.begin..spawn.end]==b"null"{continue;}
+                spawn_states+=1;
+                let sf=members(bytes,spawn,256)?;
+                let Some(list)=field(&sf,"SpawnedObjects") else{missing_lists+=1;continue};
+                // Use the same typed address parser and cumulative budget
+                // as the accepted amount-dependency reference projection.
+                let refs=amount_grid_refs(bytes,Some(list),"GridID","GridObjectID",budget)?;
+                let entries=refs["entries"].as_array().ok_or(denied("ORDINARY_SPAWN_ENTRIES"))?;
+                // Hash an event at most once even when its list repeats the target.
+                let mut event_sha=None;
+                for r in entries{
+                    if r["completePhysicalAddress"]!=true{return Err(denied("ORDINARY_SPAWN_ADDRESS_INCOMPLETE"));}
+                    addresses+=1;
+                    if r["gridId"].as_u64()==Some(u64::from(grid_id))&&
+                        r["objectId"].as_u64()==Some(u64::from(object_id)){
+                        if matches.len()>=4096{return Err(denied("ORDINARY_SPAWN_MATCH_BOUND"));}
+                        let digest=event_sha.get_or_insert_with(||sha(&bytes[event.begin..event.end]));
+                        matches.push(json!({"eventId":event_id,"position":r["position"],
+                            "recordSha256":r["recordSha256"],"eventSha256":digest.as_str()}));
+                    }
+                }
+            }
+        }
+        let complete=history.is_some()&&active.is_some()&&missing_lists==0;
+        // A positive exact reference is decisive even if other lists are absent.
+        let clear=if !matches.is_empty(){json!(false)}else if complete{json!(true)}else{Value::Null};
+        Ok(json!({"history":dependency_hash(bytes,history),"activeEvents":dependency_hash(bytes,active),
+            "gridId":grid_id,"objectId":object_id,"activeEventCount":events,"nonnullSpawnStateCount":spawn_states,
+            "missingSpawnedObjectsListCount":missing_lists,"scannedAddressCount":addresses,
+            "matches":matches,"knownSavedPathComplete":complete,"noExactSavedSpawnAddress":clear,
+            "effectiveEventRegistryVerified":false,"fullReferenceClosureVerified":false,"writerAuthorized":false}))
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    impl ProductSession{
+        pub fn read_private_ordinary_adddel_dependencies(&self,e:WorkerEnvelope,item:u32,entry_sha:[u8;32],
+            grid_id:u32,object_id:Option<u32>)->CoreResult<Value>{
+            // Existing Core-minted inventory target, subscriber and placement
+            // projection, then revalidate the same source before reading the
+            // selected plain stored grid. No alternative Reader or decoder.
+            let (mut receipt,mut budget)=self.read_private_furniture_amount_dependencies_with_budget(e,item,entry_sha)?;
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            let bytes=&self.decoded;let root=roots(bytes)?;
+            let world=members(bytes,root.world,1024)?;
+            let gc=members(bytes,required(&world,"GridCollection")?,64)?;
+            let mut selected=None;
+            for (k,g) in members(bytes,required(&gc,"Grids")?,50000)?{
+                let id=key_u32(&k)?;let gf=members(bytes,g,128)?;
+                if amount_uint(bytes,required(&gf,"ID")?)?!=id{return Err(denied("ORDINARY_READ_GRID_ID"));}
+                if id==grid_id&&selected.replace(g).is_some(){return Err(denied("ORDINARY_READ_GRID_DUPLICATE"));}
+            }
+            // Exclude a competing stored DiffGrid identity. This is not a
+            // proof about packaged defaults or the effective native graph.
+            for (k,g) in members(bytes,required(&gc,"DiffGrids")?,50000)?{
+                let id=key_u32(&k)?;let gf=members(bytes,g,128)?;
+                if amount_uint(bytes,required(&gf,"ID")?)?!=id{return Err(denied("ORDINARY_READ_DIFF_ID"));}
+                if id==grid_id{return Err(denied("ORDINARY_READ_DIFF_OVERLAP"));}
+            }
+            receipt["contract"]=json!("wand.native.private.ordinary-adddel-dependencies@1");
+            let stored=ordinary_stored_grid_readset(bytes,selected.ok_or(denied("ORDINARY_READ_GRID_MISSING"))?,grid_id,item,object_id)?;
+            let next=stored["nextGridObjectId"].as_u64().and_then(|v|u32::try_from(v).ok())
+                .ok_or(denied("ORDINARY_READ_COUNTER_WITNESS"))?;
+            let top_begin=skip_ws(bytes,0);let top_end=value_end(bytes,top_begin)?;
+            let top=members(bytes,Span{begin:top_begin,end:top_end},1024)?;
+            receipt["ordinarySpawnAddressReadSet"]=ordinary_spawn_address_readset(bytes,
+                field(&top,"ConditionalEventHistory"),grid_id,object_id.unwrap_or(next),&mut budget)?;
+            receipt["ordinaryStoredGridReadSet"]=stored;
+            if serde_json::to_vec(&receipt).map_err(|_|denied("ORDINARY_READ_RECEIPT_ENCODE"))?.len()>8*1024*1024{
+                return Err(denied("ORDINARY_READ_RECEIPT_BOUND"));}
+            Ok(receipt)
+        }
+    }
+    #[cfg(all(test,feature="semantic-writer-dev"))]
+    #[test]
+    fn ordinary_stored_grid_counter_and_target_are_fail_closed(){
+        let valid=r#"{"ID":7,"NextGridObjectID":9,"Objects":{"8":{"ID":8,"ItemID":40000066,"X":1,"Y":2,"Orientation":"GridOrientation_Up","State":null}}}"#;
+        let check=|raw:&str,oid:Option<u32>|ordinary_stored_grid_readset(raw.as_bytes(),Span{begin:0,end:raw.len()},7,40000066,oid);
+        let add=check(valid,None).unwrap();
+        assert_eq!(add["nextGridObjectId"],9);assert_eq!(add["nextAfterAdd"],10);
+        assert!(add["selectedStoredObject"].is_null());assert_eq!(add["writerAuthorized"],false);
+        let del=check(valid,Some(8)).unwrap();
+        assert_eq!(del["nextAfterDelete"],9);assert_eq!(del["selectedStoredObject"]["objectId"],8);
+        assert_eq!(del["effectivePlacementVerified"],false);
+        for bad in [valid.replace("\"NextGridObjectID\":9","\"NextGridObjectID\":8"),
+            valid.replace("\"NextGridObjectID\":9","\"NextGridObjectID\":4294967295"),
+            valid.replace("\"NextGridObjectID\":9","\"NextGridObjectID\":9.0"),
+            valid.replace("\"ID\":8","\"ID\":6"),valid.replace("\"ItemID\":40000066","\"ItemID\":40000067"),
+            valid.replace("\"State\":null","\"State\":{}"),valid.replace("\"ID\":7","\"ID\":6")]{
+            assert!(check(&bad,Some(8)).is_err());
+        }
+        assert!(check(valid,Some(6)).is_err());
+        assert!(check(r#"{"ID":7,"NextGridObjectID":0,"Objects":{}}"#,None).is_err());
+    }
+
+    #[cfg(all(test,feature="semantic-writer-dev"))]
+    #[test]
+    fn ordinary_spawn_addresses_are_composite_bounded_and_incomplete_is_unknown(){
+        let scan=|raw:&str,g:u32,o:u32|ordinary_spawn_address_readset(raw.as_bytes(),
+            Some(Span{begin:0,end:raw.len()}),g,o,&mut DependencyBudget::default());
+        let raw=r#"{"ActiveEvents":{"1520000001":{"SpawnState":{"SpawnedObjects":[{"GridID":7,"GridObjectID":8},{"GridID":9,"GridObjectID":8},{"GridID":7,"GridObjectID":9},{"GridID":7,"GridObjectID":8}]}},"1520000002":{"SpawnState":null}}}"#;
+        let r=scan(raw,7,8).unwrap();
+        assert_eq!(r["scannedAddressCount"],4);assert_eq!(r["matches"].as_array().unwrap().len(),2);
+        assert_eq!(r["matches"][0]["position"],0);assert_eq!(r["matches"][1]["position"],3);
+        assert_eq!(r["noExactSavedSpawnAddress"],false);assert_eq!(r["writerAuthorized"],false);
+        let clear=scan(raw,9,9).unwrap();assert_eq!(clear["noExactSavedSpawnAddress"],true);
+        assert_eq!(clear["fullReferenceClosureVerified"],false);
+        let empty=scan(r#"{"ActiveEvents":{}}"#,7,8).unwrap();
+        assert_eq!(empty["noExactSavedSpawnAddress"],true);
+        let absent=scan("{}",7,8).unwrap();assert!(absent["noExactSavedSpawnAddress"].is_null());
+        let missing=scan(r#"{"ActiveEvents":{"1":{"SpawnState":{}}}}"#,7,8).unwrap();
+        assert_eq!(missing["missingSpawnedObjectsListCount"],1);assert!(missing["noExactSavedSpawnAddress"].is_null());
+        let mixed=scan(r#"{"ActiveEvents":{"1":{"SpawnState":{}},"2":{"SpawnState":{"SpawnedObjects":[{"GridID":7,"GridObjectID":8}]}}}}"#,7,8).unwrap();
+        assert_eq!(mixed["knownSavedPathComplete"],false);assert_eq!(mixed["noExactSavedSpawnAddress"],false);
+        assert!(ordinary_spawn_address_readset(b"{}",None,7,8,&mut DependencyBudget::default()).unwrap()["noExactSavedSpawnAddress"].is_null());
+        for invalid in [
+            r#"{"ActiveEvents":{"1":{"SpawnState":{"SpawnedObjects":[{"GridID":7}]}}}}"#,
+            r#"{"ActiveEvents":{"1":{"SpawnState":{"SpawnedObjects":[{"GridObjectID":8}]}}}}"#,
+            r#"{"ActiveEvents":{"1":{"SpawnState":{"SpawnedObjects":[{"GridID":"7","GridObjectID":8}]}}}}"#,
+            r#"{"ActiveEvents":{"1":{"SpawnState":{"SpawnedObjects":[{"GridID":7,"GridObjectID":-1}]}}}}"#,
+            r#"{"ActiveEvents":{"1":{"SpawnState":{"SpawnedObjects":[{"GridID":7.0,"GridObjectID":8}]}}}}"#,
+            r#"{"ActiveEvents":{"1":{"SpawnState":{"SpawnedObjects":null}}}}"#,
+            r#"{"ActiveEvents":{"1":{"SpawnState":{"SpawnedObjects":{}}}}}"#,
+            r#"{"ActiveEvents":{"01":{"SpawnState":{"SpawnedObjects":[]}}}}"#,
+            r#"{"ActiveEvents":{"0":{"SpawnState":{"SpawnedObjects":[]}}}}"#
+        ]{assert!(scan(invalid,7,8).is_err());}
+        let mut budget=DependencyBudget{reference_entries:65532,..Default::default()};
+        assert!(ordinary_spawn_address_readset(raw.as_bytes(),Some(Span{begin:0,end:raw.len()}),7,8,&mut budget).is_ok());
+        assert_eq!(budget.reference_entries,65536);
+        assert!(ordinary_spawn_address_readset(raw.as_bytes(),Some(Span{begin:0,end:raw.len()}),7,8,&mut budget).is_err());
     }
 
     // ACT410: physical saved Chest amount and dependency slice only.
@@ -1685,6 +1873,33 @@ mod private_avatar {
             assert!(s.read_private_furniture_amount_dependencies(stale,40000001,hash(&d)).is_err());
             assert!(open(&d).read_private_furniture_amount_dependencies(e,40000001,hash(&d)).is_err());
             s.close().unwrap();assert!(s.read_private_furniture_amount_dependencies(e,40000001,hash(&d)).is_err());
+        }
+        #[test]
+        fn ordinary_address_receipt_uses_same_epoch_and_legacy_budget(){
+            let mut d=doc();
+            d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(9);
+            d["ConditionalEventHistory"]["ActiveEvents"]["1520000001"]["SpawnState"]=json!({"SpawnedObjects":[
+                {"GridID":7,"GridObjectID":4},{"GridID":8,"GridObjectID":9}]});
+            let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();let old=hash(&d);
+            let legacy=s.read_private_furniture_amount_dependencies(e,40000001,old).unwrap();
+            let add=s.read_private_ordinary_adddel_dependencies(e,40000001,old,7,None).unwrap();
+            let del=s.read_private_ordinary_adddel_dependencies(e,40000001,old,7,Some(4)).unwrap();
+            assert_eq!(add["ordinarySpawnAddressReadSet"]["objectId"],9);
+            assert_eq!(add["ordinarySpawnAddressReadSet"]["noExactSavedSpawnAddress"],true);
+            assert_eq!(del["ordinarySpawnAddressReadSet"]["objectId"],4);
+            assert_eq!(del["ordinarySpawnAddressReadSet"]["noExactSavedSpawnAddress"],false);
+            assert_eq!(del["ordinaryStoredGridReadSet"]["eventAddressClosureVerified"],false);
+            let mut unchanged=add.clone();
+            let m=unchanged.as_object_mut().unwrap();
+            m.remove("ordinarySpawnAddressReadSet");m.remove("ordinaryStoredGridReadSet");
+            m.insert("contract".into(),legacy["contract"].clone());
+            assert_eq!(unchanged,legacy);assert_eq!(s.receipt().unwrap(),before);
+            assert!(s.read_private_ordinary_adddel_dependencies(e,40000001,[0;32],7,None).is_err());
+            assert!(s.read_private_ordinary_adddel_dependencies(WorkerEnvelope{expected_revision:1,..e},40000001,old,7,None).is_err());
+            assert!(s.read_private_ordinary_adddel_dependencies(WorkerEnvelope{expected_index_generation:2,..e},40000001,old,7,None).is_err());
+            assert!(open(&d).read_private_ordinary_adddel_dependencies(e,40000001,old,7,None).is_err());
+            assert!(s.read_private_ordinary_adddel_dependencies(e,40000001,old,8,None).is_err());
+            s.close().unwrap();assert!(s.read_private_ordinary_adddel_dependencies(e,40000001,old,7,None).is_err());
         }
         // Count every emitted typed reference, including the filter record
         // itself. Per-array limits and the final receipt byte cap remain
