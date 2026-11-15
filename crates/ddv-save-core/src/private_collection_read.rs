@@ -783,4 +783,90 @@ mod product_collection_source_tests{
         let (s,d,i)=fixture(true,1,true,false);assert!(s.preview_product_collection_candidate(env(&s),d,0,i).is_err());
         let (s,d,i)=fixture(false,1,true,false);assert_eq!(s.preview_product_collection_candidate(env(&s),d,0,i).unwrap()["falseCount"],2);
     }
+
+    #[test]
+    fn qa_act988_pack_pair_selection_and_raw_binding(){
+        let p=crate::collection_packaged_eligibility::pinned(PRODUCT_PACK).unwrap();
+        let rows=p["items"].as_array().unwrap();
+        let id=|r:&Value|r[0].as_u64().unwrap() as u32;
+        let def=|r:&Value|r[1].as_u64().unwrap() as u32;
+        let make=|d:u32,items:&[u32]|{
+            let mut m=serde_json::Map::new();let mut stock=serde_json::Map::new();
+            for i in items{m.insert(i.to_string(),json!(false));stock.insert(i.to_string(),json!({"Amount":5,"Opaque":{"keep":true}}));}
+            for n in m.len()..3{m.insert((499999990+n as u32).to_string(),json!(false));}
+            json!({"GameInfo":{"Version":626},"World":{},"Player":{"CollectionSets":[{"CollectionDefinitionID":d,"GroupData":[{"GroupIndex":0,"State":"SetState_NotComplete","GroupsCollectionItems":m}]}],"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":stock}}},"Unknown":{"keep":7}})
+        };
+        let check=|d:&Value,steam:bool,definition:u32,target:u32,peer:u32|{
+            // Pretty input: raw hashes must bind lexical spans, not reserialized JSON.
+            let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec_pretty(d).unwrap(),BuildIdentity{
+                platform:if steam{Platform::SteamWindows}else{Platform::Switch},
+                build_kind:if steam{BuildKind::SteamFullVersion}else{BuildKind::SwitchBid},
+                build_id:if steam{EXACT.into()}else{SWITCH_EXACT.into()},schema:626,externally_attested:true}).unwrap();
+            s.worker_bound=true;let e=env(&s);let before=s.receipt().unwrap();
+            let pair=s.mint_product_collection_physical_pair(e,definition,0,target).unwrap();
+            assert_eq!(pair.scope,e);assert_eq!(pair.target.item_id,target);assert_eq!(pair.peer.item_id,peer);
+            assert_eq!(pair.target.definition_id,definition);assert_eq!(pair.peer.definition_id,definition);
+            assert_ne!(pair.target_span.begin,pair.peer_span.begin);
+            assert_eq!(&s.decoded[pair.target_span.begin..pair.target_span.end],b"false");
+            assert_eq!(&s.decoded[pair.peer_span.begin..pair.peer_span.end],b"false");
+            let g=&d["Player"]["CollectionSets"][0]["GroupData"][0];
+            let raw=&s.decoded;
+            let roots=roots(raw).unwrap();
+            let sets=required(raw,roots.player,"CollectionSets").unwrap();
+            let mut group_span=None;
+            array(raw,sets,|set|{array(raw,required(raw,set,"GroupData")?,|span|{if group_span.is_none(){group_span=Some(span);}Ok(())})}).unwrap();
+            let gs=group_span.unwrap();let ms=required(raw,gs,"GroupsCollectionItems").unwrap();
+            assert_eq!(pair.group_sha,hash(raw,gs));assert_eq!(pair.map_sha,hash(raw,ms));
+            assert_ne!(pair.group_sha,hex(&Sha256::digest(serde_json::to_vec(g).unwrap())));
+            let inv=required(raw,required(raw,required(raw,roots.player,"ListInventories").unwrap(),"0").unwrap(),"Inventory").unwrap();
+            assert_eq!(pair.target_stock_sha,hash(raw,required(raw,inv,&target.to_string()).unwrap()));
+            assert_eq!(pair.peer_stock_sha,hash(raw,required(raw,inv,&peer.to_string()).unwrap()));
+            let v=s.preview_product_collection_candidate(e,definition,0,target).unwrap();
+            assert_eq!(v["groupSha256"],pair.group_sha);assert_eq!(v["mapSha256"],pair.map_sha);
+            assert_eq!(v["stockEntrySha256"],pair.target_stock_sha);
+            for k in ["effectiveEligibilityVerified","writerAuthorized","editedCopyAuthorized","applyAuthorized"]{assert_eq!(v[k],false);}
+            assert_eq!(s.receipt().unwrap(),before);
+        };
+        let mut pos=0;let mut neg=0;
+        for steam in [true,false]{
+            for row in rows{
+                let target=id(row);let definition=def(row);
+                let peer=rows.iter().find(|r|def(r)==definition&&id(r)!=target).map(id);
+                if let Some(peer)=peer{check(&make(definition,&[target,peer]),steam,definition,target,peer);pos+=1;}
+                else{
+                    let d=make(definition,&[target]);let s=pair_open(&d,steam);let e=env(&s);
+                    assert!(s.preview_product_collection_candidate(e,definition,0,target).is_ok());
+                    assert_eq!(s.mint_product_collection_physical_pair(e,definition,0,target).err().unwrap().0,"COLLECTION_PAIR_NO_DISTINCT_PACKAGED_FALSE_PEER");neg+=1;
+                }
+            }
+            let definition=2120000183;let ids=[40003806,40003832,40003833];let target=ids[2];
+            let d=make(definition,&ids);
+            check(&d,steam,definition,target,ids[0]);pos+=1;
+            for variant in 0..3{
+                let mut x=d.clone();let k=ids[0].to_string();
+                match variant{
+                    0=>x["Player"]["ListInventories"]["0"]["Inventory"][&k]["Amount"]=json!(0),
+                    1=>{x["Player"]["ListInventories"]["0"]["Inventory"].as_object_mut().unwrap().remove(&k);},
+                    _=>x["Player"]["CollectionSets"].as_array_mut().unwrap().push(json!({"CollectionDefinitionID":2129999999,"GroupData":[{"GroupIndex":0,"State":"SetState_NotComplete","GroupsCollectionItems":{(k):false}}]}))
+                }
+                check(&x,steam,definition,target,ids[1]);pos+=1;
+            }
+            let s=pair_open(&d,steam);let e=env(&s);let before=s.receipt().unwrap();
+            for bad in [WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e},WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..e}]{
+                assert!(s.mint_product_collection_physical_pair(bad,definition,0,target).is_err());neg+=1;
+            }
+            assert!(s.mint_product_collection_physical_pair(e,definition,1,target).is_err());neg+=1;
+            let mut x=d.clone();for i in &ids[..2]{x["Player"]["ListInventories"]["0"]["Inventory"][i.to_string()]["Amount"]=json!(0);}
+            let u=pair_open(&x,steam);assert!(u.mint_product_collection_physical_pair(env(&u),definition,0,target).is_err());neg+=1;
+            let x=make(definition,&[target,40002574]);let u=pair_open(&x,steam);assert!(u.mint_product_collection_physical_pair(env(&u),definition,0,target).is_err());neg+=1;
+            let mut x=d.clone();x["Player"]["ListInventories"]["0"]["Inventory"][target.to_string()]["Amount"]=json!(0);
+            let u=pair_open(&x,steam);assert!(u.mint_product_collection_physical_pair(env(&u),definition,0,target).is_err());neg+=1;
+            let mut x=d.clone();x["Player"]["CollectionSets"][0]["GroupData"][0]["GroupsCollectionItems"][ids[0].to_string()]=json!(true);
+            if steam{let u=pair_open(&x,steam);assert!(u.mint_product_collection_physical_pair(env(&u),definition,0,target).is_err());neg+=1;}
+            else{check(&x,steam,definition,target,ids[1]);pos+=1;}
+            assert_eq!(s.receipt().unwrap(),before);
+        }
+        assert_eq!((pos,neg),(71,19));
+    }
+
 }
