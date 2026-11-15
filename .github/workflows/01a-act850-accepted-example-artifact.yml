@@ -1,0 +1,49 @@
+name: ACT850 accepted Switch626 reader artifact recovery (source only)
+on:
+  pull_request:
+    paths: ['.github/workflows/01a-act850-accepted-example-artifact.yml']
+permissions:
+  contents: read
+jobs:
+  artifact-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 70a5314af5454ce2a834f07e45bd600e6692fefd
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Exact accepted source and dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 70a5314af5454ce2a834f07e45bd600e6692fefd
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = 969210368edac235a404602a058588987e913baa
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/indexed_read.rs)" = a214ef65f3f4a149337a50d0c7f4e6245962c421
+          test "$(git rev-parse HEAD:crates/ddv-save-core/examples/wand-private-furniture-amount-dependencies.rs)" = ca7ab81653252d37c1a6a112e9465c5346c13262
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          printf '%s\n' 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          rustc --version
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1,semantic-writer-dev --example wand-private-furniture-amount-dependencies
+      - name: Package exact accepted example only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/act850-artifact
+          cp crates/ddv-save-core/target/debug/examples/wand-private-furniture-amount-dependencies /tmp/act850-artifact/
+          cd /tmp/act850-artifact
+          test -x wand-private-furniture-amount-dependencies
+          sha256sum wand-private-furniture-amount-dependencies > SHA256SUMS
+          printf '%s\n' 'source=70a5314af5454ce2a834f07e45bd600e6692fefd' 'lock=e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c' 'features=private-native-v1,semantic-writer-dev' 'toolchain=1.99.1' 'qa=ACT877/PR1262' > source-manifest.txt
+          cat SHA256SUMS
+          stat -c '%s' wand-private-furniture-amount-dependencies
+      - uses: actions/upload-artifact@v4
+        with:
+          name: act850-accepted-switch626-reader-source-only
+          path: /tmp/act850-artifact/
+          retention-days: 1
+          if-no-files-found: error
