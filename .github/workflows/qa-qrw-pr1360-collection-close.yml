@@ -1,0 +1,132 @@
+name: QR-W PR1360 actual Collection Close UI
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1360-collection-close.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact Source and temporary DEV harness
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only 16eecb6d2c200684d292fa86cc969bad80a6c39d HEAD)" = '.github/workflows/qa-qrw-pr1360-collection-close.yml'
+          test "$(git rev-parse HEAD:src/lib/collection/CollectionExact1Dev.svelte)" = 1c5fa7f2253310c9b600472c94f05399a9ecfa67
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-consumer.mjs)" = 0a580ee64674666a852041970a52877c4a284d0d
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-copy.mjs)" = e612b0cde4a95dd79dfc74c5d02735c843579999
+          test "$(git rev-parse HEAD:tests/web-collection-exact1-consumer.test.mjs)" = e3e59f897ab0dd96efe7054616ccb830069ec5c4
+          mkdir -p src/routes/test-collection-close tests/dev-amount-ui-chrome
+          cat > src/routes/test-collection-close/+page.svelte <<'SVELTE'
+          <script>
+           import {onMount} from 'svelte';
+           import CollectionExact1Dev from '$lib/collection/CollectionExact1Dev.svelte';
+           import {setLocale} from '$lib/i18n/runtime.js';
+           let adapter=null;
+           onMount(()=>{
+            const q={mode:'ok',profile:'steam',reads:0,closes:0,settled:0,previews:0,previewSettled:0,hold:null,holdPreview:null,badRead:false,mutations:0,ready:true,setLocale};
+            window.__qa=q;
+            const sha='a'.repeat(64),safety={writerAuthorized:false,originalOverwriteAuthorized:false};
+            const ack=()=>({kind:'CLOSED',ok:true,nativeV3Verified:false,...safety});
+            const build=()=>q.profile==='steam'?{platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true}:{platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626,externallyConfirmed:true};
+            adapter=Object.freeze({
+             async inspectCollectionTargets(){const n=++q.reads;return {selection:n,build:build(),originalName:'synthetic-'+n+'.p1g',originalSha256:sha,originalSizeBytes:16,targets:[{definitionId:2120000063,groupIndex:0,itemId:40002574,oldValue:false,groupState:'NotComplete',falseCount:q.profile==='steam'?3:2,coreMinted:true,eligibilityVerified:true}],...safety,...(q.badRead?{writerAuthorized:true}:{})}},
+             async backupOriginal(s){return {backupReadbackVerified:true,originalUnchanged:true,shaMatched:true,sizeMatched:true,separateName:true,originalName:'synthetic-'+s+'.p1g',originalSha256:sha,originalSizeBytes:16,backupName:'synthetic-backup.p1g'}},
+             async previewCollectionTarget(s,i){q.previews++;const r={selection:s,choice:i,oldValue:false,newValue:true,groupState:'NotComplete',remainingFalseCount:q.profile==='steam'?2:1,exactFieldChangedCount:1,...safety};try{if(q.delayPreview){q.delayPreview=false;await new Promise(resolve=>q.holdPreview=resolve);q.holdPreview=null}return r}finally{q.previewSettled++}},
+             async stageCollectionTarget(){q.mutations++;throw Error('QA_NO_MUTATION')},
+             async undo(){q.mutations++;throw Error('QA_NO_MUTATION')},async redo(){q.mutations++;throw Error('QA_NO_MUTATION')},
+             async exportEditedCopy(){q.mutations++;throw Error('QA_NO_MUTATION')},async downloadVerifiedCopy(){q.mutations++;throw Error('QA_NO_DOWNLOAD')},
+             async close(){q.closes++;const mode=q.mode;try{
+              if(mode==='reject')throw Error('QA_CLOSE_REJECT');
+              if(mode==='hold')return await new Promise(resolve=>q.hold=resolve);
+              if(mode==='void')return undefined;if(mode==='null')return null;if(mode==='empty')return {};
+              if(mode==='kind')return {...ack(),kind:'OPEN'};if(mode==='okfalse')return {...ack(),ok:false};
+              if(mode==='writer')return {...ack(),writerAuthorized:true};if(mode==='native')return {...ack(),nativeV3Verified:true};
+              if(mode==='overwrite')return {...ack(),originalOverwriteAuthorized:true};if(mode==='extra')return {...ack(),sessionId:'QA'};
+              return ack();
+             }finally{q.settled++}}
+            });
+           });
+          </script>
+          {#if adapter}<CollectionExact1Dev verifiedLocalDevGate={true} trustedWorkerAdapter={adapter}/>{/if}
+          SVELTE
+          cat > tests/dev-amount-ui-chrome/qa-pr1360.mjs <<'NODE'
+          // 08 WEB DEV/OFF local-only Svelte GUI Chrome check, PUBLIC MOCK Worker only.
+          // The temporary /test-dev-amount-ui route is created exclusively inside CI;
+          // it is not committed into src/routes and cannot be on protected Pages.
+          // This checks UI behavior/geometry, NOT PR929 real Rust or real owner P1G.
+          import {spawn,spawnSync} from 'node:child_process';
+          import {mkdtemp,readFile,rm,mkdir,readdir,writeFile} from 'node:fs/promises';
+          import {existsSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join,resolve} from 'node:path';
+          import {fileURLToPath} from 'node:url';
+          import {setTimeout as sleep} from 'node:timers/promises';
+          import assert from 'node:assert/strict';
+          const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
+          const port=4187,origin='http://127.0.0.1:'+port;
+          const profile=await mkdtemp(join(tmpdir(),'wand-dev-amount-chrome-'));
+          const downloadPath=join(profile,'downloads');await mkdir(downloadPath);
+          const browserBin=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium']
+           .filter(Boolean).find(bin=>spawnSync('which',[bin],{stdio:'ignore'}).status===0);
+          if(!browserBin)throw Error('ENV_WAIT_DEP_GOOGLE_CHROME');
+          let server,chrome,ws,sequence=0;const pending=new Map(),network=[],downloadGuids=new Set();
+          const rpc=(method,params={})=>new Promise((resolve,reject)=>{
+           const id=++sequence;pending.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));
+          });
+          async function attach(){
+           const file=join(profile,'DevToolsActivePort');let debugPort=0;
+           for(let n=0;n<150;n++){
+            if(existsSync(file)){debugPort=Number((await readFile(file,'utf8')).split('\n')[0]);if(debugPort)break}
+            await sleep(120);
+           }
+           if(!debugPort)throw Error('ENV_CHROME_NO_DEBUG_PORT');
+           let url;
+           for(let n=0;n<100;n++){
+            try{const r=await fetch('http://127.0.0.1:'+debugPort+'/json/list');
+              url=(await r.json()).find(x=>x.type==='page')?.webSocketDebuggerUrl;if(url)break}catch{}
+            await sleep(100);
+           }
+           if(!url)throw Error('ENV_CHROME_NO_TARGET');
+           ws=new WebSocket(url);
+           await new Promise((ok,bad)=>{ws.addEventListener('open',ok,{once:true});
+            ws.addEventListener('error',bad,{once:true})});
+           ws.addEventListener('message',e=>{
+            let m;try{m=JSON.parse(String(e.data))}catch{return}
+            if(['Browser.downloadWillBegin','Page.downloadWillBegin'].includes(m.method)&&m.params?.guid)downloadGuids.add(m.params.guid);
+            if(m.method==='Network.requestWillBeSent')network.push({method:m.params?.request?.method,
+              url:m.params?.request?.url});
+            const p=pending.get(m.id);if(!p)return;pending.delete(m.id);
+            if(m.error)p.reject(Error(JSON.stringify(m.error)));else p.resolve(m.result);
+           });
+          }
+          const script="(async()=>{\n const q=()=>window.__qa,p=()=>document.querySelector('[data-collection-exact1]'),buttons=()=>Array.from(p()?.querySelectorAll('button')||[]),find=t=>buttons().find(b=>b.textContent.trim()===t),alert=()=>p()?.querySelector('[role=alert]'),need=(v,k)=>{if(!v)throw Error('QRW1360_'+k)};\n const wait=async(fn,k)=>{for(let i=0;i<1000;i++){if(fn())return;await new Promise(r=>setTimeout(r,20))}throw Error('QRW1360_WAIT_'+k+' '+p()?.textContent.slice(0,300))};\n const click=t=>{const b=find(t);need(b&&!b.disabled,'CLICK_'+t);b.click()};\n const load=()=>click('Read active session'),close=()=>click('Close session');\n const noOutput=()=>!p().querySelector('code,select,.preview')&&buttons().length===1;\n const ready=()=>find('Read active session')&&!find('Read active session').disabled;\n const failed=()=>alert()&&find('Close session')&&!find('Close session').disabled&&noOutput();\n await wait(()=>q()?.ready&&p()&&buttons().length===1,'MOUNT');q().setLocale('en');await wait(ready,'EN_READY');\n need(p().dataset.productWriter==='off'&&p().dataset.publicRoute==='off','FLAGS');\n const expected={en:'Session closure could not be verified. Retry Close before reading another session.',ja:'Sessionの終了を確認できません。別のSessionを読む前に、もう一度閉じてください。',fr:'La fermeture de la session n’a pas pu être vérifiée. Réessayez de fermer avant de lire une autre session.',de:'Das Schließen der Sitzung konnte nicht bestätigt werden. Vor dem Lesen einer anderen Sitzung erneut schließen.',it:'Impossibile verificare la chiusura della sessione. Riprovare a chiudere prima di leggere un’altra sessione.','es-ES':'No se pudo verificar el cierre de la sesión. Vuelve a cerrarla antes de leer otra sesión.','zh-CN':'无法验证会话已关闭。读取其他会话前，请重试关闭。','pt-BR':'Não foi possível verificar o encerramento da sessão. Tente fechar novamente antes de ler outra sessão.'};\n let neg=0,pos=0;\n for(const [profile,modes] of [['steam',['reject','void','null','empty','kind']],['switch',['okfalse','writer','native','overwrite','extra']]]){\n  q().profile=profile;\n  for(const mode of modes){\n   const reads=q().reads,stale=find('Read active session');load();await wait(()=>find('Close session')&&p().querySelector('code'),'OPENED');\n   q().mode=mode;const before=q().settled;close();await wait(()=>q().settled===before+1&&failed(),'FAILED_'+mode);\n   need(!find('Read active session')&&q().reads===reads+1,'NO_READ_'+mode);\n   stale.dispatchEvent(new MouseEvent('click',{bubbles:true}));await new Promise(r=>setTimeout(r,30));need(q().reads===reads+1,'STALE_BUTTON');\n   if(mode==='writer'){for(const [l,msg] of Object.entries(expected)){q().setLocale(l);await wait(()=>alert()?.textContent.trim()===msg,'LOCALE_'+l);need(noOutput(),'LOCALE_REVOKED')}q().setLocale('en');await wait(failed,'EN_RESET')}\n   q().mode='ok';const c=q().settled;close();await wait(()=>q().settled===c+1&&ready(),'RETRY');need(!alert()&&noOutput(),'EXACT_RETRY');neg++;pos++;\n  }\n }\n // Pending preview must not resurrect UI after failed Close or after a new read.\n q().profile='switch';load();await wait(()=>find('Verify encrypted original backup'),'BACKUP_READY');click('Verify encrypted original backup');await wait(()=>find('Review change')&&p().querySelector('select'),'PREVIEW_READY');\n q().delayPreview=true;click('Review change');await wait(()=>q().holdPreview,'PREVIEW_HELD');\n const oldClose=find('Close session'),before=q().closes;q().mode='hold';close();await wait(()=>q().hold&&find('Read active session')?.disabled,'CLOSE_HELD');\n oldClose.dispatchEvent(new MouseEvent('click',{bubbles:true}));await new Promise(r=>setTimeout(r,30));need(q().closes===before+1,'SHARED_CLOSE');need(!p().querySelector('code,select,.preview'),'PENDING_REVOKED');\n q().hold({...{kind:'CLOSED',ok:true,nativeV3Verified:false,originalOverwriteAuthorized:false},writerAuthorized:true});\n await wait(failed,'PENDING_FORGED');const r=q().reads;q().mode='ok';close();await wait(ready,'CLOSE_RETRY');load();await wait(()=>p().querySelector('code')?.textContent==='synthetic-'+(r+1)+'.p1g','FRESH_READ');\n const n=q().previewSettled;q().holdPreview();await wait(()=>q().previewSettled===n+1,'STALE_SETTLED');await new Promise(r=>setTimeout(r,50));need(!p().querySelector('.preview,select')&&p().querySelector('code')?.textContent==='synthetic-'+(r+1)+'.p1g','STALE_PREVIEW_NO_RESURRECT');close();await wait(ready,'FRESH_CLOSE');neg++;pos++;\n // Invalid initial receipt + missing cleanup: no claim of closed, explicit retry.\n q().badRead=true;q().mode='void';load();await wait(failed,'INVALID_CLEANUP');need(!find('Read active session'),'INVALID_DENY');q().badRead=false;q().mode='ok';close();await wait(ready,'INVALID_RETRY');neg++;pos++;\n need(q().mutations===0,'NO_MUTATION_OR_OUTPUT');return {pass:true,positive:pos,negative:neg,locales:8,reads:q().reads,closes:q().closes,writer:false,mutations:q().mutations};\n})()";
+          try{
+           server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port',String(port),'--strictPort'],{cwd:root,env:{...process.env,BASE_PATH:''},stdio:'ignore'});
+           let served=false;for(let n=0;n<180;n++){if(server.exitCode!==null)throw Error('DEV_SERVER_EXITED');try{if((await fetch(origin+'/test-collection-close/')).status===200){served=true;break}}catch{}await sleep(130)}if(!served)throw Error('ENV_DEV_SERVER_UNAVAILABLE');
+           chrome=spawn(browserBin,['--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--remote-allow-origins=*','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
+           await attach();await rpc('Page.enable');await rpc('Runtime.enable');await rpc('Network.enable');await rpc('Page.navigate',{url:origin+'/test-collection-close/'});
+           let ready=false;for(let n=0;n<200;n++){try{const r=await rpc('Runtime.evaluate',{expression:"location.pathname==='/test-collection-close/' && document.readyState==='complete' && window.__qa?.ready===true && !!document.querySelector('[data-collection-exact1] button')",returnByValue:true});if(r.result?.value===true){ready=true;break}}catch{}await sleep(100)}if(!ready)throw Error('NAVIGATION_WAIT');
+           const controller=new AbortController();let evaluation;try{evaluation=await Promise.race([rpc('Runtime.evaluate',{expression:script,returnByValue:true,awaitPromise:true}),sleep(110000,undefined,{signal:controller.signal}).then(()=>{throw Error('CHROME_TIMEOUT')})])}finally{controller.abort()}
+           if(evaluation.exceptionDetails)throw Error(String(evaluation.exceptionDetails.exception?.description||evaluation.exceptionDetails.text).slice(0,1000));const r=evaluation.result?.value;assert.equal(r?.pass,true);assert.equal(r.positive,12);assert.equal(r.negative,12);assert.equal(r.locales,8);assert.equal(r.writer,false);assert.equal(r.mutations,0);assert.equal(downloadGuids.size,0);assert.ok(network.every(x=>x.method==='GET'));console.log('QRW_PR1360_ACTUAL_COLLECTION_CLOSE_UI_PASS',JSON.stringify(r));
+          }catch(e){console.error('QRW_PR1360_CHROME_FAIL',String(e?.stack||e).slice(0,1400));process.exitCode=1}
+          finally{for(const p of pending.values())p.reject(Error('CLOSED'));pending.clear();try{ws?.close()}catch{}if(chrome){chrome.kill('SIGTERM');await sleep(180);if(chrome.exitCode===null)chrome.kill('SIGKILL')}if(server){server.kill('SIGTERM');await sleep(180);if(server.exitCode===null)server.kill('SIGKILL')}await rm(profile,{recursive:true,force:true,maxRetries:3})}
+          NODE
+          node --check tests/dev-amount-ui-chrome/qa-pr1360.mjs
+      - run: npm ci --no-audit --no-fund
+      - name: Actual Chrome affected Collection DEV UI (controlled receipt transport)
+        run: node tests/dev-amount-ui-chrome/qa-pr1360.mjs
+      - name: No tracked product edits or private Save
+        run: |
+          git diff --exit-code HEAD
+          test -z "$(git ls-files '*.p1g')"
