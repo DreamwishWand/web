@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createExistingAmountDecrease,createLocalAmountDevWorkflow,
   DEV_AMOUNT_CONTRACT,STEAM626_FULL_VERSION}
   from '../src/lib/dev/local-amount-workflow.mjs';
-import {DEV_AMOUNT_UI_LOCALES,localAmountCopy} from '../src/lib/dev/local-amount-copy.mjs';
+import {DEV_AMOUNT_UI_LOCALES,localAmountCopy,localAmountTargetLabel} from '../src/lib/dev/local-amount-copy.mjs';
 const sha='a'.repeat(64);
 const file=()=>({name:'steam-original.p1g',size:4096});
 const inventory=()=>({kind:'InventoryExistingAmountDecrease',
@@ -318,4 +318,19 @@ test('scoped Close barrier deduplicates and stale OPEN cannot dispatch after cle
  const opening=w.open(args),rejected=assert.rejects(opening,/STALE_FILE_OR_CLOSE/),closing=w.close();release();await Promise.all([rejected,closing]);
  assert.equal(closeCalls,1);assert.equal(f.log.filter(x=>x[0]==='open').length,0);assert.equal(w.snapshot().phase,'closed');
  await w.open(args);assert.equal(f.log.filter(x=>x[0]==='open').length,1);await w.close();
+});
+
+test('all eight target address labels distinguish equal-item equal-amount Chest slots, literal Catalog0 and proposed review',()=>{
+ const first={...chest(),targetId:48,slotIndex:0},second={...first,slotIndex:1},third={...first,targetId:49};
+ const zero={...inventory(),targetId:0,itemId:40000001,compatibleItemType:'ItemType_Furniture'};
+ for(const locale of DEV_AMOUNT_UI_LOCALES){
+  const words=localAmountCopy(locale);
+  for(const key of ['inventory','chest','inventoryId','containerId','slot','itemId','review'])assert.ok(words[key],locale+':'+key);
+  const a=localAmountTargetLabel(first,words),b=localAmountTargetLabel(second,words),c=localAmountTargetLabel(third,words);
+  assert.notEqual(a,b);assert.notEqual(a,c);assert.ok(a.includes(words.slot+' 0'));
+  assert.ok(b.includes(words.slot+' 1'));assert.ok(c.includes(words.containerId+' 49'));
+  assert.ok(localAmountTargetLabel(zero,words).includes(words.inventoryId+' 0'));
+  assert.ok(a.includes(words.itemId+' '+first.itemId));assert.ok(a.includes(words.before+' '+first.oldAmount));
+  assert.equal(localAmountTargetLabel(null,words),'');
+ }
 });
