@@ -866,6 +866,7 @@ impl ProductSession {
 pub struct PrivateBoundAmountCandidate{
     target:CoreExistingAmountTarget,
     new_amount:u32,
+    switch_chest:bool,
 }
 #[cfg(all(feature="private-native-v2",not(target_arch="wasm32")))]
 fn private_amount_hex(v:&[u8])->String{v.iter().map(|x|format!("{x:02x}")).collect()}
@@ -878,8 +879,18 @@ impl ProductSession{
     pub fn mint_private_bound_amount_candidate(&self,e:WorkerEnvelope,plan:&[u8],
         original:[u8;32],original_size:u64,backup:[u8;32],backup_size:u64,chest:bool)
         ->CoreResult<PrivateBoundAmountCandidate>{
+        self.mint_private_bound_amount_mode(e,plan,original,original_size,backup,backup_size,chest,false)
+    }
+    pub fn mint_private_switch626_bound_chest_candidate(&self,e:WorkerEnvelope,plan:&[u8],
+        original:[u8;32],original_size:u64,backup:[u8;32],backup_size:u64)
+        ->CoreResult<PrivateBoundAmountCandidate>{
+        self.mint_private_bound_amount_mode(e,plan,original,original_size,backup,backup_size,true,true)
+    }
+    fn mint_private_bound_amount_mode(&self,e:WorkerEnvelope,plan:&[u8],
+        original:[u8;32],original_size:u64,backup:[u8;32],backup_size:u64,chest:bool,switch_chest:bool)
+        ->CoreResult<PrivateBoundAmountCandidate>{
         use serde_json::{json,Value};
-        build_check(self)?;
+        if !switch_chest{build_check(self)?;}
         if self.worker_bound||e.expected_revision!=0||e.expected_index_generation!=1||
            original==[0;32]||original!=backup||original_size==0||
            original_size>128*1024*1024||original_size!=backup_size{
@@ -890,13 +901,16 @@ impl ProductSession{
         if serde_json::to_vec(&p).map_err(|_|denied("PRIVATE_AMOUNT_PLAN_JSON"))?.as_slice()!=plan{
             return Err(denied("PRIVATE_AMOUNT_PLAN_CANONICAL"));
         }
-        let keys=["contract","fullVersion","sourceDecodedSha256","originalSha256","originalSizeBytes",
+        let build_key=if switch_chest{"buildId"}else{"fullVersion"};
+        let mut keys=vec!["contract",build_key,"sourceDecodedSha256","originalSha256","originalSizeBytes",
             "backupSha256","backupSizeBytes","revision","indexGeneration","selector","target"];
+        if switch_chest{keys.push("link");}
         let m=p.as_object().ok_or(denied("PRIVATE_AMOUNT_PLAN_OBJECT"))?;
-        let contract=if chest{"wand.private.steam626.chest-crop-existing-50-to-49@1"}
+        let contract=if switch_chest{"wand.private.switch626.chest-crop-existing-50-to-49@1"}
+            else if chest{"wand.private.steam626.chest-crop-existing-50-to-49@1"}
             else{"wand.private.steam626.catalog0-ordinary-existing-decrease-one@1"};
         if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||p["contract"]!=contract||
-           p["fullVersion"]!=EXACT_STEAM||p["sourceDecodedSha256"]!=private_amount_hex(&e.expected_decoded_sha256)||
+           p[build_key]!=(if switch_chest{"9A239D3DB569756D"}else{EXACT_STEAM})||p["sourceDecodedSha256"]!=private_amount_hex(&e.expected_decoded_sha256)||
            p["originalSha256"]!=private_amount_hex(&original)||p["backupSha256"]!=private_amount_hex(&backup)||
            p["originalSizeBytes"]!=original_size||p["backupSizeBytes"]!=backup_size||
            p["revision"]!=0||p["indexGeneration"]!=1{
@@ -920,7 +934,15 @@ impl ProductSession{
             }
             ExistingAmountSelection::Inventory{inventory_id:0,item_id:item}
         };
-        let witness=self.read_existing_amount_target(e,selection)?;
+        let witness=if switch_chest{
+            let ExistingAmountSelection::Chest{container_id,slot_index}=selection else{return Err(denied("PRIVATE_SWITCH_CHEST_SCOPE"));};
+            let v=self.read_private_switch626_chest_view(e,container_id,slot_index)?;
+            let f=v.chest.as_ref().ok_or(denied("PRIVATE_SWITCH_CHEST_FACTS"))?;
+            if p["link"]!=self.read_private_switch626_chest_link_witness(e,container_id,f.parent_item_id)?{
+                return Err(denied("PRIVATE_SWITCH_CHEST_LINK_CAS"));
+            }
+            CoreExistingAmountTarget{view:v}
+        }else{self.read_existing_amount_target(e,selection)?};
         let v=witness.view();
         let new=uint(&target["newAmount"])?;
         if v.item_id as u32!=item||new.checked_add(1)!=Some(v.old_amount){
@@ -949,14 +971,14 @@ impl ProductSession{
             return Err(denied("PRIVATE_AMOUNT_TARGET_WITNESS_CAS"));
         }
         let _=command_from_target(&witness,new)?;
-        Ok(PrivateBoundAmountCandidate{target:witness,new_amount:new})
+        Ok(PrivateBoundAmountCandidate{target:witness,new_amount:new,switch_chest})
     }
     /// Only native private DEV path, not a product grant. Recheck the opaque
     /// Core witness under the existing lock, then reuse existing typed stage.
     pub fn stage_private_bound_amount_candidate(&self,e:WorkerEnvelope,c:&PrivateBoundAmountCandidate)
         ->CoreResult<SemanticStageReceipt>{
         build_check(self)?;
-        if self.worker_bound{return Err(denied("PRIVATE_AMOUNT_WORKER_DENIED"));}
+        if self.worker_bound||c.switch_chest{return Err(denied("PRIVATE_AMOUNT_WORKER_DENIED"));}
         let cmd={
             let st=self.lock()?;check(self,&st,&e,WorkerAction::Stage)?;
             if st.semantic.is_some(){return Err(denied("SEMANTIC_STAGE_ALREADY_EXISTS"));}
@@ -964,6 +986,23 @@ impl ProductSession{
             command_from_target(&c.target,c.new_amount)?
         };
         self.stage_typed_semantic_batch(e,&[cmd])
+    }
+    pub fn stage_private_switch626_bound_chest_candidate(&self,e:WorkerEnvelope,c:&PrivateBoundAmountCandidate)
+        ->CoreResult<SemanticStageReceipt>{
+        let b=&self.native_source_build;
+        if !c.switch_chest||self.worker_bound||b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||
+           b.build_id!="9A239D3DB569756D"||b.schema!=626||!b.externally_attested{
+            return Err(denied("PRIVATE_SWITCH_CHEST_BUILD_OR_MODE"));
+        }
+        let cmd={
+            let st=self.lock()?;check(self,&st,&e,WorkerAction::Stage)?;
+            if st.semantic.is_some(){return Err(denied("SEMANTIC_STAGE_ALREADY_EXISTS"));}
+            validate_target_snapshot(self,&e,&c.target)?;
+            command_from_target(&c.target,c.new_amount)?
+        };
+        let player=indexed_read::roots(&self.decoded)?.player;
+        let edit=target(&self.decoded,player,&cmd)?;
+        self.commit_semantic_replacements(e,vec![edit],1,None)
     }
 }
 
@@ -992,6 +1031,50 @@ mod minted_amount_target_tests {
         WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
             expected_revision:r.revision,expected_index_generation:r.index_generation,
             expected_decoded_sha256:r.decoded_sha256,action}
+    }
+    #[cfg(all(feature="private-native-v2",not(target_arch="wasm32")))]
+    #[test]
+    fn switch626_linked_chest_exact_one_bound_private(){
+        let mut d=doc();
+        d["Player"]["ContainerInventories"]["12"]["Size"]=json!(48);
+        d["Player"]["ContainerInventories"]["12"]["Inventory"]=json!([
+            {"ItemID":30200001,"Amount":50,"State":null,"Unknown":7},
+            {"ItemID":30200001,"Amount":49,"State":null}]);
+        d["Player"]["ContainerInventories"]["12"]["Inventory"].as_array_mut().unwrap()
+            .resize(48,json!({"ItemID":0,"Amount":0,"State":null}));
+        d["World"]=json!({"GridCollection":{"Grids":{"7":{"ID":7,"Objects":{"4":{"ID":4,"ItemID":40000047,
+            "State":{"Storage":{"ContainerInventoryID":12,"DefaultContainerInventoryData":"","UnlockKeyItemID":0,"UnlockLocId":"","DesignID":null}}}}}},"DiffGrids":{}}});
+        let open_switch=|v:&Value|ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+        let s=open_switch(&d);let r=s.receipt().unwrap();let e=scope(r,WorkerAction::ReadDomain);
+        let v=s.read_private_switch626_chest_view(e,12,0).unwrap();let f=v.chest.as_ref().unwrap();
+        let h=[7;32];
+        let plan=json!({"contract":"wand.private.switch626.chest-crop-existing-50-to-49@1","buildId":"9A239D3DB569756D",
+            "sourceDecodedSha256":private_amount_hex(&r.decoded_sha256),"originalSha256":private_amount_hex(&h),
+            "backupSha256":private_amount_hex(&h),"originalSizeBytes":123,"backupSizeBytes":123,"revision":0,"indexGeneration":1,
+            "selector":{"containerId":12,"slotIndex":0},"link":s.read_private_switch626_chest_link_witness(e,12,f.parent_item_id).unwrap(),
+            "target":{"itemId":v.item_id,"oldAmount":50,"newAmount":49,"entrySha256":private_amount_hex(&v.entry_sha256),
+            "compatibleItemType":native_type_token(v.compatible_item_type),"chest":{"parentItemId":f.parent_item_id,
+            "belongsToPlayer":true,"blockMoveTo":false,"size":48,"extraSize":0,"physicalSlotCount":48,
+            "stateSha256":private_amount_hex(&f.state_sha256),"packagedStackBound":50}}});
+        let mint=|p:&Value|s.mint_private_switch626_bound_chest_candidate(e,&serde_json::to_vec(p).unwrap(),h,123,h,123);
+        for k in ["contract","buildId","sourceDecodedSha256","backupSha256","link"]{
+            let mut q=plan.clone();q[k]=json!("bad");assert!(mint(&q).is_err());
+        }
+        let mut q=plan.clone();q["target"]["newAmount"]=json!(48);assert!(mint(&q).is_err());
+        let mut q=plan.clone();q["target"]["chest"]["stateSha256"]=json!("bad");assert!(mint(&q).is_err());
+        assert!(s.mint_private_bound_amount_candidate(e,&serde_json::to_vec(&plan).unwrap(),h,123,h,123,true).is_err());
+        let mut dup=d.clone();dup["World"]["GridCollection"]["Grids"]["7"]["Objects"]["5"]=dup["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"].clone();
+        dup["World"]["GridCollection"]["Grids"]["7"]["Objects"]["5"]["ID"]=json!(5);
+        let other=open_switch(&dup);assert!(other.read_private_switch626_chest_link_witness(scope(other.receipt().unwrap(),WorkerAction::ReadDomain),12,f.parent_item_id).is_err());
+        let c=mint(&plan).unwrap();let stage=scope(r,WorkerAction::Stage);
+        assert!(s.stage_private_bound_amount_candidate(stage,&c).is_err());
+        let a=s.stage_private_switch626_bound_chest_candidate(stage,&c).unwrap();
+        assert_eq!(a.exact_field_changed_count,1);assert!(!a.product_writer_authorized);
+        assert!(s.stage_private_switch626_bound_chest_candidate(stage,&c).is_err());
+        let out=s.take_typed_semantic_decoded_once(scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).unwrap();
+        d["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);
+        assert_eq!(out,serde_json::to_vec(&d).unwrap());
     }
     fn inv()->ExistingAmountSelection{
         ExistingAmountSelection::Inventory{inventory_id:4,item_id:30000001}

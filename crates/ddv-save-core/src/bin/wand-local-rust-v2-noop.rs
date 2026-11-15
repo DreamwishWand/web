@@ -47,6 +47,7 @@ fn main(){
           "--semantic-chest-existing-decrease-only"|
           "--semantic-inventory-and-chest-decrease-only"|
           "--private-steam626-bound-chest-decrease-only"|
+          "--private-switch626-bound-chest-decrease-only"|
           "--private-steam626-bound-catalog0-decrease-only")) {
    run_semantic_existing_decrease();
    return;
@@ -149,7 +150,8 @@ fn run_semantic_existing_decrease(){
  if args.len()!=2{deny("SEMANTIC_ONE_EXPLICIT_OPERATION_REQUIRED");}
  let bound_chest=args[1]=="--private-steam626-bound-chest-decrease-only";
  let bound_furniture=args[1]=="--private-steam626-bound-catalog0-decrease-only";
- let bound=bound_chest||bound_furniture;
+ let switch_chest=args[1]=="--private-switch626-bound-chest-decrease-only";
+ let bound=bound_chest||bound_furniture||switch_chest;
  let inventory=matches!(args[1].as_str(),
      "--semantic-inventory-existing-decrease-only"|
      "--semantic-inventory-and-chest-decrease-only");
@@ -157,7 +159,12 @@ fn run_semantic_existing_decrease(){
      "--semantic-chest-existing-decrease-only"|
      "--semantic-inventory-and-chest-decrease-only");
  if !inventory&&!chest&&!bound{deny("SEMANTIC_COMMAND_NOT_ALLOWLISTED");}
- if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM||
+ if switch_chest{
+   if required("WAND_LOCAL_INSTALLED_SWITCH_BID")!="9A239D3DB569756D"||
+      env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty()){
+      deny("SEMANTIC_EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED");
+   }
+ }else if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM||
     (bound&&env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty())){
    deny("SEMANTIC_EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
  }
@@ -176,9 +183,10 @@ fn run_semantic_existing_decrease(){
    Sha256::digest(&input).as_slice()!=expected{
     deny("SEMANTIC_SOURCE_SHA_CAS");
  }
- let build=BuildIdentity{platform:Platform::SteamWindows,
-   build_kind:BuildKind::SteamFullVersion,build_id:STEAM.into(),
-   schema:626,externally_attested:true};
+ let build=if switch_chest{BuildIdentity{platform:Platform::Switch,
+   build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}}
+   else{BuildIdentity{platform:Platform::SteamWindows,
+   build_kind:BuildKind::SteamFullVersion,build_id:STEAM.into(),schema:626,externally_attested:true}};
  let session=ProductSession::open_decoded_readonly(input,build)
    .unwrap_or_else(|_|deny("SEMANTIC_FULL_DOCUMENT_OR_VERSION"));
  let before=session.receipt().unwrap_or_else(|_|deny("SEMANTIC_RECEIPT"));
@@ -231,10 +239,13 @@ fn run_semantic_existing_decrease(){
    if plan.len()>8192||plan_sha==[0;32]||Sha256::digest(plan.as_bytes()).as_slice()!=plan_sha{
        deny("PRIVATE_AMOUNT_PLAN_SHA");
    }
-   Some(session.mint_private_bound_amount_candidate(scope(0,1,WorkerAction::ReadDomain),plan.as_bytes(),
-       original_sha,source_size,backup,backup_size,bound_chest).unwrap_or_else(|_|deny("PRIVATE_AMOUNT_WITNESS_DENIED")))
+   let e=scope(0,1,WorkerAction::ReadDomain);
+   Some((if switch_chest{session.mint_private_switch626_bound_chest_candidate(e,plan.as_bytes(),
+       original_sha,source_size,backup,backup_size)}else{session.mint_private_bound_amount_candidate(e,plan.as_bytes(),
+       original_sha,source_size,backup,backup_size,bound_chest)}).unwrap_or_else(|_|deny("PRIVATE_AMOUNT_WITNESS_DENIED")))
  }else{None};
- let stage=|e|if let Some(c)=&candidate{session.stage_private_bound_amount_candidate(e,c)}
+ let stage=|e|if let Some(c)=&candidate{if switch_chest{session.stage_private_switch626_bound_chest_candidate(e,c)}
+      else{session.stage_private_bound_amount_candidate(e,c)}}
       else{session.stage_typed_semantic_batch(e,&cmds)};
  let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|_|deny("SEMANTIC_TYPED_STAGE_DENIED"));
  let expected_count=if bound{1}else{cmds.len()};
@@ -272,7 +283,8 @@ fn run_semantic_existing_decrease(){
  // Private pipe ONLY. No plaintext, key, IDs, SHA or path in CI/logs.
  io::stdout().write_all(&edited).unwrap_or_else(|_|deny("SEMANTIC_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("SEMANTIC_PIPE_FLUSH"));
- if bound{eprintln!("PRIVATE_STEAM626_CORE_BOUND_AMOUNT_EXACT1_PIPE_PASS");}
+ if switch_chest{eprintln!("PRIVATE_SWITCH626_CORE_BOUND_CHEST_EXACT1_PIPE_PASS");}
+ else if bound{eprintln!("PRIVATE_STEAM626_CORE_BOUND_AMOUNT_EXACT1_PIPE_PASS");}
  else{eprintln!("PRIVATE_V2_RUST_REAL_AMOUNT_SEMANTIC_CHANGE_CAS_ATOMIC_UNDO_REDO_ONE_TIME_PIPE_PASS");}
 }
 
