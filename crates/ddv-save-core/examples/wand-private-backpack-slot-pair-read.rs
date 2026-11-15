@@ -44,20 +44,65 @@ fn private_pipe(fd:i32)->Result<File,&'static str>{
 }
 #[cfg(not(target_os="linux"))]
 fn private_pipe(_fd:i32)->Result<File,&'static str>{Err("PRIVATE_RECEIPT_LINUX_ONLY")}
+    enum ReadRequest{
+        Backpack{source:usize,destination:usize},
+        #[cfg(feature="private-native-v1")]
+        Ordinary{item:u32,grid:u32,object:Option<u32>,entry:[u8;32]},
+    }
+    #[cfg(feature="private-native-v1")]
+    fn ordinary_entry(s:&str)->[u8;32]{
+        if s.len()!=64||!s.bytes().all(|c|matches!(c,b'0'..=b'9'|b'a'..=b'f')){fail("ORDINARY_ENTRY_SHA")}
+        let mut out=[0;32];
+        for (i,x) in s.as_bytes().chunks_exact(2).enumerate(){
+            let v=|b|match b{b'0'..=b'9'=>b-b'0',b'a'..=b'f'=>b-b'a'+10,_=>0};
+            out[i]=(v(x[0])<<4)|v(x[1]);
+        }
+        if out==[0;32]{fail("ORDINARY_ENTRY_SHA")}
+        out
+    }
+    fn request(argv:&[String])->ReadRequest{
+        match argv{
+            [m,i,j,o] if m=="--backpack-pair"&&o=="--receipt-fd3"=>{
+                let (source,destination)=(id(i,true) as usize,id(j,true) as usize);
+                if source==destination||source>=256||destination>=256{fail("SLOT_INDEX_BOUND")}
+                ReadRequest::Backpack{source,destination}
+            },
+            #[cfg(feature="private-native-v1")]
+            [m,a,item,grid,entry,o] if m=="--ordinary-adddel-readset"&&a=="add"&&o=="--receipt-fd3"=>
+                ReadRequest::Ordinary{item:id(item,false),grid:id(grid,true),object:None,entry:ordinary_entry(entry)},
+            #[cfg(feature="private-native-v1")]
+            [m,a,item,grid,object,entry,o] if m=="--ordinary-adddel-readset"&&a=="delete"&&o=="--receipt-fd3"=>
+                ReadRequest::Ordinary{item:id(item,false),grid:id(grid,true),object:Some(id(object,true)),entry:ordinary_entry(entry)},
+            _=>fail("ARGS"),
+        }
+    }
     pub fn run(){
         let argv:Vec<String>=env::args().skip(1).collect();
-        let (source,destination)=match argv.as_slice(){
-            [m,i,j,o] if m=="--backpack-pair"&&o=="--receipt-fd3"=>
-                (id(i,true) as usize,id(j,true) as usize),
-            _=>fail("ARGS"),
+        let req=request(&argv);
+        let ordinary=match &req{
+            ReadRequest::Backpack{..}=>false,
+            #[cfg(feature="private-native-v1")]
+            ReadRequest::Ordinary{..}=>true,
         };
-        if source==destination||source>=256||destination>=256{fail("SLOT_INDEX_BOUND")}
         let mut out=private_pipe(3).unwrap_or_else(|code|fail(code));
         if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT{fail("EXACT_STEAM_BUILD")}
         let original_sha=sha_field("WAND_LOCAL_ORIGINAL_SHA256");
         let decoded_sha=sha_field("WAND_LOCAL_DECODED_SHA256");
         let original_size=required("WAND_LOCAL_ORIGINAL_SIZE_BYTES").parse::<u64>().unwrap_or_else(|_|fail("ORIGINAL_SIZE"));
         if original_size==0||original_size>128*1024*1024{fail("ORIGINAL_SIZE")}
+        // Ordinary receipts require an external original/Backup equality
+        // witness from the trusted Private Lab parent. Never open either
+        // encrypted file or treat this declaration as a cryptographic grant.
+        if ordinary{
+            if env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|x|!x.is_empty()){
+                fail("ORDINARY_MIXED_BUILD")
+            }
+            let backup=sha_field("WAND_LOCAL_BACKUP_SHA256");
+            let size=required("WAND_LOCAL_BACKUP_SIZE_BYTES");
+            if backup!=original_sha||size!=original_size.to_string(){
+                fail("ORDINARY_BACKUP_BINDING")
+            }
+        }
         let mut decoded=Vec::new();
         io::stdin().take(MAX+1).read_to_end(&mut decoded).unwrap_or_else(|_|fail("STDIN"));
         if decoded.is_empty()||decoded.len() as u64>MAX||hex(&Sha256::digest(&decoded))!=decoded_sha{fail("DECODED_SHA_OR_BOUNDS")}
@@ -72,11 +117,41 @@ fn private_pipe(_fd:i32)->Result<File,&'static str>{Err("PRIVATE_RECEIPT_LINUX_O
         let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
             expected_revision:r.revision,expected_index_generation:r.index_generation,
             expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain};
-        let mut receipt=session.read_private_backpack_slot_pair(e,source,destination)
-            .unwrap_or_else(|_|fail("NO_EXACT_EXISTING_BACKPACK_PAIR"));
+        let mut receipt=match req{
+            ReadRequest::Backpack{source,destination}=>{
+                let value=session.read_private_backpack_slot_pair(e,source,destination)
+                    .unwrap_or_else(|_|fail("NO_EXACT_EXISTING_BACKPACK_PAIR"));
+                if value["source"]["slotIndex"]!=source||value["destination"]["slotIndex"]!=destination{
+                    fail("TARGET_SCOPE")
+                }
+                value
+            },
+            #[cfg(feature="private-native-v1")]
+            ReadRequest::Ordinary{item,grid,object,entry}=>{
+                let mut value=session.read_private_ordinary_adddel_dependencies(e,item,entry,grid,object)
+                    .unwrap_or_else(|_|fail("NO_EXACT_ORDINARY_READSET"));
+                let stored=&value["ordinaryStoredGridReadSet"];
+                let spawn=&value["ordinarySpawnAddressReadSet"];
+                let target=object.map(u64::from).or_else(||stored["nextGridObjectId"].as_u64())
+                    .unwrap_or_else(||fail("ORDINARY_TARGET_COUNTER"));
+                if value["contract"]!="wand.native.private.ordinary-adddel-dependencies@1"||
+                   value["target"]["inventoryId"]!=0||value["target"]["itemId"]!=item||
+                   value["target"]["entrySha256"]!=hex(&entry)||stored["gridId"]!=grid||
+                   spawn["gridId"]!=grid||spawn["objectId"]!=target||
+                   (object.is_some()&&stored["selectedStoredObject"]["objectId"]!=target)||
+                   (object.is_none()&&!stored["selectedStoredObject"].is_null())||
+                   value["productReadAccepted"]!=false||value["editedCopyAuthorized"]!=false||
+                   value["applyAuthorized"]!=false||stored["writerAuthorized"]!=false||
+                   spawn["writerAuthorized"]!=false{fail("ORDINARY_TARGET_SCOPE")}
+                value["operationReadOnly"]=serde_json::json!(if object.is_some(){"delete"}else{"add"});
+                value["backupSha256SuppliedExternally"]=serde_json::json!(original_sha.clone());
+                value["backupSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+                value["originalBackupBytesIndependentlyVerifiedByHarness"]=serde_json::json!(false);
+                value
+            }
+        };
         if receipt["sessionId"]!=hex(&r.session_id)||receipt["decodedSha256"]!=decoded_sha||
            receipt["revision"]!=r.revision||receipt["indexGeneration"]!=r.index_generation||
-           receipt["source"]["slotIndex"]!=source||receipt["destination"]["slotIndex"]!=destination||
            receipt["writerAuthorized"]!=false||session.receipt().ok()!=Some(r){fail("TARGET_SCOPE")}
         receipt["originalSha256SuppliedExternally"]=serde_json::json!(original_sha);
         receipt["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
@@ -86,11 +161,12 @@ fn private_pipe(_fd:i32)->Result<File,&'static str>{Err("PRIVATE_RECEIPT_LINUX_O
         receipt["cloudUploadPerformed"]=serde_json::json!(false);
         session.close().unwrap_or_else(|_|fail("SESSION_CLOSE"));
         let bytes=serde_json::to_vec(&receipt).unwrap_or_else(|_|fail("RECEIPT_ENCODE"));
-        if bytes.len()>65536{fail("PRIVATE_RECEIPT_BOUND")}
+        if bytes.len()>if ordinary{8*1024*1024}else{65536}{fail("PRIVATE_RECEIPT_BOUND")}
         if out.write_all(&bytes).and_then(|_|out.flush()).is_err(){fail("PRIVATE_RECEIPT_WRITE")}
         drop(out);
         // No target fields, SHA, path, or original data in console.
-        eprintln!("LOCAL_BACKPACK_PAIR_READ_PRIVATE_RECEIPT_WRITTEN");
+        if ordinary{eprintln!("LOCAL_ORDINARY_ADDDEL_READ_PRIVATE_RECEIPT_WRITTEN");}
+        else{eprintln!("LOCAL_BACKPACK_PAIR_READ_PRIVATE_RECEIPT_WRITTEN");}
     }
 #[cfg(all(test,target_os="linux"))]
 #[test]
