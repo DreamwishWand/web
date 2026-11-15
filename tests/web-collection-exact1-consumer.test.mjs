@@ -9,6 +9,7 @@ const build={platform:'steam-windows',buildKind:'steam-full-version',buildId:'re
 const sw={platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626,externallyConfirmed:true};
 const target={definitionId:21,groupIndex:0,itemId:40000001,oldValue:false,groupState:'NotComplete',falseCount:3,coreMinted:true,eligibilityVerified:true};
 const safety={writerAuthorized:false,originalOverwriteAuthorized:false};
+const closedAck=()=>({kind:'CLOSED',ok:true,nativeV3Verified:false,...safety});
 const mutation=kind=>({kind,selection:1,choice:0,exactFieldChangedCount:1,...safety});
 const adapter=()=>({
  inspectCollectionTargets:async()=>({selection:1,build,originalName:'source.p1g',originalSha256:sha,originalSizeBytes:16,targets:[target],...safety}),
@@ -18,7 +19,7 @@ const adapter=()=>({
  undo:async()=>mutation('UNDONE'),redo:async()=>mutation('REDONE'),
  exportEditedCopy:async()=>({kind:'EXPORTED',selection:1,editedCopyName:'edited.p1g',editedSha256:eSha,editedSizeBytes:16,backupName:'backup.p1g',editedCiphertextVerified:true,freshWorkerReopenVerified:true,independentProcessReopenVerified:false,originalUnchanged:true,...safety}),
  downloadVerifiedCopy:async(s,w)=>({kind:'VERIFIED_DOWNLOAD',name:w+'.p1g',sha256:w==='backup'?sha:eSha,sizeBytes:16,encryptedBytes:w==='backup'?original:edited}),
- close:async()=>{}
+ close:async()=>closedAck()
 });
 const make=a=>createCollectionExact1Consumer(a,{trustedLocalHarness:true});
 const ready=async c=>{await c.load();await c.backupOriginal();await c.preview(0)};
@@ -72,7 +73,7 @@ test('failed close blocks new inspection until explicit successful close retry',
  for(const failure of ['sync','async']){
   const a=adapter(),inspect=a.inspectCollectionTargets;let calls=0,closeCalls=0;
   a.inspectCollectionTargets=async()=>{calls++;return inspect()};
-  a.close=()=>{closeCalls++;if(closeCalls===1){if(failure==='sync')throw Error('close failed');return Promise.reject(Error('close failed'))}return Promise.resolve()};
+  a.close=()=>{closeCalls++;if(closeCalls===1){if(failure==='sync')throw Error('close failed');return Promise.reject(Error('close failed'))}return Promise.resolve(closedAck())};
   const c=make(a);await c.load();await assert.rejects(c.close(),/close failed/);
   assert.equal(c.snapshot().phase,'close-failed');await assert.rejects(c.load());assert.equal(calls,1);
   await c.close();assert.equal(c.snapshot().phase,'closed');await c.load();assert.equal(calls,2);await c.close();
@@ -82,7 +83,7 @@ test('failed deferred close denies stale completion and concurrent reopen; retry
  const a=adapter(),inspect=a.inspectCollectionTargets;let release,rejectClose,calls=0,closeCalls=0;
  const barrier=new Promise(r=>release=r),closing=new Promise((_,r)=>rejectClose=r);
  a.inspectCollectionTargets=async()=>{calls++;await barrier;return inspect()};
- a.close=()=>++closeCalls===1?closing:Promise.resolve();
+ a.close=()=>++closeCalls===1?closing:Promise.resolve(closedAck());
  const c=make(a),pending=assert.rejects(c.load()),one=assert.rejects(c.close()),two=assert.rejects(c.close());
  await assert.rejects(c.load());rejectClose(Error('close failed'));await Promise.all([one,two]);release();await pending;
  assert.equal(c.snapshot().phase,'close-failed');assert.equal(closeCalls,1);await assert.rejects(c.load());assert.equal(calls,1);
@@ -94,4 +95,37 @@ test('invalid receipt with failed cleanup also blocks reopening',async()=>{
  a.close=async()=>{throw Error('close failed')};
  const c=make(a);await assert.rejects(c.load());assert.equal(c.snapshot().phase,'close-failed');
  await assert.rejects(c.load());assert.equal(calls,1);
+});
+
+test('Collection Close must return exact common CLOSED receipt; forged or void ack never permits new inspection',async()=>{
+ for(const bad of [undefined,null,{}, { ...closedAck(),kind:'OPEN' },{...closedAck(),ok:false},
+  {...closedAck(),writerAuthorized:true},{...closedAck(),nativeV3Verified:true},
+  {...closedAck(),originalOverwriteAuthorized:true},{...closedAck(),sessionId:'not-for-ui'}]){
+  const a=adapter(),inspect=a.inspectCollectionTargets;let reads=0,closes=0;
+  a.inspectCollectionTargets=async()=>{reads++;return inspect()};
+  a.close=async()=>++closes===1?bad:closedAck();
+  const c=make(a);await c.load();await assert.rejects(c.close());
+  assert.equal(c.snapshot().phase,'close-failed');assert.equal(c.snapshot().targets.length,0);
+  await assert.rejects(c.load());assert.equal(reads,1);
+  await c.close();await c.load();assert.equal(reads,2);await c.close();
+ }
+});
+test('shared pending Close rejects forged ack and suppresses stale load; exact retry restores only closed state',async()=>{
+ const a=adapter(),inspect=a.inspectCollectionTargets;let resolveRead,resolveClose,reads=0,closes=0;
+ const read=new Promise(r=>resolveRead=r),barrier=new Promise(r=>resolveClose=r);
+ a.inspectCollectionTargets=async()=>{reads++;await read;return inspect()};
+ a.close=()=>++closes===1?barrier:Promise.resolve(closedAck());
+ const c=make(a),pending=assert.rejects(c.load()),one=assert.rejects(c.close()),two=assert.rejects(c.close());
+ await assert.rejects(c.load());resolveClose({...closedAck(),writerAuthorized:true});
+ await Promise.all([one,two]);resolveRead();await pending;
+ assert.equal(c.snapshot().phase,'close-failed');assert.equal(closes,1);
+ await assert.rejects(c.load());assert.equal(reads,1);
+ await c.close();assert.equal(c.snapshot().phase,'closed');await c.load();assert.equal(reads,2);await c.close();
+});
+test('invalid inspection and unverified cleanup cannot claim closed or allow new load',async()=>{
+ const a=adapter(),inspect=a.inspectCollectionTargets;let reads=0;
+ a.inspectCollectionTargets=async()=>{reads++;return {...await inspect(),writerAuthorized:true}};
+ a.close=async()=>undefined;const c=make(a);
+ await assert.rejects(c.load());assert.equal(c.snapshot().phase,'close-failed');
+ await assert.rejects(c.load());assert.equal(reads,1);
 });
