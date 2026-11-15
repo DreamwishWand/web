@@ -54,7 +54,8 @@ export function createScopedEditLifecycle(wasm,initial,{parse,current,revoke,max
    if(await digest(bytes)!==r.decodedSha256||!current())fail();
    // Worker-private decoded bytes only for the existing P1G codec.
    const result=Object.freeze({decodedBytes:bytes,decodedSha256:r.decodedSha256});
-   bytes=null;revoke();return result;
+   // If cleanup fails, the finally block must still wipe the decoded buffer.
+   revoke();bytes=null;return result;
   }catch{if(current())revoke();fail()}
   finally{if(bytes)bytes.fill(0)}
  }
