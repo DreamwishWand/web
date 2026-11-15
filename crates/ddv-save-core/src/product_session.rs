@@ -86,7 +86,10 @@ pub use synthetic_stage_b::{SyntheticChangeSet, SyntheticStageReceipt, Synthetic
 mod native_reference_slice;
 #[cfg(feature = "private-native-v1")]
 pub use native_reference_slice::NativeAreaGridSliceReceipt;
-#[cfg(all(feature = "private-native-v1", not(target_arch = "wasm32")))]
+#[cfg(any(feature="private-native-v1",feature="product-collection-scoped"))]
+#[path = "reference_span_walk.rs"]
+mod reference_span_walk;
+#[cfg(any(all(feature = "private-native-v1", not(target_arch = "wasm32")),feature="product-collection-scoped"))]
 #[path = "private_collection_read.rs"]
 mod private_collection_read;
 #[cfg(feature = "private-native-v2")]
