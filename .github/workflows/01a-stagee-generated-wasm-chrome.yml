@@ -53,3 +53,63 @@ jobs:
           ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
           test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
           test -f crates/ddv-save-core/src/wasm_worker.rs
+
+      - name: QA ONLY fixed Collection real generated WASM edit and output lifecycle
+        run: |
+          set -euo pipefail
+          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-collection-off --target nodejs --no-typescript
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-collection-scoped,semantic-writer-dev
+          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-collection-on --target nodejs --no-typescript
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),{createHash}=require('node:crypto');
+          const {WorkerWasmSource:Off}=require('/tmp/wand-collection-off/ddv_save_core.js');
+          const {WorkerWasmSource:On}=require('/tmp/wand-collection-on/ddv_save_core.js');
+          const methods=['preview_fixed_collection','stage_fixed_collection','toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk'];
+          for(const m of methods){assert.equal(typeof Off.prototype[m],'undefined');assert.equal(typeof On.prototype[m],'function');}
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          const keys=[40001887,40001888,40002657,40002680,40002959,40004417,40004507,40004508,40004509,40004510,40004511,40004512,40004518,40004520,40004521,40004522,40004559,40004561,40004562,40004563,40004572,40004573,40004576,40004580,40004668,160000205,160100139];
+          const def=2120000159,target=40004511,peer=40004668,oldSha=sha(Buffer.from('false'));
+          const builds=[['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],['switch','switch-bid','9A239D3DB569756D',626,true]];
+          let nonce=0,pos=0,neg=0;
+          function fixture(big=false){
+            const m=Object.fromEntries(keys.map(k=>[k,![40001887,target,peer].includes(k)]));
+            return {GameInfo:{Version:626},World:{Unrelated:[1,2,3]},Player:{CollectionSets:[{CollectionDefinitionID:def,GroupData:[{GroupIndex:0,State:'SetState_NotComplete',GroupsCollectionItems:m,UnknownMarker:'preserve'}]}],ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',Inventory:{[target]:{Amount:2},[peer]:{Amount:1}}}}},Opaque:{[target]:false,keep:big?Array.from({length:1100},(_,i)=>('Q'+i+':').padEnd(1024,'z')):['false',false]}};
+          }
+          function open(d,b){const raw=Buffer.from(JSON.stringify(d,null,2));const w=new On(...b,new Uint8Array(32).fill(++nonce));try{for(let i=0;i<raw.length;i+=1048576)w.append_chunk(raw.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(raw));assert.equal(r.productWorkerBound,true);assert.equal(r.writerAuthorized,false);return [w,r,raw];}catch(e){w.free();throw e}}
+          const scope=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256];
+          const deny=f=>{assert.throws(f);neg++};
+          const preview=(w,r,d=def,g=0,i=target)=>JSON.parse(w.preview_fixed_collection(d,g,i,...scope(r)));
+          const stage=(w,r,d=def,g=0,i=target,h=oldSha)=>JSON.parse(w.stage_fixed_collection(d,g,i,h,...scope(r)));
+          const toggle=(w,r,redo)=>JSON.parse(w.toggle_scoped_edit(redo,...scope(r)));
+          const begin=(w,r)=>JSON.parse(w.begin_scoped_edit_output(...scope(r)));
+          function receipt(v,r,applied){assert.equal(v.contract,'wand.worker.scoped-edit@1');assert.equal(v.sessionId,r.sessionId);assert.equal(v.decodedSha256,r.decodedSha256);assert.equal(v.revision,r.revision+1);assert.equal(v.indexGeneration,r.indexGeneration+1);assert.equal(v.operationCount,1);assert.equal(v.exactFieldChangedCount,1);assert.equal(v.applied,applied);assert.equal(v.writerAuthorized,false);assert.equal(v.originalOverwriteAuthorized,false);}
+          for(const build of builds){
+            const d=fixture(true),[w,r,raw]=open(d,build);
+            const c=preview(w,r);assert.equal(c.contract,'wand.worker.collection-fixed-edit@1');assert.equal(c.entrySha256,oldSha);assert.equal(c.peerItemId,peer);assert.equal(c.definitionId,def);assert.equal(c.itemId,target);assert.equal(c.groupIndex,0);assert.equal(c.falseCount,3);assert.equal(c.old,false);assert.equal(c.new,true);assert.equal(c.fixedDefinitionVerified,true);assert.equal(c.installedRuntimeParityVerified,false);for(const k of ['writerAuthorized','editedCopyAuthorized','applyAuthorized'])assert.equal(c[k],false);for(const k of ['sessionId','revision','indexGeneration','decodedSha256'])assert.equal(c[k],r[k]);assert.deepEqual(preview(w,r),c);
+            deny(()=>w.next_scoped_edit_output_chunk());deny(()=>begin(w,r));deny(()=>toggle(w,r,false));
+            deny(()=>stage(w,r,def,0,peer));deny(()=>stage(w,r,def,1));deny(()=>stage(w,r,def+1));deny(()=>stage(w,r,def,0,target,'00'.repeat(32)));deny(()=>stage(w,r,def,0,target,'FF'.repeat(32)));
+            deny(()=>preview(w,{...r,revision:1}));deny(()=>preview(w,{...r,indexGeneration:2}));deny(()=>stage(w,{...r,decodedSha256:'00'.repeat(32)}));
+            const [foreign,fr]=open(d,build);deny(()=>stage(foreign,r));deny(()=>preview(foreign,r));foreign.close();foreign.free();
+            const s=stage(w,r);receipt(s,r,true);
+            deny(()=>preview(w,r));deny(()=>preview(w,s));deny(()=>stage(w,r));deny(()=>stage(w,s));deny(()=>toggle(w,r,false));deny(()=>toggle(w,s,true));deny(()=>begin(w,r));
+            const u=toggle(w,s,false);receipt(u,s,false);
+            deny(()=>begin(w,u));deny(()=>toggle(w,u,false));deny(()=>stage(w,u));deny(()=>preview(w,u));
+            const v=toggle(w,u,true);receipt(v,u,true);
+            const want=structuredClone(d);want.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems[target]=true;
+            const expected=Buffer.from(JSON.stringify(want,null,2));assert.equal(s.stagedDecodedSha256,sha(expected));assert.equal(v.stagedDecodedSha256,sha(expected));assert.equal(raw.length,expected.length+1);
+            const output=begin(w,v);assert.equal(output.contract,'wand.worker.scoped-edit-output@1');assert.equal(output.decodedBytes,expected.length);assert.equal(output.decodedSha256,sha(expected));assert.equal(output.writerAuthorized,false);assert.equal(output.originalOverwriteAuthorized,false);
+            deny(()=>begin(w,v));deny(()=>preview(w,v));deny(()=>stage(w,v));deny(()=>toggle(w,v,false));deny(()=>w.append_chunk(raw.subarray(0,1)));deny(()=>w.finish());
+            const a=Buffer.from(w.next_scoped_edit_output_chunk()),b=Buffer.from(w.next_scoped_edit_output_chunk());assert.equal(a.length,1048576);assert(b.length>0&&b.length<1048576);assert.deepEqual(Buffer.concat([a,b]),expected);deny(()=>w.next_scoped_edit_output_chunk());deny(()=>begin(w,v));w.close();w.free();pos++;
+            const [x,y]=open(d,build),z=stage(x,y);begin(x,z);assert.equal(x.next_scoped_edit_output_chunk().length,1048576);x.close();deny(()=>x.next_scoped_edit_output_chunk());deny(()=>begin(x,z));deny(()=>x.finish());x.free();pos++;
+            const bad=(change)=>{const q=fixture();change(q,q.Player.CollectionSets[0].GroupData[0],q.Player.ListInventories[0].Inventory);const [x,y]=open(q,build);deny(()=>preview(x,y));deny(()=>stage(x,y));deny(()=>begin(x,y));x.close();x.free();};
+            bad((q,g)=>g.GroupsCollectionItems[peer]=true);
+            bad((q,g)=>{delete g.GroupsCollectionItems[40001888];g.GroupsCollectionItems[40009999]=true;});
+            bad((q,g,i)=>i[peer].Amount=0);
+            bad((q,g)=>g.State='SetState_Completed');
+            for(const b of [[...build.slice(0,2),'wrong',626,true],[...build.slice(0,4),false]]){
+              deny(()=>{const [x,y]=open(fixture(),b);try{return preview(x,y)}finally{x.close();x.free()}});
+            }
+          }
+          console.log('ACT974_COLLECTION_GENERATED_WASM '+pos+'POS '+neg+'NEG PASS; public-off exports absent; exact1 output and 1MiB chunks');
+          assert.equal(pos,4);assert.equal(neg,98);
+          JS
