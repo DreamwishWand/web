@@ -111,7 +111,10 @@ jobs:
             let value;
             if(method==='init'){
              if(adapter||!['catalog0-furniture','linked-crop-chest48'].includes(args[0]))throw Error('QA_INIT');
-             await init(new URL('../../../tests/stage-e/pkg/ddv_save_core_bg.wasm',import.meta.url));
+             const wasmResponse=await fetch(new URL('/qa-act990/ddv_save_core_bg.wasm',self.location.origin),{cache:'no-store'});
+             if(!wasmResponse.ok)throw Error('QA_WASM_HTTP_'+wasmResponse.status);
+             if(!(wasmResponse.headers.get('content-type')||'').startsWith('application/wasm'))throw Error('QA_WASM_MIME');
+             await init({module_or_path:await wasmResponse.arrayBuffer()});
              adapter=createProductScopedAmountLocalAdapter({wasmFactory:async()=>({WorkerWasmSource}),allowCoreDiscoverySource:true,coreDiscoveryProfile:args[0]});
              value=true;
             }else{
@@ -287,6 +290,8 @@ jobs:
           mkdir -p tests/stage-e/pkg
           /tmp/wand-act990-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
           node tests/.qa-act990-fixtures.mjs
+          cp tests/stage-e/pkg/ddv_save_core_bg.wasm static/qa-act990/ddv_save_core_bg.wasm
+          cmp tests/stage-e/pkg/ddv_save_core_bg.wasm static/qa-act990/ddv_save_core_bg.wasm
           npm ci --no-audit --no-fund
           command -v google-chrome
       - name: Actual Chrome Svelte to real Worker Core OPFS (both profiles independently)
