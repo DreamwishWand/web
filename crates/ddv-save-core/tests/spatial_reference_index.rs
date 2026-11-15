@@ -122,3 +122,72 @@ fn cycles_root_subgrid_conflict_and_stale_revision_are_denied(){
     assert_eq!(SpatialCandidateIndex::validate(&bad,scope(),&areas,&grids,&objects)
         .err().unwrap().0,"SPATIAL_EXACT_SWITCH_BUILD_REQUIRED");
 }
+
+// Max-size synthetic parent chain: the same Grid-qualified object ID is
+// intentionally repeated across Grids. No Native authority is inferred.
+fn deep_chain(n:u64) -> (Vec<SpatialAreaRef>,Vec<SpatialGridRef>,Vec<SpatialObjectRef>) {
+    let areas=vec![SpatialAreaRef{village_index:17,area_key:31,root_grid_ids:vec![1]}];
+    let grids=(1..=n).map(|id| SpatialGridRef{
+        grid_id:id,proposed_bounds:Some(SpatialExtent{width:4,height:4}),
+        parent_object:if id==1 {None} else {Some(key(id-1,7))}
+    }).collect();
+    let objects=(1..=n).map(|id| obj(id,7,0,0,if id<n {Some(id+1)} else {None})).collect();
+    (areas,grids,objects)
+}
+#[test]
+fn max_depth_parent_resolution_is_order_invariant_and_non_authorizing(){
+    let (areas,mut grids,mut objects)=deep_chain(ddv_save_core::MAX_SPATIAL_GRIDS as u64);
+    let original_grids=grids.clone();let original_objects=objects.clone();
+    let n=grids.len() as u64;
+    for reverse in [false,true] {
+        if reverse {grids.reverse();objects.reverse();}
+        let index=SpatialCandidateIndex::validate(&build(),scope(),&areas,&grids,&objects).unwrap();
+        for id in [1,2,n/2,n-1,n] {
+            let hit=index.inspect(scope(),key(id,7)).unwrap();
+            assert_eq!((hit.root_grid_id,hit.area_village_index,hit.area_key),(1,17,31));
+            assert_eq!(hit.object.key,key(id,7));
+            assert!(!hit.native_layout_verified && !hit.source_session_authenticated && !hit.product_writer_authorized);
+        }
+        assert!(!index.product_read_accepted && !index.product_writer_authorized && !index.full_native_reference_closure_verified);
+    }
+    grids.reverse();objects.reverse();
+    assert_eq!(grids,original_grids);assert_eq!(objects,original_objects);
+}
+#[test]
+fn memoized_prefix_never_hides_a_later_unreachable_or_cyclic_component(){
+    let (areas,mut grids,mut objects)=deep_chain(256);
+    // First complete a valid root component; then visit a deep isolated cycle.
+    for id in 1000..1128 {
+        let parent=if id==1000 {1127} else {id-1};
+        let child=if id==1127 {1000} else {id+1};
+        grids.push(SpatialGridRef{grid_id:id,proposed_bounds:Some(SpatialExtent{width:4,height:4}),
+            parent_object:Some(key(parent,7))});
+        objects.push(obj(id,7,0,0,Some(child)));
+    }
+    deny((areas.clone(),grids.clone(),objects.clone()),"SPATIAL_SUBGRID_PARENT_CYCLE");
+    grids.reverse();objects.reverse();
+    deny((areas.clone(),grids,objects),"SPATIAL_SUBGRID_PARENT_CYCLE");
+    let (areas,mut grids,mut objects)=deep_chain(256);
+    grids.push(SpatialGridRef{grid_id:999,proposed_bounds:Some(SpatialExtent{width:4,height:4}),parent_object:None});
+    objects.push(obj(999,7,0,0,None));
+    deny((areas,grids,objects),"SPATIAL_GRID_NOT_REACHABLE_FROM_AREA");
+}
+#[test]
+fn cached_roots_keep_distinct_area_owners_and_reject_aliased_child(){
+    let (mut areas,mut grids,mut objects)=deep_chain(8);
+    areas.push(SpatialAreaRef{village_index:18,area_key:32,root_grid_ids:vec![100]});
+    grids.push(SpatialGridRef{grid_id:100,proposed_bounds:Some(SpatialExtent{width:4,height:4}),parent_object:None});
+    grids.push(SpatialGridRef{grid_id:101,proposed_bounds:Some(SpatialExtent{width:4,height:4}),parent_object:Some(key(100,7))});
+    grids.push(SpatialGridRef{grid_id:102,proposed_bounds:Some(SpatialExtent{width:4,height:4}),parent_object:Some(key(100,8))});
+    objects.push(obj(100,7,0,0,Some(101)));objects.push(obj(100,8,0,0,Some(102)));
+    objects.push(obj(101,7,0,0,None));objects.push(obj(102,7,0,0,None));
+    grids.reverse();objects.reverse();
+    let i=SpatialCandidateIndex::validate(&build(),scope(),&areas,&grids,&objects).unwrap();
+    for id in [101,102] {
+        let h=i.inspect(scope(),key(id,7)).unwrap();
+        assert_eq!((h.root_grid_id,h.area_village_index,h.area_key),(100,18,32));
+    }
+    assert_eq!(i.inspect(scope(),key(8,7)).unwrap().root_grid_id,1);
+    objects.push(obj(101,8,0,0,Some(102)));
+    deny((areas,grids,objects),"SPATIAL_SUBGRID_PARENT_MISMATCH");
+}
