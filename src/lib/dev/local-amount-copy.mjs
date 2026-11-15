@@ -95,7 +95,27 @@ const downloads=Object.freeze({
  'zh-CN':{downloadBackup:'下载原始备份',downloadEdited:'下载编辑后的 P1G 副本'},
  'pt-BR':{downloadBackup:'Baixar backup original',downloadEdited:'Baixar cópia P1G editada'}
 });
+// Display only: same typed address already returned by the trusted Worker.
+// Distinguish equal item/amount in different physical slots; no new ID lookup.
+const addresses=Object.freeze({
+ en:{inventory:'Inventory',chest:'Chest',inventoryId:'Inventory ID',containerId:'Container ID',slot:'Slot index (0-based)',itemId:'Item ID',review:'Review selected target before staging'},
+ ja:{inventory:'インベントリ',chest:'チェスト',inventoryId:'インベントリID',containerId:'コンテナID',slot:'スロット番号（0始まり）',itemId:'アイテムID',review:'仮適用前に選択対象を確認'},
+ fr:{inventory:'Inventaire',chest:'Coffre',inventoryId:'ID inventaire',containerId:'ID conteneur',slot:'Index emplacement (dès 0)',itemId:'ID objet',review:'Vérifier la cible avant préparation'},
+ it:{inventory:'Inventario',chest:'Baule',inventoryId:'ID inventario',containerId:'ID contenitore',slot:'Indice slot (da 0)',itemId:'ID oggetto',review:'Controlla la destinazione prima di preparare'},
+ de:{inventory:'Inventar',chest:'Truhe',inventoryId:'Inventar-ID',containerId:'Behälter-ID',slot:'Platzindex (ab 0)',itemId:'Gegenstands-ID',review:'Ausgewähltes Ziel vor dem Vormerken prüfen'},
+ 'es-ES':{inventory:'Inventario',chest:'Cofre',inventoryId:'ID de inventario',containerId:'ID de contenedor',slot:'Índice de ranura (desde 0)',itemId:'ID de objeto',review:'Revisar el objetivo antes de preparar'},
+ 'zh-CN':{inventory:'物品栏',chest:'储物箱',inventoryId:'物品栏 ID',containerId:'容器 ID',slot:'槽位索引（从 0 开始）',itemId:'物品 ID',review:'暂存前确认选中的目标'},
+ 'pt-BR':{inventory:'Inventário',chest:'Baú',inventoryId:'ID do inventário',containerId:'ID do recipiente',slot:'Índice do espaço (a partir de 0)',itemId:'ID do item',review:'Conferir o alvo antes de preparar'}
+});
 const localized=Object.freeze(Object.fromEntries(Object.entries(map)
- .map(([k,v])=>[k,Object.freeze({...v,...(safety[k]||{}),...downloads[k]})])));
+ .map(([k,v])=>[k,Object.freeze({...v,...(safety[k]||{}),...downloads[k],...addresses[k]})])));
+export function localAmountTargetLabel(t,words){
+ if(!t)return '';
+ const where=t.kind==='ChestExistingSlotAmountDecrease'?
+  words.chest+' · '+words.containerId+' '+t.targetId+' · '+words.slot+' '+t.slotIndex:
+  t.kind==='InventoryExistingAmountDecrease'?
+  words.inventory+' · '+words.inventoryId+' '+t.targetId:'';
+ return where?where+' · '+words.itemId+' '+t.itemId+' · '+words.before+' '+t.oldAmount:'';
+}
 export const DEV_AMOUNT_UI_LOCALES=Object.freeze(Object.keys(localized));
 export function localAmountCopy(locale){return localized[locale]||localized.en}
