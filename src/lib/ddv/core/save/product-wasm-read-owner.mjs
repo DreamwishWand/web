@@ -1,5 +1,6 @@
 // R04 opt-in read-only boundary owned by the SAME local Worker. No product UI
 // export/import path until a signed wasm build and independent QA are accepted.
+import {createScopedAmountTransport} from './product-scoped-amount-transport.mjs';
 export const PRODUCT_WASM_READ_CONTRACT='wand.product.single-save-session.boundary@1';
 export const PRODUCT_WASM_WORKER_MAX_BYTES=128*1024*1024;
 export const PRODUCT_WASM_CHUNK_MAX_BYTES=1024*1024;
@@ -34,7 +35,7 @@ function strictReceipt(r){
  * wasmFactory is a trusted static Worker import, not a message field. The
  * worker-side decode source owns the async decoded-chunk iterable.
  */
-export function createProductWasmReadOwner(wasmFactory){
+export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false}={}){
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
  if(typeof document!=='undefined')fail('PRODUCT_WORKER_NOT_ISOLATED');
  let epoch=0,active=null;
@@ -80,7 +81,7 @@ export function createProductWasmReadOwner(wasmFactory){
      if(bytes===0)fail('PRODUCT_WORKER_EMPTY_DOCUMENT');
      const receipt=strictReceipt(JSON.parse(wasm.finish()));
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
-     active={wasm,receipt,identity,cursors:new Map()};wasm=null;
+     active={wasm,receipt,identity,cursors:new Map(),scoped:null};wasm=null;
      return receipt;
    }catch(error){
      // Already fail closed: no stale A is retained if B fails.
@@ -92,7 +93,7 @@ export function createProductWasmReadOwner(wasmFactory){
  };
  const readCoreVersion=scope=>{
    const a=active;
-   if(!a)fail('PRODUCT_WORKER_SESSION_CLOSED');
+   if(!a||a.scoped?.hasMutation())fail('PRODUCT_WORKER_SESSION_CLOSED');
    if(!isPlain(scope)||Object.keys(scope).sort().join(',')!==
        'decodedSha256,indexGeneration,revision,sessionId'||
        scope.sessionId!==a.receipt.sessionId||
@@ -118,7 +119,7 @@ export function createProductWasmReadOwner(wasmFactory){
  // connected to the public Worker message router or UI/Save consumer.
  const typedScope=scope=>{
    const a=active;
-   if(!a)fail('PRODUCT_WORKER_SESSION_CLOSED');
+   if(!a||a.scoped?.hasMutation())fail('PRODUCT_WORKER_SESSION_CLOSED');
    if(!isPlain(scope)||Object.keys(scope).sort().join(',')!==
       'decodedSha256,indexGeneration,revision,sessionId'||
       scope.sessionId!==a.receipt.sessionId||
@@ -349,6 +350,16 @@ export function createProductWasmReadOwner(wasmFactory){
       writerAuthorized:false
    });
  };
+ // ACT916 opt-in, Worker-private only. One existing wasm instance.
+ const scoped=()=>{
+   const a=active;
+   if(allowScopedAmountSource!==true||!a||a.identity.platform!=='steam-windows')
+     fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
+   if(!a.scoped)a.scoped=createScopedAmountTransport(a.wasm,a.receipt,{
+     parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},
+     maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
+   return a.scoped;
+ };
  const submitOperation=()=>fail('PRODUCT_WORKER_WRITER_DISABLED');
  const getCapabilities=()=>Object.freeze({
    productWorkerBoundary:true,productReadAccepted:false,
@@ -361,5 +372,8 @@ export function createProductWasmReadOwner(wasmFactory){
  return Object.freeze({openDecoded,readCoreVersion,issueTypedCursor,readTypedPage,
    issueSavedDiffGridsCursor,readSavedDiffGridsPage,
    close,submitOperation,getCapabilities,
-   getReceipt:()=>active?.receipt??null});
+   getReceipt:()=>active&&!active.scoped?.hasMutation()?active.receipt:null,
+   ...(allowScopedAmountSource===true?{previewScopedAmount:selection=>scoped().previewTarget(selection),
+     stageScopedAmount:()=>scoped().stage(),toggleScopedAmount:redo=>scoped().toggle(redo),
+     takeScopedAmountOutput:()=>scoped().takeOutput()}: {})});
 }
