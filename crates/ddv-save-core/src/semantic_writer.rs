@@ -17,6 +17,9 @@ const MAX_CONTAINER_SLOTS:usize=256;
 #[cfg(not(target_arch="wasm32"))]
 #[path="switch624_road_rm01.rs"]
 mod switch624_road_rm01;
+#[cfg(not(target_arch="wasm32"))]
+#[path="switch624_fence_fe01.rs"]
+mod switch624_fence_fe01;
 
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum TypedOperationKind{
