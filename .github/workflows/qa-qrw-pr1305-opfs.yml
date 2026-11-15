@@ -1,0 +1,153 @@
+name: QR-W ACT967 independent real Chrome OPFS
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1305-opfs.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-scoped-amount-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed source and isolated QA harness only
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = 55239a4336a27b697d817069b9d725c7a930f671
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/qa-qrw-pr1305-opfs.yml'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 98b8da20c04914c65bf99aaf3b9923980078f4eb
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:tests/stage-f/scoped-product-opfs.mjs)" = 6bf6fd405cf059c4217e5b5ae04ef09585dbd4b8
+          cat > tests/stage-f/scoped-product-opfs.mjs <<'NODE'
+          // Synthetic actual Chrome OPFS + real opt-in Rust/P1G adapter. No UI/router or
+          // product authorization. Uses existing Stage F Chrome harness and fixture.
+          import {createProductScopedAmountLocalAdapter} from '../../src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          import {p1gPackagedProfileCodec} from '../../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
+          const ensure=(x,c)=>{if(!x)throw Error('SCOPED_OPFS_'+c)};
+          const deny=async f=>{try{await f()}catch{return}throw Error('SCOPED_OPFS_UNEXPECTED_ACCEPT')};
+          const digest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
+          const build={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true};
+          import {createLocalEncryptedCopyStore} from '../../src/lib/ddv/core/save/local-encrypted-copy-store.mjs';
+          const gate=()=>{let release;const promise=new Promise(r=>release=r);return {promise,release}};
+          export async function runScopedProductOpfs(WorkerWasmSource){
+           let positive=0,negative=0;
+           const root=await navigator.storage.getDirectory();
+           for(const profile of ['catalog0-furniture','linked-crop-chest48']){
+            const [p,j]=await Promise.all([fetch('./fixtures/'+profile+'.p1g'),fetch('./fixtures/'+profile+'.json')]);
+            ensure(p.ok&&j.ok,'FIXTURE');const bytes=new Uint8Array(await p.arrayBuffer()),meta=await j.json();
+            const file=new File([bytes],'original.p1g'),s=meta.sel,chest=profile==='linked-crop-chest48',itemId=chest?30200000:s.selector;
+            const command=chest?{kind:'ChestExistingSlotAmountDecrease',containerId:s.id,slotIndex:s.selector,expectedItemId:itemId,expectedOldAmount:s.newAmount+1,newAmount:s.newAmount}:{kind:'InventoryExistingAmountDecrease',inventoryId:0,canonicalItemId:itemId,compatibleItemType:'ItemType_Furniture',expectedOldAmount:s.newAmount+1,newAmount:s.newAmount};
+            const args={file,build,originalSha256:meta.originalSha256},row={profile,id:s.id,selector:s.selector,itemId,oldAmount:s.newAmount+1};
+            const factory=async()=>({WorkerWasmSource});
+            let rows=[row],held=null,entered=null;
+            const make=()=>createProductScopedAmountLocalAdapter({wasmFactory:factory,discoverScopedTargets:async()=>{if(held){const g=held;held=null;entered.release();await g.promise}return rows}});
+            const a=make(),names=new Set();
+            const ready=async()=>{await a.open(args);const b=await a.backupOriginal();names.add(b.backupName);await a.listVerifiedTargets();return b};
+            const persisted=async name=>new Uint8Array(await (await (await root.getFileHandle(name)).getFile()).arrayBuffer());
+            const remove=async name=>{await root.removeEntry(name);names.delete(name)};
+            const invalid=async(fn)=>{await deny(fn);negative++};
+            const fresh=await ready();
+            // Real same-origin OPFS deletion, before stage.
+            await remove(fresh.backupName);await invalid(()=>a.stageTyped([command]));
+            const renamed=await ready();const rname=renamed.backupName+'.moved';
+            const handle=await root.getFileHandle(rname,{create:true});const writer=await handle.createWritable();
+            await writer.write(await persisted(renamed.backupName));await writer.close();names.add(rname);
+            await remove(renamed.backupName);await invalid(()=>a.stageTyped([command]));await remove(rname);
+            let b=await ready();await a.stageTyped([command]);
+            await remove(b.backupName);await invalid(()=>a.exportEditedCopy());await invalid(()=>a.downloadVerifiedCopy('edited'));
+            b=await ready();await a.stageTyped([command]);const h=await root.getFileHandle(b.backupName),w=await h.createWritable();
+            const bad=bytes.slice();bad[0]^=1;await w.write(bad);await w.close();
+            await invalid(()=>a.exportEditedCopy());await remove(b.backupName);
+            // Wrong discovery old/item and duplicated row must deny rather than mint.
+            for(const wrong of [[{...row,oldAmount:row.oldAmount+1}],[{...row,itemId:row.itemId+1}],[row,row]]){
+             rows=wrong;await a.open(args);const b=await a.backupOriginal();names.add(b.backupName);await invalid(()=>a.listVerifiedTargets());
+            }rows=[row];
+            b=await ready();await invalid(()=>a.stageTyped([{...command,newAmount:command.newAmount+1}]));
+            // Actual deferred discovery, then close/reselect. Old rejection must not close new B.
+            await a.open(args);b=await a.backupOriginal();names.add(b.backupName);
+            held=gate();entered=gate();const release=held.release;const pending=a.listVerifiedTargets();const stale=invalid(()=>pending);await entered.promise;
+            await invalid(()=>a.listVerifiedTargets());await a.close();await ready();release();await stale;
+            await a.stageTyped([command]);
+            const winner=a.exportEditedCopy();const rejected=invalid(()=>a.exportEditedCopy());const out=await winner;await rejected;
+            names.add(out.editedCopyName);ensure(out.freshWorkerReopenVerified===true&&out.writerAuthorized===false&&out.independentProcessReopenVerified===false,'FRESH_CODEC');
+            const edited=await a.downloadVerifiedCopy('edited'),original=await a.downloadVerifiedCopy('backup');
+            ensure(await digest(edited.encryptedBytes)===out.editedSha256&&await digest(await persisted(out.editedCopyName))===out.editedSha256,'EDITED_READBACK');
+            ensure((await p1gPackagedProfileCodec.loadProfile(edited.encryptedBytes)).jsonText===meta.expected,'EXACT_DIFF');
+            ensure(await digest(original.encryptedBytes)===meta.originalSha256&&await digest(await file.arrayBuffer())===meta.originalSha256,'ORIGINAL');
+            await a.close();ensure(await digest(await persisted(original.name))===meta.originalSha256,'BACKUP_PERSIST');
+            await invalid(()=>a.downloadVerifiedCopy('edited'));positive++;
+            // deterministic collision with real existing OPFS entry; never truncate original.
+            const oldRandom=crypto.getRandomValues.bind(crypto),nonce='ab'.repeat(16),collision='wand-original-backup-'+nonce+'.p1g';
+            const ch=await root.getFileHandle(collision,{create:true}),cw=await ch.createWritable();await cw.write(bytes);await cw.close();names.add(collision);
+            const store=createLocalEncryptedCopyStore();await store.open(file,meta.originalSha256);
+            Object.defineProperty(crypto,'getRandomValues',{configurable:true,value:array=>array.length===16?array.fill(171):oldRandom(array)});
+            try{await invalid(()=>store.backupOriginal());ensure(await digest(await persisted(collision))===meta.originalSha256,'COLLISION_UNCHANGED')}finally{delete crypto.getRandomValues;store.close()}
+            for(const name of names)await root.removeEntry(name);
+           }
+           return {profiles:2,positive,negative,actualOpfs:true,freshCodecWorker:true,writerAuthorized:false};
+          }
+          NODE
+          cat > tests/.qrw1305-fixtures.mjs <<'NODE'
+          import {createHash} from 'node:crypto';
+          import {mkdir,writeFile} from 'node:fs/promises';
+          import {join} from 'node:path';
+          import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
+          const hash=b=>createHash('sha256').update(b).digest('hex');
+          const BUILD={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true};
+          const doc=()=>({GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},
+           World:{GridCollection:{Grids:{},DiffGrids:{}},MissionSlots:{},Villages:[]},
+           Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{40000048:{Amount:3,Marker:'ItemMarker_None'}}}},
+           ContainerInventories:{},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},
+           BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Unknown:{x:1}});
+          const chest=()=>{
+           const d=doc(),p=d.Player;
+           p.ListInventories[2]={ID:2,CompatibleItemType:'ItemType_ActivityItem',Inventory:{30200000:{Amount:2}}};
+           const empty=()=>({ItemID:0,Amount:0,State:null});
+           const slots=Array.from({length:48},empty);slots[0]={ItemID:30200000,Amount:50,State:null,Unknown:7};
+           p.ContainerInventories={0:{ID:0,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:30200000,Amount:5,State:{}}]},
+           1:{ID:1,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[empty()]},
+           12:{ID:12,ParentItemID:40001680,BelongsToPlayer:true,BlockMoveTo:false,Size:48,ExtraSize:0,Inventory:slots}};
+           p.BackpackOverflow={Items:[]};
+           d.World.GridCollection.Grids[7]={ID:7,GridDefaultLayoutPath:'',Objects:{4:{ID:4,ItemID:40001680,State:{Storage:{ContainerInventoryID:12,DefaultContainerInventoryData:'',UnlockKeyItemID:0,UnlockLocId:'',DesignID:null}}}}};
+           d.World.Villages=[{Areas:{2:{GridIDs:[7],Unlocked:true}}}];return d;
+          };
+          
+          for(const [d,sel,apply] of [[doc(),{profile:'catalog0-furniture',id:0,selector:40000048,newAmount:2},x=>x.Player.ListInventories[0].Inventory[40000048].Amount=2],[chest(),{profile:'linked-crop-chest48',id:12,selector:0,newAmount:49},x=>x.Player.ContainerInventories[12].Inventory[0].Amount=49]]){const source=makeSyntheticP1gProfile(d),originalSha256=hash(source),dir='tests/stage-f/fixtures';await mkdir(dir,{recursive:true});const expected=structuredClone(d);apply(expected);await writeFile(join(dir,sel.profile+'.p1g'),source);await writeFile(join(dir,sel.profile+'.json'),JSON.stringify({sel,originalSha256,expected:JSON.stringify(expected)}));}
+          NODE
+          sed -i 's/positive:2,negative:6/positive:2,negative:28/;s/ACT951_REAL_CHROME_OPFS_SCOPED_ADAPTER_PASS/QRW_ACT967_REAL_CHROME_OPFS_INDEPENDENT_PASS/' tests/stage-f/chrome-smoke.mjs
+          node --check tests/stage-f/scoped-product-opfs.mjs
+          node --check tests/.qrw1305-fixtures.mjs
+      - name: Build opt-in ACT916 generated WASM only (no product artifact or Save)
+        run: |
+          set -euo pipefail
+          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
+          # Existing accepted lock fixture; preserve exact bytes, no registry re-resolution.
+          cp tests/fixtures/ddv-save-core-accepted.Cargo.lock crates/ddv-save-core/Cargo.lock
+          printf '%s\n' 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-amount-tools
+          mkdir -p /tmp/wand-scoped-amount-pkg
+          /tmp/wand-scoped-amount-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-scoped-amount-pkg --target nodejs --no-typescript
+          node tests/.qrw1305-fixtures.mjs
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-scoped-amount-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node tests/stage-f/generate-fixture.mjs
+          WAND_REQUIRE_SCOPED_OPFS=1 node tests/stage-f/chrome-smoke.mjs
+      - name: No product source edits or private Save
+        run: |
+          git diff --exit-code HEAD -- src/
+          test -z "$(git ls-files '*.p1g')"
