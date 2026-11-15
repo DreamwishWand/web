@@ -83,23 +83,23 @@ fn signed_hash(b:&[u8],g:Span,k:&str)->CoreResult<i32>{
     let v:i32=serde_json::from_slice(&b[s.begin..s.end]).map_err(|_|denied("PRODUCT_AMOUNT_LAYOUT_HASH_TYPE"))?;
     need(v.to_string().as_bytes()==&b[s.begin..s.end],"PRODUCT_AMOUNT_LAYOUT_HASH_TYPE")?;Ok(v)
 }
-fn layout_grid(b:&[u8],g:Span)->CoreResult<&'static LayoutGrid>{
+fn layout_asset(b:&[u8],g:Span)->CoreResult<(&'static str,&'static LayoutAsset)>{
     // Only the bounded exact asset path/type/local ID can select a reference
     // row. Saved hash codes are typed observations, never trusted evidence
     // that the installed Native loaded layout or override matches this row.
     need(opt(b,g,"GridDefaultLayoutPath")?.is_some(),"PRODUCT_AMOUNT_EFFECTIVE_DEFAULT_UNRESOLVED")?;
     let path=strv(b,g,"GridDefaultLayoutPath")?.replace('\\',"/");
     need(safe_layout_path(&path),"PRODUCT_AMOUNT_LAYOUT_PATH")?;
-    let a=layout_index()?.get(&path).ok_or(denied("PRODUCT_AMOUNT_LAYOUT_PATH_UNKNOWN"))?;
+    let (canonical,a)=layout_index()?.get_key_value(&path).ok_or(denied("PRODUCT_AMOUNT_LAYOUT_PATH_UNKNOWN"))?;
     need(strv(b,g,"GridDefaultLayoutType")?==a.kind,"PRODUCT_AMOUNT_LAYOUT_TYPE")?;
-    let q=a.grids.get(&n(b,g,"DefaultLayoutGridID")?).ok_or(denied("PRODUCT_AMOUNT_LAYOUT_LOCAL_ID"))?;
+    a.grids.get(&n(b,g,"DefaultLayoutGridID")?).ok_or(denied("PRODUCT_AMOUNT_LAYOUT_LOCAL_ID"))?;
     signed_hash(b,g,"DefaultGridHashCode")?;signed_hash(b,g,"DefaultGridDataHashCode")?;
     let mut removed=std::collections::BTreeSet::new();
     for x in array(b,f(b,g,"RemovedObjects")?,16384)?{
         let id=u32::try_from(number(b,x)?).map_err(|_|denied("PRODUCT_AMOUNT_LAYOUT_REMOVED_ID"))?;
         need(removed.insert(id),"PRODUCT_AMOUNT_LAYOUT_REMOVED_DUPLICATE")?;
     }
-    Ok(q)
+    Ok((canonical.as_str(),a))
 }
 fn layout_reference_excludes(q:&LayoutGrid,item:i32,chest:Option<(u32,i32)>)->CoreResult<()>{
     // Conservative base + saved modified union. Removed/replaced base entries
@@ -110,6 +110,14 @@ fn layout_reference_excludes(q:&LayoutGrid,item:i32,chest:Option<(u32,i32)>)->Co
     }else{
         need(!q.items.contains(&item),"PRODUCT_AMOUNT_LAYOUT_BASE_PLACEMENT")?;
     }
+    Ok(())
+}
+
+// ACT946/E1983: a loaded parent may instantiate any local child row. The
+// packaged all-local upper bound is conservative; it is NOT a loaded/cache
+// or generator proof. Deduplicate by exact canonical asset per operation.
+fn layout_asset_excludes(a:&LayoutAsset,item:i32,chest:Option<(u32,i32)>)->CoreResult<()>{
+    for q in a.grids.values(){layout_reference_excludes(q,item,chest)?;}
     Ok(())
 }
 
@@ -333,13 +341,14 @@ fn scan_grids(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>)->CoreResult<O
     let gc=f(b,world,"GridCollection")?;let mut count=0usize;let mut total=0usize;let mut link=None;
     let mut subgrid=std::collections::BTreeSet::new();let mut grids=std::collections::BTreeSet::new();
     let mut native_unresolved=false;
+    let mut checked_assets=std::collections::BTreeSet::new();
     for (map,objects,diff) in [("Grids","Objects",false),("DiffGrids","ModifiedObjects",true)]{
         for(k,g)in members(b,f(b,gc,map)?,50000)?{
             count+=1;need(count<=50000,"PRODUCT_AMOUNT_GRID_BOUND")?;let gid=key(&k)?;
             need(n(b,g,"ID")?==gid&&grids.insert(gid),"PRODUCT_AMOUNT_GRID_ID")?;
             if diff{
-                let q=layout_grid(b,g)?;
-                layout_reference_excludes(q,item,chest)?;
+                let (path,a)=layout_asset(b,g)?;
+                if checked_assets.insert(path){layout_asset_excludes(a,item,chest)?;}
                 // ACT946 static reference is not a Native hash/loaded override
                 // proof. Retain a separate fail-closed gate until the applicable
                 // source-bound Native/static closure is accepted. No caller
@@ -606,6 +615,31 @@ mod tests{
         let g=ix.values().flat_map(|a|a.grids.values()).find(|g|!g.storage.is_empty()).unwrap();
         let (parent,cid,_)=g.storage[0];
         assert_eq!(layout_reference_excludes(g,30200000,Some((cid,parent))).unwrap_err().0,"PRODUCT_AMOUNT_LAYOUT_BASE_CHEST_ALIAS");
+    }
+
+    #[test]fn all_local_rows_include_indirect_child_placement_and_storage(){
+        let ix=layout_index().unwrap();
+        // Real packaged rows: absent in selected local row, present elsewhere
+        // in same asset. Old single-row predicate would return Ok.
+        let (path,asset,local,item)=ix.iter().find_map(|(p,a)|a.grids.iter().find_map(|(id,q)|
+            a.grids.values().flat_map(|v|v.items.iter()).find(|i|!q.items.contains(i)).map(|i|(p,a,*id,*i)))).unwrap();
+        assert!(layout_reference_excludes(asset.grids.get(&local).unwrap(),item,None).is_ok());
+        assert_eq!(layout_asset_excludes(asset,item,None).unwrap_err().0,"PRODUCT_AMOUNT_LAYOUT_BASE_PLACEMENT");
+        let mut d=doc();d["World"]["GridCollection"]["DiffGrids"]["19"]=json!({"ID":19,"GridDefaultLayoutPath":path,
+            "GridDefaultLayoutType":asset.kind,"DefaultLayoutGridID":local,"DefaultGridHashCode":-4,
+            "DefaultGridDataHashCode":6,"ModifiedObjects":{},"RemovedObjects":[]});
+        let raw=serde_json::to_vec(&d).unwrap();let r=indexed_read::roots(&raw).unwrap();
+        assert_eq!(scan_grids(&raw,r.world,item,None).err().unwrap().0,"PRODUCT_AMOUNT_LAYOUT_BASE_PLACEMENT");
+        let (path,asset,local,parent,cid)=ix.iter().find_map(|(p,a)|a.grids.iter().find_map(|(id,q)|
+            a.grids.values().flat_map(|v|v.storage.iter()).find(|(parent,cid,_)|
+                layout_reference_excludes(q,30200000,Some((*cid,*parent))).is_ok()).map(|(parent,cid,_)|(p,a,*id,*parent,*cid)))).unwrap();
+        assert!(layout_reference_excludes(asset.grids.get(&local).unwrap(),30200000,Some((cid,parent))).is_ok());
+        assert_eq!(layout_asset_excludes(asset,30200000,Some((cid,parent))).unwrap_err().0,"PRODUCT_AMOUNT_LAYOUT_BASE_CHEST_ALIAS");
+        d["World"]["GridCollection"]["DiffGrids"]["19"]=json!({"ID":19,"GridDefaultLayoutPath":path,
+            "GridDefaultLayoutType":asset.kind,"DefaultLayoutGridID":local,"DefaultGridHashCode":-4,
+            "DefaultGridDataHashCode":6,"ModifiedObjects":{},"RemovedObjects":[]});
+        let raw=serde_json::to_vec(&d).unwrap();let r=indexed_read::roots(&raw).unwrap();
+        assert_eq!(scan_grids(&raw,r.world,30200000,Some((cid,parent))).err().unwrap().0,"PRODUCT_AMOUNT_LAYOUT_BASE_CHEST_ALIAS");
     }
     #[test]fn unresolved_default_and_unlisted_item_fail_closed(){
         let mut d=doc();d["World"]["GridCollection"]["DiffGrids"]["1"]=json!({"ID":1});let s=open(&d);
