@@ -25,10 +25,15 @@ export function createCollectionExact1Consumer(adapter,{trustedLocalHarness=fals
  const snapshot=()=>Object.freeze({...state,targets:Object.freeze([...state.targets]),build:state.build?Object.freeze({...state.build}):null});
  const set=p=>{state={...state,...p};return snapshot()};
  const reset=()=>{state=clean();source=null;backup=null;edited=null;choice=null};
+ // Same exact CLOSED receipt contract as accepted scoped Amount UI.
+ const closedReceipt=r=>keys(r,'kind,ok,writerAuthorized,nativeV3Verified,originalOverwriteAuthorized')&&
+  r.kind==='CLOSED'&&r.ok===true&&r.writerAuthorized===false&&r.nativeV3Verified===false&&r.originalOverwriteAuthorized===false;
  const close=()=>{
   epoch++;reset();busy=false;
   if(!closing){
-   const p=Promise.resolve().then(()=>adapter.close()).catch(e=>{set({phase:'close-failed'});throw e});
+   const p=Promise.resolve().then(()=>adapter.close()).then(r=>{
+    if(!closedReceipt(r))fail();
+   }).catch(e=>{set({phase:'close-failed'});throw e});
    closing=p;const settled=()=>{if(closing===p)closing=null};p.then(settled,settled);
   }
   return closing.then(snapshot);
