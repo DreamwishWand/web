@@ -268,3 +268,73 @@ test('binding machine contract closes 01C-to-01A engineering gap but not persist
   assert.equal(artifact.persistentWriteAuthorized,false);
   assert.equal(artifact.productApplyAuthorized,false);
 });
+
+
+test('binding rejects opaque State on created and deleted objects, including a matching source snapshot', async()=>{
+  const source=makeGrid([makeObject(10,40100068,0,0)],11);
+  const session=await open(profileForGrid(source));
+  const mutationSet=compileRoadMutationV125({
+    buildIdentity:BUILD_V125_SWITCH, sourceGrid:snapshotGrid(session), sourceObjectIds:[10],
+    desiredNetwork:roadNetwork(40100068,[{x:1,y:0,mode:FenceMode.ORTHOGONAL}]),
+    transform:{originSave:{x:0,y:0},pitchX:4,pitchY:4}, targetSurfaceValidated:true
+  });
+  assert.equal(mutationSet.ok,true);
+  const opaque={FenceMode:{Diagonal:true,Future:1}};
+  const created=structuredClone(mutationSet);
+  created.createdObjects[0].object.State=opaque;
+  assert.throws(()=>buildRoadFenceStructuralTransactionPlanV125({session,mutationSet:created}),
+    {code:'ROADFENCE_TX_CREATED_OBJECT_STATE_UNSUPPORTED'});
+  const deleted=structuredClone(mutationSet);
+  deleted.deletedObjects[0].sourceObject.State=opaque;
+  const changed=structuredClone(source);
+  changed.Objects['10'].State=opaque;
+  const matching=await open(profileForGrid(changed));
+  const before=structuredClone(matching.getSnapshot());
+  assert.throws(()=>buildRoadFenceStructuralTransactionPlanV125({session:matching,mutationSet:deleted}),
+    {code:'ROADFENCE_TX_DELETED_OBJECT_STATE_UNSUPPORTED'});
+  assert.deepEqual(matching.getSnapshot(),before);
+});
+
+
+test('binding rejects a deleted source with an omitted own __proto__ key',async()=>{
+  const clean=makeGrid([makeObject(10,40100068,0,0)],11);
+  const source=await open(profileForGrid(clean));
+  const mutationSet=compileRoadMutationV125({
+    buildIdentity:BUILD_V125_SWITCH, sourceGrid:snapshotGrid(source), sourceObjectIds:[10],
+    desiredNetwork:roadNetwork(40100068,[{x:1,y:0,mode:FenceMode.ORTHOGONAL}]),
+    transform:{originSave:{x:0,y:0},pitchX:4,pitchY:4}, targetSurfaceValidated:true
+  });
+  assert.equal(mutationSet.ok,true);
+  const altered=structuredClone(clean);
+  Object.defineProperty(altered.Objects['10'],'__proto__',{value:{Future:1},enumerable:true});
+  const session=await open(profileForGrid(altered));
+  const before=session.getSnapshot();
+  assert.equal(Object.hasOwn(before.World.GridCollection.Grids['7'].Objects['10'],'__proto__'),true);
+  assert.throws(()=>buildRoadFenceStructuralTransactionPlanV125({session,mutationSet}),
+    {code:'ROADFENCE_TX_SOURCE_OBJECT_BINDING_MISMATCH'});
+  await assert.rejects(createRoadFenceVerifiedWriteCandidateV125({session,mutationSet}),
+    {code:'ROADFENCE_TX_SOURCE_OBJECT_BINDING_MISMATCH'});
+  assert.deepEqual(session.getSnapshot(),before);
+});
+
+test('binding preserves matching opaque own keys and rejects nested old-value drift',async()=>{
+  const original=makeObject(10,40100068,0,0);
+  original.Opaque=JSON.parse('{"__proto__":{"Future":1},"Keep":true}');
+  const source=await open(profileForGrid(makeGrid([original],11)));
+  const mutationSet=compileRoadMutationV125({
+    buildIdentity:BUILD_V125_SWITCH, sourceGrid:snapshotGrid(source), sourceObjectIds:[10],
+    desiredNetwork:roadNetwork(40100068,[{x:0,y:0,mode:FenceMode.ORTHOGONAL},{x:1,y:0,mode:FenceMode.ORTHOGONAL}]),
+    transform:{originSave:{x:0,y:0},pitchX:4,pitchY:4}, targetSurfaceValidated:true
+  });
+  assert.equal(mutationSet.ok,true);
+  assert.deepEqual(mutationSet.preservedObjectIdentities,[10]);
+  const bound=await createRoadFenceVerifiedWriteCandidateV125({session:source,mutationSet});
+  assert.equal(bound.verification.status,'PASS');
+  const reopened=await open(JSON.parse(decoder.decode(bound.candidate.candidateBytes)));
+  assert.deepEqual(snapshotGrid(reopened).Objects['10'],original);
+  const tampered=structuredClone(mutationSet);
+  tampered.preservedObjects[0].sourceObject.Opaque['__proto__'].Future=2;
+  assert.throws(()=>buildRoadFenceStructuralTransactionPlanV125({session:source,mutationSet:tampered}),
+    {code:'ROADFENCE_TX_SOURCE_OBJECT_BINDING_MISMATCH'});
+  assert.deepEqual(snapshotGrid(source).Objects['10'],original);
+});
