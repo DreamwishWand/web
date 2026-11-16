@@ -425,7 +425,15 @@ fn saved_grid_state(b:&[u8],s:Span,item:i32,budget:&mut usize)->CoreResult<()>{
 
 #[derive(Clone,Copy)]struct Link{grid:u32,object:u32,record:Span,grid_span:Span}
 
+#[derive(Clone,Copy,PartialEq,Eq)]
+enum LayoutBinding { SteamReferenceOnly, Switch626ChestStatic }
 fn scan_grids(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>)->CoreResult<Option<Link>>{
+    scan_grids_bound(b,world,item,chest,LayoutBinding::SteamReferenceOnly)
+}
+fn scan_grids_bound(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>,binding:LayoutBinding)->CoreResult<Option<Link>>{
+    if binding==LayoutBinding::Switch626ChestStatic{
+        need(chest.is_some(),"PRODUCT_SWITCH626_CHEST_ONLY")?;
+    }
     let gc=f(b,world,"GridCollection")?;let mut count=0usize;let mut total=0usize;let mut link=None;
     let mut subgrid=std::collections::BTreeSet::new();let mut grids=std::collections::BTreeSet::new();
     let mut native_unresolved=false;let mut state_budget=0usize;
@@ -441,7 +449,12 @@ fn scan_grids(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>)->CoreResult<O
                 // proof. Retain a separate fail-closed gate until the applicable
                 // source-bound Native/static closure is accepted. No caller
                 // argument, saved hash alone, or source SHA can satisfy it.
-                native_unresolved=true;
+                if binding==LayoutBinding::Switch626ChestStatic{
+                    // E2223: 153 exact Switch normal-retail assets; the
+                    // remaining Steam reference has no Switch proof.
+                    need(path!="SceneLayouts/Houses/OogieBoogieHouse/OogieBoogieHouse.json",
+                        "PRODUCT_SWITCH626_LAYOUT_NOT_PROVEN")?;
+                }else{native_unresolved=true;}
             }else{
                 need(strv(b,g,"GridDefaultLayoutPath")?.is_empty(),"PRODUCT_AMOUNT_EFFECTIVE_DEFAULT_UNRESOLVED")?;
             }
@@ -529,6 +542,12 @@ fn address_refs(b:&[u8],s:Span,gid:u32,oid:u32,budget:&mut usize,depth:usize)->C
     }Ok(())
 }
 fn eligible(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32)->CoreResult<()>{
+    eligible_bound(s,t,new,LayoutBinding::SteamReferenceOnly)
+}
+fn eligible_bound(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32,binding:LayoutBinding)->CoreResult<()>{
+    if binding==LayoutBinding::Switch626ChestStatic{
+        need(matches!(t.view().selection,ExistingAmountSelection::Chest{..}),"PRODUCT_SWITCH626_CHEST_ONLY")?;
+    }
     let (a,d)=pack()?;let v=t.view();let item=v.item_id;
     need(v.old_amount.checked_sub(1)==Some(new)&&new>0,"PRODUCT_AMOUNT_DECREASE_ONE")?;
     let b=&s.decoded;let r=indexed_read::roots(b)?;let top_start=indexed_read::skip_ws(b,0);let top=Span{begin:top_start,end:indexed_read::value_end(b,top_start)?};
@@ -552,7 +571,7 @@ fn eligible(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32)->CoreResult<(
             if let Some(x)=opt(b,f(b,pantry,"Inventory")?,&item.to_string())?{total=total.checked_add(n(b,x,"Amount")? as u64).ok_or(denied("PRODUCT_AMOUNT_TOTAL"))?;}
             for x in array(b,f(b,f(b,r.player,"BackpackOverflow")?,"Items")?,16384)?{need(n(b,x,"ItemID")?!=item as u32,"PRODUCT_AMOUNT_OVERFLOW")?;}
             need(total>=v.old_amount as u64&&total<=i32::MAX as u64,"PRODUCT_AMOUNT_TOTAL")?;
-            let link=scan_grids(b,r.world,item,Some((container_id,facts.parent_item_id)))?.ok_or(denied("PRODUCT_AMOUNT_CHEST_LINK"))?;
+            let link=scan_grids_bound(b,r.world,item,Some((container_id,facts.parent_item_id)),binding)?.ok_or(denied("PRODUCT_AMOUNT_CHEST_LINK"))?;
             check_parent(b,r.world,link,facts.parent_item_id,container_id)?;
             let mut budget=0;for x in [f(b,top,"ConditionalEventHistory")?,f(b,r.world,"MissionSlots")?,f(b,r.player,"AchievementsData")?]{address_refs(b,x,link.grid,link.object,&mut budget,0)?;}
             false
@@ -561,6 +580,9 @@ fn eligible(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32)->CoreResult<(
     };
     subscribers(b,r.player,r.world,top,d,item,furniture)
 }
+
+#[path="product_switch626_chest.rs"]
+mod product_switch626_chest;
 
 const DISCOVERY_SCAN_PAGE:usize=16;
 const DISCOVERY_MAX_CANDIDATES:usize=4096;
@@ -708,6 +730,59 @@ mod tests{
                 _=>q["ConditionalEventHistory"]["ActiveEvents"]["15299998"]=json!({"GridID":7,"GridObjectID":4})
             }let x=open(&q);assert!(x.preview_scoped_product_amount(scope(&x,WorkerAction::ReadDomain),sel,49).is_err());
         }
+    }
+    #[test]
+    fn switch626_chest_exact_build_static_layout_and_atomic_ledger(){
+        let ix=layout_index().unwrap();
+        let (path,asset,local)=ix.iter().find_map(|(p,a)|{
+            if p.contains("OogieBoogieHouse")||a.grids.values().any(|g|!g.storage.is_empty()){return None}
+            a.grids.keys().next().map(|id|(p,a,*id))
+        }).unwrap();
+        let mut d=chest_doc();
+        let overlay=|p:&str,k:&str,id:u32|json!({"ID":19,"GridDefaultLayoutPath":p,
+            "GridDefaultLayoutType":k,"DefaultLayoutGridID":id,"DefaultGridHashCode":-4,
+            "DefaultGridDataHashCode":6,"ModifiedObjects":{},"RemovedObjects":[]});
+        d["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(path,&asset.kind,local);
+        let open_sw=|v:&Value|ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),crate::BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+            build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+        let sel=ExistingAmountSelection::Chest{container_id:12,slot_index:0};
+        let s=open_sw(&d);let e=scope(&s,WorkerAction::ReadDomain);let before=s.receipt().unwrap();
+        let (rows,next,scanned)=s.discover_switch626_scoped_chest(e,0).unwrap();
+        assert_eq!(rows.len(),1);assert!(next.is_none());assert_eq!(scanned,1);
+        let t=s.preview_switch626_scoped_chest(e,sel,49).unwrap();assert_eq!(t,rows[0]);
+        assert_eq!(s.receipt().unwrap(),before);
+        let steam=open(&d);
+        assert!(steam.preview_switch626_scoped_chest(scope(&steam,WorkerAction::ReadDomain),sel,49).is_err());
+        assert!(steam.preview_scoped_product_amount(scope(&steam,WorkerAction::ReadDomain),sel,49).is_err());
+        assert!(s.preview_scoped_product_amount(e,sel,49).is_err());
+        assert!(s.preview_switch626_scoped_chest(e,sel,48).is_err());
+        assert!(s.preview_switch626_scoped_chest(e,ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},49).is_err());
+        let excluded="SceneLayouts/Houses/OogieBoogieHouse/OogieBoogieHouse.json";
+        let ex=ix.get(excluded).unwrap();
+        let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"]=overlay(excluded,&ex.kind,*ex.grids.keys().next().unwrap());
+        let x=open_sw(&q);assert_eq!(x.preview_switch626_scoped_chest(scope(&x,WorkerAction::ReadDomain),sel,49).unwrap_err().0,"PRODUCT_SWITCH626_LAYOUT_NOT_PROVEN");
+        for (key,bad) in [("GridDefaultLayoutPath",json!("SceneLayouts/Unknown.json")),("GridDefaultLayoutType",json!("Meta.Unknown, Meta")),("DefaultLayoutGridID",json!(4294967295u32)),("RemovedObjects",json!([1,1]))]{
+            let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"][key]=bad;
+            let x=open_sw(&q);assert!(x.preview_switch626_scoped_chest(scope(&x,WorkerAction::ReadDomain),sel,49).is_err());
+        }
+        let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"]["ModifiedObjects"]["9"]=json!({
+            "ID":9,"ItemID":40001680,"State":{"Storage":{"ContainerInventoryID":12,"DefaultContainerInventoryData":"","DesignID":null,"UnlockKeyItemID":0,"UnlockLocId":""}}});
+        let x=open_sw(&q);assert!(x.preview_switch626_scoped_chest(scope(&x,WorkerAction::ReadDomain),sel,49).is_err());
+        let st=scope(&s,WorkerAction::Stage);
+        assert!(s.stage_switch626_scoped_chest(st,sel,50,49,[0;32]).is_err());
+        assert!(open_sw(&d).stage_switch626_scoped_chest(st,sel,50,49,t.view().entry_sha256).is_err());
+        let r=s.stage_switch626_scoped_chest(st,sel,50,49,t.view().entry_sha256).unwrap();
+        assert_eq!(r.exact_field_changed_count,1);assert!(!r.product_writer_authorized);
+        assert!(s.stage_switch626_scoped_chest(st,sel,50,49,t.view().entry_sha256).is_err());
+        s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        let export=scope(&s,WorkerAction::ExportEditedCopy);
+        let out=s.take_typed_semantic_decoded_once(export).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(export).is_err());
+        d["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);
+        assert_eq!(out,serde_json::to_vec(&d).unwrap());
     }
     #[test]fn saved_event_state_typed_history_and_unknown_denial(){
         for chest in [false,true]{
