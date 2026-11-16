@@ -5,11 +5,14 @@ use super::*;
 use serde_json::{json,Value};
 
 const CONTRACT:&str="wand.private.steam626.wardrobe-same-slot-exact1@1";
+const SWITCH_CONTRACT:&str="wand.private.switch626.wardrobe-same-slot-exact1@1";
+const SWITCH_BID:&str="9A239D3DB569756D";
 
-fn scope_ok(s:&ProductSession)->bool{
+fn scope_ok(s:&ProductSession,switch:bool)->bool{
     let b=&s.native_source_build;
-    !s.worker_bound&&b.platform==Platform::SteamWindows&&b.build_kind==BuildKind::SteamFullVersion&&
-        b.build_id==EXACT_STEAM&&b.schema==626&&b.externally_attested
+    !s.worker_bound&&b.schema==626&&b.externally_attested&&if switch{
+        b.platform==Platform::Switch&&b.build_kind==BuildKind::SwitchBid&&b.build_id==SWITCH_BID
+    }else{b.platform==Platform::SteamWindows&&b.build_kind==BuildKind::SteamFullVersion&&b.build_id==EXACT_STEAM}
 }
 fn hex32(v:&Value)->CoreResult<[u8;32]>{
     let s=v.as_str().ok_or(denied("WARDROBE_PLAN_SHA_TYPE"))?;
@@ -38,12 +41,20 @@ fn projection(r:&Value)->Value{
 // Opaque, Core-minted. No caller span, path, replacement bytes, or generic
 // wardrobe slot. The independent plan pins the entire expected output SHA.
 pub struct PrivateWardrobeSameSlotTarget{
-    scope:WorkerEnvelope,span:Span,old:i32,new:i32,expected_output:[u8;32],
+    scope:WorkerEnvelope,span:Span,old:i32,new:i32,expected_output:[u8;32],switch:bool,
 }
 impl ProductSession{
     pub fn mint_private_wardrobe_same_slot_target(&self,e:WorkerEnvelope,plan:&[u8],approved_plan_sha:[u8;32])
         ->CoreResult<PrivateWardrobeSameSlotTarget>{
-        if !scope_ok(self)||e.expected_revision!=0||e.expected_index_generation!=1||
+        self.mint_wardrobe_for_build(e,plan,approved_plan_sha,false)
+    }
+    pub fn mint_private_switch626_wardrobe_same_slot_target(&self,e:WorkerEnvelope,plan:&[u8],approved_plan_sha:[u8;32])
+        ->CoreResult<PrivateWardrobeSameSlotTarget>{
+        self.mint_wardrobe_for_build(e,plan,approved_plan_sha,true)
+    }
+    fn mint_wardrobe_for_build(&self,e:WorkerEnvelope,plan:&[u8],approved_plan_sha:[u8;32],switch:bool)
+        ->CoreResult<PrivateWardrobeSameSlotTarget>{
+        if !scope_ok(self,switch)||e.expected_revision!=0||e.expected_index_generation!=1||
            e.action!=WorkerAction::ReadDomain||plan.is_empty()||plan.len()>8192||
            approved_plan_sha==[0;32]||sha(plan)!=approved_plan_sha{
             return Err(denied("WARDROBE_PRIVATE_PLAN_SCOPE"));
@@ -52,12 +63,13 @@ impl ProductSession{
         if serde_json::to_vec(&p).map_err(|_|denied("WARDROBE_PLAN_JSON"))?.as_slice()!=plan{
             return Err(denied("WARDROBE_PLAN_NONCANONICAL"));
         }
-        let keys=["contract","fullVersion","sourceDecodedSha256","slot","oldItemId","newItemId",
+        let build_key=if switch{"buildId"}else{"fullVersion"};
+        let keys=["contract",build_key,"sourceDecodedSha256","slot","oldItemId","newItemId",
             "savedReadSet","oldDefinitionSha256","newDefinitionSha256","candidateReceiptSha256",
             "affectedClosureSha256","expectedEditedDecodedSha256"];
         let m=p.as_object().ok_or(denied("WARDROBE_PLAN_OBJECT"))?;
         if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||
-           p["contract"]!=CONTRACT||p["fullVersion"]!=EXACT_STEAM||p["slot"]!=0||
+           p["contract"]!=(if switch{SWITCH_CONTRACT}else{CONTRACT})||p[build_key]!=(if switch{SWITCH_BID}else{EXACT_STEAM})||p["slot"]!=0||
            hex32(&p["sourceDecodedSha256"])?!=e.expected_decoded_sha256{
             return Err(denied("WARDROBE_PLAN_BINDING"));
         }
@@ -74,7 +86,7 @@ impl ProductSession{
         if old==new{return Err(denied("WARDROBE_DISTINCT_ITEMS"));}
         // Existing typed Reader validates same Session/epoch, exact Build, active
         // slot, positive old/new Catalog1 stock, marker and map constraints.
-        let r=self.read_private_wardrobe_same_slot(e,0,old,new)?.to_private_receipt_json();
+        let r=if switch{self.read_private_switch626_wardrobe_same_slot(e,0,old,new)?}else{self.read_private_wardrobe_same_slot(e,0,old,new)?}.to_private_receipt_json();
         if r["avatar"]["avatarIsMale"]!=true||r["avatar"]["activeBranch"]!="MaleAvatar"||
            p["savedReadSet"]!=projection(&r){
             return Err(denied("WARDROBE_CURRENT_READSET_CAS"));
@@ -88,11 +100,17 @@ impl ProductSession{
         if number(bytes,span)?!=old as u64||hex(&sha(&bytes[span.begin..span.end]))!=r["oldScalarSha256"]{
             return Err(denied("WARDROBE_OLD_RAW_CAS"));
         }
-        Ok(PrivateWardrobeSameSlotTarget{scope:e,span,old,new,expected_output})
+        Ok(PrivateWardrobeSameSlotTarget{scope:e,span,old,new,expected_output,switch})
     }
     pub fn stage_private_wardrobe_same_slot(&self,e:WorkerEnvelope,t:&PrivateWardrobeSameSlotTarget)
         ->CoreResult<SemanticStageReceipt>{
-        if !scope_ok(self)||e.action!=WorkerAction::Stage||e.contract!=t.scope.contract||
+        self.stage_wardrobe_for_build(e,t,false)
+    }
+    pub fn stage_private_switch626_wardrobe_same_slot(&self,e:WorkerEnvelope,t:&PrivateWardrobeSameSlotTarget)->CoreResult<SemanticStageReceipt>{
+        self.stage_wardrobe_for_build(e,t,true)
+    }
+    fn stage_wardrobe_for_build(&self,e:WorkerEnvelope,t:&PrivateWardrobeSameSlotTarget,switch:bool)->CoreResult<SemanticStageReceipt>{
+        if !scope_ok(self,switch)||t.switch!=switch||e.action!=WorkerAction::Stage||e.contract!=t.scope.contract||
            e.session_id!=t.scope.session_id||e.expected_revision!=t.scope.expected_revision||
            e.expected_index_generation!=t.scope.expected_index_generation||
            e.expected_decoded_sha256!=t.scope.expected_decoded_sha256{
@@ -137,6 +155,31 @@ mod tests{
     }
     fn mint(s:&ProductSession,e:WorkerEnvelope,p:&Value)->CoreResult<PrivateWardrobeSameSlotTarget>{
         let b=serde_json::to_vec(p).unwrap();s.mint_private_wardrobe_same_slot_target(e,&b,sha(&b))
+    }
+    #[test]
+    fn switch_wardrobe_exact1_build_delta(){
+        let d=doc();let steam=open(&d);
+        let s=ProductSession::open_decoded_readonly(serde_json::to_vec_pretty(&d).unwrap(),BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:SWITCH_BID.into(),schema:626,externally_attested:true}).unwrap();
+        let mut out=d.clone();out["Player"]["MaleAvatar"]["Clothes"]["0"]=json!(50000003);
+        let expected=serde_json::to_vec_pretty(&out).unwrap();
+        let mut p=plan(&steam,env(steam.receipt().unwrap(),WorkerAction::ReadDomain),&expected);
+        let e=env(s.receipt().unwrap(),WorkerAction::ReadDomain);
+        let r=s.read_private_switch626_wardrobe_same_slot(e,0,50000002,50000003).unwrap().to_private_receipt_json();
+        assert_eq!(p["savedReadSet"],projection(&r));let old=serde_json::to_vec(&p).unwrap();
+        assert!(s.mint_private_switch626_wardrobe_same_slot_target(e,&old,sha(&old)).is_err());
+        p.as_object_mut().unwrap().remove("fullVersion");p["contract"]=json!(SWITCH_CONTRACT);p["buildId"]=json!(SWITCH_BID);
+        let b=serde_json::to_vec(&p).unwrap();assert!(s.mint_private_wardrobe_same_slot_target(e,&b,sha(&b)).is_err());
+        let t=s.mint_private_switch626_wardrobe_same_slot_target(e,&b,sha(&b)).unwrap();
+        let st=env(s.receipt().unwrap(),WorkerAction::Stage);assert!(s.stage_private_wardrobe_same_slot(st,&t).is_err());
+        let receipt=s.stage_private_switch626_wardrobe_same_slot(st,&t).unwrap();
+        assert_eq!(receipt.exact_field_changed_count,1);assert!(!receipt.product_writer_authorized);
+        assert!(s.stage_private_switch626_wardrobe_same_slot(st,&t).is_err());
+        s.undo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        let ex=env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+        assert_eq!(s.take_typed_semantic_decoded_once(ex).unwrap(),expected);assert!(s.take_typed_semantic_decoded_once(ex).is_err());
     }
     #[test]
     fn private_wardrobe_exact1_raw_output_and_lifecycle(){

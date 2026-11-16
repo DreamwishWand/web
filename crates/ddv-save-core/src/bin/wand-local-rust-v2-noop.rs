@@ -35,6 +35,10 @@ fn main(){
  if env::args().nth(1).as_deref()==Some("--steam626-wardrobe-same-slot-exact1-only"){
    private_wardrobe_cli::run();return;
  }
+ #[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+ if env::args().nth(1).as_deref()==Some("--switch626-wardrobe-same-slot-exact1-only"){
+   private_wardrobe_cli::run_switch();return;
+ }
  #[cfg(feature="semantic-writer-dev")]
  if matches!(env::args().nth(1).as_deref(),Some("--switch624-road-rm01-archive-only"|"--switch624-fence-fe01-archive-only"|"--switch624-fence-frp01-archive-only"|"--switch624-fence-fm01-archive-only"|"--switch624-road-r02-native-q4-archive-only"|"--switch624-fence-ortho-l-archive-only"|"--switch624-fence-diagonal90-archive-only"|"--switch624-fence-ortho-t-archive-only"|"--switch624-fence-diagonal-n3-positive-archive-only"|"--switch624-fence-diagonal-n3-mirrored-archive-only"|"--switch624-fence-diagonal-n6-positive-archive-only"|"--switch626-fence-fd01-layout-only"|"--switch626-fence-fd02-layout-only"|"--switch626-fence-fd03-layout-only"|"--switch626-fence-ortho-l-layout-only"|"--switch626-fence-diagonal90-layout-only"|"--switch626-fence-ortho-t-layout-only"|"--switch626-road-r02-native-q4-only"|"--switch626-fence-fm01-layout-only"|"--switch626-road-rm01-native-mixed-q5-only"|"--switch626-fence-fe01-layout-only"|"--switch626-road-r01-orthogonal-q3-layout-only"|"--steam626-road-sr03-native-mixed-q5-only"|"--steam626-road-comp03-seed-merge-q9-only")){
    run_switch624_archive_operation();
