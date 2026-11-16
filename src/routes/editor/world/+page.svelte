@@ -4049,6 +4049,7 @@
                     verifiedExportBaselineDocument,
                   draftDocument: editorDocument,
                   placementBinding: placementLegalityBinding,
+                  worldBinding: switchWorldBinding,
                   itemDefinitionsById:
                     storageFurniturePack.itemDefinitionsById,
                   exactBuildConfirmed:
