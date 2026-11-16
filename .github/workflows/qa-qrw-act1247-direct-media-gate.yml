@@ -1,0 +1,73 @@
+name: QA ONLY ACT1247 direct media gate (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1247-direct-media-gate.yml'
+permissions:
+  contents: read
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 31ed9a5935f7db06686afb2ded3f41666c99608a
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact fixed workflow actual shell and isolated Git diffs
+        run: |
+          set -euo pipefail
+          git cat-file -e bccca45b1fba8982043b9a2a71fd216d2dbe67e3^{commit} || git fetch --no-tags origin bccca45b1fba8982043b9a2a71fd216d2dbe67e3
+          python3 - <<'PY'
+          import pathlib, subprocess, tempfile, os, hashlib, json
+          from pathlib import Path
+          p=Path('.github/workflows/web-shared-catalog-detail.yml')
+          new=p.read_text();old=subprocess.check_output(['git','show','bccca45b1fba8982043b9a2a71fd216d2dbe67e3:'+str(p)],text=True)
+          def blob(s):
+           b=s.encode();return hashlib.sha1(('blob '+str(len(b))+'\0').encode()+b).hexdigest()
+          assert blob(new)=='cd21d298a0ad21ec5f83289249c45df86b8dd707' and blob(old)=='22c0b243253a06fe61113b208cb1fe31dd050dd8'
+          def extract(s):
+           a=s.index('          set -euo pipefail',s.index('      - name: Current-main bounded Item regression'))
+           b=s.index('      - name: Source/version',a)
+           return '\n'.join(l[10:] if l.startswith('          ') else l for l in s[a:b].splitlines())+'\n'
+          g=extract(new);og=extract(old)
+          W='.github/workflows/web-shared-catalog-detail.yml';R='src/lib/item-media/switch1253-public-item-images.mjs';P='scripts/web-switch1253-private-preview-build.mjs';T='tests/web-switch1253-item-thumb-contract.test.mjs';D='scripts/web-steam1253-door-collection-chrome.mjs';DT='tests/web-steam1253-door-primary-contract.test.mjs';U='src/lib/ui/ItemThumb.svelte';I='src/lib/ui/ItemImagePreferences.svelte';C='scripts/web-shared-catalog-e2e-chrome.mjs'
+          modules=['src/lib/item-media/'+x for x in ['steam1253-furniture146-pins.mjs','steam1253-other36-pins.mjs','steam1253-hold10-pins.mjs','steam1253-hold5-chest2-pins.mjs']]
+          for m in modules: assert "- '"+m+"'" in new and "- '"+m+"'" not in old
+          assert new[new.index('permissions:'):new.index('jobs:')]==old[old.index('permissions:'):old.index('jobs:')]
+          assert new[new.index('      - name: Source/version'):]==old[old.index('      - name: Source/version'):]
+          def git(cwd,*args):return subprocess.check_output(['git','-C',str(cwd),*args],text=True,stderr=subprocess.DEVNULL)
+          def run(paths,script,base=''):
+           with tempfile.TemporaryDirectory(prefix='qrw1247-') as tmp:
+            root=Path(tmp);work=root/'repo';work.mkdir();bin=root/'bin';bin.mkdir();calls=root/'calls'
+            spy=bin/'node';spy.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$QA_NODE_CALLS"\nexit 0\n');spy.chmod(0o755)
+            git(work,'init','-q');git(work,'config','user.name','Synthetic QA');git(work,'config','user.email','qa@example.invalid')
+            (work/'baseline').write_text('base');git(work,'add','.');git(work,'commit','-qm','base');git(work,'update-ref','refs/remotes/origin/main','HEAD')
+            for name in paths:
+             f=work/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('synthetic changed path\n')
+            git(work,'add','.');git(work,'commit','-qm','candidate')
+            assert set(git(work,'diff','--name-only','origin/main','HEAD').splitlines())==paths
+            env=dict(os.environ,PATH=str(bin)+':'+os.environ['PATH'],QA_NODE_CALLS=str(calls),MEDIA_PR_BASE=base)
+            r=subprocess.run(['bash','-c',script],cwd=work,env=env,text=True,capture_output=True)
+            return r.returncode,r.stdout,calls.read_text().splitlines() if calls.exists() else []
+          cmd=['--test '+DT,'--test '+T];pos=neg=legacy=0
+          for m in modules:
+           rc,out,c=run({m,R,DT},g);assert rc==0 and 'WEB_STEAM1253_DIRECT3_MODULE_SCOPE_PASS' in out and c==cmd
+           pos+=1
+          q={W,P,R,DT,T};rc,out,c=run(q,g,'bccca45b1fba8982043b9a2a71fd216d2dbe67e3');assert rc==0 and 'WEB_STEAM1253_QUARANTINE_CHILD_EXACT5_PREP_SCOPE_PASS' in out and c==cmd;pos+=1
+          for paths,b in [(q,''),(q,'a'*40),({R,DT},''),({R,DT,modules[0],modules[1]},''),({R,DT,modules[0],'README.md'},''),({R,modules[0]},''),({R,DT,'src/lib/item-media/foreign-pins.mjs'},''),({R,DT,modules[0],W},'')]:
+           rc,out,c=run(paths,g,b);assert rc!=0 and not c,(paths,rc,out,c);neg+=1
+          for paths in [{W,R,P,T},{W,R,P,T,D,DT},{W,R,T},{W,R,P,U,T},{W,R,D,DT},{W,R,DT},{W,R,C,I,U,T}]:
+           a=run(paths,g);b=run(paths,og);assert a==b and a[0]==0,(paths,a,b);legacy+=1
+          # A newly triggered module-only or module+test candidate must not skip the new gate.
+          # Record the exact counterexample before asserting the declared invariant.
+          miss=[]
+          for m in modules:
+           for paths in [{m},{m,DT}]:
+            rc,out,c=run(paths,g)
+            if rc==0:miss.append(dict(paths=sorted(paths),rc=rc,output=out.strip(),calls=c))
+          print('ACT1247_DIRECT_MEDIA_OBSERVED '+json.dumps(dict(pos=pos,neg=neg,legacy=legacy,missingResolverAccepted=miss,actualGitDiff=True,rawShell=True,nodeDispatchSpy=True)))
+          assert not miss,'New pin-module trigger skips scope gate when resolver is absent'
+          
+          PY
