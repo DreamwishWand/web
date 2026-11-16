@@ -45,4 +45,4 @@ const sr03={
  'pt-BR':['Caminho S-R03 · layout fixo de 5 — DEV local OFF','Manter 1 · mover 1 · adicionar 3 · estoque −3','ID do objeto mantido','ID do objeto movido']
 };
 const sr03Keys=['sr03Title','sr03Detail','retainedId','movedId'];
-export const localPlacementCopy=l=>Object.freeze({...collectionExact1Copy(l),...Object.fromEntries(keys.map((k,i)=>[k,(rows[l]||rows.en)[i]])),...Object.fromEntries(backpackKeys.map((k,i)=>[k,(backpackRows[l]||backpackRows.en)[i]])),...Object.fromEntries(wardrobeKeys.map((k,i)=>[k,(wardrobeRows[l]||wardrobeRows.en)[i]])),...Object.fromEntries(sr03Keys.map((k,i)=>[k,(sr03[l]||sr03.en)[i]]))});
+export const localPlacementCopy=l=>Object.freeze({...collectionExact1Copy(l),...Object.fromEntries(keys.map((k,i)=>[k,(rows[l]||rows.en)[i]])),...Object.fromEntries(backpackKeys.map((k,i)=>[k,(backpackRows[l]||backpackRows.en)[i]])),...Object.fromEntries(wardrobeKeys.map((k,i)=>[k,(wardrobeRows[l]||wardrobeRows.en)[i]])),...Object.fromEntries(sr03Keys.map((k,i)=>[k,(sr03[l]||sr03.en)[i]])),rm01Title:(sr03[l]||sr03.en)[0].replace('S-R03','RM01 (Switch626)'),rm01Safety:(rows[l]||rows.en)[10].replace('Steam626','Switch626')});
