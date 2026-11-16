@@ -300,4 +300,32 @@ mod fixed_add_tests{
  #[test]fn switch626_ortho_l_fixed_target(){run(FenceAddTargetKind::OrthoL,ProductSession::mint_switch626_ortho_l_target,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(4,2,2,2),(4,4,2,2)]);}
  #[test]fn switch626_diagonal90_fixed_target(){run(FenceAddTargetKind::Diagonal90,ProductSession::mint_switch626_diagonal90_target,&[(0,0,2,2),(2,2,2,2),(4,4,2,2),(6,2,2,2),(8,0,2,2)]);}
  #[test]fn switch626_ortho_t_fixed_target(){run(FenceAddTargetKind::OrthoT,ProductSession::mint_switch626_ortho_t_target,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(6,0,2,2),(8,0,2,2),(4,2,2,2),(4,4,2,2)]);}
+
+ #[cfg(feature="product-switch626-fence-add-stage-internal")]
+ #[test]fn qa1844_five_stage_lexical(){
+  let cases:[(&str,FenceAddTargetKind,&[(i32,i32,u32,bool,bool,u32,u32)]);5]=[
+   ("FD02",FenceAddTargetKind::Fd02,&[(0,0,40700246,false,true,2,2),(2,-2,40700253,true,true,2,2),(4,-4,40700246,false,true,2,2)]),
+   ("FD03",FenceAddTargetKind::Fd03,&[(0,0,40700246,false,true,2,2),(2,2,40700256,false,true,8,8),(10,10,40700246,false,true,2,2)]),
+   ("L",FenceAddTargetKind::OrthoL,&[(0,0,40700246,false,false,2,2),(2,0,40700247,false,false,2,2),(4,0,40700246,false,false,2,2),(4,2,40700247,true,false,2,2),(4,4,40700246,false,false,2,2)]),
+   ("D90",FenceAddTargetKind::Diagonal90,&[(0,0,40700246,false,true,2,2),(2,2,40700253,false,true,2,2),(4,4,40700246,false,true,2,2),(6,2,40700253,true,true,2,2),(8,0,40700246,false,true,2,2)]),
+   ("T",FenceAddTargetKind::OrthoT,&[(0,0,40700246,false,false,2,2),(2,0,40700247,false,false,2,2),(4,0,40700246,false,false,2,2),(6,0,40700247,false,false,2,2),(8,0,40700246,false,false,2,2),(4,2,40700247,true,false,2,2),(4,4,40700246,false,false,2,2)])];
+  let pack=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true};
+  for(name,kind,foot)in cases{
+   let(x,y)=(0..376u32).step_by(2).flat_map(|a|(4..184u32).step_by(2).map(move|b|(a,b))).find(|&(a,b)|foot.iter().all(|&(dx,dy,_,_,_,w,h)|{let x=(i64::from(a)+i64::from(dx))as u32;let y=(i64::from(b)+i64::from(dy))as u32;(0..w).all(|i|(0..h).all(|j|pack.floor4(x+i,y+j)))})).unwrap();
+   let d=json!({"GameInfo":{"Version":626},"World":{"Villages":[{"Areas":{"2":{"Unlocked":true,"GridIDs":[90001]}}}],"PlayerHouses":[],"GridCollection":{"Grids":{"90001":{"ID":90001,"GridDataPath":GRID,"GridDefaultLayoutPath":"","TessellationFactor":2,"NextGridObjectID":50,"Objects":{"10":row(if x<190{388}else{0},if y<100{196}else{0})}}},"DiffGrids":{}}},"Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_Fence"]},"Inventory":{"40700246":{"Amount":10,"Marker":"ItemMarker_Favorite"}}}},"ContainerInventories":{}},"Opaque":{"escape":"keep","decoy":50}});
+   let lexical=|v:&Value|serde_json::to_string(v).unwrap().replace("\"escape\":\"keep\"","\"escape\":\"\\u006beep\"");let raw=lexical(&d);
+   let make=|b:&str|{let mut s=ProductSession::open_decoded_readonly(b.as_bytes().to_vec(),build.clone()).unwrap();s.worker_bound=true;s};
+   let s=make(&raw);let e=env(&s);let st=WorkerEnvelope{action:WorkerAction::Stage,..e};let before=s.receipt().unwrap();
+   let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["90001"];g["NextGridObjectID"]=json!(50+foot.len());
+   for(i,&(dx,dy,item,left,diag,_,_))in foot.iter().enumerate(){let id=50+i;g["Objects"][id.to_string()]=json!({"ID":id,"ItemID":item,"X":(i64::from(x)+i64::from(dx))as u32,"Y":(i64::from(y)+i64::from(dy))as u32,"Orientation":if left{"GridOrientation_Left"}else{"GridOrientation_Down"},"State":if diag{json!({"FenceMode":{"Diagonal":true}})}else{Value::Null}});}
+   let expected=lexical(&wanted);let p=s.prepare_fixed_fence_add(e,kind,90001,x,y).unwrap().0;assert_eq!(p.projected,sha(expected.as_bytes()));assert_eq!(p.exact,foot.len()+1);
+   let mut neg=0;for i in 0..10{let mut q=s.prepare_fixed_fence_add(e,kind,90001,x,y).unwrap().0;match i{0=>q.target.root_sha=[0;32],1=>q.target.grid_sha=[0;32],2=>q.target.counter_sha=[0;32],3=>q.target.stock_sha=[0;32],4=>q.target.houses_sha=[0;32],5=>q.projected=[0;32],6=>q.target.stock+=1,7=>q.target.next+=1,8=>q.target.x+=1,_=>q.exact+=1}assert!(s.stage_fixed_fence_add(st,kind,&q).is_err());neg+=1;}
+   for bad in [WorkerEnvelope{expected_revision:1,..st},WorkerEnvelope{expected_index_generation:2,..st},WorkerEnvelope{expected_decoded_sha256:[0;32],..st},e]{assert!(s.stage_fixed_fence_add(bad,kind,&p).is_err());neg+=1;}
+   assert!(make(&raw).stage_fixed_fence_add(st,kind,&p).is_err());neg+=1;let other=if kind==FenceAddTargetKind::Fd02{FenceAddTargetKind::Fd03}else{FenceAddTargetKind::Fd02};assert!(s.stage_fixed_fence_add(st,other,&p).is_err());neg+=1;
+   assert_eq!(s.receipt().unwrap(),before);let r=s.stage_fixed_fence_add(st,kind,&p).unwrap();assert_eq!(r.exact_field_changed_count,foot.len()+1);assert_eq!(r.staged_decoded_sha256,p.projected);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+   assert!(s.stage_fixed_fence_add(st,kind,&p).is_err());neg+=1;s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();assert!(s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).is_err());neg+=1;s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();let ex=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};let out=s.take_typed_semantic_decoded_once(ex).unwrap();assert_eq!(out,expected.as_bytes());assert!(s.take_typed_semantic_decoded_once(ex).is_err());neg+=1;assert_eq!(s.decoded.as_ref(),raw.as_bytes());let reopened=ProductSession::open_decoded_readonly(out,build.clone()).unwrap();assert_eq!(reopened.receipt().unwrap().decoded_sha256,p.projected);assert_eq!(neg,19);println!("QRC1844_{name}_STAGE_ACTUAL 1POS {neg}NEG EXACT{} PRESERVE_EXISTING",foot.len()+1);
+  }
+ }
+
 }
