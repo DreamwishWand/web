@@ -370,3 +370,7 @@ mod tests {
         assert_eq!(borrowed.receipt().unwrap_err().0, "SESSION_CLOSED");
     }
 }
+
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+#[path="worker_switch626_fixed_fence_add.rs"]
+mod switch626_fixed_fence_add;
