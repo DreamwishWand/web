@@ -62,7 +62,7 @@ jobs:
           const currentCargo=show(source,cargo),previousCargo=show(previous,cargo);
           const added=['product-switch626-fd01-scoped = ["product-amount-scoped"]\n','product-switch626-fe01-scoped = ["product-amount-scoped"]\n'];
           expect(added.every(s=>currentCargo.includes(s))&&added.every(s=>!previousCargo.includes(s)));
-          expect(currentCargo.replaceAll(added[0],'').replaceAll(added[1],'')===previousCargo);
+          expect(currentCargo.replace('\n'+added[0]+added[1],'')===previousCargo);
           expect(cfg.defaultFeatures===false&&JSON.stringify(cfg.features)==='["indexed-read","worker-wasm"]');
           expect(cfg.productConsumerEnabled===false&&cfg.writerEnabled===false);
           expect(cfg.publicReadonlyAssetsApproved===true&&cfg.releasePermission==='OWNER_APPROVED_20261111_THREE_READONLY_PUBLIC_ASSETS_ONLY');
