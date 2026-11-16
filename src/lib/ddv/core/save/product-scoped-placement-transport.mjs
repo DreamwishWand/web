@@ -23,8 +23,12 @@ const fixed=Object.freeze({
   summary:r=>({inventoryId:0,x:r.x,y:r.y,orientation:r.orientation,inventoryDelta:-1,addObjects:1})})
 });
 export const createSteam626Comp03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.comp03);
+// Explicit companion factory: only a separately accepted, signed spatial
+// runtime may select it. Existing COMP03 @1 and Vase factories remain exact.
+export const createSteam626Comp03SpatialTransport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.comp03,true);
 export const createSteam626VaseAddTransport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.vase);
-function create(wasm,initial,identity,{parse,current,revoke,maxBytes,chunkBytes},op){
+function create(wasm,initial,identity,{parse,current,revoke,maxBytes,chunkBytes},op,spatial=false){
+ if(spatial&&(op!==fixed.comp03||typeof wasm?.preview_steam626_comp03_spatial!=='function'))fail();
  if(typeof document!=='undefined'||!wasm||typeof wasm[op.preview]!=='function'||typeof wasm[op.stage]!=='function'||
   !identity||identity.platform!=='steam-windows'||identity.buildKind!=='steam-full-version'||identity.buildId!==STEAM||identity.schema!==626||
   !initial||initial.contract!=='wand.product.single-save-session.boundary@1'||initial.schema!==626||initial.revision!==0||initial.indexGeneration!==1||
@@ -49,10 +53,36 @@ function create(wasm,initial,identity,{parse,current,revoke,maxBytes,chunkBytes}
    preview=Object.freeze(r);return summary();
   });
  }
+ // Companion is bound to the private, already validated @1 Preview.
+ // UI cannot supply seed, projection hash, Session or coordinate claims.
+ function spatialPreview(){return life.checked(()=>{
+  if(!spatial||!preview||life.hasMutation()||life.scope().revision!==0||life.scope().indexGeneration!==1)fail();
+  const r=parse(wasm.preview_steam626_comp03_spatial(preview.seedId,preview.projectedDecodedSha256,...life.args()),4096);
+  if(!exact(r,'contract,rootSceneItemId,gridId,seedId,nextObjectId,anchors,sessionId,revision,indexGeneration,decodedSha256,projectedDecodedSha256,writerAuthorized,editedCopyAuthorized')||
+   r.contract!=='wand.worker.steam626.comp03-spatial-preview@1'||r.rootSceneItemId!==1540000150||
+   r.gridId!==preview.gridId||r.seedId!==preview.seedId||r.nextObjectId!==preview.nextObjectId||
+   !life.scopeMatches(r)||r.revision!==life.scope().revision||r.indexGeneration!==life.scope().indexGeneration||
+   r.projectedDecodedSha256!==preview.projectedDecodedSha256||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||
+   !Array.isArray(r.anchors)||r.anchors.length!==9)fail();
+  const ids=new Set(),positions=new Set(),anchors=[];
+  for(let i=0;i<9;i++){
+   const a=r.anchors[i];
+   if(!exact(a,'objectId,x,y,role')||!positive(a.objectId)||!uint(a.x)||!uint(a.y)||a.x>260||a.y>260||
+    a.role!==(i===0?'retained':'proposed')||a.objectId!==(i===0?preview.seedId:preview.nextObjectId+i-1)||
+    ids.has(a.objectId)||positions.has(a.x+':'+a.y))fail();
+   ids.add(a.objectId);positions.add(a.x+':'+a.y);
+   anchors.push(Object.freeze({objectId:a.objectId,x:a.x,y:a.y,role:a.role}));
+  }
+  // Only presentation fields leave the transport. No hashes, scope tokens,
+  // raw data, or new permission; Stage uses the original @1 receipt only.
+  return Object.freeze({rootSceneItemId:r.rootSceneItemId,gridId:r.gridId,seedId:r.seedId,nextObjectId:r.nextObjectId,
+   anchors:Object.freeze(anchors),writerAuthorized:false,editedCopyAuthorized:false});
+ })}
  function stage(){return life.checked(()=>{
   if(!preview||life.hasMutation())fail();
   return Object.freeze({...summary(),...life.stage((...a)=>wasm[op.stage](...op.stageArgs(preview),...a))});
  })}
  const toggle=redo=>life.checked(()=>Object.freeze({...summary(),...life.toggle(redo)}));
- return Object.freeze({previewTarget,stage,toggle,takeOutput:life.takeOutput,hasMutation:life.hasMutation});
+ const api={previewTarget,stage,toggle,takeOutput:life.takeOutput,hasMutation:life.hasMutation};
+ return Object.freeze(spatial?{...api,spatialPreview}:api);
 }
