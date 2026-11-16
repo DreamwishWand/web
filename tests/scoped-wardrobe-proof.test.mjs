@@ -9,7 +9,7 @@ const source='a'.repeat(40),sha=b=>createHash('sha256').update(b).digest('hex');
 const u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a};
 const str=s=>[...u(Buffer.byteLength(s)),...Buffer.from(s)],sec=(id,b)=>[id,...u(b.length),...b];
 function wasm(s,extra=false){
- const es=[...s.exports,...(extra?['workerwasmsource_stage_extra']:[])];
+ const es=[...s.exports,...(extra===true?['workerwasmsource_stage_extra']:typeof extra==='string'?[extra]:[])];
  const exports=es.flatMap(n=>[...str(n),n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);
  return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(es.length),...exports]),...sec(10,[1,2,0,11])]);
 }
@@ -20,6 +20,10 @@ function subject(s,w=wasm(s),js=Buffer.from('export default function(){}'),patch
 for(const [s,o] of [[steam,sw],[sw,steam]])test(s.key+' fixed three subject inspection and private anchor only',async()=>{
  assert.equal(fixedWardrobeProofScope(s.key),s);assert.equal(s.methods.length,13);assert.equal(s.exports.length,22);assert.throws(()=>inspectWardrobeSubjects(s,subject(s,undefined,undefined,{source:{...JSON.parse(subject(s)[0]).source,features:['product-wardrobe-scoped','worker-wasm']}}),source));
  const bytes=subject(s),p=inspectWardrobeSubjects(s,bytes,source);
+ for(const n of ['preview_switch626_vase_add','stage_switch626_vase_add']){
+  assert.throws(()=>inspectWardrobeSubjects(s,subject(s,wasm(s),Buffer.from(n)),source));
+  assert.throws(()=>inspectWardrobeSubjects(s,subject(s,wasm(s,'workerwasmsource_'+n)),source));
+ }
  assert.equal(p.jsSha256,sha(bytes[1]));assert.equal(p.wasmSha256,sha(bytes[2]));
  assert.throws(()=>inspectWardrobeSubjects(o,bytes,source));
  assert.throws(()=>inspectWardrobeSubjects(s,subject(s,wasm(o)),source));
