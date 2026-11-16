@@ -4,11 +4,11 @@ import {readFileSync} from 'node:fs';
 const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
 test('proof-only Switch Chest dispatch cannot use normal Pages build/deploy or upload executable subjects',()=>{
  const proof=y.slice(y.indexOf('  scoped_switch_chest_proof:\n'),y.indexOf('  scoped_steam_chest_proof:\n'));
- assert.match(y,/build:\s+if: github.event_name != 'workflow_dispatch' \|\| \(inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == ''\)/);
+ assert.match(y,/build:\s+if: github.event_name != 'workflow_dispatch' \|\| \(inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_r01_proof_source == ''\)/);
  assert.match(y,/deploy:\s+needs: build/);
- assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && github.ref == 'refs\/heads\/main'/);
+ assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_r01_proof_source == '' && github.ref == 'refs\/heads\/main'/);
  assert.match(proof,/test "\$WAND_PROOF_EXPECTED_SOURCE" = "\$GITHUB_SHA"/);
- assert.match(proof,/f942165161b98cf7f9de16a1f7459cf3d337dc61/);
+ assert.match(proof,/1318590f458f274017a6c0bd9d65f81b97cc1ade/);
  assert.match(proof,/--no-default-features --features product-switch626-chest-scoped,worker-wasm/);
  const order=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','node scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs','node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate','actions/upload-artifact@v4'];
  let i=-1;for(const m of order){const n=proof.indexOf(m);assert.ok(n>i,m);i=n;}
@@ -27,7 +27,7 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
  assert.deepEqual(pins,[
   [
     "crates/ddv-save-core",
-    "f942165161b98cf7f9de16a1f7459cf3d337dc61"
+    "1318590f458f274017a6c0bd9d65f81b97cc1ade"
   ],
   [
     "scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs",
@@ -35,7 +35,7 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "scripts/readonly-release/seal-scoped-switch-chest-private.mjs",
-    "bf6daf8f8096eb69a34dbf6e80d67d8e31bc95b0"
+    "6c8dfc4afea309eac4af94da778b01dde43b3f1c"
   ],
   [
     "scripts/readonly-release/seal.mjs",
@@ -75,23 +75,23 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-    "10cccffef547265fead5096e8ed342a639a4be2e"
+    "94bdf2b9d585410d32a1f3717b3926d2136efac1"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
-    "d4643ccf023b6784c80fa5b2a377afe7936113ce"
+    "cb58ac87357cfc7f3fba9219fd3c482a5883fbc2"
   ],
   [
     "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-    "38b2097c748c563955dff817d9ce287a1987fc31"
+    "ba8c9ccf4df6b4f8e6decd694cb0e62151b53bec"
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-    "fdd485a11d9f41a24fdefd2d8603c055e19408bd"
+    "fdce9056fb422b99238021d1a588f2a812129147"
   ],
   [
     "src/lib/dev/local-scoped-edit-worker-port.mjs",
-    "1c62e99e9f56e1fb034c12c18f97fb55ac14a4b4"
+    "6e8f6c91a72e5a8290475d657746509c8c3c4df1"
   ],
   [
     "src/lib/dev/local-amount-workflow.mjs",
