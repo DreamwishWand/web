@@ -276,7 +276,9 @@ mod zero_root_tests {
 
     fn run(v:&Value, grids:&BTreeMap<u32,Value>, selected:u32, root_refs:u32,
         parent_refs:u32, overlay:bool) -> R<QuotaBound> {
-        let pack=load(include_str!("../data/steam626-vase-geometry-quota.jsonl"))?;
+        // Quota-only synthetic pack: installed pack SHA and floor/pose tests are separate.
+        // Avoid introducing a second embedded data include in this module.
+        let pack=GeometryPack{floor:Vec::new(),dims:BTreeMap::new(),excluded:BTreeSet::new()};
         check_village_quota(&pack,BUILD,626,v,&json!(false),selected,|id|{
             Ok(GridObservation{grid:grids.get(&id).ok_or("TEST_GRID_MISSING")?.clone(),
                 root_refs:if id==0 {root_refs} else {1},
