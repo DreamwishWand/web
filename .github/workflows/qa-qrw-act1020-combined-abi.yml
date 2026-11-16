@@ -1,0 +1,259 @@
+name: QR-W ACT1020 combined scoped ABI Web compatibility
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1020-combined-abi.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrw1378-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed Web and accepted Collection Core detached workspace
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only 3b973736d1692803d2a494ecb8b32194dbd88cd7 HEAD)" = '.github/workflows/qa-qrw-act1020-combined-abi.yml'
+          test "$(git rev-parse HEAD:src/lib/collection/CollectionExact1Dev.svelte)" = 71233a75a3cdb6e9ed812578ffa8f7c3804cbeb9
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-consumer.mjs)" = e5a169a29588f735f4fcffde40078a3a6e9e3a82
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-copy.mjs)" = f7fdfcb1620edc475421602f641d916e8486b911
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 068a4471df7d70b6f0a5b037c8057cb30d1041ab
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-fixed-collection-transport.mjs)" = aed032aba59ab50d5d7296cc47b5d4ec95ac110c
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 6154c7ee3d114ac82deb0675524cb76747d5ae8d
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 4e8ef10e7baf2a1cf332089cd37ccbce5aa496a0
+          git cat-file -e 7c280ca740bda68cd69ceb46337fd75bf3e133bc^{commit} || git fetch --no-tags origin 7c280ca740bda68cd69ceb46337fd75bf3e133bc
+          git worktree add --detach /tmp/wand-qrw1378-core 7c280ca740bda68cd69ceb46337fd75bf3e133bc
+          test "$(git -C /tmp/wand-qrw1378-core rev-parse HEAD)" = 7c280ca740bda68cd69ceb46337fd75bf3e133bc
+          cp tests/fixtures/ddv-save-core-accepted.Cargo.lock /tmp/wand-qrw1378-core/crates/ddv-save-core/Cargo.lock
+          printf '%s\n' 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  /tmp/wand-qrw1378-core/crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          git cat-file -e 3b973736d1692803d2a494ecb8b32194dbd88cd7^{commit} || git fetch --no-tags origin 3b973736d1692803d2a494ecb8b32194dbd88cd7
+          test "$(git rev-parse 3b973736d1692803d2a494ecb8b32194dbd88cd7:src/lib/dev/local-scoped-edit-worker-port.mjs)" = c0f81cb0b6cda895714c83e5bbf765b86c34acf8
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = c0f81cb0b6cda895714c83e5bbf765b86c34acf8
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-worker-adapter.mjs)" = 7e2a6fc8250cd5d6ca5cceb0f95e83e06d2d4bd6
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-workflow.mjs)" = a100fc5f00e4ee5225b09e03c7fd21858120d522
+          test "$(git rev-parse HEAD:tests/product-scoped-amount-actual.mjs)" = b49d3e4ea457dce49dc37f5199a4efdd664aa03c
+          test "$(git rev-parse HEAD:tests/stage-f/chrome-smoke.mjs)" = 5b57eb6d3854ffb790abba1f57b70cedccacef16
+          mkdir -p src/routes/test-dev-collection tests/dev-amount-ui-chrome
+          cat > src/routes/test-dev-collection/+page.svelte <<'SVELTE'
+          <script>
+           import {onMount} from 'svelte';
+           import CollectionExact1Dev from '$lib/collection/CollectionExact1Dev.svelte';
+           import {setLocale} from '$lib/i18n/runtime.js';
+           import {createLocalCollectionDevPort} from '$lib/dev/local-scoped-edit-worker-port.mjs';
+           let adapter=null;
+           onMount(()=>{
+            const q={ready:false,mode:'ok',opens:0,closes:0,closeDone:0,stages:0,downloads:0,openDone:0,exported:null,backup:null,held:null,setLocale,rawDenials:0};
+            window.__qa=q;const w=new Worker(new URL('./qa.worker.mjs',import.meta.url),{type:'module'});
+            let port=null;
+            w.onerror=e=>{q.error=e.message};
+            w.onmessage=({data:d})=>{
+             if(d?.ready!==true){q.error='BOOT_DENIED';return}
+             port=createLocalCollectionDevPort(w);
+             // Real port server denial probes; malformed/cross-domain/replay IDs cannot dispatch.
+             q.probe=async()=>{
+              for(const v of [{id:0,method:'close',args:[]},{id:999999,method:'stageTyped',args:[[]]},{id:999999,method:'stageCollectionTarget',args:[1,1]},{id:999999,method:'open',args:[],mode:'amount'}]){
+               const result=await new Promise((resolve,reject)=>{const f=e=>{if(e.data?.id===v.id){w.removeEventListener('message',f);resolve(e.data)}};w.addEventListener('message',f);w.postMessage(v)});
+               if(result.ok!==false)throw Error('RAW_ACCEPT');q.rawDenials++;
+              }
+             };
+             adapter=Object.freeze({
+              async open(a){q.opens++;try{return await port.open(a)}finally{q.openDone++}},
+              async close(){q.closes++;const mode=q.mode;try{if(mode==='reject')throw Error('QA_CLOSE_REJECT');const r=await port.close();if(mode==='hold')await new Promise(resolve=>q.held=resolve);q.held=null;return mode==='forged'?{...r,writerAuthorized:true}:r}finally{q.closeDone++}},
+              inspectCollectionTargets:()=>port.inspectCollectionTargets(),
+              async backupOriginal(...a){const r=await port.backupOriginal(...a);q.backup=r;return r},
+              previewCollectionTarget:(...a)=>port.previewCollectionTarget(...a),
+              stageCollectionTarget(...a){q.stages++;return port.stageCollectionTarget(...a)},
+              undo:(...a)=>port.undo(...a),redo:(...a)=>port.redo(...a),
+              async exportEditedCopy(...a){const r=await port.exportEditedCopy(...a);q.exported=r;return r},
+              async downloadVerifiedCopy(...a){try{return await port.downloadVerifiedCopy(...a)}finally{q.downloads++}}
+             });q.ready=true;
+            };
+            return ()=>{if(port)port.dispose();else w.terminate()};
+           });
+          </script>
+          {#if adapter}<CollectionExact1Dev verifiedLocalDevGate={true} trustedWorkerAdapter={adapter}/>{/if}
+          SVELTE
+          cat > src/routes/test-dev-collection/qa.worker.mjs <<'NODE'
+          import init,{WorkerWasmSource} from '../../../tests/stage-e/pkg/ddv_save_core.js';
+          import {createProductFixedCollectionLocalAdapter} from '$lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          import {installLocalCollectionDevWorker} from '$lib/dev/local-scoped-edit-worker-port.mjs';
+          const r=await fetch(new URL('/qa-collection/ddv_save_core_bg.wasm',self.location.origin),{cache:'no-store'});
+          if(!r.ok||!r.headers.get('content-type')?.startsWith('application/wasm'))throw Error('WASM_HTTP_MIME');
+          await init({module_or_path:await r.arrayBuffer()});
+          const adapter=createProductFixedCollectionLocalAdapter({wasmFactory:async()=>({WorkerWasmSource})});
+          installLocalCollectionDevWorker(self,adapter);
+          self.postMessage({ready:true});
+          NODE
+          cat > tests/.qa-qrw1378-fixture.mjs <<'NODE'
+          import {mkdir,writeFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
+          const keys=[40001887,40001888,40002657,40002680,40002959,40004417,40004507,40004508,40004509,40004510,40004511,40004512,40004518,40004520,40004521,40004522,40004559,40004561,40004562,40004563,40004572,40004573,40004576,40004580,40004668,160000205,160100139];
+          const target=40004511,peer=40004668,m=Object.fromEntries(keys.map(k=>[k,![40001887,target,peer].includes(k)]));
+          const d={GameInfo:{Version:626},World:{Unrelated:[1,2,3]},Player:{CollectionSets:[{CollectionDefinitionID:2120000159,GroupData:[{GroupIndex:0,State:'SetState_NotComplete',GroupsCollectionItems:m,UnknownMarker:'preserve'}]}],ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',Inventory:{[target]:{Amount:2},[peer]:{Amount:1}}}}},Opaque:{[target]:false,keep:Array.from({length:1100},(_,i)=>('Q'+i+':').padEnd(1024,'z'))}};
+          const b=makeSyntheticP1gProfile(d),expected=structuredClone(d);expected.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems[target]=true;
+          await mkdir('tests/stage-f/fixtures',{recursive:true});await writeFile('tests/stage-f/fixtures/qa-collection.p1g',b);await writeFile('tests/stage-f/fixtures/qa-collection.json',JSON.stringify({originalSha256:createHash('sha256').update(b).digest('hex'),expected:JSON.stringify(expected)}));
+          NODE
+          cat > tests/dev-amount-ui-chrome/qa-qrw1378.mjs <<'NODE'
+          // 08 WEB DEV/OFF local-only Svelte GUI Chrome check, PUBLIC MOCK Worker only.
+          // The temporary /test-dev-collection route is created exclusively inside CI;
+          // it is not committed into src/routes and cannot be on protected Pages.
+          // This checks UI behavior/geometry, NOT PR929 real Rust or real owner P1G.
+          import {spawn,spawnSync} from 'node:child_process';
+          import {mkdtemp,readFile,rm,mkdir,readdir,writeFile} from 'node:fs/promises';
+          import {existsSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join,resolve} from 'node:path';
+          import {fileURLToPath} from 'node:url';
+          import {setTimeout as sleep} from 'node:timers/promises';
+          import assert from 'node:assert/strict';
+          const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
+          const port=Number(process.env.QA_PORT),origin='http://127.0.0.1:'+port;
+          const profile=await mkdtemp(join(tmpdir(),'wand-dev-amount-chrome-'));
+          const downloadPath=join(profile,'downloads');await mkdir(downloadPath);
+          const browserBin=[process.env.WAND_CHROME_BIN,'google-chrome','google-chrome-stable','chromium']
+           .filter(Boolean).find(bin=>spawnSync('which',[bin],{stdio:'ignore'}).status===0);
+          if(!browserBin)throw Error('ENV_WAIT_DEP_GOOGLE_CHROME');
+          let server,chrome,ws,sequence=0;const pending=new Map(),network=[],downloadGuids=new Set();
+          const rpc=(method,params={})=>new Promise((resolve,reject)=>{
+           const id=++sequence;pending.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));
+          });
+          async function attach(){
+           const file=join(profile,'DevToolsActivePort');let debugPort=0;
+           for(let n=0;n<150;n++){
+            if(existsSync(file)){debugPort=Number((await readFile(file,'utf8')).split('\n')[0]);if(debugPort)break}
+            await sleep(120);
+           }
+           if(!debugPort)throw Error('ENV_CHROME_NO_DEBUG_PORT');
+           let url;
+           for(let n=0;n<100;n++){
+            try{const r=await fetch('http://127.0.0.1:'+debugPort+'/json/list');
+              url=(await r.json()).find(x=>x.type==='page')?.webSocketDebuggerUrl;if(url)break}catch{}
+            await sleep(100);
+           }
+           if(!url)throw Error('ENV_CHROME_NO_TARGET');
+           ws=new WebSocket(url);
+           await new Promise((ok,bad)=>{ws.addEventListener('open',ok,{once:true});
+            ws.addEventListener('error',bad,{once:true})});
+           ws.addEventListener('message',e=>{
+            let m;try{m=JSON.parse(String(e.data))}catch{return}
+            if(['Browser.downloadWillBegin','Page.downloadWillBegin'].includes(m.method)&&m.params?.guid)downloadGuids.add(m.params.guid);
+            if(m.method==='Network.requestWillBeSent')network.push({method:m.params?.request?.method,
+              url:m.params?.request?.url});
+            const p=pending.get(m.id);if(!p)return;pending.delete(m.id);
+            if(m.error)p.reject(Error(JSON.stringify(m.error)));else p.resolve(m.result);
+           });
+          }
+          const script="(async()=>{\n const q=()=>window.__qa,p=()=>document.querySelector('[data-collection-exact1]'),el=s=>p()?.querySelector(s),find=t=>Array.from(p()?.querySelectorAll('button')||[]).find(b=>b.textContent.trim()===t);\n const need=(v,k)=>{if(!v)throw Error('QA1378_'+k)};\n const wait=async(fn,k)=>{for(let i=0;i<1500;i++){if(q()?.error)throw Error(q().error);if(fn())return;await new Promise(r=>setTimeout(r,25))}throw Error('QA1378_WAIT_'+k+' '+p()?.textContent.slice(0,260))};\n const input=()=>el('#collection-local-file'),open=()=>el('[data-collection-open]'),select=()=>el('#collection-local-build'),confirm=()=>el('.check input');\n const click=t=>{const b=find(t);need(b&&!b.disabled,'CLICK_'+t);b.click()};\n const settled=()=>input()&&!input().disabled;\n const profile=new URL(location.href).searchParams.get('profile');\n await wait(()=>q()?.ready&&input(),'MOUNT');q().setLocale('en');await q().probe();need(q().rawDenials===4,'PORT_DENIALS');\n const [r,m]=await Promise.all([fetch('/qa-collection/qa-collection.p1g'),fetch('/qa-collection/qa-collection.json')]);need(r.ok&&m.ok,'FIXTURE');const bytes=new Uint8Array(await r.arrayBuffer()),meta=await m.json();\n const pick=(name='synthetic.p1g')=>{const d=new DataTransfer();d.items.add(new File([bytes],name));input().files=d.files;input().dispatchEvent(new Event('change',{bubbles:true}))};\n const build=()=>{select().value=profile;select().dispatchEvent(new Event('change',{bubbles:true}))};\n const attest=()=>{confirm().checked=true;confirm().dispatchEvent(new Event('change',{bubbles:true}))};\n need(p().dataset.productWriter==='off'&&p().dataset.publicRoute==='off','FLAGS');\n need(open().disabled,'NO_FILE');build();await wait(()=>confirm(),'BUILD');attest();need(open().disabled,'NO_FILE_ATTESTED');\n let n=q().closeDone;pick('bad.txt');await wait(()=>q().closeDone===n+1&&settled(),'BAD_FILE_SELECTED');need(open().disabled&&!confirm().checked,'RESELECT_CONFIRM');attest();await wait(()=>!open().disabled,'BAD_FILE_ATTEST');open().click();\n await wait(()=>settled()&&el('[role=alert]'),'BAD_FILE_DENIED');need(q().opens===0,'BAD_FILE_NO_WORKER');\n n=q().closeDone;pick();await wait(()=>q().closeDone===n+1&&settled(),'FILE_SELECTED');need(open().disabled&&!confirm().checked,'UNCONFIRMED');\n // Switch the build selection, then return: confirmation must be reset.\n attest();select().value=profile==='switch'?'steam-windows':'switch';select().dispatchEvent(new Event('change',{bubbles:true}));await wait(()=>!confirm().checked,'BUILD_CHANGE_REVOKE');need(open().disabled,'BUILD_REVOKED');build();await wait(()=>select().value===profile,'BUILD_RETURN');attest();\n await wait(()=>!open().disabled,'OPEN_READY');open().click();await wait(()=>find('Verify encrypted original backup')&&!find('Verify encrypted original backup').disabled,'OPENED');\n need(q().opens===1&&!find('Stage exact change'),'NO_STAGE_BEFORE_BACKUP');\n click('Verify encrypted original backup');await wait(()=>find('Review change')&&!find('Review change').disabled,'BACKED');\n need(el('#collection-exact1-target').options.length===1&&el('#collection-exact1-target').options[0].textContent.includes('40004511'),'EXACT_TARGET');\n click('Review change');await wait(()=>find('Stage exact change')&&!find('Stage exact change').disabled,'PREVIEW');\n need(el('.preview').textContent.includes('Uncollected')&&el('.preview').textContent.includes('Collected')&&el('.preview').textContent.includes('2'),'EXACT_PREVIEW');\n click('Stage exact change');await wait(()=>find('Undo')&&!find('Undo').disabled,'STAGE');need(q().stages===1,'ONE_STAGE');\n click('Undo');await wait(()=>find('Redo')&&!find('Redo').disabled,'UNDO');click('Redo');await wait(()=>find('Save separate encrypted copy')&&!find('Save separate encrypted copy').disabled,'REDO');\n let d=q().downloads;click('Download original backup');await wait(()=>q().downloads===d+1&&!find('Download original backup').disabled,'BACKUP_DOWNLOAD');\n click('Save separate encrypted copy');await wait(()=>q().exported&&find('Download edited copy')&&!find('Download edited copy').disabled,'EXPORT');\n const out=q().exported;need(out.freshWorkerReopenVerified===true&&out.independentProcessReopenVerified===false&&out.writerAuthorized===false,'FRESH_REOPEN');\n d=q().downloads;click('Download edited copy');await wait(()=>q().downloads===d+1&&!find('Download edited copy').disabled,'EDITED_DOWNLOAD');\n n=q().closeDone;q().mode='forged';click('Close session');await wait(()=>q().closeDone===n+1&&el('[role=alert]')&&find('Close session')&&!find('Close session').disabled,'FORGED_CLOSE');\n need(!input()&&!find('Download edited copy')&&!open(),'FAILED_CLOSE_REVOKED');\n q().mode='ok';n=q().closeDone;click('Close session');await wait(()=>q().closeDone===n+1&&settled(),'CLOSE_RETRY');need(open().disabled&&!confirm().checked,'RETRY_NO_FILE');\n q().mode='hold';pick();await wait(()=>q().held&&input().disabled,'HELD_CLOSE');need(open().disabled,'PENDING_DENY');pick('ignored.p1g');q().mode='ok';q().held();await wait(()=>settled()&&p().textContent.includes('synthetic.p1g'),'SAME_FILE_RESELECT');\n attest();await wait(()=>!open().disabled,'REOPEN_READY');open().click();await wait(()=>find('Verify encrypted original backup')&&!find('Verify encrypted original backup').disabled,'REOPEN');need(q().opens===2&&q().stages===1,'FRESH_SAME_FILE');\n click('Close session');await wait(()=>settled()&&open().disabled,'FINAL_CLOSE');\n return {pass:true,profile,opens:q().opens,stages:q().stages,backup:out.backupName,edited:out.editedCopyName,editedSha:out.editedSha256,sourceSha:meta.originalSha256,writer:false,rawDenials:q().rawDenials};\n})()";
+          
+          try{
+           server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port',String(port),'--strictPort'],
+            {cwd:root,env:{...process.env,BASE_PATH:''},stdio:'ignore'});
+           let served=false;
+           for(let n=0;n<180;n++){
+            if(server.exitCode!==null)throw Error('DEV_SERVER_EXITED');
+            try{const r=await fetch(origin+'/test-dev-collection/');
+             if(r.status===200){served=true;break}}catch{}
+            await sleep(130);
+           }
+           if(!served)throw Error('ENV_DEV_SERVER_UNAVAILABLE');
+           chrome=spawn(browserBin,['--headless=new','--no-sandbox','--disable-dev-shm-usage',
+            '--disable-gpu','--remote-allow-origins=*','--remote-debugging-port=0',
+            '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
+           await attach();await rpc('Page.enable');await rpc('Runtime.enable');await rpc('Network.enable');
+           await rpc('Browser.setDownloadBehavior',{behavior:'allow',downloadPath,eventsEnabled:true});
+           await rpc('Emulation.setDeviceMetricsOverride',{width:320,height:800,
+            deviceScaleFactor:1,mobile:false});
+           await rpc('Page.navigate',{url:origin+'/test-dev-collection/?profile='+process.env.WAND_QA_PROFILE});
+           let ready=false;
+           for(let n=0;n<150;n++){
+            try{const r=await rpc('Runtime.evaluate',{expression:"location.pathname==='/test-dev-collection/' && document.readyState==='complete' && window.__qa?.ready===true && !!document.querySelector('[data-collection-exact1]')",
+               returnByValue:true});if(r.result?.value===true){ready=true;break}}catch{}
+            await sleep(60);
+           }
+           if(!ready)throw Error('DEV_CHROME_NAVIGATION_FAILED');
+           const controller=new AbortController();
+           let evaluation;
+           try{evaluation=await Promise.race([
+            rpc('Runtime.evaluate',{expression:script,returnByValue:true,awaitPromise:true}),
+            sleep(110000,undefined,{signal:controller.signal}).then(()=>{throw Error('DEV_CHROME_TIMEOUT')})
+           ])}finally{controller.abort()}
+           if(evaluation.exceptionDetails)throw Error(
+            'DEV_CHROME_EVAL_'+String(evaluation.exceptionDetails.exception?.description||
+              evaluation.exceptionDetails.text).slice(0,800));
+           const result=evaluation.result?.value;
+           assert.equal(result?.pass,true,'DEV_UI_CHROME_PASS');
+          
+           const {p1gPackagedProfileCodec}=await import('../../src/lib/ddv/core/save/p1g-packaged-profile-codec.js');
+           const {createHash}=await import('node:crypto');
+           const meta=JSON.parse(await readFile(join(root,'static/qa-collection','qa-collection.json'),'utf8'));
+           assert.equal(result.opens,2);assert.equal(result.stages,1);assert.equal(result.writer,false);assert.equal(result.rawDenials,4);
+           assert.notEqual(result.backup,result.edited);
+           const backupPath=join(downloadPath,result.backup),editedPath=join(downloadPath,result.edited);
+           for(let n=0;n<150&&(!existsSync(backupPath)||!existsSync(editedPath));n++)await sleep(100);
+           const backup=await readFile(backupPath),edited=await readFile(editedPath);
+           assert.deepEqual(backup,await readFile(join(root,'static/qa-collection','qa-collection.p1g')));
+           assert.equal(createHash('sha256').update(edited).digest('hex'),result.editedSha);
+           assert.equal((await p1gPackagedProfileCodec.loadProfile(new Uint8Array(edited))).jsonText,meta.expected);
+           assert.equal(createHash('sha256').update(backup).digest('hex'),meta.originalSha256);
+           assert.equal(downloadGuids.size,2);assert.deepEqual((await readdir(downloadPath)).sort(),[result.backup,result.edited].sort());
+           assert.ok(network.every(r=>r.method==='GET'),'NO_POST_PUT_UPLOAD');
+           console.log('QRW_ACT1020_COLLECTION_LOCAL_UI_PASS',JSON.stringify({profile:result.profile,opens:result.opens,stages:result.stages,closes:result.closes,actualDiskDownloads:2,exactFullDocument:true,writerAuthorized:false}));
+          
+          }catch(error){
+           console.error('08WEB_DEV_UI_CHROME_FAIL',String(error?.stack||error).slice(0,1300));
+           process.exitCode=1;
+          }finally{
+           for(const p of pending.values())p.reject(Error('CLOSED'));pending.clear();
+           try{ws?.close()}catch{}
+           if(chrome){chrome.kill('SIGTERM');await sleep(180);
+            if(chrome.exitCode===null)chrome.kill('SIGKILL')}
+           if(server){server.kill('SIGTERM');await sleep(180);
+            if(server.exitCode===null)server.kill('SIGKILL')}
+           await rm(profile,{recursive:true,force:true,maxRetries:3});
+          }
+          NODE
+          node --check tests/dev-amount-ui-chrome/qa-qrw1378.mjs
+          node --check tests/.qa-qrw1378-fixture.mjs
+      - name: Build fixed Collection WASM and synthetic fixture
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path /tmp/wand-qrw1378-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-collection-scoped,product-amount-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrw1378-tools
+          mkdir -p tests/stage-e/pkg static/qa-collection
+          /tmp/wand-qrw1378-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node tests/.qa-qrw1378-fixture.mjs
+          cp tests/stage-f/fixtures/qa-collection.{p1g,json} static/qa-collection/
+          cp tests/stage-e/pkg/ddv_save_core_bg.wasm static/qa-collection/
+          cmp tests/stage-e/pkg/ddv_save_core_bg.wasm static/qa-collection/ddv_save_core_bg.wasm
+          npm ci --no-audit --no-fund
+      - name: Actual Chrome Collection Steam and Switch local UI (one build, distinct sessions)
+        run: |
+          QA_PORT=4191 WAND_QA_PROFILE=steam-windows node tests/dev-amount-ui-chrome/qa-qrw1378.mjs
+          QA_PORT=4192 WAND_QA_PROFILE=switch node tests/dev-amount-ui-chrome/qa-qrw1378.mjs
+      - name: Combined WASM legacy Amount actual P1G and OPFS compatibility
+        run: |
+          set -euo pipefail
+          /tmp/wand-qrw1378-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-qrw-amount-pkg --target nodejs --no-typescript
+          WAND_SCOPED_BROWSER_FIXTURE_DIR=tests/stage-f/fixtures WAND_SCOPED_WASM_MODULE=/tmp/wand-qrw-amount-pkg/ddv_save_core.js node tests/product-scoped-amount-actual.mjs
+          node tests/stage-f/generate-fixture.mjs
+          WAND_REQUIRE_SCOPED_OPFS=1 node tests/stage-f/chrome-smoke.mjs
+      - name: No tracked product edit or private Save
+        run: |
+          git diff --exit-code HEAD
+          test -z "$(git ls-files '*.p1g')"
