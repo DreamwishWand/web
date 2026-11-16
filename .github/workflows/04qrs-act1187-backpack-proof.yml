@@ -1,0 +1,87 @@
+name: 04 QR-S Backpack dedicated proof (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1187-backpack-proof.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f45313b52f8a6bbdb96de12432d336d1af9304d5
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed source and independent Build boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "f45313b52f8a6bbdb96de12432d336d1af9304d5"
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-backpack-proof.mjs)" = "e56181899b274e6b2fe7ecde5ad25779f6d9138c"
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = "7969122897ebc81bb249dda14d578038a9ffe9e2"
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = "e4d2947302b269260162acfa52c8d2dcc7bd5608"
+          test "$(git rev-parse HEAD:tests/product-scoped-backpack-release.test.mjs)" = "895fe9887ea88f14024676e73e9fdf2ec21cc8cc"
+          test "$(git rev-parse HEAD:tests/scoped-backpack-proof.test.mjs)" = "202e82fc0c783f44b7d5e26db3b1ad944b07c0f2"
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = "5b86ff1cf2dc009ba1733bf213e4cb979bf500ec"
+          cat > tests/qa-act1187-backpack-proof.mjs <<'EOF'
+          import test from 'node:test';
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {readFileSync} from 'node:fs';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from '../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {STEAM_BACKPACK_RELEASE as steam,SWITCH_BACKPACK_RELEASE as sw,validatePlacementAnchor} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {fixedBackpackProofScope,inspectBackpackSubjects,privateBackpackIdentity,replacePrivateBackpackAnchor} from '../scripts/readonly-release/scoped-backpack-proof.mjs';
+          const source='a'.repeat(40),sha=b=>createHash('sha256').update(b).digest('hex');
+          const u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a};
+          const str=s=>[...u(Buffer.byteLength(s)),...Buffer.from(s)],sec=(id,b)=>[id,...u(b.length),...b];
+          function wasm(s,extra=false){
+           const es=[...s.exports,...(extra?['workerwasmsource_stage_extra']:[])];
+           const exports=es.flatMap(n=>[...str(n),n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);
+           return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(es.length),...exports]),...sec(10,[1,2,0,11])]);
+          }
+          function subject(s,w=wasm(s),js=Buffer.from('export default function(){}'),patch={}){
+           const m={contract:s.prefix+'.runtime@1',operation:s.operation,source:{repository:tuple.repository,commit:source,cargoTomlSha256:'b'.repeat(64),cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:s.features,defaultFeatures:false,toolchain:'rustc 1.99.1 (test)'},assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:sha(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}},abi:{exportClass:'WorkerWasmSource',methods:s.methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false},...patch};
+           return [Buffer.from(JSON.stringify(m)),js,w];
+          }
+          import {placementExportsOk,placementAnchorShapeOk,COMP03_RELEASE,VASE_ADD_RELEASE} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          let pos=0,neg=0;
+          const yes=(n,f)=>{f();pos++};
+          const no=(n,f)=>{assert.throws(f,undefined,n);neg++};
+          const prior=readFileSync(new URL('../src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs',import.meta.url),'utf8');
+          const sha256=b=>createHash('sha256').update(b).digest('hex');
+          const expectedMethods=key=>['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','preview_'+key+'_backpack_split','stage_'+key+'_backpack_split','toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close'];
+          function moduleBytes(names,wrongKind=null){
+           const es=names.flatMap(n=>[...str(n),n===wrongKind?0:n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);
+           return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(names.length),...es]),...sec(10,[1,2,0,11])]);
+          }
+          for(const [s,o,key,build,platform] of [[steam,sw,'steam626','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22','steam-windows'],[sw,steam,'switch626','9A239D3DB569756D','switch']]){
+           const methods=expectedMethods(key), names=['memory','__wbg_workerwasmsource_free','workerwasmsource_new',...methods.map(n=>'workerwasmsource_'+n),'__wbindgen_externrefs','__wbindgen_malloc','__externref_table_dealloc','__wbindgen_realloc','__wbindgen_free','__wbindgen_start'].sort();
+           const b=subject(s,moduleBytes(names),Buffer.from(methods.join(' '))),p=inspectBackpackSubjects(s,b,source),m=JSON.parse(b[0]);
+           yes(key+' exact ABI and pins',()=>{assert.deepEqual(s.methods,methods);assert.deepEqual(s.exports,names);assert.deepEqual(s.features,['product-'+key+'-backpack-scoped','worker-wasm']);assert.equal(s.buildId,build);assert.equal(s.platform,platform);assert.equal(p.manifestSha256,sha256(b[0]));assert.equal(p.jsSha256,sha256(b[1]));assert.equal(p.wasmSha256,sha256(b[2]));assert.equal(p.manifestSizeBytes,b[0].length);assert.equal(p.jsSizeBytes,b[1].length);assert.equal(p.wasmSizeBytes,b[2].length);assert.equal(placementExportsOk(s,new WebAssembly.Module(b[2])),true)});
+           for(const [n,x] of [['missing',b.slice(0,2)],['extra',[...b,b[0]]],['order',[b[1],b[0],b[2]]],['invalid JSON',[Buffer.from('{'),...b.slice(1)]],['invalid utf8',[Buffer.from([255]),...b.slice(1)]],['empty JS',[b[0],Buffer.alloc(0),b[2]]],['manifest cap',[Buffer.alloc(65537),...b.slice(1)]],['JS cap',[b[0],Buffer.alloc(2*1024*1024+1),b[2]]],['WASM cap',[b[0],b[1],Buffer.alloc(20*1024*1024+1)]],['JS changed',[b[0],Buffer.from('x'),b[2]]],['WASM changed',[b[0],b[1],Buffer.from([0])]]])no(n,()=>inspectBackpackSubjects(s,x,source));
+           for(const n of [...o.methods.filter(n=>n.includes('backpack_split')),'discover_scoped_amount','preview_scoped_amount','stage_scoped_amount','toggle_scoped_amount','begin_scoped_amount_output','next_scoped_amount_output_chunk','preview_scoped_collection_candidate','stage_fixed_collection','preview_switch626_chest','stage_switch626_catalog0','stage_steam626_comp03','stage_steam626_vase_add','private_native','dev_stage']){
+           no('foreign JS '+n,()=>inspectBackpackSubjects(s,subject(s,undefined,Buffer.from(n)),source));no('foreign export '+n,()=>inspectBackpackSubjects(s,subject(s,moduleBytes([...names,'workerwasmsource_'+n])),source));}
+           no('missing export',()=>inspectBackpackSubjects(s,subject(s,moduleBytes(names.slice(1))),source));
+           no('same name wrong kind',()=>inspectBackpackSubjects(s,subject(s,moduleBytes(names,'memory')),source));
+           for(const patch of [{operation:o.operation},{source:{...m.source,features:['product-backpack-scoped','worker-wasm']}},{source:{...m.source,features:o.features}},{source:{...m.source,features:[s.features[0],o.features[0],'worker-wasm']}},{source:{...m.source,features:[s.features[0],'product-amount-scoped','worker-wasm']}},{source:{...m.source,defaultFeatures:true}},{source:{...m.source,cargoLockSha256:'0'.repeat(64)}},{source:{...m.source,repository:'foreign/repo'}},{abi:{...m.abi,methods:o.methods}},{abi:{...m.abi,writerAuthorized:true}},{release:{...m.release,autoUpload:true}},{release:{...m.release,productConsumerEnabled:true}},{extra:true}])no('manifest patch',()=>inspectBackpackSubjects(s,subject(s,undefined,undefined,patch),source));
+           no('opposite subject',()=>inspectBackpackSubjects(o,b,source));no('wrong source',()=>inspectBackpackSubjects(s,b,'c'.repeat(40)));
+           const a=privateBackpackIdentity(s,p,'http://127.0.0.1:4188');assert.equal(await validatePlacementAnchor(s,a),true);
+           yes('private identity',()=>{assert.equal(a.builds[0].platform,platform);assert.equal(a.builds[0].buildId,build);assert.equal(a.builds[0].productV2EvidenceSha256,null);assert.equal(a.mode,'private-product-v2');assert.equal(a.operation,s.operation);assert.equal(placementAnchorShapeOk(o,a),false)});
+           for(const origin of ['https://127.0.0.1:4188','http://localhost:4188','http://127.0.0.1:65536','http://127.0.0.1:4188/x',tuple.origin])no('origin',()=>privateBackpackIdentity(s,p,origin));
+           for(const change of [{...tuple,signerWorkflow:'foreign/workflow'},{...tuple,sourceRef:'refs/heads/other'},{...tuple,repository:'foreign/repo'}])no('issuer',()=>inspectBackpackSubjects(s,b,source,change));
+           const name='PROTECTED_'+(s===steam?'STEAM':'SWITCH')+'_BACKPACK_RELEASE_ANCHOR',otherName='PROTECTED_'+(s===steam?'SWITCH':'STEAM')+'_BACKPACK_RELEASE_ANCHOR',marker='export const '+name+'=null;',otherMarker='export const '+otherName+'=null;';
+           const out=replacePrivateBackpackAnchor(s,prior,a),[before,after]=prior.split(marker);
+           yes('exact selected marker only',()=>{assert.ok(out.startsWith(before));assert.ok(out.endsWith(after));assert.equal(out.split(otherMarker).length,2);assert.equal(out.split(marker).length,1);assert.equal((out.match(/export const /g)||[]).length,2);assert.ok(out.includes('export const '+name+'=Object.freeze('));});
+           for(const x of [prior.replace(marker,''),prior+marker,prior.replace(otherMarker,''),prior+otherMarker,out])no('anchor prior shape',()=>replacePrivateBackpackAnchor(s,x,a));
+           no('foreign anchor',()=>replacePrivateBackpackAnchor(o,prior,a));no('public mode',()=>replacePrivateBackpackAnchor(s,prior,{...a,mode:'public-accepted'}));no('forged release id',()=>replacePrivateBackpackAnchor(s,prior,{...a,releaseId:'f'.repeat(64)}));
+          }
+          yes('committed both null',()=>{assert.equal(prior.match(/=null;/g).length,2);assert.equal(COMP03_RELEASE.methods.length,13);assert.equal(VASE_ADD_RELEASE.methods.length,13)});
+          no('unknown fixed scope',()=>fixedBackpackProofScope('steam626'));
+          console.log('ACT1187_BACKPACK_PROOF_L2_PASS',JSON.stringify({pos,neg,actualWasmModule:true,syntheticSubjects:true,actualSignature:false,publicGrant:false}));
+          
+          EOF
+          node tests/qa-act1187-backpack-proof.mjs
