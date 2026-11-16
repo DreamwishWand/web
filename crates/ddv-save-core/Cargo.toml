@@ -24,6 +24,8 @@ product-collection-scoped = ["indexed-read"]
 
 # ACT916 scoped product candidate, explicitly excluded from current Pages.
 product-amount-scoped = ["semantic-writer-dev"]
+# Exact Switch626 Catalog0 release surface; no distribution authority.
+product-switch626-catalog0-scoped = ["product-amount-scoped"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
