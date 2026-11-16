@@ -4,10 +4,10 @@ const sha=b=>createHash('sha256').update(b).digest('hex'),root='/tmp/qrc1904-';
 const BID='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
 const cls=m=>require(root+m+'/ddv_save_core.js').WorkerWasmSource;
 const methods=m=>Object.getOwnPropertyNames(cls(m).prototype).filter(k=>!['constructor','free','__destroy_into_raw'].includes(k)).sort();
-const exports=m=>WebAssembly.Module.exports(new WebAssembly.Module(fs.readFileSync(root+m+'/ddv_save_core_bg.wasm'))).map(k=>k.name);
+const wasmExports=m=>WebAssembly.Module.exports(new WebAssembly.Module(fs.readFileSync(root+m+'/ddv_save_core_bg.wasm'))).map(k=>k.name);
 const five=['preview_steam626_makeup_color1','stage_steam626_makeup_color1','toggle_steam626_makeup_color1','begin_steam626_makeup_color1_output','next_steam626_makeup_color1_output_chunk'];
 for(const mode of ['off','own','mixed']){
- const names=methods(mode),wasm=exports(mode);
+ const names=methods(mode),wasm=wasmExports(mode);
  a.equal(new Set(names).size,names.length);
  for(const f of five){
   a.equal(names.includes(f),mode==='own',mode+' JS '+f);
