@@ -9,6 +9,10 @@ use super::indexed_read::{self,Span};
 use crate::{CoreError,CoreResult,strict_document::validate_entire_document};
 use sha2::{Digest,Sha256};
 
+#[cfg(feature="product-amount-scoped")]
+#[path="product_amount_scoped.rs"]
+mod product_amount_scoped;
+
 const EXACT_STEAM:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
 const MAX_TX_COMMANDS:usize=16;
 const MAX_MAP_ID:u64=u32::MAX as u64;
@@ -375,6 +379,12 @@ impl ProductSession{
     pub fn stage_typed_semantic_batch(
         &self,e:WorkerEnvelope,commands:&[TypedSemanticCommand]
     )->CoreResult<SemanticStageReceipt>{
+        if self.worker_bound{return Err(denied("SEMANTIC_RAW_WORKER_COMMAND_DENIED"));}
+        self.stage_typed_semantic_batch_inner(e,commands)
+    }
+    fn stage_typed_semantic_batch_inner(
+        &self,e:WorkerEnvelope,commands:&[TypedSemanticCommand]
+    )->CoreResult<SemanticStageReceipt>{
         build_check(self)?;
         if commands.is_empty()||commands.len()>MAX_TX_COMMANDS{
             return Err(denied("SEMANTIC_BATCH_BOUNDS"));
@@ -429,7 +439,10 @@ impl ProductSession{
         st.generation=gen;
         receipt(self,&st)
     }
-    #[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
+    // Same exact typed Bool replacement for the private native and the
+    // separately scoped fixed-definition product Core Stage. Neither path
+    // may pass caller spans; both resolve/recheck via the domain scanner.
+    #[cfg(any(all(feature="private-native-v1",not(target_arch="wasm32")),feature="product-collection-scoped"))]
     pub(super) fn commit_private_collection_bool(&self,e:WorkerEnvelope,span:Span)->CoreResult<SemanticStageReceipt>{
         self.commit_semantic_replacements(e,vec![Replacement{span,old:b"false".to_vec(),new:b"true".to_vec()}],1,None)
     }
@@ -864,7 +877,7 @@ impl ProductSession {
         };
         // The existing Writer performs duplicate/overlap checks, exact
         // old-token CAS, full document validation and final locked epoch CAS.
-        self.stage_typed_semantic_batch(e,&commands)
+        self.stage_typed_semantic_batch_inner(e,&commands)
     }
 }
 

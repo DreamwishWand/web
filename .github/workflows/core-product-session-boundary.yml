@@ -51,6 +51,10 @@ jobs:
             --features worker-wasm,indexed-read,semantic-writer-dev
           # Public Pages feature set is strictly worker-wasm,indexed-read.
           grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+      - name: ACT916 scoped amount candidate native and opt-in Worker compile
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped --lib product_amount_scoped --verbose
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped
       - name: Compile WASM Worker plus opt-in indexed-read types without binding to UI
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read
       - name: Rust wasm32 ABI compilation (no UI/bundle assumption)
@@ -59,9 +63,27 @@ jobs:
         run: node --test tests/product-wasm-read-owner.test.mjs
       - name: Stage D trusted Worker typed metadata and entropy negative tests
         run: node --test tests/product-wasm-typed-read-owner.test.mjs
+      - name: Collection product candidate only (dual Build native and WASM typecheck)
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-collection-scoped --lib product_collection_source_tests --verbose
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-collection-scoped
+      - name: Collection fixed effective Stage (same ledger, both Build scopes, no public ABI)
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-collection-scoped,semantic-writer-dev --lib product_collection_source_tests --verbose
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-collection-scoped,semantic-writer-dev
+      - name: Combined scoped Amount and Collection feature compile
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped,product-collection-scoped --lib product_amount_scoped --verbose
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped,product-collection-scoped --lib product_collection_source_tests --verbose
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped,product-collection-scoped
       - name: Reject embedded private files or Writer promotion
         shell: bash
         run: |
           test -f crates/ddv-save-core/src/product_session.rs
           test -f crates/ddv-save-core/src/strict_document.rs
-          ! grep -R -E 'include_(bytes|str)!|STEAM_SAVE_OWNER_PRIVATE|writer_authorized: *true|apply_authorized: *true' crates/ddv-save-core/src
+          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|writer_authorized: *true|apply_authorized: *true' crates/ddv-save-core/src
+          # Exact path + literal allowlist, SHA-pinned public-derived metadata only.
+          includes="$(git grep -n -E 'include_(bytes|str)!' HEAD -- crates/ddv-save-core/src | cut -d: -f1,2,4-)"
+          expected="$(printf '%s\n' 'HEAD:crates/ddv-save-core/src/private_collection_read.rs:const PRODUCT_PACK:&[u8]=include_bytes!("../data/collection-furniture-626.json");' 'HEAD:crates/ddv-save-core/src/product_amount_scoped.rs:const ELIG:&str=include_str!("../data/steam626-amount-packaged-candidates.json");' 'HEAD:crates/ddv-save-core/src/product_amount_scoped.rs:const DEP:&str=include_str!("../data/steam626-amount-dependency-projection.json");' 'HEAD:crates/ddv-save-core/src/product_amount_scoped.rs:const LAYOUT:&str=include_str!("../data/steam626-amount-layout-reference.jsonl");')"
+          test "$includes" = "$expected"
+          printf '%s\n' 'b9ebc7bebf2c3e1df274b9a98a7b7276896270faa303a41657ecc6c56db84f4f  crates/ddv-save-core/data/collection-furniture-626.json' '05a6bea5582232b27569dbb71f8666d7d60c11a35515d844d2f21b2ae557b23d  crates/ddv-save-core/data/steam626-amount-packaged-candidates.json' '78a1ba539b2e6f43182cea2c2ea35c9d10e51f27d4adbb8d4dbc6cce7f7dcd65  crates/ddv-save-core/data/steam626-amount-dependency-projection.json' '501ba50d0a6f02ff09080357424f3ae5b3f17644ed64d7830566586baf6fce6f  crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl' | sha256sum -c -
