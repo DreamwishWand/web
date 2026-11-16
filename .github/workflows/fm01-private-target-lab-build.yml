@@ -1,0 +1,82 @@
+name: ACT1402 fixed FM01 private-lab executable transport (NO SAVE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/fm01-private-target-lab-build.yml'
+permissions:
+  contents: read
+jobs:
+  build-only:
+    if: github.head_ref == '01b/act1402-fm01-private-target-lab' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 97117e2d843c6a0239490626e7f99063bd51b649
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Fixed source and approved Lock; add ignored transport-only test in temporary checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 97117e2d843c6a0239490626e7f99063bd51b649
+          p=crates/ddv-save-core/src/fm01_product_target.rs
+          test "$(git hash-object "$p")" = 375881706cd2a64284b4fcfc0c34ac89b6a2989a
+          test "$(git hash-object crates/ddv-save-core/src/sr03_installed_geometry.rs)" = f6b89521ed756c13b925a61e1a94486ede6f44e9
+          test "$(git hash-object scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cat >> "$p" <<'RS'
+
+          #[cfg(all(test,not(target_arch="wasm32")))]
+          mod private_fm01_lab {
+              use super::*;
+              use std::{env,fs};
+              fn hex32(v:&[u8;32])->String{v.iter().map(|x|format!("{x:02x}")).collect()}
+              #[test]
+              #[ignore="authorized local input only; never execute in CI"]
+              fn genuine_fm01_current_target(){
+                  let path=env::var("WAND_FM01_PRIVATE_DECODED").expect("local input");
+                  let bytes=fs::read(&path).expect("local input");
+                  let plan:Value=serde_json::from_slice(&fs::read(env::var("WAND_FM01_PRIVATE_EXPECT").unwrap()).unwrap()).unwrap();
+                  let expected=&plan["target"];
+                  let num=|v:&Value|v.as_u64().and_then(|n|u32::try_from(n).ok()).unwrap();
+                  assert_eq!(hex32(&sha(&bytes)),expected["decodedSha"].as_str().unwrap());
+                  let mut s=ProductSession::open_decoded_readonly(bytes,crate::BuildIdentity{
+                      platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+                  s.worker_bound=true;let before=s.receipt().unwrap();
+                  let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:before.session_id,expected_revision:before.revision,expected_index_generation:before.index_generation,expected_decoded_sha256:before.decoded_sha256,action:WorkerAction::ReadDomain};
+                  let ids:[u32;5]=std::array::from_fn(|i|num(&expected["ids"][i]));
+                  let t=s.mint_switch626_fm01_target(e,num(&expected["grid"]),ids).expect("genuine target");
+                  let actual=serde_json::json!({"decodedSha":hex32(&before.decoded_sha256),"grid":t.grid,"ids":t.ids,"next":t.next,"stock":t.stock,"pairs":t.pairs,"rootSha":hex32(&t.root_sha),"gridSha":hex32(&t.grid_sha),"counterSha":hex32(&t.counter_sha),"stockSha":hex32(&t.stock_sha),"housesSha":hex32(&t.houses_sha),"oldRowsSha":t.old_rows_sha.iter().map(hex32).collect::<Vec<_>>()});
+                  assert_eq!(&actual,expected,"genuine target receipt");
+                  let bad:[u32;5]=std::array::from_fn(|i|num(&plan["blockedIds"][i]));
+                  assert_eq!(s.mint_switch626_fm01_target(e,t.grid,bad).unwrap_err().0,"FM01_TARGET_GEOMETRY");
+                  assert_eq!(s.receipt().unwrap(),before);
+                  assert_eq!(hex32(&sha(&fs::read(&path).unwrap())),expected["decodedSha"].as_str().unwrap());
+                  println!("FM01_PRIVATE_TARGET_ACTUAL_PASS 1POS1NEG12FIELDS");
+              }
+          }
+          RS
+          # The only tracked workspace delta is the ignored transport harness.
+          test "$(git diff --name-only)" = "$p"
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped --lib switch626_fm01_exact_target_old5_fresh3_and_stock -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped --lib --no-run --message-format=json > "$RUNNER_TEMP/fm01-build.jsonl"
+          mkdir -p "$RUNNER_TEMP/fm01-lab"
+          python3 - "$RUNNER_TEMP" <<'PY'
+          import json, pathlib, shutil, sys, hashlib, subprocess
+          p=pathlib.Path(sys.argv[1]); a=[json.loads(l) for l in (p/'fm01-build.jsonl').read_text().splitlines()]
+          ex=[v['executable'] for v in a if v.get('reason')=='compiler-artifact' and v.get('executable') and v.get('profile',{}).get('test') and v.get('target',{}).get('name') in ('ddv_save_core','ddv-save-core')]
+          assert len(ex)==1, len(ex)
+          out=p/'fm01-lab'; exe=out/'fm01-private-target-test';shutil.copy2(ex[0],exe)
+          h=lambda q:hashlib.sha256(pathlib.Path(q).read_bytes()).hexdigest()
+          m={'source':'97117e2d843c6a0239490626e7f99063bd51b649','binder':'375881706cd2a64284b4fcfc0c34ac89b6a2989a','geometry':'f6b89521ed756c13b925a61e1a94486ede6f44e9','feature':'product-amount-scoped','lockGit':'b667b42cfef2032c2925be7b2aa9b7142bff4b52','lockSha256':h('crates/ddv-save-core/Cargo.lock'),'harnessSha256':h('crates/ddv-save-core/src/fm01_product_target.rs'),'executableSha256':h(exe),'compiler':subprocess.check_output(['rustc','-Vv'],text=True),'purpose':'build-only local ignored test; no actual save in CI'}
+          (out/'manifest.json').write_text(json.dumps(m,sort_keys=True,separators=(',',':'))+'\n')
+          print('FM01_LAB_BUILD_ONLY',m['source'],m['executableSha256'],m['lockSha256'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fm01-fixed-private-target-test
+          path: ${{ runner.temp }}/fm01-lab/
+          if-no-files-found: error
+          retention-days: 1
