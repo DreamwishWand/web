@@ -78,6 +78,7 @@ function replyFile(req,res){
     '/src/lib/ddv/core/save/product-scoped-backpack-transport.mjs',
     '/src/lib/ddv/core/save/product-scoped-wardrobe-transport.mjs',
     '/src/lib/ddv/core/save/product-scoped-appearance-transport.mjs',
+    '/src/lib/ddv/core/save/product-steam626-eyecolor2-transport.mjs',
     '/src/lib/ddv/core/save/product-fixed-collection-transport.mjs',
     '/src/lib/ddv/core/save/local-original-backup.mjs',
     '/src/lib/collection/collection-candidate-read.mjs',
