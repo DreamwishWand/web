@@ -71,7 +71,13 @@ impl ProductSession{
         }
         let incoming=super::super::placement_saved_refs::scan(b,top,gid,None,t.next,t.next.checked_add(1).ok_or(denied("VASE_BINDER_COUNTER"))?)?;
         let selected=bounded_value(b,*grids.get(&gid).ok_or(denied("VASE_BINDER_GRID"))?)?;
-        geometry::check_local_pose(p,EXACT_STEAM,626,&selected,gid,x,y).map_err(denied)?;
+        geometry::check_local_pose_with_ambient(p,EXACT_STEAM,626,&selected,gid,x,y,|guid|{
+            // Same immutable validated World, exact matching GUID. The callback
+            // is internal and cannot be supplied by the public ABI.
+            let kh=f(b,r.world,"Keyholes").map_err(|e|e.0)?;
+            let row=f(b,kh,guid).map_err(|e|e.0)?;
+            need(strv(b,row,"GUID").map_err(|e|e.0)?==guid,"VASE_BINDER_KEYHOLE_GUID").map_err(|e|e.0)
+        }).map_err(denied)?;
         let quota=geometry::check_village_quota(p,EXACT_STEAM,626,&v,&extra,gid,|id|{
             let span=*grids.get(&id).ok_or("VASE_BINDER_QUOTA_GRID")?;
             let grid=bounded_value(b,span).map_err(|e|e.0)?;
