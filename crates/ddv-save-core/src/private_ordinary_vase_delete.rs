@@ -167,4 +167,78 @@ mod ordinary_vase_tests{
             assert_eq!(s.receipt().unwrap(),before);
         }
     }
+
+    #[test]
+    fn qa_delete_exact2_raw_inverse_and_boundaries(){
+        let mut pos=0;let mut neg=0;
+        let (base,base_want)=derived();
+        // Rebind a different stored identity and stock to the current
+        // derivative, with noncanonical unrelated bytes preserved.
+        let mut d=base.clone();let mut want=base_want.clone();
+        let obj=d["World"]["GridCollection"]["Grids"]["7"]["Objects"].as_object_mut().unwrap().remove("9").unwrap();
+        let mut obj=obj;obj["ID"]=json!(99);
+        d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["99"]=obj;
+        d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(100);
+        want["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(100);
+        d["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Amount"]=json!(998);
+        want["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Amount"]=json!(999);
+        let render=|d:&Value| String::from_utf8(enc(d)).unwrap().replace(r#""Unknown":{"keep":true}"#,r#""Unknown" : {"keep":true}"#);
+        let raw=render(&d);let expected=render(&want);
+        let mut p=dp(&d,&want);p["sourceDecodedSha256"]=json!(hash(raw.as_bytes()));p["expectedOutputSha256"]=json!(hash(expected.as_bytes()));
+        p["objectId"]=json!(99);p["nextId"]=json!(100);p["oldStock"]=json!(998);
+        p["objectSha256"]=json!(h(&d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["99"]));
+        let open_raw=|b:&str|ProductSession::open_decoded_readonly(b.as_bytes().to_vec(),crate::BuildIdentity{
+            platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap();
+        let s=open_raw(&raw);let before=s.receipt().unwrap();let e=env(before.clone(),WorkerAction::Stage);
+        let r=s.stage_private_steam626_ordinary_vase_delete_exact2(e,&enc(&p)).unwrap();
+        assert_eq!((r.operation_count,r.exact_field_changed_count),(2,2));assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+        assert_eq!(r.staged_decoded_sha256,sha(expected.as_bytes()));
+        s.undo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());neg+=1;
+        s.redo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        let ex=env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+        assert_eq!(s.take_typed_semantic_decoded_once(ex).unwrap(),expected.as_bytes());
+        assert!(s.take_typed_semantic_decoded_once(ex).is_err());neg+=1;
+        assert_eq!(s.decoded.as_ref(),raw.as_bytes());pos+=1;
+        // All plan hashes recomputed on the actual raw document. Negative
+        // final member structure cannot be explained by stale source CAS.
+        let rebound=|raw:&str,mut p:Value|{
+            let b=raw.as_bytes();let roots=indexed_read::roots(b).unwrap();
+            let g=object_field(b,object_field(b,object_field(b,roots.world,"GridCollection").unwrap(),"Grids").unwrap(),"7").unwrap();
+            let objs=object_field(b,g,"Objects").unwrap();let o=object_field(b,objs,"9").unwrap();
+            let counter=object_field(b,g,"NextGridObjectID").unwrap();
+            let hspan=|s:Span|hash(&b[s.begin..s.end]);
+            p["sourceDecodedSha256"]=json!(hash(b));p["gridSha256"]=json!(hspan(g));
+            p["objectsSha256"]=json!(hspan(objs));p["objectSha256"]=json!(hspan(o));p["counterSha256"]=json!(hspan(counter));p
+        };
+        let raw=String::from_utf8(enc(&base)).unwrap();let map=&base["World"]["GridCollection"]["Grids"]["7"]["Objects"];
+        let oldmap=String::from_utf8(enc(map)).unwrap();
+        let a=String::from_utf8(enc(&map["4"])).unwrap();let z=String::from_utf8(enc(&map["9"])).unwrap();
+        for changed in [
+            raw.replace(&oldmap,&format!("{{\"9\":{z},\"4\":{a}}}")),
+            raw.replace(&oldmap,&format!("{{\"9\":{z}}}")),
+            raw.replace(&oldmap,&format!("{{\"4\":{a},\"9\":{z},\"8\":{}}}",String::from_utf8(enc(&json!({"ID":8,"ItemID":40000001,"X":12,"Y":12,"Orientation":"GridOrientation_Up","State":null}))).unwrap())),
+            raw.replace(&z,&z.replace(r#""ID":9"#,r#""ID" : 9"#)),
+        ]{
+            assert_ne!(changed,raw);
+            let p=rebound(&changed,dp(&base,&base_want));let s=open_raw(&changed);let before=s.receipt().unwrap();
+            assert!(s.stage_private_steam626_ordinary_vase_delete_exact2(env(before.clone(),WorkerAction::Stage),&enc(&p)).is_err());
+            assert_eq!(s.receipt().unwrap(),before);assert_eq!(s.decoded.as_ref(),changed.as_bytes());neg+=1;
+        }
+        let p=dp(&base,&base_want);let mut s=open(&base);let before=s.receipt().unwrap();let e=env(before.clone(),WorkerAction::Stage);
+        for wrong in [WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e},WorkerEnvelope{action:WorkerAction::ReadDomain,..e}]{
+            assert!(s.stage_private_steam626_ordinary_vase_delete_exact2(wrong,&enc(&p)).is_err());neg+=1;
+        }
+        assert_eq!(s.receipt().unwrap(),before);
+        s.worker_bound=true;assert!(s.stage_private_steam626_ordinary_vase_delete_exact2(e,&enc(&p)).is_err());neg+=1;
+        s.worker_bound=false;
+        let mut pretty=serde_json::to_vec_pretty(&p).unwrap();assert!(s.stage_private_steam626_ordinary_vase_delete_exact2(e,&pretty).is_err());neg+=1;
+        pretty=enc(&p);pretty.push(b' ');assert!(s.stage_private_steam626_ordinary_vase_delete_exact2(e,&pretty).is_err());neg+=1;
+        let mut q=p.clone();q["oldStock"]=json!(0);assert!(s.stage_private_steam626_ordinary_vase_delete_exact2(e,&enc(&q)).is_err());neg+=1;
+        q=p.clone();q["oldStock"]=json!(MAX_CONSERVATIVE_AMOUNT);assert!(s.stage_private_steam626_ordinary_vase_delete_exact2(e,&enc(&q)).is_err());neg+=1;
+        assert_eq!(s.receipt().unwrap(),before);
+        s.close().unwrap();assert!(s.stage_private_steam626_ordinary_vase_delete_exact2(e,&enc(&p)).is_err());neg+=1;
+        assert_eq!((pos,neg),(1,14));
+    }
+
 }
