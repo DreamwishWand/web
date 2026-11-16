@@ -393,8 +393,9 @@ impl SpatialExtent {
 /// Source-only Steam v1.25.3 GridArea cell rules, reusing the accepted
 /// cardinal bounds helper. These functions never authenticate caller-owned
 /// masks, floors, object IDs, or occupancy, and never authorize a Writer.
-/// The unit-tessellation subset deliberately excludes mixed tessellation,
-/// noncardinal rotation, walls and higher-level object restrictions.
+/// The layer lookup supports unit tessellation and the exact Grid/Area
+/// 2:1 subset. Other ratios, noncardinal rotation, walls and higher-level
+/// object restrictions are outside this source-only scope.
 impl SpatialExtent {
     /// Raw GridArea layer word at an offset in the ROTATED rectangle.
     /// Native GridArea.TryGetGridLocalPosition maps orientation 0/4/8/12
@@ -409,9 +410,11 @@ impl SpatialExtent {
         grid_tessellation: u32,
         area_tessellation: u32,
     ) -> CoreResult<u32> {
-        if grid_tessellation != 1 || area_tessellation != 1 {
-            return Err(denied("SPATIAL_NATIVE_CELL_TESSELLATION_UNVERIFIED"));
-        }
+        let scale = match (grid_tessellation, area_tessellation) {
+            (1, 1) => 1,
+            (2, 1) => 2,
+            _ => return Err(denied("SPATIAL_NATIVE_CELL_TESSELLATION_UNVERIFIED")),
+        };
         let bounds = self.steam1253_cardinal_bounds(
             build, orientation, grid_tessellation, area_tessellation)?;
         let count = u64::from(self.width)*u64::from(self.height);
@@ -421,6 +424,11 @@ impl SpatialExtent {
         if dx >= bounds.width || dy >= bounds.height {
             return Err(denied("SPATIAL_NATIVE_CELL_OUTSIDE_AREA"));
         }
+        // Native TryGetGridLocalPosition divides nonnegative grid offsets
+        // by grid tessellation before inverse cardinal rotation (area tess=1).
+        // Each raw layer repeats over a 2x2 block in the exact 2:1 subset.
+        // The preceding bounds use grid units; the following use area units.
+        let (dx, dy) = (dx / scale, dy / scale);
         let (x,y) = match orientation {
             0 => (self.width-1-dx,self.height-1-dy),
             4 => (dy,self.height-1-dx),
@@ -494,5 +502,36 @@ impl SpatialExtent {
             }
         }
         Ok(true)
+    }
+}
+
+// Exact candidate-local preview adapter. The existing generic high-bit
+// nonwall guard remains unchanged; do not promote this to a generic mask rule.
+impl SpatialExtent {
+    /// Steam v1.25.3 Furniture 40000066, raw single-cell layer 0x144,
+    /// accepted floor 0x07cbf4ff, manual non-wall placement.
+    ///
+    /// Both native Collide leaves ignore bit 0x100; the ordinary and detailed
+    /// placement branches also use a nonzero-layer test (0x144 and 0x44 are
+    /// both nonzero). Use the existing low-bit predicate for this exact
+    /// comparison only. Never normalize a stored/native layer or an unknown
+    /// other-object mask. No authentication of caller data, footprint, stride,
+    /// effective occupancy, rights, references, or Writer permission.
+    pub fn steam1253_furniture_40000066_nonwall_cell_predicate(
+        build: &BuildIdentity,
+        candidate_item_id: u32,
+        candidate_layer: u32,
+        accepted_floor: u32,
+        actual_floor: u32,
+        other_layers: &[u32],
+    ) -> CoreResult<bool> {
+        if candidate_item_id != 40000066 || candidate_layer != 0x144 ||
+            accepted_floor != 0x07cb_f4ff {
+            return Err(denied("SPATIAL_NATIVE_VASE_CELL_SCOPE_UNVERIFIED"));
+        }
+        // 0x44 is a local collision-equivalent projection, not replacement
+        // data. The original raw 0x144 is not modified or emitted.
+        Self::steam1253_nonwall_cell_predicate(
+            build, 0x44, accepted_floor, actual_floor, other_layers)
     }
 }

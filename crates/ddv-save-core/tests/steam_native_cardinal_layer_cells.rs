@@ -35,7 +35,8 @@ fn layer_word_preserved_and_bounds_shape_tessellation_fail_closed(){
     assert!(a.steam1253_cardinal_layer_at(&steam(),&raw,4,0,2,1,1).is_err());
     assert!(a.steam1253_cardinal_layer_at(&steam(),&raw[..5],8,0,0,1,1).is_err());
     assert!(a.steam1253_cardinal_layer_at(&steam(),&raw,1,0,0,1,1).is_err());
-    assert!(a.steam1253_cardinal_layer_at(&steam(),&raw,8,0,0,2,1).is_err());
+    assert!(a.steam1253_cardinal_layer_at(&steam(),&raw,8,0,0,3,1).is_err());
+    assert!(a.steam1253_cardinal_layer_at(&steam(),&raw,8,0,0,2,2).is_err());
     assert!(a.steam1253_cardinal_layer_at(&steam(),&raw,8,0,0,1,2).is_err());
     assert!(SpatialExtent{width:0,height:3}
         .steam1253_cardinal_layer_at(&steam(),&[],8,0,0,1,1).is_err());
@@ -83,4 +84,49 @@ fn exact_build_reused_no_switch_or_unattested_permission(){
     assert!(SpatialExtent::steam1253_layers_collide(&b,4,4).is_err());
     b=steam();b.externally_attested=false;
     assert!(SpatialExtent::steam1253_nonwall_cell_predicate(&b,4,1024,1024,&[]).is_err());
+}
+
+#[test]
+fn exact_two_to_one_layer_blocks_before_cardinal_rotation() {
+    let a = SpatialExtent {width:2,height:3};
+    let layer = [0,2,4,8,16,0x144];
+    for (ori, width, height, expected) in [
+        (0, 2, 3, [0x144,16,8,4,2,0]),
+        (4, 3, 2, [4,0x144,2,16,0,8]),
+        (8, 2, 3, [0,2,4,8,16,0x144]),
+        (12,3, 2, [8,0,16,2,0x144,4]),
+    ] {
+        let b = steam();
+        let size = a.steam1253_cardinal_bounds(&b,ori,2,1).unwrap();
+        assert_eq!((size.width,size.height),(width*2,height*2));
+        for x in 0..size.width { for y in 0..size.height {
+            assert_eq!(a.steam1253_cardinal_layer_at(&b,&layer,ori,x,y,2,1).unwrap(),
+                expected[((x/2)*height+y/2) as usize], "orientation={ori}, x={x}, y={y}");
+        }}
+        assert!(a.steam1253_cardinal_layer_at(&b,&layer,ori,size.width,0,2,1).is_err());
+        assert!(a.steam1253_cardinal_layer_at(&b,&layer,ori,0,size.height,2,1).is_err());
+    }
+    let b = steam();
+    let a = SpatialExtent {width:1,height:1};
+    for x in 0..2 { for y in 0..2 {
+        assert_eq!(a.steam1253_cardinal_layer_at(&b,&[0x144],8,x,y,2,1).unwrap(),0x144);
+    }}
+    assert!(SpatialExtent::steam1253_nonwall_cell_predicate(&b,0x144,4,4,&[]).is_err());
+}
+
+#[test]
+fn two_to_one_rejects_wrong_build_shape_ratio_and_overflow() {
+    let mut b = steam();
+    let a = SpatialExtent{width:2,height:3};
+    let layer = [1,2,4,8,16,32];
+    assert!(a.steam1253_cardinal_layer_at(&b,&layer[..5],8,0,0,2,1).is_err());
+    assert!(a.steam1253_cardinal_layer_at(&b,&layer,1,0,0,2,1).is_err());
+    for (g,t) in [(0,1),(1,2),(2,2),(3,1),(4,2)] {
+        assert_eq!(a.steam1253_cardinal_layer_at(&b,&layer,8,0,0,g,t).unwrap_err().0,
+            "SPATIAL_NATIVE_CELL_TESSELLATION_UNVERIFIED");
+    }
+    assert!(SpatialExtent{width:i32::MAX as u32,height:1}
+        .steam1253_cardinal_layer_at(&b,&[],8,0,0,2,1).is_err());
+    b.externally_attested=false;
+    assert!(a.steam1253_cardinal_layer_at(&b,&layer,8,0,0,2,1).is_err());
 }
