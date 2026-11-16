@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {createScopedEditLifecycle} from '../src/lib/ddv/core/save/product-scoped-amount-transport.mjs';
 import {createSteam626Sr03Transport} from '../src/lib/ddv/core/save/product-scoped-placement-transport.mjs';
 import {SR03_RELEASE as s,COMP03_RELEASE,placementPinsOk,getSr03MountInfo} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
 import {createProductSr03Port} from '../src/lib/dev/product-placement-client.mjs';
@@ -43,4 +44,9 @@ test('SR03 UI workflow fixed Build and typed selector/receipt',async()=>{
  const adapter={async open(a){got=a;return ack('OPEN')},async close(){return ack('CLOSED')},async backupOriginal(){return {backupReadbackVerified:true,originalUnchanged:true,shaMatched:true,sizeMatched:true,separateName:true,originalName:got.file.name,originalSha256:got.originalSha256,originalSizeBytes:got.file.size,backupName:'backup.p1g'}},async previewPlacement(a){selected=a;return setup().t.previewTarget(a)},async stagePlacement(){return {...ack('STAGED'),exactFieldChangedCount:8}},undo(){},redo(){},exportEditedCopy(){},downloadVerifiedCopy(){}};
  const w=createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness:true,operation:'sr03'});await w.openFile({file:new File([new Uint8Array(16)],'synthetic.p1g'),buildConfirmed:true});assert.deepEqual(got.build,STEAM626_PLACEMENT_BUILD);await w.backupOriginal();assert.equal((await w.preview(selector)).preview.exactFieldChangedCount,8);assert.deepEqual(selected,selector);assert.equal((await w.stage()).phase,'staged');await w.close();
  const port=createLocalSr03DevPort({postMessage(){throw Error('unexpected dispatch')},terminate(){}});await assert.rejects(port.previewPlacement({gridId:90001,x:1,y:2}));port.dispose();
+});
+
+test('exact8 ledger admission belongs only to fixed SR03 lifecycle contract',()=>{
+ const x=setup(),o={...x.opts,contract:'wand.worker.scoped-edit@1',stageContract:receipt.contract,outputContract:'wand.worker.scoped-edit-output@1',toggleMethod:'toggle_scoped_edit',beginMethod:'begin_scoped_edit_output',nextMethod:'next_scoped_edit_output_chunk',exactCount:8};
+ assert.equal(typeof createScopedEditLifecycle(x.w,initial,o).stage,'function');for(const p of [{stageContract:'wand.worker.steam626.scoped-comp03-layout@1'},{stageContract:'wand.worker.steam626.scoped-vase-add@1'},{contract:'foreign'},{outputContract:'foreign'},{exactCount:7},{exactCount:10}])assert.throws(()=>createScopedEditLifecycle(x.w,initial,{...o,...p}));
 });
