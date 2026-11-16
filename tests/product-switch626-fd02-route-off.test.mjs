@@ -99,8 +99,8 @@ test('the other four exact Fence ADD product routes have no release permissions'
   assert.match(anchors,new RegExp('PROTECTED_'+key+'_RELEASE_ANCHOR=null'));
   assert.match(worker,new RegExp('bootPlacement\\(loadProtected'+pascal+'RustWasm'));
   assert.match(adapter,new RegExp('createProductSwitch626'+pascal+'LocalAdapter'));
-  assert.match(owner,new RegExp('placementScope===\\\''+slug+'\\\'\\?createSwitch626'+pascal+'Transport'));
-  assert.match(client,new RegExp('product-'+slug.replace(/[.*+?^$()|[\]{}]/g,'\\$&')+'\\.worker'));
+  assert.ok(owner.includes("placementScope==='"+slug+"'?createSwitch626"+pascal+"Transport"));
+  assert.ok(client.includes('product-'+slug+'.worker.mjs'));
   assert.match(ui,new RegExp("operation==='"+slug+"'"));
   const release=releases[i];
   assert.equal(release.operation,'switch626.'+slug+'.layout.exact'+count);
