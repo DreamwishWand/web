@@ -6,6 +6,7 @@ import {checkedFetch,compileVerifiedWorker} from './product-rust-wasm-candidate-
 import {PROTECTED_COMP03_RELEASE_ANCHOR,PROTECTED_VASE_ADD_RELEASE_ANCHOR} from './product-scoped-placement-release-anchor.mjs';
 import {PROTECTED_SR03_RELEASE_ANCHOR} from './product-scoped-sr03-release-anchor.mjs';
 import {PROTECTED_RM01_RELEASE_ANCHOR} from './product-scoped-rm01-release-anchor.mjs';
+import {PROTECTED_FRP01_RELEASE_ANCHOR} from './product-scoped-frp01-release-anchor.mjs';
 import {PROTECTED_STEAM_BACKPACK_RELEASE_ANCHOR,PROTECTED_SWITCH_BACKPACK_RELEASE_ANCHOR} from './product-scoped-backpack-release-anchor.mjs';
 import {PROTECTED_STEAM_WARDROBE_RELEASE_ANCHOR,PROTECTED_SWITCH_WARDROBE_RELEASE_ANCHOR} from './product-scoped-wardrobe-release-anchor.mjs';
 import {PROTECTED_COMP03_SPATIAL_RELEASE_ANCHOR} from './product-scoped-comp03-spatial-release-anchor.mjs';
@@ -32,10 +33,11 @@ export const SWITCH_BACKPACK_RELEASE=spec('switch626-backpack-split','switch626.
 export const STEAM_WARDROBE_RELEASE=spec('steam626-wardrobe','steam626.wardrobe.same-slot.exact1','product-steam626-wardrobe-scoped','preview_steam626_wardrobe','stage_steam626_wardrobe','/editor/wardrobe/steam/');
 export const SWITCH_WARDROBE_RELEASE=spec('switch626-wardrobe','switch626.wardrobe.same-slot.exact1','product-switch626-wardrobe-scoped','preview_switch626_wardrobe','stage_switch626_wardrobe','/editor/wardrobe/switch/','switch','9A239D3DB569756D');
 export const SR03_RELEASE=spec('steam626-sr03','steam626.sr03.mixed-q5.exact8','product-steam626-sr03-scoped','preview_steam626_sr03','stage_steam626_sr03','/editor/world/sr03/');
+export const FRP01_RELEASE=spec('switch624-frp01','switch624.frp01.exact7','product-switch624-frp01-scoped','preview_switch624_frp01','stage_switch624_frp01','/editor/world/frp01/switch624/','switch','52BD625D9B4E0053',[],['toggle_switch624_frp01','begin_switch624_frp01_output','next_switch624_frp01_output_chunk']);
 export const RM01_RELEASE=spec('switch626-rm01','switch626.rm01.mixed-q5.exact8','product-switch626-rm01-scoped','preview_switch626_rm01','stage_switch626_rm01','/editor/world/rm01/switch/','switch','9A239D3DB569756D');
 export const HAIR_RELEASE=spec('steam626-hair','steam626.hair.exact1','product-steam626-hair-scoped','preview_steam626_hair','stage_steam626_hair','/editor/appearance/hair/steam/');
 export const SKIN_RELEASE=spec('steam626-skin','steam626.skin.exact1','product-steam626-skin-scoped','preview_steam626_skin','stage_steam626_skin','/editor/appearance/skin/steam/');
-const known=s=>s===HAIR_RELEASE||s===SKIN_RELEASE||s===RM01_RELEASE||s===SR03_RELEASE||s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE||s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
+const known=s=>s===FRP01_RELEASE||s===HAIR_RELEASE||s===SKIN_RELEASE||s===RM01_RELEASE||s===SR03_RELEASE||s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE||s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
 const asset=(a,n,max)=>exact(a,'path,sizeBytes,sha256')&&a.path===n&&size(a.sizeBytes,max)&&sha(a.sha256);
 export function placementPinsOk(s,p){return known(s)&&exact(p,'contract,sourceHead,manifestSha256,manifestSizeBytes,jsSha256,jsSizeBytes,wasmSha256,wasmSizeBytes')&&p.contract===s.prefix+'.pinned-digests@1'&&head(p.sourceHead)&&[p.manifestSha256,p.jsSha256,p.wasmSha256].every(sha)&&size(p.manifestSizeBytes,64*1024)&&size(p.jsSizeBytes,2*1024*1024)&&size(p.wasmSizeBytes,20*1024*1024)}
 export function placementManifestOk(s,m,p,tuple=ACTIVE_RELEASE_TUPLE){
@@ -72,7 +74,7 @@ async function load(s,a){
  if(wasm[0]!==0||wasm[1]!==97||wasm[2]!==115||wasm[3]!==109)fail();
  const backpack=s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE,wardrobe=s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
  const comp03=s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE;
- const denied=new RegExp(baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack||wardrobe?'(?:comp03|vase_add|sr03)':comp03?'(?:vase_add|sr03)':s===VASE_ADD_RELEASE?'(?:comp03|sr03)':'(?:comp03|vase_add)')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split'+'|(?:preview|stage)_'+(wardrobe?(s===STEAM_WARDROBE_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_wardrobe'+(s===COMP03_SPATIAL_RELEASE?'':'|preview_steam626_comp03_spatial')+(s===RM01_RELEASE?'|(?:preview|stage)_steam626_sr03':'|(?:preview|stage)_switch626_rm01')+'|(?:preview|stage)_steam626_'+(s===HAIR_RELEASE?'skin':s===SKIN_RELEASE?'hair':'(?:hair|skin)'),'i');
+ const denied=new RegExp((s===FRP01_RELEASE?'':'(?:preview|stage|toggle|begin|next)_switch624_frp01|')+baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack||wardrobe?'(?:comp03|vase_add|sr03)':comp03?'(?:vase_add|sr03)':s===VASE_ADD_RELEASE?'(?:comp03|sr03)':'(?:comp03|vase_add)')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split'+'|(?:preview|stage)_'+(wardrobe?(s===STEAM_WARDROBE_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_wardrobe'+(s===COMP03_SPATIAL_RELEASE?'':'|preview_steam626_comp03_spatial')+(s===RM01_RELEASE?'|(?:preview|stage)_steam626_sr03':'|(?:preview|stage)_switch626_rm01')+'|(?:preview|stage)_steam626_'+(s===HAIR_RELEASE?'skin':s===SKIN_RELEASE?'hair':'(?:hair|skin)'),'i');
  const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{deniedSymbol:denied,requiredMethods:s.methods,exactPrototype:true,exactWasmExports:s.exports});
  return Object.freeze({WorkerWasmSource,sourceHead:p.sourceHead,checkedBothJsAndWasm:true,sameOriginFetchOnly:true,writerAuthorized:false,productConsumerEnabled:false,attestationVerifiedAtBuild:true,...scope(s,a)});
 }
@@ -97,6 +99,8 @@ const sr03=fixed(SR03_RELEASE,PROTECTED_SR03_RELEASE_ANCHOR);
 export const getSr03MountInfo=sr03.mount,loadProtectedSr03RustWasm=sr03.runtime;
 const rm01=fixed(RM01_RELEASE,PROTECTED_RM01_RELEASE_ANCHOR);
 export const getRm01MountInfo=rm01.mount,loadProtectedRm01RustWasm=rm01.runtime;
+const frp01=fixed(FRP01_RELEASE,PROTECTED_FRP01_RELEASE_ANCHOR);
+export const getFrp01MountInfo=frp01.mount,loadProtectedFrp01RustWasm=frp01.runtime;
 
 // Explicit optional identity; never selected by legacy method discovery.
 const spatial=fixed(COMP03_SPATIAL_RELEASE,PROTECTED_COMP03_SPATIAL_RELEASE_ANCHOR);
