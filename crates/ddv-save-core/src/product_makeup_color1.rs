@@ -43,6 +43,9 @@ fn ok(b:bool,s:&'static str)->CoreResult<()>{if b{Ok(())}else{Err(denied(s))}}
 impl ProductSession{
  pub(super) fn prepare_fixed_makeup_color1(&self,e:WorkerEnvelope)->CoreResult<FixedMakeupColor1>{
   product_appearance_scope(self,&e)?;
+  self.prepare_fixed_makeup_color1_lexical(e)
+ }
+ fn prepare_fixed_makeup_color1_lexical(&self,e:WorkerEnvelope)->CoreResult<FixedMakeupColor1>{
   let st=self.lock()?;validate_scope(self,&st,&e)?;
   ok(st.revision==0&&st.generation==1&&st.semantic.is_none(),"MAKEUP_COLOR1_EPOCH")?;
   let b=&self.decoded;let root=roots(b)?;
@@ -84,6 +87,29 @@ impl ProductSession{
    female_sha:f.sha,male_sha:m.sha,entry_sha:sha(&b[entry.begin..entry.end]),
    routes_sha:sha(&serde_json::to_vec(&owner).map_err(|_|denied("MAKEUP_COLOR1_ROUTE_JSON"))?),
    projected})
+ }
+ // ACT1487 build-only adapter. Steam's accepted method stays Steam-only.
+ #[cfg(feature="product-switch626-makeup-color1-internal")]
+ pub(super) fn prepare_switch626_fixed_makeup_color1(&self,e:WorkerEnvelope)->CoreResult<FixedMakeupColor1>{
+  use crate::{Platform,BuildKind};
+  let b=&self.native_source_build;
+  if !self.worker_bound||b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||
+     b.build_id!="9A239D3DB569756D"||b.schema!=626||!b.externally_attested{
+    return Err(denied("MAKEUP_COLOR1_EXACT_SWITCH626_REQUIRED"));
+  }
+  self.prepare_fixed_makeup_color1_lexical(e)
+ }
+ #[cfg(feature="product-switch626-makeup-color1-internal")]
+ pub(super) fn stage_switch626_fixed_makeup_color1(&self,e:WorkerEnvelope,p:&FixedMakeupColor1)
+     ->CoreResult<crate::SemanticStageReceipt>{
+  ok(e.action==WorkerAction::Stage,"MAKEUP_COLOR1_SWITCH_STAGE_ACTION")?;
+  let now=self.prepare_switch626_fixed_makeup_color1(WorkerEnvelope{action:WorkerAction::ReadDomain,..e})?;
+  ok(now.scope==p.scope&&now.span.begin==p.span.begin&&now.span.end==p.span.end&&
+     now.token_sha==p.token_sha&&now.entry_sha==p.entry_sha&&
+     now.female_sha==p.female_sha&&now.male_sha==p.male_sha&&
+     now.routes_sha==p.routes_sha&&now.projected==p.projected,
+     "MAKEUP_COLOR1_SWITCH_STAGE_CAS")?;
+  self.commit_switch626_makeup_color1_candidate(e,now.span,OLD,NEW,now.projected)
  }
  pub(super) fn stage_fixed_makeup_color1(&self,e:WorkerEnvelope,p:&FixedMakeupColor1)
      ->CoreResult<crate::SemanticStageReceipt>{
@@ -156,6 +182,73 @@ mod tests{
   assert_eq!(sha(&out),hex(&receipt.staged_decoded_sha256));
   let reopened=open(&wanted);
   assert_eq!(reopened.receipt().unwrap().schema,626);
+ }
+ #[cfg(feature="product-switch626-makeup-color1-internal")]
+ fn open_switch(v:&Value)->ProductSession{
+  let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),
+   BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+    build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+  s.worker_bound=true;s
+ }
+ #[cfg(feature="product-switch626-makeup-color1-internal")]
+ #[test]fn switch626_makeup_color1_build_adapter_exact1_atomic_reopen(){
+  let d=doc();let source=serde_json::to_vec(&d).unwrap();let s=open_switch(&d);
+  let e=env(&s,WorkerAction::ReadDomain);
+  assert!(s.prepare_fixed_makeup_color1(e).is_err(),"Steam API must not accept Switch");
+  let p=s.prepare_switch626_fixed_makeup_color1(e).unwrap();
+  assert_eq!(s.receipt().unwrap().revision,0);
+  assert_eq!(&s.decoded[p.span.begin..p.span.end],b"53");
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  assert!(s.stage_switch626_fixed_makeup_color1(e,&p).is_err());
+  let mut forged=s.prepare_switch626_fixed_makeup_color1(e).unwrap();
+  forged.projected[0]^=1;
+  assert!(s.stage_switch626_fixed_makeup_color1(stage,&forged).is_err());
+  for bad in [WorkerEnvelope{expected_revision:1,..stage},
+              WorkerEnvelope{expected_index_generation:2,..stage},
+              WorkerEnvelope{expected_decoded_sha256:[0;32],..stage}]{
+   assert!(s.stage_switch626_fixed_makeup_color1(bad,&p).is_err());
+  }
+  let other=open_switch(&d);
+  assert!(other.stage_switch626_fixed_makeup_color1(env(&other,WorkerAction::Stage),&p).is_err());
+  let steam=open(&d);
+  assert!(steam.prepare_switch626_fixed_makeup_color1(env(&steam,WorkerAction::ReadDomain)).is_err());
+  let r=s.stage_switch626_fixed_makeup_color1(stage,&p).unwrap();
+  assert_eq!((r.operation_count,r.exact_field_changed_count),(1,1));
+  assert!(!r.native_v3_verified&&!r.product_writer_authorized&&!r.original_overwrite_authorized);
+  assert!(s.stage_switch626_fixed_makeup_color1(stage,&p).is_err());
+  s.undo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).is_err());
+  s.redo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+  let out_e=env(&s,WorkerAction::ExportEditedCopy);
+  let out=s.take_typed_semantic_decoded_once(out_e).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(out_e).is_err());
+  let mut expected=d.clone();expected["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"]=json!(NEW);
+  assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),expected);
+  assert_eq!(out,serde_json::to_vec(&expected).unwrap());
+  assert_eq!(sha(&out),hex(&r.staged_decoded_sha256));
+  assert_eq!(serde_json::to_vec(&d).unwrap(),source);
+  let fresh=open_switch(&expected);assert_eq!(fresh.receipt().unwrap().schema,626);
+ }
+ #[cfg(feature="product-switch626-makeup-color1-internal")]
+ #[test]fn switch626_makeup_color1_build_adapter_negatives(){
+  for i in 0..11{
+   let mut d=doc();
+   match i{
+    0=>d["Player"]["AvatarIsMale"]=json!(false),
+    1=>d["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"]=json!(52),
+    2=>d["Player"]["FemaleAvatar"]["Makeup"]["1"]["ColorIndex1"]=json!(59),
+    3=>d["Player"]["MaleAvatar"]["Makeup"]["1"]["MakeupItemID"]=json!(140100015),
+    4=>d["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex2"]=json!(20),
+    5=>{d["Player"]["MaleAvatar"]["Makeup"].as_object_mut().unwrap().remove("1");},
+    6=>d["Player"]["ListInventories"]["3"]["Inventory"]["140100014"]["Amount"]=json!(0),
+    7=>d["Player"]["ListInventories"]["3"]["Inventory"]["140100014"]["Marker"]=json!("ItemMarker_Favorite"),
+    8=>d["Player"]["ListInventories"]["3"]["CompatibleItemType"]=json!("ItemType_ActivityItem"),
+    9=>d["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex3"]=json!(30),
+    _=>d["Player"]["ListInventories"]["3"]["Inventory"]["140100014"]=Value::Null,
+   }
+   let s=open_switch(&d);
+   assert!(s.prepare_switch626_fixed_makeup_color1(env(&s,WorkerAction::ReadDomain)).is_err(),"negative {i}");
+  }
  }
  #[test]fn makeup_color1_actual_saved_distinct_female_item_zero_channels(){
   let d=doc();let s=open(&d);let e=env(&s,WorkerAction::ReadDomain);
