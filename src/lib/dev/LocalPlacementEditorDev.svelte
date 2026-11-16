@@ -14,11 +14,12 @@
  $: backpack=operation.startsWith('backpack-');
  $: wardrobe=operation.startsWith('wardrobe-');
  $: mixedRoad=operation==='sr03'||operation==='rm01';
- $: rawTitle=operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
+ $: appearance=operation==='hair'||operation==='skin';
+ $: rawTitle=operation==='hair'?words.hairTitle:operation==='skin'?words.skinTitle:operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
  $: title=productMode?rawTitle.split(' — ')[0]+(productMode==='private-product-v2'?' — V2':''):rawTitle;
- $: detail=wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:words.vaseDetail;
+ $: detail=appearance?(operation==='hair'?words.hairDetail:words.skinDetail):wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:words.vaseDetail;
  $: p=state.preview;
- $: valid=wardrobe?true:backpack?Number.isSafeInteger(x)&&x>=0&&x<256&&Number.isSafeInteger(y)&&y>=0&&y<256&&x!==y:operation==='comp03'?Number.isSafeInteger(seed)&&seed>0:Number.isSafeInteger(grid)&&grid>0&&Number.isSafeInteger(x)&&x>=0&&Number.isSafeInteger(y)&&y>=0&&(!mixedRoad||(x>0&&y>0&&x!==y));
+ $: valid=(wardrobe||appearance)?true:backpack?Number.isSafeInteger(x)&&x>=0&&x<256&&Number.isSafeInteger(y)&&y>=0&&y<256&&x!==y:operation==='comp03'?Number.isSafeInteger(seed)&&seed>0:Number.isSafeInteger(grid)&&grid>0&&Number.isSafeInteger(x)&&x>=0&&Number.isSafeInteger(y)&&y>=0&&(!mixedRoad||(x>0&&y>0&&x!==y));
  onMount(()=>{
   const scope=productPlacementPortScope(trustedWorkerAdapter);
   if(!scope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
@@ -33,7 +34,7 @@
  function clear(){file=null;confirmed=false;seed='';grid='';x='';y='';if(input)input.value=''}
  async function select(e){const f=e.currentTarget.files?.[0]||null;e.currentTarget.value='';clear();await act(async w=>{const s=await w.close();file=f;return s})}
  const close=()=>{clear();return act(w=>w.close())};
- const preview=()=>act(w=>w.preview(wardrobe?undefined:backpack?{sourceSlot:x,destinationSlot:y}:operation==='comp03'?{seedId:seed}:mixedRoad?{gridId:grid,retainedId:x,movedId:y}:{gridId:grid,x,y}));
+ const preview=()=>act(w=>w.preview((wardrobe||appearance)?undefined:backpack?{sourceSlot:x,destinationSlot:y}:operation==='comp03'?{seedId:seed}:mixedRoad?{gridId:grid,retainedId:x,movedId:y}:{gridId:grid,x,y}));
  async function download(which){
   if(!workflow||pending)return;const w=workflow,t=epoch;pending=true;error=false;
   try{const r=await w.downloadVerifiedCopy(which);if(workflow!==w||epoch!==t){r.encryptedBytes.fill(0);return}
@@ -56,7 +57,8 @@
    {#if state.phase==='opened'}<button disabled={pending} on:click={()=>act(w=>w.backupOriginal())}>{words.backup}</button>{/if}
    {#if state.backupName}<button disabled={pending} on:click={()=>download('backup')}>{words.downloadBackup}</button>{/if}
    {#if ['ready','previewed'].includes(state.phase)}
-    {#if wardrobe}<p>{words.wardrobeDetail}</p>
+    {#if appearance}<p>{detail}</p>
+    {:else if wardrobe}<p>{words.wardrobeDetail}</p>
     {:else if backpack}<label>{words.sourceSlot}<input type="number" min="0" max="255" step="1" bind:value={x} disabled={pending}/></label><label>{words.destinationSlot}<input type="number" min="0" max="255" step="1" bind:value={y} disabled={pending}/></label>
     {:else if operation==='comp03'}<label>{words.seed}<input type="number" min="1" max="4294967295" step="1" bind:value={seed} disabled={pending}/></label>
     {:else}<label>{words.grid}<input type="number" min="1" max="4294967295" step="1" bind:value={grid} disabled={pending}/></label><label>{mixedRoad?words.retainedId:words.x}<input type="number" min={mixedRoad?1:0} max="4294967295" step="1" bind:value={x} disabled={pending}/></label><label>{mixedRoad?words.movedId:words.y}<input type="number" min={mixedRoad?1:0} max="4294967295" step="1" bind:value={y} disabled={pending}/></label>{/if}
@@ -66,6 +68,7 @@
     <div class="review" aria-live="polite" data-placement-preview>
      <strong>{words.verified}</strong>
      {#if wardrobe}<p>{words.wardrobeSlot}: {p.slot}</p><p>Item ID: {p.oldItemId} → {p.newItemId}</p>
+     {:else if appearance}<p>{p.old} → {p.new}</p>{#if operation==='skin'}<p>Character ID: {p.characterId}</p>{/if}
      {:else if backpack}<p>Backpack 0 · Item ID: {p.itemId}</p><p>{words.sourceSlot}: {p.sourceSlot} · {p.oldAmount} → {p.newSourceAmount}</p><p>{words.destinationSlot}: {p.destinationSlot} · 0 → {p.newDestinationAmount}</p>
      {:else}<p>{words.grid}: {p.gridId} · Item ID: {p.itemId}</p>
      {#if operation==='comp03'}<p>{words.seed}: {p.seedId}</p><Comp03ReferencePattern locale={$locale}/>
@@ -92,7 +95,7 @@
      <p>{p.oldAmount} → {p.newAmount}</p>{/if}<p>{detail}</p>
     </div>
    {/if}
-   {#if state.phase==='previewed'}<button disabled={pending||!valid||(wardrobe?p?.slot!==0||p?.oldItemId!==50000352||p?.newItemId!==50000214:backpack?p?.sourceSlot!==x||p?.destinationSlot!==y:operation==='comp03'?p?.seedId!==seed:mixedRoad?p?.gridId!==grid||p?.retainedId!==x||p?.movedId!==y:p?.gridId!==grid||p?.x!==x||p?.y!==y)} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
+   {#if state.phase==='previewed'}<button disabled={pending||!valid||(appearance?(p?.old!==(operation==='hair'?74:170000054)||p?.new!==(operation==='hair'?20:170000000)||(operation==='skin'&&p?.characterId!==10000053)):wardrobe?p?.slot!==0||p?.oldItemId!==50000352||p?.newItemId!==50000214:backpack?p?.sourceSlot!==x||p?.destinationSlot!==y:operation==='comp03'?p?.seedId!==seed:mixedRoad?p?.gridId!==grid||p?.retainedId!==x||p?.movedId!==y:p?.gridId!==grid||p?.x!==x||p?.y!==y)} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
    {#if state.phase==='staged'}<button disabled={pending} on:click={()=>act(w=>w.undo())}>{words.undo}</button><button disabled={pending} on:click={()=>act(w=>w.exportEditedCopy())}>{words.export}</button>{/if}
    {#if state.phase==='undone'}<button disabled={pending} on:click={()=>act(w=>w.redo())}>{words.redo}</button>{/if}
    {#if state.phase==='exported'}<p role="status">{words.done}</p><p><code>{state.editedName}</code></p><button disabled={pending} on:click={()=>download('edited')}>{words.downloadEdited}</button>{/if}
