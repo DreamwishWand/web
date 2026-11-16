@@ -273,11 +273,9 @@ impl HistoricalFenceOp {
 const EXT1:u32=40700247;
 const REPLACEMENT_BASE:u32=40700268;
 const REPLACEMENT_EXT1:u32=40700269;
-fn fence_record(id:u32,item:u32,x:u32,y:u32,left:bool,diagonal:bool)->Value{
-    json!({"ID":id,"ItemID":item,"X":x,"Y":y,
-        "Orientation":if left{"GridOrientation_Left"}else{"GridOrientation_Down"},
-        "State":if diagonal{json!({"FenceMode":{"Diagonal":true}})}else{Value::Null}})
-}
+#[path="fence_add_shape.rs"]
+mod fence_add_shape;
+use fence_add_shape::{fence_record,records_at,FD01_DESCRIPTORS,ShapeError};
 fn exact_ids(v:&Value,n:usize)->CoreResult<Vec<u32>>{
     let a=v.as_array().filter(|v|v.len()==n).ok_or(denied("FENCE_LAYOUT_IDS"))?;
     a.iter().map(uint).collect()
@@ -561,7 +559,7 @@ impl FenceAddShape {
             (EXT1,6,0,false,false),(BASE,8,0,false,false),(EXT1,4,2,true,false),(BASE,4,4,false,false)],
         // ACT732 exact historical diagonal tranche A: N3 both slopes,
         // N6 positive single n4 extension, no inferred other lengths.
-        Self::DiagonalN3Positive|Self::Switch626Fd01=>&[(BASE,0,0,false,true),(40700253,2,2,false,true),(BASE,4,4,false,true)],
+        Self::DiagonalN3Positive|Self::Switch626Fd01=>FD01_DESCRIPTORS,
         Self::DiagonalN3Mirrored|Self::Switch626Fd02=>&[(BASE,0,0,false,true),(40700253,2,-2,true,true),(BASE,4,-4,false,true)],
         Self::DiagonalN6Positive|Self::Switch626Fd03=>&[(BASE,0,0,false,true),(40700256,2,2,false,true),(BASE,10,10,false,true)],
     }}
@@ -580,11 +578,10 @@ fn add_plan_parse(bytes:&[u8],shape:FenceAddShape)->CoreResult<Value>{
     Ok(v)
 }
 fn add_wanted(shape:FenceAddShape,next:u32,x:u32,y:u32)->CoreResult<Vec<Value>>{
-    let coord=|v:u32,d:i32|i64::from(v).checked_add(i64::from(d))
-        .filter(|n|*n>=0&&*n<=i64::from(i32::MAX)).map(|n|n as u32).ok_or(denied("FENCE_ADD_COORD_BOUND"));
-    shape.descriptors().iter().enumerate().map(|(i,(item,dx,dy,left,diag))|
-        Ok(fence_record(next.checked_add(i as u32).ok_or(denied("FENCE_ADD_COUNTER_OVERFLOW"))?,
-            *item,coord(x,*dx)?,coord(y,*dy)?,*left,*diag))).collect()
+    records_at(shape.descriptors(),next,x,y).map_err(|e|match e{
+        ShapeError::Counter=>denied("FENCE_ADD_COUNTER_OVERFLOW"),
+        ShapeError::Coordinate=>denied("FENCE_ADD_COORD_BOUND"),
+    })
 }
 fn add_collect(s:&ProductSession,p:&Value,shape:FenceAddShape)->CoreResult<Vec<Replacement>>{
     let b=&s.decoded;
