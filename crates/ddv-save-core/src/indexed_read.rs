@@ -978,10 +978,23 @@ mod private_avatar {
     impl ProductSession{
         pub fn read_private_wardrobe_same_slot(&self,e:WorkerEnvelope,slot:u32,old:i32,new:i32)
             ->CoreResult<PrivateAvatarDependencyReceipt>{
+            self.read_private_wardrobe_same_slot_for_build(e,slot,old,new,false)
+        }
+        pub fn read_private_switch626_wardrobe_same_slot(&self,e:WorkerEnvelope,slot:u32,old:i32,new:i32)
+            ->CoreResult<PrivateAvatarDependencyReceipt>{
+            self.read_private_wardrobe_same_slot_for_build(e,slot,old,new,true)
+        }
+        fn read_private_wardrobe_same_slot_for_build(&self,e:WorkerEnvelope,slot:u32,old:i32,new:i32,switch:bool)
+            ->CoreResult<PrivateAvatarDependencyReceipt>{
+            const SWITCH_BID:&str="9A239D3DB569756D";
             let b=&self.native_source_build;
-            if b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||
-               b.build_id!=EXACT||b.schema!=626||!b.externally_attested{
-                return Err(denied("WARDROBE_EXACT_STEAM626_REQUIRED"));}
+            let matches_build=if switch{
+                b.platform==Platform::Switch&&b.build_kind==BuildKind::SwitchBid&&b.build_id==SWITCH_BID
+            }else{
+                b.platform==Platform::SteamWindows&&b.build_kind==BuildKind::SteamFullVersion&&b.build_id==EXACT
+            };
+            if !matches_build||b.schema!=626||!b.externally_attested{
+                return Err(denied("WARDROBE_EXACT_EXTERNAL_BUILD_REQUIRED"));}
             // Initial reviewed top-inner slot only; no hair, full-body, new
             // slot, arbitrary map path or untrusted Build generalization.
             if slot!=0||old/10_000_000!=5||new/10_000_000!=5||old==new{
@@ -1017,8 +1030,17 @@ mod private_avatar {
                     return Err(denied("WARDROBE_STOCK_OR_MARKER"));}
                 Ok(v.clone())
             };
-            let value=json!({"contract":"wand.native.private.wardrobe-same-slot-readset@1",
-                "avatar":avatar.to_private_receipt_json(),"slot":slot,"oldItemId":old,"proposedItemId":new,
+            let mut avatar_json=avatar.to_private_receipt_json();
+            if switch{
+                let obj=avatar_json.as_object_mut().ok_or(denied("WARDROBE_AVATAR_RECEIPT"))?;
+                obj.remove("fullVersion");
+                obj.insert("contract".into(),json!("wand.native.private.switch626.active-avatar-read@1"));
+                obj.insert("platform".into(),json!("Switch"));
+                obj.insert("buildKind".into(),json!("SwitchBid"));
+                obj.insert("buildId".into(),json!(SWITCH_BID));
+            }
+            let value=json!({"contract":if switch{"wand.native.private.switch626.wardrobe-same-slot-readset@1"}else{"wand.native.private.wardrobe-same-slot-readset@1"},
+                "avatar":avatar_json,"slot":slot,"oldItemId":old,"proposedItemId":new,
                 "oldScalarSha256":current.entry_sha,"clothesMapSha256":active.clothes.sha,
                 "inventory":{"listInventoriesSha256":inventory["listInventoriesSha256"],
                     "inventoryId":1,"compatibleItemType":"ItemType_Clothing",
@@ -2147,6 +2169,47 @@ mod private_avatar {
             assert!(s.read_private_wardrobe_same_slot(stale,0,50000002,50000003).is_err());
             assert!(open(v).read_private_wardrobe_same_slot(e,0,50000002,50000003).is_err());
             s.close().unwrap();assert!(s.read_private_wardrobe_same_slot(e,0,50000002,50000003).is_err());
+        }
+        #[test]
+        fn switch626_wardrobe_adapter_build_and_session_denials(){
+            let mut v=dependency_doc();
+            v["Player"]["MaleAvatar"]["Clothes"]=json!({"0":50000002});
+            v["Player"]["MaleAvatar"]["IncompatibleClothes"]=json!({});
+            v["Player"]["MaleAvatar"]["ClothingCustomization"]=json!({});
+            v["Player"]["ListInventories"]["1"]["Inventory"]["50000002"]["Marker"]=json!("ItemMarker_Favorite");
+            v["Player"]["ListInventories"]["1"]["Inventory"]["50000003"]=json!({"Amount":2,"Marker":"ItemMarker_None"});
+            let open_switch=|bid:&str,attested:bool|ProductSession::open_decoded_readonly(
+                serde_json::to_vec(&v).unwrap(),BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+                build_id:bid.into(),schema:626,externally_attested:attested});
+            let s=open_switch("9A239D3DB569756D",true).unwrap();
+            let before=s.receipt().unwrap();let e=env(before);
+            let r=s.read_private_switch626_wardrobe_same_slot(e,0,50000002,50000003).unwrap().to_private_receipt_json();
+            assert_eq!(r["contract"],"wand.native.private.switch626.wardrobe-same-slot-readset@1");
+            assert_eq!(r["avatar"]["platform"],"Switch");
+            assert_eq!(r["avatar"]["buildId"],"9A239D3DB569756D");
+            assert_eq!(r["avatar"]["buildKind"],"SwitchBid");
+            assert!(r["avatar"].get("fullVersion").is_none());
+            assert_eq!(r["oldScalarSha256"],sha(b"50000002"));
+            assert_eq!(r["inventory"]["proposedStock"]["savedAmount"],2);
+            for k in ["writerAuthorized","productReadAccepted","editedCopyAuthorized","applyAuthorized","rightsVerified"]{
+                assert_eq!(r[k],false);
+            }
+            assert_eq!(s.receipt().unwrap(),before);
+            assert!(s.read_private_wardrobe_same_slot(e,0,50000002,50000003).is_err());
+            let steam=open(v.clone());let se=env(steam.receipt().unwrap());
+            assert!(steam.read_private_switch626_wardrobe_same_slot(se,0,50000002,50000003).is_err());
+            assert!(s.read_private_switch626_wardrobe_same_slot(se,0,50000002,50000003).is_err());
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_switch626_wardrobe_same_slot(stale,0,50000002,50000003).is_err());
+            assert!(s.read_private_switch626_wardrobe_same_slot(e,1,50000002,50000003).is_err());
+            assert!(s.read_private_switch626_wardrobe_same_slot(e,0,50000003,50000002).is_err());
+            for (bid,attested) in [("52BD625D9B4E0053",true),("9A239D3DB569756D",false)]{
+                if let Ok(wrong)=open_switch(bid,attested){
+                    assert!(wrong.read_private_switch626_wardrobe_same_slot(env(wrong.receipt().unwrap()),0,50000002,50000003).is_err());
+                }
+            }
+            s.close().unwrap();
+            assert!(s.read_private_switch626_wardrobe_same_slot(e,0,50000002,50000003).is_err());
         }
         #[test]
         fn actual_branch_and_absence_zero_exact_refs(){
