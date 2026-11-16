@@ -47,15 +47,15 @@ test('FD02 uses one fixed Worker with native build and known old values, never U
  assert.match(client,/createLocalFd02DevPort\(w\)/);
  assert.match(adapter,/createProductSwitch626Fd02LocalAdapter/);
  assert.match(adapter,/placementScope==='fd02'/);
- assert.match(bridge,/\['rm01','fd01','fd02','fe01'\]\.includes\(placementScope\)/);
+ assert.match(bridge,/\['rm01','fd01','fd02','fd03','ortho-l','diagonal90','ortho-t','fe01'\]\.includes\(placementScope\)/);
  assert.match(owner,/placementScope==='fd02'\?createSwitch626Fd02Transport/);
- assert.match(owner,/\['rm01','fd01','fd02','fe01'\]\.includes\(placementScope\)/);
+ assert.match(owner,/\['rm01','fd01','fd02','fd03','ortho-l','diagonal90','ortho-t','fe01'\]\.includes\(placementScope\)/);
  assert.match(port,/fd02:placementMethods/);
  assert.match(port,/installLocalFd02DevWorker/);
  assert.match(workflow,/fd02=operation==='fd02'/);
- assert.match(workflow,/fd01\|\|fd02\|\|fe01/);
+ assert.match(workflow,/fenceAdd=fd01\|\|fd02\|\|fd03\|\|orthoL\|\|diagonal90\|\|orthoT/);
  assert.match(ui,/fd02=operation==='fd02'/);
- assert.match(ui,/fence=fd01\|\|fd02\|\|fe01/);
+ assert.match(ui,/fence=fenceAdd\|\|fe01/);
  assert.match(ui,/p\?\.gridId!==grid\|\|p\?\.x!==x\|\|p\?\.y!==y/);
  assert.match(ui,/data-product-writer="off"/);
  assert.ok(compile(ui,{filename:'LocalPlacementEditorDev.svelte',generate:'client'}).js.code.length>0);
@@ -70,4 +70,48 @@ test('FD02 has eight localizations with fixed no-stock-change meaning',()=>{
   assert.equal(c.fd02Detail.includes('−1'),false);
  }
  assert.match(localPlacementCopy('ja').fd02Detail,/変更しません/);
+});
+
+test('the other four exact Fence ADD product routes have no release permissions',async()=>{
+ const operations=[
+  ['fd03','fd03',4,'Fd03','FD03'],
+  ['ortho-l','ortho_l',6,'OrthoL','ORTHOL'],
+  ['diagonal90','diagonal90',6,'Diagonal90','DIAGONAL90'],
+  ['ortho-t','ortho_t',8,'OrthoT','ORTHOT']
+ ];
+ const {FD03_RELEASE,ORTHOL_RELEASE,DIAGONAL90_RELEASE,ORTHOT_RELEASE}=await import('../src/lib/ddv/core/save/product-scoped-placement-release.mjs');
+ const releases=[FD03_RELEASE,ORTHOL_RELEASE,DIAGONAL90_RELEASE,ORTHOT_RELEASE];
+ const [anchors,adapter,owner,client,ui]=await Promise.all([
+  load('src/lib/ddv/core/save/product-scoped-five-fence-release-anchor.mjs'),
+  load('src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs'),
+  load('src/lib/ddv/core/save/product-wasm-read-owner.mjs'),
+  load('src/lib/dev/product-placement-client.mjs'),
+  load('src/lib/dev/LocalPlacementEditorDev.svelte')
+ ]);
+ for(let i=0;i<operations.length;i++){
+  const [slug,method,count,pascal,key]=operations[i];
+  const [page,worker]=await Promise.all([
+   load('src/routes/editor/world/'+slug+'/switch/+page.svelte'),
+   load('src/lib/dev/product-'+slug+'.worker.mjs')
+  ]);
+  assert.ok(compile(page,{filename:slug+'/+page.svelte',generate:'client'}).js.code.length>0);
+  assert.match(page,new RegExp('fixedOperation="'+slug+'"'));
+  assert.match(anchors,new RegExp('PROTECTED_'+key+'_RELEASE_ANCHOR=null'));
+  assert.match(worker,new RegExp('bootPlacement\\(loadProtected'+pascal+'RustWasm'));
+  assert.match(adapter,new RegExp('createProductSwitch626'+pascal+'LocalAdapter'));
+  assert.match(owner,new RegExp('placementScope===\\\''+slug+'\\\'\\?createSwitch626'+pascal+'Transport'));
+  assert.match(client,new RegExp('product-'+slug.replace(/[.*+?^$()|[\]{}]/g,'\\$&')+'\\.worker'));
+  assert.match(ui,new RegExp("operation==='"+slug+"'"));
+  const release=releases[i];
+  assert.equal(release.operation,'switch626.'+slug+'.layout.exact'+count);
+  assert.equal(release.path,'/editor/world/'+slug+'/switch/');
+  assert.deepEqual(release.features,['product-switch626-'+slug+'-scoped','worker-wasm']);
+  assert.equal(release.methods.filter(m=>m.includes(method)).length,5);
+  const c=localPlacementCopy('ja');
+  const field=slug==='ortho-l'?'orthoL':slug==='ortho-t'?'orthoT':slug;
+  assert.match(c[field+'Title'],new RegExp(key));
+  assert.match(c[field+'Detail'],new RegExp(String(count-1)));
+  for(const locale of ['en','ja','fr','de','it','es-ES','zh-CN','pt-BR'])
+   assert.ok(localPlacementCopy(locale)[field+'Detail'].length>30);
+ }
 });
