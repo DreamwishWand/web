@@ -26,7 +26,7 @@ export function createSwitch624Frp01Transport(wasm,initial,identity,options){
  const {parse,current,revoke,maxBytes,chunkBytes}=options;
  let mint=null;
  const life=createScopedEditLifecycle(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes,
-  contract:'wand.worker.scoped-edit@1',stageContract:CONTRACT,outputContract:OUTPUT,
+  contract:CONTRACT,stageContract:CONTRACT,outputContract:OUTPUT,
   toggleMethod:'toggle_switch624_frp01',beginMethod:'begin_switch624_frp01_output',
   nextMethod:'next_switch624_frp01_output_chunk',exactCount:7,
   expectedProjection:()=>mint?.projectedDecodedSha256??null});
