@@ -95,7 +95,7 @@ fn known_fields(v:&Value,required:&[&str],optional:&[&str])->CoreResult<()>{
     need(required.iter().all(|k|m.contains_key(*k))&&m.keys().all(|k|
         required.contains(&k.as_str())||optional.contains(&k.as_str())),"CATALOG0_TYPED_FIELDS")
 }
-fn crop_filter(v:&Value,item:i32)->CoreResult<()>{
+fn crop_filter(v:&Value,item:i32,id:u32,ix:usize)->CoreResult<()>{
     known_fields(v,&["Data"],&[])?;
     let d=&v["Data"];
     known_fields(d,&["Item","ItemList","Type","ActivityItemType","AnyActivityItem"],
@@ -115,11 +115,19 @@ fn crop_filter(v:&Value,item:i32)->CoreResult<()>{
     // Known full serialized selectors: allow only typed inert defaults or
     // crop-specific scalar/enum restrictions, never a new selector object.
     for k in ["SubType","Constraint","FishWeather"]{if let Some(v)=d.get(k){need(v=="","CATALOG0_CROP_INACTIVE")?;}}
-    for k in ["Set","MinRarity","MaxRarity","MinMealStarRating","MinUnlockLevel","MaxUnlockLevel","Profession"]{
+    // E2260: only the reviewed layer-0 crop Duty 2110000038 has the
+    // additional serialized Fruit/100 pair. Both fields must agree; neither
+    // an arbitrary unlock bound nor a different crop selector is admitted.
+    let fruit_pair=id==2110000038&&ix==0&&d.get("MaxUnlockLevel").is_some_and(|v|matches!(state_uint(v),Ok(100)))&&d["CropType"]=="CropTypeCondition_Fruit";
+    if !fruit_pair{
+        if let Some(v)=d.get("MaxUnlockLevel"){need(state_uint(v)?==0,"CATALOG0_CROP_INACTIVE")?;}
+        if let Some(v)=d.get("CropType"){need(v=="CropTypeCondition_Any","CATALOG0_CROP_INACTIVE")?;}
+    }
+    for k in ["Set","MinRarity","MaxRarity","MinMealStarRating","MinUnlockLevel","Profession"]{
         if let Some(v)=d.get(k){need(state_uint(v)?==0,"CATALOG0_CROP_INACTIVE")?;}}
     for k in ["FishIncludeTrash","OnlySeedCrop"]{if let Some(v)=d.get(k){need(v.is_boolean(),"CATALOG0_CROP_BOOL")?;if k=="FishIncludeTrash"{need(v==false,"CATALOG0_CROP_INACTIVE")?;}}}
     for k in ["Tags","IngredientsType"]{if let Some(v)=d.get(k){need(state_array(v)?.is_empty(),"CATALOG0_CROP_INACTIVE")?;}}
-    for (k,w) in [("TagCondition","TagFilterCondition_AllTags"),("CropType","CropTypeCondition_Any"),
+    for (k,w) in [("TagCondition","TagFilterCondition_AllTags"),
         ("SeedType","SeedTypeCondition_Any"),("FlowerRarity","FlowerRarityCondition_Any"),
         ("MineralRoughness","MineralRoughness_Any"),("EphemeralType","EphemeralTypeCondition_Any")]{
         if let Some(v)=d.get(k){need(v==w,"CATALOG0_CROP_INACTIVE")?;}}
@@ -164,7 +172,7 @@ pub(super) fn harvest(b:&[u8],s:Span,id:u32,ix:usize,item:i32)->CoreResult<()>{
     // Both kind16 payload fields [1,5,11,12], no skip-if-possess; conditions disjoint.
     need(item==ITEM as i32&&ix==0&&matches!(id,2110000038|2110000161),"PRODUCT_SWITCH626_CATALOG0_HARVEST_DEF")?;
     let data=leaf(b,f(b,f(b,s,"StepData")?,"ItemFilter")?)?;
-    crop_filter(&data,item)?;
+    crop_filter(&data,item,id,ix)?;
     need(array(b,f(b,s,"ItemsUsed")?,16384)?.is_empty(),
         "PRODUCT_SWITCH626_CATALOG0_HARVEST_FILTER")
 }
@@ -241,6 +249,16 @@ mod tests{
  build_id:if sw{BID.into()}else{EXACT_STEAM.into()},schema:626,externally_attested:true}).unwrap()}
  fn env(s:&ProductSession,action:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
  session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action}}
+ #[test]fn fixed_switch_catalog0_harvest_pair_is_duty_layer_and_type_exact(){
+  let base=json!({"Data":{"Type":"ItemType_ActivityItem","ActivityItemType":"ActivityItemType_Crop","Item":0,"ItemList":[],"AnyActivityItem":false,"MaxUnlockLevel":100,"CropType":"CropTypeCondition_Fruit","MinUnlockLevel":0}});
+  assert!(crop_filter(&base,ITEM as i32,2110000038,0).is_ok());
+  for (id,ix) in [(2110000161,0),(2110000038,1),(2110000033,0)]{assert!(crop_filter(&base,ITEM as i32,id,ix).is_err());}
+  for x in [json!(0),json!(1),json!(99),json!(101),json!(4294967295u64),json!("100"),json!(-100),json!(100.0)]{let mut d=base.clone();d["Data"]["MaxUnlockLevel"]=x;assert!(crop_filter(&d,ITEM as i32,2110000038,0).is_err());}
+  for x in [json!("CropTypeCondition_Any"),json!("CropTypeCondition_Vegetable"),json!(100)]{let mut d=base.clone();d["Data"]["CropType"]=x;assert!(crop_filter(&d,ITEM as i32,2110000038,0).is_err());}
+  for k in ["MaxUnlockLevel","CropType"]{let mut d=base.clone();d["Data"].as_object_mut().unwrap().remove(k);assert!(crop_filter(&d,ITEM as i32,2110000038,0).is_err());}
+  let mut d=base.clone();d["Data"]["MinUnlockLevel"]=json!(100);assert!(crop_filter(&d,ITEM as i32,2110000038,0).is_err());
+  let mut d=base.clone();d["Data"]["Item"]=json!(ITEM);assert!(crop_filter(&d,ITEM as i32,2110000038,0).is_err());
+ }
  #[test]fn fixed_switch_catalog0_current_harvest_and_recurring_exact1(){
   assert_eq!(RECURRING_RANGES.iter().map(|(a,b)|b-a+1).sum::<u32>(),508);
   let mut d=doc();let ix=layout_index().unwrap();
@@ -250,7 +268,7 @@ mod tests{
   d["World"]["RecurringEvents"]["1"]=json!({"ItemSpawning":{"RecurringEventItemID":2010000003,"NextOccurrence":"2026-11-16T00:00:00Z","EndDate":null,"LastOccurrence":null}});
   d["Player"]["DutySlots"]["0"]=json!({"Slots":[{"State":"DutySlotState_OnGoing","DutyId":2110000038,"DifficultyLayer":0,
     "ItemsUsed":[],"StepData":{"ItemFilter":{"Data":{"Type":"ItemType_ActivityItem","ActivityItemType":"ActivityItemType_Crop",
-    "Item":0,"ItemList":[],"AnyActivityItem":false}}}}]});
+    "Item":0,"ItemList":[],"AnyActivityItem":false,"MaxUnlockLevel":100,"CropType":"CropTypeCondition_Fruit"}}}}]});
   let s=open(&d,true);let e=env(&s,WorkerAction::ReadDomain);let before=s.receipt().unwrap();
   let t=s.preview_switch626_scoped_catalog0(e,selection(),998).unwrap();
   assert_eq!(s.discover_switch626_scoped_catalog0(e,0).unwrap().0,vec![t.clone()]);
