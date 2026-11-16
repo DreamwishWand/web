@@ -147,3 +147,28 @@ mod tests{
  for (k,v) in [("ID",json!(0)),("GridDataPath",json!("bad")),("GridDefaultLayoutPath",json!("overlay")),("TessellationFactor",json!(1)),("NextGridObjectID",json!(11))]{let mut q=d.clone();q[k]=v;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none())}for(k,v)in[("X",json!(1)),("State",json!({})),("Orientation",json!("GridOrientation_Up")),("ItemID",json!(40000066)),("ID",json!(12))]{let mut q=d.clone();q["Objects"]["10"][k]=v;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none())}
  let mut q=d.clone();let mut o=q["Objects"]["10"].clone();o["ID"]=json!(12);q["Objects"]["12"]=o;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none());let x=n(&q["Objects"]["10"]["X"]).unwrap() as i64;let y=n(&q["Objects"]["10"]["Y"]).unwrap() as i64;assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(x,y,x+2,y+2))).is_none());assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(x-4,y,x-2,y+2))).is_none());let far_x=x+12; q["Objects"]["12"]["X"]=json!(far_x);assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(far_x,y,far_x+2,y+2))).is_some());q["Objects"]["12"]["X"]=json!(far_x-1);assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(far_x-1,y,far_x+1,y+2))).is_none());}
 }
+
+
+// Exact Steam626 single ordinary Fence footprint; shape/stock rights are
+// separately bound by the product target. Existing installed Meadow provider.
+impl MeadowGeometry{
+ #[allow(dead_code)]
+ pub(crate) fn local_steam_single_fence(&self,g:&Value,x:u32,y:u32,common:impl Fn(u32)->Option<(u32,u32)>,mut effective:impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<u32>{
+  if n(&g["ID"])?==0||g["GridDataPath"]!=GRID||g["GridDefaultLayoutPath"]!=""||n(&g["TessellationFactor"])?!=2{return None}
+  let next=n(&g["NextGridObjectID"])?;if next==0||next.checked_add(1)?>i32::MAX as u32{return None}
+  let objects=g["Objects"].as_object()?;if objects.is_empty()||objects.len()>4096||objects.contains_key("0"){return None}
+  if self.dimensions(40700246,&common)?!=(2,2)||x%2!=0||y%2!=0||x.checked_add(2)?>W||y.checked_add(2)?>H{return None}
+  for dx in 0..2{for dy in 0..2{if !self.floor4(x+dx,y+dy){return None}}}
+  let halo=Rect(i64::from(x)-2,i64::from(y)-2,i64::from(x)+4,i64::from(y)+4);
+  // No seed or neighbor exception. The full half-open halo also rejects
+  // adjacent same-family connections; do not recompile existing topology.
+  self.clear_ambient(objects,next,&[],&[halo],&common,&mut effective)?;Some(next)
+ }
+ fn clear_ambient(&self,objects:&serde_json::Map<String,Value>,next:u32,exclude:&[u32],boxes:&[Rect],common:&impl Fn(u32)->Option<(u32,u32)>,effective:&mut impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<()>{
+  for(k,o)in objects{if !exact_fields(o,&["ID","ItemID","X","Y","Orientation","State"]){return None}let id=n(&o["ID"])?;if k!=&id.to_string()||id>=next{return None}if exclude.contains(&id){continue}
+   let dims=self.dimensions(n(&o["ItemID"])?,common)?;let ox=i64::from(n(&o["X"])?);let oy=i64::from(n(&o["Y"])?);o["Orientation"].as_str()?;
+   let rect=effective(o,dims)?;if !rect.valid()||ox<rect.0||ox>=rect.2||oy<rect.1||oy>=rect.3||boxes.iter().any(|b|b.intersects(rect)){return None}
+  }
+  Some(())
+ }
+}
