@@ -1,0 +1,73 @@
+name: QA ONLY PR1620 Wardrobe COMP03 reference changed UI (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1620-wardrobe-comp03-reference.yml'
+permissions:
+  contents: read
+jobs:
+  changed-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04dd8b2538b6f6e0d9aadff3a6e6f722a1f0fc40
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed exact2 closure
+        run: |
+          test "$(git rev-parse HEAD)" = '04dd8b2538b6f6e0d9aadff3a6e6f722a1f0fc40'
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 28085f9d5e59f19c2a1ef0c7e6fd20dbf4524588
+          test "$(git rev-parse HEAD:tests/wep-comp03-reference-consumer.test.mjs)" = c71723934069eb644de49bab88420a2864cb43ef
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = 4035d82ebbff5a497d8a36e4d87efeb5eab4b812
+          test "$(git rev-parse HEAD:src/lib/wep/Comp03ReferencePattern.svelte)" = af6861ca808e7e44ab3e419c146a36090d63fb7f
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual changed Svelte UI with synthetic DEV receipts
+        run: |
+          mkdir -p src/routes/test-qrw-1620
+          cat > src/routes/test-qrw-1620/+page.svelte <<'SVELTE'
+          <script>
+          import {onMount} from 'svelte';import {setLocale} from '$lib/i18n/runtime.js';import LocalPlacementEditorDev from '$lib/dev/LocalPlacementEditorDev.svelte';import {localPlacementCopy} from '$lib/dev/local-placement-copy.mjs';
+          let op='comp03',adapter=null,generation=0;
+          const trace={open:[],preview:[],stage:[],close:0,patch:{}};
+          const safe=(kind,extra={})=>({kind,ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false,...extra});
+          function make(mode){let input=null;
+           const close=async()=>{trace.close++;input=null;return safe('CLOSED')};
+           return {close,async open(a){input=a;trace.open.push(a.build.buildId);return safe('OPEN')},async backupOriginal(){return {backupReadbackVerified:true,originalUnchanged:true,shaMatched:true,sizeMatched:true,separateName:true,originalName:input.file.name,originalSha256:input.originalSha256,originalSizeBytes:input.file.size,backupName:'synthetic-backup.p1g'}},
+            async previewWardrobe(...args){if(args.length)throw Error('unexpected args');trace.preview.push([mode,null]);return {slot:0,oldItemId:50000352,newItemId:50000214,exactFieldChangedCount:1,writerAuthorized:false,editedCopyAuthorized:false,originalOverwriteAuthorized:false,...trace.patch}},async stageWardrobe(){trace.stage.push(mode);return safe('STAGED',{exactFieldChangedCount:1})},async previewBackpack(s){trace.preview.push([mode,s]);return {containerId:0,sourceSlot:s.sourceSlot,destinationSlot:s.destinationSlot,itemId:30200001,oldAmount:4,newSourceAmount:3,newDestinationAmount:1,quantity:1,effectiveStackBound:50,exactFieldChangedCount:3,writerAuthorized:false,editedCopyAuthorized:false,originalOverwriteAuthorized:false}},
+            async previewPlacement(s){trace.preview.push([mode,s]);return {itemId:40100038,gridId:301,seedId:s.seedId,nextObjectId:92,oldAmount:99,newAmount:99,inventoryDelta:0,retainSeed:1,addObjects:8,exactFieldChangedCount:9,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false}},
+            async stageBackpack(){trace.stage.push(mode);return safe('STAGED',{exactFieldChangedCount:3})},async stagePlacement(){trace.stage.push(mode);return safe('STAGED',{exactFieldChangedCount:9})},async undo(){return safe('UNDONE')},async redo(){return safe('REDONE')},async exportEditedCopy(){throw Error('QA no export')},async downloadVerifiedCopy(){throw Error('QA no download')}};
+          }
+          function change(mode){op=mode;adapter=make(mode);generation++}
+          onMount(()=>{setLocale('en');window.__qa1620={change,trace,words:localPlacementCopy('en')};change('comp03')});
+          </script>
+          {#if adapter}{#key generation}<LocalPlacementEditorDev trustedWorkerAdapter={adapter} verifiedLocalDevGate={true} fixedOperation={op}/>{/key}{/if}
+          SVELTE
+          cat > tests/.qa1620.mjs <<'NODE'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {spawn,spawnSync} from 'node:child_process';
+          const origin='http://127.0.0.1:4186',server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4186','--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});let browser;
+          try{
+           for(let i=0;i<100;i++){try{if((await fetch(origin+'/test-qrw-1620/')).ok)break}catch{}await new Promise(r=>setTimeout(r,250))}
+           const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+           const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(String(e)));await page.goto(origin+'/test-qrw-1620/');await page.waitForFunction(()=>!!window.__qa1620);const words=await page.evaluate(()=>window.__qa1620.words);
+           const ed=page.locator('[data-dev-placement]'),btn=k=>ed.getByRole('button',{name:words[k],exact:true}),nums=ed.locator('input[type=number]'),reference=ed.locator('[data-comp03-reference-pattern]');
+           async function prepare(mode){await page.evaluate(m=>window.__qa1620.change(m),mode);const f=ed.locator('input[type=file]');await f.waitFor();await f.setInputFiles({name:'synthetic.p1g',mimeType:'application/octet-stream',buffer:Buffer.alloc(16)});await ed.locator('input[type=checkbox]').check();await btn('openFile').click();await btn('backup').click();await btn('review').waitFor();}
+           let neg=0;
+           await prepare('comp03');await nums.nth(0).fill('82');await btn('review').click();await btn('stagePlacement').waitFor();assert.equal(await reference.count(),1);assert.equal(await reference.locator('[data-comp03-reference-cell]').count(),9);await nums.nth(0).fill('83');assert.equal(await btn('stagePlacement').isDisabled(),true);neg++;await nums.nth(0).fill('82');await btn('stagePlacement').click();await btn('undo').waitFor();await btn('close').click();await ed.locator('input[type=file]').waitFor();
+           for(const mode of ['wardrobe-steam','wardrobe-switch']){
+            await prepare(mode);assert.equal(await nums.count(),0);await btn('review').click();await btn('stagePlacement').waitFor();assert.equal(await reference.count(),0);assert.match(await ed.locator('[data-placement-preview]').innerText(),/50000352 → 50000214/);
+            const before=await page.evaluate(()=>window.__qa1620.trace.stage.length);await btn('stagePlacement').click();await btn('undo').waitFor();assert.equal(await page.evaluate(()=>window.__qa1620.trace.stage.length),before+1);await btn('undo').click();await btn('redo').waitFor();await btn('redo').click();await btn('undo').waitFor();assert.equal(await reference.count(),0);assert.equal(await ed.getAttribute('data-product-writer'),'off');assert.equal(await ed.getAttribute('data-public-route'),'off');await btn('close').click();await ed.locator('input[type=file]').waitFor();
+            for(const patch of [{slot:1},{oldItemId:50000353},{newItemId:50000215}]){
+             await prepare(mode);await page.evaluate(p=>window.__qa1620.trace.patch=p,patch);await btn('review').click();await ed.getByRole('alert').waitFor();assert.equal(await btn('stagePlacement').count(),0);assert.equal(await reference.count(),0);assert.equal(await page.evaluate(()=>window.__qa1620.trace.stage.length),before+1);neg++;await page.evaluate(()=>window.__qa1620.trace.patch={});
+            }
+           }
+           const t=await page.evaluate(()=>window.__qa1620.trace);assert.deepEqual(t.stage,['comp03','wardrobe-steam','wardrobe-switch']);assert.deepEqual(t.open,['releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',...Array(4).fill('releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22'),...Array(4).fill('9A239D3DB569756D')]);assert.deepEqual(errors,[]);assert.equal(neg,7);
+           console.log('QRW1620_REFERENCE_WARDROBE_CHANGED_UI_PASS '+JSON.stringify({positive:3,negative:neg,actualDom:true,syntheticReceipts:true,referenceComp03Only:true,stageGuard:true,fixedBuild:true,signed:false}));
+          }finally{await browser?.close();server.kill()}
+          NODE
+          node tests/.qa1620.mjs
+          git diff --exit-code -- src/lib/dev/LocalPlacementEditorDev.svelte tests/wep-comp03-reference-consumer.test.mjs
