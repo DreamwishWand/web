@@ -516,6 +516,66 @@ mod tests{
   assert!(s.mint_switch626_r01_target(env(&s),90001,x,y).is_err(),"R01 mode {i}");
   assert_eq!(s.receipt().unwrap(),before);}
  }
+
+ #[cfg(feature="product-switch626-r02-scoped")]
+ #[test]fn qa1731_r02_stage_exact6_lexical_delta(){
+  let mut d=doc();
+  let p=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();
+  let (x,y)=(0..387u32).step_by(4).flat_map(|x|(0..195u32).step_by(4).map(move|y|(x,y))).find(|&(x,y)|[(x,y),(x+4,y+4),(x+4,y),(x,y+4)].iter().all(|&(a,b)|(0..2).all(|i|(0..2).all(|j|p.floor4(a+i,b+j))))).unwrap();
+  let g=&mut d["World"]["GridCollection"]["Grids"]["90001"];
+  g["Objects"]["10"]["X"]=json!(if x<190{388}else{0});g["Objects"]["10"]["Y"]=json!(if y<100{196}else{0});
+  g["Objects"].as_object_mut().unwrap().remove("11");
+  d["World"]["MissionSlots"]=json!({});d["World"]["RecurringEvents"]=json!({});
+  d["World"]["TimeLostTreasures"]=json!({});d["World"]["NextTimeLostTreasureID"]=json!(1);
+  d["World"]["Snippets"]=json!({});d["World"]["NextSnippetID"]=json!(0);
+  d["Player"]["AchievementsData"]=json!([]);d["Player"]["DutySlots"]=json!({});
+  d["Player"]["EvolveStatesProfile"]=json!({"EvolveProgressState":{}});
+  d["Player"]["BattlePassStates"]=json!({"Progress":{},"FtueProgress":{"TasksProgress":[],"WeeklyTasksProgress":[]}});
+  d["ConditionalEventHistory"]=json!({"ActiveEvents":{}});
+  d["QRC1731Opaque"]=json!({"escaped":"keep","stock":5,"counter":50});
+  let make=|raw:&str|{let mut s=ProductSession::open_decoded_readonly(raw.as_bytes().to_vec(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s};
+  let mut pos=0;let mut neg=0;
+  for stock in [5u32,17]{
+   let mut d=d.clone();d["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(stock);
+   let raw=serde_json::to_string(&d).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");
+   let s=make(&raw);let e=env(&s);let before=s.receipt().unwrap();
+   let q=s.preview_switch626_r02_product(e,90001,x,y).unwrap();
+   let oldobj=serde_json::to_string(&d["World"]["GridCollection"]["Grids"]["90001"]["Objects"]).unwrap();
+   let mut newobj=oldobj[..oldobj.len()-1].to_string();
+   for (i,(a,b)) in [(x,y),(x+4,y+4),(x+4,y),(x,y+4)].into_iter().enumerate(){
+    let id=50+i;let row=json!({"ID":id,"ItemID":40100068,"X":a,"Y":b,"Orientation":"GridOrientation_Down","State":{"FenceMode":{"Diagonal":true}}});
+    newobj.push_str(&format!(",\"{id}\":{}",serde_json::to_string(&row).unwrap()));
+   }
+   newobj.push('}');
+   assert_eq!(raw.matches(&oldobj).count(),1);
+   let oldamount=format!("\"Amount\":{stock},");let newamount=format!("\"Amount\":{},",stock-4);
+   assert_eq!(raw.matches(&oldamount).count(),1);
+   let expected=raw.replacen(&oldobj,&newobj,1).replacen("\"NextGridObjectID\":50","\"NextGridObjectID\":54",1).replacen(&oldamount,&newamount,1);
+   let projected=sha(expected.as_bytes());
+   assert_eq!(q["projectedDecodedSha256"],super::super::hex(&projected));
+   assert_eq!(q["exactFieldChangedCount"],6);assert_eq!(q["newAmount"],stock-4);assert_eq!(q["inventoryDelta"],-4);
+   let t=s.mint_switch626_r02_target(e,90001,x,y).unwrap();
+   let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+   let call=|s:&ProductSession,e:WorkerEnvelope,g:u32,a:u32,b:u32,n:u32,o:u32,gs:[u8;32],ss:[u8;32],p:[u8;32]|s.stage_switch626_r02_product(e,g,a,b,n,o,gs,ss,p);
+   for (g,a,b,n,o,gs,ss,p) in [(90002,x,y,50,stock,t.grid_sha,t.stock_sha,projected),(90001,x+4,y,50,stock,t.grid_sha,t.stock_sha,projected),(90001,x,y,54,stock,t.grid_sha,t.stock_sha,projected),(90001,x,y,50,stock-4,t.grid_sha,t.stock_sha,projected),(90001,x,y,50,stock,[0;32],t.stock_sha,projected),(90001,x,y,50,stock,t.grid_sha,[0;32],projected),(90001,x,y,50,stock,t.grid_sha,t.stock_sha,[0;32])]{assert!(call(&s,stage,g,a,b,n,o,gs,ss,p).is_err());neg+=1;}
+   assert!(call(&make(&raw),stage,90001,x,y,50,stock,t.grid_sha,t.stock_sha,projected).is_err());neg+=1;
+   assert_eq!(s.receipt().unwrap(),before);
+   let r=call(&s,stage,90001,x,y,50,stock,t.grid_sha,t.stock_sha,projected).unwrap();
+   assert_eq!(r.exact_field_changed_count,6);assert_eq!(r.staged_decoded_sha256,projected);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+   assert!(call(&s,stage,90001,x,y,50,stock,t.grid_sha,t.stock_sha,projected).is_err());neg+=1;
+   s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+   assert!(s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).is_err());neg+=1;
+   s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+   let out_e=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};
+   assert_eq!(s.take_typed_semantic_decoded_once(out_e).unwrap(),expected.as_bytes());
+   assert!(s.take_typed_semantic_decoded_once(out_e).is_err());neg+=1;
+   assert_eq!(sha(&s.decoded),e.expected_decoded_sha256);pos+=1;
+  }
+  for amount in [0,4,10000]{let mut bad=d.clone();bad["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(amount);let s=make(&serde_json::to_string(&bad).unwrap());assert!(s.preview_switch626_r02_product(env(&s),90001,x,y).is_err());neg+=1;}
+  let mut bad=d.clone();bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["QRCKeep"]=json!({"amount":4,"old":50});
+  let s=make(&serde_json::to_string(&bad).unwrap());assert!(s.preview_switch626_r02_product(env(&s),90001,x,y).is_err());neg+=1;
+  assert_eq!((pos,neg),(2,26));println!("QRC1731_R02_STAGE_ACTUAL {pos}POS {neg}NEG EXACT6");
+ }
  #[cfg(feature="product-switch626-r02-scoped")]
  #[test]fn switch626_r02_product_exact6_debit4_cas(){
   let mut d=doc();
