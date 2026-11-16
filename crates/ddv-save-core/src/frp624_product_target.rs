@@ -119,4 +119,5 @@ mod tests{
   let mut q=d.clone();let mut ambient=q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"].clone();ambient["ID"]=json!(13);ambient["ItemID"]=json!(40005494);ambient["Orientation"]=json!("GridOrientation_UpLeft");q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["13"]=ambient;
   let s=open(&q,FRP_BUILD,624);assert_eq!(s.mint_switch624_frp01_target(env(&s),90001,ids).unwrap_err().0,"FRP01_TARGET_GEOMETRY");
  }
+ #[test]fn qa1852_synthetic_fixture(){std::fs::write("/tmp/qrc1852-input.json",serde_json::to_vec(&doc()).unwrap()).unwrap();}
 }
