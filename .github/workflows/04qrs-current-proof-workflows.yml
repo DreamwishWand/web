@@ -1,0 +1,65 @@
+name: 04 QR-S current Chest Collection proof workflow L2 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-current-proof-workflows.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    strategy:
+      fail-fast: false
+      matrix:
+        scope:
+          - '["switch","59a1123d2d12561e5dbd16344bf7363bb57363fc","3b8fbafc25a0aa045fe837cb8898a07089bdc64c"]'
+          - '["steam","458bebf8fb86b6b95c73b4bc113c14988a2ebf0c","339d76b99abaee13b6c5eeba70bfdc6b00cd6bdd"]'
+          - '["collection","91b13c88f8481e1b280647e5f94d0fd857043677","9666c9569eb3d83c750840d4068157cf2223b3a5"]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ fromJSON(matrix.scope)[1] }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent exact workflow pins and old boundary
+        shell: bash
+        env:
+          SCOPE: ${{ matrix.scope }}
+        run: |
+          set -euo pipefail
+          cat > qa-current-proof.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync} from 'node:fs';
+          const [name,ref,sha]=JSON.parse(process.env.SCOPE),base='5660a5aba307afd35478bd32c1961f612f2e6bf4',steamParent='f091557b2cc8367f5cb464cc647580de780266e2',oldSteam='806a25117ca8e5ef9136248a8a873229def64b89';
+          const path='.github/workflows/pages.yml',g=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'});
+          assert.equal(g('rev-parse','HEAD'),ref);assert.equal(g('rev-parse','HEAD:'+path),sha);
+          const y=readFileSync(path,'utf8'),old=raw(name==='steam'?steamParent:base,path);
+          const jobs=s=>Object.fromEntries([...s.matchAll(/^  ([a-z0-9_]+):\n(?=    )/gm)].map(m=>{const start=m.index,end=s.slice(start+1).search(/^  [a-z0-9_]+:\n/m);return [m[1],end<0?s.slice(start):s.slice(start,start+1+end)]}));
+          const j=jobs(y),o=jobs(old),pins=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(m=>[m[1],m[2]]);
+          const key='scoped_'+(name==='collection'?'collection':name+'_chest')+'_proof',proof=j[key],p=pins(proof),prior=pins(name==='steam'?jobs(raw(oldSteam,path))[key]:o[key]);
+          assert.equal(p.length,name==='steam'?24:name==='switch'?22:11);assert.equal(new Set(p.map(x=>x[0])).size,p.length);assert.deepEqual(p.map(x=>x[0]),prior.map(x=>x[0]));
+          const target=name==='steam'?steamParent:base;const expected=p.map(([f])=>[f,g('rev-parse',target+':'+f)]);assert.deepEqual(p,expected);
+          for(const [f,h] of p){const mode=g('ls-tree',target,'--',f);assert.match(mode,f==='crates/ddv-save-core'?/^040000 tree /:/^100644 blob /);}
+          const changed=p.filter((x,i)=>x[1]!==prior[i][1]);assert.equal(changed.length,name==='steam'?9:name==='switch'?5:1);
+          let restored=proof;for(const [f,h] of changed){const oldh=prior.find(x=>x[0]===f)[1],a='test "$(git rev-parse HEAD:'+f+')" = '+h;assert.equal(restored.split(a).length,2);restored=restored.replace(a,a.replace(h,oldh))}
+          assert.equal(restored.trimEnd(),(name==='steam'?jobs(raw(oldSteam,path))[key]:o[key]).trimEnd());
+          if(name==='steam'){const strip=s=>s.replace(/^    if:.*\n/m,'').trimEnd();for(const k of ['build','deploy','scoped_collection_proof','scoped_switch_chest_proof'])assert.equal(strip(j[k]),strip(o[k]),k);assert.equal(y.slice(y.indexOf('permissions:'),y.indexOf('jobs:')),old.slice(old.indexOf('permissions:'),old.indexOf('jobs:')));}
+          else {assert.equal(y.replace(proof,restored),old);}
+          const vars=name==='steam'?['collection','switch_chest','steam_chest']:['collection','switch_chest'];const names=['build',...vars.map(n=>'scoped_'+n+'_proof')];
+          const guard=n=>j[n].match(/^    if: (.*)$/m)[1];
+          function evalGuard(g,event,ref,values){let e=g.replaceAll('github.event_name',JSON.stringify(event)).replaceAll('github.ref',JSON.stringify(ref));for(let i=0;i<vars.length;i++)e=e.replaceAll('inputs.scoped_'+vars[i]+'_proof_source',JSON.stringify(values[i]));assert.match(e,/^[\w'"/= !&|().-]+$/);return Function('"use strict";return ('+e+')')()}
+          let cases=0,neg=0;for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/other'])for(let mask=0;mask<2**vars.length;mask++){const v=vars.map((_,i)=>mask&(1<<i)?'a'.repeat(40):'');const on=names.filter(n=>evalGuard(guard(n),event,ref,v));const expected=event==='push'?['build']:mask===0?['build']:ref==='refs/heads/main'&&(mask&(mask-1))===0?[names[1+Math.log2(mask)]]:[];assert.deepEqual(on,expected);cases++}
+          const check=s=>assert.deepEqual(pins(s),expected);for(const [f,h] of p){const a='test "$(git rev-parse HEAD:'+f+')" = '+h;assert.throws(()=>check(proof.replace(a,a.replace(h,'f'.repeat(40)))));neg++;assert.throws(()=>check(proof.replace(a,'')));neg++}
+          for(const [f,h] of changed){const a='test "$(git rev-parse HEAD:'+f+')" = '+h;assert.throws(()=>check(proof.replace(a,a.replace(h,prior.find(x=>x[0]===f)[1]))));neg++}
+          assert.throws(()=>check(proof+'\n test "$(git rev-parse HEAD:foreign)" = '+'a'.repeat(40)));neg++;
+          const order=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','cargo build --locked','node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate','node scripts/int-protected-ci-gate.mjs deploy','actions/upload-artifact@v4'];let offset=-1;for(const m of order){const k=proof.indexOf(m,offset+1);assert.ok(k>offset,m);offset=k}
+          const subject=proof.slice(proof.indexOf('subject-path: |'),proof.indexOf('      - name: Verify exact signer'));assert.deepEqual(subject.trim().split('\n').slice(1).map(s=>s.trim().split('/').pop()),['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json']);
+          const upload=proof.slice(proof.indexOf('actions/upload-artifact@v4'));assert.deepEqual(upload.split('\n').filter(s=>s.includes('runner.temp')).map(s=>s.trim().split('/').pop()),['pins.json','attestation-bundle.jsonl']);assert.doesNotMatch(proof,/actions\/(?:deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
+          console.log('CURRENT_PROOF_WORKFLOW_L2_PASS',JSON.stringify({name,dispatchCases:cases,pins:p.length,changed:changed.length,negative:neg,actualGit:true,actualSignature:false}));
+          
+          EOF
+          node qa-current-proof.mjs
