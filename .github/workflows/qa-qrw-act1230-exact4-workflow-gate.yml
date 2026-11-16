@@ -1,0 +1,90 @@
+name: QA ONLY ACT1230 exact4 workflow gate (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1230-exact4-workflow-gate.yml'
+permissions:
+  contents: read
+jobs:
+  exact-scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bccca45b1fba8982043b9a2a71fd216d2dbe67e3
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Execute exact source shell with actual isolated Git path diffs
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'bccca45b1fba8982043b9a2a71fd216d2dbe67e3'
+          git cat-file -e a7ee33f21a76c4aa1e616d265d9a6665df6203f6^{commit} || git fetch --no-tags origin a7ee33f21a76c4aa1e616d265d9a6665df6203f6
+          python3 - <<'PY'
+          import pathlib, subprocess, tempfile, os, hashlib, json
+          from pathlib import Path
+          p=Path('.github/workflows/web-shared-catalog-detail.yml')
+          new=p.read_text()
+          old=subprocess.check_output(['git','show','a7ee33f21a76c4aa1e616d265d9a6665df6203f6:'+str(p)],text=True)
+          def blob(s): 
+           b=s.encode();return hashlib.sha1(('blob '+str(len(b))+'\0').encode()+b).hexdigest()
+          assert blob(new)=='22c0b243253a06fe61113b208cb1fe31dd050dd8'
+          assert blob(old)=='88b7e4e340c8d244980d0958ec14fe19c133d26d'
+          start='            cat > /tmp/steam1253-tree-quarantine-expected'
+          end='            elif diff -q /tmp/steam1253-extension-expected'
+          i=new.index(start);j=new.index(end,i)
+          restored=new[:i]+new[j:].replace('            elif diff -q /tmp/steam1253-extension-expected','            if diff -q /tmp/steam1253-extension-expected',1)
+          assert restored==old,'unexpected non-gate diff'
+          def extract(s):
+           a=s.index('          set -euo pipefail',s.index('      - name: Current-main bounded Item regression'))
+           b=s.index('      - name: Source/version',a)
+           return '\n'.join(l[10:] if l.startswith('          ') else l for l in s[a:b].splitlines())+'\n'
+          guard=extract(new);oldguard=extract(old)
+          W='.github/workflows/web-shared-catalog-detail.yml'
+          R='src/lib/item-media/switch1253-public-item-images.mjs'
+          P='scripts/web-switch1253-private-preview-build.mjs'
+          T='tests/web-switch1253-item-thumb-contract.test.mjs'
+          D='scripts/web-steam1253-door-collection-chrome.mjs'
+          DT='tests/web-steam1253-door-primary-contract.test.mjs'
+          U='src/lib/ui/ItemThumb.svelte'
+          I='src/lib/ui/ItemImagePreferences.svelte'
+          C='scripts/web-shared-catalog-e2e-chrome.mjs'
+          four={W,R,P,T};six=four|{D,DT}
+          door='--test '+DT;switch='--test '+T
+          def git(cwd,*args):return subprocess.check_output(['git','-C',str(cwd),*args],text=True,stderr=subprocess.DEVNULL)
+          def run(paths,script):
+           with tempfile.TemporaryDirectory(prefix='qrw1230-') as tmp:
+            root=Path(tmp);work=root/'repo';work.mkdir();bin=root/'bin';bin.mkdir();calls=root/'calls'
+            spy=bin/'node';spy.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$QA_NODE_CALLS"\nexit 0\n');spy.chmod(0o755)
+            git(work,'init','-q');git(work,'config','user.name','Synthetic QA');git(work,'config','user.email','qa@example.invalid')
+            (work/'baseline').write_text('base');git(work,'add','.');git(work,'commit','-qm','base');git(work,'update-ref','refs/remotes/origin/main','HEAD')
+            for name in paths:
+             f=work/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('synthetic changed path\n')
+            git(work,'add','.');git(work,'commit','-qm','candidate')
+            actual=set(git(work,'diff','--name-only','origin/main','HEAD').splitlines());assert actual==paths
+            env=dict(os.environ,PATH=str(bin)+':'+os.environ['PATH'],QA_NODE_CALLS=str(calls))
+            r=subprocess.run(['bash','-c',script],cwd=work,env=env,text=True,capture_output=True)
+            return r.returncode,r.stdout,calls.read_text().splitlines() if calls.exists() else []
+          pos=neg=legacy=0
+          for paths,marker in [(four,'WEB_SWITCH1253_TREE_QUARANTINE_MAIN_EXACT4_SCOPE_PASS'),(six,'WEB_STEAM1253_SHARED_TREE_QUARANTINE_EXACT6_SCOPE_PASS')]:
+           rc,out,cmd=run(paths,guard);assert rc==0 and marker in out and cmd==[door,switch],(paths,rc,out,cmd)
+           assert run(paths,oldguard)[0]!=0
+           pos+=1
+          for paths,marker,cmd in [
+           ({W,R,T},'WEB_CURRENT_SWITCH1253_ISSUE604_POLICY_EXACT3_SCOPE_PASS',[switch]),
+           ({W,R,P,U,T},'WEB_CURRENT_SWITCH1253_ELIGIBLE2_PREP_EXACT5_SCOPE_PASS',[P,switch]),
+           ({W,R,D,DT},'WEB_STEAM1253_DOOR_EXACT4_SCOPE_PASS',[door,switch]),
+           ({W,R,DT},'WEB_STEAM1253_EXACT3_EXTENSION_SCOPE_PASS',[door,switch]),
+           ({W,R,C,I,U,T},'WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS',[switch])]:
+           a=run(paths,guard);b=run(paths,oldguard);assert a==b and a[0]==0 and marker in a[1] and a[2]==cmd,(paths,a,b);legacy+=1
+          bad=[four-{W},four-{T},four|{D},four|{DT},four|{U},four|{'README.md'},four|{'src/routes/collection/+page.svelte'},(four-{P})|{D},(four-{T})|{'tests/unrelated.test.mjs'},six- {D},six|{'src/lib/community/unrelated.mjs'}]
+          # Removing P is an intentionally previously accepted policy exact3, not a new exact4.
+          for paths in bad:
+           rc,out,cmd=run(paths,guard);assert rc!=0 and 'TREE_QUARANTINE_MAIN_EXACT4_SCOPE_PASS' not in out and 'SHARED_TREE_QUARANTINE_EXACT6_SCOPE_PASS' not in out and not cmd,(paths,rc,out,cmd);neg+=1
+          # The shared workflow only selects the image gate when R changes. A non-image change is not a grant.
+          rc,out,cmd=run(four-{R},guard);assert rc==0 and 'TREE_QUARANTINE' not in out and not cmd
+          assert run(four-{R},oldguard)==(rc,out,cmd)
+          assert 'WEB_ITEM_ORIGINAL_ACCEPTED_BEHAVIOR_REGRESSION_PASS' in out
+          print('ACT1230_EXACT4_WORKFLOW_GATE_PASS '+json.dumps(dict(newPos=pos,denied=neg,legacy=legacy,nonImageNotSelected=1,rawShell=True,actualGitDiff=True,nodeDispatchSpy=True,unchangedWorkflowOutsideGate=True)))
+          
+          PY
