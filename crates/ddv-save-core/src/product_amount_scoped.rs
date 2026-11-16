@@ -274,6 +274,10 @@ fn subscribers(b:&[u8],player:Span,world:Span,top:Span,d:&Value,item:i32,furnitu
     subscribers_bound(b,player,world,top,d,item,furniture,false)
 }
 fn subscribers_bound(b:&[u8],player:Span,world:Span,top:Span,d:&Value,item:i32,furniture:bool,switch_rm01:bool)->CoreResult<()>{
+    subscribers_bound_layout(b,player,world,top,d,item,furniture,switch_rm01,false)
+}
+fn subscribers_bound_layout(b:&[u8],player:Span,world:Span,top:Span,d:&Value,item:i32,furniture:bool,switch_rm01:bool,switch_catalog0:bool)->CoreResult<()>{
+    if switch_catalog0{need(!switch_rm01&&item==40000076&&furniture,"PRODUCT_SWITCH626_CATALOG0_ONLY")?;product_switch626_catalog0::recurring(b,world,item)?;}
     if switch_rm01{need(item==40100068&&furniture,"RM01_SUBSCRIBER_SCOPE")?;}
     let mut refs=0usize;let mut nodes=0usize;let mut slots=0usize;
     excludes(&d["events"],item)?;
@@ -331,6 +335,8 @@ fn subscribers_bound(b:&[u8],player:Span,world:Span,top:Span,d:&Value,item:i32,f
                     let v=leaf(b,f(b,f(b,s,"StepData")?,"ItemFilter")?)?;
                     switch626_crop_filter::crop_filter(&v,item,id,ix)?;
                     need(array(b,f(b,s,"ItemsUsed")?,4096)?.is_empty(),"RM01_CROP_ITEMS_USED")?;
+                }else if switch_catalog0&&layer.is_null(){
+                    product_switch626_catalog0::harvest(b,s,id,ix,item)?;
                 }else{excludes(layer,item)?;}
             }
         }
@@ -443,7 +449,7 @@ fn saved_grid_state(b:&[u8],s:Span,item:i32,budget:&mut usize)->CoreResult<()>{
 #[derive(Clone,Copy)]struct Link{grid:u32,object:u32,record:Span,grid_span:Span}
 
 #[derive(Clone,Copy,PartialEq,Eq)]
-enum LayoutBinding { SteamReferenceOnly, Steam626ChestStatic, Switch626ChestStatic }
+enum LayoutBinding { SteamReferenceOnly, Steam626ChestStatic, Switch626ChestStatic, Switch626Catalog0Static }
 fn scan_grids(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>)->CoreResult<Option<Link>>{
     scan_grids_bound(b,world,item,chest,LayoutBinding::SteamReferenceOnly)
 }
@@ -452,6 +458,8 @@ fn scan_grids_bound(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>,binding:
         need(chest.is_some(),"PRODUCT_SWITCH626_CHEST_ONLY")?;
     }else if binding==LayoutBinding::Steam626ChestStatic{
         need(chest.is_some(),"PRODUCT_AMOUNT_STATIC_CHEST_ONLY")?;
+    }else if binding==LayoutBinding::Switch626Catalog0Static{
+        need(chest.is_none()&&item==40000076,"PRODUCT_SWITCH626_CATALOG0_ONLY")?;
     }
     let gc=f(b,world,"GridCollection")?;let mut count=0usize;let mut total=0usize;let mut link=None;
     let mut subgrid=std::collections::BTreeSet::new();let mut grids=std::collections::BTreeSet::new();
@@ -580,6 +588,8 @@ fn eligible_bound(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32,binding:
     }else if binding==LayoutBinding::Steam626ChestStatic{
         build_check(s)?;
         need(matches!(t.view().selection,ExistingAmountSelection::Chest{..}),"PRODUCT_AMOUNT_STATIC_CHEST_ONLY")?;
+    }else if binding==LayoutBinding::Switch626Catalog0Static{
+        product_switch626_catalog0::validate(s,t,new)?;
     }
     let (a,d)=pack()?;let v=t.view();let item=v.item_id;
     need(v.old_amount.checked_sub(1)==Some(new)&&new>0,"PRODUCT_AMOUNT_DECREASE_ONE")?;
@@ -591,7 +601,7 @@ fn eligible_bound(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32,binding:
                 let id=key(&k)?;need(n(b,route,"ID")?==id,"PRODUCT_AMOUNT_ROUTE_ID")?;
                 if opt(b,f(b,route,"Inventory")?,&item.to_string())?.is_some(){matches+=1;need(id==0,"PRODUCT_AMOUNT_CATALOG_ROUTE")?;}
             }need(matches==1,"PRODUCT_AMOUNT_CATALOG_ROUTE")?;
-            physical_totals(b,r.player,item,None,v.old_amount)?;scan_grids(b,r.world,item,None)?;
+            physical_totals(b,r.player,item,None,v.old_amount)?;scan_grids_bound(b,r.world,item,None,binding)?;
             true
         }
         ExistingAmountSelection::Chest{container_id,slot_index}=>{
@@ -611,9 +621,11 @@ fn eligible_bound(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32,binding:
         }
         _=>return reject("PRODUCT_AMOUNT_PROFILE"),
     };
-    subscribers(b,r.player,r.world,top,d,item,furniture)
+    if binding==LayoutBinding::Switch626Catalog0Static{subscribers_bound_layout(b,r.player,r.world,top,d,item,furniture,false,true)}else{subscribers(b,r.player,r.world,top,d,item,furniture)}
 }
 
+#[path="product_switch626_catalog0.rs"]
+mod product_switch626_catalog0;
 #[path="product_switch626_chest.rs"]
 mod product_switch626_chest;
 
