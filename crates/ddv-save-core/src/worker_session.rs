@@ -370,3 +370,11 @@ mod tests {
         assert_eq!(borrowed.receipt().unwrap_err().0, "SESSION_CLOSED");
     }
 }
+
+#[cfg(feature="product-steam626-catalog0-portable-restore")]
+#[path="worker_portable_catalog0.rs"]
+mod portable_catalog0;
+
+#[cfg(feature="product-steam626-chest-portable-restore")]
+#[path="worker_portable_chest.rs"]
+mod portable_chest;
