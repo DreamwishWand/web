@@ -30,15 +30,17 @@ export function createProductSteam626Comp03LocalAdapter(options={}){return creat
 export function createProductSteam626VaseAddLocalAdapter(options={}){return createScopedLocalAdapter(options,false,'vase')}
 export function createProductSteam626BackpackLocalAdapter(options={}){return createScopedLocalAdapter(options,false,null,'steam')}
 export function createProductSwitch626BackpackLocalAdapter(options={}){return createScopedLocalAdapter(options,false,null,'switch')}
-function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,placementScope=null,backpackScope=null){
- const placement=placementScope!==null,backpack=backpackScope!==null,previewEdit=placement||backpack,placementCount=placementScope==='comp03'?9:3;
+export function createProductSteam626WardrobeLocalAdapter(options={}){return createScopedLocalAdapter(options,false,null,null,'steam')}
+export function createProductSwitch626WardrobeLocalAdapter(options={}){return createScopedLocalAdapter(options,false,null,null,'switch')}
+function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,placementScope=null,backpackScope=null,wardrobeScope=null){
+ const placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,previewEdit=placement||backpack||wardrobe,placementCount=wardrobe?1:placementScope==='comp03'?9:3;
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||
   (discoverScopedTargets!==undefined&&typeof discoverScopedTargets!=='function')||
   (allowCoreDiscoverySource&&discoverScopedTargets!==undefined)||
   ((collection||previewEdit)&&(allowCoreDiscoverySource||discoverScopedTargets!==undefined))||
   !['linked-crop-chest48','catalog0-furniture'].includes(coreDiscoveryProfile))fail();
  const store=createLocalEncryptedCopyStore(getDirectory?{getDirectory}:{});
- const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:!collection&&!previewEdit,allowScopedCollectionSource:collection,placementScope,backpackScope,readDurableOriginalBackup:b=>store.durable(b)});
+ const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:!collection&&!previewEdit,allowScopedCollectionSource:collection,placementScope,backpackScope,wardrobeScope,readDurableOriginalBackup:b=>store.durable(b)});
  let epoch=0,source=null,backup=null,targets=[],phase='closed',busy=false,closeUnverified=false;
  const revoke=()=>{
   epoch++;store.close();source=null;backup=null;targets=[];phase='closed';busy=false;
@@ -68,8 +70,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   async open(args){
    if(closeUnverified)fail();revoke();return run(async t=>{
     if(!keys(args,'file,originalSha256,build')||!keys(args.build,'platform,buildKind,buildId,schema,externallyConfirmed')||
-     !(((backpackScope!=='switch')&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
-       ((collection||backpackScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
+     !(((backpackScope!=='switch'&&wardrobeScope!=='switch')&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
+       ((collection||backpackScope==='switch'||wardrobeScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
      args.build.schema!==626||args.build.externallyConfirmed!==true||!uint(t)||t<1)fail();
     const input=Object.freeze({file:args.file,originalSha256:args.originalSha256,build:Object.freeze({...args.build})});
     const r=await bridge.openScopedEncrypted(input);check(t);
@@ -113,8 +115,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
    if(staged.applied!==true||staged.exactFieldChangedCount!==1||staged.writerAuthorized!==false)fail();
    phase='staged';return kind('STAGED');
   })},
-  undo(selection){selectionCheck(selection);requirePhase('staged');return run(async()=>{const r=backpack?bridge.toggleScopedBackpack(false):placement?bridge.toggleScopedPlacement(false):collection?bridge.toggleFixedCollection(false):bridge.toggleScopedAmount(false);if(r.applied!==false)fail();phase='undone';return collection?collectionMutation('UNDONE'):kind('UNDONE')})},
-  redo(selection){selectionCheck(selection);requirePhase('undone');return run(async()=>{const r=backpack?bridge.toggleScopedBackpack(true):placement?bridge.toggleScopedPlacement(true):collection?bridge.toggleFixedCollection(true):bridge.toggleScopedAmount(true);if(r.applied!==true)fail();phase='staged';return collection?collectionMutation('REDONE'):kind('REDONE')})},
+  undo(selection){selectionCheck(selection);requirePhase('staged');return run(async()=>{const r=wardrobe?bridge.toggleScopedWardrobe(false):backpack?bridge.toggleScopedBackpack(false):placement?bridge.toggleScopedPlacement(false):collection?bridge.toggleFixedCollection(false):bridge.toggleScopedAmount(false);if(r.applied!==false)fail();phase='undone';return collection?collectionMutation('UNDONE'):kind('UNDONE')})},
+  redo(selection){selectionCheck(selection);requirePhase('undone');return run(async()=>{const r=wardrobe?bridge.toggleScopedWardrobe(true):backpack?bridge.toggleScopedBackpack(true):placement?bridge.toggleScopedPlacement(true):collection?bridge.toggleFixedCollection(true):bridge.toggleScopedAmount(true);if(r.applied!==true)fail();phase='staged';return collection?collectionMutation('REDONE'):kind('REDONE')})},
   exportEditedCopy(selection){selectionCheck(selection);requirePhase('staged');return run(async t=>{
    if(typeof freshCodecReopen!=='function')fail();
    const o=await bridge.exportScopedEditedCopy();
@@ -144,8 +146,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   return p;
  };
  if(previewEdit)return Object.freeze({open:api.open,close,backupOriginal:api.backupOriginal,undo:api.undo,redo:api.redo,exportEditedCopy:api.exportEditedCopy,downloadVerifiedCopy:api.downloadVerifiedCopy,
-  [backpack?'previewBackpack':'previewPlacement'](selector){if(!['backed','previewed'].includes(phase))fail();return run(async()=>{const p=backpack?bridge.previewScopedBackpack(selector):bridge.previewScopedPlacement(selector);if(p.exactFieldChangedCount!==placementCount||p.writerAuthorized!==false||p.editedCopyAuthorized!==false)fail();phase='previewed';return p})},
-  [backpack?'stageBackpack':'stagePlacement'](){requirePhase('previewed');return run(async t=>{const r=await (backpack?bridge.stageScopedBackpack():bridge.stageScopedPlacement());check(t);if(r.applied!==true||r.exactFieldChangedCount!==placementCount||r.writerAuthorized!==false)fail();phase='staged';return {...kind('STAGED'),exactFieldChangedCount:placementCount}})}
+  [wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement'](...args){if(!['backed','previewed'].includes(phase))fail();return run(async()=>{if(args.length!==(wardrobe?0:1))fail();const p=wardrobe?bridge.previewScopedWardrobe():backpack?bridge.previewScopedBackpack(args[0]):bridge.previewScopedPlacement(args[0]);if(p.exactFieldChangedCount!==placementCount||p.writerAuthorized!==false||p.editedCopyAuthorized!==false)fail();phase='previewed';return p})},
+  [wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement'](...args){requirePhase('previewed');return run(async t=>{if(args.length)fail();const r=await (wardrobe?bridge.stageScopedWardrobe():backpack?bridge.stageScopedBackpack():bridge.stageScopedPlacement());check(t);if(r.applied!==true||r.exactFieldChangedCount!==placementCount||r.writerAuthorized!==false)fail();phase='staged';return {...kind('STAGED'),exactFieldChangedCount:placementCount}})}
  });
  if(!collection)return Object.freeze(api);
  // The fixed Core preview (not candidate-only read) is the only source of
