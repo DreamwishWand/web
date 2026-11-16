@@ -51,6 +51,58 @@ impl ProductSession{
     houses_sha:digest(b,house_span)?,old_rows_sha,pairs:refs.pairs})
  }
 }
+#[cfg(feature="product-switch626-fm01-scoped")]
+struct Fm01Prepared{target:Fm01Target,edits:Vec<Replacement>,projected:[u8;32]}
+#[cfg(feature="product-switch626-fm01-scoped")]
+impl ProductSession{
+ fn prepare_switch626_fm01_product(&self,e:WorkerEnvelope,grid:u32,ids:[u32;5])->CoreResult<Fm01Prepared>{
+  use super::super::super::switch624_fence_fe01::{Fm01Expected,collect_fm01_current};
+  let t=self.mint_switch626_fm01_target(e,grid,ids)?;
+  let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+  need(st.semantic.is_none()&&st.revision==0&&st.generation==1,"FM01_PRODUCT_EPOCH")?;
+  let w=Fm01Expected{grid:t.grid,ids:t.ids,next:t.next,stock:t.stock,grid_sha:t.grid_sha,
+   stock_sha:t.stock_sha,counter_sha:t.counter_sha,old_rows_sha:t.old_rows_sha};
+  let mut edits=collect_fm01_current(self,&w)?;
+  // Physical splice count depends on the lexical adjacency of the four
+  // removed rows; logical diff is always four deletes + three adds + counter.
+  need((3..=6).contains(&edits.len()),"FM01_PRODUCT_EDIT_COUNT")?;
+  edits.sort_by_key(|v|v.span.begin);
+  let b=&self.decoded;let mut h=Sha256::new();let mut pos=0;
+  for edit in &edits{
+   need(edit.span.begin>=pos&&edit.span.end>=edit.span.begin&&edit.span.end<=b.len()&&
+       raw(b,edit.span)?==edit.old.as_slice(),"FM01_PRODUCT_RAW_CAS")?;
+   h.update(&b[pos..edit.span.begin]);h.update(&edit.new);pos=edit.span.end;
+  }
+  h.update(&b[pos..]);let projected=h.finalize().into();
+  Ok(Fm01Prepared{target:t,edits,projected})
+ }
+ #[allow(dead_code)]
+ pub(crate) fn preview_switch626_fm01_product(&self,e:WorkerEnvelope,grid:u32,ids:[u32;5])->CoreResult<Value>{
+  let p=self.prepare_switch626_fm01_product(e,grid,ids)?;let t=&p.target;
+  Ok(json!({"contract":"wand.worker.switch626.scoped-fm01-layout@1","layout":"PRESERVE_EXISTING",
+   "gridId":t.grid,"oldIds":t.ids,"retainedId":t.ids[0],"deletedIds":&t.ids[1..],
+   "expectedNextId":t.next,"oldAmount":t.stock,"newAmount":t.stock,"inventoryDelta":0,
+   "rootSha256":super::super::hex(&t.root_sha),"gridSha256":super::super::hex(&t.grid_sha),
+   "counterSha256":super::super::hex(&t.counter_sha),"inventoryEntrySha256":super::super::hex(&t.stock_sha),
+   "housesSha256":super::super::hex(&t.houses_sha),"oldRowsSha256":t.old_rows_sha.map(|v|super::super::hex(&v)),
+   "projectedDecodedSha256":super::super::hex(&p.projected),"exactFieldChangedCount":8,
+   "sessionId":super::super::hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
+   "decodedSha256":super::super::hex(&e.expected_decoded_sha256),"productWriterAuthorized":false,"originalOverwriteAuthorized":false}))
+ }
+ #[allow(dead_code)]
+ pub(crate) fn stage_switch626_fm01_product(&self,e:WorkerEnvelope,grid:u32,ids:[u32;5],next:u32,stock:u32,
+  root_sha:[u8;32],grid_sha:[u8;32],counter_sha:[u8;32],stock_sha:[u8;32],houses_sha:[u8;32],
+  old_rows_sha:[[u8;32];5],projected:[u8;32])->CoreResult<SemanticStageReceipt>{
+  need(e.action==WorkerAction::Stage,"FM01_PRODUCT_STAGE_ACTION")?;
+  let p=self.prepare_switch626_fm01_product(WorkerEnvelope{action:WorkerAction::ReadDomain,..e},grid,ids)?;
+  let t=&p.target;
+  need(t.grid==grid&&t.ids==ids&&t.next==next&&t.stock==stock&&t.root_sha==root_sha&&t.grid_sha==grid_sha&&
+       t.counter_sha==counter_sha&&t.stock_sha==stock_sha&&t.houses_sha==houses_sha&&t.old_rows_sha==old_rows_sha&&
+       p.projected==projected,"FM01_PRODUCT_STAGE_CAS")?;
+  self.commit_semantic_replacements(e,p.edits,8,Some(p.projected))
+ }
+}
+
 #[cfg(test)]
 mod tests{
  use super::*;use serde_json::json;
@@ -68,6 +120,46 @@ mod tests{
   let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s
  }
  fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+ #[cfg(feature="product-switch626-fm01-scoped")]
+ #[test]fn switch626_fm01_product_exact8_atomic_cas_lifecycle(){
+  let d=doc();let s=open(&d);let e=env(&s);let ids=[10,11,12,13,14];
+  let p=s.prepare_switch626_fm01_product(e,90001,ids).unwrap();let t=&p.target;let before=s.receipt().unwrap();
+  let q=s.preview_switch626_fm01_product(e,90001,ids).unwrap();
+  assert_eq!(q["exactFieldChangedCount"],8);assert_eq!(q["inventoryDelta"],0);
+  assert_eq!(q["oldAmount"],q["newAmount"]);assert_eq!(q["layout"],"PRESERVE_EXISTING");
+  let st=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  let run=|s:&ProductSession,e,ids,next,stock,root,grid,counter,entry,houses,rows,projected|
+   s.stage_switch626_fm01_product(e,90001,ids,next,stock,root,grid,counter,entry,houses,rows,projected);
+  let hashes=[t.root_sha,t.grid_sha,t.counter_sha,t.stock_sha,t.houses_sha,p.projected];
+  for i in 0..6{let mut h=hashes;h[i]=[0;32];assert!(run(&s,st,ids,50,10,h[0],h[1],h[2],h[3],h[4],t.old_rows_sha,h[5]).is_err());}
+  for i in 0..5{let mut rows=t.old_rows_sha;rows[i]=[0;32];assert!(run(&s,st,ids,50,10,hashes[0],hashes[1],hashes[2],hashes[3],hashes[4],rows,hashes[5]).is_err());}
+  let valid=|s:&ProductSession,e|run(s,e,ids,50,10,hashes[0],hashes[1],hashes[2],hashes[3],hashes[4],t.old_rows_sha,hashes[5]);
+  assert!(valid(&s,e).is_err());assert!(valid(&open(&d),st).is_err());
+  assert!(run(&s,st,ids,51,10,hashes[0],hashes[1],hashes[2],hashes[3],hashes[4],t.old_rows_sha,hashes[5]).is_err());
+  assert!(run(&s,st,ids,50,9,hashes[0],hashes[1],hashes[2],hashes[3],hashes[4],t.old_rows_sha,hashes[5]).is_err());
+  assert!(run(&s,st,[10,11,12,13,13],50,10,hashes[0],hashes[1],hashes[2],hashes[3],hashes[4],t.old_rows_sha,hashes[5]).is_err());
+  let mut unbound=open(&d);unbound.worker_bound=false;assert!(unbound.preview_switch626_fm01_product(env(&unbound),90001,ids).is_err());
+  let mut bad=d.clone();bad["Unknown"]=json!({"GridID":90001,"ObjectID":50});let bad=open(&bad);
+  assert!(bad.preview_switch626_fm01_product(env(&bad),90001,ids).is_err());
+  assert_eq!(s.receipt().unwrap(),before);
+  let r=valid(&s,st).unwrap();assert_eq!(r.exact_field_changed_count,8);assert_eq!(r.staged_decoded_sha256,p.projected);
+  assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);assert!(valid(&s,st).is_err());
+  s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).is_err());
+  s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+  let export=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};
+  let out=s.take_typed_semantic_decoded_once(export).unwrap();assert!(s.take_typed_semantic_decoded_once(export).is_err());
+  let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["90001"];
+  let x=g["Objects"]["10"]["X"].as_u64().unwrap();let y=g["Objects"]["10"]["Y"].as_u64().unwrap();
+  g["NextGridObjectID"]=json!(53);for id in ["11","12","13","14"]{g["Objects"].as_object_mut().unwrap().remove(id);}
+  g["Objects"]["50"]=json!({"ID":50,"ItemID":40700247,"X":x,"Y":y+2,"Orientation":"GridOrientation_Left","State":null});
+  g["Objects"]["51"]=json!({"ID":51,"ItemID":BASE,"X":x,"Y":y+4,"Orientation":"GridOrientation_Down","State":null});
+  g["Objects"]["52"]=json!({"ID":52,"ItemID":BASE,"X":x+2,"Y":y+6,"Orientation":"GridOrientation_Down","State":{"FenceMode":{"Diagonal":true}}});
+  assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),wanted);assert_eq!(sha(&out),p.projected);
+  assert_eq!(sha(&s.decoded),before.decoded_sha256);
+  let reopened=ProductSession::open_decoded_readonly(out,crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+  assert_eq!(reopened.receipt().unwrap().decoded_sha256,p.projected);
+ }
  #[test]fn switch626_fm01_exact_target_old5_fresh3_and_stock(){
   let d=doc();let s=open(&d);let e=env(&s);let ids=[10,11,12,13,14];let before=s.receipt().unwrap();
   let t=s.mint_switch626_fm01_target(e,90001,ids).unwrap();
