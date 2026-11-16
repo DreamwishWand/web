@@ -50,7 +50,7 @@ jobs:
           diff -u /tmp/qrw1944-expected /tmp/qrw1944-actual
           test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = '5f09c6506f9475e66a91e597e50a2ce58d979ce9'
           test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = '70249d301a9b056516c102b8ad910e9efbd5746b'
-          grep -F 'PROTECTED_SWITCH_EYECOLOR2_RELEASE_ANCHOR=null' src/lib/ddv/core/save/product-scoped-eyecolor2-release-anchor.mjs
+          grep -F 'PROTECTED_SWITCH_EYECOLOR2_RELEASE_ANCHOR=null' src/lib/ddv/core/save/product-scoped-switch-eyecolor2-release-anchor.mjs
           git cat-file -e 6296dc027e46333cb9774ebca14667cda9182787^{commit} || git fetch --no-tags origin 6296dc027e46333cb9774ebca14667cda9182787
           git worktree add --detach /tmp/qrw1944-core 6296dc027e46333cb9774ebca14667cda9182787
           test "$(git -C /tmp/qrw1944-core merge-base b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6 HEAD)" = 'b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6'
