@@ -31,7 +31,7 @@ function baseRoute(basePath){
  return new URL(where.origin+basePath+'/worker-wasm/');
 }
 
-async function checkedFetch(url,length,digest,contentType,fetcher){
+export async function checkedFetch(url,length,digest,contentType,fetcher){
  if(!strictSize(length,contentType==='application/wasm'?20*1024*1024:2*1024*1024)||
     !hex64.test(digest))fail('PIN_BOUNDS');
  let reply;
@@ -148,29 +148,12 @@ export async function loadPinnedReadOnlyRustBytes({basePath,trustedPins,fetcher=
  ]);
  if(wasm[0]!==0||wasm[1]!==97||wasm[2]!==115||wasm[3]!==109)
    fail('WASM_MAGIC');
- let compiled,blobUrl,mod;
- try{
-   compiled=await WebAssembly.compile(wasm);
-   const devSymbol=/(?:dev_(?:stage|undo|redo|begin|take)|semantic_writer|private_native)/i;
-   if(WebAssembly.Module.exports(compiled).some(x=>devSymbol.test(x.name))||
-      devSymbol.test(new TextDecoder('utf-8',{fatal:true}).decode(js)))
-     fail('PUBLIC_DEV_SYMBOL_DENIED');
-   blobUrl=URL.createObjectURL(new Blob([js],{type:'text/javascript'}));
-   mod=await import(/* @vite-ignore */blobUrl);
- }catch{fail('VERIFIED_JS_OR_WASM_COMPILE_DENIED')}
- finally{if(blobUrl)URL.revokeObjectURL(blobUrl)}
- try{
-  if(typeof mod?.default!=='function'||
-     typeof mod.WorkerWasmSource!=='function'||
-     !['append_chunk','finish','issue_saved_diffgrids_typed_cursor',
-        'read_saved_diffgrids_typed_page','close'].every(
-        n=>typeof mod.WorkerWasmSource.prototype[n]==='function'))
-    fail('RUST_WORKER_ABI_MISMATCH');
-  // In-memory WebAssembly.Module: no second fetch or wasm-bindgen URL fallback.
-  await mod.default(compiled);
- }catch{fail('VERIFIED_WASM_INIT_OR_ABI_DENIED')}
+ const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{
+  deniedSymbol:/(?:dev_(?:stage|undo|redo|begin|take)|semantic_writer|private_native)/i,
+  requiredMethods:['append_chunk','finish','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','close']
+ });
  return Object.freeze({
-  WorkerWasmSource:mod.WorkerWasmSource,
+  WorkerWasmSource,
   checkedBothJsAndWasm:true,
   sameOriginFetchOnly:true,
   sourceHead:trustedPins.sourceHead,
@@ -180,3 +163,30 @@ export async function loadPinnedReadOnlyRustBytes({basePath,trustedPins,fetcher=
  });
 }
 
+
+// Shared verified-byte execution only. It is not issuer trust or an Op grant.
+export async function compileVerifiedWorker(js,wasm,{deniedSymbol,requiredMethods,exactPrototype=false,exactWasmExports=null}){
+ let compiled,blobUrl,mod;
+ try{
+   compiled=await WebAssembly.compile(wasm);
+   const exports=WebAssembly.Module.exports(compiled);
+   if(exactWasmExports&&JSON.stringify(exports.map(x=>x.name).sort())!==JSON.stringify([...exactWasmExports].sort()))fail('WASM_EXTRA_ABI_DENIED');
+   if(exports.some(x=>deniedSymbol.test(x.name))||
+      deniedSymbol.test(new TextDecoder('utf-8',{fatal:true}).decode(js)))
+     fail('PUBLIC_DEV_SYMBOL_DENIED');
+   blobUrl=URL.createObjectURL(new Blob([js],{type:'text/javascript'}));
+   mod=await import(/* @vite-ignore */blobUrl);
+ }catch{fail('VERIFIED_JS_OR_WASM_COMPILE_DENIED')}
+ finally{if(blobUrl)URL.revokeObjectURL(blobUrl)}
+ try{
+  const p=mod?.WorkerWasmSource?.prototype;
+  if(typeof mod?.default!=='function'||typeof mod.WorkerWasmSource!=='function'||
+     !requiredMethods.every(n=>typeof p[n]==='function'))fail('RUST_WORKER_ABI_MISMATCH');
+  if(exactPrototype){
+   const allowed=new Set(['constructor','__destroy_into_raw','free',...requiredMethods]);
+   if(Object.getOwnPropertyNames(p).some(n=>!allowed.has(n)))fail('RUST_WORKER_EXTRA_ABI_DENIED');
+  }
+  await mod.default(compiled);
+ }catch{fail('VERIFIED_WASM_INIT_OR_ABI_DENIED')}
+ return mod.WorkerWasmSource;
+}

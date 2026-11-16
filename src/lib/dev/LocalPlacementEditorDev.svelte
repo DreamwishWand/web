@@ -3,19 +3,23 @@
  import {locale} from '$lib/i18n/runtime.js';
  import {createLocalPlacementDevWorkflow,STEAM626_PLACEMENT_BUILD} from './local-placement-workflow.mjs';
  import {localPlacementCopy} from './local-placement-copy.mjs';
+ import {productPlacementPortScope} from './product-placement-client.mjs';
  export let trustedWorkerAdapter=null;
  export let verifiedLocalDevGate=false;
  export let fixedOperation='comp03';
- let operation='comp03',workflow=null,state={phase:'closed',preview:null,backupName:null,editedName:null};
+ let operation='comp03',productMode='',workflow=null,state={phase:'closed',preview:null,backupName:null,editedName:null};
  let file=null,confirmed=false,pending=false,error=false,seed='',grid='',x='',y='',epoch=0,input=null;
  $: words=localPlacementCopy($locale);
- $: title=operation==='comp03'?words.compTitle:words.vaseTitle;
+ $: rawTitle=operation==='comp03'?words.compTitle:words.vaseTitle;
+ $: title=productMode?rawTitle.split(' — ')[0]+(productMode==='private-product-v2'?' — V2':''):rawTitle;
  $: detail=operation==='comp03'?words.compDetail:words.vaseDetail;
  $: p=state.preview;
  $: valid=operation==='comp03'?Number.isSafeInteger(seed)&&seed>0:Number.isSafeInteger(grid)&&grid>0&&Number.isSafeInteger(x)&&x>=0&&Number.isSafeInteger(y)&&y>=0;
  onMount(()=>{
-  if(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter)return;
-  try{operation=fixedOperation;workflow=createLocalPlacementDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,operation});state=workflow.snapshot()}catch{workflow=null}
+  const scope=productPlacementPortScope(trustedWorkerAdapter);
+  if(!scope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
+  if(scope&&scope.uiOperation!==fixedOperation)return;
+  try{productMode=scope?.mode||'';operation=fixedOperation;workflow=createLocalPlacementDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,operation});state=workflow.snapshot()}catch{workflow=null}
   return ()=>{++epoch;const w=workflow;workflow=null;void w?.close().catch(()=>{})};
  });
  async function act(fn){
@@ -34,7 +38,7 @@
   }catch{if(workflow===w&&epoch===t){state=w.snapshot();error=true}}finally{if(workflow===w&&epoch===t)pending=false}
  }
 </script>
-<section class="placement" data-dev-placement data-product-writer="off" data-public-route="off" data-operation={operation}>
+<section class="placement" data-dev-placement data-product-writer="off" data-public-route={productMode==='public-accepted'?'on':'off'} data-operation={operation}>
  <h2>{title}</h2><p>{words.safety}</p><p>{detail}</p>
  {#if !workflow}<p role="status">{words.off}</p>
  {:else}
