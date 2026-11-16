@@ -545,8 +545,8 @@ async function isSemanticallyDisabled(locator) {
 async function runLocaleLayoutAcceptance(page, report) {
   const locales = ['de', 'fr', 'pt-BR', 'ja', 'zh-CN'];
   const localeSelect = page.locator('#site-locale');
-  await localeSelect.waitFor();
   await page.setViewportSize({ width: 1280, height: 1100 });
+  await localeSelect.waitFor();
 
   const localeSearch = page.locator('[data-wep-search-input]');
   await localeSearch.fill('40');
