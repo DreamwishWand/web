@@ -15,7 +15,6 @@ const SUPPLEMENT:&[u8]=include_bytes!("../data/steam626-placement-applicable-sup
 mod grid_append;
 
 const MAX_GRID_BYTES:usize=2*1024*1024;
-const MAX_ALIAS_NODES:usize=1_000_000;
 const ROAD:u32=40100038;
 #[derive(Debug,PartialEq,Eq)]
 pub(crate) struct Comp03PhysicalTarget {
@@ -23,7 +22,7 @@ pub(crate) struct Comp03PhysicalTarget {
     grid:u32, sibling:u32, seed:u32, geometry:LocalGeometry,
     grid_sha:[u8;32], root_sha:[u8;32], sibling_root_sha:[u8;32],
     seed_sha:[u8;32], well_sha:[u8;32], sibling_well_sha:[u8;32],
-    stock_sha:[u8;32], stock:u32,
+    stock_sha:[u8;32], stock:u32, scanned_pairs:usize,
 }
 fn u32_at(b:&[u8],s:Span)->CoreResult<u32>{
     u32::try_from(number(b,s)?).map_err(|_|denied("COMP03_TARGET_UINT"))
@@ -58,54 +57,6 @@ fn root(b:&[u8],islands:Span,def:&Value)->CoreResult<(u32,Span,Span)>{
         .ok_or(denied("COMP03_TARGET_ROOT_GRID"))?;
     Ok((id,r,ids))
 }
-fn array_spans<F>(b:&[u8],s:Span,mut f:F)->CoreResult<()> where F:FnMut(Span)->CoreResult<()> {
-    if b.get(s.begin)!=Some(&b'[')||b.get(s.end.saturating_sub(1))!=Some(&b']'){
-        return Err(denied("COMP03_TARGET_ARRAY"));
-    }
-    let mut p=s.begin+1;let mut count=0;
-    loop{
-        p=indexed_read::skip_ws(b,p);if p==s.end-1{return Ok(())}
-        if p>=s.end||count>=250000{return Err(denied("COMP03_TARGET_ARRAY_BOUND"))}
-        let end=indexed_read::value_end(b,p)?;
-        if end>=s.end{return Err(denied("COMP03_TARGET_ARRAY_SPAN"))}
-        f(Span{begin:p,end})?;count+=1;p=indexed_read::skip_ws(b,end);
-        match b.get(p){
-            Some(b',') if p<s.end-1=>p+=1,
-            Some(b']') if p==s.end-1=>return Ok(()),
-            _=>return Err(denied("COMP03_TARGET_ARRAY_SPAN"))
-        }
-    }
-}
-// Only the material direct root/SubGrid aliases for the selected two grids.
-// Walk the existing indexed lexical spans, not a second decoded document.
-fn aliases(b:&[u8],s:Span,ids:[u32;2],expected:[Span;2],hits:&mut [usize;2],budget:&mut usize,depth:usize)->CoreResult<()> {
-    *budget+=1;
-    if *budget>MAX_ALIAS_NODES||depth>64{return Err(denied("COMP03_TARGET_ALIAS_BOUND"))}
-    match b.get(s.begin){
-        Some(b'{')=>{
-            let mut p=s.begin+1;
-            while let Some((k,v))=next_object_member(b,s,&mut p)?{
-                if k=="GridIDs"{
-                    array_spans(b,v,|x|{
-                        let id=u32_at(b,x)?;
-                        for i in 0..2{if id==ids[i]{
-                            if v.begin!=expected[i].begin||v.end!=expected[i].end{return Err(denied("COMP03_TARGET_ROOT_ALIAS"))}
-                            hits[i]+=1;
-                        }}Ok(())
-                    })?;
-                }else if k=="SubGrid"&&bytes(b,v)?!=b"null"{
-                    if ids.contains(&n(b,v,"GridID")?){return Err(denied("COMP03_TARGET_SUBGRID_ALIAS"))}
-                }
-                aliases(b,v,ids,expected,hits,budget,depth+1)?;
-            }
-        },
-        Some(b'[')=>array_spans(b,s,|v|aliases(b,v,ids,expected,hits,budget,depth+1))?,
-        Some(_)=>(),None=>return Err(denied("COMP03_TARGET_SPAN")),
-    }
-    Ok(())
-}
-// Scan each typed identity namespace once before resolving either root.
-// Alternate keys with the same internal ID cannot be unique identities.
 fn validate_identity_map(b:&[u8],map:Span,id_field:&str,limit:usize)->CoreResult<()>{
     let mut pos=map.begin+1;let mut count=0;
     while let Some((k,record))=next_object_member(b,map,&mut pos)?{
@@ -167,8 +118,8 @@ impl ProductSession{
         let b=&self.decoded;let roots=indexed_read::roots(b)?;
         let world=roots.world;let islands=field(b,world,"FloatingIslands")?;
         validate_identity_map(b,islands,"SceneItemId",4096)?;
-        let (g,r,ga)=root(b,islands,&defs[0])?;
-        let (s,sr,sa)=root(b,islands,&defs[1])?;
+        let (g,r,_ga)=root(b,islands,&defs[0])?;
+        let (s,sr,_sa)=root(b,islands,&defs[1])?;
         if g==s{return Err(denied("COMP03_TARGET_SIBLING"))}
         let gc=field(b,world,"GridCollection")?;let grids=field(b,gc,"Grids")?;let diffs=field(b,gc,"DiffGrids")?;
         validate_identity_map(b,grids,"ID",50000)?;
@@ -180,68 +131,23 @@ impl ProductSession{
         let sw=field(b,field(b,sibling,"Objects")?,"0")?;
         let geometry=pack.local_geometry(&value(b,target,MAX_GRID_BYTES)?,&value(b,sw,4096)?,seed)
             .ok_or(denied("COMP03_TARGET_LOCAL_GEOMETRY"))?;
-        let mut hits=[0usize;2];let mut budget=0;
-        aliases(b,world,[g,s],[ga,sa],&mut hits,&mut budget,0)?;
-        if hits!=[1,1]{return Err(denied("COMP03_TARGET_ROOT_ALIAS"))}
+        let start=indexed_read::skip_ws(b,0);let top=Span{begin:start,end:indexed_read::value_end(b,start)?};
+        let incoming=super::placement_saved_refs::scan(b,top,g,Some(seed),geometry.next,geometry.next.checked_add(8).ok_or(denied("COMP03_REF_COUNTER"))?)?;
+        if incoming.root(g)!=1||incoming.root(s)!=1||incoming.parent(g)!=0||incoming.parent(s)!=0{return Err(denied("COMP03_TARGET_ROOT_ALIAS"))}
         let (amount,entry)=stock(b,roots.player)?;
         Ok(Comp03PhysicalTarget{scope:e,grid:g,sibling:s,seed,geometry,
             grid_sha:digest(b,target)?,root_sha:digest(b,r)?,sibling_root_sha:digest(b,sr)?,
             seed_sha:digest(b,ss)?,well_sha:digest(b,well)?,sibling_well_sha:digest(b,sw)?,
-            stock_sha:digest(b,entry)?,stock:amount})
+            stock_sha:digest(b,entry)?,stock:amount,scanned_pairs:incoming.pairs})
     }
 }
 
-const MAX_REF_NODES:usize=1_000_000;
 // Explicit saved composite addresses only (E1960). This does not establish
 // active definition/provider applicability, nor authorize a Stage.
 #[derive(Debug,PartialEq,Eq)]
 pub(crate) struct Comp03SavedReferenceTarget {
     physical:Comp03PhysicalTarget,
     scanned_pairs:usize,
-}
-fn explicit_refs(b:&[u8],s:Span,grid:u32,seed:u32,next:u32,end:u32,
-    nodes:&mut usize,pairs:&mut usize,depth:usize)->CoreResult<()>{
-    *nodes+=1;
-    if *nodes>MAX_REF_NODES||depth>64{return Err(denied("COMP03_REF_BOUND"))}
-    match b.get(s.begin){
-        Some(b'{')=>{
-            let mut pos=s.begin+1;
-            // Canonical field spellings from the accepted saved-reference
-            // projection. A scalar ID by itself is not a composite address.
-            let mut fields:[Option<Span>;6]=[None;6];
-            while let Some((k,v))=next_object_member(b,s,&mut pos)?{
-                let ix=match k.as_str(){
-                    "GridID"=>Some(0),"GridId"=>Some(1),
-                    "GridObjectID"=>Some(2),"GridObjectId"=>Some(3),
-                    "ObjectID"=>Some(4),"ObjectId"=>Some(5),_=>None
-                };
-                if let Some(i)=ix{
-                    if fields[i].replace(v).is_some(){return Err(denied("COMP03_REF_DUPLICATE"))}
-                }
-                explicit_refs(b,v,grid,seed,next,end,nodes,pairs,depth+1)?;
-            }
-            let gs=fields[..2].iter().filter(|x|x.is_some()).count();
-            let os=fields[2..].iter().filter(|x|x.is_some()).count();
-            if gs>0&&os>0{
-                if gs!=1||os!=1{return Err(denied("COMP03_REF_AMBIGUOUS"))}
-                let (g,o)=match fields{
-                    [Some(g),None,Some(o),None,None,None]|
-                    [None,Some(g),None,Some(o),None,None]|
-                    [Some(g),None,None,None,Some(o),None]|
-                    [None,Some(g),None,None,None,Some(o)]=>(g,o),
-                    _=>return Err(denied("COMP03_REF_SPELLING")),
-                };
-                let g=u32_at(b,g)?;let o=u32_at(b,o)?;
-                *pairs+=1;
-                if g==grid&&(o==0||o==seed||(next..end).contains(&o)){
-                    return Err(denied("COMP03_REF_TARGET"));
-                }
-            }
-        },
-        Some(b'[')=>array_spans(b,s,|v|explicit_refs(b,v,grid,seed,next,end,nodes,pairs,depth+1))?,
-        Some(_)=>(),None=>return Err(denied("COMP03_REF_SPAN")),
-    }
-    Ok(())
 }
 impl ProductSession{
     /// Reuse the same immutable decoded bytes and physical target from this
@@ -255,15 +161,7 @@ impl ProductSession{
         if st.semantic.is_some()||st.revision!=0||st.generation!=1{
             return Err(denied("COMP03_REF_EPOCH"));
         }
-        let next=physical.geometry.next;
-        let end=next.checked_add(8).filter(|x|*x<=i32::MAX as u32)
-            .ok_or(denied("COMP03_REF_COUNTER"))?;
-        let b=&self.decoded;
-        let start=indexed_read::skip_ws(b,0);
-        let stop=indexed_read::value_end(b,start)?;
-        let mut nodes=0;let mut pairs=0;
-        explicit_refs(b,Span{begin:start,end:stop},physical.grid,seed,next,end,
-            &mut nodes,&mut pairs,0)?;
+        let pairs=physical.scanned_pairs;
         Ok(Comp03SavedReferenceTarget{physical,scanned_pairs:pairs})
     }
 }

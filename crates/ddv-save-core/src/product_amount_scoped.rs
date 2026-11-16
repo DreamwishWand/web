@@ -5,6 +5,8 @@
 use super::*;
 use serde_json::Value;
 use std::sync::OnceLock;
+#[path="placement_saved_refs.rs"]
+mod placement_saved_refs;
 #[path="comp03_product_target.rs"]
 mod comp03_product_target;
 const ELIG:&str=include_str!("../data/steam626-amount-packaged-candidates.json");
