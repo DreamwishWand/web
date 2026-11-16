@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
-const keys=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_sr03_proof_source","scoped_comp03_spatial_proof_source","scoped_rm01_proof_source"];
+const keys=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_sr03_proof_source","scoped_comp03_spatial_proof_source","scoped_rm01_proof_source","scoped_hair_proof_source","scoped_skin_proof_source"];
 const specs=[
   {
     "job": "scoped_sr03_proof",
@@ -11,11 +11,11 @@ const specs=[
     "pins": [
       [
         "crates/ddv-save-core",
-        "f942165161b98cf7f9de16a1f7459cf3d337dc61"
+        "fa7aeef5dc1459104564bf1eb9704d315ab7c415"
       ],
       [
         "scripts/wasm-distribution/protected-release-inputs.json",
-        "636955805479ed9794896c0d06acbf991c10bf14"
+        "dd59264c1c20325c66e6aecc3413e91d10fc72ed"
       ],
       [
         "scripts/wasm-distribution/r22-accepted-rust-scope.mjs",
@@ -23,7 +23,7 @@ const specs=[
       ],
       [
         "scripts/readonly-release/scoped-placement-proof.mjs",
-        "b3153ee192eb19a23d467e8bcab02358dea5b5eb"
+        "932c1c1de44ae6f223fe53b0f14b8e0071eee22d"
       ],
       [
         "scripts/readonly-release/seal.mjs",
@@ -170,11 +170,11 @@ const specs=[
     "pins": [
       [
         "crates/ddv-save-core",
-        "f942165161b98cf7f9de16a1f7459cf3d337dc61"
+        "fa7aeef5dc1459104564bf1eb9704d315ab7c415"
       ],
       [
         "scripts/readonly-release/scoped-placement-proof.mjs",
-        "b3153ee192eb19a23d467e8bcab02358dea5b5eb"
+        "932c1c1de44ae6f223fe53b0f14b8e0071eee22d"
       ],
       [
         "scripts/readonly-release/seal.mjs",
@@ -294,7 +294,7 @@ const specs=[
       ],
       [
         "scripts/wasm-distribution/protected-release-inputs.json",
-        "636955805479ed9794896c0d06acbf991c10bf14"
+        "dd59264c1c20325c66e6aecc3413e91d10fc72ed"
       ],
       [
         "scripts/wasm-distribution/r22-accepted-rust-scope.mjs",
@@ -333,11 +333,11 @@ const specs=[
     "pins": [
       [
         "crates/ddv-save-core",
-        "f942165161b98cf7f9de16a1f7459cf3d337dc61"
+        "fa7aeef5dc1459104564bf1eb9704d315ab7c415"
       ],
       [
         "scripts/wasm-distribution/protected-release-inputs.json",
-        "636955805479ed9794896c0d06acbf991c10bf14"
+        "dd59264c1c20325c66e6aecc3413e91d10fc72ed"
       ],
       [
         "scripts/wasm-distribution/r22-accepted-rust-scope.mjs",
@@ -345,7 +345,7 @@ const specs=[
       ],
       [
         "scripts/readonly-release/scoped-placement-proof.mjs",
-        "b3153ee192eb19a23d467e8bcab02358dea5b5eb"
+        "932c1c1de44ae6f223fe53b0f14b8e0071eee22d"
       ],
       [
         "scripts/readonly-release/seal.mjs",
@@ -482,6 +482,340 @@ const specs=[
       [
         "src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs",
         "3dbd5b6bd2268a3a42589364fa06ab09da84565b"
+      ]
+    ]
+  },
+  {
+    "job": "scoped_hair_proof",
+    "key": "steam626-hair",
+    "feature": "product-steam626-hair-scoped",
+    "pins": [
+      [
+        "crates/ddv-save-core",
+        "fa7aeef5dc1459104564bf1eb9704d315ab7c415"
+      ],
+      [
+        "scripts/wasm-distribution/protected-release-inputs.json",
+        "dd59264c1c20325c66e6aecc3413e91d10fc72ed"
+      ],
+      [
+        "scripts/wasm-distribution/r22-accepted-rust-scope.mjs",
+        "f69a44eb62da5fc5e51c743ee428324469205b25"
+      ],
+      [
+        "scripts/readonly-release/scoped-placement-proof.mjs",
+        "932c1c1de44ae6f223fe53b0f14b8e0071eee22d"
+      ],
+      [
+        "scripts/readonly-release/seal.mjs",
+        "5b86ff1cf2dc009ba1733bf213e4cb979bf500ec"
+      ],
+      [
+        "scripts/int-protected-ci-gate.mjs",
+        "d08d7cb0995b8af9f631448024c8acc83d68a743"
+      ],
+      [
+        "scripts/wasm-distribution/verify-protected-release.mjs",
+        "03486f17f41cb7e807c207601b27a3981fe9df6a"
+      ],
+      [
+        "scripts/wasm-distribution/approved-Cargo.lock",
+        "b667b42cfef2032c2925be7b2aa9b7142bff4b52"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-placement-release.mjs",
+        "1f72c540d9e9ab949402d550a706961935cf7ec2"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs",
+        "027f988f22e3e33ee1d61c600a09a268581d7d40"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs",
+        "8bf869bf71546c467194483955e256cbe104c312"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs",
+        "7969122897ebc81bb249dda14d578038a9ffe9e2"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs",
+        "f3f12518965dde92617962b5505b8212f4e04980"
+      ],
+      [
+        "src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs",
+        "959d0ef46c220ed6a402499ca3587b00275d8244"
+      ],
+      [
+        "src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs",
+        "d5b167f35b10ecc5b16d40e84e9d9bb324288539"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-placement-transport.mjs",
+        "182ecd723a5a82683cccf79e1349ecf41e6ae7a7"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
+        "d4643ccf023b6784c80fa5b2a377afe7936113ce"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
+        "eef37e2a1b027134439e686ea5e47501339bbace"
+      ],
+      [
+        "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
+        "ee5929266406bb9a17e1e0a3fc9bce3cb15607f6"
+      ],
+      [
+        "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
+        "ae89e25ad3cdc48d8b4e23e7eabc6ba92998b553"
+      ],
+      [
+        "src/lib/ddv/core/save/product-wasm-read-owner.d.mts",
+        "f20fc6081da2bf67db72e668a11a888966cbbd86"
+      ],
+      [
+        "src/lib/ddv/core/save/local-original-backup.mjs",
+        "7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f"
+      ],
+      [
+        "src/lib/ddv/core/save/local-encrypted-copy-store.mjs",
+        "67f6579622e5d8903d3798d5921d2ea525980eda"
+      ],
+      [
+        "src/lib/dev/LocalPlacementEditorDev.svelte",
+        "11b5047f3cb713d2d5ed3e1bda8b198922239e17"
+      ],
+      [
+        "src/lib/dev/PlacementProductRoute.svelte",
+        "9db37fdd2aa124aef19e7c300503d58223679feb"
+      ],
+      [
+        "src/lib/dev/local-placement-copy.mjs",
+        "e559b0cc4ad8d12d1617a54072822d696761ae5e"
+      ],
+      [
+        "src/lib/dev/local-placement-workflow.mjs",
+        "5933c35f66c41f745167579211b084450b3b80d7"
+      ],
+      [
+        "src/lib/dev/product-placement-client.mjs",
+        "c72a772cde08b331590b0551f8bbac3807befaa6"
+      ],
+      [
+        "src/lib/dev/product-placement-worker-boot.mjs",
+        "cbbb2839705b192b15505169787739b21b9190c5"
+      ],
+      [
+        "src/lib/dev/local-scoped-edit-worker-port.mjs",
+        "1d5eacaabfb27a244a68c6a07cd22feba7eb57c2"
+      ],
+      [
+        "src/lib/dev/local-amount-codec-reopen.worker.mjs",
+        "955d95056d4c115b24b77db2ec2f31ef90992882"
+      ],
+      [
+        "src/lib/wep/Comp03ReferencePattern.svelte",
+        "af6861ca808e7e44ab3e419c146a36090d63fb7f"
+      ],
+      [
+        "src/lib/collection/collection-exact1-consumer.mjs",
+        "e5a169a29588f735f4fcffde40078a3a6e9e3a82"
+      ],
+      [
+        "src/lib/collection/collection-exact1-copy.mjs",
+        "21abcdb2d51e4f881db1c9e026bd15456ec83f5e"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs",
+        "66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs",
+        "3dbd5b6bd2268a3a42589364fa06ab09da84565b"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs",
+        "b4235a9308db31dfa913bcbcf562f0e2eb714073"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-appearance-transport.mjs",
+        "76d02b2ad0a4b5b0df4139c1173b33a7ce149ab7"
+      ],
+      [
+        "src/lib/dev/product-hair.worker.mjs",
+        "e220b20e85e397604af7fa15cc949b042236b89c"
+      ],
+      [
+        "src/routes/editor/appearance/hair/steam/+page.svelte",
+        "56207e854f7f9f133eee90ffdfa2cc8020bb1c58"
+      ]
+    ]
+  },
+  {
+    "job": "scoped_skin_proof",
+    "key": "steam626-skin",
+    "feature": "product-steam626-skin-scoped",
+    "pins": [
+      [
+        "crates/ddv-save-core",
+        "fa7aeef5dc1459104564bf1eb9704d315ab7c415"
+      ],
+      [
+        "scripts/wasm-distribution/protected-release-inputs.json",
+        "dd59264c1c20325c66e6aecc3413e91d10fc72ed"
+      ],
+      [
+        "scripts/wasm-distribution/r22-accepted-rust-scope.mjs",
+        "f69a44eb62da5fc5e51c743ee428324469205b25"
+      ],
+      [
+        "scripts/readonly-release/scoped-placement-proof.mjs",
+        "932c1c1de44ae6f223fe53b0f14b8e0071eee22d"
+      ],
+      [
+        "scripts/readonly-release/seal.mjs",
+        "5b86ff1cf2dc009ba1733bf213e4cb979bf500ec"
+      ],
+      [
+        "scripts/int-protected-ci-gate.mjs",
+        "d08d7cb0995b8af9f631448024c8acc83d68a743"
+      ],
+      [
+        "scripts/wasm-distribution/verify-protected-release.mjs",
+        "03486f17f41cb7e807c207601b27a3981fe9df6a"
+      ],
+      [
+        "scripts/wasm-distribution/approved-Cargo.lock",
+        "b667b42cfef2032c2925be7b2aa9b7142bff4b52"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-placement-release.mjs",
+        "1f72c540d9e9ab949402d550a706961935cf7ec2"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs",
+        "027f988f22e3e33ee1d61c600a09a268581d7d40"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs",
+        "8bf869bf71546c467194483955e256cbe104c312"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs",
+        "7969122897ebc81bb249dda14d578038a9ffe9e2"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs",
+        "f3f12518965dde92617962b5505b8212f4e04980"
+      ],
+      [
+        "src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs",
+        "959d0ef46c220ed6a402499ca3587b00275d8244"
+      ],
+      [
+        "src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs",
+        "d5b167f35b10ecc5b16d40e84e9d9bb324288539"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-placement-transport.mjs",
+        "182ecd723a5a82683cccf79e1349ecf41e6ae7a7"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
+        "d4643ccf023b6784c80fa5b2a377afe7936113ce"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
+        "eef37e2a1b027134439e686ea5e47501339bbace"
+      ],
+      [
+        "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
+        "ee5929266406bb9a17e1e0a3fc9bce3cb15607f6"
+      ],
+      [
+        "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
+        "ae89e25ad3cdc48d8b4e23e7eabc6ba92998b553"
+      ],
+      [
+        "src/lib/ddv/core/save/product-wasm-read-owner.d.mts",
+        "f20fc6081da2bf67db72e668a11a888966cbbd86"
+      ],
+      [
+        "src/lib/ddv/core/save/local-original-backup.mjs",
+        "7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f"
+      ],
+      [
+        "src/lib/ddv/core/save/local-encrypted-copy-store.mjs",
+        "67f6579622e5d8903d3798d5921d2ea525980eda"
+      ],
+      [
+        "src/lib/dev/LocalPlacementEditorDev.svelte",
+        "11b5047f3cb713d2d5ed3e1bda8b198922239e17"
+      ],
+      [
+        "src/lib/dev/PlacementProductRoute.svelte",
+        "9db37fdd2aa124aef19e7c300503d58223679feb"
+      ],
+      [
+        "src/lib/dev/local-placement-copy.mjs",
+        "e559b0cc4ad8d12d1617a54072822d696761ae5e"
+      ],
+      [
+        "src/lib/dev/local-placement-workflow.mjs",
+        "5933c35f66c41f745167579211b084450b3b80d7"
+      ],
+      [
+        "src/lib/dev/product-placement-client.mjs",
+        "c72a772cde08b331590b0551f8bbac3807befaa6"
+      ],
+      [
+        "src/lib/dev/product-placement-worker-boot.mjs",
+        "cbbb2839705b192b15505169787739b21b9190c5"
+      ],
+      [
+        "src/lib/dev/local-scoped-edit-worker-port.mjs",
+        "1d5eacaabfb27a244a68c6a07cd22feba7eb57c2"
+      ],
+      [
+        "src/lib/dev/local-amount-codec-reopen.worker.mjs",
+        "955d95056d4c115b24b77db2ec2f31ef90992882"
+      ],
+      [
+        "src/lib/wep/Comp03ReferencePattern.svelte",
+        "af6861ca808e7e44ab3e419c146a36090d63fb7f"
+      ],
+      [
+        "src/lib/collection/collection-exact1-consumer.mjs",
+        "e5a169a29588f735f4fcffde40078a3a6e9e3a82"
+      ],
+      [
+        "src/lib/collection/collection-exact1-copy.mjs",
+        "21abcdb2d51e4f881db1c9e026bd15456ec83f5e"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs",
+        "66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs",
+        "3dbd5b6bd2268a3a42589364fa06ab09da84565b"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs",
+        "b4235a9308db31dfa913bcbcf562f0e2eb714073"
+      ],
+      [
+        "src/lib/ddv/core/save/product-scoped-appearance-transport.mjs",
+        "76d02b2ad0a4b5b0df4139c1173b33a7ce149ab7"
+      ],
+      [
+        "src/lib/dev/product-skin.worker.mjs",
+        "8a448efb7b0e4883fa3149fc913d372cd644365d"
+      ],
+      [
+        "src/routes/editor/appearance/skin/steam/+page.svelte",
+        "6a2efbe122602df1e89d78a915edd1618e8afa18"
       ]
     ]
   }

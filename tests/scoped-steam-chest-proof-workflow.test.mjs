@@ -4,9 +4,9 @@ import {readFileSync} from 'node:fs';
 const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
 const proof=y.slice(y.indexOf('  scoped_steam_chest_proof:\n'),y.indexOf('  scoped_sr03_proof:\n'));
 test('Steam Chest proof dispatch is exclusive, exact source, metadata only',()=>{
- assert.match(y,/build:\s+if: github.event_name != 'workflow_dispatch' \|\| \(inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == ''\)/);
+ assert.match(y,/build:\s+if: github.event_name != 'workflow_dispatch' \|\| \(inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == ''\)/);
  assert.match(y,/deploy:\s+needs: build/);
- assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && github.ref == 'refs\/heads\/main'/);
+ assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && github.ref == 'refs\/heads\/main'/);
  assert.match(proof,/test "\$WAND_PROOF_EXPECTED_SOURCE" = "\$GITHUB_SHA"/);
  assert.match(proof,/test "\$GITHUB_WORKFLOW_SHA" = "\$GITHUB_SHA"/);
  assert.match(proof,/--no-default-features --features product-steam626-chest-scoped,worker-wasm/);
@@ -24,7 +24,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
  assert.deepEqual(pins,[
   [
     "crates/ddv-save-core",
-    "f942165161b98cf7f9de16a1f7459cf3d337dc61"
+    "fa7aeef5dc1459104564bf1eb9704d315ab7c415"
   ],
   [
     "scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs",
