@@ -396,4 +396,72 @@ mod tests{
         }
         let mut t=open(&d);t.worker_bound=false;assert!(t.mint_comp03_physical_target(env(&t),500).is_err());
     }
+
+    #[test]
+    fn qa_comp03_explicit_refs_nested_half_open_and_typed_boundaries(){
+        let mut pos=0;let mut neg=0;
+        for (g,s,seed) in [(301u32,742u32,42u32),(90001,90002,500)]{
+            let base=doc(g,s,seed);let next=seed+10;let end=next+8;
+            // Half-open allocation window: every one of the eight IDs, not
+            // merely the endpoints. Same numerical ID in a sibling is safe.
+            for (gk,ok) in [("GridID","GridObjectID"),("GridId","GridObjectId"),("GridID","ObjectID"),("GridId","ObjectId")]{
+                for id in (next..end).chain([0,seed]){
+                    let mut d=base.clone();
+                    d["UnknownReferenceTree"]=json!({"Deep":[null,{"Wrap":[{"Nested":{(gk):g,(ok):id}}]}]});
+                    let t=open(&d);let e=env(&t);let before=t.receipt().unwrap();
+                    assert!(t.mint_comp03_saved_reference_target(e,seed).is_err(),"affected {gk}/{ok} {id}");
+                    assert_eq!(t.receipt().unwrap(),before);assert_eq!(t.decoded.as_ref(),serde_json::to_vec(&d).unwrap());neg+=1;
+                }
+                for (grid,id) in [(g,next-1),(g,end),(s,seed),(s,next),(s,0)]{
+                    let mut d=base.clone();d["UnknownReferenceTree"]=json!({"Deep":[{(gk):grid,(ok):id}]});
+                    let t=open(&d);let e=env(&t);let before=t.receipt().unwrap();
+                    let r=t.mint_comp03_saved_reference_target(e,seed).unwrap();
+                    assert_eq!(r.scanned_pairs,1);assert_eq!(r,t.mint_comp03_saved_reference_target(e,seed).unwrap());
+                    assert_eq!(t.receipt().unwrap(),before);pos+=1;
+                }
+            }
+            // Separate scalar fields do not create a composite address;
+            // a real pair in an unknown nested object must still be seen.
+            let mut d=base.clone();d["Player"]["Unknown"]=json!([{"GridID":g},{"ObjectID":seed},{"Nested":{"GridId":s,"ObjectId":seed}}]);
+            let t=open(&d);assert_eq!(t.mint_comp03_saved_reference_target(env(&t),seed).unwrap().scanned_pairs,1);pos+=1;
+            for bad in [
+                json!({"GridId":g,"ObjectID":seed}),json!({"GridID":g,"ObjectId":seed}),
+                json!({"GridId":g,"GridObjectID":seed}),json!({"GridID":g,"GridObjectId":seed}),
+                json!({"GridID":s,"GridId":s,"ObjectID":seed}),
+                json!({"GridID":s,"GridObjectID":seed,"ObjectID":seed}),
+                json!({"GridID":-1,"GridObjectID":seed}),json!({"GridID":4294967296u64,"GridObjectID":seed}),
+                json!({"GridID":g,"GridObjectID":-1}),json!({"GridID":g,"GridObjectID":4294967296u64}),
+                json!({"GridID":g,"GridObjectID":true}),json!({"GridID":g,"GridObjectID":null}),
+                json!({"GridID":g,"GridObjectID":[seed]}),json!({"GridID":g,"GridObjectID":{"ID":seed}}),
+                json!({"GridID":g,"GridObjectID":format!("{}",seed)}),
+            ]{
+                let mut d=base.clone();d["UnknownReferenceTree"]=json!({"Outer":[{"Leaf":bad}]});
+                let t=open(&d);let before=t.receipt().unwrap();
+                assert!(t.mint_comp03_saved_reference_target(env(&t),seed).is_err(),"typed/ambiguous {bad}");
+                assert_eq!(t.receipt().unwrap(),before);neg+=1;
+            }
+            let t=open(&base);let e=env(&t);let before=t.receipt().unwrap();
+            for wrong in [WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e}]{
+                assert!(t.mint_comp03_saved_reference_target(wrong,seed).is_err());assert_eq!(t.receipt().unwrap(),before);neg+=1;
+            }
+        }
+        // Raw lexical escape in field names: parsed key identity, not substring
+        // search. Direct scanner test isolates bound behavior without huge docs.
+        let scan=|b:&[u8],depth:usize,start:usize|{
+            let mut nodes=start;let mut pairs=0;
+            let r=explicit_refs(b,Span{begin:0,end:b.len()},301,42,52,60,&mut nodes,&mut pairs,depth);
+            (r,pairs,nodes)
+        };
+        for b in [br#"{"Gr\u0069dID":301,"GridObjectID":42}"#.as_slice(),br#"{"GridID":301,"Obj\u0065ctID":55}"#.as_slice()]{
+            assert!(scan(b,0,0).0.is_err(),"escaped affected key");neg+=1;
+        }
+        let (r,p,_)=scan(br#"{"Gr\u0069dID":742,"Obj\u0065ctID":42}"#,0,0);assert!(r.is_ok());assert_eq!(p,1);pos+=1;
+        let (r,p,_)=scan(br#"{"Text":"{\"GridID\":301,\"GridObjectID\":42}"}"#,0,0);assert!(r.is_ok());assert_eq!(p,0);pos+=1;
+        assert!(scan(b"null",64,MAX_REF_NODES-1).0.is_ok());pos+=1;
+        assert!(scan(b"null",65,0).0.is_err());neg+=1;
+        assert!(scan(b"null",0,MAX_REF_NODES).0.is_err());neg+=1;
+        assert_eq!((pos,neg),(45,118));
+        eprintln!("ACT999_EXPLICIT_REFS_CHANGED_L2 {pos}POS {neg}NEG PASS");
+    }
+
 }
