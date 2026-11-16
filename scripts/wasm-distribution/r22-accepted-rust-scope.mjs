@@ -1,6 +1,7 @@
 // R22 exact accepted-source maintenance scope. NOT an acceptance issuer,
 // merge authority, public Writer permission, or a generic Rust exception.
-// One fixed reviewed Source1372 + approved Cargo pin (ACT1020/1023/1030).
+// Fixed reviewed Source1372 + approved Cargo pin (ACT1020/1023/1030).
+// ACT1100 adds only Source1422 exact4 after the accepted common Core tree.
 // Must first be accepted by independent 04QR-S and sole09INT on protected main.
 // A candidate cannot introduce or modify this gate to authorize itself.
 import {execFileSync} from 'node:child_process';
@@ -160,6 +161,49 @@ const entries=[
     }
   }
 ];
+const switch626ChestEntries=[
+  {
+    "path": "crates/ddv-save-core/src/product_amount_scoped.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "d62bccfcd2f13a184dbe9b3061cda3e616b21ad7"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "a5e774917e5d5d43cca2493e2c74a2cf07f45e53"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_switch626_chest.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "fd3fad8d8fcfac9ca417eb2185cd0e6cfde22293"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "98e630acad496de9df94a83fc839f1bc382aa403"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "0fcdac70758ca09675fa28c4b854e4c1885e681b"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "6d6fad2fa9494bfdc732ad8bf2f82ab047528812"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "3aee4b593a4d62c3ff233c678095bf09cd0474bd"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -198,13 +242,31 @@ export function verifyAcceptedRustScope(cwd,base,source){
  const corePath='crates/ddv-save-core';
  const baseCore=git(cwd,'rev-parse','--verify',base+':'+corePath);
  const sourceCore=git(cwd,'rev-parse','--verify',source+':'+corePath);
- if(baseCore!=='7de35a07df55bdf7f439caac6e4d734dd91fe9ba')deny('BASE_CORE_TREE');
- if(sourceCore!=='ca1ef1772b53ff535618fc8263cd647f757f3dad')deny('CANDIDATE_CORE_TREE');
- const result=verifyExactScopeEntries(cwd,base,source,entries);
- if(result.entries.length!==15)deny('FIXED_SCOPE_COUNT');
+ const profile=selectAcceptedCorePair(baseCore,sourceCore);
+ const result=verifyExactScopeEntries(cwd,base,source,profile.entries);
+ if(result.entries.length!==profile.count)deny('FIXED_SCOPE_COUNT');
  return {status:'R22_EXACT_ACCEPTED_SOURCE_SCOPE_MATCH_ONLY',
-  sourcePr:1372,sourceHead:'7c280ca740bda68cd69ceb46337fd75bf3e133bc',
-  sourceTree:'06b31f58c383ca59e981248f2a23f7d6c41d0eef',
-  historicalCandidateHead:'eaeafb84b55d522f1f6eab6e84d879780fc1d031',
-  candidateHead:source,base,entryCount:15,mergeAuthorized:false,writerAuthorized:false};
+  ...profile.metadata,candidateHead:source,base,entryCount:profile.count,
+  mergeAuthorized:false,writerAuthorized:false};
 }
+
+// This is a fixed source selector, not an authority grant. Neither a caller
+// nor a candidate can supply the allowed paths/trees or change protected gate
+// identity. Unknown Core pairs and mixed old/new pairs fail closed.
+function selectAcceptedCorePair(baseCore,sourceCore){
+ if(baseCore==='7de35a07df55bdf7f439caac6e4d734dd91fe9ba'){
+  if(sourceCore!=='ca1ef1772b53ff535618fc8263cd647f757f3dad')deny('CANDIDATE_CORE_TREE');
+  return {entries,count:15,metadata:{
+   sourcePr:1372,sourceHead:'7c280ca740bda68cd69ceb46337fd75bf3e133bc',
+   sourceTree:'06b31f58c383ca59e981248f2a23f7d6c41d0eef',
+   historicalCandidateHead:'eaeafb84b55d522f1f6eab6e84d879780fc1d031'}};
+ }
+ if(baseCore==='ca1ef1772b53ff535618fc8263cd647f757f3dad'){
+  if(sourceCore!=='2b50d1208e830433bd86bb9506b8cf67228d518d')deny('CANDIDATE_CORE_TREE');
+  return {entries:switch626ChestEntries,count:4,metadata:{
+   sourcePr:1422,sourceHead:'5a5ce7eab0e5922d15e50b9ed699c44570c23f30',
+   sourceTree:'a73f5b6da2856b2329cee3b158c6e1e74b097d3c'}};
+ }
+ deny('BASE_CORE_TREE');
+}
+
