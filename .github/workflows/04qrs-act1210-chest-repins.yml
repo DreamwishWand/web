@@ -42,9 +42,9 @@ jobs:
           assert.deepEqual(extract(current),expected);
           let patched=old;for(const [p,h] of changed){const prior=oldPins.find(x=>x[0]===p)[1];const before='test "$(git rev-parse HEAD:'+p+')" = '+prior;const after='test "$(git rev-parse HEAD:'+p+')" = '+h;assert.equal(patched.split(before).length,2);patched=patched.replace(before,after);}
           assert.equal(current,patched);
-          let neg=0;const check=x=>assert.deepEqual(extract(x),expected);
-          for(const [p,h] of expected){const token='test "$(git rev-parse HEAD:'+p+')" = '+h;assert.throws(()=>check(current.replace(token,token.replace(h,'f'.repeat(40)))));neg++;assert.throws(()=>check(current.replace(token,'')));neg++}
-          for(const [p,h] of changed){const prior=oldPins.find(x=>x[0]===p)[1];assert.throws(()=>check(current.replace('HEAD:'+p+')" = '+h,'HEAD:'+p+')" = '+prior)));neg++}
+          let neg=0;const check=x=>assert.deepEqual(extract(x),expected);const start=current.indexOf('  scoped_switch_chest_proof:\n');const mutate=(a,b)=>{const scope=current.slice(start);assert.equal(scope.split(a).length,2);return current.slice(0,start)+scope.replace(a,b)};
+          for(const [p,h] of expected){const token='test "$(git rev-parse HEAD:'+p+')" = '+h;assert.throws(()=>check(mutate(token,token.replace(h,'f'.repeat(40)))));neg++;assert.throws(()=>check(mutate(token,'')));neg++}
+          for(const [p,h] of changed){const prior=oldPins.find(x=>x[0]===p)[1];assert.throws(()=>check(mutate('HEAD:'+p+')" = '+h,'HEAD:'+p+')" = '+prior)));neg++}
           assert.throws(()=>check(current+'\n          test "$(git rev-parse HEAD:unrelated)" = '+'a'.repeat(40)));neg++;
           console.log('ACT1210_CHEST_REPINS_L2_PASS',JSON.stringify({pins:22,changed:8,unchanged:14,negative:neg,actualGit:true,actualSignature:false}));
           
