@@ -53,3 +53,72 @@ jobs:
           ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
           test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
           test -f crates/ddv-save-core/src/wasm_worker.rs
+
+      - name: QA ONLY ACT1114 COMP03 effective generated exact9
+        run: |
+          set -euo pipefail
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          "$B" "$W" --out-dir /tmp/comp-off --target nodejs --no-typescript
+          for mode in amount both; do
+            features=worker-wasm,product-amount-scoped
+            if [ "$mode" = both ]; then features="$features,product-collection-scoped"; fi
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            "$B" "$W" --out-dir "/tmp/comp-$mode" --target nodejs --no-typescript
+          done
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          const cls=m=>require('/tmp/comp-'+m+'/ddv_save_core.js').WorkerWasmSource,sha=b=>createHash('sha256').update(b).digest('hex');
+          const steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],sw=['switch','switch-bid','9A239D3DB569756D',626,true],item=40100038;
+          const root=(name,id,g)=>({SceneItemId:id,Unlocked:true,GridIDs:[g],CustomLocationPositionsPath:'SceneLayouts/FloatingIslands/FloatingIsland_'+name+'/CustomLocations.json'});
+          const grid=(name,id,next,objects)=>({ID:id,GridDefaultLayoutPath:'',GridDataPath:'GridData/FloatingIslands/FloatingIsland_'+name+'/FloatingIsland_'+name+'Grid-GridData.json',TessellationFactor:2,NextGridObjectID:next,Objects:objects});
+          const well={ID:0,ItemID:20300048,X:120,Y:120,Orientation:'GridOrientation_Down',State:{BuildingWithSkinData:{UpgradeState:{Level:1},CurrentSkinItemID:170200005}}};
+          function doc(g=301,s=742,seed=82){
+            return {GameInfo:{Version:626},World:{Villages:[],FloatingIslands:{1540000150:root('Snow',1540000150,g),1540000153:root('Savannah',1540000153,s)},GridCollection:{Grids:{[g]:grid('Snow',g,seed+10,{0:structuredClone(well),[seed]:{ID:seed,ItemID:item,X:16,Y:24,Orientation:'GridOrientation_Down',State:null}}),[s]:grid('Savannah',s,12,{0:structuredClone(well)})},DiffGrids:{}},MissionSlots:{},RecurringEvents:{}},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_GroundAlteration']},Inventory:{[item]:{Amount:99,Marker:'ItemMarker_None'}}}},AchievementsData:[],DutySlots:{},EvolveStatesProfile:{EvolveProgressState:{}},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{keep:'x'.repeat(1100000),escaped:'keep'}};
+          }
+          const raw=d=>Buffer.from(JSON.stringify(d).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
+          let pos=0,neg=0,nonce=0;const red=[];const deny=(f,label='lifecycle')=>{try{f();red.push(label);}catch{neg++}};
+          function open(m,d,b=steam){const a=raw(d),w=new(cls(m))(...b,new Uint8Array(32).fill(++nonce));for(let i=0;i<a.length;i+=1048576)w.append_chunk(a.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(a));return[w,r]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],parse=JSON.parse;
+          const preview=(w,r,seed)=>parse(w.preview_steam626_comp03(seed,...sc(r)));
+          const stage=(w,r,p)=>parse(w.stage_steam626_comp03(p.seedId,p.gridId,p.nextObjectId,p.oldAmount,p.gridSha256,p.seedSha256,p.inventoryEntrySha256,p.projectedDecodedSha256,...sc(r)));
+          for(const m of ['off','amount','both'])for(const n of ['preview_steam626_comp03','stage_steam626_comp03'])assert.equal(typeof cls(m).prototype[n],m==='off'?'undefined':'function');
+          const sup=JSON.parse(fs.readFileSync('crates/ddv-save-core/data/steam626-placement-applicable-supplement.json','utf8'));
+          const [eid,ev]=Object.entries(sup.recurring).find(([k,v])=>v[0]==='ItemSpawning'&&v[1]==='village'&&v[2]===null);
+          const coords=[[20,24],[24,24],[16,28],[20,28],[24,28],[16,32],[20,32],[24,32]];
+          for(const [m,g,s,seed] of [['amount',301,742,82],['both',90001,90002,982]]){
+            const d=doc(g,s,seed);if(m==='both')d.World.RecurringEvents={1:{[ev[0]]:{RecurringEventItemID:Number(eid)}}};
+            const [w,r]=open(m,d),p=preview(w,r,seed),next=seed+10;
+            assert.equal(p.contract,'wand.worker.steam626.scoped-comp03-layout@1');assert.equal(p.gridId,g);assert.equal(p.seedId,seed);assert.equal(p.nextObjectId,next);assert.equal(p.inventoryDelta,0);assert.equal(p.oldAmount,99);assert.equal(p.newAmount,99);assert.equal(p.writerAuthorized,false);
+            const gr=d.World.GridCollection.Grids[g],obj=JSON.stringify(gr.Objects);
+            const tail=coords.map(([X,Y],i)=>',"'+(next+i)+'":'+JSON.stringify({ID:next+i,ItemID:item,Orientation:'GridOrientation_Down',State:null,X,Y})).join('');
+            const want=Buffer.from(raw(d).toString().replace('"Objects":'+obj,'"Objects":'+obj.slice(0,-1)+tail+'}').replace('"NextGridObjectID":'+next,'"NextGridObjectID":'+(next+8)));
+            assert.equal(p.projectedDecodedSha256,sha(want));assert.equal(p.gridSha256,sha(Buffer.from(JSON.stringify(gr))));assert.equal(p.seedSha256,sha(Buffer.from(JSON.stringify(gr.Objects[seed]))));assert.equal(p.inventoryEntrySha256,sha(Buffer.from(JSON.stringify(d.Player.ListInventories[0].Inventory[item]))));
+            for(const [k,v] of [['gridId',s],['seedId',seed+1],['nextObjectId',next+1],['oldAmount',98],['gridSha256','00'.repeat(32)],['seedSha256','00'.repeat(32)],['inventoryEntrySha256','00'.repeat(32)],['projectedDecodedSha256','00'.repeat(32)]])deny(()=>stage(w,r,{...p,[k]:v}));
+            const [f,fr]=open(m,d);deny(()=>stage(f,r,p));f.close();f.free();deny(()=>w.begin_scoped_edit_output(...sc(r)));
+            const t=stage(w,r,p);assert.equal(t.operationCount,9);assert.equal(t.exactFieldChangedCount,9);assert.equal(t.stagedDecodedSha256,sha(want));assert.equal(t.originalOverwriteAuthorized,false);
+            deny(()=>stage(w,r,p));deny(()=>w.toggle_scoped_amount(false,...sc(t)));deny(()=>w.begin_scoped_amount_output(...sc(t)));
+            const u=parse(w.toggle_scoped_edit(false,...sc(t)));deny(()=>w.begin_scoped_edit_output(...sc(u)));const v=parse(w.toggle_scoped_edit(true,...sc(u)));
+            const o=parse(w.begin_scoped_edit_output(...sc(v)));assert.equal(o.decodedSha256,sha(want));const a=Buffer.from(w.next_scoped_edit_output_chunk()),b=Buffer.from(w.next_scoped_edit_output_chunk());assert.deepEqual(Buffer.concat([a,b]),want);assert.deepEqual(JSON.parse(want).Player,d.Player);
+            deny(()=>w.next_scoped_edit_output_chunk());deny(()=>w.begin_scoped_edit_output(...sc(v)));w.close();w.free();pos++;
+          }
+          let caseIndex=0;for(const mut of [
+            d=>d.World.FloatingIslands[1540000150].Unlocked=false,
+            d=>d.World.FloatingIslands[1540000153].GridIDs=[301],
+            d=>d.World.GridCollection.Grids[742].Objects[0].X=121,
+            d=>d.World.GridCollection.Grids[301].Objects[82].X=17,
+            d=>d.World.GridCollection.DiffGrids[301]={ID:301},
+            d=>d.Opaque.ref={GridID:301,GridObjectID:92},
+            d=>d.Opaque.ref={GridID:301,GridObjectID:99},
+            d=>d.Opaque.GridIDs=[301],
+            d=>d.World.Extra={GridIDs:[301]},
+            d=>d.Opaque.SubGrid={GridID:301},
+            d=>d.World.Extra={SubGrid:{GridID:301}},
+            d=>d.World.RecurringEvents={1:{Unknown:{RecurringEventItemID:1}}},
+            d=>d.World.RecurringEvents={1:{[ev[0]]:{RecurringEventItemID:1}}},
+            d=>d.Player.ListInventories[0].Inventory[item].Amount=0,
+            d=>d.Player.ListInventories[0].Inventory[item].Marker='ItemMarker_Favorite'
+          ]){const d=doc();d.Opaque={};mut(d);const [w,r]=open('both',d);deny(()=>preview(w,r,82),'current-shape-'+caseIndex++);w.close();w.free();}
+          {const d=doc(),[w,r]=open('both',d,sw);deny(()=>preview(w,r,82));w.close();w.free();}
+          console.log('ACT1114_COMP03_GENERATED '+pos+'POS '+neg+'NEG RED='+JSON.stringify(red));assert.equal(pos,2);assert.deepEqual(red,[]);assert.equal(neg,48);
+          JS
