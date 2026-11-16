@@ -10,12 +10,12 @@ const ROUTE:u32=9;
 const OLD:i32=64;
 const NEW:i32=69;
 #[derive(Debug)]
-pub(super) struct FixedEyeballColor2{
- pub(super) scope:WorkerEnvelope,pub(super) span:Span,
- pub(super) active_eye_sha:String,pub(super) inactive_eye_sha:String,
- pub(super) male_sha:String,pub(super) female_sha:String,
- pub(super) stock_entry_sha:String,pub(super) route_sha:String,
- pub(super) selected_token_sha:String,pub(super) projected:[u8;32],
+pub(crate) struct FixedEyeballColor2{
+ pub(crate) scope:WorkerEnvelope,pub(crate) span:Span,
+ pub(crate) active_eye_sha:String,pub(crate) inactive_eye_sha:String,
+ pub(crate) male_sha:String,pub(crate) female_sha:String,
+ pub(crate) stock_entry_sha:String,pub(crate) route_sha:String,
+ pub(crate) selected_token_sha:String,pub(crate) projected:[u8;32],
 }
 fn check_ok(ok:bool,why:&'static str)->CoreResult<()>{
  if ok{Ok(())}else{Err(denied(why))}
@@ -67,7 +67,7 @@ fn stock(b:&[u8],player:&[(String,Span)])->CoreResult<(String,String)>{
  Ok((sha(&b[rec.begin..rec.end]),sha(&b[entry.begin..entry.end])))
 }
 impl ProductSession{
- pub(super) fn prepare_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
+ pub(crate) fn prepare_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
   product_appearance_scope(self,&e)?;
   let st=self.lock()?;validate_scope(self,&st,&e)?;
   check_ok(st.revision==0&&st.generation==1&&st.semantic.is_none(),"EYECOLOR2_EPOCH")?;
@@ -92,7 +92,7 @@ impl ProductSession{
    stock_entry_sha:entry_sha,route_sha,
    selected_token_sha:sha(&b[span.begin..span.end]),projected})
  }
- pub(super) fn stage_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
+ pub(crate) fn stage_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
      ->CoreResult<crate::SemanticStageReceipt>{
   check_ok(e.action==WorkerAction::Stage,"EYECOLOR2_STAGE_ACTION")?;
   let current=self.prepare_fixed_steam626_eyecolor2(WorkerEnvelope{action:WorkerAction::ReadDomain,..e})?;
