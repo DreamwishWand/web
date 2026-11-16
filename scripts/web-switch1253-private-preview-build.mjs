@@ -118,8 +118,7 @@ async function syntheticBrowser(out,draft){
   const pins=Object.entries(draft.items);
   const paths=Object.fromEntries(pins.map(([id,e])=>[id,origin+'/web/ddv/item-images/'+draft.assetVariant+'/'+e.originalNativeStreamSha256.slice(0,2)+'/'+e.originalNativeStreamSha256+'-'+e.sourcePngSha256+'-'+e.webpSha256+'.webp']));
   const swatches={
-   '40000047':Buffer.from('UklGRiQAAABXRUJQVlA4TBcAAAAvn8AnAAfQsVo0uf8BAEX6/58i+p/6AQA=','base64'),
-   '40006096':Buffer.from('UklGRiQAAABXRUJQVlA4TBcAAAAvn8AnAAdQvU4Xpf8BAEX6/58i+p/6AQA=','base64')};
+   '40000047':Buffer.from('UklGRiQAAABXRUJQVlA4TBcAAAAvn8AnAAfQsVo0uf8BAEX6/58i+p/6AQA=','base64')};
   for(const [id,b] of Object.entries(swatches))assert.notEqual(createHash('sha256').update(b).digest('hex'),draft.items[id].webpSha256);
   let missing=false,withdrawn=false,manifestHits=0;
   await page.route('**/ddv/item-images/**',async route=>{
@@ -139,15 +138,16 @@ async function syntheticBrowser(out,draft){
   assert.ok(await page.evaluate(()=>{const {release}=window.act418PrivateTest.fixture();
    try{window.act418PrivateTest.apply(window.act418PrivateTest.draft(),release);return false}catch(e){return String(e).includes('MANIFEST_PUBLICATION_UNVERIFIED')}}));
   const apply=()=>page.evaluate(()=>{const f=window.act418PrivateTest.fixture();return window.act418PrivateTest.apply(f.manifest,f.release)});
-  assert.equal(await apply(),2);
-  await page.waitForFunction(()=>document.querySelectorAll('img').length===2&&[...document.querySelectorAll('img')].every(i=>i.complete&&i.naturalWidth===160&&i.naturalHeight===160));
+  assert.equal(await apply(),1);
+  await page.waitForFunction(()=>document.querySelectorAll('img').length===1&&[...document.querySelectorAll('img')].every(i=>i.complete&&i.naturalWidth===160&&i.naturalHeight===160));
   for(const id of Object.keys(paths)){
    const img=page.locator('[data-item-thumb-id="'+id+'"] img');
    assert.equal(await img.evaluate(el=>el.src),paths[id]);
    assert.equal(await page.locator('[data-item-thumb-id="'+id+'"]').getAttribute('data-media-status'),'verified-public-image');
   }
   assert.equal(await page.locator('[data-item-thumb-id="40002422"] img').count(),0);
-  assert.deepEqual(hits.map(h=>h.id).sort(),['40000047','40006096']);
+  assert.deepEqual(hits.map(h=>h.id).sort(),['40000047']);
+  assert.equal(await page.locator('[data-item-thumb-id="40006096"] img').count(),0);
   for(const [width,zoom] of [[320,1],[640,2]]){
    await page.setViewportSize({width,height:850});
    await page.evaluate(z=>document.documentElement.style.zoom=String(z),zoom);
@@ -166,28 +166,28 @@ async function syntheticBrowser(out,draft){
    f=>f.manifest.items['40000047'].url='https://invalid.example/a.webp',
    f=>{f.manifest.items['40002422']={...f.manifest.items['40000047']};f.release.items['40002422']={...f.release.items['40000047']}},
    f=>f.release.receivingContact='NOT_RUN',
-   f=>f.manifest.items['40000047'].rasterStatus=f.manifest.items['40006096'].rasterStatus];
+   f=>f.manifest.items['40000047'].rasterStatus='SWITCH_DXT5_RGBA_EXACT_PRIVATE'];
    return changes.every(change=>{const f=window.act418PrivateTest.fixture();change(f);
     try{window.act418PrivateTest.apply(f.manifest,f.release);return false}catch{return true}});
   }));
   missing=true;await page.reload();await page.waitForFunction(()=>!!window.act418PrivateTest);await apply();
-  await page.waitForFunction(()=>document.querySelector('[data-item-thumb-id="40000047"]').dataset.mediaStatus==='unavailable'&&document.querySelector('[data-item-thumb-id="40006096"] img')?.naturalWidth===160);
+  await page.waitForFunction(()=>document.querySelector('[data-item-thumb-id="40000047"]').dataset.mediaStatus==='unavailable'&&!document.querySelector('[data-item-thumb-id="40006096"] img'));
   assert.equal(await page.locator('[data-item-thumb-id="40000047"] img').count(),0);
   missing=false;await page.reload();await page.waitForFunction(()=>!!window.act418PrivateTest);await apply();
-  await page.waitForFunction(()=>document.querySelectorAll('img').length===2&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
+  await page.waitForFunction(()=>document.querySelectorAll('img').length===1&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
   await page.evaluate(()=>window.act418PrivateTest.startRefresh());
-  await page.waitForFunction(()=>document.querySelectorAll('img').length===2&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
+  await page.waitForFunction(()=>document.querySelectorAll('img').length===1&&[...document.querySelectorAll('img')].every(i=>i.naturalWidth===160));
   assert.equal(manifestHits,1);
   withdrawn=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
-  await page.waitForFunction(()=>document.querySelector('[data-item-thumb-id="40000047"]').dataset.mediaStatus==='unavailable'&&document.querySelector('[data-item-thumb-id="40006096"] img')?.naturalWidth===160);
+  await page.waitForFunction(()=>document.querySelector('[data-item-thumb-id="40000047"]').dataset.mediaStatus==='unavailable'&&!document.querySelector('[data-item-thumb-id="40006096"] img'));
   assert.equal(manifestHits,2);assert.equal(await page.locator('[data-item-thumb-id="40000047"] img').count(),0);
   await page.evaluate(()=>window.act418PrivateTest.stopRefresh());
   await page.waitForFunction(()=>document.querySelectorAll('img').length===0);
-  console.log('ACT418_OPEN_TAB_NO_STORE_MANIFEST_REFRESH_WITHDRAW_ONE_KEEP_SURVIVOR_PASS');
+  console.log('ACT594_OPEN_TAB_NO_STORE_MANIFEST_REFRESH_WITHDRAW_WARDROBE_TREE_QUARANTINED_PASS');
   const before=hits.length;await page.evaluate(()=>window.act418PrivateTest.off());await page.waitForFunction(()=>document.querySelectorAll('img').length===0);
   assert.equal(hits.length,before);assert.ok(requests.every(([m,u])=>m==='GET'&&u.startsWith(origin+'/')));
   assert.ok(hits.every(h=>h.id!=='UNKNOWN'));assert.deepEqual(errors,[]);
-  console.log('ACT418_ACTUAL_SHARED_ITEMTHUMB_SYNTHETIC_ONLY_2POS_7NEG_OFF_REFLOW_FALLBACK_PASS');
+  console.log('ACT594_ACTUAL_SHARED_ITEMTHUMB_SYNTHETIC_ONLY_WARDROBE_POS_TREE_QUARANTINE_7NEG_OFF_REFLOW_PASS');
   await ctx.close();
  }finally{await browser?.close();await new Promise(yes=>server.close(yes))}
 }
