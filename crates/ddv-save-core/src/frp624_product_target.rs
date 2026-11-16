@@ -226,4 +226,16 @@ mod tests{
     build_id:FRP_BUILD.into(),schema:624,externally_attested:true},[1;32]).unwrap();
   assert_eq!(result.receipt().unwrap().schema,624);
  }
+
+ #[cfg(feature="product-switch624-frp01-scoped")]
+ #[test]
+ #[ignore = "QA-only synthetic fixture for independent generated Rust WASM ABI test"]
+ fn qa1899_emit_synthetic_wasm_fixture() {
+  let d = doc();
+  assert_eq!(d["GameInfo"]["Version"], json!(624));
+  let raw = serde_json::to_vec(&d).unwrap();
+  assert!(raw.len() < 1024 * 1024);
+  std::fs::write("/tmp/qrc1899-frp624-source.json", &raw).unwrap();
+  println!("QRC1899_FIXTURE_SYNTHETIC_ONLY bytes={}", raw.len());
+ }
 }
