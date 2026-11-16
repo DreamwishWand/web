@@ -35,7 +35,7 @@ pub struct WorkerWasmSource {
 }
 #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 #[derive(Clone,Copy,PartialEq,Eq)]
-enum ScopedEditDomain { Amount, Collection, SwitchChest }
+enum ScopedEditDomain { Amount, Collection, SwitchChest, SwitchCatalog0 }
 #[wasm_bindgen]
 impl WorkerWasmSource {
     #[wasm_bindgen(constructor)]
@@ -405,6 +405,49 @@ impl WorkerWasmSource {
         self.scoped_domain.set(Some(ScopedEditDomain::SwitchChest));
         Ok(scoped_edit_receipt(r,"wand.worker.switch626.scoped-chest@1"))
     }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn discover_switch626_catalog0(&self,offset:u32,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        let (targets,next,scanned)=guard.discover_switch626_catalog0(e,offset).map_err(|e|err(e.0))?;
+        let mut rows=Vec::new();
+        for t in targets{
+            let v=t.view();
+            let crate::ExistingAmountSelection::Inventory{inventory_id,item_id}=v.selection else{return Err(err("WORKER_SCOPED_PROFILE"));};
+            rows.push(serde_json::json!({"profile":"catalog0-furniture","id":inventory_id,"selector":item_id,"itemId":v.item_id,"oldAmount":v.old_amount}));
+        }
+        Ok(serde_json::json!({"contract":"wand.worker.switch626.scoped-catalog0-discovery@1",
+            "profile":"catalog0-furniture","sessionId":session_id,"revision":revision,
+            "indexGeneration":index_generation,"decodedSha256":decoded_sha256,
+            "offset":offset,"nextOffset":next,"scanned":scanned,"rows":rows,
+            "writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn preview_switch626_catalog0(&self,id:u32,item:u32,new:u32,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let selection=scoped_selection("catalog0-furniture",id,item)?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        let t=guard.preview_switch626_catalog0(e,selection,new).map_err(|e|err(e.0))?;
+        let v=t.view();
+        Ok(serde_json::json!({"contract":"wand.worker.switch626.scoped-catalog0@1",
+            "profile":"catalog0-furniture","id":id,"selector":item,"itemId":v.item_id,
+            "oldAmount":v.old_amount,"newAmount":new,"entrySha256":hex(&v.entry_sha256),
+            "sessionId":hex(&v.session_id),"revision":v.revision,"indexGeneration":v.index_generation,
+            "decodedSha256":hex(&v.decoded_sha256),"scopedCandidate":true,
+            "writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn stage_switch626_catalog0(&self,id:u32,item:u32,old:u32,new:u32,entry_sha256:&str,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let selection=scoped_selection("catalog0-furniture",id,item)?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        let r=guard.stage_switch626_catalog0(e,selection,old,new,from_hex(entry_sha256)?).map_err(|e|err(e.0))?;
+        self.scoped_domain.set(Some(ScopedEditDomain::SwitchCatalog0));
+        Ok(scoped_edit_receipt(r,"wand.worker.switch626.scoped-catalog0@1"))
+    }
     // One internal ledger and one output buffer, with legacy Amount
     // contract aliases. The tag labels the successful Stage; it cannot
     // authorize any command or mint a new session.
@@ -489,7 +532,7 @@ fn scoped_selection(profile:&str,id:u32,selector:u32)->Result<crate::ExistingAmo
 impl WorkerWasmSource {
     #[cfg(feature="product-amount-scoped")]
     fn require_amount_domain(&self)->Result<(),JsValue>{
-        if matches!(self.scoped_domain.get(),Some(ScopedEditDomain::Collection|ScopedEditDomain::SwitchChest)){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}
+        if matches!(self.scoped_domain.get(),Some(ScopedEditDomain::Collection|ScopedEditDomain::SwitchChest|ScopedEditDomain::SwitchCatalog0)){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}
         Ok(())
     }
     fn toggle_scoped_edit_inner(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str,contract:&str)->Result<String,JsValue>{
