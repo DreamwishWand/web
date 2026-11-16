@@ -15,6 +15,7 @@ const staticShared=new Set([
   '/src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs',
   '/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
     '/src/lib/ddv/core/save/product-scoped-amount-transport.mjs',
+    '/src/lib/ddv/core/save/product-scoped-portable-transport.mjs',
     '/src/lib/ddv/core/save/product-scoped-placement-transport.mjs',
     '/src/lib/ddv/core/save/product-scoped-backpack-transport.mjs',
     '/src/lib/ddv/core/save/product-scoped-wardrobe-transport.mjs',

@@ -27,6 +27,7 @@ function replyFile(req,res){
   const allowed=p.startsWith('/tests/stage-e/')||
     p==='/src/lib/ddv/core/save/product-wasm-read-owner.mjs'||
     p==='/src/lib/ddv/core/save/product-scoped-amount-transport.mjs'||
+    p==='/src/lib/ddv/core/save/product-scoped-portable-transport.mjs'||
     p==='/src/lib/ddv/core/save/product-scoped-placement-transport.mjs'||
     p==='/src/lib/ddv/core/save/product-scoped-backpack-transport.mjs'||
     p==='/src/lib/ddv/core/save/product-scoped-wardrobe-transport.mjs'||
