@@ -611,6 +611,129 @@ const switch626Rm01CumulativeEntries=[
     }
   }
 ];
+const switch626R01CumulativeEntries=[
+  {
+    "path": ".github/workflows/core-product-session-boundary.yml",
+    "before": {
+      "mode": "100644",
+      "blob": "297ff95a150d1417ba0d0507780eeb9f69b892f4"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "da5bb623842b545739e9c880ccd9a8ed16c4eff9"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "0694cf00071368d00f8626350bdda7cd9a8b5f85"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "756d34e3456f1350beac83b7ac072b1fb01b20d7"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/comp03_product_target.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "7ced0c7020a130461e6e3ce916a70ce4451e1d1a"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "3569dee4b7fe1a34077bab0497b46d49aa6368b2"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/road_mixed_shape.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "f93a44572e2bb74b47bb003c47793212b34519dd"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "062986e7615e64f09eb3c0cf5bb6edad1db80967"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/semantic_writer.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "4e2d9e9c64d9096d03c8515f791706f2cc7f458a"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "6a15b5c295f009256843461c7e00e1c6d981052a"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/sr03_installed_geometry.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "b8a90450543e984d71a1f4e96198a149ac5c98c2"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "8b102d8904fb7863235050180131c23747916df5"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/sr03_product_target.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "4af0dcf34272e3413c6b05d14abf400781837585"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "2d0e7d159dc93eb31782226d6cbf19c44c1f174d"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/switch624_road_rm01.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "c859c98807c649ec86d9200de210c3fd12d2750c"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "e0b70b9e74732c39096c8e5a0b0a1a2d7e74a777"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "fc48943b815f9ee9a1fd74bc3249ae65da6319b4"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "720be3eae6dda058804d11e8346ab90b8ac3f9a6"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "3419766834cea085f61b267a406fe91432b39c79"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "45cb01ea0baf2b040834324b1822427d62ab8202"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "636955805479ed9794896c0d06acbf991c10bf14"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "a14e383bb7a3d2196edd5dfe2b188104739feb0f"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -697,6 +820,12 @@ function selectAcceptedCorePair(baseCore,sourceCore){
   return {entries:switch626Rm01CumulativeEntries,count:14,metadata:{
    sourcePr:1649,sourceHead:'6e73a255b021b20099506c989947594f88a46c97',
    sourceTree:'c1af61e8899985c72d8bb4f6d5bde715a1222354'}};
+ }
+ if(baseCore==='f942165161b98cf7f9de16a1f7459cf3d337dc61'){
+  if(sourceCore!=='1318590f458f274017a6c0bd9d65f81b97cc1ade')deny('CANDIDATE_CORE_TREE');
+  return {entries:switch626R01CumulativeEntries,count:11,metadata:{
+   sourcePr:1711,sourceHead:'3f01af5276e16119de497eee85cdca170aa3fd21',
+   sourceTree:'2aecfdc4fbd310d1c1894e14bb1c70c34878546e'}};
  }
  deny('BASE_CORE_TREE');
 }
