@@ -14,9 +14,9 @@ const empty=()=>({phase:'closed',sourceName:'',backupName:null,preview:null,edit
 const build=COLLECTION_EXACT1_BUILDS['steam-windows'];
 export const STEAM626_PLACEMENT_BUILD=build;
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation}={}){
- if(trustedLocalHarness!==true||!['comp03','vase'].includes(operation)||!adapter)fail();
+ if(trustedLocalHarness!==true||!['comp03','vase','sr03'].includes(operation)||!adapter)fail();
  for(const k of ['open','backupOriginal','previewPlacement','stagePlacement','undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
- const comp=operation==='comp03',count=comp?9:3;
+ const comp=operation==='comp03',sr03=operation==='sr03',count=comp?9:sr03?8:3;
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
  const set=p=>{state={...state,...p};return snapshot()};
@@ -51,13 +51,13 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
   backup=Object.freeze({name:r.backupName,sha:source.sha,size:source.size});return set({phase:'ready',backupName:backup.name});
  });
  const preview=selector=>run(['ready','previewed'],async check=>{
-  if(!backup||!(comp?exact(selector,'seedId')&&positive(selector.seedId):exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
+  if(!backup||!(comp?exact(selector,'seedId')&&positive(selector.seedId):sr03?exact(selector,'gridId,retainedId,movedId')&&positive(selector.gridId)&&positive(selector.retainedId)&&positive(selector.movedId)&&selector.retainedId!==selector.movedId:exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
   const r=await adapter.previewPlacement({...selector});check();
   const common='itemId,gridId,nextObjectId,oldAmount,newAmount,exactFieldChangedCount,scopedCandidate,writerAuthorized,editedCopyAuthorized';
-  if(!exact(r,common+(comp?',seedId,inventoryDelta,retainSeed,addObjects':',inventoryId,x,y,orientation,inventoryDelta,addObjects'))||
-   r.itemId!==(comp?40100038:40000066)||!positive(r.gridId)||!positive(r.nextObjectId)||!positive(r.oldAmount)||!uint(r.newAmount)||r.exactFieldChangedCount!==count||
+  if(!exact(r,common+(comp?',seedId,inventoryDelta,retainSeed,addObjects':sr03?',retainedId,movedId,inventoryDelta,addObjects':',inventoryId,x,y,orientation,inventoryDelta,addObjects'))||
+   r.itemId!==(comp?40100038:sr03?40100068:40000066)||!positive(r.gridId)||!positive(r.nextObjectId)||!positive(r.oldAmount)||!uint(r.newAmount)||r.exactFieldChangedCount!==count||
    r.scopedCandidate!==true||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||
-   !(comp?r.seedId===selector.seedId&&r.oldAmount===r.newAmount&&r.inventoryDelta===0&&r.retainSeed===1&&r.addObjects===8:
+   !(comp?r.seedId===selector.seedId&&r.oldAmount===r.newAmount&&r.inventoryDelta===0&&r.retainSeed===1&&r.addObjects===8:sr03?r.gridId===selector.gridId&&r.retainedId===selector.retainedId&&r.movedId===selector.movedId&&r.oldAmount>=3&&r.newAmount===r.oldAmount-3&&r.inventoryDelta===-3&&r.addObjects===3&&r.nextObjectId>Math.max(r.retainedId,r.movedId)&&r.nextObjectId<=0xfffffffd:
     r.gridId===selector.gridId&&r.x===selector.x&&r.y===selector.y&&r.inventoryId===0&&r.orientation==='GridOrientation_Up'&&r.oldAmount===r.newAmount+1&&r.inventoryDelta===-1&&r.addObjects===1))fail();
   return set({phase:'previewed',preview:Object.freeze({...r})});
  });
