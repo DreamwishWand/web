@@ -63,6 +63,8 @@ export const ROOM_FINISH_WALLS = Object.freeze([
 // Only the SHA-verified canonical pack may authorize export revalidation.
 // This is immutable build data, not a second Save session or reader.
 let verifiedRoomFinishTrimmingPack:AnyRecord|null = null;
+// Only the exact locally issued Review can authorize a single export.
+const issuedRoomFinishReviews = new WeakMap<object,AnyRecord>();
 
 function clone<T>(value:T):T { return structuredClone(value); }
 function asObj(value:any):AnyRecord|null {
@@ -638,16 +640,21 @@ export async function reviewRoomFinishVerifiedExportV125({
     fail('WEP_ROOM_FINISH_EXACT_BUILD_CONFIRMATION_REQUIRED');
   }
   if (!exactOpened(opened)) fail('WEP_ROOM_FINISH_UNSUPPORTED_VERSION_BUILD');
-  const mutationSet = draftDocument?.roomFinish?.pendingMutationSet;
+  const draftSnapshot=clone(draftDocument);
+  const openedProfileSnapshot=clone(opened.profile);
+  const sourceSnapshot=sourceBytes.slice();
+  const mutationSet = draftSnapshot?.roomFinish?.pendingMutationSet;
   if (mutationSet?.contract !== ROOM_FINISH_MUTATION_SET_CONTRACT) {
     fail('WEP_ROOM_FINISH_PENDING_MUTATION_REQUIRED');
   }
   const safeSession = await SafeProfileEditSession.open({
-    sourceBytes:sourceBytes.slice(),
+    sourceBytes:sourceSnapshot,
     codec:p1gPackagedProfileCodec as any,
     sourcePlatform:PlatformFamily.Switch
   });
-  requireCanonicalSourceRoomMutation(safeSession.getSnapshot(), mutationSet);
+  const profile=safeSession.getSnapshot();
+  if(!mutationSame(profile,openedProfileSnapshot)) fail('WEP_ROOM_FINISH_SOURCE_PROFILE_MISMATCH');
+  requireCanonicalSourceRoomMutation(profile, mutationSet);
   const ctx = safeSession.getPreflightContext();
   const plan:any = (buildRoomFinishTransactionPlanV125 as any)({
     session:safeSession,
@@ -665,7 +672,10 @@ export async function reviewRoomFinishVerifiedExportV125({
   ) {
     fail('WEP_ROOM_FINISH_CORE_BINDING_MISMATCH');
   }
-  return Object.freeze({
+  if(!mutationSame(draftDocument,draftSnapshot)||!mutationSame(opened.profile,openedProfileSnapshot)) {
+    fail('WEP_ROOM_FINISH_REVIEW_STALE');
+  }
+  const review=Object.freeze({
     contract:ROOM_FINISH_VERIFIED_EXPORT_CONTRACT,
     status:'READY',
     sourceEpoch:Number(sourceEpoch),
@@ -678,7 +688,7 @@ export async function reviewRoomFinishVerifiedExportV125({
       value:ROOM_FINISH_TARGET.buildID
     }),
     mutationSet:clone(mutationSet),
-    semanticChange:roomFinishDraftReviewChange(draftDocument),
+    semanticChange:roomFinishDraftReviewChange(draftSnapshot),
     plan:clone(plan),
     runtimeAcceptance:ROOM_FINISH_RUNTIME_EVIDENCE,
     productExportAuthorized:true,
@@ -688,6 +698,8 @@ export async function reviewRoomFinishVerifiedExportV125({
     productApplyAuthorized:false,
     directSourceReplacementAuthorized:false
   });
+  issuedRoomFinishReviews.set(review,{review:clone(review),draft:draftSnapshot});
+  return review;
 }
 
 function assertReloadAgainstMutation(projection:any, mutation:any) {
@@ -738,21 +750,26 @@ export async function verifyRoomFinishReplacementArtifactPipelineV125({
     review?.contract !== ROOM_FINISH_VERIFIED_EXPORT_CONTRACT ||
     review?.status !== 'READY'
   ) fail('WEP_ROOM_FINISH_REVIEW_REQUIRED');
+  const issued=issuedRoomFinishReviews.get(review);
+  if(!issued||!mutationSame(review,issued.review)||!mutationSame(draftDocument,issued.draft)) {
+    fail('WEP_ROOM_FINISH_REVIEW_STALE');
+  }
   if (Number(currentSourceEpoch) !== Number(review.sourceEpoch)) {
     fail('WEP_ROOM_FINISH_SOURCE_CHANGED_SINCE_PLAN');
   }
-  const mutationSet = draftDocument?.roomFinish?.pendingMutationSet;
-  if (!mutationSame(mutationSet, review.mutationSet)) {
-    fail('WEP_ROOM_FINISH_REVIEW_STALE');
-  }
-  const sourceHashBefore = await sha256Hex(sourceBytes);
+  if(!(sourceBytes instanceof Uint8Array)||!sourceBytes.length) fail('WEP_ROOM_FINISH_SOURCE_REQUIRED');
+  // Consume synchronously before any await. A failure requires a fresh Review.
+  issuedRoomFinishReviews.delete(review);
+  review=issued.review;
+  const sourceSnapshot=sourceBytes.slice();
+  const sourceHashBefore = await sha256Hex(sourceSnapshot);
   if (
     sourceHashBefore !== review.sourceSha256 ||
     sourceBytes.length !== review.sourceByteLength
   ) fail('WEP_ROOM_FINISH_SOURCE_CHANGED_SINCE_PLAN');
 
   const safeSession = await SafeProfileEditSession.open({
-    sourceBytes:sourceBytes.slice(),
+    sourceBytes:sourceSnapshot,
     codec:p1gPackagedProfileCodec as any,
     sourcePlatform:PlatformFamily.Switch
   });

@@ -210,7 +210,7 @@ test('Room Finish review and export recompile ownership and exact mutation from 
       forged.sourceByteLength=bytes.length;
       await assert.rejects(()=>commitRoomFinishVerifiedExportV125({
         review:forged,currentSourceEpoch:1,sourceBytes:bytes,draftDocument:draft
-      }),/OWNED_AMOUNT_INVALID|COMPILE_REJECTED/);
+      }),/WEP_ROOM_FINISH_REVIEW_STALE/);
     }
     const wrong=structuredClone(draft);
     wrong.roomFinish.pendingMutationSet.changes.find(x=>x.kind==='REPLACE').after=123456789;
@@ -221,7 +221,7 @@ test('Room Finish review and export recompile ownership and exact mutation from 
     forged.mutationSet=structuredClone(wrong.roomFinish.pendingMutationSet);
     await assert.rejects(()=>commitRoomFinishVerifiedExportV125({
       review:forged,currentSourceEpoch:1,sourceBytes:f.sourceBytes,draftDocument:wrong
-    }),/SOURCE_MUTATION_MISMATCH/);
+    }),/WEP_ROOM_FINISH_REVIEW_STALE/);
   }
 });
 
@@ -412,4 +412,50 @@ test('Room Finish fails closed for unowned candidate, wrong subtype and a second
     document:dirty,profile:f.opened.profile,pack:f.pack,itemId:160000000,
     scope:WALLPAPER_SCOPE.ALL_WALLS
   }),/WEP_ROOM_FINISH_PENDING_REVIEW_REQUIRED/);
+});
+
+test('Room Finish one issued Review permits exactly one encrypted export, including overlapping calls',async()=>{
+  const f=await fixture();
+  const draftDocument=applyRoomFinishDraftMutationV125(f.document,compileRoomFinishFlooringDraftV125({document:f.document,profile:f.opened.profile,pack:f.pack,itemId:160100001}));
+  const review=await reviewRoomFinishVerifiedExportV125({sourceBytes:f.sourceBytes,sourceName:'profile',sourceEpoch:9,opened:f.opened,draftDocument,exactBuildConfirmed:true});
+  const commit=()=>commitRoomFinishVerifiedExportV125({review,currentSourceEpoch:9,sourceBytes:f.sourceBytes,draftDocument});
+  const results=await Promise.allSettled([commit(),commit()]);
+  const fulfilled=results.filter(x=>x.status==='fulfilled');
+  assert.equal(fulfilled.length,1,'one issued Room Finish Review must not yield two encrypted exports');
+  assert.match(String(results.find(x=>x.status==='rejected')?.reason?.code??''),/WEP_ROOM_FINISH_REVIEW_STALE/);
+  const actual=await openWorldSaveBytes(fulfilled[0].value.artifacts.edited.bytes,{sourcePlatform:'switch'});
+  const expected=structuredClone(f.opened.profile);
+  expected.World.PlayerHouses[0].Floors[0].Rooms['0'].Flooring=160100001;
+  assert.deepEqual(actual.profile,expected);
+  assert.deepEqual(Array.from(fulfilled[0].value.artifacts.backup.bytes),Array.from(f.sourceBytes));
+  await assert.rejects(commit,/WEP_ROOM_FINISH_REVIEW_STALE/);
+});
+
+test('Room Finish Review binds actual source and one immutable selected mutation',async()=>{
+  const f=await fixture();
+  const floor=applyRoomFinishDraftMutationV125(f.document,compileRoomFinishFlooringDraftV125({document:f.document,profile:f.opened.profile,pack:f.pack,itemId:160100001}));
+  const walls=applyRoomFinishDraftMutationV125(f.document,compileRoomFinishWallpaperDraftV125({document:f.document,profile:f.opened.profile,pack:f.pack,itemId:160000000,scope:WALLPAPER_SCOPE.ALL_WALLS}));
+  const input={sourceBytes:f.sourceBytes,sourceName:'profile',sourceEpoch:4,opened:f.opened,draftDocument:floor,exactBuildConfirmed:true};
+  const commit=(review,draftDocument=floor)=>commitRoomFinishVerifiedExportV125({review,currentSourceEpoch:4,sourceBytes:f.sourceBytes,draftDocument});
+  const other=structuredClone(f.opened);other.profile.World.OpaqueWorld.keep.future=false;
+  await assert.rejects(()=>reviewRoomFinishVerifiedExportV125({...input,opened:other}),/WEP_ROOM_FINISH_SOURCE_PROFILE_MISMATCH/);
+  const changing=structuredClone(floor);
+  const pending=reviewRoomFinishVerifiedExportV125({...input,draftDocument:changing});
+  changing.roomFinish=structuredClone(walls.roomFinish);
+  await assert.rejects(pending,/WEP_ROOM_FINISH_REVIEW_STALE/);
+  const review=await reviewRoomFinishVerifiedExportV125(input);
+  await assert.rejects(()=>commit(structuredClone(review)),/WEP_ROOM_FINISH_REVIEW_STALE/);
+  await assert.rejects(()=>commit(review,walls),/WEP_ROOM_FINISH_REVIEW_STALE/);
+  const tampered=await reviewRoomFinishVerifiedExportV125(input);
+  tampered.mutationSet.changes[0].after=160100000;
+  await assert.rejects(()=>commit(tampered),/WEP_ROOM_FINISH_REVIEW_STALE/);
+  const fresh=await reviewRoomFinishVerifiedExportV125({...input,draftDocument:walls});
+  const result=await commit(fresh,walls);
+  const reopened=await openWorldSaveBytes(result.artifacts.edited.bytes,{sourcePlatform:'switch'});
+  const expected=structuredClone(f.opened.profile);
+  const room=expected.World.PlayerHouses[0].Floors[0].Rooms['0'];
+  room.Wallpapers={'0':160000000,'1':160000000,'2':160000000,'3':160000000};
+  delete room.WallpaperOffsetById['160000224'];
+  assert.deepEqual(reopened.profile,expected);
+  assert.deepEqual(Array.from(result.artifacts.backup.bytes),Array.from(f.sourceBytes));
 });
