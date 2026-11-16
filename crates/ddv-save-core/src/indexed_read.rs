@@ -675,7 +675,7 @@ mod private_avatar {
             "eyeball":dependency_hash(bytes,field(&fs,"Eyeball")),"eyeballScalars":eye,
             "makeup":makeup,"otherFieldsRetainedByBranchHash":true}))
     }
-    fn inventory_dependencies(bytes:&[u8],lists:Span,avatar:&PrivateActiveAvatarReceipt)->CoreResult<Value>{
+    fn inventory_dependencies(bytes:&[u8],lists:Span,avatar:&PrivateActiveAvatarReceipt,proposed_clothing:Option<i32>)->CoreResult<Value>{
         use std::collections::BTreeSet;
         let mut clothes=BTreeSet::new();let mut makeup=BTreeSet::new();
         for b in [&avatar.female,&avatar.male]{
@@ -685,6 +685,7 @@ mod private_avatar {
             for e in &b.customization.entries{clothes.insert(e.key as i32);}
             for e in &b.makeup.entries{makeup.insert(e.value);}
         }
+        if let Some(id)=proposed_clothing{clothes.insert(id);}
         let mut selected=[None,None];
         for (key,rec) in members(bytes,lists,128)?{
             let id=key_u32(&key)?;
@@ -945,7 +946,7 @@ mod private_avatar {
             let bytes=&self.decoded;let root=roots(bytes)?;
             let player=members(bytes,root.player,1024)?;let world=members(bytes,root.world,1024)?;
             let avatar=avatar_snapshot(bytes,&player,e)?;
-            let ownership=inventory_dependencies(bytes,required(&player,"ListInventories")?,&avatar)?;
+            let ownership=inventory_dependencies(bytes,required(&player,"ListInventories")?,&avatar,None)?;
             let mut budget=DependencyBudget::default();
             let missions=mission_dependencies(bytes,field(&world,"MissionSlots"),&mut budget)?;
             let evolve=evolve_dependencies(bytes,field(&player,"EvolveStatesProfile"),&mut budget)?;
@@ -967,6 +968,68 @@ mod private_avatar {
             // caller-selected JSON. Keep the output bound before CLI writes.
             if serde_json::to_vec(&value).map_err(|_|denied("AVATAR_DEP_RECEIPT_ENCODE"))?.len()>8*1024*1024{
                 return Err(denied("AVATAR_DEP_RECEIPT_BOUND"));}
+            Ok(PrivateAvatarDependencyReceipt{value})
+        }
+    }
+
+    // ACT1051: private read-only witness for the reviewed occupied top-inner
+    // slot. The proposed item is an explicit typed selector, not authority
+    // or a claimed definition/slot compatibility proof. No raw caller path.
+    impl ProductSession{
+        pub fn read_private_wardrobe_same_slot(&self,e:WorkerEnvelope,slot:u32,old:i32,new:i32)
+            ->CoreResult<PrivateAvatarDependencyReceipt>{
+            let b=&self.native_source_build;
+            if b.platform!=Platform::SteamWindows||b.build_kind!=BuildKind::SteamFullVersion||
+               b.build_id!=EXACT||b.schema!=626||!b.externally_attested{
+                return Err(denied("WARDROBE_EXACT_STEAM626_REQUIRED"));}
+            // Initial reviewed top-inner slot only; no hair, full-body, new
+            // slot, arbitrary map path or untrusted Build generalization.
+            if slot!=0||old/10_000_000!=5||new/10_000_000!=5||old==new{
+                return Err(denied("WARDROBE_SELECTOR"));}
+            let st=self.lock()?;validate_scope(self,&st,&e)?;
+            let bytes=&self.decoded;let root=roots(bytes)?;
+            let player=members(bytes,root.player,1024)?;
+            let avatar=avatar_snapshot(bytes,&player,e)?;
+            let active=if avatar.is_male{&avatar.male}else{&avatar.female};
+            if !active.clothes.present||!active.incompatible.present||
+               !active.customization.present||!active.customization.entries.is_empty()||
+               active.incompatible.entries.iter().any(|v|v.key==slot){
+                return Err(denied("WARDROBE_ACTIVE_MAP_SCOPE"));}
+            let current=active.clothes.entries.iter().find(|v|v.key==slot)
+                .ok_or(denied("WARDROBE_OCCUPIED_SLOT_REQUIRED"))?;
+            if current.value!=old{return Err(denied("WARDROBE_OLD_VALUE"));}
+            // The reviewed proposed item was not observed in either Avatar.
+            // Do not infer absent/default, cleanup or conflicting slot safety.
+            for branch in [&avatar.female,&avatar.male]{
+                if branch.clothes.entries.iter().chain(branch.incompatible.entries.iter())
+                    .any(|v|v.value==new)||branch.customization.entries.iter().any(|v|v.key==new as u32){
+                    return Err(denied("WARDROBE_PROPOSED_ALREADY_REFERENCED"));}
+            }
+            let inventory=inventory_dependencies(bytes,required(&player,"ListInventories")?,&avatar,Some(new))?;
+            let routes=inventory["routes"].as_array().ok_or(denied("WARDROBE_ROUTE"))?;
+            let route=routes.first().filter(|v|v["inventoryId"]==1&&v["compatibleItemType"]=="ItemType_Clothing")
+                .ok_or(denied("WARDROBE_ROUTE"))?;
+            let rows=route["entries"].as_array().ok_or(denied("WARDROBE_STOCK_ROWS"))?;
+            let stock=|id:i32|->CoreResult<Value>{
+                let v=rows.iter().find(|v|v["itemId"]==id).ok_or(denied("WARDROBE_STOCK_ABSENT"))?;
+                if v["present"]!=true||v["positiveSavedAmount"]!=true||v["markerPresent"]!=true||
+                   !matches!(v["savedMarker"].as_str(),Some("ItemMarker_None")|Some("ItemMarker_Favorite")){
+                    return Err(denied("WARDROBE_STOCK_OR_MARKER"));}
+                Ok(v.clone())
+            };
+            let value=json!({"contract":"wand.native.private.wardrobe-same-slot-readset@1",
+                "avatar":avatar.to_private_receipt_json(),"slot":slot,"oldItemId":old,"proposedItemId":new,
+                "oldScalarSha256":current.entry_sha,"clothesMapSha256":active.clothes.sha,
+                "inventory":{"listInventoriesSha256":inventory["listInventoriesSha256"],
+                    "inventoryId":1,"compatibleItemType":"ItemType_Clothing",
+                    "recordSha256":route["recordSha256"],"mapSha256":route["mapSha256"],
+                    "oldStock":stock(old)?,"proposedStock":stock(new)?},
+                "fullDocumentRustValidated":true,"sameSlotDefinitionVerified":false,
+                "effectiveEligibilityVerified":false,"rightsVerified":false,
+                "subscriberClosureVerified":false,"productReadAccepted":false,
+                "writerAuthorized":false,"editedCopyAuthorized":false,"applyAuthorized":false});
+            if serde_json::to_vec(&value).map_err(|_|denied("WARDROBE_RECEIPT_ENCODE"))?.len()>8*1024*1024{
+                return Err(denied("WARDROBE_RECEIPT_BOUND"));}
             Ok(PrivateAvatarDependencyReceipt{value})
         }
     }
@@ -2042,6 +2105,48 @@ mod private_avatar {
             assert!(s.read_private_avatar_dependencies(stale).is_err());
             assert!(open(v).read_private_avatar_dependencies(e).is_err());
             s.close().unwrap();assert!(s.read_private_avatar_dependencies(e).is_err());
+        }
+        #[test]
+        fn wardrobe_same_slot_proposed_stock_read_only(){
+            let mut v=dependency_doc();
+            v["Player"]["MaleAvatar"]["Clothes"]=json!({"0":50000002});
+            v["Player"]["MaleAvatar"]["IncompatibleClothes"]=json!({});
+            v["Player"]["MaleAvatar"]["ClothingCustomization"]=json!({});
+            v["Player"]["ListInventories"]["1"]["Inventory"]["50000002"]["Marker"]=json!("ItemMarker_Favorite");
+            v["Player"]["ListInventories"]["1"]["Inventory"]["50000003"]=json!({"Amount":2,"Marker":"ItemMarker_None"});
+            let s=open(v.clone());let before=s.receipt().unwrap();let e=env(before);
+            let r=s.read_private_wardrobe_same_slot(e,0,50000002,50000003).unwrap().to_private_receipt_json();
+            assert_eq!(r["avatar"]["activeBranch"],"MaleAvatar");
+            assert_eq!(r["inventory"]["oldStock"]["savedAmount"],1);
+            assert_eq!(r["inventory"]["proposedStock"]["savedAmount"],2);
+            assert_eq!(r["oldScalarSha256"],sha(b"50000002"));
+            assert_eq!(r["writerAuthorized"],false);
+            assert_eq!(r["sameSlotDefinitionVerified"],false);
+            assert_eq!(s.receipt().unwrap(),before);
+            for (slot,old,new) in [(1,50000002,50000003),(5,50000002,50000003),
+                (0,50000003,50000002),(0,50000002,50000002),(0,50000002,0)]{
+                assert!(s.read_private_wardrobe_same_slot(e,slot,old,new).is_err());
+            }
+            for bad in [json!(0),json!(-1),json!(true),json!("2")]{
+                let mut d=v.clone();d["Player"]["ListInventories"]["1"]["Inventory"]["50000003"]["Amount"]=bad;
+                let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            }
+            for bad in ["ItemMarker_Unknown","ItemMarker_New"]{
+                let mut d=v.clone();d["Player"]["ListInventories"]["1"]["Inventory"]["50000003"]["Marker"]=json!(bad);
+                let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            }
+            let mut d=v.clone();d["Player"]["ListInventories"]["1"]["Inventory"].as_object_mut().unwrap().remove("50000003");
+            let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            let mut d=v.clone();d["Player"]["AvatarIsMale"]=json!(false);
+            let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            let mut d=v.clone();d["Player"]["MaleAvatar"]["IncompatibleClothes"]=json!({"0":50000001});
+            let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            let mut d=v.clone();d["Player"]["FemaleAvatar"]["Clothes"]=json!({"0":50000003});
+            let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_wardrobe_same_slot(stale,0,50000002,50000003).is_err());
+            assert!(open(v).read_private_wardrobe_same_slot(e,0,50000002,50000003).is_err());
+            s.close().unwrap();assert!(s.read_private_wardrobe_same_slot(e,0,50000002,50000003).is_err());
         }
         #[test]
         fn actual_branch_and_absence_zero_exact_refs(){

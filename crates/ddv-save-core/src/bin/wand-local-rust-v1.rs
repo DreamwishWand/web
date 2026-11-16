@@ -129,10 +129,18 @@ fn run(){
     // The accepted no-argument V1 path remains byte-for-byte behaviorally
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
+    let wardrobe_output=match argv.as_slice(){
+        [flag,slot,old,new,out,path] if flag=="--wardrobe-same-slot-receipt-only"&&out=="--out"=>{
+            if slot!="0"{denied("WARDROBE_SLOT_SELECTOR")}
+            Some((collection_selector(old,5),collection_selector(new,5),pinned_private_output(path)))
+        },
+        _=>None,
+    };
     let switch_collection=argv.first().is_some_and(|s|s=="--switch626-collection-furniture-receipt-only");
     let steam_furniture=argv.first().is_some_and(|s|s=="--steam626-collection-furniture-receipt-only");
     let (native_slice,avatar_output,skin_output,dependency_output,skin_dependency_output,collection_output)=match argv.as_slice(){
       []=>(false,None,None,None,None,None),
+      _ if wardrobe_output.is_some()=>(false,None,None,None,None,None),
       [flag] if flag=="--native-area-grid-slice-only"=>(true,None,None,None,None,None),
       [flag,out,path] if flag=="--active-avatar-receipt-only"&&out=="--out"=>
         (false,Some(private_output_path(path)),None,None,None,None),
@@ -153,7 +161,7 @@ fn run(){
         denied("EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED");
       }
     }else if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION||
-        (steam_furniture&&env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty())){
+        ((steam_furniture||wardrobe_output.is_some())&&env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty())){
       denied("EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
     }
     let original_sha=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
@@ -198,6 +206,29 @@ fn run(){
       expected_decoded_sha256:receipt.decoded_sha256,
       action:WorkerAction::ReadDomain
     };
+    if let Some((old,new,path))=wardrobe_output{
+        let witness=session.read_private_wardrobe_same_slot(scope,0,old,new)
+            .unwrap_or_else(|_|denied("WARDROBE_SAME_SLOT_READ_DENIED"));
+        let mut out=witness.to_private_receipt_json();
+        let a=&out["avatar"];
+        if out["contract"]!="wand.native.private.wardrobe-same-slot-readset@1"||
+           a["platform"]!="SteamWindows"||a["fullVersion"]!=EXACT_STEAM_VERSION||a["schema"]!=626||
+           a["sessionId"]!=hex_bytes(&receipt.session_id)||a["decodedSha256"]!=hex_bytes(&receipt.decoded_sha256)||
+           a["revision"]!=receipt.revision||a["indexGeneration"]!=receipt.index_generation||
+           out["slot"]!=0||out["oldItemId"]!=old||out["proposedItemId"]!=new||
+           out["fullDocumentRustValidated"]!=true||
+           ["sameSlotDefinitionVerified","effectiveEligibilityVerified","rightsVerified","subscriberClosureVerified",
+            "productReadAccepted","writerAuthorized","editedCopyAuthorized","applyAuthorized"].iter().any(|k|out[*k]!=false)||
+           session.receipt().ok()!=Some(receipt){denied("WARDROBE_RECEIPT_SCOPE_DENIED");}
+        out["originalSha256SuppliedExternally"]=serde_json::json!(hex_bytes(&original_sha));
+        out["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+        out["cloudUploadPerformed"]=serde_json::json!(false);
+        out["originalModifiedByHarness"]=serde_json::json!(false);
+        session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
+        write_private_receipt(&path.path,&out);
+        eprintln!("LOCAL_RUST_V1_PRIVATE_WARDROBE_RECEIPT_WRITTEN");
+        return;
+    }
     if let Some((definition,group,target,path))=collection_output{
         let witness=session.read_private_collection_group(scope,definition,group,target)
             .unwrap_or_else(|_|denied("COLLECTION_GROUP_READ_DENIED"));
