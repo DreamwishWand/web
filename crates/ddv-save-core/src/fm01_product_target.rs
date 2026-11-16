@@ -9,7 +9,7 @@ pub(crate) struct Fm01Target{
  pub(crate) grid_sha:[u8;32],pub(crate) counter_sha:[u8;32],pub(crate) stock_sha:[u8;32],
  pub(crate) houses_sha:[u8;32],pub(crate) old_rows_sha:[[u8;32];5],pub(crate) pairs:usize,
 }
-fn catalog(b:&[u8],player:Span)->CoreResult<(u32,Span)>{
+pub(super) fn catalog(b:&[u8],player:Span)->CoreResult<(u32,Span)>{
  let lists=f(b,player,"ListInventories")?;let route=f(b,lists,"0")?;
  inventory_route(b,route,0,BASE,"ItemType_Furniture")?;
  let entry=f(b,f(b,route,"Inventory")?,&BASE.to_string())?;
