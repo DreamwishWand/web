@@ -241,4 +241,88 @@ mod tests{
    _=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["11"]["Orientation"]=json!("GridOrientation_Up")
   }let x=open(&q);let before=x.receipt().unwrap();assert!(x.mint_sr03_target(env(&x),90001,10,11).is_err(),"mode {i}");assert_eq!(x.receipt().unwrap(),before);}
  }
+
+ #[test]
+ fn qa_act1245_independent_same_session_binding() {
+  // Fixed synthetic pose independently decoded from the accepted floor bitset.
+  let (g,k,m,nx)=(90001u32,10u32,11u32,50u32);
+  let row=|id,item,x,y,state:Value|json!({"ID":id,"ItemID":item,"X":x,"Y":y,"Orientation":"GridOrientation_Down","State":state});
+  let mut d=json!({"GameInfo":{"Version":626},"World":{"Villages":[{"Areas":{"2":{"Unlocked":true,"GridIDs":[g]}}}],
+   "PlayerHouses":[{"HouseItemID":20500005,"Floors":[]}],"Keyholes":{"synthetic-guid":{"GUID":"synthetic-guid"}},
+   "GridCollection":{"Grids":{"90001":{"ID":g,"GridDataPath":GRID,"GridDefaultLayoutPath":"","TessellationFactor":2,"NextGridObjectID":nx,
+    "Objects":{"10":row(k,ROAD,204,116,json!(null)),"11":row(m,ROAD,208,116,json!(null)),
+     "12":row(12,20000091,20,20,json!({"HouseData":{"Built":true,"PlayerHouseIndex":0,"UpgradeState":{"Level":1}}})),
+     "13":row(13,40004191,30,30,json!({"SubGrid":{"DesignID":null,"GridID":20}})),
+     "14":row(14,40001071,40,40,json!({"Keyhole":{"KeyholeConfigDataGUID":"synthetic-guid"}}))}},
+     "20":{"ID":20,"TessellationFactor":2,"GridDataPath":"GridData/Furniture/NonIP_Update17/CoffeeShopTable-GridData.json","GridDefaultLayoutPath":"","NextGridObjectID":1,"Objects":{"0":row(0,40004104,1,2,json!(null))}}},"DiffGrids":{}},
+   "DecorationPresets":[{"GridCollection":{"Grids":{"90001":{"ID":g,"Objects":{"10":{"ID":k},"11":{"ID":m},"50":{"ID":nx},"51":{"ID":51},"52":{"ID":52}}}},"DiffGrids":{}}}]},
+   "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_GroundAlteration"]},"Inventory":{"40100068":{"Amount":10,"Marker":"ItemMarker_Favorite"}}}},"ContainerInventories":{}},
+   "Opaque":{"Keep":"unchanged"}});
+  // Local preset IDs may equal actual old/fresh IDs, but only typed local references are disjoint.
+  d["World"]["DecorationPresets"][0]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["LocalRef"]=json!({"GridID":g,"ObjectID":nx});
+  let open_build=|v:&Value,platform,kind,build:&str,schema,attested,bound| {
+   let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),crate::BuildIdentity{platform,build_kind:kind,build_id:build.into(),schema,externally_attested:attested}).unwrap();
+   s.worker_bound=bound;s
+  };
+  let check=|v:&Value|{let s=open(v);let before=s.receipt().unwrap();let t=s.mint_sr03_target(env(&s),g,k,m);assert_eq!(s.receipt().unwrap(),before);t};
+  let t=check(&d).unwrap();let gr=&d["World"]["GridCollection"]["Grids"]["90001"];let h=|v:&Value|sha(&serde_json::to_vec(v).unwrap());
+  assert_eq!((t.grid,t.stock,t.local.keep,t.local.moved,t.local.next,t.local.x,t.local.y),(g,10,k,m,nx,204,116));
+  assert_eq!(t.root_sha,h(&d["World"]["Villages"][0]["Areas"]["2"]));assert_eq!(t.grid_sha,h(gr));assert_eq!(t.keep_sha,h(&gr["Objects"]["10"]));assert_eq!(t.moved_sha,h(&gr["Objects"]["11"]));assert_eq!(t.counter_sha,h(&gr["NextGridObjectID"]));assert_eq!(t.stock_sha,h(&d["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]));assert_eq!(t.houses_sha,h(&d["World"]["PlayerHouses"]));assert_eq!(t.pairs,1);
+  let mut pos=1;let mut neg=0;
+  let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();assert_eq!(s.mint_sr03_target(e,g,k,m).unwrap(),s.mint_sr03_target(e,g,k,m).unwrap());
+  assert_eq!(s.receipt().unwrap(),before);pos+=1;
+  let mut bad=e;bad.expected_revision=1;assert!(s.mint_sr03_target(bad,g,k,m).is_err());neg+=1;
+  let mut bad=e;bad.expected_index_generation=2;assert!(s.mint_sr03_target(bad,g,k,m).is_err());neg+=1;
+  let mut bad=e;bad.expected_decoded_sha256=[0;32];assert!(s.mint_sr03_target(bad,g,k,m).is_err());neg+=1;
+  let mut bad=e;bad.action=WorkerAction::Stage;assert!(s.mint_sr03_target(bad,g,k,m).is_err());neg+=1;
+  assert!(open(&d).mint_sr03_target(e,g,k,m).is_err());neg+=1;
+  let unbound=open_build(&d,Platform::SteamWindows,BuildKind::SteamFullVersion,EXACT_STEAM,626,true,false);assert!(unbound.mint_sr03_target(env(&unbound),g,k,m).is_err());neg+=1;
+  let foreign=open_build(&d,Platform::Switch,BuildKind::SwitchBid,"9A239D3DB569756D",626,true,true);assert!(foreign.mint_sr03_target(env(&foreign),g,k,m).is_err());neg+=1;
+  for (a,b,c) in [(0,k,m),(g,0,m),(g,k,k),(g,k,nx),(g,nx,m)]{assert!(s.mint_sr03_target(e,a,b,c).is_err());neg+=1;}
+  // Shared scan old0/1 compatibility and new exact old2/fresh3. Different World grid IDs stay independent.
+  for id in [0,k,m,nx,nx+1,nx+2,nx+3,49]{
+   let mut q=d.clone();q["Opaque"]["Pair"]=json!({"GridID":g,"ObjectID":id});
+   let b=serde_json::to_vec(&q).unwrap();let top=Span{begin:0,end:b.len()};
+   let a=super::super::placement_saved_refs::scan(&b,top,g,None,nx,nx+1);
+   let one=super::super::placement_saved_refs::scan(&b,top,g,Some(k),nx,nx+1);
+   let two=super::super::placement_saved_refs::scan_sr03(&b,top,g,k,m,nx);
+   assert_eq!(a.is_ok(),!matches!(id,0|50));assert_eq!(one.is_ok(),!matches!(id,0|10|50));assert_eq!(two.is_ok(),matches!(id,49|53));
+   if matches!(id,49|53){assert!(check(&q).is_ok());pos+=1}else{assert!(check(&q).is_err());neg+=1;}
+  }
+  let mut q=d.clone();q["Opaque"]["Pair"]=json!({"GridID":98765,"ObjectID":nx});assert!(check(&q).is_ok());pos+=1;
+  // Mutate only one boundary per case, not the inherited floor provider.
+  for i in 0..28{let mut q=d.clone();match i{
+   0=>q["World"]["Villages"][0]["Areas"]["2"]["GridIDs"]=json!([g,g]),
+   1=>q["World"]["Villages"][0]["Areas"]["3"]=json!({"Unlocked":true,"GridIDs":[g]}),
+   2=>q["World"]["Villages"][0]["Areas"]["2"]["Unlocked"]=json!(false),
+   3=>q["World"]["GridCollection"]["DiffGrids"]["90001"]=json!({"ID":g}),
+   4=>q["Opaque"]["SubGrid"]=json!({"GridID":g}),
+   5=>q["Opaque"]["Pair"]=json!({"GridID":g,"GridId":g,"ObjectID":k}),
+   6=>q["Opaque"]["Pair"]=json!({"GridID":g,"ObjectId":m}),
+   7=>q["Opaque"]["Pair"]=json!({"GridID":g,"ObjectID":50.0}),
+   8=>q["World"]["DecorationPresets"][0]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["LocalRef"]["ObjectID"]=json!(99),
+   9=>q["World"]["PlayerHouses"][0]["HouseItemID"]=json!(20500024),
+   10=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["12"]["State"]["HouseData"]["PlayerHouseIndex"]=json!(1),
+   11=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["12"]["X"]=json!(204),
+   12=>q["World"]["Keyholes"]["synthetic-guid"]["GUID"]=json!("other"),
+   13=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["14"]["State"]["Keyhole"]["KeyholeConfigDataGUID"]=json!("missing"),
+   14=>q["World"]["GridCollection"]["Grids"]["20"]["GridDataPath"]=json!("wrong"),
+   15=>q["World"]["GridCollection"]["Grids"]["20"]["Objects"]["0"]["ItemID"]=json!(40000066),
+   16=>q["World"]["GridCollection"]["Grids"]["20"]["Objects"]["0"]["X"]=json!(65),
+   17=>q["World"]["GridCollection"]["Grids"]["20"]["NextGridObjectID"]=json!(0),
+   18=>q["Opaque"]["GridIDs"]=json!([20]),
+   19=>q["Opaque"]["SubGrid"]=json!({"GridID":20}),
+   20=>q["World"]["GridCollection"]["DiffGrids"]["20"]=json!({"ID":20}),
+   21=>q["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(3),
+   22=>q["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(10000),
+   23=>q["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Marker"]=json!("ItemMarker_None"),
+   24=>q["Player"]["ListInventories"]["1"]=json!({"ID":1,"Inventory":{"40100068":{"Amount":1}}}),
+   25=>q["Player"]["ContainerInventories"]["0"]=json!({"ID":0,"BelongsToPlayer":true,"Size":1,"ExtraSize":0,"Inventory":[{"ItemID":ROAD,"Amount":1,"State":null}]}),
+   26=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["13"]["State"]["SubGrid"]["DesignID"]=json!(1),
+   _=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["14"]["ItemID"]=json!(40000066)
+   }assert!(check(&q).is_err(),"QA mutation {i}");neg+=1;}
+  let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["20"]["Objects"]=json!({});q["World"]["GridCollection"]["Grids"]["20"]["NextGridObjectID"]=json!(0);assert!(check(&q).is_ok());pos+=1;
+  println!("ACT1245_SR03_BINDER_ACTUAL {pos}POS {neg}NEG 24REFCHECKS");
+  assert_eq!((pos,neg),(6,46));
+ }
 }
