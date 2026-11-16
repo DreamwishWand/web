@@ -50,22 +50,30 @@ export function scopedCollectionManifestOk(m,p,tuple=ACTIVE_RELEASE_TUPLE){
 // Runtime validates signed identity + independently accepted product V2 scope.
 // The protected sealer is the issuer; candidate manifest cannot activate it.
 export function scopedCollectionAnchorShapeOk(a){
- if(!exact(a,'contract,repository,signerWorkflow,sourceRef,origin,basePath,operation,pins,acceptedBuilds,releaseId,attestationVerifiedAtBuild')||
+ if(!exact(a,'contract,repository,signerWorkflow,sourceRef,origin,basePath,operation,pins,mode,deliveryOrigin,builds,releaseId,attestationVerifiedAtBuild')||
    a.contract!=='wand.scoped-collection.protected-release@1'||a.operation!==SCOPED_COLLECTION_RELEASE_OP||
    !matchReleaseTuple(a)||a.attestationVerifiedAtBuild!==true||!scopedCollectionPinsOk(a.pins)||!sha(a.releaseId)||
-   !Array.isArray(a.acceptedBuilds)||a.acceptedBuilds.length<1||a.acceptedBuilds.length>2)return false;
+   !Array.isArray(a.builds)||a.builds.length<1||a.builds.length>2)return false;
+ const privateV2=a.mode==='private-product-v2';
+ if(!privateV2&&a.mode!=='public-accepted')return false;
+ // Private V2 runs the SAME built product route/loader with signed subjects
+ // at a sealed loopback origin. It is never a public feature grant.
+ if(privateV2){
+  if(typeof a.deliveryOrigin!=='string'||!/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/.test(a.deliveryOrigin))return false;
+  try{const u=new URL(a.deliveryOrigin);if(u.origin!==a.deliveryOrigin||Number(u.port)>65535)return false}catch{return false}
+ }else if(a.deliveryOrigin!==a.origin)return false;
  const seen=new Set();
- for(const b of a.acceptedBuilds){
+ for(const b of a.builds){
   if(!exact(b,'platform,buildId,productV2EvidenceSha256')||!Object.hasOwn(buildIds,b.platform)||b.buildId!==buildIds[b.platform]||
-    !sha(b.productV2EvidenceSha256)||seen.has(b.platform))return false;
+    (privateV2?b.productV2EvidenceSha256!==null:!sha(b.productV2EvidenceSha256))||seen.has(b.platform))return false;
   seen.add(b.platform);
  }
  return true;
 }
 export function scopedCollectionReleaseIdentityText(a){
  return JSON.stringify(['wand.scoped-collection.protected-release@1',a.repository,a.signerWorkflow,a.sourceRef,a.origin,a.basePath,a.operation,
-  a.pins.sourceHead,a.pins.manifestSha256,a.pins.manifestSizeBytes,a.pins.jsSha256,a.pins.jsSizeBytes,a.pins.wasmSha256,a.pins.wasmSizeBytes,
-  a.acceptedBuilds.map(b=>[b.platform,b.buildId,b.productV2EvidenceSha256])]);
+  a.pins.sourceHead,a.pins.manifestSha256,a.pins.manifestSizeBytes,a.pins.jsSha256,a.pins.jsSizeBytes,a.pins.wasmSha256,a.pins.wasmSizeBytes,a.mode,a.deliveryOrigin,
+  a.builds.map(b=>[b.platform,b.buildId,b.productV2EvidenceSha256])]);
 }
 export async function validateScopedCollectionAnchor(a){
  if(!scopedCollectionAnchorShapeOk(a)||await digest(new TextEncoder().encode(scopedCollectionReleaseIdentityText(a)))!==a.releaseId)fail();
@@ -89,14 +97,29 @@ export async function loadPinnedScopedCollectionBytes({basePath,trustedPins,rele
  const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{deniedSymbol:denied,requiredMethods:SCOPED_COLLECTION_METHODS,exactPrototype:true});
  return Object.freeze({WorkerWasmSource,sourceHead:p.sourceHead,checkedBothJsAndWasm:true,sameOriginFetchOnly:true,writerAuthorized:false,productConsumerEnabled:false});
 }
+// No caller URL or mode can select the release. This pure predicate is also
+// used by the page before any Worker construction or local file selection.
+export function scopedCollectionDeliveryOk(a,where){
+ return scopedCollectionAnchorShapeOk(a)&&!!where&&where.origin===a.deliveryOrigin&&
+  where.protocol===(a.mode==='private-product-v2'?'http:':'https:')&&
+  (!a.basePath||where.pathname.startsWith(a.basePath+'/'));
+}
+export async function getScopedCollectionMountInfo(){
+ if(arguments.length!==0||typeof globalThis.location==='undefined')fail();
+ await validateScopedCollectionAnchor(anchor);
+ if(!scopedCollectionDeliveryOk(anchor,globalThis.location))fail();
+ return Object.freeze({releaseId:anchor.releaseId,operation:anchor.operation,mode:anchor.mode,
+  builds:Object.freeze(anchor.builds.map(b=>Object.freeze({...b})))});
+}
+
 let attempted=false;
 export async function loadProtectedScopedCollectionRustWasm(){
  if(arguments.length!==0||attempted||typeof document!=='undefined'||typeof globalThis.self?.location==='undefined')fail();
  attempted=true;await validateScopedCollectionAnchor(anchor);
  const where=self.location;
- if(where.protocol!=='https:'||where.origin!==anchor.origin||!where.pathname.startsWith(anchor.basePath+'/_app/'))fail();
+ if(!scopedCollectionDeliveryOk(anchor,where)||!where.pathname.startsWith(anchor.basePath+'/_app/'))fail();
  const loaded=await loadPinnedScopedCollectionBytes({basePath:anchor.basePath,trustedPins:anchor.pins,releaseTuple:anchor});
  if(loaded.sourceHead!==anchor.pins.sourceHead||loaded.writerAuthorized!==false||loaded.productConsumerEnabled!==false)fail();
  return Object.freeze({...loaded,releaseId:anchor.releaseId,operation:anchor.operation,
-  acceptedBuilds:Object.freeze(anchor.acceptedBuilds.map(b=>Object.freeze({...b}))),attestationVerifiedAtBuild:true});
+  mode:anchor.mode,builds:Object.freeze(anchor.builds.map(b=>Object.freeze({...b}))),attestationVerifiedAtBuild:true});
 }
