@@ -1,0 +1,46 @@
+name: WEB Guide Star Path routine duty reference
+on:
+  pull_request:
+    paths:
+      - 'src/routes/guide/+page.svelte'
+      - 'src/lib/guide/runtime.js'
+      - 'src/lib/guide/copy.js'
+      - 'tests/guide-runtime.test.mjs'
+      - 'scripts/web-guide-routine-duties-chrome.mjs'
+      - '.github/workflows/web-guide-routine-duties.yml'
+  push:
+    branches:
+      - 'web/guide-starpath-routine-duties-*'
+permissions:
+  contents: read
+jobs:
+  reference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/guide-runtime.test.mjs tests/web-stage1-guide-four-root-systems.test.mjs
+      - run: npm run check && npm run build
+        env:
+          BASE_PATH: /web
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual Chrome eight-locale routine duty groups
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4194 >/tmp/guide-routine-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4194/guide/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4194/guide/ >/dev/null
+          node scripts/web-guide-routine-duties-chrome.mjs

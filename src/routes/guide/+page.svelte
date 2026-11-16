@@ -4,7 +4,7 @@
   import { guideCopy } from '$lib/guide/copy.js';
   import { guideStage1Ui } from '$lib/guide/stage1-guide-ui.mjs';
   import { GUIDE_ROOT_SECTIONS, GUIDE_SYSTEM_CATEGORIES, guideTaxonomyLabel, searchGuideSystemCategories } from '$lib/guide/stage1-systems-taxonomy.mjs';
-  import { filterGuideViews, guideEventView, guideQuestView, guideStarPathView, loadGuideRuntime, cleanGuideText } from '$lib/guide/runtime.js';
+  import { filterGuideViews, guideEventView, guideQuestView, guideStarPathView, loadGuideRuntime, cleanGuideText, guideDutyGroup } from '$lib/guide/runtime.js';
 
   type Section = 'systems' | 'quests' | 'starPaths' | 'events';
   const PAGE_SIZE = 40; // Progressive view, never a total-record or data-semantic cap.
@@ -48,10 +48,10 @@
     try { return formatDate(value, { year: 'numeric', month: 'short', day: 'numeric' }, $locale); }
     catch { return ''; }
   }
-  function dutyLabel(duty: any) {
-    const label = cleanGuideText(duty?.label);
-    return label && !/^Liveops\./.test(label) ? label : '';
-  }
+  $: dutyGroups = section === 'starPaths' && selected
+    ? [{id:'duties', title:copy.duties, ...guideDutyGroup(selected.duties)},
+       {id:'routine', title:copy.routineDuties, ...guideDutyGroup(selected.routineDuties)}]
+    : [];
 </script>
 
 <svelte:head>
@@ -150,12 +150,21 @@
                 <dl><div><dt>{copy.steps}</dt><dd>{selected.steps}</dd></div><div><dt>{copy.objectives}</dt><dd>{selected.objectives}</dd></div></dl>
               {:else if section === 'starPaths'}
                 {#if selected.expiresAt}<p>{copy.expires}: {safeDate(selected.expiresAt)}</p>{/if}
-                <p>{copy.duties}: {selected.duties.length}</p>
-                <div class="guide-duties">
-                  {#each selected.duties as duty}
-                    {#if dutyLabel(duty)}<p>{dutyLabel(duty)}</p>{/if}
-                  {/each}
-                </div>
+                {#each dutyGroups as group (group.id)}
+                  <section class="guide-duty-group" data-guide-duty-group={group.id} aria-labelledby={'guide-duty-'+group.id}>
+                    <h4 id={'guide-duty-'+group.id}>{group.title}: {formatNumber(group.total, {}, $locale)}</h4>
+                    {#if group.labels.length}
+                      <ul class="guide-duties">
+                        {#each group.labels as label}
+                          <li data-guide-duty-label>{label}</li>
+                        {/each}
+                      </ul>
+                    {/if}
+                    {#if group.unresolved}
+                      <p class="guide-disclaimer" data-guide-duty-unresolved={group.unresolved}>{formatNumber(group.unresolved, {}, $locale)} · {copy.unresolvedDutyText}</p>
+                    {/if}
+                  </section>
+                {/each}
               {:else if section === 'events'}
                 {#if selected.guidance}<p class="guide-body">{selected.guidance}</p>{/if}
                 {#if selected.occurrences.length}
@@ -210,7 +219,7 @@
   .guide-result-list button.active{background:var(--surface-raised);border-color:var(--border)}
   .guide-result-list button strong{font-size:13px}.guide-result-list .guide-more{border:1px solid var(--border);text-align:center}
   .guide-detail{line-height:1.7;overflow-wrap:anywhere}.guide-detail dl{display:flex;gap:20px;flex-wrap:wrap}.guide-detail dt{font-size:11px;color:var(--ink-muted)}.guide-detail dd{margin:0}
-  .guide-duties{max-height:440px;overflow:auto}.guide-body{white-space:pre-line;font-size:13px}
+  .guide-duty-group{min-width:0;margin-block:16px}.guide-duty-group h4{margin-bottom:8px}.guide-duties{padding-inline-start:24px;margin-block:8px;max-height:440px;overflow:auto}.guide-duties li{padding-block:4px;overflow-wrap:anywhere}.guide-body{white-space:pre-line;font-size:13px}
   .guide-fallback{padding:10px;border:1px solid var(--border);border-radius:10px}.guide-status,.guide-empty{padding:20px;color:var(--ink-muted)}
   .guide-community{margin-top:40px;border-top:1px solid var(--border);padding-top:18px}
   @media(max-width:1040px){.guide-system-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
