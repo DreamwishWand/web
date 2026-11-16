@@ -1,0 +1,96 @@
+name: ACT1425/1428/1437/1440/1443 fixed Five Fence Add private-lab executable transport (NO SAVE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/five-fence-add-private-target-lab-build.yml'
+permissions:
+  contents: read
+jobs:
+  build-only:
+    if: github.head_ref == '01b/five-fence-add-private-target-lab' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7a3812d0e1f6efc57c7e89128776a51e273e78e3
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Fixed source and approved Lock; add ignored transport-only test in temporary checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 7a3812d0e1f6efc57c7e89128776a51e273e78e3
+          p=crates/ddv-save-core/src/fence_product_target.rs
+          test "$(git hash-object "$p")" = c1e023464c81d4655920449923961c700fbe9032
+          test "$(git hash-object crates/ddv-save-core/src/sr03_installed_geometry.rs)" = 584eb35822ecf79585cbd58c9ddf00daa44fbdac
+          test "$(git hash-object crates/ddv-save-core/src/fence_product_geometry.rs)" = 62e18579c4ea99cf1c4b97608f23ba4054f9106e
+          test "$(git hash-object scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cat >> "$p" <<'RS'
+
+          #[cfg(all(test,not(target_arch="wasm32")))]
+          mod private_five_fence_lab {
+              use super::*;
+              use std::{env,fs};
+              fn hex32(v:&[u8;32])->String{v.iter().map(|x|format!("{x:02x}")).collect()}
+              fn num(v:&Value)->u32{v.as_u64().and_then(|n|u32::try_from(n).ok()).unwrap()}
+              type Mint=fn(&ProductSession,WorkerEnvelope,u32,u32,u32)->CoreResult<FenceAddTarget>;
+              fn check_case(op:&str,kind:FenceAddTargetKind,mint:Mint){
+                  let path=env::var("WAND_FIVE_FENCE_PRIVATE_DECODED").unwrap();
+                  let bytes=fs::read(&path).unwrap();
+                  let plan:Value=serde_json::from_slice(&fs::read(env::var("WAND_FIVE_FENCE_PRIVATE_EXPECT").unwrap()).unwrap()).unwrap();
+                  let want=&plan[op]["target"];let bad=&plan[op]["blocked"];
+                  assert_eq!(hex32(&sha(&bytes)),want["decodedSha"].as_str().unwrap());
+                  let mut s=ProductSession::open_decoded_readonly(bytes,crate::BuildIdentity{
+                      platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+                      build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+                  s.worker_bound=true;let before=s.receipt().unwrap();
+                  let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:before.session_id,expected_revision:before.revision,expected_index_generation:before.index_generation,expected_decoded_sha256:before.decoded_sha256,action:WorkerAction::ReadDomain};
+                  let t=mint(&s,e,num(&want["grid"]),num(&want["x"]),num(&want["y"])).expect("actual fixed target");
+                  assert_eq!(t.kind,kind);
+                  let got=serde_json::json!({"decodedSha":hex32(&before.decoded_sha256),"grid":t.grid,"x":t.x,"y":t.y,"next":t.next,"stock":t.stock,"pairs":t.pairs,"rootSha":hex32(&t.root_sha),"gridSha":hex32(&t.grid_sha),"counterSha":hex32(&t.counter_sha),"stockSha":hex32(&t.stock_sha),"housesSha":hex32(&t.houses_sha)});
+                  assert_eq!(&got,want);
+                  assert_eq!(mint(&s,e,t.grid,num(&bad["x"]),num(&bad["y"])).unwrap_err().0,"FENCE_ADD_TARGET_GEOMETRY");
+                  assert_eq!(s.receipt().unwrap(),before);
+                  assert_eq!(hex32(&sha(&fs::read(path).unwrap())),want["decodedSha"].as_str().unwrap());
+                  println!("{}_PRIVATE_TARGET_ACTUAL_PASS 1POS1NEG12FIELDS",op);
+              }
+              #[test]
+              #[ignore="authorized local input only; never execute in CI"]
+              fn genuine_fd02_current_target(){check_case("FD02",FenceAddTargetKind::Fd02,ProductSession::mint_switch626_fd02_target);}
+              #[test]
+              #[ignore="authorized local input only; never execute in CI"]
+              fn genuine_fd03_current_target(){check_case("FD03",FenceAddTargetKind::Fd03,ProductSession::mint_switch626_fd03_target);}
+              #[test]
+              #[ignore="authorized local input only; never execute in CI"]
+              fn genuine_ortho_l_current_target(){check_case("L",FenceAddTargetKind::OrthoL,ProductSession::mint_switch626_ortho_l_target);}
+              #[test]
+              #[ignore="authorized local input only; never execute in CI"]
+              fn genuine_diagonal90_current_target(){check_case("D90",FenceAddTargetKind::Diagonal90,ProductSession::mint_switch626_diagonal90_target);}
+              #[test]
+              #[ignore="authorized local input only; never execute in CI"]
+              fn genuine_ortho_t_current_target(){check_case("T",FenceAddTargetKind::OrthoT,ProductSession::mint_switch626_ortho_t_target);}
+          }
+          RS
+          # The only tracked workspace delta is the ignored transport harness.
+          test "$(git diff --name-only)" = "$p"
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped --lib --no-run --message-format=json > "$RUNNER_TEMP/five-fence-build.jsonl"
+          mkdir -p "$RUNNER_TEMP/five-fence-lab"
+          python3 - "$RUNNER_TEMP" <<'PY'
+          import json, pathlib, shutil, sys, hashlib, subprocess
+          p=pathlib.Path(sys.argv[1]); a=[json.loads(l) for l in (p/'five-fence-build.jsonl').read_text().splitlines()]
+          ex=[v['executable'] for v in a if v.get('reason')=='compiler-artifact' and v.get('executable') and v.get('profile',{}).get('test') and v.get('target',{}).get('name') in ('ddv_save_core','ddv-save-core')]
+          assert len(ex)==1, len(ex)
+          out=p/'five-fence-lab'; exe=out/'five-fence-private-target-test';shutil.copy2(ex[0],exe)
+          h=lambda q:hashlib.sha256(pathlib.Path(q).read_bytes()).hexdigest()
+          m={'source':'7a3812d0e1f6efc57c7e89128776a51e273e78e3','binder':'c1e023464c81d4655920449923961c700fbe9032','geometry':'584eb35822ecf79585cbd58c9ddf00daa44fbdac','feature':'product-amount-scoped','lockGit':'b667b42cfef2032c2925be7b2aa9b7142bff4b52','lockSha256':h('crates/ddv-save-core/Cargo.lock'),'harnessSha256':h('crates/ddv-save-core/src/fence_product_target.rs'),'executableSha256':h(exe),'compiler':subprocess.check_output(['rustc','-Vv'],text=True),'purpose':'build-only local ignored test; no actual save in CI'}
+          (out/'manifest.json').write_text(json.dumps(m,sort_keys=True,separators=(',',':'))+'\n')
+          print('FIVE_FENCE_LAB_BUILD_ONLY',m['source'],m['executableSha256'],m['lockSha256'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: five-fence-fixed-private-target-test
+          path: ${{ runner.temp }}/five-fence-lab/
+          if-no-files-found: error
+          retention-days: 1
