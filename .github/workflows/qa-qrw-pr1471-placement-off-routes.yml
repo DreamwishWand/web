@@ -30,7 +30,7 @@ jobs:
           test "$(git rev-parse HEAD:src/routes/editor/world/comp03/+page.svelte)" = 90191a132481a5b38fc6554012b633f06d2f9d34
           test "$(git rev-parse HEAD:src/routes/editor/world/vase/+page.svelte)" = 0e352ed5d69d22a69d5d09732da74502553a604d
           test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = d054cfdf6ff2e8680ac59cd07daef043921bc0a5
-          test "$(git rev-parse HEAD:src/lib/dev/product-comp03.worker.mjs)" = 6c6822b86bf0c2f676121eeb6cf5a412e4f7e
+          test "$(git rev-parse HEAD:src/lib/dev/product-comp03.worker.mjs)" = 6c6822b86bf0c2f676256121eeb6cf5a412e4f7e
           test "$(git rev-parse HEAD:src/lib/dev/product-vase-add.worker.mjs)" = c75b494954622335552ab067833c58f3bbb4fa3f
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
           test "$(git rev-parse HEAD:src/routes/editor/+page.svelte)" = 54e78331769cfa1c9c7e30b882df4505aab686c6
