@@ -104,7 +104,7 @@ jobs:
            for(const bad of [{...r,revision:1},{...r,indexGeneration:2},{...r,decodedSha256:Z},{...r,sessionId:Z}])deny(()=>stage(w,bad,o.p),'epoch');
            assert.deepEqual(preview(w,r),p);
            const [foreign,fr]=open(mode,d);deny(()=>stage(foreign,r,o.p),'foreign');foreign.close();foreign.free();
-           const t=stage(w,r,o.p);assert.equal(t.exactFieldChangedCount,8);assert.equal(t.stagedDecodedSha256,sha(o.want));assert.equal(t.productWriterAuthorized,false);
+           const t=stage(w,r,o.p);assert.equal(t.exactFieldChangedCount,8);assert.equal(t.stagedDecodedSha256,sha(o.want));assert.equal(t.writerAuthorized,false);assert.equal(t.originalOverwriteAuthorized,false);
            deny(()=>stage(w,r,o.p),'replay');deny(()=>preview(w,t),'poststage preview');
            const u=parse(w.toggle_scoped_edit(false,...sc(t)));deny(()=>w.begin_scoped_edit_output(...sc(u)),'undone export');
            deny(()=>w.toggle_scoped_edit(false,...sc(t)),'stale toggle');const v=parse(w.toggle_scoped_edit(true,...sc(u)));
