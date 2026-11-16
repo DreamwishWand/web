@@ -4,6 +4,7 @@
 // PR929 adapter acceptance by QAC/QRL is a separate deployment prerequisite.
 export const STEAM626_FULL_VERSION=
   'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+export const SWITCH626_CHEST_BID='9A239D3DB569756D';
 export const DEV_AMOUNT_CONTRACT='wand.local.dev-off.typed-amount-ui@1';
 const fail=code=>{throw Error('DEV_AMOUNT_UI_'+code)};
 const only=(o,keys)=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&
@@ -52,8 +53,8 @@ const cleanState=()=>({
   phase:'closed',fileName:'',backupVerified:false,targets:[],
   choice:-1,newAmount:'',preview:null,editedCopy:null,error:''
 });
-export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false}={}){
-  if(trustedLocalHarness!==true||typeof exactOneDecrease!=='boolean'||!adapter||typeof adapter!=='object')
+export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false,switch626Chest=false,steam626Chest=false}={}){
+  if(trustedLocalHarness!==true||typeof exactOneDecrease!=='boolean'||typeof switch626Chest!=='boolean'||typeof steam626Chest!=='boolean'||(switch626Chest&&steam626Chest)||((switch626Chest||steam626Chest)&&!exactOneDecrease)||!adapter||typeof adapter!=='object')
     fail('LOCAL_HARNESS_GATE_OFF');
   for(const method of ['open','backupOriginal','listVerifiedTargets','stageTyped',
     'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])
@@ -102,7 +103,7 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
     try{await closeAdapter()}catch(e){closeFailed(token);throw e}
     return snapshot();
   };
-  const open=async({file,fullVersion,originalSha256,buildConfirmed})=>{
+  const open=async({file,fullVersion,switchBid,originalSha256,buildConfirmed})=>{
     // Increment the selection epoch synchronously BEFORE the first await.
     // A concurrent Close/B selection must not let A start a new Rust Session
     // after its stale Worker close resolves (A→B / Close during OPEN).
@@ -112,13 +113,13 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
     if(openingEpoch!==epoch)fail('STALE_FILE_OR_CLOSE');
     if(!file||typeof file.name!=='string'||!file.name.toLowerCase().endsWith('.p1g')||
        !Number.isSafeInteger(file.size)||file.size<1||
-       file.size>128*1024*1024||fullVersion!==STEAM626_FULL_VERSION||
+       file.size>128*1024*1024||(switch626Chest?(switchBid!==SWITCH626_CHEST_BID||fullVersion!==undefined):(fullVersion!==STEAM626_FULL_VERSION||switchBid!==undefined))||
        buildConfirmed!==true||!sha(originalSha256))fail('EXTERNAL_BUILD_AND_FILE_DENIED');
     const selected=Object.freeze({name:file.name,sha:originalSha256,size:file.size});
     return execute(async(check,commit)=>{
       const r=await adapter.open({file,originalSha256,
-        build:{platform:'steam-windows',buildKind:'steam-full-version',
-          buildId:STEAM626_FULL_VERSION,schema:626,externallyConfirmed:true}});
+        build:switch626Chest?{platform:'switch',buildKind:'switch-bid',buildId:SWITCH626_CHEST_BID,schema:626,externallyConfirmed:true}:
+          {platform:'steam-windows',buildKind:'steam-full-version',buildId:STEAM626_FULL_VERSION,schema:626,externallyConfirmed:true}});
       if(!safeReceipt(r,'OPEN'))fail('WORKER_OPEN_SCOPE_DENIED');
       // UI never reads an old amount from JSON; only trusted Rust/Native
       // allowlisted descriptors may be selected. Unknown items stay OFF.
@@ -145,6 +146,7 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
       if(!only(r,'targets,rawDocumentExposed')||r.rawDocumentExposed!==false||
          !Array.isArray(r.targets)||r.targets.length>256)fail('UNTRUSTED_TARGET_LIST');
       const targets=r.targets.map(trustedTarget);
+      if((switch626Chest||steam626Chest)&&targets.some(t=>t.kind!=='ChestExistingSlotAmountDecrease'||t.targetId<=1||t.slotIndex>=48||t.oldAmount!==50))fail('SWITCH_CHEST_SCOPE_DENIED');
       const ids=new Set(targets.map(t=>t.kind+':'+t.targetId+':'+t.itemId+':'+t.slotIndex));
       if(ids.size!==targets.length)fail('DUPLICATE_TARGET');
       return commit({phase:'ready',backupVerified:true,targets},()=>{backupBinding=bound});
