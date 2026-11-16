@@ -15,6 +15,11 @@ on:
         type: string
         required: false
         default: ''
+      scoped_steam_chest_proof_source:
+        description: 'Exact accepted protected-main SHA for proof-only Steam626 Chest (exclusive with Collection and Switch Chest)'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -28,7 +33,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name != 'workflow_dispatch' || (inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '')
+    if: github.event_name != 'workflow_dispatch' || (inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '')
     runs-on: ubuntu-latest
     env:
       # Owner 2026-11-11 explicitly authorized only these 3 inert assets.
@@ -296,7 +301,7 @@ jobs:
   # Explicit protected proof-only dispatch. No normal Pages build/deploy, no
   # public scoped files, no generated anchor, no executable artifact upload.
   scoped_collection_proof:
-    if: github.event_name == 'workflow_dispatch' && inputs.scoped_collection_proof_source != '' && inputs.scoped_switch_chest_proof_source == '' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_collection_proof_source != '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WAND_SOURCE_HEAD: ${{ github.sha }}
@@ -327,7 +332,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = ca1ef1772b53ff535618fc8263cd647f757f3dad
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = c93264e1c060fa1dacba71ad2cd72628ef6dbbc4
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-collection-candidate.mjs)" = 0f8d9d8e00ea8531e7bac51a0b2c62afbd468292
           test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-collection-private.mjs)" = 4faaa553470b0f491fc611bd8e5c1590255cb1e4
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
@@ -401,7 +406,7 @@ jobs:
           if-no-files-found: error
 
   scoped_switch_chest_proof:
-    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WAND_SOURCE_HEAD: ${{ github.sha }}
@@ -432,7 +437,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = aceda9d906c3137d717824a3079e84165ab5f62e
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = c93264e1c060fa1dacba71ad2cd72628ef6dbbc4
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs)" = 1cec59930562e9b6918490e54761808d3819c434
           test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-switch-chest-private.mjs)" = bf6daf8f8096eb69a34dbf6e80d67d8e31bc95b0
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
@@ -444,11 +449,11 @@ jobs:
           test "$(git rev-parse HEAD:src/routes/editor/chest/+page.svelte)" = 1576744c5b11d189e6e82a4edd93fde6e7cf3bea
           test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = da627ecd86d4435c026e611b241aa489d8259dac
           test "$(git rev-parse HEAD:src/lib/dev/local-amount-copy.mjs)" = 9631b4ee40f47432a2a26a6df386b0db9353b09d
-          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = bbac7640c061740bfd4bb6388d1e33ee2c88fbe7
-          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = c266d64d63b3480f14459f5323ef53e58dcb70af
-          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 1ac9e68b29b64bc68877855e3df089a9ea6585b7
-          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 8d2d1da0be2f356cbf0159277685f1683ac84ec4
-          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = a22209de4e59c220f1c854496e170c0450630e7b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 66c0abb8532b3dd1a52e234039bfc3aca992de6d
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 330ced0f78c7eb9167a5eeb67757381bb15b96be
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = f6603e6afc1a01a5c748549eb2bd1c00f5d3d5f8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = c519091b3bee4cde5459a20ac658ed236d094957
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = 1b838e9dac6e906b6ae1778bbb69ea949d875c55
           test "$(git rev-parse HEAD:src/lib/dev/local-amount-workflow.mjs)" = 54a5dc90fb0b82ec51f1716089d4fd607eecceb9
           test "$(git rev-parse HEAD:src/lib/dev/local-amount-worker-adapter.mjs)" = 7e2a6fc8250cd5d6ca5cceb0f95e83e06d2d4bd6
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
@@ -514,4 +519,122 @@ jobs:
           path: |
             ${{ runner.temp }}/wand-switch-chest-proof/pins.json
             ${{ runner.temp }}/wand-switch-chest-proof/attestation-bundle.jsonl
+          if-no-files-found: error
+
+  scoped_steam_chest_proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_steam_chest_proof_source }}
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
+      WAND_RELEASE_BASE_PATH: /web
+      WAND_CANDIDATE_BASE_PATH: /web
+      WAND_SCOPED_CORE_DIR: ${{ github.workspace }}
+      CARGO_TARGET_DIR: /tmp/wand-scoped-steam-chest-proof-rust
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-steam-chest-proof-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected source in separate proof-only job
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact accepted source and immutable scoped proof inputs
+        run: |
+          set -euo pipefail
+          [[ "$WAND_PROOF_EXPECTED_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = c93264e1c060fa1dacba71ad2cd72628ef6dbbc4
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs)" = fa2f389989bc76d58e6b941867201d3ececa433a
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-steam-chest-private.mjs)" = fb34157d277c10e09789924b2272c41a8c3ee63c
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-steam-chest-release-anchor.mjs)" = d31894accdbfd977953aeedd4055aa027a0f0cb8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-steam-chest-release.mjs)" = 2ae152ac9f2d7dc671fdfa0ac9c58a4a276a2566
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/lib/dev/product-steam-chest-client.mjs)" = a4534f259a4c6730640d4fa56f38a13580415719
+          test "$(git rev-parse HEAD:src/lib/dev/product-steam-chest.worker.mjs)" = d801ded148ad1ce00bc02861da4088636e5ebe86
+          test "$(git rev-parse HEAD:src/routes/editor/chest/steam/+page.svelte)" = 927d2776e6091d50b54e7e7e92c3e173b64b4ec7
+          test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = da627ecd86d4435c026e611b241aa489d8259dac
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-copy.mjs)" = 9631b4ee40f47432a2a26a6df386b0db9353b09d
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 66c0abb8532b3dd1a52e234039bfc3aca992de6d
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 330ced0f78c7eb9167a5eeb67757381bb15b96be
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = f6603e6afc1a01a5c748549eb2bd1c00f5d3d5f8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = c519091b3bee4cde5459a20ac658ed236d094957
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = 1b838e9dac6e906b6ae1778bbb69ea949d875c55
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-workflow.mjs)" = 54a5dc90fb0b82ec51f1716089d4fd607eecceb9
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-worker-adapter.mjs)" = 7e2a6fc8250cd5d6ca5cceb0f95e83e06d2d4bd6
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs)" = d5b167f35b10ecc5b16d40e84e9d9bb324288539
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = 94d9039f7485f399333cbf83bda675fc171fcbc5
+          test -z "$(git ls-files static/worker-wasm-scoped-steam-chest)"
+          test ! -e static/worker-wasm-scoped-steam-chest
+          test ! -e build/worker-wasm-scoped-steam-chest
+      - name: Require exact successful protected-main CI before proof build
+        id: scoped_ci
+        run: node scripts/int-protected-ci-gate.mjs build
+      - name: Fixed approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify unchanged R22 approved inputs and generate scoped proof subjects
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-chest-scoped,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-steam-chest-proof-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs
+          test "$(find tests/wasm-distribution/fixtures/scoped-steam-chest -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-scoped-steam-chest
+          test ! -e build/worker-wasm-scoped-steam-chest
+      - name: Revalidate exact predecessor and live main immediately before signing
+        env:
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/int-protected-ci-gate.mjs deploy
+      - name: Attest only three scoped proof subjects with existing Pages issuer
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/scoped-steam-chest/ddv_save_core.js
+            tests/wasm-distribution/fixtures/scoped-steam-chest/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/scoped-steam-chest/manifest.json
+      - name: Verify exact signer and subject bytes; stage only bundle and pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SCOPED_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-steam-chest-proof"
+          node scripts/readonly-release/seal-scoped-steam-chest-private.mjs verify-protected-candidate "$GITHUB_SHA" tests/wasm-distribution/fixtures/scoped-steam-chest "$WAND_SCOPED_BUNDLE" > "$RUNNER_TEMP/wand-steam-chest-verified.txt"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const p=JSON.parse(fs.readFileSync("tests/wasm-distribution/fixtures/scoped-steam-chest-pins.json","utf8")); const prefix="SCOPED_STEAM_CHEST_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-steam-chest-verified.txt","utf8").trim().split("\n").filter(l=>l.startsWith(prefix)); assert.equal(lines.length,1); assert.deepEqual(JSON.parse(lines[0].slice(prefix.length)),p); assert.equal(p.sourceHead,process.env.GITHUB_SHA); fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-steam-chest-proof/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_SCOPED_BUNDLE" "$RUNNER_TEMP/wand-steam-chest-proof/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-steam-chest-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-scoped-steam-chest
+          test ! -e build/worker-wasm-scoped-steam-chest
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-steam-chest-release-anchor.mjs)"
+          node scripts/int-protected-ci-gate.mjs deploy
+      - name: Upload proof metadata only (never executable subjects)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoped-steam-chest-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-steam-chest-proof/pins.json
+            ${{ runner.temp }}/wand-steam-chest-proof/attestation-bundle.jsonl
           if-no-files-found: error
