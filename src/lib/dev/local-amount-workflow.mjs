@@ -53,8 +53,8 @@ const cleanState=()=>({
   phase:'closed',fileName:'',backupVerified:false,targets:[],
   choice:-1,newAmount:'',preview:null,editedCopy:null,error:''
 });
-export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false,switch626Chest=false,steam626Chest=false}={}){
-  if(trustedLocalHarness!==true||typeof exactOneDecrease!=='boolean'||typeof switch626Chest!=='boolean'||typeof steam626Chest!=='boolean'||(switch626Chest&&steam626Chest)||((switch626Chest||steam626Chest)&&!exactOneDecrease)||!adapter||typeof adapter!=='object')
+export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false,switch626Chest=false,steam626Chest=false,switch626Catalog0=false}={}){
+  if(trustedLocalHarness!==true||typeof exactOneDecrease!=='boolean'||typeof switch626Chest!=='boolean'||typeof steam626Chest!=='boolean'||typeof switch626Catalog0!=='boolean'||[switch626Chest,steam626Chest,switch626Catalog0].filter(Boolean).length>1||((switch626Chest||steam626Chest||switch626Catalog0)&&!exactOneDecrease)||!adapter||typeof adapter!=='object')
     fail('LOCAL_HARNESS_GATE_OFF');
   for(const method of ['open','backupOriginal','listVerifiedTargets','stageTyped',
     'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])
@@ -113,12 +113,12 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
     if(openingEpoch!==epoch)fail('STALE_FILE_OR_CLOSE');
     if(!file||typeof file.name!=='string'||!file.name.toLowerCase().endsWith('.p1g')||
        !Number.isSafeInteger(file.size)||file.size<1||
-       file.size>128*1024*1024||(switch626Chest?(switchBid!==SWITCH626_CHEST_BID||fullVersion!==undefined):(fullVersion!==STEAM626_FULL_VERSION||switchBid!==undefined))||
+       file.size>128*1024*1024||((switch626Chest||switch626Catalog0)?(switchBid!==SWITCH626_CHEST_BID||fullVersion!==undefined):(fullVersion!==STEAM626_FULL_VERSION||switchBid!==undefined))||
        buildConfirmed!==true||!sha(originalSha256))fail('EXTERNAL_BUILD_AND_FILE_DENIED');
     const selected=Object.freeze({name:file.name,sha:originalSha256,size:file.size});
     return execute(async(check,commit)=>{
       const r=await adapter.open({file,originalSha256,
-        build:switch626Chest?{platform:'switch',buildKind:'switch-bid',buildId:SWITCH626_CHEST_BID,schema:626,externallyConfirmed:true}:
+        build:(switch626Chest||switch626Catalog0)?{platform:'switch',buildKind:'switch-bid',buildId:SWITCH626_CHEST_BID,schema:626,externallyConfirmed:true}:
           {platform:'steam-windows',buildKind:'steam-full-version',buildId:STEAM626_FULL_VERSION,schema:626,externallyConfirmed:true}});
       if(!safeReceipt(r,'OPEN'))fail('WORKER_OPEN_SCOPE_DENIED');
       // UI never reads an old amount from JSON; only trusted Rust/Native
@@ -147,6 +147,7 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
          !Array.isArray(r.targets)||r.targets.length>256)fail('UNTRUSTED_TARGET_LIST');
       const targets=r.targets.map(trustedTarget);
       if((switch626Chest||steam626Chest)&&targets.some(t=>t.kind!=='ChestExistingSlotAmountDecrease'||t.targetId<=1||t.slotIndex>=48||t.oldAmount!==50))fail('SWITCH_CHEST_SCOPE_DENIED');
+      if(switch626Catalog0&&targets.some(t=>t.kind!=='InventoryExistingAmountDecrease'||t.targetId!==0||t.itemId!==40000076||t.slotIndex!==0||t.compatibleItemType!=='ItemType_Furniture'))fail('SWITCH_CATALOG0_SCOPE_DENIED');
       const ids=new Set(targets.map(t=>t.kind+':'+t.targetId+':'+t.itemId+':'+t.slotIndex));
       if(ids.size!==targets.length)fail('DUPLICATE_TARGET');
       return commit({phase:'ready',backupVerified:true,targets},()=>{backupBinding=bound});
