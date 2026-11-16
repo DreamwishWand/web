@@ -1,0 +1,128 @@
+name: QA ACT1058 Collection OFF product route (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1058-collection-off-route.yml'
+permissions:
+  contents: read
+jobs:
+  off-route:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d8ae1f3e7c4d09de9dbf30514ab7f05618dc2f6b
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin fixed source and accepted release boundary
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'd8ae1f3e7c4d09de9dbf30514ab7f05618dc2f6b'
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-copy.mjs)" = 21abcdb2d51e4f881db1c9e026bd15456ec83f5e
+          test "$(git rev-parse HEAD:src/lib/collection/CollectionExact1Dev.svelte)" = 59ab5f644b64c0db3bb27d5b84499b3f19e1fcfe
+          test "$(git rev-parse HEAD:src/lib/collection/product-collection-client.mjs)" = cb4da049943eb8cad8ccba1b17f347a2d4c6fd50
+          test "$(git rev-parse HEAD:src/lib/collection/product-collection.worker.mjs)" = 43d24307f016a85298cabd81c389215a83504f7b
+          test "$(git rev-parse HEAD:src/routes/editor/collection/+page.svelte)" = e6bffa8987530a9a62444260e2105cd64fcd7aff
+          test "$(git rev-parse HEAD:src/routes/editor/+page.svelte)" = 8081007529fe99eecfb1ba1d0e19d0df6ff4d501
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-collection-release.mjs)" = c0a5cd7afe68269de4c48a479a1ec685cbb4dc12
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-collection-release-anchor.mjs)" = fd4368ece7d36d39382cb9b21bfef8ad3da267b8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test -z "$(git ls-files static/worker-wasm-scoped-collection)"
+      - run: npm ci --no-audit --no-fund
+      - name: Independent bounded actual client denial and locale data
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createProductCollectionPort,productCollectionPortScope,scopedCollectionReadyOk} from './src/lib/collection/product-collection-client.mjs';
+          import {collectionExact1Copy,COLLECTION_EXACT1_LOCALES} from './src/lib/collection/collection-exact1-copy.mjs';
+          let negatives=0;
+          const deny=(v)=>{assert.equal(v,false);negatives++};
+          assert.equal(COLLECTION_EXACT1_LOCALES.length,8);
+          for(const locale of COLLECTION_EXACT1_LOCALES){const c=collectionExact1Copy(locale);assert.equal(typeof c.title,'string');assert.equal(typeof c.intro,'string');assert.ok(c.title&&c.intro);assert.equal(Object.isFrozen(c),true)}
+          const builds=[{platform:'switch',buildId:'9A239D3DB569756D',productV2EvidenceSha256:null}];
+          const scope={releaseId:'a'.repeat(64),operation:'collection.fixed-exact1',mode:'private-product-v2',builds};
+          const ready={kind:'SCOPED_COLLECTION_RUNTIME_READY',...scope,writerAuthorized:false};
+          assert.equal(scopedCollectionReadyOk(ready,scope),true); // shape predicate only, never a trusted runtime
+          for(const patch of [{kind:'OTHER'},{releaseId:'b'.repeat(64)},{operation:'amount'},{mode:'public-accepted'},{writerAuthorized:true},{builds:[]},{builds:[{...builds[0],platform:'steam'}]},{builds:[{...builds[0],buildId:'unknown'}]},{builds:[{...builds[0],productV2EvidenceSha256:'c'.repeat(64)}]},{extra:true}]){
+            deny(scopedCollectionReadyOk({...ready,...patch},scope));
+          }
+          const {writerAuthorized,...missing}=ready;deny(scopedCollectionReadyOk(missing,scope));
+          for(const fake of [ready,Object.freeze({...ready}),{...ready,open(){},dispose(){}}]){assert.equal(productCollectionPortScope(fake),null);negatives++}
+          Object.defineProperty(globalThis,'document',{configurable:true,value:{}});
+          Object.defineProperty(globalThis,'location',{configurable:true,value:new URL('https://dreamwishwand.github.io/web/editor/collection/?enable=true')});
+          let constructed=0;Object.defineProperty(globalThis,'Worker',{configurable:true,value:class{constructor(){constructed++;throw Error('unexpected worker')}}});
+          const ac=new AbortController();ac.abort();
+          for(const options of [{},{anchor:scope,verifiedLocalDevGate:true,workerFactory:()=>{}},{signal:ac.signal},{onFault:1}]){
+            await assert.rejects(createProductCollectionPort(options));negatives++;
+          }
+          assert.equal(constructed,0);
+          console.log('QRW1058_OFF_CLIENT_ACTUAL_PASS',JSON.stringify({negatives,localeCount:8,workerConstructed:constructed,positiveSignedRuntime:false}));
+          NODE
+      - name: Build real production static route (null anchor)
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run build
+          test -f build/editor/collection/index.html
+          test -f build/editor/index.html
+          test ! -e build/worker-wasm-scoped-collection
+      - name: Install existing browser driver
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Serve actual static output on isolated loopback
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/qrw1058-static"
+          ln -s "$PWD/build" "$RUNNER_TEMP/qrw1058-static/web"
+          python3 -m http.server 4177 --bind 127.0.0.1 --directory "$RUNNER_TEMP/qrw1058-static" > /tmp/qrw1058-http.log 2>&1 &
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4177/web/editor/collection/ >/dev/null; then exit 0; fi; sleep 1; done
+          cat /tmp/qrw1058-http.log
+          exit 1
+      - name: Actual Chrome hydrated OFF route / reload / forged local flags
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const root='http://127.0.0.1:4177/web';
+          const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+            const context=await browser.newContext({locale:'en-US'});
+            await context.addInitScript(()=>{
+              window.__qrw1058Workers=[];
+              const original=window.Worker;
+              window.Worker=new Proxy(original,{construct(target,args,newTarget){window.__qrw1058Workers.push(String(args[0]));return Reflect.construct(target,args,newTarget)}});
+              localStorage.setItem('verifiedLocalDevGate','true');
+              localStorage.setItem('productCollectionEnabled','true');
+            });
+            const page=await context.newPage();const errors=[],scopedRequests=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('request',r=>{if(r.url().includes('/worker-wasm-scoped-collection/'))scopedRequests.push(r.url())});
+            let checked=0;
+            const hydrated=async()=>{await page.waitForFunction(()=>!!document.documentElement.dataset.locale);await page.waitForLoadState('networkidle')};
+            const assertOff=async()=>{
+              await hydrated();
+              const route=page.locator('[data-collection-product-route]');
+              assert.equal(await route.getAttribute('data-collection-scope'),'off');
+              assert.equal(await route.locator('input[type=file]').count(),0);
+              assert.equal(await route.locator('[data-collection-exact1]').count(),0);
+              assert.equal(await route.locator('[role=status]').count(),1);
+              assert.equal(await page.evaluate(()=>window.__qrw1058Workers.length),0);
+              checked++;
+            };
+            for(const suffix of ['/editor/collection/','/editor/collection/?enable=true&mode=public-accepted#writer','/editor/collection/?build=9A239D3DB569756D']){
+              const response=await page.goto(root+suffix);assert.equal(response.status(),200);await assertOff();
+            }
+            await page.reload();await assertOff();
+            const hub=await page.goto(root+'/editor/');assert.equal(hub.status(),200);await hydrated();
+            assert.equal(await page.locator('[data-editor-hub] [data-editor-collection]').count(),0);
+            assert.equal(await page.evaluate(()=>window.__qrw1058Workers.length),0);
+            await page.goBack();await assertOff();
+            assert.deepEqual(scopedRequests,[]);assert.deepEqual(errors,[]);
+            console.log('QRW1058_OFF_CHROME_ACTUAL_PASS',JSON.stringify({routeChecks:checked,hubLink:false,workerConstructed:0,scopedRequests:0,pageErrors:0,realSignedPositive:false}));
+            await context.close();
+          }finally{await browser.close()}
+          NODE
