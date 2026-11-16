@@ -139,10 +139,20 @@ const steamChestCopy=Object.freeze({
  'zh-CN':{title:'Steam P1G 储物箱编辑 — DEV/关闭',confirm:'我已另行确认此 Steam 完整版本。',intro:'仅限本机编辑：已验证储物箱数量 50→49。不上传、不覆盖原文件。'},
  'pt-BR':{title:'Editor de baú P1G Steam — DEV/DESLIGADO',confirm:'Confirmei separadamente esta versão completa do Steam.',intro:'Edição local: apenas baú verificado 50 → 49. Sem upload ou sobrescrita.'}
 });
-export function localAmountCopy(locale,switchChest=false,productMode='',steamChest=false){
+const switchCatalog0Copy=Object.freeze({
+ en:{title:'Switch P1G Furniture inventory editor — DEV/OFF',intro:'Local editing only. Existing furniture Item ID 40000076: decrease by one. No upload or original overwrite.'},
+ ja:{title:'Switch P1G 家具インベントリ編集 — DEV/OFF',intro:'端末内編集。既存家具 Item ID 40000076 の数量を1減らす操作のみ。送信・原本上書き禁止。'},
+ fr:{title:'Éditeur inventaire meubles P1G Switch — DEV/OFF',intro:'Édition locale uniquement : meuble existant ID 40000076, quantité −1. Aucun envoi ni écrasement.'},
+ it:{title:'Editor inventario mobili P1G Switch — DEV/OFF',intro:'Modifica locale: mobile esistente ID 40000076, quantità −1. Nessun invio o sovrascrittura.'},
+ de:{title:'Switch-P1G-Möbelinventar — DEV/AUS',intro:'Lokale Bearbeitung: vorhandenes Möbel ID 40000076, Anzahl −1. Kein Upload oder Überschreiben.'},
+ 'es-ES':{title:'Editor de inventario de muebles P1G Switch — DEV/APAGADO',intro:'Edición local: mueble existente ID 40000076, cantidad −1. Sin subida ni sobrescritura.'},
+ 'zh-CN':{title:'Switch P1G 家具库存编辑 — DEV/关闭',intro:'仅限本机编辑：已有家具 ID 40000076，数量减1。不上传、不覆盖原文件。'},
+ 'pt-BR':{title:'Editor de inventário de móveis P1G Switch — DEV/DESLIGADO',intro:'Edição local: móvel existente ID 40000076, quantidade −1. Sem upload ou sobrescrita.'}
+});
+export function localAmountCopy(locale,switchChest=false,productMode='',steamChest=false,switchCatalog0=false){
  const base=localized[locale]||localized.en;
- if(!switchChest&&!steamChest)return base;
- const selected=steamChest?{...base,...(steamChestCopy[locale]||steamChestCopy.en),sha:(switchCopy[locale]||switchCopy.en).sha}:{...base,...(switchCopy[locale]||switchCopy.en)};
+ if(!switchChest&&!steamChest&&!switchCatalog0)return base;
+ const selected=switchCatalog0?{...base,...(switchCopy[locale]||switchCopy.en),...(switchCatalog0Copy[locale]||switchCatalog0Copy.en)}:steamChest?{...base,...(steamChestCopy[locale]||steamChestCopy.en),sha:(switchCopy[locale]||switchCopy.en).sha}:{...base,...(switchCopy[locale]||switchCopy.en)};
  // The UI label is not an authority grant; only the branded sealed port is.
  if(productMode==='public-accepted'||productMode==='private-product-v2')selected.title=selected.title.split(' — ')[0]+(productMode==='private-product-v2'?' — V2':'');
  return Object.freeze(selected);
