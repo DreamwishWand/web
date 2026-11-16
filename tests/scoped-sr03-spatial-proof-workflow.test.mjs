@@ -11,7 +11,7 @@ const specs=[
     "pins": [
       [
         "crates/ddv-save-core",
-        "63d1b9f88a07c79c54cb433f4d1cbd9cf1e1ed4b"
+        "a6c0aaa626840b9d7bf7944aa9699b580f456eba"
       ],
       [
         "scripts/wasm-distribution/protected-release-inputs.json",
@@ -170,7 +170,7 @@ const specs=[
     "pins": [
       [
         "crates/ddv-save-core",
-        "63d1b9f88a07c79c54cb433f4d1cbd9cf1e1ed4b"
+        "a6c0aaa626840b9d7bf7944aa9699b580f456eba"
       ],
       [
         "scripts/readonly-release/scoped-placement-proof.mjs",
@@ -333,7 +333,7 @@ const specs=[
     "pins": [
       [
         "crates/ddv-save-core",
-        "63d1b9f88a07c79c54cb433f4d1cbd9cf1e1ed4b"
+        "a6c0aaa626840b9d7bf7944aa9699b580f456eba"
       ],
       [
         "scripts/wasm-distribution/protected-release-inputs.json",
@@ -492,7 +492,7 @@ const specs=[
     "pins": [
       [
         "crates/ddv-save-core",
-        "63d1b9f88a07c79c54cb433f4d1cbd9cf1e1ed4b"
+        "a6c0aaa626840b9d7bf7944aa9699b580f456eba"
       ],
       [
         "scripts/wasm-distribution/protected-release-inputs.json",
@@ -659,7 +659,7 @@ const specs=[
     "pins": [
       [
         "crates/ddv-save-core",
-        "63d1b9f88a07c79c54cb433f4d1cbd9cf1e1ed4b"
+        "a6c0aaa626840b9d7bf7944aa9699b580f456eba"
       ],
       [
         "scripts/wasm-distribution/protected-release-inputs.json",
@@ -826,7 +826,7 @@ const specs=[
   "pins": [
     [
       "crates/ddv-save-core",
-      "63d1b9f88a07c79c54cb433f4d1cbd9cf1e1ed4b"
+      "a6c0aaa626840b9d7bf7944aa9699b580f456eba"
     ],
     [
       "scripts/readonly-release/scoped-placement-proof.mjs",
