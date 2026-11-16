@@ -15,16 +15,20 @@ export const STEAM626_PLACEMENT_BUILD=COLLECTION_EXACT1_BUILDS['steam-windows'];
 export const SWITCH626_BACKPACK_BUILD=COLLECTION_EXACT1_BUILDS.switch;
 const backpackSlot=n=>uint(n)&&n<256;
 const backpackSelector=s=>exact(s,'sourceSlot,destinationSlot')&&backpackSlot(s.sourceSlot)&&backpackSlot(s.destinationSlot)&&s.sourceSlot!==s.destinationSlot;
+export function createLocalWardrobeDevWorkflow(adapter,{trustedLocalHarness=false,platform}={}){
+ if(!['steam-windows','switch'].includes(platform))fail();
+ return createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness,operation:platform==='switch'?'wardrobe-switch':'wardrobe-steam'});
+}
 export function createLocalBackpackDevWorkflow(adapter,{trustedLocalHarness=false,platform}={}){
  if(!['steam-windows','switch'].includes(platform))fail();
  return createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness,operation:platform==='switch'?'backpack-switch':'backpack-steam'});
 }
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation}={}){
- if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch'].includes(operation)||!adapter)fail();
- const backpack=operation==='backpack-steam'||operation==='backpack-switch';
- const previewMethod=backpack?'previewBackpack':'previewPlacement',stageMethod=backpack?'stageBackpack':'stagePlacement';
+ if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch'].includes(operation)||!adapter)fail();
+ const backpack=operation==='backpack-steam'||operation==='backpack-switch',wardrobe=operation==='wardrobe-steam'||operation==='wardrobe-switch';
+ const previewMethod=wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
  for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
- const comp=operation==='comp03',count=comp?9:3,build=operation==='backpack-switch'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
+ const comp=operation==='comp03',count=wardrobe?1:comp?9:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
  const set=p=>{state={...state,...p};return snapshot()};
@@ -59,8 +63,12 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
   backup=Object.freeze({name:r.backupName,sha:source.sha,size:source.size});return set({phase:'ready',backupName:backup.name});
  });
  const preview=selector=>run(['ready','previewed'],async check=>{
-  if(!backup||!(backpack?backpackSelector(selector):comp?exact(selector,'seedId')&&positive(selector.seedId):exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
-  const r=await adapter[previewMethod]({...selector});check();
+  if(!backup||!(wardrobe?selector===undefined:backpack?backpackSelector(selector):comp?exact(selector,'seedId')&&positive(selector.seedId):exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
+  const r=await (wardrobe?adapter[previewMethod]():adapter[previewMethod]({...selector}));check();
+  if(wardrobe){
+   if(!exact(r,'slot,oldItemId,newItemId,exactFieldChangedCount,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized')||r.slot!==0||r.oldItemId!==50000352||r.newItemId!==50000214||r.exactFieldChangedCount!==1||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();
+   return set({phase:'previewed',preview:Object.freeze({...r})});
+  }
   if(backpack){
    if(!exact(r,'containerId,sourceSlot,destinationSlot,itemId,oldAmount,newSourceAmount,newDestinationAmount,quantity,effectiveStackBound,exactFieldChangedCount,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized')||
     r.containerId!==0||r.sourceSlot!==selector.sourceSlot||r.destinationSlot!==selector.destinationSlot||r.itemId!==30200001||!uint(r.oldAmount)||r.oldAmount<2||r.oldAmount>50||r.newSourceAmount!==r.oldAmount-1||r.newDestinationAmount!==1||r.quantity!==1||r.effectiveStackBound!==50||r.exactFieldChangedCount!==3||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();

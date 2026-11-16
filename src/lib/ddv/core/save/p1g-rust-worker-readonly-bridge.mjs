@@ -40,18 +40,18 @@ async function* decodedUtf8Chunks(text){
     offset=end;
   }
 }
-export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,placementScope=null,backpackScope=null,readDurableOriginalBackup=null}={}){
+export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null,readDurableOriginalBackup=null}={}){
   const amountEnabled=allowScopedAmountSource===true||allowSwitch626ChestSource===true||allowSteam626ChestSource===true||allowSwitch626Catalog0Source===true;
-  const placementEnabled=placementScope!==null,backpackEnabled=backpackScope!==null;
-  const scopedEnabled=amountEnabled||allowScopedCollectionSource===true||placementEnabled||backpackEnabled;
+  const placementEnabled=placementScope!==null,backpackEnabled=backpackScope!==null,wardrobeEnabled=wardrobeScope!==null;
+  const scopedEnabled=amountEnabled||allowScopedCollectionSource===true||placementEnabled||backpackEnabled||wardrobeEnabled;
   // Constructor itself enforces Worker-only (document must be absent).
-  const rust=createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,placementScope,backpackScope});
+  const rust=createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,placementScope,backpackScope,wardrobeScope});
   let epoch=0,scopedSource=null,scopedMetadata=null,backupMatched=false,scopedBusy=false,durableName=null,collectionCloseUnverified=false;
   const resetScoped=()=>{scopedSource=null;scopedMetadata=null;backupMatched=false;scopedBusy=false;durableName=null};
   const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
   const closeRust=()=>{
     try{const ack=rust.close();collectionCloseUnverified=false;return ack}
-    catch(e){if(allowScopedCollectionSource===true||allowSwitch626ChestSource===true||allowSteam626ChestSource===true||allowSwitch626Catalog0Source===true||placementEnabled||backpackEnabled)collectionCloseUnverified=true;throw e}
+    catch(e){if(allowScopedCollectionSource===true||allowSwitch626ChestSource===true||allowSteam626ChestSource===true||allowSwitch626Catalog0Source===true||placementEnabled||backpackEnabled||wardrobeEnabled)collectionCloseUnverified=true;throw e}
   };
   const close=()=>{
     epoch++;resetScoped();
@@ -117,7 +117,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
     if(collectionCloseUnverified)fail('P1G_WORKER_COLLECTION_CLOSE_UNVERIFIED');
     close();const token=epoch;
     if(!scopedEnabled||!exact(args,'file,build,originalSha256')||
-       !(args.file instanceof File)||!(backpackEnabled?args.build?.platform===(backpackScope==='switch'?'switch':'steam-windows'):(allowSwitch626ChestSource===true||allowSwitch626Catalog0Source===true)?args.build?.platform==='switch':(args.build?.platform==='steam-windows'||(allowScopedCollectionSource===true&&args.build?.platform==='switch')))||
+       !(args.file instanceof File)||!(wardrobeEnabled?args.build?.platform===(wardrobeScope==='switch'?'switch':'steam-windows'):backpackEnabled?args.build?.platform===(backpackScope==='switch'?'switch':'steam-windows'):(allowSwitch626ChestSource===true||allowSwitch626Catalog0Source===true)?args.build?.platform==='switch':(args.build?.platform==='steam-windows'||(allowScopedCollectionSource===true&&args.build?.platform==='switch')))||
        typeof args.originalSha256!=='string'||!(/^[0-9a-f]{64}$/).test(args.originalSha256))
       fail('P1G_WORKER_SCOPED_INPUT_DENIED');
     const {file,build,originalSha256}=args;
@@ -155,6 +155,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
   const previewScopedAmount=selection=>scopedCall(()=>rust.previewScopedAmount(selection));
   const previewScopedPlacement=selection=>scopedCall(()=>rust.previewScopedPlacement(selection));
   const previewScopedBackpack=selection=>scopedCall(()=>rust.previewScopedBackpack(selection));
+  const previewScopedWardrobe=(...args)=>scopedCall(()=>rust.previewScopedWardrobe(...args));
   // Fixed preview may inspect the active source before durable Backup; the
   // Stage/Undo/Redo/Export boundary below remains backup-gated.
   const inspectFixedCollection=selector=>{
@@ -182,13 +183,13 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
     try{
       const name=await verifyDurable(source,current);
       if(!current())fail('P1G_WORKER_OPEN_REVOKED');
-      const r=backpackEnabled?rust.stageScopedBackpack():placementEnabled?rust.stageScopedPlacement():allowScopedCollectionSource===true?rust.stageFixedCollection():rust.stageScopedAmount();durableName=name;return r;
+      const r=wardrobeEnabled?rust.stageScopedWardrobe():backpackEnabled?rust.stageScopedBackpack():placementEnabled?rust.stageScopedPlacement():allowScopedCollectionSource===true?rust.stageFixedCollection():rust.stageScopedAmount();durableName=name;return r;
     }catch(e){if(current())close();throw e}
     finally{if(current())scopedBusy=false}
   };
   const toggleScoped=redo=>scopedCall(()=>{
     if(!durableName)fail('P1G_WORKER_SCOPED_DURABLE_BACKUP_REQUIRED');
-    return backpackEnabled?rust.toggleScopedBackpack(redo):placementEnabled?rust.toggleScopedPlacement(redo):allowScopedCollectionSource===true?rust.toggleFixedCollection(redo):rust.toggleScopedAmount(redo);
+    return wardrobeEnabled?rust.toggleScopedWardrobe(redo):backpackEnabled?rust.toggleScopedBackpack(redo):placementEnabled?rust.toggleScopedPlacement(redo):allowScopedCollectionSource===true?rust.toggleFixedCollection(redo):rust.toggleScopedAmount(redo);
   });
   const exportScopedEditedCopy=async()=>{
     requireBackup();const source=scopedSource,metadata=scopedMetadata,token=epoch;
@@ -198,7 +199,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
       if(!durableName)fail('P1G_WORKER_SCOPED_DURABLE_BACKUP_REQUIRED');
       await verifyDurable(source,current,durableName);
       if(!current())fail('P1G_WORKER_OPEN_REVOKED');
-      const result=await (backpackEnabled?rust.takeScopedBackpackOutput():placementEnabled?rust.takeScopedPlacementOutput():allowScopedCollectionSource===true?rust.takeFixedCollectionOutput():rust.takeScopedAmountOutput());decoded=result.decodedBytes;
+      const result=await (wardrobeEnabled?rust.takeScopedWardrobeOutput():backpackEnabled?rust.takeScopedBackpackOutput():placementEnabled?rust.takeScopedPlacementOutput():allowScopedCollectionSource===true?rust.takeFixedCollectionOutput():rust.takeScopedAmountOutput());decoded=result.decodedBytes;
       if(!current())fail('P1G_WORKER_OPEN_REVOKED');
       const text=new TextDecoder('utf-8',{fatal:true}).decode(decoded);
       encrypted=await p1gPackagedProfileCodec.createEncodedProfile(text,metadata);
@@ -225,6 +226,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
     openEncrypted,close,
     ...(scopedEnabled?{openScopedEncrypted,verifyScopedOriginalBackup,exportScopedEditedCopy}:{}),
     ...(amountEnabled?{discoverScopedTargets,previewScopedAmount,stageScopedAmount:stageScoped,toggleScopedAmount:toggleScoped}:{}),
+    ...(wardrobeEnabled?{previewScopedWardrobe,stageScopedWardrobe:stageScoped,toggleScopedWardrobe:toggleScoped}:{}),
     ...(backpackEnabled?{previewScopedBackpack,stageScopedBackpack:stageScoped,toggleScopedBackpack:toggleScoped}:{}),
     ...(placementEnabled?{previewScopedPlacement,stageScopedPlacement:stageScoped,toggleScopedPlacement:toggleScoped}:{}),
     ...(allowScopedCollectionSource===true?{inspectFixedCollection,previewFixedCollection,stageFixedCollection:stageScoped,toggleFixedCollection:toggleScoped}:{}),
