@@ -1,0 +1,74 @@
+name: QA ONLY PR1605 Backpack COMP03 reference changed UI (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1605-backpack-comp03-reference.yml'
+permissions:
+  contents: read
+jobs:
+  changed-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 41abfd29b16d5244f5004e5432e6759a6968ed53
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed exact2 closure
+        run: |
+          test "$(git rev-parse HEAD)" = '41abfd29b16d5244f5004e5432e6759a6968ed53'
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 50349aac5dcaa892a9cf3760288e84aff85f80fc
+          test "$(git rev-parse HEAD:tests/wep-comp03-reference-consumer.test.mjs)" = 378e46a0e007e269596eb5da3d3e9dba4811d2bc
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = 062c601262f1afc47cfe37a9685ccd3087925669
+          test "$(git rev-parse HEAD:src/lib/wep/Comp03ReferencePattern.svelte)" = af6861ca808e7e44ab3e419c146a36090d63fb7f
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual changed Svelte UI with synthetic DEV receipts
+        run: |
+          mkdir -p src/routes/test-qrw-1605
+          cat > src/routes/test-qrw-1605/+page.svelte <<'SVELTE'
+          <script>
+          import {onMount} from 'svelte';import {setLocale} from '$lib/i18n/runtime.js';import LocalPlacementEditorDev from '$lib/dev/LocalPlacementEditorDev.svelte';import {localPlacementCopy} from '$lib/dev/local-placement-copy.mjs';
+          let op='comp03',adapter=null,generation=0;
+          const trace={open:[],preview:[],stage:[],close:0};
+          const safe=(kind,extra={})=>({kind,ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false,...extra});
+          function make(mode){let input=null;
+           const close=async()=>{trace.close++;input=null;return safe('CLOSED')};
+           return {close,async open(a){input=a;trace.open.push(a.build.buildId);return safe('OPEN')},async backupOriginal(){return {backupReadbackVerified:true,originalUnchanged:true,shaMatched:true,sizeMatched:true,separateName:true,originalName:input.file.name,originalSha256:input.originalSha256,originalSizeBytes:input.file.size,backupName:'synthetic-backup.p1g'}},
+            async previewBackpack(s){trace.preview.push([mode,s]);return {containerId:0,sourceSlot:s.sourceSlot,destinationSlot:s.destinationSlot,itemId:30200001,oldAmount:4,newSourceAmount:3,newDestinationAmount:1,quantity:1,effectiveStackBound:50,exactFieldChangedCount:3,writerAuthorized:false,editedCopyAuthorized:false,originalOverwriteAuthorized:false}},
+            async previewPlacement(s){trace.preview.push([mode,s]);return {itemId:40100038,gridId:301,seedId:s.seedId,nextObjectId:92,oldAmount:99,newAmount:99,inventoryDelta:0,retainSeed:1,addObjects:8,exactFieldChangedCount:9,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false}},
+            async stageBackpack(){trace.stage.push(mode);return safe('STAGED',{exactFieldChangedCount:3})},async stagePlacement(){trace.stage.push(mode);return safe('STAGED',{exactFieldChangedCount:9})},async undo(){return safe('UNDONE')},async redo(){return safe('REDONE')},async exportEditedCopy(){throw Error('QA no export')},async downloadVerifiedCopy(){throw Error('QA no download')}};
+          }
+          function change(mode){op=mode;adapter=make(mode);generation++}
+          onMount(()=>{setLocale('en');window.__qa1605={change,trace,words:localPlacementCopy('en')};change('comp03')});
+          </script>
+          {#if adapter}{#key generation}<LocalPlacementEditorDev trustedWorkerAdapter={adapter} verifiedLocalDevGate={true} fixedOperation={op}/>{/key}{/if}
+          SVELTE
+          cat > tests/.qa1605.mjs <<'NODE'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {spawn,spawnSync} from 'node:child_process';
+          const origin='http://127.0.0.1:4186',server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4186','--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});let browser;
+          try{
+           for(let i=0;i<100;i++){try{if((await fetch(origin+'/test-qrw-1605/')).ok)break}catch{}await new Promise(r=>setTimeout(r,250))}
+           const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+           const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(String(e)));await page.goto(origin+'/test-qrw-1605/');await page.waitForFunction(()=>!!window.__qa1605);const words=await page.evaluate(()=>window.__qa1605.words);
+           const ed=page.locator('[data-dev-placement]'),btn=k=>ed.getByRole('button',{name:words[k],exact:true}),nums=ed.locator('input[type=number]'),reference=ed.locator('[data-comp03-reference-pattern]');
+           async function prepare(mode){await page.evaluate(m=>window.__qa1605.change(m),mode);const f=ed.locator('input[type=file]');await f.waitFor();await f.setInputFiles({name:'synthetic.p1g',mimeType:'application/octet-stream',buffer:Buffer.alloc(16)});await ed.locator('input[type=checkbox]').check();await btn('openFile').click();await btn('backup').click();await btn('review').waitFor();}
+           let neg=0;
+           for(const mode of ['comp03','backpack-steam','backpack-switch']){
+            await prepare(mode);const comp=mode==='comp03';assert.equal(await nums.count(),comp?1:2);
+            await nums.nth(0).fill(comp?'82':'0');if(!comp)await nums.nth(1).fill('1');await btn('review').click();await btn('stagePlacement').waitFor();
+            assert.equal(await reference.count(),comp?1:0);if(comp){assert.equal(await reference.locator('[data-comp03-reference-cell]').count(),9);assert.equal(await reference.locator('[data-comp03-reference-cell="seed"]').count(),1)}
+            const before=await page.evaluate(()=>window.__qa1605.trace.stage.length);await nums.nth(0).fill(comp?'83':'2');assert.equal(await btn('stagePlacement').isDisabled(),true);neg++;assert.equal(await page.evaluate(()=>window.__qa1605.trace.stage.length),before);
+            await nums.nth(0).fill(comp?'82':'0');if(!comp){await nums.nth(1).fill('2');assert.equal(await btn('stagePlacement').isDisabled(),true);neg++;await nums.nth(1).fill('0');assert.equal(await btn('stagePlacement').isDisabled(),true);assert.equal(await btn('review').isDisabled(),true);neg++;await nums.nth(1).fill('1')}
+            assert.equal(await btn('stagePlacement').isDisabled(),false);await btn('stagePlacement').click();await btn('undo').waitFor();assert.equal(await page.evaluate(()=>window.__qa1605.trace.stage.length),before+1);
+            assert.equal(await ed.getAttribute('data-product-writer'),'off');assert.equal(await ed.getAttribute('data-public-route'),'off');await btn('close').click();await ed.locator('input[type=file]').waitFor();assert.equal(await reference.count(),0);
+           }
+           const t=await page.evaluate(()=>window.__qa1605.trace);assert.deepEqual(t.stage,['comp03','backpack-steam','backpack-switch']);assert.deepEqual(t.open,['releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22','9A239D3DB569756D']);assert.deepEqual(errors,[]);assert.equal(neg,7);
+           console.log('QRW1605_REFERENCE_BACKPACK_CHANGED_UI_PASS '+JSON.stringify({positive:3,negative:neg,actualDom:true,syntheticReceipts:true,referenceComp03Only:true,stageGuard:true,fixedBuild:true,signed:false}));
+          }finally{await browser?.close();server.kill()}
+          NODE
+          node tests/.qa1605.mjs
+          git diff --exit-code -- src/lib/dev/LocalPlacementEditorDev.svelte tests/wep-comp03-reference-consumer.test.mjs
