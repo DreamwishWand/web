@@ -60,7 +60,7 @@ jobs:
           W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
           "$B" "$W" --out-dir /tmp/vase-off --target nodejs --no-typescript
           for mode in release mixed; do
-            features=worker-wasm,product-steam626-vase-scoped
+            features=worker-wasm,product-steam626-vase-add-scoped
             if [ "$mode" = mixed ]; then features="$features,product-collection-scoped"; fi
             cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
             "$B" "$W" --out-dir "/tmp/vase-$mode" --target nodejs --no-typescript
