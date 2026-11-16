@@ -180,4 +180,50 @@ mod tests{
   let mut q=d.clone();let mut ambient=q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"].clone();ambient["ID"]=json!(13);ambient["ItemID"]=json!(40005494);ambient["Orientation"]=json!("GridOrientation_UpLeft");q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["13"]=ambient;
   let s=open(&q,FRP_BUILD,624);assert_eq!(s.mint_switch624_frp01_target(env(&s),90001,ids).unwrap_err().0,"FRP01_TARGET_GEOMETRY");
  }
+
+ #[cfg(feature="product-switch624-frp01-scoped")]
+ #[test]
+ fn switch624_frp01_dedicated_worker_abi_exact7_cas_undo_reopen(){
+  let d=doc();let original=serde_json::to_vec(&d).unwrap();
+  let s=open(&d,FRP_BUILD,624);let e=env(&s);
+  let p=s.preview_switch624_frp01_product(e,90001,[10,11,12]).unwrap();
+  let t=&p.target;let mut guard=crate::worker_session::WorkerSessionGuard::attach(s);
+  let preview=guard.preview_frp01_product(e,90001,[10,11,12]).unwrap();
+  assert_eq!(preview["contract"],"wand.worker.switch624.scoped-frp01-exact7@1");
+  assert_eq!(preview["exactFieldChangedCount"],7);
+  assert_eq!(preview["inventoryDelta"],0);
+  assert_eq!(preview["writerAuthorized"],false);
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  let call=|g:&crate::worker_session::WorkerSessionGuard,old_stock,hash|
+     g.stage_frp01_product(stage,90001,[10,11,12],t.next,old_stock,t.new_stock,
+       t.root_sha,t.grid_sha,t.counter_sha,t.houses_sha,
+       t.old_stock_sha,t.new_stock_sha,t.old_rows_sha,hash);
+  assert!(call(&guard,t.old_stock,[0;32]).is_err());
+  assert!(call(&guard,t.old_stock+1,p.projected).is_err());
+  let r=call(&guard,t.old_stock,p.projected).unwrap();
+  assert_eq!((r.operation_count,r.exact_field_changed_count),(7,7));
+  assert!(call(&guard,t.old_stock,p.projected).is_err());
+  let after=guard.receipt().unwrap();
+  let mut scope=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:after.session_id,
+    expected_revision:after.revision,expected_index_generation:after.index_generation,
+    expected_decoded_sha256:after.decoded_sha256,action:WorkerAction::Stage};
+  guard.toggle_scoped_edit(scope,false).unwrap();
+  let r=guard.receipt().unwrap();
+  scope.expected_revision=r.revision;scope.expected_index_generation=r.index_generation;
+  scope.expected_decoded_sha256=r.decoded_sha256;
+  guard.toggle_scoped_edit(scope,true).unwrap();
+  let r=guard.receipt().unwrap();
+  scope.expected_revision=r.revision;scope.expected_index_generation=r.index_generation;
+  scope.expected_decoded_sha256=r.decoded_sha256;scope.action=WorkerAction::ExportEditedCopy;
+  let edited=guard.take_scoped_edit(scope).unwrap();
+  assert_ne!(edited,original);
+  let v:Value=serde_json::from_slice(&edited).unwrap();
+  assert_eq!(v["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"],53);
+  assert_eq!(v["Player"],d["Player"]);
+  assert!(guard.take_scoped_edit(scope).is_err());
+  let result=ProductSession::open_switch624_frp01_in_worker(edited,crate::BuildIdentity{
+    platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+    build_id:FRP_BUILD.into(),schema:624,externally_attested:true},[1;32]).unwrap();
+  assert_eq!(result.receipt().unwrap().schema,624);
+ }
 }
