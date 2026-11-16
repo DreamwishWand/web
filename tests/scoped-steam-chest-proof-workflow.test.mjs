@@ -72,23 +72,23 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-    "eef37e2a1b027134439e686ea5e47501339bbace"
+    "f39415efdcb9df3b969433cc1c5433e71f246757"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
-    "d4643ccf023b6784c80fa5b2a377afe7936113ce"
+    "cb58ac87357cfc7f3fba9219fd3c482a5883fbc2"
   ],
   [
     "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-    "ee5929266406bb9a17e1e0a3fc9bce3cb15607f6"
+    "ee0265bd5ff48c89ede1b7b038d86176c97cfe11"
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-    "ae89e25ad3cdc48d8b4e23e7eabc6ba92998b553"
+    "fa5d2e07a7c129c400cb0a1693fa81c70947dc9f"
   ],
   [
     "src/lib/dev/local-scoped-edit-worker-port.mjs",
-    "1d5eacaabfb27a244a68c6a07cd22feba7eb57c2"
+    "7d79ffb9997c8f9c9c09bfa0129245358509647e"
   ],
   [
     "src/lib/dev/local-amount-workflow.mjs",
@@ -116,7 +116,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.d.mts",
-    "f20fc6081da2bf67db72e668a11a888966cbbd86"
+    "f9aab75576567c5a38a44a3bf2496a518b5a72ee"
   ]
 ]);
 });
