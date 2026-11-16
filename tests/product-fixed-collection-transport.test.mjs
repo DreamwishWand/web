@@ -170,8 +170,8 @@ test('protected Collection consumer binds existing local copy lifecycle: dual Bu
    freshCodecReopen:async(b,h)=>hash(new TextEncoder().encode((await p1gPackagedProfileCodec.loadProfile(b)).jsonText))===h});
   for(const identity of [STEAM,SWITCH]){
    const a=make(),build={...identity,externallyConfirmed:true},args={file:f,build,originalSha256:origHash};
-   await a.open(args);const c=createCollectionExact1Consumer(a,{trustedLocalHarness:true});
-   await c.load();assert.equal(c.snapshot().targets.length,1);
+   const c=createCollectionExact1Consumer(a,{trustedLocalHarness:true});
+   await c.openFile({file:f,build});assert.equal(c.snapshot().targets.length,1);
    const initialSelection=(await a.inspectCollectionTargets()).selection;
    await assert.rejects(async()=>a.stageCollectionTarget(initialSelection,0));assert.equal(stages,identity===STEAM?0:1);
    await c.backupOriginal();await c.preview(0);await c.stage();await c.undo();await assert.rejects(c.exportEditedCopy());await c.redo();await c.exportEditedCopy();
