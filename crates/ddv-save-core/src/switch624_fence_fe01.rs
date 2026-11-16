@@ -275,7 +275,7 @@ const REPLACEMENT_BASE:u32=40700268;
 const REPLACEMENT_EXT1:u32=40700269;
 #[path="fence_add_shape.rs"]
 mod fence_add_shape;
-use fence_add_shape::{fence_record,records_at,FD01_DESCRIPTORS,ShapeError};
+use fence_add_shape::{fence_record,records_at,FD01_DESCRIPTORS,FD02_DESCRIPTORS,FD03_DESCRIPTORS,ShapeError};
 fn exact_ids(v:&Value,n:usize)->CoreResult<Vec<u32>>{
     let a=v.as_array().filter(|v|v.len()==n).ok_or(denied("FENCE_LAYOUT_IDS"))?;
     a.iter().map(uint).collect()
@@ -560,8 +560,8 @@ impl FenceAddShape {
         // ACT732 exact historical diagonal tranche A: N3 both slopes,
         // N6 positive single n4 extension, no inferred other lengths.
         Self::DiagonalN3Positive|Self::Switch626Fd01=>FD01_DESCRIPTORS,
-        Self::DiagonalN3Mirrored|Self::Switch626Fd02=>&[(BASE,0,0,false,true),(40700253,2,-2,true,true),(BASE,4,-4,false,true)],
-        Self::DiagonalN6Positive|Self::Switch626Fd03=>&[(BASE,0,0,false,true),(40700256,2,2,false,true),(BASE,10,10,false,true)],
+        Self::DiagonalN3Mirrored|Self::Switch626Fd02=>FD02_DESCRIPTORS,
+        Self::DiagonalN6Positive|Self::Switch626Fd03=>FD03_DESCRIPTORS,
     }}
 }
 fn add_plan_parse(bytes:&[u8],shape:FenceAddShape)->CoreResult<Value>{
