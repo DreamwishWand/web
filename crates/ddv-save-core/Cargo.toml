@@ -24,6 +24,8 @@ product-collection-scoped = ["indexed-read"]
 
 # ACT916 scoped product candidate, explicitly excluded from current Pages.
 product-amount-scoped = ["semantic-writer-dev"]
+# Fixed Steam626 active Eyeball ColorIndex2 only, no generic Amount/rights grant.
+product-steam626-eyecolor2-scoped = ["semantic-writer-dev"]
 # Exact Switch626 Chest-only WASM delivery surface; reuse existing Core.
 # Exact Steam626 linked crop Chest release surface, no public grant.
 product-steam626-chest-scoped = ["product-amount-scoped"]
