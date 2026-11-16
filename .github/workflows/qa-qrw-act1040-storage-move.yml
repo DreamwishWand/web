@@ -80,19 +80,32 @@ jobs:
             await deny('changed definitions after review',()=>commit1040(defs,r),stale);
             const foreign=mk(),fr=await review1040(foreign);
             await deny('different encrypted source',()=>commit1040(foreign,fr,{sourceBytes:occupied.sourceBytes.slice()}),stale);
-            const altered=mk(),ar=await review1040(altered);ar.plan.planId='qa-altered';
-            await deny('altered plan receipt',()=>commit1040(altered,ar),stale);
+            const altered=mk(),ar=await review1040(altered);assert.throws(()=>{ar.plan.planId='qa-altered'},TypeError);
+            ar.change.afterObject.x+=1;
+            await deny('altered nested receipt',()=>commit1040(altered,ar),stale);
             const first=commit1040(good,r);await deny('concurrent receipt reuse',()=>commit1040(good,r),stale);
             const out=await first;
             assert.equal(out.status,'PASS');assert.equal(out.persistentWriteAuthorized,false);assert.equal(out.productApplyAuthorized,false);
             const reopened=await openWorldSaveBytes(out.artifacts.edited.bytes,{sourcePlatform:'switch'});
             const expected=structuredClone(good.opened.profile);expected.World.GridCollection.Grids['3'].Objects['42'].X=453;
             assert.deepEqual(reopened.profile,expected);
-            assert.deepEqual(out.artifacts.backup.bytes,good.sourceBytes);
+            assert.deepEqual(Array.from(out.artifacts.backup.bytes),Array.from(good.sourceBytes));
             assert.equal(await hash(good.sourceBytes),sha);
             assert.equal(await hash(out.artifacts.backup.bytes),sha);
+            const {mkdtemp,writeFile,rm}=await import('node:fs/promises');
+            const {tmpdir}=await import('node:os');
+            const {join}=await import('node:path');
+            const {spawnSync}=await import('node:child_process');
+            const dir=await mkdtemp(join(tmpdir(),'wand-qrw1040-reopen-'));
+            try{
+              await writeFile(join(dir,'edited.p1g'),out.artifacts.edited.bytes,{flag:'wx'});
+              await writeFile(join(dir,'expected.json'),JSON.stringify(expected),{flag:'wx'});
+              const script="import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';const [url,edited,expected]=process.argv.slice(1);const {openWorldSaveBytes}=await import(url);const r=await openWorldSaveBytes(new Uint8Array(await readFile(edited)),{sourcePlatform:'switch'});assert.deepEqual(r.profile,JSON.parse(await readFile(expected,'utf8')));";
+              const child=spawnSync(process.execPath,['--input-type=module','-e',script,new URL('../src/lib/wep/world-save-source.ts',import.meta.url).href,join(dir,'edited.p1g'),join(dir,'expected.json')],{encoding:'utf8'});
+              assert.equal(child.status,0,child.stderr);
+            }finally{await rm(dir,{recursive:true,force:true})}
             await deny('replayed receipt after export',()=>commit1040(good,r),stale);
-            console.log('QRW1040_STORAGE_MOVE_ACTUAL_PASS',JSON.stringify({positive:1,negative:25,exactFullDocument:true,backupShaUnchanged:true,writer:false}));
+            console.log('QRW1040_STORAGE_MOVE_ACTUAL_PASS',JSON.stringify({positive:1,negative:26,exactFullDocument:true,independentProcessReopen:true,backupShaUnchanged:true,writer:false}));
           });
           NODE
       - name: Independent real P1G source-bound storage MOVE falsification
