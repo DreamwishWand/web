@@ -12,6 +12,8 @@ use sha2::{Digest,Sha256};
 #[cfg(feature="product-amount-scoped")]
 #[path="product_amount_scoped.rs"]
 mod product_amount_scoped;
+#[path="comp03_shape.rs"]
+mod comp03_shape;
 
 const EXACT_STEAM:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
 const MAX_TX_COMMANDS:usize=16;

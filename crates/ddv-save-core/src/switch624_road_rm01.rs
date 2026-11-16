@@ -534,8 +534,7 @@ mod r02_tests{
 
  // ACT940: exact Steam626 FloatingIsland 3x3 seed merge. Native-private
  // external ReadSet/affected closure remains required; no generic ID0 grant.
-#[path = "comp03_shape.rs"]
-mod comp03_shape;
+use super::comp03_shape;
 use comp03_shape::{ROAD as COMP03_ROAD, object as comp03_obj, additions as comp03_additions};
 const COMP03_CONTRACT:&str="wand.private.steam626.road-comp03-seed-merge-q9@1";
 fn comp03_plan(bytes:&[u8])->CoreResult<Value>{
