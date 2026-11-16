@@ -96,4 +96,35 @@ mod tests{
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["12"]["Orientation"]=json!("GridOrientation_Down");let s=open(&q);assert!(s.mint_switch626_fe01_target(env(&s),90001,ids).is_err());
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["14"]=row(14,BASE,x,y+6,false);let s=open(&q);assert!(s.mint_switch626_fe01_target(env(&s),90001,ids).is_err());
  }
+
+ #[test]fn qa1798_independent_fd_fe(){
+  for fe in [false,true]{
+   let(d,x,y)=doc(fe);let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();let ids=[10,11,12,13];
+   let hash=|v:&Value|sha(&serde_json::to_vec(v).unwrap());let g=&d["World"]["GridCollection"]["Grids"]["90001"];
+   let root=hash(&d["World"]["Villages"][0]["Areas"]["2"]);let gh=hash(g);let houses=sha(b"[]");let counter=sha(b"50");
+   if fe{let t=s.mint_switch626_fe01_target(e,90001,ids).unwrap();assert_eq!((t.root_sha,t.grid_sha,t.houses_sha,t.counter_sha),(root,gh,houses,counter));assert_eq!(t.old_rows_sha,ids.map(|i|hash(&g["Objects"][i.to_string()])));}
+   else{let t=s.mint_switch626_fd01_target(e,90001,x,y).unwrap();assert_eq!((t.root_sha,t.grid_sha,t.houses_sha,t.counter_sha),(root,gh,houses,counter));assert_eq!(t.stock_sha,hash(&d["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]));}
+   let deny=|q:&Value|{let a=open(q);let e=env(&a);if fe{assert!(a.mint_switch626_fe01_target(e,90001,ids).is_err())}else{assert!(a.mint_switch626_fd01_target(e,90001,x,y).is_err())}};
+   let mut neg=0;
+   for i in 0..9{let mut q=d.clone();match i{
+     0=>q["World"]["Villages"][0]["Areas"]["2"]["GridIDs"]=json!([90001,90001]),
+     1=>q["World"]["Villages"][0]["Areas"]["2"]["Unlocked"]=json!(false),
+     2=>q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(2147483646u32),
+     3=>q["World"]["GridCollection"]["Grids"]["90001"]["TessellationFactor"]=json!(1),
+     4=>q["World"]["GridCollection"]["Grids"]["90001"]["GridDefaultLayoutPath"]=json!("foreign"),
+     5=>q["World"]["GridCollection"]["DiffGrids"]["90001"]=json!({"ID":90001}),
+     6=>q["Opaque"]=json!({"GridID":90001,"ObjectID":51}),
+     7=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["State"]=json!({"Unknown":true}),
+     _=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["15"]=row(15,BASE,x,y,false)
+   }deny(&q);neg+=1;}
+   let bad=WorkerEnvelope{expected_index_generation:2,..e};if fe{assert!(s.mint_switch626_fe01_target(bad,90001,ids).is_err());assert!(s.mint_switch626_fe01_target(e,90001,[10,11,13,12]).is_err());}else{assert!(s.mint_switch626_fd01_target(bad,90001,x,y).is_err());assert!(s.mint_switch626_fd01_target(e,90001,x,y+1).is_err());}neg+=2;
+   let mut q=d.clone();q["Opaque"]=json!({"GridID":90001,"ObjectID":if fe{13}else{52}});deny(&q);neg+=1;
+   assert_eq!(s.receipt().unwrap(),before);assert_eq!(neg,12);println!("QRC1798_{}_TARGET_ACTUAL 1POS {neg}NEG RAW_HASHES",if fe{"FE01"}else{"FD01"});
+  }
+  let p=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();let h=json!({"ID":9,"ItemID":20500024,"X":42,"Y":24,"Orientation":"GridOrientation_UpLeft","State":{"HouseData":{"Built":true,"PlayerHouseIndex":0,"UpgradeState":{"Level":1}}}});let hs=json!([{"HouseItemID":20500024}]);assert_eq!(p.fe01_house_bound(&h,&hs),Some(Rect(42,24,76,58)));
+  for v in [json!([]),json!([{"HouseItemID":20500025}]),json!([{"HouseItemID":20500024},{"HouseItemID":20500024}])]{assert!(p.fe01_house_bound(&h,&v).is_none());}
+  for (k,v) in [("Built",json!(false)),("PlayerHouseIndex",json!(1)),("UpgradeState",json!({"Level":2}))]{let mut q=h.clone();q["State"]["HouseData"][k]=v;assert!(p.fe01_house_bound(&q,&hs).is_none());}
+  println!("QRC1798_FE01_HOUSE_ACTUAL 1POS 6NEG EXACT34");
+ }
+
 }
