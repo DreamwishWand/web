@@ -613,4 +613,65 @@ mod tests{
   let mut d=doc();d["World"]["Characters"].as_array_mut().unwrap().push(json!({"Base":{"id":10000001},"SkinID":SKIN_NEW}));
   let s=open(d);assert!(s.prepare_skin_current_applicability(env(&s),SKIN_CHARACTER,SKIN_NEW).is_err());
  }
+ // Independent QA preparation: nonempty saved inputs, not definition/rights grants.
+ // Bundle with the next actual fixed applicability/product ABI L2, never merge.
+ #[test]fn qa_appearance_nonempty_subscriber_witness_binding(){
+  fn rich()->Value{
+   let mut d=doc();
+   d["Player"]["AchievementsData"]=json!([{"AchievementID":2110000001u32,"State":"AchievementState_OnGoing","CurAmount":1,"MaxAmount":5,"ItemsUsed":[50000001]}]);
+   d["World"]["MissionSlots"]=json!({"1":{"Slots":[{"SlotId":1,"MissionId":2070000001u32,"State":"MissionSlotState_OnGoing","CurrentStepIndex":0,"MissionSteps":[{"SubSteps":[{"Objectives":[{"TargetAmount":5.0,"ItemAmount":1.0,"ProgressKeys":{"Count":"1"},"ItemIdsCollected":[50000001],"GridObjectIdsCollected":[{"GridId":7,"GridObjectId":9}]}]}]}]}]}});
+   d["Player"]["EvolveStatesProfile"]=json!({"EvolveProgressState":{"50000001":{"ItemID":50000001,"Level":1,"Objective":{"TargetAmount":2.0,"ItemAmount":1.0,"ProgressKeys":{"Count":"1"}}}}});
+   d["World"]["QuestInfo"]=json!({"SyntheticUnknown":"a"});
+   d["ConditionalEventHistory"]=json!({"ActiveEvents":{"15299998":{"SpawnState":{"SyntheticUnknown":1}}}});
+   d
+  }
+  let d=rich();let s=open(d.clone());let e=env(&s);
+  let h=s.prepare_hair_current_applicability(e,20).unwrap();
+  let k=s.prepare_skin_current_applicability(e,SKIN_CHARACTER,SKIN_NEW).unwrap();
+  let sub=&h.readset["subscribers"];
+  assert_eq!(sub,&k.readset["subscribers"]);
+  assert_eq!(sub["achievementsData"]["entries"][0]["itemsUsedTyped"]["entries"][0]["value"],50000001);
+  let obj=&sub["missionSlots"]["groups"][0]["slots"][0]["steps"][0]["subSteps"][0]["objectives"][0]["witness"];
+  assert_eq!(obj["progressEntries"][0]["savedValue"],"1");
+  assert_eq!(obj["gridObjectIdsCollectedTyped"]["entries"][0]["gridId"],7);
+  assert_eq!(obj["gridObjectIdsCollectedTyped"]["entries"][0]["objectId"],9);
+  assert_eq!(sub["evolveStatesProfile"]["entries"][0]["itemId"],50000001);
+  assert_eq!(sub["conditionalEventHistory"]["activeEvents"]["entries"][0]["eventId"],15299998);
+  assert_eq!(h.readset["dialogueFlags"]["targetPositions"],json!([0]));
+  assert_ne!(h.readset_sha,k.readset_sha);
+  let mut changed=0;
+  for i in 0..6{
+   let mut q=d.clone();match i{
+    0=>q["Player"]["AchievementsData"][0]["CurAmount"]=json!(2),
+    1=>q["World"]["MissionSlots"]["1"]["Slots"][0]["MissionSteps"][0]["SubSteps"][0]["Objectives"][0]["ProgressKeys"]["Count"]=json!("2"),
+    2=>q["Player"]["EvolveStatesProfile"]["EvolveProgressState"]["50000001"]["Level"]=json!(2),
+    3=>q["World"]["QuestInfo"]["SyntheticUnknown"]=json!("b"),
+    4=>q["ConditionalEventHistory"]["ActiveEvents"]["15299998"]["SpawnState"]["SyntheticUnknown"]=json!(2),
+    _=>q["World"]["DialogueFlags"]=json!([1,FLAG])
+   }
+   let x=open(q);let xe=env(&x);
+   let a=x.prepare_hair_current_applicability(xe,20).unwrap();let b=x.prepare_skin_current_applicability(xe,SKIN_CHARACTER,SKIN_NEW).unwrap();
+   assert_ne!(a.readset_sha,h.readset_sha,"hair {i}");assert_ne!(b.readset_sha,k.readset_sha,"skin {i}");
+   assert_eq!(a.selected_token_sha,h.selected_token_sha);assert_eq!(b.selected_token_sha,k.selected_token_sha);
+   for w in [&a,&b]{assert_eq!(w.readset["runtimeProducerClosureVerified"],false);assert_eq!(w.readset["productWriterAuthorized"],false);}
+   assert!(x.prepare_hair_current_applicability(e,20).is_err());assert!(x.prepare_skin_current_applicability(e,SKIN_CHARACTER,SKIN_NEW).is_err());
+   changed+=1;
+  }
+  let mut denied_count=0;
+  for i in 0..5{
+   let mut q=d.clone();match i{
+    0=>q["Player"]["AchievementsData"]=json!([{"AchievementID":2110000001u32,"State":"AchievementState_OnGoing"},{"AchievementID":2110000001u32,"State":"AchievementState_OnGoing"}]),
+    1=>q["World"]["MissionSlots"]["1"]["Slots"][0]["CurrentStepIndex"]=json!(1),
+    2=>q["Player"]["EvolveStatesProfile"]["EvolveProgressState"]["50000001"]["ItemID"]=json!(50000002),
+    3=>q["ConditionalEventHistory"]["ActiveEvents"]=json!({"01":{"SpawnState":{}}}),
+    _=>q["World"]["MissionSlots"]["1"]["Slots"][0]["MissionSteps"][0]["SubSteps"][0].as_object_mut().unwrap().remove("Objectives").map(|_|()).unwrap()
+   }
+   let x=open(q);let xe=env(&x);
+   assert!(x.prepare_hair_current_applicability(xe,20).is_err(),"hair {i}");
+   assert!(x.prepare_skin_current_applicability(xe,SKIN_CHARACTER,SKIN_NEW).is_err(),"skin {i}");
+   denied_count+=2;
+  }
+  assert_eq!(env(&s),e);assert_eq!(changed,6);assert_eq!(denied_count,10);
+  println!("QRC_APPEARANCE_NONEMPTY_WITNESS {}MUTATIONS {}STRUCTURAL_DENIALS",changed,denied_count);
+ }
 }
