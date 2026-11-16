@@ -200,7 +200,8 @@ where F:FnMut(u32)->R<GridObservation> {
         need(ids.len()<=4096 && field(a,"Unlocked")?.is_boolean(),"VASE_GEOMETRY_QUOTA_AREA")?;
         for v in ids {
             let id=u(v)?;
-            need(id>0 && roots.insert(id) && roots.len()<=4096,"VASE_GEOMETRY_QUOTA_ROOT_ALIAS")?;
+            need((id>0 || (id==0 && aid==7 && ids.len()==1 && field(a,"Unlocked")?.as_bool()==Some(true)))
+                && roots.insert(id) && roots.len()<=4096,"VASE_GEOMETRY_QUOTA_ROOT_ALIAS")?;
             if id==selected {
                 need(aid==6 && ids.len()==1 && field(a,"Unlocked")?.as_bool()==Some(true),"VASE_GEOMETRY_QUOTA_SELECTED_ROOT")?;
                 chosen=true;
@@ -217,6 +218,13 @@ where F:FnMut(u32)->R<GridObservation> {
         let o=observe(id)?;
         need(!o.overlay && u(field(&o.grid,"ID")?)?==id && field(&o.grid,"GridDefaultLayoutPath")?==""
             && if is_root {o.root_refs==1&&o.parent_refs==0} else {o.root_refs==0&&o.parent_refs==1},"VASE_GEOMETRY_QUOTA_GRID_ALIAS")?;
+        // Grid zero is a real Village root only in the exact supported SnowLevel scope.
+        // The typed reference producer must exclude verified Realm-local puzzle IDs,
+        // not arbitrary zero aliases; the ordinary root/parent check above remains.
+        if id==0 {
+            need(is_root && selected!=0 && field(&o.grid,"GridDataPath")?=="GridData/Villages/Village04-SnowLevel-GridData.json"
+                && u(field(&o.grid,"TessellationFactor")?)?==2,"VASE_GEOMETRY_QUOTA_ZERO_ROOT")?;
+        }
         let objects=map(field(&o.grid,"Objects")?)?;
         need(objects.len()<=16384,"VASE_GEOMETRY_QUOTA_OBJECT_BOUND")?;
         for (k,v) in objects {
@@ -248,3 +256,60 @@ where F:FnMut(u32)->R<GridObservation> {
     Ok(QuotaBound{grids:seen.len(),raw,excluded,post_unique_upper,post_instance_upper})
 }
 
+
+#[cfg(test)]
+mod zero_root_tests {
+    use super::*;
+
+    fn fixture() -> (Value, BTreeMap<u32, Value>) {
+        let village=json!({"VillageObjectLimitName":"Village04ObjectLimit",
+            "HighEndVillageObjectLimitName":"HighEndVillageObjectLimit",
+            "BoughtObjectLimit":{"UniqueLimit":0,"InstanceLimit":0,"Exclusions":[],"SpecificItemLimits":[]},
+            "Areas":{"6":{"Unlocked":true,"GridIDs":[7]},"7":{"Unlocked":true,"GridIDs":[0]}}});
+        let mut grids=BTreeMap::new();
+        grids.insert(0,json!({"ID":0,"GridDataPath":"GridData/Villages/Village04-SnowLevel-GridData.json",
+            "GridDefaultLayoutPath":"","TessellationFactor":2,"Objects":{}}));
+        grids.insert(7,json!({"ID":7,"GridDataPath":GRID,"GridDefaultLayoutPath":"",
+            "TessellationFactor":2,"Objects":{}}));
+        (village,grids)
+    }
+
+    fn run(v:&Value, grids:&BTreeMap<u32,Value>, selected:u32, root_refs:u32,
+        parent_refs:u32, overlay:bool) -> R<QuotaBound> {
+        let pack=load(include_str!("../data/steam626-vase-geometry-quota.jsonl"))?;
+        check_village_quota(&pack,BUILD,626,v,&json!(false),selected,|id|{
+            Ok(GridObservation{grid:grids.get(&id).ok_or("TEST_GRID_MISSING")?.clone(),
+                root_refs:if id==0 {root_refs} else {1},
+                parent_refs:if id==0 {parent_refs} else {0},
+                overlay:id==0&&overlay})
+        })
+    }
+
+    #[test]
+    fn canonical_village_zero_root_is_counted_without_granting_zero_target() {
+        let (v,g)=fixture();
+        let q=run(&v,&g,7,1,0,false).unwrap();
+        assert_eq!(q.grids,2);
+        assert_eq!((q.raw,q.excluded,q.post_unique_upper,q.post_instance_upper),(0,0,1,1));
+        for i in 0..13 {
+            let (mut v,mut g)=fixture();
+            let (mut selected,mut roots,mut parents,mut overlay)=(7,1,0,false);
+            match i {
+                0=>{let a=v["Areas"].as_object_mut().unwrap();let z=a.remove("7").unwrap();a.insert("8".into(),z);},
+                1=>v["Areas"]["7"]["Unlocked"]=json!(false),
+                2=>v["Areas"]["7"]["GridIDs"]=json!([0,8]),
+                3=>v["Areas"]["8"]=json!({"Unlocked":true,"GridIDs":[0]}),
+                4=>g.get_mut(&0).unwrap()["GridDataPath"]=json!("other"),
+                5=>g.get_mut(&0).unwrap()["TessellationFactor"]=json!(1),
+                6=>g.get_mut(&0).unwrap()["ID"]=json!(8),
+                7=>g.get_mut(&0).unwrap()["GridDefaultLayoutPath"]=json!("other"),
+                8=>roots=2,
+                9=>parents=1,
+                10=>overlay=true,
+                11=>selected=0,
+                _=>g.get_mut(&7).unwrap()["Objects"]=json!({"1":{"ID":1,"ItemID":ITEM,"State":{"SubGrid":{"GridID":0}}}}),
+            }
+            assert!(run(&v,&g,selected,roots,parents,overlay).is_err(),"zero root negative {i}");
+        }
+    }
+}
