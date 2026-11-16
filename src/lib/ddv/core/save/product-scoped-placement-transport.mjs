@@ -17,7 +17,18 @@ const mixedRoad=Object.freeze({contract:'wand.worker.steam626.scoped-sr03-mixed-
   valid:(r,s)=>r.gridId===s.gridId&&r.retainedId===s.retainedId&&r.movedId===s.movedId&&r.oldAmount>=3&&r.newAmount===r.oldAmount-3&&r.inventoryDelta===-3&&sha(r.inventoryEntrySha256)&&r.nextObjectId>Math.max(r.retainedId,r.movedId)&&r.nextObjectId<=0xfffffffd,
   stageArgs:r=>[r.gridId,r.retainedId,r.movedId,r.nextObjectId,r.oldAmount,r.gridSha256,r.inventoryEntrySha256,r.projectedDecodedSha256],
   summary:r=>({retainedId:r.retainedId,movedId:r.movedId,inventoryDelta:-3,addObjects:3})});
-const fixed=Object.freeze({
+const fm01Raw='contract,layout,gridId,oldIds,retainedId,deletedIds,expectedNextId,oldAmount,newAmount,inventoryDelta,rootSha256,gridSha256,counterSha256,inventoryEntrySha256,housesSha256,oldRowsSha256,projectedDecodedSha256,exactFieldChangedCount,sessionId,revision,indexGeneration,decodedSha256,productWriterAuthorized,originalOverwriteAuthorized';
+const ids5=a=>Array.isArray(a)&&a.length===5&&a.every(positive)&&new Set(a).size===5;
+const sameIds=(a,b)=>Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every((x,i)=>x===b[i]);
+const fm01=Object.freeze({contract:'wand.worker.switch626.scoped-fm01-layout@1',count:8,item:40700246,preview:'preview_switch626_fm01',stage:'stage_switch626_fm01',
+ keys:common+',layout,oldIds,retainedId,deletedIds,inventoryDelta,rootSha256,counterSha256,inventoryEntrySha256,housesSha256,oldRowsSha256',
+ selector:s=>exact(s,'gridId,oldIds')&&positive(s.gridId)&&ids5(s.oldIds),
+ previewArgs:s=>[s.gridId,Uint32Array.from(s.oldIds)],
+ normalize:r=>{if(!exact(r,fm01Raw)||r.productWriterAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();const {expectedNextId,productWriterAuthorized,originalOverwriteAuthorized,...rest}=r;return {...rest,itemId:40700246,nextObjectId:expectedNextId,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false}},
+ valid:(r,s)=>r.layout==='PRESERVE_EXISTING'&&r.gridId===s.gridId&&ids5(r.oldIds)&&sameIds(r.oldIds,s.oldIds)&&r.retainedId===s.oldIds[0]&&sameIds(r.deletedIds,s.oldIds.slice(1))&&r.oldAmount===r.newAmount&&r.oldAmount<=9999&&r.inventoryDelta===0&&r.nextObjectId>Math.max(...r.oldIds)&&r.nextObjectId<=0xfffffffc&&[r.rootSha256,r.counterSha256,r.inventoryEntrySha256,r.housesSha256].every(sha)&&Array.isArray(r.oldRowsSha256)&&r.oldRowsSha256.length===5&&r.oldRowsSha256.every(sha),
+ stageArgs:r=>[r.gridId,Uint32Array.from(r.oldIds),r.nextObjectId,r.oldAmount,r.rootSha256,r.gridSha256,r.counterSha256,r.inventoryEntrySha256,r.housesSha256,r.oldRowsSha256.join(''),r.projectedDecodedSha256],
+ summary:r=>({layout:'PRESERVE_EXISTING',oldIds:Object.freeze([...r.oldIds]),retainedId:r.retainedId,deletedIds:Object.freeze([...r.deletedIds]),inventoryDelta:0,addObjects:3})});
+const fixed=Object.freeze({fm01,
  sr03:mixedRoad,
  rm01:Object.freeze({...mixedRoad,contract:'wand.worker.switch626.scoped-rm01-mixed-q5@1',preview:'preview_switch626_rm01',stage:'stage_switch626_rm01'}),
  comp03:Object.freeze({contract:'wand.worker.steam626.scoped-comp03-layout@1',count:9,item:40100038,preview:'preview_steam626_comp03',stage:'stage_steam626_comp03',
@@ -34,6 +45,7 @@ const fixed=Object.freeze({
   summary:r=>({inventoryId:0,x:r.x,y:r.y,orientation:r.orientation,inventoryDelta:-1,addObjects:1})})
 });
 export const createSteam626Sr03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.sr03);
+export const createSwitch626Fm01Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.fm01);
 export const createSwitch626Rm01Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.rm01);
 export const createSteam626Comp03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.comp03);
 // Explicit companion factory: only a separately accepted, signed spatial
@@ -43,14 +55,14 @@ export const createSteam626VaseAddTransport=(wasm,initial,identity,options)=>cre
 function create(wasm,initial,identity,{parse,current,revoke,maxBytes,chunkBytes},op,spatial=false){
  if(spatial&&(op!==fixed.comp03||typeof wasm?.preview_steam626_comp03_spatial!=='function'))fail();
  if(typeof document!=='undefined'||!wasm||typeof wasm[op.preview]!=='function'||typeof wasm[op.stage]!=='function'||
-  !identity||identity.schema!==626||!(op===fixed.rm01?(identity.platform==='switch'&&identity.buildKind==='switch-bid'&&identity.buildId==='9A239D3DB569756D'):(identity.platform==='steam-windows'&&identity.buildKind==='steam-full-version'&&identity.buildId===STEAM))||
+  !identity||identity.schema!==626||!((op===fixed.rm01||op===fixed.fm01)?(identity.platform==='switch'&&identity.buildKind==='switch-bid'&&identity.buildId==='9A239D3DB569756D'):(identity.platform==='steam-windows'&&identity.buildKind==='steam-full-version'&&identity.buildId===STEAM))||
   !initial||initial.contract!=='wand.product.single-save-session.boundary@1'||initial.schema!==626||initial.revision!==0||initial.indexGeneration!==1||
   typeof initial.sessionId!=='string'||!/^[a-f0-9]{32}$/.test(initial.sessionId)||/^0+$/.test(initial.sessionId)||!sha(initial.decodedSha256)||
   initial.productWorkerBound!==true||initial.fullDocumentJsonValidated!==true||initial.writerAuthorized!==false||initial.editedCopyAuthorized!==false||initial.applyAuthorized!==false)fail();
  let preview=null;
  const life=createScopedEditLifecycle(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes,
-  contract:'wand.worker.scoped-edit@1',stageContract:op.contract,outputContract:'wand.worker.scoped-edit-output@1',
-  toggleMethod:'toggle_scoped_edit',beginMethod:'begin_scoped_edit_output',nextMethod:'next_scoped_edit_output_chunk',
+  contract:op===fixed.fm01?op.contract:'wand.worker.scoped-edit@1',stageContract:op.contract,outputContract:op===fixed.fm01?'wand.worker.switch626.scoped-fm01-layout-output@1':'wand.worker.scoped-edit-output@1',
+  toggleMethod:op===fixed.fm01?'toggle_switch626_fm01':'toggle_scoped_edit',beginMethod:op===fixed.fm01?'begin_switch626_fm01_output':'begin_scoped_edit_output',nextMethod:op===fixed.fm01?'next_switch626_fm01_output_chunk':'next_scoped_edit_output_chunk',
   exactCount:op.count,expectedProjection:()=>preview?.projectedDecodedSha256??null});
  const summary=()=>Object.freeze({itemId:preview.itemId,gridId:preview.gridId,nextObjectId:preview.nextObjectId,
   oldAmount:preview.oldAmount,newAmount:preview.newAmount,exactFieldChangedCount:op.count,...op.summary(preview),

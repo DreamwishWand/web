@@ -43,12 +43,13 @@ function spatialReview(r,p){
  return Object.freeze({gridId:r.gridId,seedId:r.seedId,markers:overlay.markers});
 }
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation,spatialPreviewEnabled=false}={}){
- if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','hair','skin'].includes(operation)||!adapter)fail();
+ if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','hair','skin','fm01'].includes(operation)||!adapter)fail();
+ const fm01=operation==='fm01',ids5=a=>Array.isArray(a)&&a.length===5&&a.every(positive)&&new Set(a).size===5,sameIds=(a,b)=>Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every((n,i)=>n===b[i]);
  const backpack=operation==='backpack-steam'||operation==='backpack-switch',wardrobe=operation==='wardrobe-steam'||operation==='wardrobe-switch';
  const appearance=operation==='hair'||operation==='skin';
  const previewMethod=appearance?'previewAppearance':wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=appearance?'stageAppearance':wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
  for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
- const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=(wardrobe||appearance)?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
+ const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=(wardrobe||appearance)?1:comp?9:(sr03||fm01)?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'||fm01?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
  if(typeof spatialPreviewEnabled!=='boolean'||(spatialPreviewEnabled&&(!comp||typeof adapter.spatialPreview!=='function')))fail();
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
@@ -84,8 +85,12 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
   backup=Object.freeze({name:r.backupName,sha:source.sha,size:source.size});return set({phase:'ready',backupName:backup.name});
  });
  const preview=selector=>run(['ready','previewed'],async check=>{
-  if(!backup||!((wardrobe||appearance)?selector===undefined:backpack?backpackSelector(selector):comp?exact(selector,'seedId')&&positive(selector.seedId):sr03?exact(selector,'gridId,retainedId,movedId')&&positive(selector.gridId)&&positive(selector.retainedId)&&positive(selector.movedId)&&selector.retainedId!==selector.movedId:exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
+  if(!backup||!(fm01?exact(selector,'gridId,oldIds')&&positive(selector.gridId)&&ids5(selector.oldIds):(wardrobe||appearance)?selector===undefined:backpack?backpackSelector(selector):comp?exact(selector,'seedId')&&positive(selector.seedId):sr03?exact(selector,'gridId,retainedId,movedId')&&positive(selector.gridId)&&positive(selector.retainedId)&&positive(selector.movedId)&&selector.retainedId!==selector.movedId:exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
   const r=await ((wardrobe||appearance)?adapter[previewMethod]():adapter[previewMethod]({...selector}));check();
+  if(fm01){
+   if(!exact(r,'itemId,gridId,nextObjectId,oldAmount,newAmount,exactFieldChangedCount,layout,oldIds,retainedId,deletedIds,inventoryDelta,addObjects,scopedCandidate,writerAuthorized,editedCopyAuthorized')||r.itemId!==40700246||r.gridId!==selector.gridId||!ids5(r.oldIds)||!sameIds(r.oldIds,selector.oldIds)||r.retainedId!==r.oldIds[0]||!sameIds(r.deletedIds,r.oldIds.slice(1))||r.layout!=='PRESERVE_EXISTING'||!positive(r.oldAmount)||r.oldAmount>9999||r.oldAmount!==r.newAmount||!positive(r.nextObjectId)||r.nextObjectId<=Math.max(...r.oldIds)||r.nextObjectId>0xfffffffc||r.exactFieldChangedCount!==8||r.inventoryDelta!==0||r.addObjects!==3||r.scopedCandidate!==true||r.writerAuthorized!==false||r.editedCopyAuthorized!==false)fail();
+   return set({phase:'previewed',preview:Object.freeze({...r,oldIds:Object.freeze([...r.oldIds]),deletedIds:Object.freeze([...r.deletedIds])})});
+  }
   if(appearance){
    const hair=operation==='hair';if(!exact(r,'old,new,exactFieldChangedCount,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized,'+(hair?'activeMale':'characterId'))||r.old!==(hair?74:170000054)||r.new!==(hair?20:170000000)||(hair?typeof r.activeMale!=='boolean':r.characterId!==10000053)||r.exactFieldChangedCount!==1||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();
    return set({phase:'previewed',preview:Object.freeze({...r})});
