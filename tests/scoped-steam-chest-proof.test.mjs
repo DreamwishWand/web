@@ -19,7 +19,7 @@ test('Steam Chest proof exact subjects, legacy six aliases only and private fixe
  const b=bytes(),p=inspectScopedSteamChestSubjects(b,source);
  assert.equal(p.wasmSha256,sha(b[2]));assert.equal(p.jsSha256,sha(b[1]));
  assert.equal(exports.length,23);assert.equal(methods.length,14);
- for(const n of ['preview_switch626_chest','stage_switch626_catalog0','stage_fixed_collection','stage_steam626_vase_add','toggle_scoped_edit']){
+ for(const n of ['preview_switch626_vase_add','stage_steam626_sr03','preview_switch626_chest','stage_switch626_catalog0','stage_fixed_collection','stage_steam626_vase_add','toggle_scoped_edit']){
   assert.throws(()=>inspectScopedSteamChestSubjects(bytes(wasm([...exports,'workerwasmsource_'+n])),source));
   assert.throws(()=>inspectScopedSteamChestSubjects(bytes(wasm(),Buffer.from(n)),source));
  }
