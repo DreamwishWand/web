@@ -749,6 +749,244 @@ const steam626AppearanceCumulativeEntries=[
     }
   }
 ];
+const steamPortableAfterFenceEntries=[
+  {
+    "path": ".github/workflows/core-product-session-boundary.yml",
+    "before": {
+      "mode": "100644",
+      "blob": "825c0e92d7c9f5a1e86900d3a67ccff57b15babf"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "a6ef41069bf39ec9bd0a59635b287d1b48b7961b"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "6e3102f66faa31174e110c2fe760a9c9ef38d10c"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "ebc56b9812e10124ecf3fb05a52eb0c9a8638224"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/catalog0_portable_restore.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "a29b2f9f94ac9b9e040d5a73d57ae2dccfb66d1d"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/chest_portable_restore.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "d7bc4867c8c14e7593e32f4a45b66fb460412767"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/portable_backup.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "c075bbf764aa2372eaf2a844d81ca1c10e11c1c3"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "238b0aeada96ed13e4b74f8020791f45df5a8acd"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_amount_scoped.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "e6e360f5326b9a5cf6884600a4c9ecf642aa12fa"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "11452db0fe69c501b1b2187cb06dadc778501317"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_portable_catalog0.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "c74eebc495da62c670f25d749ffe56c67b36889c"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_portable_chest.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "86ea11e32b52a830f7b7fdbb464400a46df99f03"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "0a8d533f1ba8d7b7a35322a9ac8459287e09481c"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "e76e3c209a355684f05fe02cd87031b6126238cf"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_portable_catalog0.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "3c8a0780aee62d591ba69bf5e58985f6f18f9860"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_portable_chest.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "898340f9a8f5c8dc6fa0d00814e2048390a62cd4"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "f155092b4fa406cd0db946033ec81071f1496cba"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "2d325fd528dc4d2fb71bf86ec2d3d8a285552423"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "dd59264c1c20325c66e6aecc3413e91d10fc72ed"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "bb4ab60ef80075b7d6bf04e11fa33f9c2eeca0a9"
+    }
+  }
+];
+const switchCatalog0AfterFenceEntries=[
+  {
+    "path": ".github/workflows/core-product-session-boundary.yml",
+    "before": {
+      "mode": "100644",
+      "blob": "825c0e92d7c9f5a1e86900d3a67ccff57b15babf"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "9f8539aff25f4ba5169f1575549fc5ca609aa680"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "6e3102f66faa31174e110c2fe760a9c9ef38d10c"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "f77aae551e52151668a0c2ce7f298478f1df8696"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/portable_backup.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "c075bbf764aa2372eaf2a844d81ca1c10e11c1c3"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "899c6b5ada184a1290e9865076b59bc8aa881350"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_amount_scoped.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "e6e360f5326b9a5cf6884600a4c9ecf642aa12fa"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "33a9a5bd7b9dedc21cb788f43a6d997e25043ebb"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_switch626_catalog0.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "dab0f07b34b7093348b1992468aa68d08dc85cbb"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/switch626_catalog0_portable_restore.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "7f0c026a83408517eb3de7d58164be66144a8ec0"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_portable_switch626_catalog0.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "7b8575f40312b897f24af45d1f7418cc3f154189"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "0a8d533f1ba8d7b7a35322a9ac8459287e09481c"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "a39f58ec16478e5320ecaa9f88cf39e88156c2b9"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_portable_switch626_catalog0.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "ae665fdbcca328052406fd053d76eea4c8256e44"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "f155092b4fa406cd0db946033ec81071f1496cba"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "6486ec280094c4ba524a80d7cae12048608d9a52"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "dd59264c1c20325c66e6aecc3413e91d10fc72ed"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "c09f430e78d3a1aa1f96e7975f24ed2ed028585e"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -841,6 +1079,11 @@ function selectAcceptedCorePair(baseCore,sourceCore){
   return {entries:steam626AppearanceCumulativeEntries,count:14,metadata:{
    sourcePr:1699,sourceHead:'06adf0c44a77e3ba653a62a14160207a7a9d91be',
    sourceTree:'dfe419896223d4f3fed14e63bb5aaf1abb573a47'}};
+ }
+ if(baseCore==='754df0e98e4c074fb7f6ec30243e79c4d1a1b42a'){
+  if(sourceCore==='206647e12ff8819245a2ecfbdefa808d283dac72')return {entries:steamPortableAfterFenceEntries,count:13,metadata:{sourcePr:1833,sourceHead:'adbc6ec697ed7f6a9d5413a1a35eabaf9737d103',sourceTree:'381784564bfe7b38ea7d0ff170bbe10dbdef04b3',preparedCandidateTree:'8f19c4dc1c097222c28e33e8ebd2196564635279'}};
+  if(sourceCore==='410a2399aaf8a4b60a7c5f4282ecb76b26a12373')return {entries:switchCatalog0AfterFenceEntries,count:11,metadata:{sourcePr:1839,sourceHead:'d789e9969c113c6601844a2fc194a3aad0034e73',sourceTree:'d1c91a31800e5eaa866b6eab846b513743f1303e',preparedCandidateTree:'66d58f99ee08c60611d41df4f6f00acafddfac8a'}};
+  deny('CANDIDATE_CORE_TREE');
  }
  deny('BASE_CORE_TREE');
 }
