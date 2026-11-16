@@ -23,12 +23,21 @@ function freshReopen(ciphertext,expectedDecodedSha256){
 const STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
 const SWITCH='9A239D3DB569756D';
 export function createProductScopedAmountLocalAdapter(options={}){return createScopedLocalAdapter(options,false)}
+// Explicit trusted Switch626 scope; no caller/UI profile or alternate discovery.
+export function createProductSwitch626ChestLocalAdapter(options={}){
+ if(options.allowCoreDiscoverySource===false||(options.coreDiscoveryProfile!==undefined&&options.coreDiscoveryProfile!=='linked-crop-chest48')||options.discoverScopedTargets!==undefined)fail();
+ return createScopedLocalAdapter({...options,allowCoreDiscoverySource:true,coreDiscoveryProfile:'linked-crop-chest48'},false,true);
+}
+export function createProductSteam626ChestLocalAdapter(options={}){
+ if(options.allowCoreDiscoverySource===false||(options.coreDiscoveryProfile!==undefined&&options.coreDiscoveryProfile!=='linked-crop-chest48')||options.discoverScopedTargets!==undefined)fail();
+ return createScopedLocalAdapter({...options,allowCoreDiscoverySource:true,coreDiscoveryProfile:'linked-crop-chest48'},false,false,true);
+}
 // Trusted Worker constructor only. Same local copy lifecycle, one bridge/Session;
 // this is the existing Collection UI contract, not a public Writer grant.
 export function createProductFixedCollectionLocalAdapter(options={}){return createScopedLocalAdapter(options,true)}
-export function createProductSteam626Comp03LocalAdapter(options={}){return createScopedLocalAdapter(options,false,'comp03')}
-export function createProductSteam626VaseAddLocalAdapter(options={}){return createScopedLocalAdapter(options,false,'vase')}
-function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,placementScope=null){
+export function createProductSteam626Comp03LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,'comp03')}
+export function createProductSteam626VaseAddLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,'vase')}
+function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,placementScope=null){
  const placement=placementScope!==null,placementCount=placementScope==='comp03'?9:3;
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||
   (discoverScopedTargets!==undefined&&typeof discoverScopedTargets!=='function')||
@@ -36,7 +45,7 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   ((collection||placement)&&(allowCoreDiscoverySource||discoverScopedTargets!==undefined))||
   !['linked-crop-chest48','catalog0-furniture'].includes(coreDiscoveryProfile))fail();
  const store=createLocalEncryptedCopyStore(getDirectory?{getDirectory}:{});
- const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:!collection&&!placement,allowScopedCollectionSource:collection,placementScope,readDurableOriginalBackup:b=>store.durable(b)});
+ const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:!collection&&!switchChest&&!steamChest&&!placement,allowSwitch626ChestSource:switchChest,allowSteam626ChestSource:steamChest,allowScopedCollectionSource:collection,placementScope,readDurableOriginalBackup:b=>store.durable(b)});
  let epoch=0,source=null,backup=null,targets=[],phase='closed',busy=false,closeUnverified=false;
  const revoke=()=>{
   epoch++;store.close();source=null;backup=null;targets=[];phase='closed';busy=false;
@@ -55,7 +64,7 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
  const collectionSafety={writerAuthorized:false,originalOverwriteAuthorized:false};
  const cleanTarget=r=>{
   if(!keys(r,'profile,id,selector,itemId,oldAmount')||!uint(r.id)||!uint(r.selector)||!uint(r.itemId)||!r.itemId||
-   !uint(r.oldAmount)||r.oldAmount<2||r.oldAmount>9999||
+   !uint(r.oldAmount)||r.oldAmount<2||r.oldAmount>9999||((switchChest||steamChest)&&(r.profile!=='linked-crop-chest48'||r.oldAmount!==50))||
    !((r.profile==='linked-crop-chest48'&&r.id>1&&r.selector<48)||(r.profile==='catalog0-furniture'&&r.id===0&&r.selector===r.itemId)))fail();
   const chest=r.profile==='linked-crop-chest48';
   return {kind:chest?'ChestExistingSlotAmountDecrease':'InventoryExistingAmountDecrease',targetId:r.id,itemId:r.itemId,
@@ -66,8 +75,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   async open(args){
    if(closeUnverified)fail();revoke();return run(async t=>{
     if(!keys(args,'file,originalSha256,build')||!keys(args.build,'platform,buildKind,buildId,schema,externallyConfirmed')||
-     !((args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
-       (collection&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
+     !((!switchChest&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
+       ((collection||switchChest)&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
      args.build.schema!==626||args.build.externallyConfirmed!==true||!uint(t)||t<1)fail();
     const input=Object.freeze({file:args.file,originalSha256:args.originalSha256,build:Object.freeze({...args.build})});
     const r=await bridge.openScopedEncrypted(input);check(t);
