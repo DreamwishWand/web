@@ -1,0 +1,56 @@
+name: 04 QR-S R01 proof7 projected pin L2 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-r01-proof7-projected.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b2bdb095cdb3b9c60b84894cad25a51eeb10982b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Projected raw pins from fixed accepted sources and eight dispatch guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-proof8.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'}),blob=(r,p)=>g('rev-parse',r+':'+p);
+          const head='b2bdb095cdb3b9c60b84894cad25a51eeb10982b',base='2a522f05131f62e0a70b8581c967d63a7f8b4f52',web='08bb8a8e1a765a6057c2de4e7fef6b8afac2655f',core='3f01af5276e16119de497eee85cdca170aa3fd21',gate='a421cc3069205893303378c378c44676833de84d',adapter='f89e6b0225f62a3a3b5ee5a4551bd56f2e1ddcab',wf='.github/workflows/pages.yml';
+          assert.equal(g('rev-parse','HEAD'),head);assert.equal(blob(head,wf),'66e328fb91f5600e1a8a9b3e48691f10a55e86b7');
+          const y=raw(head,wf),old=raw(base,wf),names=['scoped_collection_proof','scoped_switch_chest_proof','scoped_steam_chest_proof','scoped_sr03_proof','scoped_comp03_spatial_proof','scoped_rm01_proof','scoped_r01_proof'],keys=names.map(n=>n+'_source');
+          const section=(s,n)=>{const i=s.indexOf('\n  '+n+':\n');assert.ok(i>=0,n);const j=s.slice(i+1).search(/\n  [a-z0-9_]+:\n/);return j<0?s.slice(i):s.slice(i,i+1+j)};
+          const pins=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g)].map(m=>[m[1],m[2]]);
+          const oldMap=new Map(pins(old)),newMap=new Map(pins(y)),cfg='scripts/wasm-distribution/protected-release-inputs.json',gatePath='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',adPath='scripts/readonly-release/scoped-placement-proof.mjs',cargo='crates/ddv-save-core/Cargo.toml';
+          const config=raw(base,cfg).replace(blob(base,cargo),blob(core,cargo)),cfgHash=execFileSync('git',['hash-object','--stdin'],{input:config,encoding:'utf8'}).trim();assert.equal(cfgHash,'a14e383bb7a3d2196edd5dfe2b188104739feb0f');
+          assert.equal(blob(core,'crates/ddv-save-core'),'1318590f458f274017a6c0bd9d65f81b97cc1ade');assert.equal(blob(gate,gatePath),'11ddb6f2bb4178a6ba680d07604421a9591aa61c');assert.equal(blob(adapter,adPath),'70dbb6c5fe5516254d5b9b46a15948869d6b9327');
+          const webPaths=new Set(['src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs','src/lib/ddv/core/save/product-scoped-amount-transport.mjs','src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs','src/lib/ddv/core/save/product-wasm-read-owner.mjs','src/lib/dev/local-scoped-edit-worker-port.mjs','src/lib/ddv/core/save/product-wasm-read-owner.d.mts','src/lib/ddv/core/save/product-scoped-placement-release.mjs','src/lib/ddv/core/save/product-scoped-placement-transport.mjs','src/lib/dev/LocalPlacementEditorDev.svelte','src/lib/dev/PlacementProductRoute.svelte','src/lib/dev/local-placement-copy.mjs','src/lib/dev/local-placement-workflow.mjs','src/lib/dev/product-placement-client.mjs','src/lib/ddv/core/save/product-scoped-r01-release-anchor.mjs','src/lib/dev/product-r01.worker.mjs','src/routes/editor/world/r01/switch/+page.svelte']);
+          const expect=p=>p===cfg?cfgHash:p===gatePath?blob(gate,p):p===adPath?blob(adapter,p):p==='crates/ddv-save-core'?blob(core,p):webPaths.has(p)?blob(web,p):blob(base,p);
+          let pos=0,neg=0,total=0;const tail=" && inputs.scoped_r01_proof_source == ''";
+          const inversePins=s=>s.replace(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g,(m,p,h)=>{assert.ok(oldMap.has(p),p);return m.replace(h,oldMap.get(p))});
+          const inv=inversePins(y.slice(0,y.indexOf('\n  scoped_r01_proof:\n')).replace(/      scoped_r01_proof_source:\n(?:        [^\n]+\n){4}/,'').split(tail).join(''));assert.equal(inv,old);pos++;
+          for(const [i,n] of names.entries()){
+            const b=section(y,n),p=pins(b);assert.equal(p.length,i<6?pins(section(old,n)).length:39);assert.equal(new Set(p.map(x=>x[0])).size,p.length);
+            for(const [k,h] of p){assert.equal(h,expect(k),k);assert.notEqual(h,(h[0]==='0'?'1':'0')+h.slice(1));total++;neg++}
+            if(i<6){assert.equal(inversePins(b.split(tail).join('')),section(old,n));pos++;continue}
+            const key='switch626-r01',feature='product-'+key+'-scoped',stages=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','--no-default-features --features '+feature+',worker-wasm','scoped-placement-proof.mjs build '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/upload-artifact@v4'];
+            let last=-1;for(const s of stages){last=b.indexOf(s,last+1);assert.ok(last>=0,s)}
+            assert.ok(b.includes('test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"'));assert.ok(b.includes('test "$GITHUB_REPOSITORY_ID" = 1371485649'));assert.ok(b.includes('test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"'));assert.doesNotMatch(b,/actions\/(deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
+            const sub=b.slice(b.indexOf('subject-path: |'),b.indexOf('      - name: Verify exact signer'));assert.deepEqual(sub.match(/tests\/wasm-distribution\/fixtures\/scoped-[^\s]+/g),['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json'].map(x=>'tests/wasm-distribution/fixtures/scoped-'+key+'/'+x));
+            const upload=b.slice(b.indexOf('actions/upload-artifact@v4'));assert.match(upload,/pins\.json/);assert.match(upload,/attestation-bundle\.jsonl/);assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-|static\/|build\//);pos++;
+          }
+          assert.equal(total,211);const guards=['build',...names].map(n=>section(y,n).split('\n').find(l=>l.trim().startsWith('if:')).trim().slice(4));
+          const evalGuard=(g,event,ref,v)=>g.split(' || ').some(or=>or.replace(/^\(|\)$/g,'').split(' && ').every(t=>{const m=t.match(/^(github\.event_name|github\.ref|inputs\.[a-z0-9_]+) (==|!=) '([^']*)'$/);assert.ok(m,t);const x=m[1]==='github.event_name'?event:m[1]==='github.ref'?ref:v[m[1].slice(7)];return m[2]==='=='?x===m[3]:x!==m[3]}));
+          for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/other'])for(let mask=0;mask<128;mask++){const v=Object.fromEntries(keys.map((k,i)=>[k,mask&(1<<i)?'x':''])),out=guards.map(g=>evalGuard(g,event,ref,v)),expected=[event!=='workflow_dispatch'||mask===0,...keys.map((k,i)=>event==='workflow_dispatch'&&ref==='refs/heads/main'&&mask===(1<<i))];assert.deepEqual(out,expected);if(expected.some(Boolean))pos++;else neg++}
+          console.log('QRS_PR1754_R01_PROOF7_PROJECTED_L2_PASS',JSON.stringify({pos,neg,pins:total,projectedRaw:true,protectedAcceptance:false,actualSignature:false}));
+          EOF
+          node qa-proof8.mjs
