@@ -19,7 +19,7 @@ const specs=[
       ],
       [
         "scripts/wasm-distribution/r22-accepted-rust-scope.mjs",
-        "83a26102290370bc492417bdc57b1571b5f3c775"
+        "f69a44eb62da5fc5e51c743ee428324469205b25"
       ],
       [
         "scripts/readonly-release/scoped-placement-proof.mjs",
@@ -298,7 +298,7 @@ const specs=[
       ],
       [
         "scripts/wasm-distribution/r22-accepted-rust-scope.mjs",
-        "83a26102290370bc492417bdc57b1571b5f3c775"
+        "f69a44eb62da5fc5e51c743ee428324469205b25"
       ],
       [
         "scripts/int-protected-ci-gate.mjs",
@@ -341,7 +341,7 @@ const specs=[
       ],
       [
         "scripts/wasm-distribution/r22-accepted-rust-scope.mjs",
-        "83a26102290370bc492417bdc57b1571b5f3c775"
+        "f69a44eb62da5fc5e51c743ee428324469205b25"
       ],
       [
         "scripts/readonly-release/scoped-placement-proof.mjs",

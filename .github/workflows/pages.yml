@@ -688,7 +688,7 @@ jobs:
           test "$GITHUB_REPOSITORY_ID" = 1371485649
           test "$(git rev-parse HEAD:crates/ddv-save-core)" = f942165161b98cf7f9de16a1f7459cf3d337dc61
           test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 636955805479ed9794896c0d06acbf991c10bf14
-          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = 83a26102290370bc492417bdc57b1571b5f3c775
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = b3153ee192eb19a23d467e8bcab02358dea5b5eb
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
           test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
@@ -850,7 +850,7 @@ jobs:
           test "$(git rev-parse HEAD:src/lib/wep/comp03-spatial-preview.ts)" = c147c8d84ad9f0b9ca240208bd3679418fe133a0
           test "$(git rev-parse HEAD:src/routes/editor/world/comp03/+page.svelte)" = 90191a132481a5b38fc6554012b633f06d2f9d34
           test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 636955805479ed9794896c0d06acbf991c10bf14
-          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = 83a26102290370bc492417bdc57b1571b5f3c775
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
@@ -953,7 +953,7 @@ jobs:
           test "$GITHUB_REPOSITORY_ID" = 1371485649
           test "$(git rev-parse HEAD:crates/ddv-save-core)" = f942165161b98cf7f9de16a1f7459cf3d337dc61
           test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 636955805479ed9794896c0d06acbf991c10bf14
-          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = 83a26102290370bc492417bdc57b1571b5f3c775
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = b3153ee192eb19a23d467e8bcab02358dea5b5eb
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
           test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
