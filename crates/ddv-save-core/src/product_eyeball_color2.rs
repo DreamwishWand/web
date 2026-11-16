@@ -190,4 +190,77 @@ mod tests{
   switch.worker_bound=true;
   assert!(switch.prepare_fixed_steam626_eyecolor2(envelope(&switch,WorkerAction::ReadDomain)).is_err());
  }
+
+ #[test]
+ fn qa1908_eyecolor2_witness_cas_opaque_exact1(){
+  let mut d=doc();
+  d["World"]["UnknownPayload"]=json!({"escaped":"a\\b","null":null,"list":[1,2,true]});
+  d["Player"]["MaleAvatar"]["Eyeball"]["OpaqueEye"]=json!({"persist":7,"flags":[false,42]});
+  d["Player"]["ListInventories"]["9"]["Inventory"]["70000010"]["OpaqueInventory"]=
+   json!({"untouched":"yes"});
+  let original=serde_json::to_vec(&d).unwrap();let s=open(&d);
+  let read=envelope(&s,WorkerAction::ReadDomain);
+  let p=s.prepare_fixed_steam626_eyecolor2(read).unwrap();
+  assert_eq!(&s.decoded[p.span.begin..p.span.end],b"64");
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..read};
+  let mut neg=0usize;
+  macro_rules! deny {($x:expr)=>{{assert!(($x).is_err());neg+=1;}};}
+  let mut bad=s.prepare_fixed_steam626_eyecolor2(read).unwrap();
+  bad.active_eye_sha="0".repeat(64);deny!(s.stage_fixed_steam626_eyecolor2(stage,&bad));
+  let mut bad=s.prepare_fixed_steam626_eyecolor2(read).unwrap();
+  bad.inactive_eye_sha="0".repeat(64);deny!(s.stage_fixed_steam626_eyecolor2(stage,&bad));
+  let mut bad=s.prepare_fixed_steam626_eyecolor2(read).unwrap();
+  bad.male_sha="0".repeat(64);deny!(s.stage_fixed_steam626_eyecolor2(stage,&bad));
+  let mut bad=s.prepare_fixed_steam626_eyecolor2(read).unwrap();
+  bad.female_sha="0".repeat(64);deny!(s.stage_fixed_steam626_eyecolor2(stage,&bad));
+  let mut bad=s.prepare_fixed_steam626_eyecolor2(read).unwrap();
+  bad.stock_entry_sha="0".repeat(64);deny!(s.stage_fixed_steam626_eyecolor2(stage,&bad));
+  let mut bad=s.prepare_fixed_steam626_eyecolor2(read).unwrap();
+  bad.route_sha="0".repeat(64);deny!(s.stage_fixed_steam626_eyecolor2(stage,&bad));
+  let mut bad=s.prepare_fixed_steam626_eyecolor2(read).unwrap();
+  bad.selected_token_sha="0".repeat(64);deny!(s.stage_fixed_steam626_eyecolor2(stage,&bad));
+  let mut bad=s.prepare_fixed_steam626_eyecolor2(read).unwrap();
+  bad.projected[0]^=1;deny!(s.stage_fixed_steam626_eyecolor2(stage,&bad));
+  let mut bad=s.prepare_fixed_steam626_eyecolor2(read).unwrap();
+  bad.span.begin+=1;deny!(s.stage_fixed_steam626_eyecolor2(stage,&bad));
+  let mut bad=s.prepare_fixed_steam626_eyecolor2(read).unwrap();
+  bad.scope.expected_revision=2;deny!(s.stage_fixed_steam626_eyecolor2(stage,&bad));
+  deny!(s.stage_fixed_steam626_eyecolor2(read,&p));
+  deny!(s.stage_fixed_steam626_eyecolor2(WorkerEnvelope{expected_revision:1,..stage},&p));
+  deny!(s.stage_fixed_steam626_eyecolor2(WorkerEnvelope{expected_index_generation:2,..stage},&p));
+  deny!(s.stage_fixed_steam626_eyecolor2(WorkerEnvelope{expected_decoded_sha256:[0;32],..stage},&p));
+  deny!(s.stage_fixed_steam626_eyecolor2(WorkerEnvelope{session_id:[0;16],..stage},&p));
+  let other=open(&d);deny!(other.stage_fixed_steam626_eyecolor2(envelope(&other,WorkerAction::Stage),&p));
+  let r=s.stage_fixed_steam626_eyecolor2(stage,&p).unwrap();
+  assert_eq!((r.operation_count,r.exact_field_changed_count),(1,1));
+  assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+  deny!(s.stage_fixed_steam626_eyecolor2(stage,&p));
+  s.undo_typed_semantic_batch(envelope(&s,WorkerAction::Stage)).unwrap();
+  deny!(s.take_typed_semantic_decoded_once(envelope(&s,WorkerAction::ExportEditedCopy)));
+  s.redo_typed_semantic_batch(envelope(&s,WorkerAction::Stage)).unwrap();
+  let ex=envelope(&s,WorkerAction::ExportEditedCopy);
+  let out=s.take_typed_semantic_decoded_once(ex).unwrap();
+  deny!(s.take_typed_semantic_decoded_once(ex));
+  let mut expected=d.clone();expected["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"]=json!(69);
+  assert_eq!(out,serde_json::to_vec(&expected).unwrap());
+  assert_eq!(sha(&out),hex(&r.staged_decoded_sha256));
+  assert_eq!(original,serde_json::to_vec(&d).unwrap());
+  std::fs::write("/tmp/qrc1908-eyecolor2-source.json",&original).unwrap();
+  std::fs::write("/tmp/qrc1908-eyecolor2-edited.json",&out).unwrap();
+  println!("QRC1908_STEAM_EYECOLOR2_ACTUAL 1POS {}NEG EXACT1 OPAQUE_AND_ORIGINAL_UNCHANGED",neg);
+ }
+ #[test]
+ #[ignore="QA-only external child process; requires prior staged synthetic fixture"]
+ fn qa1908_eyecolor2_child_independent_reopen(){
+  let out=std::fs::read("/tmp/qrc1908-eyecolor2-edited.json").unwrap();
+  let source=std::fs::read("/tmp/qrc1908-eyecolor2-source.json").unwrap();
+  let decoded:Value=serde_json::from_slice(&out).unwrap();
+  assert_eq!(decoded["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"],json!(69));
+  let s=open(&decoded);assert_eq!(s.receipt().unwrap().schema,626);
+  assert!(s.prepare_fixed_steam626_eyecolor2(envelope(&s,WorkerAction::ReadDomain)).is_err());
+  let old:Value=serde_json::from_slice(&source).unwrap();
+  assert_eq!(old["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"],json!(64));
+  assert_ne!(sha(&source),sha(&out));
+  println!("QRC1908_EYECOLOR2_CHILD_REOPEN_PASS schema626 exact1");
+ }
 }
