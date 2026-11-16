@@ -40,6 +40,7 @@ export function createProductSwitch626Catalog0LocalAdapter(options={}){
 // this is the existing Collection UI contract, not a public Writer grant.
 export function createProductFixedCollectionLocalAdapter(options={}){return createScopedLocalAdapter(options,true)}
 export function createProductSteam626Comp03LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'comp03')}
+export function createProductSteam626Comp03SpatialLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'comp03-spatial')}
 export function createProductSteam626VaseAddLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'vase')}
 export function createProductSteam626Sr03LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'sr03')}
 export function createProductSteam626BackpackLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,'steam')}
@@ -47,7 +48,7 @@ export function createProductSwitch626BackpackLocalAdapter(options={}){return cr
 export function createProductSteam626WardrobeLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,'steam')}
 export function createProductSwitch626WardrobeLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,'switch')}
 function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null,backpackScope=null,wardrobeScope=null){
- const placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,previewEdit=placement||backpack||wardrobe,placementCount=wardrobe?1:placementScope==='comp03'?9:placementScope==='sr03'?8:3;
+ const placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,previewEdit=placement||backpack||wardrobe,placementCount=wardrobe?1:(placementScope==='comp03'||placementScope==='comp03-spatial')?9:placementScope==='sr03'?8:3;
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||
   (discoverScopedTargets!==undefined&&typeof discoverScopedTargets!=='function')||
   (allowCoreDiscoverySource&&discoverScopedTargets!==undefined)||
@@ -161,7 +162,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   return p;
  };
  if(previewEdit)return Object.freeze({open:api.open,close,backupOriginal:api.backupOriginal,undo:api.undo,redo:api.redo,exportEditedCopy:api.exportEditedCopy,downloadVerifiedCopy:api.downloadVerifiedCopy,
-  [wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement'](...args){if(!['backed','previewed'].includes(phase))fail();return run(async()=>{if(args.length!==(wardrobe?0:1))fail();const p=wardrobe?bridge.previewScopedWardrobe():backpack?bridge.previewScopedBackpack(args[0]):bridge.previewScopedPlacement(args[0]);if(p.exactFieldChangedCount!==placementCount||p.writerAuthorized!==false||p.editedCopyAuthorized!==false)fail();phase='previewed';return p})},
+  ...(placementScope==='comp03-spatial'?{spatialPreview(...args){requirePhase('previewed');return run(async()=>{if(args.length)fail();return bridge.spatialPreview()})}}:{}),
+   [wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement'](...args){if(!['backed','previewed'].includes(phase))fail();return run(async()=>{if(args.length!==(wardrobe?0:1))fail();const p=wardrobe?bridge.previewScopedWardrobe():backpack?bridge.previewScopedBackpack(args[0]):bridge.previewScopedPlacement(args[0]);if(p.exactFieldChangedCount!==placementCount||p.writerAuthorized!==false||p.editedCopyAuthorized!==false)fail();phase='previewed';return p})},
   [wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement'](...args){requirePhase('previewed');return run(async t=>{if(args.length)fail();const r=await (wardrobe?bridge.stageScopedWardrobe():backpack?bridge.stageScopedBackpack():bridge.stageScopedPlacement());check(t);if(r.applied!==true||r.exactFieldChangedCount!==placementCount||r.writerAuthorized!==false)fail();phase='staged';return {...kind('STAGED'),exactFieldChangedCount:placementCount}})}
  });
  if(!collection)return Object.freeze(api);

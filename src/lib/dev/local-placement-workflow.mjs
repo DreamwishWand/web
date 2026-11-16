@@ -2,6 +2,8 @@
 // raw Save JSON or caller-minted CAS; actual backup/codec/ledger stay in the
 // existing local adapter. Only encrypted verified downloads leave the Worker.
 import {COLLECTION_EXACT1_BUILDS} from '../collection/collection-exact1-consumer.mjs';
+import {fitViewport} from '../wep/canvas-runtime.ts';
+import {projectComp03PreviewMarkers} from '../wep/comp03-spatial-preview.ts';
 const fail=()=>{throw Error('LOCAL_PLACEMENT_UI_DENIED')};
 const exact=(r,k)=>r&&typeof r==='object'&&!Array.isArray(r)&&Object.keys(r).sort().join(',')===k.split(',').sort().join(',');
 const uint=n=>Number.isSafeInteger(n)&&n>=0&&n<=0xffffffff,positive=n=>uint(n)&&n>0;
@@ -23,12 +25,30 @@ export function createLocalBackpackDevWorkflow(adapter,{trustedLocalHarness=fals
  if(!['steam-windows','switch'].includes(platform))fail();
  return createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness,operation:platform==='switch'?'backpack-switch':'backpack-steam'});
 }
-export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation}={}){
+// UI-only read view of a separately trusted companion receipt. Fit the
+// supplied anchors, not a guessed native Grid size/footprint or topology.
+function spatialReview(r,p){
+ if(!exact(r,'rootSceneItemId,gridId,seedId,nextObjectId,anchors,writerAuthorized,editedCopyAuthorized')||
+  r.rootSceneItemId!==1540000150||r.gridId!==p.gridId||r.seedId!==p.seedId||r.nextObjectId!==p.nextObjectId||
+  r.writerAuthorized!==false||r.editedCopyAuthorized!==false||!Array.isArray(r.anchors)||r.anchors.length!==9)fail();
+ const anchors=r.anchors.map((a,i)=>{
+  if(!exact(a,'objectId,x,y,role')||!positive(a.objectId)||!uint(a.x)||!uint(a.y)||a.x>260||a.y>260||
+   a.objectId!==(i===0?p.seedId:p.nextObjectId+i-1)||a.role!==(i===0?'retained':'proposed'))fail();
+  return Object.freeze({objectId:a.objectId,x:a.x,y:a.y,role:a.role});
+ });
+ const xs=anchors.map(a=>a.x),ys=anchors.map(a=>a.y),x=Math.min(...xs),y=Math.min(...ys);
+ const area={x,y,w:Math.max(...xs)-x+1,h:Math.max(...ys)-y+1};
+ const view=fitViewport(area,480,320,{paddingPx:24,minZoom:.1,maxZoom:128});
+ const overlay=projectComp03PreviewMarkers(r.gridId,anchors,view);
+ return Object.freeze({gridId:r.gridId,seedId:r.seedId,markers:overlay.markers});
+}
+export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation,spatialPreviewEnabled=false}={}){
  if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03'].includes(operation)||!adapter)fail();
  const backpack=operation==='backpack-steam'||operation==='backpack-switch',wardrobe=operation==='wardrobe-steam'||operation==='wardrobe-switch';
  const previewMethod=wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
  for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
  const comp=operation==='comp03',sr03=operation==='sr03',count=wardrobe?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
+ if(typeof spatialPreviewEnabled!=='boolean'||(spatialPreviewEnabled&&(!comp||typeof adapter.spatialPreview!=='function')))fail();
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
  const set=p=>{state={...state,...p};return snapshot()};
@@ -80,9 +100,16 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
    r.scopedCandidate!==true||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||
    !(comp?r.seedId===selector.seedId&&r.oldAmount===r.newAmount&&r.inventoryDelta===0&&r.retainSeed===1&&r.addObjects===8:sr03?r.gridId===selector.gridId&&r.retainedId===selector.retainedId&&r.movedId===selector.movedId&&r.oldAmount>=3&&r.newAmount===r.oldAmount-3&&r.inventoryDelta===-3&&r.addObjects===3&&r.nextObjectId>Math.max(r.retainedId,r.movedId)&&r.nextObjectId<=0xfffffffd:
     r.gridId===selector.gridId&&r.x===selector.x&&r.y===selector.y&&r.inventoryId===0&&r.orientation==='GridOrientation_Up'&&r.oldAmount===r.newAmount+1&&r.inventoryDelta===-1&&r.addObjects===1))fail();
-  return set({phase:'previewed',preview:Object.freeze({...r})});
+  const p=Object.freeze({...r});
+  // Opt-in is supplied by the branded product scope, never method discovery.
+  // Run atomically with the same preview; on any failure run() closes/reset.
+  if(spatialPreviewEnabled){
+   const spatial=await adapter.spatialPreview();check();
+   return set({phase:'previewed',preview:p,spatialPreview:spatialReview(spatial,p)});
+  }
+  return set({phase:'previewed',preview:p});
  });
- const stage=()=>run(['previewed'],async check=>{const r=await adapter[stageMethod]();check();if(!safe(r,'STAGED',',exactFieldChangedCount')||r.exactFieldChangedCount!==count)fail();return set({phase:'staged'})});
+ const stage=()=>run(['previewed'],async check=>{const r=await adapter[stageMethod]();check();if(!safe(r,'STAGED',',exactFieldChangedCount')||r.exactFieldChangedCount!==count)fail();return set(spatialPreviewEnabled?{phase:'staged',spatialPreview:null}:{phase:'staged'})});
  const undo=()=>run(['staged'],async check=>{const r=await adapter.undo();check();if(!safe(r,'UNDONE'))fail();return set({phase:'undone'})});
  const redo=()=>run(['undone'],async check=>{const r=await adapter.redo();check();if(!safe(r,'REDONE'))fail();return set({phase:'staged'})});
  const exportEditedCopy=()=>run(['staged'],async check=>{
