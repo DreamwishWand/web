@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
-const keys=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_sr03_proof_source","scoped_comp03_spatial_proof_source","scoped_rm01_proof_source","scoped_hair_proof_source","scoped_skin_proof_source"];
+const keys=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_sr03_proof_source","scoped_comp03_spatial_proof_source","scoped_rm01_proof_source","scoped_hair_proof_source","scoped_skin_proof_source","scoped_comp03_proof_source"];
 const specs=[
   {
     "job": "scoped_sr03_proof",
@@ -818,7 +818,178 @@ const specs=[
         "6a2efbe122602df1e89d78a915edd1618e8afa18"
       ]
     ]
-  }
+  },
+  {
+  "job": "scoped_comp03_proof",
+  "key": "steam626-comp03",
+  "feature": "product-steam626-comp03-scoped",
+  "pins": [
+    [
+      "crates/ddv-save-core",
+      "fa7aeef5dc1459104564bf1eb9704d315ab7c415"
+    ],
+    [
+      "scripts/readonly-release/scoped-placement-proof.mjs",
+      "932c1c1de44ae6f223fe53b0f14b8e0071eee22d"
+    ],
+    [
+      "scripts/readonly-release/seal.mjs",
+      "5b86ff1cf2dc009ba1733bf213e4cb979bf500ec"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-placement-release.mjs",
+      "1f72c540d9e9ab949402d550a706961935cf7ec2"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs",
+      "8bf869bf71546c467194483955e256cbe104c312"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs",
+      "3dbd5b6bd2268a3a42589364fa06ab09da84565b"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs",
+      "7969122897ebc81bb249dda14d578038a9ffe9e2"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs",
+      "f3f12518965dde92617962b5505b8212f4e04980"
+    ],
+    [
+      "src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs",
+      "959d0ef46c220ed6a402499ca3587b00275d8244"
+    ],
+    [
+      "src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs",
+      "d5b167f35b10ecc5b16d40e84e9d9bb324288539"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-placement-transport.mjs",
+      "182ecd723a5a82683cccf79e1349ecf41e6ae7a7"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
+      "eef37e2a1b027134439e686ea5e47501339bbace"
+    ],
+    [
+      "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
+      "ee5929266406bb9a17e1e0a3fc9bce3cb15607f6"
+    ],
+    [
+      "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
+      "ae89e25ad3cdc48d8b4e23e7eabc6ba92998b553"
+    ],
+    [
+      "src/lib/ddv/core/save/product-wasm-read-owner.d.mts",
+      "f20fc6081da2bf67db72e668a11a888966cbbd86"
+    ],
+    [
+      "src/lib/ddv/core/save/local-original-backup.mjs",
+      "7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f"
+    ],
+    [
+      "src/lib/ddv/core/save/local-encrypted-copy-store.mjs",
+      "67f6579622e5d8903d3798d5921d2ea525980eda"
+    ],
+    [
+      "src/lib/dev/LocalPlacementEditorDev.svelte",
+      "11b5047f3cb713d2d5ed3e1bda8b198922239e17"
+    ],
+    [
+      "src/lib/dev/PlacementProductRoute.svelte",
+      "9db37fdd2aa124aef19e7c300503d58223679feb"
+    ],
+    [
+      "src/lib/dev/local-placement-copy.mjs",
+      "e559b0cc4ad8d12d1617a54072822d696761ae5e"
+    ],
+    [
+      "src/lib/dev/local-placement-workflow.mjs",
+      "5933c35f66c41f745167579211b084450b3b80d7"
+    ],
+    [
+      "src/lib/dev/product-placement-client.mjs",
+      "c72a772cde08b331590b0551f8bbac3807befaa6"
+    ],
+    [
+      "src/lib/dev/product-placement-worker-boot.mjs",
+      "cbbb2839705b192b15505169787739b21b9190c5"
+    ],
+    [
+      "src/lib/dev/local-scoped-edit-worker-port.mjs",
+      "1d5eacaabfb27a244a68c6a07cd22feba7eb57c2"
+    ],
+    [
+      "src/lib/dev/local-amount-codec-reopen.worker.mjs",
+      "955d95056d4c115b24b77db2ec2f31ef90992882"
+    ],
+    [
+      "src/lib/dev/comp03-product-route-port.mjs",
+      "6f3c3fe4c01c1ed0bcc196f20af015929fe4ab6f"
+    ],
+    [
+      "src/lib/dev/product-comp03.worker.mjs",
+      "6c6822b86bf0c2f676256121eeb6cf5a412e4f7e"
+    ],
+    [
+      "src/lib/dev/product-comp03-spatial.worker.mjs",
+      "5f905509d1b1de216bf6e780da68d3c6358c1cab"
+    ],
+    [
+      "src/lib/wep/Comp03ReferencePattern.svelte",
+      "af6861ca808e7e44ab3e419c146a36090d63fb7f"
+    ],
+    [
+      "src/lib/wep/comp03-spatial-preview.ts",
+      "c147c8d84ad9f0b9ca240208bd3679418fe133a0"
+    ],
+    [
+      "src/routes/editor/world/comp03/+page.svelte",
+      "90191a132481a5b38fc6554012b633f06d2f9d34"
+    ],
+    [
+      "scripts/wasm-distribution/protected-release-inputs.json",
+      "dd59264c1c20325c66e6aecc3413e91d10fc72ed"
+    ],
+    [
+      "scripts/wasm-distribution/r22-accepted-rust-scope.mjs",
+      "f69a44eb62da5fc5e51c743ee428324469205b25"
+    ],
+    [
+      "scripts/int-protected-ci-gate.mjs",
+      "d08d7cb0995b8af9f631448024c8acc83d68a743"
+    ],
+    [
+      "scripts/wasm-distribution/verify-protected-release.mjs",
+      "03486f17f41cb7e807c207601b27a3981fe9df6a"
+    ],
+    [
+      "scripts/wasm-distribution/approved-Cargo.lock",
+      "b667b42cfef2032c2925be7b2aa9b7142bff4b52"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
+      "d4643ccf023b6784c80fa5b2a377afe7936113ce"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs",
+      "66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs",
+      "027f988f22e3e33ee1d61c600a09a268581d7d40"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs",
+      "b4235a9308db31dfa913bcbcf562f0e2eb714073"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-appearance-transport.mjs",
+      "76d02b2ad0a4b5b0df4139c1173b33a7ce149ab7"
+    ]
+  ]
+}
 ];
 for(const s of specs)test(s.key+' current exclusive protected proof only',()=>{
  const start=y.indexOf('  '+s.job+':\n');assert.ok(start>=0);const next=y.slice(start+1).search(/\n  [a-z0-9_]+:\n/);const p=next<0?y.slice(start):y.slice(start,start+1+next);
@@ -830,4 +1001,15 @@ for(const s of specs)test(s.key+' current exclusive protected proof only',()=>{
  const subjects=p.slice(p.indexOf('subject-path: |'),p.indexOf('      - name: Verify exact signer'));assert.deepEqual(subjects.match(/tests\/wasm-distribution\/fixtures\/scoped-[^\s]+/g),['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json'].map(n=>'tests/wasm-distribution/fixtures/scoped-'+s.key+'/'+n));
  const upload=p.slice(p.indexOf('actions/upload-artifact@v4'));assert.ok(upload.includes('wand-'+s.key+'-proof/pins.json'));assert.ok(upload.includes('wand-'+s.key+'-proof/attestation-bundle.jsonl'));assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-|static\/|build\//);
  assert.ok(p.includes('test ! -e static/worker-wasm-scoped-'+s.key));
+});
+
+test('nine proof inputs are mutually exclusive; push never selects proof',()=>{
+ const jobs=[...y.matchAll(/^  (scoped_\w+_proof):\n    if: (.*)$/gm)];assert.equal(jobs.length,9);
+ const b=y.match(/^  build:\n    if: (.*)$/m)[1];
+ for(let mask=0;mask<(1<<keys.length);mask++){
+  const set=new Set(keys.filter((_,i)=>mask&(1<<i)));const evalTerms=e=>[...e.matchAll(/inputs\.(\w+) (==|!=) ''/g)].every(m=>m[2]==='!='?set.has(m[1]):!set.has(m[1]));
+  assert.equal(evalTerms(b),set.size===0);assert.equal(jobs.filter(j=>evalTerms(j[2])).length,set.size===1?1:0);
+ }
+ for(const j of jobs)assert.ok(j[2].includes("github.event_name == 'workflow_dispatch'")&&j[2].includes("github.ref == 'refs/heads/main'"));
+ assert.ok(b.includes("github.event_name != 'workflow_dispatch'"));
 });
