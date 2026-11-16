@@ -1,0 +1,73 @@
+name: 04 QR-S ACT1308 SR03 foreign closure6 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1308-sr03-closure6.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    strategy:
+      fail-fast: false
+      matrix:
+        scope:
+          - '["collection","d67f8b8a1cc55250b94e9e33ca49dec7d860ec97","5660a5aba307afd35478bd32c1961f612f2e6bf4","seal-scoped-collection-private","product-scoped-collection-release","SCOPED_COLLECTION","inspectScopedCollectionSubjects","3bbeb6dd0f7a6f86da67ac0619c61b798dd0c74e","4faaa553470b0f491fc611bd8e5c1590255cb1e4",null]'
+          - '["switch-chest","d67f8b8a1cc55250b94e9e33ca49dec7d860ec97","5660a5aba307afd35478bd32c1961f612f2e6bf4","seal-scoped-switch-chest-private","product-scoped-switch-chest-release","SCOPED_SWITCH_CHEST","inspectScopedSwitchChestSubjects","11672ae569e2a64a58e997bf22b93ae2c337e681","bf6daf8f8096eb69a34dbf6e80d67d8e31bc95b0",null]'
+          - '["steam-chest","08407a82238686526ac89422046233e0efe0ca02","f091557b2cc8367f5cb464cc647580de780266e2","seal-scoped-steam-chest-private","product-scoped-steam-chest-release","SCOPED_STEAM_CHEST","inspectScopedSteamChestSubjects","7456a905b51f541993b6e26e298527fac00928c3","fb34157d277c10e09789924b2272c41a8c3ee63c",null]'
+          - '["catalog0","b5ada239f4eb5fa37cbdf74402059339c2f11042","49648bdd5f80285fcf6ec3adf23a5d626a62ce86","seal-scoped-switch-catalog0-private","product-scoped-switch-catalog0-release","SCOPED_SWITCH_CATALOG0","inspectScopedSwitchCatalog0Subjects","6fa4c43ffbd1f6dda942115678bae22a1830d321","f3556a3c26e1ad9983d44401fc4fb69149779de0",null]'
+          - '["backpack","b0f0e064da6ef60589b73b1752a6149720aa6775","f23616a1176d567d35e3c296223b5a761e48c1f0","scoped-backpack-proof","product-scoped-placement-release","BACKPACK","inspectBackpackSubjects","f56e1ee45ff19997ce0534dd3b713bf6c87309f9","56532cde395a0302fa01ab2c59592dbf3fb39eab","BACKPACK"]'
+          - '["wardrobe","1eda09743b7de3777672ee8347295acd73ece51d","3dce01a0a886841fda2af9ddfede1b228ca6001b","scoped-wardrobe-proof","product-scoped-placement-release","WARDROBE","inspectWardrobeSubjects","c66a899e14291afc3b0e74bb9d3ff0c7f87e99e7","a5a6f780c3c1621492c81fc2ce98766476429404","WARDROBE"]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ fromJSON(matrix.scope)[1] }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent old/new inspector and exact byte delta
+        shell: bash
+        env:
+          SCOPE: ${{ matrix.scope }}
+        run: |
+          set -euo pipefail
+          cat > qa-act1308.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync,writeFileSync,unlinkSync} from 'node:fs';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          const [name,ref,parent,file,spec,prefix,fn,newBlob,oldBlob,dual]=JSON.parse(process.env.SCOPE);
+          const p='scripts/readonly-release/'+file+'.mjs',oldPath='scripts/readonly-release/qa-old-'+file+'.mjs';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim();
+          assert.equal(git('rev-parse','HEAD'),ref);assert.equal(git('rev-parse','HEAD:'+p),newBlob);assert.equal(git('rev-parse',parent+':'+p),oldBlob);
+          const old=execFileSync('git',['show',parent+':'+p],{encoding:'utf8'}),cur=readFileSync(p,'utf8'),delta='|(?:preview|stage)_steam626_sr03';
+          assert.equal(cur.split(delta).length,2);assert.equal(cur.replace(delta,''),old);
+          writeFileSync(oldPath,old,{flag:'wx'});
+          try{
+          const prev=(await import('./'+oldPath))[fn],next=(await import('./'+p))[fn],s=await import('./src/lib/ddv/core/save/'+spec+'.mjs');
+          const scopes=dual?[s['STEAM_'+dual+'_RELEASE'],s['SWITCH_'+dual+'_RELEASE']]:[{prefix:'wand.scoped-'+(name==='catalog0'?'switch-catalog0':name),operation:s[prefix+'_RELEASE_OP'],methods:s[prefix+'_METHODS'],exports:s[prefix+'_WASM_EXPORTS'],features:s[prefix+'_FEATURES']}];
+          const u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a};
+          const str=s=>[...u(Buffer.byteLength(s)),...Buffer.from(s)],sec=(id,b)=>[id,...u(b.length),...b];
+          const wasm=names=>{const es=names.flatMap(n=>[...str(n),n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(names.length),...es]),...sec(10,[1,2,0,11])])};
+          const sha=x=>createHash('sha256').update(x).digest('hex'),source='a'.repeat(40);
+          let pos=0,oldAccepted=0,newDenied=0,extraDenied=0,oldGuard=0;
+          for(const x of scopes){
+           const w=wasm(x.exports);assert.equal(WebAssembly.Module.exports(new WebAssembly.Module(w)).length,x.exports.length);
+           const clean=Buffer.from('export default class WorkerWasmSource {}');
+           const make=(js=clean,mod=w)=>[Buffer.from(JSON.stringify({contract:x.prefix+'.runtime@1',operation:x.operation,source:{repository:tuple.repository,commit:source,cargoTomlSha256:'b'.repeat(64),cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:x.features,defaultFeatures:false,toolchain:'rustc 1.99.1 (test)'},assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:sha(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:mod.length,sha256:sha(mod)}},abi:{exportClass:'WorkerWasmSource',methods:x.methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false}})),js,mod];
+           const run=(f,b)=>dual?f(x,b,source):f(b,source);
+           const b=make();assert.deepEqual(run(prev,b),run(next,b));assert.equal(run(next,b).wasmSha256,sha(w));pos++;
+           for(const t of ['preview_steam626_sr03','stage_steam626_sr03']){
+            for(const js of [Buffer.from(t),Buffer.from('export class WorkerWasmSource { '+t+'(){} }')]){const z=make(js);assert.equal(run(prev,z).jsSha256,sha(js));oldAccepted++;assert.throws(()=>run(next,z));newDenied++}
+            const z=make(clean,wasm([...x.exports,'workerwasmsource_'+t]));assert.throws(()=>run(prev,z));assert.throws(()=>run(next,z));extraDenied++;
+           }
+           for(const t of ['private_native','dev_stage']){const z=make(Buffer.from(t));assert.throws(()=>run(prev,z));assert.throws(()=>run(next,z));oldGuard++}
+          }
+          console.log('ACT1308_SR03_CLOSURE6_L2_PASS',JSON.stringify({name,pos,oldAccepted,newDenied,extraDenied,oldGuard,actualWasmModule:true,actualSignature:false}));
+          }finally{unlinkSync(oldPath)}
+          
+          EOF
+          node qa-act1308.mjs
