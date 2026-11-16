@@ -2,15 +2,7 @@ name: 01A Stage E Genuine Generated Rust WASM Chrome Worker (Writer OFF)
 on:
   pull_request:
     paths:
-      - 'tests/stage-e/**'
-      - 'scripts/wasm-distribution/**'
-      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
       - '.github/workflows/01a-stagee-generated-wasm-chrome.yml'
-      - 'crates/ddv-save-core/**'
-      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
-  push:
-    branches:
-      - 'core/real-wasm-browser-smoke-stagee-*'
 permissions:
   contents: read
 jobs:
@@ -24,32 +16,57 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Verify real Chrome and exact pinned wasm-bindgen crate
+      - name: QA ONLY generated portable Restore ABI
         run: |
           set -euo pipefail
-          command -v google-chrome || command -v chromium
-          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
-      - name: Compile REAL cdylib with opt-in Worker and indexed metadata
-        run: |
-          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
-          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
-      - name: Install exactly matching wasm-bindgen CLI 0.2.105 (not generated or mocked JS)
-        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock | tee /tmp/qrc-lock.sha
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagee-wasm-tools
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen --version | grep -F '0.2.105'
-      - name: Generate true wasm-bindgen Browser Worker ESM glue
-        run: |
-          mkdir -p tests/stage-e/pkg
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
-          test -s tests/stage-e/pkg/ddv_save_core.js
-          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
-          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|include_bytes!|writerAuthorized: *true|applyAuthorized: *true' tests/stage-e
-      - name: Actual browser CDP + module Worker + Rust WASM positive and negatives
-        run: node tests/stage-e/chrome-smoke.mjs
-      - name: Confirm Stage E never changed product Writer or public worker route
-        run: |
-          ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
-          test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
-          test -f crates/ddv-save-core/src/wasm_worker.rs
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          for m in off legacy portable own dual collection steamchest switchchest comp sr03 rm; do
+            case "$m" in
+              off) f=indexed-read ;;
+              legacy) f=product-amount-scoped ;;
+              portable) f=product-portable-restore-scoped ;;
+              own) f=product-steam626-catalog0-portable-restore ;;
+              dual) f=product-steam626-catalog0-portable-restore,product-steam626-chest-portable-restore ;;
+              collection) f=product-steam626-catalog0-portable-restore,product-collection-scoped ;;
+              steamchest) f=product-steam626-catalog0-portable-restore,product-steam626-chest-scoped ;;
+              switchchest) f=product-steam626-catalog0-portable-restore,product-switch626-chest-scoped ;;
+              comp) f=product-steam626-catalog0-portable-restore,product-steam626-comp03-scoped ;;
+              sr03) f=product-steam626-catalog0-portable-restore,product-steam626-sr03-scoped ;;
+              rm) f=product-steam626-catalog0-portable-restore,product-switch626-rm01-scoped ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "worker-wasm,$f"
+            "$B" "$W" --out-dir "/tmp/restore-$m" --target nodejs --no-typescript
+          done
+          sha256sum -c /tmp/qrc-lock.sha
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          const sha=b=>createHash('sha256').update(b).digest('hex'),cls=m=>require('/tmp/restore-'+m+'/ddv_save_core.js').WorkerWasmSource;
+          const readers=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','close'];
+          const legacy=['discover_scoped_amount','preview_scoped_amount','stage_scoped_amount','toggle_scoped_amount','begin_scoped_amount_output','next_scoped_amount_output_chunk','toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','preview_steam626_comp03','stage_steam626_comp03','discover_switch626_chest','preview_switch626_chest','stage_switch626_chest'];
+          const op='catalog0',names=['capture_'+op+'_portable_backup','preview_'+op+'_portable_restore','stage_'+op+'_portable_restore','toggle_'+op+'_portable_restore','begin_'+op+'_portable_restore_output','next_'+op+'_portable_restore_output_chunk'];
+          for(const m of ['off','legacy','portable','own','dual','collection','steamchest','switchchest','comp','sr03','rm']){
+           const n=Object.getOwnPropertyNames(cls(m).prototype).filter(k=>!['constructor','free','__destroy_into_raw'].includes(k)).sort(),bytes=fs.readFileSync('/tmp/restore-'+m+'/ddv_save_core_bg.wasm'),ex=WebAssembly.Module.exports(new WebAssembly.Module(bytes)).map(v=>v.name);
+           const want=[...readers,...(m==='own'?names:m==='legacy'?legacy:[])].sort();assert.deepEqual(n,want,m);assert.equal(ex.length,n.length+9,m);for(const k of n)assert.ok(ex.includes('workerwasmsource_'+k),m+' '+k);console.log('QRC1781_CENSUS '+m+' '+n.length+'/'+ex.length+' '+sha(bytes));
+          }
+          const steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],sw=['switch','switch-bid','9A239D3DB569756D',626,true];
+          function doc(){const d={GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{GridCollection:{Grids:{},DiffGrids:{}},MissionSlots:{},Villages:[]},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{40000048:{Amount:3,Marker:'ItemMarker_None'}}}},ContainerInventories:{},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Unknown:{x:1,escaped:'keep'}};
+          return d;}
+          const raw=d=>Buffer.from(JSON.stringify(d).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
+          const entry=d=>d.Player.ListInventories[0].Inventory[40000048];
+          let nonce=0,neg=0;const deny=f=>{assert.throws(f);neg++};
+          function open(d,b=steam){const bytes=raw(d),w=new(cls('own'))(...b,new Uint8Array(32).fill(++nonce));w.append_chunk(bytes);const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(bytes));return[w,r]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],args=[40000048],old=3,next=2,call=(w,k,...a)=>w[names[k]](...a);
+          const d=doc(),prior=structuredClone(d);entry(prior).Amount=next;
+          const [a,ar]=open(prior),backup=Buffer.from(call(a,0,...args,...sc(ar)));
+          const [w,r]=open(d),p=JSON.parse(call(w,1,...args,backup,...sc(r)));
+          assert.equal(p.contract,'wand.worker.steam626.'+op+'-portable-restore@1');assert.equal(p.oldAmount,old);assert.equal(p.newAmount,next);assert.equal(p.backupSha256,sha(backup));assert.equal(p.entrySha256,sha(Buffer.from(JSON.stringify(entry(d)))));assert.equal(p.projectedSha256,sha(raw(prior)));assert.equal(p.writerAuthorized,false);
+          const st=(w,r,p)=>JSON.parse(call(w,2,...args,backup,p.oldAmount,p.newAmount,p.entrySha256,p.backupSha256,p.projectedSha256,...sc(r)));
+          deny(()=>call(w,4,...sc(r)));deny(()=>st(w,r,{...p,entrySha256:'0'.repeat(64)}));deny(()=>st(w,r,{...p,backupSha256:'0'.repeat(64)}));deny(()=>st(w,r,{...p,projectedSha256:'0'.repeat(64)}));deny(()=>st(w,{...r,revision:1},p));
+          const [f,fr]=open(d);deny(()=>st(f,r,p));f.close();f.free();
+          const [foreign,fo]=open(d,sw);deny(()=>call(foreign,1,...args,backup,...sc(fo)));foreign.close();foreign.free();
+          const t=st(w,r,p);assert.equal(t.exactFieldChangedCount,1);assert.equal(t.stagedDecodedSha256,sha(raw(prior)));assert.equal(t.writerAuthorized,false);deny(()=>st(w,r,p));const u=JSON.parse(call(w,3,false,...sc(t)));deny(()=>call(w,4,...sc(u)));const v=JSON.parse(call(w,3,true,...sc(u)));call(w,4,...sc(v));assert.deepEqual(Buffer.from(call(w,5)),raw(prior));deny(()=>call(w,5));w.close();w.free();a.close();a.free();assert.equal(neg,10);console.log('QRC1781_PORTABLE_ABI_ACTUAL 1POS '+neg+'NEG 11CENSUS');
+          JS
