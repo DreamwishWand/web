@@ -81,3 +81,74 @@ fn current_quota_closure_and_fail_closed(){
     let q=grid(7,json!({"1":object(1,unknown,0,0,Value::Null)}));
     assert_eq!(quota(&v,&q,&child,1,1,false).unwrap().post_instance_upper,2);
 }
+
+
+#[test]
+fn qa_vase_floor_complete_matrix_quota_exact_boundaries(){
+    use std::collections::{BTreeMap,BTreeSet};
+    let mut bits=Vec::new();let mut dimensions=BTreeMap::new();let mut exclusions=BTreeSet::new();
+    for line in DATA.lines().skip(1){
+        let v:Value=serde_json::from_str(line).unwrap();
+        match v[0].as_str().unwrap(){
+            "floor"=>{assert_eq!(v[1].as_u64().unwrap() as usize,bits.len());
+                let s=v[2].as_str().unwrap();for i in (0..s.len()).step_by(2){bits.push(u8::from_str_radix(&s[i..i+2],16).unwrap());}},
+            "dims"=>{for x in v[3].as_array().unwrap(){assert!(dimensions.insert(x.as_u64().unwrap() as u32,(v[1].as_u64().unwrap(),v[2].as_u64().unwrap())).is_none());}},
+            "excluded"=>{for x in v[1].as_array().unwrap(){assert!(exclusions.insert(x.as_u64().unwrap() as u32));}},
+            _=>panic!("unknown row"),
+        }
+    }
+    assert_eq!((bits.len(),dimensions.len(),exclusions.len()),(5469,6591,49));
+    assert_eq!(bits.iter().map(|x|x.count_ones()).sum::<u32>(),11314);
+    let mut pos=0;let mut neg=0;let mut good=None;
+    // Independent six-by-six logical-cell oracle for every even raw anchor.
+    // x-major mask offset and half-open 12x12 raw halo are pinned.
+    for x in 0u32..250{for y in 0u32..175{
+        let ok=x>=2&&x+4<=250&&y>=2&&y+4<=175&&
+            (x-2..x+4).all(|i|(y-2..y+4).all(|j|{let n=(i*175+j) as usize;bits[n/8]&(1u8<<(n%8))!=0}));
+        assert_eq!(floor_halo(pack(),2*x,2*y).is_ok(),ok,"{x},{y}");
+        if ok{pos+=1;good=Some((2*x,2*y));}else{neg+=1;}
+    }}
+    let (x,y)=good.unwrap();
+    let mut g=grid(7,json!({"1":object(1,ITEM,(x+8+4) as i32,y as i32,Value::Null)}));
+    assert!(check_local_pose(pack(),BUILD,626,&g,7,x,y).is_ok());pos+=1;
+    g["Objects"]["1"]["X"]=json!(x+11);
+    assert!(check_local_pose(pack(),BUILD,626,&g,7,x,y).is_err());neg+=1;
+    g["Objects"]["1"]["X"]=json!(x+12);
+    for orientation in ["GridOrientation_Up","GridOrientation_Right","GridOrientation_Down","GridOrientation_Left"]{
+        g["Objects"]["1"]["Orientation"]=json!(orientation);
+        assert!(check_local_pose(pack(),BUILD,626,&g,7,x,y).is_ok());pos+=1;
+    }
+    for (field,val) in [("ID",json!(100000)),("ItemID",json!(20099999)),("X",json!("12")),("Y",json!(1000001)),("State",json!({"SubGrid":{"GridID":8}})),("State",json!({"Keyhole":null}))]{
+        let mut q=g.clone();q["Objects"]["1"][field]=val;
+        assert!(check_local_pose(pack(),BUILD,626,&q,7,x,y).is_err());neg+=1;
+    }
+    // Quota conservatively counts all distinct IDs, including excluded IDs
+    // for unique upper bound, and only exact exclusion membership for instances.
+    let all:Vec<u32>=dimensions.keys().copied().filter(|id|!exclusions.contains(id)&&*id!=ITEM).take(600).collect();
+    let root_for=|n:usize,unique:usize,ex:usize|{
+        let mut m=serde_json::Map::new();let excluded=*exclusions.iter().next().unwrap();
+        for i in 0..n{let item=if i<ex{excluded}else{all[(i-ex)%unique]};let id=i as u32+1;
+            m.insert(id.to_string(),object(id,item,0,0,Value::Null));}
+        grid(7,Value::Object(m))
+    };
+    let v=village();
+    for (n,unique,ex,ok) in [(2999,599,0,true),(3000,599,0,false),(599,599,0,true),(600,600,0,false),(3000,598,1,true),(3001,598,1,false)]{
+        let g=root_for(n,unique,ex);
+        let res=check_village_quota(pack(),BUILD,626,&v,&json!(true),7,|id|{assert_eq!(id,7);Ok(GridObservation{grid:g.clone(),root_refs:1,parent_refs:0,overlay:false})});
+        assert_eq!(res.is_ok(),ok,"{n}/{unique}/{ex}");
+        if ok{let q=res.unwrap();assert_eq!(q.raw,n);assert_eq!(q.excluded,ex);assert_eq!(q.post_unique_upper,unique+(ex>0) as usize+1);assert_eq!(q.post_instance_upper,n-ex+1);pos+=1;}else{neg+=1;}
+    }
+    let root=grid(7,json!({"1":object(1,ITEM,0,0,json!({"SubGrid":{"GridID":8}}))}));
+    let child=grid(8,json!({"1":object(1,ITEM,0,0,json!({"SubGrid":{"GridID":9}}))}));
+    let leaf=grid(9,json!({"1":object(1,ITEM,0,0,Value::Null)}));
+    let walk=|bad:u32|check_village_quota(pack(),BUILD,626,&v,&json!(false),7,|id|{
+        let mut grid=match id{7=>root.clone(),8=>child.clone(),9=>leaf.clone(),_=>return Err("missing")};
+        if bad==1&&id==9{grid["Objects"]["1"]["State"]=json!({"SubGrid":{"GridID":8}});}
+        if bad==2&&id==8{grid["Objects"]["2"]=object(2,ITEM,0,0,json!({"SubGrid":{"GridID":9}}));}
+        Ok(GridObservation{grid,root_refs:if id==7{1}else if bad==3&&id==9{1}else{0},parent_refs:if id==7{0}else if bad==4&&id==8{2}else{1},overlay:bad==5&&id==9})
+    });
+    assert_eq!(walk(0).unwrap(),QuotaBound{grids:3,raw:3,excluded:0,post_unique_upper:2,post_instance_upper:4});pos+=1;
+    for k in 1..=5{assert!(walk(k).is_err());neg+=1;}
+    assert_eq!(pos+neg,43750+24);
+    eprintln!("ACT1093_VASE_GEOMETRY_MATRIX {pos}POS {neg}NEG PASS");
+}
