@@ -1,0 +1,89 @@
+name: 04 QR-S ACT1307 SR03 actual proof adapter L2 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1307-sr03-actual-proof-adapter.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-sr03-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d93eac0ed541ba3fdfa4adcf75ea6579b2fceceb
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Fixed accepted Core and actual generated dedicated proof subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "d93eac0ed541ba3fdfa4adcf75ea6579b2fceceb"
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = a93f28a863ab9d9cf7340499d53602af2a04d596
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = e9eb94f91a1c4858d0d93f5837e86e7935a5f471
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs)" = 66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          git worktree add --detach /tmp/wand-sr03-core 9bb806ae6f137f7ba7fa7bd673f3c336a875d14d
+          test "$(git -C /tmp/wand-sr03-core rev-parse HEAD:crates/ddv-save-core)" = c93264e1c060fa1dacba71ad2cd72628ef6dbbc4
+          test "$(git -C /tmp/wand-sr03-core rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp /tmp/wand-sr03-core/scripts/wasm-distribution/approved-Cargo.lock /tmp/wand-sr03-core/crates/ddv-save-core/Cargo.lock
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-sr03-tools
+          cargo build --locked --manifest-path /tmp/wand-sr03-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-sr03-scoped,worker-wasm
+          /tmp/wand-sr03-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-sr03-generated --target web --no-typescript
+          cat > qa-sr03-proof.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {readFileSync,copyFileSync} from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          import {pathToFileURL} from 'node:url';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {SR03_RELEASE as s,COMP03_RELEASE as comp,VASE_ADD_RELEASE as vase,STEAM_BACKPACK_RELEASE,SWITCH_BACKPACK_RELEASE,STEAM_WARDROBE_RELEASE,SWITCH_WARDROBE_RELEASE,placementAnchorShapeOk,placementIdentityText,validatePlacementAnchor} from './src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {fixedPlacementProofScope,inspectPlacementSubjects as inspect,privatePlacementIdentity as identity,replacePrivatePlacementAnchor as replaceAnchor} from './scripts/readonly-release/scoped-placement-proof.mjs';
+          const source='9bb806ae6f137f7ba7fa7bd673f3c336a875d14d',sha=b=>createHash('sha256').update(b).digest('hex'),dir='/tmp/wand-sr03-generated';
+          const js=readFileSync(dir+'/ddv_save_core.js'),wasm=readFileSync(dir+'/ddv_save_core_bg.wasm'),cargo=readFileSync('/tmp/wand-sr03-core/crates/ddv-save-core/Cargo.toml'),lock=readFileSync('/tmp/wand-sr03-core/crates/ddv-save-core/Cargo.lock'),toolchain=execFileSync('rustc',['--version','--verbose'],{encoding:'utf8'});
+          assert.equal(sha(lock),'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c');
+          const methods=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','preview_steam626_sr03','stage_steam626_sr03','toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close'];
+          const exports=['memory','__wbg_workerwasmsource_free','workerwasmsource_new',...methods.map(n=>'workerwasmsource_'+n),'__wbindgen_externrefs','__wbindgen_malloc','__externref_table_dealloc','__wbindgen_realloc','__wbindgen_free','__wbindgen_start'].sort();
+          copyFileSync(dir+'/ddv_save_core.js',dir+'/glue.mjs');const cls=(await import(pathToFileURL(dir+'/glue.mjs').href)).WorkerWasmSource;
+          assert.deepEqual(Object.getOwnPropertyNames(cls.prototype).filter(n=>!['constructor','free','__destroy_into_raw'].includes(n)).sort(),methods.slice().sort());
+          assert.deepEqual(WebAssembly.Module.exports(new WebAssembly.Module(wasm)).map(x=>x.name).sort(),exports);
+          assert.deepEqual(s.methods,methods);assert.deepEqual(s.exports,exports);assert.equal(s.key,'steam626-sr03');assert.equal(s.operation,'steam626.sr03.mixed-q5.exact8');assert.deepEqual(s.features,['product-steam626-sr03-scoped','worker-wasm']);assert.equal(s.assetDir,'worker-wasm-scoped-steam626-sr03');assert.equal(s.platform,'steam-windows');assert.equal(s.buildId,'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22');assert.equal(fixedPlacementProofScope(s.key),s);
+          const u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a},str=s=>[...u(Buffer.byteLength(s)),...Buffer.from(s)],sec=(id,b)=>[id,...u(b.length),...b];
+          const makeW=(names,wrong=null)=>{const es=names.flatMap(n=>[...str(n),n===wrong?0:n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(names.length),...es]),...sec(10,[1,2,0,11])])};
+          const pack=(x=s,j=js,w=wasm,patch={})=>[Buffer.from(JSON.stringify({contract:x.prefix+'.runtime@1',operation:x.operation,source:{repository:tuple.repository,commit:source,cargoTomlSha256:sha(cargo),cargoLockSha256:sha(lock),cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:x.features,defaultFeatures:false,toolchain},assets:{js:{path:'ddv_save_core.js',sizeBytes:j.length,sha256:sha(j)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}},abi:{exportClass:'WorkerWasmSource',methods:x.methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false},...patch})),j,w];
+          const b=pack(),p=inspect(s,b,source),a=identity(s,p,'http://127.0.0.1:4188'),m=JSON.parse(b[0]);
+          let pos=0,neg=0;const no=f=>{assert.throws(f);neg++};
+          for(const [i,k] of ['manifest','js','wasm'].entries()){assert.equal(p[k+'Sha256'],sha(b[i]));assert.equal(p[k+'SizeBytes'],b[i].length)}pos++;
+          assert.equal(await validatePlacementAnchor(s,a),true);assert.equal(a.releaseId,sha(Buffer.from(placementIdentityText(s,a))));assert.deepEqual(a.builds,[{platform:'steam-windows',buildId:s.buildId,productV2EvidenceSha256:null}]);pos++;
+          for(const o of [comp,vase]){
+           const x=pack(o,Buffer.from('export class WorkerWasmSource {}'),makeW(o.exports)),op=inspect(o,x,source),oi=identity(o,op,'http://127.0.0.1:4188');assert.equal(await validatePlacementAnchor(o,oi),true);pos++;
+           no(()=>inspect(s,x,source));no(()=>inspect(o,b,source));no(()=>inspect(s,pack(s,js,makeW(o.exports)),source));assert.equal(placementAnchorShapeOk(o,a),false);assert.equal(placementAnchorShapeOk(s,oi),false);neg+=2;
+           for(const token of methods.filter(n=>/^(preview|stage)_/.test(n)))no(()=>inspect(o,pack(o,Buffer.from(token),makeW(o.exports)),source));
+          }
+          for(const o of [comp,vase,STEAM_BACKPACK_RELEASE,SWITCH_BACKPACK_RELEASE,STEAM_WARDROBE_RELEASE,SWITCH_WARDROBE_RELEASE]){no(()=>inspect(s,pack(s,js,makeW(o.exports)),source));for(const token of o.methods.filter(n=>/^(preview|stage)_/.test(n)))no(()=>inspect(s,pack(s,Buffer.concat([js,Buffer.from('\n// '+token)])),source))}
+          for(const token of ['preview_steam626_comp03_spatial','stage_switch626_vase_add','preview_switch626_vase_add','stage_switch626_chest','stage_steam626_chest','stage_switch626_catalog0','stage_fixed_collection','stage_scoped_amount','private_native','dev_stage']){no(()=>inspect(s,pack(s,Buffer.concat([js,Buffer.from('\n// '+token)])),source));no(()=>inspect(s,pack(s,js,makeW([...exports,'workerwasmsource_'+token])),source))}
+          for(const w of [makeW(exports.slice(1)),makeW(exports,'memory'),makeW([...exports,'workerwasmsource_stage_extra'])])no(()=>inspect(s,pack(s,js,w),source));
+          for(const patch of [{contract:comp.prefix+'.runtime@1'},{operation:vase.operation},{source:{...m.source,features:comp.features}},{source:{...m.source,features:[...s.features,comp.features[0]]}},{source:{...m.source,cargoLockSha256:'0'.repeat(64)}},{source:{...m.source,defaultFeatures:true}},{abi:{...m.abi,methods:comp.methods}},{abi:{...m.abi,writerAuthorized:true}},{release:{...m.release,productConsumerEnabled:true}},{release:{...m.release,autoUpload:true}},{extra:true}])no(()=>inspect(s,pack(s,js,wasm,patch),source));
+          for(const x of [b.slice(0,2),[...b,b[0]],[b[1],b[0],b[2]],[b[0],Buffer.concat([js,Buffer.from(' ')]),wasm],[Buffer.alloc(65537),js,wasm],[Buffer.from([255]),js,wasm]])no(()=>inspect(s,x,source));
+          no(()=>inspect(s,b,'c'.repeat(40)));for(const t of [{...tuple,signerWorkflow:'foreign/workflow'},{...tuple,sourceRef:'refs/heads/other'},{...tuple,repository:'foreign/repo'}])no(()=>inspect(s,b,source,t));
+          for(const origin of ['https://127.0.0.1:4188','http://localhost:4188','http://127.0.0.1:65536','http://127.0.0.1:4188/x',tuple.origin])no(()=>identity(s,p,origin));
+          for(const build of [{...a.builds[0],buildId:'9A239D3DB569756D'},{...a.builds[0],platform:'switch'},{...a.builds[0],productV2EvidenceSha256:'a'.repeat(64)}]){assert.equal(placementAnchorShapeOk(s,{...a,builds:[build]}),false);neg++}
+          const root='src/lib/ddv/core/save/',prior=readFileSync(root+'product-scoped-sr03-release-anchor.mjs','utf8'),marker='export const PROTECTED_SR03_RELEASE_ANCHOR=null;',out=replaceAnchor(s,prior,a),[before,after]=prior.split(marker);assert.ok(out.startsWith(before));assert.ok(out.endsWith(after));assert.ok(out.includes('export const PROTECTED_SR03_RELEASE_ANCHOR=Object.freeze('));pos++;
+          for(const f of ['product-scoped-placement-release-anchor.mjs','product-scoped-backpack-release-anchor.mjs','product-scoped-wardrobe-release-anchor.mjs']){const t=readFileSync(root+f,'utf8');no(()=>replaceAnchor(s,t,a));assert.equal(t,execFileSync('git',['show','78e5105a27df8d853e5e7fd4a40073e0c3b51242:'+root+f],{encoding:'utf8'}))}
+          for(const x of [prior.replace(marker,''),prior+marker,out])no(()=>replaceAnchor(s,x,a));
+          no(()=>replaceAnchor(s,prior,{...a,releaseId:'f'.repeat(64)}));no(()=>replaceAnchor(s,prior,{...a,mode:'public-accepted'}));for(const k of ['steam626','steam626-comp03-spatial','switch626-vase-add'])no(()=>fixedPlacementProofScope(k));
+          console.log('ACT1307_SR03_ACTUAL_PROOF_L2_PASS',JSON.stringify({pos,neg,methods:13,exports:22,actualGeneratedWasm:true,approvedLock:true,core:source,adapter:'d93eac0ed541ba3fdfa4adcf75ea6579b2fceceb',actualSignature:false,publicGrant:false,jsSha256:sha(js),wasmSha256:sha(wasm),manifestSha256:p.manifestSha256}));
+          
+          EOF
+          node qa-sr03-proof.mjs
+          test -z "$(git diff --name-only HEAD -- static build src/lib/ddv/core/save)"
