@@ -198,4 +198,5 @@ mod tests{
   let mut bad=d.clone();bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["13"]["Orientation"]=json!("GridOrientation_Down");
   let q=open(&bad);assert!(q.mint_switch626_fm01_target(env(&q),90001,ids).is_err());
  }
+ #[test]fn qa1836_synthetic_fixture(){let mut d=doc();d["Opaque"]=json!({"escaped":"keep","stockDecoy":10});let raw=serde_json::to_string(&d).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");std::fs::write("/tmp/qrc1836-input.json",raw).unwrap();}
 }
