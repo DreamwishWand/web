@@ -127,7 +127,7 @@ mod tests{
         s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..now}).unwrap();
         let out_e=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};let out=s.take_typed_semantic_decoded_once(out_e).unwrap();
         assert!(s.take_typed_semantic_decoded_once(out_e).is_err());d["World"]["Characters"][0]["SkinID"]=json!(ORDINARY_NEW);
-        assert_eq!(out,serde_json::to_vec(&d).unwrap());assert_eq!(s.receipt().unwrap().decoded_sha256,e.expected_decoded_sha256);
+        assert_eq!(out,serde_json::to_vec(&d).unwrap());assert!(s.receipt().is_err());assert_eq!(sha(&s.decoded),hex(&e.expected_decoded_sha256));
     }
     #[test]fn product_skin_physical_negative_controls(){
         let old=STATIC_OLD[0];let mut variants=Vec::new();
