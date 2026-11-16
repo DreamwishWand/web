@@ -131,10 +131,57 @@ fn pos(v: &Value) -> R<f64> {
     need(x.is_finite() && x.abs()<=1_000_000.,"VASE_GEOMETRY_AMBIENT_POSE")?;
     Ok(x)
 }
+/// Narrow ACT1136 ordinary fresh-load ambient bounds. The existing fixed
+/// GeometryPack SHA binds the Steam/Switch common Furniture definition.
+/// Switch ActivityItem is a separate exact installed-definition witness;
+/// the existing Steam-only build() gate is NOT widened by this helper.
+/// Caller must prove its same-session build/provider, fresh epoch and no
+/// overlay; keyhole callback must resolve the current World.Keyholes GUID.
+fn scoped_ambient_radius<F>(p:&GeometryPack,build_id:&str,o:&Value,mut keyhole:F)->R<f64>
+where F:FnMut(&str)->R<()> {
+    let item=u(field(o,"ItemID")?)?;
+    let orientation=field(o,"Orientation")?.as_str().ok_or("VASE_GEOMETRY_AMBIENT_ORIENTATION")?;
+    let s=state(field(o,"State")?)?;
+    if matches!(orientation,"GridOrientation_Up"|"GridOrientation_Right"|"GridOrientation_Down"|"GridOrientation_Left") {
+        let (w,h)=*p.dims.get(&item).ok_or("VASE_GEOMETRY_UNKNOWN_DIMENSIONS")?;
+        need(matches!(s,None|Some(("BuildingWithSkinData"|"HouseData"|"Keyhole",_))),"VASE_GEOMETRY_AMBIENT_STATE")?;
+        return Ok((2*(w+h)) as f64);
+    }
+    // No From, serialized GridArea cache or unknown saved fields on the
+    // newly admitted exact noncardinal records. Ordinary cardinal scope unchanged.
+    let m=map(o)?;
+    need(m.len()==6 && ["ID","ItemID","X","Y","Orientation","State"].iter().all(|k|m.contains_key(*k))
+        && u(field(o,"ID")?)?>0 && field(o,"X")?.as_i64().is_some() && field(o,"Y")?.as_i64().is_some(),
+        "VASE_GEOMETRY_AMBIENT_EXACT_SHAPE")?;
+    const SWITCH626_BID:&str="9A239D3DB569756D";
+    match (build_id,item,orientation,s) {
+        (BUILD|SWITCH626_BID,40001075,"GridOrientation_DownDownRight",Some(("Keyhole",payload)))=>{
+            need(p.dims.get(&item)==Some(&(4,3)) && map(payload)?.len()==1,"VASE_GEOMETRY_AMBIENT_KEYHOLE")?;
+            let guid=field(payload,"KeyholeConfigDataGUID")?.as_str().ok_or("VASE_GEOMETRY_AMBIENT_KEYHOLE")?;
+            need(!guid.is_empty()&&guid.len()<=128,"VASE_GEOMETRY_AMBIENT_KEYHOLE")?;
+            keyhole(guid)?;
+            Ok(14.)
+        },
+        // E2425 exact ActivityItem record 6339f09d...; 2x2, 4*0x44,
+        // Floor130802943; ACT1136 no override. Not a generic major3 dimension.
+        (SWITCH626_BID,31400039,"GridOrientation_DownRightRight",None)=>{
+            need(!p.dims.contains_key(&item),"VASE_GEOMETRY_AMBIENT_ACTIVITY_DUPLICATE")?;
+            Ok(8.)
+        },
+        _=>Err("VASE_GEOMETRY_AMBIENT_ORIENTATION"),
+    }
+}
+
 /// Reference-only local proof. Input is the current validated selected Grid
 /// from the existing indexed ProductSession reader, not a caller-authored plan.
 /// Root, overlay and complete parent alias checks are also required by quota.
 pub(crate) fn check_local_pose(p:&GeometryPack,build_id:&str,schema:u32,grid:&Value,gid:u32,x:u32,y:u32)->R<()> {
+    // Preserve the original call surface: new noncardinal Keyhole requires
+    // a same-session World.Keyholes binding, never a default grant.
+    check_local_pose_with_ambient(p,build_id,schema,grid,gid,x,y,|_|Err("VASE_GEOMETRY_AMBIENT_KEYHOLE"))
+}
+pub(crate) fn check_local_pose_with_ambient<F>(p:&GeometryPack,build_id:&str,schema:u32,grid:&Value,gid:u32,x:u32,y:u32,mut keyhole:F)->R<()>
+where F:FnMut(&str)->R<()> {
     build(build_id,schema)?;
     need(gid>0 && u(field(grid,"ID")?)?==gid && field(grid,"GridDataPath")?==GRID
         && field(grid,"GridDefaultLayoutPath")?=="" && u(field(grid,"TessellationFactor")?)?==2,
@@ -146,15 +193,10 @@ pub(crate) fn check_local_pose(p:&GeometryPack,build_id:&str,schema:u32,grid:&Va
     for (k,o) in objects {
         let id=key(k)?;
         need(id>0 && id<next && u(field(o,"ID")?)?==id && !map(o)?.contains_key("From"),"VASE_GEOMETRY_OBJECT")?;
-        let item=u(field(o,"ItemID")?)?;
-        let (w,h)=*p.dims.get(&item).ok_or("VASE_GEOMETRY_UNKNOWN_DIMENSIONS")?;
-        let s=state(field(o,"State")?)?;
-        need(matches!(s,None|Some(("BuildingWithSkinData"|"HouseData"|"Keyhole",_))),"VASE_GEOMETRY_AMBIENT_STATE")?;
-        need(matches!(field(o,"Orientation")?.as_str(),Some("GridOrientation_Up"|"GridOrientation_Right"|"GridOrientation_Down"|"GridOrientation_Left")),"VASE_GEOMETRY_AMBIENT_ORIENTATION")?;
+        let r=scoped_ambient_radius(p,build_id,o,&mut keyhole)?;
         let (ox,oy)=(pos(field(o,"X")?)?,pos(field(o,"Y")?)?);
-        // For the exact accepted no-area-override states, a symmetric raw
-        // envelope around the anchor overbounds any cardinal orientation.
-        let r=(2*(w+h)) as f64;
+        // Existing symmetric raw envelope; new exact ACT1136 bounds only.
+        // No change to the half-open separating-axis collision predicate.
         let (l,t,rr,bb)=((x-4) as f64,(y-4) as f64,(x+8) as f64,(y+8) as f64);
         need(l.max(ox-r)>=rr.min(ox+r+1.) || t.max(oy-r)>=bb.min(oy+r+1.),"VASE_GEOMETRY_AMBIENT_OVERLAP")?;
     }
@@ -200,7 +242,8 @@ where F:FnMut(u32)->R<GridObservation> {
         need(ids.len()<=4096 && field(a,"Unlocked")?.is_boolean(),"VASE_GEOMETRY_QUOTA_AREA")?;
         for v in ids {
             let id=u(v)?;
-            need(id>0 && roots.insert(id) && roots.len()<=4096,"VASE_GEOMETRY_QUOTA_ROOT_ALIAS")?;
+            need((id>0 || (id==0 && aid==7 && ids.len()==1 && field(a,"Unlocked")?.as_bool()==Some(true)))
+                && roots.insert(id) && roots.len()<=4096,"VASE_GEOMETRY_QUOTA_ROOT_ALIAS")?;
             if id==selected {
                 need(aid==6 && ids.len()==1 && field(a,"Unlocked")?.as_bool()==Some(true),"VASE_GEOMETRY_QUOTA_SELECTED_ROOT")?;
                 chosen=true;
@@ -217,6 +260,13 @@ where F:FnMut(u32)->R<GridObservation> {
         let o=observe(id)?;
         need(!o.overlay && u(field(&o.grid,"ID")?)?==id && field(&o.grid,"GridDefaultLayoutPath")?==""
             && if is_root {o.root_refs==1&&o.parent_refs==0} else {o.root_refs==0&&o.parent_refs==1},"VASE_GEOMETRY_QUOTA_GRID_ALIAS")?;
+        // Grid zero is a real Village root only in the exact supported SnowLevel scope.
+        // The typed reference producer must exclude verified Realm-local puzzle IDs,
+        // not arbitrary zero aliases; the ordinary root/parent check above remains.
+        if id==0 {
+            need(is_root && selected!=0 && field(&o.grid,"GridDataPath")?=="GridData/Villages/Village04-SnowLevel-GridData.json"
+                && u(field(&o.grid,"TessellationFactor")?)?==2,"VASE_GEOMETRY_QUOTA_ZERO_ROOT")?;
+        }
         let objects=map(field(&o.grid,"Objects")?)?;
         need(objects.len()<=16384,"VASE_GEOMETRY_QUOTA_OBJECT_BOUND")?;
         for (k,v) in objects {
@@ -248,3 +298,111 @@ where F:FnMut(u32)->R<GridObservation> {
     Ok(QuotaBound{grids:seen.len(),raw,excluded,post_unique_upper,post_instance_upper})
 }
 
+
+#[cfg(test)]
+mod zero_root_tests {
+    use super::*;
+
+    fn fixture() -> (Value, BTreeMap<u32, Value>) {
+        let village=json!({"VillageObjectLimitName":"Village04ObjectLimit",
+            "HighEndVillageObjectLimitName":"HighEndVillageObjectLimit",
+            "BoughtObjectLimit":{"UniqueLimit":0,"InstanceLimit":0,"Exclusions":[],"SpecificItemLimits":[]},
+            "Areas":{"6":{"Unlocked":true,"GridIDs":[7]},"7":{"Unlocked":true,"GridIDs":[0]}}});
+        let mut grids=BTreeMap::new();
+        grids.insert(0,json!({"ID":0,"GridDataPath":"GridData/Villages/Village04-SnowLevel-GridData.json",
+            "GridDefaultLayoutPath":"","TessellationFactor":2,"Objects":{}}));
+        grids.insert(7,json!({"ID":7,"GridDataPath":GRID,"GridDefaultLayoutPath":"",
+            "TessellationFactor":2,"Objects":{}}));
+        (village,grids)
+    }
+
+    fn run(v:&Value, grids:&BTreeMap<u32,Value>, selected:u32, root_refs:u32,
+        parent_refs:u32, overlay:bool) -> R<QuotaBound> {
+        // Quota-only synthetic pack: installed pack SHA and floor/pose tests are separate.
+        // Avoid introducing a second embedded data include in this module.
+        let pack=GeometryPack{floor:Vec::new(),dims:BTreeMap::new(),excluded:BTreeSet::new()};
+        check_village_quota(&pack,BUILD,626,v,&json!(false),selected,|id|{
+            Ok(GridObservation{grid:grids.get(&id).ok_or("TEST_GRID_MISSING")?.clone(),
+                root_refs:if id==0 {root_refs} else {1},
+                parent_refs:if id==0 {parent_refs} else {0},
+                overlay:id==0&&overlay})
+        })
+    }
+
+    #[test]
+    fn canonical_village_zero_root_is_counted_without_granting_zero_target() {
+        let (v,g)=fixture();
+        let q=run(&v,&g,7,1,0,false).unwrap();
+        assert_eq!(q.grids,2);
+        assert_eq!((q.raw,q.excluded,q.post_unique_upper,q.post_instance_upper),(0,0,1,1));
+        for i in 0..13 {
+            let (mut v,mut g)=fixture();
+            let (mut selected,mut roots,mut parents,mut overlay)=(7,1,0,false);
+            match i {
+                0=>{let a=v["Areas"].as_object_mut().unwrap();let z=a.remove("7").unwrap();a.insert("8".into(),z);},
+                1=>v["Areas"]["7"]["Unlocked"]=json!(false),
+                2=>v["Areas"]["7"]["GridIDs"]=json!([0,8]),
+                3=>v["Areas"]["8"]=json!({"Unlocked":true,"GridIDs":[0]}),
+                4=>g.get_mut(&0).unwrap()["GridDataPath"]=json!("other"),
+                5=>g.get_mut(&0).unwrap()["TessellationFactor"]=json!(1),
+                6=>g.get_mut(&0).unwrap()["ID"]=json!(8),
+                7=>g.get_mut(&0).unwrap()["GridDefaultLayoutPath"]=json!("other"),
+                8=>roots=2,
+                9=>parents=1,
+                10=>overlay=true,
+                11=>selected=0,
+                _=>g.get_mut(&7).unwrap()["Objects"]=json!({"1":{"ID":1,"ItemID":ITEM,"State":{"SubGrid":{"GridID":0}}}}),
+            }
+            assert!(run(&v,&g,selected,roots,parents,overlay).is_err(),"zero root negative {i}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod ambient_scope_tests {
+    use super::*;
+    fn pack()->GeometryPack {
+        GeometryPack{floor:Vec::new(),dims:BTreeMap::from([(40001075,(4,3)),(ITEM,(1,1))]),excluded:BTreeSet::new()}
+    }
+    fn kh()->Value {json!({"ID":1,"ItemID":40001075,"X":20,"Y":30,
+        "Orientation":"GridOrientation_DownDownRight","State":{"Keyhole":{"KeyholeConfigDataGUID":"synthetic-keyhole"}}})}
+    fn activity()->Value {json!({"ID":2,"ItemID":31400039,"X":40,"Y":50,
+        "Orientation":"GridOrientation_DownRightRight","State":null})}
+    fn match_keyhole(guid:&str)->R<()> {need(guid=="synthetic-keyhole","TEST_KEYHOLE_ENDPOINT")}
+    #[test]
+    fn exact_ambient_radius_and_denials() {
+        let p=pack();let sw="9A239D3DB569756D";
+        assert_eq!(scoped_ambient_radius(&p,BUILD,&kh(),match_keyhole).unwrap(),14.);
+        assert_eq!(scoped_ambient_radius(&p,sw,&kh(),match_keyhole).unwrap(),14.);
+        assert_eq!(scoped_ambient_radius(&p,sw,&activity(),match_keyhole).unwrap(),8.);
+        let ordinary=json!({"ID":3,"ItemID":ITEM,"X":0,"Y":0,"Orientation":"GridOrientation_Up","State":null});
+        assert_eq!(scoped_ambient_radius(&p,BUILD,&ordinary,match_keyhole).unwrap(),4.);
+        for i in 0..11 {
+            let mut o=kh();let mut b=BUILD;
+            match i {
+                0=>{o["gridArea"]=json!({});},
+                1=>{o["From"]=json!({});},
+                2=>{o["ItemID"]=json!(40001076);},
+                3=>{o["Orientation"]=json!("GridOrientation_DownRight");},
+                4=>{o["ID"]=json!(0);},
+                5=>{o["X"]=json!(20.5);},
+                6=>{o["State"]["Extra"]=json!({});},
+                7=>{o["State"]["Keyhole"]["Extra"]=json!({});},
+                8=>{o["State"]["Keyhole"]["KeyholeConfigDataGUID"]=json!("missing");},
+                9=>{o["State"]=Value::Null;},
+                _=>{b="foreign";},
+            }
+            assert!(scoped_ambient_radius(&p,b,&o,match_keyhole).is_err(),"ambient negative {i}");
+        }
+        assert!(scoped_ambient_radius(&p,BUILD,&activity(),match_keyhole).is_err());
+        assert!(scoped_ambient_radius(&p,sw,&kh(),|_|Err("TEST_NO_PROVIDER")).is_err());
+        let mut o=activity();o["State"]=json!({"Keyhole":{"KeyholeConfigDataGUID":"synthetic-keyhole"}});
+        assert!(scoped_ambient_radius(&p,sw,&o,match_keyhole).is_err());
+        let mut p=pack();p.dims.insert(31400039,(2,2));
+        assert!(scoped_ambient_radius(&p,sw,&activity(),match_keyhole).is_err());
+        p.dims.insert(40001075,(5,3));
+        assert!(scoped_ambient_radius(&p,BUILD,&kh(),match_keyhole).is_err());
+        // Helper tests do not grant Switch a product entry: existing gate unchanged.
+        assert!(build(sw,626).is_err());
+    }
+}

@@ -35,7 +35,7 @@ pub struct WorkerWasmSource {
 }
 #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 #[derive(Clone,Copy,PartialEq,Eq)]
-enum ScopedEditDomain { Amount, Collection }
+enum ScopedEditDomain { Amount, Collection, Vase }
 #[wasm_bindgen]
 impl WorkerWasmSource {
     #[wasm_bindgen(constructor)]
@@ -360,6 +360,27 @@ impl WorkerWasmSource {
         self.scoped_domain.set(Some(ScopedEditDomain::Amount));
         Ok(scoped_edit_receipt(r,"wand.worker.steam626.scoped-amount@1"))
     }
+    /// ACT493: fixed normal-retail Steam626 ordinary Vase ADD only.
+    /// Select an existing Grid and a pose. All effective facts are minted
+    /// by the current ProductSession, not passed in from JS.
+    #[cfg(feature="product-amount-scoped")]
+    pub fn preview_steam626_vase_add(&self,gid:u32,x:u32,y:u32,session_id:&str,
+        revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        Ok(guard.preview_steam626_vase_add(e,gid,x,y).map_err(|e|err(e.0))?.to_string())
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn stage_steam626_vase_add(&self,gid:u32,x:u32,y:u32,old:u32,next:u32,
+        entry_sha256:&str,grid_sha256:&str,projected_sha256:&str,session_id:&str,
+        revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        let r=guard.stage_steam626_vase_add(e,gid,x,y,old,next,from_hex(entry_sha256)?,
+            from_hex(grid_sha256)?,from_hex(projected_sha256)?).map_err(|e|err(e.0))?;
+        self.scoped_domain.set(Some(ScopedEditDomain::Vase));
+        Ok(scoped_edit_receipt(r,"wand.worker.steam626.scoped-vase-add@1"))
+    }
     // One internal ledger and one output buffer, with legacy Amount
     // contract aliases. The tag labels the successful Stage; it cannot
     // authorize any command or mint a new session.
@@ -444,7 +465,7 @@ fn scoped_selection(profile:&str,id:u32,selector:u32)->Result<crate::ExistingAmo
 impl WorkerWasmSource {
     #[cfg(feature="product-amount-scoped")]
     fn require_amount_domain(&self)->Result<(),JsValue>{
-        if self.scoped_domain.get()==Some(ScopedEditDomain::Collection){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}
+        if matches!(self.scoped_domain.get(),Some(ScopedEditDomain::Collection|ScopedEditDomain::Vase)){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}
         Ok(())
     }
     fn toggle_scoped_edit_inner(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str,contract:&str)->Result<String,JsValue>{

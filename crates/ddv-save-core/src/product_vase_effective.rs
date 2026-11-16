@@ -27,57 +27,6 @@ fn projection(b:&[u8],s:Span,keys:&[&str])->CoreResult<Value>{
     for k in keys{m.insert((*k).into(),bounded_value(b,f(b,s,k)?)?);}
     Ok(Value::Object(m))
 }
-#[derive(Default)]
-struct Incoming{
-    roots:BTreeMap<u32,u32>,parents:BTreeMap<u32,u32>,nodes:usize,pairs:usize,
-}
-fn bump(m:&mut BTreeMap<u32,u32>,id:u32)->CoreResult<()>{
-    need(m.len()<50_000||m.contains_key(&id),"VASE_BINDER_ALIAS_BOUND")?;
-    let n=m.entry(id).or_insert(0);*n=n.checked_add(1).ok_or(denied("VASE_BINDER_ALIAS_COUNT"))?;Ok(())
-}
-// Same accepted lexical span grammar as COMP03 current alias/reference
-// walk. Count all saved GridIDs/SubGrid incoming edges, and reject a
-// prospective composite address even in an otherwise preserved subtree.
-// No secondary decoded document, no guessed grid IDs, no string search.
-fn walk(b:&[u8],s:Span,gid:u32,next:u32,a:&mut Incoming,depth:usize)->CoreResult<()>{
-    a.nodes+=1;need(a.nodes<=MAX_NODES&&depth<=64,"VASE_BINDER_REFERENCE_BOUND")?;
-    match b.get(s.begin){
-        Some(b'{')=>{
-            let mut pos=s.begin+1;let mut fields:[Option<Span>;6]=[None;6];
-            while let Some((k,v))=next_object_member(b,s,&mut pos)?{
-                if k=="GridIDs"{
-                    for x in array(b,v,4096)?{
-                        let id=u32::try_from(number(b,x)?).map_err(|_|denied("VASE_BINDER_ROOT_ID"))?;
-                        bump(&mut a.roots,id)?;
-                    }
-                }else if k=="SubGrid"&&b.get(v.begin..v.end)!=Some(&b"null"[..]){
-                    let id=n(b,v,"GridID")?;bump(&mut a.parents,id)?;
-                }
-                let ix=match k.as_str(){"GridID"=>Some(0),"GridId"=>Some(1),
-                    "GridObjectID"=>Some(2),"GridObjectId"=>Some(3),"ObjectID"=>Some(4),"ObjectId"=>Some(5),_=>None};
-                if let Some(i)=ix{need(fields[i].replace(v).is_none(),"VASE_BINDER_REF_DUPLICATE")?;}
-                walk(b,v,gid,next,a,depth+1)?;
-            }
-            let gs=fields[..2].iter().filter(|x|x.is_some()).count();
-            let os=fields[2..].iter().filter(|x|x.is_some()).count();
-            if gs>0&&os>0{
-                need(gs==1&&os==1,"VASE_BINDER_REF_AMBIGUOUS")?;
-                let (g,o)=match fields{
-                    [Some(g),None,Some(o),None,None,None]|
-                    [None,Some(g),None,Some(o),None,None]|
-                    [Some(g),None,None,None,Some(o),None]|
-                    [None,Some(g),None,None,None,Some(o)]=>(g,o),
-                    _=>return reject("VASE_BINDER_REF_SPELLING"),
-                };
-                let g=u32::try_from(number(b,g)?).map_err(|_|denied("VASE_BINDER_REF_UINT"))?;
-                let o=u32::try_from(number(b,o)?).map_err(|_|denied("VASE_BINDER_REF_UINT"))?;
-                a.pairs+=1;need(g!=gid||(o!=0&&o!=next),"VASE_BINDER_PROSPECTIVE_REFERENCE")?;
-            }
-        },
-        Some(b'[')=>for x in array(b,s,250_000)?{walk(b,x,gid,next,a,depth+1)?;},
-        Some(_)=>{},None=>return reject("VASE_BINDER_REF_SPAN"),
-    }Ok(())
-}
 #[derive(Debug,PartialEq,Eq)]
 #[allow(dead_code)]
 pub(crate) struct VaseEffectiveTarget{
@@ -120,9 +69,15 @@ impl ProductSession{
         for(k,g)in members(b,f(b,gc,"DiffGrids")?,50_000)?{
             let id=key(&k)?;need(n(b,g,"ID")?==id&&diff.insert(id)&&!grids.contains_key(&id),"VASE_BINDER_OVERLAY_ID")?;
         }
-        let mut incoming=Incoming::default();walk(b,top,gid,t.next,&mut incoming,0)?;
+        let incoming=super::super::placement_saved_refs::scan(b,top,gid,None,t.next,t.next.checked_add(1).ok_or(denied("VASE_BINDER_COUNTER"))?)?;
         let selected=bounded_value(b,*grids.get(&gid).ok_or(denied("VASE_BINDER_GRID"))?)?;
-        geometry::check_local_pose(p,EXACT_STEAM,626,&selected,gid,x,y).map_err(denied)?;
+        geometry::check_local_pose_with_ambient(p,EXACT_STEAM,626,&selected,gid,x,y,|guid|{
+            // Same immutable validated World, exact matching GUID. The callback
+            // is internal and cannot be supplied by the public ABI.
+            let kh=f(b,r.world,"Keyholes").map_err(|e|e.0)?;
+            let row=f(b,kh,guid).map_err(|e|e.0)?;
+            need(strv(b,row,"GUID").map_err(|e|e.0)?==guid,"VASE_BINDER_KEYHOLE_GUID").map_err(|e|e.0)
+        }).map_err(denied)?;
         let quota=geometry::check_village_quota(p,EXACT_STEAM,626,&v,&extra,gid,|id|{
             let span=*grids.get(&id).ok_or("VASE_BINDER_QUOTA_GRID")?;
             let grid=bounded_value(b,span).map_err(|e|e.0)?;
@@ -152,9 +107,42 @@ impl ProductSession{
         let v=&t.physical;
         let now=self.mint_vase_effective_target(read,v.grid,v.x,v.y)?;
         need(now==*t,"VASE_BINDER_TARGET_CAS")?;
+        self.commit_current_vase(e,&now)
+    }
+    fn commit_current_vase(&self,e:WorkerEnvelope,now:&VaseEffectiveTarget)->CoreResult<SemanticStageReceipt>{
         let edits=self.collect_vase_exact3_candidate(&now.physical)?;
         need(edits.len()==3,"VASE_BINDER_EXACT3")?;
         self.commit_semantic_replacements(e,edits,3,Some(now.projected_sha))
+    }
+    /// Explicit bounded product candidate, not raw Save data or authority.
+    /// The UI receives only the selected pose, exact old values and digests.
+    pub(crate) fn preview_vase_product_add(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)
+        ->CoreResult<Value>{
+        let t=self.mint_vase_effective_target(e,gid,x,y)?;
+        let p=&t.physical;let v=p.stock.view();
+        Ok(json!({"contract":"wand.worker.steam626.scoped-vase-add@1",
+            "itemId":ITEM,"inventoryId":0,"gridId":gid,"x":x,"y":y,
+            "orientation":"GridOrientation_Up","nextObjectId":p.next,
+            "oldAmount":v.old_amount,"newAmount":v.old_amount-1,
+            "entrySha256":hex(&v.entry_sha256),"gridSha256":hex(&p.grid_sha),
+            "projectedDecodedSha256":hex(&t.projected_sha),
+            "sessionId":hex(&v.session_id),"revision":v.revision,"indexGeneration":v.index_generation,
+            "decodedSha256":hex(&v.decoded_sha256),"scopedCandidate":true,
+            "exactFieldChangedCount":3,"writerAuthorized":false,"editedCopyAuthorized":false}))
+    }
+    /// Every caller argument is a selector or an expected old value/hash.
+    /// None can mint authority. Recompute effective target and exact projected
+    /// bytes from the current immutable session; stage only on exact CAS.
+    pub(crate) fn stage_vase_product_add(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32,
+        old:u32,next:u32,entry:[u8;32],grid:[u8;32],projected:[u8;32])
+        ->CoreResult<SemanticStageReceipt>{
+        need(e.action==WorkerAction::Stage,"VASE_BINDER_STAGE_ACTION")?;
+        let read=WorkerEnvelope{action:WorkerAction::ReadDomain,..e};
+        let t=self.mint_vase_effective_target(read,gid,x,y)?;
+        let v=t.physical.stock.view();
+        need(v.old_amount==old&&t.physical.next==next&&v.entry_sha256==entry&&
+            t.physical.grid_sha==grid&&t.projected_sha==projected,"VASE_BINDER_PREVIEW_CAS")?;
+        self.commit_current_vase(e,&t)
     }
 }
 #[cfg(test)]
@@ -213,6 +201,26 @@ mod tests{
         d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(10);
         d["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Amount"]=json!(2);
         assert_eq!(out,serde_json::to_vec(&d).unwrap());
+    }
+    #[test]
+    fn vase_product_preview_stage_cas(){
+        let(x,y)=pose();let d=doc(x,y);let s=open(&d);let e=env(&s,WorkerAction::ReadDomain);
+        let t=s.mint_vase_effective_target(e,7,x,y).unwrap();let p=s.preview_vase_product_add(e,7,x,y).unwrap();
+        let stock=t.physical.stock.view();let entry=stock.entry_sha256;let grid=t.physical.grid_sha;let out=t.projected_sha;
+        assert_eq!(p["contract"],"wand.worker.steam626.scoped-vase-add@1");
+        assert_eq!(p["oldAmount"],3);assert_eq!(p["nextObjectId"],9);
+        assert_eq!(p["projectedDecodedSha256"],hex(&out));assert_eq!(p["gridSha256"],hex(&grid));
+        assert_eq!(p["entrySha256"],hex(&entry));assert_eq!(p["writerAuthorized"],false);
+        let st=env(&s,WorkerAction::Stage);let before=s.receipt().unwrap();
+        for (o,n,a,b,c) in [(2,9,entry,grid,out),(3,10,entry,grid,out),
+            (3,9,[0;32],grid,out),(3,9,entry,[0;32],out),(3,9,entry,grid,[0;32])]{
+            assert!(s.stage_vase_product_add(st,7,x,y,o,n,a,b,c).is_err());
+            assert_eq!(s.receipt().unwrap(),before);
+        }
+        let other=open(&d);assert!(other.stage_vase_product_add(st,7,x,y,3,9,entry,grid,out).is_err());
+        let receipt=s.stage_vase_product_add(st,7,x,y,3,9,entry,grid,out).unwrap();
+        assert_eq!(receipt.exact_field_changed_count,3);assert_eq!(receipt.staged_decoded_sha256,out);
+        assert!(s.stage_vase_product_add(st,7,x,y,3,9,entry,grid,out).is_err());
     }
     #[test]
     fn vase_effective_current_denials(){
