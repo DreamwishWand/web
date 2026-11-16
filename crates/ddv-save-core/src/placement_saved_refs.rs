@@ -19,12 +19,43 @@ fn bump(m:&mut BTreeMap<u32,u32>,id:u32)->CoreResult<()>{
 }
 fn uint(b:&[u8],s:Span)->CoreResult<u32>{u32::try_from(number(b,s)?).map_err(|_|denied("PLACEMENT_REF_UINT"))}
 fn canonical(k:&str)->bool{k.parse::<u32>().is_ok_and(|n|n.to_string()==k)}
-fn building(p:&[String])->bool{p.len()==3&&p[0]=="World"&&p[1]=="BuildingInfos"&&canonical(&p[2])}
-fn room(p:&[String])->bool{
-    (p.len()==4&&building(&p[..3])&&p[3]=="Room")||
-    (p.len()==7&&p[0]=="World"&&p[1]=="PlayerHouses"&&p[2]=="[]"&&p[3]=="Floors"&&p[4]=="[]"&&p[5]=="Rooms"&&canonical(&p[6]))
+// A JSON key named "[]" is never an array segment.
+#[derive(Debug,PartialEq,Eq)]
+enum Segment{Key(String),Element}
+use Segment::{Key,Element};
+fn k(s:&Segment,w:&str)->bool{matches!(s,Key(x) if x==w)}
+fn ck(s:&Segment)->bool{matches!(s,Key(x) if canonical(x))}
+fn building_map(p:&[Segment])->bool{p.len()==2&&k(&p[0],"World")&&k(&p[1],"BuildingInfos")}
+fn building(p:&[Segment])->bool{p.len()==3&&building_map(&p[..2])&&ck(&p[2])}
+fn house_rooms(p:&[Segment])->bool{
+    p.len()==6&&k(&p[0],"World")&&k(&p[1],"PlayerHouses")&&p[2]==Element&&k(&p[3],"Floors")&&p[4]==Element&&k(&p[5],"Rooms")
 }
-fn preset(p:&[String])->bool{p.len()==4&&p[0]=="World"&&p[1]=="DecorationPresets"&&p[2]=="[]"&&p[3]=="GridCollection"}
+fn room(p:&[Segment])->bool{
+    (p.len()==4&&building(&p[..3])&&k(&p[3],"Room"))||
+    (p.len()==7&&house_rooms(&p[..6])&&ck(&p[6]))
+}
+fn preset(p:&[Segment])->bool{p.len()==4&&k(&p[0],"World")&&k(&p[1],"DecorationPresets")&&p[2]==Element&&k(&p[3],"GridCollection")}
+fn exact_array_owner(p:&[Segment])->bool{
+    (p.len()==2&&k(&p[0],"World")&&(k(&p[1],"DecorationPresets")||k(&p[1],"PlayerHouses")))||
+    (p.len()==4&&k(&p[0],"World")&&k(&p[1],"PlayerHouses")&&p[2]==Element&&k(&p[3],"Floors"))
+}
+fn validate_owner(b:&[u8],s:Span,p:&[Segment])->CoreResult<()>{
+    if exact_array_owner(p){need(b.get(s.begin)==Some(&b'['),"PLACEMENT_ARRAY_OWNER")?;}
+    if building_map(p)||house_rooms(p){
+        for (key,_) in members(b,s,50_000)?{need(canonical(&key),"PLACEMENT_OWNER_KEY")?;}
+    }
+    if building(p){
+        let grid=opt(b,s,"GridIDs")?;let room=opt(b,s,"Room")?;
+        need(grid.is_some()!=room.is_some(),"PLACEMENT_BUILDING_ONEOF")?;
+    }
+    if room(p){
+        uint(b,f(b,s,"FloorGridID")?)?;
+        for (key,v) in members(b,f(b,s,"WallGridIDs")?,4)?{
+            need(canonical(&key)&&key.parse::<u32>().is_ok_and(|n|n<4),"PLACEMENT_ROOM_WALL_KEY")?;uint(b,v)?;
+        }
+    }
+    Ok(())
+}
 struct Local{grids:BTreeMap<u32,Span>}
 fn local(b:&[u8],s:Span)->CoreResult<Local>{
     let mut grids=BTreeMap::new();
@@ -37,20 +68,24 @@ fn local(b:&[u8],s:Span)->CoreResult<Local>{
     }
     Ok(Local{grids})
 }
-fn local_object_path(p:&[String])->bool{
-    p.len()==9&&preset(&p[..4])&&p[4]=="Grids"&&canonical(&p[5])&&p[6]=="Objects"&&canonical(&p[7])&&p[8]=="State"
+fn local_object_path(p:&[Segment])->bool{
+    p.len()==9&&preset(&p[..4])&&k(&p[4],"Grids")&&ck(&p[5])&&k(&p[6],"Objects")&&ck(&p[7])&&k(&p[8],"State")
 }
 fn local_endpoint(b:&[u8],l:&Local,g:u32,o:Option<u32>)->CoreResult<()>{
     let g=*l.grids.get(&g).ok_or(denied("PLACEMENT_PRESET_GRID_ENDPOINT"))?;
     if let Some(o)=o{let r=f(b,f(b,g,"Objects")?,&o.to_string())?;need(n(b,r,"ID")?==o,"PLACEMENT_PRESET_OBJECT_ENDPOINT")?;}
     Ok(())
 }
-fn walk(b:&[u8],s:Span,path:&mut Vec<String>,ns:Option<&Local>,g:u32,seed:Option<u32>,next:u32,end:u32,a:&mut Incoming)->CoreResult<()>{
+fn walk(b:&[u8],s:Span,path:&mut Vec<Segment>,ns:Option<&Local>,g:u32,seed:Option<u32>,next:u32,end:u32,a:&mut Incoming)->CoreResult<()>{
     a.nodes+=1;need(a.nodes<=MAX_NODES&&path.len()<=64,"PLACEMENT_REF_BOUND")?;
     // A local collection is recognized only by its exact typed owning path.
     // Every object/edge remains traversed; local aliases never count as World.
+    validate_owner(b,s,path)?;
     let own=if preset(path){Some(local(b,s)?)}else{None};
     let ns=own.as_ref().or(ns);
+    if ns.is_some()&&local_object_path(path)&&b.get(s.begin)==Some(&b'{')&&opt(b,s,"SubGrid")?.is_some(){
+        need(members(b,s,1)?.len()==1,"PLACEMENT_PRESET_STATE_ONEOF")?;
+    }
     match b.get(s.begin){
         Some(b'{')=>{
             let mut pos=s.begin+1;let mut fields:[Option<Span>;6]=[None;6];
@@ -84,11 +119,11 @@ fn walk(b:&[u8],s:Span,path:&mut Vec<String>,ns:Option<&Local>,g:u32,seed:Option
                     }
                     // Exact known Room shape is used for interpretation;
                     // no exemption for unrecognized paths.
-                    let _typed_room=room(path);
+                    // Unknown paths remain globally counted; no local exemption.
                 }
                 let ix=match k.as_str(){"GridID"=>Some(0),"GridId"=>Some(1),"GridObjectID"=>Some(2),"GridObjectId"=>Some(3),"ObjectID"=>Some(4),"ObjectId"=>Some(5),_=>None};
                 if let Some(i)=ix{need(fields[i].replace(v).is_none(),"PLACEMENT_REF_DUPLICATE")?;}
-                path.push(k);walk(b,v,path,ns,g,seed,next,end,a)?;path.pop();
+                path.push(Key(k));walk(b,v,path,ns,g,seed,next,end,a)?;path.pop();
             }
             let gs=fields[..2].iter().filter(|v|v.is_some()).count();let os=fields[2..].iter().filter(|v|v.is_some()).count();
             if gs>0&&os>0{
@@ -102,7 +137,7 @@ fn walk(b:&[u8],s:Span,path:&mut Vec<String>,ns:Option<&Local>,g:u32,seed:Option
                 else{need(id!=g||(oid!=0&&Some(oid)!=seed&&!(next..end).contains(&oid)),"PLACEMENT_REF_TARGET")?;}
             }
         },
-        Some(b'[')=>{path.push("[]".into());for x in array(b,s,250_000)?{walk(b,x,path,ns,g,seed,next,end,a)?;}path.pop();},
+        Some(b'[')=>{path.push(Element);for x in array(b,s,250_000)?{walk(b,x,path,ns,g,seed,next,end,a)?;}path.pop();},
         Some(_)=>{},None=>return reject("PLACEMENT_REF_SPAN"),
     }Ok(())
 }
@@ -126,6 +161,12 @@ mod tests{
         let mut x=d.clone();x["Unknown"]=json!({"GridIDs":{"List":[7]}});assert!(check(&x).is_err());
         let mut x=d.clone();x["World"]["DecorationPresets"][0]["GridCollection"]["Grids"]["0"]["Objects"]["1"]["State"]["SubGrid"]["GridID"]=json!(8);assert!(check(&x).is_err());
         let mut x=d.clone();x["Unknown"]=json!({"SubGrid":{"GridID":7}});assert_eq!(check(&x).unwrap().parent(7),1);
+        let mut x=d.clone();x["World"]["BuildingInfos"]["100"]["Room"]=json!({"FloorGridID":11,"WallGridIDs":{}});assert!(check(&x).is_err());
+        let mut x=d.clone();x["World"]["BuildingInfos"]["100"]=json!({});assert!(check(&x).is_err());
+        let mut x=d.clone();x["World"]["BuildingInfos"]=json!({"0100":{"Room":{"FloorGridID":11,"WallGridIDs":{}}}});assert!(check(&x).is_err());
+        let mut x=d.clone();x["World"]["DecorationPresets"]=json!({"[]":d["World"]["DecorationPresets"][0]});assert!(check(&x).is_err());
+        let mut x=d.clone();x["World"]["DecorationPresets"][0]["GridCollection"]["Grids"]["0"]["Objects"]["1"]["State"]["Other"]=json!({});assert!(check(&x).is_err());
+        let mut x=d.clone();x["World"]["PlayerHouses"][0]["Floors"][0]["Rooms"]=json!({"00":{"FloorGridID":12,"WallGridIDs":{}}});assert!(check(&x).is_err());
         let mut x=d.clone();x["Unknown"]=json!({"GridID":7,"ObjectID":9});assert!(check(&x).is_err());
     }
 }
