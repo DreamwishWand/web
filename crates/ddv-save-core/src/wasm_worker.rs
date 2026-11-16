@@ -27,6 +27,10 @@ pub struct WorkerWasmSource {
     build:BuildIdentity,
     entropy:[u8;32],
     session:Option<WorkerSessionGuard>,
+    // Mutually exclusive with session: the dedicated finish permanently
+    // consumes this builder; generic dispatch never sees the FRP01 session.
+    #[cfg(feature="product-switch624-frp01-readonly")]
+    frp01_session:Option<WorkerSessionGuard>,
     closed:bool,
     #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
     scoped_output:Option<(Vec<u8>,usize)>,
@@ -58,6 +62,8 @@ impl WorkerWasmSource {
         Ok(Self{buffer:Vec::new(),
             build:BuildIdentity{platform,build_kind,build_id,schema:schema.into(),externally_attested},
             entropy:seed,session:None,closed:false,
+            #[cfg(feature="product-switch624-frp01-readonly")]
+            frp01_session:None,
             #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
             scoped_output:None,
             #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
@@ -101,6 +107,30 @@ impl WorkerWasmSource {
             "editedCopyAuthorized":false,
             "applyAuthorized":false
         }).to_string())
+    }
+    /// Explicit one-operation read-only admission. No generic finish, cursor,
+    /// mutation, export, or foreign Build is reachable through this binding.
+    #[cfg(feature="product-switch624-frp01-readonly")]
+    pub fn finish_switch624_frp01_readonly(&mut self)->Result<String,JsValue>{
+        if self.closed||self.session.is_some()||self.frp01_session.is_some(){return Err(err("WORKER_ALREADY_FINALIZED"));}
+        let bytes=std::mem::take(&mut self.buffer);let seed=self.entropy;self.entropy.fill(0);self.closed=true;
+        let session=ProductSession::open_switch624_frp01_in_worker(bytes,self.build.clone(),seed).map_err(|e|err(e.0))?;
+        let guard=WorkerSessionGuard::attach(session);let r=guard.receipt().map_err(|e|err(e.0))?;
+        self.frp01_session=Some(guard);
+        Ok(serde_json::json!({"contract":r.contract,"sessionId":hex(&r.session_id),
+            "revision":r.revision,"indexGeneration":r.index_generation,"decodedSha256":hex(&r.decoded_sha256),
+            "schema":r.schema,"operation":"switch624-frp01-readonly","fullDocumentJsonValidated":r.full_document_json_validated,
+            "allDomainReferencesVerified":false,"productWorkerBound":r.product_worker_bound,"productReadAccepted":false,
+            "writerAuthorized":false,"editedCopyAuthorized":false,"applyAuthorized":false}).to_string())
+    }
+    #[cfg(feature="product-switch624-frp01-readonly")]
+    pub fn read_switch624_frp01_target(&self,grid:u32,old0:u32,old1:u32,old2:u32,session_id:&str,
+        revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.frp01_session.as_ref().ok_or(err("FRP01_WORKER_SESSION_NOT_READY"))?;
+        let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(session_id)?,
+            expected_revision:revision,expected_index_generation:index_generation,
+            expected_decoded_sha256:from_hex(decoded_sha256)?,action:WorkerAction::ReadDomain};
+        Ok(guard.read_switch624_frp01_target(e,grid,[old0,old1,old2]).map_err(|e|err(e.0))?.to_string())
     }
     pub fn read_core_version_witness(&self,session_id:&str,
                     revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
@@ -499,6 +529,8 @@ impl WorkerWasmSource {
         if let Some(mut session)=self.session.take(){
             session.close().map_err(|e|err(e.0))?;
         }
+        #[cfg(feature="product-switch624-frp01-readonly")]
+        if let Some(mut guard)=self.frp01_session.take(){guard.close().map_err(|e|err(e.0))?;}
         Ok(())
     }
 }
@@ -516,6 +548,8 @@ impl Drop for WorkerWasmSource {
         if let Some(mut guard)=self.session.take() {
             let _=guard.close();
         }
+        #[cfg(feature="product-switch624-frp01-readonly")]
+        if let Some(mut guard)=self.frp01_session.take(){let _=guard.close();}
     }
 }
 

@@ -71,12 +71,40 @@ mod tests{
   let mut s=if schema==624{
    assert_eq!(bid,FRP_BUILD);
    assert_eq!(ProductSession::open_decoded_readonly(bytes.clone(),build.clone()).err().unwrap().0,"BUILD_IDENTITY_NOT_ATTESTED");
-   let digest=sha(&bytes);
-   ProductSession::open_switch624_rm01_private(bytes,build,digest).unwrap()
+   #[cfg(feature="product-switch624-frp01-readonly")]
+   {let mut seed=[0u8;32];getrandom::getrandom(&mut seed).unwrap();return ProductSession::open_switch624_frp01_in_worker(bytes,build,seed).unwrap();}
+   #[cfg(not(feature="product-switch624-frp01-readonly"))]
+   {let digest=sha(&bytes);ProductSession::open_switch624_rm01_private(bytes,build,digest).unwrap()}
   }else{ProductSession::open_decoded_readonly(bytes,build).unwrap()};
   s.worker_bound=true;s
  }
  fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+ #[cfg(feature="product-switch624-frp01-readonly")]
+ #[test]fn switch624_frp01_worker_admission_exact_and_readonly(){
+  let d=doc();let bytes=serde_json::to_vec(&d).unwrap();
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:FRP_BUILD.into(),schema:624,externally_attested:true};
+  let admit=|b:Vec<u8>,i:crate::BuildIdentity,seed:[u8;32]|ProductSession::open_switch624_frp01_in_worker(b,i,seed);
+  assert!(ProductSession::open_decoded_readonly(bytes.clone(),build.clone()).is_err());
+  assert!(admit(bytes.clone(),build.clone(),[0;32]).is_err());
+  for mut bad in [build.clone(),build.clone(),build.clone(),build.clone(),build.clone()].into_iter().enumerate().map(|(i,mut b)|{match i{0=>b.schema=626,1=>b.build_id="9A239D3DB569756D".into(),2=>b.externally_attested=false,3=>b.platform=Platform::SteamWindows,_=>b.build_kind=BuildKind::SteamFullVersion};b}){
+   assert!(admit(bytes.clone(),bad,[1;32]).is_err());
+  }
+  assert!(admit(br#"{"GameInfo":{"Version":624,"Version":624},"Player":{},"World":{}}"#.to_vec(),build.clone(),[1;32]).is_err());
+  let mut wrong=d.clone();wrong["GameInfo"]["Version"]=json!(626);assert!(admit(serde_json::to_vec(&wrong).unwrap(),build.clone(),[1;32]).is_err());
+  let s=admit(bytes.clone(),build.clone(),[1;32]).unwrap();let e=env(&s);let r=s.receipt().unwrap();
+  assert!(r.product_worker_bound&&r.full_document_json_validated&&!r.writer_authorized&&!r.edited_copy_authorized&&!r.apply_authorized);
+  let foreign=admit(bytes,build,[2;32]).unwrap();assert_ne!(r.session_id,foreign.receipt().unwrap().session_id);
+  assert!(foreign.mint_switch624_frp01_target(e,90001,[10,11,12]).is_err());
+  for action in [WorkerAction::Stage,WorkerAction::ExportEditedCopy,WorkerAction::Apply,WorkerAction::OriginalOverwrite]{
+   assert!(s.dispatch(WorkerEnvelope{action,..e}).is_err());
+  }
+  let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+  let t=g.read_switch624_frp01_target(e,90001,[10,11,12]).unwrap();assert_eq!(t["nextGridObjectId"],50);assert_eq!(t["writerAuthorized"],false);
+  assert!(g.read_switch624_frp01_target(WorkerEnvelope{expected_revision:1,..e},90001,[10,11,12]).is_err());
+  assert!(g.read_switch624_frp01_target(WorkerEnvelope{expected_index_generation:2,..e},90001,[10,11,12]).is_err());
+  assert!(g.read_switch624_frp01_target(WorkerEnvelope{expected_decoded_sha256:[0;32],..e},90001,[10,11,12]).is_err());
+  g.close().unwrap();assert!(g.read_switch624_frp01_target(e,90001,[10,11,12]).is_err());
+ }
  #[test]fn switch624_frp01_exact3_replacement_target_conservative(){
   let d=doc();let s=open(&d,FRP_BUILD,624);let e=env(&s);let ids=[10,11,12];let before=s.receipt().unwrap();
   let t=s.mint_switch624_frp01_target(e,90001,ids).unwrap();assert_eq!((t.ids,t.next,t.old_stock,t.new_stock),(ids,50,10,20));assert_eq!(s.receipt().unwrap(),before);
