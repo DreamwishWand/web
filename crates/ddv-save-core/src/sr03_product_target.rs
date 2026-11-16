@@ -378,3 +378,22 @@ mod tests{
   }let x=open(&q);let before=x.receipt().unwrap();assert!(x.mint_sr03_target(env(&x),90001,10,11).is_err(),"mode {i}");assert_eq!(x.receipt().unwrap(),before);}
  }
 }
+
+fn fixed_fence_catalog(b:&[u8],player:Span)->CoreResult<(u32,Span)>{
+ let lists=f(b,player,"ListInventories")?;let route=f(b,lists,"0")?;
+ inventory_route(b,route,0,40700246u32,"ItemType_Furniture")?;
+ let entry=f(b,f(b,route,"Inventory")?,&40700246u32.to_string())?;
+ let v=value(b,entry,4096)?;let amount=uint(&v["Amount"]).ok_or(denied("FM01_STOCK"))?;
+ need(fields(&v,&["Amount","Marker"])&&amount>0&&amount<=9999&&v["Marker"]=="ItemMarker_Favorite","FM01_STOCK")?;
+ let mut count=0usize;
+ for(k,r)in members(b,lists,4096)?{
+  let id=key(&k)?;need(n(b,r,"ID")?==id,"FM01_ROUTE_ID")?;
+  if opt(b,f(b,r,"Inventory")?,&40700246u32.to_string())?.is_some(){count+=1;need(id==0,"FM01_STOCK_ROUTE")?;}
+ }
+ need(count==1,"FM01_STOCK_ROUTE")?;
+ physical_totals(b,player,40700246i32,None,amount)?;
+ Ok((amount,entry))
+}
+
+#[path="fence_product_target.rs"]
+mod fence_product_target;
