@@ -1,0 +1,43 @@
+name: 05 QR-C PR1938 Steam626 Fence shared geometry L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-pr1938-singlefence-mainfirst-geometry-l2.yml'
+      - 'crates/ddv-save-core/src/steam_single_fence_product_target.rs'
+permissions:
+  contents: read
+jobs:
+  qrc1938-steam-singlefence-main-first:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrc1938-cargo-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed current-main-first source, only QA changed paths
+        run: |
+          set -euo pipefail
+          git cat-file -e 01bccbf3dfb948b732fcb7c8e7be9e510c9a11a4^{commit}
+          test "$(git merge-base 01bccbf3dfb948b732fcb7c8e7be9e510c9a11a4 HEAD)" = 01bccbf3dfb948b732fcb7c8e7be9e510c9a11a4
+          git diff --name-only 01bccbf3dfb948b732fcb7c8e7be9e510c9a11a4 HEAD | LC_ALL=C sort >/tmp/qrc1938-actual
+          printf '%s\n' '.github/workflows/05qrc-pr1938-singlefence-mainfirst-geometry-l2.yml' 'crates/ddv-save-core/src/steam_single_fence_product_target.rs' | LC_ALL=C sort >/tmp/qrc1938-expected
+          diff -u /tmp/qrc1938-expected /tmp/qrc1938-actual
+          git diff --exit-code 01bccbf3dfb948b732fcb7c8e7be9e510c9a11a4 HEAD -- crates/ddv-save-core/src/sr03_installed_geometry.rs crates/ddv-save-core/src/sr03_product_target.rs crates/ddv-save-core/Cargo.toml crates/ddv-save-core/src/semantic_writer.rs crates/ddv-save-core/src/wasm_worker.rs
+          echo QRC1938_FIXED_MAIN_FIRST_QA_ONLY_BOUNDARY_PASS
+      - name: Current-main shared geometry and read-only typed Target with independent fresh Reopen
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock >/tmp/qrc1938-lock.sha
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-sr03-scoped --lib qa1938_combined_main_geometry_readonly_target -- --nocapture
+          test -s /tmp/qrc1938-singlefence-current-main-source.json
+          test -s /tmp/qrc1938-singlefence-current-main-coordinate.json
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-sr03-scoped --lib qa1938_main_first_singlefence_child_readonly_reopen -- --ignored --nocapture
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-sr03-scoped
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-sr03-scoped,product-switch626-rm01-scoped
+          sha256sum -c /tmp/qrc1938-lock.sha
