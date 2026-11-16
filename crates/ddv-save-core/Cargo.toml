@@ -40,6 +40,9 @@ product-steam626-hair-scoped = ["product-amount-scoped"]
 product-steam626-skin-scoped = ["product-amount-scoped"]
 
 product-portable-restore-scoped = ["product-amount-scoped"]
+product-steam626-catalog0-portable-restore = ["product-portable-restore-scoped"]
+product-steam626-chest-portable-restore = ["product-portable-restore-scoped"]
+product-switch626-catalog0-portable-restore = ["product-portable-restore-scoped"]
 product-switch626-chest-portable-restore = ["product-portable-restore-scoped"]
 
 [dependencies]
