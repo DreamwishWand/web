@@ -1,0 +1,56 @@
+name: 04 QR-S Switch Appearance proof10 projected pin L2 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-switch-appearance-proof10-projected.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 02dd1f662e54fcc374a9c9f9fcc41f78e3b49822
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Projected raw pins from fixed accepted sources and eight dispatch guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-proof8.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'}),blob=(r,p)=>g('rev-parse',r+':'+p);
+          const head='02dd1f662e54fcc374a9c9f9fcc41f78e3b49822',base='2a522f05131f62e0a70b8581c967d63a7f8b4f52',web='447dc15e54f456e81c8d966561b1c3396be26c99',core='86a213d15e898846f4610dbe088690ca2c162f5f',gate='9e319b374c86185b9f3e178db1bb3ef31923c632',adapter='c4fdf6a9dd5187669f62b15cdbb4075a0430ff62',wf='.github/workflows/pages.yml';
+          assert.equal(g('rev-parse','HEAD'),head);assert.equal(blob(head,wf),'028d6b71e30dbc2f2cea054b8fba6524d2e1cab8');
+          const y=raw(head,wf),old=raw('2c1ad81de113521d1c3438709a76dbcc7456fab7',wf),names=['scoped_collection_proof','scoped_switch_chest_proof','scoped_steam_chest_proof','scoped_sr03_proof','scoped_comp03_spatial_proof','scoped_rm01_proof','scoped_hair_proof','scoped_skin_proof','scoped_switch_hair_proof','scoped_switch_skin_proof'],keys=names.map(n=>n+'_source');
+          const section=(s,n)=>{const i=s.indexOf('\n  '+n+':\n');assert.ok(i>=0,n);const j=s.slice(i+1).search(/\n  [a-z0-9_]+:\n/);return j<0?s.slice(i):s.slice(i,i+1+j)};
+          const pins=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g)].map(m=>[m[1],m[2]]);
+          const oldMap=new Map(pins(old)),newMap=new Map(pins(y)),cfg='scripts/wasm-distribution/protected-release-inputs.json',gatePath='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',adPath='scripts/readonly-release/scoped-placement-proof.mjs',cargo='crates/ddv-save-core/Cargo.toml';
+          const config=raw(base,cfg).replace(blob(base,cargo),blob(core,cargo)),cfgHash=execFileSync('git',['hash-object','--stdin'],{input:config,encoding:'utf8'}).trim();assert.equal(cfgHash,'0e54f4da3b1f14c18f63b6c199c59077eae97f73');
+          assert.equal(blob(core,'crates/ddv-save-core'),'1f61f3058f31b35e6db9cf424d4147fcde9c3905');assert.equal(blob(gate,gatePath),'ab28078abde5bfc36cfad3265d3702ad5f009920');assert.equal(blob(adapter,adPath),'007126c97e1d0e8a6b792bb3057eb3a1ac753c20');
+          const webPaths=new Set(['src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs','src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs','src/lib/ddv/core/save/product-wasm-read-owner.mjs','src/lib/dev/local-scoped-edit-worker-port.mjs','src/lib/ddv/core/save/product-wasm-read-owner.d.mts','src/lib/ddv/core/save/product-scoped-placement-release.mjs','src/lib/dev/LocalPlacementEditorDev.svelte','src/lib/dev/PlacementProductRoute.svelte','src/lib/dev/local-placement-copy.mjs','src/lib/dev/local-placement-workflow.mjs','src/lib/dev/product-placement-client.mjs','src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs','src/lib/ddv/core/save/product-scoped-appearance-transport.mjs','src/lib/dev/product-hair.worker.mjs','src/routes/editor/appearance/hair/steam/+page.svelte','src/lib/dev/product-skin.worker.mjs','src/routes/editor/appearance/skin/steam/+page.svelte','src/lib/dev/product-switch-hair.worker.mjs','src/routes/editor/appearance/hair/switch/+page.svelte','src/lib/dev/product-switch-skin.worker.mjs','src/routes/editor/appearance/skin/switch/+page.svelte']);
+          const expect=p=>p===cfg?cfgHash:p===gatePath?blob(gate,p):p===adPath?blob(adapter,p):p==='crates/ddv-save-core'?blob(core,p):webPaths.has(p)?blob(web,p):blob(base,p);
+          let pos=0,neg=0,total=0;const tail=" && inputs.scoped_switch_hair_proof_source == '' && inputs.scoped_switch_skin_proof_source == ''";
+          const inversePins=s=>s.replace(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g,(m,p,h)=>{assert.ok(oldMap.has(p),p);return m.replace(h,oldMap.get(p))});
+          const inv=inversePins(y.slice(0,y.indexOf('\n  scoped_switch_hair_proof:\n')).replace(/      scoped_switch_hair_proof_source:\n(?:        [^\n]+\n){4}      scoped_switch_skin_proof_source:\n(?:        [^\n]+\n){4}/,'').split(tail).join(''));assert.equal(inv,old);pos++;
+          for(const [i,n] of names.entries()){
+            const b=section(y,n),p=pins(b);assert.equal(p.length,i<8?pins(section(old,n)).length:40);assert.equal(new Set(p.map(x=>x[0])).size,p.length);
+            for(const [k,h] of p){assert.equal(h,expect(k),k);assert.notEqual(h,(h[0]==='0'?'1':'0')+h.slice(1));total++;neg++}
+            if(i<8){assert.equal(inversePins(b.split(tail).join('')),section(old,n));pos++;continue}
+            const key=i===8?'switch626-hair':'switch626-skin',feature='product-'+key+'-scoped',stages=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','--no-default-features --features '+feature+',worker-wasm','scoped-placement-proof.mjs build '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/upload-artifact@v4'];
+            let last=-1;for(const s of stages){last=b.indexOf(s,last+1);assert.ok(last>=0,s)}
+            assert.ok(b.includes('test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"'));assert.ok(b.includes('test "$GITHUB_REPOSITORY_ID" = 1371485649'));assert.ok(b.includes('test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"'));assert.doesNotMatch(b,/actions\/(deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
+            const sub=b.slice(b.indexOf('subject-path: |'),b.indexOf('      - name: Verify exact signer'));assert.deepEqual(sub.match(/tests\/wasm-distribution\/fixtures\/scoped-[^\s]+/g),['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json'].map(x=>'tests/wasm-distribution/fixtures/scoped-'+key+'/'+x));
+            const upload=b.slice(b.indexOf('actions/upload-artifact@v4'));assert.match(upload,/pins\.json/);assert.match(upload,/attestation-bundle\.jsonl/);assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-|static\/|build\//);pos++;
+          }
+          assert.equal(total,332);const guards=['build',...names].map(n=>section(y,n).split('\n').find(l=>l.trim().startsWith('if:')).trim().slice(4));
+          const evalGuard=(g,event,ref,v)=>g.split(' || ').some(or=>or.replace(/^\(|\)$/g,'').split(' && ').every(t=>{const m=t.match(/^(github\.event_name|github\.ref|inputs\.[a-z0-9_]+) (==|!=) '([^']*)'$/);assert.ok(m,t);const x=m[1]==='github.event_name'?event:m[1]==='github.ref'?ref:v[m[1].slice(7)];return m[2]==='=='?x===m[3]:x!==m[3]}));
+          for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/other'])for(let mask=0;mask<1024;mask++){const v=Object.fromEntries(keys.map((k,i)=>[k,mask&(1<<i)?'x':''])),out=guards.map(g=>evalGuard(g,event,ref,v)),expected=[event!=='workflow_dispatch'||mask===0,...keys.map((k,i)=>event==='workflow_dispatch'&&ref==='refs/heads/main'&&mask===(1<<i))];assert.deepEqual(out,expected);if(expected.some(Boolean))pos++;else neg++}
+          console.log('QRS_PR1761_SWITCH_APPEARANCE_PROOF10_PROJECTED_L2_PASS',JSON.stringify({pos,neg,pins:total,projectedRaw:true,protectedAcceptance:false,actualSignature:false}));
+          EOF
+          node qa-proof8.mjs
