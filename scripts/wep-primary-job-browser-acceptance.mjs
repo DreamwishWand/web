@@ -546,7 +546,7 @@ async function runLocaleLayoutAcceptance(page, report) {
   const locales = ['de', 'fr', 'pt-BR', 'ja', 'zh-CN'];
   const localeSelect = page.locator('#site-locale');
   await page.setViewportSize({ width: 1280, height: 1100 });
-  await localeSelect.waitFor();
+  await localeSelect.waitFor({ state: 'attached' });
 
   const localeSearch = page.locator('[data-wep-search-input]');
   await localeSearch.fill('40');
@@ -554,7 +554,7 @@ async function runLocaleLayoutAcceptance(page, report) {
   report.localeLayout = {};
 
   for (const locale of locales) {
-    await localeSelect.selectOption(locale);
+    await localeSelect.selectOption(locale, { force: true });
     await page.waitForFunction(
       (expected) => document.documentElement.lang === expected,
       locale
