@@ -9,11 +9,23 @@ mod grid_append;
 #[path="product_vase_effective.rs"]
 mod product_vase_effective;
 const ITEM:u32=40000066;
+const SWITCH626_BID:&str="9A239D3DB569756D";
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+enum VaseBuild{Steam626,Switch626}
+impl VaseBuild{
+    fn verify(self,s:&ProductSession)->CoreResult<()>{
+        match self{
+            Self::Steam626=>build_check(s),
+            Self::Switch626=>{let b=&s.native_source_build;need(b.platform==Platform::Switch&&b.build_kind==BuildKind::SwitchBid&&b.build_id==SWITCH626_BID&&b.schema==626&&b.externally_attested,"VASE_PRODUCT_SWITCH626_BUILD")}
+        }
+    }
+    fn contract(self)->&'static str{match self{Self::Steam626=>"wand.worker.steam626.scoped-vase-add@1",Self::Switch626=>"wand.worker.switch626.scoped-vase-add@1"}}
+}
 const DEF:&str="60f840fa471e3678b5f7a018466d150882ad7bddaece6ada9a86327fd1c0607a";
 const GRID_DATA:&str="GridData/Villages/Village04-DarkLevel-GridData.json";
 #[derive(Debug,PartialEq,Eq)]
 pub(crate) struct VasePhysicalTarget{
-    scope:WorkerEnvelope, stock:CoreExistingAmountTarget,
+    scope:WorkerEnvelope, build:VaseBuild, stock:CoreExistingAmountTarget,
     grid:u32,x:u32,y:u32,next:u32,count:usize,
     area_sha:[u8;32],grid_sha:[u8;32],objects_sha:[u8;32],counter_sha:[u8;32],
 }
@@ -67,7 +79,10 @@ impl ProductSession{
     #[allow(dead_code)]
     pub(crate) fn mint_vase_physical_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)
         ->CoreResult<VasePhysicalTarget>{
-        build_check(self)?;
+        self.mint_vase_physical_for(VaseBuild::Steam626,e,gid,x,y)
+    }
+    fn mint_vase_physical_for(&self,build:VaseBuild,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<VasePhysicalTarget>{
+        build.verify(self)?;
         let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
         need(self.worker_bound&&st.semantic.is_none()&&st.revision==0&&st.generation==1,"VASE_PRODUCT_FRESH_WORKER")?;
         need(gid>0&&x%2==0&&y%2==0&&x.checked_add(2).is_some_and(|z|z<=500)
@@ -113,7 +128,7 @@ impl ProductSession{
         saved_event_states(b,f(b,hist,"ActiveEvents")?)?;
         let mut budget=0;
         address_refs(b,hist,gid,next,&mut budget,0)?;
-        Ok(VasePhysicalTarget{scope:e,stock,grid:gid,x,y,next,count:records.len(),
+        Ok(VasePhysicalTarget{scope:e,build,stock,grid:gid,x,y,next,count:records.len(),
             area_sha:digest(b,area)?,grid_sha:digest(b,g)?,objects_sha:digest(b,objs)?,counter_sha:digest(b,counter)?})
     }
     /// Build the exact three raw replacements but never commit them here.
@@ -121,7 +136,7 @@ impl ProductSession{
     /// repeat this observation under the current session epoch.
     #[allow(dead_code)]
     fn collect_vase_exact3_candidate(&self,t:&VasePhysicalTarget)->CoreResult<Vec<Replacement>>{
-        need(self.mint_vase_physical_target(t.scope,t.grid,t.x,t.y)?==*t,"VASE_PRODUCT_TARGET_CAS")?;
+        need(self.mint_vase_physical_for(t.build,t.scope,t.grid,t.x,t.y)?==*t,"VASE_PRODUCT_TARGET_CAS")?;
         let b=&self.decoded;let roots=indexed_read::roots(b)?;
         let (_,g)=selected_grid(b,roots.world,t.grid)?;
         let objs=f(b,g,"Objects")?;let counter=f(b,g,"NextGridObjectID")?;

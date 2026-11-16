@@ -80,6 +80,16 @@ impl WorkerSessionGuard {
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         self.session.stage_vase_product_add(e,gid,x,y,old,next,entry,grid,projected)
     }
+    #[cfg(feature="product-switch626-vase-add-scoped")]
+    pub(crate) fn preview_switch626_vase_add(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_switch626_vase_product_add(e,gid,x,y)
+    }
+    #[cfg(feature="product-switch626-vase-add-scoped")]
+    pub(crate) fn stage_switch626_vase_add(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32,old:u32,next:u32,entry:[u8;32],grid:[u8;32],projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.stage_switch626_vase_product_add(e,gid,x,y,old,next,entry,grid,projected)
+    }
     #[cfg(feature="product-collection-scoped")]
     pub(crate) fn preview_collection_candidate(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32)->CoreResult<serde_json::Value>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}

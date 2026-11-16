@@ -13,7 +13,7 @@ const DATA_SHA: &str = "cee30ee6462856d369289351f8ee0d3f50b9da99f8a0a1c8257ac0e6
 const COMMON_SHA: &str = "78a1ba539b2e6f43182cea2c2ea35c9d10e51f27d4adbb8d4dbc6cce7f7dcd65";
 type R<T> = Result<T, &'static str>;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum PlacementScope { VaseAdd, Comp03LayoutOnly }
+pub(crate) enum PlacementScope { VaseAdd, Comp03LayoutOnly, Switch626VaseAdd }
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct SupplementChecked(());
 fn need(b:bool,e:&'static str)->R<()> {if b {Ok(())} else {Err(e)}}
@@ -80,7 +80,7 @@ fn achievements(p:&Value,d:&Value)->R<()>{
   }
  } Ok(())
 }
-fn duties(p:&Value,d:&Value,scope:PlacementScope)->R<()>{
+fn duties(p:&Value,d:&Value,scope:PlacementScope,crop:Option<&dyn Fn(&Value)->R<()>>)->R<()>{
  let mut count=0;
  for g in map(&p["DutySlots"],4096)?.values(){for s in array(&g["Slots"],4096)?{
   count+=1;need(count<=4096,"PLACEMENT_DUTY_BOUND")?;
@@ -91,12 +91,22 @@ fn duties(p:&Value,d:&Value,scope:PlacementScope)->R<()>{
   let row=array(rows.get(n(&s["DifficultyLayer"])? as usize).ok_or("PLACEMENT_DUTY_LAYER")?,2)?;
   need(row.len()==2,"PLACEMENT_DUTY_ROW")?;
   let k=n(&row[0])?;
+  // E2353: the two exact Switch626 gardening-harvest definitions are
+  // disjoint for ordinary Vase; require the existing common typed crop
+  // verifier on the actual saved filter, never admit generic kind 16.
+  if k==16 {
+   need(scope==PlacementScope::Switch626VaseAdd&&matches!(n(&s["DutyId"])?,2110000038|2110000161)&&n(&s["DifficultyLayer"])?==0&&row[1].is_null(),"PLACEMENT_DUTY_KIND")?;
+   let f=&s["StepData"]["ItemFilter"]["Data"];
+   need(f["Type"]=="ItemType_ActivityItem"&&f["ActivityItemType"]=="ActivityItemType_Crop"&&array(&s["ItemsUsed"],4096)?.is_empty(),"PLACEMENT_SWITCH_CROP_SHAPE")?;
+   crop.ok_or("PLACEMENT_SWITCH_CROP_COMMON_REQUIRED")?(s)?;
+   continue
+  }
   need(matches!(k,11|13|17|18|19|20|21|22|23|24|26|32|33|36|39|40|41|43),"PLACEMENT_DUTY_KIND")?;
   let f=&s["StepData"]["ItemFilter"]["Data"];
   if k==33 {
    // Exact normal-retail fixed root: Vase area 6; COMP03 Snow island, not a VillageArea.
    // These are the only explicit area branches established by E2135/E2156.
-   need(matches!(scope,PlacementScope::VaseAdd|PlacementScope::Comp03LayoutOnly),"PLACEMENT_SCOPE")?;
+   need(matches!(scope,PlacementScope::VaseAdd|PlacementScope::Comp03LayoutOnly|PlacementScope::Switch626VaseAdd),"PLACEMENT_SCOPE")?;
    need(matches!(n(&row[1])?,4|12)&&f["Type"]=="ItemType_Furniture","PLACEMENT_DUTY_AREA")?;
   }else if !f.is_null(){need(f.as_object().is_some()&&f["Type"].as_str().is_some_and(|t|!t.is_empty()&&t!="ItemType_Furniture"),"PLACEMENT_DUTY_FILTER")?;}
  }} Ok(())
@@ -159,14 +169,17 @@ fn vase_event_shape(kind:&str,body:&Value)->R<()>{
  Ok(())
 }
 fn recurring(w:&Value,d:&Value,scope:PlacementScope)->R<()>{
- if scope==PlacementScope::VaseAdd{vase_roots(w,d)?;}
+ if scope!=PlacementScope::Comp03LayoutOnly{vase_roots(w,d)?;}
  let mode=if scope==PlacementScope::Comp03LayoutOnly{1}else{2};
  for (k,v) in map(&w["RecurringEvents"],4096)?{
   canonical_key(k)?;let o=map(v,1)?;need(o.len()==1,"PLACEMENT_RECURRING_ONEOF")?;
   let (kind,body)=o.iter().next().ok_or("PLACEMENT_RECURRING_ONEOF")?;
-  let row=array(def(d,"recurring",n(&body["RecurringEventItemID"])?)?,3)?;
+  let id=n(&body["RecurringEventItemID"])?;
+  let row=array(def(d,"recurring",id)?,3)?;
   need(row.len()==3&&text(&row[0])?==kind,"PLACEMENT_RECURRING_KIND")?;
-  let class=row[mode].as_str().ok_or("PLACEMENT_RECURRING_APPLICABILITY_UNKNOWN")?;
+  // E2353 fixed definition-only delta: three scene-literal ItemSpawning
+  // definitions, exact unchanged pack row and saved body. No event replay.
+  let class=if scope==PlacementScope::Switch626VaseAdd&&matches!(id,2010000176|2010000177|2010000178)&&kind=="ItemSpawning"&&row[1]=="village"&&row[2].is_null(){"offline-preserve"}else{row[mode].as_str().ok_or("PLACEMENT_RECURRING_APPLICABILITY_UNKNOWN")?};
   if scope==PlacementScope::Comp03LayoutOnly {
    need(matches!(class,"village"|"other-scene"|"disjoint"|"known-nonplacement"),"PLACEMENT_RECURRING_APPLICABILITY_UNKNOWN")?;
   } else {
@@ -197,11 +210,24 @@ fn battlepass(p:&Value)->R<()>{
 /// Caller must additionally run existing common subscriber, explicit refs and provider/target checks.
 /// This helper never creates a target, changes a document, invokes a game event or grants authority.
 pub(crate) fn check_supplement(build:&str,common_bytes:&[u8],supplement_bytes:&[u8],scope:PlacementScope,player:&Value,world:&Value)->R<SupplementChecked>{
- need(build==BUILD&&hex(&Sha256::digest(common_bytes))==COMMON_SHA,"PLACEMENT_COMMON_BUILD_OR_PACK")?;
+ need(build==BUILD&&scope!=PlacementScope::Switch626VaseAdd&&hex(&Sha256::digest(common_bytes))==COMMON_SHA,"PLACEMENT_COMMON_BUILD_OR_PACK")?;
  let d=pack(supplement_bytes)?;check(scope,player,world,&d)
 }
+/// Detached Switch626 Vase applicability adapter, no entrypoint/Stage.
+/// Caller must supply the existing same-session common crop verifier;
+/// exact BID and unchanged definition bytes are necessary, not authority.
+#[allow(dead_code)]
+pub(crate) fn check_switch626_vase_supplement(build:&str,common_bytes:&[u8],supplement_bytes:&[u8],player:&Value,world:&Value,crop:&dyn Fn(&Value)->R<()>)->R<SupplementChecked>{
+ need(build=="9A239D3DB569756D"&&hex(&Sha256::digest(common_bytes))==COMMON_SHA,"PLACEMENT_COMMON_BUILD_OR_PACK")?;
+ let d=pack(supplement_bytes)?;
+ check_with_crop(PlacementScope::Switch626VaseAdd,player,world,&d,Some(crop))
+}
 fn check(scope:PlacementScope,player:&Value,world:&Value,d:&Value)->R<SupplementChecked>{
- missions(world,d)?;achievements(player,d)?;duties(player,d,scope)?;recurring(world,d,scope)?;battlepass(player)?;
+ need(scope!=PlacementScope::Switch626VaseAdd,"PLACEMENT_SWITCH_CROP_COMMON_REQUIRED")?;
+ check_with_crop(scope,player,world,d,None)
+}
+fn check_with_crop(scope:PlacementScope,player:&Value,world:&Value,d:&Value,crop:Option<&dyn Fn(&Value)->R<()>>)->R<SupplementChecked>{
+ missions(world,d)?;achievements(player,d)?;duties(player,d,scope,crop)?;recurring(world,d,scope)?;battlepass(player)?;
  Ok(SupplementChecked(()))
 }
 #[cfg(test)]
@@ -220,6 +246,34 @@ mod tests{
   assert!(check_supplement(BUILD,b"untrusted",&fixture(),PlacementScope::VaseAdd,&p,&w).is_err());
   assert!(check_supplement("wrong",b"",&fixture(),PlacementScope::Comp03LayoutOnly,&p,&w).is_err());
   let mut changed=fixture();changed[0]^=1;assert_eq!(pack(&changed),Err("PLACEMENT_PACK_SHA"));assert_eq!(pack(b""),Err("PLACEMENT_PACK_SHA"));
+ }
+ #[test] fn switch626_vase_delta_keeps_steam_denials_and_requires_common_crop(){
+  let d=test_pack();let(mut p,mut w)=sample();
+  let scope=PlacementScope::Switch626VaseAdd;
+  let crop=|s:&Value| if s["StepData"]["ItemFilter"]["Data"]["TestDisjoint"]==true{Ok(())}else{Err("TEST_COMMON_CROP_DENY")};
+  let ts="2026-01-01T00:00:00Z";
+  for id in [2010000176u32,2010000177,2010000178]{
+   w["RecurringEvents"]=json!({"1":{"ItemSpawning":{"RecurringEventItemID":id,"NextOccurrence":ts,"EndDate":null,"LastOccurrence":null}}});
+   assert!(check_with_crop(scope,&p,&w,&d,Some(&crop)).is_ok());
+   assert!(check(PlacementScope::VaseAdd,&p,&w,&d).is_err());
+  }
+  let mut bad=w.clone();bad["RecurringEvents"]["1"]["ItemSpawning"]["RecurringEventItemID"]=json!(2010000179);
+  assert!(check_with_crop(scope,&p,&bad,&d,Some(&crop)).is_err());
+  bad=w.clone();bad["RecurringEvents"]["1"]["ItemSpawning"]["GridID"]=json!(1);
+  assert!(check_with_crop(scope,&p,&bad,&d,Some(&crop)).is_err());
+  for id in [2110000038u32,2110000161]{
+   p["DutySlots"]=json!({"a":{"Slots":[{"State":"DutySlotState_OnGoing","DutyId":id,"DifficultyLayer":0,"ItemsUsed":[],"StepData":{"ItemFilter":{"Data":{"Type":"ItemType_ActivityItem","ActivityItemType":"ActivityItemType_Crop","TestDisjoint":true}}}}]}});
+   assert!(check_with_crop(scope,&p,&w,&d,Some(&crop)).is_ok());
+   assert!(check_with_crop(scope,&p,&w,&d,None).is_err());
+   assert!(check(PlacementScope::VaseAdd,&p,&w,&d).is_err());
+   for (k,v) in [("DifficultyLayer",json!(1)),("ItemsUsed",json!([40000066])),("DutyId",json!(1))]{
+    let mut q=p.clone();q["DutySlots"]["a"]["Slots"][0][k]=v;
+    assert!(check_with_crop(scope,&q,&w,&d,Some(&crop)).is_err());
+   }
+   let mut q=p.clone();q["DutySlots"]["a"]["Slots"][0]["StepData"]["ItemFilter"]["Data"]["TestDisjoint"]=json!(false);
+   assert!(check_with_crop(scope,&q,&w,&d,Some(&crop)).is_err());
+  }
+  assert!(check_switch626_vase_supplement(BUILD,b"", &fixture(),&p,&w,&crop).is_err());
  }
  #[test] fn recurring_per_scope_and_unknown(){
   let data=test_pack();let d=&data;let(p,mut w)=sample();
