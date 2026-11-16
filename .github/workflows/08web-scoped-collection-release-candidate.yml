@@ -1,0 +1,72 @@
+name: 08 WEB scoped Collection verified runtime candidate (OFF)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/08web-scoped-collection-release-candidate.yml'
+      - 'src/lib/ddv/core/save/product-scoped-collection-release*.mjs'
+      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
+      - 'scripts/wasm-distribution/build-scoped-collection-candidate.mjs'
+      - 'tests/wasm-distribution/scoped-collection-worker.mjs'
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      WAND_SCOPED_CORE_DIR: /tmp/wand-scoped-collection-core
+      WAND_SOURCE_HEAD: 7c280ca740bda68cd69ceb46337fd75bf3e133bc
+      CARGO_TARGET_DIR: /tmp/wand-scoped-collection-target
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-collection-tools/bin/wasm-bindgen
+      WAND_PROTECTED_RELEASE_CSP: '1'
+      WAND_SCOPED_COLLECTION_CANDIDATE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Reuse exact accepted Core and approved lock, no public feature changes
+        run: |
+          set -euo pipefail
+          git cat-file -e "$WAND_SOURCE_HEAD^{commit}" || git fetch --no-tags origin "$WAND_SOURCE_HEAD"
+          git worktree add --detach "$WAND_SCOPED_CORE_DIR" "$WAND_SOURCE_HEAD"
+          test "$(git -C "$WAND_SCOPED_CORE_DIR" rev-parse HEAD)" = "$WAND_SOURCE_HEAD"
+          test "$(git -C "$WAND_SCOPED_CORE_DIR" rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 0939c989984ff49aff466da35e427289758d8d4f
+          cp scripts/wasm-distribution/approved-Cargo.lock "$WAND_SCOPED_CORE_DIR/crates/ddv-save-core/Cargo.lock"
+          printf '%s\n' "e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  $WAND_SCOPED_CORE_DIR/crates/ddv-save-core/Cargo.lock" | sha256sum -c -
+          test -z "$(git ls-files static/worker-wasm-scoped-collection)"
+          grep -Fx 'export const PROTECTED_SCOPED_COLLECTION_RELEASE_ANCHOR=null;' src/lib/ddv/core/save/product-scoped-collection-release-anchor.mjs
+      - name: Genuine Collection-only generated WASM from accepted exact Core
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path "$WAND_SCOPED_CORE_DIR/crates/ddv-save-core/Cargo.toml" --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-collection-scoped,semantic-writer-dev
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-collection-tools
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+      - name: Exact scoped bytes and real strict-CSP Chrome candidate, both release bases
+        run: |
+          set -euo pipefail
+          for base in /web ''; do
+            export WAND_CANDIDATE_BASE_PATH="$base"
+            node scripts/wasm-distribution/build-scoped-collection-candidate.mjs
+            node tests/wasm-distribution/chrome-smoke.mjs
+            rm -rf tests/wasm-distribution/fixtures/scoped-collection
+            rm tests/wasm-distribution/fixtures/scoped-collection-pins.json
+          done
+      - name: Preserve actual public Reader and no scoped publication
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-files static/worker-wasm-scoped-collection tests/stage-e/pkg)"
+          git diff --exit-code HEAD -- src/
+          git -C "$WAND_SCOPED_CORE_DIR" diff --exit-code HEAD
+          test ! -e static/worker-wasm-scoped-collection
+          grep -Fx 'export const PROTECTED_SCOPED_COLLECTION_RELEASE_ANCHOR=null;' src/lib/ddv/core/save/product-scoped-collection-release-anchor.mjs
+          echo SCOPED_COLLECTION_CANDIDATE_ONLY_NO_SIGNATURE_OR_PAGES_OR_PRODUCT_V2

@@ -1,10 +1,16 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { savedDiffGridsCopy } from '$lib/wep/steam-saved-diffgrids-copy.mjs';
   import { editorHubCopy } from '$lib/product-home/editor-hub-copy.mjs';
+  import { collectionExact1Copy } from '$lib/collection/collection-exact1-copy.mjs';
+  import { getScopedCollectionMountInfo } from '$lib/ddv/core/save/product-scoped-collection-release.mjs';
+  let collectionReady=false;
+  onMount(()=>{let live=true;void getScopedCollectionMountInfo().then(()=>{if(live)collectionReady=true}).catch(()=>{});return ()=>{live=false}});
   $: reader = savedDiffGridsCopy($locale);
   $: copy = editorHubCopy($locale);
+  $: collection = collectionExact1Copy($locale);
 </script>
 <svelte:head><title>{copy.title} | Dreamwish Wand</title></svelte:head>
 <section class="inside-page container" data-editor-hub>
@@ -19,6 +25,11 @@
   </a>
 
   <div class="feature-grid">
+    {#if collectionReady}
+      <a class="feature-tile" data-editor-collection data-sveltekit-reload href={base + '/editor/collection/'}>
+        <span class="tile-emoji" aria-hidden="true">◇</span><h2>{collection.title}</h2><p>{collection.intro}</p>
+      </a>
+    {/if}
     <a class="feature-tile" data-editor-catalog href={`${base}/editor/items/`}>
       <span class="tile-emoji" aria-hidden="true">✧</span>
       <h2>{copy.catalogTitle}</h2>
@@ -40,7 +51,7 @@
     </a>
   </div>
 
-  <div class="notice" data-editor-writer-boundary role="status">{copy.boundary}</div>
+  <div class="notice" data-editor-writer-boundary role="status">{collectionReady?collection.intro:copy.boundary}</div>
 </section>
 
 <style>

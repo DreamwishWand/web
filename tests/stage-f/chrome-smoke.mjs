@@ -28,7 +28,13 @@ function replyFile(req,res){
   const allowed=p.startsWith('/tests/stage-f/')||
     p.startsWith('/tests/stage-e/pkg/')||
     ['/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
-     '/src/lib/collection/collection-candidate-read.mjs',
+    '/src/lib/ddv/core/save/product-scoped-amount-transport.mjs',
+    '/src/lib/ddv/core/save/product-fixed-collection-transport.mjs',
+    '/src/lib/collection/collection-candidate-read.mjs',
+    '/src/lib/ddv/core/save/local-original-backup.mjs',
+    '/src/lib/ddv/core/save/local-encrypted-copy-store.mjs',
+    '/src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs',
+    '/src/lib/dev/local-amount-codec-reopen.worker.mjs',
      '/src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs',
      '/src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs',
      '/tools/owner-local-steam-v1/attestation.mjs',
@@ -157,6 +163,10 @@ try{
   assert.equal(report.savedDiffGridsABAndReplayDenied,true);
   assert.ok(report.decodedBytes>1024*1024&&report.decodedBytes<2*1024*1024);
   assert.ok(report.encryptedBytes>0&&report.encryptedBytes<1024*1024);
+  if(process.env.WAND_REQUIRE_SCOPED_OPFS==='1'){
+    assert.deepEqual(report.scopedOpfs,{profiles:2,positive:2,negative:6,actualOpfs:true,freshCodecWorker:true,writerAuthorized:false});
+    console.log('ACT951_REAL_CHROME_OPFS_SCOPED_ADAPTER_PASS',JSON.stringify(report.scopedOpfs));
+  }
   console.log('STAGE_F_SYNTHETIC_P1G_TO_REAL_RUST_CHROME_WORKER_PASS');
   console.log(JSON.stringify({
     browserBinary:binary,

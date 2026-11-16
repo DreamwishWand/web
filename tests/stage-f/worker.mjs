@@ -3,6 +3,7 @@
 import init,{WorkerWasmSource} from '../stage-e/pkg/ddv_save_core.js';
 import {createP1gRustWorkerReadOnlyBridge} from '../../src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
 import {testRealEncryptedSavedDiffGridsFacade} from './saved-diffgrids-facade-real-worker.mjs';
+import {runScopedProductOpfs} from './scoped-product-opfs.mjs';
 const BUILD={platform:'steam-windows',buildKind:'steam-full-version',
   buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
   schema:626,externallyConfirmed:true};
@@ -88,7 +89,9 @@ async function run(){
      savedDiffGrids.sourceShaAndSizeChecked&&savedDiffGrids.metadataOnlyToUI&&
      savedDiffGrids.replayAndClosedDenied&&!savedDiffGrids.productReadAccepted,
      'SAVED_DIFFGRIDS_P1G_FACADE_REAL_WASM');
+  const scopedOpfs=typeof WorkerWasmSource.prototype.preview_scoped_amount==='function'?await runScopedProductOpfs(WorkerWasmSource):null;
   return {
+    scopedOpfs,
     result:'SYNTHETIC_P1G_TO_REAL_RUST_WORKER_PASS',chromeModuleWorker:true,
     realGeneratedWasm:true,existingP1gCodec:true,singleRustSession:true,
     wasmMs,openMs,pageMs,encryptedBytes:encrypted.length,decodedBytes:expected.decodedBytes,

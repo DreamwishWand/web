@@ -20,6 +20,18 @@ const closeFailed=Object.freeze({
  'zh-CN':'无法验证会话已关闭。读取其他会话前，请重试关闭。',
  'pt-BR':'Não foi possível verificar o encerramento da sessão. Tente fechar novamente antes de ler outra sessão.'
 });
+const fileCopy=Object.freeze({
+ en:['Encrypted save (.p1g)','Game platform / build','Choose the exact build','I confirmed this exact game build independently of the save schema.','Open local save'],
+ ja:['暗号化セーブ（.p1g）','ゲーム機種・Build','正確なBuildを選択','セーブのschemaとは別に、このゲームBuildを確認しました。','端末内のセーブを開く'],
+ fr:['Sauvegarde chiffrée (.p1g)','Plateforme / version du jeu','Choisir la version exacte','J’ai confirmé cette version du jeu indépendamment du schéma de sauvegarde.','Ouvrir la sauvegarde locale'],
+ de:['Verschlüsselter Spielstand (.p1g)','Plattform / Spielversion','Exakte Version auswählen','Ich habe diese Spielversion unabhängig vom Spielstandschema bestätigt.','Lokalen Spielstand öffnen'],
+ it:['Salvataggio cifrato (.p1g)','Piattaforma / versione','Scegli la versione esatta','Ho confermato la versione del gioco indipendentemente dallo schema del salvataggio.','Apri salvataggio locale'],
+ 'es-ES':['Partida cifrada (.p1g)','Plataforma / versión','Elegir la versión exacta','He confirmado esta versión del juego independientemente del esquema de la partida.','Abrir partida local'],
+ 'zh-CN':['加密存档（.p1g）','游戏平台／版本','选择确切版本','我已独立于存档结构确认此游戏版本。','打开本地存档'],
+ 'pt-BR':['Save criptografado (.p1g)','Plataforma / versão','Escolher a versão exata','Confirmei esta versão do jogo independentemente do esquema do save.','Abrir save local']
+});
+const fileKeys=['file','platform','chooseBuild','confirmBuild','openFile'];
 export const COLLECTION_EXACT1_LOCALES=Object.freeze(Object.keys(rows));
-const map=Object.freeze(Object.fromEntries(Object.entries(rows).map(([k,v])=>[k,Object.freeze({...Object.fromEntries(keys.map((key,i)=>[key,v[i]])),closeFailed:closeFailed[k]})])));
+const map=Object.freeze(Object.fromEntries(Object.entries(rows).map(([k,v])=>[k,Object.freeze({...Object.fromEntries(keys.map((key,i)=>[key,v[i]])),closeFailed:closeFailed[k],...Object.fromEntries(fileKeys.map((key,i)=>[key,fileCopy[k][i]]))})])));
+/** @param {string} locale @returns {Readonly<Record<string, string>>} */
 export const collectionExact1Copy=locale=>map[locale]||map.en;

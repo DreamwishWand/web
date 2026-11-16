@@ -64,8 +64,10 @@ function inspect(bytes,source,tuple){
 }
 // Pure byte inspection; NOT signature verification or authorization.
 export async function inspectReleasePins(dir,source){return inspect(await snapshot(dir),source,LEGACY_RELEASE_TUPLE)}
-async function verifySigned(dir,source,bundle,tuple){
- const bytes=await snapshot(dir),pins=inspect(bytes,source,tuple);
+// Shared exact-subject verifier. The scope-specific inspector and issuer
+// tuple are fixed by the trusted build entrypoint, never a browser caller.
+export async function verifySignedReleaseSubjects(dir,source,bundle,tuple,inspectScope){
+ const bytes=await snapshot(dir),pins=await inspectScope(bytes,source,tuple);
  const work=await mkdtemp(join(tmpdir(),'wand-release-signature-'));
  try{
   // Verify an immutable snapshot of each exact subject; then compare the
@@ -86,6 +88,7 @@ async function verifySigned(dir,source,bundle,tuple){
   return pins;
  }finally{await rm(work,{recursive:true,force:true})}
 }
+const verifySigned=(dir,source,bundle,tuple)=>verifySignedReleaseSubjects(dir,source,bundle,tuple,inspect);
 function protectedContext(){
  const e=process.env,s=e.WAND_SOURCE_HEAD;
  if(!protectedPagesContextMatches(e,s,git('rev-parse','HEAD')))

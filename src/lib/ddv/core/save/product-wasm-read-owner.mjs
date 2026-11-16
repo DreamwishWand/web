@@ -1,3 +1,5 @@
+import {createScopedAmountTransport} from './product-scoped-amount-transport.mjs';
+import {createFixedCollectionTransport} from './product-fixed-collection-transport.mjs';
 import {readCollectionCandidate} from '../../../collection/collection-candidate-read.mjs';
 // R04 opt-in read-only boundary owned by the SAME local Worker. No product UI
 // export/import path until a signed wasm build and independent QA are accepted.
@@ -35,18 +37,36 @@ function strictReceipt(r){
  * wasmFactory is a trusted static Worker import, not a message field. The
  * worker-side decode source owns the async decoded-chunk iterable.
  */
-export function createProductWasmReadOwner(wasmFactory,{allowCollectionCandidateSource=false}={}){
+export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false}={}){
+ if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource].every(v=>typeof v==='boolean')||
+    (allowScopedAmountSource&&allowScopedCollectionSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
  if(typeof document!=='undefined')fail('PRODUCT_WORKER_NOT_ISOLATED');
- let epoch=0,active=null;
+ let epoch=0,active=null,collectionOpening=false,blockedClose=null;
+ // Collection must not issue a CLOSED receipt or open B while cleanup of A
+ // remains unverified. Keep the old instance only for an explicit Close retry.
+ const destroy=wasm=>{
+   try{wasm.close()}
+   catch(e){
+     if(allowScopedCollectionSource){blockedClose=wasm;fail('PRODUCT_WORKER_COLLECTION_CLOSE_UNVERIFIED')}
+   }
+ };
  const revoke=()=>{
    epoch++;
    const prev=active;active=null;
-   if(prev){try{prev.wasm.close()}catch{}}
+   if(prev)destroy(prev.wasm);
  };
- const close=()=>{revoke();return Object.freeze({closed:true,writerAuthorized:false})};
+ const close=()=>{
+   revoke();
+   if(allowScopedCollectionSource){
+     if(collectionOpening)fail('PRODUCT_WORKER_COLLECTION_CLOSE_PENDING');
+     if(blockedClose){const old=blockedClose;destroy(old);blockedClose=null}
+   }
+   return Object.freeze({closed:true,writerAuthorized:false});
+ };
  const openDecoded=async (args={})=>{
    // Revoke A synchronously BEFORE await, validation, or decoding B.
+   if(allowScopedCollectionSource&&(collectionOpening||blockedClose))fail('PRODUCT_WORKER_COLLECTION_CLOSE_UNVERIFIED');
    revoke();const token=epoch;
    if(!isPlain(args)||Object.keys(args).sort().join(',')!=='build,decodedChunks')
        fail('PRODUCT_WORKER_UNTRUSTED_OPEN_ARGS');
@@ -55,6 +75,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowCollectionCandidate
    if(!decodedChunks||typeof decodedChunks[Symbol.asyncIterator]!=='function')
      fail('PRODUCT_WORKER_CHUNK_SOURCE_REQUIRED');
    let wasm=null,bytes=0;
+   if(allowScopedCollectionSource)collectionOpening=true;
    try{
      const module=await wasmFactory();
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
@@ -81,19 +102,33 @@ export function createProductWasmReadOwner(wasmFactory,{allowCollectionCandidate
      if(bytes===0)fail('PRODUCT_WORKER_EMPTY_DOCUMENT');
      const receipt=strictReceipt(JSON.parse(wasm.finish()));
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
-     active={wasm,receipt,identity,cursors:new Map()};wasm=null;
+     const a={wasm,receipt,identity,cursors:new Map(),scoped:null};
+     // Existing read-only Worker never instantiates the opt-in transport.
+     if(allowScopedAmountSource===true){
+       if(identity.platform!=='steam-windows')fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
+       if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
+       a.scoped=createScopedAmountTransport(wasm,receipt,{
+         parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},
+         maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
+     }
+     if(allowScopedCollectionSource){
+       a.scoped=createFixedCollectionTransport(wasm,receipt,identity,{
+         parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},
+         maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
+     }
+     active=a;wasm=null;
      return receipt;
    }catch(error){
      // Already fail closed: no stale A is retained if B fails.
      if(error instanceof Error&&/^PRODUCT_WORKER_/.test(error.message))throw error;
      fail('PRODUCT_WORKER_RUST_FAILURE');
    }finally{
-     if(wasm){try{wasm.close()}catch{}}
+     try{if(wasm)destroy(wasm)}finally{if(allowScopedCollectionSource)collectionOpening=false}
    }
  };
  const readCoreVersion=scope=>{
    const a=active;
-   if(!a)fail('PRODUCT_WORKER_SESSION_CLOSED');
+   if(!a||a.scoped?.hasMutation())fail('PRODUCT_WORKER_SESSION_CLOSED');
    if(!isPlain(scope)||Object.keys(scope).sort().join(',')!==
        'decodedSha256,indexGeneration,revision,sessionId'||
        scope.sessionId!==a.receipt.sessionId||
@@ -119,7 +154,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowCollectionCandidate
  // connected to the public Worker message router or UI/Save consumer.
  const typedScope=scope=>{
    const a=active;
-   if(!a)fail('PRODUCT_WORKER_SESSION_CLOSED');
+   if(!a||a.scoped?.hasMutation())fail('PRODUCT_WORKER_SESSION_CLOSED');
    if(!isPlain(scope)||Object.keys(scope).sort().join(',')!==
       'decodedSha256,indexGeneration,revision,sessionId'||
       scope.sessionId!==a.receipt.sessionId||
@@ -350,6 +385,13 @@ export function createProductWasmReadOwner(wasmFactory,{allowCollectionCandidate
       writerAuthorized:false
    });
  };
+ // ACT916 opt-in, Worker-private only. One existing wasm instance.
+ const scoped=()=>{
+   const a=active;
+   if(allowScopedAmountSource!==true||!a||a.identity.platform!=='steam-windows'||!a.scoped)
+     fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
+   return a.scoped;
+ };
  // ACT965: opt-in Worker-private candidate query; no second owner or edit target.
  // Static import keeps the existing IIFE Worker bundle single-chunk. Capture
  // active instance before async dispatch: Close/Open/Stage cannot rebind A to B.
@@ -368,6 +410,11 @@ export function createProductWasmReadOwner(wasmFactory,{allowCollectionCandidate
    return readCollectionCandidate({wasm:a.wasm,receipt:a.receipt,identity:a.identity,
      parse:strictTypedJson,current,revoke:()=>{if(current())revoke()}},selected);
  };
+ const fixedCollection=()=>{
+   const a=active;
+   if(allowScopedCollectionSource!==true||!a||!a.scoped)fail('PRODUCT_WORKER_COLLECTION_FIXED_SOURCE_OFF');
+   return a.scoped;
+ };
  const submitOperation=()=>fail('PRODUCT_WORKER_WRITER_DISABLED');
  const getCapabilities=()=>Object.freeze({
    productWorkerBoundary:true,productReadAccepted:false,
@@ -380,6 +427,12 @@ export function createProductWasmReadOwner(wasmFactory,{allowCollectionCandidate
  return Object.freeze({openDecoded,readCoreVersion,issueTypedCursor,readTypedPage,
    issueSavedDiffGridsCursor,readSavedDiffGridsPage,
    close,submitOperation,getCapabilities,
-   getReceipt:()=>active?.receipt??null,
-   ...(allowCollectionCandidateSource===true?{readCollectionCandidate:readCollectionCandidateSource}:{})});
+   getReceipt:()=>active&&!active.scoped?.hasMutation()?active.receipt:null,
+   ...(allowScopedAmountSource===true?{discoverScopedTargets:profile=>scoped().discoverTargets(profile),previewScopedAmount:selection=>scoped().previewTarget(selection),
+     stageScopedAmount:()=>scoped().stage(),toggleScopedAmount:redo=>scoped().toggle(redo),
+     takeScopedAmountOutput:()=>scoped().takeOutput()}: {}),
+   ...(allowCollectionCandidateSource===true?{readCollectionCandidate:readCollectionCandidateSource}:{}),
+   ...(allowScopedCollectionSource===true?{previewFixedCollection:selector=>fixedCollection().previewTarget(selector),
+     stageFixedCollection:()=>fixedCollection().stage(),toggleFixedCollection:redo=>fixedCollection().toggle(redo),
+     takeFixedCollectionOutput:()=>fixedCollection().takeOutput()}: {})});
 }
