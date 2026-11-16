@@ -3,13 +3,13 @@
  import {locale} from '$lib/i18n/runtime.js';
  import {localPlacementCopy} from './local-placement-copy.mjs';
  import LocalPlacementEditorDev from './LocalPlacementEditorDev.svelte';
- import {createProductComp03Port,createProductVaseAddPort,productPlacementPortScope} from './product-placement-client.mjs';
+ import {createProductComp03Port,createProductVaseAddPort,createProductSr03Port,productPlacementPortScope} from './product-placement-client.mjs';
  export let fixedOperation='comp03';
  let port=null,scope=null;
  $: words=localPlacementCopy($locale);
- $: title=(fixedOperation==='comp03'?words.compTitle:words.vaseTitle).split(' — ')[0];
+ $: title=(fixedOperation==='comp03'?words.compTitle:fixedOperation==='sr03'?words.sr03Title:words.vaseTitle).split(' — ')[0];
  onMount(()=>{
-  const abort=new AbortController(),create=fixedOperation==='comp03'?createProductComp03Port:createProductVaseAddPort;
+  const abort=new AbortController(),create=fixedOperation==='comp03'?createProductComp03Port:fixedOperation==='sr03'?createProductSr03Port:createProductVaseAddPort;
   const clear=()=>{const p=port;port=null;scope=null;p?.dispose()};
   void create({signal:abort.signal,onFault:clear}).then(p=>{if(abort.signal.aborted){p.dispose();return}port=p;scope=productPlacementPortScope(p)}).catch(clear);
   return ()=>{abort.abort();clear()};

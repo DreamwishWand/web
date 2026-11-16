@@ -41,8 +41,9 @@ export function createProductSwitch626Catalog0LocalAdapter(options={}){
 export function createProductFixedCollectionLocalAdapter(options={}){return createScopedLocalAdapter(options,true)}
 export function createProductSteam626Comp03LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'comp03')}
 export function createProductSteam626VaseAddLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'vase')}
+export function createProductSteam626Sr03LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'sr03')}
 function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null){
- const placement=placementScope!==null,placementCount=placementScope==='comp03'?9:3;
+ const placement=placementScope!==null,placementCount=placementScope==='comp03'?9:placementScope==='sr03'?8:3;
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||
   (discoverScopedTargets!==undefined&&typeof discoverScopedTargets!=='function')||
   (allowCoreDiscoverySource&&discoverScopedTargets!==undefined)||
