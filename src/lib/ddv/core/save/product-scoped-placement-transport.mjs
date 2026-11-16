@@ -21,8 +21,8 @@ const mixedRoad=Object.freeze({contract:'wand.worker.steam626.scoped-sr03-mixed-
 const fenceKeys='contract,layout,gridId,expectedNextId,inventoryDelta,rootSha256,gridSha256,counterSha256,housesSha256,projectedDecodedSha256,exactFieldChangedCount,sessionId,revision,indexGeneration,decodedSha256,productWriterAuthorized,originalOverwriteAuthorized';
 const ids4=a=>Array.isArray(a)&&a.length===4&&a.every(positive)&&new Set(a).size===4;
 const sameIds=(a,b)=>Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every((v,i)=>v===b[i]);
-const fenceBase=(op,count,extra)=>Object.freeze({contract:'wand.worker.switch626.scoped-'+op+'-layout@1',count,item:40700246,preview:'preview_switch626_'+op,stage:'stage_switch626_'+op,
- lifecycle:Object.freeze({contract:'wand.worker.switch626.scoped-'+op+'-layout@1',outputContract:'wand.worker.switch626.scoped-'+op+'-layout-output@1',toggleMethod:'toggle_switch626_'+op,beginMethod:'begin_switch626_'+op+'_output',nextMethod:'next_switch626_'+op+'_output_chunk'}),
+const fenceBase=(op,count,extra,method=op)=>Object.freeze({contract:'wand.worker.switch626.scoped-'+op+'-layout@1',count,item:40700246,preview:'preview_switch626_'+method,stage:'stage_switch626_'+method,
+ lifecycle:Object.freeze({contract:'wand.worker.switch626.scoped-'+op+'-layout@1',outputContract:'wand.worker.switch626.scoped-'+op+'-layout-output@1',toggleMethod:'toggle_switch626_'+method,beginMethod:'begin_switch626_'+method+'_output',nextMethod:'next_switch626_'+method+'_output_chunk'}),
  ...extra});
 const normalizeFence=(r,keys)=>{if(!exact(r,keys)||r.productWriterAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();const {expectedNextId,productWriterAuthorized,originalOverwriteAuthorized,...rest}=r;return {...rest,itemId:40700246,nextObjectId:expectedNextId,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false}};
 const validFence=(r,s,add)=>r.layout==='PRESERVE_EXISTING'&&r.gridId===s.gridId&&r.inventoryDelta===0&&r.nextObjectId<=0xffffffff-add&&[r.rootSha256,r.counterSha256,r.housesSha256].every(sha);
@@ -42,7 +42,20 @@ const fe01=fenceBase('fe01',7,{
  valid:(r,s)=>validFence(r,s,4)&&ids4(r.oldIds)&&sameIds(r.oldIds,s.oldIds)&&sameIds(r.retainedIds,s.oldIds.slice(0,2))&&sameIds(r.deletedIds,s.oldIds.slice(2))&&r.nextObjectId>Math.max(...r.oldIds)&&Array.isArray(r.oldRowsSha256)&&r.oldRowsSha256.length===4&&r.oldRowsSha256.every(sha),
  stageArgs:r=>[r.gridId,Uint32Array.from(r.oldIds),r.nextObjectId,r.rootSha256,r.gridSha256,r.counterSha256,r.housesSha256,r.oldRowsSha256.join(''),r.projectedDecodedSha256],
  summary:r=>({layout:'PRESERVE_EXISTING',oldIds:Object.freeze([...r.oldIds]),retainedIds:Object.freeze([...r.retainedIds]),deletedIds:Object.freeze([...r.deletedIds]),inventoryDelta:0,addObjects:4})});
+// Five separately typed, no-stock-change Fence ADD operations reuse the already
+// accepted FD01 CAS shape; their Rust method names/ABI stay mutually exclusive.
+const fixedAdd=(slug,method,count)=>fenceBase(slug,count,{
+ keys:common+',layout,x,y,inventoryDelta,rootSha256,counterSha256,housesSha256,inventoryEntrySha256',
+ selector:s=>exact(s,'gridId,x,y')&&positive(s.gridId)&&uint(s.x)&&uint(s.y),
+ previewArgs:s=>[s.gridId,s.x,s.y],
+ normalize:r=>normalizeFence(r,fenceKeys+',x,y,oldAmount,newAmount,inventoryEntrySha256'),
+ valid:(r,s)=>validFence(r,s,count-1)&&r.x===s.x&&r.y===s.y&&r.oldAmount===r.newAmount&&r.oldAmount<=9999&&sha(r.inventoryEntrySha256),
+ stageArgs:r=>[r.gridId,r.x,r.y,r.nextObjectId,r.rootSha256,r.gridSha256,r.counterSha256,r.housesSha256,r.oldAmount,r.inventoryEntrySha256,r.projectedDecodedSha256],
+ summary:r=>({layout:'PRESERVE_EXISTING',x:r.x,y:r.y,inventoryDelta:0,addObjects:count-1})
+},method);
 const fixed=Object.freeze({fd01,fe01,
+ fd02:fixedAdd('fd02','fd02',4),fd03:fixedAdd('fd03','fd03',4),
+ orthoL:fixedAdd('ortho-l','ortho_l',6),diagonal90:fixedAdd('diagonal90','diagonal90',6),orthoT:fixedAdd('ortho-t','ortho_t',8),
  sr03:mixedRoad,
  rm01:Object.freeze({...mixedRoad,contract:'wand.worker.switch626.scoped-rm01-mixed-q5@1',preview:'preview_switch626_rm01',stage:'stage_switch626_rm01'}),
  comp03:Object.freeze({contract:'wand.worker.steam626.scoped-comp03-layout@1',count:9,item:40100038,preview:'preview_steam626_comp03',stage:'stage_steam626_comp03',
@@ -60,6 +73,11 @@ const fixed=Object.freeze({fd01,fe01,
 });
 export const createSwitch626Fd01Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.fd01);
 export const createSwitch626Fe01Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.fe01);
+export const createSwitch626Fd02Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.fd02);
+export const createSwitch626Fd03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.fd03);
+export const createSwitch626OrthoLTransport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.orthoL);
+export const createSwitch626Diagonal90Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.diagonal90);
+export const createSwitch626OrthoTTransport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.orthoT);
 export const createSteam626Sr03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.sr03);
 export const createSwitch626Rm01Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.rm01);
 export const createSteam626Comp03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.comp03);
@@ -70,7 +88,7 @@ export const createSteam626VaseAddTransport=(wasm,initial,identity,options)=>cre
 function create(wasm,initial,identity,{parse,current,revoke,maxBytes,chunkBytes},op,spatial=false){
  if(spatial&&(op!==fixed.comp03||typeof wasm?.preview_steam626_comp03_spatial!=='function'))fail();
  if(typeof document!=='undefined'||!wasm||typeof wasm[op.preview]!=='function'||typeof wasm[op.stage]!=='function'||
-  !identity||identity.schema!==626||!((op===fixed.rm01||op===fixed.fd01||op===fixed.fe01)?(identity.platform==='switch'&&identity.buildKind==='switch-bid'&&identity.buildId==='9A239D3DB569756D'):(identity.platform==='steam-windows'&&identity.buildKind==='steam-full-version'&&identity.buildId===STEAM))||
+  !identity||identity.schema!==626||!(([fixed.rm01,fixed.fd01,fixed.fe01,fixed.fd02,fixed.fd03,fixed.orthoL,fixed.diagonal90,fixed.orthoT].includes(op))?(identity.platform==='switch'&&identity.buildKind==='switch-bid'&&identity.buildId==='9A239D3DB569756D'):(identity.platform==='steam-windows'&&identity.buildKind==='steam-full-version'&&identity.buildId===STEAM))||
   !initial||initial.contract!=='wand.product.single-save-session.boundary@1'||initial.schema!==626||initial.revision!==0||initial.indexGeneration!==1||
   typeof initial.sessionId!=='string'||!/^[a-f0-9]{32}$/.test(initial.sessionId)||/^0+$/.test(initial.sessionId)||!sha(initial.decodedSha256)||
   initial.productWorkerBound!==true||initial.fullDocumentJsonValidated!==true||initial.writerAuthorized!==false||initial.editedCopyAuthorized!==false||initial.applyAuthorized!==false)fail();

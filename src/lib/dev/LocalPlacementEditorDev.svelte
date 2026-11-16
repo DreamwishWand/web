@@ -14,15 +14,23 @@
  $: backpack=operation.startsWith('backpack-');
  $: wardrobe=operation.startsWith('wardrobe-');
  $: fd01=operation==='fd01';
+ $: fd02=operation==='fd02';
+ $: fd03=operation==='fd03';
+ $: orthoL=operation==='ortho-l';
+ $: diagonal90=operation==='diagonal90';
+ $: orthoT=operation==='ortho-t';
+ $: fenceAdd=fd01||fd02||fd03||orthoL||diagonal90||orthoT;
+ $: fenceAddCount=orthoT?7:orthoL||diagonal90?5:3;
  $: fe01=operation==='fe01';
- $: fence=fd01||fe01;
+ $: fence=fenceAdd||fe01;
  $: mixedRoad=operation==='sr03'||operation==='rm01';
  $: appearance=operation==='hair'||operation==='skin';
- $: rawTitle=fd01?words.fd01Title:fe01?words.fe01Title:operation==='hair'?words.hairTitle:operation==='skin'?words.skinTitle:operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
+ $: rawTitle=fd01?words.fd01Title:fd02?words.fd02Title:fd03?words.fd03Title:orthoL?words.orthoLTitle:diagonal90?words.diagonal90Title:orthoT?words.orthoTTitle:fe01?words.fe01Title:operation==='hair'?words.hairTitle:operation==='skin'?words.skinTitle:operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
  $: title=productMode?rawTitle.split(' — ')[0]+(productMode==='private-product-v2'?' — V2':''):rawTitle;
- $: detail=fd01?words.fd01Detail:fe01?words.fe01Detail:appearance?(operation==='hair'?words.hairDetail:words.skinDetail):wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:words.vaseDetail;
+ $: detail=fd01?words.fd01Detail:fd02?words.fd02Detail:fd03?words.fd03Detail:orthoL?words.orthoLDetail:diagonal90?words.diagonal90Detail:orthoT?words.orthoTDetail:fe01?words.fe01Detail:appearance?(operation==='hair'?words.hairDetail:words.skinDetail):wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:words.vaseDetail;
  $: p=state.preview;
- $: valid=fe01?Number.isSafeInteger(grid)&&grid>0&&grid<=0xffffffff&&oldIds.every(v=>Number.isSafeInteger(v)&&v>0&&v<=0xffffffff)&&new Set(oldIds).size===4:fd01?Number.isSafeInteger(grid)&&grid>0&&grid<=0xffffffff&&[x,y].every(v=>Number.isSafeInteger(v)&&v>=0&&v<=0xffffffff):(wardrobe||appearance)?true:backpack?Number.isSafeInteger(x)&&x>=0&&x<256&&Number.isSafeInteger(y)&&y>=0&&y<256&&x!==y:operation==='comp03'?Number.isSafeInteger(seed)&&seed>0:Number.isSafeInteger(grid)&&grid>0&&Number.isSafeInteger(x)&&x>=0&&Number.isSafeInteger(y)&&y>=0&&(!mixedRoad||(x>0&&y>0&&x!==y));
+ $: addedFenceIds=p&&fenceAdd?Array.from({length:fenceAddCount},(_,i)=>p.nextObjectId+i):[];
+ $: valid=fe01?Number.isSafeInteger(grid)&&grid>0&&grid<=0xffffffff&&oldIds.every(v=>Number.isSafeInteger(v)&&v>0&&v<=0xffffffff)&&new Set(oldIds).size===4:fenceAdd?Number.isSafeInteger(grid)&&grid>0&&grid<=0xffffffff&&[x,y].every(v=>Number.isSafeInteger(v)&&v>=0&&v<=0xffffffff):(wardrobe||appearance)?true:backpack?Number.isSafeInteger(x)&&x>=0&&x<256&&Number.isSafeInteger(y)&&y>=0&&y<256&&x!==y:operation==='comp03'?Number.isSafeInteger(seed)&&seed>0:Number.isSafeInteger(grid)&&grid>0&&Number.isSafeInteger(x)&&x>=0&&Number.isSafeInteger(y)&&y>=0&&(!mixedRoad||(x>0&&y>0&&x!==y));
  onMount(()=>{
   const scope=productPlacementPortScope(trustedWorkerAdapter);
   if(!scope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
@@ -94,7 +102,7 @@
       </figure>
      {/if}
      {:else if fe01}<p>{words.retainedId}: {p.retainedIds.join(', ')} · {words.fenceDeleteId}: {p.deletedIds.join(', ')}</p><p>{words.added}: {p.nextObjectId}, {p.nextObjectId+1}, {p.nextObjectId+2}, {p.nextObjectId+3}</p>
-     {:else if fd01}<p>{words.x}: {p.x} · {words.y}: {p.y}</p><p>{words.added}: {p.nextObjectId}, {p.nextObjectId+1}, {p.nextObjectId+2}</p>
+     {:else if fenceAdd}<p>{words.x}: {p.x} · {words.y}: {p.y}</p><p>{words.added}: {addedFenceIds.join(', ')}</p>
      {:else if mixedRoad}<p>{words.retainedId}: {p.retainedId} · {words.movedId}: {p.movedId}</p><p>{words.added}: {p.nextObjectId}, {p.nextObjectId+1}, {p.nextObjectId+2}</p>
      {:else}<p>X: {p.x} · Y: {p.y} · {p.orientation}</p>{/if}
      {#if !fe01}<p>{p.oldAmount} → {p.newAmount}</p>{/if}{/if}<p>{detail}</p>
