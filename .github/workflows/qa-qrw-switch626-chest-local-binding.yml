@@ -1,0 +1,150 @@
+name: QA ONLY Switch626 Chest real local binding (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-switch626-chest-local-binding.yml'
+permissions:
+  contents: read
+jobs:
+  real-local:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrw1442-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1636d7dafc85a581ffac5027b36354d5d585301a
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed Web and accepted Core source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '1636d7dafc85a581ffac5027b36354d5d585301a'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 6819a2ce761422e5569cd79b0da3df984e0dc9bf
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = debdddd102897db9731f185139c947c8b597592b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = bb4e5073e81d5a1d032812ccaae0911ac5130bc3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 98028bca717df75d423d26dec8cc6add6486f8ef
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          git cat-file -e 5a5ce7eab0e5922d15e50b9ed699c44570c23f30^{commit} || git fetch --no-tags origin 5a5ce7eab0e5922d15e50b9ed699c44570c23f30
+          git worktree add --detach /tmp/wand-qrw1442-core 5a5ce7eab0e5922d15e50b9ed699c44570c23f30
+          test "$(git -C /tmp/wand-qrw1442-core rev-parse HEAD)" = '5a5ce7eab0e5922d15e50b9ed699c44570c23f30'
+          test "$(git -C /tmp/wand-qrw1442-core rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 0fcdac70758ca09675fa28c4b854e4c1885e681b
+          cp tests/fixtures/ddv-save-core-accepted.Cargo.lock /tmp/wand-qrw1442-core/crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  /tmp/wand-qrw1442-core/crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+      - name: Generate actual locked Switch Amount WASM
+        run: |
+          cargo build --locked --manifest-path /tmp/wand-qrw1442-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrw1442-tools
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-qrw1442-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Temporary synthetic fixture and actual browser worker (no tracked product route)
+        run: |
+          mkdir -p src/routes/test-qrw1442 static/qa-qrw1442
+          cat > tests/.qa-qrw1442-fixture.mjs <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
+          const lines=readFileSync('/tmp/wand-qrw1442-core/crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl','utf8').trim().split('\n').slice(1).map(JSON.parse);
+          const a=lines.find(x=>!x[0].includes('OogieBoogieHouse')&&x[4].every(g=>g[2].length===0));
+          const overlay=x=>({ID:19,GridDefaultLayoutPath:x[0],GridDefaultLayoutType:x[1],DefaultLayoutGridID:x[4][0][0],DefaultGridHashCode:-4,DefaultGridDataHashCode:6,ModifiedObjects:{},RemovedObjects:[]});
+          function doc(){const slots=Array.from({length:48},()=>({ItemID:0,Amount:0,State:null}));slots[0]={ItemID:30200000,Amount:50,State:null,Unknown:7};return {GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{GridCollection:{Grids:{7:{ID:7,GridDefaultLayoutPath:'',Objects:{4:{ID:4,ItemID:40001680,State:{Storage:{ContainerInventoryID:12,DefaultContainerInventoryData:'',UnlockKeyItemID:0,UnlockLocId:'',DesignID:null}}}}}},DiffGrids:{19:overlay(a)}},MissionSlots:{},Villages:[{Areas:{2:{GridIDs:[7],Unlocked:true}}}]},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{40000048:{Amount:3,Marker:'ItemMarker_None'}}},2:{ID:2,CompatibleItemType:'ItemType_ActivityItem',Inventory:{30200000:{Amount:2}}}},ContainerInventories:{0:{ID:0,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:30200000,Amount:5,State:{}}]},1:{ID:1,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:0,Amount:0,State:null}]},12:{ID:12,ParentItemID:40001680,BelongsToPlayer:true,BlockMoveTo:false,Size:48,ExtraSize:0,Inventory:slots}},BackpackOverflow:{Items:[]},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Opaque:{keep:'x'.repeat(1100000),n:7}};}
+          const d=doc(),want=structuredClone(d);want.Player.ContainerInventories[12].Inventory[0].Amount=49;
+          const b=makeSyntheticP1gProfile(d);
+          writeFileSync('static/qa-qrw1442/input.p1g',b);
+          writeFileSync('static/qa-qrw1442/meta.json',JSON.stringify({sha:createHash('sha256').update(b).digest('hex'),expected:want}));
+          NODE
+          node tests/.qa-qrw1442-fixture.mjs
+          cp tests/stage-e/pkg/ddv_save_core_bg.wasm static/qa-qrw1442/
+          cat > src/routes/test-qrw1442/+page.svelte <<'SVELTE'
+          <script>
+          import {onMount} from 'svelte';
+          onMount(()=>{
+            const w=new Worker(new URL('./qa.worker.mjs',import.meta.url),{type:'module'});
+            w.onmessage=e=>{window.__qrw1442=e.data};
+            w.onerror=e=>{window.__qrw1442={error:e.message}};
+            return ()=>w.terminate();
+          });
+          </script>
+          <p>Isolated synthetic QA only</p>
+          SVELTE
+          cat > src/routes/test-qrw1442/qa.worker.mjs <<'NODE'
+          import init,{WorkerWasmSource} from '../../../tests/stage-e/pkg/ddv_save_core.js';
+          import {createProductSwitch626ChestLocalAdapter} from '$lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          const need=(v,k)=>{if(!v)throw Error(k)};
+          const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
+          const sw={platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626,externallyConfirmed:true};
+          const steam={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true};
+          const cmd={kind:'ChestExistingSlotAmountDecrease',containerId:12,slotIndex:0,expectedItemId:30200000,expectedOldAmount:50,newAmount:49};
+          let neg=0,opens=0;
+          const deny=async(f,k)=>{let rejected=false;try{await f()}catch{rejected=true}need(rejected,k);neg++};
+          try{
+            const r=await fetch('/qa-qrw1442/ddv_save_core_bg.wasm');need(r.ok&&r.headers.get('content-type')?.startsWith('application/wasm'),'WASM MIME');
+            await init({module_or_path:await r.arrayBuffer()});
+            const bytes=new Uint8Array(await (await fetch('/qa-qrw1442/input.p1g')).arrayBuffer()),meta=await (await fetch('/qa-qrw1442/meta.json')).json();
+            need(await hash(bytes)===meta.sha,'source sha');
+            const file=new File([bytes],'synthetic.p1g'),input={file,build:sw,originalSha256:meta.sha};
+            const root=await navigator.storage.getDirectory();
+            // Count only actual Rust constructor use, never substitute fake receipts.
+            const factory=async()=>({WorkerWasmSource:class extends WorkerWasmSource{constructor(...a){super(...a);opens++}}});
+            const a=createProductSwitch626ChestLocalAdapter({wasmFactory:factory});
+            await deny(()=>a.open({...input,build:steam}),'foreign build');
+            await deny(()=>a.open({...input,build:{...sw,buildId:'wrong'}}),'wrong BID');
+            need(opens===0,'foreign build constructed');
+            await a.open(input);need(opens===1,'one session');
+            await deny(()=>a.stageTyped([cmd]),'no backup');
+            const b=await a.backupOriginal(),targets=await a.listVerifiedTargets();
+            need(targets.targets.length===1&&targets.targets[0].targetId===12&&targets.targets[0].slotIndex===0&&targets.targets[0].itemId===30200000&&targets.targets[0].oldAmount===50,'exact target');
+            await a.stageTyped([cmd]);await a.undo();await deny(()=>a.exportEditedCopy(),'undo export');await a.redo();
+            const o=await a.exportEditedCopy();need(o.freshWorkerReopenVerified===true&&o.writerAuthorized===false&&o.originalOverwriteAuthorized===false,'export fresh worker');
+            const backup=await a.downloadVerifiedCopy('backup'),edit=await a.downloadVerifiedCopy('edited');
+            need(backup.name!==edit.name&&backup.name!==file.name&&edit.name!==file.name,'names');
+            need(await hash(backup.encryptedBytes)===meta.sha&&await hash(new Uint8Array(await file.arrayBuffer()))===meta.sha,'backup/source bytes');
+            const bfile=await (await root.getFileHandle(backup.name)).getFile(),efile=await (await root.getFileHandle(edit.name)).getFile();
+            need(await hash(new Uint8Array(await bfile.arrayBuffer()))===meta.sha&&await hash(new Uint8Array(await efile.arrayBuffer()))===edit.sha256,'actual OPFS readback');
+            await deny(()=>a.exportEditedCopy(),'replay output');
+            need((await a.close()).kind==='CLOSED','close');
+            await deny(()=>a.downloadVerifiedCopy('edited'),'closed download');
+            await a.open(input);await a.backupOriginal();await a.listVerifiedTargets();
+            await deny(()=>a.stageTyped([{...cmd,expectedOldAmount:51}]),'old CAS');
+            await deny(()=>a.stageTyped([cmd]),'revoked session');
+            await a.open(input);const b2=await a.backupOriginal();await a.listVerifiedTargets();await a.stageTyped([cmd]);
+            const w=await (await root.getFileHandle(b2.backupName)).createWritable();await w.write(new Uint8Array([1,2,3]));await w.close();
+            await deny(()=>a.exportEditedCopy(),'tampered durable backup');await a.close();
+            need(await hash(new Uint8Array(await file.arrayBuffer()))===meta.sha,'final original');
+            postMessage({ok:true,neg,opens,actualOpfs:true,freshCodecWorker:true,backup:Array.from(backup.encryptedBytes),edited:Array.from(edit.encryptedBytes),backupName:backup.name,editedName:edit.name,writer:false});
+          }catch(e){postMessage({error:String(e?.stack||e)})}
+          NODE
+      - name: Actual Chrome OPFS and independent process encrypted Reopen
+        run: |
+          cat > tests/.qa-qrw1442-browser.mjs <<'NODE'
+          import {chromium} from 'playwright-core';
+          import {spawn,spawnSync} from 'node:child_process';
+          import {writeFileSync,readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const port=4182,origin='http://127.0.0.1:'+port;
+          const server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port',String(port),'--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});
+          let browser;
+          try{
+            for(let i=0;i<100;i++){try{if((await fetch(origin+'/test-qrw1442/')).ok)break}catch{}await new Promise(r=>setTimeout(r,250))}
+            const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);
+            assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+            const page=await browser.newPage();await page.goto(origin+'/test-qrw1442/');
+            await page.waitForFunction(()=>!!window.__qrw1442,{},{timeout:90000});
+            const q=await page.evaluate(()=>window.__qrw1442);assert.ok(q.ok,q.error);assert.equal(q.neg,9);assert.equal(q.opens,3);assert.equal(q.actualOpfs,true);assert.equal(q.freshCodecWorker,true);assert.equal(q.writer,false);
+            writeFileSync('/tmp/qrw1442-backup.p1g',Buffer.from(q.backup));writeFileSync('/tmp/qrw1442-edited.p1g',Buffer.from(q.edited));
+            assert.deepEqual(readFileSync('/tmp/qrw1442-backup.p1g'),readFileSync('static/qa-qrw1442/input.p1g'));
+            const check=spawnSync(process.execPath,['--input-type=module','-e',"import {readFileSync} from 'node:fs';import assert from 'node:assert/strict';import {p1gPackagedProfileCodec as c} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';const p=await c.loadProfile(new Uint8Array(readFileSync('/tmp/qrw1442-edited.p1g')));assert.deepEqual(JSON.parse(p.jsonText),JSON.parse(readFileSync('static/qa-qrw1442/meta.json','utf8')).expected);console.log('QRW1442_INDEPENDENT_FULL_DOCUMENT_REOPEN_PASS')"],{stdio:'inherit'});
+            assert.equal(check.status,0);
+            console.log('QRW1442_REAL_CHROME_OPFS_PASS',JSON.stringify({positive:1,negative:q.neg,actualRustSessions:q.opens,actualOpfs:true,freshCodecWorker:true,independentProcessReopen:true,writer:false}));
+          }finally{if(browser)await browser.close();server.kill()}
+          NODE
+          node tests/.qa-qrw1442-browser.mjs
