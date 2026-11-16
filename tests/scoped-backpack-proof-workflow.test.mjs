@@ -227,7 +227,7 @@ const specs={
   }
 };
 const inputs=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_steam_backpack_proof_source","scoped_switch_backpack_proof_source","scoped_steam_wardrobe_proof_source","scoped_switch_wardrobe_proof_source","scoped_comp03_proof_source","scoped_comp03_spatial_proof_source"];
-const block=n=>{const start=y.indexOf('  '+n+':\n');assert.ok(start>=0);const rest=y.slice(start+1),end=rest.search(/\n  [a-z_]+:\n/);return end<0?rest:rest.slice(0,end)};
+const block=n=>{const start=y.indexOf('  '+n+':\n');assert.ok(start>=0);const rest=y.slice(start+1),end=rest.search(/\n  [a-z0-9_]+:\n/);return end<0?rest:rest.slice(0,end)};
 test('all proof selections exclusive; normal build only empty inputs',()=>{
  const normal=block('build').split('\n').find(l=>l.trimStart().startsWith('if:'));
  assert.equal(normal.trim(),"if: github.event_name != 'workflow_dispatch' || ("+inputs.map(k=>"inputs."+k+" == ''").join(' && ')+")");
@@ -235,7 +235,7 @@ test('all proof selections exclusive; normal build only empty inputs',()=>{
  for(const job of jobs){
   const own=job+'_source',condition=block(job).split('\n').find(l=>l.trimStart().startsWith('if:'));
   assert.ok(condition.includes("github.event_name == 'workflow_dispatch'"));assert.ok(condition.includes("github.ref == 'refs/heads/main'"));
-  const checks=[...condition.matchAll(/inputs\.([a-z_]+) (!=|==) ''/g)].map(m=>[m[1],m[2]]);
+  const checks=[...condition.matchAll(/inputs\.([a-z0-9_]+) (!=|==) ''/g)].map(m=>[m[1],m[2]]);
   assert.deepEqual(checks.map(x=>x[0]).sort(),[...inputs].sort());assert.equal(checks.filter(x=>x[1]==='!=').length,1);assert.ok(checks.some(x=>x[0]===own&&x[1]==='!='));
  }
  for(let mask=0;mask<2**inputs.length;mask++){const active=inputs.filter((_,i)=>mask&(1<<i));const selected=jobs.filter(j=>active.length===1&&active[0]===j+'_source');assert.equal(selected.length,active.length===1?1:0);}
@@ -248,5 +248,7 @@ for(const [job,s] of Object.entries(specs))test(s.key+' exact fixed proof-only j
  const order=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','node scripts/readonly-release/scoped-backpack-proof.mjs build '+s.key,'node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','node scripts/readonly-release/scoped-backpack-proof.mjs verify-protected-candidate '+s.key,'node scripts/int-protected-ci-gate.mjs deploy','actions/upload-artifact@v4'];let i=-1;for(const m of order){i=p.indexOf(m,i+1);assert.ok(i>=0,m);}
  assert.doesNotMatch(p,/actions\/(?:deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
  const upload=p.slice(p.indexOf('actions/upload-artifact@v4'));assert.ok(upload.includes('wand-'+s.key+'-proof/pins.json'));assert.ok(upload.includes('wand-'+s.key+'-proof/attestation-bundle.jsonl'));assert.doesNotMatch(upload,/ddv_save_core|fixtures\/|static\/|build\//);
+  const anchor='product-scoped-backpack-release-anchor.mjs';
+ assert.ok(p.includes('test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/'+anchor+')"'));
  assert.equal((p.match(/subject-path: \|\n(?: +tests\/wasm-distribution\/fixtures\/[^\n]+\n){3}/g)||[]).length,1);
 });
