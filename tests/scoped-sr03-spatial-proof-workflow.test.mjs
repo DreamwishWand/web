@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
-const keys=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_sr03_proof_source","scoped_comp03_spatial_proof_source","scoped_rm01_proof_source","scoped_hair_proof_source","scoped_skin_proof_source"];
+const keys=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_sr03_proof_source","scoped_comp03_spatial_proof_source","scoped_rm01_proof_source","scoped_hair_proof_source","scoped_skin_proof_source","scoped_portable_proof_request"];
 const specs=[
   {
     "job": "scoped_sr03_proof",
