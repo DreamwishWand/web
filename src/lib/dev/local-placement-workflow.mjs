@@ -43,11 +43,11 @@ function spatialReview(r,p){
  return Object.freeze({gridId:r.gridId,seedId:r.seedId,markers:overlay.markers});
 }
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation,spatialPreviewEnabled=false}={}){
- if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01'].includes(operation)||!adapter)fail();
+ if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','r01'].includes(operation)||!adapter)fail();
  const backpack=operation==='backpack-steam'||operation==='backpack-switch',wardrobe=operation==='wardrobe-steam'||operation==='wardrobe-switch';
  const previewMethod=wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
  for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
- const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=wardrobe?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
+ const r01=operation==='r01',comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=wardrobe?1:comp?9:sr03?8:r01?4:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'||r01?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
  if(typeof spatialPreviewEnabled!=='boolean'||(spatialPreviewEnabled&&(!comp||typeof adapter.spatialPreview!=='function')))fail();
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
@@ -95,10 +95,10 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
    return set({phase:'previewed',preview:Object.freeze({...r})});
   }
   const common='itemId,gridId,nextObjectId,oldAmount,newAmount,exactFieldChangedCount,scopedCandidate,writerAuthorized,editedCopyAuthorized';
-  if(!exact(r,common+(comp?',seedId,inventoryDelta,retainSeed,addObjects':sr03?',retainedId,movedId,inventoryDelta,addObjects':',inventoryId,x,y,orientation,inventoryDelta,addObjects'))||
-   r.itemId!==(comp?40100038:sr03?40100068:40000066)||!positive(r.gridId)||!positive(r.nextObjectId)||!positive(r.oldAmount)||!uint(r.newAmount)||r.exactFieldChangedCount!==count||
+  if(!exact(r,common+(comp?',seedId,inventoryDelta,retainSeed,addObjects':sr03?',retainedId,movedId,inventoryDelta,addObjects':r01?',x,y,inventoryDelta,addObjects':',inventoryId,x,y,orientation,inventoryDelta,addObjects'))||
+   r.itemId!==(comp?40100038:(sr03||r01)?40100068:40000066)||!positive(r.gridId)||!positive(r.nextObjectId)||!positive(r.oldAmount)||!uint(r.newAmount)||r.exactFieldChangedCount!==count||
    r.scopedCandidate!==true||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||
-   !(comp?r.seedId===selector.seedId&&r.oldAmount===r.newAmount&&r.inventoryDelta===0&&r.retainSeed===1&&r.addObjects===8:sr03?r.gridId===selector.gridId&&r.retainedId===selector.retainedId&&r.movedId===selector.movedId&&r.oldAmount>=3&&r.newAmount===r.oldAmount-3&&r.inventoryDelta===-3&&r.addObjects===3&&r.nextObjectId>Math.max(r.retainedId,r.movedId)&&r.nextObjectId<=0xfffffffd:
+   !(comp?r.seedId===selector.seedId&&r.oldAmount===r.newAmount&&r.inventoryDelta===0&&r.retainSeed===1&&r.addObjects===8:sr03?r.gridId===selector.gridId&&r.retainedId===selector.retainedId&&r.movedId===selector.movedId&&r.oldAmount>=3&&r.newAmount===r.oldAmount-3&&r.inventoryDelta===-3&&r.addObjects===3&&r.nextObjectId>Math.max(r.retainedId,r.movedId)&&r.nextObjectId<=0xfffffffd:r01?r.gridId===selector.gridId&&r.x===selector.x&&r.y===selector.y&&r.oldAmount===r.newAmount&&r.inventoryDelta===0&&r.addObjects===3&&r.nextObjectId<=0xfffffffc:
     r.gridId===selector.gridId&&r.x===selector.x&&r.y===selector.y&&r.inventoryId===0&&r.orientation==='GridOrientation_Up'&&r.oldAmount===r.newAmount+1&&r.inventoryDelta===-1&&r.addObjects===1))fail();
   const p=Object.freeze({...r});
   // Opt-in is supplied by the branded product scope, never method discovery.

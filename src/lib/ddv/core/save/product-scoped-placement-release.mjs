@@ -5,6 +5,7 @@ import {ACTIVE_RELEASE_TUPLE,matchReleaseTuple,manifestMatchesRelease} from './p
 import {checkedFetch,compileVerifiedWorker} from './product-rust-wasm-candidate-loader.mjs';
 import {PROTECTED_COMP03_RELEASE_ANCHOR,PROTECTED_VASE_ADD_RELEASE_ANCHOR} from './product-scoped-placement-release-anchor.mjs';
 import {PROTECTED_SR03_RELEASE_ANCHOR} from './product-scoped-sr03-release-anchor.mjs';
+import {PROTECTED_R01_RELEASE_ANCHOR} from './product-scoped-r01-release-anchor.mjs';
 import {PROTECTED_RM01_RELEASE_ANCHOR} from './product-scoped-rm01-release-anchor.mjs';
 import {PROTECTED_STEAM_BACKPACK_RELEASE_ANCHOR,PROTECTED_SWITCH_BACKPACK_RELEASE_ANCHOR} from './product-scoped-backpack-release-anchor.mjs';
 import {PROTECTED_STEAM_WARDROBE_RELEASE_ANCHOR,PROTECTED_SWITCH_WARDROBE_RELEASE_ANCHOR} from './product-scoped-wardrobe-release-anchor.mjs';
@@ -32,7 +33,8 @@ export const STEAM_WARDROBE_RELEASE=spec('steam626-wardrobe','steam626.wardrobe.
 export const SWITCH_WARDROBE_RELEASE=spec('switch626-wardrobe','switch626.wardrobe.same-slot.exact1','product-switch626-wardrobe-scoped','preview_switch626_wardrobe','stage_switch626_wardrobe','/editor/wardrobe/switch/','switch','9A239D3DB569756D');
 export const SR03_RELEASE=spec('steam626-sr03','steam626.sr03.mixed-q5.exact8','product-steam626-sr03-scoped','preview_steam626_sr03','stage_steam626_sr03','/editor/world/sr03/');
 export const RM01_RELEASE=spec('switch626-rm01','switch626.rm01.mixed-q5.exact8','product-switch626-rm01-scoped','preview_switch626_rm01','stage_switch626_rm01','/editor/world/rm01/switch/','switch','9A239D3DB569756D');
-const known=s=>s===RM01_RELEASE||s===SR03_RELEASE||s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE||s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
+export const R01_RELEASE=spec('switch626-r01','switch626.r01.orthogonal-q3.exact4','product-switch626-r01-scoped','preview_switch626_r01','stage_switch626_r01','/editor/world/r01/switch/','switch','9A239D3DB569756D');
+const known=s=>s===R01_RELEASE||s===RM01_RELEASE||s===SR03_RELEASE||s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE||s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
 const asset=(a,n,max)=>exact(a,'path,sizeBytes,sha256')&&a.path===n&&size(a.sizeBytes,max)&&sha(a.sha256);
 export function placementPinsOk(s,p){return known(s)&&exact(p,'contract,sourceHead,manifestSha256,manifestSizeBytes,jsSha256,jsSizeBytes,wasmSha256,wasmSizeBytes')&&p.contract===s.prefix+'.pinned-digests@1'&&head(p.sourceHead)&&[p.manifestSha256,p.jsSha256,p.wasmSha256].every(sha)&&size(p.manifestSizeBytes,64*1024)&&size(p.jsSizeBytes,2*1024*1024)&&size(p.wasmSizeBytes,20*1024*1024)}
 export function placementManifestOk(s,m,p,tuple=ACTIVE_RELEASE_TUPLE){
@@ -69,7 +71,7 @@ async function load(s,a){
  if(wasm[0]!==0||wasm[1]!==97||wasm[2]!==115||wasm[3]!==109)fail();
  const backpack=s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE,wardrobe=s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
  const comp03=s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE;
- const denied=new RegExp(baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack||wardrobe?'(?:comp03|vase_add|sr03)':comp03?'(?:vase_add|sr03)':s===VASE_ADD_RELEASE?'(?:comp03|sr03)':'(?:comp03|vase_add)')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split'+'|(?:preview|stage)_'+(wardrobe?(s===STEAM_WARDROBE_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_wardrobe'+(s===COMP03_SPATIAL_RELEASE?'':'|preview_steam626_comp03_spatial')+(s===RM01_RELEASE?'|(?:preview|stage)_steam626_sr03':'|(?:preview|stage)_switch626_rm01'),'i');
+ const denied=new RegExp(baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack||wardrobe?'(?:comp03|vase_add|sr03)':comp03?'(?:vase_add|sr03)':s===VASE_ADD_RELEASE?'(?:comp03|sr03)':'(?:comp03|vase_add)')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split'+'|(?:preview|stage)_'+(wardrobe?(s===STEAM_WARDROBE_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_wardrobe'+(s===COMP03_SPATIAL_RELEASE?'':'|preview_steam626_comp03_spatial')+(s===RM01_RELEASE?'|(?:preview|stage)_steam626_sr03':'|(?:preview|stage)_switch626_rm01')+(s===R01_RELEASE?'|(?:preview|stage)_steam626_sr03':'|(?:preview|stage)_switch626_r01'),'i');
  const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{deniedSymbol:denied,requiredMethods:s.methods,exactPrototype:true,exactWasmExports:s.exports});
  return Object.freeze({WorkerWasmSource,sourceHead:p.sourceHead,checkedBothJsAndWasm:true,sameOriginFetchOnly:true,writerAuthorized:false,productConsumerEnabled:false,attestationVerifiedAtBuild:true,...scope(s,a)});
 }
@@ -98,3 +100,6 @@ export const getRm01MountInfo=rm01.mount,loadProtectedRm01RustWasm=rm01.runtime;
 // Explicit optional identity; never selected by legacy method discovery.
 const spatial=fixed(COMP03_SPATIAL_RELEASE,PROTECTED_COMP03_SPATIAL_RELEASE_ANCHOR);
 export const getComp03SpatialMountInfo=spatial.mount,loadProtectedComp03SpatialRustWasm=spatial.runtime;
+
+const r01=fixed(R01_RELEASE,PROTECTED_R01_RELEASE_ANCHOR);
+export const getR01MountInfo=r01.mount,loadProtectedR01RustWasm=r01.runtime;
