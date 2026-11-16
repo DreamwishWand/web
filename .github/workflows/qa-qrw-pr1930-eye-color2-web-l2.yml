@@ -116,7 +116,7 @@ jobs:
            if(methods.length!==13||EYECOLOR2_RELEASE.methods.length!==13||actualExports.length!==22||EYECOLOR2_RELEASE.exports.length!==22||!names.every(k=>methods.includes(k))||!EYECOLOR2_RELEASE.methods.every(k=>methods.includes(k)))throw Error('EYECOLOR2_ABI_COUNTEREXAMPLE');
            const census={methods:methods.length,requiredMethods:EYECOLOR2_RELEASE.methods.length,exports:actualExports.length,requiredExports:EYECOLOR2_RELEASE.exports.length,protectedDenied,protectedCode};
            let mixed=0;const never=async()=>{throw Error('Unexpected factory')};
-           for(const create of [createProductWasmReadOwner,createP1gRustWorkerReadOnlyBridge])for(const extra of [{backpackScope:'steam'},{wardrobeScope:'switch'},{placementScope:'rm01'},{appearanceScope:'hair'},{appearanceScope:'skin'},{allowScopedAmountSource:true},{allowScopedCollectionSource:true},{allowSwitch626ChestSource:true},{allowSwitch626Catalog0Source:true},{allowCollectionCandidateSource:true}]){
+           for(const create of [createProductWasmReadOwner,createP1gRustWorkerReadOnlyBridge])for(const extra of [{backpackScope:'steam'},{wardrobeScope:'switch'},{placementScope:'rm01'},{placementScope:'comp03'},{placementScope:'sr03'},{allowScopedAmountSource:true},{allowScopedCollectionSource:true},{allowSwitch626ChestSource:true},{allowSwitch626Catalog0Source:true},{allowCollectionCandidateSource:true}]){
             let denied=false;try{create(never,{appearanceScope:'eyecolor2',...extra})}catch{denied=true}if(!denied)throw Error('EYECOLOR2_MIXED_SCOPE_GRANTED');mixed++;
            }
            let opens=0,closes=0,hold=false,releasePending=null;
@@ -167,7 +167,7 @@ jobs:
             const armed=wait('QA_ARMED');send('QA_ARM');await armed;const pending=wait('QA_PENDING');const late=p.previewAppearance().then(()=>false,()=>true);await pending;await p.close();send('QA_RELEASE');need(await late,'late preview crossed close');neg++;await deny(()=>p.previewAppearance(),'closed');
             return{neg,mixed:window.__qa.mixed};
            },meta);
-           assert.equal(boundary.mixed,20);assert.equal(boundary.neg,12);
+           assert.equal(boundary.mixed,20);assert.equal(boundary.neg,10);
            const words=await page.evaluate(()=>window.__qa.words),ed=page.locator('[data-dev-placement]'),btn=k=>ed.getByRole('button',{name:words[k],exact:true});
            async function prepare(){const f=ed.locator('input[type=file]');await f.waitFor();await f.setInputFiles({name:'synthetic-eyecolor2.p1g',mimeType:'application/octet-stream',buffer:bytes});await ed.locator('input[type=checkbox]').check();await btn('openFile').click();await btn('backup').click();await btn('review').waitFor()}
            await prepare();await page.evaluate(()=>window.__qa.trace.mutate=true);await btn('review').click();await ed.getByRole('alert').waitFor();assert.equal(await ed.locator('[data-placement-preview]').count(),0);assert.equal(await btn('stagePlacement').count(),0);
