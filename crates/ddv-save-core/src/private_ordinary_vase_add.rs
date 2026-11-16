@@ -160,4 +160,51 @@ mod ordinary_vase_tests{
         assert_eq!(s.take_typed_semantic_decoded_once(export).unwrap(),expected);
         assert!(s.take_typed_semantic_decoded_once(export).is_err());
     }
+
+    #[test]
+    fn qa_vase_exact3_independent_rebound_and_lifecycle(){
+        let mut d=doc();
+        d["Unknown"]=json!({"keep":[true,{"opaque":"preserve"}],"count":17});
+        d["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Extra"]=json!({"untouched":true});
+        let (p,_)=plan(&d);
+        let mut expected=d.clone();
+        expected["World"]["GridCollection"]["Grids"]["7"]["Objects"]["9"]=json!({"ID":9,"ItemID":40000066,"X":8,"Y":8,"Orientation":"GridOrientation_Up","State":null});
+        expected["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(10);
+        expected["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Amount"]=json!(2);
+        let expected=enc(&expected);
+        let s=open(&d);let b=s.receipt().unwrap();let e=env(b,WorkerAction::Stage);
+        let reject=|q:&Value|{assert!(s.stage_private_steam626_ordinary_vase_add_exact3(e,&enc(q)).is_err());assert_eq!(s.receipt().unwrap(),b);};
+        for (k,v) in [("contract",json!("foreign")),("oldStock",json!("3")),("nextId",json!(0)),("x",json!(4294967294u64)),("y",json!(9)),("gridId",json!(0)),("expectedOutputSha256",json!("f".repeat(64))),("sourceDecodedSha256",json!("f".repeat(64)))]{
+            let mut q=p.clone();q[k]=v;reject(&q);
+        }
+        for k in ["MissionSlots","QuestInfo","AchievementsData","EvolveStatesProfile","ConditionalEventHistory"] {
+            let mut q=p.clone();q["subscriberRootSha256"][k]=json!("f".repeat(64));reject(&q);
+        }
+        let mut q=p.clone();q["authority"]=json!(true);reject(&q);
+        let mut q=p.clone();q.as_object_mut().unwrap().remove("expectedOutputSha256");reject(&q);
+        let pretty=serde_json::to_vec_pretty(&p).unwrap();assert!(s.stage_private_steam626_ordinary_vase_add_exact3(e,&pretty).is_err());
+        assert!(s.stage_private_steam626_ordinary_vase_add_exact3(WorkerEnvelope{expected_index_generation:2,..e},&enc(&p)).is_err());
+        assert!(s.stage_private_steam626_ordinary_vase_add_exact3(WorkerEnvelope{action:WorkerAction::ReadDomain,..e},&enc(&p)).is_err());
+        assert!(open(&d).stage_private_steam626_ordinary_vase_add_exact3(e,&enc(&p)).is_err());
+        assert_eq!(s.receipt().unwrap(),b);
+        // Rebind hashes to fresh modified documents. A new digest is not permission.
+        let mut cases=Vec::new();
+        let mut q=d.clone();q["World"]["Villages"][0]["Areas"]["6"]["Unlocked"]=json!(false);cases.push(q);
+        let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["7"]["GridDefaultLayoutPath"]=json!("overlay");cases.push(q);
+        let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"]["X"]=json!(8);q["World"]["GridCollection"]["Grids"]["7"]["Objects"]["4"]["Y"]=json!(8);cases.push(q);
+        let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["7"]["Objects"]["9"]=json!({"ID":9,"ItemID":40000001,"X":14,"Y":14,"Orientation":"GridOrientation_Up","State":null});cases.push(q);
+        let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(8);cases.push(q);
+        let mut q=d.clone();q["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Amount"]=json!(1);cases.push(q);
+        for q in cases {let (p,_)=plan(&q);let t=open(&q);let before=t.receipt().unwrap();assert!(t.stage_private_steam626_ordinary_vase_add_exact3(env(before,WorkerAction::Stage),&enc(&p)).is_err());assert_eq!(t.receipt().unwrap(),before);}
+        let r=s.stage_private_steam626_ordinary_vase_add_exact3(e,&enc(&p)).unwrap();
+        assert_eq!((r.operation_count,r.exact_field_changed_count),(3,3));assert!(!r.product_writer_authorized);assert!(!r.original_overwrite_authorized);assert_eq!(r.staged_decoded_sha256,sha(&expected));
+        assert!(s.stage_private_steam626_ordinary_vase_add_exact3(e,&enc(&p)).is_err());
+        s.undo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        let ex=env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+        assert_eq!(s.take_typed_semantic_decoded_once(ex).unwrap(),expected);
+        assert!(s.take_typed_semantic_decoded_once(ex).is_err());
+    }
+
 }
