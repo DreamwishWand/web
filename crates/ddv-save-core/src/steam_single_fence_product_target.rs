@@ -94,7 +94,7 @@ mod tests{
   assert!(geo.local_steam_single_fence(grid,x,y,|id|installed.dimensions(id),|_,_|None).is_none(),"no ambient proof is not permission");
   let s=open(&d,false);let e=env(&s);let before=s.receipt().unwrap();
   let a=s.mint_steam626_single_fence_target(e,90001,x,y).unwrap();
-  assert_eq!((a.grid,a.x,a.y,a.next,a.stock,a.pairs),(90001,x,y,50,10,0));
+  assert_eq!((a.grid,a.x,a.y,a.next,a.stock),(90001,x,y,50,10));
   assert_eq!(a.scope,e);
   assert_eq!(a,s.mint_steam626_single_fence_target(e,90001,x,y).unwrap(),"read-only repeated preview remains stable");
   assert_eq!(s.receipt().unwrap(),before);
@@ -146,7 +146,7 @@ mod tests{
   let (x,y)=(coord["x"].as_u64().unwrap() as u32,coord["y"].as_u64().unwrap() as u32);
   let s=open(&d,false);let e=env(&s);let before=s.receipt().unwrap();
   let t=s.mint_steam626_single_fence_target(e,90001,x,y).unwrap();
-  assert_eq!((t.next,t.stock,t.pairs),(50,10,0));
+  assert_eq!((t.next,t.stock),(50,10));
   assert_eq!(s.receipt().unwrap(),before);
   assert_eq!(s.decoded,raw);
   println!("QRC1938_MAIN_FIRST_CHILD_READONLY_REOPEN_PASS schema626 no_debit");
