@@ -9,6 +9,10 @@ const size=n=>Number.isSafeInteger(n)&&n>=16&&n<=128*1024*1024&&n%16===0;
 const filename=s=>typeof s==='string'&&/^[A-Za-z0-9._-]+\.p1g$/.test(s);
 const same=(a,b)=>a.normalize('NFC').toLowerCase()===b.normalize('NFC').toLowerCase();
 const STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',SWITCH='9A239D3DB569756D';
+export const COLLECTION_EXACT1_BUILDS=Object.freeze({
+ 'steam-windows':Object.freeze({platform:'steam-windows',buildKind:'steam-full-version',buildId:STEAM,schema:626,externallyConfirmed:true}),
+ switch:Object.freeze({platform:'switch',buildKind:'switch-bid',buildId:SWITCH,schema:626,externallyConfirmed:true})
+});
 const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
 const buildOk=b=>keys(b,'platform,buildKind,buildId,schema,externallyConfirmed')&&b.schema===626&&b.externallyConfirmed===true&&
  ((b.platform==='steam-windows'&&b.buildKind==='steam-full-version'&&b.buildId===STEAM)||(b.platform==='switch'&&b.buildKind==='switch-bid'&&b.buildId===SWITCH));
@@ -49,18 +53,37 @@ export function createCollectionExact1Consumer(adapter,{trustedLocalHarness=fals
  const sourceScope=r=>r.selection===source?.selection&&r.writerAuthorized===false&&r.originalOverwriteAuthorized===false;
  const mutation=(r,k)=>keys(r,'kind,selection,choice,exactFieldChangedCount,writerAuthorized,originalOverwriteAuthorized')&&
   sourceScope(r)&&r.kind===k&&r.choice===choice&&r.exactFieldChangedCount===1;
- const load=()=>run(['closed'],async check=>{
+ const inspect=async(check,expected=null)=>{
   const r=await adapter.inspectCollectionTargets();check();
   if(!keys(r,'selection,build,originalName,originalSha256,originalSizeBytes,targets,writerAuthorized,originalOverwriteAuthorized')||
     !uint(r.selection)||r.selection<1||!buildOk(r.build)||typeof r.originalName!=='string'||!r.originalName.toLowerCase().endsWith('.p1g')||
     !sha(r.originalSha256)||!size(r.originalSizeBytes)||!Array.isArray(r.targets)||r.targets.length>256||
     r.writerAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();
+  if(expected&&(r.originalName!==expected.name||r.originalSha256!==expected.sha||r.originalSizeBytes!==expected.size||
+    Object.keys(expected.build).some(k=>r.build[k]!==expected.build[k])))fail();
   const seen=new Set(),targets=r.targets.map(t=>{
    if(!targetOk(t,r.build))fail();const key=t.definitionId+':'+t.groupIndex+':'+t.itemId;
    if(seen.has(key))fail();seen.add(key);return Object.freeze({...t});
   });
   source=Object.freeze({selection:r.selection,name:r.originalName,sha:r.originalSha256,size:r.originalSizeBytes});
   return set({phase:'opened',sourceName:source.name,build:{...r.build},targets});
+ };
+ const load=()=>run(['closed'],check=>inspect(check));
+ // Local file hash is computed only in the UI process; the existing Worker
+ // independently validates original ciphertext and the external Build claim.
+ // Never infer Steam/Switch or a BuildID from schema or filename.
+ const openFile=args=>run(['closed'],async check=>{
+  if(typeof adapter.open!=='function'||!keys(args,'file,build')||!(args.file instanceof File)||!buildOk(args.build))fail();
+  const file=args.file,build=Object.freeze({...args.build});
+  const name=Object.getOwnPropertyDescriptor(File.prototype,'name').get.call(file);
+  const len=Object.getOwnPropertyDescriptor(Blob.prototype,'size').get.call(file);
+  if(!name.toLowerCase().endsWith('.p1g')||!size(len))fail();
+  const bytes=new Uint8Array(await Blob.prototype.arrayBuffer.call(file));let originalSha256;
+  try{check();if(bytes.length!==len)fail();originalSha256=await hash(bytes);check()}finally{bytes.fill(0)}
+  const r=await adapter.open(Object.freeze({file,build,originalSha256}));check();
+  if(!keys(r,'kind,ok,writerAuthorized,nativeV3Verified,originalOverwriteAuthorized')||r.kind!=='OPEN'||r.ok!==true||
+    r.writerAuthorized!==false||r.nativeV3Verified!==false||r.originalOverwriteAuthorized!==false)fail();
+  return inspect(check,{name,sha:originalSha256,size:len,build});
  });
  const backupOriginal=()=>run(['opened'],async check=>{
   const r=await adapter.backupOriginal(source.selection);check();
@@ -100,5 +123,5 @@ export function createCollectionExact1Consumer(adapter,{trustedLocalHarness=fals
   const bytes=new Uint8Array(r.encryptedBytes);
   try{if(await hash(bytes)!==b.sha)fail();check();return {name:b.name,encryptedBytes:bytes}}catch(e){bytes.fill(0);throw e}
  });
- return Object.freeze({snapshot,load,backupOriginal,preview,stage,undo,redo,exportEditedCopy,downloadVerifiedCopy,close});
+ return Object.freeze({snapshot,load,openFile,backupOriginal,preview,stage,undo,redo,exportEditedCopy,downloadVerifiedCopy,close});
 }
