@@ -10,7 +10,7 @@
  $: words=localPlacementCopy($locale);
  $: title=(fixedOperation==='comp03'?words.compTitle:fixedOperation==='vase'?words.vaseTitle:fixedOperation==='vase-switch'?'Switch '+words.vaseTitle:fixedOperation==='backpack-steam'?words.backpackSteamTitle:fixedOperation==='backpack-switch'?words.backpackSwitchTitle:fixedOperation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle).split(' — ')[0];
  onMount(()=>{
-  const abort=new AbortController(),create=({comp03:createComp03ReviewPort,vase:createProductVaseAddPort,'vase-switch':createProductSwitchVaseAddPort,'backpack-steam':createProductSteamBackpackPort,'backpack-switch':createProductSwitchBackpackPort,'wardrobe-steam':createProductSteamWardrobePort,'wardrobe-switch':createProductSwitchWardrobePort})[fixedOperation];
+  const abort=new AbortController(),create=({comp03:createComp03ReviewPort,vase:createProductVaseAddPort,'backpack-steam':createProductSteamBackpackPort,'backpack-switch':createProductSwitchBackpackPort,'wardrobe-steam':createProductSteamWardrobePort,'wardrobe-switch':createProductSwitchWardrobePort,'vase-switch':createProductSwitchVaseAddPort})[fixedOperation];
   if(!create)return;
   const clear=()=>{const p=port;port=null;scope=null;p?.dispose()};
   void create({signal:abort.signal,onFault:clear}).then(p=>{if(abort.signal.aborted){p.dispose();return}port=p;scope=productPlacementPortScope(p)}).catch(clear);
