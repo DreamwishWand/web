@@ -21,7 +21,7 @@ const anchorPath=join(root,'src/lib/ddv/core/save/product-scoped-backpack-releas
 function known(s){if(s!==steam&&s!==sw)fail();return s}
 export function fixedBackpackProofScope(key){if(key===steam.key)return steam;if(key===sw.key)return sw;fail()}
 const anchorName=s=>known(s)===steam?'PROTECTED_STEAM_BACKPACK_RELEASE_ANCHOR':'PROTECTED_SWITCH_BACKPACK_RELEASE_ANCHOR';
-const deniedBase='dev_(?:stage|undo|redo|begin|take)|private_native|(?:discover|preview|stage|toggle)_scoped_amount|(?:begin_scoped_amount_output|next_scoped_amount_output_chunk)|preview_scoped_collection_candidate|(?:preview|stage)_fixed_collection|(?:discover|preview|stage)_switch626_chest|(?:discover|preview|stage)_switch626_catalog0';
+const deniedBase='dev_(?:stage|undo|redo|begin|take)|private_native|(?:discover|preview|stage|toggle)_scoped_amount|(?:begin_scoped_amount_output|next_scoped_amount_output_chunk)|preview_scoped_collection_candidate|(?:preview|stage)_fixed_collection|(?:discover|preview|stage)_switch626_chest|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_switch626_vase_add';
 const denySymbols=s=>new RegExp(deniedBase+'|(?:preview|stage)_steam626_(?:comp03|vase_add)|(?:preview|stage)_(?:steam626|switch626)_wardrobe|(?:preview|stage)_'+(known(s)===steam?'switch626':'steam626')+'_backpack_split','i');
 export function inspectBackpackSubjects(s,bytes,source,t=tuple){
  known(s);
