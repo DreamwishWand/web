@@ -5,6 +5,10 @@ on:
   pull_request:
     paths:
       - 'src/lib/item-media/switch1253-public-item-images.mjs'
+      - 'src/lib/item-media/steam1253-furniture146-pins.mjs'
+      - 'src/lib/item-media/steam1253-other36-pins.mjs'
+      - 'src/lib/item-media/steam1253-hold10-pins.mjs'
+      - 'src/lib/item-media/steam1253-hold5-chest2-pins.mjs'
       - 'src/lib/ui/ItemThumb.svelte'
       - 'src/lib/ui/ItemImagePreferences.svelte'
       - 'tests/web-switch1253-item-thumb-contract.test.mjs'
@@ -38,6 +42,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Current-main bounded Item regression, not fixed old PR380 eight-path diff
         shell: bash
+        env:
+          MEDIA_PR_BASE: ${{ github.event.pull_request.base.sha || '' }}
         run: |
           set -euo pipefail
           BASE="$(git merge-base origin/main HEAD)"
@@ -59,7 +65,16 @@ jobs:
           # New CurrentVersion ItemThumb scope is EXACTLY six fixed paths:
           # no edits to Collection/Explore/Entity routes, old R39 resolver,
           # or non-media flows. Reject accidental sibling/legacy PR mixing.
-          if git diff --name-only "$BASE" HEAD | grep -qxF 'src/lib/item-media/switch1253-public-item-images.mjs'; then
+          # Every explicitly triggered pin module must enter this same exact-scope gate,
+          # even when the resolver is missing (which must then fail the path comparison).
+          git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/switch1253-actual
+          if grep -qxF \
+            -e 'src/lib/item-media/switch1253-public-item-images.mjs' \
+            -e 'src/lib/item-media/steam1253-furniture146-pins.mjs' \
+            -e 'src/lib/item-media/steam1253-other36-pins.mjs' \
+            -e 'src/lib/item-media/steam1253-hold10-pins.mjs' \
+            -e 'src/lib/item-media/steam1253-hold5-chest2-pins.mjs' \
+            /tmp/switch1253-actual; then
             cat > /tmp/switch1253-approved <<'CURRENT_IMAGE_SCOPE'
           .github/workflows/web-shared-catalog-detail.yml
           scripts/web-shared-catalog-e2e-chrome.mjs
@@ -68,7 +83,6 @@ jobs:
           src/lib/ui/ItemThumb.svelte
           tests/web-switch1253-item-thumb-contract.test.mjs
           CURRENT_IMAGE_SCOPE
-            git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/switch1253-actual
             LC_ALL=C sort /tmp/switch1253-approved > /tmp/switch1253-expected
             cat > /tmp/switch1253-policy-expected <<'CURRENT_IMAGE_POLICY_SCOPE'
           .github/workflows/web-shared-catalog-detail.yml
@@ -108,7 +122,30 @@ jobs:
           src/lib/item-media/switch1253-public-item-images.mjs
           tests/web-switch1253-item-thumb-contract.test.mjs
           TREE_QUARANTINE_MAIN_SCOPE
-            if diff -q /tmp/switch1253-tree-quarantine-main-expected /tmp/switch1253-actual >/dev/null; then
+            # Exact current-main direct3: one named pin module, resolver and
+            # contract test. No bare exact2, multiple modules, or arbitrary path.
+            direct3=no
+            for module in steam1253-furniture146-pins.mjs steam1253-other36-pins.mjs steam1253-hold10-pins.mjs steam1253-hold5-chest2-pins.mjs; do
+              printf '%s\n' "src/lib/item-media/$module" src/lib/item-media/switch1253-public-item-images.mjs tests/web-steam1253-door-primary-contract.test.mjs | LC_ALL=C sort > /tmp/steam1253-direct3-expected
+              if diff -q /tmp/steam1253-direct3-expected /tmp/switch1253-actual >/dev/null; then direct3=yes; break; fi
+            done
+            # The first exact2 metadata child is prepared on the still-unmerged
+            # fixed quarantine. Its current-main union is exact5, not a generic
+            # exception: only the pinned PR base may use this preparation gate.
+            cat > /tmp/steam1253-quarantine-child-expected <<'QUARANTINE_CHILD_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          scripts/web-switch1253-private-preview-build.mjs
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-steam1253-door-primary-contract.test.mjs
+          tests/web-switch1253-item-thumb-contract.test.mjs
+          QUARANTINE_CHILD_SCOPE
+            if [ "${MEDIA_PR_BASE:-}" = 'bccca45b1fba8982043b9a2a71fd216d2dbe67e3' ] && diff -q /tmp/steam1253-quarantine-child-expected /tmp/switch1253-actual >/dev/null; then
+              node --test tests/web-steam1253-door-primary-contract.test.mjs
+              echo WEB_STEAM1253_QUARANTINE_CHILD_EXACT5_PREP_SCOPE_PASS
+            elif [ "$direct3" = yes ]; then
+              node --test tests/web-steam1253-door-primary-contract.test.mjs
+              echo WEB_STEAM1253_DIRECT3_MODULE_SCOPE_PASS
+            elif diff -q /tmp/switch1253-tree-quarantine-main-expected /tmp/switch1253-actual >/dev/null; then
               node --test tests/web-steam1253-door-primary-contract.test.mjs
               echo WEB_SWITCH1253_TREE_QUARANTINE_MAIN_EXACT4_SCOPE_PASS
             elif diff -q /tmp/steam1253-tree-quarantine-expected /tmp/switch1253-actual >/dev/null; then
