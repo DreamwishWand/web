@@ -26,6 +26,13 @@ const fixed=Object.freeze({
   valid:(r,s)=>r.gridId===s.gridId&&r.x===s.x&&r.y===s.y&&r.oldAmount===r.newAmount&&r.inventoryDelta===0&&sha(r.inventoryEntrySha256)&&r.nextObjectId<=0xfffffffc,
   stageArgs:r=>[r.gridId,r.x,r.y,r.nextObjectId,r.oldAmount,r.gridSha256,r.inventoryEntrySha256,r.projectedDecodedSha256],
   summary:r=>({x:r.x,y:r.y,inventoryDelta:0,addObjects:3})}),
+ r02:Object.freeze({contract:'wand.worker.switch626.scoped-r02-diagonal-q4@1',count:6,item:40100068,preview:'preview_switch626_r02',stage:'stage_switch626_r02',
+  keys:common+',x,y,inventoryDelta,inventoryEntrySha256',
+  selector:s=>exact(s,'gridId,x,y')&&positive(s.gridId)&&uint(s.x)&&uint(s.y),previewArgs:s=>[s.gridId,s.x,s.y],
+  normalize:r=>{if(!exact(r,'contract,itemId,gridId,x,y,expectedNextId,oldAmount,newAmount,inventoryDelta,gridSha256,inventoryEntrySha256,projectedDecodedSha256,exactFieldChangedCount,sessionId,revision,indexGeneration,decodedSha256,productWriterAuthorized,originalOverwriteAuthorized')||r.productWriterAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();const {expectedNextId,productWriterAuthorized,originalOverwriteAuthorized,...rest}=r;return {...rest,nextObjectId:expectedNextId,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false}},
+  valid:(r,s)=>r.gridId===s.gridId&&r.x===s.x&&r.y===s.y&&r.oldAmount>4&&r.newAmount===r.oldAmount-4&&r.inventoryDelta===-4&&sha(r.inventoryEntrySha256)&&r.nextObjectId<=0x7ffffffb,
+  stageArgs:r=>[r.gridId,r.x,r.y,r.nextObjectId,r.oldAmount,r.gridSha256,r.inventoryEntrySha256,r.projectedDecodedSha256],
+  summary:r=>({x:r.x,y:r.y,inventoryDelta:-4,addObjects:4})}),
  rm01:Object.freeze({...mixedRoad,contract:'wand.worker.switch626.scoped-rm01-mixed-q5@1',preview:'preview_switch626_rm01',stage:'stage_switch626_rm01'}),
  comp03:Object.freeze({contract:'wand.worker.steam626.scoped-comp03-layout@1',count:9,item:40100038,preview:'preview_steam626_comp03',stage:'stage_steam626_comp03',
   keys:common+',seedId,inventoryDelta,seedSha256,inventoryEntrySha256',
@@ -41,6 +48,7 @@ const fixed=Object.freeze({
   summary:r=>({inventoryId:0,x:r.x,y:r.y,orientation:r.orientation,inventoryDelta:-1,addObjects:1})})
 });
 export const createSteam626Sr03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.sr03);
+export const createSwitch626R02Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.r02);
 export const createSwitch626R01Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.r01);
 export const createSwitch626Rm01Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.rm01);
 export const createSteam626Comp03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.comp03);
@@ -51,7 +59,7 @@ export const createSteam626VaseAddTransport=(wasm,initial,identity,options)=>cre
 function create(wasm,initial,identity,{parse,current,revoke,maxBytes,chunkBytes},op,spatial=false){
  if(spatial&&(op!==fixed.comp03||typeof wasm?.preview_steam626_comp03_spatial!=='function'))fail();
  if(typeof document!=='undefined'||!wasm||typeof wasm[op.preview]!=='function'||typeof wasm[op.stage]!=='function'||
-  !identity||identity.schema!==626||!((op===fixed.rm01||op===fixed.r01)?(identity.platform==='switch'&&identity.buildKind==='switch-bid'&&identity.buildId==='9A239D3DB569756D'):(identity.platform==='steam-windows'&&identity.buildKind==='steam-full-version'&&identity.buildId===STEAM))||
+  !identity||identity.schema!==626||!((op===fixed.rm01||op===fixed.r01||op===fixed.r02)?(identity.platform==='switch'&&identity.buildKind==='switch-bid'&&identity.buildId==='9A239D3DB569756D'):(identity.platform==='steam-windows'&&identity.buildKind==='steam-full-version'&&identity.buildId===STEAM))||
   !initial||initial.contract!=='wand.product.single-save-session.boundary@1'||initial.schema!==626||initial.revision!==0||initial.indexGeneration!==1||
   typeof initial.sessionId!=='string'||!/^[a-f0-9]{32}$/.test(initial.sessionId)||/^0+$/.test(initial.sessionId)||!sha(initial.decodedSha256)||
   initial.productWorkerBound!==true||initial.fullDocumentJsonValidated!==true||initial.writerAuthorized!==false||initial.editedCopyAuthorized!==false||initial.applyAuthorized!==false)fail();
