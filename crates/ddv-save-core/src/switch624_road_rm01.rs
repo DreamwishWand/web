@@ -5,7 +5,9 @@
 use super::*;
 use serde_json::{Value,json};
 const BID:&str="52BD625D9B4E0053";
-const ROAD:u32=40100068;
+#[path="road_mixed_shape.rs"]
+mod road_mixed_shape;
+use road_mixed_shape::{ROAD,object as obj};
 fn digest(b:&[u8])->String{sha(b).iter().map(|x|format!("{x:02x}")).collect()}
 fn uint(v:&Value)->CoreResult<u32>{
     v.as_u64().and_then(|n|u32::try_from(n).ok()).ok_or(denied("RM01_PLAN_UINT"))
@@ -30,20 +32,43 @@ fn plan_parse(bytes:&[u8],contract:&str)->CoreResult<Value>{
        v["contract"]!=contract{return Err(denied("RM01_PLAN_FIELDS"));}
     Ok(v)
 }
-fn obj(id:u32,x:u32,y:u32,diagonal:bool)->Value{
-    json!({"ID":id,"ItemID":ROAD,"X":x,"Y":y,"Orientation":"GridOrientation_Down",
-        "State":if diagonal{json!({"FenceMode":{"Diagonal":true}})}else{Value::Null}})
-}
 fn repl(b:&[u8],span:Span,new:Vec<u8>)->CoreResult<Replacement>{
     let old=raw(b,span)?.to_vec();
     if old==new{return Err(denied("RM01_NO_CHANGE"));}
     Ok(Replacement{span,old,new})
+}
+// Shared internal exact8 lexical collector. Expected values are CAS only.
+// A product caller must first mint the typed effective geometry/root,
+// subscriber/stock target in the same ProductSession.
+#[allow(dead_code)]
+pub(super) struct MixedQ5Expected<'a>{
+    pub(super) source_sha:&'a str,
+    pub(super) grid:u32,pub(super) retained:u32,pub(super) moved:u32,
+    pub(super) next:u32,pub(super) amount:u32,
+    pub(super) grid_sha:&'a str,pub(super) inventory_entry_sha:&'a str,
 }
 fn collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
     let b=&s.decoded;
     if p["sourceDecodedSha256"]!=digest(b){return Err(denied("RM01_SOURCE_SHA_CAS"));}
     let g=uint(&p["gridId"])?;let keep=uint(&p["retainedId"])?;let moved=uint(&p["movedId"])?;
     let next=uint(&p["expectedNextId"])?;let amount=uint(&p["expectedAmount"])?;
+    let shape=p["objects"].as_array().ok_or(denied("RM01_PLAN_OBJECTS"))?;
+    let t=MixedQ5Expected{source_sha:p["sourceDecodedSha256"].as_str().ok_or(denied("RM01_SOURCE_SHA_CAS"))?,
+        grid:g,retained:keep,moved,next,amount,
+        grid_sha:p["gridSha256"].as_str().ok_or(denied("RM01_GRID_CAS_OR_LAYOUT"))?,
+        inventory_entry_sha:p["inventoryEntrySha256"].as_str().ok_or(denied("RM01_INVENTORY_ENTRY_CAS"))?};
+    collect_mixed_q5(s,&t,Some(shape.as_slice()))
+}
+/// Internal current-target collector only. No Stage/export, no caller plan,
+/// and no provider/rights grant. Native retains its exact plan comparison.
+#[allow(dead_code)]
+pub(super) fn collect_mixed_q5_current(s:&ProductSession,t:&MixedQ5Expected<'_>)->CoreResult<Vec<Replacement>>{
+    collect_mixed_q5(s,t,None)
+}
+fn collect_mixed_q5(s:&ProductSession,t:&MixedQ5Expected<'_>,native_shape:Option<&[Value]>)->CoreResult<Vec<Replacement>>{
+    let b=&s.decoded;
+    if t.source_sha!=digest(b){return Err(denied("RM01_SOURCE_SHA_CAS"));}
+    let (g,keep,moved,next,amount)=(t.grid,t.retained,t.moved,t.next,t.amount);
     let n3=next.checked_add(3).ok_or(denied("RM01_COUNTER_OVERFLOW"))?;
     if g==0||keep==0||moved==0||keep==moved||keep>=next||moved>=next||
        n3>i32::MAX as u32||amount<=3||amount as u64>MAX_CONSERVATIVE_AMOUNT{
@@ -52,7 +77,7 @@ fn collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
     let roots=indexed_read::roots(b)?;
     let gc=object_field(b,roots.world,"GridCollection")?;
     let grid=object_field(b,object_field(b,gc,"Grids")?,&g.to_string())?;
-    if p["gridSha256"]!=digest(raw(b,grid)?)||num(b,grid,"ID")?!=g||
+    if t.grid_sha!=digest(raw(b,grid)?)||num(b,grid,"ID")?!=g||
        num(b,grid,"TessellationFactor")?!=2||
        val(b,object_field(b,grid,"GridDefaultLayoutPath")?)?!=""{
         return Err(denied("RM01_GRID_CAS_OR_LAYOUT"));
@@ -74,15 +99,14 @@ fn collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
     }
     let ks=ks.ok_or(denied("RM01_RETAINED_MISSING"))?;let ms=ms.ok_or(denied("RM01_MOVED_MISSING"))?;
     let x=num(b,ks,"X")?;let y=num(b,ks,"Y")?;
-    let x4=x.checked_add(4).ok_or(denied("RM01_COORD_BOUND"))?;
+    x.checked_add(4).ok_or(denied("RM01_COORD_BOUND"))?;
     let x8=x.checked_add(8).ok_or(denied("RM01_COORD_BOUND"))?;
     let y4=y.checked_add(4).ok_or(denied("RM01_COORD_BOUND"))?;
-    if x8>i32::MAX as u32||y4>i32::MAX as u32||val(b,ks)?!=obj(keep,x,y,false)||val(b,ms)?!=obj(moved,x4,y,false){
-        return Err(denied("RM01_EXACT_OLD_OBJECTS"));
-    }
-    let wanted=[obj(keep,x,y,false),obj(moved,x8,y4,true),obj(next,x4,y,true),obj(next+1,x4,y4,true),obj(next+2,x8,y,true)];
-    let plan=p["objects"].as_array().ok_or(denied("RM01_PLAN_OBJECTS"))?;
-    if plan.as_slice()!=wanted.as_slice(){return Err(denied("RM01_EXACT_PLAN_SHAPE"));}
+    if x8>i32::MAX as u32||y4>i32::MAX as u32{return Err(denied("RM01_EXACT_OLD_OBJECTS"));}
+    let shape=road_mixed_shape::exact_q5(keep,moved,next,x,y).ok_or(denied("RM01_EXACT_OLD_OBJECTS"))?;
+    if val(b,ks)?!=shape.old[0]||val(b,ms)?!=shape.old[1]{return Err(denied("RM01_EXACT_OLD_OBJECTS"));}
+    if native_shape.is_some_and(|plan|plan!=shape.after.as_slice()){return Err(denied("RM01_EXACT_PLAN_SHAPE"));}
+    let plan=&shape.after;
     // Stored anchor guard, not full geometry proof. External exact-source
     // 01B readset covers footprint/floor/parent and 01E covers closure.
     let mut pos=objs.begin+1;
@@ -91,14 +115,14 @@ fn collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
         let ox=val(b,object_field(b,entry,"X")?)?;let oy=val(b,object_field(b,entry,"Y")?)?;
         let ox=ox.as_f64().filter(|v|v.is_finite()).ok_or(denied("RM01_COORD_TOKEN"))?;
         let oy=oy.as_f64().filter(|v|v.is_finite()).ok_or(denied("RM01_COORD_TOKEN"))?;
-        if [(x,y),(x4,y),(x4,y4),(x8,y),(x8,y4)].iter().any(|(a,c)|ox==*a as f64&&oy==*c as f64){
+        if shape.anchors.iter().any(|(a,c)|ox==*a as f64&&oy==*c as f64){
             return Err(denied("RM01_OCCUPIED_ANCHOR"));
         }
     }
     let route=object_field(b,object_field(b,roots.player,"ListInventories")?,"0")?;
     inventory_route(b,route,0,ROAD,"ItemType_Furniture")?;
     let entry=object_field(b,object_field(b,route,"Inventory")?,&ROAD.to_string())?;
-    if p["inventoryEntrySha256"]!=digest(raw(b,entry)?){return Err(denied("RM01_INVENTORY_ENTRY_CAS"));}
+    if t.inventory_entry_sha!=digest(raw(b,entry)?){return Err(denied("RM01_INVENTORY_ENTRY_CAS"));}
     let debit=validate_old_amount(b,object_field(b,entry,"Amount")?,amount,amount-3)?;
     Ok(vec![repl(b,object_field(b,ms,"X")?,enc(&plan[1]["X"])?)?,
         repl(b,object_field(b,ms,"Y")?,enc(&plan[1]["Y"])?)?,
@@ -111,6 +135,7 @@ fn append_road_objects(b:&[u8],objs:Span,records:&[Value])->CoreResult<Replaceme
     insert.push(b'}');
     repl(b,Span{begin:objs.end-1,end:objs.end},insert)
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     pub fn stage_switch624_road_rm01_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
@@ -123,6 +148,7 @@ impl ProductSession{
         self.commit_semantic_replacements(e,edits,8,None)
     }
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     /// Exact Switch626 Native mixed q5 transition; retained/moved identities,
     /// three fresh objects, exact debit3. No generic cost/topology grant.
@@ -135,6 +161,7 @@ impl ProductSession{
         self.commit_semantic_replacements(e,edits,8,None)
     }
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     /// Exact Steam626 S-R03. Same mixed q5 shape and Native debit3,
     /// separate external Build/contract; no generic topology or cost grant.
@@ -146,7 +173,7 @@ impl ProductSession{
         self.commit_semantic_replacements(e,collect(self,&p)?,8,None)
     }
 }
-#[cfg(test)]
+#[cfg(all(test,not(target_arch="wasm32")))]
 mod tests{
     use super::*;
     fn build()->crate::BuildIdentity{crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
@@ -169,6 +196,43 @@ mod tests{
         "gridSha256":digest(&enc(&d["World"]["GridCollection"]["Grids"]["9"]).unwrap()),
         "inventoryEntrySha256":digest(&enc(&d["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]).unwrap()),
         "objects":[obj(10,40,20,false),obj(11,48,24,true),obj(50,44,20,true),obj(51,44,24,true),obj(52,48,20,true)]})}
+    #[test]
+    fn sr03_shared_typed_collector_matches_native_exact8_bytes(){
+        let mut d=doc();d["GameInfo"]["Version"]=json!(626);
+        let p=plan(&d);
+        let s=ProductSession::open_decoded_readonly(enc(&d).unwrap(),crate::BuildIdentity{
+            platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+            build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap();
+        let source=p["sourceDecodedSha256"].as_str().unwrap();
+        let grid=p["gridSha256"].as_str().unwrap();
+        let entry=p["inventoryEntrySha256"].as_str().unwrap();
+        let t=MixedQ5Expected{source_sha:source,grid:9,retained:10,moved:11,next:50,amount:30,
+            grid_sha:grid,inventory_entry_sha:entry};
+        let before=s.receipt().unwrap();
+        let a=collect(&s,&p).unwrap();let z=collect_mixed_q5_current(&s,&t).unwrap();
+        assert_eq!(a.len(),6);assert_eq!(z.len(),6);
+        for (a,z) in a.iter().zip(&z){assert_eq!((a.span.begin,a.span.end),(z.span.begin,z.span.end));assert_eq!(a.old,z.old);assert_eq!(a.new,z.new);}
+        let mut out=s.decoded.to_vec();let mut z=z;z.sort_by_key(|x|x.span.begin);
+        for r in z.iter().rev(){assert_eq!(&out[r.span.begin..r.span.end],r.old.as_slice());out.splice(r.span.begin..r.span.end,r.new.iter().copied());}
+        let mut want=d.clone();want["World"]["GridCollection"]["Grids"]["9"]["NextGridObjectID"]=json!(53);
+        for o in p["objects"].as_array().unwrap().iter().skip(1){
+            want["World"]["GridCollection"]["Grids"]["9"]["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();
+        }
+        want["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(27);
+        assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),want);
+        validate_entire_document(&out,626).unwrap();
+        assert_eq!(s.receipt().unwrap(),before);
+        for (source_sha,g,keep,moved,next,amount,grid_sha,inventory_entry_sha) in [
+            ("bad",9,10,11,50,30,grid,entry),(source,8,10,11,50,30,grid,entry),
+            (source,9,11,11,50,30,grid,entry),(source,9,10,12,50,30,grid,entry),
+            (source,9,10,11,51,30,grid,entry),(source,9,10,11,50,29,grid,entry),
+            (source,9,10,11,50,30,"bad",entry),(source,9,10,11,50,30,grid,"bad")]{
+            let q=MixedQ5Expected{source_sha,grid:g,retained:keep,moved,next,amount,grid_sha,inventory_entry_sha};
+            assert!(collect_mixed_q5_current(&s,&q).is_err());
+        }
+        let mut bad=p.clone();bad["objects"][1]["State"]=Value::Null;
+        assert!(collect(&s,&bad).is_err());
+    }
     #[test]
     fn sr03_steam626_exact8_debit3_preserve_identity(){
         let old=doc();let mut d=old.clone();d["GameInfo"]["Version"]=json!(626);
@@ -367,6 +431,7 @@ fn road_add_collect(s:&ProductSession,p:&Value,r01:bool)->CoreResult<Vec<Replace
     }else{edits.push(validate_old_amount(b,amount_span,amount,amount-4)?);}
     Ok(edits)
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     pub fn stage_switch624_road_r02_native_q4_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
@@ -379,6 +444,7 @@ impl ProductSession{
         self.commit_semantic_replacements(e,edits,6,None)
     }
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     /// Exact current Switch626 R02 Native q4; external target legality remains
     /// a separate private V2 prerequisite. No generic debit or refund.
@@ -393,6 +459,7 @@ impl ProductSession{
         self.commit_semantic_replacements(e,edits,6,None)
     }
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     /// Current exact Switch626 direct layout. No Native cost or generic graph grant.
     pub fn stage_switch626_road_r01_orthogonal_q3(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
@@ -402,7 +469,7 @@ impl ProductSession{
         self.commit_semantic_replacements(e,road_add_collect(self,&p,true)?,4,None)
     }
 }
-#[cfg(test)]
+#[cfg(all(test,not(target_arch="wasm32")))]
 mod r02_tests{
     use super::*;
     fn fixture()->(Value,Value){
@@ -652,6 +719,7 @@ fn comp03_collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
     if matches!=1{return Err(denied("COMP03_STOCK_ROUTE"));}
     Ok(vec![append_road_objects(b,objs,&want)?,repl(b,counter,n8.to_string().into_bytes())?])
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     pub fn stage_steam626_road_comp03_seed_merge_q9(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
         let b=&self.native_source_build;
@@ -661,7 +729,7 @@ impl ProductSession{
         self.commit_semantic_replacements(e,comp03_collect(self,&p)?,9,None)
     }
 }
-#[cfg(test)]
+#[cfg(all(test,not(target_arch="wasm32")))]
 mod comp03_tests{
     use super::*;
     fn fixture()->Value{

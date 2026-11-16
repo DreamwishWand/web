@@ -40,10 +40,13 @@ fn stage(session:&ProductSession,commands:&[TypedSemanticCommand]){
 }
 #[test]
 fn registry_is_closed_source_only_no_product_writer_authority(){
- assert_eq!(TYPED_OPERATION_REGISTRY.len(),5);
+ assert_eq!(TYPED_OPERATION_REGISTRY.len(),6);
  assert!(TYPED_OPERATION_REGISTRY[0].dev_implementation);
  assert!(TYPED_OPERATION_REGISTRY[1].dev_implementation);
- assert!(TYPED_OPERATION_REGISTRY[2..].iter().all(|r|!r.dev_implementation));
+ assert!(TYPED_OPERATION_REGISTRY[2..5].iter().all(|r|!r.dev_implementation));
+ assert_eq!(TYPED_OPERATION_REGISTRY[5].name,"road.steam626.sr03.mixed-q5@1");
+ assert_eq!(TYPED_OPERATION_REGISTRY[5].schema,626);
+ assert!(TYPED_OPERATION_REGISTRY[5].dev_implementation);
  assert!(TYPED_OPERATION_REGISTRY.iter().all(|r|!r.native_v3_verified&&!r.product_enabled));
  let s=open(ORIGINAL.as_bytes());
  assert!(!s.receipt().unwrap().writer_authorized);
