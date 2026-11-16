@@ -432,7 +432,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = aceda9d906c3137d717824a3079e84165ab5f62e
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = e5c863b756e9593afcfe4f3c24f122c91a4c4b6f
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs)" = 1cec59930562e9b6918490e54761808d3819c434
           test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-switch-chest-private.mjs)" = bf6daf8f8096eb69a34dbf6e80d67d8e31bc95b0
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
@@ -444,11 +444,11 @@ jobs:
           test "$(git rev-parse HEAD:src/routes/editor/chest/+page.svelte)" = 1576744c5b11d189e6e82a4edd93fde6e7cf3bea
           test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = da627ecd86d4435c026e611b241aa489d8259dac
           test "$(git rev-parse HEAD:src/lib/dev/local-amount-copy.mjs)" = 9631b4ee40f47432a2a26a6df386b0db9353b09d
-          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = bbac7640c061740bfd4bb6388d1e33ee2c88fbe7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = a3a1c586bab326cdfe49eedcdf1b9bf8a2ee39b4
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = c266d64d63b3480f14459f5323ef53e58dcb70af
-          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 1ac9e68b29b64bc68877855e3df089a9ea6585b7
-          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 8d2d1da0be2f356cbf0159277685f1683ac84ec4
-          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = a22209de4e59c220f1c854496e170c0450630e7b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 8f63c96637aa9d77c9db25dba73ffb396a41dc61
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = e31e15b24526bdf903433608e329e81b5776014f
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = d2f1cd290340eb0a0ea2e74028ca0916276bc946
           test "$(git rev-parse HEAD:src/lib/dev/local-amount-workflow.mjs)" = 54a5dc90fb0b82ec51f1716089d4fd607eecceb9
           test "$(git rev-parse HEAD:src/lib/dev/local-amount-worker-adapter.mjs)" = 7e2a6fc8250cd5d6ca5cceb0f95e83e06d2d4bd6
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
