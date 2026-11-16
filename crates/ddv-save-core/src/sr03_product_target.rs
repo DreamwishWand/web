@@ -536,4 +536,59 @@ mod tests{
    _=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["11"]["Orientation"]=json!("GridOrientation_Up")
   }let x=open(&q);let before=x.receipt().unwrap();assert!(x.mint_sr03_target(env(&x),90001,10,11).is_err(),"mode {i}");assert_eq!(x.receipt().unwrap(),before);}
  }
+
+ #[test]fn qa1713_r02_changed_target_oracle(){
+  let mut d=doc();
+  let p=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();
+  let (x,y)=(0..379u32).step_by(4).flat_map(|x|(0..187u32).step_by(4).map(move|y|(x,y))).find(|&(x,y)|[(0,0),(0,4),(4,0),(4,4),(8,0)].iter().all(|&(a,b)|(0..2).all(|i|(0..2).all(|j|p.floor4(x+a+i,y+b+j))))).unwrap();
+  let g=&mut d["World"]["GridCollection"]["Grids"]["90001"];
+  g["Objects"].as_object_mut().unwrap().remove("11");
+  g["Objects"]["10"]["X"]=json!(if x<190{388}else{0});g["Objects"]["10"]["Y"]=json!(if y<100{196}else{0});
+  let sw=|v:&Value|{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s};
+  let s=sw(&d);let e=env(&s);let t=s.mint_switch626_r02_target(e,90001,x,y).unwrap();
+  let hash=|v:&Value|sha(&serde_json::to_vec(v).unwrap());
+  assert_eq!(t.root_sha,hash(&d["World"]["Villages"][0]["Areas"]["2"]));
+  assert_eq!(t.grid_sha,hash(&d["World"]["GridCollection"]["Grids"]["90001"]));
+  assert_eq!(t.counter_sha,sha(b"50"));assert_eq!(t.stock_sha,hash(&d["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]));
+  assert_eq!(t.houses_sha,sha(b"[]"));assert_eq!((t.grid,t.x,t.y,t.next,t.stock),(90001,x,y,50,10));assert_eq!(t.scope,e);
+  assert_eq!(s.decoded.as_ref(),serde_json::to_vec(&d).unwrap().as_slice());assert_eq!(env(&s),e);
+  let mut pos=1;let mut neg=0;
+  // Exact positive stock remainder and exclusive boundary vs one-unit overlap.
+  let mut q=d.clone();q["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(5);
+  let a=sw(&q);assert_eq!(a.mint_switch626_r02_target(env(&a),90001,x,y).unwrap().stock,5);pos+=1;
+  for (dy,ok) in [(8,true),(7,false)]{
+   let mut q=d.clone();let o=&mut q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"];o["X"]=json!(x+4);o["Y"]=json!(y+dy);
+   let a=sw(&q);let ae=env(&a);assert_eq!(a.mint_switch626_r02_target(ae,90001,x,y).is_ok(),ok);assert_eq!(env(&a),ae);if ok{pos+=1}else{neg+=1}
+  }
+  // Fourth anchor collision is outside the R01 horizontal halo.
+  let mut q=d.clone();let o=&mut q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"];o["X"]=json!(x+4);o["Y"]=json!(y+4);
+  let a=sw(&q);let ae=env(&a);assert!(a.mint_switch626_r01_target(ae,90001,x,y).is_ok());pos+=1;
+  assert!(a.mint_switch626_r02_target(ae,90001,x,y).is_err());neg+=1;
+  for i in 0..12{
+   let mut q=d.clone();match i{
+    0=>q["World"]["Villages"][0]["Areas"]["2"]["GridIDs"]=json!([90001,90001]),
+    1=>q["Unknown"]=json!({"GridId":90001,"GridObjectId":53}),
+    2=>q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(2147483644u32),
+    3=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["ItemID"]=json!(49999999),
+    4=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Orientation"]=json!("GridOrientation_Future"),
+    5=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["State"]=json!({"Future":true}),
+    6=>q["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(4),
+    7=>q["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Future"]=json!(1),
+    8=>q["Player"]["ListInventories"]["1"]=json!({"ID":1,"Inventory":{"40100068":{"Amount":1}}}),
+    9=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Future"]=json!(1),
+    10=>q["World"]["GridCollection"]["Grids"]["90001"]["GridDefaultLayoutPath"]=json!("foreign"),
+    _=>q["World"]["GridCollection"]["Grids"]["90001"]["TessellationFactor"]=json!(1)
+   }
+   let a=sw(&q);let ae=env(&a);assert!(a.mint_switch626_r02_target(ae,90001,x,y).is_err(),"case {i}");assert_eq!(env(&a),ae);neg+=1;
+  }
+  for bad in [WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e},WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..e}]{
+   assert!(s.mint_switch626_r02_target(bad,90001,x,y).is_err());neg+=1;
+  }
+  let mut a=sw(&d);a.worker_bound=false;assert!(a.mint_switch626_r02_target(env(&a),90001,x,y).is_err());neg+=1;
+  let a=sw(&d);assert!(a.mint_switch626_r02_target(e,90001,x,y).is_err());neg+=1;
+  let a=sw(&d);let ae=env(&a);a.close().unwrap();assert!(a.mint_switch626_r02_target(ae,90001,x,y).is_err());neg+=1;
+  let a=sw(&d);assert!(a.mint_switch626_r02_target(env(&a),90001,u32::MAX-3,y).is_err());neg+=1;
+  let a=open(&d);assert!(a.mint_switch626_r02_target(env(&a),90001,x,y).is_err());neg+=1;
+  assert_eq!(pos,4);assert_eq!(neg,22);println!("QRC1713_R02_TARGET_ACTUAL {}POS {}NEG 12FIELDS",pos,neg);
+ }
 }
