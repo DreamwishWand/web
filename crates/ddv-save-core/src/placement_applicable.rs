@@ -187,4 +187,102 @@ mod tests{
   p["BattlePassStates"]["FtueProgress"]["TasksProgress"]=json!([{"TaskState":"BattlePassTaskState_OnGoing"}]);
   assert!(check(PlacementScope::Comp03LayoutOnly,&p,&w,d).is_err());
  }
+
+ #[test]
+ fn qa_placement_fixed_pack_scope_matrix_and_typed_guards(){
+  let raw=fixture();
+  let common=std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/qa-act1084-accepted-common.json")).unwrap();
+  let d=pack(&raw).unwrap();let(p,w)=sample();
+  let mut pos=0usize;let mut neg=0usize;
+  for s in [PlacementScope::VaseAdd,PlacementScope::Comp03LayoutOnly]{
+   assert!(check_supplement(BUILD,&common,&raw,s,&p,&w).is_ok());pos+=1;
+   let mut c=common.clone();c[0]^=1;
+   assert!(check_supplement(BUILD,&c,&raw,s,&p,&w).is_err());neg+=1;
+   let mut r=raw.clone();r[0]^=1;
+   assert!(check_supplement(BUILD,&common,&r,s,&p,&w).is_err());neg+=1;
+   assert!(check_supplement("wrong",&common,&raw,s,&p,&w).is_err());neg+=1;
+   assert!(check_supplement(BUILD,&common,&raw[..raw.len()-1],s,&p,&w).is_err());neg+=1;
+  }
+  // Actual fixed 508 recurring definitions, both scopes. Assert independently
+  // counted class census; no inference from schema/Build or save authority.
+  let mut comp=(0,0);let mut vase=(0,0);
+  for (id,row) in d["recurring"].as_object().unwrap(){
+   let id=id.parse::<u32>().unwrap();let kind=row[0].as_str().unwrap();
+   let mut w=w.clone();w["RecurringEvents"]=json!({"1":{(kind):{"RecurringEventItemID":id}}});
+   for (scope,expected,counts) in [(PlacementScope::Comp03LayoutOnly,matches!(row[1].as_str(),Some("village"|"other-scene"|"disjoint"|"known-nonplacement")),&mut comp),
+                                   (PlacementScope::VaseAdd,row[2]=="disjoint",&mut vase)]{
+    assert_eq!(check(scope,&p,&w,&d).is_ok(),expected,"{id} {scope:?}");
+    if expected{counts.0+=1;pos+=1}else{counts.1+=1;neg+=1}
+   }
+  }
+  assert_eq!(comp,(500,8));assert_eq!(vase,(372,136));
+  // Actual definition shape matrix: one synthetic current step at a time.
+  // Completed slots still require exact known shape; current allowed kinds
+  // are independent literal allowlist, NOT a claim of effective filters.
+  let allowed=[115u64,130,231,265,290];
+  let mut mission=(0,0);
+  for (id,shape) in d["missions"].as_object().unwrap(){
+   let steps=shape.as_array().unwrap();
+   let saved:Vec<Value>=steps.iter().map(|step|json!({"SubSteps":step.as_array().unwrap().iter().map(|sub|
+    json!({"Objectives":sub.as_array().unwrap().iter().map(|_|json!({})).collect::<Vec<_>>()})
+   ).collect::<Vec<_>>()})).collect();
+   let id=id.parse::<u32>().unwrap();
+   let mut slot=json!({"State":"MissionSlotState_Completed","MissionId":id,"CurrentStepIndex":0,"MissionSteps":saved});
+   let mut m=w.clone();m["MissionSlots"]=json!({"1":{"Slots":[slot.clone()]}});
+   assert!(missions(&m,&d).is_ok(),"{id} completed");pos+=1;
+   slot["State"]=json!("MissionSlotState_OnGoing");slot["ItemsToGive"]=json!([]);slot["ItemsToGiveAmount"]=json!([]);
+   for (ix,step) in steps.iter().enumerate(){
+    slot["CurrentStepIndex"]=json!(ix);m["MissionSlots"]=json!({"1":{"Slots":[slot.clone()]}});
+    let expected=step.as_array().unwrap().iter().all(|sub|sub.as_array().unwrap().iter().all(|k|k.as_u64().is_some_and(|n|allowed.contains(&n))));
+    assert_eq!(missions(&m,&d).is_ok(),expected,"{id} step {ix}");
+    if expected{mission.0+=1;pos+=1}else{mission.1+=1;neg+=1}
+   }
+  }
+  // All known achievements, explicit current state; completed state is not
+  // an assertion of Native event replay or per-item eligibility.
+  let ach_allowed=[21u64,23,28,29,31,32,33,43,45,46,48,49,51,52,53,54,56,59,60,62,66,69];
+  let mut ach=(0,0);
+  for (id,kind) in d["achievements"].as_object().unwrap(){
+   let id=id.parse::<u32>().unwrap();let mut x=p.clone();
+   x["AchievementsData"]=json!([{"AchievementID":id,"State":"AchievementState_OnGoing"}]);
+   let expected=kind.as_u64().is_some_and(|n|ach_allowed.contains(&n));
+   assert_eq!(achievements(&x,&d).is_ok(),expected,"achievement {id}");
+   if expected{ach.0+=1;pos+=1}else{ach.1+=1;neg+=1}
+   x["AchievementsData"][0]["State"]=json!("AchievementState_Completed");
+   assert!(achievements(&x,&d).is_ok());pos+=1;
+  }
+  // Negative typed/malformed controls with actual fixed definitions.
+  let (aid,_)=d["achievements"].as_object().unwrap().iter().next().unwrap();let aid=aid.parse::<u32>().unwrap();
+  let (did,layers)=d["duties"].as_object().unwrap().iter().find(|(_,v)|v.as_array().unwrap().iter().any(|r|r[0]==33&&r[1]==4)).unwrap();
+  let did=did.parse::<u32>().unwrap();let ix=layers.as_array().unwrap().iter().position(|r|r[0]==33&&r[1]==4).unwrap();
+  let mut x=p.clone();x["DutySlots"]=json!({"1":{"Slots":[{"State":"DutySlotState_OnGoing","DutyId":did,"DifficultyLayer":ix,"StepData":{"ItemFilter":{"Data":{"Type":"ItemType_Furniture"}}}}]}});
+  for scope in [PlacementScope::VaseAdd,PlacementScope::Comp03LayoutOnly]{assert!(check(scope,&x,&w,&d).is_ok());pos+=1;}
+  for v in [json!(""),json!(false),json!("ItemType_Clothing"),Value::Null]{
+   let mut y=x.clone();y["DutySlots"]["1"]["Slots"][0]["StepData"]["ItemFilter"]["Data"]["Type"]=v;
+   assert!(check(PlacementScope::VaseAdd,&y,&w,&d).is_err());neg+=1;
+  }
+  for v in [json!(-1),json!("0"),json!(999999),json!(false)]{
+   let mut y=x.clone();y["DutySlots"]["1"]["Slots"][0]["DifficultyLayer"]=v;
+   assert!(check(PlacementScope::Comp03LayoutOnly,&y,&w,&d).is_err());neg+=1;
+  }
+  for state in ["BattlePassTaskState_None","BattlePassTaskState_NotStarted","BattlePassTaskState_Completed","BattlePassTaskState_CurrencyClaimed"]{
+   let mut y=p.clone();y["BattlePassStates"]["FtueProgress"]["TasksProgress"]=json!([{"TaskState":state,"Objective":{"CurAmount":0,"TargetAmount":1,"ItemFilter":null,"ItemIdsCollected":[]}}]);
+   assert!(check(PlacementScope::Comp03LayoutOnly,&y,&w,&d).is_ok());pos+=1;
+   y["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]["Objective"]["extra"]=json!(true);
+   assert!(check(PlacementScope::Comp03LayoutOnly,&y,&w,&d).is_err());neg+=1;
+  }
+  for state in ["BattlePassTaskState_OnGoing","BattlePassTaskState_Unknown"]{
+   let mut y=p.clone();y["BattlePassStates"]["FtueProgress"]["TasksProgress"]=json!([{"TaskState":state,"Objective":{"CurAmount":0,"TargetAmount":1,"ItemFilter":null,"ItemIdsCollected":[]}}]);
+   assert!(check(PlacementScope::VaseAdd,&y,&w,&d).is_err());neg+=1;
+  }
+  let mut y=p.clone();y["AchievementsData"]=json!([{"AchievementID":aid,"State":"AchievementState_Completed"},{"AchievementID":aid,"State":"AchievementState_Completed"}]);
+  assert!(check(PlacementScope::VaseAdd,&y,&w,&d).is_err());neg+=1;
+  for bad in [json!(null),json!([]),json!({"01":{}}),json!({"1":{"x":{},"y":{}}})]{
+   let mut m=w.clone();m["RecurringEvents"]=bad;
+   assert!(check(PlacementScope::Comp03LayoutOnly,&p,&m,&d).is_err());neg+=1;
+  }
+  assert_eq!(mission,(2235,5055));assert_eq!(ach,(313,196));assert_eq!((pos,neg),(4902,5422));
+  eprintln!("ACT1084_PLACEMENT_MATRIX pos={pos} neg={neg} mission={mission:?} achievement={ach:?} comp={comp:?} vase={vase:?}");
+ }
+
 }
