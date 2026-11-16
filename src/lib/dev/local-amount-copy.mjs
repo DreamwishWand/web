@@ -129,7 +129,11 @@ const switchCopy=Object.freeze({
  'zh-CN':{title:'Switch P1G 储物箱编辑 — DEV/关闭',build:'Switch 构建 ID（BID）',sha:'原始加密 SHA-256（本地计算）',confirm:'我已另行确认此 Switch BID。',intro:'仅限本机实验性编辑：已验证储物箱数量 50→49。不上传、不覆盖原文件。'},
  'pt-BR':{title:'Editor de baú P1G Switch — DEV/DESLIGADO',build:'ID de build Switch (BID)',sha:'SHA-256 criptografado original (cálculo local)',confirm:'Confirmei separadamente este BID Switch exato.',intro:'Edição experimental local: apenas baú verificado 50 → 49. Sem upload ou sobrescrita.'}
 });
-export function localAmountCopy(locale,switchChest=false){
+export function localAmountCopy(locale,switchChest=false,productMode=''){
  const base=localized[locale]||localized.en;
- return switchChest?Object.freeze({...base,...(switchCopy[locale]||switchCopy.en)}):base;
+ if(!switchChest)return base;
+ const selected={...base,...(switchCopy[locale]||switchCopy.en)};
+ // The UI label is not an authority grant; only the branded sealed port is.
+ if(productMode==='public-accepted'||productMode==='private-product-v2')selected.title=selected.title.split(' — ')[0]+(productMode==='private-product-v2'?' — V2':'');
+ return Object.freeze(selected);
 }

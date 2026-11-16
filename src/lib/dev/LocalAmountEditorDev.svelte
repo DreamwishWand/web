@@ -6,6 +6,7 @@
   import {onMount,tick} from 'svelte';
   import {locale} from '$lib/i18n/runtime.js';
   import {localAmountCopy,localAmountTargetLabel} from './local-amount-copy.mjs';
+  import {productSwitchChestPortScope} from './product-switch-chest-client.mjs';
   import {createLocalAmountDevWorkflow,STEAM626_FULL_VERSION,SWITCH626_CHEST_BID} from './local-amount-workflow.mjs';
 
   export let trustedWorkerAdapter=null;
@@ -14,12 +15,12 @@
   export let scopedExactOne=false;
   // Trusted mount fixes the exact Switch Build; no user-selectable ABI.
   export let scopedSwitch626Chest=false;
-  let exactOne=false,switchChest=false;
+  let exactOne=false,switchChest=false,productMode='';
   let workflow=null,available=false,pending=false,error=false;
   let file=null,sourceSha='',buildConfirmed=false,newAmount='';
   let chosen=0,focusTarget=null,fileInput=null,uiEpoch=0;
   let state={phase:'closed',targets:[],preview:null,editedCopy:null,backupVerified:false};
-  $: words=localAmountCopy($locale,switchChest);
+  $: words=localAmountCopy($locale,switchChest,productMode);
   $: openable=available&&!pending&&file!==null&&
     /^[0-9a-f]{64}$/.test(sourceSha)&&buildConfirmed;
   $: current=state.targets?.[chosen]||null;
@@ -30,9 +31,11 @@
   onMount(()=>{
     // Compile-time Vite guard plus explicit trusted capability. DEV/OFF here
     // never means Owner has authorized PRODUCT_OPERATION_ENABLED or Writer ON.
-    if(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter)return;
+    const productScope=productSwitchChestPortScope(trustedWorkerAdapter);
+    if(!productScope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
     try{
-      switchChest=scopedSwitch626Chest===true;
+      productMode=productScope?.mode||'';
+      switchChest=!!productScope||scopedSwitch626Chest===true;
       exactOne=switchChest||scopedExactOne===true;
       workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,exactOneDecrease:exactOne,switch626Chest:switchChest});
       available=true;state=workflow.snapshot();
@@ -125,7 +128,7 @@
 </script>
 
 <details class="dev-amount-editor" data-dev-amount-editor data-product-writer="off"
- data-public-route="off" data-cloud="off" data-original-overwrite="off">
+ data-public-route={productMode==='public-accepted'?'on':'off'} data-cloud="off" data-original-overwrite="off">
   <summary bind:this={focusTarget} data-dev-amount-summary>{words.title}</summary>
   <section class="content" aria-label={words.title}>
     <p>{words.intro}</p>
