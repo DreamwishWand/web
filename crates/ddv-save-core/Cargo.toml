@@ -36,9 +36,9 @@ product-steam626-sr03-scoped = ["product-amount-scoped"]
 # Exact Switch626 mixed Road RM01; independent of Steam SR03.
 product-switch626-rm01-scoped = ["product-amount-scoped"]
 # Exact Switch624 FRP01 read-only candidate; never a generic 624 or Writer grant.
-product-switch624-frp01-readonly = ["product-amount-scoped"]
+product-switch624-frp01-readonly = ["indexed-read"]
 # ACT1465 exact internal Stage; no generic624 or public Worker ABI.
-product-switch624-frp01-stage-internal = ["product-switch624-frp01-readonly"]
+product-switch624-frp01-stage-internal = ["product-switch624-frp01-readonly", "semantic-writer-dev"]
 # ACT1534 fixed 624 Worker ABI; never generic624 or a public Writer grant.
 product-switch624-frp01-scoped = ["product-switch624-frp01-stage-internal"]
 
