@@ -10,12 +10,12 @@ const ROUTE:u32=9;
 const OLD:i32=64;
 const NEW:i32=69;
 #[derive(Debug)]
-pub(super) struct FixedEyeballColor2{
- pub(super) scope:WorkerEnvelope,pub(super) span:Span,
- pub(super) active_eye_sha:String,pub(super) inactive_eye_sha:String,
- pub(super) male_sha:String,pub(super) female_sha:String,
- pub(super) stock_entry_sha:String,pub(super) route_sha:String,
- pub(super) selected_token_sha:String,pub(super) projected:[u8;32],
+pub(crate) struct FixedEyeballColor2{
+ pub(crate) scope:WorkerEnvelope,pub(crate) span:Span,
+ pub(crate) active_eye_sha:String,pub(crate) inactive_eye_sha:String,
+ pub(crate) male_sha:String,pub(crate) female_sha:String,
+ pub(crate) stock_entry_sha:String,pub(crate) route_sha:String,
+ pub(crate) selected_token_sha:String,pub(crate) projected:[u8;32],
 }
 fn check_ok(ok:bool,why:&'static str)->CoreResult<()>{
  if ok{Ok(())}else{Err(denied(why))}
@@ -67,7 +67,7 @@ fn stock(b:&[u8],player:&[(String,Span)])->CoreResult<(String,String)>{
  Ok((sha(&b[rec.begin..rec.end]),sha(&b[entry.begin..entry.end])))
 }
 impl ProductSession{
- pub(super) fn prepare_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
+ pub(crate) fn prepare_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
   product_appearance_scope(self,&e)?;
   self.prepare_fixed_eyecolor2_lexical(e)
  }
@@ -98,7 +98,7 @@ impl ProductSession{
  // ACT1508: exact affected Switch626 Build delta. Separate admission only;
  // no extra scanner/Session or public Worker command.
  #[cfg(feature="product-switch626-eyecolor2-internal")]
- pub(super) fn prepare_fixed_switch626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
+ pub(crate) fn prepare_fixed_switch626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
   use crate::{Platform,BuildKind};
   let b=&self.native_source_build;
   if !self.worker_bound||b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||
@@ -108,7 +108,7 @@ impl ProductSession{
   self.prepare_fixed_eyecolor2_lexical(e)
  }
  #[cfg(feature="product-switch626-eyecolor2-internal")]
- pub(super) fn stage_fixed_switch626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
+ pub(crate) fn stage_fixed_switch626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
      ->CoreResult<crate::SemanticStageReceipt>{
   check_ok(e.action==WorkerAction::Stage,"EYECOLOR2_SWITCH_STAGE_ACTION")?;
   let current=self.prepare_fixed_switch626_eyecolor2(WorkerEnvelope{action:WorkerAction::ReadDomain,..e})?;
@@ -120,7 +120,7 @@ impl ProductSession{
    "EYECOLOR2_SWITCH_STAGE_WITNESS_CAS")?;
   self.commit_switch626_eyecolor2_candidate(e,current.span,OLD,NEW,current.projected)
  }
- pub(super) fn stage_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
+ pub(crate) fn stage_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
      ->CoreResult<crate::SemanticStageReceipt>{
   check_ok(e.action==WorkerAction::Stage,"EYECOLOR2_STAGE_ACTION")?;
   let current=self.prepare_fixed_steam626_eyecolor2(WorkerEnvelope{action:WorkerAction::ReadDomain,..e})?;
@@ -291,5 +291,57 @@ mod tests{
       build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
   switch.worker_bound=true;
   assert!(switch.prepare_fixed_steam626_eyecolor2(envelope(&switch,WorkerAction::ReadDomain)).is_err());
+ }
+ #[cfg(feature="product-switch626-eyecolor2-scoped")]
+ #[test]fn switch626_eyecolor2_worker_abi_exact1_cas_undo_reopen(){
+  let d=doc();let original=serde_json::to_vec(&d).unwrap();
+  let s=open_switch(&d);let e=envelope(&s,WorkerAction::ReadDomain);
+  let p=s.prepare_fixed_switch626_eyecolor2(e).unwrap();
+  let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+  let preview=g.preview_switch_eyecolor2(e).unwrap();
+  assert_eq!(preview["contract"],"wand.worker.switch626.eyecolor2-exact1@1");
+  assert_eq!(preview["eyeballItemId"],ITEM);
+  assert_eq!(preview["oldColorIndex"],OLD);
+  assert_eq!(preview["newColorIndex"],NEW);
+  assert_eq!(preview["exactFieldChangedCount"],1);
+  assert_eq!(preview["inventoryDelta"],0);
+  assert_eq!(preview["writerAuthorized"],false);
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  let call=|guard:&crate::worker_session::WorkerSessionGuard,active:&str,projected:[u8;32]|
+      guard.stage_switch_eyecolor2(stage,active,&p.inactive_eye_sha,&p.male_sha,
+          &p.female_sha,&p.stock_entry_sha,&p.route_sha,&p.selected_token_sha,projected);
+  assert!(call(&g,"00",p.projected).is_err());
+  let mut forged=p.projected;forged[0]^=1;
+  assert!(call(&g,&p.active_eye_sha,forged).is_err());
+  assert!(g.stage_switch_eyecolor2(e,&p.active_eye_sha,&p.inactive_eye_sha,&p.male_sha,
+          &p.female_sha,&p.stock_entry_sha,&p.route_sha,&p.selected_token_sha,p.projected).is_err());
+  let receipt=call(&g,&p.active_eye_sha,p.projected).unwrap();
+  assert_eq!((receipt.operation_count,receipt.exact_field_changed_count),(1,1));
+  assert!(!receipt.product_writer_authorized&&!receipt.original_overwrite_authorized);
+  assert!(call(&g,&p.active_eye_sha,p.projected).is_err());
+  let current=g.receipt().unwrap();
+  let mut scope=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:current.session_id,
+    expected_revision:current.revision,expected_index_generation:current.index_generation,
+    expected_decoded_sha256:current.decoded_sha256,action:WorkerAction::Stage};
+  g.toggle_scoped_edit(scope,false).unwrap();
+  let current=g.receipt().unwrap();
+  scope.expected_revision=current.revision;scope.expected_index_generation=current.index_generation;
+  scope.expected_decoded_sha256=current.decoded_sha256;
+  g.toggle_scoped_edit(scope,true).unwrap();
+  let current=g.receipt().unwrap();
+  scope.expected_revision=current.revision;scope.expected_index_generation=current.index_generation;
+  scope.expected_decoded_sha256=current.decoded_sha256;scope.action=WorkerAction::ExportEditedCopy;
+  let edited=g.take_scoped_edit(scope).unwrap();
+  assert!(g.take_scoped_edit(scope).is_err());
+  assert_ne!(edited,original);
+  let v:Value=serde_json::from_slice(&edited).unwrap();
+  assert_eq!(v["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"],NEW);
+  assert_eq!(v["Player"]["FemaleAvatar"],d["Player"]["FemaleAvatar"]);
+  assert_eq!(v["Player"]["ListInventories"],d["Player"]["ListInventories"]);
+  assert_eq!(serde_json::to_vec(&d).unwrap(),original);
+  let reopen=ProductSession::open_decoded_readonly(edited,BuildIdentity{
+    platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+    build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+  assert_eq!(reopen.receipt().unwrap().schema,626);
  }
 }

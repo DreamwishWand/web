@@ -40,6 +40,8 @@ product-steam626-hair-scoped = ["product-amount-scoped"]
 product-steam626-skin-scoped = ["product-amount-scoped"]
 # ACT1508 Switch626 Eyecolor2 fixed Build adapter, internal Source ONLY; no public Worker API.
 product-switch626-eyecolor2-internal = ["semantic-writer-dev"]
+# Fixed Switch626 exact single Eyeball ColorIndex2 ABI (OFF, no generic Amount).
+product-switch626-eyecolor2-scoped = ["product-switch626-eyecolor2-internal"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
