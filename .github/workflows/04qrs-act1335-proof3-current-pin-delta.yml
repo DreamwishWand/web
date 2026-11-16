@@ -1,0 +1,55 @@
+name: 04 QR-S ACT1335 proof3 current pin delta (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1335-proof3-current-pin-delta.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 37ec3a0df1d3d45c2080ce3677f9592bafaf7820
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact current 57 pins and accepted job inverse
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-proof3.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync} from 'node:fs';
+          const ref='37ec3a0df1d3d45c2080ce3677f9592bafaf7820',sha='d6fec72aadc26db8fa80b41a9320bc6e645b3ffa',base='ee8ec558a0d6e88623e9617f3e6c6c61998a413a';
+          const path='.github/workflows/pages.yml',g=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'});
+          assert.equal(g('rev-parse','HEAD'),ref);assert.equal(g('rev-parse','HEAD:'+path),sha);
+          const y=readFileSync(path,'utf8'),old=raw(base,path);
+          const jobs=s=>Object.fromEntries([...s.matchAll(/^  ([a-z0-9_]+):\n(?=    )/gm)].map(m=>{const start=m.index,end=s.slice(start+1).search(/^  [a-z0-9_]+:\n/m);return [m[1],end<0?s.slice(start):s.slice(start,start+1+end)]}));
+          const j=jobs(y),o=jobs(old),pins=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(m=>[m[1],m[2]]);
+          let total=0,changedTotal=0,neg=0;
+          const refs=[['collection','91b13c88f8481e1b280647e5f94d0fd857043677',11,0],['switch_chest','59a1123d2d12561e5dbd16344bf7363bb57363fc',22,4],['steam_chest','458bebf8fb86b6b95c73b4bc113c14988a2ebf0c',24,5]];
+          const strip=s=>s.replace(/^    if:.*\n/m,'').trimEnd();
+          for(const [name,r,count,delta] of refs){
+           const key='scoped_'+name+'_proof',proof=j[key],prior=jobs(raw(r,path))[key],p=pins(proof),prev=pins(prior);
+           assert.equal(p.length,count);assert.equal(new Set(p.map(x=>x[0])).size,count);assert.deepEqual(p.map(x=>x[0]),prev.map(x=>x[0]));
+           const expected=p.map(([f])=>[f,g('rev-parse',base+':'+f)]);assert.deepEqual(p,expected);
+           const changed=p.filter((x,i)=>x[1]!==prev[i][1]);assert.equal(changed.length,delta);
+           let restored=proof;for(const [f,h] of changed){const a='test "$(git rev-parse HEAD:'+f+')" = '+h,priorHash=prev.find(x=>x[0]===f)[1];assert.equal(restored.split(a).length,2);restored=restored.replace(a,a.replace(h,priorHash));assert.throws(()=>assert.deepEqual(pins(proof.replace(a,a.replace(h,priorHash))),expected));neg++}
+           assert.equal(strip(restored),strip(prior));for(const [f,h] of p){assert.match(g('ls-tree',base,'--',f),f==='crates/ddv-save-core'?/^040000 tree /:/^100644 blob /);const a='test "$(git rev-parse HEAD:'+f+')" = '+h;assert.throws(()=>assert.deepEqual(pins(proof.replace(a,'')),expected));neg++;assert.throws(()=>assert.deepEqual(pins(proof.replace(a,a.replace(h,'f'.repeat(40)))),expected));neg++}
+           total+=count;changedTotal+=delta;
+          }
+          for(const k of ['build','deploy'])assert.equal(strip(j[k]),strip(o[k]),k);
+          assert.equal(y.slice(y.indexOf('permissions:'),y.indexOf('jobs:')),old.slice(old.indexOf('permissions:'),old.indexOf('jobs:')));
+          const vars=['collection','switch_chest','steam_chest'];const names=['build',...vars.map(n=>'scoped_'+n+'_proof')];
+          const guard=n=>j[n].match(/^    if: (.*)$/m)[1];
+          function evalGuard(g,event,ref,values){let e=g.replaceAll('github.event_name',JSON.stringify(event)).replaceAll('github.ref',JSON.stringify(ref));for(let i=0;i<vars.length;i++)e=e.replaceAll('inputs.scoped_'+vars[i]+'_proof_source',JSON.stringify(values[i]));assert.match(e,/^[\w'"/= !&|().-]+$/);return Function('"use strict";return ('+e+')')()}
+          let cases=0;for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/other'])for(let mask=0;mask<2**vars.length;mask++){const v=vars.map((_,i)=>mask&(1<<i)?'a'.repeat(40):'');const on=names.filter(n=>evalGuard(guard(n),event,ref,v));const expected=event==='push'?['build']:mask===0?['build']:ref==='refs/heads/main'&&(mask&(mask-1))===0?[names[1+Math.log2(mask)]]:[];assert.deepEqual(on,expected);cases++}
+          assert.equal(total,57);assert.equal(changedTotal,9);console.log('ACT1335_PROOF3_CURRENT_L2_PASS',JSON.stringify({dispatchCases:cases,pins:total,changed:changedTotal,negative:neg,actualGit:true,actualSignature:false}));
+          
+          EOF
+          node qa-proof3.mjs
