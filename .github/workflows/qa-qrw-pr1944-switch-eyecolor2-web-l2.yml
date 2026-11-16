@@ -1,0 +1,192 @@
+name: QA ONLY PR1944 Switch EyeColor2 exact1 actual Web L2 (NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1944-switch-eyecolor2-web-l2.yml'
+permissions:
+  contents: read
+jobs:
+  eye-actual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/qrw1944-rust-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7fb61942962474af6d7a0a03065f3dd6c697cdbd
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Frozen product Source18 accepted Rust QA generated own WASM
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '7fb61942962474af6d7a0a03065f3dd6c697cdbd'
+          test "$(git merge-base 8fe55f127b75a3b799a223a1fd75f735ca1befa3 HEAD)" = '8fe55f127b75a3b799a223a1fd75f735ca1befa3'
+          git diff --name-only 8fe55f127b75a3b799a223a1fd75f735ca1befa3 HEAD | LC_ALL=C sort >/tmp/qrw1944-actual
+          cat >/tmp/qrw1944-expected <<'PATHS'
+          src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
+          src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
+          src/lib/ddv/core/save/product-scoped-placement-release.mjs
+          src/lib/ddv/core/save/product-scoped-switch-eyecolor2-release-anchor.mjs
+          src/lib/ddv/core/save/product-steam626-eyecolor2-transport.mjs
+          src/lib/ddv/core/save/product-wasm-read-owner.d.mts
+          src/lib/ddv/core/save/product-wasm-read-owner.mjs
+          src/lib/dev/LocalPlacementEditorDev.svelte
+          src/lib/dev/PlacementProductRoute.svelte
+          src/lib/dev/local-placement-copy.mjs
+          src/lib/dev/local-placement-workflow.mjs
+          src/lib/dev/product-placement-client.mjs
+          src/lib/dev/product-switch-eyecolor2.worker.mjs
+          src/routes/editor/appearance/eyecolor2/switch/+page.svelte
+          tests/product-switch626-eyecolor2-build-transport.test.mjs
+          tests/product-switch626-eyecolor2-route-off.test.mjs
+          PATHS
+          diff -u /tmp/qrw1944-expected /tmp/qrw1944-actual
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = '5f09c6506f9475e66a91e597e50a2ce58d979ce9'
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = '70249d301a9b056516c102b8ad910e9efbd5746b'
+          grep -F 'PROTECTED_SWITCH_EYECOLOR2_RELEASE_ANCHOR=null' src/lib/ddv/core/save/product-scoped-switch-eyecolor2-release-anchor.mjs
+          git cat-file -e 6296dc027e46333cb9774ebca14667cda9182787^{commit} || git fetch --no-tags origin 6296dc027e46333cb9774ebca14667cda9182787
+          git worktree add --detach /tmp/qrw1944-core 6296dc027e46333cb9774ebca14667cda9182787
+          test "$(git -C /tmp/qrw1944-core merge-base b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6 HEAD)" = 'b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6'
+          test "$(git -C /tmp/qrw1944-core diff --name-only b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6 HEAD | wc -l)" = 3
+          git -C /tmp/qrw1944-core diff --exit-code b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6 HEAD -- crates/ddv-save-core/Cargo.toml crates/ddv-save-core/src/wasm_switch626_eyecolor2.rs crates/ddv-save-core/src/wasm_worker.rs crates/ddv-save-core/src/worker_session.rs
+          cargo generate-lockfile --manifest-path /tmp/qrw1944-core/crates/ddv-save-core/Cargo.toml
+          sha256sum /tmp/qrw1944-core/crates/ddv-save-core/Cargo.lock >/tmp/qrw1944-lock.sha
+          cargo test --locked --manifest-path /tmp/qrw1944-core/crates/ddv-save-core/Cargo.toml --features product-switch626-eyecolor2-scoped --lib qa1929_emit_synthetic_generated_switch_eyecolor2 -- --ignored --nocapture | tee /tmp/qrw1944-fixture.log
+          grep -F 'qa1929_emit_synthetic_generated_switch_eyecolor2 ... ok' /tmp/qrw1944-fixture.log
+          test -s /tmp/qrc1929-eyecolor2-source.json
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrw1944-tools
+          cargo build --locked --manifest-path /tmp/qrw1944-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-eyecolor2-scoped
+          B=/tmp/qrw1944-tools/bin/wasm-bindgen
+          W=/tmp/qrw1944-rust-target/wasm32-unknown-unknown/release/ddv_save_core.wasm
+          "$B" "$W" --out-dir /tmp/qrw1944-node --target nodejs --no-typescript
+          echo '3a6e7724e5ffa7a185d3049c21eca698603eaea4bb3abb5ea494b9cca29eead3  /tmp/qrw1944-node/ddv_save_core_bg.wasm' | sha256sum -c -
+          mkdir -p tests/qa-op static/qa-op src/routes/test-qrw-eye
+          "$B" "$W" --out-dir tests/qa-op --target web --no-typescript
+          cp tests/qa-op/ddv_save_core_bg.wasm static/qa-op/
+          cp tests/qa-op/ddv_save_core.js static/qa-op/
+          cmp tests/qa-op/ddv_save_core_bg.wasm static/qa-op/ddv_save_core_bg.wasm
+          sha256sum static/qa-op/ddv_save_core_bg.wasm static/qa-op/ddv_save_core.js
+          sha256sum -c /tmp/qrw1944-lock.sha
+          git diff --exit-code -- src/lib tests/helpers/p1g-fixture.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual Switch626 EyeColor2 Worker Chrome OPFS and independent codec Reopen
+        run: |
+          set -euo pipefail
+          mkdir -p tests/qa-op static/qa-op src/routes/test-qrw-eye
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';import assert from 'node:assert/strict';const p='tests/helpers/p1g-fixture.mjs',s=readFileSync(p,'utf8'),a="const profile = Buffer.from(JSON.stringify(root), 'utf8');",b="const profile = Buffer.from(root);";assert.equal(s.split(a).length,2);const t=s.replace(a,b);assert.equal(t.replace(b,a),s);writeFileSync('tests/.qa-raw-fixture.mjs',t);
+          NODE
+          cat > tests/.qa-fixture.mjs <<'NODE'
+          import assert from 'node:assert/strict';import {readFileSync,writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';import {makeSyntheticP1gProfile} from './.qa-raw-fixture.mjs';
+          const sha=b=>createHash('sha256').update(b).digest('hex'),input=readFileSync('/tmp/qrc1929-eyecolor2-source.json'),d=JSON.parse(input),expected=structuredClone(d);
+          assert.equal(d.GameInfo.Version,626);assert.equal(d.Player.MaleAvatar.Eyeball.ColorIndex2,64);assert.equal(d.Player.FemaleAvatar.Eyeball.ColorIndex2,69);
+          expected.Player.MaleAvatar.Eyeball.ColorIndex2=69;
+          const expectedText=JSON.stringify(expected);assert.notEqual(sha(input),sha(Buffer.from(expectedText)));assert.deepEqual(expected.Player.FemaleAvatar,d.Player.FemaleAvatar);
+          const bad=structuredClone(d);bad.Player.MaleAvatar.Eyeball.ColorIndex2=63;
+          const bytes=makeSyntheticP1gProfile(input);writeFileSync('static/qa-op/input.p1g',bytes);writeFileSync('static/qa-op/bad.p1g',makeSyntheticP1gProfile(Buffer.from(JSON.stringify(bad))));
+          writeFileSync('static/qa-op/meta.json',JSON.stringify({sha:sha(bytes),inputText:input.toString(),expectedText,buildId:'9A239D3DB569756D',old:64,next:69,item:70000010}));
+          NODE
+          node --check tests/.qa-fixture.mjs
+          node tests/.qa-fixture.mjs
+          cat > src/routes/test-qrw-eye/qa.worker.mjs <<'NODE'
+          import init,{WorkerWasmSource} from '../../../tests/qa-op/ddv_save_core.js';
+          import {SWITCH_EYECOLOR2_RELEASE} from '$lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {compileVerifiedWorker} from '$lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs';
+          import {createProductSwitch626EyeColor2LocalAdapter} from '$lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          import {createProductWasmReadOwner} from '$lib/ddv/core/save/product-wasm-read-owner.mjs';import {createP1gRustWorkerReadOnlyBridge} from '$lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+          import {installLocalEyeColor2DevWorker} from '$lib/dev/local-scoped-edit-worker-port.mjs';
+          try{
+           const resp=await fetch('/qa-op/ddv_save_core_bg.wasm');if(!resp.ok||!resp.headers.get('content-type')?.startsWith('application/wasm'))throw Error('WASM MIME');
+           const wasmBytes=new Uint8Array(await resp.arrayBuffer()),jsResp=await fetch('/qa-op/ddv_save_core.js');if(!jsResp.ok)throw Error('JS RESPONSE');const jsBytes=new Uint8Array(await jsResp.arrayBuffer());
+           let protectedDenied=false,protectedCode='';try{await compileVerifiedWorker(jsBytes,wasmBytes,{deniedSymbol:/(?!)/,requiredMethods:SWITCH_EYECOLOR2_RELEASE.methods,exactPrototype:true,exactWasmExports:SWITCH_EYECOLOR2_RELEASE.exports})}catch(e){protectedDenied=true;protectedCode=String(e?.message||e)}
+           await init({module_or_path:wasmBytes});
+           const methods=Object.getOwnPropertyNames(WorkerWasmSource.prototype).filter(k=>!['constructor','free','__destroy_into_raw'].includes(k));
+           const actualExports=WebAssembly.Module.exports(new WebAssembly.Module(wasmBytes)).map(x=>x.name);
+           const names=['preview_switch626_eyecolor2','stage_switch626_eyecolor2','toggle_switch626_eyecolor2','begin_switch626_eyecolor2_output','next_switch626_eyecolor2_output_chunk'];
+           if(methods.length!==13||SWITCH_EYECOLOR2_RELEASE.methods.length!==13||actualExports.length!==22||SWITCH_EYECOLOR2_RELEASE.exports.length!==22||!names.every(k=>methods.includes(k))||!SWITCH_EYECOLOR2_RELEASE.methods.every(k=>methods.includes(k)))throw Error('EYECOLOR2_ABI_COUNTEREXAMPLE');
+           const census={methods:methods.length,requiredMethods:SWITCH_EYECOLOR2_RELEASE.methods.length,exports:actualExports.length,requiredExports:SWITCH_EYECOLOR2_RELEASE.exports.length,protectedDenied,protectedCode};
+           let mixed=0;const never=async()=>{throw Error('Unexpected factory')};
+           for(const create of [createProductWasmReadOwner,createP1gRustWorkerReadOnlyBridge])for(const extra of [{backpackScope:'steam'},{wardrobeScope:'switch'},{placementScope:'rm01'},{placementScope:'comp03'},{placementScope:'sr03'},{allowScopedAmountSource:true},{allowScopedCollectionSource:true},{allowSwitch626ChestSource:true},{allowSwitch626Catalog0Source:true},{allowCollectionCandidateSource:true}]){
+            let denied=false;try{create(never,{appearanceScope:'eyecolor2-switch',...extra})}catch{denied=true}if(!denied)throw Error('EYECOLOR2_MIXED_SCOPE_GRANTED');mixed++;
+           }
+           let opens=0,closes=0,hold=false,releasePending=null;
+           const factory=async()=>({WorkerWasmSource:class extends WorkerWasmSource{constructor(...a){super(...a);opens++}close(){closes++;return super.close()}}});
+           const a=createProductSwitch626EyeColor2LocalAdapter({wasmFactory:factory});
+           const wrapped={...a,async previewAppearance(...args){const p=await a.previewAppearance(...args);if(hold){hold=false;await new Promise(resolve=>{releasePending=resolve;postMessage({kind:'QA_PENDING'})})}return p},async close(){const p=await a.close();postMessage({kind:'QA_COUNTS',opens,closes});return p}};
+           installLocalEyeColor2DevWorker(self,wrapped);
+           self.addEventListener('message',e=>{if(e.data?.kind==='QA_ARM'){hold=true;postMessage({kind:'QA_ARMED'})}if(e.data?.kind==='QA_RELEASE'){releasePending?.();releasePending=null}});
+           postMessage({kind:'QA_LOCAL_READY',census,mixed});
+          }catch(e){postMessage({kind:'QA_ERROR',error:String(e?.stack||e)})}
+          NODE
+          node --check src/routes/test-qrw-eye/qa.worker.mjs
+          cat > src/routes/test-qrw-eye/+page.svelte <<'SVELTE'
+          <script>
+          import {onMount} from 'svelte';import {setLocale} from '$lib/i18n/runtime.js';
+          import LocalPlacementEditorDev from '$lib/dev/LocalPlacementEditorDev.svelte';import {localPlacementCopy} from '$lib/dev/local-placement-copy.mjs';
+          import {createLocalEyeColor2DevPort} from '$lib/dev/local-scoped-edit-worker-port.mjs';import {createProductSwitchEyeColor2Port} from '$lib/dev/product-placement-client.mjs';
+          let adapter=null;const operation='eyecolor2-switch',trace={receipts:[],mutate:false,counts:null};
+          onMount(()=>{setLocale('en');let w,p;let workers=0;const original=window.Worker;window.Worker=new Proxy(original,{construct(t,a,n){workers++;return Reflect.construct(t,a,n)}});
+          (async()=>{try{let denied=false;try{await createProductSwitchEyeColor2Port()}catch{denied=true}if(!denied||workers!==0)throw Error('NULL_ANCHOR_GRANTED');
+          w=new Worker(new URL('./qa.worker.mjs',import.meta.url),{type:'module'});
+          const events=new Map();w.addEventListener('message',e=>{if(e.data?.kind==='QA_COUNTS')trace.counts=e.data;const cb=events.get(e.data?.kind);if(cb){events.delete(e.data.kind);cb(e.data)}});const wait=k=>new Promise(resolve=>events.set(k,resolve));
+          const ready=await Promise.race([wait('QA_LOCAL_READY'),wait('QA_ERROR')]);if(ready.kind!=='QA_LOCAL_READY')throw Error(ready.error);
+          p=createLocalEyeColor2DevPort(w);adapter=Object.freeze({...p,async previewAppearance(...args){const v=await p.previewAppearance(...args);trace.receipts.push(v);return trace.mutate?{...v,oldColorIndex:63}:v}});
+          window.__qa={p,trace,wait,send:k=>w.postMessage({kind:k}),census:ready.census,mixed:ready.mixed,words:localPlacementCopy('en'),workers:()=>workers};}catch(e){window.__qa={error:String(e?.stack||e)}}})();return()=>{p?.dispose();w?.terminate()}});
+          </script>
+          {#if adapter}<LocalPlacementEditorDev trustedWorkerAdapter={adapter} verifiedLocalDevGate={true} fixedOperation={operation}/>{/if}
+          SVELTE
+          cat > tests/.qa-eye-browser.mjs <<'NODE'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {spawn,spawnSync} from 'node:child_process';import {readFileSync,writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';
+          const sha=b=>createHash('sha256').update(b).digest('hex'),origin='http://127.0.0.1:4186',server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4186','--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});let browser;
+          try{
+           let ready=false;for(let i=0;i<100;i++){try{if((await fetch(origin+'/test-qrw-eye/')).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,250))}assert.ok(ready);
+           const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+           const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(String(e)));
+           await page.goto(origin+'/test-qrw-eye/');try{await page.waitForFunction(()=>!!window.__qa,{},{timeout:30000})}catch(e){console.log('QRW1944_BOOT_DIAGNOSTICS',JSON.stringify({errors,html:(await page.locator('body').innerText().catch(()=>'')).slice(0,1200)}));throw e}
+           assert.equal(await page.evaluate(()=>window.__qa.error),undefined);
+           const meta=JSON.parse(readFileSync('static/qa-op/meta.json','utf8')),bytes=readFileSync('static/qa-op/input.p1g');assert.equal(sha(bytes),meta.sha);
+           const boundary=await page.evaluate(async m=>{
+            const{p,wait,send}=window.__qa,need=(x,k)=>{if(!x)throw Error(k)},build={platform:'switch',buildKind:'switch-bid',buildId:m.buildId,schema:626,externallyConfirmed:true},foreign={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true};
+            const sha=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');let neg=0;
+            const deny=async(f,k)=>{let rejected=false;try{await f()}catch{rejected=true}need(rejected,k);neg++};
+            const get=async n=>{const b=new Uint8Array(await(await fetch('/qa-op/'+n+'.p1g')).arrayBuffer());return{file:new File([b],n+'.p1g'),build,originalSha256:await sha(b)}};
+            const input=await get('input');need(p.previewBackpack===undefined&&p.previewWardrobe===undefined&&p.spatialPreview===undefined,'foreign surface');
+            await deny(()=>p.previewAppearance(),'before open');await deny(()=>p.previewAppearance({field:'ColorIndex2'}),'caller selector');await deny(()=>p.open({...input,build:foreign}),'foreign Build');await deny(()=>p.open({...input,build:{...build,buildId:'bad-build'}}),'wrong BID');
+            await p.open(await get('bad'));await p.backupOriginal();await deny(()=>p.previewAppearance(),'invalid old value');await deny(()=>p.stageAppearance(),'bad stage');await p.close();
+            await p.open(input);await deny(()=>p.previewAppearance(),'before backup');await p.backupOriginal();await deny(()=>p.stageAppearance(),'before preview');
+            const armed=wait('QA_ARMED');send('QA_ARM');await armed;const pending=wait('QA_PENDING');const late=p.previewAppearance().then(()=>false,()=>true);await pending;await p.close();send('QA_RELEASE');need(await late,'late preview crossed close');neg++;await deny(()=>p.previewAppearance(),'closed');
+            return{neg,mixed:window.__qa.mixed};
+           },meta);
+           assert.equal(boundary.mixed,20);assert.equal(boundary.neg,10);
+           const words=await page.evaluate(()=>window.__qa.words),ed=page.locator('[data-dev-placement]'),btn=k=>ed.getByRole('button',{name:words[k],exact:true});
+           async function prepare(){const f=ed.locator('input[type=file]');await f.waitFor();await f.setInputFiles({name:'synthetic-eyecolor2.p1g',mimeType:'application/octet-stream',buffer:bytes});await ed.locator('input[type=checkbox]').check();await btn('openFile').click();await btn('backup').click();await btn('review').waitFor()}
+           await prepare();await page.evaluate(()=>window.__qa.trace.mutate=true);await btn('review').click();await ed.getByRole('alert').waitFor();assert.equal(await ed.locator('[data-placement-preview]').count(),0);assert.equal(await btn('stagePlacement').count(),0);
+           await page.evaluate(()=>window.__qa.trace.mutate=false);await prepare();await btn('review').click();await btn('stagePlacement').waitFor();
+           const previewText=await ed.locator('[data-placement-preview]').innerText();assert.match(previewText,/70000010/);assert.match(previewText,/64/);assert.match(previewText,/69/);
+           const pr=await page.evaluate(()=>window.__qa.trace.receipts.at(-1));assert.equal(pr.eyeballItemId,70000010);assert.equal(pr.field,'ColorIndex2');assert.equal(pr.oldColorIndex,64);assert.equal(pr.newColorIndex,69);assert.equal(pr.inventoryDelta,0);assert.equal(pr.exactFieldChangedCount,1);assert.equal(pr.writerAuthorized,false);
+           for(const k of ['sessionId','activeEyeSha256','inactiveEyeSha256','maleSha256','femaleSha256','stockEntrySha256','routeSha256','selectedTokenSha256','projectedDecodedSha256','decodedSha256','revision','indexGeneration'])assert.equal(k in pr,false,k);
+           await btn('stagePlacement').click();await btn('undo').waitFor();await btn('undo').click();await btn('redo').waitFor();assert.equal(await btn('export').count(),0);await btn('redo').click();await btn('export').click();await btn('downloadEdited').waitFor();
+           const out=await page.evaluate(async()=>{const{p}=window.__qa,b=await p.downloadVerifiedCopy('backup'),e=await p.downloadVerifiedCopy('edited'),root=await navigator.storage.getDirectory(),bf=await(await root.getFileHandle(b.name)).getFile(),ef=await(await root.getFileHandle(e.name)).getFile();let replay=false;try{await p.exportEditedCopy()}catch{replay=true}return{b:{name:b.name,sha:b.sha256,bytes:Array.from(b.encryptedBytes),disk:Array.from(new Uint8Array(await bf.arrayBuffer()))},e:{name:e.name,sha:e.sha256,bytes:Array.from(e.encryptedBytes),disk:Array.from(new Uint8Array(await ef.arrayBuffer()))},replay}});
+           assert.equal(out.replay,true);assert.notEqual(out.b.name,out.e.name);assert.notEqual(out.b.name,'synthetic-eyecolor2.p1g');assert.notEqual(out.e.name,'synthetic-eyecolor2.p1g');
+           assert.deepEqual(Buffer.from(out.b.bytes),bytes);assert.deepEqual(Buffer.from(out.b.disk),bytes);assert.deepEqual(out.e.bytes,out.e.disk);assert.equal(sha(Buffer.from(out.e.bytes)),out.e.sha);assert.notEqual(out.e.sha,meta.sha);
+           writeFileSync('/tmp/qrw-eye-edited.p1g',Buffer.from(out.e.bytes));writeFileSync('/tmp/qrw-eye-original.p1g',bytes);
+           const check=spawnSync(process.execPath,['--input-type=module','-e',"import {readFileSync} from 'node:fs';import assert from 'node:assert/strict';import {p1gPackagedProfileCodec as c} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';const m=JSON.parse(readFileSync('static/qa-op/meta.json','utf8'));for(const[file,want]of[['/tmp/qrw-eye-original.p1g',m.inputText],['/tmp/qrw-eye-edited.p1g',m.expectedText]]){const p=await c.loadProfile(new Uint8Array(readFileSync(file)));assert.deepEqual(JSON.parse(p.jsonText),JSON.parse(want));}"],{stdio:'inherit'});assert.equal(check.status,0);
+           await btn('close').click();await ed.locator('input[type=file]').waitFor();
+           const end=await page.evaluate(()=>({counts:window.__qa.trace.counts,workers:window.__qa.workers(),census:window.__qa.census}));
+           assert.equal(end.workers,1);assert.ok(end.counts.opens>=4);assert.equal(end.counts.opens,end.counts.closes);assert.deepEqual(errors,[]);
+           assert.equal(end.census.methods,13);assert.equal(end.census.requiredMethods,13);assert.equal(end.census.exports,22);assert.equal(end.census.requiredExports,22);
+           console.log('QRW1944_SWITCH_EYECOLOR2_WEB_ACTUAL_PASS '+JSON.stringify({positive:1,negative:boundary.neg+3,mixedDenied:boundary.mixed,actualWorker:end.workers,rustSessions:end.counts.opens,rustCloses:end.counts.closes,actualOpfs:true,independentReopen:true,exact:1,actualDom:true,lateClose:true,protectedDenied:end.census.protectedDenied,signed:false,genuine:false}));
+           if(end.census.protectedDenied){console.log('QRW1944_SWITCH_EYECOLOR2_PROTECTED_ABI_TRUE_RED '+JSON.stringify(end.census));throw Error('QRW1944_SWITCH_PROTECTED_GENERATED_ABI_SOURCE_RED')}
+          }finally{await browser?.close();server.kill()}
+          NODE
+          node --check tests/.qa-eye-browser.mjs
+          node tests/.qa-eye-browser.mjs
+          git diff --exit-code -- src/lib tests/helpers/p1g-fixture.mjs
