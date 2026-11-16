@@ -32,7 +32,7 @@ jobs:
           const head='727863bfc3f11d8d233ea388d93c287daa202f4b',base='3a3614888b543c2c53483a6e41b4a50f6e6687fc';
           assert.equal(git('rev-parse','HEAD'),head);assert.equal(git('rev-parse','HEAD^'),base);
           const testSource=readFileSync('tests/scoped-portable-proof-workflow.test.mjs','utf8'),wf=readFileSync('.github/workflows/pages.yml','utf8'),old=execFileSync('git',['show',base+':.github/workflows/pages.yml'],{encoding:'utf8'});
-          const start=testSource.indexOf('const specs=[')+12,end=testSource.indexOf('];\nfor(const s of specs)',start);assert.ok(start>11&&end>start);
+          const start=testSource.indexOf('const specs=[')+11,end=testSource.indexOf('];\nfor(const s of specs)',start);assert.ok(start>11&&end>start);
           const specs=JSON.parse(testSource.slice(start,end+1));assert.equal(specs.length,2);
           const oldInputKeys=['scoped_collection_proof_source','scoped_switch_chest_proof_source','scoped_steam_chest_proof_source','scoped_sr03_proof_source','scoped_comp03_spatial_proof_source','scoped_rm01_proof_source','scoped_hair_proof_source','scoped_skin_proof_source'];
           const sections=s=>[...s.matchAll(/^  ([a-z0-9_]+):\n/gm)].map(x=>({key:x[1],start:x.index})).map((x,i,a)=>({key:x.key,body:s.slice(x.start,i+1<a.length?a[i+1].start:s.length)}));
