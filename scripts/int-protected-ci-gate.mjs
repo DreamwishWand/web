@@ -14,16 +14,50 @@ const deny=m=>{throw new Error(m)};
 const integer=n=>Number.isSafeInteger(n)&&n>0;
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
-export async function githubPublicJson(path,fetcher=fetch) {
+// Fixed endpoint labels only; never emit URLs, response bodies or arbitrary headers.
+function apiCategory(path) {
+  const suffix=path.replace(/^\/repos\/DreamwishWand\/(?:web|site)/,'');
+  if(suffix==='')return 'repository';
+  if(suffix==='/git/ref/heads/main')return 'main-ref';
+  if(suffix.startsWith('/actions/runs?'))return 'run-list';
+  if(/^\/actions\/runs\/\d+$/.test(suffix))return 'run';
+  if(/^\/actions\/runs\/\d+\/attempts\/\d+\/jobs\?per_page=100$/.test(suffix))return 'attempt-jobs';
+  return 'other';
+}
+function numericHeader(headers,name) {
+  const value=headers.get(name);
+  if(typeof value!=='string'||!/^\d{1,10}$/.test(value))return null;
+  const n=Number(value);return Number.isSafeInteger(n)?n:null;
+}
+function apiDenied(response,category) {
+  const fields=[['remaining',numericHeader(response.headers,'x-ratelimit-remaining')],
+    ['reset',numericHeader(response.headers,'x-ratelimit-reset')],
+    ['retry_after',numericHeader(response.headers,'retry-after')]];
+  return 'GITHUB_API_DENIED:'+response.status+':endpoint='+category+
+    fields.filter(([,v])=>v!==null).map(([k,v])=>':'+k+'='+v).join('');
+}
+export async function githubPublicJson(path,fetcher=fetch,sleep=wait) {
   if(typeof path!=='string'||!path.startsWith('/repos/DreamwishWand/')||
      path.includes('..')||path.includes('#')||path.includes('\\'))deny('UNSAFE_API_PATH');
   const url=new URL('https://api.github.com'+path);
   if(url.origin!=='https://api.github.com')deny('UNSAFE_API_ORIGIN');
-  const response=await fetcher(url,{method:'GET',redirect:'error',
+  const category=apiCategory(path);
+  const request=()=>fetcher(url,{method:'GET',redirect:'error',
     headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'DreamwishWand-protected-CI'},
     signal:AbortSignal.timeout(20000)});
+  let response=await request();
+  // Only explicit short rate-limit evidence permits one identical public GET.
+  // Unknown/ordinary 403, redirects and exhausted attempts remain denied.
+  const delay=numericHeader(response.headers,'retry-after');
+  if(response.status===403&&!response.redirected&&category!=='other'&&
+     numericHeader(response.headers,'x-ratelimit-remaining')===0&&delay!==null&&delay>=1&&delay<=5){
+    console.warn(apiDenied(response,category)+':bounded_retry=1');
+    await response.body?.cancel();
+    await sleep(delay*1000);
+    response=await request();
+  }
   if(response.status!==200||response.redirected||!response.headers.get('content-type')?.toLowerCase().includes('application/json'))
-    deny('GITHUB_API_DENIED:'+response.status);
+    deny(apiDenied(response,category));
   const chunks=[];let n=0;
   if(!response.body)deny('GITHUB_API_EMPTY');
   for await(const chunk of response.body){n+=chunk.length;if(n>4*1024*1024)deny('GITHUB_API_TOO_LARGE');chunks.push(chunk);}
