@@ -1,0 +1,86 @@
+name: 04 QR-S Switch Appearance proof adapter (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-switch-appearance-proof-adapter-boundary.yml'
+permissions:
+  contents: read
+jobs:
+  proof-subjects:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - adapter: c4fdf6a9dd5187669f62b15cdbb4075a0430ff62
+            core: 86a213d15e898846f4610dbe088690ca2c162f5f
+            tree: 1f61f3058f31b35e6db9cf424d4147fcde9c3905
+            group: switchappearance
+            blob: 007126c97e1d0e8a6b792bb3057eb3a1ac753c20
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CORE: ${{ matrix.core }}
+      TREE: ${{ matrix.tree }}
+      GROUP: ${{ matrix.group }}
+      ADAPTER: ${{ matrix.adapter }}
+      ADAPTER_BLOB: ${{ matrix.blob }}
+      CARGO_TARGET_DIR: /tmp/wand-qrs-proof-adapter-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.adapter }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Fixed adapter and accepted Core, isolated actual generated WASM
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$ADAPTER"
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = "$ADAPTER_BLOB"
+          test "$(git rev-parse "$CORE:crates/ddv-save-core")" = "$TREE"
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test "$(git rev-parse "$CORE:scripts/wasm-distribution/approved-Cargo.lock")" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          mkdir -p /tmp/wand-qrs-proof-input /tmp/wand-qrs-proof-generated
+          git archive "$CORE" crates/ddv-save-core | tar -x -C /tmp/wand-qrs-proof-input
+          cp scripts/wasm-distribution/approved-Cargo.lock /tmp/wand-qrs-proof-input/crates/ddv-save-core/Cargo.lock
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrs-bindgen
+          keys="switch626-hair switch626-skin"
+          for key in $keys; do
+            mkdir "/tmp/wand-qrs-proof-generated/$key"
+            cargo build --locked --manifest-path /tmp/wand-qrs-proof-input/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "product-${key}-scoped,worker-wasm"
+            /tmp/wand-qrs-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "/tmp/wand-qrs-proof-generated/$key" --target web --no-typescript
+          done
+          cat > qa-proof-subjects.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import * as scopes from './src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {fixedPlacementProofScope as fixed,inspectPlacementSubjects as inspect,privatePlacementIdentity as identity,replacePrivatePlacementAnchor as replace} from './scripts/readonly-release/scoped-placement-proof.mjs';
+          const group=process.env.GROUP,source=process.env.CORE,keys=['switch626-hair','switch626-skin'],sha=b=>createHash('sha256').update(b).digest('hex');
+          const cargo=readFileSync('/tmp/wand-qrs-proof-input/crates/ddv-save-core/Cargo.toml'),lock=readFileSync('/tmp/wand-qrs-proof-input/crates/ddv-save-core/Cargo.lock');
+          assert.equal(sha(lock),'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c');
+          const mk=(s,js,w,patch={})=>[Buffer.from(JSON.stringify({contract:s.prefix+'.runtime@1',operation:s.operation,source:{repository:tuple.repository,commit:source,cargoTomlSha256:sha(cargo),cargoLockSha256:sha(lock),cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:s.features,defaultFeatures:false,toolchain:'rustc 1.99.1 (qa)'},assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:sha(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}},abi:{exportClass:'WorkerWasmSource',methods:s.methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false},...patch})),js,w];
+          let pos=0,neg=0;const no=f=>{assert.throws(f);neg++},dir='src/lib/ddv/core/save/',anchor=dir+'product-scoped-appearance-release-anchor.mjs',prior=readFileSync(anchor,'utf8'),own=keys.map(key=>{const s=fixed(key),base='/tmp/wand-qrs-proof-generated/'+key+'/';return {s,j:readFileSync(base+'ddv_save_core.js'),w:readFileSync(base+'ddv_save_core_bg.wasm')}});
+          for(const {s,j,w} of own){
+            assert.equal(s.methods.length,13);assert.equal(s.exports.length,22);assert.equal(new WebAssembly.Module(w) instanceof WebAssembly.Module,true);
+            const b=mk(s,j,w),p=inspect(s,b,source),a=identity(s,p,'http://127.0.0.1:4188');assert.equal(await scopes.validatePlacementAnchor(s,a),true);assert.equal(a.builds[0].buildId,s.buildId);assert.equal(a.builds[0].productV2EvidenceSha256,null);assert.equal(a.builds[0].platform,'switch');assert.equal(s.buildId,'9A239D3DB569756D');pos++;
+            const marker=s.key.endsWith('hair')?'SWITCH_HAIR':'SWITCH_SKIN',out=replace(s,prior,a);assert.ok(out.includes('PROTECTED_'+marker+'_RELEASE_ANCHOR=Object.freeze('));for(const m of ['HAIR','SKIN','SWITCH_HAIR','SWITCH_SKIN'].filter(x=>x!==marker))assert.ok(out.includes('export const PROTECTED_'+m+'_RELEASE_ANCHOR=null;'));pos++;
+            no(()=>replace(s,out,a));no(()=>identity(s,p,tuple.origin));no(()=>replace(s,readFileSync(dir+'product-scoped-rm01-release-anchor.mjs','utf8'),a));no(()=>inspect(s,b,'f'.repeat(40)));no(()=>inspect(s,mk(s,j,w,{operation:'foreign'}),source));no(()=>inspect(s,mk(s,j,w,{release:{productConsumerEnabled:true,writerAuthorized:true,autoUpload:false,originalOverwriteAuthorized:false}}),source));
+            const others=[scopes.COMP03_RELEASE,scopes.COMP03_SPATIAL_RELEASE,scopes.VASE_ADD_RELEASE,scopes.SR03_RELEASE,scopes.RM01_RELEASE,scopes.HAIR_RELEASE,scopes.SKIN_RELEASE,...own.map(x=>x.s)].filter(x=>x&&x!==s);
+            for(const t of others){no(()=>inspect(t,b,source));for(const symbol of t.methods.filter(n=>/^(preview|stage)_(steam626|switch626)_/.test(n)))no(()=>inspect(s,mk(s,Buffer.concat([j,Buffer.from('\n// '+symbol)]),w),source));}
+            for(const symbol of ['preview_steam626_hair','stage_steam626_skin','preview_switch626_r02','stage_switch626_r02','preview_switch626_r01','stage_switch626_r01'])no(()=>inspect(s,mk(s,Buffer.concat([j,Buffer.from('\n// '+symbol)]),w),source));
+            for(const t of own.filter(x=>x.s!==s)){no(()=>inspect(s,mk(s,j,t.w),source));no(()=>inspect(s,mk(s,t.j,w),source));}
+            console.log('QRS_SWITCH_APPEARANCE_ACTUAL_PROOF_SUBJECT',JSON.stringify({key:s.key,source,adapter:process.env.ADAPTER,js:sha(j),wasm:sha(w),manifest:sha(b[0]),methods:s.methods.length,exports:s.exports.length,platform:s.platform,build:s.buildId}));
+          }
+          console.log('QRS_SWITCH_APPEARANCE_PROOF_ADAPTER_ACTUAL_L2_PASS',JSON.stringify({group,pos,neg,actualGenerated:true,actualSignature:false,productV2:false}));
+          EOF
+          node qa-proof-subjects.mjs
+          node --test tests/scoped-placement-proof.test.mjs
