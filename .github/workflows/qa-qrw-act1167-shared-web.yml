@@ -1,0 +1,217 @@
+name: QA ONLY ACT1167 shared Web actual compatibility (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1167-shared-web.yml'
+permissions:
+  contents: read
+jobs:
+  shared-real:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_TARGET_DIR: /tmp/qrw1507-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ceacdebaf1dc3ba48d77356f52187678a6df272f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed shared postimages and historical accepted ABI sources
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'ceacdebaf1dc3ba48d77356f52187678a6df272f'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 562c4f5a29a0fea87a901f9f408358abe8eb002c
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 470f8fc590cb23d9e3ce932c41929ccd65b185ed
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 620a19633aee1fbfd7ef8461ff1b66f9bc18b0db
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = 782622d9c295e7ebd2b8bbc6b6ab9ffe105bbf42
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 4f34a20d16fceb27a8f9010819e603dec8c342b9
+          git cat-file -e e5de8fd4f9b8f09be7c27f9decb42bd3ee6de67e^{commit} || git fetch --no-tags origin e5de8fd4f9b8f09be7c27f9decb42bd3ee6de67e
+          git worktree add --detach /tmp/qrw1507-chest e5de8fd4f9b8f09be7c27f9decb42bd3ee6de67e
+          test "$(git -C /tmp/qrw1507-chest rev-parse HEAD)" = e5de8fd4f9b8f09be7c27f9decb42bd3ee6de67e
+          test "$(git -C /tmp/qrw1507-chest rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 0fcdac70758ca09675fa28c4b854e4c1885e681b
+          cp tests/fixtures/ddv-save-core-accepted.Cargo.lock /tmp/qrw1507-chest/crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  /tmp/qrw1507-chest/crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          git cat-file -e ed5d9e8d9375b03aac196b7662111c1198cb5b98^{commit} || git fetch --no-tags origin ed5d9e8d9375b03aac196b7662111c1198cb5b98
+          git worktree add --detach /tmp/qrw1507-comp ed5d9e8d9375b03aac196b7662111c1198cb5b98
+          test "$(git -C /tmp/qrw1507-comp rev-parse HEAD)" = ed5d9e8d9375b03aac196b7662111c1198cb5b98
+          test "$(git -C /tmp/qrw1507-comp rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = c04bb6bc6df272f0a0087ae689a5773785da5b93
+          cp tests/fixtures/ddv-save-core-accepted.Cargo.lock /tmp/qrw1507-comp/crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  /tmp/qrw1507-comp/crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          git cat-file -e 699cddb27ac5993aab15eaef06d6a12a600f91ad^{commit} || git fetch --no-tags origin 699cddb27ac5993aab15eaef06d6a12a600f91ad
+          git worktree add --detach /tmp/qrw1507-vase 699cddb27ac5993aab15eaef06d6a12a600f91ad
+          test "$(git -C /tmp/qrw1507-vase rev-parse HEAD)" = 699cddb27ac5993aab15eaef06d6a12a600f91ad
+          test "$(git -C /tmp/qrw1507-vase rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 69e0f845dd5ed56c2dcd085446fb268564853089
+          cp tests/fixtures/ddv-save-core-accepted.Cargo.lock /tmp/qrw1507-vase/crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  /tmp/qrw1507-vase/crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+      - name: Actual generated WASM for the three distinct fixed Core sources
+        run: |
+          set -euo pipefail
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrw1507-tools
+          for m in chest comp vase; do
+            cargo build --locked --manifest-path /tmp/qrw1507-$m/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped,product-collection-scoped
+            mkdir -p tests/qa1507/$m static/qa1507/$m
+            /tmp/qrw1507-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/qa1507/$m --target web --no-typescript
+            cp tests/qa1507/$m/ddv_save_core_bg.wasm static/qa1507/$m/
+          done
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Reuse accepted synthetic fixture shapes with independent full-document oracle
+        run: |
+          mkdir -p src/routes/test-qrw1507
+          cat > tests/.qa1507-fixtures.mjs <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import assert from 'node:assert/strict';
+          import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
+          function fixture(name,d,want,selector){
+            const b=makeSyntheticP1gProfile(d);
+            writeFileSync('static/qa1507/'+name+'.p1g',b);
+            writeFileSync('static/qa1507/'+name+'.json',JSON.stringify({sha:createHash('sha256').update(b).digest('hex'),expected:want,selector}));
+          }
+          {
+          const lines=readFileSync('/tmp/qrw1507-chest/crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl','utf8').trim().split('\n').slice(1).map(JSON.parse);
+          const a=lines.find(x=>!x[0].includes('OogieBoogieHouse')&&x[4].every(g=>g[2].length===0));
+          const overlay=x=>({ID:19,GridDefaultLayoutPath:x[0],GridDefaultLayoutType:x[1],DefaultLayoutGridID:x[4][0][0],DefaultGridHashCode:-4,DefaultGridDataHashCode:6,ModifiedObjects:{},RemovedObjects:[]});
+          function doc(){const slots=Array.from({length:48},()=>({ItemID:0,Amount:0,State:null}));slots[0]={ItemID:30200000,Amount:50,State:null,Unknown:7};return {GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{GridCollection:{Grids:{7:{ID:7,GridDefaultLayoutPath:'',Objects:{4:{ID:4,ItemID:40001680,State:{Storage:{ContainerInventoryID:12,DefaultContainerInventoryData:'',UnlockKeyItemID:0,UnlockLocId:'',DesignID:null}}}}}},DiffGrids:{19:overlay(a)}},MissionSlots:{},Villages:[{Areas:{2:{GridIDs:[7],Unlocked:true}}}]},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{40000048:{Amount:3,Marker:'ItemMarker_None'}}},2:{ID:2,CompatibleItemType:'ItemType_ActivityItem',Inventory:{30200000:{Amount:2}}}},ContainerInventories:{0:{ID:0,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:30200000,Amount:5,State:{}}]},1:{ID:1,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:0,Amount:0,State:null}]},12:{ID:12,ParentItemID:40001680,BelongsToPlayer:true,BlockMoveTo:false,Size:48,ExtraSize:0,Inventory:slots}},BackpackOverflow:{Items:[]},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Opaque:{keep:'x'.repeat(1100000),n:7}};}
+            const d=doc(),want=structuredClone(d);want.Player.ContainerInventories[12].Inventory[0].Amount=49;
+            fixture('chest',d,want,null);
+          }
+          {
+          const keys=[40001887,40001888,40002657,40002680,40002959,40004417,40004507,40004508,40004509,40004510,40004511,40004512,40004518,40004520,40004521,40004522,40004559,40004561,40004562,40004563,40004572,40004573,40004576,40004580,40004668,160000205,160100139];
+          const target=40004511,peer=40004668,m=Object.fromEntries(keys.map(k=>[k,![40001887,target,peer].includes(k)]));
+          const d={GameInfo:{Version:626},World:{Unrelated:[1,2,3]},Player:{CollectionSets:[{CollectionDefinitionID:2120000159,GroupData:[{GroupIndex:0,State:'SetState_NotComplete',GroupsCollectionItems:m,UnknownMarker:'preserve'}]}],ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',Inventory:{[target]:{Amount:2},[peer]:{Amount:1}}}}},Opaque:{[target]:false,keep:Array.from({length:1100},(_,i)=>('Q'+i+':').padEnd(1024,'z'))}};
+            const want=structuredClone(d);want.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems[target]=true;
+            fixture('collection',d,want,null);
+          }
+          {
+            const item=40100038,G=301,N=92;
+          const root=(name,id,g)=>({SceneItemId:id,Unlocked:true,GridIDs:[g],CustomLocationPositionsPath:'SceneLayouts/FloatingIslands/FloatingIsland_'+name+'/CustomLocations.json'});
+          const grid=(name,id,next,objects)=>({ID:id,GridDefaultLayoutPath:'',GridDataPath:'GridData/FloatingIslands/FloatingIsland_'+name+'/FloatingIsland_'+name+'Grid-GridData.json',TessellationFactor:2,NextGridObjectID:next,Objects:objects});
+          const well={ID:0,ItemID:20300048,X:120,Y:120,Orientation:'GridOrientation_Down',State:{BuildingWithSkinData:{UpgradeState:{Level:1},CurrentSkinItemID:170200005}}};
+          function doc(g=301,s=742,seed=82){
+          return {GameInfo:{Version:626},World:{Villages:[],FloatingIslands:{1540000150:root('Snow',1540000150,g),1540000153:root('Savannah',1540000153,s)},GridCollection:{Grids:{[g]:grid('Snow',g,seed+10,{0:structuredClone(well),[seed]:{ID:seed,ItemID:item,X:16,Y:24,Orientation:'GridOrientation_Down',State:null}}),[s]:grid('Savannah',s,12,{0:structuredClone(well)})},DiffGrids:{}},MissionSlots:{},RecurringEvents:{}},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_GroundAlteration']},Inventory:{[item]:{Amount:99,Marker:'ItemMarker_None'}}}},AchievementsData:[],DutySlots:{},EvolveStatesProfile:{EvolveProgressState:{}},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{keep:'x'.repeat(1100000),escaped:'keep'}};
+          }
+          const aux=id=>({ID:id,GridDefaultLayoutPath:'',GridDataPath:'GridData/Villages/Village04-DarkLevel-GridData.json',TessellationFactor:2,NextGridObjectID:1,Objects:{}});
+          const wrappers=d=>{d.World.GridCollection.Grids[8801]=aux(8801);d.World.GridCollection.Grids[8802]=aux(8802);d.World.BuildingInfos={901:{GridIDs:{List:[8801,8802]}}};};
+          const preset=d=>{const a=aux(G),b=aux(9901);b.NextGridObjectID=45;b.Objects[44]={ID:44,ItemID:40000066,X:2,Y:2,Orientation:'GridOrientation_Up',State:{SubGrid:{GridID:G,DesignID:null}}};d.World.DecorationPresets=[{GridCollection:{Grids:{[G]:a,9901:b},DiffGrids:{}}}];};
+          const room=d=>{for(const id of [8811,8812,8813,8814,8815,8816])d.World.GridCollection.Grids[id]=aux(id);d.World.PlayerHouses=[{Floors:[{Rooms:{0:{FloorGridID:8811,WallGridIDs:{0:8812,1:8813,2:8814,3:8815}}}}]}];d.World.BuildingInfos={...(d.World.BuildingInfos||{}),902:{Room:{FloorGridID:8816,WallGridIDs:{}}}};};
+          const combine=d=>{wrappers(d);preset(d);room(d);};
+            const d=doc();d.Opaque={escaped:'keep'};combine(d);
+            const want=structuredClone(d),gr=want.World.GridCollection.Grids[G],coords=[[20,24],[24,24],[16,28],[20,28],[24,28],[16,32],[20,32],[24,32]];
+            coords.forEach(([X,Y],i)=>gr.Objects[N+i]={ID:N+i,ItemID:item,Orientation:'GridOrientation_Down',State:null,X,Y});gr.NextGridObjectID+=coords.length;
+            fixture('comp',d,want,{seedId:82});
+          }
+          {
+            const item=40000066,G=7,N=9;
+          const data=readFileSync('/tmp/qrw1507-vase/crates/ddv-save-core/data/steam626-vase-geometry-quota.jsonl','utf8').trim().split('\n').slice(1).map(JSON.parse);
+          const bits=Buffer.concat(data.filter(x=>x[0]==='floor').map(x=>Buffer.from(x[2],'hex')));
+          const floor=(x,y)=>{if(x<2||x+4>250||y<2||y+4>175)return false;for(let i=x-2;i<x+4;i++)for(let j=y-2;j<y+4;j++){const n=i*175+j;if(!(bits[n>>3]&(1<<(n%8))))return false;}return true};
+          let poses=[];for(let x=2;x<247;x++)for(let y=2;y<172;y++)if(floor(x,y))poses.push([x*2,y*2]);assert.equal(poses.length,9299);
+          const [x,y]=poses[0], [x2,y2]=poses[poses.length-1];
+          function doc(gid=7,next=9,x=x2,y=y2){
+          const ox=x<250?480:2,oy=y<175?330:2;
+          return {GameInfo:{Version:626},World:{Villages:[{Areas:{6:{Unlocked:true,GridIDs:[gid]}},VillageObjectLimitName:'Village04ObjectLimit',HighEndVillageObjectLimitName:'HighEndVillageObjectLimit',BoughtObjectLimit:{UniqueLimit:0,InstanceLimit:0,Exclusions:[],SpecificItemLimits:[]}}],FloatingIslands:{},ExtraLimitObject:false,GridCollection:{Grids:{[gid]:{ID:gid,GridDataPath:'GridData/Villages/Village04-DarkLevel-GridData.json',GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:next,Objects:{4:{ID:4,ItemID:item,X:ox,Y:oy,Orientation:'GridOrientation_Up',State:null}}}},DiffGrids:{}},MissionSlots:{},RecurringEvents:{},TimeLostTreasures:{},NextTimeLostTreasureID:1,Snippets:{},NextSnippetID:0},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{[item]:{Amount:3,Marker:'ItemMarker_None'}}}},ContainerInventories:{},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{keep:'x'.repeat(1100000),escaped:'keep'}};
+          }
+          const aux=id=>({ID:id,GridDefaultLayoutPath:'',GridDataPath:'GridData/Villages/Village04-DarkLevel-GridData.json',TessellationFactor:2,NextGridObjectID:1,Objects:{}});
+          const wrappers=d=>{d.World.GridCollection.Grids[8801]=aux(8801);d.World.GridCollection.Grids[8802]=aux(8802);d.World.BuildingInfos={901:{GridIDs:{List:[8801,8802]}}};};
+          const preset=d=>{const a=aux(G),b=aux(9901);b.NextGridObjectID=45;b.Objects[44]={ID:44,ItemID:40000066,X:2,Y:2,Orientation:'GridOrientation_Up',State:{SubGrid:{GridID:G,DesignID:null}}};d.World.DecorationPresets=[{GridCollection:{Grids:{[G]:a,9901:b},DiffGrids:{}}}];};
+          const room=d=>{for(const id of [8811,8812,8813,8814,8815,8816])d.World.GridCollection.Grids[id]=aux(id);d.World.PlayerHouses=[{Floors:[{Rooms:{0:{FloorGridID:8811,WallGridIDs:{0:8812,1:8813,2:8814,3:8815}}}}]}];d.World.BuildingInfos={...(d.World.BuildingInfos||{}),902:{Room:{FloorGridID:8816,WallGridIDs:{}}}};};
+          const combine=d=>{wrappers(d);preset(d);room(d);};
+            const d=doc(7,9,x,y);d.Opaque={escaped:'keep'};combine(d);
+            const want=structuredClone(d),gr=want.World.GridCollection.Grids[G];gr.Objects[N]={ID:N,ItemID:item,Orientation:'GridOrientation_Up',State:null,X:x,Y:y};gr.NextGridObjectID++;want.Player.ListInventories[0].Inventory[item].Amount--;
+            fixture('vase',d,want,{gridId:G,x,y});
+          }
+          NODE
+          node --check tests/.qa1507-fixtures.mjs
+          node tests/.qa1507-fixtures.mjs
+          cat > src/routes/test-qrw1507/+page.svelte <<'SVELTE'
+          <script>
+          import {onMount} from 'svelte';
+          onMount(()=>{const w=new Worker(new URL('./qa.worker.mjs',import.meta.url),{type:'module'});w.onmessage=e=>window.__qrw1507=e.data;w.onerror=e=>window.__qrw1507={error:e.message};return()=>w.terminate()});
+          </script>
+          <p>Isolated synthetic shared closure QA</p>
+          SVELTE
+          cat > src/routes/test-qrw1507/qa.worker.mjs <<'NODE'
+          import chestInit,{WorkerWasmSource as Chest} from '../../../tests/qa1507/chest/ddv_save_core.js';
+          import compInit,{WorkerWasmSource as Comp} from '../../../tests/qa1507/comp/ddv_save_core.js';
+          import vaseInit,{WorkerWasmSource as Vase} from '../../../tests/qa1507/vase/ddv_save_core.js';
+          import {createProductSwitch626ChestLocalAdapter as swChest,createProductSteam626ChestLocalAdapter as stChest,createProductFixedCollectionLocalAdapter as coll,createProductSteam626Comp03LocalAdapter as comp,createProductSteam626VaseAddLocalAdapter as vase} from '$lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          import {createProductWasmReadOwner} from '$lib/ddv/core/save/product-wasm-read-owner.mjs';
+          import {createP1gRustWorkerReadOnlyBridge} from '$lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+          const need=(v,k)=>{if(!v)throw Error(k)},sha=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
+          const sw={platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626,externallyConfirmed:true},st={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true};
+          let neg=0;const deny=async(f,k)=>{let rejected=false;try{await f()}catch{rejected=true}need(rejected,k);neg++};
+          const cmd={kind:'ChestExistingSlotAmountDecrease',containerId:12,slotIndex:0,expectedItemId:30200000,expectedOldAmount:50,newAmount:49};
+          try{
+            for(const [name,init] of [['chest',chestInit],['comp',compInit],['vase',vaseInit]]){const r=await fetch('/qa1507/'+name+'/ddv_save_core_bg.wasm');need(r.ok&&r.headers.get('content-type')?.startsWith('application/wasm'),'WASM MIME');await init({module_or_path:await r.arrayBuffer()})}
+            const modes=[{allowSwitch626ChestSource:true},{allowSteam626ChestSource:true},{allowScopedAmountSource:true},{allowScopedCollectionSource:true},{placementScope:'comp03'},{placementScope:'vase'}],noFactory=async()=>{throw Error('must not construct')};
+            for(let i=0;i<modes.length;i++)for(let j=i+1;j<modes.length;j++){if(i===4&&j===5)continue;const args={...modes[i],...modes[j]};await deny(()=>createProductWasmReadOwner(noFactory,args),'mixed owner');await deny(()=>createP1gRustWorkerReadOnlyBridge(noFactory,args),'mixed bridge')}
+            for(const opts of [modes[0],modes[1],modes[4],modes[5]]){await deny(()=>createProductWasmReadOwner(noFactory,{...opts,allowCollectionCandidateSource:true}),'candidate conflict');await deny(()=>createP1gRustWorkerReadOnlyBridge(noFactory,{...opts,allowCollectionCandidateSource:true}),'candidate bridge conflict')}
+            const root=await navigator.storage.getDirectory(),results=[];
+            for(const [name,fixture,create,Cls,build,count] of [['switch-chest','chest',swChest,Chest,sw,1],['steam-chest','chest',stChest,Chest,st,1],['collection','collection',coll,Chest,st,1],['comp03','comp',comp,Comp,st,9],['vase','vase',vase,Vase,st,3]]){
+              const bytes=new Uint8Array(await (await fetch('/qa1507/'+fixture+'.p1g')).arrayBuffer()),meta=await(await fetch('/qa1507/'+fixture+'.json')).json();
+              need(await sha(bytes)===meta.sha,'fixture SHA');const file=new File([bytes],name+'.p1g'),input={file,build,originalSha256:meta.sha};
+              let opens=0,closes=0,failClose=false;
+              const factory=async()=>({WorkerWasmSource:class extends Cls{constructor(...x){super(...x);opens++}close(){if(failClose){failClose=false;throw Error('QA close failure before actual cleanup')}closes++;return super.close()}}});
+              const a=create({wasmFactory:factory});
+              await deny(()=>a.open({...input,build:name==='collection'?{...build,schema:624}:build===sw?st:sw}),'foreign build '+name);need(opens===0,'wrong build constructed');
+              await a.open(input);need(opens===1,'one owner '+name);
+              let selection;
+              if(name==='collection'){
+                need(!a.stageTyped&&!a.previewPlacement,'collection surface');const t=await a.inspectCollectionTargets();selection=t.selection;need(t.targets.length===1,'collection exact1');
+                await deny(()=>a.stageCollectionTarget(selection,0),'prebackup collection');await a.backupOriginal(selection);const p=await a.previewCollectionTarget(selection,0);need(p.exactFieldChangedCount===1,'collection count');await a.stageCollectionTarget(selection,0);
+              }else if(count===1){
+                need(!a.stageCollectionTarget&&!a.previewPlacement,'chest surface');await deny(()=>a.stageTyped([cmd]),'prebackup chest');await a.backupOriginal();const t=await a.listVerifiedTargets();need(t.targets.length===1&&t.targets[0].oldAmount===50&&t.targets[0].itemId===30200000,'chest target');await a.stageTyped([cmd]);
+              }else{
+                need(!a.stageTyped&&!a.stageCollectionTarget,'placement surface');await deny(()=>a.stagePlacement(),'prebackup placement');await a.backupOriginal();const p=await a.previewPlacement(meta.selector);need(p.exactFieldChangedCount===count,'placement projection');need((await a.stagePlacement()).exactFieldChangedCount===count,'placement stage');
+              }
+              const args=name==='collection'?[selection]:[];
+              await a.undo(...args);await deny(()=>a.exportEditedCopy(...args),'undo output');await a.redo(...args);
+              const o=await a.exportEditedCopy(...args);need(o.freshWorkerReopenVerified===true&&o.writerAuthorized===false,'fresh worker');const dl=which=>a.downloadVerifiedCopy(...args,which);
+              const b=await dl('backup'),e=await dl('edited');need(b.name!==e.name&&b.name!==file.name&&e.name!==file.name,'separate names');need(await sha(b.encryptedBytes)===meta.sha&&await sha(new Uint8Array(await file.arrayBuffer()))===meta.sha,'original backup');
+              const bfile=await(await root.getFileHandle(b.name)).getFile(),efile=await(await root.getFileHandle(e.name)).getFile();need(await sha(new Uint8Array(await bfile.arrayBuffer()))===meta.sha&&await sha(new Uint8Array(await efile.arrayBuffer()))===e.sha256,'actual OPFS');
+              await deny(()=>a.exportEditedCopy(...args),'replay');await a.close();await deny(()=>dl('edited'),'closed');need(opens===1&&closes===1,'one actual session close');
+              const q=create({wasmFactory:factory});await q.open(input);failClose=true;await deny(()=>q.close(),'failed close');const before=opens;await deny(()=>q.open(input),'unverified close barrier');need(opens===before,'no second session during failure');await q.close();await q.open(input);await q.close();need(opens===3&&closes===3,'retry close/reopen actual');
+              results.push({name,fixture,count,opens,closes,backup:Array.from(b.encryptedBytes),edited:Array.from(e.encryptedBytes),writer:false});
+            }
+            postMessage({ok:true,results,neg});
+          }catch(e){postMessage({error:String(e?.stack||e)})}
+          NODE
+      - name: Actual Chrome OPFS and independent OS full-document reopen
+        run: |
+          cat > tests/.qa1507-browser.mjs <<'NODE'
+          import {chromium} from 'playwright-core';import {spawn,spawnSync} from 'node:child_process';import {writeFileSync,readFileSync} from 'node:fs';import assert from 'node:assert/strict';
+          const origin='http://127.0.0.1:4182',server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4182','--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});let browser;
+          try{
+            for(let i=0;i<100;i++){try{if((await fetch(origin+'/test-qrw1507/')).ok)break}catch{}await new Promise(r=>setTimeout(r,250))}
+            const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});const page=await browser.newPage();await page.goto(origin+'/test-qrw1507/');await page.waitForFunction(()=>!!window.__qrw1507,{},{timeout:180000});const q=await page.evaluate(()=>window.__qrw1507);assert.ok(q.ok,q.error);assert.equal(q.results.length,5);assert.equal(q.neg,71);
+            for(const r of q.results){writeFileSync('/tmp/qrw1507-'+r.name+'.p1g',Buffer.from(r.edited));assert.deepEqual(Buffer.from(r.backup),readFileSync('static/qa1507/'+r.fixture+'.p1g'));const check=spawnSync(process.execPath,['--input-type=module','-e',"import {readFileSync} from 'node:fs';import assert from 'node:assert/strict';import {p1gPackagedProfileCodec as c} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';const [f,m]=process.argv.slice(1);const p=await c.loadProfile(new Uint8Array(readFileSync(f)));assert.deepEqual(JSON.parse(p.jsonText),JSON.parse(readFileSync(m,'utf8')).expected)",'/tmp/qrw1507-'+r.name+'.p1g','static/qa1507/'+r.fixture+'.json'],{stdio:'inherit'});assert.equal(check.status,0);console.log('QRW1507_SHARED_OP_ACTUAL_PASS',JSON.stringify({operation:r.name,exact:r.count,actualRustSessions:r.opens,closes:r.closes,opfs:true,independentReopen:true,writer:false}))}
+            console.log('QRW1507_SHARED_CLOSURE_ACTUAL_PASS',JSON.stringify({positive:5,negative:q.neg,actualOpfs:true,actualSignedPositive:false,historicalPlacementABIOnly:true}));
+          }finally{if(browser)await browser.close();server.kill()}
+          NODE
+          node tests/.qa1507-browser.mjs
+      - name: Current production OFF closure (no synthetic assets or route)
+        run: |
+          set -euo pipefail
+          rm -rf src/routes/test-qrw1507 static/qa1507 tests/qa1507
+          BASE_PATH=/web npm run build
+          test ! -e build/worker-wasm-scoped-switch-chest
+          test ! -e build/worker-wasm-scoped-steam-chest
+          mkdir -p "$RUNNER_TEMP/qrw1507-static"
+          ln -s "$PWD/build" "$RUNNER_TEMP/qrw1507-static/web"
+          python3 -m http.server 4177 --bind 127.0.0.1 --directory "$RUNNER_TEMP/qrw1507-static" >/tmp/qrw1507-http.log 2>&1 &
+          for i in $(seq 1 30);do if curl -fsS http://127.0.0.1:4177/web/editor/chest/ >/dev/null;then break;fi;sleep 1;done
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {spawnSync} from 'node:child_process';
+          const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0),browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{const ctx=await browser.newContext();await ctx.addInitScript(()=>{window.__workers=0;window.Worker=new Proxy(window.Worker,{construct(t,a,n){window.__workers++;return Reflect.construct(t,a,n)}});for(const k of ['productSwitchChestEnabled','productSteamChestEnabled','productCollectionEnabled','verifiedLocalDevGate'])localStorage.setItem(k,'true')});const p=await ctx.newPage(),errors=[],req=[];p.on('pageerror',e=>errors.push(String(e)));p.on('request',r=>{if(r.url().includes('/worker-wasm-scoped-'))req.push(r.url())});
+          for(const [url,selector,scope] of [['chest/','[data-switch-chest-product-route]','data-switch-chest-scope'],['chest/steam/','[data-steam-chest-product-route]','data-steam-chest-scope'],['collection/','[data-collection-product-route]','data-collection-scope'],['world/comp03/','[data-placement-product-route]','data-placement-scope'],['world/vase/','[data-placement-product-route]','data-placement-scope']]){const r=await p.goto('http://127.0.0.1:4177/web/editor/'+url+'?mode=public-accepted&enable=true');assert.equal(r.status(),200);await p.waitForFunction(()=>!!document.documentElement.dataset.locale);await p.waitForLoadState('networkidle');const route=p.locator(selector);assert.equal(await route.getAttribute(scope),'off');assert.equal(await route.locator('input[type=file]').count(),0);assert.equal(await p.evaluate(()=>window.__workers),0)}
+          assert.deepEqual(errors,[]);assert.deepEqual(req,[]);console.log('QRW1507_SHARED_OFF_ACTUAL_PASS',JSON.stringify({routes:5,workers:0,scopedRequests:0,pageErrors:0}));await ctx.close()}finally{await browser.close()}
+          NODE
