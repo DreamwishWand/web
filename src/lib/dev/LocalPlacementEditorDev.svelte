@@ -14,15 +14,16 @@
  $: backpack=operation.startsWith('backpack-');
  $: wardrobe=operation.startsWith('wardrobe-');
  $: fd01=operation==='fd01';
+ $: fd02=operation==='fd02';
  $: fe01=operation==='fe01';
- $: fence=fd01||fe01;
+ $: fence=fd01||fd02||fe01;
  $: mixedRoad=operation==='sr03'||operation==='rm01';
  $: appearance=operation==='hair'||operation==='skin';
- $: rawTitle=fd01?words.fd01Title:fe01?words.fe01Title:operation==='hair'?words.hairTitle:operation==='skin'?words.skinTitle:operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
+ $: rawTitle=fd01?words.fd01Title:fd02?words.fd02Title:fe01?words.fe01Title:operation==='hair'?words.hairTitle:operation==='skin'?words.skinTitle:operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
  $: title=productMode?rawTitle.split(' — ')[0]+(productMode==='private-product-v2'?' — V2':''):rawTitle;
- $: detail=fd01?words.fd01Detail:fe01?words.fe01Detail:appearance?(operation==='hair'?words.hairDetail:words.skinDetail):wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:words.vaseDetail;
+ $: detail=fd01?words.fd01Detail:fd02?words.fd02Detail:fe01?words.fe01Detail:appearance?(operation==='hair'?words.hairDetail:words.skinDetail):wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:words.vaseDetail;
  $: p=state.preview;
- $: valid=fe01?Number.isSafeInteger(grid)&&grid>0&&grid<=0xffffffff&&oldIds.every(v=>Number.isSafeInteger(v)&&v>0&&v<=0xffffffff)&&new Set(oldIds).size===4:fd01?Number.isSafeInteger(grid)&&grid>0&&grid<=0xffffffff&&[x,y].every(v=>Number.isSafeInteger(v)&&v>=0&&v<=0xffffffff):(wardrobe||appearance)?true:backpack?Number.isSafeInteger(x)&&x>=0&&x<256&&Number.isSafeInteger(y)&&y>=0&&y<256&&x!==y:operation==='comp03'?Number.isSafeInteger(seed)&&seed>0:Number.isSafeInteger(grid)&&grid>0&&Number.isSafeInteger(x)&&x>=0&&Number.isSafeInteger(y)&&y>=0&&(!mixedRoad||(x>0&&y>0&&x!==y));
+ $: valid=fe01?Number.isSafeInteger(grid)&&grid>0&&grid<=0xffffffff&&oldIds.every(v=>Number.isSafeInteger(v)&&v>0&&v<=0xffffffff)&&new Set(oldIds).size===4:(fd01||fd02)?Number.isSafeInteger(grid)&&grid>0&&grid<=0xffffffff&&[x,y].every(v=>Number.isSafeInteger(v)&&v>=0&&v<=0xffffffff):(wardrobe||appearance)?true:backpack?Number.isSafeInteger(x)&&x>=0&&x<256&&Number.isSafeInteger(y)&&y>=0&&y<256&&x!==y:operation==='comp03'?Number.isSafeInteger(seed)&&seed>0:Number.isSafeInteger(grid)&&grid>0&&Number.isSafeInteger(x)&&x>=0&&Number.isSafeInteger(y)&&y>=0&&(!mixedRoad||(x>0&&y>0&&x!==y));
  onMount(()=>{
   const scope=productPlacementPortScope(trustedWorkerAdapter);
   if(!scope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
@@ -94,7 +95,7 @@
       </figure>
      {/if}
      {:else if fe01}<p>{words.retainedId}: {p.retainedIds.join(', ')} · {words.fenceDeleteId}: {p.deletedIds.join(', ')}</p><p>{words.added}: {p.nextObjectId}, {p.nextObjectId+1}, {p.nextObjectId+2}, {p.nextObjectId+3}</p>
-     {:else if fd01}<p>{words.x}: {p.x} · {words.y}: {p.y}</p><p>{words.added}: {p.nextObjectId}, {p.nextObjectId+1}, {p.nextObjectId+2}</p>
+     {:else if fd01||fd02}<p>{words.x}: {p.x} · {words.y}: {p.y}</p><p>{words.added}: {p.nextObjectId}, {p.nextObjectId+1}, {p.nextObjectId+2}</p>
      {:else if mixedRoad}<p>{words.retainedId}: {p.retainedId} · {words.movedId}: {p.movedId}</p><p>{words.added}: {p.nextObjectId}, {p.nextObjectId+1}, {p.nextObjectId+2}</p>
      {:else}<p>X: {p.x} · Y: {p.y} · {p.orientation}</p>{/if}
      {#if !fe01}<p>{p.oldAmount} → {p.newAmount}</p>{/if}{/if}<p>{detail}</p>
