@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 31ed9a5935f7db06686afb2ded3f41666c99608a
+          ref: 1ecac0a1be23f52197530b8b3c3aafbfcef2a7fb
           fetch-depth: 0
           persist-credentials: false
       - name: Exact fixed workflow actual shell and isolated Git diffs
@@ -26,7 +26,7 @@ jobs:
           new=p.read_text();old=subprocess.check_output(['git','show','bccca45b1fba8982043b9a2a71fd216d2dbe67e3:'+str(p)],text=True)
           def blob(s):
            b=s.encode();return hashlib.sha1(('blob '+str(len(b))+'\0').encode()+b).hexdigest()
-          assert blob(new)=='cd21d298a0ad21ec5f83289249c45df86b8dd707' and blob(old)=='22c0b243253a06fe61113b208cb1fe31dd050dd8'
+          assert blob(new)=='66bea97ab0f84b03869ab37f3d2bc9786f4aec13' and blob(old)=='22c0b243253a06fe61113b208cb1fe31dd050dd8'
           def extract(s):
            a=s.index('          set -euo pipefail',s.index('      - name: Current-main bounded Item regression'))
            b=s.index('      - name: Source/version',a)
@@ -69,5 +69,6 @@ jobs:
             if rc==0:miss.append(dict(paths=sorted(paths),rc=rc,output=out.strip(),calls=c))
           print('ACT1247_DIRECT_MEDIA_OBSERVED '+json.dumps(dict(pos=pos,neg=neg,legacy=legacy,missingResolverAccepted=miss,actualGitDiff=True,rawShell=True,nodeDispatchSpy=True)))
           assert not miss,'New pin-module trigger skips scope gate when resolver is absent'
+          print('ACT1247_REPAIR_PASS '+json.dumps(dict(pos=pos,neg=neg+8,legacy=legacy,missingResolverDenied=8)))
           
           PY
