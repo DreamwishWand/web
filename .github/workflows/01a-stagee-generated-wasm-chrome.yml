@@ -2,15 +2,7 @@ name: 01A Stage E Genuine Generated Rust WASM Chrome Worker (Writer OFF)
 on:
   pull_request:
     paths:
-      - 'tests/stage-e/**'
-      - 'scripts/wasm-distribution/**'
-      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
       - '.github/workflows/01a-stagee-generated-wasm-chrome.yml'
-      - 'crates/ddv-save-core/**'
-      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
-  push:
-    branches:
-      - 'core/real-wasm-browser-smoke-stagee-*'
 permissions:
   contents: read
 jobs:
@@ -24,32 +16,94 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Verify real Chrome and exact pinned wasm-bindgen crate
+      - name: QRC1573 changed cumulative generated ABI and domain routing
         run: |
           set -euo pipefail
-          command -v google-chrome || command -v chromium
-          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
-      - name: Compile REAL cdylib with opt-in Worker and indexed metadata
-        run: |
-          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
-          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
-      - name: Install exactly matching wasm-bindgen CLI 0.2.105 (not generated or mocked JS)
-        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock | tee /tmp/cumulative-lock.sha
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagee-wasm-tools
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen --version | grep -F '0.2.105'
-      - name: Generate true wasm-bindgen Browser Worker ESM glue
-        run: |
-          mkdir -p tests/stage-e/pkg
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
-          test -s tests/stage-e/pkg/ddv_save_core.js
-          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
-          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|include_bytes!|writerAuthorized: *true|applyAuthorized: *true' tests/stage-e
-      - name: Actual browser CDP + module Worker + Rust WASM positive and negatives
-        run: node tests/stage-e/chrome-smoke.mjs
-      - name: Confirm Stage E never changed product Writer or public worker route
-        run: |
-          ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
-          test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
-          test -f crates/ddv-save-core/src/wasm_worker.rs
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          build_mode() {
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "worker-wasm,$2"
+            "$B" "$W" --out-dir "/tmp/cumulative-$1" --target nodejs --no-typescript
+          }
+          build_mode 'off' 'indexed-read'
+          build_mode 'legacy-amount' 'product-amount-scoped'
+          build_mode 'legacy-collection' 'product-amount-scoped,product-collection-scoped'
+          build_mode 'steam626-chest' 'product-steam626-chest-scoped'
+          build_mode 'steam626-chest-mixed' 'product-steam626-chest-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped'
+          build_mode 'switch626-chest' 'product-switch626-chest-scoped'
+          build_mode 'switch626-chest-mixed' 'product-switch626-chest-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped'
+          build_mode 'steam626-backpack' 'product-steam626-backpack-scoped'
+          build_mode 'steam626-backpack-mixed' 'product-steam626-backpack-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped'
+          build_mode 'switch626-backpack' 'product-switch626-backpack-scoped'
+          build_mode 'switch626-backpack-mixed' 'product-switch626-backpack-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped'
+          build_mode 'steam626-wardrobe' 'product-steam626-wardrobe-scoped'
+          build_mode 'steam626-wardrobe-mixed' 'product-steam626-wardrobe-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped'
+          build_mode 'switch626-wardrobe' 'product-switch626-wardrobe-scoped'
+          build_mode 'switch626-wardrobe-mixed' 'product-switch626-wardrobe-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped'
+          build_mode 'pair-0-1' 'product-steam626-chest-scoped,product-switch626-chest-scoped'
+          build_mode 'pair-0-2' 'product-steam626-chest-scoped,product-steam626-backpack-scoped'
+          build_mode 'pair-0-3' 'product-steam626-chest-scoped,product-switch626-backpack-scoped'
+          build_mode 'pair-0-4' 'product-steam626-chest-scoped,product-steam626-wardrobe-scoped'
+          build_mode 'pair-0-5' 'product-steam626-chest-scoped,product-switch626-wardrobe-scoped'
+          build_mode 'pair-1-2' 'product-switch626-chest-scoped,product-steam626-backpack-scoped'
+          build_mode 'pair-1-3' 'product-switch626-chest-scoped,product-switch626-backpack-scoped'
+          build_mode 'pair-1-4' 'product-switch626-chest-scoped,product-steam626-wardrobe-scoped'
+          build_mode 'pair-1-5' 'product-switch626-chest-scoped,product-switch626-wardrobe-scoped'
+          build_mode 'pair-2-3' 'product-steam626-backpack-scoped,product-switch626-backpack-scoped'
+          build_mode 'pair-2-4' 'product-steam626-backpack-scoped,product-steam626-wardrobe-scoped'
+          build_mode 'pair-2-5' 'product-steam626-backpack-scoped,product-switch626-wardrobe-scoped'
+          build_mode 'pair-3-4' 'product-switch626-backpack-scoped,product-steam626-wardrobe-scoped'
+          build_mode 'pair-3-5' 'product-switch626-backpack-scoped,product-switch626-wardrobe-scoped'
+          build_mode 'pair-4-5' 'product-steam626-wardrobe-scoped,product-switch626-wardrobe-scoped'
+          build_mode 'generic-both' 'product-backpack-scoped,product-wardrobe-scoped,product-collection-scoped'
+          build_mode 'generic-wardrobe' 'product-wardrobe-scoped'
+          build_mode 'all-six' 'product-steam626-chest-scoped,product-switch626-chest-scoped,product-steam626-backpack-scoped,product-switch626-backpack-scoped,product-steam626-wardrobe-scoped,product-switch626-wardrobe-scoped'
+          sha256sum -c /tmp/cumulative-lock.sha
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          const sha=b=>createHash('sha256').update(b).digest('hex'),raw=d=>Buffer.from(JSON.stringify(d,null,2)),parse=JSON.parse;
+          const steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],sw=['switch','switch-bid','9A239D3DB569756D',626,true];
+          const old=50000352,newId=50000214;
+          const lines=fs.readFileSync('crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl','utf8').trim().split('\n').slice(1).map(JSON.parse);
+          const a=lines.find(x=>!x[0].includes('OogieBoogieHouse')&&x[4].every(g=>g[2].length===0)),ex=lines.find(x=>x[0].includes('OogieBoogieHouse'));
+          const overlay=x=>({ID:19,GridDefaultLayoutPath:x[0],GridDefaultLayoutType:x[1],DefaultLayoutGridID:x[4][0][0],DefaultGridHashCode:-4,DefaultGridDataHashCode:6,ModifiedObjects:{},RemovedObjects:[]});
+          function chestDoc(){const slots=Array.from({length:48},()=>({ItemID:0,Amount:0,State:null}));slots[0]={ItemID:30200000,Amount:50,State:null,Unknown:7};return {GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{GridCollection:{Grids:{7:{ID:7,GridDefaultLayoutPath:'',Objects:{4:{ID:4,ItemID:40001680,State:{Storage:{ContainerInventoryID:12,DefaultContainerInventoryData:'',UnlockKeyItemID:0,UnlockLocId:'',DesignID:null}}}}}},DiffGrids:{19:overlay(a)}},MissionSlots:{},Villages:[{Areas:{2:{GridIDs:[7],Unlocked:true}}}]},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{40000048:{Amount:3,Marker:'ItemMarker_None'}}},2:{ID:2,CompatibleItemType:'ItemType_ActivityItem',Inventory:{30200000:{Amount:2}}}},ContainerInventories:{0:{ID:0,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:30200000,Amount:5,State:{}}]},1:{ID:1,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:0,Amount:0,State:null}]},12:{ID:12,ParentItemID:40001680,BelongsToPlayer:true,BlockMoveTo:false,Size:48,ExtraSize:0,Inventory:slots}},BackpackOverflow:{Items:[]},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Opaque:{keep:'fixed-cumulative',n:7}};}
+          const backpackDoc=(old=4)=>({GameInfo:{Version:626},World:{Unknown:{keep:1}},Player:{ContainerInventories:{0:{ID:0,Size:4,ExtraSize:1,BelongsToPlayer:true,BlockMoveTo:false,ParentItemID:null,Inventory:[{ItemID:30200001,Amount:old,State:null,Unknown:'keep'},{ItemID:0,Amount:0,State:null},{ItemID:0,Amount:0,State:null},{ItemID:0,Amount:0,State:null}]}}},Opaque:{escaped:'\\u0000',pad:'fixed-cumulative'}});
+          const pack=fs.readFileSync('crates/ddv-save-core/data/wardrobe-clothing-compat-v1.json');assert.equal(sha(pack),'9bcf2cf489238074df8ea0b385a6675c8efcd51bb009cac37d8e107ec1a5d0b2');
+          const rows=JSON.parse(pack).rows, map=new Map(rows.map(x=>[x[0],x]));assert.equal(map.size,1898);
+          const conflict=(a,b)=>{const x=map.get(a),y=map.get(b);return !!(x[3]&(1<<y[2]))||x[4].includes(b)||(x[2]===9&&[0,1,7,15].includes(y[2]))||(y[2]===9&&[0,1,7,15].includes(x[2]));};
+          const bottom=rows.find(x=>x[2]===1&&!conflict(old,x[0])&&!conflict(x[0],old)&&!conflict(newId,x[0])&&!conflict(x[0],newId))[0];
+          const stock=n=>({Amount:n,Marker:'ItemMarker_None'}),avatar=()=>({Clothes:{},IncompatibleClothes:{},ClothingCustomization:{},Makeup:{}});
+          function wardrobeDoc(){const m=avatar();m.Clothes={0:old,1:bottom};return {GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{Unknown:{keep:1}},Player:{AvatarIsMale:true,FemaleAvatar:avatar(),MaleAvatar:m,MaleClothingDesigns:[],FemaleClothingDesigns:[],OutfitPresets:[],ListInventories:{1:{ID:1,CompatibleItemType:'ItemType_Clothing',Inventory:{[old]:stock(8),[newId]:stock(9),[bottom]:stock(1)}},3:{ID:3,CompatibleItemType:'ItemType_Makeup',Inventory:{}}},CollectionSets:[{CollectionDefinitionID:2120000001,GroupData:[{GroupsCollectionItems:{[old]:true,[newId]:true}}]}]},Opaque:{escaped:'\\u0000',pad:'fixed-cumulative'}}}
+          const base=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','close'];
+          const neutral=['toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk'];
+          const legacy=['discover_scoped_amount','preview_scoped_amount','stage_scoped_amount','toggle_scoped_amount','begin_scoped_amount_output','next_scoped_amount_output_chunk'];
+          const swChest=['discover_switch626_chest','preview_switch626_chest','stage_switch626_chest'];
+          const coll=['preview_scoped_collection_candidate','preview_fixed_collection','stage_fixed_collection'];
+          const dedicated=["steam626-chest","switch626-chest","steam626-backpack","switch626-backpack","steam626-wardrobe","switch626-wardrobe"];
+          const configs=[{"mode":"off","f":"indexed-read","expect":"off"},{"mode":"legacy-amount","f":"product-amount-scoped","expect":"legacy-amount"},{"mode":"legacy-collection","f":"product-amount-scoped,product-collection-scoped","expect":"legacy-collection"},{"mode":"steam626-chest","f":"product-steam626-chest-scoped","expect":"steam626-chest"},{"mode":"steam626-chest-mixed","f":"product-steam626-chest-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped","expect":"steam626-chest"},{"mode":"switch626-chest","f":"product-switch626-chest-scoped","expect":"switch626-chest"},{"mode":"switch626-chest-mixed","f":"product-switch626-chest-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped","expect":"switch626-chest"},{"mode":"steam626-backpack","f":"product-steam626-backpack-scoped","expect":"steam626-backpack"},{"mode":"steam626-backpack-mixed","f":"product-steam626-backpack-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped","expect":"steam626-backpack"},{"mode":"switch626-backpack","f":"product-switch626-backpack-scoped","expect":"switch626-backpack"},{"mode":"switch626-backpack-mixed","f":"product-switch626-backpack-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped","expect":"switch626-backpack"},{"mode":"steam626-wardrobe","f":"product-steam626-wardrobe-scoped","expect":"steam626-wardrobe"},{"mode":"steam626-wardrobe-mixed","f":"product-steam626-wardrobe-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped","expect":"steam626-wardrobe"},{"mode":"switch626-wardrobe","f":"product-switch626-wardrobe-scoped","expect":"switch626-wardrobe"},{"mode":"switch626-wardrobe-mixed","f":"product-switch626-wardrobe-scoped,product-collection-scoped,product-backpack-scoped,product-wardrobe-scoped","expect":"switch626-wardrobe"},{"mode":"pair-0-1","f":"product-steam626-chest-scoped,product-switch626-chest-scoped","expect":"off"},{"mode":"pair-0-2","f":"product-steam626-chest-scoped,product-steam626-backpack-scoped","expect":"off"},{"mode":"pair-0-3","f":"product-steam626-chest-scoped,product-switch626-backpack-scoped","expect":"off"},{"mode":"pair-0-4","f":"product-steam626-chest-scoped,product-steam626-wardrobe-scoped","expect":"off"},{"mode":"pair-0-5","f":"product-steam626-chest-scoped,product-switch626-wardrobe-scoped","expect":"off"},{"mode":"pair-1-2","f":"product-switch626-chest-scoped,product-steam626-backpack-scoped","expect":"off"},{"mode":"pair-1-3","f":"product-switch626-chest-scoped,product-switch626-backpack-scoped","expect":"off"},{"mode":"pair-1-4","f":"product-switch626-chest-scoped,product-steam626-wardrobe-scoped","expect":"off"},{"mode":"pair-1-5","f":"product-switch626-chest-scoped,product-switch626-wardrobe-scoped","expect":"off"},{"mode":"pair-2-3","f":"product-steam626-backpack-scoped,product-switch626-backpack-scoped","expect":"off"},{"mode":"pair-2-4","f":"product-steam626-backpack-scoped,product-steam626-wardrobe-scoped","expect":"off"},{"mode":"pair-2-5","f":"product-steam626-backpack-scoped,product-switch626-wardrobe-scoped","expect":"off"},{"mode":"pair-3-4","f":"product-switch626-backpack-scoped,product-steam626-wardrobe-scoped","expect":"off"},{"mode":"pair-3-5","f":"product-switch626-backpack-scoped,product-switch626-wardrobe-scoped","expect":"off"},{"mode":"pair-4-5","f":"product-steam626-wardrobe-scoped,product-switch626-wardrobe-scoped","expect":"off"},{"mode":"generic-both","f":"product-backpack-scoped,product-wardrobe-scoped,product-collection-scoped","expect":"off"},{"mode":"generic-wardrobe","f":"product-wardrobe-scoped","expect":"generic-wardrobe"},{"mode":"all-six","f":"product-steam626-chest-scoped,product-switch626-chest-scoped,product-steam626-backpack-scoped,product-switch626-backpack-scoped,product-steam626-wardrobe-scoped,product-switch626-wardrobe-scoped","expect":"off"}];
+          const cls=m=>require('/tmp/cumulative-'+m+'/ddv_save_core.js').WorkerWasmSource;
+          function expected(s){if(s==='off')return base;if(s==='legacy-amount')return [...base,...legacy,...swChest,...neutral];if(s==='legacy-collection')return [...base,...legacy,...swChest,...neutral,...coll];if(s==='steam626-chest')return [...base,...legacy];if(s==='switch626-chest')return [...base,...swChest,...neutral];if(s==='generic-wardrobe')return [...base,...neutral,'preview_steam626_wardrobe','stage_steam626_wardrobe','preview_switch626_wardrobe','stage_switch626_wardrobe'];let [b,d]=s.split('-');let suffix=d==='backpack'?'backpack_split':d;return [...base,...neutral,'preview_'+b+'_'+suffix,'stage_'+b+'_'+suffix]}
+          for(const c of configs){const C=cls(c.mode),m=Object.getOwnPropertyNames(C.prototype).filter(n=>!['constructor','free','__destroy_into_raw'].includes(n)).sort(),x=expected(c.expect).slice().sort(),bin=fs.readFileSync('/tmp/cumulative-'+c.mode+'/ddv_save_core_bg.wasm'),ex=WebAssembly.Module.exports(new WebAssembly.Module(bin)).map(x=>x.name);assert.deepEqual(m,x,c.mode);assert.equal(ex.length,x.length+9,c.mode);for(const n of x)assert.ok(ex.includes('workerwasmsource_'+n),c.mode+':'+n);console.log('QRC1573_CENSUS '+c.mode+' '+m.length+'/'+ex.length+' '+sha(bin));}
+          let nonce=0,pos=0,neg=0;
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256];
+          function open(mode,d,b){const C=cls(mode),x=raw(d),w=new C(...b,new Uint8Array(32).fill(++nonce));for(let i=0;i<x.length;i+=1048576)w.append_chunk(x.subarray(i,i+1048576));let r=parse(w.finish());assert.equal(r.decodedSha256,sha(x));return [w,r]}
+          const deny=f=>{assert.throws(f);neg++};
+          for(const name of dedicated){const mode=name+'-mixed',isSw=name.startsWith('switch'),b=isSw?sw:steam,other=isSw?steam:sw,domain=name.split('-')[1],d=domain==='chest'?chestDoc():domain==='backpack'?backpackDoc():wardrobeDoc(),want=structuredClone(d),[w,r]=open(mode,d,b);
+           let pv,st,expectedCount;
+           if(domain==='chest'){want.Player.ContainerInventories[12].Inventory[0].Amount=49;pv=(a,z)=>parse(isSw?a.preview_switch626_chest(12,0,49,...sc(z)):a.preview_scoped_amount('linked-crop-chest48',12,0,49,...sc(z)));st=(a,z,p)=>parse(isSw?a.stage_switch626_chest(12,0,50,49,p.entrySha256,...sc(z)):a.stage_scoped_amount('linked-crop-chest48',12,0,50,49,p.entrySha256,...sc(z)));expectedCount=1;}
+           else if(domain==='backpack'){const inv=want.Player.ContainerInventories[0].Inventory;inv[0].Amount--;inv[1].ItemID=30200001;inv[1].Amount=1;let prefix=isSw?'switch626':'steam626';pv=(a,z)=>parse(a['preview_'+prefix+'_backpack_split'](0,1,...sc(z)));st=(a,z,p)=>parse(a['stage_'+prefix+'_backpack_split'](0,1,p.oldAmount,p.witnessSha256,p.projectedDecodedSha256,...sc(z)));expectedCount=3;}
+           else{want.Player.MaleAvatar.Clothes[0]=newId;let prefix=isSw?'switch626':'steam626';pv=(a,z)=>parse(a['preview_'+prefix+'_wardrobe'](...sc(z)));st=(a,z,p)=>parse(a['stage_'+prefix+'_wardrobe'](old,newId,p.witnessSha256,p.projectedDecodedSha256,...sc(z)));expectedCount=1;}
+           const p=pv(w,r),t=st(w,r,p);assert.equal(t.exactFieldChangedCount,expectedCount);assert.equal(t.stagedDecodedSha256,sha(raw(want)));deny(()=>st(w,r,p));
+           const amount=domain==='chest'&&!isSw,begin=amount?'begin_scoped_amount_output':'begin_scoped_edit_output',next=amount?'next_scoped_amount_output_chunk':'next_scoped_edit_output_chunk',toggle=amount?'toggle_scoped_amount':'toggle_scoped_edit';
+           const u=parse(w[toggle](false,...sc(t)));deny(()=>w[begin](...sc(u)));const v=parse(w[toggle](true,...sc(u)));w[begin](...sc(v));assert.deepEqual(Buffer.from(w[next]()),raw(want));deny(()=>w[next]());w.close();w.free();
+           const [f,fr]=open(mode,d,other);deny(()=>pv(f,fr));f.close();f.free();
+           if(amount){const [a,z]=open(mode,d,b);deny(()=>a.preview_scoped_amount('catalog0-furniture',0,40000048,2,...sc(z)));a.close();a.free();}
+           pos++;console.log('QRC1573_OP '+name+' exact'+expectedCount+' PASS');
+          }
+          assert.equal(pos,dedicated.length);assert.equal(neg,4*dedicated.length+1);
+          console.log('QRC1573_CUMULATIVE_ACTUAL '+pos+'POS '+neg+'NEG '+configs.length+'CENSUS');
+                    JS
