@@ -566,6 +566,19 @@ mod tests{
   expected["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(6);
   assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),expected);
   assert_eq!(sha(&out),p.projected);assert_eq!(sha(&s.decoded),e.expected_decoded_sha256);
+  // Independent fresh Worker guard uses the same typed R02 Stage and one-time output.
+  let ws=open_switch(&d);let we=env(&ws);let wp=ws.prepare_switch626_r02_product(we,90001,x,y).unwrap();
+  let mut guard=crate::worker_session::WorkerSessionGuard::attach(ws);
+  let preview=guard.preview_switch626_r02_product(we,90001,x,y).unwrap();
+  assert_eq!(preview["exactFieldChangedCount"],6);assert_eq!(preview["inventoryDelta"],-4);
+  let se=WorkerEnvelope{action:WorkerAction::Stage,..we};
+  assert!(guard.stage_switch626_r02_product(se,90001,x,y,50,9,wp.target.grid_sha,wp.target.stock_sha,wp.projected).is_err());
+  let wr=guard.stage_switch626_r02_product(se,90001,x,y,50,10,wp.target.grid_sha,wp.target.stock_sha,wp.projected).unwrap();
+  assert_eq!(wr.exact_field_changed_count,6);
+  let rr=guard.receipt().unwrap();let out=WorkerEnvelope{session_id:rr.session_id,expected_revision:rr.revision,expected_index_generation:rr.index_generation,expected_decoded_sha256:rr.decoded_sha256,action:WorkerAction::ExportEditedCopy,..we};
+  let decoded=guard.take_scoped_edit(out).unwrap();assert_eq!(sha(&decoded),wp.projected);
+  assert_eq!(serde_json::from_slice::<Value>(&decoded).unwrap(),expected);
+  assert!(guard.take_scoped_edit(out).is_err());
   for kind in 0..2{let mut bad=d.clone();if kind==0{bad["World"]["RecurringEvents"]=json!({"999999999":{"Unknown":{}}});}else{bad["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(4);}
    let b=open_switch(&bad);assert!(b.preview_switch626_r02_product(env(&b),90001,x,y).is_err());}
  }
