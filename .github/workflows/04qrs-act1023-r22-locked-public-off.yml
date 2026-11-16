@@ -1,0 +1,73 @@
+name: 04 QR-S ACT1023 locked public-off refutation (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1023-r22-locked-public-off.yml'
+permissions:
+  contents: read
+jobs:
+  locked-public-off:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '88643b9f51be727cf26c8d7fcd2c624013e6ac65'
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact frozen source, approved lock and release feature boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 88643b9f51be727cf26c8d7fcd2c624013e6ac65
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 0939c989984ff49aff466da35e427289758d8d4f
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = d5e20db31ce4302964989d65355d1e26a61e22ec
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = c5825b3b1ac91c2e200f2994aa14d98b9f0ad78e
+          rustc --version | grep '^rustc 1\.99\.1 '
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cmp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/act1023-bindgen
+          /tmp/act1023-bindgen/bin/wasm-bindgen --version | grep -Fx 'wasm-bindgen 0.2.105'
+          mkdir -p /tmp/act1023-public-off
+          /tmp/act1023-bindgen/bin/wasm-bindgen crates/ddv-save-core/target/wasm32-unknown-unknown/release/ddv_save_core.wasm --out-dir /tmp/act1023-public-off --target web --no-typescript
+      - name: Independent actual public binary export and no-inclusion assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          const root='/tmp/act1023-public-off/';
+          const wasm=fs.readFileSync(root+'ddv_save_core_bg.wasm');
+          const js=fs.readFileSync(root+'ddv_save_core.js');
+          const names=WebAssembly.Module.exports(new WebAssembly.Module(wasm)).map(x=>x.name).sort();
+          const expected=['memory','__wbg_workerwasmsource_free','workerwasmsource_append_chunk','workerwasmsource_close','workerwasmsource_finish','workerwasmsource_issue_saved_diffgrids_typed_cursor','workerwasmsource_issue_typed_cursor','workerwasmsource_new','workerwasmsource_read_core_version_witness','workerwasmsource_read_saved_diffgrids_typed_page','workerwasmsource_read_typed_page','__wbindgen_externrefs','__wbindgen_malloc','__externref_table_dealloc','__wbindgen_realloc','__wbindgen_free','__wbindgen_start'].sort();
+          assert.deepEqual(names,expected,'public WASM export set changed');
+          for(const name of ['preview_scoped_collection_candidate','preview_fixed_collection','stage_fixed_collection','discover_scoped_amount','preview_scoped_amount','stage_scoped_amount','toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','toggle_scoped_amount','begin_scoped_amount_output','next_scoped_amount_output_chunk','read_private_backpack_slot_pair']){
+            assert(!js.includes(Buffer.from(name)),name+' in public JS');
+            assert(!wasm.includes(Buffer.from(name)),name+' in public WASM');
+          }
+          const files=['collection-furniture-626.json','steam626-amount-packaged-candidates.json','steam626-amount-dependency-projection.json','steam626-amount-layout-reference.jsonl'];
+          for(const f of files){
+            const data=fs.readFileSync('crates/ddv-save-core/data/'+f);
+            assert(data.length>96);
+            assert(!wasm.includes(data.subarray(0,96)),f+' exact header included');
+            assert(!js.includes(data.subarray(0,96)),f+' exact header included in JS');
+          }
+          const c=JSON.parse(fs.readFileSync('scripts/wasm-distribution/protected-release-inputs.json'));
+          assert.deepEqual(c.features,['indexed-read','worker-wasm']);
+          assert.equal(c.defaultFeatures,false);assert.equal(c.productConsumerEnabled,false);assert.equal(c.writerEnabled,false);
+          assert.equal(c.cargoTomlGitBlob,'0939c989984ff49aff466da35e427289758d8d4f');
+          const sha=x=>createHash('sha256').update(x).digest('hex');
+          console.log('ACT1023_LOCKED_PUBLIC_OFF_PASS',JSON.stringify({exports:names.length,forbiddenNames:13,packHeaderAbsent:4,jsBytes:js.length,wasmBytes:wasm.length,jsSha256:sha(js),wasmSha256:sha(wasm),lockSha256:sha(fs.readFileSync('crates/ddv-save-core/Cargo.lock')),productEnabled:false,published:false}));
+          JS
