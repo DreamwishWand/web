@@ -49,8 +49,9 @@ test('private V2 seal is loopback-only, no public grant, and cannot assert prior
 test('shared signed-subject inspector binds actual three bytes; private seal identity cannot become public grant',async()=>{
  const js=Buffer.from('export class WorkerWasmSource {}'),wasm=Buffer.from([0,97,115,109,1,0,0,0]);
  const m={...manifest,assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:hash(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:wasm.length,sha256:hash(wasm)}}};
- const mf=Buffer.from(JSON.stringify(m)),p=inspectScopedCollectionSubjects([mf,js,wasm],source,tuple);
- assert.equal(p.manifestSha256,hash(mf));assert.equal(p.wasmSha256,hash(wasm));
+ const mf=Buffer.from(JSON.stringify(m)),p={...pins,manifestSha256:hash(mf),manifestSizeBytes:mf.length,jsSha256:hash(js),jsSizeBytes:js.length,wasmSha256:hash(wasm),wasmSizeBytes:wasm.length};
+ // A syntactically valid but empty WASM is not a scoped product ABI.
+ assert.throws(()=>inspectScopedCollectionSubjects([mf,js,wasm],source,tuple));
  const a=privateScopedCollectionIdentity(p,'http://127.0.0.1:4188',['steam-windows','switch'],tuple);
  assert.equal(a.mode,'private-product-v2');assert.ok(a.builds.every(b=>b.productV2EvidenceSha256===null));
  assert.equal(await validateScopedCollectionAnchor(a),true);
