@@ -1,0 +1,58 @@
+// Fixed Steam626 placement wrappers over the existing Worker-owned ledger.
+// UI selectors are untrusted; old values and hashes come only from Rust.
+import {createScopedEditLifecycle} from './product-scoped-amount-transport.mjs';
+const STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+const fail=()=>{throw Error('PRODUCT_SCOPED_PLACEMENT_DENIED')};
+const uint=n=>Number.isSafeInteger(n)&&n>=0&&n<=0xffffffff;
+const positive=n=>uint(n)&&n>0;
+const sha=s=>typeof s==='string'&&/^[a-f0-9]{64}$/.test(s);
+const exact=(o,k)=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.getPrototypeOf(o)===Object.prototype&&Object.keys(o).sort().join(',')===k.split(',').sort().join(',');
+const common='contract,itemId,gridId,nextObjectId,oldAmount,newAmount,gridSha256,projectedDecodedSha256,sessionId,revision,indexGeneration,decodedSha256,exactFieldChangedCount,scopedCandidate,writerAuthorized,editedCopyAuthorized';
+const fixed=Object.freeze({
+ comp03:Object.freeze({contract:'wand.worker.steam626.scoped-comp03-layout@1',count:9,item:40100038,preview:'preview_steam626_comp03',stage:'stage_steam626_comp03',
+  keys:common+',seedId,inventoryDelta,seedSha256,inventoryEntrySha256',
+  selector:s=>exact(s,'seedId')&&positive(s.seedId),previewArgs:s=>[s.seedId],
+  valid:(r,s)=>r.seedId===s.seedId&&positive(r.seedId)&&r.inventoryDelta===0&&r.oldAmount===r.newAmount&&sha(r.seedSha256)&&sha(r.inventoryEntrySha256),
+  stageArgs:r=>[r.seedId,r.gridId,r.nextObjectId,r.oldAmount,r.gridSha256,r.seedSha256,r.inventoryEntrySha256,r.projectedDecodedSha256],
+  summary:r=>({seedId:r.seedId,inventoryDelta:0,retainSeed:1,addObjects:8})}),
+ vase:Object.freeze({contract:'wand.worker.steam626.scoped-vase-add@1',count:3,item:40000066,preview:'preview_steam626_vase_add',stage:'stage_steam626_vase_add',
+  keys:common+',inventoryId,x,y,orientation,entrySha256',
+  selector:s=>exact(s,'gridId,x,y')&&positive(s.gridId)&&uint(s.x)&&uint(s.y),previewArgs:s=>[s.gridId,s.x,s.y],
+  valid:(r,s)=>r.gridId===s.gridId&&r.x===s.x&&r.y===s.y&&r.inventoryId===0&&r.orientation==='GridOrientation_Up'&&r.oldAmount===r.newAmount+1&&sha(r.entrySha256),
+  stageArgs:r=>[r.gridId,r.x,r.y,r.oldAmount,r.nextObjectId,r.entrySha256,r.gridSha256,r.projectedDecodedSha256],
+  summary:r=>({inventoryId:0,x:r.x,y:r.y,orientation:r.orientation,inventoryDelta:-1,addObjects:1})})
+});
+export const createSteam626Comp03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.comp03);
+export const createSteam626VaseAddTransport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.vase);
+function create(wasm,initial,identity,{parse,current,revoke,maxBytes,chunkBytes},op){
+ if(typeof document!=='undefined'||!wasm||typeof wasm[op.preview]!=='function'||typeof wasm[op.stage]!=='function'||
+  !identity||identity.platform!=='steam-windows'||identity.buildKind!=='steam-full-version'||identity.buildId!==STEAM||identity.schema!==626||
+  !initial||initial.contract!=='wand.product.single-save-session.boundary@1'||initial.schema!==626||initial.revision!==0||initial.indexGeneration!==1||
+  typeof initial.sessionId!=='string'||!/^[a-f0-9]{32}$/.test(initial.sessionId)||/^0+$/.test(initial.sessionId)||!sha(initial.decodedSha256)||
+  initial.productWorkerBound!==true||initial.fullDocumentJsonValidated!==true||initial.writerAuthorized!==false||initial.editedCopyAuthorized!==false||initial.applyAuthorized!==false)fail();
+ let preview=null;
+ const life=createScopedEditLifecycle(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes,
+  contract:'wand.worker.scoped-edit@1',stageContract:op.contract,outputContract:'wand.worker.scoped-edit-output@1',
+  toggleMethod:'toggle_scoped_edit',beginMethod:'begin_scoped_edit_output',nextMethod:'next_scoped_edit_output_chunk',
+  exactCount:op.count,expectedProjection:()=>preview?.projectedDecodedSha256??null});
+ const summary=()=>Object.freeze({itemId:preview.itemId,gridId:preview.gridId,nextObjectId:preview.nextObjectId,
+  oldAmount:preview.oldAmount,newAmount:preview.newAmount,exactFieldChangedCount:op.count,...op.summary(preview),
+  scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false});
+ function previewTarget(selector){
+  return life.checked(()=>{
+   if(life.hasMutation()||!op.selector(selector))fail();
+   const r=parse(wasm[op.preview](...op.previewArgs(selector),...life.args()),4096);
+   if(!exact(r,op.keys)||r.contract!==op.contract||r.itemId!==op.item||!positive(r.gridId)||!positive(r.nextObjectId)||
+    !positive(r.oldAmount)||!uint(r.newAmount)||!sha(r.gridSha256)||!sha(r.projectedDecodedSha256)||r.projectedDecodedSha256===initial.decodedSha256||
+    !life.scopeMatches(r)||r.revision!==life.scope().revision||r.indexGeneration!==life.scope().indexGeneration||
+    r.exactFieldChangedCount!==op.count||r.scopedCandidate!==true||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||!op.valid(r,selector))fail();
+   preview=Object.freeze(r);return summary();
+  });
+ }
+ function stage(){return life.checked(()=>{
+  if(!preview||life.hasMutation())fail();
+  return Object.freeze({...summary(),...life.stage((...a)=>wasm[op.stage](...op.stageArgs(preview),...a))});
+ })}
+ const toggle=redo=>life.checked(()=>Object.freeze({...summary(),...life.toggle(redo)}));
+ return Object.freeze({previewTarget,stage,toggle,takeOutput:life.takeOutput,hasMutation:life.hasMutation});
+}
