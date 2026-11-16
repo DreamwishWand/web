@@ -32,6 +32,7 @@ pub enum TypedOperationKind{
     AppearanceSelection,
     WardrobeSelection,
     IndependentTime,
+    BackpackFruitSplitExact3,
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct TypedOperationRegistryEntry{
@@ -44,7 +45,7 @@ pub struct TypedOperationRegistryEntry{
 }
 /// Product enablement is *always* FALSE. 01D/01E native validation may
 /// independently open a single operation later, never a general Writer flag.
-pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;5]=[
+pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;6]=[
     TypedOperationRegistryEntry{kind:TypedOperationKind::InventoryExistingAmountDecrease,
         name:"inventory.existing.amount.decrease@1",schema:626,
         dev_implementation:true,native_v3_verified:false,product_enabled:false},
@@ -60,6 +61,7 @@ pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;5]=[
     TypedOperationRegistryEntry{kind:TypedOperationKind::IndependentTime,
         name:"time.independent@1",schema:626,
         dev_implementation:false,native_v3_verified:false,product_enabled:false},
+    TypedOperationRegistryEntry{kind:TypedOperationKind::BackpackFruitSplitExact3,name:"backpack.fruit.split.exact3@1",schema:626,dev_implementation:true,native_v3_verified:false,product_enabled:false},
 ];
 
 #[derive(Clone,Debug)]
@@ -1666,99 +1668,10 @@ mod collection_restore_shared_ledger_tests {
 }
 
 
-// ACT416: native-only read witness for a one-item split between two existing
-// physical Backpack slots. No mutation, no capability mint, no general
-// container-zero permission and no second Save parser.
-#[cfg(not(target_arch="wasm32"))]
-impl ProductSession {
-    pub fn read_private_backpack_slot_pair(&self,e:WorkerEnvelope,source_slot:usize,destination_slot:usize)
-        ->CoreResult<serde_json::Value>{
-        build_check(self)?;
-        let st=self.lock()?;
-        indexed_read::validate_scope(self,&st,&e)?;
-        if source_slot==destination_slot||source_slot>=MAX_CONTAINER_SLOTS||destination_slot>=MAX_CONTAINER_SLOTS{
-            return Err(denied("BACKPACK_PAIR_DISTINCT_BOUNDED_SLOTS"));
-        }
-        let bytes=&self.decoded;
-        let player=indexed_read::roots(bytes)?.player;
-        let containers=object_field(bytes,player,"ContainerInventories")?;
-        // Exact canonical map key 0 and matching physical ID 0. No ListInventory
-        // lookup or caller-supplied container role, no noncanonical key alias.
-        let mut pos=containers.begin+1;let mut selected=None;let mut n=0usize;
-        while let Some((key,record))=next_object_member(bytes,containers,&mut pos)?{
-            n+=1;if n>4096{return Err(denied("BACKPACK_CONTAINER_MAP_BOUND"));}
-            let id=key.parse::<u32>().map_err(|_|denied("BACKPACK_CONTAINER_KEY"))?;
-            if key!=id.to_string()||number(bytes,object_field(bytes,record,"ID")?)?!=id as u64{
-                return Err(denied("BACKPACK_CONTAINER_ID_OR_KEY"));
-            }
-            if id==0{if selected.replace(record).is_some(){return Err(denied("BACKPACK_CONTAINER_DUPLICATE"));}}
-        }
-        let record=selected.ok_or(denied("BACKPACK_CONTAINER_ABSENT"))?;
-        raw_boolean_true(bytes,object_field(bytes,record,"BelongsToPlayer")?)?;
-        let parent=object_field(bytes,record,"ParentItemID")?;
-        if bytes.get(parent.begin..parent.end)!=Some(&b"null"[..]){
-            return Err(denied("BACKPACK_PARENT_NULL_REQUIRED"));
-        }
-        let block=object_field(bytes,record,"BlockMoveTo")?;
-        if bytes.get(block.begin..block.end)!=Some(&b"false"[..]){
-            return Err(denied("BACKPACK_BLOCK_MOVE_UNRESOLVED"));
-        }
-        let size=number(bytes,object_field(bytes,record,"Size")?)?;
-        let extra=number(bytes,object_field(bytes,record,"ExtraSize")?)?;
-        if size==0||size>MAX_CONTAINER_SLOTS as u64||extra>size{
-            return Err(denied("BACKPACK_CAPACITY_INVALID"));
-        }
-        let slots=object_field(bytes,record,"Inventory")?;
-        let count=physical_slots(bytes,slots)?;
-        if count!=size as usize||source_slot>=(size-extra) as usize||destination_slot>=(size-extra) as usize{
-            return Err(denied("BACKPACK_PHYSICAL_OR_USABLE_SLOT_MISMATCH"));
-        }
-        let source=array_element(bytes,slots,source_slot)?;
-        let destination=array_element(bytes,slots,destination_slot)?;
-        let item=saved_item_id(bytes,object_field(bytes,source,"ItemID")?)?;
-        if native_amount_type(item)?!=ExistingAmountItemType::ActivityItem||
-           !matches!((item%10_000_000)/100_000,2|11|16){
-            return Err(denied("BACKPACK_ACTIVITY_SUBTYPE_SCREEN"));
-        }
-        let old=saved_positive_amount(bytes,object_field(bytes,source,"Amount")?)?;
-        let bound=packaged_activity_bound(item)?;
-        if old>bound{return Err(denied("BACKPACK_PACKAGED_STACK_BOUND"));}
-        if number(bytes,object_field(bytes,destination,"ItemID")?)?!=0||
-           number(bytes,object_field(bytes,destination,"Amount")?)?!=0{
-            return Err(denied("BACKPACK_DESTINATION_INVALID_ZERO_REQUIRED"));
-        }
-        let ss=object_field(bytes,source,"State")?;
-        let ds=object_field(bytes,destination,"State")?;
-        for x in [ss,ds]{
-            if bytes.get(x.begin..x.end)!=Some(&b"null"[..]){
-                return Err(denied("BACKPACK_EXPLICIT_NULL_STATE_REQUIRED"));
-            }
-        }
-        let hex=|b:&[u8]|b.iter().map(|v|format!("{v:02x}")).collect::<String>();
-        let digest=|s:Span|hex(&sha(&bytes[s.begin..s.end]));
-        Ok(serde_json::json!({
-            "contract":"wand.native.private.backpack-slot-pair-read@1",
-            "platform":"SteamWindows","fullVersion":EXACT_STEAM,"schema":626,
-            "sessionId":hex(&e.session_id),"revision":e.expected_revision,
-            "indexGeneration":e.expected_index_generation,"decodedSha256":hex(&self.sha),
-            "container":{"namespace":"ContainerInventories","containerId":0,"physicalKey":"0",
-                "recordSha256":digest(record),"mapSha256":digest(containers),"slotsSha256":digest(slots),
-                "belongsToPlayer":true,"blockMoveTo":false,"parentItemId":null,"parentPresent":true,
-                "parentSha256":digest(parent),"size":size,"extraSize":extra,"physicalSlotCount":count,
-                "usableSlotCount":size-extra},
-            "source":{"slotIndex":source_slot,"itemId":item,"oldAmount":old,
-                "stateExplicitNull":true,"stateSha256":digest(ss),"entrySha256":digest(source)},
-            "destination":{"slotIndex":destination_slot,"itemId":0,"oldAmount":0,
-                "stateExplicitNull":true,"stateSha256":digest(ds),"entrySha256":digest(destination)},
-            "proposedQuantityDiagnosticOnly":1,"packagedStackBound":bound,
-            "effectiveStackBound":null,"effectiveStackBoundVerified":false,
-            "canonicalItemDbVerified":false,"rightsVerified":false,"variationVerified":false,
-            "nativeReferenceClosureVerified":false,"subscriberClosureVerified":false,
-            "fullDocumentRustValidated":true,"productReadAccepted":false,"writerAuthorized":false,
-            "editedCopyAuthorized":false,"applyAuthorized":false,"nativeV3Verified":false
-        }))
-    }
-}
+// ACT416/1143: shared typed pair; native Reader API unchanged.
+#[path="backpack_pair.rs"]
+mod backpack_pair;
+
 #[cfg(all(test,not(target_arch="wasm32")))]
 mod backpack_pair_tests{
     use super::*;
