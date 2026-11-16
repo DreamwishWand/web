@@ -3,6 +3,8 @@
 //! Operator must independently bind exact archive and 01B/01C/01E receipt.
 //! Caller-provided digest is CAS, not authorization; no Worker exposure.
 use super::*;
+#[path="grid_append.rs"]
+mod grid_append;
 use serde_json::{Value,json};
 const BID:&str="52BD625D9B4E0053";
 const ROAD:u32=40100068;
@@ -106,11 +108,9 @@ fn collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
         append_road_objects(b,objs,&plan[2..])?,repl(b,counter,n3.to_string().into_bytes())?,debit])
 }
 fn append_road_objects(b:&[u8],objs:Span,records:&[Value])->CoreResult<Replacement>{
-    let mut insert=Vec::new();
-    for o in records{let id=uint(&o["ID"])?;insert.extend_from_slice(format!(",\"{id}\":").as_bytes());insert.extend_from_slice(&enc(o)?);}
-    insert.push(b'}');
-    repl(b,Span{begin:objs.end-1,end:objs.end},insert)
+    repl(b,Span{begin:objs.end-1,end:objs.end},grid_append::payload(records)?)
 }
+
 impl ProductSession{
     pub fn stage_switch624_road_rm01_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
