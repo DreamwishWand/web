@@ -357,7 +357,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = fa7aeef5dc1459104564bf1eb9704d315ab7c415
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 9d779873e935cbdd7b1b11b372a318af7ebc68b5
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-collection-candidate.mjs)" = 0f8d9d8e00ea8531e7bac51a0b2c62afbd468292
           test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-collection-private.mjs)" = 9dc1d8fa5c2f422814a20fd8368e4f3516a6c79a
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
@@ -462,7 +462,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = fa7aeef5dc1459104564bf1eb9704d315ab7c415
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 9d779873e935cbdd7b1b11b372a318af7ebc68b5
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs)" = 1cec59930562e9b6918490e54761808d3819c434
           test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-switch-chest-private.mjs)" = a77c7d7e2df093a6b28c00c89846d2707c20be5f
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
@@ -578,7 +578,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = fa7aeef5dc1459104564bf1eb9704d315ab7c415
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 9d779873e935cbdd7b1b11b372a318af7ebc68b5
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs)" = fa2f389989bc76d58e6b941867201d3ececa433a
           test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-steam-chest-private.mjs)" = bf3ab5129e072f64d18ede2ce2b3055e61aef485
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
@@ -696,7 +696,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = fa7aeef5dc1459104564bf1eb9704d315ab7c415
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 9d779873e935cbdd7b1b11b372a318af7ebc68b5
           test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = dd59264c1c20325c66e6aecc3413e91d10fc72ed
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
@@ -828,7 +828,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = fa7aeef5dc1459104564bf1eb9704d315ab7c415
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 9d779873e935cbdd7b1b11b372a318af7ebc68b5
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = 1f72c540d9e9ab949402d550a706961935cf7ec2
@@ -961,7 +961,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = fa7aeef5dc1459104564bf1eb9704d315ab7c415
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 9d779873e935cbdd7b1b11b372a318af7ebc68b5
           test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = dd59264c1c20325c66e6aecc3413e91d10fc72ed
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
@@ -1093,7 +1093,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = fa7aeef5dc1459104564bf1eb9704d315ab7c415
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 9d779873e935cbdd7b1b11b372a318af7ebc68b5
           test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = dd59264c1c20325c66e6aecc3413e91d10fc72ed
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
@@ -1227,7 +1227,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = fa7aeef5dc1459104564bf1eb9704d315ab7c415
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 9d779873e935cbdd7b1b11b372a318af7ebc68b5
           test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = dd59264c1c20325c66e6aecc3413e91d10fc72ed
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
