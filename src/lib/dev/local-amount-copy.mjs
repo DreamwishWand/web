@@ -118,4 +118,18 @@ export function localAmountTargetLabel(t,words){
  return where?where+' · '+words.itemId+' '+t.itemId+' · '+words.before+' '+t.oldAmount:'';
 }
 export const DEV_AMOUNT_UI_LOCALES=Object.freeze(Object.keys(localized));
-export function localAmountCopy(locale){return localized[locale]||localized.en}
+// Only Build and operation-specific text changes; reuse existing safety copy.
+const switchCopy=Object.freeze({
+ en:{title:'Switch P1G Chest editor — DEV/OFF',build:'Switch Build ID (BID)',sha:'Original encrypted SHA-256 (computed locally)',confirm:'I independently confirmed this exact Switch BID.',intro:'Local experimental editing only. Verified Chest amount 50 → 49; no upload or original overwrite.'},
+ ja:{title:'Switch P1G チェスト数量編集 — DEV/OFF',build:'Switch ビルドID（BID）',sha:'原本暗号化SHA-256（端末内で計算）',confirm:'このSwitch BIDを別途確認した。',intro:'端末内の実験的編集。検証済みチェストの数量50→49のみ。送信・原本上書き禁止。'},
+ fr:{title:'Éditeur coffre P1G Switch — DEV/OFF',build:'ID de build Switch (BID)',sha:'SHA-256 chiffré original (calcul local)',confirm:'J’ai vérifié séparément ce BID Switch exact.',intro:'Édition locale expérimentale : coffre vérifié 50 → 49 uniquement. Aucun envoi ni écrasement.'},
+ it:{title:'Editor baule P1G Switch — DEV/OFF',build:'ID build Switch (BID)',sha:'SHA-256 cifrato originale (calcolo locale)',confirm:'Ho verificato separatamente questo BID Switch esatto.',intro:'Modifica sperimentale locale: solo baule verificato 50 → 49. Nessun invio o sovrascrittura.'},
+ de:{title:'Switch-P1G-Truheneditor — DEV/AUS',build:'Switch-Build-ID (BID)',sha:'Verschlüsselter Original-SHA-256 (lokal berechnet)',confirm:'Ich habe diese exakte Switch-BID separat bestätigt.',intro:'Lokale experimentelle Bearbeitung: nur geprüfte Truhe 50 → 49. Kein Upload oder Überschreiben.'},
+ 'es-ES':{title:'Editor de cofre P1G Switch — DEV/APAGADO',build:'ID de compilación Switch (BID)',sha:'SHA-256 cifrado original (calculado localmente)',confirm:'He confirmado por separado este BID Switch exacto.',intro:'Edición local experimental: solo cofre verificado 50 → 49. Sin subida ni sobrescritura.'},
+ 'zh-CN':{title:'Switch P1G 储物箱编辑 — DEV/关闭',build:'Switch 构建 ID（BID）',sha:'原始加密 SHA-256（本地计算）',confirm:'我已另行确认此 Switch BID。',intro:'仅限本机实验性编辑：已验证储物箱数量 50→49。不上传、不覆盖原文件。'},
+ 'pt-BR':{title:'Editor de baú P1G Switch — DEV/DESLIGADO',build:'ID de build Switch (BID)',sha:'SHA-256 criptografado original (cálculo local)',confirm:'Confirmei separadamente este BID Switch exato.',intro:'Edição experimental local: apenas baú verificado 50 → 49. Sem upload ou sobrescrita.'}
+});
+export function localAmountCopy(locale,switchChest=false){
+ const base=localized[locale]||localized.en;
+ return switchChest?Object.freeze({...base,...(switchCopy[locale]||switchCopy.en)}):base;
+}

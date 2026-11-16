@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createExistingAmountDecrease,createLocalAmountDevWorkflow,
-  DEV_AMOUNT_CONTRACT,STEAM626_FULL_VERSION}
+  DEV_AMOUNT_CONTRACT,STEAM626_FULL_VERSION,SWITCH626_CHEST_BID}
   from '../src/lib/dev/local-amount-workflow.mjs';
 import {DEV_AMOUNT_UI_LOCALES,localAmountCopy,localAmountTargetLabel} from '../src/lib/dev/local-amount-copy.mjs';
 const sha='a'.repeat(64);
@@ -333,4 +333,26 @@ test('all eight target address labels distinguish equal-item equal-amount Chest 
   assert.ok(a.includes(words.itemId+' '+first.itemId));assert.ok(a.includes(words.before+' '+first.oldAmount));
   assert.equal(localAmountTargetLabel(null,words),'');
  }
+});
+
+test('Switch626 fixed UI workflow: exact BID, verified Chest only, 50→49 and legacy Steam isolation',async()=>{
+ const swArgs={file:file(),switchBid:SWITCH626_CHEST_BID,originalSha256:sha,buildConfirmed:true};
+ const target={...chest(),targetId:12,slotIndex:3,oldAmount:50};
+ const ack=()=>({kind:'CLOSED',ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false});
+ const f=fake({close:async()=>ack(),listVerifiedTargets:async()=>({targets:[target],rawDocumentExposed:false})});
+ const make=()=>createLocalAmountDevWorkflow(f.adapter,{trustedLocalHarness:true,exactOneDecrease:true,switch626Chest:true});
+ assert.throws(()=>createLocalAmountDevWorkflow(f.adapter,{trustedLocalHarness:true,switch626Chest:true}));
+ const w=make();await assert.rejects(w.open(args));await assert.rejects(w.open({...swArgs,switchBid:'unknown'}));await assert.rejects(w.open({...swArgs,fullVersion:STEAM626_FULL_VERSION}));
+ assert.equal(f.log.filter(x=>x[0]==='open').length,0);
+ await w.open(swArgs);assert.deepEqual(f.log.find(x=>x[0]==='open')[1].build,{platform:'switch',buildKind:'switch-bid',buildId:SWITCH626_CHEST_BID,schema:626,externallyConfirmed:true});
+ await w.backupAndRead();await assert.rejects(w.stage(0,48));await w.stage(0,49);
+ assert.deepEqual(f.log.find(x=>x[0]==='stage')[1],[{kind:'ChestExistingSlotAmountDecrease',containerId:12,slotIndex:3,expectedItemId:target.itemId,expectedOldAmount:50,newAmount:49}]);
+ await w.undo();await w.redo();await w.exportEditedCopy();await w.close();
+ for(const bad of [inventory(),{...target,oldAmount:51},{...target,targetId:1},{...target,slotIndex:48}]){
+  const a=fake({close:async()=>ack(),listVerifiedTargets:async()=>({targets:[bad],rawDocumentExposed:false})});
+  const x=createLocalAmountDevWorkflow(a.adapter,{trustedLocalHarness:true,exactOneDecrease:true,switch626Chest:true});
+  await x.open(swArgs);await assert.rejects(x.backupAndRead(),/SWITCH_CHEST_SCOPE_DENIED/);assert.equal(x.snapshot().phase,'closed');assert.equal(a.log.some(v=>v[0]==='stage'),false);
+ }
+ const legacy=createLocalAmountDevWorkflow(fake().adapter,{trustedLocalHarness:true});await assert.rejects(legacy.open(swArgs));
+ for(const l of DEV_AMOUNT_UI_LOCALES){const copy=localAmountCopy(l,true);assert.match(copy.title,/Switch/);assert.match(copy.build,/BID/);assert.match(copy.confirm,/BID/);assert.doesNotMatch(copy.title+copy.confirm,/Steam/);assert.match(copy.intro,/50\s*→\s*49/);}
 });
