@@ -183,4 +183,42 @@ mod tests{
   let mut bad=d.clone();bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["13"]["Orientation"]=json!("GridOrientation_Down");
   let q=open(&bad);assert!(q.mint_switch626_fm01_target(env(&q),90001,ids).is_err());
  }
+
+ #[cfg(feature="product-switch626-fm01-scoped")]
+ #[test]fn qa1803_fm01_exact8_lexical_atomic(){
+  let mut d=doc();d["Opaque"]=json!({"escaped":"keep","counterDecoy":50,"list":[7,null,{"Amount":10}]});
+  let raw=serde_json::to_string(&d).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true};
+  let make=|raw:&str|{let mut s=ProductSession::open_decoded_readonly(raw.as_bytes().to_vec(),build.clone()).unwrap();s.worker_bound=true;s};
+  let s=make(&raw);let e=env(&s);let ids=[10,11,12,13,14];let before=s.receipt().unwrap();
+  let p=s.preview_switch626_fm01_product(e,90001,ids).unwrap();
+  let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["90001"];
+  let x=g["Objects"]["10"]["X"].as_u64().unwrap();let y=g["Objects"]["10"]["Y"].as_u64().unwrap();
+  g["NextGridObjectID"]=json!(53);for k in ["11","12","13","14"]{g["Objects"].as_object_mut().unwrap().remove(k);}
+  g["Objects"]["50"]=json!({"ID":50,"ItemID":40700247,"X":x,"Y":y+2,"Orientation":"GridOrientation_Left","State":null});
+  g["Objects"]["51"]=json!({"ID":51,"ItemID":40700246,"X":x,"Y":y+4,"Orientation":"GridOrientation_Down","State":null});
+  g["Objects"]["52"]=json!({"ID":52,"ItemID":40700246,"X":x+2,"Y":y+6,"Orientation":"GridOrientation_Down","State":{"FenceMode":{"Diagonal":true}}});
+  let expected=serde_json::to_string(&wanted).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");
+  let hash=|v:&Value|sha(&serde_json::to_vec(v).unwrap());let g=&d["World"]["GridCollection"]["Grids"]["90001"];
+  let hashes=[hash(&d["World"]["Villages"][0]["Areas"]["2"]),hash(g),sha(b"50"),hash(&d["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]),sha(b"[]"),sha(expected.as_bytes())];
+  let rows=ids.map(|id|hash(&g["Objects"][id.to_string()]));
+  assert_eq!(p["projectedDecodedSha256"],super::super::hex(&hashes[5]));assert_eq!(p["exactFieldChangedCount"],8);assert_eq!(p["inventoryDelta"],0);assert_eq!(p["oldAmount"],10);assert_eq!(p["newAmount"],10);assert_eq!(p["retainedId"],10);assert_eq!(p["deletedIds"],json!([11,12,13,14]));
+  let st=WorkerEnvelope{action:WorkerAction::Stage,..e};let run=|s:&ProductSession,e:WorkerEnvelope,ids:[u32;5],next,stock,h:[[u8;32];6],rows:[[u8;32];5]|s.stage_switch626_fm01_product(e,90001,ids,next,stock,h[0],h[1],h[2],h[3],h[4],rows,h[5]);
+  let mut neg=0;
+  for i in 0..6{let mut h=hashes;h[i]=[0;32];assert!(run(&s,st,ids,50,10,h,rows).is_err());neg+=1;}
+  for i in 0..5{let mut r=rows;r[i]=[0;32];assert!(run(&s,st,ids,50,10,hashes,r).is_err());neg+=1;}
+  for bad in [WorkerEnvelope{expected_revision:1,..st},WorkerEnvelope{expected_index_generation:2,..st},WorkerEnvelope{expected_decoded_sha256:[0;32],..st},e]{assert!(run(&s,bad,ids,50,10,hashes,rows).is_err());neg+=1;}
+  assert!(run(&s,st,ids,51,10,hashes,rows).is_err());neg+=1;
+  assert!(run(&s,st,ids,50,9,hashes,rows).is_err());neg+=1;
+  assert!(run(&s,st,[10,11,12,14,13],50,10,hashes,rows).is_err());neg+=1;
+  assert!(run(&make(&raw),st,ids,50,10,hashes,rows).is_err());neg+=1;
+  let foreign=raw.replace("\\u006beep","keep");let f=make(&foreign);let fe=WorkerEnvelope{action:WorkerAction::Stage,..env(&f)};assert!(run(&f,fe,ids,50,10,hashes,rows).is_err());neg+=1;
+  assert_eq!(s.receipt().unwrap(),before);let r=run(&s,st,ids,50,10,hashes,rows).unwrap();assert_eq!(r.exact_field_changed_count,8);assert_eq!(r.staged_decoded_sha256,hashes[5]);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+  assert!(run(&s,st,ids,50,10,hashes,rows).is_err());neg+=1;
+  s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();assert!(s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).is_err());neg+=1;
+  s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();let ex=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};let out=s.take_typed_semantic_decoded_once(ex).unwrap();assert_eq!(out,expected.as_bytes());assert!(s.take_typed_semantic_decoded_once(ex).is_err());neg+=1;
+  assert_eq!(s.decoded.as_ref(),raw.as_bytes());let reopened=ProductSession::open_decoded_readonly(out,build).unwrap();assert_eq!(reopened.receipt().unwrap().decoded_sha256,hashes[5]);assert_eq!(neg,23);
+  println!("QRC1803_FM01_STAGE_ACTUAL 1POS {neg}NEG EXACT8 PRESERVE_EXISTING");
+ }
+
 }
