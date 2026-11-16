@@ -1,0 +1,59 @@
+name: [04 QR-S][ACT1516] PR1868 Portable and Appearance Proof2 compatibility L2 (QA ONLY) (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr1868-portable-appearance-proof2-l2.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9bf667f7735bb60a91ddb37c43bd82edc54fce48
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reuse unchanged core/product tests
+        run: |
+          set -euo pipefail
+          node --test tests/scoped-placement-proof.test.mjs
+      - name: Changed only independent negative and pin checks
+        run: |
+          set -euo pipefail
+          cat > qa-independent.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync} from 'node:fs';
+          import {CATALOG0_PORTABLE_RELEASE as catalog,CHEST_PORTABLE_RELEASE as chest,SWITCH_CATALOG0_PORTABLE_RELEASE as swcat,SWITCH_CHEST_PORTABLE_RELEASE as swchest,HAIR_RELEASE as hair,SKIN_RELEASE as skin,COMP03_RELEASE as comp,validatePlacementAnchor} from './src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {fixedPlacementProofScope,privatePlacementIdentity} from './scripts/readonly-release/scoped-placement-proof.mjs';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'});
+          const head='9bf667f7735bb60a91ddb37c43bd82edc54fce48',base='3a3614888b543c2c53483a6e41b4a50f6e6687fc';
+          assert.equal(git('rev-parse','HEAD'),head);assert.equal(git('rev-parse','HEAD^'),base);
+          const changed=git('diff','--name-only',base,head).split('\n');assert.equal(changed.length,26);assert.equal(new Set(changed).size,26);
+          const proofPaths=['scripts/readonly-release/scoped-placement-proof.mjs','src/lib/ddv/core/save/product-scoped-placement-release.mjs'];for(const p of proofPaths)assert.ok(changed.includes(p));
+          const anchors='src/lib/ddv/core/save/product-scoped-portable-release-anchor.mjs',oldProof=raw(base,'scripts/readonly-release/scoped-placement-proof.mjs'),newProof=raw(head,'scripts/readonly-release/scoped-placement-proof.mjs'),oldRelease=raw(base,'src/lib/ddv/core/save/product-scoped-placement-release.mjs'),newRelease=raw(head,'src/lib/ddv/core/save/product-scoped-placement-release.mjs');
+          assert.match(raw(head,anchors),/PROTECTED_CATALOG0_PORTABLE_RELEASE_ANCHOR=null;/);
+          assert.match(raw(head,anchors),/PROTECTED_SWITCH_CHEST_PORTABLE_RELEASE_ANCHOR=null;/);
+          assert.ok(newProof.includes('function fixedPlacementProofScope('));assert.ok(newProof.includes('const portables=[catalog0,chest,swcat,swchest];'));assert.ok(newRelease.includes('const catalog0Portable=fixed('));assert.ok(newRelease.includes('const switchCatalog0Portable=fixed('));
+          let pos=0,neg=0;const all=[hair,skin,catalog,chest,swcat,swchest];
+          for(const own of all){
+           assert.equal(fixedPlacementProofScope(own.key),own);assert.equal(own.methods.length,own===hair||own===skin?13:14);assert.equal(own.exports.length,own===hair||own===skin?22:23);assert.equal(own.assetDir,'worker-wasm-scoped-'+own.key);assert.ok(own.features.includes('worker-wasm'));
+           assert.equal(new Set(own.methods).size,own.methods.length);assert.equal(new Set(own.exports).size,own.exports.length);
+           for(const o of all.filter(x=>x!==own)){assert.notEqual(o.key,own.key);assert.notEqual(o.operation,own.operation);assert.notEqual(o.assetDir,own.assetDir);assert.notEqual(o.path,own.path);neg++;}
+           assert.equal(own.platform,own===swcat||own===swchest?'switch':'steam-windows');
+           const methods=own.methods.filter(n=>n.startsWith('preview_')||n.startsWith('stage_'));assert.equal(methods.length,2);
+           for(const o of all.filter(x=>x!==own))for(const m of methods)assert.ok(!o.methods.includes(m));
+           pos++;
+          }
+          assert.throws(()=>fixedPlacementProofScope('steam626-catalog0-portable-restore:other'));neg++;
+          assert.throws(()=>fixedPlacementProofScope('product-*'));neg++;
+          assert.throws(()=>fixedPlacementProofScope(comp.key+'foreign'));neg++;
+          for(const p of proofPaths){assert.notEqual(raw(base,p),raw(head,p));assert.equal(git('rev-parse',head+':'+p),git('hash-object',p));pos++}
+          for(const a of [hair,skin])for(const p of [catalog,chest,swcat,swchest]){assert.ok(!a.methods.some(m=>p.methods.includes(m)&&m.startsWith('preview_')));assert.ok(!p.methods.some(m=>a.methods.includes(m)&&m.startsWith('stage_')));neg+=2}
+          console.log('QRS_PR1868_PORTABLE_APPEARANCE_PROOF2_L2_PASS',JSON.stringify({pos,neg,sharedProof:2,sourceChanged:26,scopes:6,allNullAnchors:true,actualGenerated:false,actualSignature:false}));
+          EOF
+          node qa-independent.mjs
