@@ -5,7 +5,7 @@
 use super::*;
 use serde_json::{json,Value};
 #[path="comp03_installed_geometry.rs"]
-mod installed_geometry;
+pub(super) mod installed_geometry;
 use installed_geometry::{InstalledGeometry,LocalGeometry};
 use super::super::comp03_shape;
 #[path="placement_applicable.rs"]
