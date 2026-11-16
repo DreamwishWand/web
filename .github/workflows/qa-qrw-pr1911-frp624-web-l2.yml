@@ -1,0 +1,149 @@
+name: QA ONLY PR1911 FRP624 exact7 Web L2 (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1911-frp624-web-l2.yml'
+permissions:
+  contents: read
+jobs:
+  frp624-actual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/qrw1911-rust-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2349b51ac7d59d36f6ff21418de3ee86ea3afcdf
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Frozen Web exact21 and inherited QA-only Core generated WASM
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '2349b51ac7d59d36f6ff21418de3ee86ea3afcdf'
+          test "$(git merge-base 753b50252880cb96b4b9019cbf7cee149abdc132 HEAD)" = '753b50252880cb96b4b9019cbf7cee149abdc132'
+          test "$(git diff --name-only 753b50252880cb96b4b9019cbf7cee149abdc132 HEAD | wc -l)" = 21
+          git diff --name-only 753b50252880cb96b4b9019cbf7cee149abdc132 HEAD | LC_ALL=C sort >/tmp/qrw1911-web-paths.actual
+          cat >/tmp/qrw1911-web-paths.expected <<'PATHS'
+          src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
+          src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
+          src/lib/ddv/core/save/product-scoped-frp01-release-anchor.mjs
+          src/lib/ddv/core/save/product-scoped-placement-release.mjs
+          src/lib/ddv/core/save/product-wasm-read-owner.d.mts
+          src/lib/ddv/core/save/product-wasm-read-owner.mjs
+          src/lib/dev/LocalPlacementEditorDev.svelte
+          src/lib/dev/PlacementProductRoute.svelte
+          src/lib/dev/local-placement-copy.mjs
+          src/lib/dev/local-placement-workflow.mjs
+          src/lib/dev/local-scoped-edit-worker-port.mjs
+          src/lib/dev/product-frp01.worker.mjs
+          src/lib/dev/product-placement-client.mjs
+          src/routes/editor/world/frp01/switch624/+page.svelte
+          tests/product-switch624-frp01-route-off.test.mjs
+          tests/stage-e/chrome-smoke.mjs
+          tests/stage-f/chrome-smoke.mjs
+          tests/wasm-distribution/chrome-smoke.mjs
+          tests/wep-comp03-reference-consumer.test.mjs
+          tests/wep-comp03-spatial-review-consumer.test.mjs
+          tools/owner-local-steam-v1/server.mjs
+          PATHS
+          diff -u /tmp/qrw1911-web-paths.expected /tmp/qrw1911-web-paths.actual
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 'e9c125d9ba44321a7a78bf1030aea590c914347b'
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = '6ecdbc78517e845ffd093834be585790bd9bc2e9'
+          grep -F 'PROTECTED_FRP01_RELEASE_ANCHOR=null' src/lib/ddv/core/save/product-scoped-frp01-release-anchor.mjs
+          git cat-file -e 12c1378df401f33f6a29e9f3706103e327d9ba5b^{commit} || git fetch --no-tags origin 12c1378df401f33f6a29e9f3706103e327d9ba5b
+          git worktree add --detach /tmp/qrw1911-core 12c1378df401f33f6a29e9f3706103e327d9ba5b
+          test "$(git -C /tmp/qrw1911-core merge-base c27e34dd1528405c71e6ba109a06018601859384 HEAD)" = 'c27e34dd1528405c71e6ba109a06018601859384'
+          test "$(git -C /tmp/qrw1911-core diff --name-only c27e34dd1528405c71e6ba109a06018601859384 HEAD | wc -l)" = 3
+          git -C /tmp/qrw1911-core diff --exit-code c27e34dd1528405c71e6ba109a06018601859384 HEAD -- crates/ddv-save-core/Cargo.toml crates/ddv-save-core/src/wasm_worker.rs crates/ddv-save-core/src/wasm_switch624_frp01.rs crates/ddv-save-core/src/worker_session.rs
+          cargo generate-lockfile --manifest-path /tmp/qrw1911-core/crates/ddv-save-core/Cargo.toml
+          sha256sum /tmp/qrw1911-core/crates/ddv-save-core/Cargo.lock | tee /tmp/qrw1911-lock.sha
+          cargo test --locked --manifest-path /tmp/qrw1911-core/crates/ddv-save-core/Cargo.toml --features product-switch624-frp01-scoped --lib qa1899_emit_synthetic_wasm_fixture -- --ignored --nocapture | tee /tmp/qrw1911-fixture.log
+          grep -F 'qa1899_emit_synthetic_wasm_fixture ... ok' /tmp/qrw1911-fixture.log
+          test -s /tmp/qrc1899-frp624-source.json
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrw1911-tools
+          cargo build --locked --manifest-path /tmp/qrw1911-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch624-frp01-scoped
+          B=/tmp/qrw1911-tools/bin/wasm-bindgen
+          W=/tmp/qrw1911-rust-target/wasm32-unknown-unknown/release/ddv_save_core.wasm
+          "$B" "$W" --out-dir /tmp/qrw1911-node --target nodejs --no-typescript
+          echo '7e947087d665336550e01aacf50aadf4a8f47371189d189f5ebbe98346722c1f  /tmp/qrw1911-node/ddv_save_core_bg.wasm' | sha256sum -c -
+          mkdir -p tests/qa-op static/qa-op src/routes/test-qrw-op
+          "$B" "$W" --out-dir tests/qa-op --target web --no-typescript
+          cp tests/qa-op/ddv_save_core_bg.wasm static/qa-op/
+          cp tests/qa-op/ddv_save_core.js static/qa-op/
+          sha256sum tests/qa-op/ddv_save_core.js static/qa-op/ddv_save_core_bg.wasm
+          cmp tests/qa-op/ddv_save_core_bg.wasm static/qa-op/ddv_save_core_bg.wasm
+          sha256sum -c /tmp/qrw1911-lock.sha
+          git diff --exit-code -- src/lib tests/helpers/p1g-fixture.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual frp01 Worker UI OPFS CAS and independent exact Reopen
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';import assert from 'node:assert/strict';const s=readFileSync('tests/helpers/p1g-fixture.mjs','utf8'),a="const profile = Buffer.from(JSON.stringify(root), 'utf8');",b="const profile = Buffer.from(root);";assert.equal(s.split(a).length,2);const t=s.replace(a,b);assert.equal(t.replace(b,a),s);writeFileSync('tests/.qa-raw-fixture.mjs',t);
+          NODE
+          cat > tests/.qa-fixture.mjs <<'NODE'
+          import assert from 'node:assert/strict';import {readFileSync,writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';import {makeSyntheticP1gProfile} from './.qa-raw-fixture.mjs';
+          const sha=b=>createHash('sha256').update(b).digest('hex'),input=readFileSync('/tmp/qrc1899-frp624-source.json'),d=JSON.parse(input),G=90001,g=d.World.GridCollection.Grids[G],expected=structuredClone(d),e=expected.World.GridCollection.Grids[G];
+          assert.equal(d.GameInfo.Version,624);assert.equal(g.NextGridObjectID,50);assert.equal(g.Objects['10'].ID,10);assert.equal(g.Objects['11'].ID,11);assert.equal(g.Objects['12'].ID,12);
+          const [x,y]=[g.Objects['10'].X,g.Objects['10'].Y],selector={gridId:G,oldIds:[10,11,12]};
+          e.NextGridObjectID=53;for(const id of selector.oldIds)delete e.Objects[String(id)];
+          for(const [id,item,dy,left]of [[50,40700268,0,false],[51,40700269,2,true],[52,40700268,4,false]])e.Objects[String(id)]={ID:id,ItemID:item,X:x,Y:y+dy,Orientation:left?'GridOrientation_Left':'GridOrientation_Down',State:null};
+          const expectedText=JSON.stringify(expected);assert.notEqual(sha(input),sha(Buffer.from(expectedText)));assert.deepEqual(expected.Player,d.Player);
+          const bad=structuredClone(d);delete bad.World.GridCollection.Grids[G].Objects['11'];
+          const bytes=makeSyntheticP1gProfile(input);writeFileSync('static/qa-op/input.p1g',bytes);writeFileSync('static/qa-op/bad.p1g',makeSyntheticP1gProfile(Buffer.from(JSON.stringify(bad))));
+          writeFileSync('static/qa-op/meta.json',JSON.stringify({sha:sha(bytes),inputText:input.toString(),expectedText,selector,exact:7,nextGridObjectId:50,oldStock:10,newStock:20}));
+          NODE
+          node tests/.qa-fixture.mjs
+          cat > src/routes/test-qrw-op/qa.worker.mjs <<'NODE'
+          import init,{WorkerWasmSource} from '../../../tests/qa-op/ddv_save_core.js';
+          import {FRP01_RELEASE} from '$lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {compileVerifiedWorker} from '$lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs';
+          import {createProductSwitch624Frp01LocalAdapter} from '$lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          import {createProductWasmReadOwner} from '$lib/ddv/core/save/product-wasm-read-owner.mjs';import {createP1gRustWorkerReadOnlyBridge} from '$lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+          import {installLocalFrp01DevWorker} from '$lib/dev/local-scoped-edit-worker-port.mjs';
+          try{const resp=await fetch('/qa-op/ddv_save_core_bg.wasm');if(!resp.ok||!resp.headers.get('content-type')?.startsWith('application/wasm'))throw Error('WASM MIME');const wasmBytes=new Uint8Array(await resp.arrayBuffer());const jsResp=await fetch('/qa-op/ddv_save_core.js');if(!jsResp.ok)throw Error('JS MIME');const jsBytes=new Uint8Array(await jsResp.arrayBuffer());
+          let protectedDenied=false,protectedCode='';try{await compileVerifiedWorker(jsBytes,wasmBytes,{deniedSymbol:/(?!)/,requiredMethods:FRP01_RELEASE.methods,exactPrototype:true,exactWasmExports:FRP01_RELEASE.exports})}catch(e){protectedDenied=true;protectedCode=String(e?.message||e)}if(!protectedDenied)throw Error('UNSAFE_PROTECTED_RELEASE_ACCEPTED');
+          await init({module_or_path:wasmBytes});
+          const names=['preview_switch624_frp01','stage_switch624_frp01','toggle_switch624_frp01','begin_switch624_frp01_output','next_switch624_frp01_output_chunk'];const methods=Object.getOwnPropertyNames(WorkerWasmSource.prototype).filter(k=>!['constructor','free','__destroy_into_raw'].includes(k));const required=FRP01_RELEASE.methods,extras=methods.filter(k=>!required.includes(k)),actualExports=WebAssembly.Module.exports(new WebAssembly.Module(wasmBytes)).map(x=>x.name);if(methods.length!==29||required.length!==15||extras.length!==14||actualExports.length!==38||FRP01_RELEASE.exports.length!==24||!names.every(k=>methods.includes(k))||!methods.includes('finish_switch624_frp01_readonly')||!methods.includes('read_switch624_frp01_target')||!required.every(k=>methods.includes(k)))throw Error('WEB_GENERATED_FRP_ABI_ORACLE_DRIFT');const abiCensus={actualMethods:methods.length,requiredMethods:required.length,extraMethods:extras.length,actualWasmExports:actualExports.length,requiredWasmExports:FRP01_RELEASE.exports.length,protectedDenied,protectedCode};postMessage({kind:'QA_PROTECTED_ABI_CENSUS',release:abiCensus});
+          let mixed=0,opens=0,closes=0,hold=false,release=null;const never=async()=>{throw Error('unexpected factory')};
+          for(const create of [createProductWasmReadOwner,createP1gRustWorkerReadOnlyBridge])for(const extra of [{backpackScope:'steam'},{wardrobeScope:'switch'},{appearanceScope:'hair'},{appearanceScope:'skin'},{allowScopedAmountSource:true},{allowScopedCollectionSource:true},{allowSwitch626ChestSource:true},{allowSteam626ChestSource:true},{allowSwitch626Catalog0Source:true},{allowCollectionCandidateSource:true}]){let denied=false;try{create(never,{placementScope:'frp01',...extra})}catch{denied=true}if(!denied)throw Error('mixed owner/bridge');mixed++}
+          const factory=async()=>({WorkerWasmSource:class extends WorkerWasmSource{constructor(...a){super(...a);opens++}close(){closes++;return super.close()}}});const a=createProductSwitch624Frp01LocalAdapter({wasmFactory:factory});const wrapped={...a,async previewPlacement(...args){const p=await a.previewPlacement(...args);if(hold){hold=false;await new Promise(r=>{release=r;postMessage({kind:'QA_PENDING'})})}return p},async close(){const p=await a.close();postMessage({kind:'QA_COUNTS',opens,closes});return p}};
+          installLocalFrp01DevWorker(self,wrapped);self.addEventListener('message',e=>{if(e.data?.kind==='QA_ARM'){hold=true;postMessage({kind:'QA_ARMED'})}if(e.data?.kind==='QA_RELEASE'){release?.();release=null}});postMessage({kind:'QA_LOCAL_READY',mixed,release:abiCensus});}catch(e){postMessage({kind:'QA_ERROR',error:String(e?.stack||e)})}
+          NODE
+          cat > src/routes/test-qrw-op/+page.svelte <<'SVELTE'
+          <script>import {onMount} from 'svelte';import {setLocale} from '$lib/i18n/runtime.js';import LocalPlacementEditorDev from '$lib/dev/LocalPlacementEditorDev.svelte';import {localPlacementCopy} from '$lib/dev/local-placement-copy.mjs';import {createLocalFrp01DevPort} from '$lib/dev/local-scoped-edit-worker-port.mjs';import {createProductFrp01Port} from '$lib/dev/product-placement-client.mjs';let adapter=null;const operation='frp01',trace={receipts:[],mutate:false,counts:null};
+          onMount(()=>{setLocale('en');let w,p;let workers=0;const original=window.Worker;window.Worker=new Proxy(original,{construct(t,a,n){workers++;return Reflect.construct(t,a,n)}});(async()=>{try{let denied=false;try{await createProductFrp01Port()}catch{denied=true}if(!denied||workers!==0)throw Error('null anchor granted');w=new Worker(new URL('./qa.worker.mjs',import.meta.url),{type:'module'});const events=new Map();w.addEventListener('message',e=>{if(e.data?.kind==='QA_COUNTS')trace.counts=e.data;const cb=events.get(e.data?.kind);if(cb){events.delete(e.data.kind);cb(e.data)}});const wait=k=>new Promise(resolve=>events.set(k,resolve));const ready=await Promise.race([wait('QA_LOCAL_READY'),wait('QA_ERROR')]);if(ready.kind!=='QA_LOCAL_READY')throw Error(ready.error);p=createLocalFrp01DevPort(w);adapter=Object.freeze({...p,async previewPlacement(...args){const v=await p.previewPlacement(...args);trace.receipts.push(v);return trace.mutate?{...v,oldIds:[10,11,13]}:v}});window.__qa={p,trace,wait,send:k=>w.postMessage({kind:k}),mixed:ready.mixed,release:ready.release,words:localPlacementCopy('en'),workers:()=>workers};}catch(e){window.__qa={error:String(e?.stack||e)}}})();return()=>{p?.dispose();w?.terminate()}});</script>
+          {#if adapter}<LocalPlacementEditorDev trustedWorkerAdapter={adapter} verifiedLocalDevGate={true} fixedOperation={operation}/>{/if}
+          SVELTE
+          cat > tests/.qa-browser.mjs <<'NODE'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {spawn,spawnSync} from 'node:child_process';import {readFileSync,writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';
+          const sha=b=>createHash('sha256').update(b).digest('hex'),origin='http://127.0.0.1:4186',server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4186','--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});let browser;
+          try{let ready=false;for(let i=0;i<100;i++){try{if((await fetch(origin+'/test-qrw-op/')).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,250))}assert.ok(ready);const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+          const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(String(e)));await page.goto(origin+'/test-qrw-op/');try{await page.waitForFunction(()=>!!window.__qa,{},{timeout:30000})}catch(e){console.log('QRW1911_BOOT_DIAGNOSTICS',JSON.stringify({pageErrors:errors,html:(await page.locator('body').innerText().catch(()=>'' )).slice(0,1200)}));throw e}assert.equal(await page.evaluate(()=>window.__qa.error),undefined);const meta=JSON.parse(readFileSync('static/qa-op/meta.json','utf8')),bytes=readFileSync('static/qa-op/input.p1g');assert.equal(sha(bytes),meta.sha);
+          const boundary=await page.evaluate(async m=>{const {p,wait,send,trace}=window.__qa,need=(x,k)=>{if(!x)throw Error(k)},sel=m.selector,build={platform:'switch',buildKind:'switch-bid',buildId:'52BD625D9B4E0053',schema:624,externallyConfirmed:true},foreign={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true},sha=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');let neg=0;const deny=async(f,k)=>{let d=false;try{await f()}catch{d=true}need(d,k);neg++};const get=async n=>{const b=new Uint8Array(await(await fetch('/qa-op/'+n+'.p1g')).arrayBuffer());return {file:new File([b],n+'.p1g'),build,originalSha256:await sha(b)}};
+          const input=await get('input');need(p.previewAppearance===undefined&&p.previewBackpack===undefined&&p.previewWardrobe===undefined&&p.spatialPreview===undefined,'foreign port surface');await deny(()=>p.previewPlacement(sel),'before open');await deny(()=>p.previewPlacement({gridId:90001,retainedId:10,movedId:11}),'foreign selector');await deny(()=>p.open({...input,build:foreign}),'foreign Build');await deny(()=>p.open({...input,build:{...build,buildId:'0000000000000000'}}),'wrong BID');
+          await deny(()=>p.previewPlacement({gridId:90001,oldIds:[10,11,0]}),'zero ID');await deny(()=>p.previewPlacement({gridId:90001,oldIds:[10,11,11]}),'duplicate IDs');
+          await p.open(await get('bad'));await p.backupOriginal();await deny(()=>p.previewPlacement(sel),'invalid old rows');await deny(()=>p.stagePlacement(),'bad stage');await p.close();
+          await p.open(input);await deny(()=>p.previewPlacement(sel),'before backup');await p.backupOriginal();await deny(()=>p.stagePlacement(),'before preview');const armed=wait('QA_ARMED');send('QA_ARM');await armed;const pending=wait('QA_PENDING');const late=p.previewPlacement(sel).then(()=>false,()=>true);await pending;await p.close();send('QA_RELEASE');need(await late,'late preview crossed close');neg++;await deny(()=>p.previewPlacement(sel),'closed');return {neg,mixed:window.__qa.mixed,counts:trace.counts};},meta);
+          assert.equal(boundary.mixed,20);assert.equal(boundary.neg,12);
+          const words=await page.evaluate(()=>window.__qa.words),ed=page.locator('[data-dev-placement]'),btn=k=>ed.getByRole('button',{name:words[k],exact:true});async function prepare(){const f=ed.locator('input[type=file]');await f.waitFor();await f.setInputFiles({name:'synthetic-frp01.p1g',mimeType:'application/octet-stream',buffer:bytes});await ed.locator('input[type=checkbox]').check();await btn('openFile').click();await btn('backup').click();await btn('review').waitFor();const nums=ed.locator('input[type=number]'),values=[meta.selector.gridId,...meta.selector.oldIds];assert.equal(await nums.count(),values.length);for(const [i,v] of values.entries())await nums.nth(i).fill(String(v));}
+          await prepare();await page.evaluate(()=>window.__qa.trace.mutate=true);await btn('review').click();await ed.getByRole('alert').waitFor();assert.equal(await ed.locator('[data-placement-preview]').count(),0);assert.equal(await btn('stagePlacement').count(),0);
+          await page.evaluate(()=>window.__qa.trace.mutate=false);await prepare();await btn('review').click();await btn('stagePlacement').waitFor();const review=ed.locator('[data-placement-preview]');assert.match(await review.innerText(),/50, 51, 52/);assert.ok((await review.innerText()).includes(words.frp01Detail),'operation-specific no-stock-change copy');await ed.locator('input[type=number]').nth(1).fill(String(meta.selector.oldIds[0]+1));assert.equal(await btn('stagePlacement').isDisabled(),true);await ed.locator('input[type=number]').nth(1).fill(String(meta.selector.oldIds[0]));const pr=await page.evaluate(()=>window.__qa.trace.receipts.at(-1));assert.equal(pr.exactFieldChangedCount,7);assert.equal(pr.inventoryDelta,0);assert.equal(pr.layout,'PRESERVE_EXISTING');assert.equal(pr.addedObjects,3);assert.equal(pr.removedObjects,3);assert.equal(pr.writerAuthorized,false);assert.deepEqual(pr.oldIds,[10,11,12]);assert.equal(pr.oldStock,10);assert.equal(pr.newStock,20);assert.equal(pr.nextGridObjectId,50);assert.equal(pr.gridId,90001);for(const k of ['sessionId','oldRowsSha256','oldStockSha256','newStockSha256','readset','readsetSha256','projectedDecodedSha256','rootSha256','gridSha256','counterSha256','inventoryEntrySha256','housesSha256','oldRowsSha256'])assert.equal(k in pr,false,k);
+          await btn('stagePlacement').click();await btn('undo').waitFor();await btn('undo').click();await btn('redo').waitFor();assert.equal(await btn('export').count(),0);await btn('redo').click();await btn('export').click();await btn('downloadEdited').waitFor();
+          const out=await page.evaluate(async()=>{const {p}=window.__qa,b=await p.downloadVerifiedCopy('backup'),e=await p.downloadVerifiedCopy('edited'),root=await navigator.storage.getDirectory(),bf=await(await root.getFileHandle(b.name)).getFile(),ef=await(await root.getFileHandle(e.name)).getFile();let replay=false;try{await p.exportEditedCopy()}catch{replay=true}return {b:{name:b.name,sha:b.sha256,bytes:Array.from(b.encryptedBytes),disk:Array.from(new Uint8Array(await bf.arrayBuffer()))},e:{name:e.name,sha:e.sha256,bytes:Array.from(e.encryptedBytes),disk:Array.from(new Uint8Array(await ef.arrayBuffer()))},replay}});
+          assert.equal(out.replay,true);assert.notEqual(out.b.name,out.e.name);assert.notEqual(out.b.name,'synthetic-frp01.p1g');assert.notEqual(out.e.name,'synthetic-frp01.p1g');assert.deepEqual(Buffer.from(out.b.bytes),bytes);assert.deepEqual(Buffer.from(out.b.disk),bytes);assert.deepEqual(out.e.bytes,out.e.disk);assert.equal(sha(Buffer.from(out.e.bytes)),out.e.sha);assert.notEqual(out.e.sha,meta.sha);
+          writeFileSync('/tmp/qrw-edited.p1g',Buffer.from(out.e.bytes));writeFileSync('/tmp/qrw-original.p1g',bytes);
+          const check=spawnSync(process.execPath,['--input-type=module','-e',"import {readFileSync} from 'node:fs';import assert from 'node:assert/strict';import {p1gPackagedProfileCodec as c} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';const m=JSON.parse(readFileSync('static/qa-op/meta.json','utf8'));for(const [file,want] of [['/tmp/qrw-original.p1g',m.inputText],['/tmp/qrw-edited.p1g',m.expectedText]]){const p=await c.loadProfile(new Uint8Array(readFileSync(file)));assert.deepEqual(JSON.parse(p.jsonText),JSON.parse(want));assert.equal(p.jsonText.length>0,true)}"],{stdio:'inherit'});assert.equal(check.status,0);await btn('close').click();await ed.locator('input[type=file]').waitFor();assert.equal(await review.count(),0);
+          const end=await page.evaluate(()=>({counts:window.__qa.trace.counts,workers:window.__qa.workers()}));assert.equal(end.workers,1);assert.ok(end.counts.opens>=4);assert.equal(end.counts.opens,end.counts.closes);assert.deepEqual(errors,[]);const release=await page.evaluate(()=>window.__qa.release);assert.equal(release.actualMethods,29);assert.equal(release.requiredMethods,15);assert.equal(release.extraMethods,14);assert.equal(release.actualWasmExports,38);assert.equal(release.requiredWasmExports,24);assert.equal(release.protectedDenied,true);console.log('QRW1911_FRP624_LOCAL_WEB_ACTUAL_PASS '+JSON.stringify({positive:1,negative:boundary.neg+3,mixedDenied:boundary.mixed,actualWorker:end.workers,actualRustSessions:end.counts.opens,actualCloses:end.counts.closes,actualOpfs:true,independentReopen:true,exact:7,actualDom:true,lateClose:true,signed:false,genuine:false}));console.log('QRW1911_FRP624_PROTECTED_ABI_TRUE_RED '+JSON.stringify(release));throw Error('QRW1911_FRP624_PROTECTED_EXACT_ABI_TRUE_RED');}finally{await browser?.close();server.kill()}
+          NODE
+          node tests/.qa-browser.mjs
+          git diff --exit-code -- src/lib tests/helpers/p1g-fixture.mjs
+
