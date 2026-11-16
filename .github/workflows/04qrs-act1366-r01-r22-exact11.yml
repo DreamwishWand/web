@@ -1,0 +1,83 @@
+name: 04 QR-S ACT1366 R01 R22 current exact11 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1366-r01-r22-exact11.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 31e3137a13b23cbe45b9779c8ce991db80fe3e98
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Isolated actual Git exact14 gate delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-r22-gate.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {writeFileSync,mkdtempSync,rmSync,unlinkSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const main='31e3137a13b23cbe45b9779c8ce991db80fe3e98',fixed='a421cc3069205893303378c378c44676833de84d',source='3f01af5276e16119de497eee85cdca170aa3fd21',prior='6e73a255b021b20099506c989947594f88a46c97',oldBase='ffaa286501bc3008b598e5429be7b930bdc70f1d';
+          const core='crates/ddv-save-core',cfg='scripts/wasm-distribution/protected-release-inputs.json',helper='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',testHelper='scripts/wasm-distribution/qa-r01-r22.mjs',lock='scripts/wasm-distribution/approved-Cargo.lock';
+          const dir=mkdtempSync(join(tmpdir(),'wand-r01-r22-')),env={...process.env,GIT_INDEX_FILE:join(dir,'index'),GIT_NO_REPLACE_OBJECTS:'1',GIT_AUTHOR_NAME:'QA',GIT_AUTHOR_EMAIL:'qa@example.invalid',GIT_COMMITTER_NAME:'QA',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8',env,maxBuffer:16*1024*1024,stdio:['ignore','pipe','pipe']}).trim(),raw=(ref,p)=>execFileSync('git',['show',ref+':'+p],{encoding:'utf8',env}),blob=s=>execFileSync('git',['hash-object','-w','--stdin'],{input:s,encoding:'utf8',env}).trim();
+          const entry=(ref,p)=>{const x=g('ls-tree',ref,'--',p);if(!x)return null;const m=/^(100644|100755) blob ([a-f0-9]{40})\t(.+)$/.exec(x);assert.ok(m&&m[3]===p,p);return {mode:m[1],blob:m[2]}};
+          const set=(p,e)=>e?g('update-index','--add','--cacheinfo',e.mode,e.blob,p):g('update-index','--force-remove','--',p);
+          const make=(parent,changes)=>{g('read-tree',parent);for(const [p,e] of changes)set(p,e);return g('commit-tree',g('write-tree'),'-p',parent,'-m','isolated QA only')};
+          assert.equal(g('rev-parse','HEAD'),main);
+          assert.equal(g('rev-parse',main+':'+helper),'83a26102290370bc492417bdc57b1571b5f3c775');
+          assert.equal(g('rev-parse',fixed+':'+helper),'11ddb6f2bb4178a6ba680d07604421a9591aa61c');
+          assert.deepEqual(g('diff','--name-only',fixed+'^',fixed).split('\n'),[helper]);
+          const old=raw(main,helper),cur=raw(fixed,helper),block=cur.slice(cur.indexOf('const switch626R01CumulativeEntries=['),cur.indexOf('const gatePaths='));
+          const p0=cur.indexOf(" if(baseCore==='f942165161b98cf7f9de16a1f7459cf3d337dc61')"),p1=cur.indexOf(" deny('BASE_CORE_TREE');",p0);
+          assert.ok(block.startsWith('const switch626R01CumulativeEntries=[')&&p0>0&&p1>p0);
+          assert.equal(cur.replace(block,'').replace(cur.slice(p0,p1),''),old);
+          assert.equal(g('rev-parse',main+':'+core),'f942165161b98cf7f9de16a1f7459cf3d337dc61');
+          assert.equal(g('rev-parse',source+':'+core),'1318590f458f274017a6c0bd9d65f81b97cc1ade');
+          assert.equal(g('rev-parse',source+'^{tree}'),'2aecfdc4fbd310d1c1894e14bb1c70c34878546e');
+          const paths=g('diff','--name-only','--no-renames',prior,source,'--',core,'.github/workflows/core-product-session-boundary.yml').split('\n');
+          assert.equal(paths.length,10);
+          const changes=paths.map(p=>[p,entry(source,p)]);
+          const conf=raw(main,cfg),oldCargo=entry(main,core+'/Cargo.toml').blob,newCargo=entry(source,core+'/Cargo.toml').blob,config=conf.replace(oldCargo,newCargo);
+          assert.equal(blob(config),'a14e383bb7a3d2196edd5dfe2b188104739feb0f');
+          assert.deepEqual({...JSON.parse(config),cargoTomlGitBlob:oldCargo},JSON.parse(conf));
+          changes.push([cfg,{mode:'100644',blob:blob(config)}]);
+          const pins=changes.map(([p,e])=>({path:p,before:entry(main,p),after:e}));
+          const literal=JSON.parse(block.slice(block.indexOf('['),block.lastIndexOf(']')+1));
+          const sorted=x=>x.slice().sort((a,b)=>a.path.localeCompare(b.path));
+          assert.deepEqual(sorted(literal),sorted(pins));
+          assert.ok(pins.every(x=>x.after.mode==='100644'&&(!x.before||x.before.mode==='100644')));
+          const gate=make(main,[[helper,entry(fixed,helper)]]),candidate=make(gate,changes);
+          assert.equal(g('rev-parse',candidate+':'+core),'1318590f458f274017a6c0bd9d65f81b97cc1ade');
+          assert.equal(g('rev-parse',make(candidate,pins.map(x=>[x.path,x.before]))+'^{tree}'),g('rev-parse',gate+'^{tree}'));
+          for(const ref of [main,gate,candidate]){assert.equal(entry(ref,lock).blob,'b667b42cfef2032c2925be7b2aa9b7142bff4b52');assert.equal(entry(ref,core+'/Cargo.lock'),null)}
+          writeFileSync(testHelper,cur,{flag:'wx'});
+          try{
+           const {verifyAcceptedRustScope,verifyExactScopeEntries}=await import('./'+testHelper);
+           const oldVerify=(await import('./'+helper)).verifyAcceptedRustScope;
+           let pos=0,neg=0;const no=f=>{assert.throws(f);neg++},verify=(b,c)=>verifyAcceptedRustScope(process.cwd(),b,c);
+           const r=verify(gate,candidate);assert.equal(r.entryCount,11);assert.equal(r.sourcePr,1711);assert.equal(r.sourceHead,source);assert.equal(r.writerAuthorized,false);assert.equal(r.mergeAuthorized,false);pos++;
+           assert.equal(verifyExactScopeEntries(process.cwd(),gate,candidate,pins).entries.length,11);pos++;
+           const noise=['qa-r22-base-only.txt',{mode:'100644',blob:blob('independent base only')}],advance=make(gate,[noise]);
+           assert.equal(verify(advance,make(advance,changes)).entryCount,11);pos++;
+           const rm01='b937c1d2cebcd81dfa7b18a754b46e43da118b13';assert.equal(oldVerify(process.cwd(),oldBase,rm01).entryCount,14);assert.equal(verify(oldBase,rm01).entryCount,14);pos++;
+           for(const [p,e] of changes){const rest=changes.filter(x=>x[0]!==p);no(()=>verify(gate,make(gate,rest)));no(()=>verify(gate,make(gate,[...rest,[p,{mode:'100755',blob:e.blob}]])));no(()=>verify(gate,make(gate,[...rest,[p,{mode:'100644',blob:blob('wrong postimage '+p)}]])))}
+           for(const p of [helper,'scripts/wasm-distribution/verify-protected-release.mjs','scripts/int-selection-preflight.mjs',lock,core+'/Cargo.lock'])no(()=>verify(gate,make(gate,[...changes,[p,{mode:'100644',blob:blob('wrong '+p)}]])));
+           no(()=>verify(gate,make(gate,[...changes,noise])));
+           no(()=>verify(main,make(main,[...changes,[helper,entry(fixed,helper)]])));
+           no(()=>oldVerify(process.cwd(),main,make(main,changes)));
+           no(()=>verify(candidate,gate));no(()=>verify(gate,'bad'));no(()=>verify(gate,main));
+           console.log('ACT1366_R01_CURRENT_EXACT11_GATE_L2_PASS',JSON.stringify({pos,neg,pins:11,actualGit:true,actualSignature:false,protectedAcceptance:false}));
+          }finally{unlinkSync(testHelper);rmSync(dir,{recursive:true,force:true})}
+          EOF
+          node qa-r22-gate.mjs
