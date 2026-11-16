@@ -28,6 +28,14 @@ fn required(k:&str)->String{
    .unwrap_or_else(||deny("MISSING_EXTERNAL_ATTESTATION"))
 }
 fn main(){
+ #[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+ if env::args().nth(1).as_deref()==Some("--steam626-active-hair-color-exact1-only"){
+   run_active_hair_color();return;
+ }
+ #[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+ if env::args().nth(1).as_deref()==Some("--steam626-character-skin-exact1-only"){
+   run_character_skin();return;
+ }
  #[cfg(feature="semantic-writer-dev")]
  if matches!(env::args().nth(1).as_deref(),Some("--switch624-road-rm01-archive-only"|"--switch624-fence-fe01-archive-only"|"--switch624-fence-frp01-archive-only"|"--switch624-fence-fm01-archive-only"|"--switch624-road-r02-native-q4-archive-only"|"--switch624-fence-ortho-l-archive-only"|"--switch624-fence-diagonal90-archive-only"|"--switch624-fence-ortho-t-archive-only"|"--switch624-fence-diagonal-n3-positive-archive-only"|"--switch624-fence-diagonal-n3-mirrored-archive-only"|"--switch624-fence-diagonal-n6-positive-archive-only"|"--switch626-fence-fd01-layout-only"|"--switch626-fence-fd02-layout-only"|"--switch626-fence-fd03-layout-only"|"--switch626-fence-ortho-l-layout-only"|"--switch626-fence-diagonal90-layout-only"|"--switch626-fence-ortho-t-layout-only"|"--switch626-road-r02-native-q4-only"|"--switch626-fence-fm01-layout-only"|"--switch626-road-rm01-native-mixed-q5-only"|"--switch626-fence-fe01-layout-only"|"--switch626-road-r01-orthogonal-q3-layout-only"|"--steam626-road-sr03-native-mixed-q5-only"|"--steam626-road-comp03-seed-merge-q9-only")){
    run_switch624_archive_operation();
@@ -667,4 +675,86 @@ fn run_switch624_archive_operation(){
  else if fm{eprintln!("PRIVATE_V2_SWITCH624_FM01_ARCHIVE_PRESERVE8_PIPE_PASS");}
  else if fence{eprintln!("PRIVATE_V2_SWITCH624_FE01_ARCHIVE_PRESERVE7_PIPE_PASS");}
  else{eprintln!("PRIVATE_V2_SWITCH624_RM01_ARCHIVE_EXACT8_PIPE_PASS");}
+}
+
+#[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+fn run_active_hair_color(){
+ if env::args().len()!=2||required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM||
+    env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty()){
+    deny("HAIR_EXACT_STEAM626_REQUIRED")
+ }
+ let original=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
+ let backup=hex32(&required("WAND_LOCAL_BACKUP_SHA256"));
+ let size=required("WAND_LOCAL_ORIGINAL_SIZE_BYTES").parse::<u64>().unwrap_or_else(|_|deny("HAIR_ORIGINAL_SIZE"));
+ let backup_size=required("WAND_LOCAL_BACKUP_SIZE_BYTES").parse::<u64>().unwrap_or_else(|_|deny("HAIR_BACKUP_SIZE"));
+ if original==[0;32]||original!=backup||size==0||size>128*1024*1024||size!=backup_size{deny("HAIR_ORIGINAL_BACKUP_CAS")}
+ let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
+ let plan=required("WAND_LOCAL_HAIR_CANONICAL_PLAN");
+ let plan_sha=hex32(&required("WAND_LOCAL_HAIR_PLAN_SHA256"));
+ if plan.len()>8192||plan_sha==[0;32]||Sha256::digest(plan.as_bytes()).as_slice()!=plan_sha{deny("HAIR_PLAN_SHA_CAS")}
+ let mut input=Vec::new();io::stdin().take(256*1024*1024+1).read_to_end(&mut input).unwrap_or_else(|_|deny("HAIR_PIPE_READ"));
+ if input.is_empty()||input.len()>256*1024*1024||Sha256::digest(&input).as_slice()!=expected{deny("HAIR_SOURCE_CAS")}
+ let s=ProductSession::open_decoded_readonly(input,BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+    build_id:STEAM.into(),schema:626,externally_attested:true}).unwrap_or_else(|_|deny("HAIR_FULL_DOCUMENT"));
+ let r=s.receipt().unwrap_or_else(|_|deny("HAIR_RECEIPT"));
+ if r.writer_authorized||r.product_worker_bound||r.product_read_accepted||r.revision!=0||r.index_generation!=1||r.decoded_sha256!=expected{
+    deny("HAIR_SESSION_SCOPE")
+ }
+ let scope=|rev,gen,action|WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
+    expected_revision:rev,expected_index_generation:gen,expected_decoded_sha256:expected,action};
+ let t=s.mint_private_active_hair_target(scope(0,1,WorkerAction::ReadDomain),plan.as_bytes()).unwrap_or_else(|_|deny("HAIR_TARGET"));
+ let stage=s.stage_private_active_hair_color(scope(0,1,WorkerAction::Stage),&t).unwrap_or_else(|_|deny("HAIR_STAGE"));
+ if stage.operation_count!=1||stage.exact_field_changed_count!=1||!stage.applied||!stage.semantic_changed||
+    stage.product_writer_authorized||stage.original_overwrite_authorized{deny("HAIR_EXACT1_RECEIPT")}
+ if s.stage_private_active_hair_color(scope(0,1,WorkerAction::Stage),&t).is_ok(){deny("HAIR_STAGE_REPLAY")}
+ s.undo_typed_semantic_batch(scope(1,2,WorkerAction::Stage)).unwrap_or_else(|_|deny("HAIR_UNDO"));
+ if s.take_typed_semantic_decoded_once(scope(2,3,WorkerAction::ExportEditedCopy)).is_ok(){deny("HAIR_UNDONE_EXPORT")}
+ s.redo_typed_semantic_batch(scope(2,3,WorkerAction::Stage)).unwrap_or_else(|_|deny("HAIR_REDO"));
+ let out=s.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).unwrap_or_else(|_|deny("HAIR_EXPORT"));
+ if Sha256::digest(&out).as_slice()!=stage.staged_decoded_sha256||s.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).is_ok(){
+    deny("HAIR_EXPORT_SHA_OR_REPLAY")
+ }
+ io::stdout().write_all(&out).unwrap_or_else(|_|deny("HAIR_PIPE_WRITE"));io::stdout().flush().unwrap_or_else(|_|deny("HAIR_PIPE_FLUSH"));
+ eprintln!("PRIVATE_STEAM626_ACTIVE_HAIR_COLOR_EXACT1_PIPE_PASS");
+}
+
+#[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
+fn run_character_skin(){
+ if env::args().len()!=2||required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM||
+    env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty()){
+    deny("SKIN_EXACT_STEAM626_REQUIRED")
+ }
+ let original=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
+ let backup=hex32(&required("WAND_LOCAL_BACKUP_SHA256"));
+ let size=required("WAND_LOCAL_ORIGINAL_SIZE_BYTES").parse::<u64>().unwrap_or_else(|_|deny("SKIN_ORIGINAL_SIZE"));
+ let backup_size=required("WAND_LOCAL_BACKUP_SIZE_BYTES").parse::<u64>().unwrap_or_else(|_|deny("SKIN_BACKUP_SIZE"));
+ if original==[0;32]||original!=backup||size==0||size>128*1024*1024||size!=backup_size{deny("SKIN_ORIGINAL_BACKUP_CAS")}
+ let expected=hex32(&required("WAND_LOCAL_DECODED_SHA256"));
+ let plan=required("WAND_LOCAL_SKIN_CANONICAL_PLAN");
+ let plan_sha=hex32(&required("WAND_LOCAL_SKIN_PLAN_SHA256"));
+ if plan.len()>8192||plan_sha==[0;32]||Sha256::digest(plan.as_bytes()).as_slice()!=plan_sha{deny("SKIN_PLAN_SHA_CAS")}
+ let mut input=Vec::new();io::stdin().take(256*1024*1024+1).read_to_end(&mut input).unwrap_or_else(|_|deny("SKIN_PIPE_READ"));
+ if input.is_empty()||input.len()>256*1024*1024||Sha256::digest(&input).as_slice()!=expected{deny("SKIN_SOURCE_CAS")}
+ let s=ProductSession::open_decoded_readonly(input,BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+    build_id:STEAM.into(),schema:626,externally_attested:true}).unwrap_or_else(|_|deny("SKIN_FULL_DOCUMENT"));
+ let r=s.receipt().unwrap_or_else(|_|deny("SKIN_RECEIPT"));
+ if r.writer_authorized||r.product_worker_bound||r.product_read_accepted||r.revision!=0||r.index_generation!=1||r.decoded_sha256!=expected{
+    deny("SKIN_SESSION_SCOPE")
+ }
+ let scope=|rev,gen,action|WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
+    expected_revision:rev,expected_index_generation:gen,expected_decoded_sha256:expected,action};
+ let t=s.mint_private_character_skin_target(scope(0,1,WorkerAction::ReadDomain),plan.as_bytes()).unwrap_or_else(|_|deny("SKIN_TARGET"));
+ let stage=s.stage_private_character_skin(scope(0,1,WorkerAction::Stage),&t).unwrap_or_else(|_|deny("SKIN_STAGE"));
+ if stage.operation_count!=1||stage.exact_field_changed_count!=1||!stage.applied||!stage.semantic_changed||
+    stage.product_writer_authorized||stage.original_overwrite_authorized{deny("SKIN_EXACT1_RECEIPT")}
+ if s.stage_private_character_skin(scope(0,1,WorkerAction::Stage),&t).is_ok(){deny("SKIN_STAGE_REPLAY")}
+ s.undo_typed_semantic_batch(scope(1,2,WorkerAction::Stage)).unwrap_or_else(|_|deny("SKIN_UNDO"));
+ if s.take_typed_semantic_decoded_once(scope(2,3,WorkerAction::ExportEditedCopy)).is_ok(){deny("SKIN_UNDONE_EXPORT")}
+ s.redo_typed_semantic_batch(scope(2,3,WorkerAction::Stage)).unwrap_or_else(|_|deny("SKIN_REDO"));
+ let out=s.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).unwrap_or_else(|_|deny("SKIN_EXPORT"));
+ if Sha256::digest(&out).as_slice()!=stage.staged_decoded_sha256||s.take_typed_semantic_decoded_once(scope(3,4,WorkerAction::ExportEditedCopy)).is_ok(){
+    deny("SKIN_EXPORT_SHA_OR_REPLAY")
+ }
+ io::stdout().write_all(&out).unwrap_or_else(|_|deny("SKIN_PIPE_WRITE"));io::stdout().flush().unwrap_or_else(|_|deny("SKIN_PIPE_FLUSH"));
+ eprintln!("PRIVATE_STEAM626_CHARACTER_SKIN_EXACT1_PIPE_PASS");
 }
