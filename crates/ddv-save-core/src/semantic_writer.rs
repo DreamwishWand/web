@@ -1806,3 +1806,7 @@ mod backpack_pair_tests{
         assert!(read(&open(&d)).is_err());
     }
 }
+
+#[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
+#[path="private_backpack_split.rs"]
+mod private_backpack_split;

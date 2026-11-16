@@ -34,6 +34,8 @@ fn main(){
    return;
  }
 
+ #[cfg(all(feature="private-native-v1",feature="semantic-writer-dev",not(target_arch="wasm32")))]
+ if env::args().nth(1).as_deref()==Some("--private-steam626-backpack-fruit-split-exact3-only"){backpack_split::run();return;}
  #[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
  if matches!(env::args().nth(1).as_deref(),Some("--switch626-collection-existing-bool-exact1-only"|"--steam626-collection-existing-bool-exact1-only")){
    run_collection_bool(env::args().nth(1).as_deref()==Some("--steam626-collection-existing-bool-exact1-only"));return;
@@ -668,3 +670,7 @@ fn run_switch624_archive_operation(){
  else if fence{eprintln!("PRIVATE_V2_SWITCH624_FE01_ARCHIVE_PRESERVE7_PIPE_PASS");}
  else{eprintln!("PRIVATE_V2_SWITCH624_RM01_ARCHIVE_EXACT8_PIPE_PASS");}
 }
+
+#[cfg(all(feature="private-native-v1",feature="semantic-writer-dev",not(target_arch="wasm32")))]
+#[path="private_ops/backpack_split.rs"]
+mod backpack_split;
