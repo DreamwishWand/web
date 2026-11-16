@@ -1,6 +1,23 @@
 //! Exact read-only Switch626 FD01/FE01 target receipts. Existing Session/walker/geometry only.
 use super::*;
 const BASE:u32=40700246;
+// Fixed fence-only lexical stock witness, preserving accepted FM01 catalog invariants.
+// No FM01 module/operation is imported as a dependency.
+fn fence_fixed_stock_catalog(b:&[u8],player:Span)->CoreResult<(u32,Span)>{
+ let lists=f(b,player,"ListInventories")?;let route=f(b,lists,"0")?;
+ inventory_route(b,route,0,BASE,"ItemType_Furniture")?;
+ let entry=f(b,f(b,route,"Inventory")?,&BASE.to_string())?;
+ let v=value(b,entry,4096)?;let amount=uint(&v["Amount"]).ok_or(denied("FM01_STOCK"))?;
+ need(fields(&v,&["Amount","Marker"])&&amount>0&&amount<=9999&&v["Marker"]=="ItemMarker_Favorite","FM01_STOCK")?;
+ let mut count=0usize;
+ for(k,r)in members(b,lists,4096)?{
+  let id=key(&k)?;need(n(b,r,"ID")?==id,"FM01_ROUTE_ID")?;
+  if opt(b,f(b,r,"Inventory")?,&BASE.to_string())?.is_some(){count+=1;need(id==0,"FM01_STOCK_ROUTE")?;}
+ }
+ need(count==1,"FM01_STOCK_ROUTE")?;
+ physical_totals(b,player,BASE as i32,None,amount)?;
+ Ok((amount,entry))
+}
 #[derive(Debug,PartialEq,Eq)]
 #[allow(dead_code)]
 pub(crate) struct Fd01Target{
@@ -306,7 +323,7 @@ impl ProductSession{
    20500005|20300115=>pack.effective_building(o,&houses),_=>ambient(b,w,gs,ds,&refs,&houses,o,dims),
   }).ok_or(denied("FENCE_ADD_TARGET_GEOMETRY"))?;
   need(minted==next,"FENCE_ADD_TARGET_COUNTER")?;
-  let(stock,entry)=super::fm01_product_target::catalog(b,roots.player)?;
+  let(stock,entry)=fence_fixed_stock_catalog(b,roots.player)?;
   Ok(FenceAddTarget{kind,scope:e,grid:gid,x,y,next,stock,root_sha:digest(b,root)?,grid_sha:digest(b,g)?,
    counter_sha:digest(b,f(b,g,"NextGridObjectID")?)?,stock_sha:digest(b,entry)?,houses_sha:digest(b,house_span)?,pairs:refs.pairs})
  }
