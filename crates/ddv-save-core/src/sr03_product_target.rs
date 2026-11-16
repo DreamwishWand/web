@@ -9,6 +9,13 @@ use geometry::{MeadowGeometry,LocalTarget,Rect,ROAD,GRID};
 use super::placement_saved_refs::Incoming;
 const MAX_GRID:usize=2*1024*1024;
 const HOUSE_MAX:usize=4096;
+#[derive(Clone,Copy,PartialEq,Eq)]
+enum RoadBuild{Steam626,Switch626}
+fn road_build(s:&ProductSession,scope:RoadBuild)->CoreResult<()>{
+ if scope==RoadBuild::Steam626{return build_check(s)}
+ let b=&s.native_source_build;
+ need(b.platform==Platform::Switch&&b.build_kind==BuildKind::SwitchBid&&b.build_id=="9A239D3DB569756D"&&b.schema==626&&b.externally_attested,"RM01_EXACT_SWITCH626_REQUIRED")
+}
 #[derive(Debug,PartialEq,Eq)]
 #[allow(dead_code)]
 pub(crate) struct Sr03Target{
@@ -166,10 +173,13 @@ impl ProductSession{
     /// No UI-supplied provider, rights, rectangle, hashes or Stage permission.
     #[allow(dead_code)]
     pub(crate) fn mint_sr03_target(&self,e:WorkerEnvelope,gid:u32,keep:u32,moved:u32)->CoreResult<Sr03Target>{
-        build_check(self)?;let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+        self.mint_mixed_road_target(e,gid,keep,moved,RoadBuild::Steam626)
+    }
+    fn mint_mixed_road_target(&self,e:WorkerEnvelope,gid:u32,keep:u32,moved:u32,scope:RoadBuild)->CoreResult<Sr03Target>{
+        road_build(self,scope)?;let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
         need(self.worker_bound&&st.semantic.is_none()&&st.revision==0&&st.generation==1&&gid>0,"SR03_TARGET_EPOCH")?;
         let common=InstalledGeometry::fixed().ok_or(denied("SR03_TARGET_COMMON_PROVIDER"))?;
-        let pack=MeadowGeometry::fixed(EXACT_STEAM,626).ok_or(denied("SR03_TARGET_PROVIDER"))?;
+        let pack=match scope{RoadBuild::Steam626=>MeadowGeometry::fixed(EXACT_STEAM,626),RoadBuild::Switch626=>MeadowGeometry::fixed_switch626("9A239D3DB569756D",626)}.ok_or(denied("SR03_TARGET_PROVIDER"))?;
         let b=&self.decoded;let roots=indexed_read::roots(b)?;let w=roots.world;
         let(root,g,gs,ds)=selected(b,w,gid)?;
         let next=n(b,g,"NextGridObjectID")?;let start=indexed_read::skip_ws(b,0);
@@ -189,18 +199,21 @@ impl ProductSession{
     }
 }
 
-#[cfg(feature="product-steam626-sr03-scoped")]
+#[cfg(any(feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"))]
 struct Sr03Prepared{target:Sr03Target,edits:Vec<Replacement>,projected:[u8;32]}
-#[cfg(feature="product-steam626-sr03-scoped")]
+#[cfg(any(feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"))]
 impl ProductSession{
     fn prepare_sr03_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32)->CoreResult<Sr03Prepared>{
+        self.prepare_mixed_road_product(e,grid,keep,moved,RoadBuild::Steam626)
+    }
+    fn prepare_mixed_road_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32,scope:RoadBuild)->CoreResult<Sr03Prepared>{
         use super::super::switch624_road_rm01::{MixedQ5Expected,collect_mixed_q5_current};
-        let t=self.mint_sr03_target(e,grid,keep,moved)?;
+        let t=self.mint_mixed_road_target(e,grid,keep,moved,scope)?;
         let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
         need(st.semantic.is_none()&&st.revision==0&&st.generation==1,"SR03_PRODUCT_EPOCH")?;
         let b=&self.decoded;let r=indexed_read::roots(b)?;
         let start=indexed_read::skip_ws(b,0);let top=Span{begin:start,end:indexed_read::value_end(b,start)?};
-        let (_,defs)=super::pack()?;super::subscribers(b,r.player,r.world,top,defs,ROAD as i32,true)?;
+        let (_,defs)=super::pack()?;super::subscribers_bound(b,r.player,r.world,top,defs,ROAD as i32,true,scope==RoadBuild::Switch626)?;
         let project=|s:Span,keys:&[&str]|->CoreResult<Value>{
             let mut m=serde_json::Map::new();
             for &k in keys{m.insert(k.into(),value(b,f(b,s,k)?,MAX_GRID)?);}
@@ -208,7 +221,10 @@ impl ProductSession{
         };
         let player=project(r.player,&["AchievementsData","DutySlots","BattlePassStates"])?;
         let world=project(r.world,&["MissionSlots","RecurringEvents","TimeLostTreasures","NextTimeLostTreasureID","Snippets","NextSnippetID"])?;
-        super::comp03_product_target::check_sr03_applicability(&player,&world)?;
+        match scope{
+            RoadBuild::Steam626=>{#[cfg(feature="product-steam626-sr03-scoped")] super::comp03_product_target::check_sr03_applicability(&player,&world)?;#[cfg(not(feature="product-steam626-sr03-scoped"))] return Err(denied("SR03_FEATURE_OFF"));},
+            RoadBuild::Switch626=>{#[cfg(feature="product-switch626-rm01-scoped")] super::comp03_product_target::check_switch626_rm01_applicability(&player,&world)?;#[cfg(not(feature="product-switch626-rm01-scoped"))] return Err(denied("RM01_FEATURE_OFF"));},
+        }
         let source_sha=super::hex(&e.expected_decoded_sha256);
         let grid_sha=super::hex(&t.grid_sha);let stock_sha=super::hex(&t.stock_sha);
         let expected=MixedQ5Expected{source_sha:&source_sha,grid:t.grid,retained:t.local.keep,moved:t.local.moved,next:t.local.next,amount:t.stock,grid_sha:&grid_sha,inventory_entry_sha:&stock_sha};
@@ -223,9 +239,18 @@ impl ProductSession{
         hasher.update(&b[pos..]);let projected=hasher.finalize().into();
         Ok(Sr03Prepared{target:t,edits,projected})
     }
+    #[cfg(feature="product-steam626-sr03-scoped")]
     pub(crate) fn preview_sr03_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32)->CoreResult<Value>{
-        let p=self.prepare_sr03_product(e,grid,keep,moved)?;let t=&p.target;
-        Ok(json!({"contract":"wand.worker.steam626.scoped-sr03-mixed-q5@1","itemId":ROAD,
+        self.preview_mixed_road_product(e,grid,keep,moved,RoadBuild::Steam626)
+    }
+    #[cfg(feature="product-switch626-rm01-scoped")]
+    pub(crate) fn preview_switch626_rm01_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32)->CoreResult<Value>{
+        self.preview_mixed_road_product(e,grid,keep,moved,RoadBuild::Switch626)
+    }
+    fn preview_mixed_road_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32,scope:RoadBuild)->CoreResult<Value>{
+        let p=self.prepare_mixed_road_product(e,grid,keep,moved,scope)?;let t=&p.target;
+        let contract=if scope==RoadBuild::Steam626{"wand.worker.steam626.scoped-sr03-mixed-q5@1"}else{"wand.worker.switch626.scoped-rm01-mixed-q5@1"};
+        Ok(json!({"contract":contract,"itemId":ROAD,
             "gridId":t.grid,"retainedId":t.local.keep,"movedId":t.local.moved,"expectedNextId":t.local.next,
             "oldAmount":t.stock,"newAmount":t.stock-3,"inventoryDelta":-3,
             "gridSha256":super::hex(&t.grid_sha),"inventoryEntrySha256":super::hex(&t.stock_sha),
@@ -233,10 +258,20 @@ impl ProductSession{
             "sessionId":super::hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
             "decodedSha256":super::hex(&e.expected_decoded_sha256),"productWriterAuthorized":false,"originalOverwriteAuthorized":false}))
     }
+    #[cfg(feature="product-steam626-sr03-scoped")]
     pub(crate) fn stage_sr03_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32,next:u32,old:u32,
         grid_sha:[u8;32],stock_sha:[u8;32],projected:[u8;32])->CoreResult<SemanticStageReceipt>{
+        self.stage_mixed_road_product(e,grid,keep,moved,next,old,grid_sha,stock_sha,projected,RoadBuild::Steam626)
+    }
+    #[cfg(feature="product-switch626-rm01-scoped")]
+    pub(crate) fn stage_switch626_rm01_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32,next:u32,old:u32,
+        grid_sha:[u8;32],stock_sha:[u8;32],projected:[u8;32])->CoreResult<SemanticStageReceipt>{
+        self.stage_mixed_road_product(e,grid,keep,moved,next,old,grid_sha,stock_sha,projected,RoadBuild::Switch626)
+    }
+    fn stage_mixed_road_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32,next:u32,old:u32,
+        grid_sha:[u8;32],stock_sha:[u8;32],projected:[u8;32],scope:RoadBuild)->CoreResult<SemanticStageReceipt>{
         need(e.action==WorkerAction::Stage,"SR03_PRODUCT_STAGE_ACTION")?;
-        let p=self.prepare_sr03_product(WorkerEnvelope{action:WorkerAction::ReadDomain,..e},grid,keep,moved)?;
+        let p=self.prepare_mixed_road_product(WorkerEnvelope{action:WorkerAction::ReadDomain,..e},grid,keep,moved,scope)?;
         let t=&p.target;
         need(t.grid==grid&&t.local.keep==keep&&t.local.moved==moved&&t.local.next==next&&t.stock==old&&
             t.grid_sha==grid_sha&&t.stock_sha==stock_sha&&p.projected==projected,"SR03_PRODUCT_STAGE_CAS")?;
@@ -288,6 +323,22 @@ mod tests{
   assert_eq!(s.receipt().unwrap().decoded_sha256,e.expected_decoded_sha256);
   let mut bad=d.clone();bad["World"]["RecurringEvents"]=json!({"999999999":{"Unknown":{}}});
   let bad=open(&bad);assert!(bad.preview_sr03_product(env(&bad),90001,10,11).is_err());
+ }
+ #[cfg(feature="product-switch626-rm01-scoped")]
+ #[test]fn switch626_rm01_product_exact8_build_delta_and_lifecycle(){
+  let mut d=doc();d["World"]["MissionSlots"]=json!({});d["World"]["RecurringEvents"]=json!({"1":{"ItemSpawning":{"RecurringEventItemID":2010000176,"NextOccurrence":"2026-01-01T00:00:00Z","EndDate":null,"LastOccurrence":null}}});
+  d["World"]["TimeLostTreasures"]=json!({});d["World"]["NextTimeLostTreasureID"]=json!(1);d["World"]["Snippets"]=json!({});d["World"]["NextSnippetID"]=json!(0);
+  d["Player"]["AchievementsData"]=json!([]);d["Player"]["DutySlots"]=json!({"0":{"Slots":[{"State":"DutySlotState_OnGoing","DutyId":2110000038u32,"DifficultyLayer":0,"ItemsUsed":[],"StepData":{"ItemFilter":{"Data":{"Item":0,"ItemList":[],"Type":"ItemType_ActivityItem","ActivityItemType":"ActivityItemType_Crop","AnyActivityItem":false}}}}]}});
+  d["Player"]["EvolveStatesProfile"]=json!({"EvolveProgressState":{}});d["Player"]["BattlePassStates"]=json!({"Progress":{},"FtueProgress":{"TasksProgress":[],"WeeklyTasksProgress":[]}});d["ConditionalEventHistory"]=json!({"ActiveEvents":{}});
+  let open_switch=|v:&Value|{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s};
+  let s=open_switch(&d);let e=env(&s);let p=s.prepare_mixed_road_product(e,90001,10,11,RoadBuild::Switch626).unwrap();let t=&p.target;
+  let q=s.preview_switch626_rm01_product(e,90001,10,11).unwrap();assert_eq!(q["contract"],"wand.worker.switch626.scoped-rm01-mixed-q5@1");assert_eq!(q["exactFieldChangedCount"],8);assert_eq!(q["newAmount"],7);
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};assert!(s.stage_switch626_rm01_product(stage,90001,10,11,51,10,t.grid_sha,t.stock_sha,p.projected).is_err());
+  assert!(s.stage_switch626_rm01_product(stage,90001,10,11,50,10,t.grid_sha,t.stock_sha,[0;32]).is_err());
+  let r=s.stage_switch626_rm01_product(stage,90001,10,11,50,10,t.grid_sha,t.stock_sha,p.projected).unwrap();assert_eq!(r.exact_field_changed_count,8);assert_eq!(r.staged_decoded_sha256,p.projected);assert!(!r.product_writer_authorized);
+  let now=env(&s);s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..now}).unwrap();let now=env(&s);s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..now}).unwrap();let now=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};let out=s.take_typed_semantic_decoded_once(now).unwrap();assert_eq!(sha(&out),p.projected);assert!(s.take_typed_semantic_decoded_once(now).is_err());
+  let steam=open(&d);assert!(steam.preview_switch626_rm01_product(env(&steam),90001,10,11).is_err());
+  for mode in 0..5{let mut bad=d.clone();match mode{0=>bad["World"]["RecurringEvents"]["1"]["ItemSpawning"]["RecurringEventItemID"]=json!(2010000179),1=>bad["World"]["RecurringEvents"]["1"]["ItemSpawning"]["GridID"]=json!(1),2=>bad["Player"]["DutySlots"]["0"]["Slots"][0]["DifficultyLayer"]=json!(1),3=>bad["Player"]["DutySlots"]["0"]["Slots"][0]["ItemsUsed"]=json!([40100068]),_=>bad["Player"]["DutySlots"]["0"]["Slots"][0]["StepData"]["ItemFilter"]["Data"]["Item"]=json!(40100068)}let x=open_switch(&bad);assert!(x.preview_switch626_rm01_product(env(&x),90001,10,11).is_err(),"mode {mode}");}
  }
  #[test]fn sr03_subgrid_empty_zero_counter_and_bounded_child(){
   let mut d=json!({"Grids":{"20":{"ID":20,"TessellationFactor":2,"GridDataPath":"GridData/Furniture/NonIP_Update17/CoffeeShopTable-GridData.json","GridDefaultLayoutPath":"","NextGridObjectID":0,"Objects":{}}},"DiffGrids":{}});
