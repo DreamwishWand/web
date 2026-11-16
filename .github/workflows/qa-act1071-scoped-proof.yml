@@ -99,17 +99,7 @@ jobs:
           assert steps[sign+1]['run'].find('verify-protected-candidate')>=0
           assert len(steps[sign]['with']['subject-path'].strip().splitlines())==3
           assert steps[-1]['uses']=='actions/upload-artifact@v4'
-          assert steps[-1]['with']['path'].strip().splitlines()==['pins.json','${{ runner.temp }}/wand-scoped-proof/attestation-bundle.jsonl']
-          assert not any('deploy-pages' in x.get('uses','') or 'upload-pages-artifact' in x.get('uses','') for x in steps)
-          assert 'cargo build --locked' in next(x['run'] for x in steps if x.get('name')=='Verify unchanged R22 approved inputs and generate scoped proof subjects')
-          print('ACT1071_QA_PASS',json.dumps({'pos':pos,'neg':neg,'dispatchCases':4,'pinnedEntries':len(pins),'actualShell':True,'actualSigning':False,'actualDeploy':False}))
-          PY
-+'{{ runner.temp }}/wand-scoped-proof/pins.json','attestation-bundle.jsonl']
-          assert not any('deploy-pages' in x.get('uses','') or 'upload-pages-artifact' in x.get('uses','') for x in steps)
-          assert 'cargo build --locked' in next(x['run'] for x in steps if x.get('name')=='Verify unchanged R22 approved inputs and generate scoped proof subjects')
-          print('ACT1071_QA_PASS',json.dumps({'pos':pos,'neg':neg,'dispatchCases':4,'pinnedEntries':len(pins),'actualShell':True,'actualSigning':False,'actualDeploy':False}))
-          PY
-+'{{ runner.temp }}/wand-scoped-proof/attestation-bundle.jsonl']
+          assert steps[-1]['with']['path'].strip().splitlines()==['$'+'{{ runner.temp }}/wand-scoped-proof/pins.json','$'+'{{ runner.temp }}/wand-scoped-proof/attestation-bundle.jsonl']
           assert not any('deploy-pages' in x.get('uses','') or 'upload-pages-artifact' in x.get('uses','') for x in steps)
           assert 'cargo build --locked' in next(x['run'] for x in steps if x.get('name')=='Verify unchanged R22 approved inputs and generate scoped proof subjects')
           print('ACT1071_QA_PASS',json.dumps({'pos':pos,'neg':neg,'dispatchCases':4,'pinnedEntries':len(pins),'actualShell':True,'actualSigning':False,'actualDeploy':False}))
