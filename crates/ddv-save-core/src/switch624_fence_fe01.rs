@@ -551,12 +551,9 @@ impl FenceAddShape {
     }}
     fn records(self)->u32{match self{Self::OrthoL|Self::Diagonal90|Self::Switch626OrthoL|Self::Switch626Diagonal90=>5,Self::OrthoT|Self::Switch626OrthoT=>7,Self::DiagonalN3Positive|Self::DiagonalN3Mirrored|Self::DiagonalN6Positive|Self::Switch626Fd01|Self::Switch626Fd02|Self::Switch626Fd03=>3}}
     fn descriptors(self)->&'static [(u32,i32,i32,bool,bool)]{match self{
-        Self::OrthoL|Self::Switch626OrthoL=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
-            (EXT1,4,2,true,false),(BASE,4,4,false,false)],
-        Self::Diagonal90|Self::Switch626Diagonal90=>&[(BASE,0,0,false,true),(40700253,2,2,false,true),(BASE,4,4,false,true),
-            (40700253,6,2,true,true),(BASE,8,0,false,true)],
-        Self::OrthoT|Self::Switch626OrthoT=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
-            (EXT1,6,0,false,false),(BASE,8,0,false,false),(EXT1,4,2,true,false),(BASE,4,4,false,false)],
+        Self::OrthoL|Self::Switch626OrthoL=>ORTHO_L_DESCRIPTORS,
+        Self::Diagonal90|Self::Switch626Diagonal90=>DIAGONAL90_DESCRIPTORS,
+        Self::OrthoT|Self::Switch626OrthoT=>ORTHO_T_DESCRIPTORS,
         // ACT732 exact historical diagonal tranche A: N3 both slopes,
         // N6 positive single n4 extension, no inferred other lengths.
         Self::DiagonalN3Positive|Self::Switch626Fd01=>FD01_DESCRIPTORS,
@@ -577,6 +574,7 @@ fn add_plan_parse(bytes:&[u8],shape:FenceAddShape)->CoreResult<Value>{
     }
     Ok(v)
 }
+use fence_add_shape::{ORTHO_L_DESCRIPTORS,DIAGONAL90_DESCRIPTORS,ORTHO_T_DESCRIPTORS};
 fn add_wanted(shape:FenceAddShape,next:u32,x:u32,y:u32)->CoreResult<Vec<Value>>{
     records_at(shape.descriptors(),next,x,y).map_err(|e|match e{
         ShapeError::Counter=>denied("FENCE_ADD_COUNTER_OVERFLOW"),
