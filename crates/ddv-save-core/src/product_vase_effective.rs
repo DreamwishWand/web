@@ -152,9 +152,42 @@ impl ProductSession{
         let v=&t.physical;
         let now=self.mint_vase_effective_target(read,v.grid,v.x,v.y)?;
         need(now==*t,"VASE_BINDER_TARGET_CAS")?;
+        self.commit_current_vase(e,&now)
+    }
+    fn commit_current_vase(&self,e:WorkerEnvelope,now:&VaseEffectiveTarget)->CoreResult<SemanticStageReceipt>{
         let edits=self.collect_vase_exact3_candidate(&now.physical)?;
         need(edits.len()==3,"VASE_BINDER_EXACT3")?;
         self.commit_semantic_replacements(e,edits,3,Some(now.projected_sha))
+    }
+    /// Explicit bounded product candidate, not raw Save data or authority.
+    /// The UI receives only the selected pose, exact old values and digests.
+    pub(crate) fn preview_vase_product_add(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)
+        ->CoreResult<Value>{
+        let t=self.mint_vase_effective_target(e,gid,x,y)?;
+        let p=&t.physical;let v=p.stock.view();
+        Ok(json!({"contract":"wand.worker.steam626.scoped-vase-add@1",
+            "itemId":ITEM,"inventoryId":0,"gridId":gid,"x":x,"y":y,
+            "orientation":"GridOrientation_Up","nextObjectId":p.next,
+            "oldAmount":v.old_amount,"newAmount":v.old_amount-1,
+            "entrySha256":hex(&v.entry_sha256),"gridSha256":hex(&p.grid_sha),
+            "projectedDecodedSha256":hex(&t.projected_sha),
+            "sessionId":hex(&v.session_id),"revision":v.revision,"indexGeneration":v.index_generation,
+            "decodedSha256":hex(&v.decoded_sha256),"scopedCandidate":true,
+            "exactFieldChangedCount":3,"writerAuthorized":false,"editedCopyAuthorized":false}))
+    }
+    /// Every caller argument is a selector or an expected old value/hash.
+    /// None can mint authority. Recompute effective target and exact projected
+    /// bytes from the current immutable session; stage only on exact CAS.
+    pub(crate) fn stage_vase_product_add(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32,
+        old:u32,next:u32,entry:[u8;32],grid:[u8;32],projected:[u8;32])
+        ->CoreResult<SemanticStageReceipt>{
+        need(e.action==WorkerAction::Stage,"VASE_BINDER_STAGE_ACTION")?;
+        let read=WorkerEnvelope{action:WorkerAction::ReadDomain,..e};
+        let t=self.mint_vase_effective_target(read,gid,x,y)?;
+        let v=t.physical.stock.view();
+        need(v.old_amount==old&&t.physical.next==next&&v.entry_sha256==entry&&
+            t.physical.grid_sha==grid&&t.projected_sha==projected,"VASE_BINDER_PREVIEW_CAS")?;
+        self.commit_current_vase(e,&t)
     }
 }
 #[cfg(test)]
@@ -213,6 +246,26 @@ mod tests{
         d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(10);
         d["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Amount"]=json!(2);
         assert_eq!(out,serde_json::to_vec(&d).unwrap());
+    }
+    #[test]
+    fn vase_product_preview_stage_cas(){
+        let(x,y)=pose();let d=doc(x,y);let s=open(&d);let e=env(&s,WorkerAction::ReadDomain);
+        let t=s.mint_vase_effective_target(e,7,x,y).unwrap();let p=s.preview_vase_product_add(e,7,x,y).unwrap();
+        let stock=t.physical.stock.view();let entry=stock.entry_sha256;let grid=t.physical.grid_sha;let out=t.projected_sha;
+        assert_eq!(p["contract"],"wand.worker.steam626.scoped-vase-add@1");
+        assert_eq!(p["oldAmount"],3);assert_eq!(p["nextObjectId"],9);
+        assert_eq!(p["projectedDecodedSha256"],hex(&out));assert_eq!(p["gridSha256"],hex(&grid));
+        assert_eq!(p["entrySha256"],hex(&entry));assert_eq!(p["writerAuthorized"],false);
+        let st=env(&s,WorkerAction::Stage);let before=s.receipt().unwrap();
+        for (o,n,a,b,c) in [(2,9,entry,grid,out),(3,10,entry,grid,out),
+            (3,9,[0;32],grid,out),(3,9,entry,[0;32],out),(3,9,entry,grid,[0;32])]{
+            assert!(s.stage_vase_product_add(st,7,x,y,o,n,a,b,c).is_err());
+            assert_eq!(s.receipt().unwrap(),before);
+        }
+        let other=open(&d);assert!(other.stage_vase_product_add(st,7,x,y,3,9,entry,grid,out).is_err());
+        let receipt=s.stage_vase_product_add(st,7,x,y,3,9,entry,grid,out).unwrap();
+        assert_eq!(receipt.exact_field_changed_count,3);assert_eq!(receipt.staged_decoded_sha256,out);
+        assert!(s.stage_vase_product_add(st,7,x,y,3,9,entry,grid,out).is_err());
     }
     #[test]
     fn vase_effective_current_denials(){
