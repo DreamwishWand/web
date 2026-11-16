@@ -1,6 +1,23 @@
 //! Exact read-only Switch626 FD01/FE01 target receipts. Existing Session/walker/geometry only.
 use super::*;
 const BASE:u32=40700246;
+// Fixed fence-only lexical stock witness, preserving accepted FM01 catalog invariants.
+// No FM01 module/operation is imported as a dependency.
+fn fence_fixed_stock_catalog(b:&[u8],player:Span)->CoreResult<(u32,Span)>{
+ let lists=f(b,player,"ListInventories")?;let route=f(b,lists,"0")?;
+ inventory_route(b,route,0,BASE,"ItemType_Furniture")?;
+ let entry=f(b,f(b,route,"Inventory")?,&BASE.to_string())?;
+ let v=value(b,entry,4096)?;let amount=uint(&v["Amount"]).ok_or(denied("FM01_STOCK"))?;
+ need(fields(&v,&["Amount","Marker"])&&amount>0&&amount<=9999&&v["Marker"]=="ItemMarker_Favorite","FM01_STOCK")?;
+ let mut count=0usize;
+ for(k,r)in members(b,lists,4096)?{
+  let id=key(&k)?;need(n(b,r,"ID")?==id,"FM01_ROUTE_ID")?;
+  if opt(b,f(b,r,"Inventory")?,&BASE.to_string())?.is_some(){count+=1;need(id==0,"FM01_STOCK_ROUTE")?;}
+ }
+ need(count==1,"FM01_STOCK_ROUTE")?;
+ physical_totals(b,player,BASE as i32,None,amount)?;
+ Ok((amount,entry))
+}
 #[derive(Debug,PartialEq,Eq)]
 #[allow(dead_code)]
 pub(crate) struct Fd01Target{
@@ -272,4 +289,217 @@ mod tests{
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["12"]["Orientation"]=json!("GridOrientation_Down");let s=open(&q);assert!(s.mint_switch626_fe01_target(env(&s),90001,ids).is_err());
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["14"]=row(14,BASE,x,y+6,false);let s=open(&q);assert!(s.mint_switch626_fe01_target(env(&s),90001,ids).is_err());
  }
+}
+
+
+use super::geometry::FenceAddTargetKind;
+/// Internal receipt binds the exact operation in addition to the immutable
+/// Session/epoch and lexical CAS pins; no caller-supplied geometry or plan.
+#[derive(Debug,PartialEq,Eq)]
+#[allow(dead_code)]
+pub(crate) struct FenceAddTarget{
+ pub(crate) kind:FenceAddTargetKind,pub(crate) scope:WorkerEnvelope,pub(crate) grid:u32,
+ pub(crate) x:u32,pub(crate) y:u32,pub(crate) next:u32,pub(crate) stock:u32,
+ pub(crate) root_sha:[u8;32],pub(crate) grid_sha:[u8;32],pub(crate) counter_sha:[u8;32],
+ pub(crate) stock_sha:[u8;32],pub(crate) houses_sha:[u8;32],pub(crate) pairs:usize,
+}
+impl ProductSession{
+ fn mint_fixed_fence_add_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32,kind:FenceAddTargetKind)->CoreResult<FenceAddTarget>{
+  road_build(self,RoadBuild::Switch626)?;let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+  need(self.worker_bound&&st.semantic.is_none()&&st.revision==0&&st.generation==1&&gid>0,"FENCE_ADD_TARGET_EPOCH")?;
+  let common=InstalledGeometry::fixed().ok_or(denied("FENCE_ADD_COMMON_PROVIDER"))?;
+  let pack=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).ok_or(denied("FENCE_ADD_PROVIDER"))?;
+  let b=&self.decoded;let roots=indexed_read::roots(b)?;let w=roots.world;
+  let(root,g,gs,ds)=selected(b,w,gid)?;let next=n(b,g,"NextGridObjectID")?;
+  let end=next.checked_add(kind.count()).ok_or(denied("FENCE_ADD_COUNTER"))?;
+  need(next>0&&end<=i32::MAX as u32,"FENCE_ADD_COUNTER")?;
+  let start=indexed_read::skip_ws(b,0);let top=Span{begin:start,end:indexed_read::value_end(b,start)?};
+  let refs=super::super::placement_saved_refs::scan(b,top,gid,None,next,end)?;
+  need(refs.root(gid)==1&&refs.parent(gid)==0,"FENCE_ADD_TARGET_REFERENCE_ALIAS")?;
+  let(houses,house_span)=house_items(b,w)?;let objects=f(b,g,"Objects")?;let mut budget=0;
+  for(_,o)in members(b,objects,4096)?{saved_grid_state(b,f(b,o,"State")?,BASE as i32,&mut budget)?;}
+  let grid=value(b,g,MAX_GRID)?;
+  let minted=pack.local_fence_add(&grid,kind,x,y,|i|common.dimensions(i),|o,dims|match uint(&o["ItemID"])?{
+   20500005|20300115=>pack.effective_building(o,&houses),_=>ambient(b,w,gs,ds,&refs,&houses,o,dims),
+  }).ok_or(denied("FENCE_ADD_TARGET_GEOMETRY"))?;
+  need(minted==next,"FENCE_ADD_TARGET_COUNTER")?;
+  let(stock,entry)=fence_fixed_stock_catalog(b,roots.player)?;
+  Ok(FenceAddTarget{kind,scope:e,grid:gid,x,y,next,stock,root_sha:digest(b,root)?,grid_sha:digest(b,g)?,
+   counter_sha:digest(b,f(b,g,"NextGridObjectID")?)?,stock_sha:digest(b,entry)?,houses_sha:digest(b,house_span)?,pairs:refs.pairs})
+ }
+ #[allow(dead_code)]
+ pub(crate) fn mint_switch626_fd02_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<FenceAddTarget>{
+  self.mint_fixed_fence_add_target(e,gid,x,y,FenceAddTargetKind::Fd02)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn mint_switch626_fd03_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<FenceAddTarget>{
+  self.mint_fixed_fence_add_target(e,gid,x,y,FenceAddTargetKind::Fd03)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn mint_switch626_ortho_l_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<FenceAddTarget>{
+  self.mint_fixed_fence_add_target(e,gid,x,y,FenceAddTargetKind::OrthoL)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn mint_switch626_diagonal90_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<FenceAddTarget>{
+  self.mint_fixed_fence_add_target(e,gid,x,y,FenceAddTargetKind::Diagonal90)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn mint_switch626_ortho_t_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<FenceAddTarget>{
+  self.mint_fixed_fence_add_target(e,gid,x,y,FenceAddTargetKind::OrthoT)
+ }
+}
+
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+#[derive(Debug,PartialEq,Eq)]
+pub(crate) struct FixedFenceAddPreview{
+ pub(crate) target:FenceAddTarget,pub(crate) projected:[u8;32],pub(crate) exact:usize,
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+impl ProductSession{
+ fn prepare_fixed_fence_add(&self,e:WorkerEnvelope,kind:FenceAddTargetKind,grid:u32,x:u32,y:u32)->CoreResult<(FixedFenceAddPreview,Vec<Replacement>)>{
+  use super::super::super::switch624_fence_fe01::{FixedFenceAddExpected,collect_fd02_current,collect_fd03_current,collect_ortho_l_current,collect_diagonal90_current,collect_ortho_t_current};
+  let t=self.mint_fixed_fence_add_target(e,grid,x,y,kind)?;
+  let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+  need(st.semantic.is_none()&&st.revision==0&&st.generation==1,"FIXED_FENCE_ADD_EPOCH")?;
+  let w=FixedFenceAddExpected{grid:t.grid,next:t.next,x:t.x,y:t.y,stock:t.stock,grid_sha:t.grid_sha,counter_sha:t.counter_sha,stock_sha:t.stock_sha};
+  let mut edits=match kind{FenceAddTargetKind::Fd02=>collect_fd02_current(self,&w)?,FenceAddTargetKind::Fd03=>collect_fd03_current(self,&w)?,FenceAddTargetKind::OrthoL=>collect_ortho_l_current(self,&w)?,FenceAddTargetKind::Diagonal90=>collect_diagonal90_current(self,&w)?,FenceAddTargetKind::OrthoT=>collect_ortho_t_current(self,&w)?};
+  need(edits.len()==2,"FIXED_FENCE_ADD_EDIT_COUNT")?;
+  edits.sort_by_key(|v|v.span.begin);
+  let b=&self.decoded;let mut h=Sha256::new();let mut pos=0;
+  for edit in &edits{
+   need(edit.span.begin>=pos&&edit.span.end>=edit.span.begin&&edit.span.end<=b.len()&&raw(b,edit.span)?==edit.old.as_slice(),"FIXED_FENCE_ADD_RAW_CAS")?;
+   h.update(&b[pos..edit.span.begin]);h.update(&edit.new);pos=edit.span.end;
+  }
+  h.update(&b[pos..]);let projected=h.finalize().into();
+  Ok((FixedFenceAddPreview{target:t,projected,exact:kind.count() as usize+1},edits))
+ }
+ fn stage_fixed_fence_add(&self,e:WorkerEnvelope,kind:FenceAddTargetKind,w:&FixedFenceAddPreview)->CoreResult<SemanticStageReceipt>{
+  need(e.action==WorkerAction::Stage&&w.target.kind==kind,"FIXED_FENCE_ADD_STAGE_KIND")?;
+  let (p,edits)=self.prepare_fixed_fence_add(WorkerEnvelope{action:WorkerAction::ReadDomain,..e},kind,w.target.grid,w.target.x,w.target.y)?;
+  need(&p==w,"FIXED_FENCE_ADD_STAGE_CAS")?;
+  self.commit_semantic_replacements(e,edits,p.exact,Some(p.projected))
+ }
+ #[allow(dead_code)]
+ pub(crate) fn preview_switch626_fd02_product(&self,e:WorkerEnvelope,grid:u32,x:u32,y:u32)->CoreResult<FixedFenceAddPreview>{
+  self.prepare_fixed_fence_add(e,FenceAddTargetKind::Fd02,grid,x,y).map(|(p,_)|p)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn stage_switch626_fd02_product(&self,e:WorkerEnvelope,w:&FixedFenceAddPreview)->CoreResult<SemanticStageReceipt>{
+  self.stage_fixed_fence_add(e,FenceAddTargetKind::Fd02,w)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn preview_switch626_fd03_product(&self,e:WorkerEnvelope,grid:u32,x:u32,y:u32)->CoreResult<FixedFenceAddPreview>{
+  self.prepare_fixed_fence_add(e,FenceAddTargetKind::Fd03,grid,x,y).map(|(p,_)|p)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn stage_switch626_fd03_product(&self,e:WorkerEnvelope,w:&FixedFenceAddPreview)->CoreResult<SemanticStageReceipt>{
+  self.stage_fixed_fence_add(e,FenceAddTargetKind::Fd03,w)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn preview_switch626_ortho_l_product(&self,e:WorkerEnvelope,grid:u32,x:u32,y:u32)->CoreResult<FixedFenceAddPreview>{
+  self.prepare_fixed_fence_add(e,FenceAddTargetKind::OrthoL,grid,x,y).map(|(p,_)|p)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn stage_switch626_ortho_l_product(&self,e:WorkerEnvelope,w:&FixedFenceAddPreview)->CoreResult<SemanticStageReceipt>{
+  self.stage_fixed_fence_add(e,FenceAddTargetKind::OrthoL,w)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn preview_switch626_diagonal90_product(&self,e:WorkerEnvelope,grid:u32,x:u32,y:u32)->CoreResult<FixedFenceAddPreview>{
+  self.prepare_fixed_fence_add(e,FenceAddTargetKind::Diagonal90,grid,x,y).map(|(p,_)|p)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn stage_switch626_diagonal90_product(&self,e:WorkerEnvelope,w:&FixedFenceAddPreview)->CoreResult<SemanticStageReceipt>{
+  self.stage_fixed_fence_add(e,FenceAddTargetKind::Diagonal90,w)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn preview_switch626_ortho_t_product(&self,e:WorkerEnvelope,grid:u32,x:u32,y:u32)->CoreResult<FixedFenceAddPreview>{
+  self.prepare_fixed_fence_add(e,FenceAddTargetKind::OrthoT,grid,x,y).map(|(p,_)|p)
+ }
+ #[allow(dead_code)]
+ pub(crate) fn stage_switch626_ortho_t_product(&self,e:WorkerEnvelope,w:&FixedFenceAddPreview)->CoreResult<SemanticStageReceipt>{
+  self.stage_fixed_fence_add(e,FenceAddTargetKind::OrthoT,w)
+ }
+}
+
+#[cfg(test)]
+mod fixed_add_tests{
+ use super::*;use serde_json::json;
+ type Mint=fn(&ProductSession,WorkerEnvelope,u32,u32,u32)->CoreResult<FenceAddTarget>;
+ fn open(d:&Value)->ProductSession{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s}
+ fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+ fn row(x:u32,y:u32)->Value{json!({"ID":10,"ItemID":BASE,"X":x,"Y":y,"Orientation":"GridOrientation_Down","State":null})}
+ fn run(kind:FenceAddTargetKind,mint:Mint,foot:&[(i32,i32,u32,u32)]){
+  let p=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();
+  let(x,y)=(0..376u32).step_by(2).flat_map(|a|(4..184u32).step_by(2).map(move|b|(a,b)))
+   .find(|&(a,b)|foot.iter().all(|&(dx,dy,w,h)|{let x=(i64::from(a)+i64::from(dx)) as u32;let y=(i64::from(b)+i64::from(dy)) as u32;(0..w).all(|i|(0..h).all(|j|p.floor4(x+i,y+j)))})).unwrap();
+  let d=json!({"GameInfo":{"Version":626},"World":{"Villages":[{"Areas":{"2":{"Unlocked":true,"GridIDs":[90001]}}}],"PlayerHouses":[],
+   "GridCollection":{"Grids":{"90001":{"ID":90001,"GridDataPath":GRID,"GridDefaultLayoutPath":"","TessellationFactor":2,"NextGridObjectID":50,"Objects":{"10":row(if x<190{388}else{0},if y<100{196}else{0})}}},"DiffGrids":{}}},
+   "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_Fence"]},"Inventory":{"40700246":{"Amount":10,"Marker":"ItemMarker_Favorite"}}}},"ContainerInventories":{}}});
+  let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();
+  let t=mint(&s,e,90001,x,y).unwrap();assert_eq!((t.kind,t.next,t.stock),(kind,50,10));assert_eq!(s.receipt().unwrap(),before);
+  #[cfg(feature="product-switch626-fence-add-stage-internal")]
+  {
+   let p=s.prepare_fixed_fence_add(e,kind,90001,x,y).unwrap().0;
+   assert_eq!(p.exact,kind.count() as usize+1);
+   // New Worker guard exercises the same fixed target in a distinct fresh session.
+   let fresh=open(&d);let fe=env(&fresh);let fp=fresh.prepare_fixed_fence_add(fe,kind,90001,x,y).unwrap().0;
+   let ft=&fp.target;let mut guard=crate::worker_session::WorkerSessionGuard::attach(fresh);
+   let pre=match kind{FenceAddTargetKind::Fd02=>guard.preview_switch626_fd02(fe,90001,x,y),FenceAddTargetKind::Fd03=>guard.preview_switch626_fd03(fe,90001,x,y),FenceAddTargetKind::OrthoL=>guard.preview_switch626_ortho_l(fe,90001,x,y),FenceAddTargetKind::Diagonal90=>guard.preview_switch626_diagonal90(fe,90001,x,y),FenceAddTargetKind::OrthoT=>guard.preview_switch626_ortho_t(fe,90001,x,y)}.unwrap();
+   assert_eq!(pre["exactFieldChangedCount"],fp.exact);assert_eq!(pre["inventoryDelta"],0);
+   let fst=WorkerEnvelope{action:WorkerAction::Stage,..fe};
+   let stage=|g:&crate::worker_session::WorkerSessionGuard,projected|match kind{FenceAddTargetKind::Fd02=>g.stage_switch626_fd02(fst,90001,x,y,ft.next,ft.root_sha,ft.grid_sha,ft.counter_sha,ft.houses_sha,ft.stock,ft.stock_sha,projected),FenceAddTargetKind::Fd03=>g.stage_switch626_fd03(fst,90001,x,y,ft.next,ft.root_sha,ft.grid_sha,ft.counter_sha,ft.houses_sha,ft.stock,ft.stock_sha,projected),FenceAddTargetKind::OrthoL=>g.stage_switch626_ortho_l(fst,90001,x,y,ft.next,ft.root_sha,ft.grid_sha,ft.counter_sha,ft.houses_sha,ft.stock,ft.stock_sha,projected),FenceAddTargetKind::Diagonal90=>g.stage_switch626_diagonal90(fst,90001,x,y,ft.next,ft.root_sha,ft.grid_sha,ft.counter_sha,ft.houses_sha,ft.stock,ft.stock_sha,projected),FenceAddTargetKind::OrthoT=>g.stage_switch626_ortho_t(fst,90001,x,y,ft.next,ft.root_sha,ft.grid_sha,ft.counter_sha,ft.houses_sha,ft.stock,ft.stock_sha,projected)};
+   assert!(stage(&guard,[0;32]).is_err());let gr=stage(&guard,fp.projected).unwrap();assert_eq!(gr.exact_field_changed_count,fp.exact);
+   assert!(stage(&guard,fp.projected).is_err());let out=WorkerEnvelope{expected_revision:gr.revision,expected_index_generation:gr.index_generation,action:WorkerAction::ExportEditedCopy,..fst};assert_eq!(sha(&guard.take_scoped_edit(out).unwrap()),fp.projected);assert!(guard.take_scoped_edit(out).is_err());
+   let st=WorkerEnvelope{action:WorkerAction::Stage,..e};
+   let valid=|s:&ProductSession,e,w:&FixedFenceAddPreview|s.stage_fixed_fence_add(e,kind,w);
+   assert!(valid(&s,e,&p).is_err());assert!(valid(&open(&d),st,&p).is_err());
+   let other=if kind==FenceAddTargetKind::Fd02{FenceAddTargetKind::Fd03}else{FenceAddTargetKind::Fd02};
+   assert!(s.stage_fixed_fence_add(st,other,&p).is_err());
+   for i in 0..7{
+    let mut q=s.prepare_fixed_fence_add(e,kind,90001,x,y).unwrap().0;
+    match i{0=>q.target.root_sha=[0;32],1=>q.target.grid_sha=[0;32],2=>q.target.counter_sha=[0;32],
+     3=>q.target.stock_sha=[0;32],4=>q.target.houses_sha=[0;32],5=>q.projected=[0;32],_=>q.target.stock+=1}
+    assert!(valid(&s,st,&q).is_err());
+   }
+   assert_eq!(s.receipt().unwrap(),before);
+   let r=valid(&s,st,&p).unwrap();assert_eq!(r.exact_field_changed_count,p.exact);assert_eq!(r.staged_decoded_sha256,p.projected);
+   assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);assert!(valid(&s,st,&p).is_err());
+   s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+   assert!(s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).is_err());
+   s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+   let exp=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};
+   let out=s.take_typed_semantic_decoded_once(exp).unwrap();assert!(s.take_typed_semantic_decoded_once(exp).is_err());
+   let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["90001"];
+   g["NextGridObjectID"]=json!(50+kind.count());
+   let spec:&[(u32,bool,bool)]=match kind{
+    FenceAddTargetKind::Fd02=>&[(BASE,false,true),(40700253,true,true),(BASE,false,true)],
+    FenceAddTargetKind::Fd03=>&[(BASE,false,true),(40700256,false,true),(BASE,false,true)],
+    FenceAddTargetKind::OrthoL=>&[(BASE,false,false),(40700247,false,false),(BASE,false,false),(40700247,true,false),(BASE,false,false)],
+    FenceAddTargetKind::Diagonal90=>&[(BASE,false,true),(40700253,false,true),(BASE,false,true),(40700253,true,true),(BASE,false,true)],
+    FenceAddTargetKind::OrthoT=>&[(BASE,false,false),(40700247,false,false),(BASE,false,false),(40700247,false,false),(BASE,false,false),(40700247,true,false),(BASE,false,false)]
+   };
+   for(i,(&(dx,dy,_,_),&(item,left,diag)))in foot.iter().zip(spec).enumerate(){
+    let id=50+i as u32;g["Objects"][id.to_string()]=json!({"ID":id,"ItemID":item,"X":(i64::from(x)+i64::from(dx)) as u32,
+     "Y":(i64::from(y)+i64::from(dy)) as u32,"Orientation":if left{"GridOrientation_Left"}else{"GridOrientation_Down"},
+     "State":if diag{json!({"FenceMode":{"Diagonal":true}})}else{Value::Null}});
+   }
+   assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),wanted);assert_eq!(sha(&out),p.projected);assert_eq!(sha(&s.decoded),before.decoded_sha256);
+   let reopened=ProductSession::open_decoded_readonly(out,crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+   assert_eq!(reopened.receipt().unwrap().decoded_sha256,p.projected);
+  }
+
+  assert!(mint(&open(&d),e,90001,x,y).is_err());
+  assert!(mint(&s,WorkerEnvelope{expected_revision:1,..e},90001,x,y).is_err());
+  assert!(mint(&s,WorkerEnvelope{action:WorkerAction::Stage,..e},90001,x,y).is_err());
+  assert!(mint(&s,e,90001,x+1,y).is_err());
+  for id in 50..50+kind.count(){let mut q=d.clone();q["Unknown"]=json!({"GridID":90001,"ObjectID":id});let s=open(&q);assert!(mint(&s,env(&s),90001,x,y).is_err());}
+  for &(dx,dy,_,_) in foot{let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]=row((i64::from(x)+i64::from(dx)) as u32,(i64::from(y)+i64::from(dy)) as u32);let s=open(&q);assert!(mint(&s,env(&s),90001,x,y).is_err());}
+  let mut q=d.clone();q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(0);let s=open(&q);assert!(mint(&s,env(&s),90001,x,y).is_err());
+  let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX);let s=open(&q);assert!(mint(&s,env(&s),90001,x,y).is_err());
+ }
+ #[test]fn switch626_fd02_fixed_target(){run(FenceAddTargetKind::Fd02,ProductSession::mint_switch626_fd02_target,&[(0,0,2,2),(2,-2,2,2),(4,-4,2,2)]);}
+ #[test]fn switch626_fd03_full_envelope_target(){run(FenceAddTargetKind::Fd03,ProductSession::mint_switch626_fd03_target,&[(0,0,2,2),(2,2,8,8),(10,10,2,2)]);}
+ #[test]fn switch626_ortho_l_fixed_target(){run(FenceAddTargetKind::OrthoL,ProductSession::mint_switch626_ortho_l_target,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(4,2,2,2),(4,4,2,2)]);}
+ #[test]fn switch626_diagonal90_fixed_target(){run(FenceAddTargetKind::Diagonal90,ProductSession::mint_switch626_diagonal90_target,&[(0,0,2,2),(2,2,2,2),(4,4,2,2),(6,2,2,2),(8,0,2,2)]);}
+ #[test]fn switch626_ortho_t_fixed_target(){run(FenceAddTargetKind::OrthoT,ProductSession::mint_switch626_ortho_t_target,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(6,0,2,2),(8,0,2,2),(4,2,2,2),(4,4,2,2)]);}
 }
