@@ -159,3 +159,5 @@ impl MeadowGeometry{
 }
 #[path="fence_product_geometry.rs"]
 mod fence_product_geometry;
+
+pub(crate) use fence_product_geometry::FenceAddTargetKind;

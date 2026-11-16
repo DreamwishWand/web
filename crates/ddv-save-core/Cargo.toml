@@ -42,6 +42,15 @@ product-steam626-skin-scoped = ["product-amount-scoped"]
 product-switch626-fd01-scoped = ["product-amount-scoped"]
 product-switch626-fe01-scoped = ["product-amount-scoped"]
 
+# Internal fixed five ADD stages only; no generated public ABI or Writer authority.
+product-switch626-fence-add-stage-internal = ["product-amount-scoped"]
+
+product-switch626-fd02-scoped = ["product-switch626-fence-add-stage-internal"]
+product-switch626-fd03-scoped = ["product-switch626-fence-add-stage-internal"]
+product-switch626-ortho-l-scoped = ["product-switch626-fence-add-stage-internal"]
+product-switch626-diagonal90-scoped = ["product-switch626-fence-add-stage-internal"]
+product-switch626-ortho-t-scoped = ["product-switch626-fence-add-stage-internal"]
+
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
 sha2 = "=0.10.8"
