@@ -172,4 +172,26 @@ mod tests{
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["12"]["Orientation"]=json!("GridOrientation_Down");let s=open(&q);assert!(s.mint_switch626_fe01_target(env(&s),90001,ids).is_err());
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["14"]=row(14,BASE,x,y+6,false);let s=open(&q);assert!(s.mint_switch626_fe01_target(env(&s),90001,ids).is_err());
  }
+
+ #[cfg(feature="product-switch626-fe01-scoped")]
+ #[test]fn qa1826_fe01_exact7_lexical_atomic(){
+  let(mut d,x,y)=doc(true);d["Opaque"]=json!({"escape":"keep","decoy":50});
+  let raw=serde_json::to_string(&d).unwrap().replace("\"escape\":\"keep\"","\"escape\":\"\\u006beep\"");
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true};
+  let make=|b:&str|{let mut s=ProductSession::open_decoded_readonly(b.as_bytes().to_vec(),build.clone()).unwrap();s.worker_bound=true;s};
+  let s=make(&raw);let e=env(&s);let ids=[10,11,12,13];let before=s.receipt().unwrap();let p=s.preview_switch626_fe01_product(e,90001,ids).unwrap();
+  let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["90001"];g["NextGridObjectID"]=json!(54);for id in ["12","13"]{g["Objects"].as_object_mut().unwrap().remove(id);}
+  for(id,item,dy,left)in [(50,40700248,2,true),(51,40700246,6,false),(52,40700246,10,false),(53,40700248,12,true)]{g["Objects"][id.to_string()]=row(id,item,x,y+dy,left);}
+  let expected=serde_json::to_string(&wanted).unwrap().replace("\"escape\":\"keep\"","\"escape\":\"\\u006beep\"");
+  let hash=|v:&Value|sha(&serde_json::to_vec(v).unwrap());let g=&d["World"]["GridCollection"]["Grids"]["90001"];let h=[hash(&d["World"]["Villages"][0]["Areas"]["2"]),hash(g),sha(b"50"),sha(b"[]"),sha(expected.as_bytes())];let rows=ids.map(|id|hash(&g["Objects"][id.to_string()]));
+  assert_eq!(p["projectedDecodedSha256"],super::super::hex(&h[4]));assert_eq!(p["exactFieldChangedCount"],7);assert_eq!(p["inventoryDelta"],0);assert_eq!(p["retainedIds"],json!([10,11]));assert_eq!(p["deletedIds"],json!([12,13]));
+  let st=WorkerEnvelope{action:WorkerAction::Stage,..e};let run=|s:&ProductSession,e:WorkerEnvelope,ids:[u32;4],next,h:[[u8;32];5],rows:[[u8;32];4]|s.stage_switch626_fe01_product(e,90001,ids,next,h[0],h[1],h[2],h[3],rows,h[4]);
+  let mut neg=0;for i in 0..5{let mut q=h;q[i]=[0;32];assert!(run(&s,st,ids,50,q,rows).is_err());neg+=1;}for i in 0..4{let mut q=rows;q[i]=[0;32];assert!(run(&s,st,ids,50,h,q).is_err());neg+=1;}
+  for bad in [WorkerEnvelope{expected_revision:1,..st},WorkerEnvelope{expected_index_generation:2,..st},WorkerEnvelope{expected_decoded_sha256:[0;32],..st},e]{assert!(run(&s,bad,ids,50,h,rows).is_err());neg+=1;}
+  assert!(run(&s,st,ids,51,h,rows).is_err());neg+=1;assert!(run(&s,st,[10,11,13,12],50,h,rows).is_err());neg+=1;assert!(run(&make(&raw),st,ids,50,h,rows).is_err());neg+=1;
+  let f=make(&raw.replace("\\u006beep","keep"));assert!(run(&f,WorkerEnvelope{action:WorkerAction::Stage,..env(&f)},ids,50,h,rows).is_err());neg+=1;
+  assert_eq!(s.receipt().unwrap(),before);let r=run(&s,st,ids,50,h,rows).unwrap();assert_eq!(r.exact_field_changed_count,7);assert_eq!(r.staged_decoded_sha256,h[4]);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+  assert!(run(&s,st,ids,50,h,rows).is_err());neg+=1;s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();assert!(s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).is_err());neg+=1;s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();let ex=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};let out=s.take_typed_semantic_decoded_once(ex).unwrap();assert_eq!(out,expected.as_bytes());assert!(s.take_typed_semantic_decoded_once(ex).is_err());neg+=1;assert_eq!(s.decoded.as_ref(),raw.as_bytes());let reopened=ProductSession::open_decoded_readonly(out,build).unwrap();assert_eq!(reopened.receipt().unwrap().decoded_sha256,h[4]);assert_eq!(neg,20);println!("QRC1826_FE01_STAGE_ACTUAL 1POS {neg}NEG EXACT7 PRESERVE_EXISTING");
+ }
+
 }
