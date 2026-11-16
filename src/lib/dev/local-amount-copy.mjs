@@ -129,10 +129,20 @@ const switchCopy=Object.freeze({
  'zh-CN':{title:'Switch P1G 储物箱编辑 — DEV/关闭',build:'Switch 构建 ID（BID）',sha:'原始加密 SHA-256（本地计算）',confirm:'我已另行确认此 Switch BID。',intro:'仅限本机实验性编辑：已验证储物箱数量 50→49。不上传、不覆盖原文件。'},
  'pt-BR':{title:'Editor de baú P1G Switch — DEV/DESLIGADO',build:'ID de build Switch (BID)',sha:'SHA-256 criptografado original (cálculo local)',confirm:'Confirmei separadamente este BID Switch exato.',intro:'Edição experimental local: apenas baú verificado 50 → 49. Sem upload ou sobrescrita.'}
 });
-export function localAmountCopy(locale,switchChest=false,productMode=''){
+const steamChestCopy=Object.freeze({
+ en:{title:'Steam P1G Chest editor — DEV/OFF',confirm:'I independently confirmed this exact Steam FullVersion.',intro:'Local editing only. Verified Chest amount 50 → 49; no upload or original overwrite.'},
+ ja:{title:'Steam P1G チェスト数量編集 — DEV/OFF',confirm:'このSteam完全バージョンを別途確認した。',intro:'端末内編集。検証済みチェストの数量50→49のみ。送信・原本上書き禁止。'},
+ fr:{title:'Éditeur coffre P1G Steam — DEV/OFF',confirm:'J’ai vérifié séparément cette version complète Steam.',intro:'Édition locale : coffre vérifié 50 → 49 uniquement. Aucun envoi ni écrasement.'},
+ it:{title:'Editor baule P1G Steam — DEV/OFF',confirm:'Ho verificato separatamente questa versione completa Steam.',intro:'Modifica locale: solo baule verificato 50 → 49. Nessun invio o sovrascrittura.'},
+ de:{title:'Steam-P1G-Truheneditor — DEV/AUS',confirm:'Ich habe diese vollständige Steam-Version separat bestätigt.',intro:'Lokale Bearbeitung: nur geprüfte Truhe 50 → 49. Kein Upload oder Überschreiben.'},
+ 'es-ES':{title:'Editor de cofre P1G Steam — DEV/APAGADO',confirm:'He confirmado por separado esta versión completa de Steam.',intro:'Edición local: solo cofre verificado 50 → 49. Sin subida ni sobrescritura.'},
+ 'zh-CN':{title:'Steam P1G 储物箱编辑 — DEV/关闭',confirm:'我已另行确认此 Steam 完整版本。',intro:'仅限本机编辑：已验证储物箱数量 50→49。不上传、不覆盖原文件。'},
+ 'pt-BR':{title:'Editor de baú P1G Steam — DEV/DESLIGADO',confirm:'Confirmei separadamente esta versão completa do Steam.',intro:'Edição local: apenas baú verificado 50 → 49. Sem upload ou sobrescrita.'}
+});
+export function localAmountCopy(locale,switchChest=false,productMode='',steamChest=false){
  const base=localized[locale]||localized.en;
- if(!switchChest)return base;
- const selected={...base,...(switchCopy[locale]||switchCopy.en)};
+ if(!switchChest&&!steamChest)return base;
+ const selected=steamChest?{...base,...(steamChestCopy[locale]||steamChestCopy.en),sha:(switchCopy[locale]||switchCopy.en).sha}:{...base,...(switchCopy[locale]||switchCopy.en)};
  // The UI label is not an authority grant; only the branded sealed port is.
  if(productMode==='public-accepted'||productMode==='private-product-v2')selected.title=selected.title.split(' — ')[0]+(productMode==='private-product-v2'?' — V2':'');
  return Object.freeze(selected);

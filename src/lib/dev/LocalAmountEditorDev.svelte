@@ -7,6 +7,7 @@
   import {locale} from '$lib/i18n/runtime.js';
   import {localAmountCopy,localAmountTargetLabel} from './local-amount-copy.mjs';
   import {productSwitchChestPortScope} from './product-switch-chest-client.mjs';
+  import {productSteamChestPortScope} from './product-steam-chest-client.mjs';
   import {createLocalAmountDevWorkflow,STEAM626_FULL_VERSION,SWITCH626_CHEST_BID} from './local-amount-workflow.mjs';
 
   export let trustedWorkerAdapter=null;
@@ -15,12 +16,12 @@
   export let scopedExactOne=false;
   // Trusted mount fixes the exact Switch Build; no user-selectable ABI.
   export let scopedSwitch626Chest=false;
-  let exactOne=false,switchChest=false,productMode='';
+  let exactOne=false,switchChest=false,steamChest=false,productMode='';
   let workflow=null,available=false,pending=false,error=false;
   let file=null,sourceSha='',buildConfirmed=false,newAmount='';
   let chosen=0,focusTarget=null,fileInput=null,uiEpoch=0;
   let state={phase:'closed',targets:[],preview:null,editedCopy:null,backupVerified:false};
-  $: words=localAmountCopy($locale,switchChest,productMode);
+  $: words=localAmountCopy($locale,switchChest,productMode,steamChest);
   $: openable=available&&!pending&&file!==null&&
     /^[0-9a-f]{64}$/.test(sourceSha)&&buildConfirmed;
   $: current=state.targets?.[chosen]||null;
@@ -31,13 +32,15 @@
   onMount(()=>{
     // Compile-time Vite guard plus explicit trusted capability. DEV/OFF here
     // never means Owner has authorized PRODUCT_OPERATION_ENABLED or Writer ON.
-    const productScope=productSwitchChestPortScope(trustedWorkerAdapter);
+    const switchScope=productSwitchChestPortScope(trustedWorkerAdapter),steamScope=productSteamChestPortScope(trustedWorkerAdapter);
+    const productScope=switchScope||steamScope;
     if(!productScope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
     try{
       productMode=productScope?.mode||'';
-      switchChest=!!productScope||scopedSwitch626Chest===true;
-      exactOne=switchChest||scopedExactOne===true;
-      workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,exactOneDecrease:exactOne,switch626Chest:switchChest});
+      steamChest=!!steamScope;
+      switchChest=!!switchScope||(!steamChest&&scopedSwitch626Chest===true);
+      exactOne=switchChest||steamChest||scopedExactOne===true;
+      workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,exactOneDecrease:exactOne,switch626Chest:switchChest,steam626Chest:steamChest});
       available=true;state=workflow.snapshot();
     }catch{available=false}
     return ()=>{++uiEpoch;const active=workflow;workflow=null;available=false;
@@ -61,7 +64,7 @@
       const v=await closing;
       if(workflow!==active||token!==uiEpoch)return;
       state=v;file=f;
-      if(switchChest&&f){
+      if((switchChest||steamChest)&&f){
         if(f.size<1||f.size>128*1024*1024||!f.name.toLowerCase().endsWith('.p1g'))throw Error('FILE_DENIED');
         const bytes=new Uint8Array(await Blob.prototype.arrayBuffer.call(f));
         try{
@@ -127,7 +130,7 @@
   }
 </script>
 
-<details class="dev-amount-editor" data-dev-amount-editor data-product-writer="off"
+<details open={steamChest} class="dev-amount-editor" data-dev-amount-editor data-product-writer="off"
  data-public-route={productMode==='public-accepted'?'on':'off'} data-cloud="off" data-original-overwrite="off">
   <summary bind:this={focusTarget} data-dev-amount-summary>{words.title}</summary>
   <section class="content" aria-label={words.title}>
@@ -142,7 +145,7 @@
         <label for="dev-amount-sha">{words.sha}</label>
         <input id="dev-amount-sha" type="text" maxlength="64" pattern="[a-f0-9]{64}"
           spellcheck="false" autocapitalize="off" autocomplete="off"
-          bind:value={sourceSha} readonly={switchChest} disabled={pending}/>
+          bind:value={sourceSha} readonly={switchChest||steamChest} disabled={pending}/>
         <p>{words.build}: <code>{switchChest?SWITCH626_CHEST_BID:STEAM626_FULL_VERSION}</code> · schema 626</p>
         <label class="check">
           <input type="checkbox" bind:checked={buildConfirmed} disabled={pending}/>
