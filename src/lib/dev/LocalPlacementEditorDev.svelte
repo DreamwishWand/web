@@ -67,8 +67,8 @@
    {#if p}
     <div class="review" aria-live="polite" data-placement-preview>
      <strong>{words.verified}</strong>
-     {#if appearance}<p>{p.old} → {p.new}</p>{#if operation==='skin'}<p>Character ID: {p.characterId}</p>{/if}
-     {:else if wardrobe}<p>{words.wardrobeSlot}: {p.slot}</p><p>Item ID: {p.oldItemId} → {p.newItemId}</p>
+     {#if wardrobe}<p>{words.wardrobeSlot}: {p.slot}</p><p>Item ID: {p.oldItemId} → {p.newItemId}</p>
+     {:else if appearance}<p>{p.old} → {p.new}</p>{#if operation==='skin'}<p>Character ID: {p.characterId}</p>{/if}
      {:else if backpack}<p>Backpack 0 · Item ID: {p.itemId}</p><p>{words.sourceSlot}: {p.sourceSlot} · {p.oldAmount} → {p.newSourceAmount}</p><p>{words.destinationSlot}: {p.destinationSlot} · 0 → {p.newDestinationAmount}</p>
      {:else}<p>{words.grid}: {p.gridId} · Item ID: {p.itemId}</p>
      {#if operation==='comp03'}<p>{words.seed}: {p.seedId}</p><Comp03ReferencePattern locale={$locale}/>
