@@ -611,6 +611,134 @@ const switch626Rm01CumulativeEntries=[
     }
   }
 ];
+// Projected exact13 portable-only pair; requires independent acceptance and protected gate-first selection.
+const steam626PortableCumulativeEntries=[
+  {
+    "path": ".github/workflows/core-product-session-boundary.yml",
+    "before": {
+      "mode": "100644",
+      "blob": "297ff95a150d1417ba0d0507780eeb9f69b892f4"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "0412479bef8a017bba7aca8afd61c013eea03e16"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "0694cf00071368d00f8626350bdda7cd9a8b5f85"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "3986df0a7ec1fce7945ae971d0af8341f744f355"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/catalog0_portable_restore.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "a29b2f9f94ac9b9e040d5a73d57ae2dccfb66d1d"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/chest_portable_restore.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "d7bc4867c8c14e7593e32f4a45b66fb460412767"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/portable_backup.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "c075bbf764aa2372eaf2a844d81ca1c10e11c1c3"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "238b0aeada96ed13e4b74f8020791f45df5a8acd"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_amount_scoped.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "e6e360f5326b9a5cf6884600a4c9ecf642aa12fa"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "11452db0fe69c501b1b2187cb06dadc778501317"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_portable_catalog0.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "c74eebc495da62c670f25d749ffe56c67b36889c"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_portable_chest.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "86ea11e32b52a830f7b7fdbb464400a46df99f03"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "fc48943b815f9ee9a1fd74bc3249ae65da6319b4"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "58a2ec9babe381d325fe059140307f8805ce4d28"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_portable_catalog0.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "3c8a0780aee62d591ba69bf5e58985f6f18f9860"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_portable_chest.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "898340f9a8f5c8dc6fa0d00814e2048390a62cd4"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "3419766834cea085f61b267a406fe91432b39c79"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "7b1686f4355e49e9a0bb7784a51f68b69024f439"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "636955805479ed9794896c0d06acbf991c10bf14"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "a98da6f86ed675a7e016c8f126622819881ba3d2"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -697,6 +825,10 @@ function selectAcceptedCorePair(baseCore,sourceCore){
   return {entries:switch626Rm01CumulativeEntries,count:14,metadata:{
    sourcePr:1649,sourceHead:'6e73a255b021b20099506c989947594f88a46c97',
    sourceTree:'c1af61e8899985c72d8bb4f6d5bde715a1222354'}};
+ }
+ if(baseCore==='f942165161b98cf7f9de16a1f7459cf3d337dc61'){
+  if(sourceCore!=='df1083609dd54a7687cf548cd8ab2342be6a59b6')deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626PortableCumulativeEntries,count:13,metadata:{sourcePr:1794,sourceHead:'62bb6343825d363aef9429e471901d41a0e9cdcd',sourceTree:'e2622bd24a8f09a008a6bb7c04790d15b70d9dfc',preparedCandidateHead:'5cee5ec916b427185906d03660ac63d552dddfde',preparedCandidateTree:'cf1e382cde3044f0dbc0c9998253c1fb8fb18402'}};
  }
  deny('BASE_CORE_TREE');
 }
