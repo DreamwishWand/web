@@ -147,3 +147,15 @@ mod tests{
  for (k,v) in [("ID",json!(0)),("GridDataPath",json!("bad")),("GridDefaultLayoutPath",json!("overlay")),("TessellationFactor",json!(1)),("NextGridObjectID",json!(11))]{let mut q=d.clone();q[k]=v;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none())}for(k,v)in[("X",json!(1)),("State",json!({})),("Orientation",json!("GridOrientation_Up")),("ItemID",json!(40000066)),("ID",json!(12))]{let mut q=d.clone();q["Objects"]["10"][k]=v;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none())}
  let mut q=d.clone();let mut o=q["Objects"]["10"].clone();o["ID"]=json!(12);q["Objects"]["12"]=o;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none());let x=n(&q["Objects"]["10"]["X"]).unwrap() as i64;let y=n(&q["Objects"]["10"]["Y"]).unwrap() as i64;assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(x,y,x+2,y+2))).is_none());assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(x-4,y,x-2,y+2))).is_none());let far_x=x+12; q["Objects"]["12"]["X"]=json!(far_x);assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(far_x,y,far_x+2,y+2))).is_some());q["Objects"]["12"]["X"]=json!(far_x-1);assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(far_x-1,y,far_x+1,y+2))).is_none());}
 }
+
+impl MeadowGeometry {
+ fn clear_ambient(&self,objects:&serde_json::Map<String,Value>,next:u32,exclude:&[u32],boxes:&[Rect],common:&impl Fn(u32)->Option<(u32,u32)>,effective:&mut impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<()>{
+  for(k,o)in objects{if !exact_fields(o,&["ID","ItemID","X","Y","Orientation","State"]){return None}let id=n(&o["ID"])?;if k!=&id.to_string()||id>=next{return None}if exclude.contains(&id){continue}
+   let dims=self.dimensions(n(&o["ItemID"])?,common)?;let ox=i64::from(n(&o["X"])?);let oy=i64::from(n(&o["Y"])?);o["Orientation"].as_str()?;
+   let rect=effective(o,dims)?;if !rect.valid()||ox<rect.0||ox>=rect.2||oy<rect.1||oy>=rect.3||boxes.iter().any(|b|b.intersects(rect)){return None}
+  }
+  Some(())
+ }
+}
+#[path="fm01_product_geometry.rs"]
+mod fm01_product_geometry;

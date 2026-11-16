@@ -39,6 +39,8 @@ product-switch626-rm01-scoped = ["product-amount-scoped"]
 product-steam626-hair-scoped = ["product-amount-scoped"]
 product-steam626-skin-scoped = ["product-amount-scoped"]
 
+product-switch626-fm01-scoped = ["product-amount-scoped"]
+
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
 sha2 = "=0.10.8"

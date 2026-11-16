@@ -378,3 +378,6 @@ mod tests{
   }let x=open(&q);let before=x.receipt().unwrap();assert!(x.mint_sr03_target(env(&x),90001,10,11).is_err(),"mode {i}");assert_eq!(x.receipt().unwrap(),before);}
  }
 }
+
+#[path="fm01_product_target.rs"]
+mod fm01_product_target;
