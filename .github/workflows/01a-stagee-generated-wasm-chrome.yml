@@ -23,15 +23,10 @@ jobs:
           sha256sum crates/ddv-save-core/Cargo.lock | tee /tmp/qrc-lock.sha
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch626-fm01-scoped --lib qa1836_synthetic_fixture
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagee-wasm-tools
-          for m in off own hair skin fmhair fmskin rm; do
+          for m in own collection; do
             case "$m" in
-              off) f=indexed-read ;;
               own) f=product-switch626-fm01-scoped ;;
-              hair) f=product-steam626-hair-scoped ;;
-              skin) f=product-steam626-skin-scoped ;;
-              fmhair) f=product-switch626-fm01-scoped,product-steam626-hair-scoped ;;
-              fmskin) f=product-switch626-fm01-scoped,product-steam626-skin-scoped ;;
-              rm) f=product-switch626-fm01-scoped,product-switch626-rm01-scoped ;;
+              collection) f=product-switch626-fm01-scoped,product-collection-scoped ;;
             esac
             cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "worker-wasm,$f"
             /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "/tmp/fm-$m" --target nodejs --no-typescript
@@ -41,26 +36,14 @@ jobs:
           const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
           const sha=b=>createHash('sha256').update(b).digest('hex'),cls=m=>require('/tmp/fm-'+m+'/ddv_save_core.js').WorkerWasmSource;
           const readers=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','close'],names=['preview_switch626_fm01','stage_switch626_fm01','toggle_switch626_fm01','begin_switch626_fm01_output','next_switch626_fm01_output_chunk'];
-          for(const m of ['off','own','hair','skin','fmhair','fmskin','rm']){const n=Object.getOwnPropertyNames(cls(m).prototype).filter(k=>!['constructor','free','__destroy_into_raw'].includes(k)).sort(),b=fs.readFileSync('/tmp/fm-'+m+'/ddv_save_core_bg.wasm'),ex=WebAssembly.Module.exports(new WebAssembly.Module(b)).map(x=>x.name);assert.deepEqual(n,[...readers,...(m==='own'?names:m==='hair'||m==='skin'?['preview_steam626_'+m,'stage_steam626_'+m,'toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk']:[])].sort(),m);assert.equal(ex.length,n.length+9);for(const k of n)assert.ok(ex.includes('workerwasmsource_'+k));console.log('QRC1836_CENSUS '+m+' '+n.length+'/'+ex.length+' '+sha(b));}
+          for(const m of ['collection']){const n=Object.getOwnPropertyNames(cls(m).prototype).filter(k=>!['constructor','free','__destroy_into_raw'].includes(k)).sort(),b=fs.readFileSync('/tmp/fm-'+m+'/ddv_save_core_bg.wasm'),ex=WebAssembly.Module.exports(new WebAssembly.Module(b)).map(x=>x.name);assert.deepEqual(n,[...readers,...(m==='own'?names:m==='hair'||m==='skin'?['preview_steam626_'+m,'stage_steam626_'+m,'toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk']:[])].sort(),m);assert.equal(ex.length,n.length+9);for(const k of n)assert.ok(ex.includes('workerwasmsource_'+k));console.log('QRC1836_SUPPLEMENTAL_CENSUS '+m+' '+n.length+'/'+ex.length+' '+sha(b));}
           const raw=fs.readFileSync('/tmp/qrc1836-input.json'),d=JSON.parse(raw),ids=new Uint32Array([10,11,12,13,14]),g=d.World.GridCollection.Grids[90001],x=g.Objects[10].X,y=g.Objects[10].Y;
-          const hash=v=>sha(Buffer.from(JSON.stringify(v))),rows=Array.from(ids,id=>hash(g.Objects[id])).join('');
-          const expected=structuredClone(d),eg=expected.World.GridCollection.Grids[90001];eg.NextGridObjectID=53;for(const id of [11,12,13,14])delete eg.Objects[id];
-          const rec=(ID,ItemID,X,Y,left,diag)=>({ID,ItemID,Orientation:left?'GridOrientation_Left':'GridOrientation_Down',State:diag?{FenceMode:{Diagonal:true}}:null,X,Y});
-          eg.Objects[50]=rec(50,40700247,x,y+2,true,false);eg.Objects[51]=rec(51,40700246,x,y+4,false,false);eg.Objects[52]=rec(52,40700246,x+2,y+6,false,true);
-          const outExpected=Buffer.from(JSON.stringify(expected).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
-          const sw=['switch','switch-bid','9A239D3DB569756D',626,true],steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true];let nonce=0,neg=0;
-          function open(b=sw){const w=new(cls('own'))(...b,new Uint8Array(32).fill(++nonce));w.append_chunk(raw);return[w,JSON.parse(w.finish())]}
-          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],deny=f=>{assert.throws(f);neg++},[w,r]=open(),p=JSON.parse(w.preview_switch626_fm01(90001,ids,...sc(r)));
-          assert.equal(p.projectedDecodedSha256,sha(outExpected));assert.equal(p.exactFieldChangedCount,8);assert.equal(p.inventoryDelta,0);assert.equal(p.retainedId,10);assert.deepEqual(p.deletedIds,[11,12,13,14]);
-          const args=[90001,ids,50,10,hash(d.World.Villages[0].Areas[2]),hash(g),sha(Buffer.from('50')),hash(d.Player.ListInventories[0].Inventory[40700246]),sha(Buffer.from('[]')),rows,sha(outExpected)];
-          const st=(a=args,r0=r,w0=w)=>JSON.parse(w0.stage_switch626_fm01(...a,...sc(r0)));
-          for(const bad of [new Uint32Array(4),new Uint32Array(6),new Uint32Array([10,11,12,13,13])])deny(()=>w.preview_switch626_fm01(90001,bad,...sc(r)));
-          for(let i=4;i<=10;i++){const a=args.slice();a[i]=i===9?'0'.repeat(320):'0'.repeat(64);deny(()=>st(a));}
-          for(const bad of ['0'.repeat(319),'0'.repeat(321),'é'.repeat(160),'g'.repeat(320)]){const a=args.slice();a[9]=bad;deny(()=>st(a));}
-          for(let i=0;i<5;i++){const a=args.slice();a[9]=rows.slice(0,i*64)+'0'.repeat(64)+rows.slice((i+1)*64);deny(()=>st(a));}
-          for(const i of [2,3]){const a=args.slice();a[i]++;deny(()=>st(a));}
-          deny(()=>st(args,{...r,revision:1}));deny(()=>st(args,{...r,indexGeneration:2}));deny(()=>st(args,{...r,decodedSha256:'0'.repeat(64)}));
-          const [f,fr]=open();deny(()=>st(args,r,f));f.close();f.free();const [z,zr]=open(steam);deny(()=>z.preview_switch626_fm01(90001,ids,...sc(zr)));z.close();z.free();
-          deny(()=>w.begin_switch626_fm01_output(...sc(r)));const t=st();assert.equal(t.exactFieldChangedCount,8);assert.equal(t.stagedDecodedSha256,sha(outExpected));deny(()=>st());const u=JSON.parse(w.toggle_switch626_fm01(false,...sc(t)));deny(()=>w.begin_switch626_fm01_output(...sc(u)));const v=JSON.parse(w.toggle_switch626_fm01(true,...sc(u)));w.begin_switch626_fm01_output(...sc(v));const out=Buffer.from(w.next_switch626_fm01_output_chunk());assert.deepEqual(out,outExpected);deny(()=>w.next_switch626_fm01_output_chunk());w.close();w.free();
-          const file='/tmp/qrc1836-out.json';fs.writeFileSync(file,out,{flag:'wx',mode:0o600});const child="const a=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto'),{WorkerWasmSource}=require('/tmp/fm-own/ddv_save_core.js');const b=fs.readFileSync(process.argv[1]),w=new WorkerWasmSource('switch','switch-bid','9A239D3DB569756D',626,true,new Uint8Array(32).fill(99));w.append_chunk(b);const r=JSON.parse(w.finish());a.equal(r.decodedSha256,process.argv[2]);a.equal(r.revision,0);a.equal(createHash('sha256').update(b).digest('hex'),process.argv[2]);a.equal(JSON.parse(b).World.GridCollection.Grids[90001].NextGridObjectID,53);w.close();w.free();console.log('QRC1836_REOPEN_CHILD_PASS '+r.decodedSha256);";const result=require('node:child_process').execFileSync(process.execPath,['-e',child,file,sha(out)],{encoding:'utf8'});process.stdout.write(result);assert.ok(result.includes('QRC1836_REOPEN_CHILD_PASS '+sha(out)));assert.equal(neg,30);console.log('QRC1836_FM01_ABI_ACTUAL 1POS '+neg+'NEG 7CENSUS EXACT8');
+          const sw=['switch','switch-bid','9A239D3DB569756D',626,true];let nonce=0,neg=0;
+          const read=doc=>{const b=Buffer.from(JSON.stringify(doc)),w=new(cls('own'))(...sw,new Uint8Array(32).fill(++nonce));w.append_chunk(b);const r=JSON.parse(w.finish());return[w,r]};
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256];
+          function deny(doc){const [w,r]=read(doc);assert.throws(()=>w.preview_switch626_fm01(90001,ids,...sc(r)));w.close();w.free();neg++}
+          for(const id of [11,12,13,14,50,51,52]){const q=structuredClone(d);q.Opaque.ref={GridID:90001,ObjectID:id};deny(q);}
+          const occupied=structuredClone(d);occupied.World.GridCollection.Grids[90001].Objects[15]={ID:15,ItemID:40700246,Orientation:'GridOrientation_Down',State:null,X:x,Y:y+2};deny(occupied);
+          const duplicate=structuredClone(d);duplicate.World.Villages[0].Areas[2].GridIDs=[90001,90001];deny(duplicate);
+          assert.equal(neg,9);console.log('QRC1836_SUPPLEMENTAL_TARGET_ACTUAL 9NEG COLLECTION_MIXED_8_17');
           JS
