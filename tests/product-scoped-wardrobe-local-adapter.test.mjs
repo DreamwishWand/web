@@ -4,6 +4,8 @@ import {createHash} from 'node:crypto';
 import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
 import {p1gPackagedProfileCodec} from '../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
 import {createProductSteam626WardrobeLocalAdapter,createProductSwitch626WardrobeLocalAdapter} from '../src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+import {installLocalWardrobeDevWorker,createLocalWardrobeDevPort} from '../src/lib/dev/local-scoped-edit-worker-port.mjs';
+import {createLocalWardrobeDevWorkflow} from '../src/lib/dev/local-placement-workflow.mjs';
 import {createProductWasmReadOwner} from '../src/lib/ddv/core/save/product-wasm-read-owner.mjs';
 const hash=b=>createHash('sha256').update(b).digest('hex'),utf=s=>new TextEncoder().encode(s),id='a'.repeat(32),h=c=>c.repeat(64);
 const steam={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true},sw={platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626,externallyConfirmed:true};
@@ -39,6 +41,12 @@ for(const [mode,create,build,foreign] of [['steam',createProductSteam626Wardrobe
    assert.equal((await a.stageWardrobe()).exactFieldChangedCount,1);await a.undo();await assert.rejects(async()=>a.exportEditedCopy());await a.redo();await a.exportEditedCopy();
    const b=await a.downloadVerifiedCopy('backup'),e=await a.downloadVerifiedCopy('edited');assert.equal(hash(b.encryptedBytes),originalSha256);assert.equal((await p1gPackagedProfileCodec.loadProfile(e.encryptedBytes)).jsonText,JSON.stringify(expected));assert.notEqual(b.name,e.name);assert.equal(hash(new Uint8Array(await file.arrayBuffer())),originalSha256);assert.equal(opens,1);assert.equal(stages,1);assert.equal(closes,1);
    await a.close();assert.equal(files.has(b.name),true);await assert.rejects(async()=>a.downloadVerifiedCopy('edited'));
+   const server={},worker={terminate(){}};server.postMessage=data=>{const copy=structuredClone(data);queueMicrotask(()=>worker.onmessage({data:copy}))};worker.postMessage=data=>queueMicrotask(()=>server.onmessage({data}));
+   installLocalWardrobeDevWorker(server,a);const port=createLocalWardrobeDevPort(worker);const ui=createLocalWardrobeDevWorkflow(port,{trustedLocalHarness:true,platform:build.platform});
+   assert.equal(port.previewPlacement,undefined);assert.equal(port.previewBackpack,undefined);assert.equal(port.stageTyped,undefined);
+   await ui.openFile({file,buildConfirmed:true});await ui.backupOriginal();await assert.rejects(port.previewWardrobe({slot:0}));await assert.rejects(port.stageWardrobe({newItemId:50000214}));assert.equal(stages,1);
+   await ui.preview();assert.equal(ui.snapshot().preview.newItemId,50000214);await ui.stage();await ui.undo();await ui.redo();await ui.exportEditedCopy();
+   const out=await ui.downloadVerifiedCopy('edited');assert.equal((await p1gPackagedProfileCodec.loadProfile(out.encryptedBytes)).jsonText,JSON.stringify(expected));assert.equal(opens,2);assert.equal(stages,2);await ui.close();port.dispose();
   }finally{if(old)Object.defineProperty(navigator,'locks',old);else delete navigator.locks}
  });
 }
