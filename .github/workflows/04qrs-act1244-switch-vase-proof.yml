@@ -1,0 +1,83 @@
+name: 04 QR-S ACT1244 Switch Vase proof (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1244-switch-vase-proof.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1fb80b03e144515ec942f264b5a11b274bc999bd
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent Switch identity and exact subject boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "1fb80b03e144515ec942f264b5a11b274bc999bd"
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = "6e115f1fd6dbe77177915ac9c109d9723b840c04"
+          test "$(git rev-parse HEAD:tests/scoped-placement-proof.test.mjs)" = "e23c8058667674e03299d0fdf5ec241d04889151"
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = "85d2e6f2183e2d5444eb672cb5f50306281731aa"
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-switch-vase-release-anchor.mjs)" = "8ab6dfca2d6f4d6a73fce710dc4e57973afabcc0"
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = "5b86ff1cf2dc009ba1733bf213e4cb979bf500ec"
+          cat > tests/qa-act1244.mjs <<'EOF'
+          import test from 'node:test';
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {readFileSync} from 'node:fs';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from '../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {COMP03_RELEASE as comp,COMP03_SPATIAL_RELEASE as spatial,VASE_ADD_RELEASE as vase,SWITCH_VASE_ADD_RELEASE as switchVase,validatePlacementAnchor} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {fixedPlacementProofScope,inspectPlacementSubjects,privatePlacementIdentity,replacePrivatePlacementAnchor} from '../scripts/readonly-release/scoped-placement-proof.mjs';
+          const source='a'.repeat(40),sha=b=>createHash('sha256').update(b).digest('hex');
+          const u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a};
+          const str=s=>[...u(Buffer.byteLength(s)),...Buffer.from(s)],sec=(id,b)=>[id,...u(b.length),...b];
+          function wasm(s,extra=false){
+           const es=[...s.exports,...(extra?['workerwasmsource_stage_extra']:[])];
+           const exports=es.flatMap(n=>[...str(n),n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);
+           return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(es.length),...exports]),...sec(10,[1,2,0,11])]);
+          }
+          function subject(s,w=wasm(s),js=Buffer.from('export default function(){}'),patch={}){
+           const m={contract:s.prefix+'.runtime@1',operation:s.operation,source:{repository:tuple.repository,commit:source,cargoTomlSha256:'b'.repeat(64),cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:s.features,defaultFeatures:false,toolchain:'rustc 1.99.1 (test)'},assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:sha(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}},abi:{exportClass:'WorkerWasmSource',methods:s.methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false},...patch};
+           return [Buffer.from(JSON.stringify(m)),js,w];
+          }
+          import {placementAnchorShapeOk,placementExportsOk,placementIdentityText,STEAM_BACKPACK_RELEASE,SWITCH_BACKPACK_RELEASE,STEAM_WARDROBE_RELEASE,SWITCH_WARDROBE_RELEASE} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {execFileSync} from 'node:child_process';
+          let pos=0,neg=0;const yes=f=>{f();pos++},no=f=>{assert.throws(f);neg++};
+          const m=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','preview_switch626_vase_add','stage_switch626_vase_add','toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close'];
+          const e=['memory','__wbg_workerwasmsource_free','workerwasmsource_new',...m.map(n=>'workerwasmsource_'+n),'__wbindgen_externrefs','__wbindgen_malloc','__externref_table_dealloc','__wbindgen_realloc','__wbindgen_free','__wbindgen_start'].sort();
+          const make=(names,wrong=null)=>{const es=names.flatMap(n=>[...str(n),n===wrong?0:n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(names.length),...es]),...sec(10,[1,2,0,11])])};
+          const s=switchVase,mod=make(e),bytes=subject(s,mod,Buffer.from('export class WorkerWasmSource { preview_switch626_vase_add(){} stage_switch626_vase_add(){} }')),p=inspectPlacementSubjects(s,bytes,source),a=privatePlacementIdentity(s,p,'http://127.0.0.1:4188'),mf=JSON.parse(bytes[0]);
+          yes(()=>{assert.deepEqual(s.methods,m);assert.deepEqual(s.exports,e);assert.equal(s.platform,'switch');assert.equal(s.buildId,'9A239D3DB569756D');assert.equal(s.operation,'switch626.vase.add.exact3');assert.deepEqual(s.features,['product-switch626-vase-add-scoped','worker-wasm']);assert.equal(s.assetDir,'worker-wasm-scoped-switch626-vase-add');assert.equal(placementExportsOk(s,new WebAssembly.Module(mod)),true);assert.equal(fixedPlacementProofScope(s.key),s)});
+          yes(()=>{for(const [i,k] of ['manifest','js','wasm'].entries()){assert.equal(p[k+'Sha256'],sha(bytes[i]));assert.equal(p[k+'SizeBytes'],bytes[i].length)}assert.deepEqual(a.builds,[{platform:'switch',buildId:'9A239D3DB569756D',productV2EvidenceSha256:null}]);assert.equal(a.releaseId,sha(Buffer.from(placementIdentityText(s,a))))});
+          assert.equal(await validatePlacementAnchor(s,a),true);pos++;
+          for(const o of [comp,vase,spatial]){
+           const b=subject(o),pins=inspectPlacementSubjects(o,b,source),id=privatePlacementIdentity(o,pins,'http://127.0.0.1:4188');assert.equal(await validatePlacementAnchor(o,id),true);assert.equal(id.builds[0].platform,'steam-windows');pos++;
+           no(()=>inspectPlacementSubjects(o,bytes,source));no(()=>inspectPlacementSubjects(s,b,source));no(()=>inspectPlacementSubjects(s,subject(s,wasm(o)),source));assert.equal(placementAnchorShapeOk(o,a),false);assert.equal(placementAnchorShapeOk(s,id),false);
+           for(const n of m.filter(n=>n.startsWith('preview_')||n.startsWith('stage_')))no(()=>inspectPlacementSubjects(o,subject(o,wasm(o),Buffer.from(n)),source));
+          }
+          for(const o of [comp,vase,spatial,STEAM_BACKPACK_RELEASE,SWITCH_BACKPACK_RELEASE,STEAM_WARDROBE_RELEASE,SWITCH_WARDROBE_RELEASE]){
+           no(()=>inspectPlacementSubjects(s,subject(s,wasm(o)),source));for(const n of o.methods.filter(n=>n.startsWith('preview_')||n.startsWith('stage_')))no(()=>inspectPlacementSubjects(s,subject(s,mod,Buffer.from(n)),source));
+          }
+          for(const n of ['discover_scoped_amount','stage_scoped_amount','preview_scoped_collection_candidate','stage_fixed_collection','stage_switch626_chest','stage_switch626_catalog0','private_native','dev_stage']){no(()=>inspectPlacementSubjects(s,subject(s,mod,Buffer.from(n)),source));no(()=>inspectPlacementSubjects(s,subject(s,make([...e,'workerwasmsource_'+n])),source))}
+          for(const w of [make(e.slice(1)),make(e,'memory'),make([...e,'workerwasmsource_stage_extra'])])no(()=>inspectPlacementSubjects(s,subject(s,w),source));
+          for(const patch of [{contract:vase.prefix+'.runtime@1'},{operation:vase.operation},{source:{...mf.source,features:vase.features}},{source:{...mf.source,features:[...s.features,vase.features[0]]}},{source:{...mf.source,cargoLockSha256:'0'.repeat(64)}},{source:{...mf.source,defaultFeatures:true}},{abi:{...mf.abi,methods:vase.methods}},{abi:{...mf.abi,writerAuthorized:true}},{release:{...mf.release,productConsumerEnabled:true}},{release:{...mf.release,autoUpload:true}},{extra:true}])no(()=>inspectPlacementSubjects(s,subject(s,mod,undefined,patch),source));
+          for(const b of [bytes.slice(0,2),[...bytes,bytes[0]],[bytes[1],bytes[0],bytes[2]],[bytes[0],Buffer.from('changed'),bytes[2]],[Buffer.alloc(65537),...bytes.slice(1)],[Buffer.from([255]),...bytes.slice(1)]])no(()=>inspectPlacementSubjects(s,b,source));
+          no(()=>inspectPlacementSubjects(s,bytes,'c'.repeat(40)));for(const t of [{...tuple,signerWorkflow:'foreign/workflow'},{...tuple,sourceRef:'refs/heads/other'},{...tuple,repository:'foreign/repo'}])no(()=>inspectPlacementSubjects(s,bytes,source,t));
+          for(const origin of ['https://127.0.0.1:4188','http://localhost:4188','http://127.0.0.1:65536','http://127.0.0.1:4188/x',tuple.origin])no(()=>privatePlacementIdentity(s,p,origin));
+          for(const b of [{...a.builds[0],buildId:vase.buildId},{...a.builds[0],platform:'steam-windows'},{...a.builds[0],productV2EvidenceSha256:'a'.repeat(64)}]){assert.equal(placementAnchorShapeOk(s,{...a,builds:[b]}),false);neg++}
+          const base='../src/lib/ddv/core/save/',prior=readFileSync(new URL(base+'product-scoped-switch-vase-release-anchor.mjs',import.meta.url),'utf8'),marker='export const PROTECTED_SWITCH_VASE_ADD_RELEASE_ANCHOR=null;',out=replacePrivatePlacementAnchor(s,prior,a),[before,after]=prior.split(marker);
+          yes(()=>{assert.ok(out.startsWith(before));assert.ok(out.endsWith(after));assert.equal(out.split(marker).length,1);assert.ok(out.includes('export const PROTECTED_SWITCH_VASE_ADD_RELEASE_ANCHOR=Object.freeze('));});
+          for(const f of ['product-scoped-placement-release-anchor.mjs','product-scoped-comp03-spatial-release-anchor.mjs','product-scoped-backpack-release-anchor.mjs','product-scoped-wardrobe-release-anchor.mjs']){const txt=readFileSync(new URL(base+f,import.meta.url),'utf8');no(()=>replacePrivatePlacementAnchor(s,txt,a));assert.equal(txt,execFileSync('git',['show','cd961f78394dab3fab04b1d3039b8762d0338089:src/lib/ddv/core/save/'+f],{encoding:'utf8'}))}
+          for(const x of [prior.replace(marker,''),prior+marker,out])no(()=>replacePrivatePlacementAnchor(s,x,a));
+          no(()=>replacePrivatePlacementAnchor(s,prior,{...a,releaseId:'f'.repeat(64)}));no(()=>replacePrivatePlacementAnchor(s,prior,{...a,mode:'public-accepted'}));no(()=>fixedPlacementProofScope('switch626'));
+          console.log('ACT1244_SWITCH_VASE_PROOF_L2_PASS',JSON.stringify({pos,neg,actualWasmModule:true,syntheticSubjects:true,actualSignature:false,publicGrant:false}));
+          
+          EOF
+          node tests/qa-act1244.mjs
