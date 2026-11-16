@@ -524,7 +524,7 @@ mod tests{
   let (x,y)=(0..387u32).step_by(4).flat_map(|x|(0..195u32).step_by(4).map(move|y|(x,y))).find(|&(x,y)|[(x,y),(x+4,y+4),(x+4,y),(x,y+4)].iter().all(|&(a,b)|(0..2).all(|i|(0..2).all(|j|p.floor4(a+i,b+j))))).unwrap();
   let g=&mut d["World"]["GridCollection"]["Grids"]["90001"];
   g["Objects"]["10"]["X"]=json!(if x<190{388}else{0});g["Objects"]["10"]["Y"]=json!(if y<100{196}else{0});
-  g["Objects"]["10"]["QRCKeep"]=json!({"amount":4,"old":50});g["Objects"].as_object_mut().unwrap().remove("11");
+  g["Objects"].as_object_mut().unwrap().remove("11");
   d["World"]["MissionSlots"]=json!({});d["World"]["RecurringEvents"]=json!({});
   d["World"]["TimeLostTreasures"]=json!({});d["World"]["NextTimeLostTreasureID"]=json!(1);
   d["World"]["Snippets"]=json!({});d["World"]["NextSnippetID"]=json!(0);
@@ -572,7 +572,9 @@ mod tests{
    assert_eq!(sha(&s.decoded),e.expected_decoded_sha256);pos+=1;
   }
   for amount in [0,4,10000]{let mut bad=d.clone();bad["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(amount);let s=make(&serde_json::to_string(&bad).unwrap());assert!(s.preview_switch626_r02_product(env(&s),90001,x,y).is_err());neg+=1;}
-  assert_eq!((pos,neg),(2,25));println!("QRC1731_R02_STAGE_ACTUAL {pos}POS {neg}NEG EXACT6");
+  let mut bad=d.clone();bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["QRCKeep"]=json!({"amount":4,"old":50});
+  let s=make(&serde_json::to_string(&bad).unwrap());assert!(s.preview_switch626_r02_product(env(&s),90001,x,y).is_err());neg+=1;
+  assert_eq!((pos,neg),(2,26));println!("QRC1731_R02_STAGE_ACTUAL {pos}POS {neg}NEG EXACT6");
  }
  #[cfg(feature="product-switch626-r02-scoped")]
  #[test]fn switch626_r02_product_exact6_debit4_cas(){
