@@ -58,7 +58,7 @@ jobs:
           const pins=changes.map(([p,e])=>({path:p,before:entry(base,p),after:e}));
           const literal=JSON.parse(block.slice(block.indexOf('['),block.lastIndexOf(']')+1));assert.deepEqual(literal.slice().sort((a,b)=>a.path.localeCompare(b.path)),pins.slice().sort((a,b)=>a.path.localeCompare(b.path)));
           assert.ok(pins.every(x=>x.after.mode==='100644'&&(!x.before||x.before.mode==='100644')));
-          const pure=make(base,changes);assert.equal(g('rev-parse',pure+'^{tree}'),targetTree);assert.equal(g('rev-parse',pure+':'+core),targetCore);assert.equal(g('rev-parse',base+':'+core),'aceda9d906c3137d717824a3079e84165ab5f62e');assert.equal(g('rev-parse',pure+':'+core+'/Cargo.lock'),g('rev-parse',base+':'+core+'/Cargo.lock'));
+          const pure=make(base,changes);assert.equal(g('rev-parse',pure+'^{tree}'),targetTree);assert.equal(g('rev-parse',pure+':'+core),targetCore);assert.equal(g('rev-parse',base+':'+core),'aceda9d906c3137d717824a3079e84165ab5f62e');assert.equal(g('rev-parse',pure+':scripts/wasm-distribution/approved-Cargo.lock'),'b667b42cfef2032c2925be7b2aa9b7142bff4b52');assert.equal(g('rev-parse',base+':scripts/wasm-distribution/approved-Cargo.lock'),'b667b42cfef2032c2925be7b2aa9b7142bff4b52');assert.equal(entry(pure,core+'/Cargo.lock'),null);assert.equal(entry(base,core+'/Cargo.lock'),null);
           let pos=0,neg=0;const no=f=>{assert.throws(f);neg++};
           const verify=(b,c)=>verifyAcceptedRustScope(process.cwd(),b,c);
           const c=make(fixed,changes),r=verify(fixed,c);assert.equal(r.entryCount,pins.length);assert.equal(r.sourcePr,sourcePr);assert.equal(r.writerAuthorized,false);assert.equal(r.mergeAuthorized,false);pos++;
@@ -72,7 +72,7 @@ jobs:
            no(()=>verify(fixed,make(fixed,[...rest,[p,{mode:'100644',blob:blob('wrong postimage '+p)}]])));
           }
           no(()=>verify(fixed,make(fixed,[...changes,noise])));
-          no(()=>verify(fixed,make(fixed,[...changes,[core+'/Cargo.lock',{mode:'100644',blob:blob('wrong lock')}]])));
+          no(()=>verify(fixed,make(fixed,[...changes,[core+'/Cargo.lock',{mode:'100644',blob:blob('wrong generated lock')}]])));no(()=>verify(fixed,make(fixed,[...changes,['scripts/wasm-distribution/approved-Cargo.lock',{mode:'100644',blob:blob('wrong approved lock')}]])));
           for(const p of [helper,'scripts/wasm-distribution/verify-protected-release.mjs','scripts/int-selection-preflight.mjs'])no(()=>verify(fixed,make(fixed,[...changes,[p,{mode:'100644',blob:blob('changed gate '+p)}]])));
           no(()=>verify(base,make(base,[...changes,[helper,entry(fixed,helper)]])));
           no(()=>verify(fixed,pure));no(()=>verify(c,fixed));no(()=>verify(fixed,'bad'));
