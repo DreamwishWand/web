@@ -51,6 +51,7 @@ export function createProductSwitch626WardrobeLocalAdapter(options={}){return cr
 export function createProductSteam626HairLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,'hair')}
 export function createProductSteam626SkinLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,'skin')}
 export function createProductSteam626EyeColor2LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,'eyecolor2')}
+export function createProductSwitch626EyeColor2LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,'eyecolor2-switch')}
 function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null){
  const placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,appearance=appearanceScope!==null,previewEdit=placement||backpack||wardrobe||appearance,placementCount=(wardrobe||appearance)?1:(placementScope==='comp03'||placementScope==='comp03-spatial')?9:(placementScope==='sr03'||placementScope==='rm01')?8:3;
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||
@@ -91,7 +92,7 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
    if(closeUnverified)fail();revoke();return run(async t=>{
     if(!keys(args,'file,originalSha256,build')||!keys(args.build,'platform,buildKind,buildId,schema,externallyConfirmed')||
      !((!switchChest&&!catalog&&placementScope!=='rm01'&&backpackScope!=='switch'&&wardrobeScope!=='switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
-       ((collection||switchChest||catalog||placementScope==='rm01'||backpackScope==='switch'||wardrobeScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
+       ((collection||switchChest||catalog||placementScope==='rm01'||backpackScope==='switch'||wardrobeScope==='switch'||appearanceScope==='eyecolor2-switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
      args.build.schema!==626||args.build.externallyConfirmed!==true||!uint(t)||t<1)fail();
     const input=Object.freeze({file:args.file,originalSha256:args.originalSha256,build:Object.freeze({...args.build})});
     const r=await bridge.openScopedEncrypted(input);check(t);
