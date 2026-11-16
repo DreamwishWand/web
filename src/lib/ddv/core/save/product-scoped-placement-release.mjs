@@ -11,6 +11,7 @@ import {PROTECTED_STEAM_WARDROBE_RELEASE_ANCHOR,PROTECTED_SWITCH_WARDROBE_RELEAS
 import {PROTECTED_COMP03_SPATIAL_RELEASE_ANCHOR} from './product-scoped-comp03-spatial-release-anchor.mjs';
 import {PROTECTED_HAIR_RELEASE_ANCHOR,PROTECTED_SKIN_RELEASE_ANCHOR} from './product-scoped-appearance-release-anchor.mjs';
 import {PROTECTED_EYECOLOR2_RELEASE_ANCHOR} from './product-scoped-eyecolor2-release-anchor.mjs';
+import {PROTECTED_SWITCH_EYECOLOR2_RELEASE_ANCHOR} from './product-scoped-switch-eyecolor2-release-anchor.mjs';
 const fail=()=>{throw Error('SCOPED_PLACEMENT_RELEASE_DENIED')};
 const exact=(o,k)=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).sort().join(',')===k.split(',').sort().join(',');
 const sha=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x),head=x=>typeof x==='string'&&/^[a-f0-9]{40}$/.test(x);
@@ -35,9 +36,10 @@ export const SWITCH_WARDROBE_RELEASE=spec('switch626-wardrobe','switch626.wardro
 export const SR03_RELEASE=spec('steam626-sr03','steam626.sr03.mixed-q5.exact8','product-steam626-sr03-scoped','preview_steam626_sr03','stage_steam626_sr03','/editor/world/sr03/');
 export const RM01_RELEASE=spec('switch626-rm01','switch626.rm01.mixed-q5.exact8','product-switch626-rm01-scoped','preview_switch626_rm01','stage_switch626_rm01','/editor/world/rm01/switch/','switch','9A239D3DB569756D');
 export const HAIR_RELEASE=spec('steam626-hair','steam626.hair.exact1','product-steam626-hair-scoped','preview_steam626_hair','stage_steam626_hair','/editor/appearance/hair/steam/');
+export const SWITCH_EYECOLOR2_RELEASE=spec('switch626-eyecolor2','switch626.eyecolor2.exact1','product-switch626-eyecolor2-scoped','preview_switch626_eyecolor2','stage_switch626_eyecolor2','/editor/appearance/eyecolor2/switch/','switch','9A239D3DB569756D',[],['toggle_switch626_eyecolor2','begin_switch626_eyecolor2_output','next_switch626_eyecolor2_output_chunk']);
 export const EYECOLOR2_RELEASE=spec('steam626-eyecolor2','steam626.eyecolor2.exact1','product-steam626-eyecolor2-scoped','preview_steam626_eyecolor2','stage_steam626_eyecolor2','/editor/appearance/eyecolor2/steam/','steam-windows',buildId,[],['toggle_steam626_eyecolor2','begin_steam626_eyecolor2_output','next_steam626_eyecolor2_output_chunk']);
 export const SKIN_RELEASE=spec('steam626-skin','steam626.skin.exact1','product-steam626-skin-scoped','preview_steam626_skin','stage_steam626_skin','/editor/appearance/skin/steam/');
-const known=s=>s===EYECOLOR2_RELEASE||s===HAIR_RELEASE||s===SKIN_RELEASE||s===RM01_RELEASE||s===SR03_RELEASE||s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE||s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
+const known=s=>s===SWITCH_EYECOLOR2_RELEASE||s===EYECOLOR2_RELEASE||s===HAIR_RELEASE||s===SKIN_RELEASE||s===RM01_RELEASE||s===SR03_RELEASE||s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE||s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
 const asset=(a,n,max)=>exact(a,'path,sizeBytes,sha256')&&a.path===n&&size(a.sizeBytes,max)&&sha(a.sha256);
 export function placementPinsOk(s,p){return known(s)&&exact(p,'contract,sourceHead,manifestSha256,manifestSizeBytes,jsSha256,jsSizeBytes,wasmSha256,wasmSizeBytes')&&p.contract===s.prefix+'.pinned-digests@1'&&head(p.sourceHead)&&[p.manifestSha256,p.jsSha256,p.wasmSha256].every(sha)&&size(p.manifestSizeBytes,64*1024)&&size(p.jsSizeBytes,2*1024*1024)&&size(p.wasmSizeBytes,20*1024*1024)}
 export function placementManifestOk(s,m,p,tuple=ACTIVE_RELEASE_TUPLE){
@@ -74,7 +76,7 @@ async function load(s,a){
  if(wasm[0]!==0||wasm[1]!==97||wasm[2]!==115||wasm[3]!==109)fail();
  const backpack=s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE,wardrobe=s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
  const comp03=s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE;
- const denied=new RegExp((s===EYECOLOR2_RELEASE?'':'(?:preview|stage|toggle|begin|next)_steam626_eyecolor2|')+baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack||wardrobe?'(?:comp03|vase_add|sr03)':comp03?'(?:vase_add|sr03)':s===VASE_ADD_RELEASE?'(?:comp03|sr03)':'(?:comp03|vase_add)')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split'+'|(?:preview|stage)_'+(wardrobe?(s===STEAM_WARDROBE_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_wardrobe'+(s===COMP03_SPATIAL_RELEASE?'':'|preview_steam626_comp03_spatial')+(s===RM01_RELEASE?'|(?:preview|stage)_steam626_sr03':'|(?:preview|stage)_switch626_rm01')+'|(?:preview|stage)_steam626_'+(s===HAIR_RELEASE?'skin':s===SKIN_RELEASE?'hair':'(?:hair|skin)'),'i');
+ const denied=new RegExp((s===EYECOLOR2_RELEASE?'':'(?:preview|stage|toggle|begin|next)_steam626_eyecolor2|')+(s===SWITCH_EYECOLOR2_RELEASE?'':'(?:preview|stage|toggle|begin|next)_switch626_eyecolor2|')+baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack||wardrobe?'(?:comp03|vase_add|sr03)':comp03?'(?:vase_add|sr03)':s===VASE_ADD_RELEASE?'(?:comp03|sr03)':'(?:comp03|vase_add)')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split'+'|(?:preview|stage)_'+(wardrobe?(s===STEAM_WARDROBE_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_wardrobe'+(s===COMP03_SPATIAL_RELEASE?'':'|preview_steam626_comp03_spatial')+(s===RM01_RELEASE?'|(?:preview|stage)_steam626_sr03':'|(?:preview|stage)_switch626_rm01')+'|(?:preview|stage)_steam626_'+(s===HAIR_RELEASE?'skin':s===SKIN_RELEASE?'hair':'(?:hair|skin)'),'i');
  const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{deniedSymbol:denied,requiredMethods:s.methods,exactPrototype:true,exactWasmExports:s.exports});
  return Object.freeze({WorkerWasmSource,sourceHead:p.sourceHead,checkedBothJsAndWasm:true,sameOriginFetchOnly:true,writerAuthorized:false,productConsumerEnabled:false,attestationVerifiedAtBuild:true,...scope(s,a)});
 }
@@ -108,3 +110,5 @@ const hair=fixed(HAIR_RELEASE,PROTECTED_HAIR_RELEASE_ANCHOR),skin=fixed(SKIN_REL
 export const getHairMountInfo=hair.mount,loadProtectedHairRustWasm=hair.runtime,getSkinMountInfo=skin.mount,loadProtectedSkinRustWasm=skin.runtime;
 const eyeColor2=fixed(EYECOLOR2_RELEASE,PROTECTED_EYECOLOR2_RELEASE_ANCHOR);
 export const getEyeColor2MountInfo=eyeColor2.mount,loadProtectedEyeColor2RustWasm=eyeColor2.runtime;
+const switchEyeColor2=fixed(SWITCH_EYECOLOR2_RELEASE,PROTECTED_SWITCH_EYECOLOR2_RELEASE_ANCHOR);
+export const getSwitchEyeColor2MountInfo=switchEyeColor2.mount,loadProtectedSwitchEyeColor2RustWasm=switchEyeColor2.runtime;
