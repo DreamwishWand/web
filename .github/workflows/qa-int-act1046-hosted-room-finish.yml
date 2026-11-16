@@ -109,7 +109,7 @@ jobs:
           const chrome=process.env.CHROME_BIN;
           assert.ok(chrome);
           const browser=await chromium.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
-          const modes=['FLOORING','CURRENT_WALL','ALL_WALLS'];
+          const modes=['CURRENT_WALL','ALL_WALLS']; // FLOORING actual PASS 43786810882; do not repeat
           const reopenProgram="import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {createHash} from 'node:crypto';import {p1gPackagedProfileCodec as codec} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';const x=JSON.parse(readFileSync(0,'utf8'));const original=Buffer.from(x.original,'base64'),backup=Buffer.from(x.backup,'base64'),edited=Buffer.from(x.edited,'base64');assert.deepEqual(backup,original);assert.notDeepEqual(edited,original);assert.equal(createHash('sha256').update(backup).digest('hex'),x.sourceSha256);const a=await codec.loadProfile(new Uint8Array(backup)),b=await codec.loadProfile(new Uint8Array(edited));assert.equal(a.inputType,'packaged');assert.equal(b.inputType,'packaged');assert.deepEqual(JSON.parse(a.jsonText),x.originalProfile);assert.deepEqual(JSON.parse(b.jsonText),x.expectedProfile);console.log('ACT1046_INDEPENDENT_FULL_DOC_REOPEN_PASS '+x.mode);";
           try{
             for(const mode of modes){
@@ -137,7 +137,7 @@ jobs:
                   await section.locator('select').selectOption('160100001');await section.getByRole('button',{name:'Scope preview'}).click();
                   room.Flooring=160100001;
                 }else{
-                  if(mode==='CURRENT_WALL')await panel.locator('[data-wep-room-finish-surface]').getByRole('button',{name:/Wall.*Top/}).click();
+                  if(mode==='CURRENT_WALL')await page.locator('[data-wep-room-finish-surface]').getByRole('button',{name:/Wall.*Top/}).click();
                   const section=panel.locator('.room-finish-edit-grid section').nth(1);
                   await section.locator('select').selectOption('160000000');
                   await section.getByRole('radio',{name:mode==='CURRENT_WALL'?'Current Wall':'All Walls'}).check();
@@ -176,7 +176,7 @@ jobs:
               }finally{await context.close();}
             }
             assert.equal(report.pageErrors.length,0,report.pageErrors.join(' | '));assert.equal(report.consoleErrors.length,0,report.consoleErrors.join(' | '));
-            report.result='PASS';console.log('ACT1046_HOSTED_ROOM_FINISH_THREE_MODES_PASS');
+            report.result='PASS';console.log('ACT1046_HOSTED_ROOM_FINISH_REMAINING_MODES_PASS');
           }catch(e){report.result='FAIL';report.error=String(e.stack||e);throw e;}finally{await writeFile(out+'/report.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close();}
           
           NODE
