@@ -109,3 +109,88 @@ test('structural Storage operations are reusable INTERNAL_ONLY planners and pres
   assert.equal(replace.protectedStorage.contents,'PROTECTED_ATTACHED_STATE');
   for(const x of [cross,put,replace]){assert.equal(x.persistentWriteAuthorized,false);assert.equal(x.productApplyAuthorized,false);assert.equal(x.directSourceReplacementAuthorized,false);}
 });
+
+import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
+import {openWorldSaveBytes} from '../src/lib/wep/world-save-source.ts';
+import {createSwitchWorldReadAdapter,projectSwitchAreaGrid} from '../src/lib/wep/world-browser-adapter.ts';
+import {createSwitchV125PlacementLegalityBinding} from '../src/lib/wep/placement-legality-v19.ts';
+import {reviewStorageSameGridMoveVerifiedExportV125,commitStorageFurnitureVerifiedExportV125} from '../src/lib/wep/storage-furniture-v125.ts';
+
+async function storageFetch(url){
+  const path=new URL(String(url),'https://wand.invalid').pathname;
+  try{return new Response(await readFile(new URL('../static'+path,import.meta.url)),{status:200});}
+  catch{return new Response('not found',{status:404});}
+}
+async function actualStorageFixture(){
+  const p=await pack(),root=profile(),g=root.World.GridCollection.Grids['3'];
+  g.GridDataPath='GridData/Villages/Village04-BeachLevel-GridData.json';
+  g.GridDefaultLayoutPath='';g.TessellationFactor=2;
+  g.Objects['42'].X=452;g.Objects['42'].Y=228;
+  root.World.Villages=[{SceneItemId:1540000000,Areas:{'7':{GridIDs:[3],Unlocked:true}}}];
+  root.World.GridCollection.DiffGrids={};
+  const worldBinding=await createSwitchWorldReadAdapter({fetchImpl:storageFetch});
+  const placementBinding=await createSwitchV125PlacementLegalityBinding({fetchImpl:storageFetch});
+  const build=async()=>{
+    const sourceBytes=Uint8Array.from(makeSyntheticP1gProfile(root));
+    const opened=await openWorldSaveBytes(sourceBytes,{sourcePlatform:'switch'});
+    const baselineDocument=annotateStorageFurnitureDocumentV125({document:projectSwitchAreaGrid(opened,opened.areas[0],3,worldBinding),profile:opened.profile,itemDefinitionsById:p.itemDefinitionsById});
+    return {sourceBytes,sourceName:'profile',sourceEpoch:1,opened,baselineDocument,draftDocument:structuredClone(baselineDocument),placementBinding,worldBinding,itemDefinitionsById:p.itemDefinitionsById,exactBuildConfirmed:true};
+  };
+  let f=await build();
+  const clear=await build();
+  const mover=f.draftDocument.objects.find(o=>o.itemId===ITEM);
+  const classify=d=>placementBinding.classifyMinimumTransformPlacement({document:d,editorId:mover.editorId}).result.valid;
+  let destination;
+  for(let x=456;x<500;x++){
+    mover.x=x;
+    if(classify(f.draftDocument)){destination=x;break;}
+  }
+  assert.ok(destination,'actual legal destination');
+  g.Objects['43']={ID:43,ItemID:40000048,X:destination,Y:228,Orientation:'GridOrientation_Up',State:null};
+  f=await build();
+  f.draftDocument.objects.find(o=>o.itemId===ITEM).x=destination;
+  assert.equal(classify(f.draftDocument),false,'canonical occupied destination');
+  return {f,clear,destination,classify};
+}
+
+test('storage MOVE cannot export into actual occupied destination by omitting existing object from baseline and draft',async()=>{
+  const {f,destination,classify}=await actualStorageFixture();
+  f.baselineDocument.objects=f.baselineDocument.objects.filter(o=>o.itemId===ITEM);
+  f.draftDocument.objects=f.draftDocument.objects.filter(o=>o.itemId===ITEM);
+  assert.equal(classify(f.draftDocument),true,'forged omission would appear clear');
+  let review;
+  try{review=await reviewStorageSameGridMoveVerifiedExportV125(f);}
+  catch(e){assert.match(String(e?.code??e?.message),/WEP_STORAGE_BASELINE_SOURCE_MISMATCH|WEP_STORAGE_INVALID_DESTINATION|WEP_STORAGE_SOURCE_PROFILE_MISMATCH/);return;}
+  const result=await commitStorageFurnitureVerifiedExportV125({...f,review,currentSourceEpoch:1});
+  const reopened=await openWorldSaveBytes(result.artifacts.edited.bytes,{sourcePlatform:'switch'});
+  assert.equal(reopened.profile.World.GridCollection.Grids['3'].Objects['42'].X,destination);
+  assert.fail('unsafe storage MOVE exported overlapping destination');
+});
+
+test('storage MOVE canonical legal destination exports exact X only, preserves inventory, rejects stale and repeated review',async()=>{
+  const {f:occupied,clear:f}=await actualStorageFixture();
+  await assert.rejects(()=>reviewStorageSameGridMoveVerifiedExportV125(occupied),/WEP_STORAGE_INVALID_DESTINATION/);
+  const mover=f.draftDocument.objects.find(o=>o.itemId===ITEM);
+  // Use the already accepted 452→453 adjacent cell on the separate
+  // unoccupied synthetic source, rather than assuming the occupied fixture
+  // leaves its neighboring cells free.
+  mover.x=453;
+  assert.equal(f.placementBinding.classifyMinimumTransformPlacement({document:f.draftDocument,editorId:mover.editorId}).result.valid,true);
+  const stale=structuredClone(f.opened);stale.profile.Player.Opaque={changed:true};
+  await assert.rejects(()=>reviewStorageSameGridMoveVerifiedExportV125({...f,opened:stale}),/WEP_STORAGE_SOURCE_PROFILE_MISMATCH/);
+  const review=await reviewStorageSameGridMoveVerifiedExportV125(f);
+  const commit=review=>commitStorageFurnitureVerifiedExportV125({...f,review,currentSourceEpoch:1});
+  await assert.rejects(()=>commit(structuredClone(review)),/WEP_STORAGE_REVIEW_STALE/);
+  const altered=await reviewStorageSameGridMoveVerifiedExportV125(f);
+  altered.change.afterObject.x+=1;
+  await assert.rejects(()=>commit(altered),/WEP_STORAGE_REVIEW_STALE/);
+  const pending=commit(review);
+  await assert.rejects(()=>commit(review),/WEP_STORAGE_REVIEW_STALE/);
+  const result=await pending;
+  const actual=await openWorldSaveBytes(result.artifacts.edited.bytes,{sourcePlatform:'switch'});
+  const expected=structuredClone(f.opened.profile);
+  expected.World.GridCollection.Grids['3'].Objects['42'].X=mover.x;
+  assert.deepEqual(actual.profile,expected);
+  assert.deepEqual(Array.from(result.artifacts.backup.bytes),Array.from(f.sourceBytes));
+  await assert.rejects(()=>commit(review),/WEP_STORAGE_REVIEW_STALE/);
+});

@@ -21,7 +21,8 @@ import {
   verifyStorageBindingCandidateFromCurrentSaveV125
 } from '../ddv/core/world/storage-binding-candidate-v125.js';
 import { analyzeMinimumTransformDraft } from './min-verified-transform-export-v1.ts';
-import { openWorldSaveBytes } from './world-save-source.ts';
+import { openWorldSaveBytes, listWorldAreaRoutes } from './world-save-source.ts';
+import { projectSwitchAreaGrid } from './world-browser-adapter.ts';
 
 type AnyRecord = Record<string, any>;
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -41,6 +42,7 @@ const sourceContract=Object.freeze({platform:'Nintendo Switch',gameVersion:'1.25
 const targetBuild=Object.freeze({platform:PlatformFamily.Switch,kind:BuildIdentityKind.SwitchBid,value:SWITCH_V125_BID});
 const clone=<T>(v:T):T=>structuredClone(v);
 const eq=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
+const issuedStorageReviews=new WeakMap<object,AnyRecord>();
 
 function fail(code:string,detail:unknown=null):never { const e:any=new Error(code);e.code=code;e.detail=detail;throw e; }
 async function sha256Hex(bytes:Uint8Array) {
@@ -143,30 +145,70 @@ export function annotateStorageFurnitureDocumentV125({document,profile,itemDefin
 }
 export function isStorageFurnitureEditorObjectV125(object:AnyRecord){return object?.metadata?.storageCapability?.contract===STORAGE_FURNITURE_CAPABILITY_CONTRACT&&object?.metadata?.storageCapability?.status==='SUPPORTED_NONEMPTY';}
 
-export async function reviewStorageSameGridMoveVerifiedExportV125({sourceBytes,sourceName,sourceEpoch,opened,baselineDocument,draftDocument,placementBinding,itemDefinitionsById,exactBuildConfirmed=false}:AnyRecord){
+// Canonical source projection is the existing World reader; compare the full
+// placement input set (including non-selected objects) before trusting placement.
+function storagePlacementSnapshot(document:AnyRecord){
+  if(!Array.isArray(document?.objects)) fail('WEP_STORAGE_BASELINE_SOURCE_MISMATCH');
+  const ids=new Set<string>();
+  return document.objects.map((o:AnyRecord)=>{
+    if(typeof o?.editorId!=='string'||!o.editorId||ids.has(o.editorId)||
+       ![o.itemId,o.x,o.y,o.orientation].every(Number.isSafeInteger)) fail('WEP_STORAGE_BASELINE_SOURCE_MISMATCH');
+    ids.add(o.editorId);
+    return [o.editorId,o.itemId,o.x,o.y,o.orientation,o.source?.relation??null,
+      o.source?.gridId??null,o.source?.gridObjectId??null,o.source?.objectMapKey??null];
+  }).sort((a:any[],b:any[])=>String(a[0]).localeCompare(String(b[0])));
+}
+function requireStorageSourceBaseline(profile:AnyRecord,opened:AnyRecord,baseline:AnyRecord,worldBinding:AnyRecord,change:AnyRecord){
+  if(!eq(opened?.profile,profile)) fail('WEP_STORAGE_SOURCE_PROFILE_MISMATCH');
+  const target=baseline?.target,areas=listWorldAreaRoutes(profile);
+  const matches=areas.filter(a=>a.villageIndex===target?.villageIndex&&a.areaId===target?.areaId&&a.gridIds.includes(change.gridId));
+  if(matches.length!==1||matches[0].unlocked!==true||!worldBinding?.adapter) fail('WEP_STORAGE_BASELINE_SOURCE_MISMATCH');
+  const canonical=projectSwitchAreaGrid({...opened,profile,areas} as any,matches[0],change.gridId,worldBinding as any);
+  const c=canonical.target;
+  if(c.rootGridId!==target.rootGridId||c.gridDataPath!==target.gridDataPath||
+     c.tessellationFactor!==target.tessellationFactor||
+     !eq(storagePlacementSnapshot(canonical),storagePlacementSnapshot(baseline))) fail('WEP_STORAGE_BASELINE_SOURCE_MISMATCH');
+}
+export async function reviewStorageSameGridMoveVerifiedExportV125({sourceBytes,sourceName,sourceEpoch,opened,baselineDocument,draftDocument,placementBinding,worldBinding,itemDefinitionsById,exactBuildConfirmed=false}:AnyRecord){
   if(!(sourceBytes instanceof Uint8Array)||!sourceBytes.length) fail('WEP_STORAGE_SOURCE_REQUIRED');
   assertOpened(opened,exactBuildConfirmed);
-  const change:any=analyzeMinimumTransformDraft({baselineDocument,draftDocument});
+  const baselineSnapshot=clone(baselineDocument),draftSnapshot=clone(draftDocument),openedSnapshot=clone(opened),definitionSnapshot=clone(itemDefinitionsById);
+  const sourceSnapshot=sourceBytes.slice();
+  const change:any=analyzeMinimumTransformDraft({baselineDocument:baselineSnapshot,draftDocument:draftSnapshot});
   if(change.operation!=='MOVE') fail('WEP_STORAGE_ROTATE_NOT_PROMOTED');
   if(!isStorageFurnitureEditorObjectV125(change.beforeObject)||(change.beforeObject?.metadata?.reasons??[]).length) fail('WEP_STORAGE_OBJECT_NOT_BOUND');
-  const rawPlacement=placementBinding?.classifyMinimumTransformPlacement?.({document:draftDocument,editorId:change.editorId});
+  const session=await SafeProfileEditSession.open({sourceBytes:sourceSnapshot,codec:p1gPackagedProfileCodec as any,sourcePlatform:PlatformFamily.Switch});
+  const profile=session.getSnapshot();
+  requireStorageSourceBaseline(profile,openedSnapshot,baselineSnapshot,worldBinding,change);
+  const exact=resolvePlacedExact(profile,definitionSnapshot,change.gridId,change.gridObjectId),orientation=String(exact.resolved.object.Orientation);
+  if(Number(exact.resolved.itemId)!==change.itemId||
+     Number(exact.resolved.object.X)!==change.before.x||Number(exact.resolved.object.Y)!==change.before.y||
+     Number(exact.resolved.containerInventoryId)!==Number(change.beforeObject.metadata.storageCapability.containerInventoryId)) fail('WEP_STORAGE_BASELINE_SOURCE_MISMATCH');
+  const rawPlacement=placementBinding?.classifyMinimumTransformPlacement?.({document:draftSnapshot,editorId:change.editorId});
   if(rawPlacement?.result?.status!=='VALID'||rawPlacement?.result?.valid!==true||rawPlacement?.result?.verdict!=='VALID'||rawPlacement?.clearArea!==false) fail('WEP_STORAGE_INVALID_DESTINATION',clone(rawPlacement));
-  const session=await SafeProfileEditSession.open({sourceBytes:sourceBytes.slice(),codec:p1gPackagedProfileCodec as any,sourcePlatform:PlatformFamily.Switch});
-  const profile=session.getSnapshot(),exact=resolvePlacedExact(profile,itemDefinitionsById,change.gridId,change.gridObjectId),orientation=String(exact.resolved.object.Orientation);
   const placementEvidence={status:'VALID',valid:true,clearArea:false,gridId:Number(change.gridId),itemId:Number(change.itemId),x:Number(change.after.x),y:Number(change.after.y),orientation};
   const transition=compileStorageSameGridMoveV125({resolved:exact.resolved,profile,destination:{x:change.after.x,y:change.after.y,orientation},placementEvidence});
   const ctx=session.getPreflightContext();
   const transactionInput={platform:PlatformFamily.Switch,gameVersion:'1.25.0',profileGameInfoVersion:624,originalFileLength:session.source.length,originalSha256:ctx.saveIdentity.sourceRawSha256,codecContract:ctx.codecContract,targetBuild:{...targetBuild}};
   const plan=(buildStorageSameGridMoveTransactionPlanV125 as any)({transition,resolved:exact.resolved,profile,transactionInput,activeReferenceEvidence:exact.evidence,planId:`wep-storage-same-grid-${change.gridId}-${change.gridObjectId}-${String(ctx.saveIdentity.sourceRawSha256).slice(0,12)}`});
-  return Object.freeze({contract:STORAGE_FURNITURE_VERIFIED_EXPORT_CONTRACT,status:'READY',semanticOperation:'STORAGE SAME-GRID MOVE',sourceEpoch:Number(sourceEpoch),sourceName:String(sourceName||'profile'),sourceSha256:String(ctx.saveIdentity.sourceRawSha256),sourceByteLength:session.source.length,targetBuild,change,plan,placementEvidence,protectedStorage:Object.freeze({containerInventoryId:Number(exact.resolved.containerInventoryId),itemId:Number(exact.resolved.itemId),contents:'PROTECTED_ATTACHED_STATE',editable:false,portable:false}),runtimeAcceptance:STORAGE_RUNTIME_ACCEPTANCE,persistentWriteAuthorized:false,WORLD_PERSISTENT_WRITE_V125:false,PERSISTENT_WRITE:false,productApplyAuthorized:false,directSourceReplacementAuthorized:false});
+  if(!eq(baselineDocument,baselineSnapshot)||!eq(draftDocument,draftSnapshot)||!eq(opened,openedSnapshot)||!eq(itemDefinitionsById,definitionSnapshot)) fail('WEP_STORAGE_REVIEW_STALE');
+  const review=Object.freeze({contract:STORAGE_FURNITURE_VERIFIED_EXPORT_CONTRACT,status:'READY',semanticOperation:'STORAGE SAME-GRID MOVE',sourceEpoch:Number(sourceEpoch),sourceName:String(sourceName||'profile'),sourceSha256:String(ctx.saveIdentity.sourceRawSha256),sourceByteLength:session.source.length,targetBuild,change,plan,placementEvidence,protectedStorage:Object.freeze({containerInventoryId:Number(exact.resolved.containerInventoryId),itemId:Number(exact.resolved.itemId),contents:'PROTECTED_ATTACHED_STATE',editable:false,portable:false}),runtimeAcceptance:STORAGE_RUNTIME_ACCEPTANCE,persistentWriteAuthorized:false,WORLD_PERSISTENT_WRITE_V125:false,PERSISTENT_WRITE:false,productApplyAuthorized:false,directSourceReplacementAuthorized:false});
+  issuedStorageReviews.set(review,{review:clone(review),baseline:baselineSnapshot,draft:draftSnapshot,definitions:definitionSnapshot});
+  return review;
 }
 
 export async function commitStorageFurnitureVerifiedExportV125({review,currentSourceEpoch,sourceBytes,baselineDocument,draftDocument,itemDefinitionsById}:AnyRecord){
   if(review?.contract!==STORAGE_FURNITURE_VERIFIED_EXPORT_CONTRACT||review?.status!=='READY') fail('WEP_STORAGE_REVIEW_REQUIRED');
+  const issued=issuedStorageReviews.get(review);
+  if(!issued||!eq(review,issued.review)||!eq(baselineDocument,issued.baseline)||!eq(draftDocument,issued.draft)||!eq(itemDefinitionsById,issued.definitions)) fail('WEP_STORAGE_REVIEW_STALE');
   if(Number(currentSourceEpoch)!==Number(review.sourceEpoch)) fail('WEP_STORAGE_SOURCE_CHANGED_SINCE_PLAN');
+  if(!(sourceBytes instanceof Uint8Array)||!sourceBytes.length) fail('WEP_STORAGE_SOURCE_REQUIRED');
   if(!eq(analyzeMinimumTransformDraft({baselineDocument,draftDocument}),review.change)) fail('WEP_STORAGE_REVIEW_STALE');
-  const sourceHashBefore=await sha256Hex(sourceBytes);if(sourceHashBefore!==review.sourceSha256||sourceBytes.length!==review.sourceByteLength) fail('WEP_STORAGE_SOURCE_CHANGED_SINCE_PLAN');
-  const session=await SafeProfileEditSession.open({sourceBytes:sourceBytes.slice(),codec:p1gPackagedProfileCodec as any,sourcePlatform:PlatformFamily.Switch});
+  issuedStorageReviews.delete(review);
+  review=issued.review;itemDefinitionsById=issued.definitions;
+  const sourceSnapshot=sourceBytes.slice();
+  const sourceHashBefore=await sha256Hex(sourceSnapshot);if(sourceHashBefore!==review.sourceSha256||sourceSnapshot.length!==review.sourceByteLength) fail('WEP_STORAGE_SOURCE_CHANGED_SINCE_PLAN');
+  const session=await SafeProfileEditSession.open({sourceBytes:sourceSnapshot,codec:p1gPackagedProfileCodec as any,sourcePlatform:PlatformFamily.Switch});
   let candidateBundle:any;try{candidateBundle=await createVerifiedStorageBindingCandidateFromCurrentSaveV125({session,plan:review.plan,itemDefinitionsById});}catch(e:any){fail('WEP_STORAGE_CANDIDATE_GENERATION_FAILED',{causeCode:String(e?.code??e?.message??e)});}
   let verified:any;try{verified=await verifyStorageBindingCandidateFromCurrentSaveV125({candidate:candidateBundle.candidate,codec:p1gPackagedProfileCodec,itemDefinitionsById});}catch(e:any){fail('WEP_STORAGE_CANDIDATE_VERIFICATION_FAILED',{causeCode:String(e?.code??e?.message??e)});}
   const coreVerification=verified?.verification?.coreVerification;if(coreVerification?.status!=='PASS') fail('WEP_STORAGE_CANDIDATE_VERIFICATION_FAILED');
