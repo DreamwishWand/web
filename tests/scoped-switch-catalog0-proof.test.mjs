@@ -19,7 +19,7 @@ test('Switch Catalog0 proof exact subjects, neutral lifecycle and private fixed 
  const b=bytes(),p=inspectScopedSwitchCatalog0Subjects(b,source);
  assert.equal(p.wasmSha256,sha(b[2]));assert.equal(p.jsSha256,sha(b[1]));
  assert.equal(exports.length,23);assert.equal(methods.length,14);
- for(const n of ['preview_switch626_chest','stage_scoped_amount','stage_fixed_collection','stage_steam626_vase_add','begin_scoped_amount_output']){
+ for(const n of ['preview_steam626_sr03','stage_steam626_sr03','preview_switch626_chest','stage_scoped_amount','stage_fixed_collection','stage_steam626_vase_add','begin_scoped_amount_output']){
   assert.throws(()=>inspectScopedSwitchCatalog0Subjects(bytes(wasm([...exports,'workerwasmsource_'+n])),source));
   assert.throws(()=>inspectScopedSwitchCatalog0Subjects(bytes(wasm(),Buffer.from(n)),source));
  }
