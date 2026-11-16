@@ -33,4 +33,5 @@ const fileCopy=Object.freeze({
 const fileKeys=['file','platform','chooseBuild','confirmBuild','openFile'];
 export const COLLECTION_EXACT1_LOCALES=Object.freeze(Object.keys(rows));
 const map=Object.freeze(Object.fromEntries(Object.entries(rows).map(([k,v])=>[k,Object.freeze({...Object.fromEntries(keys.map((key,i)=>[key,v[i]])),closeFailed:closeFailed[k],...Object.fromEntries(fileKeys.map((key,i)=>[key,fileCopy[k][i]]))})])));
+/** @param {string} locale @returns {Readonly<Record<string, string>>} */
 export const collectionExact1Copy=locale=>map[locale]||map.en;
