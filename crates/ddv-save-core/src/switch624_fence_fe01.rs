@@ -124,6 +124,7 @@ fn layout_edits(b:&[u8],members:&[(u32,usize,Span)],del:&[u32],objs:Span,
     edits.push(replace(b,counter,n4.to_string().into_bytes())?);
     Ok(edits)
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     pub fn stage_switch624_fence_fe01_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
@@ -134,6 +135,7 @@ impl ProductSession{
         self.commit_semantic_replacements(e,edits,7,None)
     }
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     /// Exact Switch626 FE01 preserve7 layout-only; no inventory edit/refund.
     pub fn stage_switch626_fence_fe01_layout(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
@@ -273,11 +275,9 @@ impl HistoricalFenceOp {
 const EXT1:u32=40700247;
 const REPLACEMENT_BASE:u32=40700268;
 const REPLACEMENT_EXT1:u32=40700269;
-fn fence_record(id:u32,item:u32,x:u32,y:u32,left:bool,diagonal:bool)->Value{
-    json!({"ID":id,"ItemID":item,"X":x,"Y":y,
-        "Orientation":if left{"GridOrientation_Left"}else{"GridOrientation_Down"},
-        "State":if diagonal{json!({"FenceMode":{"Diagonal":true}})}else{Value::Null}})
-}
+#[path="fence_add_shape.rs"]
+mod fence_add_shape;
+use fence_add_shape::{fence_record,records_at,FD01_DESCRIPTORS,FD02_DESCRIPTORS,FD03_DESCRIPTORS,ShapeError,exact_fd02};
 fn exact_ids(v:&Value,n:usize)->CoreResult<Vec<u32>>{
     let a=v.as_array().filter(|v|v.len()==n).ok_or(denied("FENCE_LAYOUT_IDS"))?;
     a.iter().map(uint).collect()
@@ -385,6 +385,7 @@ fn historical_collect(s:&ProductSession,p:&Value,op:HistoricalFenceOp)->CoreResu
     }
     layout_edits(b,&members,&del,objs,counter,n3,plan)
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     fn stage_historical_fence(&self,e:WorkerEnvelope,plan:&[u8],op:HistoricalFenceOp)->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
@@ -561,9 +562,9 @@ impl FenceAddShape {
             (EXT1,6,0,false,false),(BASE,8,0,false,false),(EXT1,4,2,true,false),(BASE,4,4,false,false)],
         // ACT732 exact historical diagonal tranche A: N3 both slopes,
         // N6 positive single n4 extension, no inferred other lengths.
-        Self::DiagonalN3Positive|Self::Switch626Fd01=>&[(BASE,0,0,false,true),(40700253,2,2,false,true),(BASE,4,4,false,true)],
-        Self::DiagonalN3Mirrored|Self::Switch626Fd02=>&[(BASE,0,0,false,true),(40700253,2,-2,true,true),(BASE,4,-4,false,true)],
-        Self::DiagonalN6Positive|Self::Switch626Fd03=>&[(BASE,0,0,false,true),(40700256,2,2,false,true),(BASE,10,10,false,true)],
+        Self::DiagonalN3Positive|Self::Switch626Fd01=>FD01_DESCRIPTORS,
+        Self::DiagonalN3Mirrored|Self::Switch626Fd02=>FD02_DESCRIPTORS,
+        Self::DiagonalN6Positive|Self::Switch626Fd03=>FD03_DESCRIPTORS,
     }}
 }
 fn add_plan_parse(bytes:&[u8],shape:FenceAddShape)->CoreResult<Value>{
@@ -580,11 +581,10 @@ fn add_plan_parse(bytes:&[u8],shape:FenceAddShape)->CoreResult<Value>{
     Ok(v)
 }
 fn add_wanted(shape:FenceAddShape,next:u32,x:u32,y:u32)->CoreResult<Vec<Value>>{
-    let coord=|v:u32,d:i32|i64::from(v).checked_add(i64::from(d))
-        .filter(|n|*n>=0&&*n<=i64::from(i32::MAX)).map(|n|n as u32).ok_or(denied("FENCE_ADD_COORD_BOUND"));
-    shape.descriptors().iter().enumerate().map(|(i,(item,dx,dy,left,diag))|
-        Ok(fence_record(next.checked_add(i as u32).ok_or(denied("FENCE_ADD_COUNTER_OVERFLOW"))?,
-            *item,coord(x,*dx)?,coord(y,*dy)?,*left,*diag))).collect()
+    records_at(shape.descriptors(),next,x,y).map_err(|e|match e{
+        ShapeError::Counter=>denied("FENCE_ADD_COUNTER_OVERFLOW"),
+        ShapeError::Coordinate=>denied("FENCE_ADD_COORD_BOUND"),
+    })
 }
 fn add_collect(s:&ProductSession,p:&Value,shape:FenceAddShape)->CoreResult<Vec<Replacement>>{
     let b=&s.decoded;
@@ -635,6 +635,32 @@ fn add_collect(s:&ProductSession,p:&Value,shape:FenceAddShape)->CoreResult<Vec<R
     }
     layout_edits(b,&[],&[],objs,counter,end,plan)
 }
+// FD02-only typed current adapter. No FD03 dependency or caller plan.
+#[allow(dead_code)]
+pub(super) struct Fd02CurrentExpected{
+ pub(super) grid:u32,pub(super) next:u32,pub(super) x:u32,pub(super) y:u32,
+ pub(super) stock:u32,pub(super) grid_sha:[u8;32],pub(super) counter_sha:[u8;32],pub(super) stock_sha:[u8;32],
+}
+#[allow(dead_code)]
+pub(super) fn collect_fd02_current(s:&ProductSession,w:&Fd02CurrentExpected)->CoreResult<Vec<Replacement>>{
+ let b=&s.decoded;let roots=indexed_read::roots(b)?;let gc=object_field(b,roots.world,"GridCollection")?;
+ let grid=object_field(b,object_field(b,gc,"Grids")?,&w.grid.to_string())?;
+ let counter=object_field(b,grid,"NextGridObjectID")?;
+ if sha(raw(b,grid)?)!=w.grid_sha||sha(raw(b,counter)?)!=w.counter_sha||number(b,counter)?!=w.next as u64{
+  return Err(denied("FD02_CURRENT_GRID_CAS"));}
+ let route=object_field(b,object_field(b,roots.player,"ListInventories")?,"0")?;
+ let stock=object_field(b,object_field(b,route,"Inventory")?,&BASE.to_string())?;
+ if sha(raw(b,stock)?)!=w.stock_sha||num(b,stock,"Amount")?!=w.stock||w.stock==0||w.stock as u64>MAX_CONSERVATIVE_AMOUNT{
+  return Err(denied("FD02_CURRENT_STOCK_CAS"));}
+ let created=exact_fd02(w.next,w.x,w.y).ok_or(denied("FD02_CURRENT_EXACT_SHAPE"))?;
+ let shape=FenceAddShape::Switch626Fd02;
+ let p=json!({"contract":shape.contract(),"layout":"PRESERVE_EXISTING","sourceDecodedSha256":digest(b),
+    "gridId":w.grid,"expectedNextId":w.next,"gridSha256":digest(raw(b,grid)?),
+    "created":created,"inventoryEntrySha256":digest(raw(b,stock)?)});
+ add_collect(s,&p,shape)
+}
+
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     fn stage_fence_add(&self,e:WorkerEnvelope,plan:&[u8],shape:FenceAddShape)->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
@@ -714,6 +740,28 @@ mod add_tests{
     fn scope(s:&ProductSession,a:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();
         WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
             expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:a}}
+    #[test]
+    fn fd02_current_typed_collector_native_parity_and_cas(){
+      let(mut d,mut p)=fixture(FenceAddShape::Switch626Fd02);d["GameInfo"]["Version"]=json!(626);bind(&d,&mut p);
+      let s=ProductSession::open_decoded_readonly(enc(&d).unwrap(),crate::BuildIdentity{platform:Platform::Switch,
+        build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+      let b=&s.decoded;let r=indexed_read::roots(b).unwrap();let gc=object_field(b,r.world,"GridCollection").unwrap();
+      let grid=object_field(b,object_field(b,gc,"Grids").unwrap(),"9").unwrap();
+      let counter=object_field(b,grid,"NextGridObjectID").unwrap();
+      let route=object_field(b,object_field(b,r.player,"ListInventories").unwrap(),"0").unwrap();
+      let stock=object_field(b,object_field(b,route,"Inventory").unwrap(),"40700246").unwrap();
+      let mut w=Fd02CurrentExpected{grid:9,next:50,x:40,y:20,stock:30,grid_sha:sha(raw(b,grid).unwrap()),
+        counter_sha:sha(raw(b,counter).unwrap()),stock_sha:sha(raw(b,stock).unwrap())};
+      let a=collect_fd02_current(&s,&w).unwrap();let n=add_collect(&s,&p,FenceAddShape::Switch626Fd02).unwrap();
+      assert_eq!(a.len(),2);assert_eq!(a.len(),n.len());
+      for(x,y)in a.iter().zip(&n){assert_eq!((x.span.begin,x.span.end,&x.old,&x.new),(y.span.begin,y.span.end,&y.old,&y.new));}
+      let before=s.receipt().unwrap();w.next=51;assert!(collect_fd02_current(&s,&w).is_err());w.next=50;
+      w.stock=29;assert!(collect_fd02_current(&s,&w).is_err());w.stock=30;
+      let h=w.grid_sha;w.grid_sha=[0;32];assert!(collect_fd02_current(&s,&w).is_err());w.grid_sha=h;
+      let h=w.counter_sha;w.counter_sha=[0;32];assert!(collect_fd02_current(&s,&w).is_err());w.counter_sha=h;
+      let h=w.stock_sha;w.stock_sha=[0;32];assert!(collect_fd02_current(&s,&w).is_err());w.stock_sha=h;
+      w.x=u32::MAX;assert!(collect_fd02_current(&s,&w).is_err());assert_eq!(s.receipt().unwrap(),before);
+    }
     const SHAPES:[FenceAddShape;3]=[FenceAddShape::OrthoL,FenceAddShape::Diagonal90,FenceAddShape::OrthoT];
     #[test]
     fn nonstraight_exact6_6_8_layout_only_undo_redo_export(){
