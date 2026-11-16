@@ -6,6 +6,8 @@ use super::appearance_observer::*;
 use serde_json::{json,Value};
 const SLOT:u32=1;
 const ITEM:i32=140100014;
+// Physical inactive FemaleAvatar slot1 owns a DIFFERENT Makeup item.
+const INACTIVE_ITEM:i32=140100011;
 const OLD:i32=53;
 const NEW:i32=60;
 #[derive(Debug)]
@@ -16,7 +18,7 @@ pub(super) struct FixedMakeupColor1{
  pub(super) routes_sha:String,pub(super) projected:[u8;32],
 }
 // Exact physical saved slot; never create, remap or select a new item.
-fn slot1(b:&[u8],avatar:Span)->CoreResult<(Span,Span)>{
+fn slot1(b:&[u8],avatar:Span,expected_item:i32)->CoreResult<(Span,Span)>{
  let f=members(b,avatar,MAX_AVATAR_FIELDS)?;
  let m=required(&f,"Makeup")?;
  let mut selected=None;
@@ -29,10 +31,11 @@ fn slot1(b:&[u8],avatar:Span)->CoreResult<(Span,Span)>{
  }
  let entry=selected.ok_or(denied("MAKEUP_COLOR1_SLOT_ABSENT"))?;
  let fs=members(b,entry,32)?;
- if int(b,required(&fs,"MakeupItemID")?)?!=ITEM{return Err(denied("MAKEUP_COLOR1_EXACT_ITEM"));}
- // Native disabled channels are preserved; this operation may never enable them.
+ if int(b,required(&fs,"MakeupItemID")?)?!=expected_item{return Err(denied("MAKEUP_COLOR1_EXACT_ITEM"));}
+ // Physical saved channels are 0/0. Definition defaults -1/-1 do not
+ // describe the actual saved scalar; never overwrite these channels.
  for name in ["ColorIndex2","ColorIndex3"]{
-  if int(b,required(&fs,name)?)?!=-1{return Err(denied("MAKEUP_COLOR1_DISABLED_CHANNEL"));}
+  if int(b,required(&fs,name)?)?!=0{return Err(denied("MAKEUP_COLOR1_DISABLED_CHANNEL"));}
  }
  Ok((entry,required(&fs,"ColorIndex1")?))
 }
@@ -52,8 +55,8 @@ impl ProductSession{
   ok(f.clothes.present&&f.incompatible.present&&f.makeup.present&&f.customization.present&&
      m.clothes.present&&m.incompatible.present&&m.makeup.present&&m.customization.present,
      "MAKEUP_COLOR1_REFERENCE_MAPS")?;
-  let (_,other)=slot1(b,fs)?;
-  let (entry,span)=slot1(b,ms)?;
+  let (_,other)=slot1(b,fs,INACTIVE_ITEM)?;
+  let (entry,span)=slot1(b,ms,ITEM)?;
   ok(int(b,other)?==NEW&&int(b,span)?==OLD&&NEW>=0&&NEW<75,"MAKEUP_COLOR1_FIXED_PAIR")?;
   // Existing branch observer validates other scalar kinds but cannot authorize
   // rights, status, a non-packaged item, or a new/absent field.
@@ -99,20 +102,20 @@ impl ProductSession{
 mod tests{
  use super::*;
  use crate::{BuildIdentity,BuildKind,Platform};
- fn avatar(color:i32)->Value{json!({
+ fn avatar(color:i32,item:i32)->Value{json!({
   "HairColorIndex":32,"HairHighlightColor":4,"Clothes":{"0":50000001},
   "IncompatibleClothes":{},"ClothingCustomization":{},
-  "Makeup":{"1":{"MakeupItemID":ITEM,"ColorIndex1":color,
-                   "ColorIndex2":-1,"ColorIndex3":-1,"Opacity":0.5,"Gloss":0.25,
+  "Makeup":{"1":{"MakeupItemID":item,"ColorIndex1":color,
+                   "ColorIndex2":0,"ColorIndex3":0,"Opacity":0.5,"Gloss":0.25,
                    "KeepOpaque":{"notEdited":7}}}
  })}
  fn doc()->Value{json!({"GameInfo":{"Version":626},"World":{},
-  "Player":{"AvatarIsMale":true,"FemaleAvatar":avatar(NEW),"MaleAvatar":avatar(OLD),
+  "Player":{"AvatarIsMale":true,"FemaleAvatar":avatar(NEW,INACTIVE_ITEM),"MaleAvatar":avatar(OLD,ITEM),
     "ListInventories":{
       "1":{"ID":1,"CompatibleItemType":"ItemType_Clothing",
            "Inventory":{"50000001":{"Amount":1,"Marker":"ItemMarker_None"}}},
       "3":{"ID":3,"CompatibleItemType":"ItemType_Makeup",
-           "Inventory":{"140100014":{"Amount":2,"Marker":"ItemMarker_None","KeepOpaque":42}}}
+           "Inventory":{"140100014":{"Amount":2,"Marker":"ItemMarker_None","KeepOpaque":42},"140100011":{"Amount":1,"Marker":"ItemMarker_None","KeepFemale":13}}}
     }}})}
  fn open(v:&Value)->ProductSession{
   let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),
@@ -154,8 +157,22 @@ mod tests{
   let reopened=open(&wanted);
   assert_eq!(reopened.receipt().unwrap().schema,626);
  }
+ #[test]fn makeup_color1_actual_saved_distinct_female_item_zero_channels(){
+  let d=doc();let s=open(&d);let e=env(&s,WorkerAction::ReadDomain);
+  let t=s.prepare_fixed_makeup_color1(e).unwrap();
+  let m=&d["Player"]["MaleAvatar"]["Makeup"]["1"];
+  let f=&d["Player"]["FemaleAvatar"]["Makeup"]["1"];
+  assert_eq!(m["MakeupItemID"],json!(ITEM));assert_eq!(m["ColorIndex1"],json!(OLD));
+  assert_eq!(f["MakeupItemID"],json!(INACTIVE_ITEM));assert_eq!(f["ColorIndex1"],json!(NEW));
+  for x in [m,f]{assert_eq!(x["ColorIndex2"],json!(0));assert_eq!(x["ColorIndex3"],json!(0));}
+  let inv=&d["Player"]["ListInventories"]["3"]["Inventory"];
+  assert_eq!(inv["140100014"]["Amount"],json!(2));
+  assert_eq!(inv["140100011"]["Amount"],json!(1));
+  assert_eq!(&s.decoded[t.span.begin..t.span.end],b"53");
+  assert_eq!(s.receipt().unwrap().revision,0);
+ }
  #[test]fn makeup_color1_exact1_product_denials(){
-  for i in 0..9{
+  for i in 0..14{
    let mut d=doc();
    match i{
     0=>d["Player"]["AvatarIsMale"]=json!(false),
@@ -166,7 +183,12 @@ mod tests{
     5=>d["Player"]["MaleAvatar"]["Makeup"].as_object_mut().unwrap().remove("1").map(|_|()).unwrap_or(()),
     6=>d["Player"]["ListInventories"]["3"]["Inventory"]["140100014"]["Amount"]=json!(0),
     7=>d["Player"]["ListInventories"]["3"]["Inventory"]["140100014"]["Marker"]=json!("ItemMarker_Favorite"),
-    _=>d["Player"]["ListInventories"]["3"]["CompatibleItemType"]=json!("ItemType_ActivityItem"),
+    8=>d["Player"]["ListInventories"]["3"]["CompatibleItemType"]=json!("ItemType_ActivityItem"),
+    9=>d["Player"]["FemaleAvatar"]["Makeup"]["1"]["MakeupItemID"]=json!(ITEM),
+    10=>d["Player"]["FemaleAvatar"]["Makeup"]["1"]["ColorIndex3"]=json!(-1),
+    11=>d["Player"]["ListInventories"]["3"]["Inventory"]["140100011"]["Amount"]=json!(0),
+    12=>d["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex3"]=json!(-1),
+    _=>{d["Player"]["ListInventories"]["3"]["Inventory"].as_object_mut().unwrap().remove("140100011");},
    }
    let s=open(&d);assert!(s.prepare_fixed_makeup_color1(env(&s,WorkerAction::ReadDomain)).is_err(),"negative {i}");
   }
