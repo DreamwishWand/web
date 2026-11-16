@@ -20,6 +20,9 @@ mod switch624_road_rm01;
 #[cfg(not(target_arch="wasm32"))]
 #[path="switch624_fence_fe01.rs"]
 mod switch624_fence_fe01;
+#[cfg(all(feature="private-native-v2",not(target_arch="wasm32")))]
+#[path="private_switch626_catalog0.rs"]
+mod private_switch626_catalog0;
 
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum TypedOperationKind{
