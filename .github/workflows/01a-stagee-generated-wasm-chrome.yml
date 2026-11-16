@@ -53,3 +53,36 @@ jobs:
           ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
           test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
           test -f crates/ddv-save-core/src/wasm_worker.rs
+
+      - name: QA ONLY ACT1170 lexical alias actual diagnostic
+        run: |
+          set -euo pipefail
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          "$B" "$W" --out-dir /tmp/wr-off --target nodejs --no-typescript
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-wardrobe-scoped,product-collection-scoped
+          "$B" "$W" --out-dir /tmp/wr-on --target nodejs --no-typescript
+          node <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          const C=require('/tmp/wr-on/ddv_save_core.js').WorkerWasmSource,O=require('/tmp/wr-off/ddv_save_core.js').WorkerWasmSource;
+          const builds=[['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],['switch','switch-bid','9A239D3DB569756D',626,true]],names=['steam626','switch626'],old=50000352,newId=50000214;
+          const sha=b=>createHash('sha256').update(b).digest('hex'),raw=d=>Buffer.from(JSON.stringify(d,null,2));
+          const pack=fs.readFileSync('crates/ddv-save-core/data/wardrobe-clothing-compat-v1.json');assert.equal(sha(pack),'9bcf2cf489238074df8ea0b385a6675c8efcd51bb009cac37d8e107ec1a5d0b2');
+          const rows=JSON.parse(pack).rows, map=new Map(rows.map(x=>[x[0],x]));assert.equal(map.size,1898);
+          const conflict=(a,b)=>{const x=map.get(a),y=map.get(b);return !!(x[3]&(1<<y[2]))||x[4].includes(b)||(x[2]===9&&[0,1,7,15].includes(y[2]))||(y[2]===9&&[0,1,7,15].includes(x[2]));};
+          const bottom=rows.find(x=>x[2]===1&&!conflict(old,x[0])&&!conflict(x[0],old)&&!conflict(newId,x[0])&&!conflict(x[0],newId))[0];
+          const stock=n=>({Amount:n,Marker:'ItemMarker_None'}),avatar=()=>({Clothes:{},IncompatibleClothes:{},ClothingCustomization:{},Makeup:{}});
+          function doc(){const m=avatar();m.Clothes={0:old,1:bottom};return {GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{Unknown:{keep:1}},Player:{AvatarIsMale:true,FemaleAvatar:avatar(),MaleAvatar:m,MaleClothingDesigns:[],FemaleClothingDesigns:[],OutfitPresets:[],ListInventories:{1:{ID:1,CompatibleItemType:'ItemType_Clothing',Inventory:{[old]:stock(8),[newId]:stock(9),[bottom]:stock(1)}},3:{ID:3,CompatibleItemType:'ItemType_Makeup',Inventory:{}}},CollectionSets:[{CollectionDefinitionID:2120000001,GroupData:[{GroupsCollectionItems:{[old]:true,[newId]:true}}]}]},Opaque:{escaped:'\\u0000',pad:'x'.repeat(1100000)}}}
+          let nonce=0,pos=0,neg=0,red=[];
+          function open(d,b){const w=new C(...b,new Uint8Array(32).fill(++nonce)),x=raw(d);for(let i=0;i<x.length;i+=1048576)w.append_chunk(x.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(x));return [w,r]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],parse=JSON.parse;
+          const pv=(w,r,i)=>parse(w['preview_'+names[i]+'_wardrobe'](...sc(r))),st=(w,r,i,p,a=old,b=newId)=>parse(w['stage_'+names[i]+'_wardrobe'](a,b,p.witnessSha256,p.projectedDecodedSha256,...sc(r)));
+          const deny=f=>{assert.throws(f);neg++};
+          const escaped=['"\\u00350000352"','"\\u00350000214"','"50000\\u003352"'];
+          const controls=['50000352','50000214','"50000352"','"50000214"'];
+          function openRaw(x,b){const w=new C(...b,new Uint8Array(32).fill(++nonce));for(let i=0;i<x.length;i+=1048576)w.append_chunk(x.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(x));return [w,r]}
+          for(let i=0;i<2;i++){const d=doc();d.Opaque={Unrelated:'50000999'};const [w,r]=open(d,builds[i]),p=pv(w,r,i),want=structuredClone(d);want.Player.MaleAvatar.Clothes[0]=newId;const t=st(w,r,i,p);assert.equal(t.exactFieldChangedCount,1);assert.equal(t.stagedDecodedSha256,sha(raw(want)));w.close();w.free();pos++;
+            for(const [idx,token] of [...controls,...escaped].entries()){const d=doc();d.Opaque={Alias:'PLACEHOLDER'};const bytes=Buffer.from(raw(d).toString().replace('"PLACEHOLDER"',token));const [x,y]=openRaw(bytes,builds[i]);let p=null,s=false;try{p=pv(x,y,i)}catch{}if(p){try{const t=st(x,y,i,p);s=t.exactFieldChangedCount===1;}catch{}}if(p||s)red.push({i,idx,preview:!!p,stage:s});else neg++;x.close();x.free();}
+          }
+          console.log('ACT1170_LEXICAL_ALIAS '+pos+'POS '+neg+'NEG RED='+JSON.stringify(red));assert.equal(pos,2);assert.equal(neg,14);assert.deepEqual(red,[]);
+          JS
