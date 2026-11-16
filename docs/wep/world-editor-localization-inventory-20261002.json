@@ -30,7 +30,7 @@
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
     "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832",
     "src/lib/wep/local-scene-route-handoff.mjs": "9114d537d5afee718db5240d538b4203546a591f",
-    "src/lib/wep/SaveFreeFirstScene.svelte": "b5a3610a1e9950bd5dd5be30960ef8820ff0f66b",
+    "src/lib/wep/SaveFreeFirstScene.svelte": "ba09f189e76dafde45e7f9502003ba8704212d77",
     "src/lib/wep/savefree-first-scene.ts": "d81f39dd9cfc50bf4360b058f8f605d9056c3845"
   },
   "ownership": {
@@ -1652,7 +1652,8 @@
       "owner-separated shared SiteHeader/SiteFooter strings rendered on the World Editor surface",
       "source Git blob pins invalidate this inventory when any inventoried source changes",
       "Switch v1.25.3 read-only intake and structural diagnostics inventoried across all eight launch locales, with no editable 626 route",
-      "Reviewed PR888 new Header Git Blob and its imported eight-locale tour copy for WEP-visible question-mark aria/title and localized unavailable role=status; 13 existing inventory categories and all prior strings remain unchanged."
+      "Reviewed PR888 new Header Git Blob and its imported eight-locale tour copy for WEP-visible question-mark aria/title and localized unavailable role=status; 13 existing inventory categories and all prior strings remain unchanged.",
+      "Save-free first Scene catalog choices and selected item reuse shared ItemThumb with canonical catalog ItemID and existing label/alt; inherited shared public-image gate, unavailable fallback and size/fit preferences; no image authority for Switch1250 geometry, no new WEP translation or storage."
     ],
     "knownNonPresentationExclusions": [
       "imports and module paths",
