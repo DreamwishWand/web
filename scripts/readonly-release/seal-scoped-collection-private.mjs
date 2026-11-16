@@ -8,7 +8,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {resolve,join} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {ACTIVE_RELEASE_TUPLE} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+import {ACTIVE_RELEASE_TUPLE,protectedPagesContextMatches} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
 import {verifySignedReleaseSubjects} from './seal.mjs';
 import {SCOPED_COLLECTION_ASSET_DIR,SCOPED_COLLECTION_RELEASE_OP,scopedCollectionManifestOk,
  scopedCollectionAnchorShapeOk,scopedCollectionReleaseIdentityText} from '../../src/lib/ddv/core/save/product-scoped-collection-release.mjs';
@@ -41,8 +41,15 @@ async function main(){
  // A private lab invocation is not a Pages build and cannot set public mode.
  // Source/route and Cargo are the exact signed source HEAD, not a DEV overlay.
  const [cmd,source,dir,bundle,origin,platforms]=process.argv.slice(2);
- if(cmd!=='seal-private-v2'||process.argv.length!==8||!/^[0-9a-f]{40}$/.test(source??'')||git('rev-parse','HEAD')!==source||
-   process.env.GITHUB_ACTIONS==='true'||git('diff','--name-only','HEAD')!==''||git('status','--porcelain','--untracked-files=no')!=='')fail();
+ if(!/^[0-9a-f]{40}$/.test(source??'')||git('rev-parse','HEAD')!==source||!dir||!bundle||!(await readFile(resolve(bundle))).length)fail();
+ if(cmd==='verify-protected-candidate'){
+  // Existing Pages signer only, proof output only. No anchor or static copy.
+  if(process.argv.length!==6||!protectedPagesContextMatches(process.env,source,git('rev-parse','HEAD')))fail();
+  const pins=await verifySignedReleaseSubjects(resolve(dir),source,resolve(bundle),ACTIVE_RELEASE_TUPLE,inspectScopedCollectionSubjects);
+  console.log('SCOPED_COLLECTION_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY',JSON.stringify(pins));return;
+ }
+ if(cmd!=='seal-private-v2'||process.argv.length!==8||process.env.GITHUB_ACTIONS==='true'||
+   git('diff','--name-only','HEAD')!==''||git('status','--porcelain','--untracked-files=all')!=='')fail();
  const tuple=ACTIVE_RELEASE_TUPLE,anchorPath=join(root,'src/lib/ddv/core/save/product-scoped-collection-release-anchor.mjs');
  const target=join(root,'static',SCOPED_COLLECTION_ASSET_DIR);
  const prior=await readFile(anchorPath,'utf8');
