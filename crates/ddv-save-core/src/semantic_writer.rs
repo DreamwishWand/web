@@ -32,6 +32,8 @@ pub enum TypedOperationKind{
     AppearanceSelection,
     WardrobeSelection,
     IndependentTime,
+    Steam626HairExact1,
+    Steam626CharacterSkinExact1,
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct TypedOperationRegistryEntry{
@@ -44,7 +46,7 @@ pub struct TypedOperationRegistryEntry{
 }
 /// Product enablement is *always* FALSE. 01D/01E native validation may
 /// independently open a single operation later, never a general Writer flag.
-pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;5]=[
+pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;7]=[
     TypedOperationRegistryEntry{kind:TypedOperationKind::InventoryExistingAmountDecrease,
         name:"inventory.existing.amount.decrease@1",schema:626,
         dev_implementation:true,native_v3_verified:false,product_enabled:false},
@@ -60,6 +62,12 @@ pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;5]=[
     TypedOperationRegistryEntry{kind:TypedOperationKind::IndependentTime,
         name:"time.independent@1",schema:626,
         dev_implementation:false,native_v3_verified:false,product_enabled:false},
+    TypedOperationRegistryEntry{kind:TypedOperationKind::Steam626HairExact1,
+        name:"appearance.steam626.active-hair-color.exact1@1",schema:626,
+        dev_implementation:true,native_v3_verified:false,product_enabled:false},
+    TypedOperationRegistryEntry{kind:TypedOperationKind::Steam626CharacterSkinExact1,
+        name:"appearance.steam626.character-skin.exact1@1",schema:626,
+        dev_implementation:true,native_v3_verified:false,product_enabled:false},
 ];
 
 #[derive(Clone,Debug)]
@@ -438,6 +446,20 @@ impl ProductSession{
         st.revision=rev;
         st.generation=gen;
         receipt(self,&st)
+    }
+    // Domain-internal exact scalar transaction, not a Worker command or grant.
+    // Caller is the Core-owned Hair/Skin binder; external callers cannot pass spans.
+    // Product route admission/affected closure remains a separate OFF gate.
+    pub(super) fn project_appearance_scalar_candidate(&self,span:Span,old:i32,new:i32)->CoreResult<[u8;32]>{
+        if old==new||span.begin>=span.end||span.end>self.decoded.len(){return Err(denied("APPEARANCE_SCALAR_SPAN"));}
+        let old=old.to_string();let new=new.to_string();
+        if self.decoded.get(span.begin..span.end)!=Some(old.as_bytes()){return Err(denied("APPEARANCE_SCALAR_OLD_CAS"));}
+        let mut h=Sha256::new();h.update(&self.decoded[..span.begin]);h.update(new.as_bytes());h.update(&self.decoded[span.end..]);Ok(h.finalize().into())
+    }
+    pub(super) fn commit_appearance_scalar_candidate(&self,e:WorkerEnvelope,span:Span,old:i32,new:i32,projected:[u8;32])->CoreResult<SemanticStageReceipt>{
+        build_check(self)?;if !self.worker_bound{return Err(denied("APPEARANCE_WORKER_SCOPE"));}
+        if self.project_appearance_scalar_candidate(span,old,new)?!=projected{return Err(denied("APPEARANCE_PROJECTED_CAS"));}
+        self.commit_semantic_replacements(e,vec![Replacement{span,old:old.to_string().into_bytes(),new:new.to_string().into_bytes()}],1,Some(projected))
     }
     // Same exact typed Bool replacement for the private native and the
     // separately scoped fixed-definition product Core Stage. Neither path
