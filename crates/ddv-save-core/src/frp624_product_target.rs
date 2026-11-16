@@ -2,6 +2,9 @@
 use super::*;
 use super::geometry::{Frp624Geometry,FRP_BUILD};
 const BASE:u32=40700246;const NEW_BASE:u32=40700268;
+#[cfg(feature="product-switch624-frp01-stage-internal")]
+#[path="frp624_product_stage.rs"]
+mod product_stage;
 #[derive(Debug,PartialEq,Eq)]
 #[allow(dead_code)]
 pub(crate) struct Frp01Target{
@@ -105,6 +108,63 @@ mod tests{
   assert!(g.read_switch624_frp01_target(WorkerEnvelope{expected_index_generation:2,..e},90001,[10,11,12]).is_err());
   assert!(g.read_switch624_frp01_target(WorkerEnvelope{expected_decoded_sha256:[0;32],..e},90001,[10,11,12]).is_err());
   g.close().unwrap();assert!(g.read_switch624_frp01_target(e,90001,[10,11,12]).is_err());
+ }
+
+ #[cfg(feature="product-switch624-frp01-stage-internal")]
+ #[test]
+ fn switch624_frp01_product_exact7_atomic_undo_reopen(){
+  let d=doc();let source=serde_json::to_vec(&d).unwrap();
+  let s=open(&d,FRP_BUILD,624);let e=env(&s);
+  let p=s.preview_switch624_frp01_product(e,90001,[10,11,12]).unwrap();
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  assert!(s.stage_switch624_frp01_product(e,&p).is_err());
+  assert!(s.stage_switch624_frp01_product(WorkerEnvelope{expected_revision:1,..stage},&p).is_err());
+  assert!(s.stage_switch624_frp01_product(WorkerEnvelope{expected_index_generation:2,..stage},&p).is_err());
+  assert!(s.stage_switch624_frp01_product(WorkerEnvelope{expected_decoded_sha256:[0;32],..stage},&p).is_err());
+  let other=open(&d,FRP_BUILD,624);assert!(other.stage_switch624_frp01_product(
+    WorkerEnvelope{action:WorkerAction::Stage,..env(&other)},&p).is_err());
+  let mut forged=s.preview_switch624_frp01_product(e,90001,[10,11,12]).unwrap();
+  forged.projected[0]^=1;assert!(s.stage_switch624_frp01_product(stage,&forged).is_err());
+  assert!(s.stage_switch624_fence_frp01_archive(stage,b"{}").is_err());
+  let r=s.stage_switch624_frp01_product(stage,&p).unwrap();
+  assert_eq!((r.operation_count,r.exact_field_changed_count),(7,7));
+  assert!(!r.product_writer_authorized);assert!(!r.original_overwrite_authorized);
+  assert!(s.stage_switch624_frp01_product(stage,&p).is_err());
+  s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(
+    WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).is_err());
+  s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+  let export=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};
+  let out=s.take_typed_semantic_decoded_once(export).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(export).is_err());
+  assert_eq!(serde_json::to_vec(&d).unwrap(),source);
+  assert_eq!(sha(&out),r.staged_decoded_sha256);
+  let mut want=d.clone();let g=&mut want["World"]["GridCollection"]["Grids"]["90001"];
+  let x=g["Objects"]["10"]["X"].as_u64().unwrap();let y=g["Objects"]["10"]["Y"].as_u64().unwrap();
+  g["NextGridObjectID"]=json!(53);
+  for id in [10,11,12]{g["Objects"].as_object_mut().unwrap().remove(&id.to_string());}
+  for (id,item,dy,left) in [(50,40700268u32,0u64,false),(51,40700269u32,2,true),(52,40700268u32,4,false)]{
+   g["Objects"][id.to_string()]=json!({"ID":id,"ItemID":item,"X":x,"Y":y+dy,
+      "Orientation":if left{"GridOrientation_Left"}else{"GridOrientation_Down"},"State":null});
+  }
+  assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),want);
+  assert_eq!(open(&want,FRP_BUILD,624).receipt().unwrap().schema,624);
+ }
+ #[cfg(feature="product-switch624-frp01-stage-internal")]
+ #[test]
+ fn switch624_frp01_product_exact7_negative_old_stock_ambient(){
+  let d=doc();
+  for i in 0..4{
+   let mut q=d.clone();
+   match i{
+    0=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["11"]["ItemID"]=json!(40700248),
+    1=>q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX),
+    2=>q["Player"]["ListInventories"]["0"]["Inventory"]["40700268"]["Amount"]=json!(0),
+    _=>q["World"]["GridCollection"]["DiffGrids"]["90001"]=json!({"ID":90001}),
+   }
+   let s=open(&q,FRP_BUILD,624);
+   assert!(s.preview_switch624_frp01_product(env(&s),90001,[10,11,12]).is_err());
+  }
  }
  #[test]fn switch624_frp01_exact3_replacement_target_conservative(){
   let d=doc();let s=open(&d,FRP_BUILD,624);let e=env(&s);let ids=[10,11,12];let before=s.receipt().unwrap();
