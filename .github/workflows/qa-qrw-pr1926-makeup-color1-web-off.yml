@@ -1,0 +1,86 @@
+name: QA ONLY PR1926 Makeup Color1 real Chrome protected OFF boundary
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1926-makeup-color1-web-off.yml'
+permissions:
+  contents: read
+jobs:
+  makeup-off-route:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 4f7c1651cac16c98a2e456d285691ca949615090
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Immutable exact18 Source and OFF release anchor
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '4f7c1651cac16c98a2e456d285691ca949615090'
+          test "$(git merge-base 1e337c0cbb75ed99cd0d08439836d5f4d29b07c4 HEAD)" = '1e337c0cbb75ed99cd0d08439836d5f4d29b07c4'
+          git diff --name-only 1e337c0cbb75ed99cd0d08439836d5f4d29b07c4 HEAD | LC_ALL=C sort >/tmp/qrw-makeup-actual
+          cat >/tmp/qrw-makeup-expected <<'PATHS'
+          src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
+          src/lib/ddv/core/save/product-scoped-makeup-color1-release-anchor.mjs
+          src/lib/ddv/core/save/product-scoped-placement-release.mjs
+          src/lib/ddv/core/save/product-wasm-read-owner.d.mts
+          src/lib/ddv/core/save/product-wasm-read-owner.mjs
+          src/lib/dev/LocalPlacementEditorDev.svelte
+          src/lib/dev/PlacementProductRoute.svelte
+          src/lib/dev/local-placement-copy.mjs
+          src/lib/dev/local-placement-workflow.mjs
+          src/lib/dev/local-scoped-edit-worker-port.mjs
+          src/lib/dev/product-makeup-color1.worker.mjs
+          src/lib/dev/product-placement-client.mjs
+          src/routes/editor/appearance/makeup-color1/steam/+page.svelte
+          tests/product-steam626-makeup-color1-route-off.test.mjs
+          tests/stage-e/chrome-smoke.mjs
+          tests/stage-f/chrome-smoke.mjs
+          tests/wasm-distribution/chrome-smoke.mjs
+          tools/owner-local-steam-v1/server.mjs
+          PATHS
+          diff -u /tmp/qrw-makeup-expected /tmp/qrw-makeup-actual
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = 'ff1bb122418f271a88e08bee25465c11bccfd996'
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = '1e9685e6b289afcda25cf13ac945bda129fdb838'
+          grep -F 'PROTECTED_MAKEUP_COLOR1_RELEASE_ANCHOR=null' src/lib/ddv/core/save/product-scoped-makeup-color1-release-anchor.mjs
+          node --test tests/product-steam626-makeup-color1-route-off.test.mjs
+          echo QRW1926_MAKEUP_FIXED_SOURCE_RELEASE_OFF_PASS
+      - name: Independent hydrated Chromium public OFF route
+        run: |
+          set -euo pipefail
+          cat >tests/.qa-makeup-off.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          import {spawn,spawnSync} from 'node:child_process';
+          const origin='http://127.0.0.1:4186',route='/editor/appearance/makeup-color1/steam/';
+          const srv=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4186','--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});
+          let browser;
+          try{
+           let ready=false;for(let i=0;i<100;i++){try{if((await fetch(origin+route)).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,250))}assert.ok(ready);
+           const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);
+           browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+           const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[],forbidden=[];
+           page.on('pageerror',e=>errors.push(String(e)));page.on('request',r=>{if(/\.wasm(?:\?|$)|\.p1g(?:\?|$)|\/api\/(?:cloud|upload|save)/i.test(r.url()))forbidden.push(r.url())});
+           await page.addInitScript(()=>{window.__qaMakeup={workers:0,opfs:0};const Original=window.Worker;window.Worker=new Proxy(Original,{construct(t,a,n){window.__qaMakeup.workers++;return Reflect.construct(t,a,n)}});if(navigator.storage?.getDirectory){const orig=navigator.storage.getDirectory.bind(navigator.storage);Object.defineProperty(navigator.storage,'getDirectory',{configurable:true,value:function(...a){window.__qaMakeup.opfs++;return orig(...a)}})}});
+           const variants=[route,route+'?writerAuthorized=true&mode=public-accepted&releaseId=forged',route+'?platform=switch&schema=624&buildId=9A239D3DB569756D',route+'?originalOverwriteAuthorized=true&cloudUpload=true',route+'?makeupItemId=140100015&field=ColorIndex2&new=75'];
+           for(const url of variants){await page.goto(origin+url);const shell=page.locator('[data-placement-product-route="makeup-color1"]');await shell.waitFor({timeout:30000});await page.waitForTimeout(150);
+            assert.equal(await shell.getAttribute('data-placement-scope'),'off');assert.equal(await shell.locator('[data-dev-placement]').count(),0);assert.equal(await shell.locator('input[type=file]').count(),0);assert.equal(await shell.getByRole('button').count(),0);
+            assert.equal(await shell.getByRole('heading').count(),1);assert.ok((await shell.getByRole('status').innerText()).trim().length>0);
+            assert.deepEqual(await page.evaluate(()=>window.__qaMakeup),{workers:0,opfs:0});assert.ok((await page.title()).includes('Dreamwish Wand'));
+           }
+           await page.reload();await page.locator('[data-placement-product-route="makeup-color1"]').waitFor();assert.equal(await page.locator('[data-placement-product-route="makeup-color1"]').getAttribute('data-placement-scope'),'off');
+           await page.goBack();await page.locator('[data-placement-product-route="makeup-color1"]').waitFor();
+           assert.deepEqual(await page.evaluate(()=>window.__qaMakeup),{workers:0,opfs:0});assert.deepEqual(errors,[]);assert.deepEqual(forbidden,[]);
+           console.log('QRW1926_MAKEUP_OFF_ROUTE_CHROME_PASS '+JSON.stringify({variants:5,reloadAndHistory:true,actualChrome:true,workers:0,opfs:0,wasmOrSaveFetch:0,stageControls:0,mode:'off',signed:false,genuine:false,fullWebL2:false,coreRealInputL2:'WAIT'}));
+          }finally{await browser?.close();srv.kill()}
+          NODE
+          node --check tests/.qa-makeup-off.mjs
+          node tests/.qa-makeup-off.mjs
+          git diff --exit-code -- src/lib src/routes
