@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
-const keys=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_sr03_proof_source","scoped_comp03_spatial_proof_source","scoped_rm01_proof_source"];
+const keys=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_sr03_proof_source","scoped_comp03_spatial_proof_source","scoped_rm01_proof_source","scoped_r02_proof_source"];
 const specs=[
   {
     "job": "scoped_sr03_proof",
@@ -485,6 +485,174 @@ const specs=[
       ]
     ]
   }
+,
+{
+  "job": "scoped_r02_proof",
+  "key": "switch626-r02",
+  "feature": "product-switch626-r02-scoped",
+  "pins": [
+    [
+      "crates/ddv-save-core",
+      "bc07cb1e61964e7d271715b23ce097a498706866"
+    ],
+    [
+      "scripts/wasm-distribution/protected-release-inputs.json",
+      "f6d092aae9e893ed87ef7bc704a177c1b17c8e3a"
+    ],
+    [
+      "scripts/wasm-distribution/r22-accepted-rust-scope.mjs",
+      "c0e7471964f1cedbb8d362f5b5d9eb18dc269b18"
+    ],
+    [
+      "scripts/readonly-release/scoped-placement-proof.mjs",
+      "6a573cfb3f759e1dc225bbd456833f3f392a0988"
+    ],
+    [
+      "scripts/readonly-release/seal.mjs",
+      "5b86ff1cf2dc009ba1733bf213e4cb979bf500ec"
+    ],
+    [
+      "scripts/int-protected-ci-gate.mjs",
+      "d08d7cb0995b8af9f631448024c8acc83d68a743"
+    ],
+    [
+      "scripts/wasm-distribution/verify-protected-release.mjs",
+      "03486f17f41cb7e807c207601b27a3981fe9df6a"
+    ],
+    [
+      "scripts/wasm-distribution/approved-Cargo.lock",
+      "b667b42cfef2032c2925be7b2aa9b7142bff4b52"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-placement-release.mjs",
+      "2fc3876a98555cfeb3bb02d3e7528623c25f690e"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs",
+      "027f988f22e3e33ee1d61c600a09a268581d7d40"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs",
+      "8bf869bf71546c467194483955e256cbe104c312"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs",
+      "7969122897ebc81bb249dda14d578038a9ffe9e2"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs",
+      "f3f12518965dde92617962b5505b8212f4e04980"
+    ],
+    [
+      "src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs",
+      "959d0ef46c220ed6a402499ca3587b00275d8244"
+    ],
+    [
+      "src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs",
+      "d5b167f35b10ecc5b16d40e84e9d9bb324288539"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-placement-transport.mjs",
+      "50c6b369ad38e745c9c0d99d8f390010e2f85369"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
+      "4893770d4255363dd9407961b9099675fd38b86b"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
+      "046350beeaf68d8ed596937eefacd51a9f21c806"
+    ],
+    [
+      "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
+      "4416725d55284228cd61f7ed89656dbbf3d7c755"
+    ],
+    [
+      "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
+      "8c405b9d1ba01f3f40ec87441a93125273a968a2"
+    ],
+    [
+      "src/lib/ddv/core/save/product-wasm-read-owner.d.mts",
+      "44d033c2b7b7952d25b60082b4d9b72946b686c5"
+    ],
+    [
+      "src/lib/ddv/core/save/local-original-backup.mjs",
+      "7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f"
+    ],
+    [
+      "src/lib/ddv/core/save/local-encrypted-copy-store.mjs",
+      "67f6579622e5d8903d3798d5921d2ea525980eda"
+    ],
+    [
+      "src/lib/dev/LocalPlacementEditorDev.svelte",
+      "f3efbd03c6d5ccd8edfd87727ea0541a120deb9a"
+    ],
+    [
+      "src/lib/dev/PlacementProductRoute.svelte",
+      "44688edc90adfb704cd6dcb7dda700d6f7e1c541"
+    ],
+    [
+      "src/lib/dev/local-placement-copy.mjs",
+      "91f59ab8ffb33db2870f5d610f3e56d7b4aad6c9"
+    ],
+    [
+      "src/lib/dev/local-placement-workflow.mjs",
+      "1c885437dcae8a7359b9b043c3a1b63c97b2238b"
+    ],
+    [
+      "src/lib/dev/product-placement-client.mjs",
+      "248d31cef51bab3d63bc24550afbac24b35a4a59"
+    ],
+    [
+      "src/lib/dev/product-placement-worker-boot.mjs",
+      "cbbb2839705b192b15505169787739b21b9190c5"
+    ],
+    [
+      "src/lib/dev/local-scoped-edit-worker-port.mjs",
+      "44332c40b95cdabfd460d0f7f24a564c25a41f65"
+    ],
+    [
+      "src/lib/dev/local-amount-codec-reopen.worker.mjs",
+      "955d95056d4c115b24b77db2ec2f31ef90992882"
+    ],
+    [
+      "src/lib/wep/Comp03ReferencePattern.svelte",
+      "af6861ca808e7e44ab3e419c146a36090d63fb7f"
+    ],
+    [
+      "src/lib/collection/collection-exact1-consumer.mjs",
+      "e5a169a29588f735f4fcffde40078a3a6e9e3a82"
+    ],
+    [
+      "src/lib/collection/collection-exact1-copy.mjs",
+      "21abcdb2d51e4f881db1c9e026bd15456ec83f5e"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs",
+      "66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs",
+      "3dbd5b6bd2268a3a42589364fa06ab09da84565b"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-r02-release-anchor.mjs",
+      "e258fbf5f1c5f46126cffad63d658f9e7d74e15c"
+    ],
+    [
+      "src/lib/dev/product-r02.worker.mjs",
+      "b61e5e76322a1cafeca1b00f58d44f7cdffd0761"
+    ],
+    [
+      "src/routes/editor/world/r02/switch/+page.svelte",
+      "5ef7e5ef8c4332ed452f95f9e2baa24a26f7c438"
+    ],
+    [
+      "src/lib/ddv/core/save/product-scoped-r01-release-anchor.mjs",
+      "f27391c0c583924fd4ea3558bb209c7457979698"
+    ]
+  ]
+}
 ];
 for(const s of specs)test(s.key+' current exclusive protected proof only',()=>{
  const start=y.indexOf('  '+s.job+':\n');assert.ok(start>=0);const next=y.slice(start+1).search(/\n  [a-z0-9_]+:\n/);const p=next<0?y.slice(start):y.slice(start,start+1+next);
