@@ -354,6 +354,70 @@ mod tests{
     }
 
     #[test]
+    fn qa_comp03_exact9_pretty_bytes_independent_oracle() {
+        let mut pos=0; let mut neg=0;
+        for (g,s,seed) in [(301u32,742u32,82u32),(90001,90002,982)] {
+            let mut d=doc(g,s,seed);
+            d["Opaque"]=json!({"keep":"a\\b","n":17,"arr":[null,true,3]});
+            let raw=serde_json::to_vec_pretty(&d).unwrap();
+            let mut session=ProductSession::open_decoded_readonly(raw.clone(),crate::BuildIdentity{
+                platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap();
+            session.worker_bound=true;
+            let e=env(&session); let before=session.receipt().unwrap();
+            let proposal=session.prepare_comp03_product_layout(e,seed).unwrap();
+            let next=seed+10;
+            let coordinates=[(20,24),(24,24),(16,28),(20,28),(24,28),(16,32),(20,32),(24,32)];
+            let mut wanted=d.clone();
+            let grid=&mut wanted["World"]["GridCollection"]["Grids"][g.to_string()];
+            let mut expected_append=Vec::new();
+            for (i,(x,y)) in coordinates.into_iter().enumerate() {
+                let id=next+i as u32;
+                let row=json!({"ID":id,"ItemID":40100038,"X":x,"Y":y,"Orientation":"GridOrientation_Down","State":null});
+                grid["Objects"][id.to_string()]=row.clone();
+                expected_append.extend_from_slice(format!(",\"{id}\":").as_bytes());
+                expected_append.extend_from_slice(&serde_json::to_vec(&row).unwrap());
+            }
+            expected_append.push(b'}');
+            grid["NextGridObjectID"]=json!(next+8);
+            let append=proposal.edits.iter().find(|x|x.old==vec![b'}']).unwrap();
+            let counter=proposal.edits.iter().find(|x|x.old==next.to_string().as_bytes()).unwrap();
+            assert_eq!(append.new,expected_append);
+            assert_eq!(counter.new,(next+8).to_string().into_bytes());
+            let mut expected=raw.clone();
+            for edit in proposal.edits.iter().rev() {
+                assert_eq!(&raw[edit.span.begin..edit.span.end],edit.old.as_slice());
+                expected.splice(edit.span.begin..edit.span.end,edit.new.iter().copied());
+            }
+            assert_eq!(sha(&expected),proposal.projected_sha);
+            assert_eq!(serde_json::from_slice::<Value>(&expected).unwrap(),wanted);
+            assert_eq!(session.decoded.as_ref(),raw.as_slice());
+            assert_eq!(session.receipt().unwrap(),before);
+            assert!(session.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..e}).is_err());neg+=1;
+            assert_eq!(session.receipt().unwrap(),before);
+            assert_eq!(session.prepare_comp03_product_layout(e,seed).unwrap().projected_sha,proposal.projected_sha);
+            let mut undo=expected;let mut delta=0isize;
+            let ranges:Vec<_>=proposal.edits.iter().map(|edit|{
+                let begin=(edit.span.begin as isize+delta) as usize;
+                delta+=edit.new.len() as isize-edit.old.len() as isize;
+                (begin,begin+edit.new.len(),edit.old.clone())
+            }).collect();
+            for (begin,end,old) in ranges.into_iter().rev(){undo.splice(begin..end,old);}
+            assert_eq!(undo,raw); pos+=1;
+            for id in [next,next+7] {
+                let mut q=d.clone();q["Player"]["Alias"]=json!({"GridID":g,"GridObjectID":id});
+                let x=open(&q);assert!(x.prepare_comp03_product_layout(env(&x),seed).is_err());neg+=1;
+            }
+            let mut q=d.clone();q["World"]["GridCollection"]["Grids"][g.to_string()]["NextGridObjectID"]=json!(i32::MAX as u32-7);
+            let x=open(&q);assert!(x.prepare_comp03_product_layout(env(&x),seed).is_err());neg+=1;
+            let mut q=d.clone();q["World"]["GridCollection"]["Grids"][g.to_string()]["NextGridObjectID"]=json!(seed);
+            let x=open(&q);assert!(x.prepare_comp03_product_layout(env(&x),seed).is_err());neg+=1;
+            assert!(session.prepare_comp03_product_layout(WorkerEnvelope{expected_index_generation:2,..e},seed).is_err());neg+=1;
+            assert!(session.prepare_comp03_product_layout(WorkerEnvelope{action:WorkerAction::Stage,..e},seed).is_err());neg+=1;
+        }
+        assert_eq!((pos,neg),(2,14));
+    }
+
+    #[test]
     fn comp03_prepared_exact9_byte_projection_without_authority(){
         for (g,s,seed) in [(90001,90002,500),(301,742,42)]{
             let d=doc(g,s,seed);
