@@ -243,4 +243,16 @@ mod tests{
     build_id:APPEARANCE_BUILD.into(),schema:626,externally_attested:true}).unwrap();
   assert_eq!(reopen.receipt().unwrap().schema,626);
  }
+
+ #[cfg(feature="product-steam626-eyecolor2-scoped")]
+ #[test]
+ #[ignore="Independent generated ABI synthetic fixture only; not a real Save"]
+ fn qa1918_emit_synthetic_generated_eyecolor2(){
+  let d=doc();let raw=serde_json::to_vec(&d).unwrap();
+  assert_eq!(d["GameInfo"]["Version"],json!(626));
+  assert_eq!(d["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"],json!(64));
+  assert!(raw.len()<1024*1024);
+  std::fs::write("/tmp/qrc1918-eyecolor2-source.json",&raw).unwrap();
+  println!("QRC1918_SYNTHETIC_FIXTURE_ONLY bytes={}",raw.len());
+ }
 }
