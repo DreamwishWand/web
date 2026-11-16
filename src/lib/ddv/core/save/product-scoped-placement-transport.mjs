@@ -8,7 +8,16 @@ const positive=n=>uint(n)&&n>0;
 const sha=s=>typeof s==='string'&&/^[a-f0-9]{64}$/.test(s);
 const exact=(o,k)=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.getPrototypeOf(o)===Object.prototype&&Object.keys(o).sort().join(',')===k.split(',').sort().join(',');
 const common='contract,itemId,gridId,nextObjectId,oldAmount,newAmount,gridSha256,projectedDecodedSha256,sessionId,revision,indexGeneration,decodedSha256,exactFieldChangedCount,scopedCandidate,writerAuthorized,editedCopyAuthorized';
+const sr03Raw='contract,itemId,gridId,retainedId,movedId,expectedNextId,oldAmount,newAmount,inventoryDelta,gridSha256,inventoryEntrySha256,projectedDecodedSha256,exactFieldChangedCount,sessionId,revision,indexGeneration,decodedSha256,productWriterAuthorized,originalOverwriteAuthorized';
 const fixed=Object.freeze({
+ sr03:Object.freeze({contract:'wand.worker.steam626.scoped-sr03-mixed-q5@1',count:8,item:40100068,preview:'preview_steam626_sr03',stage:'stage_steam626_sr03',
+  keys:common+',retainedId,movedId,inventoryDelta,inventoryEntrySha256',
+  selector:s=>exact(s,'gridId,retainedId,movedId')&&positive(s.gridId)&&positive(s.retainedId)&&positive(s.movedId)&&s.retainedId!==s.movedId,
+  previewArgs:s=>[s.gridId,s.retainedId,s.movedId],
+  normalize:r=>{if(!exact(r,sr03Raw)||r.productWriterAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();const {expectedNextId,productWriterAuthorized,originalOverwriteAuthorized,...rest}=r;return {...rest,nextObjectId:expectedNextId,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false}},
+  valid:(r,s)=>r.gridId===s.gridId&&r.retainedId===s.retainedId&&r.movedId===s.movedId&&r.oldAmount>=3&&r.newAmount===r.oldAmount-3&&r.inventoryDelta===-3&&sha(r.inventoryEntrySha256)&&r.nextObjectId>Math.max(r.retainedId,r.movedId)&&r.nextObjectId<=0xfffffffd,
+  stageArgs:r=>[r.gridId,r.retainedId,r.movedId,r.nextObjectId,r.oldAmount,r.gridSha256,r.inventoryEntrySha256,r.projectedDecodedSha256],
+  summary:r=>({retainedId:r.retainedId,movedId:r.movedId,inventoryDelta:-3,addObjects:3})}),
  comp03:Object.freeze({contract:'wand.worker.steam626.scoped-comp03-layout@1',count:9,item:40100038,preview:'preview_steam626_comp03',stage:'stage_steam626_comp03',
   keys:common+',seedId,inventoryDelta,seedSha256,inventoryEntrySha256',
   selector:s=>exact(s,'seedId')&&positive(s.seedId),previewArgs:s=>[s.seedId],
@@ -22,6 +31,7 @@ const fixed=Object.freeze({
   stageArgs:r=>[r.gridId,r.x,r.y,r.oldAmount,r.nextObjectId,r.entrySha256,r.gridSha256,r.projectedDecodedSha256],
   summary:r=>({inventoryId:0,x:r.x,y:r.y,orientation:r.orientation,inventoryDelta:-1,addObjects:1})})
 });
+export const createSteam626Sr03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.sr03);
 export const createSteam626Comp03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.comp03);
 export const createSteam626VaseAddTransport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.vase);
 function create(wasm,initial,identity,{parse,current,revoke,maxBytes,chunkBytes},op){
@@ -41,7 +51,7 @@ function create(wasm,initial,identity,{parse,current,revoke,maxBytes,chunkBytes}
  function previewTarget(selector){
   return life.checked(()=>{
    if(life.hasMutation()||!op.selector(selector))fail();
-   const r=parse(wasm[op.preview](...op.previewArgs(selector),...life.args()),4096);
+   const raw=parse(wasm[op.preview](...op.previewArgs(selector),...life.args()),4096),r=op.normalize?op.normalize(raw):raw;
    if(!exact(r,op.keys)||r.contract!==op.contract||r.itemId!==op.item||!positive(r.gridId)||!positive(r.nextObjectId)||
     !positive(r.oldAmount)||!uint(r.newAmount)||!sha(r.gridSha256)||!sha(r.projectedDecodedSha256)||r.projectedDecodedSha256===initial.decodedSha256||
     !life.scopeMatches(r)||r.revision!==life.scope().revision||r.indexGeneration!==life.scope().indexGeneration||
