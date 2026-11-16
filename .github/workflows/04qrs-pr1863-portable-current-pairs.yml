@@ -1,0 +1,55 @@
+name: 04 QR-S PR1863 current Portable pairs (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr1863-portable-current-pairs.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3a3614888b543c2c53483a6e41b4a50f6e6687fc
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed source changed-only independent counterexamples
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-fixed.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {writeFileSync,mkdtempSync,rmSync,unlinkSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const main='3a3614888b543c2c53483a6e41b4a50f6e6687fc',fixed='f8bafd83943041ae236758ff0aace1be59efaa53',helper='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',testHelper='scripts/wasm-distribution/qa-current-portable-pairs.mjs',core='crates/ddv-save-core',cfg='scripts/wasm-distribution/protected-release-inputs.json',lock='scripts/wasm-distribution/approved-Cargo.lock';
+          const dir=mkdtempSync(join(tmpdir(),'wand-qa-pairs-')),env={...process.env,GIT_INDEX_FILE:join(dir,'index'),GIT_NO_REPLACE_OBJECTS:'1',GIT_AUTHOR_NAME:'QA',GIT_AUTHOR_EMAIL:'qa@example.invalid',GIT_COMMITTER_NAME:'QA',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8',env,maxBuffer:16*1024*1024,stdio:['ignore','pipe','pipe']}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8',env}),blob=s=>execFileSync('git',['hash-object','-w','--stdin'],{input:s,encoding:'utf8',env}).trim();
+          const entry=(r,p)=>{const x=g('ls-tree',r,'--',p);if(!x)return null;const m=/^(100644|100755) blob ([a-f0-9]{40})\t(.+)$/.exec(x);assert.ok(m&&m[3]===p,p);return {mode:m[1],blob:m[2]}};
+          const set=(p,e)=>e?g('update-index','--add','--cacheinfo',e.mode,e.blob,p):g('update-index','--force-remove','--',p);
+          const make=(parent,changes)=>{g('read-tree',parent);for(const [p,e] of changes)set(p,e);return g('commit-tree',g('write-tree'),'-p',parent,'-m','isolated QA only')};
+          assert.equal(g('rev-parse','HEAD'),main);assert.equal(g('rev-parse',fixed+'^'),main);
+          assert.deepEqual(g('diff','--name-only',main,fixed).split('\n'),[helper]);
+          assert.equal(g('rev-parse',main+':'+helper),'f69a44eb62da5fc5e51c743ee428324469205b25');
+          assert.equal(g('rev-parse',fixed+':'+helper),'5a999ce2719e30fd008209547c786835d2057017');
+          const old=raw(main,helper),cur=raw(fixed,helper),start=cur.indexOf('const steamPortableAfterFenceEntries='),end=cur.indexOf('const gatePaths=',start),i=cur.indexOf(" if(baseCore==='754df0e98e4c074fb7f6ec30243e79c4d1a1b42a')"),j=cur.indexOf(" deny('BASE_CORE_TREE');",i);
+          assert.ok(start>=0&&end>start&&i>end&&j>i);assert.equal(cur.replace(cur.slice(start,end),'').replace(cur.slice(i,j),''),old);
+          const specs=[['steamPortableAfterFenceEntries',13,'adbc6ec697ed7f6a9d5413a1a35eabaf9737d103','206647e12ff8819245a2ecfbdefa808d283dac72','8f19c4dc1c097222c28e33e8ebd2196564635279',1833],['switchCatalog0AfterFenceEntries',11,'d789e9969c113c6601844a2fc194a3aad0034e73','410a2399aaf8a4b60a7c5f4282ecb76b26a12373','66d58f99ee08c60611d41df4f6f00acafddfac8a',1839]];
+          const pairs=specs.map(([name,count,source,tree,root,pr])=>{const a=cur.indexOf('[',cur.indexOf('const '+name+'=')),b=cur.indexOf('];',a);const pins=JSON.parse(cur.slice(a,b+1));assert.equal(pins.length,count);assert.equal(new Set(pins.map(x=>x.path)).size,count);for(const p of pins){assert.deepEqual(entry(main,p.path),p.before,p.path);if(p.path!==cfg)assert.deepEqual(entry(source,p.path),p.after,p.path);else{const orig=raw(main,cfg),c=entry(main,core+'/Cargo.toml').blob,n=entry(source,core+'/Cargo.toml').blob;assert.notEqual(c,n);assert.equal(blob(orig.replace(c,n)),p.after.blob);assert.deepEqual({...JSON.parse(orig.replace(c,n)),cargoTomlGitBlob:c},JSON.parse(orig));}}const changes=pins.map(p=>[p.path,p.after]),cand=make(main,changes);assert.equal(g('rev-parse',cand+'^{tree}'),root);assert.equal(g('rev-parse',cand+':'+core),tree);assert.equal(g('rev-parse',make(cand,pins.map(p=>[p.path,p.before]))+'^{tree}'),g('rev-parse',main+'^{tree}'));return {name,count,source,tree,pr,pins,changes}});
+          const gate=make(main,[[helper,entry(fixed,helper)]]);assert.equal(g('rev-parse',main+':'+core),'754df0e98e4c074fb7f6ec30243e79c4d1a1b42a');
+          writeFileSync(testHelper,cur,{flag:'wx'});
+          try{const {verifyAcceptedRustScope:verify,verifyExactScopeEntries}=await import('./'+testHelper);const oldVerify=(await import('./'+helper)).verifyAcceptedRustScope;const v=(b,c)=>verify(process.cwd(),b,c);let pos=0,neg=0;const no=f=>{assert.throws(f);neg++};for(const p of pairs){const c=make(gate,p.changes),r=v(gate,c);assert.equal(r.entryCount,p.count);assert.equal(r.sourcePr,p.pr);assert.equal(r.sourceHead,p.source);assert.equal(r.writerAuthorized,false);assert.equal(r.mergeAuthorized,false);pos++;assert.equal(verifyExactScopeEntries(process.cwd(),gate,c,p.pins).entries.length,p.count);pos++;for(const ref of [gate,c]){assert.equal(entry(ref,lock).blob,'b667b42cfef2032c2925be7b2aa9b7142bff4b52');assert.equal(entry(ref,core+'/Cargo.lock'),null)}for(const path of [core+'/src/fence_add_shape.rs',core+'/src/switch624_fence_fe01.rs'])assert.deepEqual(entry(c,path),entry(main,path));
+          for(const [path,e] of p.changes){const rest=p.changes.filter(x=>x[0]!==path);no(()=>v(gate,make(gate,rest)));no(()=>v(gate,make(gate,[...rest,[path,{mode:'100755',blob:e.blob}]])));no(()=>v(gate,make(gate,[...rest,[path,{mode:'100644',blob:blob('wrong '+path)}]])))}
+          for(const path of [helper,lock,core+'/Cargo.lock',core+'/src/fence_add_shape.rs','scripts/int-selection-preflight.mjs','scripts/wasm-distribution/verify-protected-release.mjs'])no(()=>v(gate,make(gate,[...p.changes,[path,{mode:'100644',blob:blob('wrong '+path)}]])));
+          no(()=>v(main,make(main,[[helper,entry(fixed,helper)],...p.changes])));no(()=>oldVerify(process.cwd(),main,make(main,p.changes)));no(()=>v(c,gate));const noise=['qa-noise.txt',{mode:'100644',blob:blob('noise')}];no(()=>v(gate,make(gate,[...p.changes,noise])));const adv=make(gate,[noise]);assert.equal(v(adv,make(adv,p.changes)).entryCount,p.count);pos++}
+          const union=new Map([...pairs[0].changes,...pairs[1].changes]);no(()=>v(gate,make(gate,[...union])));const c=make(gate,pairs[0].changes);no(()=>v(c,make(c,pairs[1].changes)));no(()=>v(gate,main));no(()=>v(gate,'bad'));
+          const oldBase='ffaa286501bc3008b598e5429be7b930bdc70f1d',rm01='b937c1d2cebcd81dfa7b18a754b46e43da118b13';assert.equal(v(oldBase,rm01).entryCount,oldVerify(process.cwd(),oldBase,rm01).entryCount);pos++;
+          console.log('QRS_PR1863_CURRENT_PORTABLE_PAIRS_L2_PASS',JSON.stringify({pos,neg,pins:24,pairs:2,actualGit:true,actualSignature:false,protectedAcceptance:false}));
+          }finally{unlinkSync(testHelper);rmSync(dir,{recursive:true,force:true})}
+          EOF
+          node qa-fixed.mjs
