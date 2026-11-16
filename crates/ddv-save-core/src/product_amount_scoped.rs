@@ -810,6 +810,48 @@ mod tests{
             }let x=open(&q);assert!(x.preview_scoped_product_amount(scope(&x,WorkerAction::ReadDomain),sel,49).is_err());
         }
     }
+    #[test]fn switch626_chest_portable_restore_exact1_build_lineage(){
+        use crate::portable_backup::{PortableBackupBuild,decode_linked_chest_amount_backup_for_build,encode_linked_chest_amount_backup_for_build,decode_linked_chest_amount_backup};
+        let mut prior=chest_doc();prior["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);
+        let open_sw=|v:&Value|ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),crate::BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+        let a=open_sw(&prior);let ae=scope(&a,WorkerAction::ReadDomain);
+        let backup=a.capture_switch626_chest_portable_backup(ae,12,0).unwrap();
+        let v=decode_linked_chest_amount_backup_for_build(PortableBackupBuild::Switch626,&backup).unwrap();
+        assert_eq!(v.amount,49);assert!(decode_linked_chest_amount_backup(&backup).is_err());
+        let d=chest_doc();let s=open_sw(&d);let e=scope(&s,WorkerAction::ReadDomain);let before=s.receipt().unwrap();
+        let p=s.preview_switch626_chest_portable_restore(e,12,0,&backup).unwrap();assert_eq!(p.projected_sha,a.sha);
+        let st=scope(&s,WorkerAction::Stage);let run=|s:&ProductSession,e,b:&[u8],old,new,entry,bs,out|s.stage_switch626_chest_portable_restore(e,12,0,b,old,new,entry,bs,out);
+        assert!(run(&s,e,&backup,50,49,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        assert!(run(&s,st,&backup,49,49,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        assert!(run(&s,st,&backup,50,48,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        assert!(run(&s,st,&backup,50,49,[0;32],p.backup_sha,p.projected_sha).is_err());
+        assert!(run(&s,st,&backup,50,49,p.entry_sha,[0;32],p.projected_sha).is_err());
+        assert!(run(&s,st,&backup,50,49,p.entry_sha,p.backup_sha,[0;32]).is_err());
+        assert!(run(&open_sw(&d),st,&backup,50,49,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        let steam=open(&d);assert!(steam.preview_switch626_chest_portable_restore(scope(&steam,WorkerAction::ReadDomain),12,0,&backup).is_err());
+        assert!(s.preview_product_chest_portable_restore(e,12,0,&backup).is_err());
+        let steam_backup=encode_linked_chest_amount_backup_for_build(PortableBackupBuild::Steam626,&v).unwrap();
+        assert!(s.preview_switch626_chest_portable_restore(e,12,0,&steam_backup).is_err());
+        let mut other=v.clone();other.parent_item_id=40001681;
+        let other=encode_linked_chest_amount_backup_for_build(PortableBackupBuild::Switch626,&other).unwrap();
+        assert!(s.preview_switch626_chest_portable_restore(e,12,0,&other).is_err());
+        assert!(s.preview_switch626_chest_portable_restore(e,12,1,&backup).is_err());
+        let mut other=v.clone();other.source_decoded_sha256="0".repeat(64);
+        let other=encode_linked_chest_amount_backup_for_build(PortableBackupBuild::Switch626,&other).unwrap();
+        assert!(s.preview_switch626_chest_portable_restore(e,12,0,&other).is_err());
+        let mut bad=d.clone();bad["Player"]["ContainerInventories"]["12"]["BlockMoveTo"]=json!(true);
+        let b=open_sw(&bad);assert!(b.preview_switch626_chest_portable_restore(scope(&b,WorkerAction::ReadDomain),12,0,&backup).is_err());
+        assert_eq!(s.receipt().unwrap(),before);
+        let r=run(&s,st,&backup,50,49,p.entry_sha,p.backup_sha,p.projected_sha).unwrap();assert_eq!(r.exact_field_changed_count,1);
+        assert_eq!(r.staged_decoded_sha256,a.sha);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+        assert!(run(&s,st,&backup,50,49,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();let out_e=scope(&s,WorkerAction::ExportEditedCopy);
+        let out=s.take_typed_semantic_decoded_once(out_e).unwrap();assert!(s.take_typed_semantic_decoded_once(out_e).is_err());
+        assert_eq!(out,serde_json::to_vec(&prior).unwrap());assert_eq!(sha(&s.decoded),before.decoded_sha256);
+        assert_eq!(open_sw(&prior).receipt().unwrap().decoded_sha256,a.sha);
+    }
     #[test]
     fn switch626_chest_exact_build_static_layout_and_atomic_ledger(){
         let ix=layout_index().unwrap();
