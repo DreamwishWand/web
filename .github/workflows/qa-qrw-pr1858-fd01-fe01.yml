@@ -24,6 +24,10 @@ jobs:
       - name: Fixed Web Source and accepted dedicated Rust WASM
         run: |
           set -euo pipefail
+          echo "QRW1858_PIN_HEAD=$(git rev-parse HEAD)"
+          echo "QRW1858_PIN_COUNT=$(git diff --name-only 3a3614888b543c2c53483a6e41b4a50f6e6687fc HEAD | wc -l)"
+          echo "QRW1858_PIN_UI=$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)"
+          echo "QRW1858_PIN_ROUTE=$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)"
           test "$(git rev-parse HEAD)" = '40a594235515b65b58b1c7d81e5ce6ca3fe1fd85'
           test "$(git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | wc -l)" = 21
           git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | sort >/tmp/qrw-paths.actual
@@ -159,6 +163,10 @@ jobs:
       - name: Fixed Web Source and accepted dedicated Rust WASM
         run: |
           set -euo pipefail
+          echo "QRW1858_PIN_HEAD=$(git rev-parse HEAD)"
+          echo "QRW1858_PIN_COUNT=$(git diff --name-only 3a3614888b543c2c53483a6e41b4a50f6e6687fc HEAD | wc -l)"
+          echo "QRW1858_PIN_UI=$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)"
+          echo "QRW1858_PIN_ROUTE=$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)"
           test "$(git rev-parse HEAD)" = '40a594235515b65b58b1c7d81e5ce6ca3fe1fd85'
           test "$(git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | wc -l)" = 21
           git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | sort >/tmp/qrw-paths.actual
@@ -291,6 +299,10 @@ jobs:
       - name: Fixed Source 21 paths and current public anchor
         run: |
           set -euo pipefail
+          echo "QRW1858_PIN_HEAD=$(git rev-parse HEAD)"
+          echo "QRW1858_PIN_COUNT=$(git diff --name-only 3a3614888b543c2c53483a6e41b4a50f6e6687fc HEAD | wc -l)"
+          echo "QRW1858_PIN_UI=$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)"
+          echo "QRW1858_PIN_ROUTE=$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)"
           test "$(git rev-parse HEAD)" = '40a594235515b65b58b1c7d81e5ce6ca3fe1fd85'
           test "$(git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | wc -l)" = 21
           git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | sort >/tmp/qrw-paths.actual
