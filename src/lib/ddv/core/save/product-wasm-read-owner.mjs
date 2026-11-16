@@ -1,5 +1,5 @@
 import {createScopedAmountTransport,createSwitch626ChestTransport,createSteam626ChestTransport,createSwitch626Catalog0Transport} from './product-scoped-amount-transport.mjs';
-import {createSteam626Comp03Transport,createSteam626VaseAddTransport,createSteam626Sr03Transport} from './product-scoped-placement-transport.mjs';
+import {createSteam626Comp03Transport,createSteam626Comp03SpatialTransport,createSteam626VaseAddTransport,createSteam626Sr03Transport} from './product-scoped-placement-transport.mjs';
 import {createSteam626BackpackTransport,createSwitch626BackpackTransport} from './product-scoped-backpack-transport.mjs';
 import {createSteam626WardrobeTransport,createSwitch626WardrobeTransport} from './product-scoped-wardrobe-transport.mjs';
 import {createFixedCollectionTransport} from './product-fixed-collection-transport.mjs';
@@ -42,7 +42,7 @@ function strictReceipt(r){
  */
 export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null}={}){
  if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source].every(v=>typeof v==='boolean')||
-    (![null,'comp03','vase','sr03'].includes(placementScope))||(![null,'steam','switch'].includes(backpackScope))||(![null,'steam','switch'].includes(wardrobeScope))||
+    (![null,'comp03','comp03-spatial','vase','sr03'].includes(placementScope))||(![null,'steam','switch'].includes(backpackScope))||(![null,'steam','switch'].includes(wardrobeScope))||
     [allowScopedAmountSource,allowScopedCollectionSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,placementScope!==null,backpackScope!==null,wardrobeScope!==null].filter(Boolean).length>1||
     ((allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||placementScope!==null||backpackScope!==null||wardrobeScope!==null)&&allowCollectionCandidateSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
@@ -129,7 +129,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
          maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
      }
      if(placementEnabled||backpackEnabled||wardrobeEnabled){
-       const factory=wardrobeEnabled?(wardrobeScope==='switch'?createSwitch626WardrobeTransport:createSteam626WardrobeTransport):backpackEnabled?(backpackScope==='switch'?createSwitch626BackpackTransport:createSteam626BackpackTransport):placementScope==='comp03'?createSteam626Comp03Transport:placementScope==='sr03'?createSteam626Sr03Transport:createSteam626VaseAddTransport;
+       const factory=wardrobeEnabled?(wardrobeScope==='switch'?createSwitch626WardrobeTransport:createSteam626WardrobeTransport):backpackEnabled?(backpackScope==='switch'?createSwitch626BackpackTransport:createSteam626BackpackTransport):placementScope==='comp03-spatial'?createSteam626Comp03SpatialTransport:placementScope==='comp03'?createSteam626Comp03Transport:placementScope==='sr03'?createSteam626Sr03Transport:createSteam626VaseAddTransport;
        a.scoped=factory(wasm,receipt,identity,{parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
      }
      active=a;wasm=null;
@@ -453,7 +453,8 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
    ...(allowCollectionCandidateSource===true?{readCollectionCandidate:readCollectionCandidateSource}:{}),
    ...(wardrobeEnabled?{previewScopedWardrobe:(...args)=>wardrobe().previewTarget(...args),stageScopedWardrobe:(...args)=>{if(args.length)fail('PRODUCT_WORKER_SCOPED_WARDROBE_ARGS');return wardrobe().stage()},toggleScopedWardrobe:redo=>wardrobe().toggle(redo),takeScopedWardrobeOutput:()=>wardrobe().takeOutput()}:{}),
    ...(backpackEnabled?{previewScopedBackpack:selector=>backpack().previewTarget(selector),stageScopedBackpack:()=>backpack().stage(),toggleScopedBackpack:redo=>backpack().toggle(redo),takeScopedBackpackOutput:()=>backpack().takeOutput()}:{}),
-   ...(placementEnabled?{previewScopedPlacement:selector=>placement().previewTarget(selector),stageScopedPlacement:()=>placement().stage(),toggleScopedPlacement:redo=>placement().toggle(redo),takeScopedPlacementOutput:()=>placement().takeOutput()}:{}),
+   ...(placementScope==='comp03-spatial'?{spatialPreview:(...args)=>{if(args.length)fail('PRODUCT_WORKER_SCOPED_PLACEMENT_ARGS');return placement().spatialPreview()}}:{}),
+    ...(placementEnabled?{previewScopedPlacement:selector=>placement().previewTarget(selector),stageScopedPlacement:()=>placement().stage(),toggleScopedPlacement:redo=>placement().toggle(redo),takeScopedPlacementOutput:()=>placement().takeOutput()}:{}),
    ...(allowScopedCollectionSource===true?{previewFixedCollection:selector=>fixedCollection().previewTarget(selector),
      stageFixedCollection:()=>fixedCollection().stage(),toggleFixedCollection:redo=>fixedCollection().toggle(redo),
      takeFixedCollectionOutput:()=>fixedCollection().takeOutput()}: {})});
