@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {ACTIVE_RELEASE_TUPLE as tuple} from '../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
-import {COMP03_RELEASE as comp,COMP03_SPATIAL_RELEASE as spatial,VASE_ADD_RELEASE as vase,SR03_RELEASE as sr03,RM01_RELEASE as rm01,validatePlacementAnchor} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+import {COMP03_RELEASE as comp,COMP03_SPATIAL_RELEASE as spatial,VASE_ADD_RELEASE as vase,SR03_RELEASE as sr03,RM01_RELEASE as rm01,CATALOG0_PORTABLE_RELEASE as catalog0,CHEST_PORTABLE_RELEASE as chest,validatePlacementAnchor} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
 import {fixedPlacementProofScope,inspectPlacementSubjects,privatePlacementIdentity,replacePrivatePlacementAnchor} from '../scripts/readonly-release/scoped-placement-proof.mjs';
 const source='a'.repeat(40),sha=b=>createHash('sha256').update(b).digest('hex');
 const u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a};
@@ -154,3 +154,18 @@ test('RM01 exact Switch626 proof identity, separate anchor and foreign denial',a
  assert.throws(()=>inspectPlacementSubjects(rm01,subject(rm01,wasm(rm01,true)),source));
 });
 
+
+for(const [own,other] of [[catalog0,chest],[chest,catalog0]])test(own.key+' exact portable three-subject private proof only',async()=>{
+ assert.equal(fixedPlacementProofScope(own.key),own);assert.equal(own.methods.length,14);assert.equal(own.exports.length,23);
+ const js=Buffer.from(own.methods.join(' ')),bytes=subject(own,wasm(own),js),p=inspectPlacementSubjects(own,bytes,source);
+ assert.equal(p.jsSha256,sha(js));assert.throws(()=>inspectPlacementSubjects(other,bytes,source));
+ assert.throws(()=>inspectPlacementSubjects(own,subject(own,wasm(other)),source));
+ assert.throws(()=>inspectPlacementSubjects(own,subject(own,wasm(own,true)),source));
+ for(const n of [...other.methods.filter(n=>n.includes('_portable_')),'preview_switch626_catalog0_portable_restore','stage_switch626_chest_portable_restore','preview_switch626_fm01','stage_switch626_r02','stage_steam626_hair','stage_steam626_comp03'])assert.throws(()=>inspectPlacementSubjects(own,subject(own,wasm(own),Buffer.from(n)),source));
+ for(const prior of [comp,vase,spatial,sr03,rm01])for(const n of own.methods.filter(n=>n.includes('_portable_')))assert.throws(()=>inspectPlacementSubjects(prior,subject(prior,wasm(prior),Buffer.from(n)),source));
+ const a=privatePlacementIdentity(own,p,'http://127.0.0.1:4188');assert.equal(await validatePlacementAnchor(own,a),true);assert.equal(a.builds[0].productV2EvidenceSha256,null);
+ const prior=readFileSync(new URL('../src/lib/ddv/core/save/product-scoped-portable-release-anchor.mjs',import.meta.url),'utf8');
+ const out=replacePrivatePlacementAnchor(own,prior,a);assert.ok(out.includes('export const PROTECTED_'+(other===catalog0?'CATALOG0':'CHEST')+'_PORTABLE_RELEASE_ANCHOR=null;'));
+ assert.throws(()=>replacePrivatePlacementAnchor(own,out,a));assert.throws(()=>replacePrivatePlacementAnchor(other,out,privatePlacementIdentity(other,inspectPlacementSubjects(other,subject(other),source),'http://127.0.0.1:4188')));
+ assert.throws(()=>privatePlacementIdentity(own,p,tuple.origin));
+});
