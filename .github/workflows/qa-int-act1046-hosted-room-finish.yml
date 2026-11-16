@@ -1,0 +1,193 @@
+name: INT ACT1046 affected Hosted Room Finish acceptance (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-int-act1046-hosted-room-finish.yml'
+permissions:
+  contents: read
+jobs:
+  hosted-room-finish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d040589aebb464a1a2f036ea167483dcaf4bc2eb
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed source and deployed manifest preflight
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'd040589aebb464a1a2f036ea167483dcaf4bc2eb'
+          test "$(git rev-parse HEAD:src/lib/wep/room-finish-verified-export-v125.ts)" = bfe540b8150bd96f90388aeb977246cceea0cb72
+          test "$(git rev-parse HEAD:scripts/wep-decorate-stage1-browser-acceptance.mjs)" = 0fe491f557b631868485e7eabb33f06d5367a66c
+          curl --fail --silent --show-error --max-time 30 'https://dreamwishwand.github.io/web/worker-wasm/manifest.json' -o /tmp/act1046-manifest.json
+          node --input-type=module -e 'import fs from "node:fs";import assert from "node:assert/strict";const m=JSON.parse(fs.readFileSync("/tmp/act1046-manifest.json"));assert.equal(m.source.commit,"d040589aebb464a1a2f036ea167483dcaf4bc2eb");assert.equal(m.release.productConsumerEnabled,false);assert.equal(m.release.writerAuthorized,false);console.log("ACT1046_HOSTED_SOURCE_PIN_PASS",m.source.commit)'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real HTTPS affected Room Finish only, fresh context and independent Reopen
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          cat > scripts/.act1046-hosted-room-finish.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {mkdir,readFile,writeFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          import {spawnSync} from 'node:child_process';
+          import {chromium} from 'playwright-core';
+          import {makeSyntheticP1gProfile} from '../tests/helpers/p1g-fixture.mjs';
+          const root='https://dreamwishwand.github.io/web';
+          const out='.artifacts/act1046-hosted-room-finish';
+          await mkdir(out,{recursive:true});
+          const roomFinishProfile={
+            GameInfo:{Version:624,InitialVersion:624,LastSaveDeviceInfo:{deviceType:'DeviceType_Switch'}},
+            Player:{
+              ListInventories:{
+                '4':{
+                  ID:4,
+                  CompatibleItemType:'ItemType_Trimming',
+                  Inventory:{
+                    '160000000':{Amount:1,Marker:'ItemMarker_None'},
+                    '160000224':{Amount:1,Marker:'ItemMarker_None'},
+                    '160100000':{Amount:1,Marker:'ItemMarker_None'},
+                    '160100001':{Amount:1,Marker:'ItemMarker_None'}
+                  }
+                }
+              }
+            },
+            ProfileWorld:{Stores:[],Shops:[]},
+            ConditionalEventHistory:{ActiveEvents:{}},
+            World:{
+              DecorationPresets:[],
+              PlayerHouses:[{
+                HouseItemID:20500005,
+                Floors:[{
+                  BoughtRooms:{},
+                  Rooms:{
+                    '0':{
+                      Name:'Browser Room',
+                      FloorGridID:900,
+                      WallGridIDs:{'0':901,'1':902,'2':903,'3':904},
+                      RoomPrefabAddress:'Room/Browser',
+                      Flooring:160100000,
+                      Wallpapers:{
+                        '0':160000224,
+                        '1':160000224,
+                        '2':160000224,
+                        '3':160000224
+                      },
+                      WallpaperOffsetById:{'160000224':0.4623557},
+                      Ceiling:160000000,
+                      OpaqueRoom:{keep:true}
+                    }
+                  }
+                }],
+                OpaqueHouse:{keep:true}
+              }],
+              GridCollection:{
+                Grids:{
+                  '900':{ID:900,Objects:{}},
+                  '901':{ID:901,Objects:{}},
+                  '902':{ID:902,Objects:{}},
+                  '903':{ID:903,Objects:{}},
+                  '904':{ID:904,Objects:{}}
+                },
+                DiffGrids:{}
+              },
+              Villages:[],
+              FloatingIslands:{},
+              MissionSlots:{},
+              QuestInfo:{},
+              Keyholes:{},
+              OpaqueWorld:{keep:{roomFinishAcceptance:true}}
+            }
+          };
+          const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+          const report={scope:'Switch624 synthetic, existing Room Finish only',source:'d040589aebb464a1a2f036ea167483dcaf4bc2eb',checks:[],pageErrors:[],consoleErrors:[],result:'PENDING'};
+          const chrome=process.env.CHROME_BIN;
+          assert.ok(chrome);
+          const browser=await chromium.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const modes=['CURRENT_WALL','ALL_WALLS']; // FLOORING actual PASS 43786810882; do not repeat
+          const reopenProgram="import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {createHash} from 'node:crypto';import {p1gPackagedProfileCodec as codec} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';const x=JSON.parse(readFileSync(0,'utf8'));const original=Buffer.from(x.original,'base64'),backup=Buffer.from(x.backup,'base64'),edited=Buffer.from(x.edited,'base64');assert.deepEqual(backup,original);assert.notDeepEqual(edited,original);assert.equal(createHash('sha256').update(backup).digest('hex'),x.sourceSha256);const a=await codec.loadProfile(new Uint8Array(backup)),b=await codec.loadProfile(new Uint8Array(edited));assert.equal(a.inputType,'packaged');assert.equal(b.inputType,'packaged');assert.deepEqual(JSON.parse(a.jsonText),x.originalProfile);assert.deepEqual(JSON.parse(b.jsonText),x.expectedProfile);console.log('ACT1046_INDEPENDENT_FULL_DOC_REOPEN_PASS '+x.mode);";
+          try{
+            for(const mode of modes){
+              const context=await browser.newContext({viewport:{width:1440,height:1100},acceptDownloads:true});
+              try{
+                const page=await context.newPage();
+                page.on('pageerror',e=>report.pageErrors.push(String(e)));
+                page.on('console',m=>{if(m.type()==='error')report.consoleErrors.push(m.text());});
+                const response=await page.goto(root+'/editor/world/',{waitUntil:'networkidle'});
+                assert.equal(response.status(),200);assert.equal(new URL(page.url()).origin,new URL(root).origin);assert.equal(new URL(page.url()).pathname,'/web/editor/world/');
+                await page.locator('.platform-select select').selectOption('switch');
+                const packaged=Buffer.from(makeSyntheticP1gProfile(roomFinishProfile));
+                const sourceName='room-finish-profile';
+                await page.locator('.load-panel input[type="file"]').setInputFiles({name:sourceName,mimeType:'application/octet-stream',buffer:packaged});
+                await page.getByText(/DDV save loaded locally/).waitFor();
+                const routes=page.locator('[data-wep-room-finish-routes]');await routes.waitFor();
+                assert.ok((await routes.innerText()).includes('Browser Room'));
+                await routes.locator('article').first().getByRole('button').click();
+                const toggle=page.locator('[data-wep-room-finish-toggle]');await toggle.waitFor();await toggle.click();
+                const panel=page.locator('[data-wep-room-finish]');await panel.waitFor();
+                const expected=structuredClone(roomFinishProfile);
+                const room=expected.World.PlayerHouses[0].Floors[0].Rooms['0'];
+                if(mode==='FLOORING'){
+                  const section=panel.locator('.room-finish-edit-grid section').nth(0);
+                  await section.locator('select').selectOption('160100001');await section.getByRole('button',{name:'Scope preview'}).click();
+                  room.Flooring=160100001;
+                }else{
+                  if(mode==='CURRENT_WALL')await page.locator('[data-wep-room-finish-surface]').getByRole('button',{name:/Wall.*Top/}).click();
+                  const section=panel.locator('.room-finish-edit-grid section').nth(1);
+                  await section.locator('select').selectOption('160000000');
+                  await section.getByRole('radio',{name:mode==='CURRENT_WALL'?'Current Wall':'All Walls'}).check();
+                  await section.getByRole('button',{name:'Scope preview'}).click();
+                  if(mode==='CURRENT_WALL')room.Wallpapers['0']=160000000;
+                  else{room.Wallpapers={'0':160000000,'1':160000000,'2':160000000,'3':160000000};delete room.WallpaperOffsetById['160000224'];}
+                }
+                const preview=panel.locator('[data-wep-room-finish-preview]');await preview.waitFor();
+                if(mode==='CURRENT_WALL')assert.ok((await preview.innerText()).includes('Current Wall'));
+                if(mode==='ALL_WALLS')assert.equal(await preview.locator('[data-wep-room-finish-offset-cleanup]').count(),1);
+                await preview.getByRole('button',{name:'Add to draft'}).click();
+                const draft=page.locator('[data-wep-stage1-review]');
+                await draft.locator('[data-wep-room-finish-change="'+(mode==='FLOORING'?'FLOORING':'WALLPAPER')+'"]').waitFor();
+                const exportPanel=page.locator('[data-wep-verified-export]');
+                await exportPanel.locator('.verified-export-build-confirm input[type="checkbox"]').check();
+                await exportPanel.getByRole('button',{name:'Review Changes'}).click();
+                const review=exportPanel.locator('[data-wep-room-finish-export-review]');const err=exportPanel.locator('.verified-export-error');
+                await Promise.race([review.waitFor({state:'visible',timeout:15000}),err.waitFor({state:'visible',timeout:15000})]);
+                if(await err.isVisible())throw Error(mode+' REVIEW: '+await err.innerText());
+                if(mode==='ALL_WALLS')assert.equal(await exportPanel.locator('[data-wep-room-finish-export-cleanup]').count(),1);
+                const confirm=exportPanel.locator('.verified-export-confirm input[type="checkbox"]');await confirm.check();
+                await exportPanel.getByRole('button',{name:'Apply / Export'}).click();
+                const success=exportPanel.locator('.verified-export-success');
+                await Promise.race([success.waitFor({state:'visible',timeout:15000}),err.waitFor({state:'visible',timeout:15000})]);
+                if(await err.isVisible())throw Error(mode+' EXPORT: '+await err.innerText());
+                assert.ok((await success.innerText()).includes('PASS'));
+                const download=async(name)=>{const pending=page.waitForEvent('download',{timeout:15000});await success.getByRole('button',{name}).click();const file=await pending;assert.equal(await file.failure(),null);return {name:file.suggestedFilename(),bytes:await readFile(await file.path())};};
+                const edited=await download(/Download edited save/i);const backup=await download(/Download original backup/i);const integrity=await download(/Download manifest/i);
+                assert.equal(edited.name,'DDV_EDITED_copy_'+sourceName);assert.equal(backup.name,'DDV_BACKUP_original_'+sourceName);
+                assert.deepEqual(backup.bytes,packaged);assert.notDeepEqual(edited.bytes,packaged);
+                const manifest=JSON.parse(integrity.bytes.toString('utf8'));
+                assert.equal(manifest.editedFile,edited.name);assert.equal(manifest.backupFile,backup.name);assert.equal(manifest.sourceSha256,sha(packaged));assert.equal(manifest.editedSha256,sha(edited.bytes));
+                const child=spawnSync(process.execPath,['--input-type=module','-e',reopenProgram],{input:JSON.stringify({mode,original:packaged.toString('base64'),backup:backup.bytes.toString('base64'),edited:edited.bytes.toString('base64'),sourceSha256:sha(packaged),originalProfile:roomFinishProfile,expectedProfile:expected}),encoding:'utf8',maxBuffer:1024*1024});
+                assert.equal(child.status,0,child.stderr);assert.ok(child.stdout.includes('ACT1046_INDEPENDENT_FULL_DOC_REOPEN_PASS '+mode));
+                console.log(child.stdout.trim());report.checks.push({mode,result:'PASS',originalSha256:sha(packaged),editedSha256:sha(edited.bytes),backupByteExact:true,independentFullDocReopen:true});
+              }finally{await context.close();}
+            }
+            assert.equal(report.pageErrors.length,0,report.pageErrors.join(' | '));assert.equal(report.consoleErrors.length,0,report.consoleErrors.join(' | '));
+            report.result='PASS';console.log('ACT1046_HOSTED_ROOM_FINISH_REMAINING_MODES_PASS');
+          }catch(e){report.result='FAIL';report.error=String(e.stack||e);throw e;}finally{await writeFile(out+'/report.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close();}
+          
+          NODE
+          node --check scripts/.act1046-hosted-room-finish.mjs
+          node scripts/.act1046-hosted-room-finish.mjs
+          curl --fail --silent --show-error --max-time 30 'https://dreamwishwand.github.io/web/worker-wasm/manifest.json' -o /tmp/act1046-manifest-after.json
+          cmp /tmp/act1046-manifest.json /tmp/act1046-manifest-after.json
+          echo ACT1046_HOSTED_ROOM_FINISH_ACCEPTANCE_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: act1046-hosted-room-finish-synthetic-report
+          path: .artifacts/act1046-hosted-room-finish/report.json
+          if-no-files-found: ignore
