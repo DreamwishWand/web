@@ -77,7 +77,7 @@ jobs:
             return {GameInfo:{Version:626},World:{Villages:[],FloatingIslands:{1540000150:root('Snow',1540000150,g),1540000153:root('Savannah',1540000153,s)},GridCollection:{Grids:{[g]:grid('Snow',g,seed+10,{0:structuredClone(well),[seed]:{ID:seed,ItemID:item,X:16,Y:24,Orientation:'GridOrientation_Down',State:null}}),[s]:grid('Savannah',s,12,{0:structuredClone(well)})},DiffGrids:{}},MissionSlots:{},RecurringEvents:{}},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_GroundAlteration']},Inventory:{[item]:{Amount:99,Marker:'ItemMarker_None'}}}},AchievementsData:[],DutySlots:{},EvolveStatesProfile:{EvolveProgressState:{}},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{keep:'x'.repeat(1100000),escaped:'keep'}};
           }
           const raw=d=>Buffer.from(JSON.stringify(d).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
-          let pos=0,neg=0,nonce=0;const deny=f=>{assert.throws(f);neg++};
+          let pos=0,neg=0,nonce=0;const red=[];const deny=(f,label='lifecycle')=>{try{f();red.push(label);}catch{neg++}};
           function open(m,d,b=steam){const a=raw(d),w=new(cls(m))(...b,new Uint8Array(32).fill(++nonce));for(let i=0;i<a.length;i+=1048576)w.append_chunk(a.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(a));return[w,r]}
           const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],parse=JSON.parse;
           const preview=(w,r,seed)=>parse(w.preview_steam626_comp03(seed,...sc(r)));
@@ -102,7 +102,7 @@ jobs:
             const o=parse(w.begin_scoped_edit_output(...sc(v)));assert.equal(o.decodedSha256,sha(want));const a=Buffer.from(w.next_scoped_edit_output_chunk()),b=Buffer.from(w.next_scoped_edit_output_chunk());assert.deepEqual(Buffer.concat([a,b]),want);assert.deepEqual(JSON.parse(want).Player,d.Player);
             deny(()=>w.next_scoped_edit_output_chunk());deny(()=>w.begin_scoped_edit_output(...sc(v)));w.close();w.free();pos++;
           }
-          for(const mut of [
+          let caseIndex=0;for(const mut of [
             d=>d.World.FloatingIslands[1540000150].Unlocked=false,
             d=>d.World.FloatingIslands[1540000153].GridIDs=[301],
             d=>d.World.GridCollection.Grids[742].Objects[0].X=121,
@@ -111,11 +111,14 @@ jobs:
             d=>d.Opaque.ref={GridID:301,GridObjectID:92},
             d=>d.Opaque.ref={GridID:301,GridObjectID:99},
             d=>d.Opaque.GridIDs=[301],
+            d=>d.World.Extra={GridIDs:[301]},
+            d=>d.Opaque.SubGrid={GridID:301},
+            d=>d.World.Extra={SubGrid:{GridID:301}},
             d=>d.World.RecurringEvents={1:{Unknown:{RecurringEventItemID:1}}},
             d=>d.World.RecurringEvents={1:{[ev[0]]:{RecurringEventItemID:1}}},
             d=>d.Player.ListInventories[0].Inventory[item].Amount=0,
             d=>d.Player.ListInventories[0].Inventory[item].Marker='ItemMarker_Favorite'
-          ]){const d=doc();d.Opaque={};mut(d);const [w,r]=open('both',d);deny(()=>preview(w,r,82));w.close();w.free();}
+          ]){const d=doc();d.Opaque={};mut(d);const [w,r]=open('both',d);deny(()=>preview(w,r,82),'current-shape-'+caseIndex++);w.close();w.free();}
           {const d=doc(),[w,r]=open('both',d,sw);deny(()=>preview(w,r,82));w.close();w.free();}
-          console.log('ACT1114_COMP03_GENERATED '+pos+'POS '+neg+'NEG PASS');assert.equal(pos,2);assert.equal(neg,45);
+          console.log('ACT1114_COMP03_GENERATED '+pos+'POS '+neg+'NEG RED='+JSON.stringify(red));assert.equal(pos,2);assert.deepEqual(red,[]);assert.equal(neg,48);
           JS
