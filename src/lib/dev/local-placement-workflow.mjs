@@ -24,11 +24,11 @@ export function createLocalBackpackDevWorkflow(adapter,{trustedLocalHarness=fals
  return createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness,operation:platform==='switch'?'backpack-switch':'backpack-steam'});
 }
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation}={}){
- if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch'].includes(operation)||!adapter)fail();
+ if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03'].includes(operation)||!adapter)fail();
  const backpack=operation==='backpack-steam'||operation==='backpack-switch',wardrobe=operation==='wardrobe-steam'||operation==='wardrobe-switch';
  const previewMethod=wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
  for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
- const comp=operation==='comp03',count=wardrobe?1:comp?9:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
+ const comp=operation==='comp03',sr03=operation==='sr03',count=wardrobe?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
  const set=p=>{state={...state,...p};return snapshot()};
@@ -63,7 +63,7 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
   backup=Object.freeze({name:r.backupName,sha:source.sha,size:source.size});return set({phase:'ready',backupName:backup.name});
  });
  const preview=selector=>run(['ready','previewed'],async check=>{
-  if(!backup||!(wardrobe?selector===undefined:backpack?backpackSelector(selector):comp?exact(selector,'seedId')&&positive(selector.seedId):exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
+  if(!backup||!(wardrobe?selector===undefined:backpack?backpackSelector(selector):comp?exact(selector,'seedId')&&positive(selector.seedId):sr03?exact(selector,'gridId,retainedId,movedId')&&positive(selector.gridId)&&positive(selector.retainedId)&&positive(selector.movedId)&&selector.retainedId!==selector.movedId:exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
   const r=await (wardrobe?adapter[previewMethod]():adapter[previewMethod]({...selector}));check();
   if(wardrobe){
    if(!exact(r,'slot,oldItemId,newItemId,exactFieldChangedCount,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized')||r.slot!==0||r.oldItemId!==50000352||r.newItemId!==50000214||r.exactFieldChangedCount!==1||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();
@@ -75,10 +75,10 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
    return set({phase:'previewed',preview:Object.freeze({...r})});
   }
   const common='itemId,gridId,nextObjectId,oldAmount,newAmount,exactFieldChangedCount,scopedCandidate,writerAuthorized,editedCopyAuthorized';
-  if(!exact(r,common+(comp?',seedId,inventoryDelta,retainSeed,addObjects':',inventoryId,x,y,orientation,inventoryDelta,addObjects'))||
-   r.itemId!==(comp?40100038:40000066)||!positive(r.gridId)||!positive(r.nextObjectId)||!positive(r.oldAmount)||!uint(r.newAmount)||r.exactFieldChangedCount!==count||
+  if(!exact(r,common+(comp?',seedId,inventoryDelta,retainSeed,addObjects':sr03?',retainedId,movedId,inventoryDelta,addObjects':',inventoryId,x,y,orientation,inventoryDelta,addObjects'))||
+   r.itemId!==(comp?40100038:sr03?40100068:40000066)||!positive(r.gridId)||!positive(r.nextObjectId)||!positive(r.oldAmount)||!uint(r.newAmount)||r.exactFieldChangedCount!==count||
    r.scopedCandidate!==true||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||
-   !(comp?r.seedId===selector.seedId&&r.oldAmount===r.newAmount&&r.inventoryDelta===0&&r.retainSeed===1&&r.addObjects===8:
+   !(comp?r.seedId===selector.seedId&&r.oldAmount===r.newAmount&&r.inventoryDelta===0&&r.retainSeed===1&&r.addObjects===8:sr03?r.gridId===selector.gridId&&r.retainedId===selector.retainedId&&r.movedId===selector.movedId&&r.oldAmount>=3&&r.newAmount===r.oldAmount-3&&r.inventoryDelta===-3&&r.addObjects===3&&r.nextObjectId>Math.max(r.retainedId,r.movedId)&&r.nextObjectId<=0xfffffffd:
     r.gridId===selector.gridId&&r.x===selector.x&&r.y===selector.y&&r.inventoryId===0&&r.orientation==='GridOrientation_Up'&&r.oldAmount===r.newAmount+1&&r.inventoryDelta===-1&&r.addObjects===1))fail();
   return set({phase:'previewed',preview:Object.freeze({...r})});
  });
