@@ -164,3 +164,21 @@ export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFact
 export type ScopedAppearancePreview=Readonly<{old:number;new:number;exactFieldChangedCount:1;writerAuthorized:false;editedCopyAuthorized:false;originalOverwriteAuthorized:false}&({activeMale:boolean}|{characterId:10000053})>;
 export type ScopedAppearanceSourceOwner=ProductWasmReadOwner&Readonly<{previewScopedAppearance():ScopedAppearancePreview;stageScopedAppearance():Readonly<ScopedAppearancePreview&{applied:true}>;toggleScopedAppearance(redo:boolean):Readonly<ScopedAppearancePreview&{applied:boolean}>;takeScopedAppearanceOutput():Promise<Readonly<{decodedBytes:Uint8Array;decodedSha256:string}>>}>;
 export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{appearanceScope:'hair'|'skin';placementScope?:null;backpackScope?:null;wardrobeScope?:null;allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;allowSwitch626Catalog0Source?:false}):ScopedAppearanceSourceOwner;
+
+export type ScopedEyeColor2Preview=Readonly<{
+ eyeballItemId:70000010;field:'ColorIndex2';oldColorIndex:64;newColorIndex:69;
+ exactFieldChangedCount:1;inventoryDelta:0;
+ writerAuthorized:false;editedCopyAuthorized:false;originalOverwriteAuthorized:false;productReadAccepted:false;
+}>;
+export type ScopedEyeColor2SourceOwner=ProductWasmReadOwner&Readonly<{
+ previewScopedAppearance():ScopedEyeColor2Preview;
+ stageScopedAppearance():Readonly<ScopedEyeColor2Preview&{applied:true}>;
+ toggleScopedAppearance(redo:boolean):Readonly<ScopedEyeColor2Preview&{applied:boolean}>;
+ takeScopedAppearanceOutput():Promise<Readonly<{decodedBytes:Uint8Array;decodedSha256:string}>>;
+}>;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{
+ appearanceScope:'eyecolor2';placementScope?:null;backpackScope?:null;wardrobeScope?:null;
+ allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;
+ allowSwitch626Catalog0Source?:false;allowScopedAmountSource?:false;
+ allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false
+}):ScopedEyeColor2SourceOwner;
