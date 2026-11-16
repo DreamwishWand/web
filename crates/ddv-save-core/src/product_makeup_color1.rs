@@ -193,4 +193,95 @@ mod tests{
    let s=open(&d);assert!(s.prepare_fixed_makeup_color1(env(&s,WorkerAction::ReadDomain)).is_err(),"negative {i}");
   }
  }
+
+ #[test]
+ fn qa1548_makeup_real_shape_typed_cas_and_opaque(){
+  let mut d=doc();
+  d["World"]["OpaqueForRegression"]=json!({"unknown":["x",true,17],"null":null});
+  d["Player"]["MaleAvatar"]["Makeup"]["1"]["KeepOpaque"]=json!({"nested":[2,99]});
+  let original=serde_json::to_vec(&d).unwrap();
+  let s=open(&d);
+  let read=env(&s,WorkerAction::ReadDomain);
+  let t=s.prepare_fixed_makeup_color1(read).unwrap();
+  assert_eq!(d["Player"]["FemaleAvatar"]["Makeup"]["1"]["MakeupItemID"],json!(140100011));
+  assert_eq!(d["Player"]["MaleAvatar"]["Makeup"]["1"]["MakeupItemID"],json!(140100014));
+  for avatar in ["MaleAvatar","FemaleAvatar"]{
+   assert_eq!(d["Player"][avatar]["Makeup"]["1"]["ColorIndex2"],json!(0));
+   assert_eq!(d["Player"][avatar]["Makeup"]["1"]["ColorIndex3"],json!(0));
+  }
+  assert_eq!(&s.decoded[t.span.begin..t.span.end],b"53");
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..read};
+  let mut neg=0usize;
+  macro_rules! deny {($ex:expr)=>{{assert!(($ex).is_err());neg+=1;}};}
+  for witness in 0..6{
+   let mut forged=s.prepare_fixed_makeup_color1(read).unwrap();
+   match witness {
+    0=>forged.token_sha="0".repeat(64),
+    1=>forged.female_sha="0".repeat(64),
+    2=>forged.male_sha="0".repeat(64),
+    3=>forged.entry_sha="0".repeat(64),
+    4=>forged.routes_sha="0".repeat(64),
+    _=>forged.projected[0]^=1
+   }
+   deny!(s.stage_fixed_makeup_color1(stage,&forged));
+  }
+  deny!(s.stage_fixed_makeup_color1(read,&t));
+  deny!(s.stage_fixed_makeup_color1(WorkerEnvelope{expected_revision:1,..stage},&t));
+  deny!(s.stage_fixed_makeup_color1(WorkerEnvelope{expected_index_generation:2,..stage},&t));
+  deny!(s.stage_fixed_makeup_color1(WorkerEnvelope{expected_decoded_sha256:[0;32],..stage},&t));
+  let other=open(&d);
+  deny!(other.stage_fixed_makeup_color1(env(&other,WorkerAction::Stage),&t));
+  for i in 0..8{
+   let mut bad=d.clone();
+   match i{
+    0=>bad["Player"]["FemaleAvatar"]["Makeup"]["1"]["MakeupItemID"]=json!(140100014),
+    1=>bad["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex2"]=json!(-1),
+    2=>bad["Player"]["FemaleAvatar"]["Makeup"]["1"]["ColorIndex3"]=json!(-1),
+    3=>bad["Player"]["FemaleAvatar"]["Makeup"]["1"]["ColorIndex1"]=json!(59),
+    4=>bad["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"]=json!(52),
+    5=>bad["Player"]["ListInventories"]["3"]["Inventory"]["140100011"]["Amount"]=json!(0),
+    6=>bad["Player"]["ListInventories"]["3"]["Inventory"]["140100014"]["Marker"]=json!("ItemMarker_Unknown"),
+    _=>bad["Player"]["AvatarIsMale"]=json!(false)
+   }
+   let bs=open(&bad);
+   deny!(bs.prepare_fixed_makeup_color1(env(&bs,WorkerAction::ReadDomain)));
+  }
+  let receipt=s.stage_fixed_makeup_color1(stage,&t).unwrap();
+  assert_eq!((receipt.operation_count,receipt.exact_field_changed_count),(1,1));
+  assert!(!receipt.product_writer_authorized&&!receipt.original_overwrite_authorized);
+  deny!(s.stage_fixed_makeup_color1(stage,&t));
+  s.undo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+  deny!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)));
+  s.redo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+  let export=env(&s,WorkerAction::ExportEditedCopy);
+  let edited=s.take_typed_semantic_decoded_once(export).unwrap();
+  deny!(s.take_typed_semantic_decoded_once(export));
+  let mut expected=d.clone();
+  expected["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"]=json!(60);
+  assert_eq!(edited,serde_json::to_vec(&expected).unwrap());
+  assert_eq!(serde_json::to_vec(&d).unwrap(),original);
+  assert_eq!(sha(&edited),hex(&receipt.staged_decoded_sha256));
+  std::fs::write("/tmp/qrc1548-makeup-real-shape-original.json",&original).unwrap();
+  std::fs::write("/tmp/qrc1548-makeup-real-shape-edited.json",&edited).unwrap();
+  println!("QRC1548_MAKEUP_REAL_SHAPE_ACTUAL_PASS 1POS {}NEG EXACT1 DISTINCT_FEMALE_ITEM140100011 SAVED_CHANNELS0_0 OPAQUE_AND_ORIGINAL_UNCHANGED",neg);
+ }
+ #[test]
+ #[ignore="QA-only external Cargo test process decoded Reopen, not genuine encrypted P1G V2"]
+ fn qa1548_makeup_real_shape_child_process_reopen(){
+  let raw=std::fs::read("/tmp/qrc1548-makeup-real-shape-original.json").unwrap();
+  let edited=std::fs::read("/tmp/qrc1548-makeup-real-shape-edited.json").unwrap();
+  let old:Value=serde_json::from_slice(&raw).unwrap();
+  let new:Value=serde_json::from_slice(&edited).unwrap();
+  assert_eq!(old["Player"]["FemaleAvatar"]["Makeup"]["1"]["MakeupItemID"],json!(140100011));
+  assert_eq!(new["Player"]["FemaleAvatar"]["Makeup"],old["Player"]["FemaleAvatar"]["Makeup"]);
+  assert_eq!(old["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"],json!(53));
+  assert_eq!(new["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"],json!(60));
+  assert_eq!(old["World"],new["World"]);
+  assert_eq!(old["Player"]["ListInventories"],new["Player"]["ListInventories"]);
+  assert_ne!(sha(&raw),sha(&edited));
+  let fresh=open(&new);
+  assert_eq!(fresh.receipt().unwrap().schema,626);
+  assert!(fresh.prepare_fixed_makeup_color1(env(&fresh,WorkerAction::ReadDomain)).is_err(),"new value consumed, stale old63 cannot re-stage");
+  println!("QRC1548_MAKEUP_REAL_SHAPE_CHILD_REOPEN_PASS schema626 exact1");
+ }
 }

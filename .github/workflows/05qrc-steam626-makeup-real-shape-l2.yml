@@ -1,0 +1,42 @@
+name: 05 QR-C Steam626 Makeup corrected real-shape L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-steam626-makeup-real-shape-l2.yml'
+      - 'crates/ddv-save-core/src/product_makeup_color1.rs'
+permissions:
+  contents: read
+jobs:
+  qrc1548-steam-makeup-real-shape:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrc1548-cargo-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Check fixed corrected Source preimage and exactly2 QA paths
+        run: |
+          set -euo pipefail
+          git cat-file -e 9381034fe55f1207fc46c11a385959bc335f68ca^{commit}
+          test "$(git merge-base 9381034fe55f1207fc46c11a385959bc335f68ca HEAD)" = 9381034fe55f1207fc46c11a385959bc335f68ca
+          git diff --name-only 9381034fe55f1207fc46c11a385959bc335f68ca HEAD | LC_ALL=C sort >/tmp/qrc1548-current
+          printf '%s\n' '.github/workflows/05qrc-steam626-makeup-real-shape-l2.yml' 'crates/ddv-save-core/src/product_makeup_color1.rs' | LC_ALL=C sort >/tmp/qrc1548-expected
+          diff -u /tmp/qrc1548-expected /tmp/qrc1548-current
+          git diff --exit-code 9381034fe55f1207fc46c11a385959bc335f68ca HEAD -- crates/ddv-save-core/Cargo.toml crates/ddv-save-core/src/semantic_writer.rs crates/ddv-save-core/src/wasm_worker.rs crates/ddv-save-core/src/worker_session.rs
+          echo QRC1548_FIXED_CORRECTED_SOURCE_QA_ONLY_BOUNDARY_PASS
+      - name: Refute affected real-input shape with typed CAS, original and child Reopen
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock >/tmp/qrc1548-lock.sha
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib qa1548_makeup_real_shape_typed_cas_and_opaque -- --nocapture
+          test -s /tmp/qrc1548-makeup-real-shape-original.json
+          test -s /tmp/qrc1548-makeup-real-shape-edited.json
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib qa1548_makeup_real_shape_child_process_reopen -- --ignored --nocapture
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,semantic-writer-dev
+          sha256sum -c /tmp/qrc1548-lock.sha
