@@ -15,6 +15,46 @@ on:
         type: string
         required: false
         default: ''
+      scoped_steam_chest_proof_source:
+        description: 'Exact accepted protected-main SHA for proof-only Steam626 Chest (exclusive with Collection and Switch Chest)'
+        type: string
+        required: false
+        default: ''
+      scoped_sr03_proof_source:
+        description: 'Exact accepted protected-main SHA for proof-only Steam626 SR03 (exclusive)'
+        type: string
+        required: false
+        default: ''
+      scoped_comp03_spatial_proof_source:
+        description: 'Exact accepted protected-main SHA for proof-only Steam626 COMP03 Spatial (exclusive)'
+        type: string
+        required: false
+        default: ''
+      scoped_rm01_proof_source:
+        description: 'Exact accepted protected-main SHA for proof-only Switch626 RM01 (exclusive)'
+        type: string
+        required: false
+        default: ''
+      scoped_hair_proof_source:
+        description: 'Exact accepted protected-main SHA for proof-only Steam626 Hair (exclusive)'
+        type: string
+        required: false
+        default: ''
+      scoped_skin_proof_source:
+        description: 'Exact accepted protected-main SHA for proof-only Steam626 Skin (exclusive)'
+        type: string
+        required: false
+        default: ''
+      scoped_switch_hair_proof_source:
+        description: 'Exact accepted protected-main SHA for proof-only Switch626 Hair (exclusive)'
+        type: string
+        required: false
+        default: ''
+      scoped_switch_skin_proof_source:
+        description: 'Exact accepted protected-main SHA for proof-only Switch626 Skin (exclusive)'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -28,7 +68,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name != 'workflow_dispatch' || (inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '')
+    if: github.event_name != 'workflow_dispatch' || (inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && inputs.scoped_switch_hair_proof_source == '' && inputs.scoped_switch_skin_proof_source == '')
     runs-on: ubuntu-latest
     env:
       # Owner 2026-11-11 explicitly authorized only these 3 inert assets.
@@ -296,7 +336,7 @@ jobs:
   # Explicit protected proof-only dispatch. No normal Pages build/deploy, no
   # public scoped files, no generated anchor, no executable artifact upload.
   scoped_collection_proof:
-    if: github.event_name == 'workflow_dispatch' && inputs.scoped_collection_proof_source != '' && inputs.scoped_switch_chest_proof_source == '' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_collection_proof_source != '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && inputs.scoped_switch_hair_proof_source == '' && inputs.scoped_switch_skin_proof_source == '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WAND_SOURCE_HEAD: ${{ github.sha }}
@@ -327,9 +367,9 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = ca1ef1772b53ff535618fc8263cd647f757f3dad
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 1f61f3058f31b35e6db9cf424d4147fcde9c3905
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-collection-candidate.mjs)" = 0f8d9d8e00ea8531e7bac51a0b2c62afbd468292
-          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-collection-private.mjs)" = 4faaa553470b0f491fc611bd8e5c1590255cb1e4
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-collection-private.mjs)" = f4eae0a1c49ba66790a4a12719c6f7b0c21a6b52
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-collection-release-anchor.mjs)" = fd4368ece7d36d39382cb9b21bfef8ad3da267b8
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-collection-release.mjs)" = c0a5cd7afe68269de4c48a479a1ec685cbb4dc12
@@ -401,7 +441,7 @@ jobs:
           if-no-files-found: error
 
   scoped_switch_chest_proof:
-    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && inputs.scoped_switch_hair_proof_source == '' && inputs.scoped_switch_skin_proof_source == '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WAND_SOURCE_HEAD: ${{ github.sha }}
@@ -432,9 +472,9 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = aceda9d906c3137d717824a3079e84165ab5f62e
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 1f61f3058f31b35e6db9cf424d4147fcde9c3905
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs)" = 1cec59930562e9b6918490e54761808d3819c434
-          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-switch-chest-private.mjs)" = bf6daf8f8096eb69a34dbf6e80d67d8e31bc95b0
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-switch-chest-private.mjs)" = 6c8dfc4afea309eac4af94da778b01dde43b3f1c
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-switch-chest-release-anchor.mjs)" = 374064f2da8a5681134aeb555166ebe00fce0704
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-switch-chest-release.mjs)" = 7dc69bc0765d6a08e888b99bd976c60c7b9723ce
@@ -444,11 +484,11 @@ jobs:
           test "$(git rev-parse HEAD:src/routes/editor/chest/+page.svelte)" = 1576744c5b11d189e6e82a4edd93fde6e7cf3bea
           test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = da627ecd86d4435c026e611b241aa489d8259dac
           test "$(git rev-parse HEAD:src/lib/dev/local-amount-copy.mjs)" = 9631b4ee40f47432a2a26a6df386b0db9353b09d
-          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = bbac7640c061740bfd4bb6388d1e33ee2c88fbe7
-          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = c266d64d63b3480f14459f5323ef53e58dcb70af
-          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 1ac9e68b29b64bc68877855e3df089a9ea6585b7
-          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 8d2d1da0be2f356cbf0159277685f1683ac84ec4
-          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = a22209de4e59c220f1c854496e170c0450630e7b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 07cd8699fe0fe36d1de1899dbfa628e6da7201f3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = aeb374fa055d40daa097625e9e19703f16332fe5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 5c5ae6888a99400b30ea2bfe3deb0f16fc9426b7
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = 1d5eacaabfb27a244a68c6a07cd22feba7eb57c2
           test "$(git rev-parse HEAD:src/lib/dev/local-amount-workflow.mjs)" = 54a5dc90fb0b82ec51f1716089d4fd607eecceb9
           test "$(git rev-parse HEAD:src/lib/dev/local-amount-worker-adapter.mjs)" = 7e2a6fc8250cd5d6ca5cceb0f95e83e06d2d4bd6
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
@@ -514,4 +554,1055 @@ jobs:
           path: |
             ${{ runner.temp }}/wand-switch-chest-proof/pins.json
             ${{ runner.temp }}/wand-switch-chest-proof/attestation-bundle.jsonl
+          if-no-files-found: error
+
+  scoped_steam_chest_proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && inputs.scoped_switch_hair_proof_source == '' && inputs.scoped_switch_skin_proof_source == '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_steam_chest_proof_source }}
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
+      WAND_RELEASE_BASE_PATH: /web
+      WAND_CANDIDATE_BASE_PATH: /web
+      WAND_SCOPED_CORE_DIR: ${{ github.workspace }}
+      CARGO_TARGET_DIR: /tmp/wand-scoped-steam-chest-proof-rust
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-steam-chest-proof-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected source in separate proof-only job
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact accepted source and immutable scoped proof inputs
+        run: |
+          set -euo pipefail
+          [[ "$WAND_PROOF_EXPECTED_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 1f61f3058f31b35e6db9cf424d4147fcde9c3905
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs)" = fa2f389989bc76d58e6b941867201d3ececa433a
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-steam-chest-private.mjs)" = f0d27044af7edcbd9e614f23a90da1e9deb4a023
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-steam-chest-release-anchor.mjs)" = d31894accdbfd977953aeedd4055aa027a0f0cb8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-steam-chest-release.mjs)" = 2ae152ac9f2d7dc671fdfa0ac9c58a4a276a2566
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/lib/dev/product-steam-chest-client.mjs)" = a4534f259a4c6730640d4fa56f38a13580415719
+          test "$(git rev-parse HEAD:src/lib/dev/product-steam-chest.worker.mjs)" = d801ded148ad1ce00bc02861da4088636e5ebe86
+          test "$(git rev-parse HEAD:src/routes/editor/chest/steam/+page.svelte)" = 927d2776e6091d50b54e7e7e92c3e173b64b4ec7
+          test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = da627ecd86d4435c026e611b241aa489d8259dac
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-copy.mjs)" = 9631b4ee40f47432a2a26a6df386b0db9353b09d
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 07cd8699fe0fe36d1de1899dbfa628e6da7201f3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = aeb374fa055d40daa097625e9e19703f16332fe5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 5c5ae6888a99400b30ea2bfe3deb0f16fc9426b7
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = 1d5eacaabfb27a244a68c6a07cd22feba7eb57c2
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-workflow.mjs)" = 54a5dc90fb0b82ec51f1716089d4fd607eecceb9
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-worker-adapter.mjs)" = 7e2a6fc8250cd5d6ca5cceb0f95e83e06d2d4bd6
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs)" = d5b167f35b10ecc5b16d40e84e9d9bb324288539
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = ae87d22809efac298c52f5c513387b9fc1386458
+          test -z "$(git ls-files static/worker-wasm-scoped-steam-chest)"
+          test ! -e static/worker-wasm-scoped-steam-chest
+          test ! -e build/worker-wasm-scoped-steam-chest
+      - name: Require exact successful protected-main CI before proof build
+        id: scoped_ci
+        run: node scripts/int-protected-ci-gate.mjs build
+      - name: Fixed approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify unchanged R22 approved inputs and generate scoped proof subjects
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-chest-scoped,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-steam-chest-proof-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs
+          test "$(find tests/wasm-distribution/fixtures/scoped-steam-chest -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-scoped-steam-chest
+          test ! -e build/worker-wasm-scoped-steam-chest
+      - name: Revalidate exact predecessor and live main immediately before signing
+        env:
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/int-protected-ci-gate.mjs deploy
+      - name: Attest only three scoped proof subjects with existing Pages issuer
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/scoped-steam-chest/ddv_save_core.js
+            tests/wasm-distribution/fixtures/scoped-steam-chest/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/scoped-steam-chest/manifest.json
+      - name: Verify exact signer and subject bytes; stage only bundle and pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SCOPED_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-steam-chest-proof"
+          node scripts/readonly-release/seal-scoped-steam-chest-private.mjs verify-protected-candidate "$GITHUB_SHA" tests/wasm-distribution/fixtures/scoped-steam-chest "$WAND_SCOPED_BUNDLE" > "$RUNNER_TEMP/wand-steam-chest-verified.txt"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const p=JSON.parse(fs.readFileSync("tests/wasm-distribution/fixtures/scoped-steam-chest-pins.json","utf8")); const prefix="SCOPED_STEAM_CHEST_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-steam-chest-verified.txt","utf8").trim().split("\n").filter(l=>l.startsWith(prefix)); assert.equal(lines.length,1); assert.deepEqual(JSON.parse(lines[0].slice(prefix.length)),p); assert.equal(p.sourceHead,process.env.GITHUB_SHA); fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-steam-chest-proof/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_SCOPED_BUNDLE" "$RUNNER_TEMP/wand-steam-chest-proof/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-steam-chest-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-scoped-steam-chest
+          test ! -e build/worker-wasm-scoped-steam-chest
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-steam-chest-release-anchor.mjs)"
+          node scripts/int-protected-ci-gate.mjs deploy
+      - name: Upload proof metadata only (never executable subjects)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoped-steam-chest-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-steam-chest-proof/pins.json
+            ${{ runner.temp }}/wand-steam-chest-proof/attestation-bundle.jsonl
+          if-no-files-found: error
+
+  scoped_sr03_proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_sr03_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && inputs.scoped_switch_hair_proof_source == '' && inputs.scoped_switch_skin_proof_source == '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_sr03_proof_source }}
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
+      WAND_RELEASE_BASE_PATH: /web
+      WAND_CANDIDATE_BASE_PATH: /web
+      WAND_SCOPED_CORE_DIR: ${{ github.workspace }}
+      CARGO_TARGET_DIR: /tmp/wand-scoped-steam626-sr03-proof-rust
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-steam626-sr03-proof-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected source in separate proof-only job
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact accepted source and immutable scoped proof inputs
+        run: |
+          set -euo pipefail
+          [[ "$WAND_PROOF_EXPECTED_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 1f61f3058f31b35e6db9cf424d4147fcde9c3905
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 0e54f4da3b1f14c18f63b6c199c59077eae97f73
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = ab28078abde5bfc36cfad3265d3702ad5f009920
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 007126c97e1d0e8a6b792bb3057eb3a1ac753c20
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = d288ce39e27bfc9f37b0881ac1b626ab9f58ab58
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs)" = 66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)" = 8bf869bf71546c467194483955e256cbe104c312
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = 7969122897ebc81bb249dda14d578038a9ffe9e2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)" = f3f12518965dde92617962b5505b8212f4e04980
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs)" = d5b167f35b10ecc5b16d40e84e9d9bb324288539
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-transport.mjs)" = 182ecd723a5a82683cccf79e1349ecf41e6ae7a7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 07cd8699fe0fe36d1de1899dbfa628e6da7201f3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = aeb374fa055d40daa097625e9e19703f16332fe5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 5c5ae6888a99400b30ea2bfe3deb0f16fc9426b7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = ae87d22809efac298c52f5c513387b9fc1386458
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = bc84ec93bd89d233e51de75ac7494c37003f9548
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = 5eee1c61131992b2866508a735a34233f5c8c101
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-copy.mjs)" = e559b0cc4ad8d12d1617a54072822d696761ae5e
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = da3ca763b93c8979d90410f755971eea1a4f289b
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 79b5f2400858f559f69f64039c0545310afe2e6a
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = cbbb2839705b192b15505169787739b21b9190c5
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = 1d5eacaabfb27a244a68c6a07cd22feba7eb57c2
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/dev/product-sr03.worker.mjs)" = bbd7e3fd06b51c26fb3a7011a4e06f8f7337b676
+          test "$(git rev-parse HEAD:src/lib/wep/Comp03ReferencePattern.svelte)" = af6861ca808e7e44ab3e419c146a36090d63fb7f
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-consumer.mjs)" = e5a169a29588f735f4fcffde40078a3a6e9e3a82
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-copy.mjs)" = 21abcdb2d51e4f881db1c9e026bd15456ec83f5e
+          test "$(git rev-parse HEAD:src/routes/editor/world/sr03/+page.svelte)" = 1b3d0f9773f43f3c6f0651db543804adfdf2436a
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs)" = 3dbd5b6bd2268a3a42589364fa06ab09da84565b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs)" = 027f988f22e3e33ee1d61c600a09a268581d7d40
+          test -z "$(git ls-files static/worker-wasm-scoped-steam626-sr03)"
+          test ! -e static/worker-wasm-scoped-steam626-sr03
+          test ! -e build/worker-wasm-scoped-steam626-sr03
+      - name: Require exact successful protected-main CI before proof build
+        id: scoped_ci
+        run: node scripts/int-protected-ci-gate.mjs build
+      - name: Fixed approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify unchanged R22 approved inputs and generate scoped proof subjects
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-sr03-scoped,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-steam626-sr03-proof-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/scoped-placement-proof.mjs build steam626-sr03 "$GITHUB_SHA"
+          test "$(find tests/wasm-distribution/fixtures/scoped-steam626-sr03 -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-scoped-steam626-sr03
+          test ! -e build/worker-wasm-scoped-steam626-sr03
+      - name: Revalidate exact predecessor and live main immediately before signing
+        env:
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/int-protected-ci-gate.mjs deploy
+      - name: Attest only three scoped proof subjects with existing Pages issuer
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/scoped-steam626-sr03/ddv_save_core.js
+            tests/wasm-distribution/fixtures/scoped-steam626-sr03/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/scoped-steam626-sr03/manifest.json
+      - name: Verify exact signer and subject bytes; stage only bundle and pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SCOPED_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-steam626-sr03-proof"
+          node scripts/readonly-release/scoped-placement-proof.mjs verify-protected-candidate steam626-sr03 "$GITHUB_SHA" tests/wasm-distribution/fixtures/scoped-steam626-sr03 "$WAND_SCOPED_BUNDLE" > "$RUNNER_TEMP/wand-steam626-sr03-verified.txt"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const p=JSON.parse(fs.readFileSync("tests/wasm-distribution/fixtures/scoped-steam626-sr03-pins.json","utf8")); const prefix="SCOPED_PLACEMENT_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-steam626-sr03-verified.txt","utf8").trim().split("\n").filter(l=>l.startsWith(prefix)); assert.equal(lines.length,1); assert.deepEqual(JSON.parse(lines[0].slice(prefix.length)),p); assert.equal(p.sourceHead,process.env.GITHUB_SHA); fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-steam626-sr03-proof/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_SCOPED_BUNDLE" "$RUNNER_TEMP/wand-steam626-sr03-proof/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-steam626-sr03-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-scoped-steam626-sr03
+          test ! -e build/worker-wasm-scoped-steam626-sr03
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs)"
+          node scripts/int-protected-ci-gate.mjs deploy
+      - name: Upload proof metadata only (never executable subjects)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoped-steam626-sr03-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-steam626-sr03-proof/pins.json
+            ${{ runner.temp }}/wand-steam626-sr03-proof/attestation-bundle.jsonl
+          if-no-files-found: error
+
+  scoped_comp03_spatial_proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_comp03_spatial_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && inputs.scoped_switch_hair_proof_source == '' && inputs.scoped_switch_skin_proof_source == '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_comp03_spatial_proof_source }}
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
+      WAND_RELEASE_BASE_PATH: /web
+      WAND_CANDIDATE_BASE_PATH: /web
+      WAND_SCOPED_CORE_DIR: ${{ github.workspace }}
+      CARGO_TARGET_DIR: /tmp/wand-scoped-steam626-comp03-spatial-proof-rust
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-steam626-comp03-spatial-proof-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected source in separate proof-only job
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact accepted source and immutable scoped proof inputs
+        run: |
+          set -euo pipefail
+          [[ "$WAND_PROOF_EXPECTED_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 1f61f3058f31b35e6db9cf424d4147fcde9c3905
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 007126c97e1d0e8a6b792bb3057eb3a1ac753c20
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = d288ce39e27bfc9f37b0881ac1b626ab9f58ab58
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)" = 8bf869bf71546c467194483955e256cbe104c312
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs)" = 3dbd5b6bd2268a3a42589364fa06ab09da84565b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = 7969122897ebc81bb249dda14d578038a9ffe9e2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)" = f3f12518965dde92617962b5505b8212f4e04980
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs)" = d5b167f35b10ecc5b16d40e84e9d9bb324288539
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-transport.mjs)" = 182ecd723a5a82683cccf79e1349ecf41e6ae7a7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 07cd8699fe0fe36d1de1899dbfa628e6da7201f3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = aeb374fa055d40daa097625e9e19703f16332fe5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 5c5ae6888a99400b30ea2bfe3deb0f16fc9426b7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = ae87d22809efac298c52f5c513387b9fc1386458
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = bc84ec93bd89d233e51de75ac7494c37003f9548
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = 5eee1c61131992b2866508a735a34233f5c8c101
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-copy.mjs)" = e559b0cc4ad8d12d1617a54072822d696761ae5e
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = da3ca763b93c8979d90410f755971eea1a4f289b
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 79b5f2400858f559f69f64039c0545310afe2e6a
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = cbbb2839705b192b15505169787739b21b9190c5
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = 1d5eacaabfb27a244a68c6a07cd22feba7eb57c2
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/dev/comp03-product-route-port.mjs)" = 6f3c3fe4c01c1ed0bcc196f20af015929fe4ab6f
+          test "$(git rev-parse HEAD:src/lib/dev/product-comp03.worker.mjs)" = 6c6822b86bf0c2f676256121eeb6cf5a412e4f7e
+          test "$(git rev-parse HEAD:src/lib/dev/product-comp03-spatial.worker.mjs)" = 5f905509d1b1de216bf6e780da68d3c6358c1cab
+          test "$(git rev-parse HEAD:src/lib/wep/Comp03ReferencePattern.svelte)" = af6861ca808e7e44ab3e419c146a36090d63fb7f
+          test "$(git rev-parse HEAD:src/lib/wep/comp03-spatial-preview.ts)" = c147c8d84ad9f0b9ca240208bd3679418fe133a0
+          test "$(git rev-parse HEAD:src/routes/editor/world/comp03/+page.svelte)" = 90191a132481a5b38fc6554012b633f06d2f9d34
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 0e54f4da3b1f14c18f63b6c199c59077eae97f73
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = ab28078abde5bfc36cfad3265d3702ad5f009920
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs)" = 66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs)" = 027f988f22e3e33ee1d61c600a09a268581d7d40
+          test -z "$(git ls-files static/worker-wasm-scoped-steam626-comp03-spatial)"
+          test ! -e static/worker-wasm-scoped-steam626-comp03-spatial
+          test ! -e build/worker-wasm-scoped-steam626-comp03-spatial
+      - name: Require exact successful protected-main CI before proof build
+        id: scoped_ci
+        run: node scripts/int-protected-ci-gate.mjs build
+      - name: Fixed approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify unchanged R22 approved inputs and generate scoped proof subjects
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-comp03-spatial-preview,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-steam626-comp03-spatial-proof-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/scoped-placement-proof.mjs build steam626-comp03-spatial "$GITHUB_SHA"
+          test "$(find tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-scoped-steam626-comp03-spatial
+          test ! -e build/worker-wasm-scoped-steam626-comp03-spatial
+      - name: Revalidate exact predecessor and live main immediately before signing
+        env:
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/int-protected-ci-gate.mjs deploy
+      - name: Attest only three scoped proof subjects with existing Pages issuer
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial/ddv_save_core.js
+            tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial/manifest.json
+      - name: Verify exact signer and subject bytes; stage only bundle and pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SCOPED_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-steam626-comp03-spatial-proof"
+          node scripts/readonly-release/scoped-placement-proof.mjs verify-protected-candidate steam626-comp03-spatial "$GITHUB_SHA" tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial "$WAND_SCOPED_BUNDLE" > "$RUNNER_TEMP/wand-steam626-comp03-spatial-verified.txt"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const p=JSON.parse(fs.readFileSync("tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial-pins.json","utf8")); const prefix="SCOPED_PLACEMENT_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-steam626-comp03-spatial-verified.txt","utf8").trim().split("\n").filter(l=>l.startsWith(prefix)); assert.equal(lines.length,1); assert.deepEqual(JSON.parse(lines[0].slice(prefix.length)),p); assert.equal(p.sourceHead,process.env.GITHUB_SHA); fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-steam626-comp03-spatial-proof/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_SCOPED_BUNDLE" "$RUNNER_TEMP/wand-steam626-comp03-spatial-proof/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-steam626-comp03-spatial-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-scoped-steam626-comp03-spatial
+          test ! -e build/worker-wasm-scoped-steam626-comp03-spatial
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs)"
+          node scripts/int-protected-ci-gate.mjs deploy
+      - name: Upload proof metadata only (never executable subjects)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoped-steam626-comp03-spatial-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-steam626-comp03-spatial-proof/pins.json
+            ${{ runner.temp }}/wand-steam626-comp03-spatial-proof/attestation-bundle.jsonl
+          if-no-files-found: error
+
+  scoped_rm01_proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_rm01_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && inputs.scoped_switch_hair_proof_source == '' && inputs.scoped_switch_skin_proof_source == '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_rm01_proof_source }}
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
+      WAND_RELEASE_BASE_PATH: /web
+      WAND_CANDIDATE_BASE_PATH: /web
+      WAND_SCOPED_CORE_DIR: ${{ github.workspace }}
+      CARGO_TARGET_DIR: /tmp/wand-scoped-switch626-rm01-proof-rust
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-switch626-rm01-proof-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected source in separate proof-only job
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact accepted source and immutable scoped proof inputs
+        run: |
+          set -euo pipefail
+          [[ "$WAND_PROOF_EXPECTED_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 1f61f3058f31b35e6db9cf424d4147fcde9c3905
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 0e54f4da3b1f14c18f63b6c199c59077eae97f73
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = ab28078abde5bfc36cfad3265d3702ad5f009920
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 007126c97e1d0e8a6b792bb3057eb3a1ac753c20
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = d288ce39e27bfc9f37b0881ac1b626ab9f58ab58
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs)" = 027f988f22e3e33ee1d61c600a09a268581d7d40
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)" = 8bf869bf71546c467194483955e256cbe104c312
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = 7969122897ebc81bb249dda14d578038a9ffe9e2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)" = f3f12518965dde92617962b5505b8212f4e04980
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs)" = d5b167f35b10ecc5b16d40e84e9d9bb324288539
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-transport.mjs)" = 182ecd723a5a82683cccf79e1349ecf41e6ae7a7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 07cd8699fe0fe36d1de1899dbfa628e6da7201f3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = aeb374fa055d40daa097625e9e19703f16332fe5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 5c5ae6888a99400b30ea2bfe3deb0f16fc9426b7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = ae87d22809efac298c52f5c513387b9fc1386458
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = bc84ec93bd89d233e51de75ac7494c37003f9548
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = 5eee1c61131992b2866508a735a34233f5c8c101
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-copy.mjs)" = e559b0cc4ad8d12d1617a54072822d696761ae5e
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = da3ca763b93c8979d90410f755971eea1a4f289b
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 79b5f2400858f559f69f64039c0545310afe2e6a
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = cbbb2839705b192b15505169787739b21b9190c5
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = 1d5eacaabfb27a244a68c6a07cd22feba7eb57c2
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/dev/product-rm01.worker.mjs)" = fc3e58ba7fab3482dcc1908613e6b0372b95a946
+          test "$(git rev-parse HEAD:src/lib/wep/Comp03ReferencePattern.svelte)" = af6861ca808e7e44ab3e419c146a36090d63fb7f
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-consumer.mjs)" = e5a169a29588f735f4fcffde40078a3a6e9e3a82
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-copy.mjs)" = 21abcdb2d51e4f881db1c9e026bd15456ec83f5e
+          test "$(git rev-parse HEAD:src/routes/editor/world/rm01/switch/+page.svelte)" = 0d8fc064f5eb61f755505a13030c508d70c73e90
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs)" = 66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs)" = 3dbd5b6bd2268a3a42589364fa06ab09da84565b
+          test -z "$(git ls-files static/worker-wasm-scoped-switch626-rm01)"
+          test ! -e static/worker-wasm-scoped-switch626-rm01
+          test ! -e build/worker-wasm-scoped-switch626-rm01
+      - name: Require exact successful protected-main CI before proof build
+        id: scoped_ci
+        run: node scripts/int-protected-ci-gate.mjs build
+      - name: Fixed approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify unchanged R22 approved inputs and generate scoped proof subjects
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-switch626-rm01-scoped,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-switch626-rm01-proof-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/scoped-placement-proof.mjs build switch626-rm01 "$GITHUB_SHA"
+          test "$(find tests/wasm-distribution/fixtures/scoped-switch626-rm01 -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-scoped-switch626-rm01
+          test ! -e build/worker-wasm-scoped-switch626-rm01
+      - name: Revalidate exact predecessor and live main immediately before signing
+        env:
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/int-protected-ci-gate.mjs deploy
+      - name: Attest only three scoped proof subjects with existing Pages issuer
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/scoped-switch626-rm01/ddv_save_core.js
+            tests/wasm-distribution/fixtures/scoped-switch626-rm01/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/scoped-switch626-rm01/manifest.json
+      - name: Verify exact signer and subject bytes; stage only bundle and pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SCOPED_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-switch626-rm01-proof"
+          node scripts/readonly-release/scoped-placement-proof.mjs verify-protected-candidate switch626-rm01 "$GITHUB_SHA" tests/wasm-distribution/fixtures/scoped-switch626-rm01 "$WAND_SCOPED_BUNDLE" > "$RUNNER_TEMP/wand-switch626-rm01-verified.txt"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const p=JSON.parse(fs.readFileSync("tests/wasm-distribution/fixtures/scoped-switch626-rm01-pins.json","utf8")); const prefix="SCOPED_PLACEMENT_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-switch626-rm01-verified.txt","utf8").trim().split("\n").filter(l=>l.startsWith(prefix)); assert.equal(lines.length,1); assert.deepEqual(JSON.parse(lines[0].slice(prefix.length)),p); assert.equal(p.sourceHead,process.env.GITHUB_SHA); fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-switch626-rm01-proof/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_SCOPED_BUNDLE" "$RUNNER_TEMP/wand-switch626-rm01-proof/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-switch626-rm01-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-scoped-switch626-rm01
+          test ! -e build/worker-wasm-scoped-switch626-rm01
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs)"
+          node scripts/int-protected-ci-gate.mjs deploy
+      - name: Upload proof metadata only (never executable subjects)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoped-switch626-rm01-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-switch626-rm01-proof/pins.json
+            ${{ runner.temp }}/wand-switch626-rm01-proof/attestation-bundle.jsonl
+          if-no-files-found: error
+
+  scoped_hair_proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_hair_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_skin_proof_source == '' && inputs.scoped_switch_hair_proof_source == '' && inputs.scoped_switch_skin_proof_source == '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_hair_proof_source }}
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
+      WAND_RELEASE_BASE_PATH: /web
+      WAND_CANDIDATE_BASE_PATH: /web
+      WAND_SCOPED_CORE_DIR: ${{ github.workspace }}
+      CARGO_TARGET_DIR: /tmp/wand-scoped-steam626-hair-proof-rust
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-steam626-hair-proof-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected source in separate proof-only job
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact accepted source and immutable scoped proof inputs
+        run: |
+          set -euo pipefail
+          [[ "$WAND_PROOF_EXPECTED_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 1f61f3058f31b35e6db9cf424d4147fcde9c3905
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 0e54f4da3b1f14c18f63b6c199c59077eae97f73
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = ab28078abde5bfc36cfad3265d3702ad5f009920
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 007126c97e1d0e8a6b792bb3057eb3a1ac753c20
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = d288ce39e27bfc9f37b0881ac1b626ab9f58ab58
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs)" = 027f988f22e3e33ee1d61c600a09a268581d7d40
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)" = 8bf869bf71546c467194483955e256cbe104c312
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = 7969122897ebc81bb249dda14d578038a9ffe9e2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)" = f3f12518965dde92617962b5505b8212f4e04980
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs)" = d5b167f35b10ecc5b16d40e84e9d9bb324288539
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-transport.mjs)" = 182ecd723a5a82683cccf79e1349ecf41e6ae7a7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 07cd8699fe0fe36d1de1899dbfa628e6da7201f3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = aeb374fa055d40daa097625e9e19703f16332fe5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 5c5ae6888a99400b30ea2bfe3deb0f16fc9426b7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = ae87d22809efac298c52f5c513387b9fc1386458
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = bc84ec93bd89d233e51de75ac7494c37003f9548
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = 5eee1c61131992b2866508a735a34233f5c8c101
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-copy.mjs)" = e559b0cc4ad8d12d1617a54072822d696761ae5e
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = da3ca763b93c8979d90410f755971eea1a4f289b
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 79b5f2400858f559f69f64039c0545310afe2e6a
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = cbbb2839705b192b15505169787739b21b9190c5
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = 1d5eacaabfb27a244a68c6a07cd22feba7eb57c2
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/wep/Comp03ReferencePattern.svelte)" = af6861ca808e7e44ab3e419c146a36090d63fb7f
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-consumer.mjs)" = e5a169a29588f735f4fcffde40078a3a6e9e3a82
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-copy.mjs)" = 21abcdb2d51e4f881db1c9e026bd15456ec83f5e
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs)" = 66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs)" = 3dbd5b6bd2268a3a42589364fa06ab09da84565b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs)" = 6683ec803624782f9c7d90dd45e811ae633382e8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-appearance-transport.mjs)" = 3ede5a24b8c276bb11e63977ec64fc1e3ee035dc
+          test "$(git rev-parse HEAD:src/lib/dev/product-hair.worker.mjs)" = e220b20e85e397604af7fa15cc949b042236b89c
+          test "$(git rev-parse HEAD:src/routes/editor/appearance/hair/steam/+page.svelte)" = 56207e854f7f9f133eee90ffdfa2cc8020bb1c58
+          test -z "$(git ls-files static/worker-wasm-scoped-steam626-hair)"
+          test ! -e static/worker-wasm-scoped-steam626-hair
+          test ! -e build/worker-wasm-scoped-steam626-hair
+      - name: Require exact successful protected-main CI before proof build
+        id: scoped_ci
+        run: node scripts/int-protected-ci-gate.mjs build
+      - name: Fixed approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify unchanged R22 approved inputs and generate scoped proof subjects
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-hair-scoped,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-steam626-hair-proof-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/scoped-placement-proof.mjs build steam626-hair "$GITHUB_SHA"
+          test "$(find tests/wasm-distribution/fixtures/scoped-steam626-hair -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-scoped-steam626-hair
+          test ! -e build/worker-wasm-scoped-steam626-hair
+      - name: Revalidate exact predecessor and live main immediately before signing
+        env:
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/int-protected-ci-gate.mjs deploy
+      - name: Attest only three scoped proof subjects with existing Pages issuer
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/scoped-steam626-hair/ddv_save_core.js
+            tests/wasm-distribution/fixtures/scoped-steam626-hair/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/scoped-steam626-hair/manifest.json
+      - name: Verify exact signer and subject bytes; stage only bundle and pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SCOPED_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-steam626-hair-proof"
+          node scripts/readonly-release/scoped-placement-proof.mjs verify-protected-candidate steam626-hair "$GITHUB_SHA" tests/wasm-distribution/fixtures/scoped-steam626-hair "$WAND_SCOPED_BUNDLE" > "$RUNNER_TEMP/wand-steam626-hair-verified.txt"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const p=JSON.parse(fs.readFileSync("tests/wasm-distribution/fixtures/scoped-steam626-hair-pins.json","utf8")); const prefix="SCOPED_PLACEMENT_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-steam626-hair-verified.txt","utf8").trim().split("\n").filter(l=>l.startsWith(prefix)); assert.equal(lines.length,1); assert.deepEqual(JSON.parse(lines[0].slice(prefix.length)),p); assert.equal(p.sourceHead,process.env.GITHUB_SHA); fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-steam626-hair-proof/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_SCOPED_BUNDLE" "$RUNNER_TEMP/wand-steam626-hair-proof/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-steam626-hair-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-scoped-steam626-hair
+          test ! -e build/worker-wasm-scoped-steam626-hair
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs)"
+          node scripts/int-protected-ci-gate.mjs deploy
+      - name: Upload proof metadata only (never executable subjects)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoped-steam626-hair-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-steam626-hair-proof/pins.json
+            ${{ runner.temp }}/wand-steam626-hair-proof/attestation-bundle.jsonl
+          if-no-files-found: error
+
+  scoped_skin_proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_skin_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_switch_hair_proof_source == '' && inputs.scoped_switch_skin_proof_source == '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_skin_proof_source }}
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
+      WAND_RELEASE_BASE_PATH: /web
+      WAND_CANDIDATE_BASE_PATH: /web
+      WAND_SCOPED_CORE_DIR: ${{ github.workspace }}
+      CARGO_TARGET_DIR: /tmp/wand-scoped-steam626-skin-proof-rust
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-steam626-skin-proof-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected source in separate proof-only job
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact accepted source and immutable scoped proof inputs
+        run: |
+          set -euo pipefail
+          [[ "$WAND_PROOF_EXPECTED_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 1f61f3058f31b35e6db9cf424d4147fcde9c3905
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 0e54f4da3b1f14c18f63b6c199c59077eae97f73
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = ab28078abde5bfc36cfad3265d3702ad5f009920
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 007126c97e1d0e8a6b792bb3057eb3a1ac753c20
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = d288ce39e27bfc9f37b0881ac1b626ab9f58ab58
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs)" = 027f988f22e3e33ee1d61c600a09a268581d7d40
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)" = 8bf869bf71546c467194483955e256cbe104c312
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = 7969122897ebc81bb249dda14d578038a9ffe9e2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)" = f3f12518965dde92617962b5505b8212f4e04980
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs)" = d5b167f35b10ecc5b16d40e84e9d9bb324288539
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-transport.mjs)" = 182ecd723a5a82683cccf79e1349ecf41e6ae7a7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 07cd8699fe0fe36d1de1899dbfa628e6da7201f3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = aeb374fa055d40daa097625e9e19703f16332fe5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 5c5ae6888a99400b30ea2bfe3deb0f16fc9426b7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = ae87d22809efac298c52f5c513387b9fc1386458
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = bc84ec93bd89d233e51de75ac7494c37003f9548
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = 5eee1c61131992b2866508a735a34233f5c8c101
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-copy.mjs)" = e559b0cc4ad8d12d1617a54072822d696761ae5e
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = da3ca763b93c8979d90410f755971eea1a4f289b
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 79b5f2400858f559f69f64039c0545310afe2e6a
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = cbbb2839705b192b15505169787739b21b9190c5
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = 1d5eacaabfb27a244a68c6a07cd22feba7eb57c2
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/wep/Comp03ReferencePattern.svelte)" = af6861ca808e7e44ab3e419c146a36090d63fb7f
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-consumer.mjs)" = e5a169a29588f735f4fcffde40078a3a6e9e3a82
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-copy.mjs)" = 21abcdb2d51e4f881db1c9e026bd15456ec83f5e
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs)" = 66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs)" = 3dbd5b6bd2268a3a42589364fa06ab09da84565b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs)" = 6683ec803624782f9c7d90dd45e811ae633382e8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-appearance-transport.mjs)" = 3ede5a24b8c276bb11e63977ec64fc1e3ee035dc
+          test "$(git rev-parse HEAD:src/lib/dev/product-skin.worker.mjs)" = 8a448efb7b0e4883fa3149fc913d372cd644365d
+          test "$(git rev-parse HEAD:src/routes/editor/appearance/skin/steam/+page.svelte)" = 6a2efbe122602df1e89d78a915edd1618e8afa18
+          test -z "$(git ls-files static/worker-wasm-scoped-steam626-skin)"
+          test ! -e static/worker-wasm-scoped-steam626-skin
+          test ! -e build/worker-wasm-scoped-steam626-skin
+      - name: Require exact successful protected-main CI before proof build
+        id: scoped_ci
+        run: node scripts/int-protected-ci-gate.mjs build
+      - name: Fixed approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify unchanged R22 approved inputs and generate scoped proof subjects
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-skin-scoped,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-steam626-skin-proof-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/scoped-placement-proof.mjs build steam626-skin "$GITHUB_SHA"
+          test "$(find tests/wasm-distribution/fixtures/scoped-steam626-skin -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-scoped-steam626-skin
+          test ! -e build/worker-wasm-scoped-steam626-skin
+      - name: Revalidate exact predecessor and live main immediately before signing
+        env:
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/int-protected-ci-gate.mjs deploy
+      - name: Attest only three scoped proof subjects with existing Pages issuer
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/scoped-steam626-skin/ddv_save_core.js
+            tests/wasm-distribution/fixtures/scoped-steam626-skin/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/scoped-steam626-skin/manifest.json
+      - name: Verify exact signer and subject bytes; stage only bundle and pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SCOPED_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-steam626-skin-proof"
+          node scripts/readonly-release/scoped-placement-proof.mjs verify-protected-candidate steam626-skin "$GITHUB_SHA" tests/wasm-distribution/fixtures/scoped-steam626-skin "$WAND_SCOPED_BUNDLE" > "$RUNNER_TEMP/wand-steam626-skin-verified.txt"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const p=JSON.parse(fs.readFileSync("tests/wasm-distribution/fixtures/scoped-steam626-skin-pins.json","utf8")); const prefix="SCOPED_PLACEMENT_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-steam626-skin-verified.txt","utf8").trim().split("\n").filter(l=>l.startsWith(prefix)); assert.equal(lines.length,1); assert.deepEqual(JSON.parse(lines[0].slice(prefix.length)),p); assert.equal(p.sourceHead,process.env.GITHUB_SHA); fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-steam626-skin-proof/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_SCOPED_BUNDLE" "$RUNNER_TEMP/wand-steam626-skin-proof/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-steam626-skin-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-scoped-steam626-skin
+          test ! -e build/worker-wasm-scoped-steam626-skin
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs)"
+          node scripts/int-protected-ci-gate.mjs deploy
+      - name: Upload proof metadata only (never executable subjects)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoped-steam626-skin-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-steam626-skin-proof/pins.json
+            ${{ runner.temp }}/wand-steam626-skin-proof/attestation-bundle.jsonl
+          if-no-files-found: error
+
+  scoped_switch_hair_proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_hair_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && inputs.scoped_switch_skin_proof_source == '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_switch_hair_proof_source }}
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
+      WAND_RELEASE_BASE_PATH: /web
+      WAND_CANDIDATE_BASE_PATH: /web
+      WAND_SCOPED_CORE_DIR: ${{ github.workspace }}
+      CARGO_TARGET_DIR: /tmp/wand-scoped-switch626-hair-proof-rust
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-switch626-hair-proof-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected source in separate proof-only job
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact accepted source and immutable scoped proof inputs
+        run: |
+          set -euo pipefail
+          [[ "$WAND_PROOF_EXPECTED_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 1f61f3058f31b35e6db9cf424d4147fcde9c3905
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 0e54f4da3b1f14c18f63b6c199c59077eae97f73
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = ab28078abde5bfc36cfad3265d3702ad5f009920
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 007126c97e1d0e8a6b792bb3057eb3a1ac753c20
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = d288ce39e27bfc9f37b0881ac1b626ab9f58ab58
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs)" = 027f988f22e3e33ee1d61c600a09a268581d7d40
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)" = 8bf869bf71546c467194483955e256cbe104c312
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = 7969122897ebc81bb249dda14d578038a9ffe9e2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)" = f3f12518965dde92617962b5505b8212f4e04980
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs)" = d5b167f35b10ecc5b16d40e84e9d9bb324288539
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-transport.mjs)" = 182ecd723a5a82683cccf79e1349ecf41e6ae7a7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 07cd8699fe0fe36d1de1899dbfa628e6da7201f3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = aeb374fa055d40daa097625e9e19703f16332fe5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 5c5ae6888a99400b30ea2bfe3deb0f16fc9426b7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = ae87d22809efac298c52f5c513387b9fc1386458
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = bc84ec93bd89d233e51de75ac7494c37003f9548
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = 5eee1c61131992b2866508a735a34233f5c8c101
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-copy.mjs)" = e559b0cc4ad8d12d1617a54072822d696761ae5e
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = da3ca763b93c8979d90410f755971eea1a4f289b
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 79b5f2400858f559f69f64039c0545310afe2e6a
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = cbbb2839705b192b15505169787739b21b9190c5
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = 1d5eacaabfb27a244a68c6a07cd22feba7eb57c2
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/wep/Comp03ReferencePattern.svelte)" = af6861ca808e7e44ab3e419c146a36090d63fb7f
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-consumer.mjs)" = e5a169a29588f735f4fcffde40078a3a6e9e3a82
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-copy.mjs)" = 21abcdb2d51e4f881db1c9e026bd15456ec83f5e
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs)" = 66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs)" = 3dbd5b6bd2268a3a42589364fa06ab09da84565b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs)" = 6683ec803624782f9c7d90dd45e811ae633382e8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-appearance-transport.mjs)" = 3ede5a24b8c276bb11e63977ec64fc1e3ee035dc
+          test "$(git rev-parse HEAD:src/lib/dev/product-switch-hair.worker.mjs)" = a8eb2352cb5f2ac351c305a8dabe863cff6dd995
+          test "$(git rev-parse HEAD:src/routes/editor/appearance/hair/switch/+page.svelte)" = e985c89b5728bbfe0304e9e5b58f3bb5e3e48cc0
+          test -z "$(git ls-files static/worker-wasm-scoped-switch626-hair)"
+          test ! -e static/worker-wasm-scoped-switch626-hair
+          test ! -e build/worker-wasm-scoped-switch626-hair
+      - name: Require exact successful protected-main CI before proof build
+        id: scoped_ci
+        run: node scripts/int-protected-ci-gate.mjs build
+      - name: Fixed approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify unchanged R22 approved inputs and generate scoped proof subjects
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-switch626-hair-scoped,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-switch626-hair-proof-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/scoped-placement-proof.mjs build switch626-hair "$GITHUB_SHA"
+          test "$(find tests/wasm-distribution/fixtures/scoped-switch626-hair -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-scoped-switch626-hair
+          test ! -e build/worker-wasm-scoped-switch626-hair
+      - name: Revalidate exact predecessor and live main immediately before signing
+        env:
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/int-protected-ci-gate.mjs deploy
+      - name: Attest only three scoped proof subjects with existing Pages issuer
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/scoped-switch626-hair/ddv_save_core.js
+            tests/wasm-distribution/fixtures/scoped-switch626-hair/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/scoped-switch626-hair/manifest.json
+      - name: Verify exact signer and subject bytes; stage only bundle and pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SCOPED_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-switch626-hair-proof"
+          node scripts/readonly-release/scoped-placement-proof.mjs verify-protected-candidate switch626-hair "$GITHUB_SHA" tests/wasm-distribution/fixtures/scoped-switch626-hair "$WAND_SCOPED_BUNDLE" > "$RUNNER_TEMP/wand-switch626-hair-verified.txt"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const p=JSON.parse(fs.readFileSync("tests/wasm-distribution/fixtures/scoped-switch626-hair-pins.json","utf8")); const prefix="SCOPED_PLACEMENT_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-switch626-hair-verified.txt","utf8").trim().split("\n").filter(l=>l.startsWith(prefix)); assert.equal(lines.length,1); assert.deepEqual(JSON.parse(lines[0].slice(prefix.length)),p); assert.equal(p.sourceHead,process.env.GITHUB_SHA); fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-switch626-hair-proof/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_SCOPED_BUNDLE" "$RUNNER_TEMP/wand-switch626-hair-proof/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-switch626-hair-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-scoped-switch626-hair
+          test ! -e build/worker-wasm-scoped-switch626-hair
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs)"
+          node scripts/int-protected-ci-gate.mjs deploy
+      - name: Upload proof metadata only (never executable subjects)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoped-switch626-hair-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-switch626-hair-proof/pins.json
+            ${{ runner.temp }}/wand-switch626-hair-proof/attestation-bundle.jsonl
+          if-no-files-found: error
+
+  scoped_switch_skin_proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_skin_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && inputs.scoped_switch_hair_proof_source == '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_switch_skin_proof_source }}
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
+      WAND_RELEASE_BASE_PATH: /web
+      WAND_CANDIDATE_BASE_PATH: /web
+      WAND_SCOPED_CORE_DIR: ${{ github.workspace }}
+      CARGO_TARGET_DIR: /tmp/wand-scoped-switch626-skin-proof-rust
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-switch626-skin-proof-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected source in separate proof-only job
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact accepted source and immutable scoped proof inputs
+        run: |
+          set -euo pipefail
+          [[ "$WAND_PROOF_EXPECTED_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 1f61f3058f31b35e6db9cf424d4147fcde9c3905
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 0e54f4da3b1f14c18f63b6c199c59077eae97f73
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = ab28078abde5bfc36cfad3265d3702ad5f009920
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 007126c97e1d0e8a6b792bb3057eb3a1ac753c20
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = d288ce39e27bfc9f37b0881ac1b626ab9f58ab58
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs)" = 027f988f22e3e33ee1d61c600a09a268581d7d40
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)" = 8bf869bf71546c467194483955e256cbe104c312
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = 7969122897ebc81bb249dda14d578038a9ffe9e2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)" = f3f12518965dde92617962b5505b8212f4e04980
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs)" = d5b167f35b10ecc5b16d40e84e9d9bb324288539
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-transport.mjs)" = 182ecd723a5a82683cccf79e1349ecf41e6ae7a7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 07cd8699fe0fe36d1de1899dbfa628e6da7201f3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = aeb374fa055d40daa097625e9e19703f16332fe5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 5c5ae6888a99400b30ea2bfe3deb0f16fc9426b7
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = ae87d22809efac298c52f5c513387b9fc1386458
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = bc84ec93bd89d233e51de75ac7494c37003f9548
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = 5eee1c61131992b2866508a735a34233f5c8c101
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-copy.mjs)" = e559b0cc4ad8d12d1617a54072822d696761ae5e
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = da3ca763b93c8979d90410f755971eea1a4f289b
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 79b5f2400858f559f69f64039c0545310afe2e6a
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = cbbb2839705b192b15505169787739b21b9190c5
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = 1d5eacaabfb27a244a68c6a07cd22feba7eb57c2
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/wep/Comp03ReferencePattern.svelte)" = af6861ca808e7e44ab3e419c146a36090d63fb7f
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-consumer.mjs)" = e5a169a29588f735f4fcffde40078a3a6e9e3a82
+          test "$(git rev-parse HEAD:src/lib/collection/collection-exact1-copy.mjs)" = 21abcdb2d51e4f881db1c9e026bd15456ec83f5e
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs)" = 66f9bb63da4bd7d6f8f43aeac3adf4aa7df2c751
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs)" = 3dbd5b6bd2268a3a42589364fa06ab09da84565b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs)" = 6683ec803624782f9c7d90dd45e811ae633382e8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-appearance-transport.mjs)" = 3ede5a24b8c276bb11e63977ec64fc1e3ee035dc
+          test "$(git rev-parse HEAD:src/lib/dev/product-switch-skin.worker.mjs)" = b31f23256192a799574b0e53b9d689f470872703
+          test "$(git rev-parse HEAD:src/routes/editor/appearance/skin/switch/+page.svelte)" = 146d341e8c4f495fe956314d922000a9460effdc
+          test -z "$(git ls-files static/worker-wasm-scoped-switch626-skin)"
+          test ! -e static/worker-wasm-scoped-switch626-skin
+          test ! -e build/worker-wasm-scoped-switch626-skin
+      - name: Require exact successful protected-main CI before proof build
+        id: scoped_ci
+        run: node scripts/int-protected-ci-gate.mjs build
+      - name: Fixed approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify unchanged R22 approved inputs and generate scoped proof subjects
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-switch626-skin-scoped,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-switch626-skin-proof-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/scoped-placement-proof.mjs build switch626-skin "$GITHUB_SHA"
+          test "$(find tests/wasm-distribution/fixtures/scoped-switch626-skin -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-scoped-switch626-skin
+          test ! -e build/worker-wasm-scoped-switch626-skin
+      - name: Revalidate exact predecessor and live main immediately before signing
+        env:
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/int-protected-ci-gate.mjs deploy
+      - name: Attest only three scoped proof subjects with existing Pages issuer
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/scoped-switch626-skin/ddv_save_core.js
+            tests/wasm-distribution/fixtures/scoped-switch626-skin/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/scoped-switch626-skin/manifest.json
+      - name: Verify exact signer and subject bytes; stage only bundle and pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SCOPED_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-switch626-skin-proof"
+          node scripts/readonly-release/scoped-placement-proof.mjs verify-protected-candidate switch626-skin "$GITHUB_SHA" tests/wasm-distribution/fixtures/scoped-switch626-skin "$WAND_SCOPED_BUNDLE" > "$RUNNER_TEMP/wand-switch626-skin-verified.txt"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const p=JSON.parse(fs.readFileSync("tests/wasm-distribution/fixtures/scoped-switch626-skin-pins.json","utf8")); const prefix="SCOPED_PLACEMENT_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-switch626-skin-verified.txt","utf8").trim().split("\n").filter(l=>l.startsWith(prefix)); assert.equal(lines.length,1); assert.deepEqual(JSON.parse(lines[0].slice(prefix.length)),p); assert.equal(p.sourceHead,process.env.GITHUB_SHA); fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-switch626-skin-proof/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_SCOPED_BUNDLE" "$RUNNER_TEMP/wand-switch626-skin-proof/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-switch626-skin-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-scoped-switch626-skin
+          test ! -e build/worker-wasm-scoped-switch626-skin
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs)"
+          node scripts/int-protected-ci-gate.mjs deploy
+      - name: Upload proof metadata only (never executable subjects)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoped-switch626-skin-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-switch626-skin-proof/pins.json
+            ${{ runner.temp }}/wand-switch626-skin-proof/attestation-bundle.jsonl
           if-no-files-found: error
