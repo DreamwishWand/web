@@ -1,4 +1,4 @@
-name: [04 QR-S][ACT1515] PR1869 Steam Portable proof jobs L2 (QA ONLY) (QA ONLY)
+name: "[04 QR-S][ACT1515] PR1869 Steam Portable proof jobs L2 (QA ONLY)"
 on:
   pull_request:
     paths:
