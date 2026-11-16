@@ -4,9 +4,9 @@ import {readFileSync} from 'node:fs';
 const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
 test('proof-only Collection dispatch cannot use normal Pages build/deploy or upload executable subjects',()=>{
  const proof=y.slice(y.indexOf('  scoped_collection_proof:\n'),y.indexOf('  scoped_switch_chest_proof:\n'));
- assert.match(y,/build:\s+if: github.event_name != 'workflow_dispatch' \|\| \(inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == ''\)/);
+ assert.match(y,/build:\s+if: github.event_name != 'workflow_dispatch' \|\| \(inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == ''\)/);
  assert.match(y,/deploy:\s+needs: build/);
- assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_collection_proof_source != '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && github.ref == 'refs\/heads\/main'/);
+ assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_collection_proof_source != '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && github.ref == 'refs\/heads\/main'/);
  assert.match(proof,/test "\$WAND_PROOF_EXPECTED_SOURCE" = "\$GITHUB_SHA"/);
  assert.match(proof,/f942165161b98cf7f9de16a1f7459cf3d337dc61/);
  assert.match(proof,/--no-default-features --features product-collection-scoped,semantic-writer-dev,worker-wasm/);
