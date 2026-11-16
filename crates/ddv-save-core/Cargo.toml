@@ -24,6 +24,8 @@ product-collection-scoped = ["indexed-read"]
 
 # ACT916 scoped product candidate, explicitly excluded from current Pages.
 product-amount-scoped = ["semantic-writer-dev"]
+# Scoped Backpack source candidate, no release authority.
+product-backpack-scoped = ["product-amount-scoped"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }

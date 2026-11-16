@@ -54,6 +54,16 @@ impl WorkerSessionGuard {
         self.session.read_saved_diffgrids_page(scope,cursor)
     }
     #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn preview_backpack_split(&self,e:WorkerEnvelope,src:usize,dst:usize,switch:bool)->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_product_backpack(e,src,dst,switch)
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn stage_backpack_split(&self,e:WorkerEnvelope,src:usize,dst:usize,old:u32,witness:[u8;32],out:[u8;32],switch:bool)->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.stage_product_backpack(e,src,dst,old,witness,out,switch)
+    }
+    #[cfg(feature="product-amount-scoped")]
     pub(crate) fn discover_scoped_amount(&self,e:WorkerEnvelope,profile:&str,offset:u32)
         ->CoreResult<(Vec<crate::CoreExistingAmountTarget>,Option<u32>,u32)>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
