@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {inspectScopedCollectionSubjects,privateScopedCollectionIdentity} from '../scripts/readonly-release/seal-scoped-collection-private.mjs';
 import {ACTIVE_RELEASE_TUPLE as tuple} from '../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
 import {SCOPED_COLLECTION_RELEASE_OP as op,SCOPED_COLLECTION_FEATURES as features,SCOPED_COLLECTION_METHODS as methods,
  scopedCollectionManifestOk,scopedCollectionAnchorShapeOk,scopedCollectionReleaseIdentityText,validateScopedCollectionAnchor,scopedCollectionDeliveryOk,getScopedCollectionMountInfo,loadProtectedScopedCollectionRustWasm} from '../src/lib/ddv/core/save/product-scoped-collection-release.mjs';
@@ -43,4 +44,20 @@ test('private V2 seal is loopback-only, no public grant, and cannot assert prior
   {deliveryOrigin:'http://127.0.0.1:80'},{mode:'public-accepted'},{builds:[build]}])
   await assert.rejects(validateScopedCollectionAnchor({...p,...patch}));
  await assert.rejects(getScopedCollectionMountInfo());
+});
+
+test('shared signed-subject inspector binds actual three bytes; private seal identity cannot become public grant',async()=>{
+ const js=Buffer.from('export class WorkerWasmSource {}'),wasm=Buffer.from([0,97,115,109,1,0,0,0]);
+ const m={...manifest,assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:hash(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:wasm.length,sha256:hash(wasm)}}};
+ const mf=Buffer.from(JSON.stringify(m)),p=inspectScopedCollectionSubjects([mf,js,wasm],source,tuple);
+ assert.equal(p.manifestSha256,hash(mf));assert.equal(p.wasmSha256,hash(wasm));
+ const a=privateScopedCollectionIdentity(p,'http://127.0.0.1:4188',['steam-windows','switch'],tuple);
+ assert.equal(a.mode,'private-product-v2');assert.ok(a.builds.every(b=>b.productV2EvidenceSha256===null));
+ assert.equal(await validateScopedCollectionAnchor(a),true);
+ for(const [origin,platforms] of [['https://dreamwishwand.com',['switch']],['http://127.0.0.1:4188',['switch','switch']],['http://127.0.0.1:4188',['unknown']]])
+  assert.throws(()=>privateScopedCollectionIdentity(p,origin,platforms,tuple));
+ assert.throws(()=>inspectScopedCollectionSubjects([mf,Buffer.from('tampered'),wasm],source,tuple));
+ assert.throws(()=>inspectScopedCollectionSubjects([mf,js,wasm],'f'.repeat(40),tuple));
+ const bad=Buffer.from('export const dev_stage_typed_amounts=1;'),bm={...m,assets:{...m.assets,js:{path:'ddv_save_core.js',sizeBytes:bad.length,sha256:hash(bad)}}};
+ assert.throws(()=>inspectScopedCollectionSubjects([Buffer.from(JSON.stringify(bm)),bad,wasm],source,tuple));
 });
