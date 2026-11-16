@@ -12,9 +12,9 @@ const digest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-
 // The owner constructs exactly ONE domain transport for its active Session.
 // Dedicated Fence operations: no generic count-4/7 or cross-scope lifecycle grant.
 function switchFenceLifecycle(count,contract,stageContract,outputContract,toggle,begin,next){
- for(const [op,fields] of [['fd01',4],['fe01',7]]){
-  const stem='wand.worker.switch626.scoped-'+op+'-layout';
-  if(count===fields&&contract===stem+'@1'&&stageContract===contract&&outputContract===stem+'-output@1'&&toggle==='toggle_switch626_'+op&&begin==='begin_switch626_'+op+'_output'&&next==='next_switch626_'+op+'_output_chunk')return true;
+ for(const [slug,fields,method] of [['fd01',4,'fd01'],['fe01',7,'fe01'],['fd02',4,'fd02'],['fd03',4,'fd03'],['ortho-l',6,'ortho_l'],['diagonal90',6,'diagonal90'],['ortho-t',8,'ortho_t']]){
+  const stem='wand.worker.switch626.scoped-'+slug+'-layout';
+  if(count===fields&&contract===stem+'@1'&&stageContract===contract&&outputContract===stem+'-output@1'&&toggle==='toggle_switch626_'+method&&begin==='begin_switch626_'+method+'_output'&&next==='next_switch626_'+method+'_output_chunk')return true;
  }
  return false;
 }
