@@ -94,6 +94,15 @@ jobs:
           cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-fd01-scoped
           cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-fe01-scoped
           cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-fd01-scoped,product-switch626-fe01-scoped,product-steam626-hair-scoped,product-steam626-skin-scoped,product-switch626-rm01-scoped,product-collection-scoped
+      - name: ACT1494-1498 exclusive fixed Fence ADD Worker ABI
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch626-fence-add-stage-internal --lib fixed_add_tests --verbose
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-fd02-scoped
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-fd03-scoped
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-ortho-l-scoped
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-diagonal90-scoped
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-ortho-t-scoped
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-fd02-scoped,product-switch626-fd03-scoped,product-switch626-ortho-l-scoped,product-switch626-diagonal90-scoped,product-switch626-ortho-t-scoped,product-switch626-rm01-scoped,product-collection-scoped
       - name: Compile WASM Worker plus opt-in indexed-read types without binding to UI
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read
       - name: Rust wasm32 ABI compilation (no UI/bundle assumption)
