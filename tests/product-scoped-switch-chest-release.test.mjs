@@ -75,7 +75,7 @@ test('SR03 foreign symbols rejected with valid own WASM and rebound manifest',()
  const subject=(js,w)=>[Buffer.from(JSON.stringify({...manifest,assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:hash(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:hash(w)}}})),js,w];
  const clean=Buffer.from('export default function(){}'),own=wasm(sr03ForeignProofOwnExports);
  assert.equal(inspectSr03ForeignSwitchChestSubjects(subject(clean,own),source).wasmSha256,hash(own));
- for(const n of ['preview_steam626_sr03','stage_steam626_sr03','preview_switch626_rm01','stage_switch626_rm01']){
+ for(const n of ['preview_steam626_sr03','stage_steam626_sr03','preview_switch626_rm01','stage_switch626_rm01','preview_steam626_hair','stage_steam626_hair','preview_steam626_skin','stage_steam626_skin','preview_switch626_hair','stage_switch626_hair','preview_switch626_skin','stage_switch626_skin','preview_switch626_r01','stage_switch626_r01','preview_switch626_r02','stage_switch626_r02']){
   assert.throws(()=>inspectSr03ForeignSwitchChestSubjects(subject(Buffer.from(n),own),source));
   assert.throws(()=>inspectSr03ForeignSwitchChestSubjects(subject(clean,wasm([...sr03ForeignProofOwnExports,'workerwasmsource_'+n])),source));
  }

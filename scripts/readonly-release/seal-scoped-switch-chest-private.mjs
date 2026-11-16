@@ -23,7 +23,7 @@ export function inspectScopedSwitchChestSubjects(bytes,source,tuple=ACTIVE_RELEA
  const p={contract:'wand.scoped-switch-chest.pinned-digests@1',sourceHead:source,
   manifestSha256:sha(mf),manifestSizeBytes:mf.length,jsSha256:sha(js),jsSizeBytes:js.length,wasmSha256:sha(wasm),wasmSizeBytes:wasm.length};
  if(!scopedSwitchChestManifestOk(m,p,tuple))fail();
- const module=new WebAssembly.Module(wasm),denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|(?:discover|preview|stage|toggle)_scoped_amount|(?:begin_scoped_amount_output|next_scoped_amount_output_chunk)|preview_scoped_collection_candidate|(?:preview|stage)_fixed_collection|(?:preview|stage)_steam626_sr03|(?:preview|stage)_switch626_rm01)/i;
+ const module=new WebAssembly.Module(wasm),denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|(?:discover|preview|stage|toggle)_scoped_amount|(?:begin_scoped_amount_output|next_scoped_amount_output_chunk)|preview_scoped_collection_candidate|(?:preview|stage)_fixed_collection|(?:preview|stage)_steam626_sr03|(?:preview|stage)_switch626_rm01|(?:preview|stage)_(?:steam626|switch626)_(?:hair|skin)|(?:preview|stage)_switch626_(?:r01|r02))/i;
  if(!scopedSwitchChestWasmExportsOk(module)||WebAssembly.Module.exports(module).some(x=>denied.test(x.name))||denied.test(new TextDecoder('utf-8',{fatal:true}).decode(js)))fail();
  return Object.freeze(p);
 }

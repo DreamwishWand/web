@@ -35,7 +35,7 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "scripts/readonly-release/seal-scoped-switch-chest-private.mjs",
-    "6c8dfc4afea309eac4af94da778b01dde43b3f1c"
+    "a77c7d7e2df093a6b28c00c89846d2707c20be5f"
   ],
   [
     "scripts/readonly-release/seal.mjs",
@@ -75,7 +75,7 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-    "10cccffef547265fead5096e8ed342a639a4be2e"
+    "eef37e2a1b027134439e686ea5e47501339bbace"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
@@ -83,15 +83,15 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-    "38b2097c748c563955dff817d9ce287a1987fc31"
+    "ee5929266406bb9a17e1e0a3fc9bce3cb15607f6"
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-    "fdd485a11d9f41a24fdefd2d8603c055e19408bd"
+    "ae89e25ad3cdc48d8b4e23e7eabc6ba92998b553"
   ],
   [
     "src/lib/dev/local-scoped-edit-worker-port.mjs",
-    "1c62e99e9f56e1fb034c12c18f97fb55ac14a4b4"
+    "1d5eacaabfb27a244a68c6a07cd22feba7eb57c2"
   ],
   [
     "src/lib/dev/local-amount-workflow.mjs",
