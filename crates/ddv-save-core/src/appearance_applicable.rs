@@ -149,7 +149,7 @@ impl ProductSession{
     }
 }
 
-const APPEARANCE_DEFINITIONS_SHA:&str="91aca6e14ffe5cf9311d05a951c20780381ba61d5b7cbe006f33e8bcc27f0f57";
+const APPEARANCE_DEFINITIONS_SHA:&str="e2f53a1fef5a4fb59f47b60437d06000202a9db1ed2bd01dd718d15155c5562f";
 const APPEARANCE_PROJECTION_SHA:&str="51e08d4ddab0964d0ad7b995101f2a45f7c2e86ea18fa00c41ef88e243eb1ba5";
 static APPEARANCE_DEFINITION_CACHE:std::sync::OnceLock<CoreResult<Value>>=std::sync::OnceLock::new();
 fn positive_id(v:&Value)->CoreResult<i64>{
@@ -172,16 +172,19 @@ fn definition_row(rows:&Value,id:i64)->CoreResult<&Value>{
     Ok(&rows[ix])
 }
 fn parse_appearance_definitions(bytes:&[u8])->CoreResult<Value>{
-    need(bytes.len()==139066&&sha(bytes)==APPEARANCE_DEFINITIONS_SHA,"APPEARANCE_DEFINITION_DIGEST")?;
+    need(bytes.len()==159599&&sha(bytes)==APPEARANCE_DEFINITIONS_SHA,"APPEARANCE_DEFINITION_DIGEST")?;
     let v:Value=serde_json::from_slice(bytes).map_err(|_|denied("APPEARANCE_DEFINITION_JSON"))?;
-    need(v["contract"]=="wand.core.steam626.appearance-definition-join@1"&&v["build"]==APPEARANCE_BUILD&&v["schema"]==626&&
-        v["sourceProjectionSha256"]==APPEARANCE_PROJECTION_SHA,"APPEARANCE_DEFINITION_BUILD")?;
+    need(v["contract"]=="wand.core.steam626.appearance-definition-join@2"&&v["build"]==APPEARANCE_BUILD&&v["schema"]==626&&
+        v["sourceProjectionSha256"]==APPEARANCE_PROJECTION_SHA&&v["previousProjectionSha256"]=="91aca6e14ffe5cf9311d05a951c20780381ba61d5b7cbe006f33e8bcc27f0f57","APPEARANCE_DEFINITION_BUILD")?;
     sorted_rows(&v["references"]["Clothing"],1900,5)?;
     sorted_rows(&v["references"]["Makeup"],67,3)?;
     sorted_rows(&v["references"]["AvatarFeature"],43,3)?;
     sorted_rows(&v["missionObjectiveKinds"],965,2)?;
     sorted_rows(&v["hairEventProducers"],2,5)?;
     sorted_rows(&v["skinWearSchedules"],2,4)?;
+    sorted_rows(&v["producer"]["missionAffectedBits"],965,2)?;
+    sorted_rows(&v["producer"]["achievementKinds"],349,2)?;
+    sorted_rows(&v["producer"]["toolEvolveKinds"],3,2)?;
     Ok(v)
 }
 fn appearance_definitions()->CoreResult<&'static Value>{
@@ -312,6 +315,110 @@ impl ProductSession{
     }
 }
 
+
+fn affected_subscriber_guard(readset:&Value,pack:&Value,hair:bool)->CoreResult<Value>{
+    let sub=&readset["subscribers"];let producer=&pack["producer"];
+    let (_,_,ids)=mission_definition_join(sub,pack)?;
+    let mask=if hair{1|4|16}else{2|8|16};
+    for id in &ids{
+        let row=definition_row(&producer["missionAffectedBits"],*id)?;
+        let bits=row[1].as_u64().filter(|n|*n<=31).ok_or(denied("APPEARANCE_PRODUCER_MISSION_BITS"))?;
+        need(bits&mask==0,"APPEARANCE_PRODUCER_AFFECTED_MISSION")?;
+    }
+    let mut seen=std::collections::BTreeSet::new();let mut ongoing=0usize;
+    for a in arr(&sub["achievementsData"]["entries"])?{
+        let id=positive_id(&a["achievementId"])?;
+        need(seen.insert(id),"APPEARANCE_PRODUCER_ACHIEVEMENT_ALIAS")?;
+        let row=definition_row(&producer["achievementKinds"],id)?;
+        let kind=row[1].as_u64().ok_or(denied("APPEARANCE_PRODUCER_ACHIEVEMENT_KIND"))?;
+        if a["state"]=="AchievementState_OnGoing"{
+            ongoing+=1;
+            need(kind!=65&&kind!=if hair{37}else{35},"APPEARANCE_PRODUCER_AFFECTED_ACHIEVEMENT")?;
+        }
+    }
+    let mut evolve=0usize;
+    for r in arr(&sub["evolveStatesProfile"]["entries"])?{
+        let row=definition_row(&producer["toolEvolveKinds"],positive_id(&r["itemId"])?)?;
+        // E1404/E1454 exact affected model: only the Tool CatchFish chain.
+        // Other evolve types need their own operation-specific closure.
+        need(row[1]==json!([21,21])&&r["level"]["value"].as_i64().is_some_and(|n|(0..=2).contains(&n))&&
+            r["objectivePresent"]==true&&r["objective"]["stepType"]["present"]==false&&
+            r["objective"]["progressKeys"]["present"]==false,"APPEARANCE_PRODUCER_AFFECTED_EVOLVE")?;
+        evolve+=1;
+    }
+    Ok(json!({"missionSlots":ids.len(),"achievementDefinitions":seen.len(),"ongoingAchievements":ongoing,
+        "evolveDefinitions":evolve,"affectedClassExclusionVerified":true,
+        "effectiveRuntimeRegistryVerified":false,"productWriterAuthorized":false}))
+}
+fn hair_wear_guard(readset:&Value,pack:&Value)->CoreResult<()>{
+    // E1411: both definitions are DoOnce, non-inverted Wear + MissionObjectiveStatus,
+    // SetDialogueFlag true without RemoveWhenDone. Require the known nonwear
+    // branch for both saved avatars; no event history replay or guessed flag.
+    for row in arr(&pack["hairEventProducers"])?{
+        need(row[2]==1&&row[4][0][1]==json!([2,1])&&arr(&row[4][0])?.len()==2,
+            "APPEARANCE_PRODUCER_WEAR_ACTION")?;
+        let id=positive_id(&row[3][0][1][0][1])?;
+        for branch in ["femaleReferences","maleReferences"]{
+            for e in arr(&readset[branch]["clothes"]["entries"])?{
+                need(positive_id(&e["savedValue"])?!=id,"APPEARANCE_PRODUCER_WEAR_PRESENT")?;
+            }
+        }
+    }
+    Ok(())
+}
+fn skin_schedule_guard(pack:&Value)->CoreResult<()>{
+    // E1454 exact AND root: absent from non-invalid slots maps to None or
+    // completed history, neither equals OnGoing4. This is not a generic
+    // absent-mission -> incomplete inference. The SHA pins the original AND.
+    for r in arr(&pack["skinWearSchedules"])?{
+        need(r[2]=="7c66d4ff47c59a192f255d5a0ec0fe5577229bc39ed87c8cc34d10506e30a1d9",
+            "APPEARANCE_PRODUCER_SCHEDULE_ROOT")?;
+        let a=arr(&r[3])?;need(a.len()==5&&a[1][0]==270&&a[1][1]==json!([[1,2070001405],[3,4]])&&a[4][0]==60,
+            "APPEARANCE_PRODUCER_SCHEDULE_STATUS")?;
+    }
+    Ok(())
+}
+impl ProductSession{
+    pub(super) fn prepare_hair_producer_bound(&self,e:WorkerEnvelope,new:i32)->CoreResult<AppearanceCurrentWitness>{
+        let mut t=self.prepare_hair_definition_bound(e,new)?;
+        let pack=appearance_definitions()?;
+        let j=affected_subscriber_guard(&t.readset,pack,true)?;
+        hair_wear_guard(&t.readset,pack)?;
+        t.readset["affectedProducers"]=j;
+        t.readset_sha=digest(&t.readset)?;Ok(t)
+    }
+    pub(super) fn prepare_skin_producer_bound(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<AppearanceCurrentWitness>{
+        let mut t=self.prepare_skin_definition_bound(e,character,new)?;
+        let pack=appearance_definitions()?;
+        let j=affected_subscriber_guard(&t.readset,pack,false)?;
+        skin_schedule_guard(pack)?;
+        t.readset["affectedProducers"]=j;
+        t.readset_sha=digest(&t.readset)?;Ok(t)
+    }
+}
+// Internal Stage bridge only. The caller supplies a CAS digest, never
+// definition evidence or a permission bit. Re-resolve every input at Stage;
+// the existing ledger performs the final epoch, lexical old token and output CAS.
+#[cfg(feature="semantic-writer-dev")]
+impl ProductSession{
+    pub(super) fn stage_hair_producer_bound(&self,e:WorkerEnvelope,new:i32,expected:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        need(e.action==WorkerAction::Stage,"HAIR_BOUND_STAGE_ACTION")?;
+        let read=WorkerEnvelope{action:WorkerAction::ReadDomain,..e};
+        let w=self.prepare_hair_producer_bound(read,new)?;
+        need(w.readset_sha==expected,"HAIR_BOUND_READSET_CAS")?;
+        let t=self.prepare_fixed_product_hair_candidate(read,new)?;
+        self.stage_fixed_hair_candidate(e,new,t.old,&t.old_token_sha,&t.female_sha,&t.male_sha,projected)
+    }
+    pub(super) fn stage_skin_producer_bound(&self,e:WorkerEnvelope,character:i32,new:i32,expected:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        need(e.action==WorkerAction::Stage,"SKIN_BOUND_STAGE_ACTION")?;
+        let read=WorkerEnvelope{action:WorkerAction::ReadDomain,..e};
+        let w=self.prepare_skin_producer_bound(read,character,new)?;
+        need(w.readset_sha==expected,"SKIN_BOUND_READSET_CAS")?;
+        let t=self.prepare_fixed_product_skin_candidate(read,character,new)?;
+        self.stage_fixed_skin_candidate(e,character,new,t.old,&t.old_token_sha,&t.character_sha,&t.inventory_sha,projected)
+    }
+}
+
 #[cfg(test)]
 mod tests{
  use super::*;use crate::{BuildIdentity,BuildKind,Platform};
@@ -342,6 +449,45 @@ mod tests{
     let actual:Vec<Value>=steps.as_array().unwrap().iter().map(|s|json!({"SubSteps":s.as_array().unwrap().iter().map(|sub|json!({"Objectives":sub.as_array().unwrap().iter().map(|_|json!({})).collect::<Vec<_>>()})).collect::<Vec<_>>()})).collect();
     d["World"]["MissionSlots"]=json!({"1":{"Slots":[{"SlotId":1,"MissionId":id,"State":"MissionSlotState_OnGoing","CurrentStepIndex":0,"MissionSteps":actual}]}});
     d
+ }
+
+ #[test]fn appearance_producer_current_class_exclusions(){
+    let p=appearance_definitions().unwrap();let pr=&p["producer"];
+    let x=open(definition_doc());let e=env(&x);
+    assert!(x.prepare_hair_producer_bound(e,20).is_ok());
+    assert!(x.prepare_skin_producer_bound(e,SKIN_CHARACTER,SKIN_NEW).is_ok());
+    for (hair,kind) in [(true,37),(false,35),(true,65),(false,65)]{
+        let Some(r)=arr(&pr["achievementKinds"]).unwrap().iter().find(|r|r[1]==kind) else{continue};
+        let mut d=definition_doc();d["Player"]["AchievementsData"]=json!([{"AchievementID":r[0],"State":"AchievementState_OnGoing"}]);
+        let s=open(d);let e=env(&s);
+        let result=if hair{s.prepare_hair_producer_bound(e,20)}else{s.prepare_skin_producer_bound(e,SKIN_CHARACTER,SKIN_NEW)};
+        assert!(result.is_err());
+    }
+    for (hair,mask) in [(true,4),(false,8),(true,16),(false,16)]{
+        let id=arr(&pr["missionAffectedBits"]).unwrap().iter().find(|r|r[1].as_u64().unwrap()&mask!=0).unwrap()[0].as_i64().unwrap();
+        let m=definition_row(&p["missionObjectiveKinds"],id).unwrap();
+        if arr(&m[1]).unwrap().is_empty(){continue;}
+        let s=open(mission_doc(id,&m[1]));let e=env(&s);
+        let result=if hair{s.prepare_hair_producer_bound(e,20)}else{s.prepare_skin_producer_bound(e,SKIN_CHARACTER,SKIN_NEW)};
+        assert!(result.is_err());
+    }
+ }
+ #[cfg(feature="semantic-writer-dev")]
+ #[test]fn appearance_producer_bound_stage_recomputes_readset(){
+    for hair in [true,false]{
+        let mut d=definition_doc();let s=open(d.clone());let e=env(&s);
+        let w=if hair{s.prepare_hair_producer_bound(e,20).unwrap()}else{s.prepare_skin_producer_bound(e,SKIN_CHARACTER,SKIN_NEW).unwrap()};
+        let projected=if hair{s.project_fixed_hair_candidate(e,20).unwrap()}else{s.project_fixed_skin_candidate(e,SKIN_CHARACTER,SKIN_NEW).unwrap()};
+        let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+        let call=|s:&ProductSession,e:WorkerEnvelope,sha:&str|if hair{s.stage_hair_producer_bound(e,20,sha,projected)}else{s.stage_skin_producer_bound(e,SKIN_CHARACTER,SKIN_NEW,sha,projected)};
+        assert!(call(&s,e,&w.readset_sha).is_err());assert!(call(&s,stage,"forged").is_err());
+        let other=open(d.clone());assert!(call(&other,stage,&w.readset_sha).is_err());
+        let r=call(&s,stage,&w.readset_sha).unwrap();assert_eq!(r.exact_field_changed_count,1);assert!(!r.product_writer_authorized);
+        assert!(call(&s,stage,&w.readset_sha).is_err());
+        if hair{d["Player"]["MaleAvatar"]["HairColorIndex"]=json!(20);}else{d["World"]["Characters"][0]["SkinID"]=json!(SKIN_NEW);}
+        let o=s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).unwrap();
+        assert_eq!(o,serde_json::to_vec(&d).unwrap());
+    }
  }
  #[test]fn appearance_definition_bound_current_session(){
     let p=appearance_definitions().unwrap();let row=&p["missionObjectiveKinds"][0];
