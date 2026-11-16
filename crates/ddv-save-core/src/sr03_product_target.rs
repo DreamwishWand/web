@@ -397,3 +397,6 @@ fn fixed_fence_catalog(b:&[u8],player:Span)->CoreResult<(u32,Span)>{
 
 #[path="fence_product_target.rs"]
 mod fence_product_target;
+
+#[path="steam_single_fence_product_target.rs"]
+mod steam_single_fence_product_target;
