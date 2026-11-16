@@ -43,9 +43,10 @@ function spatialReview(r,p){
  return Object.freeze({gridId:r.gridId,seedId:r.seedId,markers:overlay.markers});
 }
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation,spatialPreviewEnabled=false}={}){
- if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','hair','skin'].includes(operation)||!adapter)fail();
+ if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','hair','skin','eyecolor2'].includes(operation)||!adapter)fail();
  const backpack=operation==='backpack-steam'||operation==='backpack-switch',wardrobe=operation==='wardrobe-steam'||operation==='wardrobe-switch';
- const appearance=operation==='hair'||operation==='skin';
+ const eye=operation==='eyecolor2';
+ const appearance=operation==='hair'||operation==='skin'||eye;
  const previewMethod=appearance?'previewAppearance':wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=appearance?'stageAppearance':wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
  for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
  const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=(wardrobe||appearance)?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
@@ -86,6 +87,13 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
  const preview=selector=>run(['ready','previewed'],async check=>{
   if(!backup||!((wardrobe||appearance)?selector===undefined:backpack?backpackSelector(selector):comp?exact(selector,'seedId')&&positive(selector.seedId):sr03?exact(selector,'gridId,retainedId,movedId')&&positive(selector.gridId)&&positive(selector.retainedId)&&positive(selector.movedId)&&selector.retainedId!==selector.movedId:exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
   const r=await ((wardrobe||appearance)?adapter[previewMethod]():adapter[previewMethod]({...selector}));check();
+  if(eye){
+   if(!exact(r,'eyeballItemId,field,oldColorIndex,newColorIndex,exactFieldChangedCount,inventoryDelta,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized,productReadAccepted')||
+    r.eyeballItemId!==70000010||r.field!=='ColorIndex2'||r.oldColorIndex!==64||r.newColorIndex!==69||
+    r.exactFieldChangedCount!==1||r.inventoryDelta!==0||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||
+    r.originalOverwriteAuthorized!==false||r.productReadAccepted!==false)fail();
+   return set({phase:'previewed',preview:Object.freeze({...r})});
+  }
   if(appearance){
    const hair=operation==='hair';if(!exact(r,'old,new,exactFieldChangedCount,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized,'+(hair?'activeMale':'characterId'))||r.old!==(hair?74:170000054)||r.new!==(hair?20:170000000)||(hair?typeof r.activeMale!=='boolean':r.characterId!==10000053)||r.exactFieldChangedCount!==1||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();
    return set({phase:'previewed',preview:Object.freeze({...r})});
