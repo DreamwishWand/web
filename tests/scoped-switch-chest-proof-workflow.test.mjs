@@ -8,7 +8,7 @@ test('proof-only Switch Chest dispatch cannot use normal Pages build/deploy or u
  assert.match(y,/deploy:\s+needs: build/);
  assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && github.ref == 'refs\/heads\/main'/);
  assert.match(proof,/test "\$WAND_PROOF_EXPECTED_SOURCE" = "\$GITHUB_SHA"/);
- assert.match(proof,/fa7aeef5dc1459104564bf1eb9704d315ab7c415/);
+ assert.match(proof,/9d779873e935cbdd7b1b11b372a318af7ebc68b5/);
  assert.match(proof,/--no-default-features --features product-switch626-chest-scoped,worker-wasm/);
  const order=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','node scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs','node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate','actions/upload-artifact@v4'];
  let i=-1;for(const m of order){const n=proof.indexOf(m);assert.ok(n>i,m);i=n;}
@@ -27,7 +27,7 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
  assert.deepEqual(pins,[
   [
     "crates/ddv-save-core",
-    "fa7aeef5dc1459104564bf1eb9704d315ab7c415"
+    "9d779873e935cbdd7b1b11b372a318af7ebc68b5"
   ],
   [
     "scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs",
