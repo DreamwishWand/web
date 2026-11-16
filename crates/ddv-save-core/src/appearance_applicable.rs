@@ -6,6 +6,7 @@ use super::*;
 use super::appearance_observer::*;
 use serde_json::{json,Value};
 
+const APPEARANCE_DEFINITIONS:&[u8]=include_bytes!("../data/steam626-appearance-definition-join.json");
 const SKIN_PACK:&[u8]=include_bytes!("../data/steam626-fixed-skin-catalog-projection.json");
 const SKIN_PACK_SHA:&str="440e120ed4555240de2dce30c40544ceba8bcfc21c151ce9106626d28fc2ffc5";
 const PACK_SOURCE_SHA:&str="11a9512f27c0394bff4224c1fac12a9fc622c8be2e5cc8e716f6fbe61dff47d6";
@@ -113,6 +114,7 @@ impl ProductSession{
         let readset=json!({"contract":"wand.core.steam626.hair-current-applicability-inputs@1",
             "female":branch_dependencies(b,required(&player,"FemaleAvatar")?)?,
             "male":branch_dependencies(b,required(&player,"MaleAvatar")?)?,
+            "femaleReferences":branch_json(&f),"maleReferences":branch_json(&m),
             "ownership":t.ownership,"subscribers":current_subscribers(b,&player,&world)?,
             "dialogueFlags":flags,"activeMale":t.active_male,
             "staticPaletteBound":true,"referenceDefinitionJoinRequired":true,
@@ -146,6 +148,170 @@ impl ProductSession{
         Ok(AppearanceCurrentWitness{scope:e,selected_token_sha:t.old_token_sha,readset_sha,readset})
     }
 }
+
+const APPEARANCE_DEFINITIONS_SHA:&str="91aca6e14ffe5cf9311d05a951c20780381ba61d5b7cbe006f33e8bcc27f0f57";
+const APPEARANCE_PROJECTION_SHA:&str="51e08d4ddab0964d0ad7b995101f2a45f7c2e86ea18fa00c41ef88e243eb1ba5";
+static APPEARANCE_DEFINITION_CACHE:std::sync::OnceLock<CoreResult<Value>>=std::sync::OnceLock::new();
+fn positive_id(v:&Value)->CoreResult<i64>{
+    v.as_i64().filter(|x|*x>0&&*x<=i64::from(i32::MAX)).ok_or(denied("APPEARANCE_DEFINITION_ID"))
+}
+fn sorted_rows(v:&Value,count:usize,width:usize)->CoreResult<&Vec<Value>>{
+    let rows=arr(v)?;need(rows.len()==count,"APPEARANCE_DEFINITION_COUNT")?;
+    let mut previous=0;
+    for row in rows{
+        need(arr(row)?.len()==width,"APPEARANCE_DEFINITION_ROW")?;
+        let id=positive_id(&row[0])?;
+        need(id>previous,"APPEARANCE_DEFINITION_ORDER")?;previous=id;
+    }
+    Ok(rows)
+}
+fn definition_row(rows:&Value,id:i64)->CoreResult<&Value>{
+    let rows=arr(rows)?;
+    let ix=rows.binary_search_by_key(&id,|r|r[0].as_i64().unwrap_or(-1))
+        .map_err(|_|denied("APPEARANCE_DEFINITION_UNKNOWN"))?;
+    Ok(&rows[ix])
+}
+fn parse_appearance_definitions(bytes:&[u8])->CoreResult<Value>{
+    need(bytes.len()==139066&&sha(bytes)==APPEARANCE_DEFINITIONS_SHA,"APPEARANCE_DEFINITION_DIGEST")?;
+    let v:Value=serde_json::from_slice(bytes).map_err(|_|denied("APPEARANCE_DEFINITION_JSON"))?;
+    need(v["contract"]=="wand.core.steam626.appearance-definition-join@1"&&v["build"]==APPEARANCE_BUILD&&v["schema"]==626&&
+        v["sourceProjectionSha256"]==APPEARANCE_PROJECTION_SHA,"APPEARANCE_DEFINITION_BUILD")?;
+    sorted_rows(&v["references"]["Clothing"],1900,5)?;
+    sorted_rows(&v["references"]["Makeup"],67,3)?;
+    sorted_rows(&v["references"]["AvatarFeature"],43,3)?;
+    sorted_rows(&v["missionObjectiveKinds"],965,2)?;
+    sorted_rows(&v["hairEventProducers"],2,5)?;
+    sorted_rows(&v["skinWearSchedules"],2,4)?;
+    Ok(v)
+}
+fn appearance_definitions()->CoreResult<&'static Value>{
+    APPEARANCE_DEFINITION_CACHE.get_or_init(||parse_appearance_definitions(APPEARANCE_DEFINITIONS)).as_ref().map_err(|e|*e)
+}
+fn map_definition_rows<'a>(map:&Value,rows:&'a Value,branch_bit:i64)->CoreResult<Vec<&'a Value>>{
+    need(map["present"]==true,"APPEARANCE_DEFINITION_MAP_ABSENT")?;
+    let mut seen=std::collections::BTreeSet::new();
+    let mut found=Vec::new();
+    for entry in arr(&map["entries"])?{
+        let key=entry["key"].as_i64().filter(|n|(0..32).contains(n)).ok_or(denied("APPEARANCE_DEFINITION_SLOT"))?;
+        need(seen.insert(key),"APPEARANCE_DEFINITION_DUPLICATE_SLOT")?;
+        let row=definition_row(rows,positive_id(&entry["savedValue"])?)?;
+        need(row[1]==key&&row[2].as_i64().is_some_and(|bits|bits&branch_bit!=0),"APPEARANCE_DEFINITION_BRANCH_SLOT")?;
+        found.push(row);
+    }
+    Ok(found)
+}
+fn hair_definition_branch(refs:&Value,detail:&Value,pack:&Value,bit:i64)->CoreResult<(usize,std::collections::BTreeSet<i64>)>{
+    let rows=&pack["references"];
+    let clothes=map_definition_rows(&refs["clothes"],&rows["Clothing"],bit)?;
+    let incompatible=map_definition_rows(&refs["incompatibleClothes"],&rows["Clothing"],bit)?;
+    let makeup=map_definition_rows(&refs["makeup"],&rows["Makeup"],bit)?;
+    need(refs["clothingCustomization"]["present"]==true&&arr(&refs["clothingCustomization"]["entries"])?.is_empty(),"APPEARANCE_DEFINITION_CUSTOMIZATION")?;
+    for x in &clothes{
+        for y in &clothes{
+            if x[0]!=y[0]{
+                need(!arr(&x[3])?.contains(&y[1])&&!arr(&x[4])?.contains(&y[0]),"APPEARANCE_DEFINITION_CLOTHING_CONFLICT")?;
+            }
+        }
+        need(incompatible.iter().all(|r|r[1]!=x[1]),"APPEARANCE_DEFINITION_INCOMPATIBLE_SLOT")?;
+    }
+    for (key,kind) in [(&detail["eyeballScalars"]["EyeballItemID"],0),(&detail["scalars"]["SprintEffectID"],1)]{
+        need(key["present"]==true,"APPEARANCE_DEFINITION_FEATURE_ABSENT")?;
+        let row=definition_row(&rows["AvatarFeature"],positive_id(&key["value"])?)?;
+        need(row[1]==kind&&row[2]==1,"APPEARANCE_DEFINITION_FEATURE_TYPE")?;
+    }
+    let n=clothes.len()+incompatible.len()+makeup.len();
+    let ids=clothes.into_iter().chain(incompatible).chain(makeup).map(|r|positive_id(&r[0])).collect::<CoreResult<std::collections::BTreeSet<_>>>()?;
+    Ok((n,ids))
+}
+// Join physical step/substep/objective counts and indices. Objective kind is
+// definition metadata, not a claim about the saved runtime-generated filter.
+fn mission_definition_join(subscribers:&Value,pack:&Value)->CoreResult<(usize,usize,std::collections::BTreeSet<i64>)>{
+    let mut slots=0usize;let mut objectives=0usize;let mut ids=std::collections::BTreeSet::new();
+    for g in arr(&subscribers["missionSlots"]["groups"])?{
+        for s in arr(&g["slots"])?{
+            if s["state"]=="MissionSlotState_Invalid"{continue;}
+            let id=positive_id(&s["missionId"])?;
+            need(ids.insert(id),"APPEARANCE_DEFINITION_MISSION_ALIAS")?;
+            let row=definition_row(&pack["missionObjectiveKinds"],id)?;
+            let expected=arr(&row[1])?;let actual=arr(&s["steps"])?;
+            need(expected.len()==actual.len(),"APPEARANCE_DEFINITION_MISSION_STEPS")?;
+            slots+=1;
+            for (i,(x,y)) in actual.iter().zip(expected).enumerate(){
+                let sub=arr(&x["subSteps"])?;let ey=arr(y)?;
+                need(x["physicalIndex"]==i&&x["subStepsPresent"]==true&&sub.len()==ey.len(),"APPEARANCE_DEFINITION_MISSION_SUBSTEPS")?;
+                for (j,(u,v)) in sub.iter().zip(ey).enumerate(){
+                    let obs=arr(&u["objectives"])?;let ev=arr(v)?;
+                    need(u["physicalIndex"]==j&&u["objectivesPresent"]==true&&obs.len()==ev.len(),"APPEARANCE_DEFINITION_MISSION_OBJECTIVES")?;
+                    for (k,(o,kind)) in obs.iter().zip(ev).enumerate(){
+                        need(o["physicalIndex"]==k&&kind.as_u64().is_some_and(|n|n>=98&&n<999),"APPEARANCE_DEFINITION_OBJECTIVE_INDEX")?;
+                    }
+                    objectives+=ev.len();
+                }
+            }
+        }
+    }
+    Ok((slots,objectives,ids))
+}
+fn hair_definition_join(readset:&Value,pack:&Value)->CoreResult<Value>{
+    let (n,mut ids)=hair_definition_branch(&readset["femaleReferences"],&readset["female"],pack,1)?;
+    let (m,other)=hair_definition_branch(&readset["maleReferences"],&readset["male"],pack,2)?;
+    ids.extend(other);
+    need(readset["ownership"]["allObservedReferencesHavePositiveSavedAmount"]==true&&
+        readset["ownership"]["observedUniqueReferenceCount"]==ids.len(),"APPEARANCE_DEFINITION_STOCK_CLOSURE")?;
+    let (slots,objectives,_)=mission_definition_join(&readset["subscribers"],pack)?;
+    // The two catalog producers consume a clothing ID plus mission state,
+    // not the hair palette scalar. No event/mission/stock field is edited.
+    let mut wear=std::collections::BTreeSet::new();
+    for row in arr(&pack["hairEventProducers"])?{
+        let leaves=arr(&row[3])?;
+        need(leaves.len()==2&&leaves[0][0]==480&&leaves[1][0]==295,"APPEARANCE_DEFINITION_HAIR_PRODUCER")?;
+        let id=positive_id(&leaves[0][1][0][1])?;
+        need(leaves[0][1][0][0]==1&&wear.insert(id),"APPEARANCE_DEFINITION_HAIR_PRODUCER_ITEM")?;
+        definition_row(&pack["references"]["Clothing"],id)?;
+    }
+    Ok(json!({"projectionSha256":APPEARANCE_DEFINITIONS_SHA,"referenceEntries":n+m,"uniqueReferences":ids.len(),
+        "featureDefinitions":4,"missionSlots":slots,"missionObjectives":objectives,"clothingProducerDefinitions":wear.len(),
+        "clothingProducerInputsUnchangedByScalar":true,"effectiveRuntimeFiltersVerified":false,
+        "runtimeProducerClosureVerified":false,"rightsVerified":false,"productWriterAuthorized":false}))
+}
+fn skin_definition_join(readset:&Value,pack:&Value)->CoreResult<Value>{
+    let (slots,objectives,ids)=mission_definition_join(&readset["subscribers"],pack)?;
+    let mut required=std::collections::BTreeSet::new();
+    for row in arr(&pack["skinWearSchedules"])?{
+        let leaves=arr(&row[3])?;
+        let mut wear=false;
+        for leaf in leaves{
+            if leaf[0]==270{
+                need(leaf[1][0][0]==1,"APPEARANCE_DEFINITION_SCHEDULE_MISSION")?;
+                required.insert(positive_id(&leaf[1][0][1])?);
+            }
+            if leaf[0]==60{
+                need(leaf[1][0][0]==1&&leaf[1][0][1]==SKIN_NEW,"APPEARANCE_DEFINITION_SCHEDULE_SKIN")?;wear=true;
+            }
+        }
+        need(wear,"APPEARANCE_DEFINITION_SCHEDULE_WEAR")?;
+    }
+    need(required.len()==1&&required.is_disjoint(&ids),"APPEARANCE_DEFINITION_SCHEDULE_CURRENT_MISSION")?;
+    // Absence from saved non-invalid slots is a narrower fact than effective
+    // mission/schedule or override state; never promote it to a runtime grant.
+    Ok(json!({"projectionSha256":APPEARANCE_DEFINITIONS_SHA,"missionSlots":slots,"missionObjectives":objectives,
+        "wearScheduleDefinitions":2,"requiredMissionAbsentFromNonInvalidSlots":true,
+        "effectiveScheduleVerified":false,"effectiveFlagVerified":false,
+        "runtimeProducerClosureVerified":false,"rightsVerified":false,"productWriterAuthorized":false}))
+}
+impl ProductSession{
+    pub(super) fn prepare_hair_definition_bound(&self,e:WorkerEnvelope,new:i32)->CoreResult<AppearanceCurrentWitness>{
+        let mut t=self.prepare_hair_current_applicability(e,new)?;
+        let join=hair_definition_join(&t.readset,appearance_definitions()?)?;
+        t.readset["definitionJoin"]=join;t.readset_sha=digest(&t.readset)?;Ok(t)
+    }
+    pub(super) fn prepare_skin_definition_bound(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<AppearanceCurrentWitness>{
+        let mut t=self.prepare_skin_current_applicability(e,character,new)?;
+        let join=skin_definition_join(&t.readset,appearance_definitions()?)?;
+        t.readset["definitionJoin"]=join;t.readset_sha=digest(&t.readset)?;Ok(t)
+    }
+}
+
 #[cfg(test)]
 mod tests{
  use super::*;use crate::{BuildIdentity,BuildKind,Platform};
@@ -159,6 +325,55 @@ mod tests{
  }
  fn open(v:Value)->ProductSession{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(&v).unwrap(),BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:APPEARANCE_BUILD.into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s}
  fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+
+ fn definition_doc()->Value{
+    let mut d=doc();
+    for k in ["FemaleAvatar","MaleAvatar"]{
+        let a=&mut d["Player"][k];
+        a["Clothes"]=json!({"0":50000094,"1":50100047});
+        a["Eyeball"]=json!({"EyeballItemID":70000001});
+        a["SprintEffectID"]=json!(70100002);
+    }
+    d["Player"]["ListInventories"]["1"]["Inventory"]=json!({"50000094":{"Amount":1,"Marker":"ItemMarker_None"},"50100047":{"Amount":1,"Marker":"ItemMarker_None"}});
+    d
+ }
+ fn mission_doc(id:i64,steps:&Value)->Value{
+    let mut d=definition_doc();
+    let actual:Vec<Value>=steps.as_array().unwrap().iter().map(|s|json!({"SubSteps":s.as_array().unwrap().iter().map(|sub|json!({"Objectives":sub.as_array().unwrap().iter().map(|_|json!({})).collect::<Vec<_>>()})).collect::<Vec<_>>()})).collect();
+    d["World"]["MissionSlots"]=json!({"1":{"Slots":[{"SlotId":1,"MissionId":id,"State":"MissionSlotState_OnGoing","CurrentStepIndex":0,"MissionSteps":actual}]}});
+    d
+ }
+ #[test]fn appearance_definition_bound_current_session(){
+    let p=appearance_definitions().unwrap();let row=&p["missionObjectiveKinds"][0];
+    let d=mission_doc(row[0].as_i64().unwrap(),&row[1]);let s=open(d.clone());let e=env(&s);let before=s.receipt().unwrap();
+    let h=s.prepare_hair_definition_bound(e,20).unwrap();let k=s.prepare_skin_definition_bound(e,SKIN_CHARACTER,SKIN_NEW).unwrap();
+    assert_eq!(h.readset["definitionJoin"]["referenceEntries"],4);assert_eq!(h.readset["definitionJoin"]["uniqueReferences"],2);
+    assert_eq!(h.readset["definitionJoin"]["featureDefinitions"],4);assert_eq!(h.readset["definitionJoin"]["missionObjectives"],5);
+    assert_eq!(k.readset["definitionJoin"]["wearScheduleDefinitions"],2);
+    assert_eq!(k.readset["definitionJoin"]["effectiveScheduleVerified"],false);
+    assert_eq!(h.readset["definitionJoin"]["productWriterAuthorized"],false);
+    assert_eq!(s.receipt().unwrap(),before);assert_eq!(h.readset_sha,digest(&h.readset).unwrap());
+    let mut d=d;d["World"]["MissionSlots"]["1"]["Slots"][0]["MissionSteps"][0]["SubSteps"][0]["Objectives"]=json!([]);
+    let x=open(d);assert!(x.prepare_hair_definition_bound(env(&x),20).is_err());assert!(x.prepare_skin_definition_bound(env(&x),SKIN_CHARACTER,SKIN_NEW).is_err());
+    let x=open(definition_doc());assert!(x.prepare_hair_definition_bound(e,20).is_err());
+ }
+ #[test]fn appearance_definition_bound_rejects_unknown_conflict_and_schedule(){
+    let mut p=APPEARANCE_DEFINITIONS.to_vec();p[0]^=1;assert!(parse_appearance_definitions(&p).is_err());
+    for mode in 0..4{
+        let mut d=definition_doc();match mode{
+            0=>{d["Player"]["MaleAvatar"]["Clothes"]["0"]=json!(50000001);d["Player"]["ListInventories"]["1"]["Inventory"]["50000001"]=json!({"Amount":1,"Marker":"ItemMarker_None"});}
+            1=>{d["Player"]["MaleAvatar"]["Clothes"]=json!({"0":50100047,"1":50000094});}
+            2=>{d["Player"]["FemaleAvatar"]["Eyeball"]["EyeballItemID"]=json!(70100002);}
+            _=>{d["Player"]["MaleAvatar"]["SprintEffectID"]=json!(79999999);}
+        }
+        let x=open(d);assert!(x.prepare_hair_definition_bound(env(&x),20).is_err(),"mode {mode}");
+    }
+    let p=appearance_definitions().unwrap();
+    let row=definition_row(&p["missionObjectiveKinds"],2070001405).unwrap();
+    let x=open(mission_doc(2070001405,&row[1]));
+    assert!(x.prepare_skin_current_applicability(env(&x),SKIN_CHARACTER,SKIN_NEW).is_ok());
+    assert!(x.prepare_skin_definition_bound(env(&x),SKIN_CHARACTER,SKIN_NEW).is_err());
+ }
  #[test]fn appearance_applicability_current_readsets_no_authority(){
   let s=open(doc());let e=env(&s);let before=s.receipt().unwrap();
   let h=s.prepare_hair_current_applicability(e,20).unwrap();let k=s.prepare_skin_current_applicability(e,SKIN_CHARACTER,SKIN_NEW).unwrap();
