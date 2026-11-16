@@ -190,4 +190,57 @@ mod tests{
   switch.worker_bound=true;
   assert!(switch.prepare_fixed_steam626_eyecolor2(envelope(&switch,WorkerAction::ReadDomain)).is_err());
  }
+
+ #[cfg(feature="product-steam626-eyecolor2-scoped")]
+ #[test]fn eyecolor2_worker_abi_exact1_cas_undo_reopen(){
+  let d=doc();let original=serde_json::to_vec(&d).unwrap();
+  let s=open(&d);let e=envelope(&s,WorkerAction::ReadDomain);
+  let p=s.prepare_fixed_steam626_eyecolor2(e).unwrap();
+  let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+  let preview=g.preview_eyecolor2(e).unwrap();
+  assert_eq!(preview["contract"],"wand.worker.steam626.eyecolor2-exact1@1");
+  assert_eq!(preview["eyeballItemId"],ITEM);
+  assert_eq!(preview["oldColorIndex"],OLD);
+  assert_eq!(preview["newColorIndex"],NEW);
+  assert_eq!(preview["exactFieldChangedCount"],1);
+  assert_eq!(preview["inventoryDelta"],0);
+  assert_eq!(preview["writerAuthorized"],false);
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  let call=|guard:&crate::worker_session::WorkerSessionGuard,active:&str,projected:[u8;32]|
+      guard.stage_eyecolor2(stage,active,&p.inactive_eye_sha,&p.male_sha,
+          &p.female_sha,&p.stock_entry_sha,&p.route_sha,&p.selected_token_sha,projected);
+  assert!(call(&g,"00",p.projected).is_err());
+  let mut forged=p.projected;forged[0]^=1;
+  assert!(call(&g,&p.active_eye_sha,forged).is_err());
+  assert!(g.stage_eyecolor2(e,&p.active_eye_sha,&p.inactive_eye_sha,&p.male_sha,
+          &p.female_sha,&p.stock_entry_sha,&p.route_sha,&p.selected_token_sha,p.projected).is_err());
+  let receipt=call(&g,&p.active_eye_sha,p.projected).unwrap();
+  assert_eq!((receipt.operation_count,receipt.exact_field_changed_count),(1,1));
+  assert!(!receipt.product_writer_authorized&&!receipt.original_overwrite_authorized);
+  assert!(call(&g,&p.active_eye_sha,p.projected).is_err());
+  let current=g.receipt().unwrap();
+  let mut scope=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:current.session_id,
+    expected_revision:current.revision,expected_index_generation:current.index_generation,
+    expected_decoded_sha256:current.decoded_sha256,action:WorkerAction::Stage};
+  g.toggle_scoped_edit(scope,false).unwrap();
+  let current=g.receipt().unwrap();
+  scope.expected_revision=current.revision;scope.expected_index_generation=current.index_generation;
+  scope.expected_decoded_sha256=current.decoded_sha256;
+  g.toggle_scoped_edit(scope,true).unwrap();
+  let current=g.receipt().unwrap();
+  scope.expected_revision=current.revision;scope.expected_index_generation=current.index_generation;
+  scope.expected_decoded_sha256=current.decoded_sha256;scope.action=WorkerAction::ExportEditedCopy;
+  let edited=g.take_scoped_edit(scope).unwrap();
+  assert!(g.take_scoped_edit(scope).is_err());
+  assert_ne!(edited,original);
+  let v:Value=serde_json::from_slice(&edited).unwrap();
+  assert_eq!(v["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"],NEW);
+  assert_eq!(v["Player"]["FemaleAvatar"],d["Player"]["FemaleAvatar"]);
+  assert_eq!(v["Player"]["ListInventories"],d["Player"]["ListInventories"]);
+  assert_eq!(serde_json::to_vec(&d).unwrap(),original);
+  let reopen=ProductSession::open_decoded_readonly(edited,BuildIdentity{
+    platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+    build_id:APPEARANCE_BUILD.into(),schema:626,externally_attested:true}).unwrap();
+  assert_eq!(reopen.receipt().unwrap().schema,626);
+ }
 }
