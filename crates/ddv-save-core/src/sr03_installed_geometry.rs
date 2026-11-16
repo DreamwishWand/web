@@ -121,6 +121,24 @@ impl MeadowGeometry{
   self.clear_ambient(objects,next,&[],&boxes,&common,&mut effective)?;
   Some(next)
  }
+ pub(crate) fn local_r02_with_buildings(&self,grid:&Value,x:u32,y:u32,houses:&Value,common:impl Fn(u32)->Option<(u32,u32)>,mut other:impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<u32>{
+  self.local_r02(grid,x,y,common,|o,dims|match n(&o["ItemID"])?{
+   20500005|20300115=>self.effective_building(o,houses),
+   _=>other(o,dims),
+  })
+ }
+ pub(crate) fn local_r02(&self,grid:&Value,x:u32,y:u32,common:impl Fn(u32)->Option<(u32,u32)>,mut effective:impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<u32>{
+  if n(&grid["ID"])?==0||grid["GridDataPath"]!=GRID||grid["GridDefaultLayoutPath"]!=""||n(&grid["TessellationFactor"])?!=2{return None}
+  let next=n(&grid["NextGridObjectID"])?;
+  if next==0||next.checked_add(4)?>i32::MAX as u32||x%4!=0||y%4!=0||x.checked_add(6)?>W||y.checked_add(6)?>H{return None}
+  let objects=grid["Objects"].as_object()?;
+  if objects.is_empty()||objects.len()>4096||objects.contains_key("0")||self.dimensions(ROAD,&common)?!=(2,2){return None}
+  let anchors=[(x,y),(x+4,y+4),(x+4,y),(x,y+4)];
+  let mut boxes=Vec::with_capacity(4);
+  for (x,y) in anchors{for dx in 0..2{for dy in 0..2{if !self.floor4(x+dx,y+dy){return None}}}boxes.push(Rect(i64::from(x)-2,i64::from(y)-2,i64::from(x)+4,i64::from(y)+4));}
+  self.clear_ambient(objects,next,&[],&boxes,&common,&mut effective)?;
+  Some(next)
+ }
  fn clear_ambient(&self,objects:&serde_json::Map<String,Value>,next:u32,exclude:&[u32],boxes:&[Rect],common:&impl Fn(u32)->Option<(u32,u32)>,effective:&mut impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<()>{
   for(k,o)in objects{if !exact_fields(o,&["ID","ItemID","X","Y","Orientation","State"]){return None}let id=n(&o["ID"])?;if k!=&id.to_string()||id>=next{return None}if exclude.contains(&id){continue}
    let dims=self.dimensions(n(&o["ItemID"])?,common)?;let ox=i64::from(n(&o["X"])?);let oy=i64::from(n(&o["Y"])?);o["Orientation"].as_str()?;
