@@ -63,6 +63,15 @@ fn amount(v: &Value) -> CoreResult<u32> {
         .ok_or(err("WAND_BACKUP_AMOUNT"))?;
     Ok(n as u32)
 }
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum PortableBackupBuild { Steam626, Switch626 }
+fn exact_build_value(build:PortableBackupBuild)->Value{
+    match build {
+        PortableBackupBuild::Steam626=>steam_build(),
+        PortableBackupBuild::Switch626=>json!({"platform":"Switch","buildKind":"SwitchBid",
+            "buildId":"9A239D3DB569756D","gameVersion":"1.25.3","schema":626}),
+    }
+}
 fn steam_build() -> Value {
     json!({"platform":"SteamWindows","buildKind":"SteamFullVersion",
         "buildId":STEAM_BUILD,"gameVersion":"1.25.3","schema":626})
@@ -98,15 +107,21 @@ pub fn encode_inventory_amount_backup(
     inventory_id: u32, item_id: u32, source_decoded_sha256: &str,
     canonical_payload: &[u8],
 ) -> CoreResult<Vec<u8>> {
+    encode_inventory_amount_backup_for_build(PortableBackupBuild::Steam626,inventory_id,item_id,source_decoded_sha256,canonical_payload)
+}
+/// Explicit data-format Build selector, never mutation authority.
+pub fn encode_inventory_amount_backup_for_build(
+    build:PortableBackupBuild,inventory_id:u32,item_id:u32,source_decoded_sha256:&str,canonical_payload:&[u8],
+)->CoreResult<Vec<u8>>{
     let payload = parse_canonical(canonical_payload)?;
     let body = json!({"format":WAND_BACKUP_FORMAT,"schemaVersion":1,
-        "type":INVENTORY_AMOUNT,"sourceBuild":steam_build(),
+        "type":INVENTORY_AMOUNT,"sourceBuild":exact_build_value(build),
         "target":{"inventoryId":inventory_id,"itemId":item_id},
         "payload":payload,
         "provenance":{"decodedSha256":source_decoded_sha256}});
     let bytes = seal(body)?;
     // Use the same validator for both paths. Never emit an unreadable envelope.
-    decode_inventory_amount_backup(&bytes)?;
+    decode_inventory_amount_backup_for_build(build,&bytes)?;
     Ok(bytes)
 }
 /// Read-only, typed domain adapter. Does not accept a destination or build
@@ -114,9 +129,12 @@ pub fn encode_inventory_amount_backup(
 /// current revision/old value, rights and capacity before staging the existing
 /// Rust CAS engine; this data must never be treated as such a capability.
 pub fn decode_inventory_amount_backup(bytes: &[u8]) -> CoreResult<InventoryAmountBackup> {
+    decode_inventory_amount_backup_for_build(PortableBackupBuild::Steam626,bytes)
+}
+pub fn decode_inventory_amount_backup_for_build(build:PortableBackupBuild,bytes:&[u8])->CoreResult<InventoryAmountBackup>{
     let body = verify(bytes)?;
     if body["type"] != INVENTORY_AMOUNT { return Err(err("WAND_BACKUP_TYPE")); }
-    if body["sourceBuild"] != steam_build() { return Err(err("WAND_BACKUP_BUILD")); }
+    if body["sourceBuild"] != exact_build_value(build) { return Err(err("WAND_BACKUP_BUILD")); }
     keys(&body["target"], &["inventoryId","itemId"])?;
     keys(&body["provenance"], &["decodedSha256"])?;
     let source = body["provenance"]["decodedSha256"].as_str()
