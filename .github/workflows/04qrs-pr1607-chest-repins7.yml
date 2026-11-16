@@ -1,0 +1,50 @@
+name: 04 QR-S PR1607 Chest repins7 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr1607-chest-repins7.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f6357fa88496ebe27cbd735f0c4bbc31635c5364
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed raw Git pins and exact7 byte substitutions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "f6357fa88496ebe27cbd735f0c4bbc31635c5364"
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = "c944c2b69227162e054a26eb47c1fba7355087ba"
+          test "$(git rev-parse HEAD:tests/scoped-switch-chest-proof-workflow.test.mjs)" = "0f9025c7b1e580005ea414af4f95c9ef5a129443"
+          cat > tests/qa-pr1607.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync} from 'node:fs';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'});
+          const parent='6ecae288b5e553ce61215b6f888c5b06436d0ff4',old=raw(parent,'.github/workflows/pages.yml'),cur=readFileSync('.github/workflows/pages.yml','utf8');
+          const cut=s=>s.slice(s.indexOf('  scoped_switch_chest_proof:\n'));
+          const extract=s=>[...cut(s).matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(m=>[m[1],m[2]]);
+          const before=extract(old),after=extract(cur);assert.equal(before.length,22);assert.equal(after.length,22);assert.deepEqual(before.map(x=>x[0]),after.map(x=>x[0]));
+          const expected=before.map(([p])=>[p,git('rev-parse',parent+':'+p)]);assert.deepEqual(after,expected);
+          const changed=after.filter((x,i)=>x[1]!==before[i][1]);assert.equal(changed.length,7);
+          assert.deepEqual(changed.map(x=>x[0]).sort(),['src/lib/dev/LocalAmountEditorDev.svelte','src/lib/dev/local-amount-copy.mjs','src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs','src/lib/ddv/core/save/product-scoped-amount-transport.mjs','src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs','src/lib/ddv/core/save/product-wasm-read-owner.mjs','src/lib/dev/local-amount-workflow.mjs'].sort());
+          let patched=old;for(const [p,h] of changed){const oldh=before.find(x=>x[0]===p)[1],a='test "$(git rev-parse HEAD:'+p+')" = '+oldh,b='test "$(git rev-parse HEAD:'+p+')" = '+h;assert.equal(patched.split(a).length,2);patched=patched.replace(a,b);assert.match(git('ls-tree',parent,'--',p),/^100644 blob /);}
+          assert.equal(cur,patched);
+          const tp='tests/scoped-switch-chest-proof-workflow.test.mjs',oldTest=raw(parent,tp),newTest=readFileSync(tp,'utf8');let pt=oldTest;for(const [p,h] of changed){const oldh=before.find(x=>x[0]===p)[1];assert.equal(pt.split(oldh).length,2);pt=pt.replace(oldh,h)}assert.equal(pt,newTest);
+          assert.equal(git('rev-parse',parent+'^{tree}'),'026738d785a83b608314ef187dec775b40fe6182');assert.equal(git('rev-parse','HEAD^{tree}'),'898f1b4a0feefbdf3bf3431587a54ec3b082250d');
+          let neg=0;const check=s=>assert.deepEqual(extract(s),expected),start=cur.indexOf('  scoped_switch_chest_proof:\n'),mutate=(a,b)=>{const x=cur.slice(start);assert.equal(x.split(a).length,2);return cur.slice(0,start)+x.replace(a,b)};
+          for(const [p,h] of after){const t='test "$(git rev-parse HEAD:'+p+')" = '+h;assert.throws(()=>check(mutate(t,t.replace(h,'f'.repeat(40)))));neg++;assert.throws(()=>check(mutate(t,'')));neg++}
+          for(const [p,h] of changed){const oldh=before.find(x=>x[0]===p)[1];assert.throws(()=>check(mutate('HEAD:'+p+')" = '+h,'HEAD:'+p+')" = '+oldh)));neg++}
+          assert.throws(()=>check(cur+'\n test "$(git rev-parse HEAD:foreign)" = '+'a'.repeat(40)));neg++;
+          console.log('PR1607_CHEST_REPINS7_L2_PASS',JSON.stringify({pins:22,changed:7,unchanged:15,negative:neg,actualGit:true,actualSignature:false}));
+          
+          EOF
+          node tests/qa-pr1607.mjs
