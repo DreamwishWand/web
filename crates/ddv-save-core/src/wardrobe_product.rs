@@ -21,7 +21,7 @@ static ROWS:OnceLock<CoreResult<Rows>>=OnceLock::new();
 fn parse()->CoreResult<Rows>{
     need(hex(&sha(PACK))==PACK_SHA,"WARDROBE_PRODUCT_PACK_SHA")?;
     let p:Value=serde_json::from_slice(PACK).map_err(|_|denied("WARDROBE_PRODUCT_PACK"))?;
-    need(p["contract"]=="wand.catalog.wardrobe-clothing-compat@1"&&p["authority"]=="static-packaged-data-only"&&p["sourceCount"]==1900&&p["rowFormat"]==6&&p["productWriterAuthorized"]==false&&p["runtimeTargetAuthority"]==false&&
+    need(p["contract"]=="wand.catalog.wardrobe-clothing-compat@1"&&p["authority"]=="static-packaged-data-only"&&p["sourceCount"]==1900&&p["rowFormat"]==json!(["itemId","definitionSha256","slot","conflictSlotMask","conflictItemIds","ordinarySelectionCandidate0or1"])&&p["productWriterAuthorized"]==false&&p["runtimeTargetAuthority"]==false&&
         p["builds"]==json!([{"id":EXACT_STEAM,"kind":"SteamFullVersion","platform":"SteamWindows","schema":626},{"id":BID,"kind":"SwitchBid","platform":"Switch","schema":626}]),"WARDROBE_PRODUCT_PACK_HEADER")?;
     need(p["compatibility"]==json!({"fullbodyExcludes":[0,1,7,15],"fullbodySlot":9,"maxMapEntriesPerMap":18,"relation":"bidirectional-retained-conflict-equivalence","slotMax":17,"slotMin":0,"unknown":"deny","withoutFullbodyRequires":[0,1]}),"WARDROBE_PRODUCT_PACK_CONTRACT")?;
     let rows=ar(&p["rows"])?;need(rows.len()==1898,"WARDROBE_PRODUCT_PACK_COUNT")?;
