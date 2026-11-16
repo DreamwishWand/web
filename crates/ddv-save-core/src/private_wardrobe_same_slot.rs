@@ -226,4 +226,61 @@ mod tests{
         assert_eq!(s.take_typed_semantic_decoded_once(export).unwrap(),expected);
         assert!(s.take_typed_semantic_decoded_once(export).is_err());
     }
+
+    #[test]
+    fn qa_act1139_switch_private_build_exact1() {
+        let d=doc();let raw=serde_json::to_vec_pretty(&d).unwrap();
+        let make=|bid:&str,attested:bool|ProductSession::open_decoded_readonly(raw.clone(),BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:bid.into(),schema:626,externally_attested:attested});
+        let s=make(SWITCH_BID,true).unwrap();let steam=open(&d);
+        let before=s.receipt().unwrap();let e=env(before.clone(),WorkerAction::ReadDomain);
+        let mut edited=d.clone();edited["Player"]["MaleAvatar"]["Clothes"]["0"]=json!(50000003);
+        let want=serde_json::to_vec_pretty(&edited).unwrap();
+        let mut p=plan(&steam,env(steam.receipt().unwrap(),WorkerAction::ReadDomain),&want);
+        p.as_object_mut().unwrap().remove("fullVersion");p["contract"]=json!(SWITCH_CONTRACT);p["buildId"]=json!(SWITCH_BID);
+        let mint=|session:&ProductSession,scope:WorkerEnvelope,q:&Value| {
+            let b=serde_json::to_vec(q).unwrap();session.mint_private_switch626_wardrobe_same_slot_target(scope,&b,sha(&b))
+        };
+        let mut n=0;
+        for (key,value) in [("buildId",json!("52BD625D9B4E0053")),("contract",json!(CONTRACT)),
+             ("fullVersion",json!(EXACT_STEAM)),("slot",json!(5)),("oldItemId",json!(50000003)),
+             ("newItemId",json!(50000002)),("sourceDecodedSha256",json!(hex(&sha(b"other")))),
+             ("candidateReceiptSha256",json!("0".repeat(64)))] {
+            let mut q=p.clone();q[key]=value;assert!(mint(&s,e.clone(),&q).is_err(),"{key}");n+=1;
+        }
+        for key in ["oldScalarSha256","maleAvatarSha256","femaleAvatarSha256","clothesMapSha256",
+                    "incompatibleClothesMapSha256","customizationMapSha256"] {
+            let mut q=p.clone();q["savedReadSet"][key]=json!(hex(&sha(b"other")));
+            assert!(mint(&s,e.clone(),&q).is_err(),"{key}");n+=1;
+        }
+        for key in ["oldStock","proposedStock"] {
+            let mut q=p.clone();q["savedReadSet"]["inventory"][key]["entrySha256"]=json!("wrong");
+            assert!(mint(&s,e.clone(),&q).is_err(),"{key}");n+=1;
+        }
+        let other=make(SWITCH_BID,true).unwrap();
+        assert!(mint(&other,e.clone(),&p).is_err());n+=1;
+        assert!(mint(&steam,env(steam.receipt().unwrap(),WorkerAction::ReadDomain),&p).is_err());n+=1;
+        for (bid,attested) in [("52BD625D9B4E0053",true),(SWITCH_BID,false)] {
+            if let Ok(w)=make(bid,attested) {assert!(mint(&w,env(w.receipt().unwrap(),WorkerAction::ReadDomain),&p).is_err());}n+=1;
+        }
+        let mut stale=e.clone();stale.expected_revision=1;assert!(mint(&s,stale,&p).is_err());n+=1;
+        let t=mint(&s,e.clone(),&p).unwrap();let mut st=e.clone();st.action=WorkerAction::Stage;
+        assert!(s.stage_private_wardrobe_same_slot(st.clone(),&t).is_err());n+=1;
+        assert!(other.stage_private_switch626_wardrobe_same_slot(env(other.receipt().unwrap(),WorkerAction::Stage),&t).is_err());n+=1;
+        let mut q=p.clone();q["expectedEditedDecodedSha256"]=json!(hex(&sha(b"other output")));
+        let wrong=mint(&s,e.clone(),&q).unwrap();
+        assert!(s.stage_private_switch626_wardrobe_same_slot(st.clone(),&wrong).is_err());n+=1;
+        assert_eq!(s.receipt().unwrap(),before);
+        let r=s.stage_private_switch626_wardrobe_same_slot(st.clone(),&t).unwrap();
+        assert_eq!(r.exact_field_changed_count,1);assert_eq!(r.operation_count,1);
+        assert_eq!(r.staged_decoded_sha256,sha(&want));assert!(!r.product_writer_authorized);
+        assert!(s.stage_private_switch626_wardrobe_same_slot(st,&t).is_err());n+=1;
+        s.undo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());n+=1;
+        s.redo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        let ex=env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+        assert_eq!(s.take_typed_semantic_decoded_once(ex.clone()).unwrap(),want);
+        assert!(s.take_typed_semantic_decoded_once(ex).is_err());n+=1;
+        assert_eq!(n,27);println!("ACT1139_SWITCH_WARDROBE 1POS {n}NEG");
+    }
 }
