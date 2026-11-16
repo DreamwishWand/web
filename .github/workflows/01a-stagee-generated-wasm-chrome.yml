@@ -53,3 +53,85 @@ jobs:
           ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
           test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
           test -f crates/ddv-save-core/src/wasm_worker.rs
+
+      - name: QA ONLY ACT1021 generated shared ABI domain and one-buffer boundary
+        run: |
+          set -euo pipefail
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          "$B" "$W" --out-dir /tmp/wand-abi-off --target nodejs --no-typescript
+          for mode in amount collection both; do
+            case "$mode" in
+              amount) features=worker-wasm,product-amount-scoped ;;
+              collection) features=worker-wasm,product-collection-scoped,semantic-writer-dev ;;
+              both) features=worker-wasm,product-amount-scoped,product-collection-scoped ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            "$B" "$W" --out-dir "/tmp/wand-abi-$mode" --target nodejs --no-typescript
+          done
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),{createHash}=require('node:crypto');
+          const cls=m=>require('/tmp/wand-abi-'+m+'/ddv_save_core.js').WorkerWasmSource;
+          const A=['discover_scoped_amount','preview_scoped_amount','stage_scoped_amount','toggle_scoped_amount','begin_scoped_amount_output','next_scoped_amount_output_chunk'];
+          const C=['preview_scoped_collection_candidate','preview_fixed_collection','stage_fixed_collection'];
+          const N=['toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk'];
+          for(const mode of ['off','amount','collection','both']){
+            const p=cls(mode).prototype;
+            for(const [names,on] of [[A,['amount','both'].includes(mode)],[C,['collection','both'].includes(mode)],[N,mode!=='off']])for(const n of names)assert.equal(typeof p[n],on?'function':'undefined',mode+':'+n);
+          }
+          const sha=b=>createHash('sha256').update(b).digest('hex'), enc=d=>Buffer.from(JSON.stringify(d,null,2));
+          const keys=[40001887,40001888,40002657,40002680,40002959,40004417,40004507,40004508,40004509,40004510,40004511,40004512,40004518,40004520,40004521,40004522,40004559,40004561,40004562,40004563,40004572,40004573,40004576,40004580,40004668,160000205,160100139];
+          const def=2120000159,target=40004511,peer=40004668,F='catalog0-furniture',item=40000048,oldsha=sha(Buffer.from('false'));
+          const steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],sw=['switch','switch-bid','9A239D3DB569756D',626,true];
+          let nonce=0,pos=0,neg=0;
+          function doc(big=false){
+            return {GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{GridCollection:{Grids:{},DiffGrids:{}},MissionSlots:{},Villages:[]},Player:{CollectionSets:[{CollectionDefinitionID:def,GroupData:[{GroupIndex:0,State:'SetState_NotComplete',GroupsCollectionItems:Object.fromEntries(keys.map(k=>[k,![40001887,target,peer].includes(k)])),UnknownMarker:'preserve'}]}],ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{[target]:{Amount:2},[peer]:{Amount:1},[item]:{Amount:3,Marker:'ItemMarker_None'}}}},ContainerInventories:{},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Opaque:{keep:big?Array.from({length:1100},(_,i)=>('Q'+i+':').padEnd(1024,'z')):['false',false]}};
+          }
+          function open(mode,d,build=steam){const raw=enc(d),w=new (cls(mode))(...build,new Uint8Array(32).fill(++nonce));for(let i=0;i<raw.length;i+=1048576)w.append_chunk(raw.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(raw));return [w,r];}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256], parse=JSON.parse;
+          const deny=f=>{assert.throws(f);neg++;};
+          const legacy='wand.worker.steam626.scoped-amount@1',neutral='wand.worker.scoped-edit@1', legacyOut='wand.worker.steam626.scoped-amount-output@1',neutralOut='wand.worker.scoped-edit-output@1';
+          const ca=(w,r,h=oldsha)=>parse(w.stage_fixed_collection(def,0,target,h,...sc(r)));
+          const ap=(w,r)=>parse(w.preview_scoped_amount(F,0,item,2,...sc(r)));
+          const aa=(w,r,h,old=3)=>parse(w.stage_scoped_amount(F,0,item,old,2,h,...sc(r)));
+          const tog=(w,r,redo,alias=false)=>parse(w[alias?'toggle_scoped_amount':'toggle_scoped_edit'](redo,...sc(r)));
+          const begin=(w,r,alias=false)=>parse(w[alias?'begin_scoped_amount_output':'begin_scoped_edit_output'](...sc(r)));
+          const chunk=(w,alias=false)=>Buffer.from(w[alias?'next_scoped_amount_output_chunk':'next_scoped_edit_output_chunk']());
+          function receipt(r,prev,contract,applied){assert.equal(r.contract,contract);assert.equal(r.sessionId,prev.sessionId);assert.equal(r.decodedSha256,prev.decodedSha256);assert.equal(r.revision,prev.revision+1);assert.equal(r.indexGeneration,prev.indexGeneration+1);assert.equal(r.applied,applied);assert.equal(r.exactFieldChangedCount,1);assert.equal(r.operationCount,1);assert.equal(r.writerAuthorized,false);assert.equal(r.originalOverwriteAuthorized,false);}
+          function drain(w,o,want,alias=false){const parts=[];let n=0;while(n<o.decodedBytes){const c=chunk(w,alias);assert(c.length>0&&c.length<=1048576);parts.push(c);n+=c.length;}assert.deepEqual(Buffer.concat(parts),enc(want));assert.equal(o.decodedSha256,sha(enc(want)));deny(()=>chunk(w,alias));}
+          for(const build of [steam,sw]){
+            const d=doc(true),[w,r]=open('both',d,build),want=structuredClone(d);
+            want.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems[target]=true;
+            const p=parse(w.preview_fixed_collection(def,0,target,...sc(r)));assert.equal(p.entrySha256,oldsha);
+            const a=build===steam?ap(w,r):null;
+            deny(()=>ca(w,r,'00'.repeat(32)));deny(()=>begin(w,r,true));deny(()=>chunk(w,true));
+            const s=ca(w,r);receipt(s,r,neutral,true);
+            // Failed cross-domain Stage must not relabel the existing Collection ledger.
+            deny(()=>aa(w,s,a?.entrySha256||'00'.repeat(32)));
+            deny(()=>tog(w,s,false,true));deny(()=>begin(w,s,true));deny(()=>chunk(w,true));
+            deny(()=>tog(w,r,false));deny(()=>ca(w,s));deny(()=>ca(w,r));
+            const u=tog(w,s,false);receipt(u,s,neutral,false);
+            deny(()=>tog(w,u,true,true));deny(()=>begin(w,u,true));deny(()=>begin(w,u));
+            const v=tog(w,u,true);receipt(v,u,neutral,true);assert.equal(v.stagedDecodedSha256,sha(enc(want)));
+            deny(()=>begin(w,v,true));const o=begin(w,v);assert.equal(o.contract,neutralOut);
+            deny(()=>chunk(w,true));const first=chunk(w);assert.equal(first.length,1048576);deny(()=>chunk(w,true));deny(()=>begin(w,v,true));
+            const second=chunk(w);assert.deepEqual(Buffer.concat([first,second]),enc(want));assert.equal(o.decodedSha256,sha(enc(want)));
+            deny(()=>chunk(w));deny(()=>chunk(w,true));deny(()=>begin(w,v));w.close();deny(()=>chunk(w));w.free();pos++;
+          }
+          for(const mode of ['amount','both']){
+            const d=doc(true),[w,r]=open(mode,d),want=structuredClone(d);want.Player.ListInventories[0].Inventory[item].Amount=2;
+            const p=ap(w,r);assert.equal(p.contract,legacy);assert.equal(p.oldAmount,3);assert.equal(p.newAmount,2);
+            deny(()=>aa(w,r,p.entrySha256,2));const s=aa(w,r,p.entrySha256);receipt(s,r,legacy,true);
+            if(mode==='both')deny(()=>ca(w,s));
+            const u=tog(w,s,false,true);receipt(u,s,legacy,false);deny(()=>begin(w,u,true));deny(()=>begin(w,u));
+            const v=tog(w,u,true);receipt(v,u,neutral,true);deny(()=>tog(w,s,false,true));deny(()=>aa(w,v,p.entrySha256));
+            const o=begin(w,v,true);assert.equal(o.contract,legacyOut);assert.equal(o.writerAuthorized,false);
+            deny(()=>begin(w,v));const x=chunk(w,true);assert.equal(x.length,1048576);const y=chunk(w);assert.deepEqual(Buffer.concat([x,y]),enc(want));assert.equal(o.decodedSha256,sha(enc(want)));
+            deny(()=>chunk(w));deny(()=>chunk(w,true));w.close();w.free();pos++;
+          }
+          // Individual feature runtime plus neutral Amount output and close mid-stream.
+          {const d=doc(),[w,r]=open('collection',d,sw),s=ca(w,r);const want=structuredClone(d);want.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems[target]=true;drain(w,begin(w,s),want);w.close();w.free();pos++;}
+          {const d=doc(true),[w,r]=open('both',d),p=ap(w,r),s=aa(w,r,p.entrySha256),o=begin(w,s);assert.equal(o.contract,neutralOut);assert.equal(chunk(w,true).length,1048576);w.close();deny(()=>chunk(w,true));deny(()=>chunk(w));deny(()=>w.finish());w.free();pos++;}
+          console.log('ACT1021_SHARED_GENERATED_ABI '+pos+'POS '+neg+'NEG PASS; exact four feature surfaces; domain cross-consumption denied, shared output cursor');
+          assert.equal(pos,6);
+          JS
