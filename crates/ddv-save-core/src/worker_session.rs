@@ -53,6 +53,14 @@ impl WorkerSessionGuard {
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         self.session.read_saved_diffgrids_page(scope,cursor)
     }
+    #[cfg(feature="product-wardrobe-scoped")]
+    pub(crate) fn preview_wardrobe(&self,e:WorkerEnvelope,switch:bool)->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}self.session.preview_product_wardrobe(e,switch)
+    }
+    #[cfg(feature="product-wardrobe-scoped")]
+    pub(crate) fn stage_wardrobe(&self,e:WorkerEnvelope,old:u32,new:u32,witness:[u8;32],out:[u8;32],switch:bool)->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}self.session.stage_product_wardrobe(e,old,new,witness,out,switch)
+    }
     #[cfg(feature="product-amount-scoped")]
     pub(crate) fn discover_scoped_amount(&self,e:WorkerEnvelope,profile:&str,offset:u32)
         ->CoreResult<(Vec<crate::CoreExistingAmountTarget>,Option<u32>,u32)>{
