@@ -36,6 +36,8 @@ fn main(){
 
  #[cfg(all(feature="private-native-v1",feature="semantic-writer-dev",not(target_arch="wasm32")))]
  if env::args().nth(1).as_deref()==Some("--private-steam626-backpack-fruit-split-exact3-only"){backpack_split::run();return;}
+ #[cfg(all(feature="private-native-v1",feature="semantic-writer-dev",not(target_arch="wasm32")))]
+ if env::args().nth(1).as_deref()==Some("--private-switch626-backpack-fruit-split-exact3-only"){backpack_split::run_switch();return;}
  #[cfg(all(feature="semantic-writer-dev",not(target_arch="wasm32")))]
  if matches!(env::args().nth(1).as_deref(),Some("--switch626-collection-existing-bool-exact1-only"|"--steam626-collection-existing-bool-exact1-only")){
    run_collection_bool(env::args().nth(1).as_deref()==Some("--steam626-collection-existing-bool-exact1-only"));return;
