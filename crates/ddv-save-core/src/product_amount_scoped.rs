@@ -735,6 +735,22 @@ mod tests{
         s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();assert!(s.take_typed_semantic_decoded_once(e).is_err());
         let mut wanted=d;wanted["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);assert_eq!(out,serde_json::to_vec(&wanted).unwrap());
     }
+    #[cfg(feature="product-steam626-catalog0-portable-restore")]
+    #[test]fn catalog0_portable_worker_guard_boundary(){
+        let mut prior=doc();prior["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);
+        let a=open(&prior);let ae=scope(&a,WorkerAction::ReadDomain);let ag=crate::worker_session::WorkerSessionGuard::attach(a);
+        let backup=ag.capture_catalog0_portable(ae,40000048).unwrap();
+        let s=open(&doc());let e=scope(&s,WorkerAction::ReadDomain);let st=scope(&s,WorkerAction::Stage);
+        let p=s.preview_product_catalog0_portable_restore(e,40000048,&backup).unwrap();
+        let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+        let v=g.preview_catalog0_portable(e,40000048,&backup).unwrap();assert_eq!(v["oldAmount"],json!(3));assert_eq!(v["projectedSha256"],json!(hex(&p.projected_sha)));
+        assert!(g.preview_catalog0_portable(ae,40000048,&backup).is_err());
+        assert!(g.stage_catalog0_portable(st,40000048,&backup,3,2,p.entry_sha,[0;32],p.projected_sha).is_err());
+        let r=g.stage_catalog0_portable(st,40000048,&backup,3,2,p.entry_sha,p.backup_sha,p.projected_sha).unwrap();assert_eq!(r.exact_field_changed_count,1);
+        assert!(g.stage_catalog0_portable(st,40000048,&backup,3,2,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        let out=WorkerEnvelope{expected_revision:r.revision,expected_index_generation:r.index_generation,action:WorkerAction::ExportEditedCopy,..st};
+        assert_eq!(g.take_scoped_edit(out).unwrap(),serde_json::to_vec(&prior).unwrap());assert!(g.take_scoped_edit(out).is_err());
+    }
     #[test]fn catalog0_portable_backup_exact_lineage_decrease(){
         use crate::portable_backup::{decode_inventory_amount_backup,encode_inventory_amount_backup};
         let mut prior=doc();prior["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);
