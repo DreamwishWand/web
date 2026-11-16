@@ -64,6 +64,17 @@ impl WorkerSessionGuard {
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         self.session.stage_sr03_product(e,grid,keep,moved,next,old,grid_sha,stock_sha,projected)
     }
+    #[cfg(feature="product-switch626-rm01-scoped")]
+    pub(crate) fn preview_switch626_rm01_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32)->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_switch626_rm01_product(e,grid,keep,moved)
+    }
+    #[cfg(feature="product-switch626-rm01-scoped")]
+    pub(crate) fn stage_switch626_rm01_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32,next:u32,old:u32,
+        grid_sha:[u8;32],stock_sha:[u8;32],projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.stage_switch626_rm01_product(e,grid,keep,moved,next,old,grid_sha,stock_sha,projected)
+    }
     #[cfg(feature="product-amount-scoped")]
     pub(crate) fn preview_comp03_product(&self,e:WorkerEnvelope,seed:u32)->CoreResult<serde_json::Value>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}

@@ -310,6 +310,11 @@ pub(super) fn check_sr03_applicability(player:&Value,world:&Value)->CoreResult<(
     applicable::check_sr03_supplement(EXACT_STEAM,super::DEP.as_bytes(),SUPPLEMENT,player,world,super::filter_disjoint).map_err(denied)?;
     Ok(())
 }
+#[cfg(feature="product-switch626-rm01-scoped")]
+pub(super) fn check_switch626_rm01_applicability(player:&Value,world:&Value)->CoreResult<()>{
+    applicable::check_switch626_rm01_supplement("9A239D3DB569756D",super::DEP.as_bytes(),SUPPLEMENT,player,world,super::filter_disjoint).map_err(denied)?;
+    Ok(())
+}
 #[cfg(test)]
 mod tests{
     use super::*;

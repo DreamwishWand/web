@@ -20,6 +20,11 @@ impl Rect{fn intersects(self,o:Self)->bool{self.0<o.2&&o.0<self.2&&self.1<o.3&&o
 pub(crate) struct LocalTarget{pub(crate) keep:u32,pub(crate) moved:u32,pub(crate) next:u32,pub(crate) x:u32,pub(crate) y:u32}
 pub(crate) struct MeadowGeometry{data:Value,mask:Vec<u8>}
 impl MeadowGeometry{
+ /// E2902/E2931 exact 73 frame/child pins and floor on attested Switch626.
+ pub(crate) fn fixed_switch626(build:&str,schema:u32)->Option<Self>{
+  if build!="9A239D3DB569756D"||schema!=626{return None}
+  Self::fixed(BUILD,626)
+ }
  pub(crate) fn fixed(build:&str,schema:u32)->Option<Self>{
   if build!=BUILD||schema!=626||format!("{:x}",Sha256::digest(PACK.as_bytes()))!=PACK_SHA{return None}
   let data:Value=serde_json::from_str(PACK).ok()?;

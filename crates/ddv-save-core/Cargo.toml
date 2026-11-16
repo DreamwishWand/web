@@ -33,6 +33,8 @@ product-switch626-chest-scoped = ["product-amount-scoped"]
 product-steam626-comp03-scoped = ["product-amount-scoped"]
 product-steam626-comp03-spatial-preview = ["product-steam626-comp03-scoped"]
 product-steam626-sr03-scoped = ["product-amount-scoped"]
+# Exact Switch626 mixed Road RM01; independent of Steam SR03.
+product-switch626-rm01-scoped = ["product-amount-scoped"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
