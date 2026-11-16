@@ -99,7 +99,7 @@ fn child_extra(b:&[u8],gs:Span,ds:Span,refs:&Incoming,parent:u32,p:&Value)->Opti
     };
     if uint(&g["ID"])?!=id||uint(&g["TessellationFactor"])?!=2||g["GridDataPath"]!=path||g["GridDefaultLayoutPath"]!=""{return None}
     let m=g["Objects"].as_object()?;if m.len()>1{return None}
-    let next=uint(&g["NextGridObjectID"])?;if next==0{return None}
+    let next=uint(&g["NextGridObjectID"])?;if next==0&&!m.is_empty(){return None}
     for(k,o)in m{
        // E1184 exact child definition, installed Furniture frame SHA
        // cd868c0a30a68f84961df793a23c14c9cb53c90add182481e1d95561e78c3060,
@@ -204,6 +204,19 @@ mod tests{
   let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),crate::BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s
  }
  fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+ #[test]fn sr03_subgrid_empty_zero_counter_and_bounded_child(){
+  let mut d=json!({"Grids":{"20":{"ID":20,"TessellationFactor":2,"GridDataPath":"GridData/Furniture/NonIP_Update17/CoffeeShopTable-GridData.json","GridDefaultLayoutPath":"","NextGridObjectID":0,"Objects":{}}},"DiffGrids":{}});
+  let p=json!({"DesignID":null,"GridID":20});
+  let check=|v:&Value,root:u32,parent:u32|{let b=serde_json::to_vec(v).unwrap();let top=Span{begin:0,end:b.len()};let mut a=Incoming::default();a.roots.insert(20,root);a.parents.insert(20,parent);
+   child_extra(&b,f(&b,top,"Grids").unwrap(),f(&b,top,"DiffGrids").unwrap(),&a,40004191,&p)};
+  assert_eq!(check(&d,0,1),Some(0));assert_eq!(check(&d,1,1),None);assert_eq!(check(&d,0,2),None);
+  d["Grids"]["20"]["Objects"]["0"]=json!({"ID":0,"ItemID":40004104,"X":0,"Y":0,"Orientation":"GridOrientation_DownRight","State":null});
+  assert_eq!(check(&d,0,1),None);
+  d["Grids"]["20"]["NextGridObjectID"]=json!(1);assert_eq!(check(&d,0,1),Some(8));
+  d["Grids"]["20"]["Objects"]["0"]["X"]=json!(65);assert_eq!(check(&d,0,1),None);
+  d["Grids"]["20"]["Objects"]["0"]["X"]=json!(0);d["Grids"]["20"]["Objects"]["0"]["ItemID"]=json!(40000066);assert_eq!(check(&d,0,1),None);
+  d["Grids"]["20"]["Objects"]["0"]["ItemID"]=json!(40004104);d["DiffGrids"]["20"]=json!({"ID":20});assert_eq!(check(&d,0,1),None);
+ }
  #[test]fn sr03_current_session_target_root_stock_and_refs(){
   let d=doc();let s=open(&d);let e=env(&s);let r=s.receipt().unwrap();let t=s.mint_sr03_target(e,90001,10,11).unwrap();
   assert_eq!((t.stock,t.local.next,t.local.keep,t.local.moved),(10,50,10,11));assert_eq!(s.receipt().unwrap(),r);
