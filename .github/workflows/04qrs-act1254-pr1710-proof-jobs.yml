@@ -54,7 +54,7 @@ jobs:
             const upload=b.slice(b.indexOf('actions/upload-artifact@v4'));assert.match(upload,/pins\.json/);assert.match(upload,/attestation-bundle\.jsonl/);assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-|static\/|build\//);pos++;
           }
           const guards=['build',...names].map(n=>section(n).split('\n').find(l=>l.trim().startsWith('if:')).trim().slice(4));
-          const evalGuard=(g,event,ref,values)=>g.split(' || ').some(or=>or.replace(/^\(|\)$/g,'').split(' && ').every(term=>{const m=term.match(/^(github\.event_name|github\.ref|inputs\.[a-z_]+) (==|!=) '([^']*)'$/);assert.ok(m,term);const v=m[1]==='github.event_name'?event:m[1]==='github.ref'?ref:values[m[1].slice(7)];return m[2]==='=='?v===m[3]:v!==m[3]}));
+          const evalGuard=(g,event,ref,values)=>g.split(' || ').some(or=>or.replace(/^\(|\)$/g,'').split(' && ').every(term=>{const m=term.match(/^(github\.event_name|github\.ref|inputs\.[a-z0-9_]+) (==|!=) '([^']*)'$/);assert.ok(m,term);const v=m[1]==='github.event_name'?event:m[1]==='github.ref'?ref:values[m[1].slice(7)];return m[2]==='=='?v===m[3]:v!==m[3]}));
           for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/other'])for(let mask=0;mask<16;mask++){
             const vals=Object.fromEntries(keys.map((k,i)=>[k,mask&(1<<i)?'x':''])),out=guards.map(g=>evalGuard(g,event,ref,vals));const expect=[event!=='workflow_dispatch'||mask===0,...keys.map((k,i)=>event==='workflow_dispatch'&&ref==='refs/heads/main'&&mask===(1<<i))];assert.deepEqual(out,expect);if(expect.some(Boolean))pos++;else neg++;
           }
