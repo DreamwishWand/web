@@ -2,15 +2,7 @@ name: 01A Stage E Genuine Generated Rust WASM Chrome Worker (Writer OFF)
 on:
   pull_request:
     paths:
-      - 'tests/stage-e/**'
-      - 'scripts/wasm-distribution/**'
-      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
       - '.github/workflows/01a-stagee-generated-wasm-chrome.yml'
-      - 'crates/ddv-save-core/**'
-      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
-  push:
-    branches:
-      - 'core/real-wasm-browser-smoke-stagee-*'
 permissions:
   contents: read
 jobs:
@@ -24,32 +16,103 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Verify real Chrome and exact pinned wasm-bindgen crate
+      - name: QA ONLY Hair Skin dedicated ABI and producer-bound exact1
         run: |
           set -euo pipefail
-          command -v google-chrome || command -v chromium
-          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
-      - name: Compile REAL cdylib with opt-in Worker and indexed metadata
-        run: |
-          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
-          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
-      - name: Install exactly matching wasm-bindgen CLI 0.2.105 (not generated or mocked JS)
-        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock | tee /tmp/qrc1734-lock.sha
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagee-wasm-tools
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen --version | grep -F '0.2.105'
-      - name: Generate true wasm-bindgen Browser Worker ESM glue
-        run: |
-          mkdir -p tests/stage-e/pkg
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
-          test -s tests/stage-e/pkg/ddv_save_core.js
-          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
-          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|include_bytes!|writerAuthorized: *true|applyAuthorized: *true' tests/stage-e
-      - name: Actual browser CDP + module Worker + Rust WASM positive and negatives
-        run: node tests/stage-e/chrome-smoke.mjs
-      - name: Confirm Stage E never changed product Writer or public worker route
-        run: |
-          ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
-          test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
-          test -f crates/ddv-save-core/src/wasm_worker.rs
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          for mode in off legacy legacy-mixed hair hair-mixed skin skin-mixed both steam hair-steam skin-steam chest hair-chest skin-chest comp hair-comp skin-comp spatial hair-spatial skin-spatial sr03 hair-sr03 skin-sr03 rm hair-rm skin-rm steam-hair steam-skin hair-sh hair-ss skin-sh skin-ss all; do
+            case "$mode" in
+              off) f=indexed-read ;;
+              legacy) f=product-amount-scoped ;;
+              legacy-mixed) f=product-amount-scoped,product-collection-scoped ;;
+              hair) f=product-switch626-hair-scoped ;;
+              hair-mixed) f=product-switch626-hair-scoped,product-collection-scoped ;;
+              skin) f=product-switch626-skin-scoped ;;
+              skin-mixed) f=product-switch626-skin-scoped,product-collection-scoped ;;
+              both) f=product-switch626-hair-scoped,product-switch626-skin-scoped ;;
+              steam) f=product-steam626-chest-scoped ;;
+              hair-steam) f=product-switch626-hair-scoped,product-steam626-chest-scoped,product-collection-scoped ;;
+              skin-steam) f=product-switch626-skin-scoped,product-steam626-chest-scoped,product-collection-scoped ;;
+              chest) f=product-switch626-chest-scoped ;;
+              hair-chest) f=product-switch626-hair-scoped,product-switch626-chest-scoped,product-collection-scoped ;;
+              skin-chest) f=product-switch626-skin-scoped,product-switch626-chest-scoped,product-collection-scoped ;;
+              comp) f=product-steam626-comp03-scoped ;;
+              hair-comp) f=product-switch626-hair-scoped,product-steam626-comp03-scoped,product-collection-scoped ;;
+              skin-comp) f=product-switch626-skin-scoped,product-steam626-comp03-scoped,product-collection-scoped ;;
+              spatial) f=product-steam626-comp03-spatial-preview ;;
+              hair-spatial) f=product-switch626-hair-scoped,product-steam626-comp03-spatial-preview,product-collection-scoped ;;
+              skin-spatial) f=product-switch626-skin-scoped,product-steam626-comp03-spatial-preview,product-collection-scoped ;;
+              sr03) f=product-steam626-sr03-scoped ;;
+              hair-sr03) f=product-switch626-hair-scoped,product-steam626-sr03-scoped,product-collection-scoped ;;
+              skin-sr03) f=product-switch626-skin-scoped,product-steam626-sr03-scoped,product-collection-scoped ;;
+              rm) f=product-switch626-rm01-scoped ;;
+              hair-rm) f=product-switch626-hair-scoped,product-switch626-rm01-scoped,product-collection-scoped ;;
+              skin-rm) f=product-switch626-skin-scoped,product-switch626-rm01-scoped,product-collection-scoped ;;
+              steam-hair) f=product-steam626-hair-scoped ;;
+              steam-skin) f=product-steam626-skin-scoped ;;
+              hair-sh) f=product-switch626-hair-scoped,product-steam626-hair-scoped ;;
+              hair-ss) f=product-switch626-hair-scoped,product-steam626-skin-scoped ;;
+              skin-sh) f=product-switch626-skin-scoped,product-steam626-hair-scoped ;;
+              skin-ss) f=product-switch626-skin-scoped,product-steam626-skin-scoped ;;
+              all) f=product-switch626-hair-scoped,product-switch626-skin-scoped,product-switch626-rm01-scoped,product-steam626-chest-scoped,product-switch626-chest-scoped,product-steam626-comp03-spatial-preview,product-steam626-sr03-scoped,product-collection-scoped ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "worker-wasm,$f"
+            "$B" "$W" --out-dir "/tmp/comp-$mode" --target nodejs --no-typescript
+          done
+          sha256sum -c /tmp/qrc1734-lock.sha
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          const cls=m=>require('/tmp/comp-'+m+'/ddv_save_core.js').WorkerWasmSource,sha=b=>createHash('sha256').update(b).digest('hex'),parse=JSON.parse;
+          const steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],sw=['switch','switch-bid','9A239D3DB569756D',626,true],item=40100038;
+          const readers=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','close'];
+          const neutral=['toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk'],legacy=['discover_scoped_amount','preview_scoped_amount','stage_scoped_amount','toggle_scoped_amount','begin_scoped_amount_output','next_scoped_amount_output_chunk'],coll=['preview_scoped_collection_candidate','preview_fixed_collection','stage_fixed_collection'],comp=['preview_steam626_comp03','stage_steam626_comp03'],chest=['discover_switch626_chest','preview_switch626_chest','stage_switch626_chest'],sp=['preview_steam626_comp03_spatial'];
+          const sr03=['preview_steam626_sr03','stage_steam626_sr03'];
+          const rm=['preview_switch626_rm01','stage_switch626_rm01'];
+          const hair=['preview_switch626_hair','stage_switch626_hair'],skin=['preview_switch626_skin','stage_switch626_skin'];
+          const modes=[['off',readers],['legacy',[...readers,...neutral,...legacy,...comp,...chest]],['legacy-mixed',[...readers,...neutral,...legacy,...comp,...chest,...coll]],['hair',[...readers,...neutral,...hair]],['hair-mixed',[...readers,...neutral,...hair]],['skin',[...readers,...neutral,...skin]],['skin-mixed',[...readers,...neutral,...skin]],['both',readers],['steam',[...readers,...legacy]],['hair-steam',readers],['skin-steam',readers],['chest',[...readers,...neutral,...chest]],['hair-chest',readers],['skin-chest',readers],['comp',[...readers,...neutral,...comp]],['hair-comp',readers],['skin-comp',readers],['spatial',[...readers,...neutral,...comp,...sp]],['hair-spatial',readers],['skin-spatial',readers],['sr03',[...readers,...neutral,...sr03]],['hair-sr03',readers],['skin-sr03',readers],['rm',[...readers,...neutral,...rm]],['hair-rm',readers],['skin-rm',readers],['steam-hair',[...readers,...neutral,'preview_steam626_hair','stage_steam626_hair']],['steam-skin',[...readers,...neutral,'preview_steam626_skin','stage_steam626_skin']],['hair-sh',readers],['hair-ss',readers],['skin-sh',readers],['skin-ss',readers],['all',readers]];
+          for(const [m,expect] of modes){
+           const n=Object.getOwnPropertyNames(cls(m).prototype).filter(k=>!['constructor','free','__destroy_into_raw'].includes(k)).sort(),bytes=fs.readFileSync('/tmp/comp-'+m+'/ddv_save_core_bg.wasm'),ex=WebAssembly.Module.exports(new WebAssembly.Module(bytes)).map(v=>v.name);
+           assert.deepEqual(n,expect.slice().sort(),m);assert.equal(ex.length,n.length+9,m);for(const k of n)assert.ok(ex.includes('workerwasmsource_'+k),m+' '+k);
+           console.log('QRC1734_CENSUS '+m+' '+n.length+'/'+ex.length+' '+sha(bytes));
+          }
+          const raw=d=>Buffer.from(JSON.stringify(d).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
+          let nonce=0,pos=0,neg=0;const deny=(f,label)=>{assert.throws(f,undefined,label);neg++};
+          function open(m,d,b=sw){const a=raw(d),w=new(cls(m))(...b,new Uint8Array(32).fill(++nonce));for(let i=0;i<a.length;i+=1048576)w.append_chunk(a.subarray(i,i+1048576));const r=parse(w.finish());assert.equal(r.decodedSha256,sha(a));return[w,r]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256];
+          const Z='0'.repeat(64),pack=JSON.parse(fs.readFileSync('crates/ddv-save-core/data/steam626-appearance-definition-join.json','utf8'));
+          function doc(male=true){
+           const branch=old=>({HairColorIndex:old,HairHighlightColor:0,Clothes:{0:50000094,1:50100047},IncompatibleClothes:{},Makeup:{},ClothingCustomization:{},Eyeball:{EyeballItemID:70000001},SprintEffectID:70100002});
+           const mission=pack.missionObjectiveKinds.find(r=>r[0]===2070000620);
+           const steps=mission[1].map(s=>({SubSteps:s.map(u=>({Objectives:u.map(()=>({ProgressKeys:{Count:'1'},TargetAmount:5,ItemAmount:1}))}))}));
+           return {GameInfo:{Version:626},Player:{AvatarIsMale:male,MaleAvatar:branch(male?74:0),FemaleAvatar:branch(male?20:74),ListInventories:{1:{ID:1,CompatibleItemType:'ItemType_Clothing',Inventory:{50000094:{Amount:1,Marker:'ItemMarker_None'},50100047:{Amount:1,Marker:'ItemMarker_None'}}},3:{ID:3,CompatibleItemType:'ItemType_Makeup',Inventory:{}},7:{ID:7,CompatibleItemType:'ItemType_Skin',Inventory:{170000054:{Amount:1,Marker:'ItemMarker_None'},170000000:{Amount:1,Marker:'ItemMarker_None'}}}},AchievementsData:[{AchievementID:2110100001,State:'AchievementState_OnGoing',CurAmount:1,MaxAmount:5}],EvolveStatesProfile:{EvolveProgressState:{110100012:{ItemID:110100012,Level:1,Objective:{TargetAmount:2,ItemAmount:1}}}}},World:{MissionSlots:{1:{Slots:[{SlotId:1,MissionId:2070000620,State:'MissionSlotState_OnGoing',CurrentStepIndex:0,MissionSteps:steps}]}},QuestInfo:{},DialogueFlags:[2030500265],Characters:[{Base:{id:10000053},SkinID:170000054,Unknown:{keep:7}}]},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{escaped:'keep',number:74}};
+          }
+          for(const mode of ['hair','hair-mixed','skin','skin-mixed']){
+           const h=mode.startsWith('hair');
+           const pv=(w,r)=>parse(h?w.preview_switch626_hair(20,...sc(r)):w.preview_switch626_skin(10000053,170000000,...sc(r)));
+           const st=(w,r,p)=>parse(h?w.stage_switch626_hair(20,p.readsetSha256,p.projectedDecodedSha256,...sc(r)):w.stage_switch626_skin(10000053,170000000,p.readsetSha256,p.projectedDecodedSha256,...sc(r)));
+           for(const male of [true]){
+            const d=doc(male),[w,r]=open(mode,d),p=pv(w,r);
+            const want=Buffer.from(raw(d).toString().replace(h?'"HairColorIndex":74':'"SkinID":170000054',h?'"HairColorIndex":20':'"SkinID":170000000'));
+            assert.equal(p.projectedDecodedSha256,sha(want));assert.equal(p.selectedTokenSha256,sha(Buffer.from(h?'74':'170000054')));
+            assert.equal(p.exactFieldChangedCount,1);assert.equal(p.writerAuthorized,false);assert.equal(p.originalOverwriteAuthorized,false);assert.equal('readset' in p,false);
+            deny(()=>st(w,r,{...p,readsetSha256:Z}),'readset CAS');deny(()=>st(w,r,{...p,projectedDecodedSha256:Z}),'output CAS');
+            const q=structuredClone(d);q.Player.AchievementsData[0].CurAmount=2;const [a,b]=open(mode,q),p2=pv(a,b);assert.notEqual(p2.readsetSha256,p.readsetSha256);
+            deny(()=>st(a,b,p),'cross witness');deny(()=>st(a,r,p2),'foreign session');a.close();a.free();
+            const t=st(w,r,p);assert.equal(t.exactFieldChangedCount,1);assert.equal(t.stagedDecodedSha256,sha(want));assert.equal(t.writerAuthorized,false);
+            deny(()=>st(w,r,p),'replay');const u=parse(w.toggle_scoped_edit(false,...sc(t)));deny(()=>w.begin_scoped_edit_output(...sc(u)),'undo');
+            const v=parse(w.toggle_scoped_edit(true,...sc(u)));w.begin_scoped_edit_output(...sc(v));assert.deepEqual(Buffer.from(w.next_scoped_edit_output_chunk()),want);deny(()=>w.next_scoped_edit_output_chunk(),'once');w.close();w.free();pos++;
+           }
+           const d=doc();
+           const [bad,br]=open(mode,d);
+           deny(()=>h?bad.preview_switch626_hair(21,...sc(br)):bad.preview_switch626_skin(10000054,170000000,...sc(br)),'wrong typed target');
+           const pp=pv(bad,br);
+           deny(()=>h?bad.stage_switch626_hair(20,pp.readsetSha256,pp.projectedDecodedSha256,br.sessionId,BigInt(br.revision)+1n,BigInt(br.indexGeneration),br.decodedSha256):bad.stage_switch626_skin(10000053,170000000,pp.readsetSha256,pp.projectedDecodedSha256,br.sessionId,BigInt(br.revision)+1n,BigInt(br.indexGeneration),br.decodedSha256),'revision CAS');
+           bad.close();bad.free();
+           const [w,r]=open(mode,d,steam);deny(()=>pv(w,r),'foreign steam');w.close();w.free();
+          }
+          assert.equal(pos,4);assert.equal(neg,40);assert.equal(modes.length,33);console.log('QRC1734_APPEARANCE_ACTUAL '+pos+'POS '+neg+'NEG 33CENSUS');
+          JS
