@@ -1,0 +1,78 @@
+name: QA ACT1145 placement proof adapter
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-act1145-placement-proof.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ddb6073f46955f004c60f2624f4cbc0a286c4a2c
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed source pins and independent boundary cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "ddb6073f46955f004c60f2624f4cbc0a286c4a2c"
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = "cd28325cde68da68eac98091f7ebc20a93cb282d"
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = "5b86ff1cf2dc009ba1733bf213e4cb979bf500ec"
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = "b9842a2c5446f7543760cfc177da363324bc4a9c"
+          test "$(git rev-parse HEAD:tests/scoped-placement-proof.test.mjs)" = "c2334a063b7efa0ad5dc162d7247f5acd90b5462"
+          cat > tests/qa-act1145-placement.mjs <<'EOF'
+          import test from 'node:test';
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {readFileSync} from 'node:fs';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from '../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {COMP03_RELEASE as comp,VASE_ADD_RELEASE as vase,validatePlacementAnchor} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {fixedPlacementProofScope,inspectPlacementSubjects,privatePlacementIdentity,replacePrivatePlacementAnchor} from '../scripts/readonly-release/scoped-placement-proof.mjs';
+          const source='a'.repeat(40),sha=b=>createHash('sha256').update(b).digest('hex');
+          const u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a};
+          const str=s=>[...u(Buffer.byteLength(s)),...Buffer.from(s)],sec=(id,b)=>[id,...u(b.length),...b];
+          function wasm(s,extra=false){
+           const es=[...s.exports,...(extra?['workerwasmsource_stage_extra']:[])];
+           const exports=es.flatMap(n=>[...str(n),n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);
+           return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(es.length),...exports]),...sec(10,[1,2,0,11])]);
+          }
+          function subject(s,w=wasm(s),js=Buffer.from('export default function(){}'),patch={}){
+           const m={contract:s.prefix+'.runtime@1',operation:s.operation,source:{repository:tuple.repository,commit:source,cargoTomlSha256:'b'.repeat(64),cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:s.features,defaultFeatures:false,toolchain:'rustc 1.99.1 (test)'},assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:sha(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}},abi:{exportClass:'WorkerWasmSource',methods:s.methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false},...patch};
+           return [Buffer.from(JSON.stringify(m)),js,w];
+          }
+          
+          let pos=0,neg=0;
+          const deny=f=>{assert.throws(f);neg++};
+          const anchorSource=readFileSync(new URL('../src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs',import.meta.url),'utf8');
+          for(const [s,o] of [[comp,vase],[vase,comp]]){
+           const b=subject(s),p=inspectPlacementSubjects(s,b,source);assert.equal(p.manifestSha256,sha(b[0]));assert.equal(p.jsSha256,sha(b[1]));assert.equal(p.wasmSha256,sha(b[2]));pos++;
+           const a=privatePlacementIdentity(s,p,'http://127.0.0.1:4188');assert.equal(await validatePlacementAnchor(s,a),true);
+           const out=replacePrivatePlacementAnchor(s,anchorSource,a);assert.ok(out.includes('export const '+(s===comp?'PROTECTED_VASE_ADD_RELEASE_ANCHOR':'PROTECTED_COMP03_RELEASE_ANCHOR')+'=null;'));pos++;
+           deny(()=>inspectPlacementSubjects(s,[...b,b[0]],source));
+           deny(()=>inspectPlacementSubjects(s,b.slice(0,2),source));
+           deny(()=>inspectPlacementSubjects(s,[Buffer.alloc(65537),...b.slice(1)],source));
+           deny(()=>inspectPlacementSubjects(s,[Buffer.from([255]),...b.slice(1)],source));
+           deny(()=>inspectPlacementSubjects(s,[Buffer.from('{'),...b.slice(1)],source));
+           deny(()=>inspectPlacementSubjects(s,[b[0],Buffer.from('different'),b[2]],source));
+           deny(()=>inspectPlacementSubjects(s,subject(s,wasm(o)),source));
+           deny(()=>inspectPlacementSubjects(s,subject(s,wasm(s,true)),source));
+           deny(()=>inspectPlacementSubjects(s,subject(s,wasm(s),Buffer.from('private_native')),source));
+           deny(()=>inspectPlacementSubjects(s,subject(s,wasm(s),Buffer.from(o.methods.find(n=>n.startsWith('stage_')))),source));
+           const m=JSON.parse(b[0]);
+           for(const change of [{operation:o.operation},{source:{...m.source,features:o.features}},{source:{...m.source,cargoLockSha256:'0'.repeat(64)}},{abi:{...m.abi,writerAuthorized:true}},{release:{...m.release,autoUpload:true}},{extra:true}]){
+            deny(()=>inspectPlacementSubjects(s,subject(s,wasm(s),undefined,change),source));
+           }
+           for(const origin of ['https://127.0.0.1:4188','http://localhost:4188','http://127.0.0.1:65536','http://127.0.0.1:4188/x',tuple.origin])deny(()=>privatePlacementIdentity(s,p,origin));
+           deny(()=>replacePrivatePlacementAnchor(s,anchorSource,{...a,releaseId:'0'.repeat(64)}));
+           deny(()=>replacePrivatePlacementAnchor(o,out,privatePlacementIdentity(o,inspectPlacementSubjects(o,subject(o),source),'http://127.0.0.1:4188')));
+           deny(()=>replacePrivatePlacementAnchor(s,anchorSource,{...a,mode:'public-accepted'}));
+          }
+          deny(()=>fixedPlacementProofScope('unknown'));
+          console.log('ACT1145_PLACEMENT_ADAPTER_PASS',JSON.stringify({pos,neg,actualWasmModule:true,syntheticSubjects:true,actualSignature:false,publicGrant:false}));
+          EOF
+          node tests/qa-act1145-placement.mjs
