@@ -2,6 +2,7 @@ import {createScopedAmountTransport,createSwitch626ChestTransport,createSteam626
 import {createSteam626Comp03Transport,createSteam626Comp03SpatialTransport,createSteam626VaseAddTransport,createSteam626Sr03Transport,createSwitch626Rm01Transport} from './product-scoped-placement-transport.mjs';
 import {createSteam626BackpackTransport,createSwitch626BackpackTransport} from './product-scoped-backpack-transport.mjs';
 import {createSteam626AppearanceTransport} from './product-scoped-appearance-transport.mjs';
+import {createSteam626EyeColor2Transport} from './product-steam626-eyecolor2-transport.mjs';
 import {createSteam626WardrobeTransport,createSwitch626WardrobeTransport} from './product-scoped-wardrobe-transport.mjs';
 import {createFixedCollectionTransport} from './product-fixed-collection-transport.mjs';
 import {readCollectionCandidate} from '../../../collection/collection-candidate-read.mjs';
@@ -43,7 +44,7 @@ function strictReceipt(r){
  */
 export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null}={}){
  if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source].every(v=>typeof v==='boolean')||
-    (![null,'comp03','comp03-spatial','vase','sr03','rm01'].includes(placementScope))||(![null,'steam','switch'].includes(backpackScope))||(![null,'steam','switch'].includes(wardrobeScope))||(![null,'hair','skin'].includes(appearanceScope))||
+    (![null,'comp03','comp03-spatial','vase','sr03','rm01'].includes(placementScope))||(![null,'steam','switch'].includes(backpackScope))||(![null,'steam','switch'].includes(wardrobeScope))||(![null,'hair','skin','eyecolor2'].includes(appearanceScope))||
     [allowScopedAmountSource,allowScopedCollectionSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,placementScope!==null,backpackScope!==null,wardrobeScope!==null,appearanceScope!==null].filter(Boolean).length>1||
     ((allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||placementScope!==null||backpackScope!==null||wardrobeScope!==null||appearanceScope!==null)&&allowCollectionCandidateSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
@@ -130,7 +131,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
          maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
      }
      if(placementEnabled||backpackEnabled||wardrobeEnabled||appearanceEnabled){
-       const factory=appearanceEnabled?((w,i,b,o)=>createSteam626AppearanceTransport(w,i,b,o,appearanceScope)):wardrobeEnabled?(wardrobeScope==='switch'?createSwitch626WardrobeTransport:createSteam626WardrobeTransport):backpackEnabled?(backpackScope==='switch'?createSwitch626BackpackTransport:createSteam626BackpackTransport):placementScope==='comp03-spatial'?createSteam626Comp03SpatialTransport:placementScope==='comp03'?createSteam626Comp03Transport:placementScope==='sr03'?createSteam626Sr03Transport:placementScope==='rm01'?createSwitch626Rm01Transport:createSteam626VaseAddTransport;
+       const factory=appearanceEnabled?(appearanceScope==='eyecolor2'?createSteam626EyeColor2Transport:((w,i,b,o)=>createSteam626AppearanceTransport(w,i,b,o,appearanceScope))):wardrobeEnabled?(wardrobeScope==='switch'?createSwitch626WardrobeTransport:createSteam626WardrobeTransport):backpackEnabled?(backpackScope==='switch'?createSwitch626BackpackTransport:createSteam626BackpackTransport):placementScope==='comp03-spatial'?createSteam626Comp03SpatialTransport:placementScope==='comp03'?createSteam626Comp03Transport:placementScope==='sr03'?createSteam626Sr03Transport:placementScope==='rm01'?createSwitch626Rm01Transport:createSteam626VaseAddTransport;
        a.scoped=factory(wasm,receipt,identity,{parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
      }
      active=a;wasm=null;
