@@ -43,11 +43,11 @@ function spatialReview(r,p){
  return Object.freeze({gridId:r.gridId,seedId:r.seedId,markers:overlay.markers});
 }
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation,spatialPreviewEnabled=false}={}){
- if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03'].includes(operation)||!adapter)fail();
+ if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01'].includes(operation)||!adapter)fail();
  const backpack=operation==='backpack-steam'||operation==='backpack-switch',wardrobe=operation==='wardrobe-steam'||operation==='wardrobe-switch';
  const previewMethod=wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
  for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
- const comp=operation==='comp03',sr03=operation==='sr03',count=wardrobe?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
+ const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=wardrobe?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
  if(typeof spatialPreviewEnabled!=='boolean'||(spatialPreviewEnabled&&(!comp||typeof adapter.spatialPreview!=='function')))fail();
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
