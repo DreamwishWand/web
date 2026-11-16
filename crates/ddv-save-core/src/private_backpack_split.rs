@@ -120,4 +120,94 @@ mod tests{
         assert!(open(&doc()).stage_private_steam626_backpack_fruit_split_exact3(e,&b).is_err());
         assert_eq!(s.receipt().unwrap().revision,0);
     }
+
+    #[test]
+    fn qa_backpack_split_raw_exact3_rebound_and_atomicity(){
+        // Independent plan from lexical spans, not the production pair reader.
+        fn make(b:&[u8],src:usize,dst:usize,old:u32,want:&[u8])->Value{
+            let player=indexed_read::roots(b).unwrap().player;
+            let map=object_field(b,player,"ContainerInventories").unwrap();
+            let rec=object_field(b,map,"0").unwrap();
+            let slots=object_field(b,rec,"Inventory").unwrap();
+            let a=array_element(b,slots,src).unwrap();let z=array_element(b,slots,dst).unwrap();
+            let h=|s:Span|hex(&sha(&b[s.begin..s.end]));
+            json!({"contract":CONTRACT,"definitionSha256":DEFINITION,"sourceDecodedSha256":hex(&sha(b)),
+                "sourceSlot":src,"destinationSlot":dst,"oldAmount":old,"containerSha256":h(rec),
+                "mapSha256":h(map),"slotsSha256":h(slots),"parentSha256":h(object_field(b,rec,"ParentItemID").unwrap()),
+                "sourceEntrySha256":h(a),"destinationEntrySha256":h(z),
+                "sourceStateSha256":h(object_field(b,a,"State").unwrap()),
+                "destinationStateSha256":h(object_field(b,z,"State").unwrap()),"expectedOutputSha256":hex(&sha(want))})
+        }
+        fn raw_open(b:&[u8])->ProductSession{
+            ProductSession::open_decoded_readonly(b.to_vec(),BuildIdentity{platform:Platform::SteamWindows,
+                build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap()
+        }
+        let mut pos=0;let mut neg=0;
+        // Reverse slot order, both ends of positive quantity bound, preserve
+        // literal whitespace, opaque state and all non-target bytes.
+        for old in [2u32,50]{
+            let raw=format!(r#"{{"GameInfo":{{"Version":626}},"World":{{}},"Player":{{"ListInventories":{{"0":{{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":{{}}}}}},"ContainerInventories":{{"0":{{"ID":0,"Size":4,"ExtraSize":1,"BelongsToPlayer":true,"BlockMoveTo":false,"ParentItemID":null,"Inventory":[{{"ItemID":0, "Amount":0,"State":null,"Unknown":"dst"}},{{"ItemID":30200001,"Amount":7,"State":null}},{{"ItemID":30200001,"Amount":{old},"State":null,"Unknown":"src"}},{{"ItemID":0,"Amount":0,"State":null}}]}},"1":{{"ID":1,"Size":0,"Inventory":[]}}}}}},"Unknown":{{"lex":"\u0041","n":1e0}}}}"#);
+            let want=raw.replace(r#""ItemID":0, "Amount":0,"State":null,"Unknown":"dst""#,r#""ItemID":30200001, "Amount":1,"State":null,"Unknown":"dst""#)
+                .replace(&format!(r#""Amount":{old},"State":null,"Unknown":"src""#),&format!(r#""Amount":{},"State":null,"Unknown":"src""#,old-1));
+            let s=raw_open(raw.as_bytes());let before=s.receipt().unwrap();
+            let p=make(raw.as_bytes(),2,0,old,want.as_bytes());let b=serde_json::to_vec(&p).unwrap();
+            let e=env(before.clone(),WorkerAction::Stage);
+            let r=s.stage_private_steam626_backpack_fruit_split_exact3(e,&b).unwrap();
+            assert_eq!((r.operation_count,r.exact_field_changed_count),(3,3));assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+            assert_eq!(r.staged_decoded_sha256,sha(want.as_bytes()));
+            assert!(s.stage_private_steam626_backpack_fruit_split_exact3(e,&b).is_err());neg+=1;
+            s.undo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());neg+=1;
+            s.redo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+            let ex=env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+            assert_eq!(s.take_typed_semantic_decoded_once(ex).unwrap(),want.as_bytes());
+            assert!(s.take_typed_semantic_decoded_once(ex).is_err());neg+=1;
+            assert_eq!(s.decoded.as_ref(),raw.as_bytes());pos+=1;
+        }
+        let d=doc();let raw=serde_json::to_vec(&d).unwrap();
+        let mut want=d.clone();let inv=&mut want["Player"]["ContainerInventories"]["0"]["Inventory"];
+        inv[0]["Amount"]=json!(3);inv[1]["ItemID"]=json!(ITEM);inv[1]["Amount"]=json!(1);
+        let expected=serde_json::to_vec(&want).unwrap();let p=make(&raw,0,1,4,&expected);
+        let s=raw_open(&raw);let before=s.receipt().unwrap();let e=env(before.clone(),WorkerAction::Stage);
+        for k in ["containerSha256","mapSha256","slotsSha256","parentSha256","sourceEntrySha256","destinationEntrySha256","sourceStateSha256","destinationStateSha256","sourceDecodedSha256","expectedOutputSha256"]{
+            let mut q=p.clone();q[k]=json!("a".repeat(64));
+            assert!(s.stage_private_steam626_backpack_fruit_split_exact3(e,&serde_json::to_vec(&q).unwrap()).is_err(),"{k}");neg+=1;
+        }
+        for (k,v) in [("oldAmount",json!(0)),("oldAmount",json!(51)),("sourceSlot",json!(-1)),("destinationSlot",json!(256)),("sourceSlot",json!(0.0)),("destinationSlot",json!(0)),("definitionSha256",json!("0".repeat(64))),("contract",json!("other"))]{
+            let mut q=p.clone();q[k]=v;assert!(s.stage_private_steam626_backpack_fruit_split_exact3(e,&serde_json::to_vec(&q).unwrap()).is_err(),"{k}");neg+=1;
+        }
+        for wrong in [WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e},WorkerEnvelope{action:WorkerAction::ReadDomain,..e}]{
+            assert!(s.stage_private_steam626_backpack_fruit_split_exact3(wrong,&serde_json::to_vec(&p).unwrap()).is_err());neg+=1;
+        }
+        let b=serde_json::to_vec(&p).unwrap();assert!(raw_open(&raw).stage_private_steam626_backpack_fruit_split_exact3(e,&b).is_err());neg+=1;
+        assert!(s.stage_private_steam626_backpack_fruit_split_exact3(e,&serde_json::to_vec_pretty(&p).unwrap()).is_err());neg+=1;
+        let mut q=p.clone();q["extra"]=json!(true);assert!(s.stage_private_steam626_backpack_fruit_split_exact3(e,&serde_json::to_vec(&q).unwrap()).is_err());neg+=1;
+        assert_eq!(s.receipt().unwrap(),before);assert_eq!(s.decoded.as_ref(),raw.as_slice());
+        // Recompute all eight witnesses from changed source, then deny
+        // actual ineligible pair; not just a stale-hash rejection.
+        for k in 0..10{
+            let mut d=doc();let c=&mut d["Player"]["ContainerInventories"]["0"];
+            match k{
+                0=>c["Inventory"][0]["ItemID"]=json!(31100001),
+                1=>c["Inventory"][0]["Amount"]=json!(1),
+                2=>c["Inventory"][1]["ItemID"]=json!(ITEM),
+                3=>c["Inventory"][1]["Amount"]=json!(1),
+                4=>c["Inventory"][0]["State"]=json!({}),
+                5=>c["Inventory"][1]["State"]=json!({}),
+                6=>c["ParentItemID"]=json!(0),
+                7=>c["BlockMoveTo"]=json!(true),
+                8=>c["BelongsToPlayer"]=json!(false),
+                _=>c["ExtraSize"]=json!(2),
+            }
+            let b=serde_json::to_vec(&d).unwrap();let q=make(&b,0,1,4,&expected);
+            let s=raw_open(&b);let before=s.receipt().unwrap();
+            assert!(s.stage_private_steam626_backpack_fruit_split_exact3(env(before.clone(),WorkerAction::Stage),&serde_json::to_vec(&q).unwrap()).is_err(),"rebound {k}");
+            assert_eq!(s.receipt().unwrap(),before);assert_eq!(s.decoded.as_ref(),b.as_slice());neg+=1;
+        }
+        let mut s=raw_open(&raw);let e=env(s.receipt().unwrap(),WorkerAction::Stage);
+        s.worker_bound=true;assert!(s.stage_private_steam626_backpack_fruit_split_exact3(e,&b).is_err());neg+=1;
+        s.worker_bound=false;s.close().unwrap();assert!(s.stage_private_steam626_backpack_fruit_split_exact3(e,&b).is_err());neg+=1;
+        assert_eq!((pos,neg),(2,42));
+    }
+
 }
