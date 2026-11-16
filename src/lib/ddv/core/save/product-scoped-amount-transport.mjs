@@ -9,26 +9,26 @@ const digest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-
 // Shared existing one-session scoped edit ledger / bounded output transport.
 // Domain wrappers select only their fixed ABI and receipt contract. Never UI.
 // The owner constructs exactly ONE domain transport for its active Session.
-export function createScopedEditLifecycle(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes,contract,outputContract,toggleMethod,beginMethod,nextMethod}){
+export function createScopedEditLifecycle(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes,contract,stageContract=contract,outputContract,toggleMethod,beginMethod,nextMethod,exactCount=1,expectedProjection=()=>null}){
  if(typeof document!=='undefined'||!wasm||typeof parse!=='function'||typeof current!=='function'||typeof revoke!=='function'||
   !Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>128*1024*1024||!Number.isSafeInteger(chunkBytes)||chunkBytes<1||chunkBytes>1024*1024||
-  typeof wasm[toggleMethod]!=='function'||typeof wasm[beginMethod]!=='function'||typeof wasm[nextMethod]!=='function')fail();
+  ![1,3,9].includes(exactCount)||typeof expectedProjection!=='function'||typeof wasm[toggleMethod]!=='function'||typeof wasm[beginMethod]!=='function'||typeof wasm[nextMethod]!=='function')fail();
  let scope=initial,ledger=null,consumed=false;
  const ensure=()=>{if(!current()||consumed)fail()};
  const args=()=>[scope.sessionId,BigInt(scope.revision),BigInt(scope.indexGeneration),scope.decodedSha256];
  const checked=fn=>{ensure();try{return fn()}catch{if(current())revoke();fail()}};
  const scopeMatches=r=>r.sessionId===scope.sessionId&&r.decodedSha256===scope.decodedSha256;
- function stageReceipt(raw,applied){
+ function stageReceipt(raw,applied,expectedContract=contract){
   const r=parse(raw,4096);
   if(!only(r,'contract,sessionId,revision,indexGeneration,decodedSha256,stagedDecodedSha256,operationCount,exactFieldChangedCount,applied,writerAuthorized,originalOverwriteAuthorized')||
-   r.contract!==contract||!scopeMatches(r)||r.revision!==scope.revision+1||r.indexGeneration!==scope.indexGeneration+1||
+   r.contract!==expectedContract||!scopeMatches(r)||r.revision!==scope.revision+1||r.indexGeneration!==scope.indexGeneration+1||
    !sha(r.stagedDecodedSha256)||r.stagedDecodedSha256===scope.decodedSha256||
-   (ledger&&r.stagedDecodedSha256!==ledger.stagedDecodedSha256)||r.operationCount!==1||r.exactFieldChangedCount!==1||
+   (ledger&&r.stagedDecodedSha256!==ledger.stagedDecodedSha256)||(!ledger&&expectedProjection()!==null&&r.stagedDecodedSha256!==expectedProjection())||r.operationCount!==exactCount||r.exactFieldChangedCount!==exactCount||
    r.applied!==applied||r.writerAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();
   scope=Object.freeze({...scope,revision:r.revision,indexGeneration:r.indexGeneration});ledger=Object.freeze(r);
-  return Object.freeze({applied,exactFieldChangedCount:1});
+  return Object.freeze({applied,exactFieldChangedCount:exactCount});
  }
- const stage=call=>checked(()=>{if(ledger||typeof call!=='function')fail();return stageReceipt(call(...args()),true)});
+ const stage=call=>checked(()=>{if(ledger||typeof call!=='function')fail();return stageReceipt(call(...args()),true,stageContract)});
  const toggle=redo=>checked(()=>{
   if(typeof redo!=='boolean'||!ledger||ledger.applied===redo)fail();
   return stageReceipt(wasm[toggleMethod](redo,...args()),redo);
