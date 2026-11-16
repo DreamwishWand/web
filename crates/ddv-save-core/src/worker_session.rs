@@ -56,34 +56,22 @@ impl WorkerSessionGuard {
     #[cfg(feature="product-steam626-hair-scoped")]
     pub(crate) fn preview_steam626_hair(&self,e:WorkerEnvelope,new:i32)->CoreResult<serde_json::Value>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
-        let w=self.session.prepare_hair_producer_bound(e,new)?;
-        let t=self.session.prepare_fixed_product_hair_candidate(e,new)?;
-        let projected=self.session.project_fixed_hair_candidate(e,new)?;
-        Ok(serde_json::json!({"contract":"wand.core.steam626.hair-exact1-preview@1","old":t.old,"new":t.new,
-            "activeMale":t.active_male,"selectedTokenSha256":w.selected_token_sha,"readsetSha256":w.readset_sha,
-            "projectedDecodedSha256":projected.iter().map(|x|format!("{:02x}",x)).collect::<Vec<_>>().join(""),
-            "exactFieldChangedCount":1,"writerAuthorized":false,"originalOverwriteAuthorized":false}))
+        self.session.preview_steam626_hair_bound_worker(e,new)
     }
     #[cfg(feature="product-steam626-hair-scoped")]
     pub(crate) fn stage_steam626_hair(&self,e:WorkerEnvelope,new:i32,expected:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
-        self.session.stage_hair_producer_bound(e,new,expected,projected)
+        self.session.stage_steam626_hair_bound_worker(e,new,expected,projected)
     }
     #[cfg(feature="product-steam626-skin-scoped")]
     pub(crate) fn preview_steam626_skin(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<serde_json::Value>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
-        let w=self.session.prepare_skin_producer_bound(e,character,new)?;
-        let t=self.session.prepare_fixed_product_skin_candidate(e,character,new)?;
-        let projected=self.session.project_fixed_skin_candidate(e,character,new)?;
-        Ok(serde_json::json!({"contract":"wand.core.steam626.skin-exact1-preview@1","old":t.old,"new":t.new,
-            "characterId":t.character,"selectedTokenSha256":w.selected_token_sha,"readsetSha256":w.readset_sha,
-            "projectedDecodedSha256":projected.iter().map(|x|format!("{:02x}",x)).collect::<Vec<_>>().join(""),
-            "exactFieldChangedCount":1,"writerAuthorized":false,"originalOverwriteAuthorized":false}))
+        self.session.preview_steam626_skin_bound_worker(e,character,new)
     }
     #[cfg(feature="product-steam626-skin-scoped")]
     pub(crate) fn stage_steam626_skin(&self,e:WorkerEnvelope,character:i32,new:i32,expected:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
-        self.session.stage_skin_producer_bound(e,character,new,expected,projected)
+        self.session.stage_steam626_skin_bound_worker(e,character,new,expected,projected)
     }
     #[cfg(feature="product-steam626-sr03-scoped")]
     pub(crate) fn preview_sr03_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32)->CoreResult<serde_json::Value>{

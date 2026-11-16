@@ -419,6 +419,38 @@ impl ProductSession{
     }
 }
 
+// Bounded Worker bridge; keep raw producer/readset and target methods private.
+impl ProductSession{
+    #[cfg(feature="product-steam626-hair-scoped")]
+    pub(crate) fn preview_steam626_hair_bound_worker(&self,e:WorkerEnvelope,new:i32)->CoreResult<serde_json::Value>{
+        let w=self.prepare_hair_producer_bound(e,new)?;
+        let t=self.prepare_fixed_product_hair_candidate(e,new)?;
+        let projected=self.project_fixed_hair_candidate(e,new)?;
+        Ok(serde_json::json!({"contract":"wand.core.steam626.hair-exact1-preview@1","old":t.old,"new":t.new,
+            "activeMale":t.active_male,"selectedTokenSha256":w.selected_token_sha,"readsetSha256":w.readset_sha,
+            "projectedDecodedSha256":projected.iter().map(|x|format!("{:02x}",x)).collect::<Vec<_>>().join(""),
+            "exactFieldChangedCount":1,"writerAuthorized":false,"originalOverwriteAuthorized":false}))
+    }
+    #[cfg(feature="product-steam626-hair-scoped")]
+    pub(crate) fn stage_steam626_hair_bound_worker(&self,e:WorkerEnvelope,new:i32,expected:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        self.stage_hair_producer_bound(e,new,expected,projected)
+    }
+    #[cfg(feature="product-steam626-skin-scoped")]
+    pub(crate) fn preview_steam626_skin_bound_worker(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<serde_json::Value>{
+        let w=self.prepare_skin_producer_bound(e,character,new)?;
+        let t=self.prepare_fixed_product_skin_candidate(e,character,new)?;
+        let projected=self.project_fixed_skin_candidate(e,character,new)?;
+        Ok(serde_json::json!({"contract":"wand.core.steam626.skin-exact1-preview@1","old":t.old,"new":t.new,
+            "characterId":t.character,"selectedTokenSha256":w.selected_token_sha,"readsetSha256":w.readset_sha,
+            "projectedDecodedSha256":projected.iter().map(|x|format!("{:02x}",x)).collect::<Vec<_>>().join(""),
+            "exactFieldChangedCount":1,"writerAuthorized":false,"originalOverwriteAuthorized":false}))
+    }
+    #[cfg(feature="product-steam626-skin-scoped")]
+    pub(crate) fn stage_steam626_skin_bound_worker(&self,e:WorkerEnvelope,character:i32,new:i32,expected:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        self.stage_skin_producer_bound(e,character,new,expected,projected)
+    }
+}
+
 #[cfg(test)]
 mod tests{
  use super::*;use crate::{BuildIdentity,BuildKind,Platform};
