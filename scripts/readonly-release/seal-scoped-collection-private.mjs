@@ -11,7 +11,7 @@ import {pathToFileURL} from 'node:url';
 import {ACTIVE_RELEASE_TUPLE,protectedPagesContextMatches} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
 import {verifySignedReleaseSubjects} from './seal.mjs';
 import {SCOPED_COLLECTION_ASSET_DIR,SCOPED_COLLECTION_RELEASE_OP,scopedCollectionManifestOk,
- scopedCollectionAnchorShapeOk,scopedCollectionReleaseIdentityText} from '../../src/lib/ddv/core/save/product-scoped-collection-release.mjs';
+ scopedCollectionAnchorShapeOk,scopedCollectionReleaseIdentityText,scopedCollectionWasmExportsOk} from '../../src/lib/ddv/core/save/product-scoped-collection-release.mjs';
 const root=resolve(import.meta.dirname,'../..'),names=['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm'];
 const fail=()=>{throw Error('SCOPED_COLLECTION_PRIVATE_SEAL_DENIED')};
 const sha=b=>createHash('sha256').update(b).digest('hex');
@@ -24,7 +24,7 @@ export function inspectScopedCollectionSubjects(bytes,source,tuple=ACTIVE_RELEAS
   manifestSha256:sha(mf),manifestSizeBytes:mf.length,jsSha256:sha(js),jsSizeBytes:js.length,wasmSha256:sha(wasm),wasmSizeBytes:wasm.length};
  if(!scopedCollectionManifestOk(m,p,tuple))fail();
  const module=new WebAssembly.Module(wasm),denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|scoped_amount)/i;
- if(WebAssembly.Module.exports(module).some(x=>denied.test(x.name))||denied.test(new TextDecoder('utf-8',{fatal:true}).decode(js)))fail();
+ if(!scopedCollectionWasmExportsOk(module)||WebAssembly.Module.exports(module).some(x=>denied.test(x.name))||denied.test(new TextDecoder('utf-8',{fatal:true}).decode(js)))fail();
  return Object.freeze(p);
 }
 export function privateScopedCollectionIdentity(pins,deliveryOrigin,platforms,tuple=ACTIVE_RELEASE_TUPLE){
