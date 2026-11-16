@@ -1,6 +1,6 @@
 use super::*;
 use crate::WorkerAction;
-fn hex32(a:&[u8;32])->String{a.iter().map(|b|format!("{b:02x}")).collect()}
+fn hex32<const N:usize>(a:&[u8;N])->String{a.iter().map(|b|format!("{b:02x}")).collect()}
 macro_rules! fixed_guard{
  ($preview:ident,$stage:ident,$core_preview:ident,$core_stage:ident,$contract:literal)=>{
  impl WorkerSessionGuard{
