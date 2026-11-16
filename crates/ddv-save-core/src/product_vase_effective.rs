@@ -27,57 +27,6 @@ fn projection(b:&[u8],s:Span,keys:&[&str])->CoreResult<Value>{
     for k in keys{m.insert((*k).into(),bounded_value(b,f(b,s,k)?)?);}
     Ok(Value::Object(m))
 }
-#[derive(Default)]
-struct Incoming{
-    roots:BTreeMap<u32,u32>,parents:BTreeMap<u32,u32>,nodes:usize,pairs:usize,
-}
-fn bump(m:&mut BTreeMap<u32,u32>,id:u32)->CoreResult<()>{
-    need(m.len()<50_000||m.contains_key(&id),"VASE_BINDER_ALIAS_BOUND")?;
-    let n=m.entry(id).or_insert(0);*n=n.checked_add(1).ok_or(denied("VASE_BINDER_ALIAS_COUNT"))?;Ok(())
-}
-// Same accepted lexical span grammar as COMP03 current alias/reference
-// walk. Count all saved GridIDs/SubGrid incoming edges, and reject a
-// prospective composite address even in an otherwise preserved subtree.
-// No secondary decoded document, no guessed grid IDs, no string search.
-fn walk(b:&[u8],s:Span,gid:u32,next:u32,a:&mut Incoming,depth:usize)->CoreResult<()>{
-    a.nodes+=1;need(a.nodes<=MAX_NODES&&depth<=64,"VASE_BINDER_REFERENCE_BOUND")?;
-    match b.get(s.begin){
-        Some(b'{')=>{
-            let mut pos=s.begin+1;let mut fields:[Option<Span>;6]=[None;6];
-            while let Some((k,v))=next_object_member(b,s,&mut pos)?{
-                if k=="GridIDs"{
-                    for x in array(b,v,4096)?{
-                        let id=u32::try_from(number(b,x)?).map_err(|_|denied("VASE_BINDER_ROOT_ID"))?;
-                        bump(&mut a.roots,id)?;
-                    }
-                }else if k=="SubGrid"&&b.get(v.begin..v.end)!=Some(&b"null"[..]){
-                    let id=n(b,v,"GridID")?;bump(&mut a.parents,id)?;
-                }
-                let ix=match k.as_str(){"GridID"=>Some(0),"GridId"=>Some(1),
-                    "GridObjectID"=>Some(2),"GridObjectId"=>Some(3),"ObjectID"=>Some(4),"ObjectId"=>Some(5),_=>None};
-                if let Some(i)=ix{need(fields[i].replace(v).is_none(),"VASE_BINDER_REF_DUPLICATE")?;}
-                walk(b,v,gid,next,a,depth+1)?;
-            }
-            let gs=fields[..2].iter().filter(|x|x.is_some()).count();
-            let os=fields[2..].iter().filter(|x|x.is_some()).count();
-            if gs>0&&os>0{
-                need(gs==1&&os==1,"VASE_BINDER_REF_AMBIGUOUS")?;
-                let (g,o)=match fields{
-                    [Some(g),None,Some(o),None,None,None]|
-                    [None,Some(g),None,Some(o),None,None]|
-                    [Some(g),None,None,None,Some(o),None]|
-                    [None,Some(g),None,None,None,Some(o)]=>(g,o),
-                    _=>return reject("VASE_BINDER_REF_SPELLING"),
-                };
-                let g=u32::try_from(number(b,g)?).map_err(|_|denied("VASE_BINDER_REF_UINT"))?;
-                let o=u32::try_from(number(b,o)?).map_err(|_|denied("VASE_BINDER_REF_UINT"))?;
-                a.pairs+=1;need(g!=gid||(o!=0&&o!=next),"VASE_BINDER_PROSPECTIVE_REFERENCE")?;
-            }
-        },
-        Some(b'[')=>for x in array(b,s,250_000)?{walk(b,x,gid,next,a,depth+1)?;},
-        Some(_)=>{},None=>return reject("VASE_BINDER_REF_SPAN"),
-    }Ok(())
-}
 #[derive(Debug,PartialEq,Eq)]
 #[allow(dead_code)]
 pub(crate) struct VaseEffectiveTarget{
@@ -120,7 +69,7 @@ impl ProductSession{
         for(k,g)in members(b,f(b,gc,"DiffGrids")?,50_000)?{
             let id=key(&k)?;need(n(b,g,"ID")?==id&&diff.insert(id)&&!grids.contains_key(&id),"VASE_BINDER_OVERLAY_ID")?;
         }
-        let mut incoming=Incoming::default();walk(b,top,gid,t.next,&mut incoming,0)?;
+        let incoming=super::super::placement_saved_refs::scan(b,top,gid,None,t.next,t.next.checked_add(1).ok_or(denied("VASE_BINDER_COUNTER"))?)?;
         let selected=bounded_value(b,*grids.get(&gid).ok_or(denied("VASE_BINDER_GRID"))?)?;
         geometry::check_local_pose(p,EXACT_STEAM,626,&selected,gid,x,y).map_err(denied)?;
         let quota=geometry::check_village_quota(p,EXACT_STEAM,626,&v,&extra,gid,|id|{
