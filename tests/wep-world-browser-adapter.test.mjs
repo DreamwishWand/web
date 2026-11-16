@@ -427,3 +427,59 @@ test('Decorate Stage 1 placement source uses canonical geometry/scope without ow
   assert.equal(unknown.draftPlacementSupported, false);
   assert.equal(unknown.reasons.includes('GEOMETRY_UNRESOLVED'), true);
 });
+
+test('Switch624 Floating Island rejects aliased child Grids across sibling and cousin branches', async () => {
+  const fixture = JSON.parse(new TextDecoder().decode(await repoFile(
+    './tests/fixtures/ddv-world/core-world-v125-observed-fixture.json'
+  )));
+  const parent = fixture.profile.World.GridCollection.Grids['5'].Objects['13802'];
+  const child = fixture.profile.World.GridCollection.Grids['1395'];
+  const makeParent = (id, gridId) => ({
+    ...structuredClone(parent), ID: id,
+    State: { SubGrid: { GridID: gridId, DesignID: null } }
+  });
+  const makeChild = (id, objects) => ({
+    ...structuredClone(child), ID: id, Objects: objects
+  });
+  const path = 'GridData/FloatingIslands/FloatingIsland_Urban/FloatingIsland_UrbanGrid-GridData.json';
+  const binding = await createSwitchWorldReadAdapter({ basePath: '', fetchImpl: localFetch });
+  const cases = [
+    { name: 'sibling alias', roots: { '1': makeParent(1, 900001), '2': makeParent(2, 900001) },
+      children: { '900001': makeChild(900001, {}) }, reject: true },
+    { name: 'cousin alias', roots: { '1': makeParent(1, 900001), '2': makeParent(2, 900002) },
+      children: { '900001': makeChild(900001, { '1': makeParent(1, 900003) }),
+        '900002': makeChild(900002, { '1': makeParent(1, 900003) }),
+        '900003': makeChild(900003, {}) }, reject: true },
+    { name: 'unique nested branches', roots: { '1': makeParent(1, 900001), '2': makeParent(2, 900002) },
+      children: { '900001': makeChild(900001, { '1': makeParent(1, 900003) }),
+        '900002': makeChild(900002, { '1': makeParent(1, 900004) }),
+        '900003': makeChild(900003, {}), '900004': makeChild(900004, {}) }, reject: false }
+  ];
+  for (const c of cases) {
+    const floating = structuredClone(profile);
+    Object.assign(floating.World.GridCollection.Grids, c.children, {
+      '760': { ID: 760, GridDataPath: path, GridDefaultLayoutPath: '', TessellationFactor: 2,
+        NextGridObjectID: 3, Objects: c.roots }
+    });
+    floating.World.FloatingIslands = {
+      '1540000147': { SceneItemId: 1540000147, GridIDs: [760], Unlocked: true,
+        CustomLocationPositionsPath: 'SceneLayouts/FloatingIslands/FloatingIsland_Urban/CustomLocations.json' }
+    };
+    const opened = await openWorldSaveBytes(new TextEncoder().encode(JSON.stringify(floating)),
+      { sourcePlatform: 'switch' });
+    const island = opened.floatingIslands.find(entry => entry.sceneItemId === 1540000147);
+    assert.ok(island, c.name);
+    const before = JSON.stringify(opened.profile);
+    const project = () => projectSwitchFloatingIslandGrid(opened, island, island.roots[0], binding);
+    if (c.reject) {
+      assert.throws(project, /WEP_WORLD_DIRECT_ROOT_SUBGRID_DUPLICATE_PARENT/, c.name);
+    } else {
+      const result = project();
+      assert.equal(result.metadata.subGridHierarchy.length, 2);
+      assert.deepEqual(result.metadata.subGridHierarchy.map(node => node.children[0].gridId), [900003, 900004]);
+      assert.equal(result.target.persistentWriteAuthorized, false);
+      assert.equal(result.capabilities.worldPersistentWrite, 'unsupported');
+    }
+    assert.equal(JSON.stringify(opened.profile), before, c.name);
+  }
+});
