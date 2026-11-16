@@ -64,6 +64,7 @@ function replyFile(req,res){
     '/src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',
     '/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
     '/src/lib/ddv/core/save/product-scoped-amount-transport.mjs',
+    '/src/lib/ddv/core/save/product-scoped-placement-transport.mjs',
     '/src/lib/ddv/core/save/product-fixed-collection-transport.mjs',
     '/src/lib/collection/collection-candidate-read.mjs',
     '/src/lib/ddv/core/save/local-original-backup.mjs',
