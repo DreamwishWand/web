@@ -32,12 +32,12 @@ pub struct WorkerWasmSource {
     #[cfg(feature="product-switch624-frp01-readonly")]
     frp01_session:Option<WorkerSessionGuard>,
     closed:bool,
-    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
     scoped_output:Option<(Vec<u8>,usize)>,
-    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
     scoped_domain:std::cell::Cell<Option<ScopedEditDomain>>,
 }
-#[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 #[derive(Clone,Copy,PartialEq,Eq)]
 enum ScopedEditDomain { Amount, Collection, SwitchChest, Comp03, Sr03, SwitchRm01, SwitchFrp01 }
 #[wasm_bindgen]
@@ -64,9 +64,9 @@ impl WorkerWasmSource {
             entropy:seed,session:None,closed:false,
             #[cfg(feature="product-switch624-frp01-readonly")]
             frp01_session:None,
-            #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+            #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
             scoped_output:None,
-            #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+            #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
             scoped_domain:std::cell::Cell::new(None)})
     }
     /// No JS-owned second session, raw Save, UI readset, or unbounded transferable.
@@ -524,7 +524,7 @@ impl WorkerWasmSource {
     }
     pub fn close(&mut self)->Result<(),JsValue>{
         self.closed=true;self.buffer.clear();self.entropy.fill(0);
-        #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+        #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
         {if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);} self.scoped_domain.set(None);}
         if let Some(mut session)=self.session.take(){
             session.close().map_err(|e|err(e.0))?;
@@ -543,7 +543,7 @@ impl Drop for WorkerWasmSource {
         self.buffer.fill(0);
         self.buffer.clear();
         self.entropy.fill(0);
-        #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+        #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
         {if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);} self.scoped_domain.set(None);}
         if let Some(mut guard)=self.session.take() {
             let _=guard.close();
@@ -553,12 +553,12 @@ impl Drop for WorkerWasmSource {
     }
 }
 
-#[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 fn scoped_edit_envelope(id:&str,revision:u64,generation:u64,sha:&str,action:WorkerAction)->Result<WorkerEnvelope,JsValue>{
     Ok(WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(id)?,expected_revision:revision,
         expected_index_generation:generation,expected_decoded_sha256:from_hex(sha)?,action})
 }
-#[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 fn scoped_edit_receipt(r:crate::SemanticStageReceipt,contract:&str)->String{
     serde_json::json!({"contract":contract,"sessionId":hex(&r.session_id),
         "revision":r.revision,"indexGeneration":r.index_generation,"decodedSha256":hex(&r.original_decoded_sha256),
@@ -577,7 +577,7 @@ fn scoped_selection(profile:&str,id:u32,selector:u32)->Result<crate::ExistingAmo
     }
 }
 
-#[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 impl WorkerWasmSource {
     #[cfg(feature="product-amount-scoped")]
     fn require_amount_domain(&self)->Result<(),JsValue>{
@@ -610,6 +610,7 @@ impl WorkerWasmSource {
 }
 
 #[cfg(all(feature="product-switch624-frp01-scoped",not(any(
+  feature="product-amount-scoped",
   feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",
   feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped",
   feature="product-switch626-rm01-scoped",feature="product-collection-scoped"))))]
