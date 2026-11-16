@@ -22,6 +22,9 @@ jobs:
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagee-wasm-tools
           B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
           W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          # Source has no tracked Cargo.lock: bootstrap once, as accepted Stage E does, then lock each build.
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock | tee /tmp/act1201-lock.sha
           for mode in off legacy spatial; do
             features=worker-wasm,indexed-read
             if [ "$mode" = legacy ]; then features=worker-wasm,product-steam626-comp03-scoped; fi
@@ -29,6 +32,7 @@ jobs:
             cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
             "$B" "$W" --out-dir "/tmp/comp-$mode" --target nodejs --no-typescript
           done
+          sha256sum -c /tmp/act1201-lock.sha
           node --input-type=commonjs <<'JS'
           const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
           const cls=m=>require('/tmp/comp-'+m+'/ddv_save_core.js').WorkerWasmSource,sha=b=>createHash('sha256').update(b).digest('hex');
