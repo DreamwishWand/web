@@ -27,6 +27,7 @@ function replyFile(req,res){
   const allowed=p.startsWith('/tests/stage-e/')||
     p==='/src/lib/ddv/core/save/product-wasm-read-owner.mjs'||
     p==='/src/lib/ddv/core/save/product-scoped-amount-transport.mjs'||
+    p==='/src/lib/ddv/core/save/product-scoped-placement-transport.mjs'||
     p==='/src/lib/ddv/core/save/product-fixed-collection-transport.mjs'||
     p==='/src/lib/collection/collection-candidate-read.mjs';
   if(!allowed||p.includes('..')||p.includes('/.')){
