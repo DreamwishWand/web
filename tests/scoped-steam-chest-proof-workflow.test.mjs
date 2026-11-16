@@ -32,7 +32,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "scripts/readonly-release/seal-scoped-steam-chest-private.mjs",
-    "f0d27044af7edcbd9e614f23a90da1e9deb4a023"
+    "bf3ab5129e072f64d18ede2ce2b3055e61aef485"
   ],
   [
     "scripts/readonly-release/seal.mjs",

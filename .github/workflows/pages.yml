@@ -349,7 +349,7 @@ jobs:
           test "$GITHUB_REPOSITORY_ID" = 1371485649
           test "$(git rev-parse HEAD:crates/ddv-save-core)" = f942165161b98cf7f9de16a1f7459cf3d337dc61
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-collection-candidate.mjs)" = 0f8d9d8e00ea8531e7bac51a0b2c62afbd468292
-          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-collection-private.mjs)" = f4eae0a1c49ba66790a4a12719c6f7b0c21a6b52
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-collection-private.mjs)" = 9dc1d8fa5c2f422814a20fd8368e4f3516a6c79a
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-collection-release-anchor.mjs)" = fd4368ece7d36d39382cb9b21bfef8ad3da267b8
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-collection-release.mjs)" = c0a5cd7afe68269de4c48a479a1ec685cbb4dc12
@@ -454,7 +454,7 @@ jobs:
           test "$GITHUB_REPOSITORY_ID" = 1371485649
           test "$(git rev-parse HEAD:crates/ddv-save-core)" = f942165161b98cf7f9de16a1f7459cf3d337dc61
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs)" = 1cec59930562e9b6918490e54761808d3819c434
-          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-switch-chest-private.mjs)" = 6c8dfc4afea309eac4af94da778b01dde43b3f1c
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-switch-chest-private.mjs)" = a77c7d7e2df093a6b28c00c89846d2707c20be5f
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-switch-chest-release-anchor.mjs)" = 374064f2da8a5681134aeb555166ebe00fce0704
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-switch-chest-release.mjs)" = 7dc69bc0765d6a08e888b99bd976c60c7b9723ce
@@ -570,7 +570,7 @@ jobs:
           test "$GITHUB_REPOSITORY_ID" = 1371485649
           test "$(git rev-parse HEAD:crates/ddv-save-core)" = f942165161b98cf7f9de16a1f7459cf3d337dc61
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs)" = fa2f389989bc76d58e6b941867201d3ececa433a
-          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-steam-chest-private.mjs)" = f0d27044af7edcbd9e614f23a90da1e9deb4a023
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-steam-chest-private.mjs)" = bf3ab5129e072f64d18ede2ce2b3055e61aef485
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-steam-chest-release-anchor.mjs)" = d31894accdbfd977953aeedd4055aa027a0f0cb8
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-steam-chest-release.mjs)" = 2ae152ac9f2d7dc671fdfa0ac9c58a4a276a2566
