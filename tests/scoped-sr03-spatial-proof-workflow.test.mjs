@@ -320,7 +320,7 @@ const specs=[
   }
 ];
 for(const s of specs)test(s.key+' current exclusive protected proof only',()=>{
- const start=y.indexOf('  '+s.job+':\n');assert.ok(start>=0);const next=y.slice(start+1).search(/\n  [a-z_]+:\n/);const p=next<0?y.slice(start):y.slice(start,start+1+next);
+ const start=y.indexOf('  '+s.job+':\n');assert.ok(start>=0);const next=y.slice(start+1).search(/\n  [a-z0-9_]+:\n/);const p=next<0?y.slice(start):y.slice(start,start+1+next);
  assert.ok(y.includes("if: github.event_name != 'workflow_dispatch' || ("+keys.map(k=>"inputs."+k+" == ''").join(" && ")+")"));
  assert.ok(p.includes("if: github.event_name == 'workflow_dispatch' && inputs."+s.job+"_source != '' && "+keys.filter(k=>k!==s.job+'_source').map(k=>"inputs."+k+" == ''").join(" && ")+" && github.ref == 'refs/heads/main'"));
  const pins=[...p.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(x=>[x[1],x[2]]);assert.deepEqual(pins,s.pins);
