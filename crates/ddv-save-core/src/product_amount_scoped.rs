@@ -810,6 +810,17 @@ mod tests{
             }let x=open(&q);assert!(x.preview_scoped_product_amount(scope(&x,WorkerAction::ReadDomain),sel,49).is_err());
         }
     }
+    #[cfg(feature="product-switch626-chest-portable-restore")]
+    #[test]fn switch626_chest_portable_worker_guard_boundary(){
+        let mut prior=chest_doc();prior["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);
+        let open_sw=|v:&Value|ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+        let a=open_sw(&prior);let ae=scope(&a,WorkerAction::ReadDomain);let ag=crate::worker_session::WorkerSessionGuard::attach(a);let backup=ag.capture_switch626_chest_portable(ae,12,0).unwrap();
+        let s=open_sw(&chest_doc());let e=scope(&s,WorkerAction::ReadDomain);let st=scope(&s,WorkerAction::Stage);let p=s.preview_switch626_chest_portable_restore(e,12,0,&backup).unwrap();let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+        assert_eq!(g.preview_switch626_chest_portable(e,12,0,&backup).unwrap()["oldAmount"],json!(50));assert!(g.preview_switch626_chest_portable(ae,12,0,&backup).is_err());
+        assert!(g.stage_switch626_chest_portable(st,12,0,&backup,50,49,p.entry_sha,[0;32],p.projected_sha).is_err());
+        let r=g.stage_switch626_chest_portable(st,12,0,&backup,50,49,p.entry_sha,p.backup_sha,p.projected_sha).unwrap();assert_eq!(r.exact_field_changed_count,1);assert!(g.stage_switch626_chest_portable(st,12,0,&backup,50,49,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        let out=WorkerEnvelope{expected_revision:r.revision,expected_index_generation:r.index_generation,action:WorkerAction::ExportEditedCopy,..st};assert_eq!(g.take_scoped_edit(out).unwrap(),serde_json::to_vec(&prior).unwrap());assert!(g.take_scoped_edit(out).is_err());
+    }
     #[test]fn switch626_chest_portable_restore_exact1_build_lineage(){
         use crate::portable_backup::{PortableBackupBuild,decode_linked_chest_amount_backup_for_build,encode_linked_chest_amount_backup_for_build,decode_linked_chest_amount_backup};
         let mut prior=chest_doc();prior["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);

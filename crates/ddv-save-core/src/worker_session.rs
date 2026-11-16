@@ -370,3 +370,7 @@ mod tests {
         assert_eq!(borrowed.receipt().unwrap_err().0, "SESSION_CLOSED");
     }
 }
+
+#[cfg(feature="product-switch626-chest-portable-restore")]
+#[path="worker_portable_switch626_chest.rs"]
+mod portable_switch626_chest;

@@ -36,6 +36,12 @@ product-steam626-sr03-scoped = ["product-amount-scoped"]
 # Exact Switch626 mixed Road RM01; independent of Steam SR03.
 product-switch626-rm01-scoped = ["product-amount-scoped"]
 
+product-portable-restore-scoped = ["product-amount-scoped"]
+product-steam626-catalog0-portable-restore = ["product-portable-restore-scoped"]
+product-steam626-chest-portable-restore = ["product-portable-restore-scoped"]
+product-switch626-catalog0-portable-restore = ["product-portable-restore-scoped"]
+product-switch626-chest-portable-restore = ["product-portable-restore-scoped"]
+
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
 sha2 = "=0.10.8"
