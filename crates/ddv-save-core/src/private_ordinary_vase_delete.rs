@@ -238,7 +238,7 @@ mod ordinary_vase_tests{
         q=p.clone();q["oldStock"]=json!(MAX_CONSERVATIVE_AMOUNT);assert!(s.stage_private_steam626_ordinary_vase_delete_exact2(e,&enc(&q)).is_err());neg+=1;
         assert_eq!(s.receipt().unwrap(),before);
         s.close().unwrap();assert!(s.stage_private_steam626_ordinary_vase_delete_exact2(e,&enc(&p)).is_err());neg+=1;
-        assert_eq!((pos,neg),(1,14));
+        assert_eq!((pos,neg),(1,15));
     }
 
 }
