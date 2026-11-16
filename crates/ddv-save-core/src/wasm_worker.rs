@@ -39,7 +39,7 @@ pub struct WorkerWasmSource {
 }
 #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 #[derive(Clone,Copy,PartialEq,Eq)]
-enum ScopedEditDomain { Amount, Collection, SwitchChest, Comp03, Sr03, SwitchRm01 }
+enum ScopedEditDomain { Amount, Collection, SwitchChest, Comp03, Sr03, SwitchRm01, SwitchFrp01 }
 #[wasm_bindgen]
 impl WorkerWasmSource {
     #[wasm_bindgen(constructor)]
@@ -608,3 +608,10 @@ impl WorkerWasmSource {
         Ok(chunk)
     }
 }
+
+#[cfg(all(feature="product-switch624-frp01-scoped",not(any(
+  feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",
+  feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped",
+  feature="product-switch626-rm01-scoped",feature="product-collection-scoped"))))]
+#[path="wasm_switch624_frp01.rs"]
+mod scoped_switch624_frp01;

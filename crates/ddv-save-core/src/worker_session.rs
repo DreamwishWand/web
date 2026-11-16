@@ -386,3 +386,7 @@ mod tests {
         assert_eq!(borrowed.receipt().unwrap_err().0, "SESSION_CLOSED");
     }
 }
+
+#[cfg(feature="product-switch624-frp01-scoped")]
+#[path="worker_switch624_frp01.rs"]
+mod scoped_frp01;

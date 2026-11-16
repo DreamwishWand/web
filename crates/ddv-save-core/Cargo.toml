@@ -39,6 +39,8 @@ product-switch626-rm01-scoped = ["product-amount-scoped"]
 product-switch624-frp01-readonly = ["product-amount-scoped"]
 # ACT1465 exact internal Stage; no generic624 or public Worker ABI.
 product-switch624-frp01-stage-internal = ["product-switch624-frp01-readonly"]
+# ACT1534 fixed 624 Worker ABI; never generic624 or a public Writer grant.
+product-switch624-frp01-scoped = ["product-switch624-frp01-stage-internal"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
