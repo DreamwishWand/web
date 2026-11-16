@@ -75,6 +75,11 @@ jobs:
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch624-frp01-readonly --lib switch624_frp01_ --verbose
           cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch624-frp01-readonly
           cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch624-frp01-readonly,product-switch626-rm01-scoped
+      - name: ACT1534 exact Switch624 FRP01 dedicated Worker generated ABI (OFF)
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch624-frp01-scoped --lib switch624_frp01_dedicated_worker_abi_exact7_cas_undo_reopen --verbose
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch624-frp01-scoped
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch624-frp01-scoped,product-switch626-rm01-scoped
       - name: Compile WASM Worker plus opt-in indexed-read types without binding to UI
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read
       - name: ACT1465 exact Switch624 FRP01 atomic Stage (internal only)
