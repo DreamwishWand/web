@@ -77,6 +77,11 @@ jobs:
           cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch624-frp01-readonly,product-switch626-rm01-scoped
       - name: Compile WASM Worker plus opt-in indexed-read types without binding to UI
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read
+      - name: ACT1465 exact Switch624 FRP01 atomic Stage (internal only)
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch624-frp01-stage-internal --lib switch624_frp01_ --verbose
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch624-frp01-stage-internal
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch624-frp01-stage-internal,product-switch626-rm01-scoped
       - name: Rust wasm32 ABI compilation (no UI/bundle assumption)
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm
       - name: Worker-side mock WASM read-only negative tests
