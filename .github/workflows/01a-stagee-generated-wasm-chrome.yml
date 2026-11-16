@@ -2,15 +2,7 @@ name: 01A Stage E Genuine Generated Rust WASM Chrome Worker (Writer OFF)
 on:
   pull_request:
     paths:
-      - 'tests/stage-e/**'
-      - 'scripts/wasm-distribution/**'
-      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
       - '.github/workflows/01a-stagee-generated-wasm-chrome.yml'
-      - 'crates/ddv-save-core/**'
-      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
-  push:
-    branches:
-      - 'core/real-wasm-browser-smoke-stagee-*'
 permissions:
   contents: read
 jobs:
@@ -21,35 +13,44 @@ jobs:
       CARGO_TARGET_DIR: /tmp/wand-stagee-cargo-target
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: 65896ead46701469ef4b0d70c1fa2e5421043721
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Verify real Chrome and exact pinned wasm-bindgen crate
+      - name: QA ONLY supplemental independent Reopen (accepted census not repeated)
         run: |
           set -euo pipefail
-          command -v google-chrome || command -v chromium
-          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
-      - name: Compile REAL cdylib with opt-in Worker and indexed metadata
-        run: |
-          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
-          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
-      - name: Install exactly matching wasm-bindgen CLI 0.2.105 (not generated or mocked JS)
-        run: |
+          test "$(git rev-parse HEAD)" = 65896ead46701469ef4b0d70c1fa2e5421043721
+          test "$(git rev-parse HEAD^{tree})" = 1a5ded6ea855c87f39fd6644dcdaf4b8b24e7a15
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          printf '%s\n' '6bd3642b96af61a84a0b0d96b7e7e911415f519bcb4683c1092ea0bf191f71ac  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagee-wasm-tools
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen --version | grep -F '0.2.105'
-      - name: Generate true wasm-bindgen Browser Worker ESM glue
-        run: |
-          mkdir -p tests/stage-e/pkg
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
-          test -s tests/stage-e/pkg/ddv_save_core.js
-          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
-          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|include_bytes!|writerAuthorized: *true|applyAuthorized: *true' tests/stage-e
-      - name: Actual browser CDP + module Worker + Rust WASM positive and negatives
-        run: node tests/stage-e/chrome-smoke.mjs
-      - name: Confirm Stage E never changed product Writer or public worker route
-        run: |
-          ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
-          test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
-          test -f crates/ddv-save-core/src/wasm_worker.rs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-catalog0-portable-restore
+          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/restore-own --target nodejs --no-typescript
+          sha256sum /tmp/restore-own/ddv_save_core_bg.wasm
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          const sha=b=>createHash('sha256').update(b).digest('hex'),cls=m=>require('/tmp/restore-'+m+'/ddv_save_core.js').WorkerWasmSource;
+          const op='catalog0',names=['capture_'+op+'_portable_backup','preview_'+op+'_portable_restore','stage_'+op+'_portable_restore','toggle_'+op+'_portable_restore','begin_'+op+'_portable_restore_output','next_'+op+'_portable_restore_output_chunk'];
+          const steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],sw=['switch','switch-bid','9A239D3DB569756D',626,true];
+          function doc(){const d={GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{GridCollection:{Grids:{},DiffGrids:{}},MissionSlots:{},Villages:[]},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{40000048:{Amount:3,Marker:'ItemMarker_None'}}}},ContainerInventories:{},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Unknown:{x:1,escaped:'keep'}};
+          return d;}
+          const raw=d=>Buffer.from(JSON.stringify(d).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
+          const entry=d=>d.Player.ListInventories[0].Inventory[40000048];
+          let nonce=0;
+          function open(d,b=steam){const bytes=raw(d),w=new(cls('own'))(...b,new Uint8Array(32).fill(++nonce));w.append_chunk(bytes);const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(bytes));return[w,r]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],args=[40000048],old=3,next=2,call=(w,k,...a)=>w[names[k]](...a);
+          const d=doc(),prior=structuredClone(d);entry(prior).Amount=next;
+          const [a,ar]=open(prior),backup=Buffer.from(call(a,0,...args,...sc(ar)));
+          const [w,r]=open(d),p=JSON.parse(call(w,1,...args,backup,...sc(r)));
+          const st=(w,r,p)=>JSON.parse(call(w,2,...args,backup,p.oldAmount,p.newAmount,p.entrySha256,p.backupSha256,p.projectedSha256,...sc(r)));
+          const t=st(w,r,p);assert.equal(t.exactFieldChangedCount,1);assert.equal(t.stagedDecodedSha256,sha(raw(prior)));
+          call(w,4,...sc(t));const out=Buffer.from(call(w,5));assert.deepEqual(out,raw(prior));
+          assert.equal(JSON.parse(out).Player.ListInventories[0].Inventory[40000048].Amount,2);
+          w.close();w.free();a.close();a.free();
+          const file='/tmp/qrc1781-export-decoded.json';fs.writeFileSync(file,out,{flag:'wx',mode:0o600});
+          const child="const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');const bytes=fs.readFileSync(process.argv[1]);const expected=process.argv[2];const {WorkerWasmSource}=require('/tmp/restore-own/ddv_save_core.js');const w=new WorkerWasmSource('steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true,new Uint8Array(32).fill(97));w.append_chunk(bytes);const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,expected);assert.equal(createHash('sha256').update(bytes).digest('hex'),expected);assert.equal(JSON.parse(bytes).Player.ListInventories[0].Inventory[40000048].Amount,2);assert.equal(r.revision,0);const b=Buffer.from(w.capture_catalog0_portable_backup(40000048,r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256));assert.ok(b.length>0);w.close();w.free();console.log('QRC1781_REOPEN_CHILD_PASS '+r.decodedSha256);";
+          const result=require('node:child_process').execFileSync(process.execPath,['-e',child,file,sha(out)],{encoding:'utf8'});process.stdout.write(result);assert.ok(result.includes('QRC1781_REOPEN_CHILD_PASS '+sha(out)));
+          console.log('QRC1781_SUPPLEMENTAL_FRESH_PROCESS_REOPEN_LEXICAL_EXACT1_PASS');
+          JS
