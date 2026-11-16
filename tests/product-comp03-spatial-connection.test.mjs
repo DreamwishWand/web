@@ -6,7 +6,7 @@ import {createLocalComp03DevPort,createLocalComp03SpatialDevPort,installLocalCom
 import {createProductWasmReadOwner} from '../src/lib/ddv/core/save/product-wasm-read-owner.mjs';
 import {createProductSteam626Comp03LocalAdapter,createProductSteam626Comp03SpatialLocalAdapter,createProductSteam626VaseAddLocalAdapter} from '../src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
 test('explicit spatial identity adds exactly one method/export; legacy and Vase remain distinct',()=>{
- assert.equal(spatial.operation,legacy.operation);assert.notEqual(spatial.prefix,legacy.prefix);assert.notEqual(spatial.assetDir,legacy.assetDir);
+ assert.equal(spatial.key,'steam626-comp03-spatial');assert.equal(spatial.prefix,'wand.scoped-steam626-comp03-spatial');assert.equal(spatial.assetDir,'worker-wasm-scoped-steam626-comp03-spatial');assert.equal(spatial.operation,legacy.operation);assert.notEqual(spatial.prefix,legacy.prefix);assert.notEqual(spatial.assetDir,legacy.assetDir);
  assert.deepEqual(spatial.features,['product-steam626-comp03-spatial-preview','worker-wasm']);assert.equal(spatial.methods.length,14);assert.equal(spatial.exports.length,23);
  assert.deepEqual(spatial.methods.filter(m=>m!=='preview_steam626_comp03_spatial'),legacy.methods);
  assert.deepEqual(spatial.exports.filter(m=>m!=='workerwasmsource_preview_steam626_comp03_spatial'),legacy.exports);
