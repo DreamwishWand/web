@@ -150,7 +150,7 @@ mod tests{
   wanted["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"]=json!(NEW);
   assert_eq!(out,serde_json::to_vec(&wanted).unwrap());
   assert_eq!(serde_json::to_vec(&d).unwrap(),bytes);
-  assert_eq!(crate::product_session::sha(&out),receipt.staged_decoded_sha256);
+  assert_eq!(sha(&out),hex(&receipt.staged_decoded_sha256));
   let reopened=open(&wanted);
   assert_eq!(reopened.receipt().unwrap().schema,626);
  }
