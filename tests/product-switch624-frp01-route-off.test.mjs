@@ -26,8 +26,8 @@ test('FRP624 fixed OFF product route and generated ABI census have no protected 
  assert.equal(FRP01_RELEASE.platform,'switch');
  assert.equal(FRP01_RELEASE.buildId,bid);
  assert.deepEqual(FRP01_RELEASE.features,['product-switch624-frp01-scoped','worker-wasm']);
- const methods=['finish_switch624_frp01_readonly','read_switch624_frp01_target',
-  'preview_switch624_frp01','stage_switch624_frp01','toggle_switch624_frp01',
+ const methods=['preview_switch624_frp01','stage_switch624_frp01',
+  'finish_switch624_frp01_readonly','read_switch624_frp01_target','toggle_switch624_frp01',
   'begin_switch624_frp01_output','next_switch624_frp01_output_chunk'];
  assert.deepEqual(FRP01_RELEASE.methods.filter(m=>m.includes('frp01')),methods);
  assert.equal(FRP01_RELEASE.path,'/editor/world/frp01/switch624/');
