@@ -1,7 +1,8 @@
-// Fixed Steam626 placement wrappers over the existing Worker-owned ledger.
+// Fixed Steam626 and Switch626 placement wrappers over the existing Worker-owned ledger.
 // UI selectors are untrusted; old values and hashes come only from Rust.
 import {createScopedEditLifecycle} from './product-scoped-amount-transport.mjs';
 const STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+const SWITCH='9A239D3DB569756D';
 const fail=()=>{throw Error('PRODUCT_SCOPED_PLACEMENT_DENIED')};
 const uint=n=>Number.isSafeInteger(n)&&n>=0&&n<=0xffffffff;
 const positive=n=>uint(n)&&n>0;
@@ -22,6 +23,8 @@ const fixed=Object.freeze({
   stageArgs:r=>[r.gridId,r.x,r.y,r.oldAmount,r.nextObjectId,r.entrySha256,r.gridSha256,r.projectedDecodedSha256],
   summary:r=>({inventoryId:0,x:r.x,y:r.y,orientation:r.orientation,inventoryDelta:-1,addObjects:1})})
 });
+const switchVase=Object.freeze({...fixed.vase,contract:'wand.worker.switch626.scoped-vase-add@1',preview:'preview_switch626_vase_add',stage:'stage_switch626_vase_add'});
+export const createSwitch626VaseAddTransport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,switchVase);
 export const createSteam626Comp03Transport=(wasm,initial,identity,options)=>create(wasm,initial,identity,options,fixed.comp03);
 // Explicit companion factory: only a separately accepted, signed spatial
 // runtime may select it. Existing COMP03 @1 and Vase factories remain exact.
@@ -30,7 +33,7 @@ export const createSteam626VaseAddTransport=(wasm,initial,identity,options)=>cre
 function create(wasm,initial,identity,{parse,current,revoke,maxBytes,chunkBytes},op,spatial=false){
  if(spatial&&(op!==fixed.comp03||typeof wasm?.preview_steam626_comp03_spatial!=='function'))fail();
  if(typeof document!=='undefined'||!wasm||typeof wasm[op.preview]!=='function'||typeof wasm[op.stage]!=='function'||
-  !identity||identity.platform!=='steam-windows'||identity.buildKind!=='steam-full-version'||identity.buildId!==STEAM||identity.schema!==626||
+  !identity||identity.schema!==626||!(op===switchVase?identity.platform==='switch'&&identity.buildKind==='switch-bid'&&identity.buildId===SWITCH:identity.platform==='steam-windows'&&identity.buildKind==='steam-full-version'&&identity.buildId===STEAM)||
   !initial||initial.contract!=='wand.product.single-save-session.boundary@1'||initial.schema!==626||initial.revision!==0||initial.indexGeneration!==1||
   typeof initial.sessionId!=='string'||!/^[a-f0-9]{32}$/.test(initial.sessionId)||/^0+$/.test(initial.sessionId)||!sha(initial.decodedSha256)||
   initial.productWorkerBound!==true||initial.fullDocumentJsonValidated!==true||initial.writerAuthorized!==false||initial.editedCopyAuthorized!==false||initial.applyAuthorized!==false)fail();
