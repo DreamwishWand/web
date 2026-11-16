@@ -160,6 +160,21 @@ mod tests{
   let reopened=ProductSession::open_decoded_readonly(out,crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
   assert_eq!(reopened.receipt().unwrap().decoded_sha256,p.projected);
  }
+ #[cfg(feature="product-switch626-fm01-scoped")]
+ #[test]fn switch626_fm01_worker_guard_boundary(){
+  let d=doc();let s=open(&d);let e=env(&s);let ids=[10,11,12,13,14];
+  let p=s.prepare_switch626_fm01_product(e,90001,ids).unwrap();let t=&p.target;
+  let (root,grid,counter,entry,houses,rows,projected)=(t.root_sha,t.grid_sha,t.counter_sha,t.stock_sha,t.houses_sha,t.old_rows_sha,p.projected);
+  let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+  assert_eq!(g.preview_switch626_fm01(e,90001,ids).unwrap()["exactFieldChangedCount"],8);
+  assert!(g.preview_switch626_fm01(e,90001,[10,11,12,13,13]).is_err());
+  let st=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  assert!(g.stage_switch626_fm01(st,90001,ids,50,10,root,grid,counter,entry,houses,rows,[0;32]).is_err());
+  let r=g.stage_switch626_fm01(st,90001,ids,50,10,root,grid,counter,entry,houses,rows,projected).unwrap();assert_eq!(r.exact_field_changed_count,8);
+  assert!(g.stage_switch626_fm01(st,90001,ids,50,10,root,grid,counter,entry,houses,rows,projected).is_err());
+  let out=WorkerEnvelope{expected_revision:r.revision,expected_index_generation:r.index_generation,action:WorkerAction::ExportEditedCopy,..st};
+  assert_eq!(sha(&g.take_scoped_edit(out).unwrap()),projected);assert!(g.take_scoped_edit(out).is_err());
+ }
  #[test]fn switch626_fm01_exact_target_old5_fresh3_and_stock(){
   let d=doc();let s=open(&d);let e=env(&s);let ids=[10,11,12,13,14];let before=s.receipt().unwrap();
   let t=s.mint_switch626_fm01_target(e,90001,ids).unwrap();
