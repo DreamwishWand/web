@@ -65,3 +65,18 @@ test('Switch-only seal rejects mixed Amount/Collection exports and foreign Build
   await assert.rejects(createProductSwitchChestPort());assert.equal(workers,0);
  }finally{for(const [k,v] of Object.entries(originals)){if(v)Object.defineProperty(globalThis,k,v);else delete globalThis[k]}}
 });
+
+import {SCOPED_SWITCH_CHEST_WASM_EXPORTS as foreignProofOwnExports} from '../src/lib/ddv/core/save/product-scoped-switch-chest-release.mjs';
+import {inspectScopedSwitchChestSubjects} from '../scripts/readonly-release/seal-scoped-switch-chest-private.mjs';
+test('Switch Vase foreign symbols rejected with valid own WASM and rebound manifest',()=>{
+ const u=n=>{const a=[];do{const v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a};
+ const str=s=>[...u(Buffer.byteLength(s)),...Buffer.from(s)],sec=(id,b)=>[id,...u(b.length),...b];
+ const wasm=names=>{const e=names.flatMap(n=>[...str(n),n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(names.length),...e]),...sec(10,[1,2,0,11])])};
+ const subject=(js,w)=>[Buffer.from(JSON.stringify({...manifest,assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:hash(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:hash(w)}}})),js,w];
+ const clean=Buffer.from('export default function(){}'),own=wasm(foreignProofOwnExports);
+ assert.equal(inspectScopedSwitchChestSubjects(subject(clean,own),source).wasmSha256,hash(own));
+ for(const n of ['preview_switch626_vase_add','stage_switch626_vase_add']){
+  assert.throws(()=>inspectScopedSwitchChestSubjects(subject(Buffer.from(n),own),source));
+  assert.throws(()=>inspectScopedSwitchChestSubjects(subject(clean,wasm([...foreignProofOwnExports,'workerwasmsource_'+n])),source));
+ }
+});
