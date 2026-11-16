@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
 import {createProductFixedCollectionLocalAdapter} from '../src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+import {installLocalCollectionDevWorker,createLocalCollectionDevPort} from '../src/lib/dev/local-scoped-edit-worker-port.mjs';
 import {createCollectionExact1Consumer} from '../src/lib/collection/collection-exact1-consumer.mjs';
 import {p1gPackagedProfileCodec} from '../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
 import {createFixedCollectionTransport} from '../src/lib/ddv/core/save/product-fixed-collection-transport.mjs';
@@ -170,7 +171,13 @@ test('protected Collection consumer binds existing local copy lifecycle: dual Bu
    freshCodecReopen:async(b,h)=>hash(new TextEncoder().encode((await p1gPackagedProfileCodec.loadProfile(b)).jsonText))===h});
   for(const identity of [STEAM,SWITCH]){
    const a=make(),build={...identity,externallyConfirmed:true},args={file:f,build,originalSha256:origHash};
-   const c=createCollectionExact1Consumer(a,{trustedLocalHarness:true});
+   // Source RPC double: response clone mirrors Worker postMessage; input
+   // File remains a Node File (Node structuredClone does not preserve it).
+   const server={},worker={terminate(){}};
+   server.postMessage=data=>{const copy=structuredClone(data);queueMicrotask(()=>worker.onmessage({data:copy}))};
+   worker.postMessage=data=>queueMicrotask(()=>server.onmessage({data}));
+   installLocalCollectionDevWorker(server,a);const port=createLocalCollectionDevPort(worker);
+   const c=createCollectionExact1Consumer(port,{trustedLocalHarness:true});
    await c.openFile({file:f,build});assert.equal(c.snapshot().targets.length,1);
    const initialSelection=(await a.inspectCollectionTargets()).selection;
    await assert.rejects(async()=>a.stageCollectionTarget(initialSelection,0));assert.equal(stages,identity===STEAM?0:1);
@@ -182,6 +189,7 @@ test('protected Collection consumer binds existing local copy lifecycle: dual Bu
    await a.open(args);const newer=await a.inspectCollectionTargets();assert.notEqual(newer.selection,initialSelection);
    await assert.rejects(async()=>a.backupOriginal(initialSelection));await a.backupOriginal(newer.selection);
    assert.deepEqual(await a.close(),{kind:'CLOSED',ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false});
+   port.dispose();
   }
   assert.equal(stages,2);assert.equal(opens,4);
  }finally{if(old)Object.defineProperty(navigator,'locks',old);else delete navigator.locks}
