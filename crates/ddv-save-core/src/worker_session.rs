@@ -53,6 +53,50 @@ impl WorkerSessionGuard {
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         self.session.read_saved_diffgrids_page(scope,cursor)
     }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn discover_scoped_amount(&self,e:WorkerEnvelope,profile:&str,offset:u32)
+        ->CoreResult<(Vec<crate::CoreExistingAmountTarget>,Option<u32>,u32)>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.discover_scoped_product_amount(e,profile,offset)
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn preview_scoped_amount(&self,e:WorkerEnvelope,selection:crate::ExistingAmountSelection,new:u32)->CoreResult<crate::CoreExistingAmountTarget>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_scoped_product_amount(e,selection,new)
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn stage_scoped_amount(&self,e:WorkerEnvelope,selection:crate::ExistingAmountSelection,old:u32,new:u32,entry:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.stage_scoped_product_amount(e,selection,old,new,entry)
+    }
+    #[cfg(feature="product-collection-scoped")]
+    pub(crate) fn preview_collection_candidate(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32)->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_product_collection_candidate(e,definition,group,item)
+    }
+    #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+    pub(crate) fn preview_fixed_collection(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32)->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_fixed_effective_collection(e,definition,group,item)
+    }
+    #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+    pub(crate) fn stage_fixed_collection(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32,entry:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.stage_scoped_product_collection(e,definition,group,item,false,true,entry)
+    }
+    // Shared scoped-edit lifecycle: same existing semantic ledger as the
+    // amount ABI; no second operation state or export pipeline.
+    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    pub(crate) fn toggle_scoped_edit(&self,e:WorkerEnvelope,redo:bool)->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        if redo{self.session.redo_typed_semantic_batch(e)}else{self.session.undo_typed_semantic_batch(e)}
+    }
+    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    pub(crate) fn take_scoped_edit(&mut self,e:WorkerEnvelope)->CoreResult<Vec<u8>>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        let out=self.session.take_typed_semantic_decoded_once(e)?;
+        self.closed=true;Ok(out)
+    }
     pub(crate) fn close(&mut self) -> CoreResult<()> {
         if self.closed { return Err(CoreError("WORKER_SESSION_ALREADY_CLOSED")); }
         self.closed = true;
