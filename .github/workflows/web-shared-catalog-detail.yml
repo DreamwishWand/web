@@ -65,7 +65,16 @@ jobs:
           # New CurrentVersion ItemThumb scope is EXACTLY six fixed paths:
           # no edits to Collection/Explore/Entity routes, old R39 resolver,
           # or non-media flows. Reject accidental sibling/legacy PR mixing.
-          if git diff --name-only "$BASE" HEAD | grep -qxF 'src/lib/item-media/switch1253-public-item-images.mjs'; then
+          # Every explicitly triggered pin module must enter this same exact-scope gate,
+          # even when the resolver is missing (which must then fail the path comparison).
+          git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/switch1253-actual
+          if grep -qxF \
+            -e 'src/lib/item-media/switch1253-public-item-images.mjs' \
+            -e 'src/lib/item-media/steam1253-furniture146-pins.mjs' \
+            -e 'src/lib/item-media/steam1253-other36-pins.mjs' \
+            -e 'src/lib/item-media/steam1253-hold10-pins.mjs' \
+            -e 'src/lib/item-media/steam1253-hold5-chest2-pins.mjs' \
+            /tmp/switch1253-actual; then
             cat > /tmp/switch1253-approved <<'CURRENT_IMAGE_SCOPE'
           .github/workflows/web-shared-catalog-detail.yml
           scripts/web-shared-catalog-e2e-chrome.mjs
@@ -74,7 +83,6 @@ jobs:
           src/lib/ui/ItemThumb.svelte
           tests/web-switch1253-item-thumb-contract.test.mjs
           CURRENT_IMAGE_SCOPE
-            git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/switch1253-actual
             LC_ALL=C sort /tmp/switch1253-approved > /tmp/switch1253-expected
             cat > /tmp/switch1253-policy-expected <<'CURRENT_IMAGE_POLICY_SCOPE'
           .github/workflows/web-shared-catalog-detail.yml
