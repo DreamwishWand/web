@@ -1,0 +1,89 @@
+name: ACT1318 fixed R01 private-lab executable transport (NO SAVE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r01-private-target-lab-build.yml'
+permissions:
+  contents: read
+jobs:
+  build-only:
+    if: github.head_ref == '01b/act1318-r01-private-lab-fixed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 01a16f4ce09882088dec0094566b48babf7b78a1
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Fixed source and approved Lock; add ignored transport-only test in temporary checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 01a16f4ce09882088dec0094566b48babf7b78a1
+          p=crates/ddv-save-core/src/sr03_product_target.rs
+          test "$(git hash-object "$p")" = 2a22fb5f004eda081f0764bb1fc2708bda390550
+          test "$(git hash-object crates/ddv-save-core/src/sr03_installed_geometry.rs)" = 8b102d8904fb7863235050180131c23747916df5
+          test "$(git hash-object scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cat >> "$p" <<'RS'
+
+          #[cfg(all(test,not(target_arch="wasm32")))]
+          mod private_r01_lab {
+              use super::*;
+              use std::{env,fs};
+              #[test]
+              #[ignore="local authorized decoded input only; never executed in CI"]
+              fn genuine_r01_current_target(){
+                  let path=env::var("WAND_R01_PRIVATE_DECODED").expect("local input path");
+                  let expect_path=env::var("WAND_R01_PRIVATE_EXPECT").expect("local receipt path");
+                  let bytes=fs::read(&path).expect("local input");
+                  let plan:Value=serde_json::from_slice(&fs::read(&expect_path).expect("local receipt")).expect("local receipt JSON");
+                  let expected=&plan["target"];
+                  let num=|v:&Value,k:&str|v[k].as_u64().and_then(|n|u32::try_from(n).ok()).expect("expected uint");
+                  assert_eq!(hex(&sha(&bytes)),expected["decodedSha"].as_str().expect("expected decoded SHA"));
+                  let mut s=ProductSession::open_decoded_readonly(bytes,crate::BuildIdentity{
+                      platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+                      build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).expect("strict actual open");
+                  s.worker_bound=true;
+                  let before=s.receipt().expect("receipt");
+                  let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:before.session_id,
+                      expected_revision:before.revision,expected_index_generation:before.index_generation,
+                      expected_decoded_sha256:before.decoded_sha256,action:WorkerAction::ReadDomain};
+                  let g=num(expected,"grid");
+                  let t=s.mint_switch626_r01_target(e,g,num(expected,"x"),num(expected,"y")).expect("actual fixed Binder target");
+                  let actual=json!({"decodedSha":hex(&before.decoded_sha256),"grid":t.grid,
+                      "x":t.x,"y":t.y,"next":t.next,"stock":t.stock,"pairs":t.pairs,
+                      "rootSha":hex(&t.root_sha),"gridSha":hex(&t.grid_sha),
+                      "counterSha":hex(&t.counter_sha),"stockSha":hex(&t.stock_sha),"housesSha":hex(&t.houses_sha)});
+                  assert_eq!(&actual,expected,"actual exact target receipt");
+                  let old=&plan["oldPose"];
+                  let denied=s.mint_switch626_r01_target(e,g,num(old,"x"),num(old,"y")).unwrap_err();
+                  assert_eq!(denied.0,"R01_TARGET_GEOMETRY");
+                  assert_eq!(s.receipt().expect("read-only receipt"),before);
+                  assert_eq!(hex(&sha(&fs::read(&path).expect("unchanged local input"))),expected["decodedSha"].as_str().unwrap());
+                  println!("R01_PRIVATE_TARGET_ACTUAL_PASS 1POS1NEG12FIELDS");
+              }
+          }
+          RS
+          # The only tracked workspace delta is the ignored transport harness.
+          test "$(git diff --name-only)" = "$p"
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped --lib --no-run --message-format=json > "$RUNNER_TEMP/r01-build.jsonl"
+          mkdir -p "$RUNNER_TEMP/r01-lab"
+          python3 - "$RUNNER_TEMP" <<'PY'
+          import json, pathlib, shutil, sys, hashlib, subprocess
+          p=pathlib.Path(sys.argv[1]); a=[json.loads(l) for l in (p/'r01-build.jsonl').read_text().splitlines()]
+          ex=[v['executable'] for v in a if v.get('reason')=='compiler-artifact' and v.get('executable') and v.get('profile',{}).get('test') and v.get('target',{}).get('name') in ('ddv_save_core','ddv-save-core')]
+          assert len(ex)==1, len(ex)
+          out=p/'r01-lab'; exe=out/'r01-private-target-test';shutil.copy2(ex[0],exe)
+          h=lambda q:hashlib.sha256(pathlib.Path(q).read_bytes()).hexdigest()
+          m={'source':'01a16f4ce09882088dec0094566b48babf7b78a1','binder':'2a22fb5f004eda081f0764bb1fc2708bda390550','feature':'product-amount-scoped','lockGit':'b667b42cfef2032c2925be7b2aa9b7142bff4b52','lockSha256':h('crates/ddv-save-core/Cargo.lock'),'harnessSha256':h('crates/ddv-save-core/src/sr03_product_target.rs'),'executableSha256':h(exe),'compiler':subprocess.check_output(['rustc','-Vv'],text=True),'purpose':'build-only local ignored test; no actual save in CI'}
+          (out/'manifest.json').write_text(json.dumps(m,sort_keys=True,separators=(',',':'))+'\n')
+          print('R01_LAB_BUILD_ONLY',m['source'],m['executableSha256'],m['lockSha256'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r01-fixed-private-target-test
+          path: ${{ runner.temp }}/r01-lab/
+          if-no-files-found: error
+          retention-days: 1
