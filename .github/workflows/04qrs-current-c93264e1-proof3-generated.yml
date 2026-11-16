@@ -1,0 +1,115 @@
+name: 04 QR-S current c93264e1 proof3 generated subjects (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-current-c93264e1-proof3-generated.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-current-chest-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dc618e476a0144ef2fa1d58d319eb6b2b644eb4e
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact Core, accepted inspectors, approved Lock
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "dc618e476a0144ef2fa1d58d319eb6b2b644eb4e"
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = c93264e1c060fa1dacba71ad2cd72628ef6dbbc4
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-switch-chest-private.mjs)" = bf6daf8f8096eb69a34dbf6e80d67d8e31bc95b0
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-steam-chest-private.mjs)" = fb34157d277c10e09789924b2272c41a8c3ee63c
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-current-chest-tools
+      - name: Generate only two dedicated proof configurations and inspect actual subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          for scope in switch steam; do
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "product-${scope}626-chest-scoped,worker-wasm"
+            /tmp/wand-current-chest-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "/tmp/wand-current-chest-$scope" --target web --no-typescript
+          done
+          cat > qa-current-chest.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {readFileSync,copyFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {execFileSync} from 'node:child_process';
+          import {pathToFileURL} from 'node:url';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {inspectScopedSwitchChestSubjects as sw} from './scripts/readonly-release/seal-scoped-switch-chest-private.mjs';
+          import {inspectScopedSteamChestSubjects as steam} from './scripts/readonly-release/seal-scoped-steam-chest-private.mjs';
+          import * as s from './src/lib/ddv/core/save/product-scoped-switch-chest-release.mjs';
+          import * as t from './src/lib/ddv/core/save/product-scoped-steam-chest-release.mjs';
+          const source='dc618e476a0144ef2fa1d58d319eb6b2b644eb4e',sha=b=>createHash('sha256').update(b).digest('hex');
+          const base=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','close'];
+          const swMethods=[...base,...['discover_switch626_chest','preview_switch626_chest','stage_switch626_chest','toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk']].sort();
+          const stMethods=[...base,...['discover_scoped_amount','preview_scoped_amount','stage_scoped_amount','toggle_scoped_amount','begin_scoped_amount_output','next_scoped_amount_output_chunk']].sort();
+          const cargo=readFileSync('crates/ddv-save-core/Cargo.toml'),lock=readFileSync('crates/ddv-save-core/Cargo.lock'),toolchain=execFileSync('rustc',['--version','--verbose'],{encoding:'utf8'});
+          assert.equal(sha(lock),'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c');
+          const cases=[['switch',s,'SCOPED_SWITCH_CHEST',sw,swMethods],['steam',t,'SCOPED_STEAM_CHEST',steam,stMethods]];
+          const subjects=[];
+          for(const [name,spec,k,inspect,methods] of cases){
+           const dir='/tmp/wand-current-chest-'+name,js=readFileSync(dir+'/ddv_save_core.js'),wasm=readFileSync(dir+'/ddv_save_core_bg.wasm');
+           copyFileSync(dir+'/ddv_save_core.js',dir+'/glue.mjs');
+           const cls=(await import(pathToFileURL(dir+'/glue.mjs').href)).WorkerWasmSource;
+           assert.deepEqual(Object.getOwnPropertyNames(cls.prototype).filter(n=>!['constructor','free','__destroy_into_raw'].includes(n)).sort(),methods);
+           const ex=WebAssembly.Module.exports(new WebAssembly.Module(wasm)).map(x=>x.name).sort();
+           assert.equal(ex.length,23);assert.deepEqual(ex,[...spec[k+'_WASM_EXPORTS']].sort());
+           assert.deepEqual([...spec[k+'_METHODS']].sort(),methods);
+           const manifest={contract:'wand.scoped-'+name+'-chest.runtime@1',operation:spec[k+'_RELEASE_OP'],source:{repository:tuple.repository,commit:source,cargoTomlSha256:sha(cargo),cargoLockSha256:sha(lock),cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:spec[k+'_FEATURES'],defaultFeatures:false,toolchain},assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:sha(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:wasm.length,sha256:sha(wasm)}},abi:{exportClass:'WorkerWasmSource',methods:spec[k+'_METHODS'],writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false}};
+           const pack=(j,w)=>[Buffer.from(JSON.stringify({...manifest,assets:{js:{path:'ddv_save_core.js',sizeBytes:j.length,sha256:sha(j)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}}})),j,w];
+           const b=pack(js,wasm),p=inspect(b,source);assert.equal(p.jsSha256,sha(js));assert.equal(p.wasmSha256,sha(wasm));assert.equal(p.manifestSha256,sha(b[0]));
+           subjects.push({name,inspect,pack,js,wasm,manifest,b,p});
+          }
+          let neg=0;for(const [a,b] of [[subjects[0],subjects[1]],[subjects[1],subjects[0]]]){
+           for(const x of [a.pack(b.js,a.wasm),a.pack(a.js,b.wasm),a.pack(b.js,b.wasm),b.b,[a.b[0],Buffer.concat([a.js,Buffer.from(' ')]),a.wasm]]){assert.throws(()=>a.inspect(x,source));neg++}
+           console.log('CURRENT_CHEST_PROOF_SUBJECT',JSON.stringify({scope:a.name,methods:14,exports:23,jsSha256:a.p.jsSha256,wasmSha256:a.p.wasmSha256,manifestSha256:a.p.manifestSha256}));
+          }
+          console.log('CURRENT_CHEST_PROOF_SUBJECTS_L2_PASS',JSON.stringify({pos:2,neg,actualGeneratedWasm:true,approvedLock:true,actualSignature:false,productV2:false}));
+          
+          EOF
+          node qa-current-chest.mjs
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-collection-private.mjs)" = 4faaa553470b0f491fc611bd8e5c1590255cb1e4
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-collection-scoped,semantic-writer-dev,worker-wasm
+          /tmp/wand-current-chest-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-collection-current --target web --no-typescript
+          cat > qa-current-collection.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {readFileSync,copyFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {execFileSync} from 'node:child_process';
+          import {pathToFileURL} from 'node:url';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {inspectScopedCollectionSubjects as inspect} from './scripts/readonly-release/seal-scoped-collection-private.mjs';
+          import * as s from './src/lib/ddv/core/save/product-scoped-collection-release.mjs';
+          const source='dc618e476a0144ef2fa1d58d319eb6b2b644eb4e',sha=b=>createHash('sha256').update(b).digest('hex'),dir='/tmp/wand-collection-current';
+          const methods=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','preview_scoped_collection_candidate','preview_fixed_collection','stage_fixed_collection','toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close'].sort();
+          const js=readFileSync(dir+'/ddv_save_core.js'),wasm=readFileSync(dir+'/ddv_save_core_bg.wasm'),cargo=readFileSync('crates/ddv-save-core/Cargo.toml'),lock=readFileSync('crates/ddv-save-core/Cargo.lock'),toolchain=execFileSync('rustc',['--version','--verbose'],{encoding:'utf8'});
+          assert.equal(sha(lock),'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c');
+          copyFileSync(dir+'/ddv_save_core.js',dir+'/glue.mjs');const cls=(await import(pathToFileURL(dir+'/glue.mjs').href)).WorkerWasmSource;
+          assert.deepEqual(Object.getOwnPropertyNames(cls.prototype).filter(n=>!['constructor','free','__destroy_into_raw'].includes(n)).sort(),methods);
+          const ex=WebAssembly.Module.exports(new WebAssembly.Module(wasm));assert.equal(ex.length,23);assert.deepEqual(ex.map(x=>x.name).sort(),[...s.SCOPED_COLLECTION_WASM_EXPORTS].sort());
+          const manifest={contract:'wand.scoped-collection.runtime@1',operation:s.SCOPED_COLLECTION_RELEASE_OP,source:{repository:tuple.repository,commit:source,cargoTomlSha256:sha(cargo),cargoLockSha256:sha(lock),cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:s.SCOPED_COLLECTION_FEATURES,defaultFeatures:false,toolchain},assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:sha(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:wasm.length,sha256:sha(wasm)}},abi:{exportClass:'WorkerWasmSource',methods:s.SCOPED_COLLECTION_METHODS,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false}};
+          const pack=(j=js,w=wasm,patch={})=>[Buffer.from(JSON.stringify({...manifest,assets:{js:{path:'ddv_save_core.js',sizeBytes:j.length,sha256:sha(j)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}},...patch})),j,w];
+          const b=pack(),p=inspect(b,source);assert.equal(p.jsSha256,sha(js));assert.equal(p.wasmSha256,sha(wasm));assert.equal(p.manifestSha256,sha(b[0]));
+          let neg=0;const no=f=>{assert.throws(f);neg++};
+          for(const token of ['preview_scoped_amount','stage_scoped_amount','dev_stage','private_native'])no(()=>inspect(pack(Buffer.concat([js,Buffer.from('\n// '+token)])),source));
+          for(const patch of [{operation:'foreign'},{source:{...manifest.source,features:['product-amount-scoped','worker-wasm']}},{source:{...manifest.source,cargoLockSha256:'0'.repeat(64)}},{abi:{...manifest.abi,writerAuthorized:true}},{release:{...manifest.release,autoUpload:true}}])no(()=>inspect(pack(js,wasm,patch),source));
+          no(()=>inspect([b[0],Buffer.concat([js,Buffer.from(' ')]),wasm],source));no(()=>inspect(b,'a'.repeat(40)));
+          console.log('CURRENT_COLLECTION_PROOF_SUBJECT_L2_PASS',JSON.stringify({pos:1,neg,methods:14,exports:23,actualGeneratedWasm:true,approvedLock:true,actualSignature:false,jsSha256:sha(js),wasmSha256:sha(wasm),manifestSha256:p.manifestSha256}));
+          
+          EOF
+          node qa-current-collection.mjs
+          test -z "$(git diff --name-only HEAD -- static build src/lib/ddv/core/save)"
