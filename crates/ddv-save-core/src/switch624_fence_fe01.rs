@@ -338,11 +338,9 @@ fn historical_collect(s:&ProductSession,p:&Value,op:HistoricalFenceOp)->CoreResu
     let coord=|v:u32,d:u32|v.checked_add(d).filter(|v|*v<=i32::MAX as u32).ok_or(denied("FENCE_LAYOUT_COORD"));
     let x2=coord(x,2)?;let x4=coord(x,4)?;let y2=coord(y,2)?;let y4=coord(y,4)?;let y6=coord(y,6)?;
     let (expected,wanted,anchors)=if frp{
-        (vec![fence_record(ids[0],BASE,x,y,false,false),fence_record(ids[1],EXT1,x,y2,true,false),
-              fence_record(ids[2],BASE,x,y4,false,false)],
-         vec![fence_record(next,REPLACEMENT_BASE,x,y,false,false),fence_record(next+1,REPLACEMENT_EXT1,x,y2,true,false),
-              fence_record(next+2,REPLACEMENT_BASE,x,y4,false,false)],
-         vec![(x,y),(x,y2),(x,y4)])
+        let (expected,wanted)=fence_add_shape::exact_frp01([ids[0],ids[1],ids[2]],next,x,y)
+            .ok_or(denied("FENCE_LAYOUT_COORD"))?;
+        (Vec::from(expected),Vec::from(wanted),vec![(x,y),(x,y2),(x,y4)])
     }else{
         (vec![fence_record(ids[0],BASE,x,y,false,false),fence_record(ids[1],EXT1,x2,y,false,false),
               fence_record(ids[2],BASE,x4,y,false,false),fence_record(ids[3],EXT1,x4,y2,true,false),
@@ -551,12 +549,9 @@ impl FenceAddShape {
     }}
     fn records(self)->u32{match self{Self::OrthoL|Self::Diagonal90|Self::Switch626OrthoL|Self::Switch626Diagonal90=>5,Self::OrthoT|Self::Switch626OrthoT=>7,Self::DiagonalN3Positive|Self::DiagonalN3Mirrored|Self::DiagonalN6Positive|Self::Switch626Fd01|Self::Switch626Fd02|Self::Switch626Fd03=>3}}
     fn descriptors(self)->&'static [(u32,i32,i32,bool,bool)]{match self{
-        Self::OrthoL|Self::Switch626OrthoL=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
-            (EXT1,4,2,true,false),(BASE,4,4,false,false)],
-        Self::Diagonal90|Self::Switch626Diagonal90=>&[(BASE,0,0,false,true),(40700253,2,2,false,true),(BASE,4,4,false,true),
-            (40700253,6,2,true,true),(BASE,8,0,false,true)],
-        Self::OrthoT|Self::Switch626OrthoT=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
-            (EXT1,6,0,false,false),(BASE,8,0,false,false),(EXT1,4,2,true,false),(BASE,4,4,false,false)],
+        Self::OrthoL|Self::Switch626OrthoL=>ORTHO_L_DESCRIPTORS,
+        Self::Diagonal90|Self::Switch626Diagonal90=>DIAGONAL90_DESCRIPTORS,
+        Self::OrthoT|Self::Switch626OrthoT=>ORTHO_T_DESCRIPTORS,
         // ACT732 exact historical diagonal tranche A: N3 both slopes,
         // N6 positive single n4 extension, no inferred other lengths.
         Self::DiagonalN3Positive|Self::Switch626Fd01=>FD01_DESCRIPTORS,
@@ -577,6 +572,7 @@ fn add_plan_parse(bytes:&[u8],shape:FenceAddShape)->CoreResult<Value>{
     }
     Ok(v)
 }
+use fence_add_shape::{ORTHO_L_DESCRIPTORS,DIAGONAL90_DESCRIPTORS,ORTHO_T_DESCRIPTORS};
 fn add_wanted(shape:FenceAddShape,next:u32,x:u32,y:u32)->CoreResult<Vec<Value>>{
     records_at(shape.descriptors(),next,x,y).map_err(|e|match e{
         ShapeError::Counter=>denied("FENCE_ADD_COUNTER_OVERFLOW"),
@@ -891,6 +887,13 @@ mod add_tests{
             assert!(stage(&s,e,&enc(&q).unwrap(),i).is_err());
             let mut q=p.clone();q["created"][1]["ItemID"]=json!(40000001);
             assert!(stage(&s,e,&enc(&q).unwrap(),i).is_err());
+            // FE01 split extension is not the existing orthogonal n1 extension.
+            if i!=1 {
+                for j in [1usize,3,5].into_iter().filter(|j|*j<wanted[i].len()){
+                    let mut q=p.clone();q["created"][j]["ItemID"]=json!(40700248);
+                    assert!(stage(&s,e,&enc(&q).unwrap(),i).is_err());
+                }
+            }
             assert_eq!(s.receipt().unwrap().revision,0);
             let r=stage(&s,e,&bytes,i).unwrap();
             let n=if i==2{8}else{6};
