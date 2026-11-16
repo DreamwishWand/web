@@ -1,0 +1,80 @@
+name: 04 QR-S ACT1225 Backpack Wardrobe closure (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1225-backpack-closure.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f23616a1176d567d35e3c296223b5a761e48c1f0
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed old and repaired adapter boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "f23616a1176d567d35e3c296223b5a761e48c1f0"
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-backpack-proof.mjs)" = "56532cde395a0302fa01ab2c59592dbf3fb39eab"
+          test "$(git rev-parse HEAD:tests/scoped-backpack-proof.test.mjs)" = "e3e484c614a652ad74802a4e7f67b62006194a2e"
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = "788ee376f2f24315d834a875ef6c5263ea8694fa"
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = "7969122897ebc81bb249dda14d578038a9ffe9e2"
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = "5b86ff1cf2dc009ba1733bf213e4cb979bf500ec"
+          test "$(git rev-parse f45313b52f8a6bbdb96de12432d336d1af9304d5:scripts/readonly-release/scoped-backpack-proof.mjs)" = "e56181899b274e6b2fe7ecde5ad25779f6d9138c"
+          cat > tests/qa-act1225.mjs <<'EOF'
+          import test from 'node:test';
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {readFileSync} from 'node:fs';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from '../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {STEAM_BACKPACK_RELEASE as steam,SWITCH_BACKPACK_RELEASE as sw,validatePlacementAnchor} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {fixedBackpackProofScope,inspectBackpackSubjects,privateBackpackIdentity,replacePrivateBackpackAnchor} from '../scripts/readonly-release/scoped-backpack-proof.mjs';
+          const source='a'.repeat(40),sha=b=>createHash('sha256').update(b).digest('hex');
+          const u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a};
+          const str=s=>[...u(Buffer.byteLength(s)),...Buffer.from(s)],sec=(id,b)=>[id,...u(b.length),...b];
+          function wasm(s,extra=false){
+           const es=[...s.exports,...(extra?['workerwasmsource_stage_extra']:[])];
+           const exports=es.flatMap(n=>[...str(n),n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);
+           return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(es.length),...exports]),...sec(10,[1,2,0,11])]);
+          }
+          function subject(s,w=wasm(s),js=Buffer.from('export default function(){}'),patch={}){
+           const m={contract:s.prefix+'.runtime@1',operation:s.operation,source:{repository:tuple.repository,commit:source,cargoTomlSha256:'b'.repeat(64),cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:s.features,defaultFeatures:false,toolchain:'rustc 1.99.1 (test)'},assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:sha(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}},abi:{exportClass:'WorkerWasmSource',methods:s.methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false},...patch};
+           return [Buffer.from(JSON.stringify(m)),js,w];
+          }
+          import {execFileSync} from 'node:child_process';
+          import {writeFileSync,unlinkSync} from 'node:fs';
+          import {STEAM_WARDROBE_RELEASE,SWITCH_WARDROBE_RELEASE} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          const oldPath=new URL('../scripts/readonly-release/qa-old-backpack-proof.mjs',import.meta.url);
+          const old=execFileSync('git',['show','f45313b52f8a6bbdb96de12432d336d1af9304d5:scripts/readonly-release/scoped-backpack-proof.mjs'],{encoding:'utf8'});
+          const cur=readFileSync(new URL('../scripts/readonly-release/scoped-backpack-proof.mjs',import.meta.url),'utf8');
+          assert.equal(cur,old.replace("|(?:preview|stage)_'+(known(s)===steam?", "|(?:preview|stage)_(?:steam626|switch626)_wardrobe|(?:preview|stage)_'+(known(s)===steam?"));
+          writeFileSync(oldPath,old,{flag:'wx'});
+          let pos=0,oldAccepted=0,newDenied=0,otherDenied=0;
+          try{
+           const prior=await import(oldPath.href);
+           const names=['preview_steam626_wardrobe','stage_steam626_wardrobe','preview_switch626_wardrobe','stage_switch626_wardrobe'];
+           for(const [s,o] of [[steam,sw],[sw,steam]]){
+            const clean=subject(s,wasm(s),Buffer.from('export default function(){}'));
+            assert.deepEqual(inspectBackpackSubjects(s,clean,source),prior.inspectBackpackSubjects(s,clean,source));pos++;
+            for(const name of names){
+             const bytes=subject(s,wasm(s),Buffer.from('export class WorkerWasmSource { '+name+'(){} }'));
+             const p=prior.inspectBackpackSubjects(s,bytes,source);assert.equal(p.jsSha256,sha(bytes[1]));oldAccepted++;
+             assert.throws(()=>inspectBackpackSubjects(s,bytes,source),/SCOPED_BACKPACK_PROOF_DENIED/);newDenied++;
+            }
+            for(const foreign of [o,STEAM_WARDROBE_RELEASE,SWITCH_WARDROBE_RELEASE]){
+             assert.throws(()=>inspectBackpackSubjects(s,subject(s,wasm(foreign)),source));otherDenied++;
+            }
+            const a=privateBackpackIdentity(s,inspectBackpackSubjects(s,clean,source),'http://127.0.0.1:4188');assert.equal(await validatePlacementAnchor(s,a),true);pos++;
+           }
+          }finally{unlinkSync(oldPath)}
+          console.log('ACT1225_BACKPACK_WARDROBE_CLOSURE_L2_PASS',JSON.stringify({pos,oldAccepted,newDenied,otherDenied,actualWasmModule:true,syntheticSubjects:true,actualSignature:false}));
+          
+          EOF
+          node tests/qa-act1225.mjs
