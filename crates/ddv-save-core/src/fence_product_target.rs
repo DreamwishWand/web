@@ -309,4 +309,21 @@ mod fixed_add_tests{
  #[test]fn switch626_ortho_l_fixed_target(){run(FenceAddTargetKind::OrthoL,ProductSession::mint_switch626_ortho_l_target,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(4,2,2,2),(4,4,2,2)]);}
  #[test]fn switch626_diagonal90_fixed_target(){run(FenceAddTargetKind::Diagonal90,ProductSession::mint_switch626_diagonal90_target,&[(0,0,2,2),(2,2,2,2),(4,4,2,2),(6,2,2,2),(8,0,2,2)]);}
  #[test]fn switch626_ortho_t_fixed_target(){run(FenceAddTargetKind::OrthoT,ProductSession::mint_switch626_ortho_t_target,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(6,0,2,2),(8,0,2,2),(4,2,2,2),(4,4,2,2)]);}
+ #[cfg(feature="product-switch626-fence-add-stage-internal")]
+ #[test]fn qa1856_five_fixtures(){
+  let cases:[(&str,FenceAddTargetKind,&[(i32,i32,u32,bool,bool,u32,u32)]);5]=[
+   ("FD02",FenceAddTargetKind::Fd02,&[(0,0,40700246,false,true,2,2),(2,-2,40700253,true,true,2,2),(4,-4,40700246,false,true,2,2)]),
+   ("FD03",FenceAddTargetKind::Fd03,&[(0,0,40700246,false,true,2,2),(2,2,40700256,false,true,8,8),(10,10,40700246,false,true,2,2)]),
+   ("L",FenceAddTargetKind::OrthoL,&[(0,0,40700246,false,false,2,2),(2,0,40700247,false,false,2,2),(4,0,40700246,false,false,2,2),(4,2,40700247,true,false,2,2),(4,4,40700246,false,false,2,2)]),
+   ("D90",FenceAddTargetKind::Diagonal90,&[(0,0,40700246,false,true,2,2),(2,2,40700253,false,true,2,2),(4,4,40700246,false,true,2,2),(6,2,40700253,true,true,2,2),(8,0,40700246,false,true,2,2)]),
+   ("T",FenceAddTargetKind::OrthoT,&[(0,0,40700246,false,false,2,2),(2,0,40700247,false,false,2,2),(4,0,40700246,false,false,2,2),(6,0,40700247,false,false,2,2),(8,0,40700246,false,false,2,2),(4,2,40700247,true,false,2,2),(4,4,40700246,false,false,2,2)])];
+  let pack=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true};
+  for(name,kind,foot)in cases{
+   let(x,y)=(0..376u32).step_by(2).flat_map(|a|(4..184u32).step_by(2).map(move|b|(a,b))).find(|&(a,b)|foot.iter().all(|&(dx,dy,_,_,_,w,h)|{let x=(i64::from(a)+i64::from(dx))as u32;let y=(i64::from(b)+i64::from(dy))as u32;(0..w).all(|i|(0..h).all(|j|pack.floor4(x+i,y+j)))})).unwrap();
+   let d=json!({"GameInfo":{"Version":626},"World":{"Villages":[{"Areas":{"2":{"Unlocked":true,"GridIDs":[90001]}}}],"PlayerHouses":[],"GridCollection":{"Grids":{"90001":{"ID":90001,"GridDataPath":GRID,"GridDefaultLayoutPath":"","TessellationFactor":2,"NextGridObjectID":50,"Objects":{"10":row(if x<190{388}else{0},if y<100{196}else{0})}}},"DiffGrids":{}}},"Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_Fence"]},"Inventory":{"40700246":{"Amount":10,"Marker":"ItemMarker_Favorite"}}}},"ContainerInventories":{}},"Opaque":{"escape":"keep","decoy":50}});
+   let lexical=|v:&Value|serde_json::to_string(v).unwrap().replace("\"escape\":\"keep\"","\"escape\":\"\\u006beep\"");let raw=lexical(&d);
+   std::fs::write(format!("/tmp/qrc1856-{name}.json"),raw).unwrap();std::fs::write(format!("/tmp/qrc1856-{name}-xy.json"),serde_json::to_vec(&[x,y]).unwrap()).unwrap();
+  }
+ }
 }
