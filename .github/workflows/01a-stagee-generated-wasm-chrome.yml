@@ -2,15 +2,7 @@ name: 01A Stage E Genuine Generated Rust WASM Chrome Worker (Writer OFF)
 on:
   pull_request:
     paths:
-      - 'tests/stage-e/**'
-      - 'scripts/wasm-distribution/**'
-      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
       - '.github/workflows/01a-stagee-generated-wasm-chrome.yml'
-      - 'crates/ddv-save-core/**'
-      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
-  push:
-    branches:
-      - 'core/real-wasm-browser-smoke-stagee-*'
 permissions:
   contents: read
 jobs:
@@ -24,32 +16,53 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Verify real Chrome and exact pinned wasm-bindgen crate
+      - name: QA ONLY FE01 generated ABI
         run: |
           set -euo pipefail
-          command -v google-chrome || command -v chromium
-          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
-      - name: Compile REAL cdylib with opt-in Worker and indexed metadata
-        run: |
-          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
-          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
-      - name: Install exactly matching wasm-bindgen CLI 0.2.105 (not generated or mocked JS)
-        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock | tee /tmp/qrc-lock.sha
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch626-fe01-scoped --lib qa1838_synthetic_fixture
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagee-wasm-tools
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen --version | grep -F '0.2.105'
-      - name: Generate true wasm-bindgen Browser Worker ESM glue
-        run: |
-          mkdir -p tests/stage-e/pkg
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
-          test -s tests/stage-e/pkg/ddv_save_core.js
-          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
-          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|include_bytes!|writerAuthorized: *true|applyAuthorized: *true' tests/stage-e
-      - name: Actual browser CDP + module Worker + Rust WASM positive and negatives
-        run: node tests/stage-e/chrome-smoke.mjs
-      - name: Confirm Stage E never changed product Writer or public worker route
-        run: |
-          ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
-          test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
-          test -f crates/ddv-save-core/src/wasm_worker.rs
+          for m in off own collection steamchest switchchest comp spatial sr03 rm; do
+            case "$m" in
+              off) f=indexed-read ;;
+              own) f=product-switch626-fe01-scoped ;;
+              collection) f=product-switch626-fe01-scoped,product-collection-scoped ;;
+              steamchest) f=product-switch626-fe01-scoped,product-steam626-chest-scoped ;;
+              switchchest) f=product-switch626-fe01-scoped,product-switch626-chest-scoped ;;
+              comp) f=product-switch626-fe01-scoped,product-steam626-comp03-scoped ;;
+              spatial) f=product-switch626-fe01-scoped,product-steam626-comp03-spatial-preview ;;
+              sr03) f=product-switch626-fe01-scoped,product-steam626-sr03-scoped ;;
+              rm) f=product-switch626-fe01-scoped,product-switch626-rm01-scoped ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "worker-wasm,$f"
+            /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "/tmp/fm-$m" --target nodejs --no-typescript
+          done
+          sha256sum -c /tmp/qrc-lock.sha
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          const sha=b=>createHash('sha256').update(b).digest('hex'),cls=m=>require('/tmp/fm-'+m+'/ddv_save_core.js').WorkerWasmSource;
+          const readers=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','close'],names=['preview_switch626_fe01','stage_switch626_fe01','toggle_switch626_fe01','begin_switch626_fe01_output','next_switch626_fe01_output_chunk'];
+          for(const m of ['off','own','collection','steamchest','switchchest','comp','spatial','sr03','rm']){const n=Object.getOwnPropertyNames(cls(m).prototype).filter(k=>!['constructor','free','__destroy_into_raw'].includes(k)).sort(),b=fs.readFileSync('/tmp/fm-'+m+'/ddv_save_core_bg.wasm'),ex=WebAssembly.Module.exports(new WebAssembly.Module(b)).map(x=>x.name);assert.deepEqual(n,[...readers,...(m==='own'?names:[])].sort(),m);assert.equal(ex.length,n.length+9);for(const k of n)assert.ok(ex.includes('workerwasmsource_'+k));console.log('QRC1838_CENSUS '+m+' '+n.length+'/'+ex.length+' '+sha(b));}
+          const raw=fs.readFileSync('/tmp/qrc1838-input.json'),d=JSON.parse(raw),[x,y]=JSON.parse(fs.readFileSync('/tmp/qrc1838-xy.json')),g=d.World.GridCollection.Grids[90001],ids=new Uint32Array([10,11,12,13]);
+          const hash=v=>sha(Buffer.from(JSON.stringify(v))),rows=Array.from(ids,id=>hash(g.Objects[id])).join(''),expected=structuredClone(d),eg=expected.World.GridCollection.Grids[90001];
+          eg.NextGridObjectID=54;delete eg.Objects[12];delete eg.Objects[13];
+          const rec=(ID,ItemID,X,Y,left,diag)=>({ID,ItemID,Orientation:left?'GridOrientation_Left':'GridOrientation_Down',State:diag?{FenceMode:{Diagonal:true}}:null,X,Y});
+          eg.Objects[50]=rec(50,40700248,x,y+2,true,false);eg.Objects[51]=rec(51,40700246,x,y+6,false,false);eg.Objects[52]=rec(52,40700246,x,y+10,false,false);eg.Objects[53]=rec(53,40700248,x,y+12,true,false);
+          const outExpected=Buffer.from(JSON.stringify(expected).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
+          const sw=['switch','switch-bid','9A239D3DB569756D',626,true],steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true];let nonce=0,neg=0;
+          function open(b=sw){const w=new(cls('own'))(...b,new Uint8Array(32).fill(++nonce));w.append_chunk(raw);return[w,JSON.parse(w.finish())]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],deny=f=>{assert.throws(f);neg++},[w,r]=open(),p=JSON.parse(w.preview_switch626_fe01(90001,ids,...sc(r)));
+          assert.equal(p.projectedDecodedSha256,sha(outExpected));assert.equal(p.exactFieldChangedCount,7);assert.equal(p.inventoryDelta,0);
+          const args=[90001,ids,50,hash(d.World.Villages[0].Areas[2]),hash(g),sha(Buffer.from('50')),sha(Buffer.from('[]')),rows,sha(outExpected)];
+          const st=(a=args,r0=r,w0=w)=>JSON.parse(w0.stage_switch626_fe01(...a,...sc(r0)));
+          for(const bad of [new Uint32Array(3),new Uint32Array(5),new Uint32Array([10,11,12,12])])deny(()=>w.preview_switch626_fe01(90001,bad,...sc(r)));
+          for(let i=3;i<=8;i++){const a=args.slice();a[i]=i===7?'0'.repeat(256):'0'.repeat(64);deny(()=>st(a));}
+          for(const bad of ['0'.repeat(255),'0'.repeat(257),'é'.repeat(128),'g'.repeat(256)]){const a=args.slice();a[7]=bad;deny(()=>st(a));}
+          for(let i=0;i<4;i++){const a=args.slice();a[7]=rows.slice(0,i*64)+'0'.repeat(64)+rows.slice((i+1)*64);deny(()=>st(a));}
+          {const a=args.slice();a[2]++;deny(()=>st(a));}
+          deny(()=>st(args,{...r,revision:1}));deny(()=>st(args,{...r,indexGeneration:2}));deny(()=>st(args,{...r,decodedSha256:'0'.repeat(64)}));
+          const [f,fr]=open();deny(()=>st(args,r,f));f.close();f.free();const [z,zr]=open(steam);deny(()=>z.preview_switch626_fe01(90001,ids,...sc(zr)));z.close();z.free();
+          deny(()=>w.begin_switch626_fe01_output(...sc(r)));const t=st();assert.equal(t.exactFieldChangedCount,7);assert.equal(t.stagedDecodedSha256,sha(outExpected));deny(()=>st());const u=JSON.parse(w.toggle_switch626_fe01(false,...sc(t)));deny(()=>w.begin_switch626_fe01_output(...sc(u)));const v=JSON.parse(w.toggle_switch626_fe01(true,...sc(u)));w.begin_switch626_fe01_output(...sc(v));const out=Buffer.from(w.next_switch626_fe01_output_chunk());assert.deepEqual(out,outExpected);deny(()=>w.next_switch626_fe01_output_chunk());w.close();w.free();
+          const file='/tmp/qrc1838-out.json';fs.writeFileSync(file,out,{flag:'wx',mode:0o600});const child="const a=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto'),{WorkerWasmSource}=require('/tmp/fm-own/ddv_save_core.js');const b=fs.readFileSync(process.argv[1]),w=new WorkerWasmSource('switch','switch-bid','9A239D3DB569756D',626,true,new Uint8Array(32).fill(99));w.append_chunk(b);const r=JSON.parse(w.finish());a.equal(r.decodedSha256,process.argv[2]);a.equal(r.revision,0);a.equal(createHash('sha256').update(b).digest('hex'),process.argv[2]);a.equal(JSON.parse(b).World.GridCollection.Grids[90001].NextGridObjectID,54);w.close();w.free();console.log('QRC1838_REOPEN_CHILD_PASS '+r.decodedSha256);";const result=require('node:child_process').execFileSync(process.execPath,['-e',child,file,sha(out)],{encoding:'utf8'});process.stdout.write(result);assert.ok(result.includes('QRC1838_REOPEN_CHILD_PASS '+sha(out)));assert.equal(neg,27);console.log('QRC1838_FE01_ABI_ACTUAL 1POS '+neg+'NEG 9CENSUS EXACT7');
+          JS
