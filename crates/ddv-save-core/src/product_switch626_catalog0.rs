@@ -254,6 +254,20 @@ mod tests{
  build_id:if sw{BID.into()}else{EXACT_STEAM.into()},schema:626,externally_attested:true}).unwrap()}
  fn env(s:&ProductSession,action:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
  session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action}}
+    #[cfg(feature="product-switch626-catalog0-portable-restore")]
+    #[test]fn switch626_catalog0_portable_worker_guard_boundary(){
+        let mut prior=doc();prior["Player"]["ListInventories"]["0"]["Inventory"]["40000076"]["Amount"]=json!(998);
+        let a=open(&prior,true);let ae=env(&a,WorkerAction::ReadDomain);let s=open(&doc(),true);let e=env(&s,WorkerAction::ReadDomain);let st=env(&s,WorkerAction::Stage);
+        let ag=crate::worker_session::WorkerSessionGuard::attach(a);let backup=ag.capture_switch626_catalog0_portable(ae,40000076).unwrap();
+        let p=s.preview_switch626_catalog0_portable_restore(e,40000076,&backup).unwrap();let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+        let v=g.preview_switch626_catalog0_portable(e,40000076,&backup).unwrap();assert_eq!(v["oldAmount"],json!(999));
+        assert!(g.preview_switch626_catalog0_portable(ae,40000076,&backup).is_err());
+        assert!(g.stage_switch626_catalog0_portable(st,40000076,&backup,999,998,p.entry_sha,[0;32],p.projected_sha).is_err());
+        let r=g.stage_switch626_catalog0_portable(st,40000076,&backup,999,998,p.entry_sha,p.backup_sha,p.projected_sha).unwrap();assert_eq!(r.exact_field_changed_count,1);
+        assert!(g.stage_switch626_catalog0_portable(st,40000076,&backup,999,998,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        let out=WorkerEnvelope{expected_revision:r.revision,expected_index_generation:r.index_generation,action:WorkerAction::ExportEditedCopy,..st};
+        assert_eq!(g.take_scoped_edit(out).unwrap(),serde_json::to_vec(&prior).unwrap());assert!(g.take_scoped_edit(out).is_err());
+    }
  #[test]fn switch626_catalog0_portable_restore_exact1_build_lineage(){
   use crate::portable_backup::{PortableBackupBuild,decode_inventory_amount_backup_for_build,encode_inventory_amount_backup_for_build,decode_inventory_amount_backup};
   let mut prior=doc();prior["Player"]["ListInventories"]["0"]["Inventory"]["40000076"]["Amount"]=json!(998);
