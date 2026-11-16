@@ -171,4 +171,49 @@ mod tests{
    let s=open(&d);assert!(s.prepare_fixed_makeup_color1(env(&s,WorkerAction::ReadDomain)).is_err(),"negative {i}");
   }
  }
+
+ #[cfg(feature="product-steam626-makeup-color1-scoped")]
+ #[test]fn makeup_color1_dedicated_worker_abi_exact1_lifecycle(){
+  let d=doc();let raw=serde_json::to_vec(&d).unwrap();let s=open(&d);
+  let e=env(&s,WorkerAction::ReadDomain);let p=s.prepare_fixed_makeup_color1(e).unwrap();
+  let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+  let preview=g.preview_makeup_color1(e).unwrap();
+  assert_eq!(preview["contract"],"wand.worker.steam626.makeup-color1-exact1@1");
+  assert_eq!(preview["makeupItemId"],ITEM);assert_eq!(preview["oldColorIndex"],OLD);
+  assert_eq!(preview["newColorIndex"],NEW);assert_eq!(preview["exactFieldChangedCount"],1);
+  assert_eq!(preview["inventoryDelta"],0);assert_eq!(preview["writerAuthorized"],false);
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  let commit=|h:&crate::worker_session::WorkerSessionGuard,token:&str,projected:[u8;32]|
+      h.stage_makeup_color1(stage,token,&p.entry_sha,&p.female_sha,&p.male_sha,
+                             &p.routes_sha,projected);
+  assert!(commit(&g,"00",&p.projected).is_err());
+  let mut bad=p.projected;bad[0]^=1;assert!(commit(&g,&p.token_sha,bad).is_err());
+  assert!(g.stage_makeup_color1(e,&p.token_sha,&p.entry_sha,&p.female_sha,&p.male_sha,
+                                 &p.routes_sha,p.projected).is_err());
+  let receipt=commit(&g,&p.token_sha,p.projected).unwrap();
+  assert_eq!((receipt.operation_count,receipt.exact_field_changed_count),(1,1));
+  assert!(commit(&g,&p.token_sha,p.projected).is_err());
+  let x=g.receipt().unwrap();
+  let mut undo=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
+     session_id:x.session_id,expected_revision:x.revision,expected_index_generation:x.index_generation,
+     expected_decoded_sha256:x.decoded_sha256,action:WorkerAction::Stage};
+  g.toggle_scoped_edit(undo,false).unwrap();
+  let x=g.receipt().unwrap();undo.expected_revision=x.revision;
+  undo.expected_index_generation=x.index_generation;undo.expected_decoded_sha256=x.decoded_sha256;
+  g.toggle_scoped_edit(undo,true).unwrap();
+  let x=g.receipt().unwrap();undo.expected_revision=x.revision;
+  undo.expected_index_generation=x.index_generation;undo.expected_decoded_sha256=x.decoded_sha256;
+  undo.action=WorkerAction::ExportEditedCopy;
+  let out=g.take_scoped_edit(undo).unwrap();
+  assert!(g.take_scoped_edit(undo).is_err());
+  let v:Value=serde_json::from_slice(&out).unwrap();
+  assert_eq!(v["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"],NEW);
+  assert_eq!(v["Player"]["FemaleAvatar"],d["Player"]["FemaleAvatar"]);
+  assert_eq!(v["Player"]["ListInventories"],d["Player"]["ListInventories"]);
+  assert_eq!(raw,serde_json::to_vec(&d).unwrap());
+  let reopened=ProductSession::open_decoded_readonly(out,BuildIdentity{
+     platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+     build_id:APPEARANCE_BUILD.into(),schema:626,externally_attested:true}).unwrap();
+  assert_eq!(reopened.receipt().unwrap().schema,626);
+ }
 }
