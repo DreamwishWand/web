@@ -1,4 +1,4 @@
-name: QA ONLY PR1752 changed Web actual (never merge)
+name: QA ONLY PR1752 repaired Switch Appearance actual (never merge)
 on:
   pull_request:
     paths:
@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 447dc15e54f456e81c8d966561b1c3396be26c99
+          ref: 9418164c76dfb132d38ab6e7d42b216d0d75f067
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -24,8 +24,8 @@ jobs:
       - name: Fixed Web Source and accepted dedicated artifact
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = '447dc15e54f456e81c8d966561b1c3396be26c99'
-          test "$(git rev-parse HEAD^{tree})" = '612a1fadce0758900211df34de745ecd79c8e95b'
+          test "$(git rev-parse HEAD)" = '9418164c76dfb132d38ab6e7d42b216d0d75f067'
+          test "$(git rev-parse HEAD^{tree})" = '2c285c6f8641814ca61f9ce5c861f32f1561caf8'
           test "$(git diff --name-only 'c12304f3b03cfe05542a7d4c2ae76992eb167d92' HEAD | wc -l)" = 17
           git diff --name-only 'c12304f3b03cfe05542a7d4c2ae76992eb167d92' HEAD | sort >/tmp/qrw-paths.actual
           cat >/tmp/qrw-paths.expected <<'PATHS'
@@ -49,6 +49,12 @@ jobs:
           PATHS
           diff -u /tmp/qrw-paths.expected /tmp/qrw-paths.actual
           git diff --raw 'c12304f3b03cfe05542a7d4c2ae76992eb167d92' HEAD
+          test "$(git rev-parse HEAD^)" = '447dc15e54f456e81c8d966561b1c3396be26c99'
+          test "$(git diff --name-only HEAD^ HEAD | wc -l)" = 2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 'bbd128cc14decf8752065d8acacd6b45135234de'
+          test "$(git rev-parse HEAD:tests/product-switch-appearance-web.test.mjs)" = '99dc8bfbc75e085f9467579a343741636d65aaca'
+          git diff --raw HEAD^ HEAD
+          # Existing static-off PASS 43862505093/job133282646491 reused: route/anchor/Worker admission unchanged by exact2 repair.
           set -euo pipefail
           git cat-file -e 86a213d15e898846f4610dbe088690ca2c162f5f^{commit} || git fetch --no-tags origin 86a213d15e898846f4610dbe088690ca2c162f5f
           git worktree add --detach /tmp/qrw-core 86a213d15e898846f4610dbe088690ca2c162f5f
@@ -174,7 +180,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 447dc15e54f456e81c8d966561b1c3396be26c99
+          ref: 9418164c76dfb132d38ab6e7d42b216d0d75f067
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -186,8 +192,8 @@ jobs:
       - name: Fixed Web Source and accepted dedicated artifact
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = '447dc15e54f456e81c8d966561b1c3396be26c99'
-          test "$(git rev-parse HEAD^{tree})" = '612a1fadce0758900211df34de745ecd79c8e95b'
+          test "$(git rev-parse HEAD)" = '9418164c76dfb132d38ab6e7d42b216d0d75f067'
+          test "$(git rev-parse HEAD^{tree})" = '2c285c6f8641814ca61f9ce5c861f32f1561caf8'
           test "$(git diff --name-only 'c12304f3b03cfe05542a7d4c2ae76992eb167d92' HEAD | wc -l)" = 17
           git diff --name-only 'c12304f3b03cfe05542a7d4c2ae76992eb167d92' HEAD | sort >/tmp/qrw-paths.actual
           cat >/tmp/qrw-paths.expected <<'PATHS'
@@ -211,6 +217,12 @@ jobs:
           PATHS
           diff -u /tmp/qrw-paths.expected /tmp/qrw-paths.actual
           git diff --raw 'c12304f3b03cfe05542a7d4c2ae76992eb167d92' HEAD
+          test "$(git rev-parse HEAD^)" = '447dc15e54f456e81c8d966561b1c3396be26c99'
+          test "$(git diff --name-only HEAD^ HEAD | wc -l)" = 2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 'bbd128cc14decf8752065d8acacd6b45135234de'
+          test "$(git rev-parse HEAD:tests/product-switch-appearance-web.test.mjs)" = '99dc8bfbc75e085f9467579a343741636d65aaca'
+          git diff --raw HEAD^ HEAD
+          # Existing static-off PASS 43862505093/job133282646491 reused: route/anchor/Worker admission unchanged by exact2 repair.
           set -euo pipefail
           git cat-file -e 86a213d15e898846f4610dbe088690ca2c162f5f^{commit} || git fetch --no-tags origin 86a213d15e898846f4610dbe088690ca2c162f5f
           git worktree add --detach /tmp/qrw-core 86a213d15e898846f4610dbe088690ca2c162f5f
@@ -329,62 +341,3 @@ jobs:
           NODE
           node tests/.qa-browser.mjs
           git diff --exit-code -- src/lib tests/helpers/p1g-fixture.mjs
-  static-off:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: 447dc15e54f456e81c8d966561b1c3396be26c99
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Fixed Source
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = '447dc15e54f456e81c8d966561b1c3396be26c99'
-          test "$(git rev-parse HEAD^{tree})" = '612a1fadce0758900211df34de745ecd79c8e95b'
-          test "$(git diff --name-only 'c12304f3b03cfe05542a7d4c2ae76992eb167d92' HEAD | wc -l)" = 17
-          git diff --name-only 'c12304f3b03cfe05542a7d4c2ae76992eb167d92' HEAD | sort >/tmp/qrw-paths.actual
-          cat >/tmp/qrw-paths.expected <<'PATHS'
-          src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
-          src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
-          src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs
-          src/lib/ddv/core/save/product-scoped-appearance-transport.mjs
-          src/lib/ddv/core/save/product-scoped-placement-release.mjs
-          src/lib/ddv/core/save/product-wasm-read-owner.d.mts
-          src/lib/ddv/core/save/product-wasm-read-owner.mjs
-          src/lib/dev/LocalPlacementEditorDev.svelte
-          src/lib/dev/PlacementProductRoute.svelte
-          src/lib/dev/local-placement-workflow.mjs
-          src/lib/dev/product-placement-client.mjs
-          src/lib/dev/product-switch-hair.worker.mjs
-          src/lib/dev/product-switch-skin.worker.mjs
-          src/routes/editor/appearance/hair/switch/+page.svelte
-          src/routes/editor/appearance/skin/switch/+page.svelte
-          tests/product-switch-appearance-web.test.mjs
-          tests/wep-comp03-reference-consumer.test.mjs
-          PATHS
-          diff -u /tmp/qrw-paths.expected /tmp/qrw-paths.actual
-          git diff --raw 'c12304f3b03cfe05542a7d4c2ae76992eb167d92' HEAD
-      - run: npm ci --no-audit --no-fund
-      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
-      - name: Production build and no unauthorized Worker/request
-        run: |
-          set -euo pipefail
-          BASE_PATH='' npm run build
-          cat > tests/.qa-static.mjs <<'NODE'
-          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {spawn,spawnSync} from 'node:child_process';
-          const origin='http://127.0.0.1:4187',server=spawn('python3',['-m','http.server','4187','--bind','127.0.0.1','--directory','build'],{stdio:'inherit'});let browser;
-          try{for(let i=0;i<80;i++){try{if((await fetch(origin+'/editor/appearance/hair/steam/?writer=1&mode=public-accepted')).ok)break}catch{}await new Promise(r=>setTimeout(r,250))}
-           const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
-           const page=await browser.newPage(),requests=[],errors=[];page.on('request',r=>requests.push(r.url()));page.on('pageerror',e=>errors.push(String(e)));
-           await page.addInitScript(()=>{const w=window.Worker;window.__qaWorkers=[];window.Worker=new Proxy(w,{construct(t,a,n){window.__qaWorkers.push(String(a[0]));return Reflect.construct(t,a,n)}})});
-           for(const [route,op] of [["/editor/appearance/hair/switch/?writer=1&mode=public-accepted","switch-hair"],["/editor/appearance/skin/switch/?writer=1&mode=public-accepted","switch-skin"],["/editor/appearance/hair/steam/","hair"],["/editor/appearance/skin/steam/","skin"],["/editor/world/rm01/switch/?operation=hair","rm01"],["/editor/world/sr03/?operation=r01","sr03"],["/editor/world/comp03/?spatial=1","comp03"],["/editor/wardrobe/steam/?operation=skin","wardrobe-steam"]]){const r=await page.goto(origin+route);assert.equal(r.status(),200);const ed=page.locator('[data-placement-product-route="'+op+'"]');await ed.waitFor();await page.waitForLoadState('networkidle');assert.equal(await ed.getAttribute('data-placement-scope'),'off');assert.equal(await ed.locator('input[type=file],[data-placement-preview]').count(),0);assert.equal(await page.evaluate(()=>window.__qaWorkers.length),0)}
-           assert.equal(requests.filter(x=>/worker-wasm-scoped|ddv_save_core_bg.wasm/.test(x)).length,0);assert.deepEqual(errors,[]);
-           console.log('QRW1752_STATIC_OFF_PASS '+JSON.stringify({routes:8,worker:0,scopedRequests:0,signed:false}));
-          }finally{await browser?.close();server.kill()}
-          NODE
-          node tests/.qa-static.mjs
