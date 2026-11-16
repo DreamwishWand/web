@@ -98,35 +98,40 @@ jobs:
           echo '5ed8305bdef664b96442da74a80c3e26ee4c5dde3c09752354e262943621e1b0  /tmp/qrw-node/ddv_save_core_bg.wasm' | sha256sum -c -
           mkdir -p artifacts/fd02
           "$B" "$W" --out-dir artifacts/fd02 --target web --no-typescript
-          echo '5ed8305bdef664b96442da74a80c3e26ee4c5dde3c09752354e262943621e1b0  artifacts/fd02/ddv_save_core_bg.wasm' | sha256sum -c -
+          sha256sum artifacts/fd02/ddv_save_core_bg.wasm > artifacts/fd02/ddv_save_core_bg.wasm.sha256
+          sha256sum -c artifacts/fd02/ddv_save_core_bg.wasm.sha256
           test -s artifacts/fd02/ddv_save_core.js
           CARGO_TARGET_DIR=/tmp/qrw-target cargo build --locked --manifest-path /tmp/qrw-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-fd03-scoped
           "$B" "$W" --out-dir /tmp/qrw-node --target nodejs --no-typescript
           echo '8ca68847257b6980b943dfa383c4d3e990c4da5a9435c873898ddc77451b3ea8  /tmp/qrw-node/ddv_save_core_bg.wasm' | sha256sum -c -
           mkdir -p artifacts/fd03
           "$B" "$W" --out-dir artifacts/fd03 --target web --no-typescript
-          echo '8ca68847257b6980b943dfa383c4d3e990c4da5a9435c873898ddc77451b3ea8  artifacts/fd03/ddv_save_core_bg.wasm' | sha256sum -c -
+          sha256sum artifacts/fd03/ddv_save_core_bg.wasm > artifacts/fd03/ddv_save_core_bg.wasm.sha256
+          sha256sum -c artifacts/fd03/ddv_save_core_bg.wasm.sha256
           test -s artifacts/fd03/ddv_save_core.js
           CARGO_TARGET_DIR=/tmp/qrw-target cargo build --locked --manifest-path /tmp/qrw-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-ortho-l-scoped
           "$B" "$W" --out-dir /tmp/qrw-node --target nodejs --no-typescript
           echo '4fb625c467e74858e7f0c75e1d5a15fab1c5f5d84e95a836d7c7c91489f72c19  /tmp/qrw-node/ddv_save_core_bg.wasm' | sha256sum -c -
           mkdir -p artifacts/ortho-l
           "$B" "$W" --out-dir artifacts/ortho-l --target web --no-typescript
-          echo '4fb625c467e74858e7f0c75e1d5a15fab1c5f5d84e95a836d7c7c91489f72c19  artifacts/ortho-l/ddv_save_core_bg.wasm' | sha256sum -c -
+          sha256sum artifacts/ortho-l/ddv_save_core_bg.wasm > artifacts/ortho-l/ddv_save_core_bg.wasm.sha256
+          sha256sum -c artifacts/ortho-l/ddv_save_core_bg.wasm.sha256
           test -s artifacts/ortho-l/ddv_save_core.js
           CARGO_TARGET_DIR=/tmp/qrw-target cargo build --locked --manifest-path /tmp/qrw-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-diagonal90-scoped
           "$B" "$W" --out-dir /tmp/qrw-node --target nodejs --no-typescript
           echo 'bc812c629017ddae70f8da2f6b4362b1306bbf717e4e1b386601f20c69ef3267  /tmp/qrw-node/ddv_save_core_bg.wasm' | sha256sum -c -
           mkdir -p artifacts/diagonal90
           "$B" "$W" --out-dir artifacts/diagonal90 --target web --no-typescript
-          echo 'bc812c629017ddae70f8da2f6b4362b1306bbf717e4e1b386601f20c69ef3267  artifacts/diagonal90/ddv_save_core_bg.wasm' | sha256sum -c -
+          sha256sum artifacts/diagonal90/ddv_save_core_bg.wasm > artifacts/diagonal90/ddv_save_core_bg.wasm.sha256
+          sha256sum -c artifacts/diagonal90/ddv_save_core_bg.wasm.sha256
           test -s artifacts/diagonal90/ddv_save_core.js
           CARGO_TARGET_DIR=/tmp/qrw-target cargo build --locked --manifest-path /tmp/qrw-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-ortho-t-scoped
           "$B" "$W" --out-dir /tmp/qrw-node --target nodejs --no-typescript
           echo 'f95a1892edb3de7833b4b84157832a1d4a717db54c3ddc0208b41586246b84fd  /tmp/qrw-node/ddv_save_core_bg.wasm' | sha256sum -c -
           mkdir -p artifacts/ortho-t
           "$B" "$W" --out-dir artifacts/ortho-t --target web --no-typescript
-          echo 'f95a1892edb3de7833b4b84157832a1d4a717db54c3ddc0208b41586246b84fd  artifacts/ortho-t/ddv_save_core_bg.wasm' | sha256sum -c -
+          sha256sum artifacts/ortho-t/ddv_save_core_bg.wasm > artifacts/ortho-t/ddv_save_core_bg.wasm.sha256
+          sha256sum -c artifacts/ortho-t/ddv_save_core_bg.wasm.sha256
           test -s artifacts/ortho-t/ddv_save_core.js
           git diff --exit-code -- src/lib tests/helpers/p1g-fixture.mjs
       - uses: actions/upload-artifact@v4
@@ -162,7 +167,8 @@ jobs:
           cp artifacts/fd02/ddv_save_core_bg.wasm static/qa-op/
           cp artifacts/fixtures/FD02.json /tmp/qrc1856-FD02.json
           cp artifacts/fixtures/FD02-xy.json /tmp/qrc1856-FD02-xy.json
-          echo '5ed8305bdef664b96442da74a80c3e26ee4c5dde3c09752354e262943621e1b0  static/qa-op/ddv_save_core_bg.wasm' | sha256sum -c -
+          sha256sum -c artifacts/fd02/ddv_save_core_bg.wasm.sha256
+          cmp artifacts/fd02/ddv_save_core_bg.wasm static/qa-op/ddv_save_core_bg.wasm
           test -s tests/qa-op/ddv_save_core.js
       - run: npm ci --no-audit --no-fund
       - run: npm install --no-save --package-lock=false playwright-core@1.55.0
@@ -249,7 +255,8 @@ jobs:
           cp artifacts/fd03/ddv_save_core_bg.wasm static/qa-op/
           cp artifacts/fixtures/FD03.json /tmp/qrc1856-FD03.json
           cp artifacts/fixtures/FD03-xy.json /tmp/qrc1856-FD03-xy.json
-          echo '8ca68847257b6980b943dfa383c4d3e990c4da5a9435c873898ddc77451b3ea8  static/qa-op/ddv_save_core_bg.wasm' | sha256sum -c -
+          sha256sum -c artifacts/fd03/ddv_save_core_bg.wasm.sha256
+          cmp artifacts/fd03/ddv_save_core_bg.wasm static/qa-op/ddv_save_core_bg.wasm
           test -s tests/qa-op/ddv_save_core.js
       - run: npm ci --no-audit --no-fund
       - run: npm install --no-save --package-lock=false playwright-core@1.55.0
@@ -336,7 +343,8 @@ jobs:
           cp artifacts/ortho-l/ddv_save_core_bg.wasm static/qa-op/
           cp artifacts/fixtures/L.json /tmp/qrc1856-L.json
           cp artifacts/fixtures/L-xy.json /tmp/qrc1856-L-xy.json
-          echo '4fb625c467e74858e7f0c75e1d5a15fab1c5f5d84e95a836d7c7c91489f72c19  static/qa-op/ddv_save_core_bg.wasm' | sha256sum -c -
+          sha256sum -c artifacts/ortho-l/ddv_save_core_bg.wasm.sha256
+          cmp artifacts/ortho-l/ddv_save_core_bg.wasm static/qa-op/ddv_save_core_bg.wasm
           test -s tests/qa-op/ddv_save_core.js
       - run: npm ci --no-audit --no-fund
       - run: npm install --no-save --package-lock=false playwright-core@1.55.0
@@ -423,7 +431,8 @@ jobs:
           cp artifacts/diagonal90/ddv_save_core_bg.wasm static/qa-op/
           cp artifacts/fixtures/D90.json /tmp/qrc1856-D90.json
           cp artifacts/fixtures/D90-xy.json /tmp/qrc1856-D90-xy.json
-          echo 'bc812c629017ddae70f8da2f6b4362b1306bbf717e4e1b386601f20c69ef3267  static/qa-op/ddv_save_core_bg.wasm' | sha256sum -c -
+          sha256sum -c artifacts/diagonal90/ddv_save_core_bg.wasm.sha256
+          cmp artifacts/diagonal90/ddv_save_core_bg.wasm static/qa-op/ddv_save_core_bg.wasm
           test -s tests/qa-op/ddv_save_core.js
       - run: npm ci --no-audit --no-fund
       - run: npm install --no-save --package-lock=false playwright-core@1.55.0
@@ -510,7 +519,8 @@ jobs:
           cp artifacts/ortho-t/ddv_save_core_bg.wasm static/qa-op/
           cp artifacts/fixtures/T.json /tmp/qrc1856-T.json
           cp artifacts/fixtures/T-xy.json /tmp/qrc1856-T-xy.json
-          echo 'f95a1892edb3de7833b4b84157832a1d4a717db54c3ddc0208b41586246b84fd  static/qa-op/ddv_save_core_bg.wasm' | sha256sum -c -
+          sha256sum -c artifacts/ortho-t/ddv_save_core_bg.wasm.sha256
+          cmp artifacts/ortho-t/ddv_save_core_bg.wasm static/qa-op/ddv_save_core_bg.wasm
           test -s tests/qa-op/ddv_save_core.js
       - run: npm ci --no-audit --no-fund
       - run: npm install --no-save --package-lock=false playwright-core@1.55.0
