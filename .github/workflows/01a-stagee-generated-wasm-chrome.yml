@@ -53,3 +53,63 @@ jobs:
           ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
           test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
           test -f crates/ddv-save-core/src/wasm_worker.rs
+
+      - name: QA ONLY ACT1112 exact Switch Chest release feature
+        run: |
+          set -euo pipefail
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          "$B" "$W" --out-dir /tmp/chest-off --target nodejs --no-typescript
+          for mode in amount both release mixed; do
+            features=worker-wasm,product-amount-scoped
+            if [ "$mode" = both ]; then features="$features,product-collection-scoped"; fi
+            if [ "$mode" = release ]; then features=worker-wasm,product-switch626-chest-scoped; fi
+            if [ "$mode" = mixed ]; then features=worker-wasm,product-switch626-chest-scoped,product-collection-scoped; fi
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            "$B" "$W" --out-dir "/tmp/chest-$mode" --target nodejs --no-typescript
+          done
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),{createHash}=require('node:crypto'),fs=require('node:fs');
+          const cls=m=>require('/tmp/chest-'+m+'/ddv_save_core.js').WorkerWasmSource;
+          const sw=['switch','switch-bid','9A239D3DB569756D',626,true],steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true];
+          const sha=b=>createHash('sha256').update(b).digest('hex'),enc=d=>Buffer.from(JSON.stringify(d,null,2));
+          const lines=fs.readFileSync('crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl','utf8').trim().split('\n').slice(1).map(JSON.parse);
+          const a=lines.find(x=>!x[0].includes('OogieBoogieHouse')&&x[4].every(g=>g[2].length===0)),ex=lines.find(x=>x[0].includes('OogieBoogieHouse'));
+          const overlay=x=>({ID:19,GridDefaultLayoutPath:x[0],GridDefaultLayoutType:x[1],DefaultLayoutGridID:x[4][0][0],DefaultGridHashCode:-4,DefaultGridDataHashCode:6,ModifiedObjects:{},RemovedObjects:[]});
+          function doc(){const slots=Array.from({length:48},()=>({ItemID:0,Amount:0,State:null}));slots[0]={ItemID:30200000,Amount:50,State:null,Unknown:7};return {GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{GridCollection:{Grids:{7:{ID:7,GridDefaultLayoutPath:'',Objects:{4:{ID:4,ItemID:40001680,State:{Storage:{ContainerInventoryID:12,DefaultContainerInventoryData:'',UnlockKeyItemID:0,UnlockLocId:'',DesignID:null}}}}}},DiffGrids:{19:overlay(a)}},MissionSlots:{},Villages:[{Areas:{2:{GridIDs:[7],Unlocked:true}}}]},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{40000048:{Amount:3,Marker:'ItemMarker_None'}}},2:{ID:2,CompatibleItemType:'ItemType_ActivityItem',Inventory:{30200000:{Amount:2}}}},ContainerInventories:{0:{ID:0,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:30200000,Amount:5,State:{}}]},1:{ID:1,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:0,Amount:0,State:null}]},12:{ID:12,ParentItemID:40001680,BelongsToPlayer:true,BlockMoveTo:false,Size:48,ExtraSize:0,Inventory:slots}},BackpackOverflow:{Items:[]},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Opaque:{keep:'x'.repeat(1100000),n:7}};}
+          let nonce=0,pos=0,neg=0;const deny=f=>{assert.throws(f);neg++};
+          function open(m,d,b=sw){const raw=enc(d),w=new (cls(m))(...b,new Uint8Array(32).fill(++nonce));for(let i=0;i<raw.length;i+=1048576)w.append_chunk(raw.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(raw));return [w,r]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],parse=JSON.parse;
+          const preview=(w,r,n=49,id=12,slot=0)=>parse(w.preview_switch626_chest(id,slot,n,...sc(r)));
+          const stage=(w,r,h,old=50,n=49)=>parse(w.stage_switch626_chest(12,0,old,n,h,...sc(r)));
+
+          const base=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','close'];
+          const scoped=['discover_switch626_chest','preview_switch626_chest','stage_switch626_chest','toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk'];
+          const legacy=['discover_scoped_amount','preview_scoped_amount','stage_scoped_amount','toggle_scoped_amount','begin_scoped_amount_output','next_scoped_amount_output_chunk'];
+          const coll=['preview_scoped_collection_candidate','preview_fixed_collection','stage_fixed_collection'];
+          const methods=m=>Object.getOwnPropertyNames(cls(m).prototype).filter(n=>!['constructor','free','__destroy_into_raw'].includes(n)).sort();
+          for(const m of ['off','amount','both','release','mixed']){
+            const expected=[...base,...(m==='off'?[]:scoped),...(['amount','both'].includes(m)?legacy:[]),...(m==='both'?coll:[])].sort();
+            assert.deepEqual(methods(m),expected,m);
+            if(['release','mixed'].includes(m)){
+              const bin=fs.readFileSync('/tmp/chest-'+m+'/ddv_save_core_bg.wasm');
+              const exports=WebAssembly.Module.exports(new WebAssembly.Module(bin)).map(x=>x.name).sort();
+              assert.equal(exports.length,23,m);
+              for(const n of expected)assert.ok(exports.includes('workerwasmsource_'+n),n);
+              for(const n of [...legacy,...coll])assert.ok(!exports.includes('workerwasmsource_'+n),n);
+              console.log('ACT1112_EXPORTS '+m+' '+sha(bin)+' '+JSON.stringify(exports));
+            }
+          }
+          for(const m of ['release','mixed']){
+            const d=doc(),[w,r]=open(m,d),p=preview(w,r),want=structuredClone(d);want.Player.ContainerInventories[12].Inventory[0].Amount=49;
+            assert.equal(parse(w.discover_switch626_chest(0,...sc(r))).rows[0].id,12);
+            assert.equal(p.oldAmount,50);assert.equal(p.writerAuthorized,false);
+            deny(()=>stage(w,r,'00'.repeat(32)));deny(()=>preview(w,r,48));
+            const s=stage(w,r,p.entrySha256);assert.equal(s.exactFieldChangedCount,1);assert.equal(s.stagedDecodedSha256,sha(enc(want)));assert.equal(s.writerAuthorized,false);
+            deny(()=>stage(w,r,p.entrySha256));const u=parse(w.toggle_scoped_edit(false,...sc(s)));deny(()=>w.begin_scoped_edit_output(...sc(u)));
+            const v=parse(w.toggle_scoped_edit(true,...sc(u)));w.begin_scoped_edit_output(...sc(v));
+            const x=Buffer.from(w.next_scoped_edit_output_chunk()),y=Buffer.from(w.next_scoped_edit_output_chunk());assert.deepEqual(Buffer.concat([x,y]),enc(want));deny(()=>w.next_scoped_edit_output_chunk());deny(()=>w.begin_scoped_edit_output(...sc(v)));w.close();w.free();pos++;
+            const [f,fr]=open(m,doc(),steam);deny(()=>preview(f,fr));f.close();f.free();
+          }
+          console.log('ACT1112_RELEASE_FEATURE '+pos+'POS '+neg+'NEG PASS');assert.equal(pos,2);assert.equal(neg,14);
+          JS
