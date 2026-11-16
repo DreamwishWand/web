@@ -37,6 +37,19 @@ impl Frp624Geometry{
      o["State"]!=json!({"FenceMode":{"Diagonal":true}}){return None}
   let x=i64::from(n(&o["X"])?);let y=i64::from(n(&o["Y"])?);Some(Rect(x,y,x+2,y+2))
  }
+ /// E3760: exact 624 FurnitureItemData 40005494, raw frame f20350ba...
+ /// 9x1, effective stride1, layer mask unchanged; Native MoreRotationSize
+ /// uses abs71/100 then tess2. Full 14x14 envelope, not a sparse layer mask.
+ /// Never fall through to an inferred smaller bound for other orientations.
+ pub(crate) fn rotated_furniture(&self,o:&Value,dims:(u32,u32))->Option<Rect>{
+  if !exact_fields(o,&["ID","ItemID","X","Y","Orientation","State"])||n(&o["ID"])?==0||
+   n(&o["ItemID"])?!=40005494||dims!=(18,2)||!o["State"].is_null()||
+   !matches!(o["Orientation"].as_str()?,"GridOrientation_DownLeft"|"GridOrientation_UpRight"|"GridOrientation_DownRight"|"GridOrientation_UpLeft"){return None}
+  let x=n(&o["X"])?;let y=n(&o["Y"])?;
+  let end_x=x.checked_add(14)?;let end_y=y.checked_add(14)?;
+  if end_x>W||end_y>H{return None}
+  Some(Rect(i64::from(x),i64::from(y),i64::from(end_x),i64::from(end_y)))
+ }
  #[allow(dead_code)]
  pub(crate) fn local(&self,g:&Value,ids:[u32;3],common:impl Fn(u32)->Option<(u32,u32)>,
   mut effective:impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<u32>{
@@ -55,14 +68,28 @@ impl Frp624Geometry{
   let mut boxes=Vec::with_capacity(3);
   for i in 0..3u32{let a=y+2*i;for dx in 0..2{for dy in 0..2{if !self.provider.floor4(x+dx,a+dy){return None}}}
    boxes.push(Rect(i64::from(x)-2,i64::from(a)-2,i64::from(x)+4,i64::from(a)+4));}
-  // Exact old3 only. Keep the full conservative ambient bound; no 40005494
-  // special case until a separate exact Native effective-bound proof exists.
+  // Exact old3 only. E3760 affects one guarded 624 furniture envelope;
+  // all other ambient bounds and the two-cell halo stay unchanged.
   self.provider.clear_ambient(objects,next,&ids,&boxes,&common,&mut effective)?;Some(next)
  }
 }
 #[cfg(test)]
 mod tests{
  use super::*;
+ #[test]fn switch624_frp_exact_rotated_furniture_bound(){
+  let p=Frp624Geometry::fixed(FRP_BUILD,624).unwrap();
+  let row=|angle:&str|json!({"ID":10,"ItemID":40005494,"X":40,"Y":20,"Orientation":angle,"State":null});
+  for a in ["GridOrientation_DownLeft","GridOrientation_UpRight","GridOrientation_DownRight","GridOrientation_UpLeft"]{
+   assert_eq!(p.rotated_furniture(&row(a),(18,2)),Some(Rect(40,20,54,34)));
+  }
+  for a in ["GridOrientation_Down","GridOrientation_Up","GridOrientation_Left","GridOrientation_Right","GridOrientation_DownDownLeft","GridOrientation_Unknown"]{
+   assert!(p.rotated_furniture(&row(a),(18,2)).is_none());
+  }
+  let o=row("GridOrientation_UpLeft");assert!(p.rotated_furniture(&o,(2,18)).is_none());
+  for (k,v) in [("ItemID",json!(40005495)),("ID",json!(0)),("X",json!(W-13)),("Y",json!(H-13)),("State",json!({"FenceMode":{"Diagonal":true}})),("Extra",json!(true))]{
+   let mut q=o.clone();q[k]=v;assert!(p.rotated_furniture(&q,(18,2)).is_none());
+  }
+ }
  #[test]fn switch624_frp_provider_exact_build_and_delta(){
   assert!(Frp624Geometry::fixed("9A239D3DB569756D",626).is_none());
   assert!(Frp624Geometry::fixed(FRP_BUILD,626).is_none());
