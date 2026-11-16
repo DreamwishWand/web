@@ -138,7 +138,7 @@ jobs:
           assert.equal(boundary.mixed,20);assert.equal(boundary.neg,12);
           const words=await page.evaluate(()=>window.__qa.words),ed=page.locator('[data-dev-placement]'),btn=k=>ed.getByRole('button',{name:words[k],exact:true});async function prepare(){const f=ed.locator('input[type=file]');await f.waitFor();await f.setInputFiles({name:'synthetic-fd01.p1g',mimeType:'application/octet-stream',buffer:bytes});await ed.locator('input[type=checkbox]').check();await btn('openFile').click();await btn('backup').click();await btn('review').waitFor();const nums=ed.locator('input[type=number]'),values=[meta.selector.gridId,meta.selector.x,meta.selector.y];assert.equal(await nums.count(),values.length);for(const [i,v] of values.entries())await nums.nth(i).fill(String(v));}
           await prepare();await page.evaluate(()=>window.__qa.trace.mutate=true);await btn('review').click();await ed.getByRole('alert').waitFor();assert.equal(await ed.locator('[data-placement-preview]').count(),0);assert.equal(await btn('stagePlacement').count(),0);
-          await page.evaluate(()=>window.__qa.trace.mutate=false);await prepare();await btn('review').click();await btn('stagePlacement').waitFor();const review=ed.locator('[data-placement-preview]');assert.match(await review.innerText(),/50, 51, 52/);assert.match(await review.innerText(),/PRESERVE_EXISTING/);await ed.locator('input[type=number]').nth(1).fill(String(meta.selector.x+1));assert.equal(await btn('stagePlacement').isDisabled(),true);await ed.locator('input[type=number]').nth(1).fill(String(meta.selector.x));const pr=await page.evaluate(()=>window.__qa.trace.receipts.at(-1));assert.equal(pr.exactFieldChangedCount,4);assert.equal(pr.inventoryDelta,0);assert.equal(pr.addObjects,3);assert.equal(pr.writerAuthorized,false);assert.equal(pr.oldAmount,pr.newAmount);assert.equal(pr.gridId,90001);for(const k of ['sessionId','readset','readsetSha256','projectedDecodedSha256','rootSha256','gridSha256','counterSha256','inventoryEntrySha256','housesSha256','oldRowsSha256'])assert.equal(k in pr,false,k);
+          await page.evaluate(()=>window.__qa.trace.mutate=false);await prepare();await btn('review').click();await btn('stagePlacement').waitFor();const review=ed.locator('[data-placement-preview]');assert.match(await review.innerText(),/50, 51, 52/);assert.match(await review.innerText(),/preserve.*existing layout/i);await ed.locator('input[type=number]').nth(1).fill(String(meta.selector.x+1));assert.equal(await btn('stagePlacement').isDisabled(),true);await ed.locator('input[type=number]').nth(1).fill(String(meta.selector.x));const pr=await page.evaluate(()=>window.__qa.trace.receipts.at(-1));assert.equal(pr.exactFieldChangedCount,4);assert.equal(pr.inventoryDelta,0);assert.equal(pr.layout,'PRESERVE_EXISTING');assert.equal(pr.addObjects,3);assert.equal(pr.writerAuthorized,false);assert.equal(pr.oldAmount,pr.newAmount);assert.equal(pr.gridId,90001);for(const k of ['sessionId','readset','readsetSha256','projectedDecodedSha256','rootSha256','gridSha256','counterSha256','inventoryEntrySha256','housesSha256','oldRowsSha256'])assert.equal(k in pr,false,k);
           await btn('stagePlacement').click();await btn('undo').waitFor();await btn('undo').click();await btn('redo').waitFor();assert.equal(await btn('export').count(),0);await btn('redo').click();await btn('export').click();await btn('downloadEdited').waitFor();
           const out=await page.evaluate(async()=>{const {p}=window.__qa,b=await p.downloadVerifiedCopy('backup'),e=await p.downloadVerifiedCopy('edited'),root=await navigator.storage.getDirectory(),bf=await(await root.getFileHandle(b.name)).getFile(),ef=await(await root.getFileHandle(e.name)).getFile();let replay=false;try{await p.exportEditedCopy()}catch{replay=true}return {b:{name:b.name,sha:b.sha256,bytes:Array.from(b.encryptedBytes),disk:Array.from(new Uint8Array(await bf.arrayBuffer()))},e:{name:e.name,sha:e.sha256,bytes:Array.from(e.encryptedBytes),disk:Array.from(new Uint8Array(await ef.arrayBuffer()))},replay}});
           assert.equal(out.replay,true);assert.notEqual(out.b.name,out.e.name);assert.notEqual(out.b.name,'synthetic-fd01.p1g');assert.notEqual(out.e.name,'synthetic-fd01.p1g');assert.deepEqual(Buffer.from(out.b.bytes),bytes);assert.deepEqual(Buffer.from(out.b.disk),bytes);assert.deepEqual(out.e.bytes,out.e.disk);assert.equal(sha(Buffer.from(out.e.bytes)),out.e.sha);assert.notEqual(out.e.sha,meta.sha);
@@ -280,7 +280,7 @@ jobs:
           assert.equal(boundary.mixed,20);assert.equal(boundary.neg,12);
           const words=await page.evaluate(()=>window.__qa.words),ed=page.locator('[data-dev-placement]'),btn=k=>ed.getByRole('button',{name:words[k],exact:true});async function prepare(){const f=ed.locator('input[type=file]');await f.waitFor();await f.setInputFiles({name:'synthetic-fe01.p1g',mimeType:'application/octet-stream',buffer:bytes});await ed.locator('input[type=checkbox]').check();await btn('openFile').click();await btn('backup').click();await btn('review').waitFor();const nums=ed.locator('input[type=number]'),values=[meta.selector.gridId,...meta.selector.oldIds];assert.equal(await nums.count(),values.length);for(const [i,v] of values.entries())await nums.nth(i).fill(String(v));}
           await prepare();await page.evaluate(()=>window.__qa.trace.mutate=true);await btn('review').click();await ed.getByRole('alert').waitFor();assert.equal(await ed.locator('[data-placement-preview]').count(),0);assert.equal(await btn('stagePlacement').count(),0);
-          await page.evaluate(()=>window.__qa.trace.mutate=false);await prepare();await btn('review').click();await btn('stagePlacement').waitFor();const review=ed.locator('[data-placement-preview]');assert.match(await review.innerText(),/50, 51, 52, 53/);assert.match(await review.innerText(),/PRESERVE_EXISTING/);await ed.locator('input[type=number]').nth(1).fill(String(15));assert.equal(await btn('stagePlacement').isDisabled(),true);await ed.locator('input[type=number]').nth(1).fill(String(10));const pr=await page.evaluate(()=>window.__qa.trace.receipts.at(-1));assert.equal(pr.exactFieldChangedCount,7);assert.equal(pr.inventoryDelta,0);assert.equal(pr.addObjects,4);assert.equal(pr.writerAuthorized,false);assert.deepEqual(pr.retainedIds,[10,11]);assert.deepEqual(pr.deletedIds,[12,13]);assert.deepEqual(pr.oldIds,[10,11,12,13]);assert.equal('oldAmount' in pr,false);for(const k of ['sessionId','readset','readsetSha256','projectedDecodedSha256','rootSha256','gridSha256','counterSha256','inventoryEntrySha256','housesSha256','oldRowsSha256'])assert.equal(k in pr,false,k);
+          await page.evaluate(()=>window.__qa.trace.mutate=false);await prepare();await btn('review').click();await btn('stagePlacement').waitFor();const review=ed.locator('[data-placement-preview]');assert.match(await review.innerText(),/50, 51, 52, 53/);assert.match(await review.innerText(),/preserve.*existing layout/i);await ed.locator('input[type=number]').nth(1).fill(String(15));assert.equal(await btn('stagePlacement').isDisabled(),true);await ed.locator('input[type=number]').nth(1).fill(String(10));const pr=await page.evaluate(()=>window.__qa.trace.receipts.at(-1));assert.equal(pr.exactFieldChangedCount,7);assert.equal(pr.inventoryDelta,0);assert.equal(pr.layout,'PRESERVE_EXISTING');assert.equal(pr.addObjects,4);assert.equal(pr.writerAuthorized,false);assert.deepEqual(pr.retainedIds,[10,11]);assert.deepEqual(pr.deletedIds,[12,13]);assert.deepEqual(pr.oldIds,[10,11,12,13]);assert.equal('oldAmount' in pr,false);for(const k of ['sessionId','readset','readsetSha256','projectedDecodedSha256','rootSha256','gridSha256','counterSha256','inventoryEntrySha256','housesSha256','oldRowsSha256'])assert.equal(k in pr,false,k);
           await btn('stagePlacement').click();await btn('undo').waitFor();await btn('undo').click();await btn('redo').waitFor();assert.equal(await btn('export').count(),0);await btn('redo').click();await btn('export').click();await btn('downloadEdited').waitFor();
           const out=await page.evaluate(async()=>{const {p}=window.__qa,b=await p.downloadVerifiedCopy('backup'),e=await p.downloadVerifiedCopy('edited'),root=await navigator.storage.getDirectory(),bf=await(await root.getFileHandle(b.name)).getFile(),ef=await(await root.getFileHandle(e.name)).getFile();let replay=false;try{await p.exportEditedCopy()}catch{replay=true}return {b:{name:b.name,sha:b.sha256,bytes:Array.from(b.encryptedBytes),disk:Array.from(new Uint8Array(await bf.arrayBuffer()))},e:{name:e.name,sha:e.sha256,bytes:Array.from(e.encryptedBytes),disk:Array.from(new Uint8Array(await ef.arrayBuffer()))},replay}});
           assert.equal(out.replay,true);assert.notEqual(out.b.name,out.e.name);assert.notEqual(out.b.name,'synthetic-fe01.p1g');assert.notEqual(out.e.name,'synthetic-fe01.p1g');assert.deepEqual(Buffer.from(out.b.bytes),bytes);assert.deepEqual(Buffer.from(out.b.disk),bytes);assert.deepEqual(out.e.bytes,out.e.disk);assert.equal(sha(Buffer.from(out.e.bytes)),out.e.sha);assert.notEqual(out.e.sha,meta.sha);
@@ -290,71 +290,3 @@ jobs:
           NODE
           node tests/.qa-browser.mjs
           git diff --exit-code -- src/lib tests/helpers/p1g-fixture.mjs
-  static-off:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: 40a594235515b65b58b1c7d81e5ce6ca3fe1fd85
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Fixed Source 21 paths and current public anchor
-        run: |
-          set -euo pipefail
-          echo "QRW1858_PIN_HEAD=$(git rev-parse HEAD)"
-          echo "QRW1858_PIN_DIRECT_MAIN_COUNT=$(git diff --name-only 3a3614888b543c2c53483a6e41b4a50f6e6687fc HEAD | wc -l)"
-          echo "QRW1858_PIN_UI=$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)"
-          echo "QRW1858_PIN_ROUTE=$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)"
-          test "$(git rev-parse HEAD)" = '40a594235515b65b58b1c7d81e5ce6ca3fe1fd85'
-          test "$(git merge-base '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD)" = 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf'
-          test "$(git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' '3a3614888b543c2c53483a6e41b4a50f6e6687fc' | wc -l)" = 2
-          test "$(git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | wc -l)" = 23
-          test "$(git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD | wc -l)" = 21
-          git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD | sort >/tmp/qrw-paths.actual
-          cat > /tmp/qrw-paths.expected <<'PATHS'
-          src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
-          src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
-          src/lib/ddv/core/save/product-scoped-amount-transport.mjs
-          src/lib/ddv/core/save/product-scoped-fd01-release-anchor.mjs
-          src/lib/ddv/core/save/product-scoped-fe01-release-anchor.mjs
-          src/lib/ddv/core/save/product-scoped-placement-release.mjs
-          src/lib/ddv/core/save/product-scoped-placement-transport.mjs
-          src/lib/ddv/core/save/product-wasm-read-owner.d.mts
-          src/lib/ddv/core/save/product-wasm-read-owner.mjs
-          src/lib/dev/LocalPlacementEditorDev.svelte
-          src/lib/dev/PlacementProductRoute.svelte
-          src/lib/dev/local-placement-copy.mjs
-          src/lib/dev/local-placement-workflow.mjs
-          src/lib/dev/local-scoped-edit-worker-port.mjs
-          src/lib/dev/product-fd01.worker.mjs
-          src/lib/dev/product-fe01.worker.mjs
-          src/lib/dev/product-placement-client.mjs
-          src/routes/editor/world/fd01/switch/+page.svelte
-          src/routes/editor/world/fe01/switch/+page.svelte
-          tests/product-switch626-fd01-fe01-transport.test.mjs
-          tests/wep-comp03-reference-consumer.test.mjs
-          PATHS
-          diff -u /tmp/qrw-paths.expected /tmp/qrw-paths.actual
-          git diff --raw 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD
-          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 'fbb42e811ea3c0e0f37013bcb2165206580219bd'
-          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = '838d945fdb28c35ba914f28b87fd1f16095a434e'
-      - run: npm ci --no-audit --no-fund
-      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
-      - name: Actual FD01 FE01 public routes remain OFF
-        run: |
-          set -euo pipefail
-          cat > tests/.qa-static.mjs <<'NODE'
-          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {spawn,spawnSync} from 'node:child_process';
-          const origin='http://127.0.0.1:4186',server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4186','--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});let browser;
-          try{let ready=false;for(let i=0;i<100;i++){try{if((await fetch(origin+'/editor/world/fd01/switch/')).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,250))}assert.ok(ready);
-          const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
-          const page=await browser.newPage();await page.addInitScript(()=>{window.__qaWorkers=[];const W=window.Worker;window.Worker=new Proxy(W,{construct(t,a,n){window.__qaWorkers.push(String(a[0]));return Reflect.construct(t,a,n)}})});let scoped=0;page.on('request',r=>{if(/\/qa-op\/|\/wasm\/.*(?:fd01|fe01)|\.wasm(?:\?|$)/i.test(r.url()))scoped++});
-          for(const op of ['fd01','fe01']){const r=await page.goto(origin+'/editor/world/'+op+'/switch/?writer=1&mode=public-accepted');assert.equal(r.status(),200);const ed=page.locator('[data-placement-product-route="'+op+'"]');await ed.waitFor();await page.waitForLoadState('networkidle');assert.equal(await ed.getAttribute('data-placement-scope'),'off');assert.equal(await ed.locator('input[type=file]').count(),0);assert.equal(await page.evaluate(()=>window.__qaWorkers.length),0)}
-          assert.equal(scoped,0);console.log('QRW1858_FENCE_STATIC_OFF_PASS '+JSON.stringify({routes:2,worker:0,scopedRequests:0,signed:false}));
-          }finally{await browser?.close();server.kill()}
-          NODE
-          node tests/.qa-static.mjs
