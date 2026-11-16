@@ -6,7 +6,7 @@ import {execFileSync} from 'node:child_process';
 import {resolve,join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {ACTIVE_RELEASE_TUPLE as tuple,protectedPagesContextMatches,releaseDelivery} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
-import {COMP03_RELEASE as comp,COMP03_SPATIAL_RELEASE as spatial,VASE_ADD_RELEASE as vase,SR03_RELEASE as sr03,placementManifestOk,placementExportsOk,placementAnchorShapeOk,placementIdentityText} from '../../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+import {COMP03_RELEASE as comp,COMP03_SPATIAL_RELEASE as spatial,VASE_ADD_RELEASE as vase,SR03_RELEASE as sr03,RM01_RELEASE as rm01,placementManifestOk,placementExportsOk,placementAnchorShapeOk,placementIdentityText} from '../../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
 import {verifySignedReleaseSubjects} from './seal.mjs';
 const root=resolve(import.meta.dirname,'../..');
 const names=['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm'];
@@ -18,12 +18,12 @@ const sha=b=>createHash('sha256').update(b).digest('hex');
 const fail=()=>{throw Error('SCOPED_PLACEMENT_PROOF_DENIED')};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const head=/^[0-9a-f]{40}$/;
-const anchorPath=s=>join(root,'src/lib/ddv/core/save',s===sr03?'product-scoped-sr03-release-anchor.mjs':s===spatial?'product-scoped-comp03-spatial-release-anchor.mjs':'product-scoped-placement-release-anchor.mjs');
-function known(s){if(s!==comp&&s!==vase&&s!==spatial&&s!==sr03)fail();return s}
-export function fixedPlacementProofScope(key){if(key===comp.key)return comp;if(key===vase.key)return vase;if(key===spatial.key)return spatial;if(key===sr03.key)return sr03;fail()}
-const anchorName=s=>known(s)===comp?'PROTECTED_COMP03_RELEASE_ANCHOR':s===sr03?'PROTECTED_SR03_RELEASE_ANCHOR':s===spatial?'PROTECTED_COMP03_SPATIAL_RELEASE_ANCHOR':'PROTECTED_VASE_ADD_RELEASE_ANCHOR';
+const anchorPath=s=>join(root,'src/lib/ddv/core/save',s===rm01?'product-scoped-rm01-release-anchor.mjs':s===sr03?'product-scoped-sr03-release-anchor.mjs':s===spatial?'product-scoped-comp03-spatial-release-anchor.mjs':'product-scoped-placement-release-anchor.mjs');
+function known(s){if(s!==comp&&s!==vase&&s!==spatial&&s!==sr03&&s!==rm01)fail();return s}
+export function fixedPlacementProofScope(key){if(key===comp.key)return comp;if(key===vase.key)return vase;if(key===spatial.key)return spatial;if(key===sr03.key)return sr03;if(key===rm01.key)return rm01;fail()}
+const anchorName=s=>known(s)===comp?'PROTECTED_COMP03_RELEASE_ANCHOR':s===rm01?'PROTECTED_RM01_RELEASE_ANCHOR':s===sr03?'PROTECTED_SR03_RELEASE_ANCHOR':s===spatial?'PROTECTED_COMP03_SPATIAL_RELEASE_ANCHOR':'PROTECTED_VASE_ADD_RELEASE_ANCHOR';
 const deniedBase='dev_(?:stage|undo|redo|begin|take)|private_native|(?:discover|preview|stage|toggle)_scoped_amount|(?:begin_scoped_amount_output|next_scoped_amount_output_chunk)|preview_scoped_collection_candidate|(?:preview|stage)_fixed_collection|(?:discover|preview|stage)_(?:switch626|steam626)_chest|(?:discover|preview|stage)_switch626_catalog0';
-const denySymbols=s=>new RegExp(deniedBase+'|(?:preview|stage)_steam626_'+(known(s)===vase?'(?:comp03|sr03)':s===sr03?'(?:comp03|vase_add)':'(?:vase_add|sr03)')+'|(?:preview|stage)_switch626_(?:vase_add|rm01)|(?:preview|stage)_(?:steam626|switch626)_(?:backpack_split|wardrobe)'+(s===spatial?'':'|preview_steam626_comp03_spatial'),'i');
+const denySymbols=s=>new RegExp(deniedBase+'|(?:preview|stage)_steam626_'+(known(s)===vase?'(?:comp03|sr03)':s===rm01?'(?:comp03|vase_add|sr03)':s===sr03?'(?:comp03|vase_add)':'(?:vase_add|sr03)')+'|(?:preview|stage)_switch626_vase_add|(?:preview|stage)_(?:steam626|switch626)_(?:backpack_split|wardrobe)'+(s===spatial?'':'|preview_steam626_comp03_spatial')+(s===rm01?'':'|(?:preview|stage)_switch626_rm01'),'i');
 export function inspectPlacementSubjects(s,bytes,source,t=tuple){
  known(s);
  if(!head.test(source??'')||!Array.isArray(bytes)||bytes.length!==3||bytes.some((b,i)=>!Buffer.isBuffer(b)||!b.length||b.length>max[i]))fail();
@@ -36,22 +36,22 @@ export function inspectPlacementSubjects(s,bytes,source,t=tuple){
 export function privatePlacementIdentity(s,pins,origin){
  known(s);
  const a={contract:s.prefix+'.protected-release@1',...tuple,operation:s.operation,pins,mode:'private-product-v2',deliveryOrigin:origin,
-  builds:[{platform:'steam-windows',buildId,productV2EvidenceSha256:null}],attestationVerifiedAtBuild:true,releaseId:'0'.repeat(64)};
+  builds:[{platform:s.platform,buildId:s.buildId,productV2EvidenceSha256:null}],attestationVerifiedAtBuild:true,releaseId:'0'.repeat(64)};
  if(!placementAnchorShapeOk(s,a))fail();
  return Object.freeze({...a,releaseId:sha(placementIdentityText(s,a))});
 }
 export function replacePrivatePlacementAnchor(s,prior,a){
- const name=anchorName(s),other=s===spatial||s===sr03?null:anchorName(s===comp?vase:comp);
+ const name=anchorName(s),other=s===spatial||s===sr03||s===rm01?null:anchorName(s===comp?vase:comp);
  const marker='export const '+name+'=null;',otherMarker='export const '+other+'=null;';
  if(!placementAnchorShapeOk(s,a)||a.mode!=='private-product-v2'||a.releaseId!==sha(placementIdentityText(s,a))||
   prior.split(marker).length!==2||(other!==null&&prior.split(otherMarker).length!==2))fail();
- const variable=s===comp?'comp03PrivateData':s===sr03?'sr03PrivateData':s===spatial?'comp03SpatialPrivateData':'vaseAddPrivateData';
+ const variable=s===comp?'comp03PrivateData':s===rm01?'rm01PrivateData':s===sr03?'sr03PrivateData':s===spatial?'comp03SpatialPrivateData':'vaseAddPrivateData';
  const line='const '+variable+'='+JSON.stringify(a)+';\nObject.freeze('+variable+'.pins); '+variable+'.builds.forEach(Object.freeze); Object.freeze('+variable+'.builds);\nexport const '+name+'=Object.freeze('+variable+');';
  return prior.replace(marker,line);
 }
 async function absent(p){try{await lstat(p);fail()}catch(e){if(e?.code!=='ENOENT')throw e}}
 async function noPublic(selected){
- const scopes=selected===spatial||selected===sr03?[selected]:[comp,vase],path=anchorPath(selected);
+ const scopes=selected===spatial||selected===sr03||selected===rm01?[selected]:[comp,vase],path=anchorPath(selected);
  for(const s of scopes){
   if(git('ls-files','static/'+s.assetDir)!=='')fail();
   await absent(join(root,'static',s.assetDir));await absent(join(root,'build',s.assetDir));
