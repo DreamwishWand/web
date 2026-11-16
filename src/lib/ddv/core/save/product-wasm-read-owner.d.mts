@@ -164,3 +164,31 @@ export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFact
 export type ScopedAppearancePreview=Readonly<{old:number;new:number;exactFieldChangedCount:1;writerAuthorized:false;editedCopyAuthorized:false;originalOverwriteAuthorized:false}&({activeMale:boolean}|{characterId:10000053})>;
 export type ScopedAppearanceSourceOwner=ProductWasmReadOwner&Readonly<{previewScopedAppearance():ScopedAppearancePreview;stageScopedAppearance():Readonly<ScopedAppearancePreview&{applied:true}>;toggleScopedAppearance(redo:boolean):Readonly<ScopedAppearancePreview&{applied:boolean}>;takeScopedAppearanceOutput():Promise<Readonly<{decodedBytes:Uint8Array;decodedSha256:string}>>}>;
 export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{appearanceScope:'hair'|'skin';placementScope?:null;backpackScope?:null;wardrobeScope?:null;allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;allowSwitch626Catalog0Source?:false}):ScopedAppearanceSourceOwner;
+
+// Fixed Switch624 FRP01 is a separate externally attested admission, not a
+// widening of the pre-existing schema626 generic WorkerBuildEvidence.
+export type Frp624WorkerBuildEvidence=Readonly<{
+ platform:'switch';buildKind:'switch-bid';buildId:'52BD625D9B4E0053';schema:624;externallyConfirmed:true;
+}>;
+export type Frp624ProductReceipt=Readonly<Omit<ProductWasmReceipt,'schema'> & {schema:624}>;
+export type ScopedFrp624Selection=Readonly<{gridId:number;oldIds:readonly [number,number,number]}>;
+export type ScopedFrp624Preview=Readonly<{
+ gridId:number;oldIds:readonly [number,number,number];nextGridObjectId:number;
+ oldStock:number;newStock:number;inventoryDelta:0;removedObjects:3;addedObjects:3;
+ layout:'PRESERVE_EXISTING';exactFieldChangedCount:7;
+ writerAuthorized:false;editedCopyAuthorized:false;originalOverwriteAuthorized:false;productReadAccepted:false;
+}>;
+export type ScopedFrp624SourceOwner=Omit<ProductWasmReadOwner,'openDecoded'|'readCoreVersion'|'getReceipt'> & Readonly<{
+ openDecoded(args:{build:Frp624WorkerBuildEvidence;decodedChunks:AsyncIterable<Uint8Array>}):Promise<Frp624ProductReceipt>;
+ getReceipt():Frp624ProductReceipt|null;
+ previewScopedPlacement(selection:ScopedFrp624Selection):ScopedFrp624Preview;
+ stageScopedPlacement():Readonly<ScopedFrp624Preview&{applied:true}>;
+ toggleScopedPlacement(redo:boolean):Readonly<ScopedFrp624Preview&{applied:boolean}>;
+ takeScopedPlacementOutput():Promise<Readonly<{decodedBytes:Uint8Array;decodedSha256:string}>>;
+}>;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{
+ placementScope:'frp01';allowScopedAmountSource?:false;allowScopedCollectionSource?:false;
+ allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false;
+ allowSteam626ChestSource?:false;allowSwitch626Catalog0Source?:false;
+ backpackScope?:null;wardrobeScope?:null;appearanceScope?:null
+}):ScopedFrp624SourceOwner;

@@ -56,7 +56,7 @@ test('COMP03 actual Review mounts anchors only on branded optional scope and cur
  assert.match(src,/data-comp03-spatial-review/);assert.match(src,/state\.spatialPreview\.markers as m/);
  assert.match(src,/pointer-events:none/);assert.match(src,/data-product-writer="off"/);
  assert.doesNotMatch(src,/on:click=\{[^}]*spatialPreview/);
- assert.match(src,/\{#if wardrobe\}<p>\{words.wardrobeSlot\}/);
+ assert.match(src,/\{:else if wardrobe\}<p>\{words.wardrobeSlot\}/);
  assert.match(src,/\{:else if backpack\}<p>Backpack 0/);
  assert.match(src,/wardrobe\?p\?\.slot!==0\|\|p\?\.oldItemId!==50000352\|\|p\?\.newItemId!==50000214:backpack\?p\?\.sourceSlot!==x\|\|p\?\.destinationSlot!==y:operation==='comp03'\?/);
 });

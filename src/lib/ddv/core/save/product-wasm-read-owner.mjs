@@ -1,5 +1,6 @@
 import {createScopedAmountTransport,createSwitch626ChestTransport,createSteam626ChestTransport,createSwitch626Catalog0Transport} from './product-scoped-amount-transport.mjs';
 import {createSteam626Comp03Transport,createSteam626Comp03SpatialTransport,createSteam626VaseAddTransport,createSteam626Sr03Transport,createSwitch626Rm01Transport} from './product-scoped-placement-transport.mjs';
+import {createSwitch624Frp01Transport} from './product-switch624-frp01-transport.mjs';
 import {createSteam626BackpackTransport,createSwitch626BackpackTransport} from './product-scoped-backpack-transport.mjs';
 import {createSteam626AppearanceTransport} from './product-scoped-appearance-transport.mjs';
 import {createSteam626WardrobeTransport,createSwitch626WardrobeTransport} from './product-scoped-wardrobe-transport.mjs';
@@ -12,27 +13,29 @@ export const PRODUCT_WASM_WORKER_MAX_BYTES=128*1024*1024;
 export const PRODUCT_WASM_CHUNK_MAX_BYTES=1024*1024;
 const STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
 const SWITCH='9A239D3DB569756D';
+const FRP624='52BD625D9B4E0053';
 const fail=code=>{throw Error(code)};
 const isPlain=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const shaHex=/^[0-9a-f]{64}$/;
 const sessionHex=/^[0-9a-f]{32}$/;
-function exactBuild(b){
- if(!isPlain(b)||b.externallyConfirmed!==true||b.schema!==626||
-    !((b.platform==='steam-windows'&&b.buildKind==='steam-full-version'&&b.buildId===STEAM)||
-      (b.platform==='switch'&&b.buildKind==='switch-bid'&&b.buildId===SWITCH)))
+function exactBuild(b,frp=false){
+ if(!isPlain(b)||b.externallyConfirmed!==true||!(frp?
+     (b.schema===624&&b.platform==='switch'&&b.buildKind==='switch-bid'&&b.buildId===FRP624):
+     (b.schema===626&&((b.platform==='steam-windows'&&b.buildKind==='steam-full-version'&&b.buildId===STEAM)||
+      (b.platform==='switch'&&b.buildKind==='switch-bid'&&b.buildId===SWITCH)))))
    fail('PRODUCT_WORKER_BUILD_NOT_VERIFIED');
- return Object.freeze({platform:b.platform,buildKind:b.buildKind,buildId:b.buildId,schema:626});
+ return Object.freeze({platform:b.platform,buildKind:b.buildKind,buildId:b.buildId,schema:frp?624:626});
 }
-function strictReceipt(r){
- if(!isPlain(r)||r.contract!==PRODUCT_WASM_READ_CONTRACT||
+function strictReceipt(r,expectedSchema=626,frp=false){
+ if(!isPlain(r)||r.contract!==PRODUCT_WASM_READ_CONTRACT||(frp?r.operation!=='switch624-frp01-readonly':Object.hasOwn(r,'operation'))||
     !sessionHex.test(r.sessionId)||!shaHex.test(r.decodedSha256)||
-    r.revision!==0||r.indexGeneration!==1||r.schema!==626||
+    r.revision!==0||r.indexGeneration!==1||r.schema!==expectedSchema||
     r.fullDocumentJsonValidated!==true||r.productWorkerBound!==true||
     r.allDomainReferencesVerified!==false||r.productReadAccepted!==false||
     r.writerAuthorized!==false||r.editedCopyAuthorized!==false||r.applyAuthorized!==false)
     fail('PRODUCT_WORKER_RUST_RECEIPT_INVALID');
  return Object.freeze({contract:r.contract,sessionId:r.sessionId,
-    decodedSha256:r.decodedSha256,revision:0,indexGeneration:1,schema:626,
+    decodedSha256:r.decodedSha256,revision:0,indexGeneration:1,schema:expectedSchema,
     fullDocumentJsonValidated:true,productWorkerBound:true,
     allDomainReferencesVerified:false,productReadAccepted:false,
     writerAuthorized:false,editedCopyAuthorized:false,applyAuthorized:false});
@@ -43,12 +46,13 @@ function strictReceipt(r){
  */
 export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null}={}){
  if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source].every(v=>typeof v==='boolean')||
-    (![null,'comp03','comp03-spatial','vase','sr03','rm01'].includes(placementScope))||(![null,'steam','switch'].includes(backpackScope))||(![null,'steam','switch'].includes(wardrobeScope))||(![null,'hair','skin'].includes(appearanceScope))||
+    (![null,'comp03','comp03-spatial','vase','sr03','rm01','frp01'].includes(placementScope))||(![null,'steam','switch'].includes(backpackScope))||(![null,'steam','switch'].includes(wardrobeScope))||(![null,'hair','skin'].includes(appearanceScope))||
     [allowScopedAmountSource,allowScopedCollectionSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,placementScope!==null,backpackScope!==null,wardrobeScope!==null,appearanceScope!==null].filter(Boolean).length>1||
     ((allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||placementScope!==null||backpackScope!==null||wardrobeScope!==null||appearanceScope!==null)&&allowCollectionCandidateSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
  if(typeof document!=='undefined')fail('PRODUCT_WORKER_NOT_ISOLATED');
  const amountEnabled=allowScopedAmountSource||allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source;
+ const frp=placementScope==='frp01';
  const placementEnabled=placementScope!==null,backpackEnabled=backpackScope!==null,wardrobeEnabled=wardrobeScope!==null,appearanceEnabled=appearanceScope!==null,verifiedClose=allowScopedCollectionSource||allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||placementEnabled||backpackEnabled||wardrobeEnabled||appearanceEnabled;
  let epoch=0,active=null,collectionOpening=false,blockedClose=null;
  // Collection must not issue a CLOSED receipt or open B while cleanup of A
@@ -79,9 +83,9 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
    if(!isPlain(args)||Object.keys(args).sort().join(',')!=='build,decodedChunks')
        fail('PRODUCT_WORKER_UNTRUSTED_OPEN_ARGS');
    const {build,decodedChunks}=args;
-   const identity=exactBuild(build);
+   const identity=exactBuild(build,frp);
    if(((allowSwitch626ChestSource||allowSwitch626Catalog0Source)&&identity.platform!=='switch')||(allowSteam626ChestSource&&identity.platform!=='steam-windows'))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
-   if((placementEnabled&&identity.platform!==(placementScope==='rm01'?'switch':'steam-windows'))||(backpackEnabled&&identity.platform!==(backpackScope==='switch'?'switch':'steam-windows'))||(appearanceEnabled&&identity.platform!=='steam-windows')||(wardrobeEnabled&&identity.platform!==(wardrobeScope==='switch'?'switch':'steam-windows')))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
+   if((placementEnabled&&identity.platform!==(['rm01','frp01'].includes(placementScope)?'switch':'steam-windows'))||(backpackEnabled&&identity.platform!==(backpackScope==='switch'?'switch':'steam-windows'))||(appearanceEnabled&&identity.platform!=='steam-windows')||(wardrobeEnabled&&identity.platform!==(wardrobeScope==='switch'?'switch':'steam-windows')))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
    if(!decodedChunks||typeof decodedChunks[Symbol.asyncIterator]!=='function')
      fail('PRODUCT_WORKER_CHUNK_SOURCE_REQUIRED');
    let wasm=null,bytes=0;
@@ -110,7 +114,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
      }
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
      if(bytes===0)fail('PRODUCT_WORKER_EMPTY_DOCUMENT');
-     const receipt=strictReceipt(JSON.parse(wasm.finish()));
+     const receipt=strictReceipt(JSON.parse(frp?wasm.finish_switch624_frp01_readonly():wasm.finish()),identity.schema,frp);
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
      const a={wasm,receipt,identity,cursors:new Map(),scoped:null};
      // Existing read-only Worker never instantiates the opt-in transport.
@@ -130,7 +134,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
          maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
      }
      if(placementEnabled||backpackEnabled||wardrobeEnabled||appearanceEnabled){
-       const factory=appearanceEnabled?((w,i,b,o)=>createSteam626AppearanceTransport(w,i,b,o,appearanceScope)):wardrobeEnabled?(wardrobeScope==='switch'?createSwitch626WardrobeTransport:createSteam626WardrobeTransport):backpackEnabled?(backpackScope==='switch'?createSwitch626BackpackTransport:createSteam626BackpackTransport):placementScope==='comp03-spatial'?createSteam626Comp03SpatialTransport:placementScope==='comp03'?createSteam626Comp03Transport:placementScope==='sr03'?createSteam626Sr03Transport:placementScope==='rm01'?createSwitch626Rm01Transport:createSteam626VaseAddTransport;
+       const factory=appearanceEnabled?((w,i,b,o)=>createSteam626AppearanceTransport(w,i,b,o,appearanceScope)):wardrobeEnabled?(wardrobeScope==='switch'?createSwitch626WardrobeTransport:createSteam626WardrobeTransport):backpackEnabled?(backpackScope==='switch'?createSwitch626BackpackTransport:createSteam626BackpackTransport):placementScope==='comp03-spatial'?createSteam626Comp03SpatialTransport:placementScope==='comp03'?createSteam626Comp03Transport:placementScope==='sr03'?createSteam626Sr03Transport:placementScope==='rm01'?createSwitch626Rm01Transport:placementScope==='frp01'?createSwitch624Frp01Transport:createSteam626VaseAddTransport;
        a.scoped=factory(wasm,receipt,identity,{parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
      }
      active=a;wasm=null;
@@ -432,7 +436,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
    if(allowScopedCollectionSource!==true||!a||!a.scoped)fail('PRODUCT_WORKER_COLLECTION_FIXED_SOURCE_OFF');
    return a.scoped;
  };
- const placement=()=>{const a=active;if(!placementEnabled||!a||a.identity.platform!==(placementScope==='rm01'?'switch':'steam-windows')||!a.scoped)fail('PRODUCT_WORKER_SCOPED_PLACEMENT_OFF');return a.scoped};
+ const placement=()=>{const a=active;if(!placementEnabled||!a||a.identity.platform!==(['rm01','frp01'].includes(placementScope)?'switch':'steam-windows')||!a.scoped)fail('PRODUCT_WORKER_SCOPED_PLACEMENT_OFF');return a.scoped};
  const backpack=()=>{const a=active;if(!backpackEnabled||!a||a.identity.platform!==(backpackScope==='switch'?'switch':'steam-windows')||!a.scoped)fail('PRODUCT_WORKER_SCOPED_BACKPACK_OFF');return a.scoped};
  const appearance=()=>{const a=active;if(!appearanceEnabled||!a||a.identity.platform!=='steam-windows'||!a.scoped)fail('PRODUCT_WORKER_SCOPED_APPEARANCE_OFF');return a.scoped};
  const wardrobe=()=>{const a=active;if(!wardrobeEnabled||!a||a.identity.platform!==(wardrobeScope==='switch'?'switch':'steam-windows')||!a.scoped)fail('PRODUCT_WORKER_SCOPED_WARDROBE_OFF');return a.scoped};
