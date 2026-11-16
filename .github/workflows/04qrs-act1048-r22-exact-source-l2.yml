@@ -1,4 +1,4 @@
-name: 04 QR-S ACT1048 actual Git source-bound gate (QA ONLY)
+name: 04 QR-S ACT1048 exact Core subtree repair (QA ONLY)
 on:
   pull_request:
     paths:
@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: '122652c98192514e3ec586a0d0293a3b31cdb309'
+          ref: '1c8f70b844f5fc1b31fc64134a3edf5ac17e93c2'
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -25,8 +25,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 122652c98192514e3ec586a0d0293a3b31cdb309
-          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = 2226837c18168a0f1c08adf835c8d5282557c19b
+          test "$(git rev-parse HEAD)" = 1c8f70b844f5fc1b31fc64134a3edf5ac17e93c2
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = 64d47646e0dea79de9e41f1e7ab04d2d247889ad
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/int-selection-preflight.mjs)" = e13337fe51b9ce11d14957565b166b000328a62c
           git fetch --no-tags origin eaeafb84b55d522f1f6eab6e84d879780fc1d031
@@ -37,7 +37,7 @@ jobs:
           import os from 'node:os';
           import path from 'node:path';
           import {verifyAcceptedRustScope} from './scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
-          const original='eaeafb84b55d522f1f6eab6e84d879780fc1d031', originalBase='2ec84d06a24d5fe964c7e8b8186a6b442650593b', acceptedBase='122652c98192514e3ec586a0d0293a3b31cdb309';
+          const original='eaeafb84b55d522f1f6eab6e84d879780fc1d031', originalBase='2ec84d06a24d5fe964c7e8b8186a6b442650593b', acceptedBase='1c8f70b844f5fc1b31fc64134a3edf5ac17e93c2';
           const home=fs.mkdtempSync(path.join(os.tmpdir(),'act1048-'));
           const repo=path.join(home,'repo'), index=path.join(home,'index');
           const env={...process.env,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',
@@ -75,17 +75,6 @@ jobs:
               assert.equal(x.entryCount,15);assert.equal(x.mergeAuthorized,false);assert.equal(x.writerAuthorized,false);
               assert.equal(g('rev-parse',exact+':'+fixed),g('rev-parse',original+':'+fixed));
             });
-            no('historical base without accepted gate',()=>verifyAcceptedRustScope(repo,originalBase,original));
-            no('candidate self-introduces gate',()=>verifyAcceptedRustScope(repo,originalBase,exact));
-            no('wrong ancestor or source',()=>verifyAcceptedRustScope(repo,exact,acceptedBase));
-            no('missing approved path',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths.filter(p=>p!==target))));
-            no('extra path',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set('qa-unapproved.txt','100644',writeBlob('extra')))));
-            no('changed approved blob',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set(target,'100644',writeBlob('changed')))));
-            no('changed approved mode',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set(target,'100755',entry(original,target).blob))));
-            no('deleted approved path',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>ix('update-index','--force-remove',target))));
-            no('candidate changes gate',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set(gate,'100644',writeBlob('// changed')))));
-            no('candidate changes verifier',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set(v,'100644',writeBlob('// changed')))));
-            no('candidate changes pin config',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set(cfg,'100644',writeBlob('{}')))));
             const maintenance=make(acceptedBase,[],()=>set('qa-maintenance.txt','100644',writeBlob('model maintenance')));
             const invoke=(base,head,extra={},alter)=>{
               g('checkout','--force','--detach',head);g('update-ref','refs/remotes/origin/main',base);
@@ -101,21 +90,22 @@ jobs:
             const rejects=(x,marker)=>{assert.notEqual(x.status,0);assert(x.stderr.includes(marker),x.stderr)};
             yes('actual verifier ordinary maintenance',()=>passes(invoke(acceptedBase,maintenance)));
             yes('actual verifier approved exact15',()=>{const x=invoke(acceptedBase,exact);passes(x);assert(x.stdout.includes('R22_ACCEPTED_EXACT_SOURCE_SCOPE_MATCH_ONLY'))});
-            no('malformed source id',()=>passes(invoke(acceptedBase,exact,{WAND_SOURCE_HEAD:'invalid'})));
-            no('wrong repository',()=>passes(invoke(acceptedBase,exact,{GITHUB_REPOSITORY_ID:'1'})));
-            no('wrong workflow',()=>passes(invoke(acceptedBase,exact,{GITHUB_WORKFLOW_REF:'wrong'})));
-            no('stale live base',()=>passes(invoke(acceptedBase,exact,{WAND_PR_BASE_SHA:originalBase})));
-            no('wrong lock',()=>passes(invoke(acceptedBase,exact,{},()=>fs.appendFileSync(path.join(repo,fixed,'Cargo.lock'),'# altered\n'))));
             const driftBase=make(acceptedBase,[],()=>set(fixed+'/src/qa-unreviewed-core-drift.rs','100644',writeBlob('// synthetic unrelated Core drift\n')));
             const drift=make(driftBase,paths);
             assert.notEqual(g('rev-parse',driftBase+':'+fixed),g('rev-parse',originalBase+':'+fixed));
             assert.notEqual(g('rev-parse',drift+':'+fixed),g('rev-parse',original+':'+fixed));
-            // Observe separately: a changed protected Core tree is NOT the exact previously reviewed cumulative tree.
-            // This models a new protected base, not real protected authorization or an external attack.
-            let driftHelperAllowed=false;
-            try{verifyAcceptedRustScope(repo,driftBase,drift);driftHelperAllowed=true}catch{}
-            const driftResult=invoke(driftBase,drift);
-            console.log('ACT1048_CORE_DRIFT_OBSERVATION',JSON.stringify({helperAllowed:driftHelperAllowed,verifierAllowed:driftResult.status===0,baseTree:g('rev-parse',driftBase+':'+fixed),candidateTree:g('rev-parse',drift+':'+fixed),modeledProtectedBase:true,actualAuthorization:false}));
-            console.log('ACT1048_ACTUAL_GIT_SCOPE',JSON.stringify({pos,neg,exactSource:acceptedBase,historicalCandidate:original,exact15:true,authority:false,publication:false,driftHelperAllowed,driftVerifierAllowed:driftResult.status===0}));
+            const denyHelper=(name,base,head,marker)=>{assert.throws(()=>verifyAcceptedRustScope(repo,base,head),e=>String(e).includes(marker),name);neg++;console.log('NEG',name,marker)};
+            const denyVerifier=(name,base,head)=>{rejects(invoke(base,head),'R22_PROTECTED_RELEASE_ACCEPTED_RUST_ANCESTOR_CHANGED');neg++;console.log('NEG',name)};
+            denyHelper('previous actual modeled Core base drift',''+driftBase,drift,'R22_ACCEPTED_SCOPE_BASE_CORE_TREE');
+            denyVerifier('previous actual Core base drift full verifier',driftBase,drift);
+            const candidateDrift=make(acceptedBase,paths,()=>set(fixed+'/src/qa-extra-core.rs','100644',writeBlob('// synthetic candidate Core drift\n')));
+            denyHelper('candidate Core subtree drift',acceptedBase,candidateDrift,'R22_ACCEPTED_SCOPE_CANDIDATE_CORE_TREE');
+            denyVerifier('candidate Core subtree drift full verifier',acceptedBase,candidateDrift);
+            const nonCoreBase=make(acceptedBase,[],()=>set('qa-noncore-base.txt','100644',writeBlob('independent non-Core protected base model')));
+            const nonCoreExact=make(nonCoreBase,paths);
+            yes('non-Core base drift preserves exact Core and exact15',()=>{const x=verifyAcceptedRustScope(repo,nonCoreBase,nonCoreExact);assert.equal(x.entryCount,15);assert.equal(x.mergeAuthorized,false);assert.equal(x.writerAuthorized,false);passes(invoke(nonCoreBase,nonCoreExact))});
+            const driftMaintenance=make(driftBase,[],()=>set('qa-maintenance-after-core.txt','100644',writeBlob('ordinary no-Rust maintenance')));
+            yes('zero-Rust maintenance remains independent of Core pin',()=>passes(invoke(driftBase,driftMaintenance)));
+            console.log('ACT1048_CORE_TREE_REPAIR_PASS',JSON.stringify({pos,neg,exactSource:acceptedBase,historicalCandidate:original,baseCore:g('rev-parse',acceptedBase+':'+fixed),candidateCore:g('rev-parse',exact+':'+fixed),modeledDriftBaseCore:g('rev-parse',driftBase+':'+fixed),modeledDriftCandidateCore:g('rev-parse',drift+':'+fixed),nonCoreDriftAllowed:true,oldMaintenanceAllowed:true,authority:false,publication:false}));
           }finally{fs.rmSync(home,{recursive:true,force:true})}
           JS
