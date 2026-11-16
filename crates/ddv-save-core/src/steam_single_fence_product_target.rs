@@ -77,4 +77,36 @@ mod tests{
   let mut q=d.clone();q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(1);let z=open(&q,false);assert!(z.mint_steam626_single_fence_target(env(&z),90001,x,y).is_err());
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX);let z=open(&q,false);assert!(z.mint_steam626_single_fence_target(env(&z),90001,x,y).is_err());
  }
+
+ #[test]fn qa1866_single_fence_raw_target_boundary(){
+  let(mut d,x,y)=fixture();d["Opaque"]=json!({"escape":"keep","decoy":50});let hash=|v:&Value|sha(&serde_json::to_vec(v).unwrap());
+  let s=open(&d,false);let e=env(&s);let before=s.receipt().unwrap();let t=s.mint_steam626_single_fence_target(e,90001,x,y).unwrap();
+  let g=&d["World"]["GridCollection"]["Grids"]["90001"];
+  assert_eq!((t.scope,t.grid,t.x,t.y,t.next,t.stock),(e,90001,x,y,50,10));
+  assert_eq!(t.root_sha,hash(&d["World"]["Villages"][0]["Areas"]["2"]));assert_eq!(t.grid_sha,hash(g));assert_eq!(t.counter_sha,sha(b"50"));assert_eq!(t.houses_sha,sha(b"[]"));assert_eq!(t.stock_sha,hash(&d["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]));
+  let mut pos=1;let mut neg=0;
+  let check=|q:&Value,ok:bool|{let z=open(q,false);let r=z.receipt().unwrap();assert_eq!(z.mint_steam626_single_fence_target(env(&z),90001,x,y).is_ok(),ok);assert_eq!(z.receipt().unwrap(),r);};
+  for dx in [2,4]{let mut q=d.clone();let o=&mut q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"];o["X"]=json!(x+dx);o["Y"]=json!(y);check(&q,dx==4);if dx==4{pos+=1}else{neg+=1}}
+  for i in 0..10{let mut q=d.clone();match i{
+   0=>q["World"]["Villages"][0]["Areas"]["2"]["GridIDs"]=json!([90001,90001]),
+   1=>q["World"]["Villages"][0]["Areas"]["2"]["Unlocked"]=json!(false),
+   2=>q["World"]["GridCollection"]["DiffGrids"]["90001"]=json!({"ID":90001}),
+   3=>q["World"]["GridCollection"]["Grids"]["90001"]["TessellationFactor"]=json!(1),
+   4=>q["World"]["GridCollection"]["Grids"]["90001"]["GridDefaultLayoutPath"]=json!("foreign"),
+   5=>q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(1),
+   6=>q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Marker"]=json!("ItemMarker_None"),
+   7=>q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(10000),
+   8=>q["Opaque"]["ref"]=json!({"GridID":90001,"ObjectID":50}),
+   _=>q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX)}
+   check(&q,false);neg+=1;}
+  let mut q=d.clone();q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(2);check(&q,true);pos+=1;
+  let mut q=d.clone();q["Player"]["ContainerInventories"]["1"]=json!({"ID":1,"BelongsToPlayer":true,"Size":1,"ExtraSize":0,"Inventory":[{"ItemID":40700246,"Amount":1,"State":null}]});check(&q,false);neg+=1;
+  for bad in [WorkerEnvelope{expected_revision:1,..e},WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e},WorkerEnvelope{action:WorkerAction::Stage,..e}]{assert!(s.mint_steam626_single_fence_target(bad,90001,x,y).is_err());neg+=1;}
+  assert!(open(&d,false).mint_steam626_single_fence_target(e,90001,x,y).is_err());neg+=1;
+  let z=open(&d,true);assert!(z.mint_steam626_single_fence_target(env(&z),90001,x,y).is_err());neg+=1;
+  assert!(s.mint_steam626_single_fence_target(e,90001,x+1,y).is_err());neg+=1;
+  assert!(s.mint_steam626_single_fence_target(e,90001,392,y).is_err());neg+=1;
+  assert_eq!(s.receipt().unwrap(),before);assert_eq!((pos,neg),(3,20));println!("QRC1866_STEAM_SINGLE_FENCE_TARGET_ACTUAL {pos}POS {neg}NEG RAW_HASHES HALO2 NO_DEBIT");
+ }
+
 }
