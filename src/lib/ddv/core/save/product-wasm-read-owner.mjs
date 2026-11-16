@@ -1,4 +1,4 @@
-import {createScopedAmountTransport,createSwitch626ChestTransport,createSteam626ChestTransport} from './product-scoped-amount-transport.mjs';
+import {createScopedAmountTransport,createSwitch626ChestTransport,createSteam626ChestTransport,createSwitch626Catalog0Transport} from './product-scoped-amount-transport.mjs';
 import {createFixedCollectionTransport} from './product-fixed-collection-transport.mjs';
 import {readCollectionCandidate} from '../../../collection/collection-candidate-read.mjs';
 // R04 opt-in read-only boundary owned by the SAME local Worker. No product UI
@@ -37,14 +37,14 @@ function strictReceipt(r){
  * wasmFactory is a trusted static Worker import, not a message field. The
  * worker-side decode source owns the async decoded-chunk iterable.
  */
-export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false}={}){
- if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource].every(v=>typeof v==='boolean')||
-    [allowScopedAmountSource,allowScopedCollectionSource,allowSwitch626ChestSource,allowSteam626ChestSource].filter(Boolean).length>1||
-    ((allowSwitch626ChestSource||allowSteam626ChestSource)&&allowCollectionCandidateSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
+export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false}={}){
+ if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source].every(v=>typeof v==='boolean')||
+    [allowScopedAmountSource,allowScopedCollectionSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source].filter(Boolean).length>1||
+    ((allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source)&&allowCollectionCandidateSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
  if(typeof document!=='undefined')fail('PRODUCT_WORKER_NOT_ISOLATED');
- const amountEnabled=allowScopedAmountSource||allowSwitch626ChestSource||allowSteam626ChestSource;
- const verifiedClose=allowScopedCollectionSource||allowSwitch626ChestSource||allowSteam626ChestSource;
+ const amountEnabled=allowScopedAmountSource||allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source;
+ const verifiedClose=allowScopedCollectionSource||allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source;
  let epoch=0,active=null,collectionOpening=false,blockedClose=null;
  // Collection must not issue a CLOSED receipt or open B while cleanup of A
  // remains unverified. Keep the old instance only for an explicit Close retry.
@@ -75,7 +75,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
        fail('PRODUCT_WORKER_UNTRUSTED_OPEN_ARGS');
    const {build,decodedChunks}=args;
    const identity=exactBuild(build);
-   if((allowSwitch626ChestSource&&identity.platform!=='switch')||(allowSteam626ChestSource&&identity.platform!=='steam-windows'))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
+   if(((allowSwitch626ChestSource||allowSwitch626Catalog0Source)&&identity.platform!=='switch')||(allowSteam626ChestSource&&identity.platform!=='steam-windows'))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
    if(!decodedChunks||typeof decodedChunks[Symbol.asyncIterator]!=='function')
      fail('PRODUCT_WORKER_CHUNK_SOURCE_REQUIRED');
    let wasm=null,bytes=0;
@@ -109,12 +109,13 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
      const a={wasm,receipt,identity,cursors:new Map(),scoped:null};
      // Existing read-only Worker never instantiates the opt-in transport.
      if(amountEnabled){
-       if(identity.platform!==(allowSwitch626ChestSource?'switch':'steam-windows'))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
+       if(identity.platform!==((allowSwitch626ChestSource||allowSwitch626Catalog0Source)?'switch':'steam-windows'))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
        if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
        const options={parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},
          maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES};
        a.scoped=allowSwitch626ChestSource?createSwitch626ChestTransport(wasm,receipt,identity,options):
           allowSteam626ChestSource?createSteam626ChestTransport(wasm,receipt,identity,options):
+          allowSwitch626Catalog0Source?createSwitch626Catalog0Transport(wasm,receipt,identity,options):
          createScopedAmountTransport(wasm,receipt,options);
      }
      if(allowScopedCollectionSource){
@@ -394,7 +395,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
  // ACT916 opt-in, Worker-private only. One existing wasm instance.
  const scoped=()=>{
    const a=active;
-   if(!amountEnabled||!a||a.identity.platform!==(allowSwitch626ChestSource?'switch':'steam-windows')||!a.scoped)
+   if(!amountEnabled||!a||a.identity.platform!==((allowSwitch626ChestSource||allowSwitch626Catalog0Source)?'switch':'steam-windows')||!a.scoped)
      fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
    return a.scoped;
  };
