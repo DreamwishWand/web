@@ -200,14 +200,15 @@ where F:FnMut(u32)->R<GridObservation> {
         need(ids.len()<=4096 && field(a,"Unlocked")?.is_boolean(),"VASE_GEOMETRY_QUOTA_AREA")?;
         for v in ids {
             let id=u(v)?;
-            need(id>0 && roots.insert(id) && roots.len()<=4096,"VASE_GEOMETRY_QUOTA_ROOT_ALIAS")?;
+            need((id>0 || (aid==7 && ids.len()==1 && field(a,"Unlocked")?.as_bool()==Some(true)))
+                && roots.insert(id) && roots.len()<=4096,"VASE_GEOMETRY_QUOTA_ROOT_ALIAS")?;
             if id==selected {
                 need(aid==6 && ids.len()==1 && field(a,"Unlocked")?.as_bool()==Some(true),"VASE_GEOMETRY_QUOTA_SELECTED_ROOT")?;
                 chosen=true;
             }
         }
     }
-    need(chosen,"VASE_GEOMETRY_QUOTA_SELECTED_ROOT")?;
+    need(chosen && selected>0,"VASE_GEOMETRY_QUOTA_SELECTED_ROOT")?;
     let mut pending:Vec<(u32,bool)>=roots.iter().map(|id|(*id,true)).collect();
     let mut seen=BTreeSet::new();
     let mut items=BTreeSet::new();
@@ -217,6 +218,10 @@ where F:FnMut(u32)->R<GridObservation> {
         let o=observe(id)?;
         need(!o.overlay && u(field(&o.grid,"ID")?)?==id && field(&o.grid,"GridDefaultLayoutPath")?==""
             && if is_root {o.root_refs==1&&o.parent_refs==0} else {o.root_refs==0&&o.parent_refs==1},"VASE_GEOMETRY_QUOTA_GRID_ALIAS")?;
+        if id==0{
+            need(is_root && field(&o.grid,"GridDataPath")?=="GridData/Villages/Village04-SnowLevel-GridData.json"
+                && u(field(&o.grid,"TessellationFactor")?)?==2,"VASE_GEOMETRY_QUOTA_ZERO_ROOT")?;
+        }
         let objects=map(field(&o.grid,"Objects")?)?;
         need(objects.len()<=16384,"VASE_GEOMETRY_QUOTA_OBJECT_BOUND")?;
         for (k,v) in objects {

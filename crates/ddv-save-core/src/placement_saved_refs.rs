@@ -40,7 +40,7 @@ fn exact_array_owner(p:&[Segment])->bool{
     (p.len()==4&&k(&p[0],"World")&&k(&p[1],"PlayerHouses")&&p[2]==Element&&k(&p[3],"Floors"))
 }
 fn validate_owner(b:&[u8],s:Span,p:&[Segment])->CoreResult<()>{
-    if exact_array_owner(p){need(b.get(s.begin)==Some(&b'['),"PLACEMENT_ARRAY_OWNER")?;}
+    if exact_array_owner(p)||world_puzzles(p)||realm_puzzles(p){need(b.get(s.begin)==Some(&b'['),"PLACEMENT_ARRAY_OWNER")?;}
     if building_map(p)||house_rooms(p){
         for (key,_) in members(b,s,50_000)?{need(canonical(&key),"PLACEMENT_OWNER_KEY")?;}
     }
@@ -53,6 +53,102 @@ fn validate_owner(b:&[u8],s:Span,p:&[Segment])->CoreResult<()>{
         for (key,v) in members(b,f(b,s,"WallGridIDs")?,4)?{
             need(canonical(&key)&&key.parse::<u32>().is_ok_and(|n|n<4),"PLACEMENT_ROOM_WALL_KEY")?;uint(b,v)?;
         }
+    }
+    Ok(())
+}
+// E2433: installed DreamProductions local puzzle namespace. The two
+// definitions and GridData paths are static game data, never saved IDs.
+const DREAM:&str="Worlds!InsideOut!DreamProductions";
+const DREAM_LAYOUT:&str="SceneLayouts/Realms/InsideOut/DreamProductions/InsideOut-DreamProductions-DefaultLayout.json";
+const PUZZLES:[((u32,u32,u32),u32,&str);2]=[
+    ((2070001289,2,1),0,"GridData/Worlds/InsideOut_DreamProductions_Stage-GridData.json"),
+    ((2070001290,13,0),2,"GridData/Worlds/InsideOut_DreamProductions_Puzzle02-GridData.json"),
+];
+fn world_puzzles(p:&[Segment])->bool{p.len()==2&&k(&p[0],"World")&&k(&p[1],"SceneryPuzzles")}
+fn realm_puzzles(p:&[Segment])->bool{p.len()==4&&k(&p[0],"World")&&k(&p[1],"Realms")&&k(&p[3],"SceneryPuzzles")}
+fn puzzle_row(p:&[Segment])->bool{
+    p.last()==Some(&Element)&&(world_puzzles(&p[..p.len()-1])||realm_puzzles(&p[..p.len()-1]))
+}
+fn local_puzzle_row(p:&[Segment])->bool{p.len()==5&&puzzle_row(p)&&k(&p[2],DREAM)}
+type PuzzleKey=(u32,u32,u32);
+fn puzzle(b:&[u8],s:Span)->CoreResult<(PuzzleKey,u32,u32)>{
+    let m=members(b,s,5)?;
+    need(m.len()==5,"PLACEMENT_PUZZLE_FIELDS")?;
+    let ids=array(b,f(b,s,"GridIDs")?,1)?;
+    let ans=array(b,f(b,s,"AnswerGridIDs")?,1)?;
+    need(ids.len()==1&&ans.len()==1,"PLACEMENT_PUZZLE_CARDINALITY")?;
+    Ok(((n(b,s,"MissionItemID")?,n(b,s,"StepID")?,n(b,s,"SubStepID")?),uint(b,ids[0])?,uint(b,ans[0])?))
+}
+fn grid_at(b:&[u8],map:Span,id:u32)->CoreResult<Option<Span>>{
+    let x=opt(b,map,&id.to_string())?;
+    if let Some(x)=x{need(n(b,x,"ID")?==id,"PLACEMENT_PUZZLE_GRID_ID")?;}
+    Ok(x)
+}
+fn validate_puzzles(b:&[u8],top:Span)->CoreResult<()>{
+    let Some(w)=opt(b,top,"World")? else{return Ok(())};
+    let realms=opt(b,w,"Realms")?;
+    let rows=opt(b,w,"SceneryPuzzles")?;
+    if realms.is_none()&&rows.is_none(){return Ok(())}
+    // Existing synthetic/early-save empty rows do not require a new grid
+    // provider. A non-empty actual puzzle must have physical endpoints.
+    let mut mirror=BTreeMap::new();
+    let mut realm_rows=None;
+    if let Some(r)=realms{
+        for (name,realm) in members(b,r,4096)?{
+            if let Some(rs)=opt(b,realm,"SceneryPuzzles")?{
+                let v=array(b,rs,4096)?;
+                if name==DREAM && !v.is_empty(){realm_rows=Some((realm,v));}
+                else{need(v.is_empty(),"PLACEMENT_UNKNOWN_REALM_PUZZLE")?;}
+            }
+        }
+    }
+    let world_rows=if let Some(s)=rows{array(b,s,4096)?}else{vec![]};
+    if world_rows.is_empty()&&realm_rows.is_none(){return Ok(())}
+    let gc=f(b,w,"GridCollection")?;
+    let grids=f(b,gc,"Grids")?;let diff=f(b,gc,"DiffGrids")?;
+    let mut village=std::collections::BTreeSet::new();
+    if let Some(vs)=opt(b,w,"Villages")?{
+        for v in array(b,vs,256)?{
+            for (_,a) in members(b,f(b,v,"Areas")?,4096)?{
+                for x in array(b,f(b,a,"GridIDs")?,4096)?{village.insert(uint(b,x)?);}
+            }
+        }
+    }
+    for x in world_rows{
+        let (key,g,a)=puzzle(b,x)?;
+        need(!village.contains(&g)&&grid_at(b,grids,g)?.is_some()&&grid_at(b,diff,g)?.is_none(),"PLACEMENT_WORLD_PUZZLE_ENDPOINT")?;
+        need(mirror.insert(key,(g,a)).is_none(),"PLACEMENT_WORLD_PUZZLE_DUPLICATE")?;
+    }
+    if let Some((realm,rows))=realm_rows{
+        let ids=array(b,f(b,realm,"GridIDs")?,3)?.into_iter().map(|x|uint(b,x)).collect::<CoreResult<Vec<_>>>()?;
+        need(ids.len()==3&&ids.iter().copied().collect::<std::collections::BTreeSet<_>>().len()==3&&ids.iter().all(|i|!village.contains(i)),"PLACEMENT_REALM_GRID_IDS")?;
+        let mut local_rows=BTreeMap::new();
+        for x in rows{
+            let (key,g,a)=puzzle(b,x)?;
+            need(local_rows.insert(key,(g,a)).is_none(),"PLACEMENT_REALM_PUZZLE_DUPLICATE")?;
+        }
+        need(local_rows.len()==2,"PLACEMENT_REALM_PUZZLE_COUNT")?;
+        let mut used=std::collections::BTreeSet::new();
+        for (key,local_id,path) in PUZZLES{
+            need(local_rows.get(&key)==Some(&(local_id,local_id)),"PLACEMENT_REALM_PUZZLE_LOCAL")?;
+            let mut found=None;
+            for &id in &ids{
+                if let Some(x)=grid_at(b,grids,id)?{
+                    if strv(b,x,"GridDataPath")?==path{
+                        need(grid_at(b,diff,id)?.is_none()&&found.replace(id).is_none(),"PLACEMENT_REALM_PUZZLE_PATH")?;
+                    }
+                }
+            }
+            let id=found.ok_or(denied("PLACEMENT_REALM_PUZZLE_PATH"))?;
+            need(used.insert(id)&&mirror.get(&key)==Some(&(id,local_id)),"PLACEMENT_REALM_PUZZLE_MIRROR")?;
+        }
+        let rest=ids.into_iter().filter(|id|!used.contains(id)).collect::<Vec<_>>();
+        need(rest.len()==1,"PLACEMENT_REALM_REMAINDER")?;
+        let x=grid_at(b,diff,rest[0])?.ok_or(denied("PLACEMENT_REALM_REMAINDER"))?;
+        need(grid_at(b,grids,rest[0])?.is_none()&&strv(b,x,"GridDefaultLayoutPath")?==DREAM_LAYOUT,"PLACEMENT_REALM_REMAINDER")?;
+    }else{
+        // A mirror without its exact local owner is not a proof.
+        need(PUZZLES.iter().all(|(key,_,_)|!mirror.contains_key(key)),"PLACEMENT_REALM_MISSING_OWNER")?;
     }
     Ok(())
 }
@@ -90,13 +186,18 @@ fn walk(b:&[u8],s:Span,path:&mut Vec<Segment>,ns:Option<&Local>,g:u32,seed:Optio
         Some(b'{')=>{
             let mut pos=s.begin+1;let mut fields:[Option<Span>;6]=[None;6];
             while let Some((k,v))=next_object_member(b,s,&mut pos)?{
-                if k=="GridIDs"{
+                if k=="AnswerGridIDs"{
+                    // Answer grids use installed layout namespace, only at validated puzzle rows.
+                    need(puzzle_row(path),"PLACEMENT_PUZZLE_ANSWER_OWNER")?;
+                    for x in array(b,v,1)?{uint(b,x)?;}
+                }else if k=="GridIDs"{
                     let ids=if building(path){
                         let m=members(b,v,1)?;need(m.len()==1&&m[0].0=="List","PLACEMENT_BUILDING_GRIDIDS_WRAPPER")?;m[0].1
                     }else{v};
                     for x in array(b,ids,4096)?{
                         let id=uint(b,x)?;
-                        if let Some(l)=ns{local_endpoint(b,l,id,None)?;}else{bump(&mut a.roots,id)?;}
+                        if local_puzzle_row(path){ /* exact local endpoint/mirror validated before walk */ }
+                        else if let Some(l)=ns{local_endpoint(b,l,id,None)?;}else{bump(&mut a.roots,id)?;}
                     }
                 }else if k=="SubGrid"&&b.get(v.begin..v.end)!=Some(&b"null"[..]){
                     let id=n(b,v,"GridID")?;
@@ -143,12 +244,35 @@ fn walk(b:&[u8],s:Span,path:&mut Vec<Segment>,ns:Option<&Local>,g:u32,seed:Optio
 }
 pub(super) fn scan(b:&[u8],top:Span,g:u32,seed:Option<u32>,next:u32,end:u32)->CoreResult<Incoming>{
     need(next<end,"PLACEMENT_REF_RANGE")?;
+    validate_puzzles(b,top)?;
     let mut a=Incoming::default();walk(b,top,&mut Vec::new(),None,g,seed,next,end,&mut a)?;Ok(a)
 }
 #[cfg(test)]
 mod tests{
     use super::*;use serde_json::json;
     fn check(v:&Value)->CoreResult<Incoming>{let b=serde_json::to_vec(v).unwrap();scan(&b,Span{begin:0,end:b.len()},7,None,9,10)}
+
+    #[test]fn puzzle_local_zero_not_world_root_and_mirror_required(){
+        let mut d=json!({"World":{"Villages":[{"Areas":{"7":{"GridIDs":[0]}}}],
+            "GridCollection":{"Grids":{"0":{"ID":0},"30":{"ID":30,"GridDataPath":PUZZLES[0].2},"31":{"ID":31,"GridDataPath":PUZZLES[1].2}},"DiffGrids":{"32":{"ID":32,"GridDefaultLayoutPath":DREAM_LAYOUT}}},
+            "Realms":{},"SceneryPuzzles":[]}});
+        let row=|(mid,step,sub):(u32,u32,u32),g:u32,a:u32|json!({"MissionItemID":mid,"StepID":step,"SubStepID":sub,"GridIDs":[g],"AnswerGridIDs":[a]});
+        d["World"]["Realms"][DREAM]=json!({"GridIDs":[30,32,31],"SceneryPuzzles":[row(PUZZLES[0].0,0,0),row(PUZZLES[1].0,2,2)]});
+        d["World"]["SceneryPuzzles"]=json!([row(PUZZLES[0].0,30,0),row(PUZZLES[1].0,31,2)]);
+        let a=check(&d).unwrap();assert_eq!(a.root(0),1);assert_eq!(a.root(30),2);
+        for i in 0..10{let mut x=d.clone();match i{
+            0=>x["World"]["Realms"][DREAM]["SceneryPuzzles"][0]["GridIDs"]=json!([1]),
+            1=>x["World"]["Realms"][DREAM]["SceneryPuzzles"][0]["AnswerGridIDs"]=json!([1]),
+            2=>x["World"]["SceneryPuzzles"][0]["GridIDs"]=json!([0]),
+            3=>x["World"]["SceneryPuzzles"][0]["AnswerGridIDs"]=json!([1]),
+            4=>x["World"]["GridCollection"]["Grids"]["30"]["GridDataPath"]=json!("Other"),
+            5=>x["World"]["Realms"][DREAM]["GridIDs"]=json!([0,31,32]),
+            6=>x["World"]["SceneryPuzzles"]=json!([row(PUZZLES[0].0,30,0)]),
+            7=>x["World"]["Realms"]["Other"]=json!({"SceneryPuzzles":[row(PUZZLES[0].0,0,0)]}),
+            8=>x["World"]["Realms"][DREAM]["SceneryPuzzles"]=json!({"[]":row(PUZZLES[0].0,0,0)}),
+            _=>x["Unknown"]=json!({"AnswerGridIDs":[0]})
+        }assert!(check(&x).is_err(),"puzzle mode {i}");}
+    }
     #[test]fn typed_namespaces_and_real_aliases(){
         let d=json!({"World":{"BuildingInfos":{"100":{"GridIDs":{"List":[11]}}},
             "Villages":[{"Areas":{"6":{"GridIDs":[7]}}}],
