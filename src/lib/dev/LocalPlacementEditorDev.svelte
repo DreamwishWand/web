@@ -3,6 +3,7 @@
  import {locale} from '$lib/i18n/runtime.js';
  import {createLocalPlacementDevWorkflow,STEAM626_PLACEMENT_BUILD} from './local-placement-workflow.mjs';
  import {localPlacementCopy} from './local-placement-copy.mjs';
+ import Comp03ReferencePattern from '$lib/wep/Comp03ReferencePattern.svelte';
  import {productPlacementPortScope} from './product-placement-client.mjs';
  export let trustedWorkerAdapter=null;
  export let verifiedLocalDevGate=false;
@@ -59,7 +60,7 @@
    {#if p}
     <div class="review" aria-live="polite" data-placement-preview>
      <strong>{words.verified}</strong><p>{words.grid}: {p.gridId} · Item ID: {p.itemId}</p>
-     {#if operation==='comp03'}<p>{words.seed}: {p.seedId}</p><div class="shape" aria-label={words.compDetail}>{#each Array(9) as _,i}<span class:seed={i===0}>{i===0?'1':'+'}</span>{/each}</div><p>{words.existing}: 1 · {words.added}: 8</p>
+     {#if operation==='comp03'}<p>{words.seed}: {p.seedId}</p><Comp03ReferencePattern locale={$locale}/>
      {:else}<p>X: {p.x} · Y: {p.y} · {p.orientation}</p>{/if}
      <p>{p.oldAmount} → {p.newAmount}</p><p>{detail}</p>
     </div>
@@ -76,6 +77,6 @@
  .placement{box-sizing:border-box;display:grid;gap:12px;min-width:0;max-width:100%;padding:16px;border:1px solid var(--border);border-radius:14px;overflow-wrap:anywhere}
  .placement label{display:grid;gap:5px;min-width:0}.placement input,.placement button{box-sizing:border-box;max-width:100%;min-width:0;padding:10px;font:inherit;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);color:var(--ink)}
  .placement button{min-height:44px;cursor:pointer}.placement button:disabled{opacity:.5;cursor:not-allowed}.placement .confirm{display:flex;align-items:flex-start;gap:8px}
- .review{display:grid;gap:8px;padding:12px;border:1px solid var(--border);border-radius:10px}.shape{display:grid;grid-template-columns:repeat(3,minmax(32px,52px));gap:3px}.shape span{aspect-ratio:1;display:grid;place-items:center;border:1px solid var(--border);border-radius:4px;background:var(--surface-raised)}.shape .seed{border:2px solid var(--gold)}
+ .review{display:grid;gap:8px;padding:12px;border:1px solid var(--border);border-radius:10px}
  p,h2{margin:0}code{overflow-wrap:anywhere}.placement button:focus-visible,.placement input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 </style>
