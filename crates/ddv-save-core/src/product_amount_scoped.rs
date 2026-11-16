@@ -121,6 +121,9 @@ fn layout_asset_excludes(a:&LayoutAsset,item:i32,chest:Option<(u32,i32)>)->CoreR
     Ok(())
 }
 
+#[path="product_vase_add.rs"]
+mod product_vase_add;
+
 fn hex(v:&[u8])->String{v.iter().map(|x|format!("{x:02x}")).collect()}
 fn pack()->CoreResult<&'static (Value,Value)>{
     PACK.get_or_init(||{
