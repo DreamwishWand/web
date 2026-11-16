@@ -160,3 +160,11 @@ export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFact
 
 export type ScopedComp03SpatialPreview=Readonly<{rootSceneItemId:1540000150;gridId:number;seedId:number;nextObjectId:number;anchors:readonly Readonly<{objectId:number;x:number;y:number;role:'retained'|'proposed'}>[];writerAuthorized:false;editedCopyAuthorized:false}>;
 export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{placementScope:'comp03-spatial';allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;allowSwitch626Catalog0Source?:false;backpackScope?:null;wardrobeScope?:null}):ScopedPlacementSourceOwner&Readonly<{spatialPreview():ScopedComp03SpatialPreview}>;
+
+export type PortableCatalog0Target=Readonly<{itemId:number}>;
+export type PortableChestTarget=Readonly<{containerId:number;slotIndex:number}>;
+export type PortableRestorePreview=Readonly<{itemId:number;oldAmount:number;newAmount:number;exactFieldChangedCount:1;writerAuthorized:false;editedCopyAuthorized:false;originalOverwriteAuthorized:false}>;
+export type PortableRestoreOwner<T,P>=ProductWasmReadOwner&Readonly<{capturePortableBackup(target:T):Uint8Array;previewPortableRestore(target:T,backup:Uint8Array):P;stagePortableRestore():Readonly<P&{applied:true}>;togglePortableRestore(redo:boolean):Readonly<P&{applied:boolean}>;takePortableRestoreOutput():Promise<Readonly<{decodedBytes:Uint8Array;decodedSha256:string}>>}>;
+type PortableExclusive={placementScope?:null;backpackScope?:null;wardrobeScope?:null;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;allowSwitch626Catalog0Source?:false;allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false};
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:PortableExclusive&{portableScope:'catalog0'}):PortableRestoreOwner<PortableCatalog0Target,PortableRestorePreview>;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:PortableExclusive&{portableScope:'chest'}):PortableRestoreOwner<PortableChestTarget,PortableRestorePreview&PortableChestTarget>;

@@ -1,6 +1,7 @@
 // Thin UI-only controller for two fixed placement routes. No Worker creation,
 // raw Save JSON or caller-minted CAS; actual backup/codec/ledger stay in the
 // existing local adapter. Only encrypted verified downloads leave the Worker.
+import {portableTargetOk,portableBytesOk} from '../ddv/core/save/product-scoped-portable-transport.mjs';
 import {COLLECTION_EXACT1_BUILDS} from '../collection/collection-exact1-consumer.mjs';
 import {fitViewport} from '../wep/canvas-runtime.ts';
 import {projectComp03PreviewMarkers} from '../wep/comp03-spatial-preview.ts';
@@ -43,11 +44,13 @@ function spatialReview(r,p){
  return Object.freeze({gridId:r.gridId,seedId:r.seedId,markers:overlay.markers});
 }
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation,spatialPreviewEnabled=false}={}){
- if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01'].includes(operation)||!adapter)fail();
+ if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','portable-catalog0','portable-chest'].includes(operation)||!adapter)fail();
+ const portable=operation.startsWith('portable-'),portableMode=portable?operation.slice(9):null;
  const backpack=operation==='backpack-steam'||operation==='backpack-switch',wardrobe=operation==='wardrobe-steam'||operation==='wardrobe-switch';
- const previewMethod=wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
+ const previewMethod=portable?'previewPortableRestore':wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=portable?'stagePortableRestore':wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
+ if(portable&&typeof adapter.capturePortableBackup!=='function')fail();
  for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
- const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=wardrobe?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
+ const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=portable||wardrobe?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
  if(typeof spatialPreviewEnabled!=='boolean'||(spatialPreviewEnabled&&(!comp||typeof adapter.spatialPreview!=='function')))fail();
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
@@ -82,8 +85,16 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
    r.originalName!==source.name||r.originalSha256!==source.sha||r.originalSizeBytes!==source.size||!name(r.backupName)||same(r.backupName,source.name))fail();
   backup=Object.freeze({name:r.backupName,sha:source.sha,size:source.size});return set({phase:'ready',backupName:backup.name});
  });
- const preview=selector=>run(['ready','previewed'],async check=>{
-  if(!backup||!(wardrobe?selector===undefined:backpack?backpackSelector(selector):comp?exact(selector,'seedId')&&positive(selector.seedId):sr03?exact(selector,'gridId,retainedId,movedId')&&positive(selector.gridId)&&positive(selector.retainedId)&&positive(selector.movedId)&&selector.retainedId!==selector.movedId:exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
+ const preview=(selector,portableFile)=>run(['ready','previewed'],async check=>{
+  if(!backup||!(portable?portableTargetOk(portableMode,selector):wardrobe?selector===undefined:backpack?backpackSelector(selector):comp?exact(selector,'seedId')&&positive(selector.seedId):sr03?exact(selector,'gridId,retainedId,movedId')&&positive(selector.gridId)&&positive(selector.retainedId)&&positive(selector.movedId)&&selector.retainedId!==selector.movedId:exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
+  if(portable){
+   if(!(portableFile instanceof File)||!portableFile.name.toLowerCase().endsWith('.wand.json')||portableFile.size<1||portableFile.size>1048576)fail();
+   const b=new Uint8Array(await Blob.prototype.arrayBuffer.call(portableFile));let r;
+   try{check();if(!portableBytesOk(b)||b.length!==portableFile.size)fail();r=await adapter[previewMethod]({...selector},b);check()}finally{b.fill(0)}
+   const chest=portableMode==='chest';
+   if(!exact(r,'itemId,oldAmount,newAmount,exactFieldChangedCount,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized'+(chest?',containerId,slotIndex':''))||!positive(r.itemId)||!positive(r.newAmount)||r.oldAmount!==r.newAmount+1||r.oldAmount>9999||r.exactFieldChangedCount!==1||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||r.originalOverwriteAuthorized!==false||(chest?(r.containerId!==selector.containerId||r.slotIndex!==selector.slotIndex||r.oldAmount!==50||r.newAmount!==49):r.itemId!==selector.itemId))fail();
+   return set({phase:'previewed',preview:Object.freeze({...r})});
+  }
   const r=await (wardrobe?adapter[previewMethod]():adapter[previewMethod]({...selector}));check();
   if(wardrobe){
    if(!exact(r,'slot,oldItemId,newItemId,exactFieldChangedCount,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized')||r.slot!==0||r.oldItemId!==50000352||r.newItemId!==50000214||r.exactFieldChangedCount!==1||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();
@@ -125,5 +136,6 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
   if(!exact(r,'kind,name,sha256,sizeBytes,encryptedBytes')||r.kind!=='VERIFIED_DOWNLOAD'||r.name!==bound.name||r.sha256!==bound.sha||r.sizeBytes!==bound.size||!(r.encryptedBytes instanceof Uint8Array)||r.encryptedBytes.length!==bound.size)fail();
   const b=new Uint8Array(r.encryptedBytes);try{if(await hash(b)!==bound.sha)fail();check();return {name:bound.name,encryptedBytes:b}}catch(e){b.fill(0);throw e}
  });
- return Object.freeze({snapshot,openFile,backupOriginal,preview,stage,undo,redo,exportEditedCopy,downloadVerifiedCopy,close});
+ const capturePortableBackup=selector=>run(['ready'],async check=>{if(!portable||!portableTargetOk(portableMode,selector))fail();const r=await adapter.capturePortableBackup({...selector});try{check();if(!exact(r,'name,portableBytes')||r.name!=='wand-'+portableMode+'-backup.wand.json'||!portableBytesOk(r.portableBytes))fail();return {name:r.name,portableBytes:r.portableBytes.slice()}}finally{r?.portableBytes?.fill(0)}});
+ return Object.freeze({snapshot,openFile,backupOriginal,preview,stage,undo,redo,exportEditedCopy,downloadVerifiedCopy,close,...(portable?{capturePortableBackup}:{})});
 }

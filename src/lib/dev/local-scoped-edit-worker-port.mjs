@@ -1,6 +1,7 @@
 // Existing accepted local Amount Worker RPC, extracted for one shared
 // transport. Domain is fixed by a trusted constructor; no message mode,
 // raw document, arbitrary command dispatch, or new Session/engine.
+import {portableTargetOk,portableBytesOk} from '../ddv/core/save/product-scoped-portable-transport.mjs';
 const fail=()=>{throw Error('LOCAL_DEV_WORKER_DENIED')};
 const exact=(o,k)=>o&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).sort().join(',')===k.split(',').sort().join(',');
 const uint=n=>Number.isSafeInteger(n)&&n>=1&&n<=0xffffffff;
@@ -8,7 +9,8 @@ const which=v=>v==='backup'||v==='edited';
 const placementMethods=Object.freeze({open:1,backupOriginal:0,previewPlacement:1,stagePlacement:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
 const backpackMethods=Object.freeze({open:1,backupOriginal:0,previewBackpack:1,stageBackpack:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
 const wardrobeMethods=Object.freeze({open:1,backupOriginal:0,previewWardrobe:0,stageWardrobe:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
-const methods=Object.freeze({comp03:placementMethods,'comp03-spatial':Object.freeze({...placementMethods,spatialPreview:0}),vase:placementMethods,sr03:placementMethods,rm01:placementMethods,backpack:backpackMethods,wardrobe:wardrobeMethods,
+const portableMethods=Object.freeze({open:1,backupOriginal:0,capturePortableBackup:1,previewPortableRestore:2,stagePortableRestore:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
+const methods=Object.freeze({'portable-catalog0':portableMethods,'portable-chest':portableMethods,comp03:placementMethods,'comp03-spatial':Object.freeze({...placementMethods,spatialPreview:0}),vase:placementMethods,sr03:placementMethods,rm01:placementMethods,backpack:backpackMethods,wardrobe:wardrobeMethods,
  amount:Object.freeze({open:1,backupOriginal:0,listVerifiedTargets:0,stageTyped:1,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0}),
  collection:Object.freeze({open:1,inspectCollectionTargets:0,backupOriginal:1,previewCollectionTarget:2,stageCollectionTarget:2,undo:1,redo:1,exportEditedCopy:1,downloadVerifiedCopy:2,close:0})
 });
@@ -18,6 +20,7 @@ const closedAck=r=>exact(r,'kind,ok,writerAuthorized,nativeV3Verified,originalOv
 const validArgs=(mode,m,args,allowed)=>{
  if(!Object.hasOwn(allowed,m)||!Array.isArray(args)||args.length!==allowed[m])return false;
  if(m==='downloadVerifiedCopy')return mode==='collection'?uint(args[0])&&which(args[1]):which(args[0]);
+ if(m==='capturePortableBackup'||m==='previewPortableRestore')return mode.startsWith('portable-')&&portableTargetOk(mode.slice(9),args[0])&&(m==='capturePortableBackup'||portableBytesOk(args[1]));
  if(m==='previewPlacement')return (mode==='comp03'||mode==='comp03-spatial')?exact(args[0],'seedId')&&uint(args[0].seedId):(mode==='sr03'||mode==='rm01')?exact(args[0],'gridId,retainedId,movedId')&&['gridId','retainedId','movedId'].every(k=>uint(args[0][k]))&&args[0].retainedId!==args[0].movedId:mode==='vase'&&exact(args[0],'gridId,x,y')&&uint(args[0].gridId)&&['x','y'].every(k=>Number.isSafeInteger(args[0][k])&&args[0][k]>=0&&args[0][k]<=0xffffffff);
  if(m==='previewBackpack')return mode==='backpack'&&exact(args[0],'sourceSlot,destinationSlot')&&['sourceSlot','destinationSlot'].every(k=>Number.isSafeInteger(args[0][k])&&args[0][k]>=0&&args[0][k]<256)&&args[0].sourceSlot!==args[0].destinationSlot;
  if(mode==='collection'&&['backupOriginal','undo','redo','exportEditedCopy'].includes(m))return uint(args[0]);
@@ -49,11 +52,11 @@ function install(port,adapter,mode){
   try{
    const data=await adapter[v.method](...v.args);
    if(token!==epoch){
-    if(data?.encryptedBytes instanceof Uint8Array)data.encryptedBytes.fill(0);
+    if(data?.encryptedBytes instanceof Uint8Array)data.encryptedBytes.fill(0);if(data?.portableBytes instanceof Uint8Array)data.portableBytes.fill(0);
     deny();return;
    }
    try{port.postMessage({id:v.id,ok:true,data})}finally{
-    if(data?.encryptedBytes instanceof Uint8Array)data.encryptedBytes.fill(0);
+    if(data?.encryptedBytes instanceof Uint8Array)data.encryptedBytes.fill(0);if(data?.portableBytes instanceof Uint8Array)data.portableBytes.fill(0);
    }
   }catch{deny()}
   finally{if(active===v.id)active=null}
@@ -65,10 +68,10 @@ function createPort(worker,mode){
  const stop=()=>{if(dead)return;dead=true;for(const p of pending.values())p.reject(Error('DEV_WORKER_CLOSED'));pending.clear();try{worker.terminate()}catch{}};
  worker.onmessage=e=>{
   const v=e.data,p=pending.get(v?.id);
-  if(!p){if(v?.data?.encryptedBytes instanceof Uint8Array)v.data.encryptedBytes.fill(0);return}
+  if(!p){if(v?.data?.encryptedBytes instanceof Uint8Array)v.data.encryptedBytes.fill(0);if(v?.data?.portableBytes instanceof Uint8Array)v.data.portableBytes.fill(0);return}
   pending.delete(v.id);
   if(!exact(v,v.ok===true?'id,ok,data':'id,ok,error')||v.ok!==true){
-   if(v?.data?.encryptedBytes instanceof Uint8Array)v.data.encryptedBytes.fill(0);
+   if(v?.data?.encryptedBytes instanceof Uint8Array)v.data.encryptedBytes.fill(0);if(v?.data?.portableBytes instanceof Uint8Array)v.data.portableBytes.fill(0);
    p.reject(Error('DEV_WORKER_DENIED'));return;
   }
   p.resolve(v.data);
@@ -104,3 +107,8 @@ export const createLocalRm01DevPort=worker=>createPort(worker,'rm01');
 
 export const installLocalComp03SpatialDevWorker=(port,adapter)=>install(port,adapter,'comp03-spatial');
 export const createLocalComp03SpatialDevPort=worker=>createPort(worker,'comp03-spatial');
+
+export const installLocalCatalog0PortableWorker=(port,adapter)=>install(port,adapter,'portable-catalog0');
+export const createLocalCatalog0PortablePort=worker=>createPort(worker,'portable-catalog0');
+export const installLocalChestPortableWorker=(port,adapter)=>install(port,adapter,'portable-chest');
+export const createLocalChestPortablePort=worker=>createPort(worker,'portable-chest');

@@ -9,6 +9,7 @@ import {PROTECTED_RM01_RELEASE_ANCHOR} from './product-scoped-rm01-release-ancho
 import {PROTECTED_STEAM_BACKPACK_RELEASE_ANCHOR,PROTECTED_SWITCH_BACKPACK_RELEASE_ANCHOR} from './product-scoped-backpack-release-anchor.mjs';
 import {PROTECTED_STEAM_WARDROBE_RELEASE_ANCHOR,PROTECTED_SWITCH_WARDROBE_RELEASE_ANCHOR} from './product-scoped-wardrobe-release-anchor.mjs';
 import {PROTECTED_COMP03_SPATIAL_RELEASE_ANCHOR} from './product-scoped-comp03-spatial-release-anchor.mjs';
+import {PROTECTED_CATALOG0_PORTABLE_RELEASE_ANCHOR,PROTECTED_CHEST_PORTABLE_RELEASE_ANCHOR} from './product-scoped-portable-release-anchor.mjs';
 const fail=()=>{throw Error('SCOPED_PLACEMENT_RELEASE_DENIED')};
 const exact=(o,k)=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).sort().join(',')===k.split(',').sort().join(',');
 const sha=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x),head=x=>typeof x==='string'&&/^[a-f0-9]{40}$/.test(x);
@@ -17,8 +18,8 @@ const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const digest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
 const buildId='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
-function spec(key,operation,feature,preview,stage,path,platform='steam-windows',build=buildId,extraMethods=[]){
- const methods=Object.freeze(['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page',preview,stage,...extraMethods,'toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close']);
+function spec(key,operation,feature,preview,stage,path,platform='steam-windows',build=buildId,extraMethods=[],lifecycle=['toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk']){
+ const methods=Object.freeze(['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page',preview,stage,...extraMethods,...lifecycle,'close']);
  const exports=Object.freeze(['memory','__wbg_workerwasmsource_free','workerwasmsource_new',...methods.map(n=>'workerwasmsource_'+n),'__wbindgen_externrefs','__wbindgen_malloc','__externref_table_dealloc','__wbindgen_realloc','__wbindgen_free','__wbindgen_start'].sort());
  return Object.freeze({key,operation,platform,buildId:build,features:Object.freeze([feature,'worker-wasm']),methods,exports,path,assetDir:'worker-wasm-scoped-'+key,prefix:'wand.scoped-'+key});
 }
@@ -32,7 +33,9 @@ export const STEAM_WARDROBE_RELEASE=spec('steam626-wardrobe','steam626.wardrobe.
 export const SWITCH_WARDROBE_RELEASE=spec('switch626-wardrobe','switch626.wardrobe.same-slot.exact1','product-switch626-wardrobe-scoped','preview_switch626_wardrobe','stage_switch626_wardrobe','/editor/wardrobe/switch/','switch','9A239D3DB569756D');
 export const SR03_RELEASE=spec('steam626-sr03','steam626.sr03.mixed-q5.exact8','product-steam626-sr03-scoped','preview_steam626_sr03','stage_steam626_sr03','/editor/world/sr03/');
 export const RM01_RELEASE=spec('switch626-rm01','switch626.rm01.mixed-q5.exact8','product-switch626-rm01-scoped','preview_switch626_rm01','stage_switch626_rm01','/editor/world/rm01/switch/','switch','9A239D3DB569756D');
-const known=s=>s===RM01_RELEASE||s===SR03_RELEASE||s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE||s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
+const portableSpec=mode=>spec('steam626-'+mode+'-portable-restore','steam626.'+mode+'.portable-restore.exact1','product-steam626-'+mode+'-portable-restore','preview_'+mode+'_portable_restore','stage_'+mode+'_portable_restore','/editor/backup/'+mode+'/steam/','steam-windows',buildId,['capture_'+mode+'_portable_backup'],['toggle_'+mode+'_portable_restore','begin_'+mode+'_portable_restore_output','next_'+mode+'_portable_restore_output_chunk']);
+export const CATALOG0_PORTABLE_RELEASE=portableSpec('catalog0'),CHEST_PORTABLE_RELEASE=portableSpec('chest');
+const known=s=>s===CATALOG0_PORTABLE_RELEASE||s===CHEST_PORTABLE_RELEASE||s===RM01_RELEASE||s===SR03_RELEASE||s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE||s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
 const asset=(a,n,max)=>exact(a,'path,sizeBytes,sha256')&&a.path===n&&size(a.sizeBytes,max)&&sha(a.sha256);
 export function placementPinsOk(s,p){return known(s)&&exact(p,'contract,sourceHead,manifestSha256,manifestSizeBytes,jsSha256,jsSizeBytes,wasmSha256,wasmSizeBytes')&&p.contract===s.prefix+'.pinned-digests@1'&&head(p.sourceHead)&&[p.manifestSha256,p.jsSha256,p.wasmSha256].every(sha)&&size(p.manifestSizeBytes,64*1024)&&size(p.jsSizeBytes,2*1024*1024)&&size(p.wasmSizeBytes,20*1024*1024)}
 export function placementManifestOk(s,m,p,tuple=ACTIVE_RELEASE_TUPLE){
@@ -69,7 +72,8 @@ async function load(s,a){
  if(wasm[0]!==0||wasm[1]!==97||wasm[2]!==115||wasm[3]!==109)fail();
  const backpack=s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE,wardrobe=s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
  const comp03=s===COMP03_RELEASE||s===COMP03_SPATIAL_RELEASE;
- const denied=new RegExp(baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack||wardrobe?'(?:comp03|vase_add|sr03)':comp03?'(?:vase_add|sr03)':s===VASE_ADD_RELEASE?'(?:comp03|sr03)':'(?:comp03|vase_add)')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split'+'|(?:preview|stage)_'+(wardrobe?(s===STEAM_WARDROBE_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_wardrobe'+(s===COMP03_SPATIAL_RELEASE?'':'|preview_steam626_comp03_spatial')+(s===RM01_RELEASE?'|(?:preview|stage)_steam626_sr03':'|(?:preview|stage)_switch626_rm01'),'i');
+ const portableDenied=s===CATALOG0_PORTABLE_RELEASE?'(?:capture|preview|stage|toggle|begin|next)_chest_portable':s===CHEST_PORTABLE_RELEASE?'(?:capture|preview|stage|toggle|begin|next)_catalog0_portable':'(?:capture|preview|stage|toggle|begin|next)_(?:catalog0|chest)_portable';
+ const denied=new RegExp(portableDenied+'|'+baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack||wardrobe?'(?:comp03|vase_add|sr03)':comp03?'(?:vase_add|sr03)':s===VASE_ADD_RELEASE?'(?:comp03|sr03)':'(?:comp03|vase_add)')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split'+'|(?:preview|stage)_'+(wardrobe?(s===STEAM_WARDROBE_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_wardrobe'+(s===COMP03_SPATIAL_RELEASE?'':'|preview_steam626_comp03_spatial')+(s===RM01_RELEASE?'|(?:preview|stage)_steam626_sr03':'|(?:preview|stage)_switch626_rm01'),'i');
  const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{deniedSymbol:denied,requiredMethods:s.methods,exactPrototype:true,exactWasmExports:s.exports});
  return Object.freeze({WorkerWasmSource,sourceHead:p.sourceHead,checkedBothJsAndWasm:true,sameOriginFetchOnly:true,writerAuthorized:false,productConsumerEnabled:false,attestationVerifiedAtBuild:true,...scope(s,a)});
 }
@@ -98,3 +102,6 @@ export const getRm01MountInfo=rm01.mount,loadProtectedRm01RustWasm=rm01.runtime;
 // Explicit optional identity; never selected by legacy method discovery.
 const spatial=fixed(COMP03_SPATIAL_RELEASE,PROTECTED_COMP03_SPATIAL_RELEASE_ANCHOR);
 export const getComp03SpatialMountInfo=spatial.mount,loadProtectedComp03SpatialRustWasm=spatial.runtime;
+
+const catalog0Portable=fixed(CATALOG0_PORTABLE_RELEASE,PROTECTED_CATALOG0_PORTABLE_RELEASE_ANCHOR),chestPortable=fixed(CHEST_PORTABLE_RELEASE,PROTECTED_CHEST_PORTABLE_RELEASE_ANCHOR);
+export const getCatalog0PortableMountInfo=catalog0Portable.mount,loadProtectedCatalog0PortableRustWasm=catalog0Portable.runtime,getChestPortableMountInfo=chestPortable.mount,loadProtectedChestPortableRustWasm=chestPortable.runtime;
