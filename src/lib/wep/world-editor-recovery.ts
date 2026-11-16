@@ -80,10 +80,16 @@ function keyFor(fingerprint: string) {
   return PREFIX + normalizeFingerprint(fingerprint);
 }
 
+function validRouteKey(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 &&
+    !Object.hasOwn(Object.prototype, value) &&
+    value !== '__proto__' && value !== 'prototype' && value !== 'constructor';
+}
+
 function normalizeSnapshot(value: any): RecoveryRouteSnapshot {
   assert(value && typeof value === 'object', 'WEP_RECOVERY_ROUTE_INVALID');
-  const routeKey = String(value.routeKey ?? '');
-  assert(routeKey, 'WEP_RECOVERY_ROUTE_KEY_REQUIRED');
+  const routeKey = value.routeKey;
+  assert(validRouteKey(routeKey), 'WEP_RECOVERY_ROUTE_KEY_REQUIRED');
   assert(value.session && typeof value.session === 'object', 'WEP_RECOVERY_SESSION_REQUIRED');
   const savedAt = new Date(value.savedAt ?? '').toISOString();
   return {
@@ -107,14 +113,25 @@ export function normalizeRecoveryRecord(value: unknown): WorldEditorRecoveryReco
   ]) {
     assert(input[key] === false, 'WEP_RECOVERY_SAFETY_FLAG_INVALID');
   }
+  assert(
+    input.routes !== null && typeof input.routes === 'object' &&
+      !Array.isArray(input.routes) &&
+      (Object.getPrototypeOf(input.routes) === Object.prototype ||
+        Object.getPrototypeOf(input.routes) === null),
+    'WEP_RECOVERY_ROUTES_INVALID'
+  );
   const routes: Record<string, RecoveryRouteSnapshot> = {};
-  for (const [key, route] of Object.entries(input.routes ?? {})) {
+  for (const [key, route] of Object.entries(input.routes)) {
+    assert(validRouteKey(key), 'WEP_RECOVERY_ROUTE_KEY_REQUIRED');
     const normalized = normalizeSnapshot(route);
     assert(normalized.routeKey === key, 'WEP_RECOVERY_ROUTE_INDEX_MISMATCH');
     routes[key] = normalized;
   }
-  const activeRouteKey = String(input.activeRouteKey ?? '');
-  assert(activeRouteKey && routes[activeRouteKey], 'WEP_RECOVERY_ACTIVE_ROUTE_INVALID');
+  const activeRouteKey = input.activeRouteKey;
+  assert(
+    validRouteKey(activeRouteKey) && Object.hasOwn(routes, activeRouteKey),
+    'WEP_RECOVERY_ACTIVE_ROUTE_INVALID'
+  );
   return {
     schema: WORLD_EDITOR_RECOVERY_SCHEMA,
     version: 1,
@@ -141,6 +158,26 @@ function readIndex(storage: StorageLike) {
   } catch {
     return [];
   }
+}
+
+// Checkpoint must never replace an unreadable index with a fresh empty index.
+function readCheckpointIndex(storage: StorageLike) {
+  const raw = storage.getItem(WORLD_EDITOR_RECOVERY_INDEX_KEY);
+  if (raw === null) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('WEP_RECOVERY_INDEX_INVALID');
+  }
+  assert(
+    Array.isArray(parsed) &&
+      parsed.length <= 20 &&
+      parsed.every((value) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value)) &&
+      new Set(parsed).size === parsed.length,
+    'WEP_RECOVERY_INDEX_INVALID'
+  );
+  return parsed as string[];
 }
 
 function writeIndex(storage: StorageLike, fingerprints: string[]) {
@@ -216,12 +253,21 @@ export function saveRecoveryRoute(
   const fingerprint = normalizeFingerprint(sourceFingerprint);
   let existing: WorldEditorRecoveryRecord | null = null;
   const raw = storage.getItem(keyFor(fingerprint));
-  if (raw) {
+  const index = readCheckpointIndex(storage);
+  if (raw !== null) {
     try {
       existing = normalizeRecoveryRecord(JSON.parse(raw));
     } catch {
-      existing = null;
+      // A broken recovery is evidence and may be recoverable offline.
+      // Never replace it merely because a new checkpoint was attempted.
+      throw new Error('WEP_RECOVERY_EXISTING_RECORD_INVALID');
     }
+    assert(
+      recoveryCompatible(existing, fingerprint, target),
+      'WEP_RECOVERY_EXISTING_TARGET_MISMATCH'
+    );
+  } else {
+    assert(!index.includes(fingerprint), 'WEP_RECOVERY_INDEX_RECORD_MISSING');
   }
   const record = createRecoveryRecord({
     sourceFingerprint: fingerprint,
@@ -233,7 +279,7 @@ export function saveRecoveryRoute(
     now
   });
   storage.setItem(keyFor(fingerprint), JSON.stringify(record));
-  writeIndex(storage, [...readIndex(storage), fingerprint]);
+  writeIndex(storage, [...index, fingerprint]);
   return record;
 }
 
