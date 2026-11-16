@@ -120,4 +120,32 @@ mod tests{
   let mut q=d.clone();let mut ambient=q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"].clone();ambient["ID"]=json!(13);ambient["ItemID"]=json!(40005494);ambient["Orientation"]=json!("GridOrientation_UpLeft");q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["13"]=ambient;
   let s=open(&q,FRP_BUILD,624);assert_eq!(s.mint_switch624_frp01_target(env(&s),90001,ids).unwrap_err().0,"FRP01_TARGET_GEOMETRY");
  }
+
+ #[cfg(feature="product-switch624-frp01-readonly")]
+ #[test]fn qa1857_rotated_full_envelope_and_target(){
+  let mut d=doc();let p=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();
+  let(x,y)=(20..350u32).step_by(2).flat_map(|a|(20..160u32).step_by(2).map(move|b|(a,b))).find(|&(a,b)|(0..2).all(|i|(0..6).all(|j|p.floor4(a+i,b+j)))).unwrap();
+  for(i,id)in ["10","11","12"].into_iter().enumerate(){let o=&mut d["World"]["GridCollection"]["Grids"]["90001"]["Objects"][id];o["X"]=json!(x);o["Y"]=json!(y+2*i as u32);}
+  let pack=Frp624Geometry::fixed(FRP_BUILD,624).unwrap();
+  let row=|a:&str,x:u32,y:u32|json!({"ID":13,"ItemID":40005494,"X":x,"Y":y,"Orientation":a,"State":null});
+  let check=|o:Value,ok:bool|{let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["13"]=o;let s=open(&q,FRP_BUILD,624);let before=s.receipt().unwrap();let r=s.mint_switch624_frp01_target(env(&s),90001,[10,11,12]);assert_eq!(r.is_ok(),ok);if let Ok(t)=r{assert_eq!((t.next,t.old_stock,t.new_stock),(50,10,20));assert_eq!(t.grid_sha,sha(&serde_json::to_vec(&q["World"]["GridCollection"]["Grids"]["90001"]).unwrap()));}assert_eq!(s.receipt().unwrap(),before);};
+  let mut pos=0;let mut neg=0;
+  for a in ["GridOrientation_DownLeft","GridOrientation_UpRight","GridOrientation_DownRight","GridOrientation_UpLeft"]{
+   // Right/bottom edge contact and left/top 14-cell envelope contact, then one-cell overlap.
+   for (ax,ay) in [(x+4,y),(x-16,y),(x,y+8),(x,y-16)]{check(row(a,ax,ay),true);pos+=1;}
+   for (ax,ay) in [(x+3,y),(x-15,y),(x,y+7),(x,y-15)]{check(row(a,ax,ay),false);neg+=1;}
+  }
+  let a="GridOrientation_UpLeft";let o=row(a,x+4,y);
+  assert!(pack.rotated_furniture(&o,(2,18)).is_none());neg+=1;
+  assert!(pack.rotated_furniture(&o,(18,1)).is_none());neg+=1;
+  for(k,v)in [("ID",json!(0)),("ItemID",json!(40005495)),("X",json!(u32::MAX)),("Y",json!(u32::MAX)),("Orientation",json!("GridOrientation_Unknown")),("State",json!({"Unknown":true})),("Extra",json!(true))]{let mut q=o.clone();q[k]=v;assert!(pack.rotated_furniture(&q,(18,2)).is_none());neg+=1;}
+  check(row("GridOrientation_Unknown",x+4,y),false);neg+=1;
+  let mut q=o.clone();q["State"]=json!({"Unknown":true});check(q,false);neg+=1;
+  check(row("GridOrientation_Down",x+4,y),true);pos+=1;
+  check(row("GridOrientation_Down",x+3,y),false);neg+=1;
+  let s=open(&d,FRP_BUILD,624);assert!(s.mint_switch624_frp01_target(env(&s),90001,[10,11,11]).is_err());neg+=1;
+  let mut q=d.clone();q["Opaque"]=json!({"GridID":90001,"ObjectID":50});let s=open(&q,FRP_BUILD,624);assert!(s.mint_switch624_frp01_target(env(&s),90001,[10,11,12]).is_err());neg+=1;
+  assert_eq!((pos,neg),(17,30));println!("QRC1857_FRP624_ROTATED_ACTUAL {pos}POS {neg}NEG FULL14x14 HALO2 READONLY");
+ }
+
 }
