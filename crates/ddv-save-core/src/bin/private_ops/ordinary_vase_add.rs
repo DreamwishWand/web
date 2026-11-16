@@ -1,6 +1,8 @@
 //! Existing private V2 executor dispatch; no public Worker route or key handling.
 use super::*;
-pub(super) fn run(){
+pub(super) fn run(){run_mode(false)}
+pub(super) fn run_delete(){run_mode(true)}
+fn run_mode(deleting:bool){
  if env::args_os().count()!=2||required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=STEAM||
     env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty()){deny("VASE_BUILD")}
  let original=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));let backup=hex32(&required("WAND_LOCAL_BACKUP_SHA256"));
@@ -18,9 +20,12 @@ pub(super) fn run(){
      contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
      expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action}};
  let e=scope(WorkerAction::Stage);
- let r=s.stage_private_steam626_ordinary_vase_add_exact3(e,plan.as_bytes()).unwrap_or_else(|_|deny("VASE_STAGE"));
- if r.operation_count!=3||r.exact_field_changed_count!=3||r.product_writer_authorized||r.original_overwrite_authorized||
-     r.revision!=1||r.index_generation!=2||s.stage_private_steam626_ordinary_vase_add_exact3(e,plan.as_bytes()).is_ok(){deny("VASE_STAGE_RECEIPT")}
+ let stage=|e|if deleting{s.stage_private_steam626_ordinary_vase_delete_exact2(e,plan.as_bytes())}
+     else{s.stage_private_steam626_ordinary_vase_add_exact3(e,plan.as_bytes())};
+ let r=stage(e).unwrap_or_else(|_|deny("VASE_STAGE"));
+ let count=if deleting{2}else{3};
+ if r.operation_count!=count||r.exact_field_changed_count!=count||r.product_writer_authorized||r.original_overwrite_authorized||
+     r.revision!=1||r.index_generation!=2||stage(e).is_ok(){deny("VASE_STAGE_RECEIPT")}
  if s.undo_typed_semantic_batch(scope(WorkerAction::Stage)).is_err()||
      s.take_typed_semantic_decoded_once(scope(WorkerAction::ExportEditedCopy)).is_ok(){deny("VASE_UNDO")}
  if s.redo_typed_semantic_batch(scope(WorkerAction::Stage)).is_err(){deny("VASE_REDO")}
