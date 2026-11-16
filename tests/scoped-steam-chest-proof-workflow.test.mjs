@@ -32,7 +32,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "scripts/readonly-release/seal-scoped-steam-chest-private.mjs",
-    "f0d27044af7edcbd9e614f23a90da1e9deb4a023"
+    "bf3ab5129e072f64d18ede2ce2b3055e61aef485"
   ],
   [
     "scripts/readonly-release/seal.mjs",
@@ -72,7 +72,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-    "10cccffef547265fead5096e8ed342a639a4be2e"
+    "eef37e2a1b027134439e686ea5e47501339bbace"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
@@ -80,15 +80,15 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-    "38b2097c748c563955dff817d9ce287a1987fc31"
+    "ee5929266406bb9a17e1e0a3fc9bce3cb15607f6"
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-    "fdd485a11d9f41a24fdefd2d8603c055e19408bd"
+    "ae89e25ad3cdc48d8b4e23e7eabc6ba92998b553"
   ],
   [
     "src/lib/dev/local-scoped-edit-worker-port.mjs",
-    "1c62e99e9f56e1fb034c12c18f97fb55ac14a4b4"
+    "1d5eacaabfb27a244a68c6a07cd22feba7eb57c2"
   ],
   [
     "src/lib/dev/local-amount-workflow.mjs",
@@ -116,7 +116,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.d.mts",
-    "ea035656d13a8498f0433c900a8eb98817285f6c"
+    "f20fc6081da2bf67db72e668a11a888966cbbd86"
   ]
 ]);
 });
