@@ -1,0 +1,49 @@
+name: 04 QR-S current exact33 and R01 projected pins (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1387-current-exact33-r01-pins.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 402d2667031f138040ea5c887ff2d83df01f8577
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact raw current pins, accepted postimages and projected R01 pin-only delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-current-pins.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'}),blob=(r,p)=>g('rev-parse',r+':'+p),diff=(a,b)=>g('diff','--name-only','--no-renames',a,b).split('\n'),main='44c6cc91ed797db7b58555252731dd7664132e24',foreign='c33e7659e896f844b198d69670b515348bd0347b',steam='ed4519ebf09c35fc717d2c16792f837b5b4fa6b0',current='70d65a8c53023a1898e19912c2d3f1d5314ca767',r01='402d2667031f138040ea5c887ff2d83df01f8577',wf='.github/workflows/pages.yml',tests=['tests/scoped-steam-chest-proof-workflow.test.mjs','tests/scoped-switch-chest-proof-workflow.test.mjs','tests/scoped-sr03-spatial-proof-workflow.test.mjs'];
+          const pins=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g)].map(m=>[m[1],m[2]]);
+          const map=s=>new Map(pins(s)),apply=(s,swaps)=>swaps.reduce((t,[a,b])=>t.split(a).join(b),s),counts=(s,swaps)=>swaps.reduce((n,[a])=>n+s.split(a).length-1,0),inv=s=>s.map(([a,b])=>[b,a]);
+          const lock='scripts/wasm-distribution/approved-Cargo.lock',fixedPaths=['crates/ddv-save-core','scripts/wasm-distribution/protected-release-inputs.json','scripts/wasm-distribution/r22-accepted-rust-scope.mjs',lock,'scripts/readonly-release/scoped-placement-proof.mjs'];
+          assert.equal(g('rev-parse','HEAD'),r01);assert.equal(g('rev-parse',current+'^{tree}'),'1798409d44c635e8650cde2bcaebf6b7d7f50f60');assert.equal(g('rev-parse',r01+'^{tree}'),'444ab31b184233d26fb2a0b4a8d2b0fe5fb0f78f');
+          assert.equal(diff(main,current).length,33);assert.equal(diff(current,r01).length,21);assert.equal(diff(main,steam).length,23);assert.equal(diff(main,foreign).length,9);
+          for(const p of diff(main,steam))assert.equal(blob(current,p),blob(steam,p),p);
+          for(const p of diff(main,foreign).filter(p=>![wf,...tests].includes(p)))assert.equal(blob(current,p),blob(foreign,p),p);
+          for(const p of fixedPaths){assert.equal(blob(current,p),blob(main,p));assert.equal(blob(r01,p),blob(main,p))}
+          const run=(base,head,expected,expectedCounts)=>{
+            const a=raw(base,wf),b=raw(head,wf),old=map(a),next=map(b),paths=[...next].filter(([p,h])=>old.get(p)!==h);assert.equal(paths.length,expected);assert.deepEqual([...old.keys()],[...next.keys()]);
+            const swaps=paths.map(([p,h])=>{assert.equal(blob(head,p),h);assert.equal(blob(base,p),old.get(p));return [old.get(p),h]});
+            const pp=pins(b);assert.equal(pp.length,172);for(const [p,h] of pp)assert.equal(blob(head,p),h,p);
+            for(const [i,p] of [wf,...tests].entries()){const x=raw(base,p),y=raw(head,p);assert.equal(counts(x,swaps),expectedCounts[i],p);assert.equal(apply(x,swaps),y,p);assert.equal(apply(y,inv(swaps)),x,p)}
+            return {paths:paths.length,pins:pp.length,literals:expectedCounts.reduce((x,y)=>x+y,0)};
+          };
+          const steamResult=run(foreign,current,11,[42,5,4,33]);
+          console.log('ACT1387_PR1766_CURRENT_EXACT33_L2_PASS',JSON.stringify({...steamResult,actualGit:true,acceptedWeb23:true,foreign6:true,protectedAcceptance:false}));
+          const r01Result=run(current,r01,13,[50,6,5,39]);
+          for(const p of diff(main,foreign).filter(p=>![wf,...tests].includes(p)))assert.equal(blob(r01,p),blob(foreign,p),p);
+          console.log('ACT1387_PR1773_PROJECTED_EXACT21_PIN_L2_PASS',JSON.stringify({...r01Result,actualGit:true,projectedParent:true,protectedAcceptance:false,webQASeparate:true}));
+          EOF
+          node qa-current-pins.mjs
