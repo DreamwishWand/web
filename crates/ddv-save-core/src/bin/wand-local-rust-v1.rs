@@ -129,8 +129,9 @@ fn run(){
     // The accepted no-argument V1 path remains byte-for-byte behaviorally
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
+    let switch_wardrobe=argv.first().is_some_and(|s|s=="--switch626-wardrobe-same-slot-receipt-only");
     let wardrobe_output=match argv.as_slice(){
-        [flag,slot,old,new,out,path] if flag=="--wardrobe-same-slot-receipt-only"&&out=="--out"=>{
+        [flag,slot,old,new,out,path] if (flag=="--wardrobe-same-slot-receipt-only"||switch_wardrobe)&&out=="--out"=>{
             if slot!="0"{denied("WARDROBE_SLOT_SELECTOR")}
             Some((collection_selector(old,5),collection_selector(new,5),pinned_private_output(path)))
         },
@@ -155,7 +156,7 @@ fn run(){
             collection_selector(t,if switch_collection||steam_furniture{4}else{3}),pinned_private_output(path)))),
       _=>denied("UNTRUSTED_CLI_ARGS"),
     };
-    if switch_collection{
+    if switch_collection||switch_wardrobe{
       if required("WAND_LOCAL_INSTALLED_SWITCH_BID")!=EXACT_SWITCH_BID||
          env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty()){
         denied("EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED");
@@ -183,9 +184,9 @@ fn run(){
       denied("DECODED_SOURCE_SHA_MISMATCH");
     }
     let build=BuildIdentity{
-      platform:if switch_collection{Platform::Switch}else{Platform::SteamWindows},
-      build_kind:if switch_collection{BuildKind::SwitchBid}else{BuildKind::SteamFullVersion},
-      build_id:if switch_collection{EXACT_SWITCH_BID}else{EXACT_STEAM_VERSION}.to_owned(),
+      platform:if switch_collection||switch_wardrobe{Platform::Switch}else{Platform::SteamWindows},
+      build_kind:if switch_collection||switch_wardrobe{BuildKind::SwitchBid}else{BuildKind::SteamFullVersion},
+      build_id:if switch_collection||switch_wardrobe{EXACT_SWITCH_BID}else{EXACT_STEAM_VERSION}.to_owned(),
       schema:626,externally_attested:true
     };
     let session=ProductSession::open_decoded_readonly(decoded,build)
@@ -207,12 +208,20 @@ fn run(){
       action:WorkerAction::ReadDomain
     };
     if let Some((old,new,path))=wardrobe_output{
-        let witness=session.read_private_wardrobe_same_slot(scope,0,old,new)
+        let witness=(if switch_wardrobe{session.read_private_switch626_wardrobe_same_slot(scope,0,old,new)}
+            else{session.read_private_wardrobe_same_slot(scope,0,old,new)})
             .unwrap_or_else(|_|denied("WARDROBE_SAME_SLOT_READ_DENIED"));
         let mut out=witness.to_private_receipt_json();
         let a=&out["avatar"];
-        if out["contract"]!="wand.native.private.wardrobe-same-slot-readset@1"||
-           a["platform"]!="SteamWindows"||a["fullVersion"]!=EXACT_STEAM_VERSION||a["schema"]!=626||
+        let build_ok=if switch_wardrobe{
+            out["contract"]=="wand.native.private.switch626.wardrobe-same-slot-readset@1"&&
+            a["contract"]=="wand.native.private.switch626.active-avatar-read@1"&&
+            a["platform"]=="Switch"&&a["buildKind"]=="SwitchBid"&&a["buildId"]==EXACT_SWITCH_BID&&a.get("fullVersion").is_none()
+        }else{
+            out["contract"]=="wand.native.private.wardrobe-same-slot-readset@1"&&
+            a["platform"]=="SteamWindows"&&a["fullVersion"]==EXACT_STEAM_VERSION
+        };
+        if !build_ok||a["schema"]!=626||
            a["sessionId"]!=hex_bytes(&receipt.session_id)||a["decodedSha256"]!=hex_bytes(&receipt.decoded_sha256)||
            a["revision"]!=receipt.revision||a["indexGeneration"]!=receipt.index_generation||
            out["slot"]!=0||out["oldItemId"]!=old||out["proposedItemId"]!=new||
