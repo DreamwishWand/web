@@ -40,7 +40,7 @@ fn stage(session:&ProductSession,commands:&[TypedSemanticCommand]){
 }
 #[test]
 fn registry_is_closed_source_only_no_product_writer_authority(){
- assert_eq!(TYPED_OPERATION_REGISTRY.len(),7);
+ assert_eq!(TYPED_OPERATION_REGISTRY.len(),9);
  assert!(TYPED_OPERATION_REGISTRY[0].dev_implementation);
  assert!(TYPED_OPERATION_REGISTRY[1].dev_implementation);
  assert!(TYPED_OPERATION_REGISTRY[2..5].iter().all(|r|!r.dev_implementation));
@@ -50,6 +50,9 @@ fn registry_is_closed_source_only_no_product_writer_authority(){
  assert_eq!(TYPED_OPERATION_REGISTRY[6].name,"road.switch626.rm01.mixed-q5@1");
  assert_eq!(TYPED_OPERATION_REGISTRY[6].schema,626);
  assert!(TYPED_OPERATION_REGISTRY[6].dev_implementation);
+ assert_eq!(TYPED_OPERATION_REGISTRY[7].name,"appearance.steam626.active-hair-color.exact1@1");
+ assert_eq!(TYPED_OPERATION_REGISTRY[8].name,"appearance.steam626.character-skin.exact1@1");
+ assert!(TYPED_OPERATION_REGISTRY[7..].iter().all(|r|r.dev_implementation&&r.schema==626));
  assert!(TYPED_OPERATION_REGISTRY.iter().all(|r|!r.native_v3_verified&&!r.product_enabled));
  let s=open(ORIGINAL.as_bytes());
  assert!(!s.receipt().unwrap().writer_authorized);

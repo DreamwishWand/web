@@ -53,6 +53,26 @@ impl WorkerSessionGuard {
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         self.session.read_saved_diffgrids_page(scope,cursor)
     }
+    #[cfg(feature="product-steam626-hair-scoped")]
+    pub(crate) fn preview_steam626_hair(&self,e:WorkerEnvelope,new:i32)->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_steam626_hair_bound_worker(e,new)
+    }
+    #[cfg(feature="product-steam626-hair-scoped")]
+    pub(crate) fn stage_steam626_hair(&self,e:WorkerEnvelope,new:i32,expected:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.stage_steam626_hair_bound_worker(e,new,expected,projected)
+    }
+    #[cfg(feature="product-steam626-skin-scoped")]
+    pub(crate) fn preview_steam626_skin(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_steam626_skin_bound_worker(e,character,new)
+    }
+    #[cfg(feature="product-steam626-skin-scoped")]
+    pub(crate) fn stage_steam626_skin(&self,e:WorkerEnvelope,character:i32,new:i32,expected:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.stage_steam626_skin_bound_worker(e,character,new,expected,projected)
+    }
     #[cfg(feature="product-steam626-sr03-scoped")]
     pub(crate) fn preview_sr03_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32)->CoreResult<serde_json::Value>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}

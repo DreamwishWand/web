@@ -35,7 +35,7 @@ pub struct WorkerWasmSource {
 }
 #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 #[derive(Clone,Copy,PartialEq,Eq)]
-enum ScopedEditDomain { Amount, Collection, SwitchChest, Comp03, Sr03, SwitchRm01 }
+enum ScopedEditDomain { Amount, Collection, SwitchChest, Comp03, Sr03, SwitchRm01, Hair, Skin }
 #[wasm_bindgen]
 impl WorkerWasmSource {
     #[wasm_bindgen(constructor)]
@@ -292,7 +292,7 @@ impl WorkerWasmSource {
         }
         Ok(out)
     }
-    #[cfg(all(feature="product-collection-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-collection-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn preview_scoped_collection_candidate(&self,definition:u32,group:u32,item:u32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(session_id)?,expected_revision:revision,expected_index_generation:index_generation,expected_decoded_sha256:from_hex(decoded_sha256)?,action:WorkerAction::ReadDomain};
@@ -300,14 +300,14 @@ impl WorkerWasmSource {
     }
     // Exact fixed Collection command; old=false/new=true is intrinsic,
     // never a JS-coerced boolean or a generic path/value mutation.
-    #[cfg(all(all(feature="product-collection-scoped",feature="semantic-writer-dev"),not(any(feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(all(feature="product-collection-scoped",feature="semantic-writer-dev"),not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn preview_fixed_collection(&self,definition:u32,group:u32,item:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         Ok(guard.preview_fixed_collection(e,definition,group as usize,item).map_err(|e|err(e.0))?.to_string())
     }
-    #[cfg(all(all(feature="product-collection-scoped",feature="semantic-writer-dev"),not(any(feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(all(feature="product-collection-scoped",feature="semantic-writer-dev"),not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn stage_fixed_collection(&self,definition:u32,group:u32,item:u32,entry_sha256:&str,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -316,13 +316,41 @@ impl WorkerWasmSource {
         self.scoped_domain.set(Some(ScopedEditDomain::Collection));
         Ok(scoped_edit_receipt(r,"wand.worker.scoped-edit@1"))
     }
-    #[cfg(all(feature="product-steam626-sr03-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
+    #[cfg(all(feature="product-steam626-hair-scoped",not(any(feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
+    pub fn preview_steam626_hair(&self,new:i32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        Ok(guard.preview_steam626_hair(e,new).map_err(|e|err(e.0))?.to_string())
+    }
+    #[cfg(all(feature="product-steam626-hair-scoped",not(any(feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
+    pub fn stage_steam626_hair(&self,new:i32,readset_sha:&str,projected:&str,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        let r=guard.stage_steam626_hair(e,new,readset_sha,from_hex(projected)?).map_err(|e|err(e.0))?;
+        self.scoped_domain.set(Some(ScopedEditDomain::Hair));
+        Ok(scoped_edit_receipt(r,"wand.worker.steam626.scoped-hair-exact1@1"))
+    }
+    #[cfg(all(feature="product-steam626-skin-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
+    pub fn preview_steam626_skin(&self,character:i32,new:i32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        Ok(guard.preview_steam626_skin(e,character,new).map_err(|e|err(e.0))?.to_string())
+    }
+    #[cfg(all(feature="product-steam626-skin-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
+    pub fn stage_steam626_skin(&self,character:i32,new:i32,readset_sha:&str,projected:&str,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        let r=guard.stage_steam626_skin(e,character,new,readset_sha,from_hex(projected)?).map_err(|e|err(e.0))?;
+        self.scoped_domain.set(Some(ScopedEditDomain::Skin));
+        Ok(scoped_edit_receipt(r,"wand.worker.steam626.scoped-skin-exact1@1"))
+    }
+    #[cfg(all(feature="product-steam626-sr03-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
     pub fn preview_steam626_sr03(&self,grid:u32,keep:u32,moved:u32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         Ok(guard.preview_sr03_product(e,grid,keep,moved).map_err(|e|err(e.0))?.to_string())
     }
-    #[cfg(all(feature="product-steam626-sr03-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
+    #[cfg(all(feature="product-steam626-sr03-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
     pub fn stage_steam626_sr03(&self,grid:u32,keep:u32,moved:u32,next:u32,old:u32,grid_sha:&str,stock_sha:&str,projected:&str,
         session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -331,13 +359,13 @@ impl WorkerWasmSource {
         self.scoped_domain.set(Some(ScopedEditDomain::Sr03));
         Ok(scoped_edit_receipt(r,"wand.worker.steam626.scoped-sr03-mixed-q5@1"))
     }
-    #[cfg(all(feature="product-switch626-rm01-scoped",not(any(feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
+    #[cfg(all(feature="product-switch626-rm01-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
     pub fn preview_switch626_rm01(&self,grid:u32,keep:u32,moved:u32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         Ok(guard.preview_switch626_rm01_product(e,grid,keep,moved).map_err(|e|err(e.0))?.to_string())
     }
-    #[cfg(all(feature="product-switch626-rm01-scoped",not(any(feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
+    #[cfg(all(feature="product-switch626-rm01-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"))))]
     pub fn stage_switch626_rm01(&self,grid:u32,keep:u32,moved:u32,next:u32,old:u32,grid_sha:&str,stock_sha:&str,projected:&str,
         session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -346,19 +374,19 @@ impl WorkerWasmSource {
         self.scoped_domain.set(Some(ScopedEditDomain::SwitchRm01));
         Ok(scoped_edit_receipt(r,"wand.worker.switch626.scoped-rm01-mixed-q5@1"))
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn preview_steam626_comp03(&self,seed:u32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         Ok(guard.preview_comp03_product(e,seed).map_err(|e|err(e.0))?.to_string())
     }
-    #[cfg(all(feature="product-steam626-comp03-spatial-preview",not(any(feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-steam626-comp03-spatial-preview",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn preview_steam626_comp03_spatial(&self,seed:u32,projected_sha:&str,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         Ok(guard.preview_comp03_spatial(e,seed,from_hex(projected_sha)?).map_err(|e|err(e.0))?.to_string())
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn stage_steam626_comp03(&self,seed:u32,grid:u32,next:u32,old:u32,grid_sha:&str,seed_sha:&str,stock_sha:&str,projected:&str,
         session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -368,7 +396,7 @@ impl WorkerWasmSource {
         Ok(scoped_edit_receipt(r,"wand.worker.steam626.scoped-comp03-layout@1"))
     }
     /// ACT916 opt-in bounded same-session discovery. No caller eligibility.
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn discover_scoped_amount(&self,profile:&str,offset:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         #[cfg(feature="product-steam626-chest-scoped")]
@@ -389,7 +417,7 @@ impl WorkerWasmSource {
             "offset":offset,"nextOffset":next,"scanned":scanned,"rows":rows,"writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
     }
     /// ACT916 opt-in ABI, absent from the existing Pages feature set.
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn preview_scoped_amount(&self,profile:&str,id:u32,selector:u32,new:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         #[cfg(feature="product-steam626-chest-scoped")]
@@ -405,7 +433,7 @@ impl WorkerWasmSource {
             "indexGeneration":v.index_generation,"decodedSha256":hex(&v.decoded_sha256),
             "scopedCandidate":true,"writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn stage_scoped_amount(&self,profile:&str,id:u32,selector:u32,old:u32,new:u32,entry_sha256:&str,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         #[cfg(feature="product-steam626-chest-scoped")]
@@ -418,7 +446,7 @@ impl WorkerWasmSource {
         Ok(scoped_edit_receipt(r,"wand.worker.steam626.scoped-amount@1"))
     }
     /// Switch626 explicit ABI; the Steam aliases retain their original scope.
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn discover_switch626_chest(&self,offset:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -437,7 +465,7 @@ impl WorkerWasmSource {
             "offset":offset,"nextOffset":next,"scanned":scanned,"rows":rows,
             "writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn preview_switch626_chest(&self,id:u32,slot:u32,new:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -452,7 +480,7 @@ impl WorkerWasmSource {
             "decodedSha256":hex(&v.decoded_sha256),"scopedCandidate":true,
             "writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn stage_switch626_chest(&self,id:u32,slot:u32,old:u32,new:u32,entry_sha256:&str,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -465,29 +493,29 @@ impl WorkerWasmSource {
     // One internal ledger and one output buffer, with legacy Amount
     // contract aliases. The tag labels the successful Stage; it cannot
     // authorize any command or mint a new session.
-    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(any(all(feature="product-switch626-chest-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"),feature="product-steam626-chest-scoped",all(feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"),all(feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped")))))]
+    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(any(all(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped"),all(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped"),any(feature="product-switch626-rm01-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped")),all(feature="product-switch626-chest-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"),feature="product-steam626-chest-scoped",all(feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"),all(feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped")))))]
     pub fn toggle_scoped_edit(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         self.toggle_scoped_edit_inner(redo,session_id,revision,index_generation,decoded_sha256,"wand.worker.scoped-edit@1")
     }
-    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(any(all(feature="product-switch626-chest-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"),feature="product-steam626-chest-scoped",all(feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"),all(feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped")))))]
+    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(any(all(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped"),all(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped"),any(feature="product-switch626-rm01-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped")),all(feature="product-switch626-chest-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"),feature="product-steam626-chest-scoped",all(feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"),all(feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped")))))]
     pub fn begin_scoped_edit_output(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         self.begin_scoped_edit_output_inner(session_id,revision,index_generation,decoded_sha256,"wand.worker.scoped-edit-output@1")
     }
-    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(any(all(feature="product-switch626-chest-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"),feature="product-steam626-chest-scoped",all(feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"),all(feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped")))))]
+    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(any(all(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped"),all(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped"),any(feature="product-switch626-rm01-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped")),all(feature="product-switch626-chest-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"),feature="product-steam626-chest-scoped",all(feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"),all(feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped")))))]
     pub fn next_scoped_edit_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
         self.next_scoped_edit_output_chunk_inner()
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn toggle_scoped_amount(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         self.require_amount_domain()?;
         self.toggle_scoped_edit_inner(redo,session_id,revision,index_generation,decoded_sha256,"wand.worker.steam626.scoped-amount@1")
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn begin_scoped_amount_output(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         self.require_amount_domain()?;
         self.begin_scoped_edit_output_inner(session_id,revision,index_generation,decoded_sha256,"wand.worker.steam626.scoped-amount-output@1")
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     pub fn next_scoped_amount_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
         self.require_amount_domain()?;
         self.next_scoped_edit_output_chunk_inner()
