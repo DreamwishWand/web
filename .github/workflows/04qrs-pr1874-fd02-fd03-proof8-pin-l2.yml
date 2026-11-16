@@ -1,4 +1,4 @@
-name: [04 QR-S][ACT1517] PR1874 FD02/FD03 Proof8 pin L2 (QA ONLY) (QA ONLY)
+name: "[04 QR-S][ACT1517] PR1874 FD02/FD03 Proof8 pin L2 (QA ONLY)"
 on:
   pull_request:
     paths:
