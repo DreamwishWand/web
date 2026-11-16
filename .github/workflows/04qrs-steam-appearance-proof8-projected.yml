@@ -1,0 +1,56 @@
+name: 04 QR-S Steam Appearance proof8 projected pin L2 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-steam-appearance-proof8-projected.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2c1ad81de113521d1c3438709a76dbcc7456fab7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Projected raw pins from fixed accepted sources and eight dispatch guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-proof8.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'}),blob=(r,p)=>g('rev-parse',r+':'+p);
+          const head='2c1ad81de113521d1c3438709a76dbcc7456fab7',base='2a522f05131f62e0a70b8581c967d63a7f8b4f52',web='c12304f3b03cfe05542a7d4c2ae76992eb167d92',core='06adf0c44a77e3ba653a62a14160207a7a9d91be',gate='d574affb21c4254f355fbb80d8879a8f5eda1948',adapter='d80abe9293707eb464e7223b99cb549cad23206f',wf='.github/workflows/pages.yml';
+          assert.equal(g('rev-parse','HEAD'),head);assert.equal(blob(head,wf),'2b2fededfdeb4ed4d65f95aca8b0c6b29d8fd491');
+          const y=raw(head,wf),old=raw(base,wf),names=['scoped_collection_proof','scoped_switch_chest_proof','scoped_steam_chest_proof','scoped_sr03_proof','scoped_comp03_spatial_proof','scoped_rm01_proof','scoped_hair_proof','scoped_skin_proof'],keys=names.map(n=>n+'_source');
+          const section=(s,n)=>{const i=s.indexOf('\n  '+n+':\n');assert.ok(i>=0,n);const j=s.slice(i+1).search(/\n  [a-z0-9_]+:\n/);return j<0?s.slice(i):s.slice(i,i+1+j)};
+          const pins=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g)].map(m=>[m[1],m[2]]);
+          const oldMap=new Map(pins(old)),newMap=new Map(pins(y)),cfg='scripts/wasm-distribution/protected-release-inputs.json',gatePath='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',adPath='scripts/readonly-release/scoped-placement-proof.mjs',cargo='crates/ddv-save-core/Cargo.toml';
+          const config=raw(base,cfg).replace(blob(base,cargo),blob(core,cargo)),cfgHash=execFileSync('git',['hash-object','--stdin'],{input:config,encoding:'utf8'}).trim();assert.equal(cfgHash,'dd59264c1c20325c66e6aecc3413e91d10fc72ed');
+          assert.equal(blob(core,'crates/ddv-save-core'),'fa7aeef5dc1459104564bf1eb9704d315ab7c415');assert.equal(blob(gate,gatePath),'f69a44eb62da5fc5e51c743ee428324469205b25');assert.equal(blob(adapter,adPath),'932c1c1de44ae6f223fe53b0f14b8e0071eee22d');
+          const webPaths=new Set(['src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs','src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs','src/lib/ddv/core/save/product-wasm-read-owner.mjs','src/lib/dev/local-scoped-edit-worker-port.mjs','src/lib/ddv/core/save/product-wasm-read-owner.d.mts','src/lib/ddv/core/save/product-scoped-placement-release.mjs','src/lib/dev/LocalPlacementEditorDev.svelte','src/lib/dev/PlacementProductRoute.svelte','src/lib/dev/local-placement-copy.mjs','src/lib/dev/local-placement-workflow.mjs','src/lib/dev/product-placement-client.mjs','src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs','src/lib/ddv/core/save/product-scoped-appearance-transport.mjs','src/lib/dev/product-hair.worker.mjs','src/routes/editor/appearance/hair/steam/+page.svelte','src/lib/dev/product-skin.worker.mjs','src/routes/editor/appearance/skin/steam/+page.svelte']);
+          const expect=p=>p===cfg?cfgHash:p===gatePath?blob(gate,p):p===adPath?blob(adapter,p):p==='crates/ddv-save-core'?blob(core,p):webPaths.has(p)?blob(web,p):blob(base,p);
+          let pos=0,neg=0,total=0;const tail=" && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == ''";
+          const inversePins=s=>s.replace(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g,(m,p,h)=>{assert.ok(oldMap.has(p),p);return m.replace(h,oldMap.get(p))});
+          const inv=inversePins(y.slice(0,y.indexOf('\n  scoped_hair_proof:\n')).replace(/      scoped_hair_proof_source:\n(?:        [^\n]+\n){4}      scoped_skin_proof_source:\n(?:        [^\n]+\n){4}/,'').split(tail).join(''));assert.equal(inv,old);pos++;
+          for(const [i,n] of names.entries()){
+            const b=section(y,n),p=pins(b);assert.equal(p.length,i<6?pins(section(old,n)).length:40);assert.equal(new Set(p.map(x=>x[0])).size,p.length);
+            for(const [k,h] of p){assert.equal(h,expect(k),k);assert.notEqual(h,(h[0]==='0'?'1':'0')+h.slice(1));total++;neg++}
+            if(i<6){assert.equal(inversePins(b.split(tail).join('')),section(old,n));pos++;continue}
+            const key=i===6?'steam626-hair':'steam626-skin',feature='product-'+key+'-scoped',stages=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','--no-default-features --features '+feature+',worker-wasm','scoped-placement-proof.mjs build '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/upload-artifact@v4'];
+            let last=-1;for(const s of stages){last=b.indexOf(s,last+1);assert.ok(last>=0,s)}
+            assert.ok(b.includes('test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"'));assert.ok(b.includes('test "$GITHUB_REPOSITORY_ID" = 1371485649'));assert.ok(b.includes('test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"'));assert.doesNotMatch(b,/actions\/(deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
+            const sub=b.slice(b.indexOf('subject-path: |'),b.indexOf('      - name: Verify exact signer'));assert.deepEqual(sub.match(/tests\/wasm-distribution\/fixtures\/scoped-[^\s]+/g),['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json'].map(x=>'tests/wasm-distribution/fixtures/scoped-'+key+'/'+x));
+            const upload=b.slice(b.indexOf('actions/upload-artifact@v4'));assert.match(upload,/pins\.json/);assert.match(upload,/attestation-bundle\.jsonl/);assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-|static\/|build\//);pos++;
+          }
+          assert.equal(total,252);const guards=['build',...names].map(n=>section(y,n).split('\n').find(l=>l.trim().startsWith('if:')).trim().slice(4));
+          const evalGuard=(g,event,ref,v)=>g.split(' || ').some(or=>or.replace(/^\(|\)$/g,'').split(' && ').every(t=>{const m=t.match(/^(github\.event_name|github\.ref|inputs\.[a-z0-9_]+) (==|!=) '([^']*)'$/);assert.ok(m,t);const x=m[1]==='github.event_name'?event:m[1]==='github.ref'?ref:v[m[1].slice(7)];return m[2]==='=='?x===m[3]:x!==m[3]}));
+          for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/other'])for(let mask=0;mask<256;mask++){const v=Object.fromEntries(keys.map((k,i)=>[k,mask&(1<<i)?'x':''])),out=guards.map(g=>evalGuard(g,event,ref,v)),expected=[event!=='workflow_dispatch'||mask===0,...keys.map((k,i)=>event==='workflow_dispatch'&&ref==='refs/heads/main'&&mask===(1<<i))];assert.deepEqual(out,expected);if(expected.some(Boolean))pos++;else neg++}
+          console.log('QRS_PR1751_PROOF8_PROJECTED_L2_PASS',JSON.stringify({pos,neg,pins:total,projectedRaw:true,protectedAcceptance:false,actualSignature:false}));
+          EOF
+          node qa-proof8.mjs
