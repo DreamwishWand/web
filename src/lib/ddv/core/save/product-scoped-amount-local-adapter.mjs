@@ -41,15 +41,17 @@ export function createProductSwitch626Catalog0LocalAdapter(options={}){
 export function createProductFixedCollectionLocalAdapter(options={}){return createScopedLocalAdapter(options,true)}
 export function createProductSteam626Comp03LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'comp03')}
 export function createProductSteam626VaseAddLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'vase')}
-function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null){
- const placement=placementScope!==null,placementCount=placementScope==='comp03'?9:3;
+export function createProductSteam626BackpackLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,'steam')}
+export function createProductSwitch626BackpackLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,'switch')}
+function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null,backpackScope=null){
+ const placement=placementScope!==null,backpack=backpackScope!==null,previewEdit=placement||backpack,placementCount=placementScope==='comp03'?9:3;
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||
   (discoverScopedTargets!==undefined&&typeof discoverScopedTargets!=='function')||
   (allowCoreDiscoverySource&&discoverScopedTargets!==undefined)||
-  ((collection||placement)&&(allowCoreDiscoverySource||discoverScopedTargets!==undefined))||
+  ((collection||previewEdit)&&(allowCoreDiscoverySource||discoverScopedTargets!==undefined))||
   !['linked-crop-chest48','catalog0-furniture'].includes(coreDiscoveryProfile))fail();
  const store=createLocalEncryptedCopyStore(getDirectory?{getDirectory}:{});
- const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:!collection&&!switchChest&&!steamChest&&!catalog&&!placement,allowSwitch626Catalog0Source:catalog,allowSwitch626ChestSource:switchChest,allowSteam626ChestSource:steamChest,allowScopedCollectionSource:collection,placementScope,readDurableOriginalBackup:b=>store.durable(b)});
+ const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:!collection&&!switchChest&&!steamChest&&!catalog&&!previewEdit,allowSwitch626Catalog0Source:catalog,allowSwitch626ChestSource:switchChest,allowSteam626ChestSource:steamChest,allowScopedCollectionSource:collection,placementScope,backpackScope,readDurableOriginalBackup:b=>store.durable(b)});
  let epoch=0,source=null,backup=null,targets=[],phase='closed',busy=false,closeUnverified=false;
  const revoke=()=>{
   epoch++;store.close();source=null;backup=null;targets=[];phase='closed';busy=false;
@@ -80,8 +82,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   async open(args){
    if(closeUnverified)fail();revoke();return run(async t=>{
     if(!keys(args,'file,originalSha256,build')||!keys(args.build,'platform,buildKind,buildId,schema,externallyConfirmed')||
-     !((!switchChest&&!catalog&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
-       ((collection||switchChest||catalog)&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
+     !((!switchChest&&!catalog&&backpackScope!=='switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
+       ((collection||switchChest||catalog||backpackScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
      args.build.schema!==626||args.build.externallyConfirmed!==true||!uint(t)||t<1)fail();
     const input=Object.freeze({file:args.file,originalSha256:args.originalSha256,build:Object.freeze({...args.build})});
     const r=await bridge.openScopedEncrypted(input);check(t);
@@ -97,7 +99,7 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
    backup=b;phase='backed';return {backupReadbackVerified:true,originalUnchanged:true,shaMatched:true,sizeMatched:true,separateName:true,
     originalName:source.name,originalSha256:source.sha,originalSizeBytes:source.size,backupName:b.name};
   })},
-  listVerifiedTargets(){if(collection||placement)fail();requirePhase('backed');return run(async t=>{
+  listVerifiedTargets(){if(collection||previewEdit)fail();requirePhase('backed');return run(async t=>{
    // Provider may only use this active Worker-owned session. No UI selectors.
    const rows=allowCoreDiscoverySource?bridge.discoverScopedTargets(coreDiscoveryProfile):
     discoverScopedTargets?await discoverScopedTargets(Object.freeze({bridge,receipt:bridge.getReceipt()})):[];check(t);
@@ -110,7 +112,7 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
    });
    phase='ready';return {targets:targets.map(t=>t.ui),rawDocumentExposed:false};
   })},
-  stageTyped(commands){if(collection||placement)fail();requirePhase('ready');return run(async t=>{
+  stageTyped(commands){if(collection||previewEdit)fail();requirePhase('ready');return run(async t=>{
    if(!Array.isArray(commands)||commands.length!==1)fail();
    const c=commands[0],match=targets.find(({raw:r,ui:u})=>{
     const common=c?.kind===u.kind&&c.expectedOldAmount===r.oldAmount&&c.newAmount===r.oldAmount-1;
@@ -125,8 +127,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
    if(staged.applied!==true||staged.exactFieldChangedCount!==1||staged.writerAuthorized!==false)fail();
    phase='staged';return kind('STAGED');
   })},
-  undo(selection){selectionCheck(selection);requirePhase('staged');return run(async()=>{const r=placement?bridge.toggleScopedPlacement(false):collection?bridge.toggleFixedCollection(false):bridge.toggleScopedAmount(false);if(r.applied!==false)fail();phase='undone';return collection?collectionMutation('UNDONE'):kind('UNDONE')})},
-  redo(selection){selectionCheck(selection);requirePhase('undone');return run(async()=>{const r=placement?bridge.toggleScopedPlacement(true):collection?bridge.toggleFixedCollection(true):bridge.toggleScopedAmount(true);if(r.applied!==true)fail();phase='staged';return collection?collectionMutation('REDONE'):kind('REDONE')})},
+  undo(selection){selectionCheck(selection);requirePhase('staged');return run(async()=>{const r=backpack?bridge.toggleScopedBackpack(false):placement?bridge.toggleScopedPlacement(false):collection?bridge.toggleFixedCollection(false):bridge.toggleScopedAmount(false);if(r.applied!==false)fail();phase='undone';return collection?collectionMutation('UNDONE'):kind('UNDONE')})},
+  redo(selection){selectionCheck(selection);requirePhase('undone');return run(async()=>{const r=backpack?bridge.toggleScopedBackpack(true):placement?bridge.toggleScopedPlacement(true):collection?bridge.toggleFixedCollection(true):bridge.toggleScopedAmount(true);if(r.applied!==true)fail();phase='staged';return collection?collectionMutation('REDONE'):kind('REDONE')})},
   exportEditedCopy(selection){selectionCheck(selection);requirePhase('staged');return run(async t=>{
    if(typeof freshCodecReopen!=='function')fail();
    const o=await bridge.exportScopedEditedCopy();
@@ -155,9 +157,9 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
    p.fixedDefinitionVerified!==true||p.installedRuntimeParityVerified!==false||p.writerAuthorized!==false||p.editedCopyAuthorized!==false||p.applyAuthorized!==false)fail();
   return p;
  };
- if(placement)return Object.freeze({open:api.open,close,backupOriginal:api.backupOriginal,undo:api.undo,redo:api.redo,exportEditedCopy:api.exportEditedCopy,downloadVerifiedCopy:api.downloadVerifiedCopy,
-  previewPlacement(selector){if(!['backed','previewed'].includes(phase))fail();return run(async()=>{const p=bridge.previewScopedPlacement(selector);if(p.exactFieldChangedCount!==placementCount||p.writerAuthorized!==false||p.editedCopyAuthorized!==false)fail();phase='previewed';return p})},
-  stagePlacement(){requirePhase('previewed');return run(async t=>{const r=await bridge.stageScopedPlacement();check(t);if(r.applied!==true||r.exactFieldChangedCount!==placementCount||r.writerAuthorized!==false)fail();phase='staged';return {...kind('STAGED'),exactFieldChangedCount:placementCount}})}
+ if(previewEdit)return Object.freeze({open:api.open,close,backupOriginal:api.backupOriginal,undo:api.undo,redo:api.redo,exportEditedCopy:api.exportEditedCopy,downloadVerifiedCopy:api.downloadVerifiedCopy,
+  [backpack?'previewBackpack':'previewPlacement'](selector){if(!['backed','previewed'].includes(phase))fail();return run(async()=>{const p=backpack?bridge.previewScopedBackpack(selector):bridge.previewScopedPlacement(selector);if(p.exactFieldChangedCount!==placementCount||p.writerAuthorized!==false||p.editedCopyAuthorized!==false)fail();phase='previewed';return p})},
+  [backpack?'stageBackpack':'stagePlacement'](){requirePhase('previewed');return run(async t=>{const r=await (backpack?bridge.stageScopedBackpack():bridge.stageScopedPlacement());check(t);if(r.applied!==true||r.exactFieldChangedCount!==placementCount||r.writerAuthorized!==false)fail();phase='staged';return {...kind('STAGED'),exactFieldChangedCount:placementCount}})}
  });
  if(!collection)return Object.freeze(api);
  // The fixed Core preview (not candidate-only read) is the only source of
