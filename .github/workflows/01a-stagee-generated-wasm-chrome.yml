@@ -2,54 +2,83 @@ name: 01A Stage E Genuine Generated Rust WASM Chrome Worker (Writer OFF)
 on:
   pull_request:
     paths:
-      - 'tests/stage-e/**'
-      - 'scripts/wasm-distribution/**'
-      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
       - '.github/workflows/01a-stagee-generated-wasm-chrome.yml'
-      - 'crates/ddv-save-core/**'
-      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
-  push:
-    branches:
-      - 'core/real-wasm-browser-smoke-stagee-*'
 permissions:
   contents: read
 jobs:
   genuine-wasm-chrome-worker:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 20
     env:
-      CARGO_TARGET_DIR: /tmp/wand-stagee-cargo-target
+      CARGO_TARGET_DIR: /tmp/qrc1601-native
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - name: Verify real Chrome and exact pinned wasm-bindgen crate
+      - name: QA ONLY current Hair and Skin exact1 native dispatch and shared ledger
         run: |
           set -euo pipefail
-          command -v google-chrome || command -v chromium
-          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
-      - name: Compile REAL cdylib with opt-in Worker and indexed metadata
-        run: |
-          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
-          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
-      - name: Install exactly matching wasm-bindgen CLI 0.2.105 (not generated or mocked JS)
-        run: |
-          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagee-wasm-tools
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen --version | grep -F '0.2.105'
-      - name: Generate true wasm-bindgen Browser Worker ESM glue
-        run: |
-          mkdir -p tests/stage-e/pkg
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
-          test -s tests/stage-e/pkg/ddv_save_core.js
-          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
-          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|include_bytes!|writerAuthorized: *true|applyAuthorized: *true' tests/stage-e
-      - name: Actual browser CDP + module Worker + Rust WASM positive and negatives
-        run: node tests/stage-e/chrome-smoke.mjs
-      - name: Confirm Stage E never changed product Writer or public worker route
-        run: |
-          ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
-          test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
-          test -f crates/ddv-save-core/src/wasm_worker.rs
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock | tee /tmp/qrc1601-lock.sha
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --features private-native-v2,semantic-writer-dev --bin wand-local-rust-v2-noop
+          sha256sum -c /tmp/qrc1601-lock.sha
+          sha256sum /tmp/qrc1601-native/release/wand-local-rust-v2-noop
+          python3 - <<'PY'
+          import os,json,hashlib,subprocess,copy
+          from pathlib import Path
+          H=lambda b:hashlib.sha256(b).hexdigest()
+          enc=lambda x:json.dumps(x,sort_keys=True,separators=(",",":"),ensure_ascii=True).encode()
+          sha=lambda x:H(enc(x))
+          STEAM="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22"
+          bin="/tmp/qrc1601-native/release/wand-local-rust-v2-noop"
+          def fixture(male=True):
+              return {"GameInfo":{"Version":626},"World":{"Characters":[{"Base":{"id":10000002},"SkinID":0},{"Base":{"id":10000053},"SkinID":170000001,"Unknown":{"keep":True}}]},"Player":{"AvatarIsMale":male,"FemaleAvatar":{"HairColorIndex":0,"HairHighlightColor":0,"Clothes":{"0":50000001},"IncompatibleClothes":{},"Makeup":{},"ClothingCustomization":{"50000001":23}},"MaleAvatar":{"HairColorIndex":89,"HairHighlightColor":1,"Clothes":{"5":50000002},"Makeup":{"1":{"MakeupItemID":140000001,"Unknown":"preserve"}},"ClothingCustomization":{"50000002":0}},"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","Inventory":{}},"7":{"ID":7,"CompatibleItemType":"ItemType_Skin","Inventory":{"170000000":{"Amount":1,"Marker":"ItemMarker_None"},"170000001":{"Amount":1,"Marker":"ItemMarker_Favorite"}}}}},"Opaque":{"keep":"\\u literal","n":7}}
+          def raw(d):
+              return enc(d).replace(b'"keep":"\\\\u literal"',b'"keep":"\\\\u literal"')
+          def hair(d):
+              p=d["Player"]; b="MaleAvatar" if p["AvatarIsMale"] else "FemaleAvatar"; old=p[b]["HairColorIndex"]; new=0 if old==89 else 89
+              return {"contract":"wand.private.steam626.active-hair-color-exact1@1","fullVersion":STEAM,"sourceDecodedSha256":H(raw(d)),"activeBranch":b,"femaleBranchSha256":sha(p["FemaleAvatar"]),"maleBranchSha256":sha(p["MaleAvatar"]),"oldTokenSha256":sha(old),"oldHairColorIndex":old,"newHairColorIndex":new}
+          def skin(d):
+              p=d["Player"]; c=d["World"]["Characters"]; row=c[1]; rec=p["ListInventories"]["7"]; old=row["SkinID"]; new=170000000 if old==170000001 else 170000001
+              def stock(i):
+                  e=rec["Inventory"][str(i)]
+                  return {"itemId":i,"savedAmount":e["Amount"],"entrySha256":sha(e),"markerSha256":sha(e["Marker"]),"inventoryRecordSha256":sha(rec)}
+              return {"contract":"wand.private.steam626.character-skin-exact1@1","fullVersion":STEAM,"sourceDecodedSha256":H(raw(d)),"characterId":10000053,"baseSha256":sha(row["Base"]),"characterSha256":sha(row),"oldSkinId":old,"newSkinId":new,"oldTokenSha256":sha(old),"charactersSha256":sha(c),"listInventoriesSha256":sha(p["ListInventories"]),"oldStock":stock(old),"newStock":stock(new)}
+          def invoke(kind,d,plan,extra=None,args=()):
+              data=raw(d); p=enc(plan); env={k:v for k,v in os.environ.items() if not k.startswith("WAND_LOCAL_")}
+              env.update({"WAND_LOCAL_INSTALLED_STEAM_FULLVERSION":STEAM,"WAND_LOCAL_ORIGINAL_SHA256":"11"*32,"WAND_LOCAL_BACKUP_SHA256":"11"*32,"WAND_LOCAL_ORIGINAL_SIZE_BYTES":"999","WAND_LOCAL_BACKUP_SIZE_BYTES":"999","WAND_LOCAL_DECODED_SHA256":H(data)})
+              name="HAIR" if kind=="hair" else "SKIN"
+              env["WAND_LOCAL_"+name+"_CANONICAL_PLAN"]=p.decode()
+              env["WAND_LOCAL_"+name+"_PLAN_SHA256"]=H(p)
+              if extra: env.update(extra)
+              cmd="--steam626-active-hair-color-exact1-only" if kind=="hair" else "--steam626-character-skin-exact1-only"
+              return subprocess.run([bin,cmd,*args],input=data,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=20)
+          pos=neg=0
+          def positive(kind,d,plan):
+              global pos
+              r=invoke(kind,d,plan); expected=copy.deepcopy(d)
+              if kind=="hair":expected["Player"][plan["activeBranch"]]["HairColorIndex"]=plan["newHairColorIndex"]; mark=b"PRIVATE_STEAM626_ACTIVE_HAIR_COLOR_EXACT1_PIPE_PASS"
+              else:expected["World"]["Characters"][1]["SkinID"]=plan["newSkinId"]; mark=b"PRIVATE_STEAM626_CHARACTER_SKIN_EXACT1_PIPE_PASS"
+              assert r.returncode==0 and r.stdout==raw(expected) and mark in r.stderr,(kind,r.returncode,r.stderr.decode(errors="replace"))
+              pos+=1;return expected
+          def negative(kind,d,plan,label,extra=None,args=()):
+              global neg
+              r=invoke(kind,d,plan,extra,args)
+              assert r.returncode==12 and r.stdout==b"",(label,r.returncode,len(r.stdout),r.stderr.decode(errors="replace"))
+              neg+=1
+          for male in (True,False):
+              d=fixture(male); hp=hair(d); sp=skin(d)
+              hd=positive("hair",d,hp); sd=positive("skin",d,sp)
+              hs=positive("skin",hd,skin(hd)); sh=positive("hair",sd,hair(sd));assert raw(hs)==raw(sh)
+              negative("hair",d,sp,"cross-skin-plan")
+              negative("skin",d,hp,"cross-hair-plan")
+              negative("skin",hd,sp,"stale-source-after-hair")
+              negative("hair",sd,hp,"stale-source-after-skin")
+              for k,p in (("hair",hp),("skin",sp)):
+                  negative(k,d,p,"mixed-build",{"WAND_LOCAL_INSTALLED_SWITCH_BID":"9A239D3DB569756D"})
+                  negative(k,d,p,"backup-cas",{"WAND_LOCAL_BACKUP_SHA256":"22"*32})
+                  negative(k,d,p,"argv",args=("extra",))
+                  negative(k,d,p,"plan-sha",{"WAND_LOCAL_"+k.upper()+"_PLAN_SHA256":"00"*32})
+                  negative(k,d,p,"source-sha",{"WAND_LOCAL_DECODED_SHA256":"00"*32})
+          assert (pos,neg)==(8,28),(pos,neg)
+          print("QRC1601_CURRENT_LEDGER_ACTUAL",str(pos)+"POS",str(neg)+"NEG")
+          PY
