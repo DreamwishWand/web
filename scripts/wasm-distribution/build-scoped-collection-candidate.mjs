@@ -4,7 +4,7 @@ import {readFile,writeFile,mkdir,copyFile,readdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {join,resolve} from 'node:path';
-import {RELEASE_TUPLES,releaseDelivery} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+import {RELEASE_TUPLES,ACTIVE_RELEASE_TUPLE,protectedPagesContextMatches,releaseDelivery} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
 import {SCOPED_COLLECTION_RELEASE_OP,SCOPED_COLLECTION_FEATURES,SCOPED_COLLECTION_METHODS,scopedCollectionManifestOk}
  from '../../src/lib/ddv/core/save/product-scoped-collection-release.mjs';
 const fail=()=>{throw Error('SCOPED_COLLECTION_CANDIDATE_DENIED')};
@@ -13,6 +13,10 @@ const root=resolve(import.meta.dirname,'../..'),core=process.env.WAND_SCOPED_COR
 const source=process.env.WAND_SOURCE_HEAD,base=process.env.WAND_CANDIDATE_BASE_PATH;
 const tuple=RELEASE_TUPLES.find(t=>t.basePath===base);
 if(!core||!tuple||!/^[0-9a-f]{40}$/.test(source??'')||execFileSync('git',['-C',core,'rev-parse','HEAD'],{encoding:'utf8'}).trim()!==source)fail();
+// Same protected Pages job may generate a proof-only candidate of its exact
+// checkout. This never changes the approved read-only static asset set.
+if(process.env.GITHUB_WORKFLOW_REF?.includes('/.github/workflows/pages.yml@')&&
+ (resolve(core)!==root||tuple!==ACTIVE_RELEASE_TUPLE||!protectedPagesContextMatches(process.env,source,execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim())))fail();
 const lock=await readFile(join(core,'crates/ddv-save-core/Cargo.lock')),approved=await readFile(join(root,'scripts/wasm-distribution/approved-Cargo.lock'));
 if(!lock.equals(approved)||sha(lock)!=='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c')fail();
 const toolchain=execFileSync('rustc',['--version','--verbose'],{encoding:'utf8'}),bindgen=process.env.WAND_BINDGEN_CLI;
