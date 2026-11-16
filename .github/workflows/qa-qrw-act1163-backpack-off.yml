@@ -1,0 +1,139 @@
+name: QA ONLY ACT1163 Backpack dual-build product OFF routes (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1163-backpack-off.yml'
+permissions:
+  contents: read
+jobs:
+  off-routes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 4a0f3ed263a45c42b874d2722d684b553b0729af
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact fixed source and no scoped static assets
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '4a0f3ed263a45c42b874d2722d684b553b0729af'
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = b505b833fc135ff48c6dc762703fb73d33b5b66d
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 054d5a428f787639c2ee6833396b08d62591024d
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = 3025703fe1c16b410c838cc03ef2e323f9aef75a
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 2c217ce974b828b48aeec289b35a4e48ed0af38a
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-copy.mjs)" = 47a82dbdf520ae078b6e927fb02869d62899a0ca
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = 50cadba9e01c11ed278f7f2120d58bfb66c6578e
+          test "$(git rev-parse HEAD:src/routes/editor/backpack/steam/+page.svelte)" = fb299a0e52ea5872de1eca93a8ceaaddb4f451a7
+          test "$(git rev-parse HEAD:src/routes/editor/backpack/switch/+page.svelte)" = f35ffa7cdc5817ceb32a009699e9039192cc60d3
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = d054cfdf6ff2e8680ac59cd07daef043921bc0a5
+          test "$(git rev-parse HEAD:src/lib/dev/product-steam-backpack.worker.mjs)" = 36fad8f308df8eb14849fe36eaa547b2c34e058d
+          test "$(git rev-parse HEAD:src/lib/dev/product-switch-backpack.worker.mjs)" = 8e8a33906ff88d738351e2c64c44539e78df885e
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)" = 8bf869bf71546c467194483955e256cbe104c312
+          test "$(git rev-parse HEAD:src/routes/editor/+page.svelte)" = 8081007529fe99eecfb1ba1d0e19d0df6ff4d501
+          test -z "$(git ls-files static/worker-wasm-scoped-steam626-backpack-split static/worker-wasm-scoped-switch626-backpack-split)"
+      - run: npm ci --no-audit --no-fund
+      - name: Actual client null-anchor and cross-operation brand denial
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createProductComp03Port,createProductVaseAddPort,createProductSteamBackpackPort,createProductSwitchBackpackPort,productPlacementPortScope,placementReadyOk} from './src/lib/dev/product-placement-client.mjs';
+          import {COMP03_RELEASE,VASE_ADD_RELEASE,STEAM_BACKPACK_RELEASE,SWITCH_BACKPACK_RELEASE,getComp03MountInfo,getVaseAddMountInfo,getSteamBackpackMountInfo,getSwitchBackpackMountInfo} from './src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {localPlacementCopy} from './src/lib/dev/local-placement-copy.mjs';
+          const locales=['en','ja','fr','it','de','es-ES','zh-CN','pt-BR'];
+          for(const l of locales){const c=localPlacementCopy(l);assert.ok(c.backpackSteamTitle&&c.backpackSwitchTitle&&c.backpackSteamTitle!==c.backpackSwitchTitle&&c.backpackSafety.includes('30200001')&&c.off);assert.equal(Object.isFrozen(c),true)}
+          Object.defineProperty(globalThis,'document',{configurable:true,value:{}});
+          Object.defineProperty(globalThis,'location',{configurable:true,writable:true,value:new URL('https://dreamwishwand.github.io/web/editor/world/comp03/')});
+          let workers=0;Object.defineProperty(globalThis,'Worker',{configurable:true,value:class{constructor(){workers++;throw Error('unexpected worker')}}});
+          
+          const counts={};
+          for(const [spec,other,create,mount] of [[STEAM_BACKPACK_RELEASE,SWITCH_BACKPACK_RELEASE,createProductSteamBackpackPort,getSteamBackpackMountInfo],[SWITCH_BACKPACK_RELEASE,STEAM_BACKPACK_RELEASE,createProductSwitchBackpackPort,getSwitchBackpackMountInfo]]){
+            let neg=0;const builds=[{platform:spec.platform,buildId:spec.buildId,productV2EvidenceSha256:null}];
+            const scope={releaseId:'a'.repeat(64),operation:spec.operation,mode:'private-product-v2',builds};
+            const ready={kind:'SCOPED_PLACEMENT_RUNTIME_READY',...scope,writerAuthorized:false};
+            assert.equal(placementReadyOk(ready,scope),true); // shape only, not authority
+            for(const patch of [{kind:'OTHER'},{operation:other.operation},{releaseId:'b'.repeat(64)},{mode:'public-accepted'},{writerAuthorized:true},{builds:[]},{builds:[{...builds[0],platform:other.platform}]},{builds:[{...builds[0],buildId:'unknown'}]},{builds:[{...builds[0],productV2EvidenceSha256:'c'.repeat(64)}]},{extra:true}]){
+              assert.equal(placementReadyOk({...ready,...patch},scope),false);neg++;
+            }
+            const {writerAuthorized,...missing}=ready;assert.equal(placementReadyOk(missing,scope),false);neg++;
+            for(const fake of [ready,Object.freeze({...ready}),{...ready,open(){},dispose(){}}]){assert.equal(productPlacementPortScope(fake),null);neg++}
+            globalThis.location=new URL('https://dreamwishwand.github.io/web'+spec.path+'?operation='+other.operation+'&mode=public-accepted');
+            const ac=new AbortController();ac.abort();
+            for(const args of [{},{anchor:scope,verifiedLocalDevGate:true,workerFactory:()=>{}},{signal:ac.signal},{onFault:1}]){await assert.rejects(create(args));neg++}
+            await assert.rejects(mount());neg++;
+            counts[spec.key]=neg;
+          }
+          assert.equal(workers,0);
+          console.log('QRW1511_OFF_CLIENT_ACTUAL_PASS',JSON.stringify({counts,localeCount:8,workerConstructed:workers,positiveSignedRuntime:false}));
+          NODE
+      - name: Actual production static build (both anchors null)
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run build
+          test -f build/editor/backpack/steam/index.html
+          test -f build/editor/backpack/switch/index.html
+          test ! -e build/worker-wasm-scoped-steam626-backpack-split
+          test ! -e build/worker-wasm-scoped-switch626-backpack-split
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Serve actual static output
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/qrw1511-static"
+          ln -s "$PWD/build" "$RUNNER_TEMP/qrw1511-static/web"
+          python3 -m http.server 4177 --bind 127.0.0.1 --directory "$RUNNER_TEMP/qrw1511-static" > /tmp/qrw1511-http.log 2>&1 &
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4177/web/editor/backpack/steam/ >/dev/null; then exit 0; fi; sleep 1; done
+          cat /tmp/qrw1511-http.log
+          exit 1
+      - name: Actual Chrome both product routes and cross-operation forged inputs
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const root='http://127.0.0.1:4177/web',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+            const context=await browser.newContext({locale:'en-US'});
+            await context.addInitScript(()=>{
+              window.__qrw1511Workers=[];
+              const original=window.Worker;
+              window.Worker=new Proxy(original,{construct(target,args,newTarget){window.__qrw1511Workers.push(String(args[0]));return Reflect.construct(target,args,newTarget)}});
+              for(const k of ['verifiedLocalDevGate','productComp03Enabled','productVaseAddEnabled','productPlacementEnabled'])localStorage.setItem(k,'true');
+            });
+            const page=await context.newPage(),errors=[],requests=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('request',r=>{if(/worker-wasm-scoped-(steam626-backpack-split|switch626-backpack-split|steam626-comp03|steam626-vase-add)\//.test(r.url()))requests.push(r.url())});
+            const counts={'backpack-steam':0,'backpack-switch':0,comp03:0,vase:0};
+            const hydrated=async()=>{await page.waitForFunction(()=>!!document.documentElement.dataset.locale);await page.waitForLoadState('networkidle')};
+            const off=async op=>{
+              await hydrated();
+              const route=page.locator('[data-placement-product-route]');
+              assert.equal(await route.getAttribute('data-placement-product-route'),op);
+              assert.equal(await route.getAttribute('data-placement-scope'),'off');
+              assert.equal(await route.locator('input[type=file]').count(),0);
+              assert.equal(await route.locator('[data-dev-placement]').count(),0);
+              assert.equal(await route.locator('[role=status]').count(),1);
+              assert.equal(await page.evaluate(()=>window.__qrw1511Workers.length),0);
+              counts[op]++;
+            };
+            for(const op of ['backpack-steam','backpack-switch']){
+              const other=op==='backpack-steam'?'backpack-switch':'backpack-steam';
+              for(const q of ['', '?enable=true&mode=public-accepted#writer','?operation='+other+'&platform=switch&build=9A239D3DB569756D','?verifiedLocalDevGate=true&mode=private-product-v2']){
+                const r=await page.goto(root+'/editor/backpack/'+op.slice(9)+'/'+q);assert.equal(r.status(),200);await off(op);
+              }
+              await page.reload();await off(op);
+              const hub=await page.goto(root+'/editor/');assert.equal(hub.status(),200);await hydrated();
+              assert.equal(await page.locator('a[href*="/editor/backpack/steam/"],a[href*="/editor/backpack/switch/"],a[href*="/editor/world/comp03/"],a[href*="/editor/world/vase/"]').count(),0);
+              assert.equal(await page.evaluate(()=>window.__qrw1511Workers.length),0);
+              await page.goBack();await off(op);
+            }
+            for(const op of ['comp03','vase']){const r=await page.goto(root+'/editor/world/'+op+'/');assert.equal(r.status(),200);await off(op);}
+            assert.deepEqual(requests,[]);assert.deepEqual(errors,[]);
+            console.log('QRW1511_OFF_CHROME_ACTUAL_PASS',JSON.stringify({counts,hubLinks:0,workerConstructed:0,scopedRequests:0,pageErrors:0,realSignedPositive:false}));
+            await context.close();
+          }finally{await browser.close()}
+          NODE
