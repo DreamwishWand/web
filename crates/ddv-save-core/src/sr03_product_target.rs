@@ -479,6 +479,17 @@ mod tests{
   assert_eq!(s.receipt().unwrap().decoded_sha256,e.expected_decoded_sha256);
   let mut bad=d.clone();bad["World"]["RecurringEvents"]=json!({"999999999":{"Unknown":{}}});
   let b=open_switch(&bad);assert!(b.preview_switch626_r01_product(env(&b),90001,x,y).is_err());
+  // Exercise the actual single-session Worker guard using an isolated fresh source.
+  let ws=open_switch(&d);let we=env(&ws);let wp=ws.prepare_switch626_r01_product(we,90001,x,y).unwrap();
+  let mut guard=crate::worker_session::WorkerSessionGuard::attach(ws);
+  let preview=guard.preview_switch626_r01_product(we,90001,x,y).unwrap();assert_eq!(preview["exactFieldChangedCount"],4);
+  let se=WorkerEnvelope{action:WorkerAction::Stage,..we};
+  assert!(guard.stage_switch626_r01_product(se,90001,x,y,50,9,wp.target.grid_sha,wp.target.stock_sha,wp.projected).is_err());
+  let wr=guard.stage_switch626_r01_product(se,90001,x,y,50,10,wp.target.grid_sha,wp.target.stock_sha,wp.projected).unwrap();
+  assert_eq!(wr.exact_field_changed_count,4);
+  let rr=guard.receipt().unwrap();let out=WorkerEnvelope{session_id:rr.session_id,expected_revision:rr.revision,expected_index_generation:rr.index_generation,expected_decoded_sha256:rr.decoded_sha256,action:WorkerAction::ExportEditedCopy,..we};
+  let decoded=guard.take_scoped_edit(out).unwrap();assert_eq!(digest(&decoded,Span{begin:0,end:decoded.len()}).unwrap(),wp.projected);
+  assert!(guard.take_scoped_edit(out).is_err());
  }
  #[test]fn switch626_r01_current_session_target_no_seed_exemption(){
   let mut d=doc();
