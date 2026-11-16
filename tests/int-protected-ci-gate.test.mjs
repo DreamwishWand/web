@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {inspectProtectedCi,revalidateProtectedCi,githubPublicJson} from '../scripts/int-protected-ci-gate.mjs';
+import {inspectProtectedCi,revalidateProtectedCi,githubPublicJson,createPublicJsonGetter} from '../scripts/int-protected-ci-gate.mjs';
 const head='a'.repeat(40),other='b'.repeat(40),root='/repos/DreamwishWand/web';
 const input={repository:'DreamwishWand/web',head,workflowBlob:'4dbc0572b70a9a8245695fed5e4a6369ee2f529a'};
 const repo={id:1371485649,full_name:'DreamwishWand/web',default_branch:'main',private:false};
@@ -111,4 +111,60 @@ test('403 diagnostics are bounded, numeric only and never authorize an ordinary 
  calls=0;await assert.rejects(githubPublicJson(p,async()=>{calls++;return limited();},async()=>{}),/GITHUB_API_DENIED:403:endpoint=main-ref/);assert.equal(calls,2);
  calls=0;await assert.rejects(githubPublicJson(p,async()=>++calls===1?limited():new Response('{}',{status:302}),async()=>{}),/GITHUB_API_DENIED:302/);
  calls=0;await assert.rejects(githubPublicJson(p,async()=>++calls===1?limited():new Response('bad',{headers:{'content-type':'text/html'}}),async()=>{}),/GITHUB_API_DENIED:200/);
+});
+
+test('reset-only recovery: exact public GET, bounded delay, one reset per phase',async()=>{
+ const p=root+'/git/ref/heads/main',now=1794807418000,reset='1794807555';
+ const limited=(headers={})=>new Response('untrusted',{status:403,headers:{'x-ratelimit-remaining':'0','x-ratelimit-reset':reset,...headers}});
+ const ok=()=>new Response(JSON.stringify(ref),{headers:{'content-type':'application/json'}});
+ let calls=0;const delays=[];
+ const get=createPublicJsonGetter(async(url,o)=>{
+   assert.equal(url.href,'https://api.github.com'+p);assert.equal(o.method,'GET');assert.equal(o.redirect,'error');
+   assert.equal(Object.keys(o.headers).some(k=>k.toLowerCase()==='authorization'),false);
+   return ++calls===2?ok():limited();
+ },async ms=>delays.push(ms),()=>now);
+ assert.deepEqual(await get(p),ref);assert.deepEqual(delays,[138000]);assert.equal(calls,2);
+ await assert.rejects(get(p),/GITHUB_API_DENIED:403/);assert.equal(calls,3);assert.deepEqual(delays,[138000]);
+ for(const headers of [
+   {'x-ratelimit-reset':'1794807418'}, {'x-ratelimit-reset':'1794807417'},
+   {'x-ratelimit-reset':'1794808004'}, {'x-ratelimit-reset':'bad'},
+   {'x-ratelimit-remaining':'1'}, {'retry-after':'invalid'}, {'retry-after':'6'},
+   {'retry-after':'0'}, {'retry-after':''}
+ ]){
+   let n=0;const g=createPublicJsonGetter(async()=>{n++;return limited(headers);},async()=>assert.fail('unexpected retry'),()=>now);
+   await assert.rejects(g(p),/GITHUB_API_DENIED:403/);assert.equal(n,1);
+ }
+ for(const path of ['/repos/DreamwishWand/web-extra/actions/runs/123','/repos/DreamwishWand/web/actions/runs?unexpected=1']){
+   const g=createPublicJsonGetter(async()=>limited(),async()=>assert.fail('unexpected retry'),()=>now);
+   await assert.rejects(g(path),/GITHUB_API_DENIED:403:endpoint=other/);
+ }
+ for(const [seconds,expected] of [[179,180000],[180,0]]){
+   let n=0;const sleeps=[];
+   const g=createPublicJsonGetter(async()=>++n===1?limited({'x-ratelimit-reset':String(now/1000+seconds)}):ok(),async ms=>sleeps.push(ms),()=>now);
+   if(expected){assert.deepEqual(await g(p),ref);assert.deepEqual(sleeps,[expected]);}
+   else{await assert.rejects(g(p),/GITHUB_API_DENIED:403/);assert.deepEqual(sleeps,[]);}
+ }
+ let n=0;const g=createPublicJsonGetter(async()=>{n++;return limited();},async()=>{},()=>now);
+ await assert.rejects(g(p),/GITHUB_API_DENIED:403/);assert.equal(n,2);
+});
+test('phase budget includes short retry and reset; fresh phase independent',async()=>{
+ const p=root+'/git/ref/heads/main',now=1794807418000,delays=[];let n=0;
+ const limited=h=>new Response('untrusted',{status:403,headers:{'x-ratelimit-remaining':'0',...h}});
+ const ok=()=>new Response(JSON.stringify(ref),{headers:{'content-type':'application/json'}});
+ const get=createPublicJsonGetter(async()=>++n===1?limited({'retry-after':'2'}):n===2?ok():limited({'x-ratelimit-reset':String(now/1000+178)}),async ms=>delays.push(ms),()=>now);
+ assert.deepEqual(await get(p),ref);await assert.rejects(get(p),/GITHUB_API_DENIED:403/);
+ assert.equal(n,3);assert.deepEqual(delays,[2000]);
+ const fresh=createPublicJsonGetter(async()=>++n===4?limited({'x-ratelimit-reset':String(now/1000+178)}):ok(),async ms=>delays.push(ms),()=>now);
+ assert.deepEqual(await fresh(p),ref);assert.deepEqual(delays,[2000,179000]);
+});
+test('reset recovery cannot grant stale main or changed deploy receipt',async()=>{
+ const receipt=await inspectProtectedCi(input,mock().get),now=1794807418000;
+ for(const options of [{staleAfter:true},{rerun:true}]){
+   const m=mock(options);let first=true;
+   const get=createPublicJsonGetter(async url=>{
+     if(first){first=false;return new Response('limited',{status:403,headers:{'x-ratelimit-remaining':'0','x-ratelimit-reset':'1794807555'}});}
+     return new Response(JSON.stringify(await m.get(url.pathname+url.search)),{headers:{'content-type':'application/json'}});
+   },async()=>{},()=>now);
+   await assert.rejects(revalidateProtectedCi(input,receipt,get),/PROTECTED_MAIN_STALE|RUN_IDENTITY_MISMATCH/);
+ }
 });

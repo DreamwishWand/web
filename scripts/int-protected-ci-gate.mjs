@@ -16,10 +16,12 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
 // Fixed endpoint labels only; never emit URLs, response bodies or arbitrary headers.
 function apiCategory(path) {
-  const suffix=path.replace(/^\/repos\/DreamwishWand\/(?:web|site)/,'');
+  const match=/^\/repos\/DreamwishWand\/(?:web|site)(\/.*)?$/.exec(path);
+  if(!match)return 'other';
+  const suffix=match[1]??'';
   if(suffix==='')return 'repository';
   if(suffix==='/git/ref/heads/main')return 'main-ref';
-  if(suffix.startsWith('/actions/runs?'))return 'run-list';
+  if(/^\/actions\/runs\?branch=main&event=push&head_sha=[0-9a-f]{40}&per_page=100$/.test(suffix))return 'run-list';
   if(/^\/actions\/runs\/\d+$/.test(suffix))return 'run';
   if(/^\/actions\/runs\/\d+\/attempts\/\d+\/jobs\?per_page=100$/.test(suffix))return 'attempt-jobs';
   return 'other';
@@ -36,7 +38,14 @@ function apiDenied(response,category) {
   return 'GITHUB_API_DENIED:'+response.status+':endpoint='+category+
     fields.filter(([,v])=>v!==null).map(([k,v])=>':'+k+'='+v).join('');
 }
-export async function githubPublicJson(path,fetcher=fetch,sleep=wait) {
+const MAX_PHASE_RETRY_MS=180000;
+function retryState(){return {waited:0,resetUsed:false};}
+// One state per build/deploy phase, including pending-CI checks.
+export function createPublicJsonGetter(fetcher=fetch,sleep=wait,now=Date.now){
+  const state=retryState();
+  return path=>githubPublicJson(path,fetcher,sleep,state,now);
+}
+export async function githubPublicJson(path,fetcher=fetch,sleep=wait,state=retryState(),now=Date.now) {
   if(typeof path!=='string'||!path.startsWith('/repos/DreamwishWand/')||
      path.includes('..')||path.includes('#')||path.includes('\\'))deny('UNSAFE_API_PATH');
   const url=new URL('https://api.github.com'+path);
@@ -46,14 +55,30 @@ export async function githubPublicJson(path,fetcher=fetch,sleep=wait) {
     headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'DreamwishWand-protected-CI'},
     signal:AbortSignal.timeout(20000)});
   let response=await request();
-  // Only explicit short rate-limit evidence permits one identical public GET.
-  // Unknown/ordinary 403, redirects and exhausted attempts remain denied.
+  // Explicit primary limit only; a present but invalid Retry-After
+  // must never fall back to reset. One identical GET per failed request.
   const delay=numericHeader(response.headers,'retry-after');
+  let retryMs=0,resetRecovery=false;
   if(response.status===403&&!response.redirected&&category!=='other'&&
-     numericHeader(response.headers,'x-ratelimit-remaining')===0&&delay!==null&&delay>=1&&delay<=5){
-    console.warn(apiDenied(response,category)+':bounded_retry=1');
+     numericHeader(response.headers,'x-ratelimit-remaining')===0){
+    if(delay!==null&&delay>=1&&delay<=5){
+      retryMs=delay*1000;
+    }else if(response.headers.get('retry-after')===null&&!state.resetUsed){
+      const reset=numericHeader(response.headers,'x-ratelimit-reset');
+      const current=now();
+      const delta=reset===null?0:reset*1000-current;
+      if(Number.isSafeInteger(current)&&current>=0&&delta>0){
+        retryMs=Math.ceil((delta+1000)/1000)*1000;
+        resetRecovery=true;
+      }
+    }
+  }
+  if(retryMs>0&&retryMs<=MAX_PHASE_RETRY_MS-state.waited){
+    state.waited+=retryMs;
+    if(resetRecovery)state.resetUsed=true;
+    console.warn(apiDenied(response,category)+':bounded_retry=1'+(resetRecovery?':reset_recovery=1':''));
     await response.body?.cancel();
-    await sleep(delay*1000);
+    await sleep(retryMs);
     response=await request();
   }
   if(response.status!==200||response.redirected||!response.headers.get('content-type')?.toLowerCase().includes('application/json'))
@@ -64,7 +89,7 @@ export async function githubPublicJson(path,fetcher=fetch,sleep=wait) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-export async function inspectProtectedCi({repository,head,workflowBlob},get=githubPublicJson) {
+export async function inspectProtectedCi({repository,head,workflowBlob},get=createPublicJsonGetter()) {
   if(!repos.has(repository)||typeof head!=='string'||!SHA.test(head)||workflowBlob!==CI_BLOB)deny('PROTECTED_CI_INPUT_OR_WORKFLOW_DENIED');
   const root='/repos/'+repository;
   const ref=async()=>{
@@ -95,7 +120,7 @@ export async function inspectProtectedCi({repository,head,workflowBlob},get=gith
 
 // A build receipt is not authority. It must match the current exact successful
 // predecessor again at the deploy boundary, including run attempt and job.
-export async function revalidateProtectedCi(input,receipt,get=githubPublicJson){
+export async function revalidateProtectedCi(input,receipt,get=createPublicJsonGetter()){
   if(!receipt||typeof receipt!=='object'||Array.isArray(receipt))deny('CI_RECEIPT_INVALID');
   const actual=await inspectProtectedCi(input,get);
   if(actual.status!=='PROTECTED_CI_PREDECESSOR_MATCH')deny('CI_RECEIPT_NO_LONGER_SUCCESS');
@@ -114,10 +139,11 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
     const git=(...args)=>execFileSync('git',args,{encoding:'utf8',env:{...e,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
     if(git('rev-parse','HEAD')!==e.GITHUB_SHA||e.GITHUB_WORKFLOW_SHA!==e.GITHUB_SHA)deny('PROTECTED_CHECKOUT_MISMATCH');
     const input={repository:e.GITHUB_REPOSITORY,head:e.GITHUB_SHA,workflowBlob:git('rev-parse','HEAD:'+CI_PATH)};
+    const get=createPublicJsonGetter();
     let result;
     if(phase==='build'){
       for(let i=0;i<6;i++){
-        result=await inspectProtectedCi(input);
+        result=await inspectProtectedCi(input,get);
         if(result.status==='PROTECTED_CI_PREDECESSOR_MATCH')break;
         if(i<5)await wait(10000);
       }
@@ -127,7 +153,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
     }else{
       const raw=e.WAND_CI_RECEIPT;
       if(typeof raw!=='string'||raw.length>4096||raw.length===0)deny('CI_RECEIPT_INVALID');
-      result=await revalidateProtectedCi(input,JSON.parse(raw));
+      result=await revalidateProtectedCi(input,JSON.parse(raw),get);
     }
     console.log(JSON.stringify(result));
   }catch(error){console.error('PROTECTED_CI_GATE_DENIED:',error.message);process.exitCode=1;}
