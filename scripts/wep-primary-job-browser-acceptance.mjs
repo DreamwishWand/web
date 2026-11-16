@@ -545,8 +545,8 @@ async function isSemanticallyDisabled(locator) {
 async function runLocaleLayoutAcceptance(page, report) {
   const locales = ['de', 'fr', 'pt-BR', 'ja', 'zh-CN'];
   const localeSelect = page.locator('#site-locale');
-  await localeSelect.waitFor();
   await page.setViewportSize({ width: 1280, height: 1100 });
+  await localeSelect.waitFor();
 
   const localeSearch = page.locator('[data-wep-search-input]');
   await localeSearch.fill('40');
@@ -733,10 +733,10 @@ async function runSyntheticAcceptance(page, report) {
   await page.getByLabel('World object search').fill('');
 
   await page.locator(cssObject('Editable Lamp')).first().click();
-  await page.getByRole('button', { name: /furniture/ }).click();
+  await page.getByRole('button', { name: 'furniture selectable', exact: true }).click();
   await expectSelected(page, 0);
   await expectContains(page.locator('.canvas-footer'), '0 visible', 'layer filter visible count');
-  await page.getByRole('button', { name: /furniture/ }).click();
+  await page.getByRole('button', { name: 'furniture selectable', exact: true }).click();
 
   // Mixed multi-select must disable all common mutation commands and explain why.
   await page.locator(cssObject('Editable Chair')).first().click();
