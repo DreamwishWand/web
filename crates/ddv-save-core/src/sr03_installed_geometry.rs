@@ -36,6 +36,46 @@ impl MeadowGeometry{
   for r in self.data["delta"].as_array()?{if n(&r[0])?==item{return scaled(n(&r[1])?,n(&r[2])?,n(&r[3])?)}}
   None
  }
+ /// ACT1196: exact two saved building classes on the fixed installed provider.
+ /// The caller must obtain houses from the same validated immutable World and
+ /// establish fresh ordinary-load/overlay/provider identity before use.
+ /// A malformed special item never falls back to a generic rectangle.
+ pub(crate) fn effective_building(&self,o:&Value,houses:&Value)->Option<Rect>{
+  if !exact_fields(o,&["ID","ItemID","X","Y","Orientation","State"])||n(&o["ID"])?==0{return None}
+  let item=n(&o["ItemID"])?;let x=i64::from(n(&o["X"])?);let y=i64::from(n(&o["Y"])?);
+  let s=&o["State"];
+  let (def,w,h)=match item{
+   20500005=>{
+    if o["Orientation"]!="GridOrientation_Right"||!exact_fields(s,&["HouseData"]){return None}
+    let a=&s["HouseData"];
+    if !exact_fields(a,&["Built","UpgradeState","PlayerHouseIndex"])||a["Built"]!=true||n(&a["PlayerHouseIndex"])?!=0
+     ||!exact_fields(&a["UpgradeState"],&["Level"])||n(&a["UpgradeState"]["Level"])?!=4{return None}
+    let hs=houses.as_array()?;if hs.is_empty()||hs.len()>4096{return None}
+    if n(&hs[0]["HouseItemID"])?!=item||hs.iter().filter(|v|n(&v["HouseItemID"])==Some(item)).count()!=1{return None}
+    ("cf32d344d2621e4caa83d7c05652013e7f7ed008fd1ed13a1ab3562a159f52ff",26,22)
+   },
+   20300115=>{
+    if o["Orientation"]!="GridOrientation_Down"||!exact_fields(s,&["BuildingWithSkinData"]){return None}
+    let a=&s["BuildingWithSkinData"];
+    if !exact_fields(a,&["UpgradeState","CurrentSkinItemID"])||!a["UpgradeState"].is_null()||n(&a["CurrentSkinItemID"])?!=0{return None}
+    ("4b024c5d461aa4d3a77344e1946dc46d478a6d05891a8809bc63cd54c4648c2d",14,10)
+   },
+   _=>return None,
+  };
+  let row=self.data["delta"].as_array()?.iter().find(|v|n(&v[0])==Some(item))?;
+  if row[4]!=def||n(&row[3])?!=1{return None}
+  let dims=self.dimensions(item,|_|None)?;
+  if (item==20500005&&dims!=(22,26))||(item==20300115&&dims!=(14,10)){return None}
+  Some(Rect(x,y,x+i64::from(w),y+i64::from(h)))
+ }
+ /// Route exact affected buildings through their fixed proof, never through
+ /// the remaining ambient callback. No product/session/rights grant here.
+ pub(crate) fn local_candidate_with_buildings(&self,grid:&Value,keep:u32,moved:u32,houses:&Value,common:impl Fn(u32)->Option<(u32,u32)>,mut other:impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<LocalTarget>{
+  self.local_candidate(grid,keep,moved,common,|o,dims|match n(&o["ItemID"])?{
+   20500005|20300115=>self.effective_building(o,houses),
+   _=>other(o,dims),
+  })
+ }
  pub(crate) fn floor4(&self,x:u32,y:u32)->bool{if x>=W||y>=H{return false}let i=((x/2)*100+y/2) as usize;self.mask[i/8]&(1<<(i%8))!=0}
  /// Exact five saved 2x2 cells and two-cell halo. This deliberately accepts
  /// only a *Core-owned* ambient proof callback; it does not infer an effective
@@ -67,6 +107,37 @@ mod tests{
  fn common(i:u32)->Option<(u32,u32)>{if i==ROAD{Some((2,2))}else{None}}
  fn fixture(p:&MeadowGeometry)->Value{let(x,y)=(0..W-10).step_by(4).flat_map(|x|(0..H-6).step_by(4).map(move|y|(x,y))).find(|&(x,y)|[(x,y),(x+4,y),(x+4,y+4),(x+8,y),(x+8,y+4)].iter().all(|&(x,y)|(0..2).all(|a|(0..2).all(|b|p.floor4(x+a,y+b))))).unwrap();
  let road=|id,x,y|json!({"ID":id,"ItemID":ROAD,"X":x,"Y":y,"Orientation":"GridOrientation_Down","State":null});json!({"ID":90001,"GridDataPath":GRID,"GridDefaultLayoutPath":"","TessellationFactor":2,"NextGridObjectID":50,"Objects":{"10":road(10,x,y),"11":road(11,x+4,y)}})}
+ #[test]fn exact_native_building_bounds_and_no_fallback(){
+  let p=MeadowGeometry::fixed(BUILD,626).unwrap();
+  let h=json!([{"HouseItemID":20500005}]);
+  let house=json!({"ID":12,"ItemID":20500005,"X":80,"Y":40,"Orientation":"GridOrientation_Right",
+      "State":{"HouseData":{"Built":true,"UpgradeState":{"Level":4},"PlayerHouseIndex":0}}});
+  let skin=json!({"ID":13,"ItemID":20300115,"X":100,"Y":60,"Orientation":"GridOrientation_Down",
+      "State":{"BuildingWithSkinData":{"UpgradeState":null,"CurrentSkinItemID":0}}});
+  assert_eq!(p.effective_building(&house,&h),Some(Rect(80,40,106,62)));
+  assert_eq!(p.effective_building(&skin,&h),Some(Rect(100,60,114,70)));
+  for o in [&house,&skin]{
+   for (key,value) in [("ID",json!(0)),("X",json!(0.5)),("Orientation",json!("GridOrientation_Up")),("State",json!(null)),("From",json!({})),("GridArea",json!({})),("ItemID",json!(20000000))]{
+    let mut q=o.clone();q[key]=value;assert!(p.effective_building(&q,&h).is_none());
+   }
+  }
+  for (key,value) in [("Built",json!(false)),("PlayerHouseIndex",json!(false)),("PlayerHouseIndex",json!(1)),("UpgradeState",json!({"Level":3})),("UpgradeState",json!({"Level":4,"Extra":0}))]{
+   let mut q=house.clone();q["State"]["HouseData"][key]=value;assert!(p.effective_building(&q,&h).is_none());
+  }
+  for bad in [json!([]),json!([{"HouseItemID":20500006}]),json!([{"HouseItemID":20500005},{"HouseItemID":20500005}])]{
+   assert!(p.effective_building(&house,&bad).is_none());
+  }
+  for (key,value) in [("CurrentSkinItemID",json!(false)),("CurrentSkinItemID",json!(20300116)),("UpgradeState",json!({"Level":1}))]{
+   let mut q=skin.clone();q["State"]["BuildingWithSkinData"][key]=value;assert!(p.effective_building(&q,&h).is_none());
+  }
+  let mut d=fixture(&p);let x=n(&d["Objects"]["10"]["X"]).unwrap();let y=n(&d["Objects"]["10"]["Y"]).unwrap();
+  let mut o=house.clone();o["X"]=json!(x+12);o["Y"]=json!(y);
+  d["Objects"]["12"]=o;assert!(p.local_candidate_with_buildings(&d,10,11,&h,common,|_,_|panic!("special fallback")).is_some());
+  d["Objects"]["12"]["X"]=json!(x+11);
+  assert!(p.local_candidate_with_buildings(&d,10,11,&h,common,|_,_|panic!("special fallback")).is_none());
+  d["Objects"]["12"]["X"]=json!(x+12);d["Objects"]["12"]["State"]["HouseData"]["Built"]=json!(false);
+  assert!(p.local_candidate_with_buildings(&d,10,11,&h,common,|_,_|panic!("special fallback")).is_none());
+ }
  #[test]fn installed_delta_and_exact_local_scope(){let p=MeadowGeometry::fixed(BUILD,626).unwrap();assert!(MeadowGeometry::fixed("foreign",626).is_none());assert!(MeadowGeometry::fixed(BUILD,624).is_none());assert_eq!(p.dimensions(ROAD,common),Some((2,2)));assert!(p.dimensions(ROAD,|_|None).is_none());assert!(p.dimensions(0,common).is_none());assert_eq!((0..196).flat_map(|x|(0..100).map(move|y|(x,y))).filter(|&(x,y)|p.floor4(x*2,y*2)).count(),13208);assert!(!p.floor4(W,0));assert!(!p.floor4(0,H));let d=fixture(&p);assert!(p.local_candidate(&d,10,11,common,|_,_|None).is_some());
  for (k,v) in [("ID",json!(0)),("GridDataPath",json!("bad")),("GridDefaultLayoutPath",json!("overlay")),("TessellationFactor",json!(1)),("NextGridObjectID",json!(11))]{let mut q=d.clone();q[k]=v;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none())}for(k,v)in[("X",json!(1)),("State",json!({})),("Orientation",json!("GridOrientation_Up")),("ItemID",json!(40000066)),("ID",json!(12))]{let mut q=d.clone();q["Objects"]["10"][k]=v;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none())}
  let mut q=d.clone();let mut o=q["Objects"]["10"].clone();o["ID"]=json!(12);q["Objects"]["12"]=o;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none());let x=n(&q["Objects"]["10"]["X"]).unwrap() as i64;let y=n(&q["Objects"]["10"]["Y"]).unwrap() as i64;assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(x,y,x+2,y+2))).is_none());assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(x-4,y,x-2,y+2))).is_none());let far_x=x+12; q["Objects"]["12"]["X"]=json!(far_x);assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(far_x,y,far_x+2,y+2))).is_some());q["Objects"]["12"]["X"]=json!(far_x-1);assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(far_x-1,y,far_x+1,y+2))).is_none());}
