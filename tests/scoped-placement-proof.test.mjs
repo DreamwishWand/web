@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {ACTIVE_RELEASE_TUPLE as tuple} from '../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
-import {COMP03_RELEASE as comp,COMP03_SPATIAL_RELEASE as spatial,VASE_ADD_RELEASE as vase,validatePlacementAnchor} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+import {COMP03_RELEASE as comp,COMP03_SPATIAL_RELEASE as spatial,VASE_ADD_RELEASE as vase,SR03_RELEASE as sr03,RM01_RELEASE as rm01,HAIR_RELEASE as hair,SKIN_RELEASE as skin,validatePlacementAnchor} from '../src/lib/ddv/core/save/product-scoped-placement-release.mjs';
 import {fixedPlacementProofScope,inspectPlacementSubjects,privatePlacementIdentity,replacePrivatePlacementAnchor} from '../scripts/readonly-release/scoped-placement-proof.mjs';
 const source='a'.repeat(40),sha=b=>createHash('sha256').update(b).digest('hex');
 const u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a};
@@ -63,3 +63,114 @@ test('optional COMP03 spatial release exact separate identity, no legacy upgrade
  assert.throws(()=>replacePrivatePlacementAnchor(comp,prior,privatePlacementIdentity(comp,inspectPlacementSubjects(comp,subject(comp),source),'http://127.0.0.1:4188')));
  assert.throws(()=>replacePrivatePlacementAnchor(spatial,out,a));
 });
+
+test('SR03 fixed exact8 proof identity, private anchor and cross-scope denial',async()=>{
+ assert.equal(fixedPlacementProofScope('steam626-sr03'),sr03);
+ assert.equal(sr03.operation,'steam626.sr03.mixed-q5.exact8');
+ assert.deepEqual(sr03.features,['product-steam626-sr03-scoped','worker-wasm']);
+ assert.equal(sr03.methods.length,13);assert.equal(sr03.exports.length,22);
+ const own=Buffer.from('export function preview_steam626_sr03(){};export function stage_steam626_sr03(){}');
+ const bytes=subject(sr03,wasm(sr03),own),pins=inspectPlacementSubjects(sr03,bytes,source);
+ const a=privatePlacementIdentity(sr03,pins,'http://127.0.0.1:4188');
+ assert.equal(await validatePlacementAnchor(sr03,a),true);
+ assert.equal(a.builds[0].productV2EvidenceSha256,null);
+ assert.throws(()=>privatePlacementIdentity(sr03,pins,tuple.origin));
+ const prior=readFileSync(new URL('../src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs',import.meta.url),'utf8');
+ const legacy=readFileSync(new URL('../src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs',import.meta.url),'utf8');
+ const out=replacePrivatePlacementAnchor(sr03,prior,a);
+ assert.ok(out.includes('export const PROTECTED_SR03_RELEASE_ANCHOR=Object.freeze('));
+ assert.throws(()=>replacePrivatePlacementAnchor(sr03,legacy,a));
+ assert.throws(()=>replacePrivatePlacementAnchor(sr03,out,a));
+ assert.throws(()=>replacePrivatePlacementAnchor(sr03,prior,{...a,mode:'public-accepted'}));
+ for(const other of [comp,vase]){
+  assert.throws(()=>inspectPlacementSubjects(other,bytes,source));
+  assert.throws(()=>inspectPlacementSubjects(sr03,subject(other),source));
+  assert.throws(()=>inspectPlacementSubjects(sr03,subject(sr03,wasm(other)),source));
+  for(const n of ['preview_steam626_sr03','stage_steam626_sr03'])
+   assert.throws(()=>inspectPlacementSubjects(other,subject(other,wasm(other),Buffer.from(n)),source));
+  for(const n of other.methods.filter(n=>/^(?:preview|stage)_steam626_/.test(n)))
+   assert.throws(()=>inspectPlacementSubjects(sr03,subject(sr03,wasm(sr03),Buffer.from(n)),source));
+ }
+ for(const n of ['preview_steam626_comp03_spatial','stage_switch626_vase_add','preview_steam626_backpack_split','stage_switch626_wardrobe','preview_switch626_catalog0','preview_steam626_chest'])
+  assert.throws(()=>inspectPlacementSubjects(sr03,subject(sr03,wasm(sr03),Buffer.from(n)),source));
+ assert.throws(()=>inspectPlacementSubjects(sr03,subject(sr03,wasm(sr03,true)),source));
+ assert.throws(()=>inspectPlacementSubjects(sr03,bytes,'c'.repeat(40)));
+});
+
+
+test('SR03 and optional spatial fixed proofs retain own separate anchors and reject foreign subjects',async()=>{
+ for(const [own,foreign] of [[sr03,spatial],[spatial,sr03]]){
+  const bytes=subject(own),p=inspectPlacementSubjects(own,bytes,source);
+  const a=privatePlacementIdentity(own,p,'http://127.0.0.1:4188');
+  assert.equal(await validatePlacementAnchor(own,a),true);
+  assert.throws(()=>inspectPlacementSubjects(foreign,bytes,source));
+  assert.throws(()=>inspectPlacementSubjects(own,subject(own,wasm(foreign)),source));
+  for(const n of foreign.methods.filter(n=>/^(?:preview|stage)_steam626_/.test(n)))
+   assert.throws(()=>inspectPlacementSubjects(own,subject(own,wasm(own),Buffer.from(n)),source));
+  for(const n of ['preview_steam626_chest','stage_switch626_vase_add'])
+   assert.throws(()=>inspectPlacementSubjects(own,subject(own,wasm(own),Buffer.from(n)),source));
+  const path=foreign===sr03?'product-scoped-sr03-release-anchor.mjs':'product-scoped-comp03-spatial-release-anchor.mjs';
+  const prior=readFileSync(new URL('../src/lib/ddv/core/save/'+path,import.meta.url),'utf8');
+  assert.throws(()=>replacePrivatePlacementAnchor(own,prior,a));
+ }
+});
+
+ test('current RM01 is a foreign placement scope for existing four proofs',()=>{
+ for(const own of [comp,vase,sr03,spatial])for(const n of ['preview_switch626_rm01','stage_switch626_rm01'])
+  assert.throws(()=>inspectPlacementSubjects(own,subject(own,wasm(own),Buffer.from(n)),source));
+ assert.equal(fixedPlacementProofScope('switch626-rm01'),rm01);
+ });
+
+test('RM01 exact Switch626 proof identity, separate anchor and foreign denial',async()=>{
+ assert.equal(fixedPlacementProofScope('switch626-rm01'),rm01);
+ assert.equal(rm01.operation,'switch626.rm01.mixed-q5.exact8');
+ assert.equal(rm01.platform,'switch');assert.equal(rm01.buildId,'9A239D3DB569756D');
+ assert.deepEqual(rm01.features,['product-switch626-rm01-scoped','worker-wasm']);
+ assert.equal(rm01.methods.length,13);assert.equal(rm01.exports.length,22);
+ const own=Buffer.from('export function preview_switch626_rm01(){};export function stage_switch626_rm01(){}');
+ const bytes=subject(rm01,wasm(rm01),own),pins=inspectPlacementSubjects(rm01,bytes,source);
+ const a=privatePlacementIdentity(rm01,pins,'http://127.0.0.1:4188');
+ assert.equal(await validatePlacementAnchor(rm01,a),true);
+ assert.deepEqual(a.builds,[{platform:'switch',buildId:'9A239D3DB569756D',productV2EvidenceSha256:null}]);
+ await assert.rejects(()=>validatePlacementAnchor(rm01,{...a,builds:[{platform:'steam-windows',buildId:sr03.buildId,productV2EvidenceSha256:null}]}));
+ assert.throws(()=>privatePlacementIdentity(rm01,pins,tuple.origin));
+ const prior=readFileSync(new URL('../src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs',import.meta.url),'utf8');
+ const old=readFileSync(new URL('../src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs',import.meta.url),'utf8');
+ const out=replacePrivatePlacementAnchor(rm01,prior,a);
+ assert.ok(out.includes('export const PROTECTED_RM01_RELEASE_ANCHOR=Object.freeze('));
+ assert.throws(()=>replacePrivatePlacementAnchor(rm01,old,a));
+ assert.throws(()=>replacePrivatePlacementAnchor(rm01,out,a));
+ for(const other of [comp,vase,sr03,spatial]){
+  assert.throws(()=>inspectPlacementSubjects(other,bytes,source));
+  assert.throws(()=>inspectPlacementSubjects(rm01,subject(other),source));
+  assert.throws(()=>inspectPlacementSubjects(rm01,subject(rm01,wasm(other)),source));
+  for(const n of ['preview_switch626_rm01','stage_switch626_rm01'])
+   assert.throws(()=>inspectPlacementSubjects(other,subject(other,wasm(other),Buffer.from(n)),source));
+  for(const n of other.methods.filter(n=>/^(?:preview|stage)_steam626_/.test(n)))
+   assert.throws(()=>inspectPlacementSubjects(rm01,subject(rm01,wasm(rm01),Buffer.from(n)),source));
+ }
+ for(const n of ['preview_steam626_comp03_spatial','stage_switch626_vase_add','preview_steam626_backpack_split','stage_switch626_wardrobe','preview_switch626_catalog0','preview_steam626_chest'])
+  assert.throws(()=>inspectPlacementSubjects(rm01,subject(rm01,wasm(rm01),Buffer.from(n)),source));
+ assert.throws(()=>inspectPlacementSubjects(rm01,subject(rm01,wasm(rm01,true)),source));
+});
+
+
+ test('Steam626 Hair and Skin each retain fixed exact1 private proof and deny all foreign scopes',async()=>{
+ const prior=readFileSync(new URL('../src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs',import.meta.url),'utf8');
+ for(const own of [hair,skin]){
+  assert.equal(fixedPlacementProofScope(own.key),own);assert.equal(own.methods.length,13);assert.equal(own.exports.length,22);
+  const bytes=subject(own),pins=inspectPlacementSubjects(own,bytes,source),a=privatePlacementIdentity(own,pins,'http://127.0.0.1:4188');
+  assert.equal(await validatePlacementAnchor(own,a),true);assert.deepEqual(a.builds,[{platform:'steam-windows',buildId:own.buildId,productV2EvidenceSha256:null}]);
+  const sibling=own===hair?skin:hair,name=own===hair?'PROTECTED_HAIR_RELEASE_ANCHOR':'PROTECTED_SKIN_RELEASE_ANCHOR';
+  const result=replacePrivatePlacementAnchor(own,prior,a);assert.ok(result.includes('export const '+name+'=Object.freeze('));
+  assert.ok(result.includes('export const '+(own===hair?'PROTECTED_SKIN_RELEASE_ANCHOR':'PROTECTED_HAIR_RELEASE_ANCHOR')+'=null;'));
+  assert.throws(()=>replacePrivatePlacementAnchor(own,result,a));assert.throws(()=>privatePlacementIdentity(own,pins,tuple.origin));
+  for(const other of [comp,vase,sr03,spatial,rm01,sibling]){
+   assert.throws(()=>inspectPlacementSubjects(other,bytes,source));assert.throws(()=>inspectPlacementSubjects(own,subject(other),source));
+   for(const n of other.methods.filter(n=>/^(?:preview|stage)_(?:steam626|switch626)_/.test(n)))assert.throws(()=>inspectPlacementSubjects(own,subject(own,wasm(own),Buffer.from(n)),source));
+   for(const n of own.methods.filter(n=>/^(?:preview|stage)_steam626_/.test(n)))assert.throws(()=>inspectPlacementSubjects(other,subject(other,wasm(other),Buffer.from(n)),source));
+  }
+  for(const n of ['preview_switch626_hair','stage_switch626_skin','preview_switch626_r01','stage_switch626_r02'])assert.throws(()=>inspectPlacementSubjects(own,subject(own,wasm(own),Buffer.from(n)),source));
+  assert.throws(()=>inspectPlacementSubjects(own,subject(own,wasm(own,true)),source));
+ }
+ });
