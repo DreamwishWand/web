@@ -43,12 +43,13 @@ export function createProductSteam626Comp03LocalAdapter(options={}){return creat
 export function createProductSteam626Comp03SpatialLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'comp03-spatial')}
 export function createProductSteam626VaseAddLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'vase')}
 export function createProductSteam626Sr03LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'sr03')}
+export function createProductSwitch626Rm01LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'rm01')}
 export function createProductSteam626BackpackLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,'steam')}
 export function createProductSwitch626BackpackLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,'switch')}
 export function createProductSteam626WardrobeLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,'steam')}
 export function createProductSwitch626WardrobeLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,'switch')}
 function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null,backpackScope=null,wardrobeScope=null){
- const placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,previewEdit=placement||backpack||wardrobe,placementCount=wardrobe?1:(placementScope==='comp03'||placementScope==='comp03-spatial')?9:placementScope==='sr03'?8:3;
+ const placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,previewEdit=placement||backpack||wardrobe,placementCount=wardrobe?1:(placementScope==='comp03'||placementScope==='comp03-spatial')?9:(placementScope==='sr03'||placementScope==='rm01')?8:3;
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||
   (discoverScopedTargets!==undefined&&typeof discoverScopedTargets!=='function')||
   (allowCoreDiscoverySource&&discoverScopedTargets!==undefined)||
@@ -86,8 +87,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   async open(args){
    if(closeUnverified)fail();revoke();return run(async t=>{
     if(!keys(args,'file,originalSha256,build')||!keys(args.build,'platform,buildKind,buildId,schema,externallyConfirmed')||
-     !((!switchChest&&!catalog&&backpackScope!=='switch'&&wardrobeScope!=='switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
-       ((collection||switchChest||catalog||backpackScope==='switch'||wardrobeScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
+     !((!switchChest&&!catalog&&placementScope!=='rm01'&&backpackScope!=='switch'&&wardrobeScope!=='switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
+       ((collection||switchChest||catalog||placementScope==='rm01'||backpackScope==='switch'||wardrobeScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
      args.build.schema!==626||args.build.externallyConfirmed!==true||!uint(t)||t<1)fail();
     const input=Object.freeze({file:args.file,originalSha256:args.originalSha256,build:Object.freeze({...args.build})});
     const r=await bridge.openScopedEncrypted(input);check(t);

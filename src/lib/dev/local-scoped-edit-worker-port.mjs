@@ -8,7 +8,7 @@ const which=v=>v==='backup'||v==='edited';
 const placementMethods=Object.freeze({open:1,backupOriginal:0,previewPlacement:1,stagePlacement:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
 const backpackMethods=Object.freeze({open:1,backupOriginal:0,previewBackpack:1,stageBackpack:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
 const wardrobeMethods=Object.freeze({open:1,backupOriginal:0,previewWardrobe:0,stageWardrobe:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
-const methods=Object.freeze({comp03:placementMethods,'comp03-spatial':Object.freeze({...placementMethods,spatialPreview:0}),vase:placementMethods,sr03:placementMethods,backpack:backpackMethods,wardrobe:wardrobeMethods,
+const methods=Object.freeze({comp03:placementMethods,'comp03-spatial':Object.freeze({...placementMethods,spatialPreview:0}),vase:placementMethods,sr03:placementMethods,rm01:placementMethods,backpack:backpackMethods,wardrobe:wardrobeMethods,
  amount:Object.freeze({open:1,backupOriginal:0,listVerifiedTargets:0,stageTyped:1,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0}),
  collection:Object.freeze({open:1,inspectCollectionTargets:0,backupOriginal:1,previewCollectionTarget:2,stageCollectionTarget:2,undo:1,redo:1,exportEditedCopy:1,downloadVerifiedCopy:2,close:0})
 });
@@ -18,7 +18,7 @@ const closedAck=r=>exact(r,'kind,ok,writerAuthorized,nativeV3Verified,originalOv
 const validArgs=(mode,m,args,allowed)=>{
  if(!Object.hasOwn(allowed,m)||!Array.isArray(args)||args.length!==allowed[m])return false;
  if(m==='downloadVerifiedCopy')return mode==='collection'?uint(args[0])&&which(args[1]):which(args[0]);
- if(m==='previewPlacement')return (mode==='comp03'||mode==='comp03-spatial')?exact(args[0],'seedId')&&uint(args[0].seedId):mode==='sr03'?exact(args[0],'gridId,retainedId,movedId')&&['gridId','retainedId','movedId'].every(k=>uint(args[0][k]))&&args[0].retainedId!==args[0].movedId:mode==='vase'&&exact(args[0],'gridId,x,y')&&uint(args[0].gridId)&&['x','y'].every(k=>Number.isSafeInteger(args[0][k])&&args[0][k]>=0&&args[0][k]<=0xffffffff);
+ if(m==='previewPlacement')return (mode==='comp03'||mode==='comp03-spatial')?exact(args[0],'seedId')&&uint(args[0].seedId):(mode==='sr03'||mode==='rm01')?exact(args[0],'gridId,retainedId,movedId')&&['gridId','retainedId','movedId'].every(k=>uint(args[0][k]))&&args[0].retainedId!==args[0].movedId:mode==='vase'&&exact(args[0],'gridId,x,y')&&uint(args[0].gridId)&&['x','y'].every(k=>Number.isSafeInteger(args[0][k])&&args[0][k]>=0&&args[0][k]<=0xffffffff);
  if(m==='previewBackpack')return mode==='backpack'&&exact(args[0],'sourceSlot,destinationSlot')&&['sourceSlot','destinationSlot'].every(k=>Number.isSafeInteger(args[0][k])&&args[0][k]>=0&&args[0][k]<256)&&args[0].sourceSlot!==args[0].destinationSlot;
  if(mode==='collection'&&['backupOriginal','undo','redo','exportEditedCopy'].includes(m))return uint(args[0]);
  if(mode==='collection'&&['previewCollectionTarget','stageCollectionTarget'].includes(m))return uint(args[0])&&Number.isSafeInteger(args[1])&&args[1]===0;
@@ -99,6 +99,8 @@ export const createLocalWardrobeDevPort=worker=>createPort(worker,'wardrobe');
 
 export const installLocalSr03DevWorker=(port,adapter)=>install(port,adapter,'sr03');
 export const createLocalSr03DevPort=worker=>createPort(worker,'sr03');
+export const installLocalRm01DevWorker=(port,adapter)=>install(port,adapter,'rm01');
+export const createLocalRm01DevPort=worker=>createPort(worker,'rm01');
 
 export const installLocalComp03SpatialDevWorker=(port,adapter)=>install(port,adapter,'comp03-spatial');
 export const createLocalComp03SpatialDevPort=worker=>createPort(worker,'comp03-spatial');
