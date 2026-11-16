@@ -172,7 +172,7 @@ fn local_endpoint(b:&[u8],l:&Local,g:u32,o:Option<u32>)->CoreResult<()>{
     if let Some(o)=o{let r=f(b,f(b,g,"Objects")?,&o.to_string())?;need(n(b,r,"ID")?==o,"PLACEMENT_PRESET_OBJECT_ENDPOINT")?;}
     Ok(())
 }
-fn walk(b:&[u8],s:Span,path:&mut Vec<Segment>,ns:Option<&Local>,g:u32,seed:Option<u32>,next:u32,end:u32,a:&mut Incoming)->CoreResult<()>{
+fn walk(b:&[u8],s:Span,path:&mut Vec<Segment>,ns:Option<&Local>,g:u32,seeds:&[u32],next:u32,end:u32,a:&mut Incoming)->CoreResult<()>{
     a.nodes+=1;need(a.nodes<=MAX_NODES&&path.len()<=64,"PLACEMENT_REF_BOUND")?;
     // A local collection is recognized only by its exact typed owning path.
     // Every object/edge remains traversed; local aliases never count as World.
@@ -224,7 +224,7 @@ fn walk(b:&[u8],s:Span,path:&mut Vec<Segment>,ns:Option<&Local>,g:u32,seed:Optio
                 }
                 let ix=match k.as_str(){"GridID"=>Some(0),"GridId"=>Some(1),"GridObjectID"=>Some(2),"GridObjectId"=>Some(3),"ObjectID"=>Some(4),"ObjectId"=>Some(5),_=>None};
                 if let Some(i)=ix{need(fields[i].replace(v).is_none(),"PLACEMENT_REF_DUPLICATE")?;}
-                path.push(Key(k));walk(b,v,path,ns,g,seed,next,end,a)?;path.pop();
+                path.push(Key(k));walk(b,v,path,ns,g,seeds,next,end,a)?;path.pop();
             }
             let gs=fields[..2].iter().filter(|v|v.is_some()).count();let os=fields[2..].iter().filter(|v|v.is_some()).count();
             if gs>0&&os>0{
@@ -235,17 +235,26 @@ fn walk(b:&[u8],s:Span,path:&mut Vec<Segment>,ns:Option<&Local>,g:u32,seed:Optio
                     _=>return reject("PLACEMENT_REF_SPELLING")};
                 let id=uint(b,x)?;let oid=uint(b,y)?;a.pairs+=1;
                 if let Some(l)=ns{local_endpoint(b,l,id,Some(oid))?;}
-                else{need(id!=g||(oid!=0&&Some(oid)!=seed&&!(next..end).contains(&oid)),"PLACEMENT_REF_TARGET")?;}
+                else{need(id!=g||(oid!=0&&!seeds.contains(&oid)&&!(next..end).contains(&oid)),"PLACEMENT_REF_TARGET")?;}
             }
         },
-        Some(b'[')=>{path.push(Element);for x in array(b,s,250_000)?{walk(b,x,path,ns,g,seed,next,end,a)?;}path.pop();},
+        Some(b'[')=>{path.push(Element);for x in array(b,s,250_000)?{walk(b,x,path,ns,g,seeds,next,end,a)?;}path.pop();},
         Some(_)=>{},None=>return reject("PLACEMENT_REF_SPAN"),
     }Ok(())
 }
 pub(super) fn scan(b:&[u8],top:Span,g:u32,seed:Option<u32>,next:u32,end:u32)->CoreResult<Incoming>{
     need(next<end,"PLACEMENT_REF_RANGE")?;
     validate_puzzles(b,top)?;
-    let mut a=Incoming::default();walk(b,top,&mut Vec::new(),None,g,seed,next,end,&mut a)?;Ok(a)
+    let mut a=Incoming::default();walk(b,top,&mut Vec::new(),None,g,seed.as_slice(),next,end,&mut a)?;Ok(a)
+}
+/// SR03 old2/fresh3 in the same typed walk, no new reader or authority.
+pub(super) fn scan_sr03(b:&[u8],top:Span,g:u32,keep:u32,moved:u32,next:u32)->CoreResult<Incoming>{
+    let end=next.checked_add(3).ok_or(denied("PLACEMENT_REF_RANGE"))?;
+    need(g>0&&keep>0&&moved>0&&keep!=moved&&keep<next&&moved<next&&end<=i32::MAX as u32,"PLACEMENT_REF_SR03_SCOPE")?;
+    validate_puzzles(b,top)?;
+    let mut a=Incoming::default();
+    walk(b,top,&mut Vec::new(),None,g,&[keep,moved],next,end,&mut a)?;
+    Ok(a)
 }
 #[cfg(test)]
 mod tests{

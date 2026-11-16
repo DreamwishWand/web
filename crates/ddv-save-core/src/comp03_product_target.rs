@@ -5,7 +5,7 @@
 use super::*;
 use serde_json::{json,Value};
 #[path="comp03_installed_geometry.rs"]
-mod installed_geometry;
+pub(super) mod installed_geometry;
 use installed_geometry::{InstalledGeometry,LocalGeometry};
 use super::super::comp03_shape;
 #[path="placement_applicable.rs"]
@@ -305,6 +305,11 @@ impl ProductSession{
     }
 }
 
+#[cfg(feature="product-steam626-sr03-scoped")]
+pub(super) fn check_sr03_applicability(player:&Value,world:&Value)->CoreResult<()>{
+    applicable::check_sr03_supplement(EXACT_STEAM,super::DEP.as_bytes(),SUPPLEMENT,player,world,super::filter_disjoint).map_err(denied)?;
+    Ok(())
+}
 #[cfg(test)]
 mod tests{
     use super::*;

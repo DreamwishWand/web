@@ -30,6 +30,7 @@ product-switch626-chest-scoped = ["product-amount-scoped"]
 # Exact Steam626 COMP03 product release and optional read-only spatial companion.
 product-steam626-comp03-scoped = ["product-amount-scoped"]
 product-steam626-comp03-spatial-preview = ["product-steam626-comp03-scoped"]
+product-steam626-sr03-scoped = ["product-amount-scoped"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
