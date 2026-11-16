@@ -1773,3 +1773,51 @@ mod private_avatar {
         }
     }
 }
+
+
+#[cfg(all(test,feature="semantic-writer-dev"))]
+mod qa_1650_appearance_cross_domain {
+    use super::*;
+    use crate::{BuildIdentity,BuildKind,Platform};
+    use serde_json::{Value,json};
+    fn raw(male:bool)->Vec<u8>{
+        let branch=|old|json!({"HairColorIndex":old,"HairHighlightColor":89,"Clothes":{"0":50000001},"IncompatibleClothes":{},"Makeup":{},"ClothingCustomization":{}});
+        let d=json!({"GameInfo":{"Version":626},"Player":{"AvatarIsMale":male,"MaleAvatar":branch(if male{74}else{0}),"FemaleAvatar":branch(if male{0}else{74}),
+        "ListInventories":{"1":{"ID":1,"CompatibleItemType":"ItemType_Clothing","Inventory":{"50000001":{"Amount":1,"Marker":"ItemMarker_None"}}},"3":{"ID":3,"CompatibleItemType":"ItemType_Makeup","Inventory":{}},"7":{"ID":7,"CompatibleItemType":"ItemType_Skin","Inventory":{"170000054":{"Amount":1,"Marker":"ItemMarker_None"},"170000000":{"Amount":2,"Marker":"ItemMarker_None"}}}}},
+        "World":{"Characters":[{"Base":{"id":10000053},"SkinID":170000054,"Unknown":{"keep":7}}],"DialogueFlags":[2030500265]},"Opaque":{"escaped":"keep","number":74}});
+        serde_json::to_string_pretty(&d).unwrap().replace("\"escaped\": \"keep\"","\"escaped\": \"\\u006beep\"").into_bytes()
+    }
+    fn open(bytes:&[u8])->ProductSession{let mut s=ProductSession::open_decoded_readonly(bytes.to_vec(),BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:"releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s}
+    fn env(s:&ProductSession,action:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action}}
+    #[test]fn qa1650_cross_domain_lexical_ledger(){
+        let mut pos=0;let mut neg=0;
+        for male in [true,false]{for hair_first in [true,false]{
+            let bytes=raw(male);let s=open(&bytes);let e=env(&s,WorkerAction::ReadDomain);
+            let h=s.prepare_fixed_product_hair_candidate(e,20).unwrap();let k=s.prepare_fixed_product_skin_candidate(e,10000053,170000000).unwrap();
+            let hp=s.project_fixed_hair_candidate(e,20).unwrap();let kp=s.project_fixed_skin_candidate(e,10000053,170000000).unwrap();
+            let hs=|e:WorkerEnvelope,p|s.stage_fixed_hair_candidate(e,20,74,&h.old_token_sha,&h.female_sha,&h.male_sha,p);
+            let ks=|e:WorkerEnvelope,p|s.stage_fixed_skin_candidate(e,10000053,170000000,170000054,&k.old_token_sha,&k.character_sha,&k.inventory_sha,p);
+            let stage=env(&s,WorkerAction::Stage);
+            assert!(hs(stage,kp).is_err());neg+=1;assert!(ks(stage,hp).is_err());neg+=1;
+            assert!(s.stage_fixed_hair_candidate(stage,20,74,&h.old_token_sha,&k.character_sha,&h.male_sha,hp).is_err());neg+=1;
+            assert!(s.stage_fixed_skin_candidate(stage,10000053,170000000,170000054,&k.old_token_sha,&k.character_sha,&h.female_sha,kp).is_err());neg+=1;
+            assert_eq!(env(&s,WorkerAction::ReadDomain),e);
+            let r=if hair_first{hs(stage,hp)}else{ks(stage,kp)}.unwrap();assert_eq!(r.exact_field_changed_count,1);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+            assert!(if hair_first{ks(stage,kp)}else{hs(stage,hp)}.is_err());neg+=1;
+            let now=env(&s,WorkerAction::Stage);
+            assert!(if hair_first{ks(now,kp)}else{hs(now,hp)}.is_err());neg+=1;
+            s.undo_typed_semantic_batch(now).unwrap();let undone=env(&s,WorkerAction::Stage);
+            assert!(if hair_first{ks(undone,kp)}else{hs(undone,hp)}.is_err());neg+=1;
+            assert!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).is_err());neg+=1;
+            s.redo_typed_semantic_batch(undone).unwrap();let out_e=env(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(out_e).unwrap();
+            let orig=String::from_utf8(bytes.clone()).unwrap();let expected=if hair_first{orig.replacen("\"HairColorIndex\": 74","\"HairColorIndex\": 20",1)}else{orig.replacen("\"SkinID\": 170000054","\"SkinID\": 170000000",1)};
+            assert_eq!(out,expected.as_bytes());assert_eq!(s.decoded.as_ref(),bytes.as_slice());assert!(s.receipt().is_err());
+            assert!(s.take_typed_semantic_decoded_once(out_e).is_err());neg+=1;pos+=1;
+            let v:Value=serde_json::from_slice(&out).unwrap();assert_eq!(v["Opaque"]["number"],74);assert_eq!(v["Opaque"]["escaped"],"keep");
+            let reopened=open(&out);let re=env(&reopened,WorkerAction::ReadDomain);
+            if hair_first{assert!(reopened.prepare_fixed_product_hair_candidate(re,20).is_err());neg+=1;assert!(reopened.prepare_fixed_product_skin_candidate(re,10000053,170000000).is_ok());}
+            else{assert!(reopened.prepare_fixed_product_skin_candidate(re,10000053,170000000).is_err());neg+=1;assert!(reopened.prepare_fixed_product_hair_candidate(re,20).is_ok());}
+        }}
+        assert_eq!(pos,4);assert_eq!(neg,40);println!("QRC1650_APPEARANCE_ACTUAL {}POS {}NEG",pos,neg);
+    }
+}
