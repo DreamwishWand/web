@@ -19,7 +19,10 @@ pub(super) struct SkinCandidate{
 }
 impl ProductSession{
     pub(super) fn prepare_product_skin_candidate(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<SkinCandidate>{
-        product_appearance_scope(self,&e)?;
+        self.prepare_product_skin_candidate_for(e,character,new,AppearanceBuildScope::Steam626)
+    }
+    fn prepare_product_skin_candidate_for(&self,e:WorkerEnvelope,character:i32,new:i32,scope:AppearanceBuildScope)->CoreResult<SkinCandidate>{
+        product_appearance_scope_for(self,&e,scope)?;
         let st=self.lock()?;validate_scope(self,&st,&e)?;
         if character!=CHARACTER||new!=ORDINARY_NEW{return Err(denied("SKIN_PRODUCT_CATALOG_SCOPE"));}
         let b=&self.decoded;let roots=roots(b)?;let world=members(b,roots.world,1024)?;let player=members(b,roots.player,1024)?;
@@ -49,7 +52,10 @@ impl ProductSession{
 const FIXED_OLD:i32=170000054;
 impl ProductSession {
     pub(super) fn prepare_fixed_product_skin_candidate(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<SkinCandidate>{
-        let t=self.prepare_product_skin_candidate(e,character,new)?;
+        self.prepare_fixed_product_skin_candidate_for(e,character,new,AppearanceBuildScope::Steam626)
+    }
+    pub(super) fn prepare_fixed_product_skin_candidate_for(&self,e:WorkerEnvelope,character:i32,new:i32,scope:AppearanceBuildScope)->CoreResult<SkinCandidate>{
+        let t=self.prepare_product_skin_candidate_for(e,character,new,scope)?;
         if t.old!=FIXED_OLD{return Err(denied("SKIN_FIXED_OLD_SCOPE"));}
         Ok(t)
     }

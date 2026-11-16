@@ -19,7 +19,10 @@ pub(super) struct HairCandidate {
 }
 impl ProductSession {
     pub(super) fn prepare_product_hair_candidate(&self,e:WorkerEnvelope,new:i32)->CoreResult<HairCandidate>{
-        product_appearance_scope(self,&e)?;
+        self.prepare_product_hair_candidate_for(e,new,AppearanceBuildScope::Steam626)
+    }
+    fn prepare_product_hair_candidate_for(&self,e:WorkerEnvelope,new:i32,scope:AppearanceBuildScope)->CoreResult<HairCandidate>{
+        product_appearance_scope_for(self,&e,scope)?;
         // Lock again for the read to exclude close/mutation between check and scan.
         let st=self.lock()?;validate_scope(self,&st,&e)?;
         let b=&self.decoded;let root=roots(b)?;
@@ -29,6 +32,11 @@ impl ProductSession {
         let fs=required(&player,"FemaleAvatar")?;let ms=required(&player,"MaleAvatar")?;
         let f=branch(b,fs)?;let m=branch(b,ms)?;
         let active=if male{&m}else{&f};let active_span=if male{ms}else{fs};
+        // Switch affected delta covers the active male and inactive female
+        // palette match only; no general branch or palette expansion.
+        if scope==AppearanceBuildScope::Switch626&&(!male||f.hair!=Some(new)||!palette(f.highlight)){
+            return Err(denied("HAIR_SWITCH626_BRANCH_SCOPE"));
+        }
         let old=active.hair.ok_or(denied("HAIR_PRODUCT_OLD_ABSENT"))?;
         let highlight=active.highlight.ok_or(denied("HAIR_PRODUCT_HIGHLIGHT_ABSENT"))?;
         if !palette(Some(old))||!palette(Some(new))||!palette(Some(highlight))||old==new{
@@ -54,8 +62,11 @@ const FIXED_OLD:i32=74;
 const FIXED_NEW:i32=20;
 impl ProductSession {
     pub(super) fn prepare_fixed_product_hair_candidate(&self,e:WorkerEnvelope,new:i32)->CoreResult<HairCandidate>{
+        self.prepare_fixed_product_hair_candidate_for(e,new,AppearanceBuildScope::Steam626)
+    }
+    pub(super) fn prepare_fixed_product_hair_candidate_for(&self,e:WorkerEnvelope,new:i32,scope:AppearanceBuildScope)->CoreResult<HairCandidate>{
         if new!=FIXED_NEW{return Err(denied("HAIR_FIXED_NEW_SCOPE"));}
-        let t=self.prepare_product_hair_candidate(e,new)?;
+        let t=self.prepare_product_hair_candidate_for(e,new,scope)?;
         if t.old!=FIXED_OLD{return Err(denied("HAIR_FIXED_OLD_SCOPE"));}
         Ok(t)
     }

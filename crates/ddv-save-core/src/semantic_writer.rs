@@ -471,6 +471,15 @@ impl ProductSession{
         if self.project_appearance_scalar_candidate(span,old,new)?!=projected{return Err(denied("APPEARANCE_PROJECTED_CAS"));}
         self.commit_semantic_replacements(e,vec![Replacement{span,old:old.to_string().into_bytes(),new:new.to_string().into_bytes()}],1,Some(projected))
     }
+    // Switch626 exact scalar bridge; the existing Steam gate stays unchanged.
+    // Only Core-owned producer-bound appearance adapters select spans.
+    pub(super) fn commit_switch626_appearance_scalar_candidate(&self,e:WorkerEnvelope,span:Span,old:i32,new:i32,projected:[u8;32])->CoreResult<SemanticStageReceipt>{
+        let b=&self.native_source_build;
+        if !self.worker_bound||b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||
+            b.build_id!="9A239D3DB569756D"||b.schema!=626||!b.externally_attested{return Err(denied("APPEARANCE_SWITCH626_WORKER_SCOPE"));}
+        if self.project_appearance_scalar_candidate(span,old,new)?!=projected{return Err(denied("APPEARANCE_PROJECTED_CAS"));}
+        self.commit_semantic_replacements(e,vec![Replacement{span,old:old.to_string().into_bytes(),new:new.to_string().into_bytes()}],1,Some(projected))
+    }
     // Same exact typed Bool replacement for the private native and the
     // separately scoped fixed-definition product Core Stage. Neither path
     // may pass caller spans; both resolve/recheck via the domain scanner.
