@@ -1,0 +1,101 @@
+name: 04 QR-S ACT1057 scoped Collection signature boundary (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1057-scoped-collection-signature-l2.yml'
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  exact-signature-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '0fdcf9234a94f9134292205e55ff0f1926f40b5e'
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reuse fixed real historical signed Reader subjects, never mint signatures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 0fdcf9234a94f9134292205e55ff0f1926f40b5e
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-collection-private.mjs)" = 4faaa553470b0f491fc611bd8e5c1590255cb1e4
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-collection-release.mjs)" = c0a5cd7afe68269de4c48a479a1ec685cbb4dc12
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-collection-release-anchor.mjs)" = fd4368ece7d36d39382cb9b21bfef8ad3da267b8
+          dir="$(mktemp -d)"
+          mkdir "$dir/site" "$dir/bundles"
+          gh run download 43784300468 --repo DreamwishWand/web --name github-pages --dir "$dir"
+          archive="$(find "$dir" -maxdepth 1 -type f -name '*.tar*' -print -quit)"
+          test -n "$archive"
+          tar -xf "$archive" -C "$dir/site"
+          cd "$dir/site/worker-wasm"
+          printf '%s\n' '5c920e9472d4349757685e66380c7606b45965f9391011e88214fd89357db8ba  manifest.json' '4704a19c6e2962583d03a0bf8e7d5bf5ad2a802fd664259117eff4b2bbcbac0d  ddv_save_core.js' 'c000fbc0867721db0facf7ea899bde0f899992678d7d469edda51387b952425f  ddv_save_core_bg.wasm' | sha256sum -c -
+          for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+            (cd "$dir/bundles"; gh attestation download "$dir/site/worker-wasm/$name" --repo DreamwishWand/web)
+          done
+          cat "$dir/bundles/"*.jsonl > "$dir/reader-signed-subjects.jsonl"
+          test -s "$dir/reader-signed-subjects.jsonl"
+          echo "ACT1057_QA_DIR=$dir" >> "$GITHUB_ENV"
+      - name: Actual changed issuer boundary, real signature denial, no sealed anchor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import {createHash} from 'node:crypto';
+          import {spawnSync,execFileSync} from 'node:child_process';
+          import {verifySignedReleaseSubjects} from './scripts/readonly-release/seal.mjs';
+          import {inspectScopedCollectionSubjects} from './scripts/readonly-release/seal-scoped-collection-private.mjs';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {SCOPED_COLLECTION_RELEASE_OP as op,SCOPED_COLLECTION_FEATURES as features,SCOPED_COLLECTION_METHODS as methods,SCOPED_COLLECTION_WASM_EXPORTS as names} from './src/lib/ddv/core/save/product-scoped-collection-release.mjs';
+          const root=process.cwd(),home=process.env.ACT1057_QA_DIR,source='0fdcf9234a94f9134292205e55ff0f1926f40b5e',readerSource='8121f0767a1aee82969f75d189a1b8614c2c17da';
+          const reader=path.join(home,'site','worker-wasm'),bundle=path.join(home,'reader-signed-subjects.jsonl'),dir=path.join(home,'synthetic-scoped');
+          const files=['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm'];
+          const hash=b=>createHash('sha256').update(b).digest('hex');
+          const leb=n=>{const a=[];do{let x=n&127;n>>>=7;if(n)x|=128;a.push(x)}while(n);return a};
+          const sec=(id,a)=>[id,...leb(a.length),...a];
+          const exp=[...leb(names.length),...names.flatMap(n=>{const b=Buffer.from(n);return [...leb(b.length),...b,n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]})];
+          // Synthetic exact export census ONLY to reach signature verification;
+          // no product ABI semantics, no genuine Save, no signature minted.
+          const wasm=Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,0x60,0,0]),...sec(3,[1,0]),...sec(4,[1,0x6f,0,1]),...sec(5,[1,0,1]),...sec(7,exp),...sec(10,[1,2,0,0x0b])]);
+          const js=Buffer.from('export class WorkerWasmSource {}\n');
+          const manifest={contract:'wand.scoped-collection.runtime@1',operation:op,source:{repository:tuple.repository,commit:source,cargoTomlSha256:'a'.repeat(64),cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features,defaultFeatures:false,toolchain:'rustc 1.99.1 (synthetic signature refutation)'},assets:{js:{path:files[1],sizeBytes:js.length,sha256:hash(js)},wasm:{path:files[2],sizeBytes:wasm.length,sha256:hash(wasm)}},abi:{exportClass:'WorkerWasmSource',methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false}};
+          const mf=Buffer.from(JSON.stringify(manifest)),bytes=[mf,js,wasm];
+          fs.mkdirSync(dir);files.forEach((n,i)=>fs.writeFileSync(path.join(dir,n),bytes[i]));
+          const anchor=path.join(root,'src/lib/ddv/core/save/product-scoped-collection-release-anchor.mjs'),target=path.join(root,'static/worker-wasm-scoped-collection');
+          const before=fs.readFileSync(anchor);assert(!fs.existsSync(target));
+          let pos=0,neg=0;
+          const yes=(name,fn)=>{fn();pos++;console.log('POS',name)};
+          const no=async(name,fn,marker)=>{await assert.rejects(fn,marker?e=>String(e).includes(marker):undefined,name);neg++;console.log('NEG',name)};
+          yes('synthetic exact export inspector reaches crypto, no authority',()=>{const p=inspectScopedCollectionSubjects(bytes,source,tuple);assert.equal(p.sourceHead,source);assert.equal(p.manifestSha256,hash(mf));assert.equal(WebAssembly.Module.exports(new WebAssembly.Module(wasm)).length,names.length)});
+          await no('actual signed Reader cannot be relabelled as Collection',()=>verifySignedReleaseSubjects(reader,readerSource,bundle,tuple,inspectScopedCollectionSubjects),'SCOPED_COLLECTION_PRIVATE_SEAL_DENIED');
+          await no('actual historical signed bundle cannot verify unsigned Collection bytes',()=>verifySignedReleaseSubjects(dir,source,bundle,tuple,inspectScopedCollectionSubjects),'R22_RELEASE_SEAL_SIGNATURE_VERIFICATION_DENIED');
+          await no('foreign source',()=>verifySignedReleaseSubjects(dir,readerSource,bundle,tuple,inspectScopedCollectionSubjects),'SCOPED_COLLECTION_PRIVATE_SEAL_DENIED');
+          fs.writeFileSync(path.join(dir,'extra'), 'extra');
+          await no('extra fourth subject',()=>verifySignedReleaseSubjects(dir,source,bundle,tuple,inspectScopedCollectionSubjects),'R22_RELEASE_SEAL_EXACT_THREE_FILES');
+          fs.unlinkSync(path.join(dir,'extra'));
+          fs.writeFileSync(path.join(dir,files[1]),Buffer.from('tampered'));
+          await no('tampered JS exact digest',()=>verifySignedReleaseSubjects(dir,source,bundle,tuple,inspectScopedCollectionSubjects),'SCOPED_COLLECTION_PRIVATE_SEAL_DENIED');
+          fs.writeFileSync(path.join(dir,files[1]),js);
+          const sealer='scripts/readonly-release/seal-scoped-collection-private.mjs';
+          const invoke=(args,env)=>spawnSync(process.execPath,[sealer,...args],{cwd:root,env:{...process.env,...env},encoding:'utf8'});
+          const denied=(name,x,marker)=>{assert.notEqual(x.status,0,name);assert((x.stderr+x.stdout).includes(marker),x.stderr);neg++;console.log('NEG',name)};
+          denied('actual PR cannot issue protected proof',invoke(['verify-protected-candidate',source,dir,bundle],{}),'SCOPED_COLLECTION_PRIVATE_SEAL_DENIED');
+          denied('actual CI cannot seal private build',invoke(['seal-private-v2',source,dir,bundle,'http://127.0.0.1:4188','switch'],{}),'SCOPED_COLLECTION_PRIVATE_SEAL_DENIED');
+          denied('modeled isolated private invocation unsigned real crypto denial',invoke(['seal-private-v2',source,dir,bundle,'http://127.0.0.1:4188','switch'],{GITHUB_ACTIONS:'false'}),'R22_RELEASE_SEAL_SIGNATURE_VERIFICATION_DENIED');
+          assert(fs.readFileSync(anchor).equals(before));assert(!fs.existsSync(target));assert(!fs.existsSync(anchor+'.private-v2.tmp'));
+          assert.equal(execFileSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'}).trim(),'');
+          console.log('ACT1057_SCOPED_SIGNATURE_BOUNDARY',JSON.stringify({pos,neg,source,readerSource,actualSigstoreDenials:2,syntheticExportCount:names.length,anchorUnchanged:true,noScopedStatic:true,actualScopedSignature:false,publication:false,writerAuthorized:false}));
+          JS
