@@ -1,0 +1,88 @@
+name: INT ACT1118-1148 hosted Chest OFF (fixed deployment; never merge)
+on:
+  push:
+    branches:
+      - '09int/act1118-1148-hosted-chest-off-0fa349ab'
+    paths:
+      - '.github/workflows/09int-act1118-1148-hosted-chest-off.yml'
+permissions:
+  contents: read
+jobs:
+  hosted-off:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '0fa349ab7402583e1376774f13665d905843ab5d'
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify fixed source and deployed manifest
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '0fa349ab7402583e1376774f13665d905843ab5d'
+          test "$(git rev-parse HEAD:src/routes/editor/chest/+page.svelte)" = 1576744c5b11d189e6e82a4edd93fde6e7cf3bea
+          test "$(git rev-parse HEAD:src/routes/editor/chest/steam/+page.svelte)" = 927d2776e6091d50b54e7e7e92c3e173b64b4ec7
+          test -z "$(git ls-files 'static/worker-wasm-scoped-*')"
+          curl -fsS --retry 1 --max-time 20 -H 'Cache-Control: no-cache' https://dreamwishwand.github.io/web/worker-wasm/manifest.json -o "$RUNNER_TEMP/chest-manifest.json"
+          echo "a6a200b3b08d9e26f9c4f7fe14e2a1bb07da318058159c1c16254c6f62552e7f  $RUNNER_TEMP/chest-manifest.json" | sha256sum -c -
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; assert.equal(JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+"/chest-manifest.json","utf8")).source.commit,"0fa349ab7402583e1376774f13665d905843ab5d")'
+      - name: Existing Chrome driver in detached temp directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/chest-hosted"
+          cd "$RUNNER_TEMP/chest-hosted"
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+      - name: Actual hydrated Switch and Steam Chest OFF routes
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/chest-hosted"
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const root='https://dreamwishwand.github.io/web';
+          const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try {
+            const context=await browser.newContext({locale:'en-US'});
+            await context.addInitScript(()=>{
+              window.__chestWorkers=[];
+              window.Worker=new Proxy(window.Worker,{construct(target,args,newTarget){window.__chestWorkers.push(String(args[0]));return Reflect.construct(target,args,newTarget)}});
+              for(const k of ['verifiedLocalDevGate','productChestEnabled','productSwitchChestEnabled','productSteamChestEnabled']) localStorage.setItem(k,'true');
+            });
+            const page=await context.newPage(),errors=[],scopedRequests=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('request',r=>{if(r.url().includes('/worker-wasm-scoped-'))scopedRequests.push(r.url())});
+            const hydrated=async()=>{await page.waitForFunction(()=>!!document.documentElement.dataset.locale);await page.waitForLoadState('networkidle')};
+            let checked=0;
+            for(const [suffix,platform] of [['/editor/chest/','switch'],['/editor/chest/steam/','steam']]){
+              const off=async()=>{
+                await hydrated();
+                assert.equal(new URL(page.url()).origin,'https://dreamwishwand.github.io');
+                assert.equal(new URL(page.url()).pathname,'/web'+suffix);
+                const route=page.locator('[data-'+platform+'-chest-product-route]');
+                assert.equal(await route.getAttribute('data-'+platform+'-chest-scope'),'off');
+                assert.equal(await route.locator('input[type=file]').count(),0);
+                assert.equal(await route.locator('[role=status]').count(),1);
+                assert.equal(await page.evaluate(()=>window.__chestWorkers.length),0);
+                checked++;
+              };
+              for(const tail of ['', '?enable=true&mode=public-accepted#writer','?build=9A239D3DB569756D']){
+                assert.equal((await page.goto(root+suffix+tail)).status(),200);await off();
+              }
+              await page.reload();await off();
+            }
+            assert.equal((await page.goto(root+'/editor/')).status(),200);await hydrated();
+            assert.equal(await page.locator('[data-editor-hub] a[href*="/editor/chest/"]').count(),0);
+            assert.equal(await page.evaluate(()=>window.__chestWorkers.length),0);
+            assert.deepEqual(scopedRequests,[]);assert.deepEqual(errors,[]);
+            console.log('ACT1118_1148_HOSTED_CHEST_OFF_ACTUAL_PASS',JSON.stringify({routeChecks:checked,builds:2,hubLink:false,workerConstructed:0,scopedRequests:0,pageErrors:0,realSignedPositive:false}));
+            await context.close();
+          }finally{await browser.close()}
+          NODE
+      - name: Recheck deployment after browser
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 1 --max-time 20 -H 'Cache-Control: no-cache' https://dreamwishwand.github.io/web/worker-wasm/manifest.json -o "$RUNNER_TEMP/chest-manifest-after.json"
+          echo "a6a200b3b08d9e26f9c4f7fe14e2a1bb07da318058159c1c16254c6f62552e7f  $RUNNER_TEMP/chest-manifest-after.json" | sha256sum -c -
