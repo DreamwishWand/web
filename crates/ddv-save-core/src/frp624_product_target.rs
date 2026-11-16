@@ -40,6 +40,7 @@ impl ProductSession{
   let minted=pack.local(&grid,ids,|i|common.dimensions(i),|o,dims|match uint(&o["ItemID"])?{
    20500005|20300115=>pack.effective_building(o,&houses),
    40700253 if !o["State"].is_null()=>pack.diagonal_extension(o,dims),
+   40005494 if !matches!(o["Orientation"].as_str()?,"GridOrientation_Down"|"GridOrientation_Up"|"GridOrientation_Left"|"GridOrientation_Right")=>pack.rotated_furniture(o,dims),
    _=>ambient(b,w,gs,ds,&refs,&houses,o,dims),
   }).ok_or(denied("FRP01_TARGET_GEOMETRY"))?;
   need(minted==next,"FRP01_TARGET_COUNTER")?;
