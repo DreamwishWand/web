@@ -1,6 +1,7 @@
 // ACT916 transport over the existing Rust owner. Never construct another
 // session, decide eligibility, edit JSON, or expose internal scopes to UI.
 const CONTRACT='wand.worker.steam626.scoped-amount@1',OUTPUT='wand.worker.steam626.scoped-amount-output@1';
+const SWITCH_CONTRACT='wand.worker.switch626.scoped-chest@1',SWITCH_DISCOVERY='wand.worker.switch626.scoped-chest-discovery@1';
 const fail=()=>{throw Error('PRODUCT_SCOPED_AMOUNT_DENIED')};
 const sha=v=>typeof v==='string'&&/^[0-9a-f]{64}$/.test(v);
 const uint=v=>Number.isSafeInteger(v)&&v>=0&&v<=0xffffffff;
@@ -63,14 +64,43 @@ export function createScopedEditLifecycle(wasm,initial,{parse,current,revoke,max
   hasMutation:()=>ledger!==null||consumed});
 }
 
-export function createScopedAmountTransport(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes}){
+export function createScopedAmountTransport(wasm,initial,options){
+ return createAmountTransport(wasm,initial,options,false);
+}
+// Explicit trusted Build binding, never schema inference or a UI-selected ABI.
+export function createSwitch626ChestTransport(wasm,initial,identity,options){
+ if(!identity||identity.platform!=='switch'||identity.buildKind!=='switch-bid'||identity.buildId!=='9A239D3DB569756D'||identity.schema!==626||
+  !initial||initial.contract!=='wand.product.single-save-session.boundary@1'||initial.schema!==626||
+  initial.revision!==0||initial.indexGeneration!==1||typeof initial.sessionId!=='string'||!(/^[a-f0-9]{32}$/).test(initial.sessionId)||/^0+$/.test(initial.sessionId)||
+  !sha(initial.decodedSha256)||initial.productWorkerBound!==true||initial.fullDocumentJsonValidated!==true||
+  initial.writerAuthorized!==false||initial.editedCopyAuthorized!==false||initial.applyAuthorized!==false)fail();
+ return createAmountTransport(wasm,initial,options,true);
+}
+export function createSteam626ChestTransport(wasm,initial,identity,options){
+ if(!identity||identity.platform!=='steam-windows'||identity.buildKind!=='steam-full-version'||identity.buildId!=='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22'||identity.schema!==626||
+  !initial||initial.contract!=='wand.product.single-save-session.boundary@1'||initial.schema!==626||
+  initial.revision!==0||initial.indexGeneration!==1||typeof initial.sessionId!=='string'||!(/^[a-f0-9]{32}$/).test(initial.sessionId)||/^0+$/.test(initial.sessionId)||
+  !sha(initial.decodedSha256)||initial.productWorkerBound!==true||initial.fullDocumentJsonValidated!==true||
+  initial.writerAuthorized!==false||initial.editedCopyAuthorized!==false||initial.applyAuthorized!==false)fail();
+ return createAmountTransport(wasm,initial,options,false,true);
+}
+function createAmountTransport(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes},sw,steamChest=false){
+ const chest=sw||steamChest;
+ const candidateContract=sw?SWITCH_CONTRACT:CONTRACT;
+ const discoveryContract=sw?SWITCH_DISCOVERY:'wand.worker.steam626.scoped-amount-discovery@1';
+ const discoverMethod=sw?'discover_switch626_chest':'discover_scoped_amount';
+ const previewMethod=sw?'preview_switch626_chest':'preview_scoped_amount';
+ const stageMethod=sw?'stage_switch626_chest':'stage_scoped_amount';
+ const toggleMethod=sw?'toggle_scoped_edit':'toggle_scoped_amount';
+ const beginMethod=sw?'begin_scoped_edit_output':'begin_scoped_amount_output';
+ const nextMethod=sw?'next_scoped_edit_output_chunk':'next_scoped_amount_output_chunk';
  if(typeof document!=='undefined'||!wasm||typeof parse!=='function'||typeof current!=='function'||typeof revoke!=='function')fail();
- for(const k of ['preview_scoped_amount','stage_scoped_amount','toggle_scoped_amount','begin_scoped_amount_output','next_scoped_amount_output_chunk'])
+ for(const k of [previewMethod,stageMethod,toggleMethod,beginMethod,nextMethod,...(chest?[discoverMethod]:[])])
   if(typeof wasm[k]!=='function')fail();
  let preview=null;
  const life=createScopedEditLifecycle(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes,
-  contract:CONTRACT,outputContract:OUTPUT,toggleMethod:'toggle_scoped_amount',
-  beginMethod:'begin_scoped_amount_output',nextMethod:'next_scoped_amount_output_chunk'});
+  contract:sw?'wand.worker.scoped-edit@1':CONTRACT,stageContract:candidateContract,
+  outputContract:sw?'wand.worker.scoped-edit-output@1':OUTPUT,toggleMethod,beginMethod,nextMethod});
  const {checked,args,scopeMatches}=life;
  const summary=()=>Object.freeze({profile:preview.profile,id:preview.id,selector:preview.selector,itemId:preview.itemId,
   oldAmount:preview.oldAmount,newAmount:preview.newAmount,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false});
@@ -78,8 +108,8 @@ export function createScopedAmountTransport(wasm,initial,{parse,current,revoke,m
  // The existing transport owns scope and revocation; no UI offsets or plans.
  function discoverTargets(profile){
   return checked(()=>{
-   if(life.hasMutation()||life.scope().revision!==0||life.scope().indexGeneration!==1||typeof wasm.discover_scoped_amount!=='function'||
-    !['linked-crop-chest48','catalog0-furniture'].includes(profile))fail();
+   if(life.hasMutation()||life.scope().revision!==0||life.scope().indexGeneration!==1||typeof wasm[discoverMethod]!=='function'||
+    !(chest?profile==='linked-crop-chest48':['linked-crop-chest48','catalog0-furniture'].includes(profile)))fail();
    const targets=[],seen=new Set();
    // One independent profile per discovery: an unrelated inventory failure
    // must not stop an otherwise valid Chest route (and vice versa).
@@ -87,9 +117,9 @@ export function createScopedAmountTransport(wasm,initial,{parse,current,revoke,m
     let offset=0;
     for(let pages=0;;pages++){
      if(pages>=256)fail();
-     const r=parse(wasm.discover_scoped_amount(profile,offset,...args()),8192);
+     const r=parse(wasm[discoverMethod](...(sw?[offset]:[profile,offset]),...args()),8192);
      if(!only(r,'contract,profile,sessionId,revision,indexGeneration,decodedSha256,offset,nextOffset,scanned,rows,writerAuthorized,editedCopyAuthorized')||
-      r.contract!=='wand.worker.steam626.scoped-amount-discovery@1'||r.profile!==profile||!scopeMatches(r)||
+      r.contract!==discoveryContract||r.profile!==profile||!scopeMatches(r)||
       r.revision!==life.scope().revision||r.indexGeneration!==life.scope().indexGeneration||r.offset!==offset||
       !uint(r.scanned)||r.scanned>16||offset+r.scanned>4096||(offset>0&&r.scanned===0)||
       !(r.nextOffset===null||(r.scanned===16&&r.nextOffset===offset+16&&r.nextOffset<4096))||
@@ -112,11 +142,11 @@ export function createScopedAmountTransport(wasm,initial,{parse,current,revoke,m
  }
  function previewTarget(s){
   return checked(()=>{
-   if(life.hasMutation()||!only(s,'profile,id,selector,newAmount')||!uint(s.id)||!uint(s.selector)||!uint(s.newAmount)||s.newAmount<1||
+   if(life.hasMutation()||!only(s,'profile,id,selector,newAmount')||!uint(s.id)||!uint(s.selector)||!uint(s.newAmount)||s.newAmount<1||(chest&&(s.profile!=='linked-crop-chest48'||s.newAmount!==49))||
     !((s.profile==='catalog0-furniture'&&s.id===0&&s.selector>0)||(s.profile==='linked-crop-chest48'&&s.id>1&&s.selector<48)))fail();
-   const r=parse(wasm.preview_scoped_amount(s.profile,s.id,s.selector,s.newAmount,...args()),4096);
+   const r=parse(wasm[previewMethod](...(sw?[]:[s.profile]),s.id,s.selector,s.newAmount,...args()),4096);
    if(!only(r,'contract,profile,id,selector,itemId,oldAmount,newAmount,entrySha256,sessionId,revision,indexGeneration,decodedSha256,scopedCandidate,writerAuthorized,editedCopyAuthorized')||
-    r.contract!==CONTRACT||r.profile!==s.profile||r.id!==s.id||r.selector!==s.selector||r.newAmount!==s.newAmount||
+    r.contract!==candidateContract||r.profile!==s.profile||r.id!==s.id||r.selector!==s.selector||r.newAmount!==s.newAmount||
     !uint(r.itemId)||r.itemId===0||(r.profile==='catalog0-furniture'&&r.itemId!==s.selector)||
     !uint(r.oldAmount)||r.oldAmount!==s.newAmount+1||!sha(r.entrySha256)||!scopeMatches(r)||
     r.revision!==life.scope().revision||r.indexGeneration!==life.scope().indexGeneration||
@@ -126,7 +156,7 @@ export function createScopedAmountTransport(wasm,initial,{parse,current,revoke,m
  }
  const stage=()=>checked(()=>{
   if(!preview||life.hasMutation())fail();
-  return Object.freeze({...summary(),...life.stage((...a)=>wasm.stage_scoped_amount(preview.profile,preview.id,preview.selector,preview.oldAmount,preview.newAmount,preview.entrySha256,...a))});
+  return Object.freeze({...summary(),...life.stage((...a)=>wasm[stageMethod](...(sw?[]:[preview.profile]),preview.id,preview.selector,preview.oldAmount,preview.newAmount,preview.entrySha256,...a))});
  });
  const toggle=redo=>checked(()=>Object.freeze({...summary(),...life.toggle(redo)}));
  return Object.freeze({discoverTargets,previewTarget,stage,toggle,takeOutput:life.takeOutput,hasMutation:life.hasMutation});
