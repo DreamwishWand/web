@@ -584,6 +584,75 @@ mod tests{
         assert_eq!(o,serde_json::to_vec(&d).unwrap());
     }
  }
+
+ #[cfg(feature="semantic-writer-dev")]
+ #[test]fn qa1718_switch_appearance_build_delta(){
+    use sha2::{Digest,Sha256};
+    let mut d=definition_doc();
+    d["Player"]["FemaleAvatar"]["HairColorIndex"]=json!(20);
+    d["QRC1718Opaque"]=json!({"oldHair":74,"oldSkin":170000054,"text":"unchanged"});
+    let raw=serde_json::to_string_pretty(&d).unwrap();
+    let identity=||BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:SWITCH_APPEARANCE_BID.into(),schema:626,externally_attested:true};
+    let open_raw=|bytes:&str,b:BuildIdentity,bound:bool|ProductSession::open_decoded_readonly(bytes.as_bytes().to_vec(),b).map(|mut s|{s.worker_bound=bound;s});
+    let mut pos=0;let mut neg=0;
+    for hair in [true,false]{
+        let s=open_raw(&raw,identity(),true).unwrap();let e=env(&s);
+        let preview=|s:&ProductSession,e|if hair{s.preview_switch626_hair_bound_worker(e,20)}else{s.preview_switch626_skin_bound_worker(e,SKIN_CHARACTER,SKIN_NEW)};
+        let call=|s:&ProductSession,e,sha:&str,p|if hair{s.stage_switch626_hair_bound_worker(e,20,sha,p)}else{s.stage_switch626_skin_bound_worker(e,SKIN_CHARACTER,SKIN_NEW,sha,p)};
+        let before=s.receipt().unwrap();
+        let p=preview(&s,e).unwrap();
+        let steam=open(d.clone());let se=env(&steam);
+        let sw=if hair{steam.prepare_hair_producer_bound(se,20).unwrap()}else{steam.prepare_skin_producer_bound(se,SKIN_CHARACTER,SKIN_NEW).unwrap()};
+        let cross=if hair{s.preview_switch626_skin_bound_worker(e,SKIN_CHARACTER,SKIN_NEW).unwrap()}else{s.preview_switch626_hair_bound_worker(e,20).unwrap()};
+        let token=if hair{"\"HairColorIndex\": 74"}else{"\"SkinID\": 170000054"};
+        let repl=if hair{"\"HairColorIndex\": 20"}else{"\"SkinID\": 170000000"};
+        assert_eq!(raw.matches(token).count(),1);
+        let expected=raw.replacen(token,repl,1);
+        let projected:[u8;32]=Sha256::digest(expected.as_bytes()).into();
+        assert_eq!(p["projectedDecodedSha256"],sha(expected.as_bytes()));
+        assert_eq!(p["selectedTokenSha256"],sha(if hair{b"74".as_slice()}else{b"170000054".as_slice()}));
+        assert_eq!(p["contract"],if hair{"wand.core.switch626.hair-exact1-preview@1"}else{"wand.core.switch626.skin-exact1-preview@1"});
+        assert_eq!(p["writerAuthorized"],false);assert_eq!(p["originalOverwriteAuthorized"],false);
+        let h=p["readsetSha256"].as_str().unwrap();
+        assert_ne!(h,sw.readset_sha);assert_ne!(h,cross["readsetSha256"].as_str().unwrap());
+        let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+        assert!(call(&s,stage,&sw.readset_sha,projected).is_err());neg+=1;
+        assert!(call(&s,stage,cross["readsetSha256"].as_str().unwrap(),projected).is_err());neg+=1;
+        for mode in 0..5{
+            let mut b=identity();
+            match mode{
+                0=>b.build_id="1111111111111111".into(),
+                1=>b.externally_attested=false,
+                2=>b.schema=624,
+                3=>b.build_kind=BuildKind::SteamFullVersion,
+                _=>b.platform=Platform::SteamWindows,
+            }
+            if let Ok(x)=open_raw(&raw,b,true){assert!(preview(&x,env(&x)).is_err(),"build mode {mode}");}
+            neg+=1;
+        }
+        let x=open_raw(&raw,identity(),false).unwrap();assert!(preview(&x,env(&x)).is_err());neg+=1;
+        for mode in 0..2{
+            let mut q=d.clone();
+            if hair{
+                if mode==0{q["Player"]["FemaleAvatar"]["HairColorIndex"]=json!(21);}
+                else{q["Player"]["FemaleAvatar"]["HairHighlightColor"]=json!(-1);}
+            }else{
+                if mode==0{q["Player"]["ListInventories"]["7"]["Inventory"]["170000000"]["Amount"]=json!(0);}
+                else{q["World"]["Characters"].as_array_mut().unwrap().push(json!({"Base":{"id":SKIN_CHARACTER},"SkinID":SKIN_OLD}));}
+            }
+            let x=open_raw(&serde_json::to_string(&q).unwrap(),identity(),true).unwrap();
+            assert!(preview(&x,env(&x)).is_err(),"target mode {mode}");neg+=1;
+        }
+        assert_eq!(s.receipt().unwrap(),before);
+        let r=call(&s,stage,h,projected).unwrap();
+        assert_eq!(r.exact_field_changed_count,1);assert!(!r.product_writer_authorized);
+        let out=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};
+        assert_eq!(s.take_typed_semantic_decoded_once(out).unwrap(),expected.as_bytes());
+        pos+=1;
+    }
+    assert_eq!((pos,neg),(2,20));
+    println!("QRC1718_SWITCH_APPEARANCE_DELTA_ACTUAL {pos}POS {neg}NEG");
+ }
  #[cfg(feature="semantic-writer-dev")]
  #[test]fn switch626_appearance_exact1_build_scoped_core(){
     let mut d=definition_doc();d["Player"]["FemaleAvatar"]["HairColorIndex"]=json!(20);
