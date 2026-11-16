@@ -12,4 +12,15 @@ const rows={
  'pt-BR':['Caminho 3×3 — DEV local OFF','Posicionar vaso — DEV local OFF','ID do objeto inicial','ID da grade','X','Y','Manter origem · adicionar 8 · estoque intacto','Posicionar 1 vaso · estoque −1','Prévia verificada pelo Core','Preparar alteração','Sem envio ou sobrescrita. Apenas operação Steam626 fixa.','Existente','Novo']
 };
 const keys=['compTitle','vaseTitle','seed','grid','x','y','compDetail','vaseDetail','verified','stagePlacement','safety','existing','added'];
-export const localPlacementCopy=l=>Object.freeze({...collectionExact1Copy(l),...Object.fromEntries(keys.map((k,i)=>[k,(rows[l]||rows.en)[i]]))});
+const backpackRows={
+ en:['Steam Backpack split — local DEV/OFF','Switch Backpack split — local DEV/OFF','Source slot (0-based)','Empty destination slot (0-based)','Move 1 fruit from an existing stack into an existing empty slot; total unchanged.','Local only, no upload or original overwrite. Item 30200001; exact Build and Core-verified slots only.'],
+ ja:['Steam バッグの果物分割 — ローカルDEV/OFF','Switch バッグの果物分割 — ローカルDEV/OFF','分割元スロット（0始まり）','移動先の空きスロット（0始まり）','既存の果物スタックから1個を既存の空きスロットへ移動。合計数量は不変。','端末内処理。送信・原本上書きなし。Item 30200001、固定Build・Core確認済みスロットのみ。'],
+ fr:['Division sac Steam — DEV local désactivé','Division sac Switch — DEV local désactivé','Case source (base 0)','Case vide de destination (base 0)','Déplacer 1 fruit vers une case vide existante ; total inchangé.','Local uniquement, aucun envoi ni écrasement. Objet 30200001, version et cases vérifiées par Core.'],
+ de:['Steam-Rucksack teilen — lokal DEV/AUS','Switch-Rucksack teilen — lokal DEV/AUS','Quellplatz (ab 0)','Leerer Zielplatz (ab 0)','1 Frucht in einen vorhandenen leeren Platz verschieben; Gesamtmenge unverändert.','Nur lokal, kein Upload oder Überschreiben. Item 30200001, exakter Build und Core-geprüfte Plätze.'],
+ it:['Dividi zaino Steam — DEV locale OFF','Dividi zaino Switch — DEV locale OFF','Slot origine (da 0)','Slot vuoto destinazione (da 0)','Sposta 1 frutto in uno slot vuoto esistente; totale invariato.','Solo locale, nessun invio o sovrascrittura. Item 30200001, build e slot verificati da Core.'],
+ 'es-ES':['Dividir mochila Steam — DEV local OFF','Dividir mochila Switch — DEV local OFF','Ranura origen (desde 0)','Ranura vacía destino (desde 0)','Mover 1 fruta a una ranura vacía existente; total sin cambios.','Solo local, sin subida ni sobrescritura. Item 30200001, build exacta y ranuras verificadas por Core.'],
+ 'zh-CN':['Steam 背包拆分 — 本地DEV关闭','Switch 背包拆分 — 本地DEV关闭','来源格（从0开始）','空目标格（从0开始）','从现有果实堆叠移动1个到现有空格；总量不变。','仅本机处理，不上传、不覆盖原文件。物品30200001，仅固定构建及Core验证格。'],
+ 'pt-BR':['Dividir mochila Steam — DEV local OFF','Dividir mochila Switch — DEV local OFF','Slot de origem (base 0)','Slot vazio de destino (base 0)','Mover 1 fruta para um slot vazio existente; total inalterado.','Somente local, sem envio ou sobrescrita. Item 30200001, build e slots verificados pelo Core.']
+};
+const backpackKeys=['backpackSteamTitle','backpackSwitchTitle','sourceSlot','destinationSlot','backpackDetail','backpackSafety'];
+export const localPlacementCopy=l=>Object.freeze({...collectionExact1Copy(l),...Object.fromEntries(keys.map((k,i)=>[k,(rows[l]||rows.en)[i]])),...Object.fromEntries(backpackKeys.map((k,i)=>[k,(backpackRows[l]||backpackRows.en)[i]]))});

@@ -1,17 +1,19 @@
 // Module-private brand; the fixed route never accepts a caller-provided runtime or mode.
-import {getComp03MountInfo,getVaseAddMountInfo,COMP03_RELEASE,VASE_ADD_RELEASE} from '../ddv/core/save/product-scoped-placement-release.mjs';
-import {createLocalComp03DevPort,createLocalVaseDevPort} from './local-scoped-edit-worker-port.mjs';
+import {getComp03MountInfo,getVaseAddMountInfo,getSteamBackpackMountInfo,getSwitchBackpackMountInfo} from '../ddv/core/save/product-scoped-placement-release.mjs';
+import {createLocalComp03DevPort,createLocalVaseDevPort,createLocalBackpackDevPort} from './local-scoped-edit-worker-port.mjs';
 const fail=()=>{throw Error('PLACEMENT_PRODUCT_RUNTIME_DENIED')};
 const exact=(r,k)=>r!==null&&typeof r==='object'&&!Array.isArray(r)&&Object.keys(r).sort().join(',')===k.split(',').sort().join(',');
 const ports=new WeakMap();
 export const productPlacementPortScope=port=>port&&ports.get(port)||null;
 export function placementReadyOk(r,scope){return exact(r,'kind,releaseId,operation,mode,builds,writerAuthorized')&&r.kind==='SCOPED_PLACEMENT_RUNTIME_READY'&&r.releaseId===scope.releaseId&&r.operation===scope.operation&&r.mode===scope.mode&&r.writerAuthorized===false&&JSON.stringify(r.builds)===JSON.stringify(scope.builds)}
-export const createProductComp03Port=options=>create(true,options);
-export const createProductVaseAddPort=options=>create(false,options);
-async function create(comp,{signal,onFault=()=>{}}={}){
+export const createProductComp03Port=options=>create('comp03',options);
+export const createProductVaseAddPort=options=>create('vase',options);
+export const createProductSteamBackpackPort=options=>create('backpack-steam',options);
+export const createProductSwitchBackpackPort=options=>create('backpack-switch',options);
+async function create(op,{signal,onFault=()=>{}}={}){
  if(typeof document==='undefined'||signal?.aborted||typeof onFault!=='function')fail();
- const scope=await (comp?getComp03MountInfo():getVaseAddMountInfo());if(signal?.aborted)fail();
- const w=comp?new Worker(new URL('./product-comp03.worker.mjs',import.meta.url),{type:'module'}):new Worker(new URL('./product-vase-add.worker.mjs',import.meta.url),{type:'module'});
+ const scope=await (op==='comp03'?getComp03MountInfo():op==='vase'?getVaseAddMountInfo():op==='backpack-steam'?getSteamBackpackMountInfo():getSwitchBackpackMountInfo());if(signal?.aborted)fail();
+ const w=op==='comp03'?new Worker(new URL('./product-comp03.worker.mjs',import.meta.url),{type:'module'}):op==='vase'?new Worker(new URL('./product-vase-add.worker.mjs',import.meta.url),{type:'module'}):op==='backpack-steam'?new Worker(new URL('./product-steam-backpack.worker.mjs',import.meta.url),{type:'module'}):new Worker(new URL('./product-switch-backpack.worker.mjs',import.meta.url),{type:'module'});
  let port=null,settled=false,timer;
  const dispose=()=>{if(port){ports.delete(port);port.dispose();port=null}else try{w.terminate()}catch{}};
  try{
@@ -20,9 +22,9 @@ async function create(comp,{signal,onFault=()=>{}}={}){
    const abort=()=>finish(false);timer=setTimeout(()=>finish(false),30000);signal?.addEventListener('abort',abort,{once:true});w.onmessage=({data})=>finish(placementReadyOk(data,scope));w.onerror=()=>finish(false);w.onmessageerror=()=>finish(false);if(signal?.aborted)finish(false);
   });
   if(signal?.aborted)fail();
-  const underlying=comp?createLocalComp03DevPort(w):createLocalVaseDevPort(w);
+  const underlying=op==='comp03'?createLocalComp03DevPort(w):op==='vase'?createLocalVaseDevPort(w):createLocalBackpackDevPort(w);
   const wrapped=Object.freeze({...underlying,dispose:()=>{ports.delete(wrapped);underlying.dispose();if(port===wrapped)port=null}});
-  port=wrapped;ports.set(port,Object.freeze({...scope,uiOperation:comp?'comp03':'vase'}));
+  port=wrapped;ports.set(port,Object.freeze({...scope,uiOperation:op}));
   const fault=()=>{dispose();onFault()};w.addEventListener('error',fault);w.addEventListener('messageerror',fault);
   return port;
  }catch(e){dispose();throw e}

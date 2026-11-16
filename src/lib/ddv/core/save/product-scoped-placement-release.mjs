@@ -4,6 +4,7 @@
 import {ACTIVE_RELEASE_TUPLE,matchReleaseTuple,manifestMatchesRelease} from './product-rust-wasm-release-trust.mjs';
 import {checkedFetch,compileVerifiedWorker} from './product-rust-wasm-candidate-loader.mjs';
 import {PROTECTED_COMP03_RELEASE_ANCHOR,PROTECTED_VASE_ADD_RELEASE_ANCHOR} from './product-scoped-placement-release-anchor.mjs';
+import {PROTECTED_STEAM_BACKPACK_RELEASE_ANCHOR,PROTECTED_SWITCH_BACKPACK_RELEASE_ANCHOR} from './product-scoped-backpack-release-anchor.mjs';
 const fail=()=>{throw Error('SCOPED_PLACEMENT_RELEASE_DENIED')};
 const exact=(o,k)=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).sort().join(',')===k.split(',').sort().join(',');
 const sha=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x),head=x=>typeof x==='string'&&/^[a-f0-9]{40}$/.test(x);
@@ -12,14 +13,17 @@ const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const digest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
 const buildId='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
-function spec(key,operation,feature,preview,stage,path){
- const methods=Object.freeze(['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page',preview,stage,'toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close']);
+function spec(key,operation,feature,preview,stage,path,platform='steam-windows',build=buildId,extraMethods=[]){
+ const methods=Object.freeze(['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page',preview,stage,...extraMethods,'toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close']);
  const exports=Object.freeze(['memory','__wbg_workerwasmsource_free','workerwasmsource_new',...methods.map(n=>'workerwasmsource_'+n),'__wbindgen_externrefs','__wbindgen_malloc','__externref_table_dealloc','__wbindgen_realloc','__wbindgen_free','__wbindgen_start'].sort());
- return Object.freeze({key,operation,features:Object.freeze([feature,'worker-wasm']),methods,exports,path,assetDir:'worker-wasm-scoped-'+key,prefix:'wand.scoped-'+key});
+ return Object.freeze({key,operation,platform,buildId:build,features:Object.freeze([feature,'worker-wasm']),methods,exports,path,assetDir:'worker-wasm-scoped-'+key,prefix:'wand.scoped-'+key});
 }
 export const COMP03_RELEASE=spec('steam626-comp03','steam626.comp03.layout.exact9','product-steam626-comp03-scoped','preview_steam626_comp03','stage_steam626_comp03','/editor/world/comp03/');
 export const VASE_ADD_RELEASE=spec('steam626-vase-add','steam626.vase.add.exact3','product-steam626-vase-add-scoped','preview_steam626_vase_add','stage_steam626_vase_add','/editor/world/vase/');
-const known=s=>s===COMP03_RELEASE||s===VASE_ADD_RELEASE;
+// Dedicated Build features only; generic or dual-feature artifacts cannot be sealed.
+export const STEAM_BACKPACK_RELEASE=spec('steam626-backpack-split','steam626.backpack.fruit-split.exact3','product-steam626-backpack-scoped','preview_steam626_backpack_split','stage_steam626_backpack_split','/editor/backpack/steam/');
+export const SWITCH_BACKPACK_RELEASE=spec('switch626-backpack-split','switch626.backpack.fruit-split.exact3','product-switch626-backpack-scoped','preview_switch626_backpack_split','stage_switch626_backpack_split','/editor/backpack/switch/','switch','9A239D3DB569756D');
+const known=s=>s===COMP03_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE;
 const asset=(a,n,max)=>exact(a,'path,sizeBytes,sha256')&&a.path===n&&size(a.sizeBytes,max)&&sha(a.sha256);
 export function placementPinsOk(s,p){return known(s)&&exact(p,'contract,sourceHead,manifestSha256,manifestSizeBytes,jsSha256,jsSizeBytes,wasmSha256,wasmSizeBytes')&&p.contract===s.prefix+'.pinned-digests@1'&&head(p.sourceHead)&&[p.manifestSha256,p.jsSha256,p.wasmSha256].every(sha)&&size(p.manifestSizeBytes,64*1024)&&size(p.jsSizeBytes,2*1024*1024)&&size(p.wasmSizeBytes,20*1024*1024)}
 export function placementManifestOk(s,m,p,tuple=ACTIVE_RELEASE_TUPLE){
@@ -36,7 +40,7 @@ export function placementAnchorShapeOk(s,a){
  const privateV2=a.mode==='private-product-v2';if(!privateV2&&a.mode!=='public-accepted')return false;
  if(privateV2){if(typeof a.deliveryOrigin!=='string'||!/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/.test(a.deliveryOrigin))return false;try{const u=new URL(a.deliveryOrigin);if(u.origin!==a.deliveryOrigin||Number(u.port)>65535)return false}catch{return false}}
  else if(a.deliveryOrigin!==a.origin)return false;
- const b=a.builds[0];return exact(b,'platform,buildId,productV2EvidenceSha256')&&b.platform==='steam-windows'&&b.buildId===buildId&&(privateV2?b.productV2EvidenceSha256===null:sha(b.productV2EvidenceSha256));
+ const b=a.builds[0];return exact(b,'platform,buildId,productV2EvidenceSha256')&&b.platform===s.platform&&b.buildId===s.buildId&&(privateV2?b.productV2EvidenceSha256===null:sha(b.productV2EvidenceSha256));
 }
 export function placementIdentityText(s,a){
  if(!known(s))fail();
@@ -54,7 +58,8 @@ async function load(s,a){
  if(!placementManifestOk(s,m,p,a))fail();
  const [js,wasm]=await Promise.all([checkedFetch(url('ddv_save_core.js'),p.jsSizeBytes,p.jsSha256,'text/javascript',fetch),checkedFetch(url('ddv_save_core_bg.wasm'),p.wasmSizeBytes,p.wasmSha256,'application/wasm',fetch)]);
  if(wasm[0]!==0||wasm[1]!==97||wasm[2]!==115||wasm[3]!==109)fail();
- const denied=new RegExp(baseDenied+'|(?:preview|stage)_steam626_'+(s===COMP03_RELEASE?'vase_add':'comp03'),'i');
+ const backpack=s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE;
+ const denied=new RegExp(baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack?'(?:comp03|vase_add)':s===COMP03_RELEASE?'vase_add':'comp03')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split','i');
  const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{deniedSymbol:denied,requiredMethods:s.methods,exactPrototype:true,exactWasmExports:s.exports});
  return Object.freeze({WorkerWasmSource,sourceHead:p.sourceHead,checkedBothJsAndWasm:true,sameOriginFetchOnly:true,writerAuthorized:false,productConsumerEnabled:false,attestationVerifiedAtBuild:true,...scope(a)});
 }
@@ -68,3 +73,6 @@ function fixed(s,a){
 }
 const comp=fixed(COMP03_RELEASE,PROTECTED_COMP03_RELEASE_ANCHOR),vase=fixed(VASE_ADD_RELEASE,PROTECTED_VASE_ADD_RELEASE_ANCHOR);
 export const getComp03MountInfo=comp.mount,loadProtectedComp03RustWasm=comp.runtime,getVaseAddMountInfo=vase.mount,loadProtectedVaseAddRustWasm=vase.runtime;
+
+const steamBackpack=fixed(STEAM_BACKPACK_RELEASE,PROTECTED_STEAM_BACKPACK_RELEASE_ANCHOR),switchBackpack=fixed(SWITCH_BACKPACK_RELEASE,PROTECTED_SWITCH_BACKPACK_RELEASE_ANCHOR);
+export const getSteamBackpackMountInfo=steamBackpack.mount,loadProtectedSteamBackpackRustWasm=steamBackpack.runtime,getSwitchBackpackMountInfo=switchBackpack.mount,loadProtectedSwitchBackpackRustWasm=switchBackpack.runtime;
