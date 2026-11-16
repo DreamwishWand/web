@@ -157,8 +157,9 @@ mod tests{
         s.undo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
         assert!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).is_err());
         s.redo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
-        let out=s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).unwrap();
-        assert!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).is_err());
+        let export=env(&s,WorkerAction::ExportEditedCopy);
+        let out=s.take_typed_semantic_decoded_once(export).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(export).is_err());
         d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]["Amount"]=json!(6);
         assert_eq!(out,serde_json::to_vec(&d).unwrap());
     }
