@@ -27,3 +27,43 @@ test('appearance profiles independent, OFF anchors and typed UI routes',async()=
  for(const scope of ['hair','skin']){const a=createProductWasmReadOwner(async()=>({}),{appearanceScope:'switch-'+scope});assert.equal(typeof a.previewScopedAppearance,'function');assert.equal(a.previewScopedWardrobe,undefined);assert.equal(a.previewScopedPlacement,undefined);assert.throws(()=>createProductWasmReadOwner(async()=>({}),{appearanceScope:'switch-'+scope,placementScope:'rm01'}));assert.throws(()=>createProductWasmReadOwner(async()=>({}),{appearanceScope:'switch-'+scope,allowScopedCollectionSource:true}));assert.match(await readFile(new URL('../src/routes/editor/appearance/'+scope+'/switch/+page.svelte',import.meta.url),'utf8'),new RegExp('fixedOperation="switch-'+scope+'"'))}
  for(const l of ['en','ja','fr','de','it','es-ES','zh-CN','pt-BR']){const c=localPlacementCopy(l);assert.ok(c.hairTitle&&c.skinTitle);assert.match(c.hairDetail,/74 → 20/);assert.match(c.skinDetail,/170000054 → 170000000/)}
 });
+
+ // Regression E3373: exercise actual local adapter OPEN through P1G codec and
+ // read-only bridge, with a synthetic encrypted profile and mock Rust session.
+ // Dedicated generated WASM/OPFS/independent Reopen remain the L2 oracle.
+test('Appearance local adapter OPEN binds exact platform and Build before Rust construction',async()=>{
+ const {createHash}=await import('node:crypto');
+ const {makeSyntheticP1gProfile}=await import('./helpers/p1g-fixture.mjs');
+ const {p1gPackagedProfileCodec}=await import('../src/lib/ddv/core/save/p1g-packaged-profile-codec.js');
+ const a=await import('../src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs');
+ const digest=b=>createHash('sha256').update(b).digest('hex');
+ const enc=makeSyntheticP1gProfile({GameInfo:{Version:626},World:{Unknown:{keep:1}},Player:{AvatarIsMale:true},Unknown:{future:true}});
+ const file=new File([enc],'appearance-open.p1g'),originalSha256=digest(enc);
+ const decodedSha256=digest(new TextEncoder().encode((await p1gPackagedProfileCodec.loadProfile(enc)).jsonText));
+ const sw={...identity,externallyConfirmed:true},steam={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true};
+ for(const [mode,scope,create,build,foreign] of [
+  ['switch','hair',a.createProductSwitch626HairLocalAdapter,sw,steam],
+  ['switch','skin',a.createProductSwitch626SkinLocalAdapter,sw,steam],
+  ['steam','hair',a.createProductSteam626HairLocalAdapter,steam,sw],
+  ['steam','skin',a.createProductSteam626SkinLocalAdapter,steam,sw]]){
+  let opens=0,closes=0,dirs=0,factories=0;
+  class Mock{
+   constructor(p,k,b,s,confirmed){assert.deepEqual([p,k,b,s,confirmed],[build.platform,build.buildKind,build.buildId,626,true]);opens++}
+   append_chunk(){}finish(){return JSON.stringify({...initial,decodedSha256,allDomainReferencesVerified:false,productReadAccepted:false})}
+   close(){closes++}
+   toggle_scoped_edit(){throw Error('unexpected mutation')}
+   begin_scoped_edit_output(){throw Error('unexpected output')}
+   next_scoped_edit_output_chunk(){throw Error('unexpected output')}
+  }
+  Mock.prototype['preview_'+mode+'626_'+scope]=()=>{throw Error('unexpected preview')};
+  Mock.prototype['stage_'+mode+'626_'+scope]=()=>{throw Error('unexpected stage')};
+  const adapter=create({wasmFactory:async()=>{factories++;return {WorkerWasmSource:Mock}},getDirectory:async()=>{dirs++;return {}}});
+  for(const bad of [foreign,{...build,buildId:'0000000000000000'},{...build,buildKind:foreign.buildKind},{...build,schema:624},{...build,externallyConfirmed:false}]){
+   await assert.rejects(adapter.open({file,build:bad,originalSha256}),/PRODUCT_SCOPED_LOCAL_DENIED/);
+   assert.deepEqual([factories,opens,closes,dirs],[0,0,0,0]);
+  }
+  assert.deepEqual(await adapter.open({file,build,originalSha256}),{kind:'OPEN',ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false});
+  assert.deepEqual([factories,opens,dirs],[1,1,1]);await adapter.close();assert.equal(closes,1);
+  assert.equal(digest(new Uint8Array(await file.arrayBuffer())),originalSha256);
+ }
+});
