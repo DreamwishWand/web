@@ -35,7 +35,7 @@ pub struct WorkerWasmSource {
 }
 #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 #[derive(Clone,Copy,PartialEq,Eq)]
-enum ScopedEditDomain { Amount, Collection, SwitchChest }
+enum ScopedEditDomain { Amount, Collection, SwitchChest, Backpack }
 #[wasm_bindgen]
 impl WorkerWasmSource {
     #[wasm_bindgen(constructor)]
@@ -292,7 +292,7 @@ impl WorkerWasmSource {
         }
         Ok(out)
     }
-    #[cfg(all(feature="product-collection-scoped",not(feature="product-switch626-chest-scoped")))]
+    #[cfg(all(feature="product-collection-scoped",not(any(feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn preview_scoped_collection_candidate(&self,definition:u32,group:u32,item:u32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(session_id)?,expected_revision:revision,expected_index_generation:index_generation,expected_decoded_sha256:from_hex(decoded_sha256)?,action:WorkerAction::ReadDomain};
@@ -300,14 +300,14 @@ impl WorkerWasmSource {
     }
     // Exact fixed Collection command; old=false/new=true is intrinsic,
     // never a JS-coerced boolean or a generic path/value mutation.
-    #[cfg(all(all(feature="product-collection-scoped",feature="semantic-writer-dev"),not(feature="product-switch626-chest-scoped")))]
+    #[cfg(all(all(feature="product-collection-scoped",feature="semantic-writer-dev"),not(any(feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn preview_fixed_collection(&self,definition:u32,group:u32,item:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         Ok(guard.preview_fixed_collection(e,definition,group as usize,item).map_err(|e|err(e.0))?.to_string())
     }
-    #[cfg(all(all(feature="product-collection-scoped",feature="semantic-writer-dev"),not(feature="product-switch626-chest-scoped")))]
+    #[cfg(all(all(feature="product-collection-scoped",feature="semantic-writer-dev"),not(any(feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn stage_fixed_collection(&self,definition:u32,group:u32,item:u32,entry_sha256:&str,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -316,10 +316,40 @@ impl WorkerWasmSource {
         self.scoped_domain.set(Some(ScopedEditDomain::Collection));
         Ok(scoped_edit_receipt(r,"wand.worker.scoped-edit@1"))
     }
+    #[cfg(all(feature="product-backpack-scoped",not(any(feature="product-switch626-backpack-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped"))))]
+    pub fn preview_steam626_backpack_split(&self,src:u32,dst:u32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        Ok(guard.preview_backpack_split(e,src as usize,dst as usize,false).map_err(|e|err(e.0))?.to_string())
+    }
+    #[cfg(all(feature="product-backpack-scoped",not(any(feature="product-switch626-backpack-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped"))))]
+    pub fn stage_steam626_backpack_split(&self,src:u32,dst:u32,old:u32,witness_sha256:&str,projected_sha256:&str,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        let r=guard.stage_backpack_split(e,src as usize,dst as usize,old,from_hex(witness_sha256)?,from_hex(projected_sha256)?,false).map_err(|e|err(e.0))?;
+        self.scoped_domain.set(Some(ScopedEditDomain::Backpack));
+        Ok(scoped_edit_receipt(r,"wand.worker.steam626.backpack-fruit-split@1"))
+    }
+    #[cfg(all(feature="product-backpack-scoped",not(any(feature="product-steam626-backpack-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped"))))]
+    pub fn preview_switch626_backpack_split(&self,src:u32,dst:u32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        Ok(guard.preview_backpack_split(e,src as usize,dst as usize,true).map_err(|e|err(e.0))?.to_string())
+    }
+    #[cfg(all(feature="product-backpack-scoped",not(any(feature="product-steam626-backpack-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped"))))]
+    pub fn stage_switch626_backpack_split(&self,src:u32,dst:u32,old:u32,witness_sha256:&str,projected_sha256:&str,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        let r=guard.stage_backpack_split(e,src as usize,dst as usize,old,from_hex(witness_sha256)?,from_hex(projected_sha256)?,true).map_err(|e|err(e.0))?;
+        self.scoped_domain.set(Some(ScopedEditDomain::Backpack));
+        Ok(scoped_edit_receipt(r,"wand.worker.switch626.backpack-fruit-split@1"))
+    }
     /// ACT916 opt-in bounded same-session discovery. No caller eligibility.
-    #[cfg(all(feature="product-amount-scoped",not(feature="product-switch626-chest-scoped")))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn discover_scoped_amount(&self,profile:&str,offset:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        #[cfg(feature="product-steam626-chest-scoped")]
+        if profile!="linked-crop-chest48"{return Err(err("WORKER_STEAM626_CHEST_RELEASE_PROFILE"));}
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         let (targets,next,scanned)=guard.discover_scoped_amount(e,profile,offset).map_err(|e|err(e.0))?;
@@ -336,9 +366,11 @@ impl WorkerWasmSource {
             "offset":offset,"nextOffset":next,"scanned":scanned,"rows":rows,"writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
     }
     /// ACT916 opt-in ABI, absent from the existing Pages feature set.
-    #[cfg(all(feature="product-amount-scoped",not(feature="product-switch626-chest-scoped")))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn preview_scoped_amount(&self,profile:&str,id:u32,selector:u32,new:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        #[cfg(feature="product-steam626-chest-scoped")]
+        if profile!="linked-crop-chest48"||new!=49{return Err(err("WORKER_STEAM626_CHEST_RELEASE_SCOPE"));}
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let selection=scoped_selection(profile,id,selector)?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
@@ -350,9 +382,11 @@ impl WorkerWasmSource {
             "indexGeneration":v.index_generation,"decodedSha256":hex(&v.decoded_sha256),
             "scopedCandidate":true,"writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
     }
-    #[cfg(all(feature="product-amount-scoped",not(feature="product-switch626-chest-scoped")))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn stage_scoped_amount(&self,profile:&str,id:u32,selector:u32,old:u32,new:u32,entry_sha256:&str,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        #[cfg(feature="product-steam626-chest-scoped")]
+        if profile!="linked-crop-chest48"||old!=50||new!=49{return Err(err("WORKER_STEAM626_CHEST_RELEASE_SCOPE"));}
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let selection=scoped_selection(profile,id,selector)?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
@@ -361,7 +395,7 @@ impl WorkerWasmSource {
         Ok(scoped_edit_receipt(r,"wand.worker.steam626.scoped-amount@1"))
     }
     /// Switch626 explicit ABI; the Steam aliases retain their original scope.
-    #[cfg(feature="product-amount-scoped")]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn discover_switch626_chest(&self,offset:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -380,7 +414,7 @@ impl WorkerWasmSource {
             "offset":offset,"nextOffset":next,"scanned":scanned,"rows":rows,
             "writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
     }
-    #[cfg(feature="product-amount-scoped")]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn preview_switch626_chest(&self,id:u32,slot:u32,new:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -395,7 +429,7 @@ impl WorkerWasmSource {
             "decodedSha256":hex(&v.decoded_sha256),"scopedCandidate":true,
             "writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
     }
-    #[cfg(feature="product-amount-scoped")]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn stage_switch626_chest(&self,id:u32,slot:u32,old:u32,new:u32,entry_sha256:&str,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -408,29 +442,29 @@ impl WorkerWasmSource {
     // One internal ledger and one output buffer, with legacy Amount
     // contract aliases. The tag labels the successful Stage; it cannot
     // authorize any command or mint a new session.
-    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(feature="product-steam626-chest-scoped"),not(all(feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped")),not(all(feature="product-switch626-chest-scoped",any(feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped")))))]
     pub fn toggle_scoped_edit(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         self.toggle_scoped_edit_inner(redo,session_id,revision,index_generation,decoded_sha256,"wand.worker.scoped-edit@1")
     }
-    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(feature="product-steam626-chest-scoped"),not(all(feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped")),not(all(feature="product-switch626-chest-scoped",any(feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped")))))]
     pub fn begin_scoped_edit_output(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         self.begin_scoped_edit_output_inner(session_id,revision,index_generation,decoded_sha256,"wand.worker.scoped-edit-output@1")
     }
-    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(feature="product-steam626-chest-scoped"),not(all(feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped")),not(all(feature="product-switch626-chest-scoped",any(feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped")))))]
     pub fn next_scoped_edit_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
         self.next_scoped_edit_output_chunk_inner()
     }
-    #[cfg(all(feature="product-amount-scoped",not(feature="product-switch626-chest-scoped")))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn toggle_scoped_amount(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         self.require_amount_domain()?;
         self.toggle_scoped_edit_inner(redo,session_id,revision,index_generation,decoded_sha256,"wand.worker.steam626.scoped-amount@1")
     }
-    #[cfg(all(feature="product-amount-scoped",not(feature="product-switch626-chest-scoped")))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn begin_scoped_amount_output(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         self.require_amount_domain()?;
         self.begin_scoped_edit_output_inner(session_id,revision,index_generation,decoded_sha256,"wand.worker.steam626.scoped-amount-output@1")
     }
-    #[cfg(all(feature="product-amount-scoped",not(feature="product-switch626-chest-scoped")))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-chest-scoped",feature="product-steam626-backpack-scoped",feature="product-switch626-backpack-scoped"))))]
     pub fn next_scoped_amount_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
         self.require_amount_domain()?;
         self.next_scoped_edit_output_chunk_inner()
@@ -479,6 +513,7 @@ fn scoped_edit_receipt(r:crate::SemanticStageReceipt,contract:&str)->String{
 #[cfg(feature="product-amount-scoped")]
 fn scoped_selection(profile:&str,id:u32,selector:u32)->Result<crate::ExistingAmountSelection,JsValue>{
     match profile{
+        #[cfg(not(feature="product-steam626-chest-scoped"))]
         "catalog0-furniture" if id==0=>Ok(crate::ExistingAmountSelection::Inventory{inventory_id:0,item_id:selector}),
         "linked-crop-chest48" if id>1&&selector<48=>Ok(crate::ExistingAmountSelection::Chest{container_id:id,slot_index:selector as usize}),
         _=>Err(err("WORKER_SCOPED_PROFILE")),
@@ -489,7 +524,7 @@ fn scoped_selection(profile:&str,id:u32,selector:u32)->Result<crate::ExistingAmo
 impl WorkerWasmSource {
     #[cfg(feature="product-amount-scoped")]
     fn require_amount_domain(&self)->Result<(),JsValue>{
-        if matches!(self.scoped_domain.get(),Some(ScopedEditDomain::Collection|ScopedEditDomain::SwitchChest)){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}
+        if self.scoped_domain.get().is_some_and(|d|d!=ScopedEditDomain::Amount){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}
         Ok(())
     }
     fn toggle_scoped_edit_inner(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str,contract:&str)->Result<String,JsValue>{

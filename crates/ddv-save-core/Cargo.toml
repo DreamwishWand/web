@@ -24,8 +24,14 @@ product-collection-scoped = ["indexed-read"]
 
 # ACT916 scoped product candidate, explicitly excluded from current Pages.
 product-amount-scoped = ["semantic-writer-dev"]
-# Exact Switch626 Chest-only WASM delivery surface; reuse existing Core.
+# Exact Steam626 linked crop Chest release surface, no public grant.
+product-steam626-chest-scoped = ["product-amount-scoped"]
 product-switch626-chest-scoped = ["product-amount-scoped"]
+
+# Dedicated Backpack release features; same existing typed ledger.
+product-backpack-scoped = ["product-amount-scoped"]
+product-steam626-backpack-scoped = ["product-backpack-scoped"]
+product-switch626-backpack-scoped = ["product-backpack-scoped"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }

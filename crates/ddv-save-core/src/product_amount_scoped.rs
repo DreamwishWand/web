@@ -426,13 +426,15 @@ fn saved_grid_state(b:&[u8],s:Span,item:i32,budget:&mut usize)->CoreResult<()>{
 #[derive(Clone,Copy)]struct Link{grid:u32,object:u32,record:Span,grid_span:Span}
 
 #[derive(Clone,Copy,PartialEq,Eq)]
-enum LayoutBinding { SteamReferenceOnly, Switch626ChestStatic }
+enum LayoutBinding { SteamReferenceOnly, Steam626ChestStatic, Switch626ChestStatic }
 fn scan_grids(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>)->CoreResult<Option<Link>>{
     scan_grids_bound(b,world,item,chest,LayoutBinding::SteamReferenceOnly)
 }
 fn scan_grids_bound(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>,binding:LayoutBinding)->CoreResult<Option<Link>>{
     if binding==LayoutBinding::Switch626ChestStatic{
         need(chest.is_some(),"PRODUCT_SWITCH626_CHEST_ONLY")?;
+    }else if binding==LayoutBinding::Steam626ChestStatic{
+        need(chest.is_some(),"PRODUCT_AMOUNT_STATIC_CHEST_ONLY")?;
     }
     let gc=f(b,world,"GridCollection")?;let mut count=0usize;let mut total=0usize;let mut link=None;
     let mut subgrid=std::collections::BTreeSet::new();let mut grids=std::collections::BTreeSet::new();
@@ -454,7 +456,11 @@ fn scan_grids_bound(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>,binding:
                     // remaining Steam reference has no Switch proof.
                     need(path!="SceneLayouts/Houses/OogieBoogieHouse/OogieBoogieHouse.json",
                         "PRODUCT_SWITCH626_LAYOUT_NOT_PROVEN")?;
-                }else{native_unresolved=true;}
+                }else if binding==LayoutBinding::SteamReferenceOnly{native_unresolved=true;}
+                // Steam626ChestStatic: ACT946 normal-retail static closure,
+                // exact compiled 154-asset/1048-local reference pack and
+                // current path/type/local ID + conservative all-local union.
+                // Never infer Native loaded parity from saved hashes.
             }else{
                 need(strv(b,g,"GridDefaultLayoutPath")?.is_empty(),"PRODUCT_AMOUNT_EFFECTIVE_DEFAULT_UNRESOLVED")?;
             }
@@ -542,11 +548,21 @@ fn address_refs(b:&[u8],s:Span,gid:u32,oid:u32,budget:&mut usize,depth:usize)->C
     }Ok(())
 }
 fn eligible(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32)->CoreResult<()>{
-    eligible_bound(s,t,new,LayoutBinding::SteamReferenceOnly)
+    // ACT916: only the existing linked Crop Chest48 profile can use the
+    // accepted Steam626 normal-retail static source bound. Keep Catalog0
+    // reference-only until its own candidate/provider closure is accepted.
+    build_check(s)?;
+    let binding=if matches!(t.view().selection,ExistingAmountSelection::Chest{..}){
+        LayoutBinding::Steam626ChestStatic
+    }else{LayoutBinding::SteamReferenceOnly};
+    eligible_bound(s,t,new,binding)
 }
 fn eligible_bound(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32,binding:LayoutBinding)->CoreResult<()>{
     if binding==LayoutBinding::Switch626ChestStatic{
         need(matches!(t.view().selection,ExistingAmountSelection::Chest{..}),"PRODUCT_SWITCH626_CHEST_ONLY")?;
+    }else if binding==LayoutBinding::Steam626ChestStatic{
+        build_check(s)?;
+        need(matches!(t.view().selection,ExistingAmountSelection::Chest{..}),"PRODUCT_AMOUNT_STATIC_CHEST_ONLY")?;
     }
     let (a,d)=pack()?;let v=t.view();let item=v.item_id;
     need(v.old_amount.checked_sub(1)==Some(new)&&new>0,"PRODUCT_AMOUNT_DECREASE_ONE")?;
@@ -754,7 +770,9 @@ mod tests{
         assert_eq!(s.receipt().unwrap(),before);
         let steam=open(&d);
         assert!(steam.preview_switch626_scoped_chest(scope(&steam,WorkerAction::ReadDomain),sel,49).is_err());
-        assert!(steam.preview_scoped_product_amount(scope(&steam,WorkerAction::ReadDomain),sel,49).is_err());
+        // ACT916 adds this independent Steam profile; Switch entry points
+        // remain denied on Steam, and Steam entry points denied on Switch.
+        assert!(steam.preview_scoped_product_amount(scope(&steam,WorkerAction::ReadDomain),sel,49).is_ok());
         assert!(s.preview_scoped_product_amount(e,sel,49).is_err());
         assert!(s.preview_switch626_scoped_chest(e,sel,48).is_err());
         assert!(s.preview_switch626_scoped_chest(e,ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},49).is_err());
@@ -813,7 +831,7 @@ mod tests{
 
     #[test]fn static_layout_reference_bound_no_native_authority(){
         let ix=layout_index().unwrap();assert_eq!(ix.len(),154);
-        let (path,asset,local)=ix.iter().find_map(|(p,a)|a.grids.iter().find(|(_,g)|g.items.is_empty()&&g.storage.is_empty()).map(|(id,_)|(p,a,*id))).unwrap();
+        let (path,asset,local)=ix.iter().filter(|(_,a)|layout_asset_excludes(a,30200000,Some((12,40001680))).is_ok()).find_map(|(p,a)|a.grids.iter().find(|(_,g)|g.items.is_empty()&&g.storage.is_empty()).map(|(id,_)|(p,a,*id))).unwrap();
         let overlay=|path:&str,kind:&str,local:u32|json!({"ID":19,"GridDefaultLayoutPath":path,
             "GridDefaultLayoutType":kind,"DefaultLayoutGridID":local,"DefaultGridHashCode":-4,
             "DefaultGridDataHashCode":6,"ModifiedObjects":{},"RemovedObjects":[]});
@@ -825,9 +843,21 @@ mod tests{
             assert_eq!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,49).unwrap_err().0,expected);
             assert_eq!(s.receipt().unwrap(),before);
         };
-        verify(&d,"PRODUCT_AMOUNT_EFFECTIVE_NATIVE_BINDING_UNPROVEN");
+        // The old unbound scanner remains fail-closed; only the exact
+        // Steam-linked Chest profile can use the normal-retail static bound.
+        let raw=serde_json::to_vec(&d).unwrap();let roots=indexed_read::roots(&raw).unwrap();
+        assert_eq!(scan_grids(&raw,roots.world,30200000,Some((12,40001680))).err().unwrap().0,"PRODUCT_AMOUNT_EFFECTIVE_NATIVE_BINDING_UNPROVEN");
+        let s=open(&d);let before=s.receipt().unwrap();
+        let t=s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,49).unwrap();
+        assert_eq!(s.receipt().unwrap(),before);
+        assert_eq!(s.discover_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),"linked-crop-chest48",0).unwrap().0.len(),1);
         let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["19"]["GridDefaultLayoutPath"]=json!(path.replace('/',"\\"));
-        verify(&q,"PRODUCT_AMOUNT_EFFECTIVE_NATIVE_BINDING_UNPROVEN");
+        let x=open(&q);assert!(x.preview_scoped_product_amount(scope(&x,WorkerAction::ReadDomain),sel,49).is_ok());
+        let v=t.view();let r=s.stage_scoped_product_amount(scope(&s,WorkerAction::Stage),v.selection,v.old_amount,49,v.entry_sha256).unwrap();
+        assert_eq!(r.exact_field_changed_count,1);assert!(!r.product_writer_authorized);
+        let out=s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).unwrap();
+        let mut expected=d.clone();expected["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);
+        assert_eq!(out,serde_json::to_vec(&expected).unwrap());
         for(k,v,error)in [("GridDefaultLayoutPath",json!("SceneLayouts/Unknown.json"),"PRODUCT_AMOUNT_LAYOUT_PATH_UNKNOWN"),
             ("GridDefaultLayoutPath",json!("SceneLayouts/../Unknown.json"),"PRODUCT_AMOUNT_LAYOUT_PATH"),
             ("GridDefaultLayoutType",json!("Meta.Other, Meta"),"PRODUCT_AMOUNT_LAYOUT_TYPE"),
