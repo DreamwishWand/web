@@ -3,18 +3,22 @@
  import {locale} from '$lib/i18n/runtime.js';
  import {collectionExact1Copy} from './collection-exact1-copy.mjs';
  import {createCollectionExact1Consumer,COLLECTION_EXACT1_BUILDS} from './collection-exact1-consumer.mjs';
- // Source-only isolated consumer. No import from public /editor/items yet.
+ import {productCollectionPortScope} from './product-collection-client.mjs';
+ // The existing DEV harness remains unchanged; the product mount accepts
+ // only a branded port from the trusted sealed-release Worker.
  export let trustedWorkerAdapter=null;
  export let verifiedLocalDevGate=false;
  let consumer=null,pending=false,error=false,choice=0,epoch=0;
- let fileMode=false,file=null,platform='',confirmed=false;
- $: selectedBuild=COLLECTION_EXACT1_BUILDS[platform]||null;
+ let fileMode=false,file=null,platform='',confirmed=false,productScope=null;
+ $: allowedPlatforms=productScope?productScope.builds.map(b=>b.platform):['steam-windows','switch'];
+ $: selectedBuild=allowedPlatforms.includes(platform)?COLLECTION_EXACT1_BUILDS[platform]||null:null;
  let state={phase:'closed',targets:[],preview:null,backupName:null,editedName:null,sourceName:''};
  $: words=collectionExact1Copy($locale);
  $: phase=state.phase;
  onMount(()=>{
-  if(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter)return;
-  try{consumer=createCollectionExact1Consumer(trustedWorkerAdapter,{trustedLocalHarness:true});fileMode=typeof trustedWorkerAdapter.open==='function';state=consumer.snapshot()}catch{}
+  productScope=productCollectionPortScope(trustedWorkerAdapter);
+  if(!productScope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
+  try{consumer=createCollectionExact1Consumer(trustedWorkerAdapter,{trustedLocalHarness:true});fileMode=typeof trustedWorkerAdapter.open==='function';state=consumer.snapshot()}catch{productScope=null}
   return ()=>{epoch++;const active=consumer;consumer=null;if(active)void active.close().catch(()=>{})};
  });
  async function act(fn){
@@ -49,7 +53,7 @@
   finally{if(consumer===a&&t===epoch)pending=false}
  }
 </script>
-<section class="collection-exact1" data-collection-exact1 data-product-writer="off" data-public-route="off" aria-label={words.title}>
+<section class="collection-exact1" data-collection-exact1 data-product-writer="off" data-public-route={productScope?.mode==='public-accepted'?'on':'off'} data-collection-runtime={productScope?.mode||'dev-off'} aria-label={words.title}>
  <h2>{words.title}</h2><p>{words.intro}</p>
  {#if !consumer}<p role="status">{words.off}</p>
  {:else}
@@ -61,7 +65,8 @@
     <label for="collection-local-build">{words.platform}</label>
     <select id="collection-local-build" bind:value={platform} on:change={()=>confirmed=false} disabled={pending}>
      <option value="">{words.chooseBuild}</option>
-     <option value="steam-windows">Steam (Windows)</option><option value="switch">Nintendo Switch</option>
+     {#if allowedPlatforms.includes('steam-windows')}<option value="steam-windows">Steam (Windows)</option>{/if}
+     {#if allowedPlatforms.includes('switch')}<option value="switch">Nintendo Switch</option>{/if}
     </select>
     {#if selectedBuild}<p><code>{selectedBuild.buildId}</code> · schema 626</p>
      <label class="check"><input type="checkbox" bind:checked={confirmed} disabled={pending}/><span>{words.confirmBuild}</span></label>
