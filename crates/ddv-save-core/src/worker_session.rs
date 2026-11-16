@@ -54,6 +54,22 @@ impl WorkerSessionGuard {
         self.session.read_saved_diffgrids_page(scope,cursor)
     }
     #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn preview_comp03_product(&self,e:WorkerEnvelope,seed:u32)->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_comp03_product(e,seed)
+    }
+    #[cfg(feature="product-steam626-comp03-spatial-preview")]
+    pub(crate) fn preview_comp03_spatial(&self,e:WorkerEnvelope,seed:u32,projected:[u8;32])->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_comp03_spatial(e,seed,projected)
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn stage_comp03_product(&self,e:WorkerEnvelope,seed:u32,grid:u32,next:u32,old:u32,
+        grid_sha:[u8;32],seed_sha:[u8;32],stock_sha:[u8;32],projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.stage_comp03_product(e,seed,grid,next,old,grid_sha,seed_sha,stock_sha,projected)
+    }
+    #[cfg(feature="product-amount-scoped")]
     pub(crate) fn discover_scoped_amount(&self,e:WorkerEnvelope,profile:&str,offset:u32)
         ->CoreResult<(Vec<crate::CoreExistingAmountTarget>,Option<u32>,u32)>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
