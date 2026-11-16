@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
 test('proof-only Switch Chest dispatch cannot use normal Pages build/deploy or upload executable subjects',()=>{
- const proof=y.slice(y.indexOf('  scoped_switch_chest_proof:\n'));
- assert.match(y,/build:\s+if: github.event_name != 'workflow_dispatch' \|\| \(inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == ''\)/);
+ const proof=y.slice(y.indexOf('  scoped_switch_chest_proof:\n'),y.indexOf('  scoped_steam_chest_proof:\n'));
+ assert.match(y,/build:\s+if: github.event_name != 'workflow_dispatch' \|\| \(inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == ''\)/);
  assert.match(y,/deploy:\s+needs: build/);
- assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && github.ref == 'refs\/heads\/main'/);
+ assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_hair_proof_source == '' && inputs.scoped_skin_proof_source == '' && github.ref == 'refs\/heads\/main'/);
  assert.match(proof,/test "\$WAND_PROOF_EXPECTED_SOURCE" = "\$GITHUB_SHA"/);
- assert.match(proof,/aceda9d906c3137d717824a3079e84165ab5f62e/);
+ assert.match(proof,/fa7aeef5dc1459104564bf1eb9704d315ab7c415/);
  assert.match(proof,/--no-default-features --features product-switch626-chest-scoped,worker-wasm/);
  const order=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','node scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs','node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate','actions/upload-artifact@v4'];
  let i=-1;for(const m of order){const n=proof.indexOf(m);assert.ok(n>i,m);i=n;}
@@ -22,12 +22,12 @@ test('proof-only Switch Chest dispatch cannot use normal Pages build/deploy or u
 
 // E2556: fixed accepted PR1507 Web composite. Only these eight pins changed.
 test('Switch Chest proof pins exact accepted Web composite, no stale or extra paths',()=>{
- const proof=y.slice(y.indexOf('  scoped_switch_chest_proof:\n'));
+ const proof=y.slice(y.indexOf('  scoped_switch_chest_proof:\n'),y.indexOf('  scoped_steam_chest_proof:\n'));
  const pins=[...proof.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(x=>[x[1],x[2]]);
  assert.deepEqual(pins,[
   [
     "crates/ddv-save-core",
-    "aceda9d906c3137d717824a3079e84165ab5f62e"
+    "fa7aeef5dc1459104564bf1eb9704d315ab7c415"
   ],
   [
     "scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs",
@@ -35,7 +35,7 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "scripts/readonly-release/seal-scoped-switch-chest-private.mjs",
-    "bf6daf8f8096eb69a34dbf6e80d67d8e31bc95b0"
+    "6c8dfc4afea309eac4af94da778b01dde43b3f1c"
   ],
   [
     "scripts/readonly-release/seal.mjs",
@@ -75,23 +75,23 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-    "bbac7640c061740bfd4bb6388d1e33ee2c88fbe7"
+    "eef37e2a1b027134439e686ea5e47501339bbace"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
-    "c266d64d63b3480f14459f5323ef53e58dcb70af"
+    "d4643ccf023b6784c80fa5b2a377afe7936113ce"
   ],
   [
     "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-    "1ac9e68b29b64bc68877855e3df089a9ea6585b7"
+    "ee5929266406bb9a17e1e0a3fc9bce3cb15607f6"
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-    "8d2d1da0be2f356cbf0159277685f1683ac84ec4"
+    "ae89e25ad3cdc48d8b4e23e7eabc6ba92998b553"
   ],
   [
     "src/lib/dev/local-scoped-edit-worker-port.mjs",
-    "a22209de4e59c220f1c854496e170c0450630e7b"
+    "1d5eacaabfb27a244a68c6a07cd22feba7eb57c2"
   ],
   [
     "src/lib/dev/local-amount-workflow.mjs",
