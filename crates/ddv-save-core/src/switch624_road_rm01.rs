@@ -5,7 +5,9 @@
 use super::*;
 use serde_json::{Value,json};
 const BID:&str="52BD625D9B4E0053";
-const ROAD:u32=40100068;
+#[path="road_mixed_shape.rs"]
+mod road_mixed_shape;
+use road_mixed_shape::{ROAD,object as obj};
 fn digest(b:&[u8])->String{sha(b).iter().map(|x|format!("{x:02x}")).collect()}
 fn uint(v:&Value)->CoreResult<u32>{
     v.as_u64().and_then(|n|u32::try_from(n).ok()).ok_or(denied("RM01_PLAN_UINT"))
@@ -29,10 +31,6 @@ fn plan_parse(bytes:&[u8],contract:&str)->CoreResult<Value>{
     if m.len()!=keys.len()||!keys.iter().all(|k|m.contains_key(*k))||
        v["contract"]!=contract{return Err(denied("RM01_PLAN_FIELDS"));}
     Ok(v)
-}
-fn obj(id:u32,x:u32,y:u32,diagonal:bool)->Value{
-    json!({"ID":id,"ItemID":ROAD,"X":x,"Y":y,"Orientation":"GridOrientation_Down",
-        "State":if diagonal{json!({"FenceMode":{"Diagonal":true}})}else{Value::Null}})
 }
 fn repl(b:&[u8],span:Span,new:Vec<u8>)->CoreResult<Replacement>{
     let old=raw(b,span)?.to_vec();
@@ -74,15 +72,14 @@ fn collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
     }
     let ks=ks.ok_or(denied("RM01_RETAINED_MISSING"))?;let ms=ms.ok_or(denied("RM01_MOVED_MISSING"))?;
     let x=num(b,ks,"X")?;let y=num(b,ks,"Y")?;
-    let x4=x.checked_add(4).ok_or(denied("RM01_COORD_BOUND"))?;
+    x.checked_add(4).ok_or(denied("RM01_COORD_BOUND"))?;
     let x8=x.checked_add(8).ok_or(denied("RM01_COORD_BOUND"))?;
     let y4=y.checked_add(4).ok_or(denied("RM01_COORD_BOUND"))?;
-    if x8>i32::MAX as u32||y4>i32::MAX as u32||val(b,ks)?!=obj(keep,x,y,false)||val(b,ms)?!=obj(moved,x4,y,false){
-        return Err(denied("RM01_EXACT_OLD_OBJECTS"));
-    }
-    let wanted=[obj(keep,x,y,false),obj(moved,x8,y4,true),obj(next,x4,y,true),obj(next+1,x4,y4,true),obj(next+2,x8,y,true)];
+    if x8>i32::MAX as u32||y4>i32::MAX as u32{return Err(denied("RM01_EXACT_OLD_OBJECTS"));}
+    let shape=road_mixed_shape::exact_q5(keep,moved,next,x,y).ok_or(denied("RM01_EXACT_OLD_OBJECTS"))?;
+    if val(b,ks)?!=shape.old[0]||val(b,ms)?!=shape.old[1]{return Err(denied("RM01_EXACT_OLD_OBJECTS"));}
     let plan=p["objects"].as_array().ok_or(denied("RM01_PLAN_OBJECTS"))?;
-    if plan.as_slice()!=wanted.as_slice(){return Err(denied("RM01_EXACT_PLAN_SHAPE"));}
+    if plan.as_slice()!=shape.after.as_slice(){return Err(denied("RM01_EXACT_PLAN_SHAPE"));}
     // Stored anchor guard, not full geometry proof. External exact-source
     // 01B readset covers footprint/floor/parent and 01E covers closure.
     let mut pos=objs.begin+1;
@@ -91,7 +88,7 @@ fn collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
         let ox=val(b,object_field(b,entry,"X")?)?;let oy=val(b,object_field(b,entry,"Y")?)?;
         let ox=ox.as_f64().filter(|v|v.is_finite()).ok_or(denied("RM01_COORD_TOKEN"))?;
         let oy=oy.as_f64().filter(|v|v.is_finite()).ok_or(denied("RM01_COORD_TOKEN"))?;
-        if [(x,y),(x4,y),(x4,y4),(x8,y),(x8,y4)].iter().any(|(a,c)|ox==*a as f64&&oy==*c as f64){
+        if shape.anchors.iter().any(|(a,c)|ox==*a as f64&&oy==*c as f64){
             return Err(denied("RM01_OCCUPIED_ANCHOR"));
         }
     }
