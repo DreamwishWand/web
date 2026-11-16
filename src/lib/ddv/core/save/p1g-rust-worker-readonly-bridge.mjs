@@ -117,7 +117,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
     if(collectionCloseUnverified)fail('P1G_WORKER_COLLECTION_CLOSE_UNVERIFIED');
     close();const token=epoch;
     if(!scopedEnabled||!exact(args,'file,build,originalSha256')||
-       !(args.file instanceof File)||!(appearanceEnabled?args.build?.platform==='steam-windows':wardrobeEnabled?args.build?.platform===(wardrobeScope==='switch'?'switch':'steam-windows'):backpackEnabled?args.build?.platform===(backpackScope==='switch'?'switch':'steam-windows'):(allowSwitch626ChestSource===true||allowSwitch626Catalog0Source===true||placementScope==='rm01')?args.build?.platform==='switch':(args.build?.platform==='steam-windows'||(allowScopedCollectionSource===true&&args.build?.platform==='switch')))||
+       !(args.file instanceof File)||!(appearanceEnabled?args.build?.platform==='steam-windows':wardrobeEnabled?args.build?.platform===(wardrobeScope==='switch'?'switch':'steam-windows'):backpackEnabled?args.build?.platform===(backpackScope==='switch'?'switch':'steam-windows'):(allowSwitch626ChestSource===true||allowSwitch626Catalog0Source===true||placementScope==='rm01'||placementScope==='r01')?args.build?.platform==='switch':(args.build?.platform==='steam-windows'||(allowScopedCollectionSource===true&&args.build?.platform==='switch')))||
        typeof args.originalSha256!=='string'||!(/^[0-9a-f]{64}$/).test(args.originalSha256))
       fail('P1G_WORKER_SCOPED_INPUT_DENIED');
     const {file,build,originalSha256}=args;

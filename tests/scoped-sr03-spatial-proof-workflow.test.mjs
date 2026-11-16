@@ -43,7 +43,7 @@ const specs=[
       ],
       [
         "src/lib/ddv/core/save/product-scoped-placement-release.mjs",
-        "1f72c540d9e9ab949402d550a706961935cf7ec2"
+        "ddbfb7e4616bfc7f6d29086b5c75c64d89455a47"
       ],
       [
         "src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs",
@@ -71,27 +71,27 @@ const specs=[
       ],
       [
         "src/lib/ddv/core/save/product-scoped-placement-transport.mjs",
-        "182ecd723a5a82683cccf79e1349ecf41e6ae7a7"
+        "72fd6ac89ad03bdd734ec5f934b5a644a6e60947"
       ],
       [
         "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
-        "d4643ccf023b6784c80fa5b2a377afe7936113ce"
+        "cb58ac87357cfc7f3fba9219fd3c482a5883fbc2"
       ],
       [
         "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-        "eef37e2a1b027134439e686ea5e47501339bbace"
+        "f39415efdcb9df3b969433cc1c5433e71f246757"
       ],
       [
         "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-        "ee5929266406bb9a17e1e0a3fc9bce3cb15607f6"
+        "ee0265bd5ff48c89ede1b7b038d86176c97cfe11"
       ],
       [
         "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-        "ae89e25ad3cdc48d8b4e23e7eabc6ba92998b553"
+        "fa5d2e07a7c129c400cb0a1693fa81c70947dc9f"
       ],
       [
         "src/lib/ddv/core/save/product-wasm-read-owner.d.mts",
-        "f20fc6081da2bf67db72e668a11a888966cbbd86"
+        "f9aab75576567c5a38a44a3bf2496a518b5a72ee"
       ],
       [
         "src/lib/ddv/core/save/local-original-backup.mjs",
@@ -103,23 +103,23 @@ const specs=[
       ],
       [
         "src/lib/dev/LocalPlacementEditorDev.svelte",
-        "11b5047f3cb713d2d5ed3e1bda8b198922239e17"
+        "b6e842b410196f066682d369c5fa1a406b55ffdc"
       ],
       [
         "src/lib/dev/PlacementProductRoute.svelte",
-        "9db37fdd2aa124aef19e7c300503d58223679feb"
+        "7976104074e302c5f78e157a2dcb1e2327009352"
       ],
       [
         "src/lib/dev/local-placement-copy.mjs",
-        "e559b0cc4ad8d12d1617a54072822d696761ae5e"
+        "c8b4f5c2d5fc43e90ea68a5bd751db6ad6316a25"
       ],
       [
         "src/lib/dev/local-placement-workflow.mjs",
-        "5933c35f66c41f745167579211b084450b3b80d7"
+        "429f06ab904105e4170130dab92859f81ef05ec7"
       ],
       [
         "src/lib/dev/product-placement-client.mjs",
-        "c72a772cde08b331590b0551f8bbac3807befaa6"
+        "c7186f0d9436db9ea3df58ef6a708a34902386eb"
       ],
       [
         "src/lib/dev/product-placement-worker-boot.mjs",
@@ -127,7 +127,7 @@ const specs=[
       ],
       [
         "src/lib/dev/local-scoped-edit-worker-port.mjs",
-        "1d5eacaabfb27a244a68c6a07cd22feba7eb57c2"
+        "7d79ffb9997c8f9c9c09bfa0129245358509647e"
       ],
       [
         "src/lib/dev/local-amount-codec-reopen.worker.mjs",
@@ -182,7 +182,7 @@ const specs=[
       ],
       [
         "src/lib/ddv/core/save/product-scoped-placement-release.mjs",
-        "1f72c540d9e9ab949402d550a706961935cf7ec2"
+        "ddbfb7e4616bfc7f6d29086b5c75c64d89455a47"
       ],
       [
         "src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs",
@@ -210,23 +210,23 @@ const specs=[
       ],
       [
         "src/lib/ddv/core/save/product-scoped-placement-transport.mjs",
-        "182ecd723a5a82683cccf79e1349ecf41e6ae7a7"
+        "72fd6ac89ad03bdd734ec5f934b5a644a6e60947"
       ],
       [
         "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-        "eef37e2a1b027134439e686ea5e47501339bbace"
+        "f39415efdcb9df3b969433cc1c5433e71f246757"
       ],
       [
         "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-        "ee5929266406bb9a17e1e0a3fc9bce3cb15607f6"
+        "ee0265bd5ff48c89ede1b7b038d86176c97cfe11"
       ],
       [
         "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-        "ae89e25ad3cdc48d8b4e23e7eabc6ba92998b553"
+        "fa5d2e07a7c129c400cb0a1693fa81c70947dc9f"
       ],
       [
         "src/lib/ddv/core/save/product-wasm-read-owner.d.mts",
-        "f20fc6081da2bf67db72e668a11a888966cbbd86"
+        "f9aab75576567c5a38a44a3bf2496a518b5a72ee"
       ],
       [
         "src/lib/ddv/core/save/local-original-backup.mjs",
@@ -238,23 +238,23 @@ const specs=[
       ],
       [
         "src/lib/dev/LocalPlacementEditorDev.svelte",
-        "11b5047f3cb713d2d5ed3e1bda8b198922239e17"
+        "b6e842b410196f066682d369c5fa1a406b55ffdc"
       ],
       [
         "src/lib/dev/PlacementProductRoute.svelte",
-        "9db37fdd2aa124aef19e7c300503d58223679feb"
+        "7976104074e302c5f78e157a2dcb1e2327009352"
       ],
       [
         "src/lib/dev/local-placement-copy.mjs",
-        "e559b0cc4ad8d12d1617a54072822d696761ae5e"
+        "c8b4f5c2d5fc43e90ea68a5bd751db6ad6316a25"
       ],
       [
         "src/lib/dev/local-placement-workflow.mjs",
-        "5933c35f66c41f745167579211b084450b3b80d7"
+        "429f06ab904105e4170130dab92859f81ef05ec7"
       ],
       [
         "src/lib/dev/product-placement-client.mjs",
-        "c72a772cde08b331590b0551f8bbac3807befaa6"
+        "c7186f0d9436db9ea3df58ef6a708a34902386eb"
       ],
       [
         "src/lib/dev/product-placement-worker-boot.mjs",
@@ -262,7 +262,7 @@ const specs=[
       ],
       [
         "src/lib/dev/local-scoped-edit-worker-port.mjs",
-        "1d5eacaabfb27a244a68c6a07cd22feba7eb57c2"
+        "7d79ffb9997c8f9c9c09bfa0129245358509647e"
       ],
       [
         "src/lib/dev/local-amount-codec-reopen.worker.mjs",
@@ -314,7 +314,7 @@ const specs=[
       ],
       [
         "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
-        "d4643ccf023b6784c80fa5b2a377afe7936113ce"
+        "cb58ac87357cfc7f3fba9219fd3c482a5883fbc2"
       ],
       [
         "src/lib/ddv/core/save/product-scoped-sr03-release-anchor.mjs",
@@ -365,7 +365,7 @@ const specs=[
       ],
       [
         "src/lib/ddv/core/save/product-scoped-placement-release.mjs",
-        "1f72c540d9e9ab949402d550a706961935cf7ec2"
+        "ddbfb7e4616bfc7f6d29086b5c75c64d89455a47"
       ],
       [
         "src/lib/ddv/core/save/product-scoped-rm01-release-anchor.mjs",
@@ -393,27 +393,27 @@ const specs=[
       ],
       [
         "src/lib/ddv/core/save/product-scoped-placement-transport.mjs",
-        "182ecd723a5a82683cccf79e1349ecf41e6ae7a7"
+        "72fd6ac89ad03bdd734ec5f934b5a644a6e60947"
       ],
       [
         "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
-        "d4643ccf023b6784c80fa5b2a377afe7936113ce"
+        "cb58ac87357cfc7f3fba9219fd3c482a5883fbc2"
       ],
       [
         "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-        "eef37e2a1b027134439e686ea5e47501339bbace"
+        "f39415efdcb9df3b969433cc1c5433e71f246757"
       ],
       [
         "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-        "ee5929266406bb9a17e1e0a3fc9bce3cb15607f6"
+        "ee0265bd5ff48c89ede1b7b038d86176c97cfe11"
       ],
       [
         "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-        "ae89e25ad3cdc48d8b4e23e7eabc6ba92998b553"
+        "fa5d2e07a7c129c400cb0a1693fa81c70947dc9f"
       ],
       [
         "src/lib/ddv/core/save/product-wasm-read-owner.d.mts",
-        "f20fc6081da2bf67db72e668a11a888966cbbd86"
+        "f9aab75576567c5a38a44a3bf2496a518b5a72ee"
       ],
       [
         "src/lib/ddv/core/save/local-original-backup.mjs",
@@ -425,23 +425,23 @@ const specs=[
       ],
       [
         "src/lib/dev/LocalPlacementEditorDev.svelte",
-        "11b5047f3cb713d2d5ed3e1bda8b198922239e17"
+        "b6e842b410196f066682d369c5fa1a406b55ffdc"
       ],
       [
         "src/lib/dev/PlacementProductRoute.svelte",
-        "9db37fdd2aa124aef19e7c300503d58223679feb"
+        "7976104074e302c5f78e157a2dcb1e2327009352"
       ],
       [
         "src/lib/dev/local-placement-copy.mjs",
-        "e559b0cc4ad8d12d1617a54072822d696761ae5e"
+        "c8b4f5c2d5fc43e90ea68a5bd751db6ad6316a25"
       ],
       [
         "src/lib/dev/local-placement-workflow.mjs",
-        "5933c35f66c41f745167579211b084450b3b80d7"
+        "429f06ab904105e4170130dab92859f81ef05ec7"
       ],
       [
         "src/lib/dev/product-placement-client.mjs",
-        "c72a772cde08b331590b0551f8bbac3807befaa6"
+        "c7186f0d9436db9ea3df58ef6a708a34902386eb"
       ],
       [
         "src/lib/dev/product-placement-worker-boot.mjs",
@@ -449,7 +449,7 @@ const specs=[
       ],
       [
         "src/lib/dev/local-scoped-edit-worker-port.mjs",
-        "1d5eacaabfb27a244a68c6a07cd22feba7eb57c2"
+        "7d79ffb9997c8f9c9c09bfa0129245358509647e"
       ],
       [
         "src/lib/dev/local-amount-codec-reopen.worker.mjs",
