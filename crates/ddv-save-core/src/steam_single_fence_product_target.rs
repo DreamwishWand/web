@@ -77,4 +77,78 @@ mod tests{
   let mut q=d.clone();q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(1);let z=open(&q,false);assert!(z.mint_steam626_single_fence_target(env(&z),90001,x,y).is_err());
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX);let z=open(&q,false);assert!(z.mint_steam626_single_fence_target(env(&z),90001,x,y).is_err());
  }
+
+ #[test]
+ fn qa1938_combined_main_geometry_readonly_target(){
+  let (d,x,y)=fixture();
+  let source=serde_json::to_vec(&d).unwrap();
+  let geo=MeadowGeometry::fixed(EXACT_STEAM,626).unwrap();
+  let installed=InstalledGeometry::fixed().unwrap();
+  let grid=&d["World"]["GridCollection"]["Grids"]["90001"];
+  let direct=geo.local_steam_single_fence(grid,x,y,|id|installed.dimensions(id),|o,dims|{
+   let ox=o["X"].as_i64()?;let oy=o["Y"].as_i64()?;
+   Some(Rect(ox,oy,ox+i64::from(dims.0),oy+i64::from(dims.1)))
+  });
+  assert_eq!(direct,Some(50),"composed current-main installed geometry exact valid target");
+  assert!(geo.local_steam_single_fence(grid,x+1,y,|id|installed.dimensions(id),|_,_|panic!("unaligned must reject before ambient")).is_none());
+  assert!(geo.local_steam_single_fence(grid,x,y,|id|installed.dimensions(id),|_,_|None).is_none(),"no ambient proof is not permission");
+  let s=open(&d,false);let e=env(&s);let before=s.receipt().unwrap();
+  let a=s.mint_steam626_single_fence_target(e,90001,x,y).unwrap();
+  assert_eq!((a.grid,a.x,a.y,a.next,a.stock,a.pairs),(90001,x,y,50,10,0));
+  assert_eq!(a.scope,e);
+  assert_eq!(a,s.mint_steam626_single_fence_target(e,90001,x,y).unwrap(),"read-only repeated preview remains stable");
+  assert_eq!(s.receipt().unwrap(),before);
+  assert_eq!(s.decoded,source,"no mutation/debit/export or original change");
+  let mut neg=0usize;
+  macro_rules! deny {($ex:expr)=>{{assert!(($ex).is_err());neg+=1;}};}
+  deny!(s.mint_steam626_single_fence_target(WorkerEnvelope{action:WorkerAction::Stage,..e},90001,x,y));
+  deny!(s.mint_steam626_single_fence_target(WorkerEnvelope{expected_revision:e.expected_revision+1,..e},90001,x,y));
+  deny!(s.mint_steam626_single_fence_target(WorkerEnvelope{expected_index_generation:e.expected_index_generation+1,..e},90001,x,y));
+  deny!(s.mint_steam626_single_fence_target(WorkerEnvelope{expected_decoded_sha256:[0;32],..e},90001,x,y));
+  deny!(s.mint_steam626_single_fence_target(e,90001,x+1,y));
+  deny!(s.mint_steam626_single_fence_target(e,90001,x,y+1));
+  deny!(s.mint_steam626_single_fence_target(e,90001,392,y));
+  deny!(s.mint_steam626_single_fence_target(e,90001,x,196));
+  let other=open(&d,false);deny!(other.mint_steam626_single_fence_target(e,90001,x,y));
+  let switch=open(&d,true);deny!(switch.mint_steam626_single_fence_target(env(&switch),90001,x,y));
+  for i in 0..10{
+   let mut bad=d.clone();
+   match i{
+    0=>bad["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(1),
+    1=>bad["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Marker"]=json!("ItemMarker_None"),
+    2=>bad["Player"]["ListInventories"]["0"]["CompatibleItemType"]=json!("ItemType_ActivityItem"),
+    3=>bad["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(0),
+    4=>bad["World"]["GridCollection"]["Grids"]["90001"]["GridDefaultLayoutPath"]=json!("not-ordinary"),
+    5=>bad["World"]["GridCollection"]["Grids"]["90001"]["TessellationFactor"]=json!(1),
+    6=>bad["World"]["GridCollection"]["DiffGrids"]["90001"]=json!({"ID":90001}),
+    7=>bad["UnknownRefs"]=json!({"GridID":90001,"ObjectID":50}),
+    8=>{bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["11"]=json!({
+      "ID":11,"ItemID":40700246,"X":x,"Y":y,"Orientation":"GridOrientation_Down","State":null});},
+    _=>bad["Player"]["ListInventories"]["1"]=json!({"ID":1,"CompatibleItemType":"ItemType_Furniture",
+      "Inventory":{"40700246":{"Amount":5,"Marker":"ItemMarker_Favorite"}}}),
+   }
+   let b=open(&bad,false);
+   deny!(b.mint_steam626_single_fence_target(env(&b),90001,x,y));
+  }
+  assert_eq!(s.receipt().unwrap(),before);
+  assert_eq!(s.decoded,source);
+  std::fs::write("/tmp/qrc1938-singlefence-current-main-source.json",&source).unwrap();
+  std::fs::write("/tmp/qrc1938-singlefence-current-main-coordinate.json",
+    serde_json::to_vec(&json!({"x":x,"y":y})).unwrap()).unwrap();
+  println!("QRC1938_MAIN_FIRST_SHARED_GEOMETRY_PASS 1POS {}NEG NO_DEBIT ORIGINAL_UNCHANGED current_source3",neg);
+ }
+ #[test]
+ #[ignore="QA-only independent read-only process re-open; no Stage or encrypted Save product V2"]
+ fn qa1938_main_first_singlefence_child_readonly_reopen(){
+  let raw=std::fs::read("/tmp/qrc1938-singlefence-current-main-source.json").unwrap();
+  let coord:Value=serde_json::from_slice(&std::fs::read("/tmp/qrc1938-singlefence-current-main-coordinate.json").unwrap()).unwrap();
+  let d:Value=serde_json::from_slice(&raw).unwrap();
+  let (x,y)=(coord["x"].as_u64().unwrap() as u32,coord["y"].as_u64().unwrap() as u32);
+  let s=open(&d,false);let e=env(&s);let before=s.receipt().unwrap();
+  let t=s.mint_steam626_single_fence_target(e,90001,x,y).unwrap();
+  assert_eq!((t.next,t.stock,t.pairs),(50,10,0));
+  assert_eq!(s.receipt().unwrap(),before);
+  assert_eq!(s.decoded,raw);
+  println!("QRC1938_MAIN_FIRST_CHILD_READONLY_REOPEN_PASS schema626 no_debit");
+ }
 }
