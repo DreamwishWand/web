@@ -348,3 +348,7 @@ mod tests {
         assert_eq!(borrowed.receipt().unwrap_err().0, "SESSION_CLOSED");
     }
 }
+
+#[cfg(feature="product-switch626-catalog0-portable-restore")]
+#[path="worker_portable_switch626_catalog0.rs"]
+mod portable_switch626_catalog0;
