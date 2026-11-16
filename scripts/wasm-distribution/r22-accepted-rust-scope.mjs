@@ -458,6 +458,159 @@ const steam626Sr03CumulativeEntries=[
     }
   }
 ];
+const switch626Rm01CumulativeEntries=[
+  {
+    "path": ".github/workflows/core-product-session-boundary.yml",
+    "before": {
+      "mode": "100644",
+      "blob": "b571028748521edbb5ee3d17e548305f15793d56"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "297ff95a150d1417ba0d0507780eeb9f69b892f4"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "262c19374fdfd47e8bd4ebf68fa292aff3c1f26c"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "0694cf00071368d00f8626350bdda7cd9a8b5f85"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/data/steam626-placement-applicable-supplement.json",
+    "before": {
+      "mode": "100644",
+      "blob": "a8f5110f00d47eaa1e0e322becceed11aba17d75"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "f71033ddd264362fd5333dff33703cebddefe5e1"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/comp03_product_target.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "4a9d917e2ca1ff07b82a726fe151eb91ff230556"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "7ced0c7020a130461e6e3ce916a70ce4451e1d1a"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/placement_applicable.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "bc1619cb5fbb402e0c9f8547465092c51cd578f0"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "9f013ccc7b7f951a3072ff65bc8adfa68bb685b3"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_amount_scoped.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "fdc64b525f945298cd1e6f739599faab7721d463"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "e6e360f5326b9a5cf6884600a4c9ecf642aa12fa"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/semantic_writer.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "0501f49616fb6e86447db34f4dcc6a954dae91d4"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "4e2d9e9c64d9096d03c8515f791706f2cc7f458a"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/sr03_installed_geometry.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "21d4fb71f73be5492a29562e4d6fd1c20bbe366f"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "b8a90450543e984d71a1f4e96198a149ac5c98c2"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/sr03_product_target.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "7851ea08d32f846c43d326939b70b2c0f932ab73"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "4af0dcf34272e3413c6b05d14abf400781837585"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/switch626_crop_filter.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "e3ba5c7a071c336a1d5bce78212f80da8e87661f"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "a40e2c11188c256c184cf515c929f886f0ede5ea"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "fc48943b815f9ee9a1fd74bc3249ae65da6319b4"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "9639a7dae9a9379b76066b9650587db4bd3b103c"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "3419766834cea085f61b267a406fe91432b39c79"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/tests/semantic_inventory_writer_dev.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "1d38be62e18f05af87d216c55aad6f509925fc39"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "fc7fbbadf4a9084bbe9293cbf87338d9899cf1ba"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "ac82abac187157f26b850868b1af93bc50842b1e"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "636955805479ed9794896c0d06acbf991c10bf14"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -538,6 +691,12 @@ function selectAcceptedCorePair(baseCore,sourceCore){
   return {entries:steam626Sr03CumulativeEntries,count:18,metadata:{
    sourcePr:1639,sourceHead:'9bb806ae6f137f7ba7fa7bd673f3c336a875d14d',
    sourceTree:'8b9f02a6dbc4992a4fa545fb206e5a5863725b93'}};
+ }
+ if(baseCore==='c93264e1c060fa1dacba71ad2cd72628ef6dbbc4'){
+  if(sourceCore!=='f942165161b98cf7f9de16a1f7459cf3d337dc61')deny('CANDIDATE_CORE_TREE');
+  return {entries:switch626Rm01CumulativeEntries,count:14,metadata:{
+   sourcePr:1649,sourceHead:'6e73a255b021b20099506c989947594f88a46c97',
+   sourceTree:'c1af61e8899985c72d8bb4f6d5bde715a1222354'}};
  }
  deny('BASE_CORE_TREE');
 }
