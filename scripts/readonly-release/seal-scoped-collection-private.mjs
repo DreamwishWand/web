@@ -23,7 +23,7 @@ export function inspectScopedCollectionSubjects(bytes,source,tuple=ACTIVE_RELEAS
  const p={contract:'wand.scoped-collection.pinned-digests@1',sourceHead:source,
   manifestSha256:sha(mf),manifestSizeBytes:mf.length,jsSha256:sha(js),jsSizeBytes:js.length,wasmSha256:sha(wasm),wasmSizeBytes:wasm.length};
  if(!scopedCollectionManifestOk(m,p,tuple))fail();
- const module=new WebAssembly.Module(wasm),denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|scoped_amount|(?:preview|stage)_steam626_sr03)/i;
+ const module=new WebAssembly.Module(wasm),denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|scoped_amount|(?:preview|stage)_steam626_sr03|(?:preview|stage)_switch626_rm01)/i;
  if(!scopedCollectionWasmExportsOk(module)||WebAssembly.Module.exports(module).some(x=>denied.test(x.name))||denied.test(new TextDecoder('utf-8',{fatal:true}).decode(js)))fail();
  return Object.freeze(p);
 }
