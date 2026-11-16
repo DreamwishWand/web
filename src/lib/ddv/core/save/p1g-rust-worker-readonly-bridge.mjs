@@ -40,16 +40,17 @@ async function* decodedUtf8Chunks(text){
     offset=end;
   }
 }
-export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,readDurableOriginalBackup=null}={}){
-  const scopedEnabled=allowScopedAmountSource===true||allowScopedCollectionSource===true;
+export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,readDurableOriginalBackup=null}={}){
+  const amountEnabled=allowScopedAmountSource===true||allowSwitch626ChestSource===true;
+  const scopedEnabled=amountEnabled||allowScopedCollectionSource===true;
   // Constructor itself enforces Worker-only (document must be absent).
-  const rust=createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource});
+  const rust=createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource});
   let epoch=0,scopedSource=null,scopedMetadata=null,backupMatched=false,scopedBusy=false,durableName=null,collectionCloseUnverified=false;
   const resetScoped=()=>{scopedSource=null;scopedMetadata=null;backupMatched=false;scopedBusy=false;durableName=null};
   const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
   const closeRust=()=>{
     try{const ack=rust.close();collectionCloseUnverified=false;return ack}
-    catch(e){if(allowScopedCollectionSource===true)collectionCloseUnverified=true;throw e}
+    catch(e){if(allowScopedCollectionSource===true||allowSwitch626ChestSource===true)collectionCloseUnverified=true;throw e}
   };
   const close=()=>{
     epoch++;resetScoped();
@@ -115,7 +116,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
     if(collectionCloseUnverified)fail('P1G_WORKER_COLLECTION_CLOSE_UNVERIFIED');
     close();const token=epoch;
     if(!scopedEnabled||!exact(args,'file,build,originalSha256')||
-       !(args.file instanceof File)||!(args.build?.platform==='steam-windows'||(allowScopedCollectionSource===true&&args.build?.platform==='switch'))||
+       !(args.file instanceof File)||!(allowSwitch626ChestSource===true?args.build?.platform==='switch':(args.build?.platform==='steam-windows'||(allowScopedCollectionSource===true&&args.build?.platform==='switch')))||
        typeof args.originalSha256!=='string'||!(/^[0-9a-f]{64}$/).test(args.originalSha256))
       fail('P1G_WORKER_SCOPED_INPUT_DENIED');
     const {file,build,originalSha256}=args;
@@ -220,7 +221,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
   return Object.freeze({
     openEncrypted,close,
     ...(scopedEnabled?{openScopedEncrypted,verifyScopedOriginalBackup,exportScopedEditedCopy}:{}),
-    ...(allowScopedAmountSource===true?{discoverScopedTargets,previewScopedAmount,stageScopedAmount:stageScoped,toggleScopedAmount:toggleScoped}:{}),
+    ...(amountEnabled?{discoverScopedTargets,previewScopedAmount,stageScopedAmount:stageScoped,toggleScopedAmount:toggleScoped}:{}),
     ...(allowScopedCollectionSource===true?{inspectFixedCollection,previewFixedCollection,stageFixedCollection:stageScoped,toggleFixedCollection:toggleScoped}:{}),
     ...(allowCollectionCandidateSource===true?{readCollectionCandidate:selector=>rust.readCollectionCandidate(selector)}:{}),
     readCoreVersion:scope=>rust.readCoreVersion(scope),
