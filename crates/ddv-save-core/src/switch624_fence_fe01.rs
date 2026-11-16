@@ -338,11 +338,9 @@ fn historical_collect(s:&ProductSession,p:&Value,op:HistoricalFenceOp)->CoreResu
     let coord=|v:u32,d:u32|v.checked_add(d).filter(|v|*v<=i32::MAX as u32).ok_or(denied("FENCE_LAYOUT_COORD"));
     let x2=coord(x,2)?;let x4=coord(x,4)?;let y2=coord(y,2)?;let y4=coord(y,4)?;let y6=coord(y,6)?;
     let (expected,wanted,anchors)=if frp{
-        (vec![fence_record(ids[0],BASE,x,y,false,false),fence_record(ids[1],EXT1,x,y2,true,false),
-              fence_record(ids[2],BASE,x,y4,false,false)],
-         vec![fence_record(next,REPLACEMENT_BASE,x,y,false,false),fence_record(next+1,REPLACEMENT_EXT1,x,y2,true,false),
-              fence_record(next+2,REPLACEMENT_BASE,x,y4,false,false)],
-         vec![(x,y),(x,y2),(x,y4)])
+        let (expected,wanted)=fence_add_shape::exact_frp01([ids[0],ids[1],ids[2]],next,x,y)
+            .ok_or(denied("FENCE_LAYOUT_COORD"))?;
+        (Vec::from(expected),Vec::from(wanted),vec![(x,y),(x,y2),(x,y4)])
     }else{
         (vec![fence_record(ids[0],BASE,x,y,false,false),fence_record(ids[1],EXT1,x2,y,false,false),
               fence_record(ids[2],BASE,x4,y,false,false),fence_record(ids[3],EXT1,x4,y2,true,false),
