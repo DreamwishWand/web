@@ -213,3 +213,6 @@ mod r01_local_tests {
   for (k,v) in [("NextGridObjectID",json!(i32::MAX)),("GridDefaultLayoutPath",json!("foreign")),("TessellationFactor",json!(1))]{let mut q=g.clone();q[k]=v;assert!(p.local_r01(&q,x,y,common,effective).is_none());}
  }
 }
+
+#[path="fm01_product_geometry.rs"]
+mod fm01_product_geometry;

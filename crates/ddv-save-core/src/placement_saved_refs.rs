@@ -256,6 +256,16 @@ pub(super) fn scan_sr03(b:&[u8],top:Span,g:u32,keep:u32,moved:u32,next:u32)->Cor
     walk(b,top,&mut Vec::new(),None,g,&[keep,moved],next,end,&mut a)?;
     Ok(a)
 }
+/// FM01 exact old five / fresh three. Reuse the single typed walker; no new namespace.
+pub(super) fn scan_fm01(b:&[u8],top:Span,g:u32,ids:[u32;5],next:u32)->CoreResult<Incoming>{
+    let end=next.checked_add(3).ok_or(denied("PLACEMENT_REF_RANGE"))?;
+    need(g>0&&next>0&&end<=i32::MAX as u32&&ids.iter().all(|id|*id>0&&*id<next)
+        &&(0..5).all(|i|(i+1..5).all(|j|ids[i]!=ids[j])),"PLACEMENT_REF_FM01_SCOPE")?;
+    validate_puzzles(b,top)?;
+    let mut a=Incoming::default();
+    walk(b,top,&mut Vec::new(),None,g,&ids,next,end,&mut a)?;
+    Ok(a)
+}
 #[cfg(test)]
 mod tests{
     use super::*;use serde_json::json;
