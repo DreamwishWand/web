@@ -133,7 +133,6 @@ pub(super) fn collect_fe01_current(s:&ProductSession,w:&Fe01CurrentExpected)->Co
  collect(s,&p)
 }
 
-#[cfg(not(target_arch="wasm32"))]
 fn layout_edits(b:&[u8],members:&[(u32,usize,Span)],del:&[u32],objs:Span,
     counter:Span,n4:u32,plan:&[Value])->CoreResult<Vec<Replacement>>{
     // Remove exact member ranges, including only their adjacent separators.
