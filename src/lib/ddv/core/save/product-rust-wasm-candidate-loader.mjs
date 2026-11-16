@@ -165,11 +165,13 @@ export async function loadPinnedReadOnlyRustBytes({basePath,trustedPins,fetcher=
 
 
 // Shared verified-byte execution only. It is not issuer trust or an Op grant.
-export async function compileVerifiedWorker(js,wasm,{deniedSymbol,requiredMethods,exactPrototype=false}){
+export async function compileVerifiedWorker(js,wasm,{deniedSymbol,requiredMethods,exactPrototype=false,exactWasmExports=null}){
  let compiled,blobUrl,mod;
  try{
    compiled=await WebAssembly.compile(wasm);
-   if(WebAssembly.Module.exports(compiled).some(x=>deniedSymbol.test(x.name))||
+   const exports=WebAssembly.Module.exports(compiled);
+   if(exactWasmExports&&JSON.stringify(exports.map(x=>x.name).sort())!==JSON.stringify([...exactWasmExports].sort()))fail('WASM_EXTRA_ABI_DENIED');
+   if(exports.some(x=>deniedSymbol.test(x.name))||
       deniedSymbol.test(new TextDecoder('utf-8',{fatal:true}).decode(js)))
      fail('PUBLIC_DEV_SYMBOL_DENIED');
    blobUrl=URL.createObjectURL(new Blob([js],{type:'text/javascript'}));
