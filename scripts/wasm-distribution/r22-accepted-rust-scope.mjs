@@ -192,6 +192,14 @@ export function verifyAcceptedRustScope(cwd,base,source){
   const post=git(cwd,'rev-parse','--verify',source+':'+path);
   if(!SHA.test(pre)||pre!==post)deny('PROTECTED_GATE_NOT_IDENTICAL');
  }
+ // Exact changed paths alone do not constrain unchanged Core files.
+ // Bind the complete reviewed Core trees; unrelated non-Core main changes
+ // may proceed, but any cumulative Core drift requires new acceptance.
+ const corePath='crates/ddv-save-core';
+ const baseCore=git(cwd,'rev-parse','--verify',base+':'+corePath);
+ const sourceCore=git(cwd,'rev-parse','--verify',source+':'+corePath);
+ if(baseCore!=='7de35a07df55bdf7f439caac6e4d734dd91fe9ba')deny('BASE_CORE_TREE');
+ if(sourceCore!=='ca1ef1772b53ff535618fc8263cd647f757f3dad')deny('CANDIDATE_CORE_TREE');
  const result=verifyExactScopeEntries(cwd,base,source,entries);
  if(result.entries.length!==15)deny('FIXED_SCOPE_COUNT');
  return {status:'R22_EXACT_ACCEPTED_SOURCE_SCOPE_MATCH_ONLY',
