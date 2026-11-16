@@ -216,4 +216,16 @@ mod tests{
      build_id:APPEARANCE_BUILD.into(),schema:626,externally_attested:true}).unwrap();
   assert_eq!(reopened.receipt().unwrap().schema,626);
  }
+
+ #[cfg(feature="product-steam626-makeup-color1-scoped")]
+ #[test]
+ #[ignore="05QR-C independently generated ABI synthetic-only fixture; NOT real Save"]
+ fn qa1904_emit_synthetic_wasm_makeup_fixture() {
+  let d=doc();let raw=serde_json::to_vec(&d).unwrap();
+  assert_eq!(d["GameInfo"]["Version"],json!(626));
+  assert_eq!(d["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"],json!(53));
+  assert!(raw.len()<1024*1024);
+  std::fs::write("/tmp/qrc1904-makeup-source.json",&raw).unwrap();
+  println!("QRC1904_SYNTHETIC_FIXTURE_ONLY bytes={}",raw.len());
+ }
 }
