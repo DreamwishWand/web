@@ -221,3 +221,7 @@ mod fm01_product_geometry;
 mod fence_product_geometry;
 
 pub(crate) use fence_product_geometry::FenceAddTargetKind;
+
+#[path="frp624_product_geometry.rs"]
+mod frp624_product_geometry;
+pub(crate) use frp624_product_geometry::{Frp624Geometry,FRP_BUILD};

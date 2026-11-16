@@ -543,3 +543,6 @@ mod fm01_product_target;
 
 #[path="fence_product_target.rs"]
 mod fence_product_target;
+
+#[path="frp624_product_target.rs"]
+mod frp624_product_target;
