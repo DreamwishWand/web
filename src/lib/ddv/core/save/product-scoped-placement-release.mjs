@@ -19,8 +19,8 @@ const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const digest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
 const buildId='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
-function spec(key,operation,feature,preview,stage,path,platform='steam-windows',build=buildId,extraMethods=[]){
- const methods=Object.freeze(['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page',preview,stage,...extraMethods,'toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close']);
+function spec(key,operation,feature,preview,stage,path,platform='steam-windows',build=buildId,extraMethods=[],lifecycle=['toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk']){
+ const methods=Object.freeze(['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page',preview,stage,...extraMethods,...lifecycle,'close']);
  const exports=Object.freeze(['memory','__wbg_workerwasmsource_free','workerwasmsource_new',...methods.map(n=>'workerwasmsource_'+n),'__wbindgen_externrefs','__wbindgen_malloc','__externref_table_dealloc','__wbindgen_realloc','__wbindgen_free','__wbindgen_start'].sort());
  return Object.freeze({key,operation,platform,buildId:build,features:Object.freeze([feature,'worker-wasm']),methods,exports,path,assetDir:'worker-wasm-scoped-'+key,prefix:'wand.scoped-'+key});
 }
