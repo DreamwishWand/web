@@ -178,7 +178,8 @@ impl ProductSession{
         // Bind both raw entries/states, all container identity/capacity
         // witnesses, source SHA and epoch in a Core-computed digest.
         let raw=serde_json::to_vec(&pair.witness).map_err(|_|denied("BACKPACK_PRODUCT_WITNESS"))?;
-        let witness_sha=sha(&raw);let edits=edits(b,&pair)?;let projected=projected(b,&edits)?;
+        let mut h=Sha256::new();h.update(if switch{b"switch626.backpack".as_slice()}else{b"steam626.backpack".as_slice()});h.update(&raw);
+        let witness_sha=h.finalize().into();let edits=edits(b,&pair)?;let projected=projected(b,&edits)?;
         Ok(Bound{pair,edits,projected,witness_sha})
     }
     pub(crate) fn preview_product_backpack(&self,e:WorkerEnvelope,src:usize,dst:usize,switch:bool)->CoreResult<Value>{
