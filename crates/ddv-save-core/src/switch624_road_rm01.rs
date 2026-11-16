@@ -364,6 +364,24 @@ fn r02_plan_parse(bytes:&[u8],contract:&str)->CoreResult<Value>{
     }
     Ok(v)
 }
+/// R02 internal lexical collector. A typed current product target must
+/// independently establish four-cell diagonal geometry and stock authority.
+/// This collector cannot grant Stage or accept a caller-supplied plan.
+#[allow(dead_code)]
+#[derive(Clone,Copy)]
+pub(super) struct R02Q4Expected<'a>{
+    pub(super) source_sha:&'a str,pub(super) grid:u32,
+    pub(super) x:u32,pub(super) y:u32,pub(super) next:u32,pub(super) amount:u32,
+    pub(super) grid_sha:&'a str,pub(super) inventory_entry_sha:&'a str,
+}
+#[allow(dead_code)]
+pub(super) fn collect_r02_q4_current(s:&ProductSession,t:&R02Q4Expected<'_>)->CoreResult<Vec<Replacement>>{
+    let objects=road_mixed_shape::exact_q4(t.next,t.x,t.y).ok_or(denied("R02_COORD_BOUND"))?;
+    let p=json!({"contract":R02_626_CONTRACT,"sourceDecodedSha256":t.source_sha,
+        "gridId":t.grid,"expectedNextId":t.next,"expectedAmount":t.amount,
+        "gridSha256":t.grid_sha,"inventoryEntrySha256":t.inventory_entry_sha,"objects":objects});
+    road_add_collect(s,&p,false)
+}
 fn r02_collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
     road_add_collect(s,p,false)
 }
@@ -386,8 +404,7 @@ fn road_add_collect(s:&ProductSession,p:&Value,r01:bool)->CoreResult<Vec<Replace
         if y>i32::MAX as u32{return Err(denied("R01_COORD_BOUND"));}
         vec![obj(next,x,y,false),obj(next+1,x4,y,false),obj(next+2,x8,y,false)]
     }else{
-        let y4=y.checked_add(4).filter(|n|*n<=i32::MAX as u32).ok_or(denied("R02_COORD_BOUND"))?;
-        vec![obj(next,x,y,true),obj(next+1,x4,y4,true),obj(next+2,x4,y,true),obj(next+3,x,y4,true)]
+        road_mixed_shape::exact_q4(next,x,y).ok_or(denied("R02_COORD_BOUND"))?.to_vec()
     };
     if plan.as_slice()!=wanted.as_slice(){return Err(denied("R02_EXACT_PLAN_SHAPE"));}
     let roots=indexed_read::roots(b)?;
@@ -519,6 +536,30 @@ mod r02_tests{
         let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["9"];g["NextGridObjectID"]=json!(53);
         for o in p["objects"].as_array().unwrap(){g["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
         assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),wanted);assert_eq!(sha(&out),r.staged_decoded_sha256);
+    }
+    #[test]
+    fn r02_current_collector_lexical_parity_and_cas(){
+        let (mut d,mut p)=fixture();d["GameInfo"]["Version"]=json!(626);
+        p["contract"]=json!(R02_626_CONTRACT);bind(&d,&mut p);
+        let s=ProductSession::open_decoded_readonly(enc(&d).unwrap(),crate::BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),
+            schema:626,externally_attested:true}).unwrap();
+        let t=R02Q4Expected{source_sha:p["sourceDecodedSha256"].as_str().unwrap(),grid:9,x:40,y:20,
+            next:50,amount:30,grid_sha:p["gridSha256"].as_str().unwrap(),
+            inventory_entry_sha:p["inventoryEntrySha256"].as_str().unwrap()};
+        let native=road_add_collect(&s,&p,false).unwrap();
+        let current=collect_r02_q4_current(&s,&t).unwrap();
+        assert_eq!(current.len(),3);assert_eq!(native.len(),3);
+        for (a,b) in current.iter().zip(native.iter()){
+            assert_eq!((a.span.begin,a.span.end),(b.span.begin,b.span.end));
+            assert_eq!(a.old,b.old);assert_eq!(a.new,b.new);
+        }
+        for bad in [R02Q4Expected{source_sha:"bad",..t},R02Q4Expected{grid:0,..t},
+            R02Q4Expected{next:51,..t},R02Q4Expected{amount:29,..t},R02Q4Expected{amount:4,..t},
+            R02Q4Expected{grid_sha:"bad",..t},R02Q4Expected{inventory_entry_sha:"bad",..t},
+            R02Q4Expected{x:u32::MAX,..t},R02Q4Expected{y:u32::MAX,..t}]{
+            assert!(collect_r02_q4_current(&s,&bad).is_err());
+        }
     }
     #[test]
     fn r02_switch626_exact6_current_debit4(){

@@ -53,3 +53,35 @@ mod tests{
         }
     }
 }
+
+/// Exact R02 four-diagonal ADD descriptor; not a generic layout or debit grant.
+/// External Build, occupancy/floor, references, rights, stock and CAS are mandatory.
+pub(super) fn exact_q4(next:u32,x:u32,y:u32)->Option<[Value;4]>{
+    if next==0||next.checked_add(4)?>i32::MAX as u32{return None;}
+    let x4=x.checked_add(4)?;let y4=y.checked_add(4)?;
+    if x4>i32::MAX as u32||y4>i32::MAX as u32{return None;}
+    Some([object(next,x,y,true),object(next+1,x4,y4,true),
+        object(next+2,x4,y,true),object(next+3,x,y4,true)])
+}
+#[cfg(test)]
+mod r02_shape_tests{
+    use super::*;
+    #[test]
+    fn exact_q4_descriptor_and_bounds(){
+        let rows=exact_q4(50,40,20).unwrap();
+        assert_eq!(rows,[
+            json!({"ID":50,"ItemID":40100068,"X":40,"Y":20,"Orientation":"GridOrientation_Down","State":{"FenceMode":{"Diagonal":true}}}),
+            json!({"ID":51,"ItemID":40100068,"X":44,"Y":24,"Orientation":"GridOrientation_Down","State":{"FenceMode":{"Diagonal":true}}}),
+            json!({"ID":52,"ItemID":40100068,"X":44,"Y":20,"Orientation":"GridOrientation_Down","State":{"FenceMode":{"Diagonal":true}}}),
+            json!({"ID":53,"ItemID":40100068,"X":40,"Y":24,"Orientation":"GridOrientation_Down","State":{"FenceMode":{"Diagonal":true}}})
+        ]);
+        let max=i32::MAX as u32;
+        let edge=exact_q4(max-4,max-4,max-4).unwrap();
+        assert_eq!(edge[3]["ID"],json!(max-1));
+        assert_eq!(edge[1]["X"],json!(max));assert_eq!(edge[1]["Y"],json!(max));
+        for (n,x,y) in [(0,40,20),(max-3,40,20),(u32::MAX,40,20),
+            (50,max-3,20),(50,40,max-3),(50,u32::MAX,20),(50,40,u32::MAX)]{
+            assert!(exact_q4(n,x,y).is_none());
+        }
+    }
+}
