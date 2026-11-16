@@ -185,4 +185,26 @@ mod fixed_add_tests{
  #[test]fn switch626_ortho_l_fixed_target(){run(FenceAddTargetKind::OrthoL,ProductSession::mint_switch626_ortho_l_target,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(4,2,2,2),(4,4,2,2)]);}
  #[test]fn switch626_diagonal90_fixed_target(){run(FenceAddTargetKind::Diagonal90,ProductSession::mint_switch626_diagonal90_target,&[(0,0,2,2),(2,2,2,2),(4,4,2,2),(6,2,2,2),(8,0,2,2)]);}
  #[test]fn switch626_ortho_t_fixed_target(){run(FenceAddTargetKind::OrthoT,ProductSession::mint_switch626_ortho_t_target,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(6,0,2,2),(8,0,2,2),(4,2,2,2),(4,4,2,2)]);}
+
+ #[test]fn qa1817_five_fixed_target_raw_boundary(){
+  let cases:[(&str,FenceAddTargetKind,Mint,&[(i32,i32,u32,u32)],u32);5]=[
+   ("FD02",FenceAddTargetKind::Fd02,ProductSession::mint_switch626_fd02_target,&[(0,0,2,2),(2,-2,2,2),(4,-4,2,2)],3),
+   ("FD03",FenceAddTargetKind::Fd03,ProductSession::mint_switch626_fd03_target,&[(0,0,2,2),(2,2,8,8),(10,10,2,2)],3),
+   ("L",FenceAddTargetKind::OrthoL,ProductSession::mint_switch626_ortho_l_target,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(4,2,2,2),(4,4,2,2)],5),
+   ("D90",FenceAddTargetKind::Diagonal90,ProductSession::mint_switch626_diagonal90_target,&[(0,0,2,2),(2,2,2,2),(4,4,2,2),(6,2,2,2),(8,0,2,2)],5),
+   ("T",FenceAddTargetKind::OrthoT,ProductSession::mint_switch626_ortho_t_target,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(6,0,2,2),(8,0,2,2),(4,2,2,2),(4,4,2,2)],7)];
+  let pack=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();
+  for (name,kind,mint,foot,count) in cases{
+   let (x,y)=(0..376u32).step_by(2).flat_map(|a|(4..184u32).step_by(2).map(move|b|(a,b))).find(|&(a,b)|foot.iter().all(|&(dx,dy,w,h)|{let x=(i64::from(a)+i64::from(dx)) as u32;let y=(i64::from(b)+i64::from(dy)) as u32;(0..w).all(|i|(0..h).all(|j|pack.floor4(x+i,y+j)))})).unwrap();
+   let d=json!({"GameInfo":{"Version":626},"World":{"Villages":[{"Areas":{"2":{"Unlocked":true,"GridIDs":[90001]}}}],"PlayerHouses":[],"GridCollection":{"Grids":{"90001":{"ID":90001,"GridDataPath":GRID,"GridDefaultLayoutPath":"","TessellationFactor":2,"NextGridObjectID":50,"Objects":{"10":row(if x<190{388}else{0},if y<100{196}else{0})}}},"DiffGrids":{}}},"Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_Fence"]},"Inventory":{"40700246":{"Amount":10,"Marker":"ItemMarker_Favorite"}}}},"ContainerInventories":{}},"Opaque":{"keep":[1,2]}});
+   let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();let r=mint(&s,e,90001,x,y).unwrap();let hash=|v:&Value|sha(&serde_json::to_vec(v).unwrap());assert_eq!((r.kind,r.scope,r.grid,r.x,r.y,r.next,r.stock),(kind,e,90001,x,y,50,10));assert_eq!(kind.count(),count);
+   assert_eq!(r.root_sha,hash(&d["World"]["Villages"][0]["Areas"]["2"]));assert_eq!(r.grid_sha,hash(&d["World"]["GridCollection"]["Grids"]["90001"]));assert_eq!(r.counter_sha,sha(b"50"));assert_eq!(r.houses_sha,sha(b"[]"));assert_eq!(r.stock_sha,hash(&d["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]));
+   let mut neg=0;for id in 50..50+count{let mut q=d.clone();q["Opaque"]["ref"]=json!({"GridID":90001,"ObjectID":id});let z=open(&q);assert!(mint(&z,env(&z),90001,x,y).is_err());neg+=1;}
+   for i in 0..7{let mut q=d.clone();match i{0=>q["World"]["Villages"][0]["Areas"]["2"]["GridIDs"]=json!([90001,90001]),1=>q["World"]["Villages"][0]["Areas"]["2"]["Unlocked"]=json!(false),2=>q["World"]["GridCollection"]["Grids"]["90001"]["TessellationFactor"]=json!(1),3=>q["World"]["GridCollection"]["Grids"]["90001"]["GridDefaultLayoutPath"]=json!("foreign"),4=>q["World"]["GridCollection"]["DiffGrids"]["90001"]=json!({"ID":90001}),5=>q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Marker"]=json!("ItemMarker_None"),_=>q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX)}let z=open(&q);assert!(mint(&z,env(&z),90001,x,y).is_err(),"{name} case{i}");neg+=1;}
+   let mut q=d.clone();let (dx,dy,w,h)=foot[1];q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]=row((i64::from(x)+i64::from(dx))as u32+w-2,(i64::from(y)+i64::from(dy))as u32+h-2);let z=open(&q);assert!(mint(&z,env(&z),90001,x,y).is_err());neg+=1;
+   assert!(mint(&s,WorkerEnvelope{expected_index_generation:2,..e},90001,x,y).is_err());neg+=1;
+   assert_eq!(s.receipt().unwrap(),before);assert_eq!(neg,count+9);println!("QRC1817_{name}_TARGET_ACTUAL 1POS {neg}NEG RAW_HASHES");
+  }
+ }
+
 }
