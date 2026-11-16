@@ -63,7 +63,19 @@ mod tests{
    "GridCollection":{"Grids":{"90001":{"ID":90001,"GridDataPath":GRID,"GridDefaultLayoutPath":"","TessellationFactor":2,"NextGridObjectID":50,"Objects":{"10":row(10,BASE,0u32,false),"11":row(11,40700247,2,true),"12":row(12,BASE,4,false)}}},"DiffGrids":{}}},
    "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_Fence"]},"Inventory":{"40700246":{"Amount":10,"Marker":"ItemMarker_Favorite"},"40700268":{"Amount":20,"Marker":"ItemMarker_None"}}}},"ContainerInventories":{}}})
  }
- fn open(d:&Value,bid:&str,schema:u64)->ProductSession{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:bid.into(),schema,externally_attested:true}).unwrap();s.worker_bound=true;s}
+ fn open(d:&Value,bid:&str,schema:u64)->ProductSession{
+  let bytes=serde_json::to_vec(d).unwrap();
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:bid.into(),schema,externally_attested:true};
+  // Existing 624 private archive entry only. This fixture simulates a bound
+  // session solely to test internal target logic; it does not grant 624 Worker admission.
+  let mut s=if schema==624{
+   assert_eq!(bid,FRP_BUILD);
+   assert_eq!(ProductSession::open_decoded_readonly(bytes.clone(),build.clone()).err().unwrap().0,"BUILD_IDENTITY_NOT_ATTESTED");
+   let digest=sha(&bytes);
+   ProductSession::open_switch624_rm01_private(bytes,build,digest).unwrap()
+  }else{ProductSession::open_decoded_readonly(bytes,build).unwrap()};
+  s.worker_bound=true;s
+ }
  fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
  #[test]fn switch624_frp01_exact3_replacement_target_conservative(){
   let d=doc();let s=open(&d,FRP_BUILD,624);let e=env(&s);let ids=[10,11,12];let before=s.receipt().unwrap();
