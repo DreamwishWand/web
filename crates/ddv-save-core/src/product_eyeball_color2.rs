@@ -69,6 +69,9 @@ fn stock(b:&[u8],player:&[(String,Span)])->CoreResult<(String,String)>{
 impl ProductSession{
  pub(super) fn prepare_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
   product_appearance_scope(self,&e)?;
+  self.prepare_fixed_eyecolor2_lexical(e)
+ }
+ fn prepare_fixed_eyecolor2_lexical(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
   let st=self.lock()?;validate_scope(self,&st,&e)?;
   check_ok(st.revision==0&&st.generation==1&&st.semantic.is_none(),"EYECOLOR2_EPOCH")?;
   let b=&self.decoded;let root=roots(b)?;
@@ -91,6 +94,31 @@ impl ProductSession{
    male_sha:male.sha,female_sha:female.sha,
    stock_entry_sha:entry_sha,route_sha,
    selected_token_sha:sha(&b[span.begin..span.end]),projected})
+ }
+ // ACT1508: exact affected Switch626 Build delta. Separate admission only;
+ // no extra scanner/Session or public Worker command.
+ #[cfg(feature="product-switch626-eyecolor2-internal")]
+ pub(super) fn prepare_fixed_switch626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
+  use crate::{Platform,BuildKind};
+  let b=&self.native_source_build;
+  if !self.worker_bound||b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||
+     b.build_id!="9A239D3DB569756D"||b.schema!=626||!b.externally_attested{
+    return Err(denied("EYECOLOR2_EXACT_SWITCH626_BUILD_REQUIRED"));
+  }
+  self.prepare_fixed_eyecolor2_lexical(e)
+ }
+ #[cfg(feature="product-switch626-eyecolor2-internal")]
+ pub(super) fn stage_fixed_switch626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
+     ->CoreResult<crate::SemanticStageReceipt>{
+  check_ok(e.action==WorkerAction::Stage,"EYECOLOR2_SWITCH_STAGE_ACTION")?;
+  let current=self.prepare_fixed_switch626_eyecolor2(WorkerEnvelope{action:WorkerAction::ReadDomain,..e})?;
+  check_ok(current.scope==p.scope&&current.span.begin==p.span.begin&&current.span.end==p.span.end&&
+   current.active_eye_sha==p.active_eye_sha&&current.inactive_eye_sha==p.inactive_eye_sha&&
+   current.male_sha==p.male_sha&&current.female_sha==p.female_sha&&
+   current.stock_entry_sha==p.stock_entry_sha&&current.route_sha==p.route_sha&&
+   current.selected_token_sha==p.selected_token_sha&&current.projected==p.projected,
+   "EYECOLOR2_SWITCH_STAGE_WITNESS_CAS")?;
+  self.commit_switch626_eyecolor2_candidate(e,current.span,OLD,NEW,current.projected)
  }
  pub(super) fn stage_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
      ->CoreResult<crate::SemanticStageReceipt>{
@@ -162,6 +190,80 @@ mod tests{
   assert_eq!(serde_json::to_vec(&d).unwrap(),original);
   assert_eq!(sha(&result),hex(&receipt.staged_decoded_sha256));
   let reopened=open(&want);assert_eq!(reopened.receipt().unwrap().schema,626);
+ }
+ #[cfg(feature="product-switch626-eyecolor2-internal")]
+ fn open_switch(d:&Value)->ProductSession{
+  let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),
+    BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+      build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+  s.worker_bound=true;s
+ }
+ #[cfg(feature="product-switch626-eyecolor2-internal")]
+ #[test]fn switch626_eyecolor2_build_delta_exact1_and_reopen(){
+  let d=doc();let source=serde_json::to_vec(&d).unwrap();let s=open_switch(&d);
+  let e=envelope(&s,WorkerAction::ReadDomain);
+  assert!(s.prepare_fixed_steam626_eyecolor2(e).is_err(),"no Switch via Steam");
+  let t=s.prepare_fixed_switch626_eyecolor2(e).unwrap();
+  assert_eq!(&s.decoded[t.span.begin..t.span.end],b"64");
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  assert!(s.stage_fixed_switch626_eyecolor2(e,&t).is_err());
+  let alien=open_switch(&d);
+  assert!(alien.stage_fixed_switch626_eyecolor2(
+      envelope(&alien,WorkerAction::Stage),&t).is_err(),"foreign Session");
+  let mut forged=s.prepare_fixed_switch626_eyecolor2(e).unwrap();
+  forged.projected[0]^=1;
+  assert!(s.stage_fixed_switch626_eyecolor2(stage,&forged).is_err());
+  for bad in [WorkerEnvelope{expected_revision:1,..stage},
+              WorkerEnvelope{expected_index_generation:2,..stage},
+              WorkerEnvelope{expected_decoded_sha256:[0;32],..stage}]{
+    assert!(s.stage_fixed_switch626_eyecolor2(bad,&t).is_err());
+  }
+  let steam=open(&d);
+  assert!(steam.prepare_fixed_switch626_eyecolor2(
+    envelope(&steam,WorkerAction::ReadDomain)).is_err(),"no Steam via Switch");
+  let r=s.stage_fixed_switch626_eyecolor2(stage,&t).unwrap();
+  assert_eq!((r.operation_count,r.exact_field_changed_count),(1,1));
+  assert!(!r.native_v3_verified&&!r.product_writer_authorized&&!r.original_overwrite_authorized);
+  assert!(s.stage_fixed_switch626_eyecolor2(stage,&t).is_err(),"replay");
+  s.undo_typed_semantic_batch(envelope(&s,WorkerAction::Stage)).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(
+    envelope(&s,WorkerAction::ExportEditedCopy)).is_err(),"Undo cannot Export");
+  s.redo_typed_semantic_batch(envelope(&s,WorkerAction::Stage)).unwrap();
+  let outenv=envelope(&s,WorkerAction::ExportEditedCopy);
+  let out=s.take_typed_semantic_decoded_once(outenv).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(outenv).is_err(),"once");
+  let mut expected=d.clone();
+  expected["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"]=json!(NEW);
+  assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),expected);
+  assert_eq!(out,serde_json::to_vec(&expected).unwrap());
+  assert_eq!(serde_json::to_vec(&d).unwrap(),source);
+  assert_eq!(sha(&out),hex(&r.staged_decoded_sha256));
+  let reopened=open_switch(&expected);
+  assert_eq!(reopened.receipt().unwrap().schema,626);
+ }
+ #[cfg(feature="product-switch626-eyecolor2-internal")]
+ #[test]fn switch626_eyecolor2_build_delta_negatives(){
+  for i in 0..13 {
+    let mut d=doc();
+    match i {
+      0=>d["Player"]["AvatarIsMale"]=json!(false),
+      1=>d["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"]=json!(63),
+      2=>d["Player"]["FemaleAvatar"]["Eyeball"]["ColorIndex2"]=json!(68),
+      3=>d["Player"]["MaleAvatar"]["Eyeball"]["EyeballItemID"]=json!(70000011),
+      4=>d["Player"]["MaleAvatar"]["Eyeball"]=Value::Null,
+      5=>d["Player"]["ListInventories"]["9"]["Inventory"]["70000010"]["Amount"]=json!(0),
+      6=>d["Player"]["ListInventories"]["9"]["Inventory"]["70000010"]["Marker"]=Value::Null,
+      7=>d["Player"]["ListInventories"]["9"]["CompatibleItemType"]=json!("ItemType_Clothing"),
+      8=>d["Player"]["ListInventories"]["9"]["ID"]=json!(8),
+      9=>d["Player"]["ListInventories"]["9"]["Inventory"]["70000010"]=Value::Null,
+      10=>d["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex1"]=json!("bad"),
+      11=>d["Player"]["ListInventories"]["9"]["Inventory"]["70000010"]["Amount"]=json!(10000),
+      _=>d["Player"]["FemaleAvatar"]["Eyeball"]["EyeballItemID"]=json!(70000011),
+    }
+    let s=open_switch(&d);
+    assert!(s.prepare_fixed_switch626_eyecolor2(
+      envelope(&s,WorkerAction::ReadDomain)).is_err(),"expected denial {i}");
+  }
  }
  #[test]fn steam626_eyecolor2_exact1_negatives(){
   for i in 0..12{
