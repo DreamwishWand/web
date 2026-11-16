@@ -7,6 +7,7 @@ import {readFile,stat} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {resolve,join} from 'node:path';
+import {verifyAcceptedRustScope} from './r22-accepted-rust-scope.mjs';
 
 import {ACTIVE_RELEASE_TUPLE,RELEASE_REPOSITORY_ID,manifestMatchesRelease,protectedPagesContextMatches} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
 
@@ -79,12 +80,21 @@ if(!pagesOriginal){
 try{
  git('merge-base','--is-ancestor',config.acceptedAncestorProtectedMain,expectedSource);
  if(event==='pull_request'){
-  // Preserve the historical approved ancestor AND prohibit any Rust
-  // Session delta in the release maintenance PR relative to its live base.
+  // Preserve the historical approved ancestor and live protected base.
+  // Rust deltas require the separate exact accepted-source scope below.
   git('merge-base','--is-ancestor',config.acceptedAncestorProtectedMain,prBase);
   git('merge-base','--is-ancestor',prBase,expectedSource);
-  execFileSync('git',['diff','--quiet',prBase,
-   expectedSource,'--','crates/ddv-save-core/'],{cwd:root});
+  // Normal maintenance still requires zero Rust delta. Only the fixed
+  // independently accepted exact15 scope can satisfy the separate path.
+  const rustPaths=git('diff','--name-only','--no-renames','--no-ext-diff',
+   '--no-textconv',prBase,expectedSource,'--','crates/ddv-save-core/');
+  if(rustPaths){
+   const match=verifyAcceptedRustScope(root,prBase,expectedSource);
+   console.log('R22_ACCEPTED_EXACT_SOURCE_SCOPE_MATCH_ONLY',match);
+  }else{
+   execFileSync('git',['diff','--quiet',prBase,
+    expectedSource,'--','crates/ddv-save-core/'],{cwd:root});
+  }
  }
 }catch{fail('ACCEPTED_RUST_ANCESTOR_CHANGED')}
 const approvedLock=await read('scripts/wasm-distribution/approved-Cargo.lock');
