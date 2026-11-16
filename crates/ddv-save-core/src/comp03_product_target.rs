@@ -184,6 +184,84 @@ impl ProductSession{
             stock_sha:digest(b,entry)?,stock:amount})
     }
 }
+
+const MAX_REF_NODES:usize=1_000_000;
+// Explicit saved composite addresses only (E1960). This does not establish
+// active definition/provider applicability, nor authorize a Stage.
+#[derive(Debug,PartialEq,Eq)]
+pub(crate) struct Comp03SavedReferenceTarget {
+    physical:Comp03PhysicalTarget,
+    scanned_pairs:usize,
+}
+fn explicit_refs(b:&[u8],s:Span,grid:u32,seed:u32,next:u32,end:u32,
+    nodes:&mut usize,pairs:&mut usize,depth:usize)->CoreResult<()>{
+    *nodes+=1;
+    if *nodes>MAX_REF_NODES||depth>64{return Err(denied("COMP03_REF_BOUND"))}
+    match b.get(s.begin){
+        Some(b'{')=>{
+            let mut pos=s.begin+1;
+            // Canonical field spellings from the accepted saved-reference
+            // projection. A scalar ID by itself is not a composite address.
+            let mut fields:[Option<Span>;6]=[None;6];
+            while let Some((k,v))=next_object_member(b,s,&mut pos)?{
+                let ix=match k.as_str(){
+                    "GridID"=>Some(0),"GridId"=>Some(1),
+                    "GridObjectID"=>Some(2),"GridObjectId"=>Some(3),
+                    "ObjectID"=>Some(4),"ObjectId"=>Some(5),_=>None
+                };
+                if let Some(i)=ix{
+                    if fields[i].replace(v).is_some(){return Err(denied("COMP03_REF_DUPLICATE"))}
+                }
+                explicit_refs(b,v,grid,seed,next,end,nodes,pairs,depth+1)?;
+            }
+            let gs=fields[..2].iter().filter(|x|x.is_some()).count();
+            let os=fields[2..].iter().filter(|x|x.is_some()).count();
+            if gs>0&&os>0{
+                if gs!=1||os!=1{return Err(denied("COMP03_REF_AMBIGUOUS"))}
+                let (g,o)=match fields{
+                    [Some(g),None,Some(o),None,None,None]|
+                    [None,Some(g),None,Some(o),None,None]|
+                    [Some(g),None,None,None,Some(o),None]|
+                    [None,Some(g),None,None,None,Some(o)]=>(g,o),
+                    _=>return Err(denied("COMP03_REF_SPELLING")),
+                };
+                let g=u32_at(b,g)?;let o=u32_at(b,o)?;
+                *pairs+=1;
+                if g==grid&&(o==0||o==seed||(next..end).contains(&o)){
+                    return Err(denied("COMP03_REF_TARGET"));
+                }
+            }
+        },
+        Some(b'[')=>array_spans(b,s,|v|explicit_refs(b,v,grid,seed,next,end,nodes,pairs,depth+1))?,
+        Some(_)=>(),None=>return Err(denied("COMP03_REF_SPAN")),
+    }
+    Ok(())
+}
+impl ProductSession{
+    /// Reuse the same immutable decoded bytes and physical target from this
+    /// session, then check the current envelope again under the state lock.
+    /// No caller-supplied hashes, definition pack, refs, or authorization.
+    #[allow(dead_code)]
+    pub(crate) fn mint_comp03_saved_reference_target(&self,e:WorkerEnvelope,seed:u32)
+        ->CoreResult<Comp03SavedReferenceTarget>{
+        let physical=self.mint_comp03_physical_target(e,seed)?;
+        let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+        if st.semantic.is_some()||st.revision!=0||st.generation!=1{
+            return Err(denied("COMP03_REF_EPOCH"));
+        }
+        let next=physical.geometry.next;
+        let end=next.checked_add(8).filter(|x|*x<=i32::MAX as u32)
+            .ok_or(denied("COMP03_REF_COUNTER"))?;
+        let b=&self.decoded;
+        let start=indexed_read::skip_ws(b,0);
+        let stop=indexed_read::value_end(b,start)?;
+        let mut nodes=0;let mut pairs=0;
+        explicit_refs(b,Span{begin:start,end:stop},physical.grid,seed,next,end,
+            &mut nodes,&mut pairs,0)?;
+        Ok(Comp03SavedReferenceTarget{physical,scanned_pairs:pairs})
+    }
+}
+
 #[cfg(test)]
 mod tests{
     use super::*;
@@ -208,6 +286,49 @@ mod tests{
         let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
             expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}
     }
+
+    #[test]
+    fn comp03_current_explicit_reference_scope(){
+        let g=90001;let s=90002;let seed=500;
+        let d=doc(g,s,seed);
+        let t=open(&d);let e=env(&t);let before=t.receipt().unwrap();
+        let a=t.mint_comp03_saved_reference_target(e,seed).unwrap();
+        assert_eq!(a.scanned_pairs,0);
+        assert_eq!(a,t.mint_comp03_saved_reference_target(e,seed).unwrap());
+        assert_eq!(t.receipt().unwrap(),before);
+        let mut q=d.clone();
+        q["Player"]["ReferenceWitness"]=json!([
+            {"GridID":s,"GridObjectID":seed},{"GridId":g,"GridObjectId":508},
+            {"GridID":s,"ObjectID":0},{"GridId":s,"ObjectId":510},
+            {"GridID":g},{"ObjectID":seed}
+        ]);
+        let t=open(&q);
+        assert_eq!(t.mint_comp03_saved_reference_target(env(&t),seed).unwrap().scanned_pairs,4);
+        for (gk,ok) in [("GridID","GridObjectID"),("GridId","GridObjectId"),
+            ("GridID","ObjectID"),("GridId","ObjectId")]{
+            for id in [0,seed,510,517]{
+                let mut q=d.clone();
+                q["Player"]["ReferenceWitness"]=json!([{(gk):g,(ok):id}]);
+                let t=open(&q);let before=t.receipt().unwrap();
+                assert!(t.mint_comp03_saved_reference_target(env(&t),seed).is_err());
+                assert_eq!(t.receipt().unwrap(),before);
+            }
+        }
+        for r in [json!({"GridID":g,"GridObjectID":"500"}),
+            json!({"GridID":g,"GridObjectID":500.0}),
+            json!({"GridID":g,"GridObjectId":500}),
+            json!({"GridID":g,"GridId":s,"GridObjectID":500}),
+            json!({"GridID":g,"GridObjectID":500,"ObjectID":501})]{
+            let mut q=d.clone();q["Player"]["ReferenceWitness"]=r;
+            let t=open(&q);assert!(t.mint_comp03_saved_reference_target(env(&t),seed).is_err());
+        }
+        let t=open(&d);let e=env(&t);
+        assert!(open(&d).mint_comp03_saved_reference_target(e,seed).is_err());
+        assert!(t.mint_comp03_saved_reference_target(WorkerEnvelope{expected_revision:1,..e},seed).is_err());
+        assert!(t.mint_comp03_saved_reference_target(WorkerEnvelope{action:WorkerAction::Stage,..e},seed).is_err());
+        t.close().unwrap();assert!(t.mint_comp03_saved_reference_target(e,seed).is_err());
+    }
+
     #[test]
     fn comp03_physical_target_same_session_dynamic_ids(){
         for (g,s,seed) in [(90001,90002,500),(301,742,42)]{
