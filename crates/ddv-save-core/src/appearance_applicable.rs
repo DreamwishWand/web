@@ -612,6 +612,46 @@ mod tests{
         assert_eq!(s.take_typed_semantic_decoded_once(out_e).unwrap(),serde_json::to_vec(&expected).unwrap());assert!(s.take_typed_semantic_decoded_once(out_e).is_err());
     }
  }
+ #[cfg(feature="product-switch626-hair-scoped")]
+ #[test]fn switch626_appearance_dedicated_hair_worker_exact1(){
+    let mut d=definition_doc();d["Player"]["FemaleAvatar"]["HairColorIndex"]=json!(20);
+    let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(&d).unwrap(),
+        BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:SWITCH_APPEARANCE_BID.into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;
+    let e=env(&s);let t=s.prepare_fixed_product_hair_candidate_for(e,20,AppearanceBuildScope::Switch626).unwrap();
+    let projected=s.project_appearance_scalar_candidate(t.span,t.old,t.new).unwrap();
+    let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+    let p=g.preview_switch626_hair(e,20).unwrap();assert_eq!(p["old"],74);assert_eq!(p["new"],20);
+    assert!(p.get("readset").is_none());assert_eq!(p["writerAuthorized"],false);
+    let sha=p["readsetSha256"].as_str().unwrap();let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+    assert!(g.preview_switch626_hair(e,21).is_err());
+    assert!(g.stage_switch626_hair(stage,20,"forged",projected).is_err());
+    assert!(g.stage_switch626_hair(stage,20,sha,[0;32]).is_err());
+    let r=g.stage_switch626_hair(stage,20,sha,projected).unwrap();assert_eq!(r.exact_field_changed_count,1);
+    assert!(g.stage_switch626_hair(stage,20,sha,projected).is_err());
+    let rr=g.receipt().unwrap();let out=WorkerEnvelope{session_id:rr.session_id,expected_revision:rr.revision,expected_index_generation:rr.index_generation,expected_decoded_sha256:rr.decoded_sha256,action:WorkerAction::ExportEditedCopy,..e};
+    let mut expected=d.clone();expected["Player"]["MaleAvatar"]["HairColorIndex"]=json!(20);
+    assert_eq!(g.take_scoped_edit(out).unwrap(),serde_json::to_vec(&expected).unwrap());assert!(g.take_scoped_edit(out).is_err());
+ }
+ #[cfg(feature="product-switch626-skin-scoped")]
+ #[test]fn switch626_appearance_dedicated_skin_worker_exact1(){
+    let mut d=definition_doc();d["Player"]["FemaleAvatar"]["HairColorIndex"]=json!(20);
+    let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(&d).unwrap(),
+        BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:SWITCH_APPEARANCE_BID.into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;
+    let e=env(&s);let t=s.prepare_fixed_product_skin_candidate_for(e,SKIN_CHARACTER,SKIN_NEW,AppearanceBuildScope::Switch626).unwrap();
+    let projected=s.project_appearance_scalar_candidate(t.span,t.old,t.new).unwrap();
+    let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+    let p=g.preview_switch626_skin(e,SKIN_CHARACTER,SKIN_NEW).unwrap();assert_eq!(p["old"],SKIN_OLD);assert_eq!(p["new"],SKIN_NEW);
+    assert!(p.get("readset").is_none());assert_eq!(p["writerAuthorized"],false);
+    let sha=p["readsetSha256"].as_str().unwrap();let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+    assert!(g.preview_switch626_skin(e,SKIN_CHARACTER+1,SKIN_NEW).is_err());
+    assert!(g.stage_switch626_skin(stage,SKIN_CHARACTER,SKIN_NEW,"forged",projected).is_err());
+    assert!(g.stage_switch626_skin(stage,SKIN_CHARACTER,SKIN_NEW,sha,[0;32]).is_err());
+    let r=g.stage_switch626_skin(stage,SKIN_CHARACTER,SKIN_NEW,sha,projected).unwrap();assert_eq!(r.exact_field_changed_count,1);
+    assert!(g.stage_switch626_skin(stage,SKIN_CHARACTER,SKIN_NEW,sha,projected).is_err());
+    let rr=g.receipt().unwrap();let out=WorkerEnvelope{session_id:rr.session_id,expected_revision:rr.revision,expected_index_generation:rr.index_generation,expected_decoded_sha256:rr.decoded_sha256,action:WorkerAction::ExportEditedCopy,..e};
+    let mut expected=d.clone();expected["World"]["Characters"][0]["SkinID"]=json!(SKIN_NEW);
+    assert_eq!(g.take_scoped_edit(out).unwrap(),serde_json::to_vec(&expected).unwrap());assert!(g.take_scoped_edit(out).is_err());
+ }
  #[cfg(feature="product-steam626-hair-scoped")]
  #[test]fn appearance_dedicated_hair_worker_exact1(){
     let mut d=definition_doc();let s=open(d.clone());let e=env(&s);
