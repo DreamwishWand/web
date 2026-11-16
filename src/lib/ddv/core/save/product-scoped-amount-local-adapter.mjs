@@ -50,6 +50,7 @@ export function createProductSteam626WardrobeLocalAdapter(options={}){return cre
 export function createProductSwitch626WardrobeLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,'switch')}
 export function createProductSteam626HairLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,'hair')}
 export function createProductSteam626SkinLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,'skin')}
+export function createProductSteam626MakeupColor1LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,'makeup-color1')}
 function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null){
  const placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,appearance=appearanceScope!==null,previewEdit=placement||backpack||wardrobe||appearance,placementCount=(wardrobe||appearance)?1:(placementScope==='comp03'||placementScope==='comp03-spatial')?9:(placementScope==='sr03'||placementScope==='rm01')?8:3;
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||

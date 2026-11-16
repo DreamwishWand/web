@@ -164,3 +164,21 @@ export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFact
 export type ScopedAppearancePreview=Readonly<{old:number;new:number;exactFieldChangedCount:1;writerAuthorized:false;editedCopyAuthorized:false;originalOverwriteAuthorized:false}&({activeMale:boolean}|{characterId:10000053})>;
 export type ScopedAppearanceSourceOwner=ProductWasmReadOwner&Readonly<{previewScopedAppearance():ScopedAppearancePreview;stageScopedAppearance():Readonly<ScopedAppearancePreview&{applied:true}>;toggleScopedAppearance(redo:boolean):Readonly<ScopedAppearancePreview&{applied:boolean}>;takeScopedAppearanceOutput():Promise<Readonly<{decodedBytes:Uint8Array;decodedSha256:string}>>}>;
 export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{appearanceScope:'hair'|'skin';placementScope?:null;backpackScope?:null;wardrobeScope?:null;allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;allowSwitch626Catalog0Source?:false}):ScopedAppearanceSourceOwner;
+
+export type ScopedMakeupColor1Preview=Readonly<{
+ makeupItemId:140100014;slot:1;field:'ColorIndex1';oldColorIndex:53;newColorIndex:60;
+ inventoryDelta:0;exactFieldChangedCount:1;scopedCandidate:true;
+ writerAuthorized:false;editedCopyAuthorized:false;originalOverwriteAuthorized:false;
+}>;
+export type ScopedMakeupColor1SourceOwner=ProductWasmReadOwner&Readonly<{
+ previewScopedAppearance():ScopedMakeupColor1Preview;
+ stageScopedAppearance():Readonly<ScopedMakeupColor1Preview&{applied:true}>;
+ toggleScopedAppearance(redo:boolean):Readonly<ScopedMakeupColor1Preview&{applied:boolean}>;
+ takeScopedAppearanceOutput():Promise<Readonly<{decodedBytes:Uint8Array;decodedSha256:string}>>;
+}>;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{
+ appearanceScope:'makeup-color1';placementScope?:null;backpackScope?:null;wardrobeScope?:null;
+ allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;
+ allowSwitch626Catalog0Source?:false;allowScopedAmountSource?:false;
+ allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false
+}):ScopedMakeupColor1SourceOwner;
