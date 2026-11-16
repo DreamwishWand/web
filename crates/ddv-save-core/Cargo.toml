@@ -33,6 +33,11 @@ product-backpack-scoped = ["product-amount-scoped"]
 product-steam626-backpack-scoped = ["product-backpack-scoped"]
 product-switch626-backpack-scoped = ["product-backpack-scoped"]
 
+# Dedicated Wardrobe release features; same existing typed ledger.
+product-wardrobe-scoped = ["product-amount-scoped"]
+product-steam626-wardrobe-scoped = ["product-wardrobe-scoped"]
+product-switch626-wardrobe-scoped = ["product-wardrobe-scoped"]
+
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
 sha2 = "=0.10.8"

@@ -385,157 +385,16 @@ impl ProductSession {
 
 // 01A R08, E1225/E1233: Native-private active Avatar structural receipt.
 // Excluded from public WASM; no mutation, second SaveSession or authority.
+#[cfg(any(all(feature="private-native-v1",not(target_arch="wasm32")),feature="product-wardrobe-scoped"))]
+#[path="avatar_wardrobe_read.rs"]
+mod avatar_wardrobe_read;
 #[cfg(all(feature="private-native-v1",not(target_arch="wasm32")))]
 mod private_avatar {
+    use super::avatar_wardrobe_read::*;
     use super::*;
     use super::super::{Platform,BuildKind};
     use sha2::{Digest,Sha256};
     use serde_json::{json,Value};
-    const EXACT:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
-    const MAX_AVATAR_FIELDS:usize=64;
-    const MAX_CUSTOMIZATIONS:usize=256;
-    const MAX_MAKEUP:usize=32; // bounded structural scan, not Native allowed set
-    const MAX_AVATAR_BYTES:usize=1024*1024;
-    fn sha(b:&[u8])->String{Sha256::digest(b).iter().map(|x|format!("{x:02x}")).collect()}
-    fn hex(b:&[u8])->String{b.iter().map(|x|format!("{x:02x}")).collect()}
-    fn members(bytes:&[u8],span:Span,max:usize)->CoreResult<Vec<(String,Span)>>{
-        if span.end>bytes.len()||span.begin>=span.end||
-            bytes.get(span.begin)!=Some(&b'{')||bytes.get(span.end-1)!=Some(&b'}'){
-            return Err(denied("AVATAR_OBJECT_REQUIRED"));
-        }
-        let mut pos=skip_ws(bytes,span.begin+1);
-        let mut out=Vec::new();
-        while pos<span.end-1{
-            if out.len()>=max{return Err(denied("AVATAR_MEMBER_BOUND"));}
-            let (f,v,n,done)=indexed_field_at(bytes,span,pos)?;
-            out.push((f.key,v));
-            pos=skip_ws(bytes,n);
-            if done{break}
-        }
-        if pos!=span.end-1{return Err(denied("AVATAR_OBJECT_SPAN"));}
-        Ok(out)
-    }
-    fn field(fields:&[(String,Span)],name:&str)->Option<Span>{
-        fields.iter().find(|(k,_)|k==name).map(|(_,v)|*v)
-    }
-    fn required(fields:&[(String,Span)],name:&str)->CoreResult<Span>{
-        field(fields,name).ok_or(denied("AVATAR_REQUIRED_FIELD_ABSENT"))
-    }
-    fn int(bytes:&[u8],span:Span)->CoreResult<i32>{
-        let token=bytes.get(span.begin..span.end).ok_or(denied("AVATAR_INT_SPAN"))?;
-        if token.is_empty()||token.len()>11{return Err(denied("AVATAR_INT32_REQUIRED"));}
-        let v=serde_json::from_slice::<i32>(token).map_err(|_|denied("AVATAR_INT32_REQUIRED"))?;
-        // Native int32 decimal tokens only, no exponents, float or strings.
-        if token!=v.to_string().as_bytes(){return Err(denied("AVATAR_INT32_CANONICAL"));}
-        Ok(v)
-    }
-    fn key_u32(k:&str)->CoreResult<u32>{
-        let v=k.parse::<u32>().map_err(|_|denied("AVATAR_MAP_KEY"))?;
-        if v.to_string()!=k{return Err(denied("AVATAR_MAP_KEY"));}
-        Ok(v)
-    }
-    fn optional_int(bytes:&[u8],fields:&[(String,Span)],name:&str)->CoreResult<Option<i32>>{
-        field(fields,name).map(|s|int(bytes,s)).transpose()
-    }
-    fn palette(v:Option<i32>)->bool{v.map(|n|(0..90).contains(&n)).unwrap_or(false)}
-    #[derive(Clone,Debug)]
-    struct RefEntry{key:u32,value:i32,entry_sha:String}
-    #[derive(Clone,Debug)]
-    struct RefMap{present:bool,sha:Option<String>,entries:Vec<RefEntry>}
-    fn refs(bytes:&[u8],span:Option<Span>,mode:&str)->CoreResult<RefMap>{
-        let Some(s)=span else{return Ok(RefMap{present:false,sha:None,entries:Vec::new()})};
-        let max=match mode{"Clothes"|"IncompatibleClothes"=>18,"Makeup"=>MAX_MAKEUP,
-            "ClothingCustomization"=>MAX_CUSTOMIZATIONS,_=>return Err(denied("AVATAR_REF_MODE"))};
-        let mut entries=Vec::new();
-        for (k,v) in members(bytes,s,max)?{
-            let key=key_u32(&k)?;
-            let value=match mode{
-                "Clothes"|"IncompatibleClothes"=>{
-                    if key>17{return Err(denied("AVATAR_CLOTHING_SLOT"));}
-                    let n=int(bytes,v)?;
-                    // Explicit zero is retained as a saved scalar, not an
-                    // inferred unequipped/default or authorized item.
-                    if n<0||(n!=0&&n/10_000_000!=5){return Err(denied("AVATAR_CLOTHING_ID_PREFIX"));}
-                    n
-                },
-                "Makeup"=>{
-                    if key>=32{return Err(denied("AVATAR_MAKEUP_SLOT_BOUND"));}
-                    let obj=members(bytes,v,32)?;
-                    // Only a physically present exact member is read. No
-                    // alias/default or claim of actual Steam save presence.
-                    let n=int(bytes,required(&obj,"MakeupItemID")?)?;
-                    if n<=0||n/10_000_000!=14{return Err(denied("AVATAR_MAKEUP_ID_PREFIX"));}
-                    n
-                },
-                "ClothingCustomization"=>{
-                    if key==0||key>i32::MAX as u32||key/10_000_000!=5{
-                        return Err(denied("AVATAR_CUSTOMIZATION_ITEM_KEY"));}
-                    // Native map<int32,int32>: retain exact saved design scalar,
-                    // including zero/negative, never assume design ownership.
-                    int(bytes,v)?
-                },
-                _=>return Err(denied("AVATAR_REF_MODE")),
-            };
-            entries.push(RefEntry{key,value,entry_sha:sha(&bytes[v.begin..v.end])});
-        }
-        Ok(RefMap{present:true,sha:Some(sha(&bytes[s.begin..s.end])),entries})
-    }
-    fn map_json(m:&RefMap)->Value{
-        json!({"present":m.present,"mapSha256":m.sha,
-            "entries":m.entries.iter().map(|r|json!({"key":r.key,"savedValue":r.value,"entrySha256":r.entry_sha})).collect::<Vec<_>>()})
-    }
-    #[derive(Clone,Debug)]
-    struct Branch {
-        sha:String,hair:Option<i32>,highlight:Option<i32>,
-        clothes:RefMap,incompatible:RefMap,makeup:RefMap,customization:RefMap,
-    }
-    fn branch(bytes:&[u8],span:Span)->CoreResult<Branch>{
-        if span.end-span.begin>MAX_AVATAR_BYTES{return Err(denied("AVATAR_BRANCH_BYTE_BOUND"));}
-        let f=members(bytes,span,MAX_AVATAR_FIELDS)?;
-        Ok(Branch{sha:sha(&bytes[span.begin..span.end]),
-            hair:optional_int(bytes,&f,"HairColorIndex")?,
-            highlight:optional_int(bytes,&f,"HairHighlightColor")?,
-            clothes:refs(bytes,field(&f,"Clothes"),"Clothes")?,
-            incompatible:refs(bytes,field(&f,"IncompatibleClothes"),"IncompatibleClothes")?,
-            makeup:refs(bytes,field(&f,"Makeup"),"Makeup")?,
-            customization:refs(bytes,field(&f,"ClothingCustomization"),"ClothingCustomization")?,
-        })
-    }
-    fn branch_json(b:&Branch)->Value{
-        json!({"branchSha256":b.sha,
-            "hairColorIndex":b.hair,"hairColorIndexPresent":b.hair.is_some(),
-            "hairHighlightColorIndex":b.highlight,"hairHighlightColorPresent":b.highlight.is_some(),
-            "hairHighlightSavedField":"HairHighlightColor",
-            "bothPackagedHairIndicesCandidate":palette(b.hair)&&palette(b.highlight),
-            "clothes":map_json(&b.clothes),"incompatibleClothes":map_json(&b.incompatible),
-            "makeup":map_json(&b.makeup),"clothingCustomization":map_json(&b.customization),
-            "allFourReferenceMapsPresent":b.clothes.present&&b.incompatible.present&&b.makeup.present&&b.customization.present,
-            "nativeReferenceClosureVerified":false,"rightsVerified":false})
-    }
-    /// Opaque native receipt; no Serialize/Deserialize for private source data.
-    /// JSON is emitted only by the local explicit receipt executor.
-    pub struct PrivateActiveAvatarReceipt{
-        scope:WorkerEnvelope,is_male:bool,female:Branch,male:Branch,
-    }
-    impl PrivateActiveAvatarReceipt{
-        pub fn to_private_receipt_json(&self)->Value{
-            let active=if self.is_male{&self.male}else{&self.female};
-            json!({"contract":"wand.native.private.active-avatar-read@1",
-                "platform":"SteamWindows","fullVersion":EXACT,"schema":626,
-                "sessionId":hex(&self.scope.session_id),"revision":self.scope.expected_revision,
-                "indexGeneration":self.scope.expected_index_generation,
-                "decodedSha256":hex(&self.scope.expected_decoded_sha256),
-                "avatarIsMale":self.is_male,"activeBranch":if self.is_male{"MaleAvatar"}else{"FemaleAvatar"},
-                "activeHairFieldsPresent":active.hair.is_some()&&active.highlight.is_some(),
-                "activeBothPackagedHairIndicesCandidate":palette(active.hair)&&palette(active.highlight),
-                "femaleAvatar":branch_json(&self.female),"maleAvatar":branch_json(&self.male),
-                "fullDocumentRustValidated":true,"physicalGameInstallCryptographicallyProven":false,
-                "actualAllowedPaletteVerified":false,"rightsVerified":false,
-                "nativeReferenceClosureVerified":false,"cleanupClosureVerified":false,
-                "productReadAccepted":false,"writerAuthorized":false,"editedCopyAuthorized":false,
-                "applyAuthorized":false,"nativeV3Verified":false})
-        }
-    }
     impl ProductSession{
         pub fn read_private_active_avatar(&self,e:WorkerEnvelope)->CoreResult<PrivateActiveAvatarReceipt>{
             let b=&self.native_source_build;
@@ -563,16 +422,6 @@ mod private_avatar {
         }
     }
 
-    fn avatar_snapshot(bytes:&[u8],fields:&[(String,Span)],e:WorkerEnvelope)
-        ->CoreResult<PrivateActiveAvatarReceipt>{
-        let gender=required(fields,"AvatarIsMale")?;
-        let is_male=match &bytes[gender.begin..gender.end]{
-            b"true"=>true,b"false"=>false,_=>return Err(denied("AVATAR_GENDER_BOOL_REQUIRED")),
-        };
-        Ok(PrivateActiveAvatarReceipt{scope:e,is_male,
-            female:branch(bytes,required(fields,"FemaleAvatar")?)?,
-            male:branch(bytes,required(fields,"MaleAvatar")?)?})
-    }
     // ACT357: private, bounded dependency evidence for one existing Avatar
     // hair candidate. Same native ProductSession and lexical spans; no
     // caller paths, general JSON reader, condition evaluator or authority.
@@ -610,13 +459,6 @@ mod private_avatar {
         let v=field(fs,key);
         Ok(json!({"present":v.is_some(),"value":v.map(|s|text_token(bytes,s,128)).transpose()?,
             "sha256":v.map(|s|sha(&bytes[s.begin..s.end]))}))
-    }
-    fn enum_token(bytes:&[u8],s:Span,prefix:&str)->CoreResult<String>{
-        let v=text_token(bytes,s,128)?;
-        if !v.starts_with(prefix)||v.len()<=prefix.len()||
-           !v.bytes().all(|b|b.is_ascii_alphanumeric()||b==b'_'){
-            return Err(denied("AVATAR_DEP_ENUM_TOKEN"));}
-        Ok(v)
     }
     fn branch_dependencies(bytes:&[u8],s:Span)->CoreResult<Value>{
         let fs=members(bytes,s,MAX_AVATAR_FIELDS)?;
@@ -674,77 +516,6 @@ mod private_avatar {
             "faceType":dependency_hash(bytes,field(&fs,"FaceType")),"faceTypeEntries":face,
             "eyeball":dependency_hash(bytes,field(&fs,"Eyeball")),"eyeballScalars":eye,
             "makeup":makeup,"otherFieldsRetainedByBranchHash":true}))
-    }
-    fn inventory_dependencies(bytes:&[u8],lists:Span,avatar:&PrivateActiveAvatarReceipt)->CoreResult<Value>{
-        use std::collections::BTreeSet;
-        let mut clothes=BTreeSet::new();let mut makeup=BTreeSet::new();
-        for b in [&avatar.female,&avatar.male]{
-            for m in [&b.clothes,&b.incompatible]{
-                for e in &m.entries{if e.value>0{clothes.insert(e.value);}}
-            }
-            for e in &b.customization.entries{clothes.insert(e.key as i32);}
-            for e in &b.makeup.entries{makeup.insert(e.value);}
-        }
-        let mut selected=[None,None];
-        for (key,rec) in members(bytes,lists,128)?{
-            let id=key_u32(&key)?;
-            let f=members(bytes,rec,64)?;
-            let id_span=required(&f,"ID")?;let id_token=&bytes[id_span.begin..id_span.end];
-            let saved=serde_json::from_slice::<u32>(id_token)
-                .map_err(|_|denied("AVATAR_DEP_INVENTORY_ID"))?;
-            if id!=saved||id_token!=saved.to_string().as_bytes(){return Err(denied("AVATAR_DEP_INVENTORY_ID"));}
-            let ty=text_token(bytes,required(&f,"CompatibleItemType")?,128)?;
-            if id==1||ty=="ItemType_Clothing"{
-                if id!=1||ty!="ItemType_Clothing"||selected[0].replace((rec,required(&f,"Inventory")?)).is_some(){
-                    return Err(denied("AVATAR_DEP_CLOTHING_ROUTE"));}
-            }
-            if id==3||ty=="ItemType_Makeup"{
-                if id!=3||ty!="ItemType_Makeup"||selected[1].replace((rec,required(&f,"Inventory")?)).is_some(){
-                    return Err(denied("AVATAR_DEP_MAKEUP_ROUTE"));}
-            }
-        }
-        let reference_count=clothes.len()+makeup.len();
-        let all_maps_present=[&avatar.female,&avatar.male].iter().all(|b|
-            b.clothes.present&&b.incompatible.present&&b.makeup.present&&b.customization.present);
-        let mut all_positive=true;let mut routes=Vec::new();
-        for (i,wanted) in [clothes,makeup].into_iter().enumerate(){
-            let (rec,items)=selected[i].ok_or(denied("AVATAR_DEP_REQUIRED_ROUTE_ABSENT"))?;
-            let (id,major,ty)=if i==0{(1,5,"ItemType_Clothing")}else{(3,14,"ItemType_Makeup")};
-            let mut found=std::collections::BTreeMap::new();
-            for (k,v) in members(bytes,items,16384)?{
-                let n=key_u32(&k)?;
-                if n==0||n>i32::MAX as u32||n/10_000_000!=major{
-                    return Err(denied("AVATAR_DEP_INVENTORY_ITEM_KEY"));}
-                if wanted.contains(&(n as i32)){found.insert(n as i32,v);}
-            }
-            let mut entries=Vec::new();
-            for n in wanted{
-                let span=found.get(&n).copied();
-                let mut amount=None;let mut marker=None;let mut marker_sha=None;
-                if let Some(v)=span{
-                    let f=members(bytes,v,64)?;
-                    amount=Some(int(bytes,required(&f,"Amount")?)?);
-                    if let Some(m)=field(&f,"Marker"){
-                        marker=Some(enum_token(bytes,m,"ItemMarker_")?);
-                        marker_sha=Some(sha(&bytes[m.begin..m.end]));
-                    }
-                }
-                let positive=amount.is_some_and(|a|a>0);
-                all_positive&=positive;
-                entries.push(json!({"itemId":n,"present":span.is_some(),"savedAmount":amount,
-                    "entrySha256":span.map(|v|sha(&bytes[v.begin..v.end])),
-                    "markerPresent":marker.is_some(),"savedMarker":marker,"markerSha256":marker_sha,
-                    "positiveSavedAmount":positive,"nativeHasItemVerified":false,"rightsVerified":false}));
-            }
-            routes.push(json!({"inventoryId":id,"compatibleItemType":ty,
-                "recordSha256":sha(&bytes[rec.begin..rec.end]),"mapSha256":sha(&bytes[items.begin..items.end]),
-                "entries":entries}));
-        }
-        Ok(json!({"listInventoriesSha256":sha(&bytes[lists.begin..lists.end]),"routes":routes,
-            "observedUniqueReferenceCount":reference_count,"allFourMapsPerBranchPresent":all_maps_present,
-            "allObservedReferencesHavePositiveSavedAmount":all_positive,
-            "nativeExtractClothesAndMakeupVerified":false,"adequateDressVerified":false,
-            "variationVerified":false,"rightsVerified":false}))
     }
     fn achievements_dependencies(bytes:&[u8],s:Option<Span>)->CoreResult<Value>{
         achievements_dependencies_mode(bytes,s,false,&mut DependencyBudget::default())
@@ -945,7 +716,7 @@ mod private_avatar {
             let bytes=&self.decoded;let root=roots(bytes)?;
             let player=members(bytes,root.player,1024)?;let world=members(bytes,root.world,1024)?;
             let avatar=avatar_snapshot(bytes,&player,e)?;
-            let ownership=inventory_dependencies(bytes,required(&player,"ListInventories")?,&avatar)?;
+            let ownership=inventory_dependencies(bytes,required(&player,"ListInventories")?,&avatar,None)?;
             let mut budget=DependencyBudget::default();
             let missions=mission_dependencies(bytes,field(&world,"MissionSlots"),&mut budget)?;
             let evolve=evolve_dependencies(bytes,field(&player,"EvolveStatesProfile"),&mut budget)?;
@@ -971,6 +742,23 @@ mod private_avatar {
         }
     }
 
+    // ACT1051: private read-only witness for the reviewed occupied top-inner
+    // slot. The proposed item is an explicit typed selector, not authority
+    // or a claimed definition/slot compatibility proof. No raw caller path.
+    impl ProductSession{
+        pub fn read_private_wardrobe_same_slot(&self,e:WorkerEnvelope,slot:u32,old:i32,new:i32)
+            ->CoreResult<PrivateAvatarDependencyReceipt>{
+            self.read_private_wardrobe_same_slot_for_build(e,slot,old,new,false)
+        }
+        pub fn read_private_switch626_wardrobe_same_slot(&self,e:WorkerEnvelope,slot:u32,old:i32,new:i32)
+            ->CoreResult<PrivateAvatarDependencyReceipt>{
+            self.read_private_wardrobe_same_slot_for_build(e,slot,old,new,true)
+        }
+        fn read_private_wardrobe_same_slot_for_build(&self,e:WorkerEnvelope,slot:u32,old:i32,new:i32,switch:bool)->CoreResult<PrivateAvatarDependencyReceipt>{
+            Ok(PrivateAvatarDependencyReceipt{value:self.observe_wardrobe_same_slot(e,slot,old,new,switch)?})
+        }
+    }
+
     // Private Character Skin candidate receipt. Shares the accepted Avatar
     // span helpers, indexed walker, immutable ProductSession and V1 transport.
     // No catalog parser, condition evaluator or mutation authority.
@@ -981,11 +769,6 @@ mod private_avatar {
     fn character_id(v:i32)->bool{v>0&&v/10_000_000==1}
     fn character_skin_id(v:i32)->bool{
         v>0&&v/10_000_000==17&&(v%10_000_000)/100_000==0
-    }
-    fn text_token(bytes:&[u8],span:Span,max:usize)->CoreResult<String>{
-        let token=bytes.get(span.begin..span.end).ok_or(denied("SKIN_TOKEN_SPAN"))?;
-        if token.len()>max{return Err(denied("SKIN_TOKEN_BOUND"));}
-        serde_json::from_slice::<String>(token).map_err(|_|denied("SKIN_STRING_REQUIRED"))
     }
     fn character_span(bytes:&[u8],array:Span,target:i32)->CoreResult<(usize,Span,Span)>{
         if array.begin>=array.end||array.end>bytes.len()||
@@ -2042,6 +1825,89 @@ mod private_avatar {
             assert!(s.read_private_avatar_dependencies(stale).is_err());
             assert!(open(v).read_private_avatar_dependencies(e).is_err());
             s.close().unwrap();assert!(s.read_private_avatar_dependencies(e).is_err());
+        }
+        #[test]
+        fn wardrobe_same_slot_proposed_stock_read_only(){
+            let mut v=dependency_doc();
+            v["Player"]["MaleAvatar"]["Clothes"]=json!({"0":50000002});
+            v["Player"]["MaleAvatar"]["IncompatibleClothes"]=json!({});
+            v["Player"]["MaleAvatar"]["ClothingCustomization"]=json!({});
+            v["Player"]["ListInventories"]["1"]["Inventory"]["50000002"]["Marker"]=json!("ItemMarker_Favorite");
+            v["Player"]["ListInventories"]["1"]["Inventory"]["50000003"]=json!({"Amount":2,"Marker":"ItemMarker_None"});
+            let s=open(v.clone());let before=s.receipt().unwrap();let e=env(before);
+            let r=s.read_private_wardrobe_same_slot(e,0,50000002,50000003).unwrap().to_private_receipt_json();
+            assert_eq!(r["avatar"]["activeBranch"],"MaleAvatar");
+            assert_eq!(r["inventory"]["oldStock"]["savedAmount"],1);
+            assert_eq!(r["inventory"]["proposedStock"]["savedAmount"],2);
+            assert_eq!(r["oldScalarSha256"],sha(b"50000002"));
+            assert_eq!(r["writerAuthorized"],false);
+            assert_eq!(r["sameSlotDefinitionVerified"],false);
+            assert_eq!(s.receipt().unwrap(),before);
+            for (slot,old,new) in [(1,50000002,50000003),(5,50000002,50000003),
+                (0,50000003,50000002),(0,50000002,50000002),(0,50000002,0)]{
+                assert!(s.read_private_wardrobe_same_slot(e,slot,old,new).is_err());
+            }
+            for bad in [json!(0),json!(-1),json!(true),json!("2")]{
+                let mut d=v.clone();d["Player"]["ListInventories"]["1"]["Inventory"]["50000003"]["Amount"]=bad;
+                let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            }
+            for bad in ["ItemMarker_Unknown","ItemMarker_New"]{
+                let mut d=v.clone();d["Player"]["ListInventories"]["1"]["Inventory"]["50000003"]["Marker"]=json!(bad);
+                let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            }
+            let mut d=v.clone();d["Player"]["ListInventories"]["1"]["Inventory"].as_object_mut().unwrap().remove("50000003");
+            let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            let mut d=v.clone();d["Player"]["AvatarIsMale"]=json!(false);
+            let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            let mut d=v.clone();d["Player"]["MaleAvatar"]["IncompatibleClothes"]=json!({"0":50000001});
+            let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            let mut d=v.clone();d["Player"]["FemaleAvatar"]["Clothes"]=json!({"0":50000003});
+            let x=open(d);assert!(x.read_private_wardrobe_same_slot(env(x.receipt().unwrap()),0,50000002,50000003).is_err());
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_wardrobe_same_slot(stale,0,50000002,50000003).is_err());
+            assert!(open(v).read_private_wardrobe_same_slot(e,0,50000002,50000003).is_err());
+            s.close().unwrap();assert!(s.read_private_wardrobe_same_slot(e,0,50000002,50000003).is_err());
+        }
+        #[test]
+        fn switch626_wardrobe_adapter_build_and_session_denials(){
+            let mut v=dependency_doc();
+            v["Player"]["MaleAvatar"]["Clothes"]=json!({"0":50000002});
+            v["Player"]["MaleAvatar"]["IncompatibleClothes"]=json!({});
+            v["Player"]["MaleAvatar"]["ClothingCustomization"]=json!({});
+            v["Player"]["ListInventories"]["1"]["Inventory"]["50000002"]["Marker"]=json!("ItemMarker_Favorite");
+            v["Player"]["ListInventories"]["1"]["Inventory"]["50000003"]=json!({"Amount":2,"Marker":"ItemMarker_None"});
+            let open_switch=|bid:&str,attested:bool|ProductSession::open_decoded_readonly(
+                serde_json::to_vec(&v).unwrap(),BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+                build_id:bid.into(),schema:626,externally_attested:attested});
+            let s=open_switch("9A239D3DB569756D",true).unwrap();
+            let before=s.receipt().unwrap();let e=env(before);
+            let r=s.read_private_switch626_wardrobe_same_slot(e,0,50000002,50000003).unwrap().to_private_receipt_json();
+            assert_eq!(r["contract"],"wand.native.private.switch626.wardrobe-same-slot-readset@1");
+            assert_eq!(r["avatar"]["platform"],"Switch");
+            assert_eq!(r["avatar"]["buildId"],"9A239D3DB569756D");
+            assert_eq!(r["avatar"]["buildKind"],"SwitchBid");
+            assert!(r["avatar"].get("fullVersion").is_none());
+            assert_eq!(r["oldScalarSha256"],sha(b"50000002"));
+            assert_eq!(r["inventory"]["proposedStock"]["savedAmount"],2);
+            for k in ["writerAuthorized","productReadAccepted","editedCopyAuthorized","applyAuthorized","rightsVerified"]{
+                assert_eq!(r[k],false);
+            }
+            assert_eq!(s.receipt().unwrap(),before);
+            assert!(s.read_private_wardrobe_same_slot(e,0,50000002,50000003).is_err());
+            let steam=open(v.clone());let se=env(steam.receipt().unwrap());
+            assert!(steam.read_private_switch626_wardrobe_same_slot(se,0,50000002,50000003).is_err());
+            assert!(s.read_private_switch626_wardrobe_same_slot(se,0,50000002,50000003).is_err());
+            let mut stale=e;stale.expected_revision+=1;
+            assert!(s.read_private_switch626_wardrobe_same_slot(stale,0,50000002,50000003).is_err());
+            assert!(s.read_private_switch626_wardrobe_same_slot(e,1,50000002,50000003).is_err());
+            assert!(s.read_private_switch626_wardrobe_same_slot(e,0,50000003,50000002).is_err());
+            for (bid,attested) in [("52BD625D9B4E0053",true),("9A239D3DB569756D",false)]{
+                if let Ok(wrong)=open_switch(bid,attested){
+                    assert!(wrong.read_private_switch626_wardrobe_same_slot(env(wrong.receipt().unwrap()),0,50000002,50000003).is_err());
+                }
+            }
+            s.close().unwrap();
+            assert!(s.read_private_switch626_wardrobe_same_slot(e,0,50000002,50000003).is_err());
         }
         #[test]
         fn actual_branch_and_absence_zero_exact_refs(){
