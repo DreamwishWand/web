@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
+import {createProductFixedCollectionLocalAdapter} from '../src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+import {createCollectionExact1Consumer} from '../src/lib/collection/collection-exact1-consumer.mjs';
+import {p1gPackagedProfileCodec} from '../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
 import {createFixedCollectionTransport} from '../src/lib/ddv/core/save/product-fixed-collection-transport.mjs';
 import {createProductWasmReadOwner} from '../src/lib/ddv/core/save/product-wasm-read-owner.mjs';
 import {createP1gRustWorkerReadOnlyBridge} from '../src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
@@ -128,4 +131,58 @@ test('same P1G bridge blocks Stage before Backup and blocks both OPEN APIs after
  await b.openScopedEncrypted(args);await b.verifyScopedOriginalBackup(new File([bytes],'candidate.p1g'));
  b.previewFixedCollection(sel);assert.equal((await b.stageFixedCollection()).applied,true);
  assert.throws(()=>b.close(),/CLOSE_UNVERIFIED/);b.close();
+});
+
+test('protected Collection consumer binds existing local copy lifecycle: dual Build exact1, actual synthetic P1G codec, stale selection and close',async()=>{
+ // Synthetic file and storage double only. Real Chrome OPFS/fresh Worker and
+ // generated Rust are independent affected acceptance; no product V2 claim.
+ const doc={GameInfo:{Version:626},World:{},Player:{CollectionSets:[{CollectionDefinitionID:2120000159,GroupData:[{GroupIndex:0,State:'SetState_NotComplete',GroupsCollectionItems:{40004511:false,40004668:false,40004669:false}}]}]},Unknown:{future:true}};
+ const enc=makeSyntheticP1gProfile(doc),f=new File([enc],'synthetic.p1g'),origHash=hash(enc);
+ const decoded=(await p1gPackagedProfileCodec.loadProfile(enc)).jsonText,decodedHash=hash(new TextEncoder().encode(decoded));
+ const expected=structuredClone(doc);expected.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems[40004511]=true;
+ const editedBytes=new TextEncoder().encode(JSON.stringify(expected)),editedHash=hash(editedBytes);
+ let stages=0,opens=0;
+ class LocalMock{
+  constructor(){this.rev=0;opens++}
+  append_chunk(){}
+  finish(){return JSON.stringify({...ownerReceipt,decodedSha256:decodedHash})}
+  check(s,r,g,h){assert.deepEqual([s,r,g,h],[id,BigInt(this.rev),BigInt(this.rev+1),decodedHash])}
+  preview_fixed_collection(d,g,i,...args){this.check(...args);assert.deepEqual([d,g,i],[sel.definitionId,0,sel.itemId]);return JSON.stringify({...preview,decodedSha256:decodedHash})}
+  mutation(applied){this.rev++;return JSON.stringify({contract:'wand.worker.scoped-edit@1',sessionId:id,revision:this.rev,indexGeneration:this.rev+1,decodedSha256:decodedHash,stagedDecodedSha256:editedHash,operationCount:1,exactFieldChangedCount:1,applied,writerAuthorized:false,originalOverwriteAuthorized:false})}
+  stage_fixed_collection(d,g,i,e,...args){this.check(...args);assert.equal(e,entry);stages++;return this.mutation(true)}
+  toggle_scoped_edit(redo,...args){this.check(...args);return this.mutation(redo)}
+  begin_scoped_edit_output(...args){this.check(...args);return JSON.stringify({contract:'wand.worker.scoped-edit-output@1',decodedBytes:editedBytes.length,decodedSha256:editedHash,writerAuthorized:false,originalOverwriteAuthorized:false})}
+  next_scoped_edit_output_chunk(){return editedBytes.slice()}
+  close(){}
+ }
+ const files=new Map(),root={
+  async getFileHandle(name,opts){
+   if(!files.has(name)){if(!opts?.create)throw Object.assign(Error('missing'),{name:'NotFoundError'});files.set(name,new Uint8Array())}
+   return {async getFile(){return new File([files.get(name)],name)},async createWritable(){
+    let pending;return {async write(b){pending=new Uint8Array(b)},async close(){files.set(name,pending)},async abort(){pending=null}}
+   }}
+  },async removeEntry(name){files.delete(name)}
+ };
+ const old=Object.getOwnPropertyDescriptor(navigator,'locks');
+ Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_name,fn)=>fn()}});
+ try{
+  const make=()=>createProductFixedCollectionLocalAdapter({wasmFactory:async()=>({WorkerWasmSource:LocalMock}),getDirectory:async()=>root,
+   freshCodecReopen:async(b,h)=>hash(new TextEncoder().encode((await p1gPackagedProfileCodec.loadProfile(b)).jsonText))===h});
+  for(const identity of [STEAM,SWITCH]){
+   const a=make(),build={...identity,externallyConfirmed:true},args={file:f,build,originalSha256:origHash};
+   await a.open(args);const c=createCollectionExact1Consumer(a,{trustedLocalHarness:true});
+   await c.load();assert.equal(c.snapshot().targets.length,1);
+   const initialSelection=(await a.inspectCollectionTargets()).selection;
+   await assert.rejects(async()=>a.stageCollectionTarget(initialSelection,0));assert.equal(stages,identity===STEAM?0:1);
+   await c.backupOriginal();await c.preview(0);await c.stage();await c.undo();await assert.rejects(c.exportEditedCopy());await c.redo();await c.exportEditedCopy();
+   const b=await c.downloadVerifiedCopy('backup'),e=await c.downloadVerifiedCopy('edited');
+   assert.equal(hash(b.encryptedBytes),origHash);assert.equal((await p1gPackagedProfileCodec.loadProfile(e.encryptedBytes)).jsonText,JSON.stringify(expected));
+   assert.notEqual(b.name,e.name);assert.notEqual(f.name,b.name);assert.equal(hash(new Uint8Array(await f.arrayBuffer())),origHash);
+   await c.close();assert.equal(c.snapshot().phase,'closed');assert.equal(files.has(b.name),true);
+   await a.open(args);const newer=await a.inspectCollectionTargets();assert.notEqual(newer.selection,initialSelection);
+   await assert.rejects(async()=>a.backupOriginal(initialSelection));await a.backupOriginal(newer.selection);
+   assert.deepEqual(await a.close(),{kind:'CLOSED',ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false});
+  }
+  assert.equal(stages,2);assert.equal(opens,4);
+ }finally{if(old)Object.defineProperty(navigator,'locks',old);else delete navigator.locks}
 });
