@@ -29,9 +29,11 @@ let neg=0;
 const deny=(f,label)=>{a.throws(f,undefined,label);neg++;};
 {
  const wrong=create('switch','switch-bid','9A239D3DB569756D');
- deny(()=>wrong.finish(),'foreign Build');wrong.close();wrong.free();
+ const wr=JSON.parse(wrong.finish());
+ deny(()=>wrong.preview_steam626_makeup_color1(...scope(wr)),'foreign Build operation');wrong.close();wrong.free();
  const fake=create('steam-windows','steam-full-version','invalid-build');
- deny(()=>fake.finish(),'wrong Steam Build');fake.close();fake.free();
+ const fr=JSON.parse(fake.finish());
+ deny(()=>fake.preview_steam626_makeup_color1(...scope(fr)),'wrong Steam Build operation');fake.close();fake.free();
 }
 const w=create(),r=JSON.parse(w.finish());
 a.equal(r.schema,626);a.equal(r.decodedSha256,initialHash);
