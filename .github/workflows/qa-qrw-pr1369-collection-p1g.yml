@@ -260,7 +260,7 @@ jobs:
               (result.exceptionDetails.exception?.description||
                 result.exceptionDetails.text||'unknown').slice(0,900));
             const report=result.result?.value;
-            assert.equal(report?.result,'QRW1369_COLLECTION_P1G_ACTUAL_PASS');assert.equal(report.positive,4);assert.equal(report.negative,29);assert.equal(report.profiles,2);assert.equal(report.actualChrome,true);assert.equal(report.actualWasm,true);assert.equal(report.actualOpfsBackup,true);assert.equal(report.writer,false);assert.equal(report.amountCombined,false);
+            assert.equal(report?.result,'QRW1369_COLLECTION_P1G_ACTUAL_PASS');assert.equal(report.positive,4);assert.equal(report.negative,31);assert.equal(report.profiles,2);assert.equal(report.actualChrome,true);assert.equal(report.actualWasm,true);assert.equal(report.actualOpfsBackup,true);assert.equal(report.writer,false);assert.equal(report.amountCombined,false);
             console.log('QRW_PR1369_COLLECTION_P1G_ACTUAL_PASS',JSON.stringify(report));
           
           }catch(error){
