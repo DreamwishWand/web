@@ -1,0 +1,87 @@
+name: 04 QR-S R22 exact14 and atomic4 gate L2 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-r22-comp03-steam-exact-gate.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    strategy:
+      fail-fast: false
+      matrix:
+        scope:
+          - '["comp03","ae1b418455f002708daa6e6d3eece7e61fdce10b","57d10bb1b5cac1be195a466c661c8d17fcec070f","comp03SpatialEntries","f94a61d1e2223b16198ebaf710575b626d413c9f","927eefd4c7646344621cd7adeae40610e1c772c3","71a0d970fd6e909521613234579f090ae9eaf802",1604]'
+          - '["steam-chest","564a300737ac6138a64ecd9ec3fc16c1a10536cf","19a8ad1367787a3b4b9b0a5dc24fc2c0578f9d81","steam626ChestAtomicEntries","e5c863b756e9593afcfe4f3c24f122c91a4c4b6f","f344d9f46ca39f338853361c6be35ff907d73e30","99877a799c26b9b1fdd3944178c6a86ec290eb6c",1527]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ fromJSON(matrix.scope)[1] }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent actual Git pair and fixed gate rejection
+        shell: bash
+        env:
+          SCOPE: ${{ matrix.scope }}
+        run: |
+          set -euo pipefail
+          cat > qa-r22-gate.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync,writeFileSync,unlinkSync,mkdtempSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {verifyAcceptedRustScope,verifyExactScopeEntries} from './scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          const [name,fixed,helperSha,entryName,targetCore,targetTree,cfgHash,sourcePr]=JSON.parse(process.env.SCOPE);
+          const base='0e1214c128606cb7bbef1057acab48e19bc188f9',core='crates/ddv-save-core',cfg='scripts/wasm-distribution/protected-release-inputs.json',helper='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',oldHelper='scripts/wasm-distribution/qa-old-r22.mjs',comp='edd77cbb423302ea581a41c286eb3eab52e42fe6',steam='c0a12d3f3dc177c3370864aeb1c5c65457b29b9f',amount='e5de8fd4f9b8f09be7c27f9decb42bd3ee6de67e';
+          const dir=mkdtempSync(join(tmpdir(),'wand-gate-qa-')),env={...process.env,GIT_INDEX_FILE:join(dir,'index'),GIT_NO_REPLACE_OBJECTS:'1',GIT_AUTHOR_NAME:'QA',GIT_AUTHOR_EMAIL:'qa@example.invalid',GIT_COMMITTER_NAME:'QA',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8',env,maxBuffer:16*1024*1024,stdio:['ignore','pipe','pipe']}).trim(),raw=(ref,p)=>execFileSync('git',['show',ref+':'+p],{encoding:'utf8',env}),blob=s=>execFileSync('git',['hash-object','-w','--stdin'],{input:s,encoding:'utf8',env}).trim();
+          const entry=(ref,p)=>{const x=g('ls-tree',ref,'--',p);if(!x)return null;const m=/^(100644|100755) blob ([a-f0-9]{40})\t(.+)$/.exec(x);assert.ok(m&&m[3]===p,p);return {mode:m[1],blob:m[2]}};
+          const set=(p,e)=>e?g('update-index','--add','--cacheinfo',e.mode,e.blob,p):g('update-index','--force-remove','--',p);
+          const make=(parent,changes)=>{g('read-tree',parent);for(const [p,e] of changes)set(p,e);const tree=g('write-tree');return g('commit-tree',tree,'-p',parent,'-m','isolated QA candidate only')};
+          const old=raw(base,helper),cur=readFileSync(helper,'utf8');assert.equal(g('rev-parse','HEAD'),fixed);assert.equal(g('rev-parse',fixed+':'+helper),helperSha);assert.equal(g('rev-parse',base+':'+helper),'0a08a765d3b16b82d951d67b2d6b55b5705713a9');
+          const block=cur.slice(cur.indexOf('const '+entryName+'=['),cur.indexOf('const gatePaths='));
+          assert.ok(block.startsWith('const '+entryName+'=[')&&block.endsWith('];\n'));
+          const pairStart=cur.indexOf(" if(baseCore==='aceda9d906c3137d717824a3079e84165ab5f62e')"),pairEnd=cur.indexOf(" deny('BASE_CORE_TREE');",pairStart);
+          assert.ok(pairStart>0&&pairEnd>pairStart);assert.equal(cur.replace(block,'').replace(cur.slice(pairStart,pairEnd),''),old);
+          const conf=raw(base,cfg),beforeCargo=entry(base,core+'/Cargo.toml').blob;
+          const paths=name==='comp03'?g('diff','--name-only','--no-renames',base,comp,'--',core,'.github/workflows/core-product-session-boundary.yml').split('\n'):[core+'/Cargo.toml',core+'/src/product_amount_scoped.rs',core+'/src/wasm_worker.rs'];
+          assert.equal(paths.length,name==='comp03'?13:3);
+          const changes=paths.map(p=>[p,entry(name==='comp03'?comp:p.endsWith('product_amount_scoped.rs')?amount:steam,p)]);
+          const cargo=changes.find(x=>x[0]===core+'/Cargo.toml')[1].blob;
+          const config=conf.replace(beforeCargo,cargo);assert.equal(blob(config),cfgHash);assert.deepEqual({...JSON.parse(config),cargoTomlGitBlob:beforeCargo},JSON.parse(conf));
+          changes.push([cfg,{mode:'100644',blob:cfgHash}]);
+          const pins=changes.map(([p,e])=>({path:p,before:entry(base,p),after:e}));
+          const literal=JSON.parse(block.slice(block.indexOf('['),block.lastIndexOf(']')+1));assert.deepEqual(literal.slice().sort((a,b)=>a.path.localeCompare(b.path)),pins.slice().sort((a,b)=>a.path.localeCompare(b.path)));
+          assert.ok(pins.every(x=>x.after.mode==='100644'&&(!x.before||x.before.mode==='100644')));
+          const pure=make(base,changes);assert.equal(g('rev-parse',pure+'^{tree}'),targetTree);assert.equal(g('rev-parse',pure+':'+core),targetCore);assert.equal(g('rev-parse',base+':'+core),'aceda9d906c3137d717824a3079e84165ab5f62e');assert.equal(g('rev-parse',pure+':'+core+'/Cargo.lock'),g('rev-parse',base+':'+core+'/Cargo.lock'));
+          let pos=0,neg=0;const no=f=>{assert.throws(f);neg++};
+          const verify=(b,c)=>verifyAcceptedRustScope(process.cwd(),b,c);
+          const c=make(fixed,changes),r=verify(fixed,c);assert.equal(r.entryCount,pins.length);assert.equal(r.sourcePr,sourcePr);assert.equal(r.writerAuthorized,false);assert.equal(r.mergeAuthorized,false);pos++;
+          assert.equal(verifyExactScopeEntries(process.cwd(),fixed,c,pins).entries.length,pins.length);pos++;
+          // A harmless non-Core base advance must not broaden candidate paths.
+          const noise=['qa-r22-base-only.txt',{mode:'100644',blob:blob('independent base only')}],advance=make(fixed,[noise]),advanced=make(advance,changes);assert.equal(verify(advance,advanced).entryCount,pins.length);pos++;
+          for(const [p,e] of changes){
+           const rest=changes.filter(x=>x[0]!==p);
+           no(()=>verify(fixed,make(fixed,rest)));
+           no(()=>verify(fixed,make(fixed,[...rest,[p,{mode:'100755',blob:e.blob}]])));
+           no(()=>verify(fixed,make(fixed,[...rest,[p,{mode:'100644',blob:blob('wrong postimage '+p)}]])));
+          }
+          no(()=>verify(fixed,make(fixed,[...changes,noise])));
+          no(()=>verify(fixed,make(fixed,[...changes,[core+'/Cargo.lock',{mode:'100644',blob:blob('wrong lock')}]])));
+          for(const p of [helper,'scripts/wasm-distribution/verify-protected-release.mjs','scripts/int-selection-preflight.mjs'])no(()=>verify(fixed,make(fixed,[...changes,[p,{mode:'100644',blob:blob('changed gate '+p)}]])));
+          no(()=>verify(base,make(base,[...changes,[helper,entry(fixed,helper)]])));
+          no(()=>verify(fixed,pure));no(()=>verify(c,fixed));no(()=>verify(fixed,'bad'));
+          const other=name==='comp03'?[[core+'/Cargo.toml',entry(steam,core+'/Cargo.toml')],[core+'/src/product_amount_scoped.rs',entry(amount,core+'/src/product_amount_scoped.rs')],[core+'/src/wasm_worker.rs',entry(steam,core+'/src/wasm_worker.rs')]]:[[core+'/Cargo.toml',entry(comp,core+'/Cargo.toml')],[core+'/src/wasm_worker.rs',entry(comp,core+'/src/wasm_worker.rs')]];
+          no(()=>verify(fixed,make(fixed,other)));
+          no(()=>verify(fixed,make(fixed,[...changes.filter(x=>x[0]!==other[0][0]),other[0]])));
+          writeFileSync(oldHelper,old,{flag:'wx'});try{const prior=(await import('./'+oldHelper)).verifyAcceptedRustScope;no(()=>prior(process.cwd(),base,pure));}finally{unlinkSync(oldHelper)}
+          rmSync(dir,{recursive:true,force:true});
+          console.log('R22_GATE_CHANGED_L2_PASS',JSON.stringify({name,pos,neg,pins:pins.length,actualGit:true,actualDetachedTree:targetTree,protectedAcceptance:false,actualSignature:false}));
+          
+          EOF
+          node qa-r22-gate.mjs
