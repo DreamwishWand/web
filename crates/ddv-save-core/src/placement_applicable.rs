@@ -9,11 +9,12 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
 const BUILD: &str = "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
-const DATA_SHA: &str = "fd9284fa7a9e9cf2d533296efe12b396b7f598171d535783209ab3474294b064";
+const DATA_SHA: &str = "90b2461f3a923b7a8680bdda60a78a13055c4f9d4befc0bca4b1b90da711a581";
 const COMMON_SHA: &str = "78a1ba539b2e6f43182cea2c2ea35c9d10e51f27d4adbb8d4dbc6cce7f7dcd65";
+const SWITCH_BID:&str="9A239D3DB569756D";
 type R<T> = Result<T, &'static str>;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum PlacementScope { VaseAdd, Comp03LayoutOnly, Sr03MixedRoad }
+pub(crate) enum PlacementScope { VaseAdd, Comp03LayoutOnly, Sr03MixedRoad, Switch626Rm01MixedRoad }
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct SupplementChecked(());
 fn need(b:bool,e:&'static str)->R<()> {if b {Ok(())} else {Err(e)}}
@@ -25,13 +26,14 @@ fn text(v:&Value)->R<&str>{v.as_str().ok_or("PLACEMENT_TEXT")}
 fn def<'a>(d:&'a Value,group:&str,id:u32)->R<&'a Value>{need(id>0,"PLACEMENT_ID")?;d[group].get(id.to_string()).ok_or("PLACEMENT_DEFINITION_UNKNOWN")}
 fn canonical_key(k:&str)->R<u32>{let x=k.parse::<u32>().map_err(|_|"PLACEMENT_KEY")?;need(x.to_string()==k,"PLACEMENT_KEY")?;Ok(x)}
 fn pack(bytes:&[u8])->R<Value>{
- need(bytes.len()==173184&&hex(&Sha256::digest(bytes))==DATA_SHA,"PLACEMENT_PACK_SHA")?;
+ need(bytes.len()==173864&&hex(&Sha256::digest(bytes))==DATA_SHA,"PLACEMENT_PACK_SHA")?;
  let d:Value=serde_json::from_slice(bytes).map_err(|_|"PLACEMENT_PACK_JSON")?;
- need(d["contract"]=="wand.core.steam626.placement-applicable-supplement@3"&&d["build"]==BUILD&&d["commonDependencySha256"]==COMMON_SHA,"PLACEMENT_PACK_CONTRACT")?;
+ need(d["contract"]=="wand.core.steam626.placement-applicable-supplement@4"&&d["build"]==BUILD&&d["commonDependencySha256"]==COMMON_SHA,"PLACEMENT_PACK_CONTRACT")?;
  for (k,c) in [("missions",965),("achievements",509),("duties",509),("recurring",508)]{need(map(&d[k],c)?.len()==c,"PLACEMENT_PACK_COUNT")?;}
  need(d["vaseItemId"]==40000066&&d["vaseDefinitionSha256"]=="60f840fa471e3678b5f7a018466d150882ad7bddaece6ada9a86327fd1c0607a","PLACEMENT_VASE_FIXED_DEFINITION")?;
  need(array(&d["vaseSceneIds"],182)?.len()==182&&array(&d["vaseTimeBendingDataIds"],82)?.len()==82&&array(&d["vaseVillageAreaNames"],48)?.len()==48,"PLACEMENT_VASE_PACK_COUNT")?;
  need(d["roadItemId"]==40100068&&d["roadTargetArea"]==2&&d["roadDefinitionSha256"]=="38259bcaf241a068214204562fb0a540623c5bb34db86ca1f4ee4e3e7cc0dfe3"&&d["roadChoiceDefinitionSha256"]=="a77b86719d655f5660ecee2e8fdb9a3e86e3ef83e6d8af884f0b91b80b2512b9"&&array(&d["roadChoiceItemIds"],16)?.len()==16,"PLACEMENT_SR03_FIXED_DEFINITION")?;
+ need(d["switch626Rm01Build"]==serde_json::json!({"platform":"Switch","kind":"SwitchBid","id":SWITCH_BID,"schema":626})&&map(&d["switch626Rm01SceneDefinitions"],3)?.len()==3&&map(&d["switch626Rm01CropDefinitions"],2)?.len()==2,"PLACEMENT_RM01_PACK")?;
  Ok(d)
 }
 fn missions(w:&Value,d:&Value)->R<()>{
@@ -92,14 +94,21 @@ fn duties(p:&Value,d:&Value,scope:PlacementScope)->R<()>{
   let row=array(rows.get(n(&s["DifficultyLayer"])? as usize).ok_or("PLACEMENT_DUTY_LAYER")?,2)?;
   need(row.len()==2,"PLACEMENT_DUTY_ROW")?;
   let k=n(&row[0])?;
+  if k==16{
+   let id=n(&s["DutyId"])?;
+   need(scope==PlacementScope::Switch626Rm01MixedRoad&&matches!(id,2110000038|2110000161)&&n(&s["DifficultyLayer"])?==0&&row[1].is_null()&&d["switch626Rm01CropDefinitions"].get(id.to_string()).is_some(),"PLACEMENT_RM01_CROP_SCOPE")?;
+   need(array(&s["ItemsUsed"],4096)?.is_empty(),"PLACEMENT_RM01_CROP_ITEMS_USED")?;
+   super::super::switch626_crop_filter::crop_filter(&s["StepData"]["ItemFilter"],40100068,id,0).map_err(|e|e.0)?;
+   continue
+  }
   need(matches!(k,11|13|17|18|19|20|21|22|23|24|26|32|33|36|39|40|41|43),"PLACEMENT_DUTY_KIND")?;
   let f=&s["StepData"]["ItemFilter"]["Data"];
   if k==33 {
    // Exact normal-retail fixed root: Vase area 6; COMP03 Snow island, not a VillageArea.
    // These are the only explicit area branches established by E2135/E2156.
-   need(matches!(scope,PlacementScope::VaseAdd|PlacementScope::Comp03LayoutOnly|PlacementScope::Sr03MixedRoad),"PLACEMENT_SCOPE")?;
+   need(matches!(scope,PlacementScope::VaseAdd|PlacementScope::Comp03LayoutOnly|PlacementScope::Sr03MixedRoad|PlacementScope::Switch626Rm01MixedRoad),"PLACEMENT_SCOPE")?;
    need(matches!(n(&row[1])?,4|12)&&f["Type"]=="ItemType_Furniture","PLACEMENT_DUTY_AREA")?;
-   if scope==PlacementScope::Sr03MixedRoad{
+   if matches!(scope,PlacementScope::Sr03MixedRoad|PlacementScope::Switch626Rm01MixedRoad){
     road_decor+=1;need(road_decor<=2&&f["Item"]==0&&array(&f["ItemList"],4096)?.is_empty()&&f["AnyActivityItem"]==false&&array(&f["Tags"],4096)?.is_empty()&&f["MinRarity"]==1&&f["MaxRarity"]==5&&array(&s["ItemsUsed"],4096)?.is_empty(),"PLACEMENT_SR03_DUTY_FILTER")?;
    }
   }else if !f.is_null(){need(f.as_object().is_some()&&f["Type"].as_str().is_some_and(|t|!t.is_empty()&&t!="ItemType_Furniture"),"PLACEMENT_DUTY_FILTER")?;}
@@ -190,17 +199,23 @@ fn road_event_shape(kind:&str,body:&Value,d:&Value,class:&str)->R<()>{
  Ok(())
 }
 fn recurring(w:&Value,d:&Value,scope:PlacementScope)->R<()>{
- if matches!(scope,PlacementScope::VaseAdd|PlacementScope::Sr03MixedRoad){vase_roots(w,d)?;}
- let mode=match scope{PlacementScope::Comp03LayoutOnly=>1,PlacementScope::VaseAdd=>2,PlacementScope::Sr03MixedRoad=>3};
+ if matches!(scope,PlacementScope::VaseAdd|PlacementScope::Sr03MixedRoad|PlacementScope::Switch626Rm01MixedRoad){vase_roots(w,d)?;}
+ let mode=match scope{PlacementScope::Comp03LayoutOnly=>1,PlacementScope::VaseAdd=>2,PlacementScope::Sr03MixedRoad|PlacementScope::Switch626Rm01MixedRoad=>3};
  for (k,v) in map(&w["RecurringEvents"],4096)?{
   canonical_key(k)?;let o=map(v,1)?;need(o.len()==1,"PLACEMENT_RECURRING_ONEOF")?;
   let (kind,body)=o.iter().next().ok_or("PLACEMENT_RECURRING_ONEOF")?;
   let row=array(def(d,"recurring",n(&body["RecurringEventItemID"])?)?,4)?;
   need(row.len()==4&&text(&row[0])?==kind,"PLACEMENT_RECURRING_KIND")?;
+  if scope==PlacementScope::Switch626Rm01MixedRoad&&row[mode].is_null(){
+   let id=n(&body["RecurringEventItemID"])?;
+   let scene=d["switch626Rm01SceneDefinitions"].get(id.to_string()).ok_or("PLACEMENT_RM01_SCENE_UNKNOWN")?;
+   need(matches!(id,2010000176|2010000177|2010000178)&&kind=="ItemSpawning"&&n(&scene[1])?==1540000195,"PLACEMENT_RM01_SCENE_SCOPE")?;
+   vase_event_shape(kind,body)?;continue
+  }
   let class=row[mode].as_str().ok_or("PLACEMENT_RECURRING_APPLICABILITY_UNKNOWN")?;
   if scope==PlacementScope::Comp03LayoutOnly {
    need(matches!(class,"village"|"other-scene"|"disjoint"|"known-nonplacement"),"PLACEMENT_RECURRING_APPLICABILITY_UNKNOWN")?;
-  } else if scope==PlacementScope::Sr03MixedRoad{
+  } else if matches!(scope,PlacementScope::Sr03MixedRoad|PlacementScope::Switch626Rm01MixedRoad){
    road_event_shape(kind,body,d,class)?;
   } else {
    need(matches!(class,"disjoint"|"offline-preserve"),"PLACEMENT_RECURRING_APPLICABILITY_UNKNOWN")?;
@@ -231,16 +246,23 @@ fn battlepass(p:&Value)->R<()>{
 /// This helper never creates a target, changes a document, invokes a game event or grants authority.
 pub(crate) fn check_supplement(build:&str,common_bytes:&[u8],supplement_bytes:&[u8],scope:PlacementScope,player:&Value,world:&Value)->R<SupplementChecked>{
  need(build==BUILD&&hex(&Sha256::digest(common_bytes))==COMMON_SHA,"PLACEMENT_COMMON_BUILD_OR_PACK")?;
- need(scope!=PlacementScope::Sr03MixedRoad,"PLACEMENT_SR03_CORE_FILTER_REQUIRED")?;
+ need(!matches!(scope,PlacementScope::Sr03MixedRoad|PlacementScope::Switch626Rm01MixedRoad),"PLACEMENT_SR03_CORE_FILTER_REQUIRED")?;
  let d=pack(supplement_bytes)?;check(scope,player,world,&d)
 }
 // Call only from the actual Core-owned S-R03 binder, with the existing
 // product_amount_scoped::filter_disjoint function, never a UI-supplied fact.
 // Shared subscriber/ref/target/provider/rights/stock and epoch checks remain mandatory.
 pub(crate) fn check_sr03_supplement(build:&str,common_bytes:&[u8],supplement_bytes:&[u8],player:&Value,world:&Value,filter_disjoint:fn(&Value,i32,bool)->bool)->R<SupplementChecked>{
- need(build==BUILD&&hex(&Sha256::digest(common_bytes))==COMMON_SHA,"PLACEMENT_COMMON_BUILD_OR_PACK")?;
+ check_road_supplement(build,common_bytes,supplement_bytes,player,world,filter_disjoint,PlacementScope::Sr03MixedRoad)
+}
+pub(crate) fn check_switch626_rm01_supplement(build:&str,common_bytes:&[u8],supplement_bytes:&[u8],player:&Value,world:&Value,filter_disjoint:fn(&Value,i32,bool)->bool)->R<SupplementChecked>{
+ check_road_supplement(build,common_bytes,supplement_bytes,player,world,filter_disjoint,PlacementScope::Switch626Rm01MixedRoad)
+}
+fn check_road_supplement(build:&str,common_bytes:&[u8],supplement_bytes:&[u8],player:&Value,world:&Value,filter_disjoint:fn(&Value,i32,bool)->bool,scope:PlacementScope)->R<SupplementChecked>{
+ let expected=if scope==PlacementScope::Switch626Rm01MixedRoad{SWITCH_BID}else{BUILD};
+ need(build==expected&&hex(&Sha256::digest(common_bytes))==COMMON_SHA,"PLACEMENT_COMMON_BUILD_OR_PACK")?;
  let d=pack(supplement_bytes)?;
- let checked=check(PlacementScope::Sr03MixedRoad,player,world,&d)?;
+ let checked=check(scope,player,world,&d)?;
  let bp=&player["BattlePassStates"];let mut groups:Vec<&Value>=map(&bp["Progress"],512)?.values().collect();groups.push(&bp["FtueProgress"]);
  let mut count=0;
  for g in groups{

@@ -11,6 +11,8 @@ mod placement_saved_refs;
 mod comp03_product_target;
 #[path="sr03_product_target.rs"]
 mod sr03_product_target;
+#[path="switch626_crop_filter.rs"]
+mod switch626_crop_filter;
 const ELIG:&str=include_str!("../data/steam626-amount-packaged-candidates.json");
 const DEP:&str=include_str!("../data/steam626-amount-dependency-projection.json");
 const ELIG_SHA:&str="05a6bea5582232b27569dbb71f8666d7d60c11a35515d844d2f21b2ae557b23d";
@@ -269,6 +271,10 @@ fn saved_event_states(b:&[u8],active:Span)->CoreResult<()>{
     Ok(())
 }
 fn subscribers(b:&[u8],player:Span,world:Span,top:Span,d:&Value,item:i32,furniture:bool)->CoreResult<()>{
+    subscribers_bound(b,player,world,top,d,item,furniture,false)
+}
+fn subscribers_bound(b:&[u8],player:Span,world:Span,top:Span,d:&Value,item:i32,furniture:bool,switch_rm01:bool)->CoreResult<()>{
+    if switch_rm01{need(item==40100068&&furniture,"RM01_SUBSCRIBER_SCOPE")?;}
     let mut refs=0usize;let mut nodes=0usize;let mut slots=0usize;
     excludes(&d["events"],item)?;
     let hist=f(b,top,"ConditionalEventHistory")?;
@@ -320,7 +326,12 @@ fn subscribers(b:&[u8],player:Span,world:Span,top:Span,d:&Value,item:i32,furnitu
             if st=="DutySlotState_OnGoing"{
                 let id=n(b,s,"DutyId")?;let ix=n(b,s,"DifficultyLayer")? as usize;
                 let layers=d["duties"][id.to_string()].as_array().ok_or(denied("PRODUCT_AMOUNT_DUTY_DEFINITION"))?;
-                excludes(layers.get(ix).ok_or(denied("PRODUCT_AMOUNT_DUTY_LAYER"))?,item)?;
+                let layer=layers.get(ix).ok_or(denied("PRODUCT_AMOUNT_DUTY_LAYER"))?;
+                if switch_rm01&&ix==0&&matches!(id,2110000038|2110000161){
+                    let v=leaf(b,f(b,f(b,s,"StepData")?,"ItemFilter")?)?;
+                    switch626_crop_filter::crop_filter(&v,item,id,ix)?;
+                    need(array(b,f(b,s,"ItemsUsed")?,4096)?.is_empty(),"RM01_CROP_ITEMS_USED")?;
+                }else{excludes(layer,item)?;}
             }
         }
     }
