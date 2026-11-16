@@ -155,17 +155,17 @@ try{
  // is injected into this disposable page store, after mounting the actual
  // canonical candidate. Never change production release configuration.
  assert.deepEqual(mediaRequests,[],'OFF did not fetch media before synthetic fixture');
- await page.locator('[data-wep-savefree-search]').fill('40006096');
- const fixtureChoice=panel.locator('[data-wep-savefree-choose="40006096"]');
+ await page.locator('[data-wep-savefree-search]').fill('40000047');
+ const fixtureChoice=panel.locator('[data-wep-savefree-choose="40000047"]');
  await fixtureChoice.waitFor({timeout:10000});
  const fixtureRow=fixtureChoice.locator('..');
- const fixtureThumb=fixtureRow.locator('[data-item-thumb-id="40006096"]');
+ const fixtureThumb=fixtureRow.locator('[data-item-thumb-id="40000047"]');
  assert.equal(await fixtureThumb.count(),1);
  assert.equal(await fixtureThumb.getAttribute('data-media-status'),'unavailable');
  const fixturePath=await page.evaluate(async()=>{
   const media=await import('/src/lib/item-media/switch1253-public-item-images.mjs');
   const prefs=await import('/src/lib/item-media/public-item-images.mjs');
-  const id='40006096',pin=media.SWITCH1253_NATIVE_PINS[id];
+  const id='40000047',pin=media.SWITCH1253_NATIVE_PINS[id];
   const release={
    mediaPublic:true,decisionId:prefs.ITEM_IMAGE_OWNER_DECISION_ID,scope:media.SWITCH1253_OWNER_SCOPE,
    rightsHolderLicense:'DOCUMENTED_SCOPE_LICENSE',licenseEvidenceSha256:'a'.repeat(64),
@@ -188,6 +188,8 @@ try{
   const catalog=media.validateSwitch1253ItemImageCatalog(raw,release);
   // Keep the validated synthetic fixture separate from any live manifest.
   window.__wepSyntheticItemThumbCatalog=catalog;
+  if(media.scopedSwitch1253ItemImageHref('','40006096',catalog)!==null)
+    throw Error('E1640_QUARANTINED_ITEM_MEDIA_URL_MUST_REMAIN_DENIED');
   return media.scopedSwitch1253ItemImageHref('',id,catalog);
  });
  assert.match(fixturePath,/^\/ddv\/item-images\//);
@@ -212,10 +214,17 @@ try{
  assert.ok((await fixtureRow.locator('.item-name').innerText()).includes(await fixtureImage.getAttribute('alt')));
  assert.equal(await fixtureImage.evaluate(img=>getComputedStyle(img).objectFit),'cover');
  assert.equal(await fixtureThumb.evaluate(el=>getComputedStyle(el).getPropertyValue('--image-size').trim()),'80px');
- assert.equal(await selectedThumb.getAttribute('data-media-status'),'unavailable','different canonical ID must not alias fixture');
+ assert.equal(await selectedThumb.getAttribute('data-media-status'),'verified-public-image','same canonical ItemID reuses synthetic fixture only');
  await fixtureImage.dispatchEvent('error');
  await fixtureThumb.locator('[aria-hidden="true"]').waitFor();
  assert.equal(await fixtureThumb.getAttribute('data-media-status'),'unavailable','decode failure falls back');
+ // E1640: even a valid-looking catalog cannot publish the quarantined Switch item.
+ await page.locator('[data-wep-savefree-search]').fill('40006096');
+ const quarantinedThumb=panel.locator('[data-item-thumb-id="40006096"]');
+ await quarantinedThumb.waitFor();
+ assert.equal(await quarantinedThumb.getAttribute('data-media-status'),'unavailable',
+   'E1640 quarantined Item must remain unavailable after synthetic review');
+ assert.equal(await quarantinedThumb.locator('img').count(),0);
  await page.evaluate(async()=>{
   const media=await import('/src/lib/item-media/switch1253-public-item-images.mjs');
   const prefs=await import('/src/lib/item-media/public-item-images.mjs');
