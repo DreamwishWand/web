@@ -239,6 +239,144 @@ const switch626ChestFeatureEntries=[
     }
   }
 ];
+const comp03SpatialEntries=[
+  {
+    "path": ".github/workflows/core-product-session-boundary.yml",
+    "before": {
+      "mode": "100644",
+      "blob": "93c4244c053dfeabcf27b0817b6a2e81a5fb905d"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "889d78de3c2a7af48d193a843d772b8cb48614ba"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "70e9a9b32ff4cafc2efa9f2dc7caada82224b8b7"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "fc3761157a8ba50c787b58024215ffcd540c8468"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/data/steam626-placement-applicable-supplement.json",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "e6746f46fd043507da5d51182889416f22df1ee8"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/comp03_installed_geometry.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "645e6e6a64664088997df46954cd1d8bb4a2995a"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/comp03_product_target.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "a994b014f53eb1631eb171773492d724d34f2adf"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/grid_append.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "cfc7486f864f3d096282f65c7fc448c9f2a83215"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/placement_applicable.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "ee266ba04bc241dce4573522da212e151845ab8c"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/placement_saved_refs.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "9d20be56109854e7a39cc994fe8bd7264ce21afa"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_amount_scoped.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "a5e774917e5d5d43cca2493e2c74a2cf07f45e53"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "be0185a40f59a46f8deaf45500f1c00bc7261920"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/semantic_writer.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "c23187216e12ec79da32ced511d41768bec91fe5"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "f8ba5c40e25dadf46c5d7bc50760f18f8160fc84"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/switch624_road_rm01.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "1473ccbba5e46658d6cdb61904de7344a1c99706"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "798ec61ae99c5bc00156c1c082dff6da1013c43e"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "cd141f4eff59d92333026316a5cb6f144ddfaa19"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "d9a9fc6e42f51c1db936016ee63c7e676ea25b03"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "3aee4b593a4d62c3ff233c678095bf09cd0474bd"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "08c1818b2a97d31e6ff737f12c674b11b0644ffa"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "502fd7b446c04b943ce624e830a846428d1ec213"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "71a0d970fd6e909521613234579f090ae9eaf802"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -307,6 +445,12 @@ function selectAcceptedCorePair(baseCore,sourceCore){
   return {entries:switch626ChestFeatureEntries,count:3,metadata:{
    sourcePr:1458,sourceHead:'d2f903e43f84bb11e1133c2e3933fce9977dc122',
    sourceTree:'9b0b7dacdd40ddcfd5f86aa1143b6b795cede583'}};
+ }
+ if(baseCore==='aceda9d906c3137d717824a3079e84165ab5f62e'){
+  if(sourceCore!=='f94a61d1e2223b16198ebaf710575b626d413c9f')deny('CANDIDATE_CORE_TREE');
+  return {entries:comp03SpatialEntries,count:14,metadata:{
+   sourcePr:1604,sourceHead:'edd77cbb423302ea581a41c286eb3eab52e42fe6',
+   sourceTree:'110018c8e486cdbf13da18279f162e7b68ca88e6'}};
  }
  deny('BASE_CORE_TREE');
 }
