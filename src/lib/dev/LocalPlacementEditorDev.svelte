@@ -3,6 +3,7 @@
  import {locale} from '$lib/i18n/runtime.js';
  import {createLocalPlacementDevWorkflow,STEAM626_PLACEMENT_BUILD,SWITCH626_BACKPACK_BUILD} from './local-placement-workflow.mjs';
  import {localPlacementCopy} from './local-placement-copy.mjs';
+ import Comp03ReferencePattern from '$lib/wep/Comp03ReferencePattern.svelte';
  import {productPlacementPortScope} from './product-placement-client.mjs';
  export let trustedWorkerAdapter=null;
  export let verifiedLocalDevGate=false;
@@ -21,7 +22,7 @@
   const scope=productPlacementPortScope(trustedWorkerAdapter);
   if(!scope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
   if(scope&&scope.uiOperation!==fixedOperation)return;
-  try{productMode=scope?.mode||'';operation=fixedOperation;workflow=createLocalPlacementDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,operation});state=workflow.snapshot()}catch{workflow=null}
+  try{productMode=scope?.mode||'';operation=fixedOperation;workflow=createLocalPlacementDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,operation,spatialPreviewEnabled:scope?.spatialPreviewEnabled===true});state=workflow.snapshot()}catch{workflow=null}
   return ()=>{++epoch;const w=workflow;workflow=null;void w?.close().catch(()=>{})};
  });
  async function act(fn){
@@ -66,7 +67,25 @@
      {#if wardrobe}<p>{words.wardrobeSlot}: {p.slot}</p><p>Item ID: {p.oldItemId} → {p.newItemId}</p>
      {:else if backpack}<p>Backpack 0 · Item ID: {p.itemId}</p><p>{words.sourceSlot}: {p.sourceSlot} · {p.oldAmount} → {p.newSourceAmount}</p><p>{words.destinationSlot}: {p.destinationSlot} · 0 → {p.newDestinationAmount}</p>
      {:else}<p>{words.grid}: {p.gridId} · Item ID: {p.itemId}</p>
-     {#if operation==='comp03'}<p>{words.seed}: {p.seedId}</p><div class="shape" aria-label={words.compDetail}>{#each Array(9) as _,i}<span class:seed={i===0}>{i===0?'1':'+'}</span>{/each}</div><p>{words.existing}: 1 · {words.added}: 8</p>
+     {#if operation==='comp03'}<p>{words.seed}: {p.seedId}</p><Comp03ReferencePattern locale={$locale}/>
+     {#if state.phase==='previewed'&&!pending&&p.seedId===seed&&state.spatialPreview}
+      <figure class="spatial-review" data-comp03-spatial-review>
+       <figcaption>{words.verified} · {words.grid}: {state.spatialPreview.gridId}</figcaption>
+       <svg viewBox="0 0 480 320" role="img" aria-label={words.verified+' · '+words.grid+': '+state.spatialPreview.gridId}>
+        {#each state.spatialPreview.markers as m (m.objectId)}
+         <g transform={'translate('+m.screenX+' '+m.screenY+')'} data-comp03-anchor={m.role}>
+          <circle r="11" class:retained={m.role==='retained'}/>
+          <text text-anchor="middle" dominant-baseline="central">{m.role==='retained'?'1':'+'}</text>
+         </g>
+        {/each}
+       </svg>
+       <div class="anchor-list">
+        {#each state.spatialPreview.markers as m (m.objectId)}
+         <p>{m.role==='retained'?words.existing:words.added} · #{m.objectId} · X: {m.x} · Y: {m.y}</p>
+        {/each}
+       </div>
+      </figure>
+     {/if}
      {:else}<p>X: {p.x} · Y: {p.y} · {p.orientation}</p>{/if}
      <p>{p.oldAmount} → {p.newAmount}</p>{/if}<p>{detail}</p>
     </div>
@@ -83,6 +102,7 @@
  .placement{box-sizing:border-box;display:grid;gap:12px;min-width:0;max-width:100%;padding:16px;border:1px solid var(--border);border-radius:14px;overflow-wrap:anywhere}
  .placement label{display:grid;gap:5px;min-width:0}.placement input,.placement button{box-sizing:border-box;max-width:100%;min-width:0;padding:10px;font:inherit;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);color:var(--ink)}
  .placement button{min-height:44px;cursor:pointer}.placement button:disabled{opacity:.5;cursor:not-allowed}.placement .confirm{display:flex;align-items:flex-start;gap:8px}
- .review{display:grid;gap:8px;padding:12px;border:1px solid var(--border);border-radius:10px}.shape{display:grid;grid-template-columns:repeat(3,minmax(32px,52px));gap:3px}.shape span{aspect-ratio:1;display:grid;place-items:center;border:1px solid var(--border);border-radius:4px;background:var(--surface-raised)}.shape .seed{border:2px solid var(--gold)}
+ .review{display:grid;gap:8px;padding:12px;border:1px solid var(--border);border-radius:10px}
+ .spatial-review{margin:0;min-width:0;display:grid;gap:8px}.spatial-review svg{width:100%;max-width:480px;height:auto;border:1px solid var(--border);border-radius:8px;pointer-events:none}.spatial-review circle{fill:var(--surface-raised);stroke:currentColor;stroke-width:1.5;stroke-dasharray:3 2}.spatial-review circle.retained{stroke-width:2.5;stroke-dasharray:none}.spatial-review text{fill:currentColor;font-size:14px;font-weight:600}.anchor-list{display:grid;gap:4px;font-size:.875rem;overflow-wrap:anywhere}
  p,h2{margin:0}code{overflow-wrap:anywhere}.placement button:focus-visible,.placement input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 </style>
