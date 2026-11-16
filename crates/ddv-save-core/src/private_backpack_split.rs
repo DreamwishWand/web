@@ -191,4 +191,61 @@ mod tests{
         assert!(open(&doc()).stage_private_steam626_backpack_fruit_split_exact3(e,&b).is_err());
         assert_eq!(s.receipt().unwrap().revision,0);
     }
+
+    #[test]
+    fn qa_switch_backpack_delta_noncanonical_exact3_and_build_scope(){
+        let mut pos=0;let mut neg=0;
+        for (src,dst,old) in [(2usize,0usize,50u32),(1,2,2)]{
+            let mut d=doc();d["Player"]["ContainerInventories"]["0"]["Size"]=json!(4);let slots=&mut d["Player"]["ContainerInventories"]["0"]["Inventory"];
+            *slots=json!([{"ItemID":0,"Amount":0,"State":null,"Opaque":"keep"},{"ItemID":0,"Amount":0,"State":null},{"ItemID":0,"Amount":0,"State":null},{"ItemID":0,"Amount":0,"State":null}]);
+            slots[src]["ItemID"]=json!(ITEM);slots[src]["Amount"]=json!(old);
+            let raw=serde_json::to_string_pretty(&d).unwrap().replace("\"keep\"","\"\\u006beep\"");
+            let mk=|platform,kind,id:&str,attested|ProductSession::open_decoded_readonly(raw.as_bytes().to_vec(),BuildIdentity{platform,build_kind:kind,build_id:id.into(),schema:626,externally_attested:attested});
+            let s=mk(Platform::Switch,BuildKind::SwitchBid,SWITCH_BID,true).unwrap();
+            let t=mk(Platform::SteamWindows,BuildKind::SteamFullVersion,EXACT_STEAM,true).unwrap();
+            let e=env(s.receipt().unwrap(),WorkerAction::ReadDomain);
+            let w=s.read_private_switch626_backpack_fruit_slot_pair(e,src,dst).unwrap();
+            assert!(s.read_private_switch626_backpack_fruit_slot_pair(e,src,3).is_err());neg+=1;
+            let z=t.read_private_backpack_slot_pair(env(t.receipt().unwrap(),WorkerAction::ReadDomain),src,dst).unwrap();
+            for k in ["source","destination","container","decodedSha256"]{assert_eq!(w[k],z[k]);}
+            assert_eq!(w["buildId"],SWITCH_BID);assert_eq!(w["buildKind"],"SwitchBid");assert!(w.get("fullVersion").is_none());assert_eq!(w["writerAuthorized"],false);
+            let p=indexed_read::roots(raw.as_bytes()).unwrap().player;
+            let m=object_field(raw.as_bytes(),p,"ContainerInventories").unwrap();
+            let c=object_field(raw.as_bytes(),m,"0").unwrap();
+            let a=object_field(raw.as_bytes(),c,"Inventory").unwrap();
+            let so=array_element(raw.as_bytes(),a,src).unwrap();let de=array_element(raw.as_bytes(),a,dst).unwrap();
+            let field=|s:Span,k:&str|object_field(raw.as_bytes(),s,k).unwrap();
+            let hash=|s:Span|hex(&sha(&raw.as_bytes()[s.begin..s.end]));
+            let mut edits=[(field(so,"Amount"),(old-1).to_string()),(field(de,"ItemID"),ITEM.to_string()),(field(de,"Amount"),"1".into())];
+            edits.sort_by_key(|x|x.0.begin);
+            let mut want=raw.as_bytes().to_vec();for (sp,n) in edits.iter().rev(){want.splice(sp.begin..sp.end,n.as_bytes().iter().copied());}
+            let plan=json!({"contract":SWITCH_CONTRACT,"buildId":SWITCH_BID,"definitionSha256":DEFINITION,
+            "sourceDecodedSha256":hex(&sha(raw.as_bytes())),"sourceSlot":src,"destinationSlot":dst,"oldAmount":old,
+            "containerSha256":hash(c),"mapSha256":hash(m),"slotsSha256":hash(a),"parentSha256":hash(field(c,"ParentItemID")),
+            "sourceEntrySha256":hash(so),"destinationEntrySha256":hash(de),"sourceStateSha256":hash(field(so,"State")),
+            "destinationStateSha256":hash(field(de,"State")),"expectedOutputSha256":hex(&sha(&want))});
+            let bytes=serde_json::to_vec(&plan).unwrap();let st=WorkerEnvelope{action:WorkerAction::Stage,..e};
+            for (key,v) in [("buildId",json!("52BD625D9B4E0053")),("contract",json!(CONTRACT)),("oldAmount",json!(1)),("sourceSlot",json!(dst)),("destinationSlot",json!(src)),("expectedOutputSha256",json!("ab".repeat(32))),("sourceEntrySha256",json!("cd".repeat(32)))]{
+                let mut q=plan.clone();q[key]=v;assert!(s.stage_private_switch626_backpack_fruit_split_exact3(st,&serde_json::to_vec(&q).unwrap()).is_err());neg+=1;
+            }
+            let mut q=plan.clone();q.as_object_mut().unwrap().remove("buildId");assert!(s.stage_private_switch626_backpack_fruit_split_exact3(st,&serde_json::to_vec(&q).unwrap()).is_err());neg+=1;
+            assert!(s.stage_private_switch626_backpack_fruit_split_exact3(st,&serde_json::to_vec_pretty(&plan).unwrap()).is_err());neg+=1;
+            assert!(t.stage_private_switch626_backpack_fruit_split_exact3(env(t.receipt().unwrap(),WorkerAction::Stage),&bytes).is_err());neg+=1;
+            assert!(s.stage_private_steam626_backpack_fruit_split_exact3(st,&bytes).is_err());neg+=1;
+            assert!(s.stage_private_switch626_backpack_fruit_split_exact3(WorkerEnvelope{expected_index_generation:2,..st},&bytes).is_err());neg+=1;
+            for (id,attested) in [("52BD625D9B4E0053",true),(SWITCH_BID,false)]{
+                if let Ok(x)=mk(Platform::Switch,BuildKind::SwitchBid,id,attested){assert!(x.stage_private_switch626_backpack_fruit_split_exact3(env(x.receipt().unwrap(),WorkerAction::Stage),&bytes).is_err());}neg+=1;
+            }
+            let mut x=mk(Platform::Switch,BuildKind::SwitchBid,SWITCH_BID,true).unwrap();x.worker_bound=true;
+            assert!(x.stage_private_switch626_backpack_fruit_split_exact3(env(x.receipt().unwrap(),WorkerAction::Stage),&bytes).is_err());neg+=1;
+            let x=mk(Platform::Switch,BuildKind::SwitchBid,SWITCH_BID,true).unwrap();assert!(x.stage_private_switch626_backpack_fruit_split_exact3(st,&bytes).is_err());neg+=1;
+            let r=s.stage_private_switch626_backpack_fruit_split_exact3(st,&bytes).unwrap();assert_eq!((r.operation_count,r.exact_field_changed_count),(3,3));assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);assert_eq!(r.staged_decoded_sha256,sha(&want));
+            assert!(s.stage_private_switch626_backpack_fruit_split_exact3(st,&bytes).is_err());neg+=1;
+            s.undo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();assert!(s.take_typed_semantic_decoded_once(env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());neg+=1;
+            s.redo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();let ex=env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);assert_eq!(s.take_typed_semantic_decoded_once(ex).unwrap(),want);assert!(s.take_typed_semantic_decoded_once(ex).is_err());neg+=1;
+            assert_eq!(s.decoded.as_ref(),raw.as_bytes());pos+=1;
+        }
+        assert_eq!((pos,neg),(2,40));
+    }
+
 }
