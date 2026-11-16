@@ -239,6 +239,52 @@ const switch626ChestFeatureEntries=[
     }
   }
 ];
+const steam626ChestAtomicEntries=[
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "70e9a9b32ff4cafc2efa9f2dc7caada82224b8b7"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "00226c1e27b511da4e543b08430f99b6f1dd9088"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_amount_scoped.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "a5e774917e5d5d43cca2493e2c74a2cf07f45e53"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "864792dae67657462c74c0f4d7d0996d1d78941a"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "cd141f4eff59d92333026316a5cb6f144ddfaa19"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "9db54faf767734ded719b556e2ef2c76d15f36c5"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "502fd7b446c04b943ce624e830a846428d1ec213"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "99877a799c26b9b1fdd3944178c6a86ec290eb6c"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -307,6 +353,12 @@ function selectAcceptedCorePair(baseCore,sourceCore){
   return {entries:switch626ChestFeatureEntries,count:3,metadata:{
    sourcePr:1458,sourceHead:'d2f903e43f84bb11e1133c2e3933fce9977dc122',
    sourceTree:'9b0b7dacdd40ddcfd5f86aa1143b6b795cede583'}};
+ }
+ if(baseCore==='aceda9d906c3137d717824a3079e84165ab5f62e'){
+  if(sourceCore!=='e5c863b756e9593afcfe4f3c24f122c91a4c4b6f')deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626ChestAtomicEntries,count:4,metadata:{
+   sourcePr:1527,sourceHead:'c0a12d3f3dc177c3370864aeb1c5c65457b29b9f',
+   sourceTree:'48290d289cb2a96c369c3adc1f7645737d0c8a4d'}};
  }
  deny('BASE_CORE_TREE');
 }
