@@ -28,7 +28,14 @@ pub struct WorkerWasmSource {
     entropy:[u8;32],
     session:Option<WorkerSessionGuard>,
     closed:bool,
+    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    scoped_output:Option<(Vec<u8>,usize)>,
+    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    scoped_domain:std::cell::Cell<Option<ScopedEditDomain>>,
 }
+#[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+#[derive(Clone,Copy,PartialEq,Eq)]
+enum ScopedEditDomain { Amount, Collection }
 #[wasm_bindgen]
 impl WorkerWasmSource {
     #[wasm_bindgen(constructor)]
@@ -50,7 +57,11 @@ impl WorkerWasmSource {
         let mut seed=[0_u8;32];seed.copy_from_slice(entropy);
         Ok(Self{buffer:Vec::new(),
             build:BuildIdentity{platform,build_kind,build_id,schema:schema.into(),externally_attested},
-            entropy:seed,session:None,closed:false})
+            entropy:seed,session:None,closed:false,
+            #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+            scoped_output:None,
+            #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+            scoped_domain:std::cell::Cell::new(None)})
     }
     /// No JS-owned second session, raw Save, UI readset, or unbounded transferable.
     pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{
@@ -281,8 +292,108 @@ impl WorkerWasmSource {
         }
         Ok(out)
     }
+    #[cfg(feature="product-collection-scoped")]
+    pub fn preview_scoped_collection_candidate(&self,definition:u32,group:u32,item:u32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(session_id)?,expected_revision:revision,expected_index_generation:index_generation,expected_decoded_sha256:from_hex(decoded_sha256)?,action:WorkerAction::ReadDomain};
+        Ok(guard.preview_collection_candidate(e,definition,group as usize,item).map_err(|e|err(e.0))?.to_string())
+    }
+    // Exact fixed Collection command; old=false/new=true is intrinsic,
+    // never a JS-coerced boolean or a generic path/value mutation.
+    #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+    pub fn preview_fixed_collection(&self,definition:u32,group:u32,item:u32,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        Ok(guard.preview_fixed_collection(e,definition,group as usize,item).map_err(|e|err(e.0))?.to_string())
+    }
+    #[cfg(all(feature="product-collection-scoped",feature="semantic-writer-dev"))]
+    pub fn stage_fixed_collection(&self,definition:u32,group:u32,item:u32,entry_sha256:&str,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        let r=guard.stage_fixed_collection(e,definition,group as usize,item,from_hex(entry_sha256)?).map_err(|e|err(e.0))?;
+        self.scoped_domain.set(Some(ScopedEditDomain::Collection));
+        Ok(scoped_edit_receipt(r,"wand.worker.scoped-edit@1"))
+    }
+    /// ACT916 opt-in bounded same-session discovery. No caller eligibility.
+    #[cfg(feature="product-amount-scoped")]
+    pub fn discover_scoped_amount(&self,profile:&str,offset:u32,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        let (targets,next,scanned)=guard.discover_scoped_amount(e,profile,offset).map_err(|e|err(e.0))?;
+        let mut rows=Vec::new();
+        for t in targets{
+            let v=t.view();let (id,selector)=match v.selection{
+                crate::ExistingAmountSelection::Inventory{inventory_id,item_id}=>(inventory_id,item_id),
+                crate::ExistingAmountSelection::Chest{container_id,slot_index}=>(container_id,slot_index as u32),
+            };
+            rows.push(serde_json::json!({"profile":profile,"id":id,"selector":selector,"itemId":v.item_id,"oldAmount":v.old_amount}));
+        }
+        Ok(serde_json::json!({"contract":"wand.worker.steam626.scoped-amount-discovery@1","profile":profile,
+            "sessionId":session_id,"revision":revision,"indexGeneration":index_generation,"decodedSha256":decoded_sha256,
+            "offset":offset,"nextOffset":next,"scanned":scanned,"rows":rows,"writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
+    }
+    /// ACT916 opt-in ABI, absent from the existing Pages feature set.
+    #[cfg(feature="product-amount-scoped")]
+    pub fn preview_scoped_amount(&self,profile:&str,id:u32,selector:u32,new:u32,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let selection=scoped_selection(profile,id,selector)?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        let t=guard.preview_scoped_amount(e,selection,new).map_err(|e|err(e.0))?;
+        let v=t.view();
+        Ok(serde_json::json!({"contract":"wand.worker.steam626.scoped-amount@1","profile":profile,
+            "id":id,"selector":selector,"itemId":v.item_id,"oldAmount":v.old_amount,"newAmount":new,
+            "entrySha256":hex(&v.entry_sha256),"sessionId":hex(&v.session_id),"revision":v.revision,
+            "indexGeneration":v.index_generation,"decodedSha256":hex(&v.decoded_sha256),
+            "scopedCandidate":true,"writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn stage_scoped_amount(&self,profile:&str,id:u32,selector:u32,old:u32,new:u32,entry_sha256:&str,session_id:&str,
+            revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let selection=scoped_selection(profile,id,selector)?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        let r=guard.stage_scoped_amount(e,selection,old,new,from_hex(entry_sha256)?).map_err(|e|err(e.0))?;
+        self.scoped_domain.set(Some(ScopedEditDomain::Amount));
+        Ok(scoped_edit_receipt(r,"wand.worker.steam626.scoped-amount@1"))
+    }
+    // One internal ledger and one output buffer, with legacy Amount
+    // contract aliases. The tag labels the successful Stage; it cannot
+    // authorize any command or mint a new session.
+    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    pub fn toggle_scoped_edit(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        self.toggle_scoped_edit_inner(redo,session_id,revision,index_generation,decoded_sha256,"wand.worker.scoped-edit@1")
+    }
+    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    pub fn begin_scoped_edit_output(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        self.begin_scoped_edit_output_inner(session_id,revision,index_generation,decoded_sha256,"wand.worker.scoped-edit-output@1")
+    }
+    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    pub fn next_scoped_edit_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+        self.next_scoped_edit_output_chunk_inner()
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn toggle_scoped_amount(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        self.require_amount_domain()?;
+        self.toggle_scoped_edit_inner(redo,session_id,revision,index_generation,decoded_sha256,"wand.worker.steam626.scoped-amount@1")
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn begin_scoped_amount_output(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        self.require_amount_domain()?;
+        self.begin_scoped_edit_output_inner(session_id,revision,index_generation,decoded_sha256,"wand.worker.steam626.scoped-amount-output@1")
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn next_scoped_amount_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+        self.require_amount_domain()?;
+        self.next_scoped_edit_output_chunk_inner()
+    }
     pub fn close(&mut self)->Result<(),JsValue>{
         self.closed=true;self.buffer.clear();self.entropy.fill(0);
+        #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+        {if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);} self.scoped_domain.set(None);}
         if let Some(mut session)=self.session.take(){
             session.close().map_err(|e|err(e.0))?;
         }
@@ -298,8 +409,65 @@ impl Drop for WorkerWasmSource {
         self.buffer.fill(0);
         self.buffer.clear();
         self.entropy.fill(0);
+        #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+        {if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);} self.scoped_domain.set(None);}
         if let Some(mut guard)=self.session.take() {
             let _=guard.close();
         }
+    }
+}
+
+#[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+fn scoped_edit_envelope(id:&str,revision:u64,generation:u64,sha:&str,action:WorkerAction)->Result<WorkerEnvelope,JsValue>{
+    Ok(WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(id)?,expected_revision:revision,
+        expected_index_generation:generation,expected_decoded_sha256:from_hex(sha)?,action})
+}
+#[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+fn scoped_edit_receipt(r:crate::SemanticStageReceipt,contract:&str)->String{
+    serde_json::json!({"contract":contract,"sessionId":hex(&r.session_id),
+        "revision":r.revision,"indexGeneration":r.index_generation,"decodedSha256":hex(&r.original_decoded_sha256),
+        "stagedDecodedSha256":hex(&r.staged_decoded_sha256),"operationCount":r.operation_count,
+        "exactFieldChangedCount":r.exact_field_changed_count,"applied":r.applied,"writerAuthorized":false,
+        "originalOverwriteAuthorized":false}).to_string()
+}
+
+#[cfg(feature="product-amount-scoped")]
+fn scoped_selection(profile:&str,id:u32,selector:u32)->Result<crate::ExistingAmountSelection,JsValue>{
+    match profile{
+        "catalog0-furniture" if id==0=>Ok(crate::ExistingAmountSelection::Inventory{inventory_id:0,item_id:selector}),
+        "linked-crop-chest48" if id>1&&selector<48=>Ok(crate::ExistingAmountSelection::Chest{container_id:id,slot_index:selector as usize}),
+        _=>Err(err("WORKER_SCOPED_PROFILE")),
+    }
+}
+
+#[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+impl WorkerWasmSource {
+    #[cfg(feature="product-amount-scoped")]
+    fn require_amount_domain(&self)->Result<(),JsValue>{
+        if self.scoped_domain.get()==Some(ScopedEditDomain::Collection){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}
+        Ok(())
+    }
+    fn toggle_scoped_edit_inner(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str,contract:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        Ok(scoped_edit_receipt(guard.toggle_scoped_edit(e,redo).map_err(|e|err(e.0))?,contract))
+    }
+    fn begin_scoped_edit_output_inner(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str,contract:&str)->Result<String,JsValue>{
+        if self.scoped_output.is_some(){return Err(err("WORKER_SCOPED_OUTPUT_EXISTS"));}
+        let guard=self.session.as_mut().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ExportEditedCopy)?;
+        let out=guard.take_scoped_edit(e).map_err(|e|err(e.0))?;
+        use sha2::{Digest,Sha256};let size=out.len();let sha=hex(&Sha256::digest(&out));
+        self.session=None;
+        self.scoped_output=Some((out,0));
+        Ok(serde_json::json!({"contract":contract,"decodedBytes":size,"decodedSha256":sha,
+            "writerAuthorized":false,"originalOverwriteAuthorized":false}).to_string())
+    }
+    fn next_scoped_edit_output_chunk_inner(&mut self)->Result<Vec<u8>,JsValue>{
+        let (out,pos)=self.scoped_output.as_mut().ok_or(err("WORKER_SCOPED_OUTPUT_CONSUMED"))?;
+        let end=pos.saturating_add(MAX_CHUNK).min(out.len());
+        let chunk=out[*pos..end].to_vec();out[*pos..end].fill(0);*pos=end;
+        if end==out.len(){self.scoped_output=None;}
+        Ok(chunk)
     }
 }
