@@ -118,6 +118,7 @@ jobs:
           function doc(gid=7,next=9,x=x2,y=y2){
           const ox=x<250?480:2,oy=y<175?330:2;
           return {GameInfo:{Version:626},World:{Villages:[{Areas:{6:{Unlocked:true,GridIDs:[gid]}},VillageObjectLimitName:'Village04ObjectLimit',HighEndVillageObjectLimitName:'HighEndVillageObjectLimit',BoughtObjectLimit:{UniqueLimit:0,InstanceLimit:0,Exclusions:[],SpecificItemLimits:[]}}],FloatingIslands:{},ExtraLimitObject:false,GridCollection:{Grids:{[gid]:{ID:gid,GridDataPath:'GridData/Villages/Village04-DarkLevel-GridData.json',GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:next,Objects:{4:{ID:4,ItemID:item,X:ox,Y:oy,Orientation:'GridOrientation_Up',State:null}}}},DiffGrids:{}},MissionSlots:{},RecurringEvents:{},TimeLostTreasures:{},NextTimeLostTreasureID:1,Snippets:{},NextSnippetID:0},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{[item]:{Amount:3,Marker:'ItemMarker_None'}}}},ContainerInventories:{},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{keep:'x'.repeat(1100000),escaped:'keep'}};
+          }
           const aux=id=>({ID:id,GridDefaultLayoutPath:'',GridDataPath:'GridData/Villages/Village04-DarkLevel-GridData.json',TessellationFactor:2,NextGridObjectID:1,Objects:{}});
           const wrappers=d=>{d.World.GridCollection.Grids[8801]=aux(8801);d.World.GridCollection.Grids[8802]=aux(8802);d.World.BuildingInfos={901:{GridIDs:{List:[8801,8802]}}};};
           const preset=d=>{const a=aux(G),b=aux(9901);b.NextGridObjectID=45;b.Objects[44]={ID:44,ItemID:40000066,X:2,Y:2,Orientation:'GridOrientation_Up',State:{SubGrid:{GridID:G,DesignID:null}}};d.World.DecorationPresets=[{GridCollection:{Grids:{[G]:a,9901:b},DiffGrids:{}}}];};
@@ -128,6 +129,7 @@ jobs:
             fixture('vase',d,want,{gridId:G,x,y});
           }
           NODE
+          node --check tests/.qa1507-fixtures.mjs
           node tests/.qa1507-fixtures.mjs
           cat > src/routes/test-qrw1507/+page.svelte <<'SVELTE'
           <script>
