@@ -12,6 +12,9 @@ use sha2::{Digest,Sha256};
 #[cfg(feature="product-amount-scoped")]
 #[path="product_amount_scoped.rs"]
 mod product_amount_scoped;
+#[cfg(feature="product-wardrobe-scoped")]
+#[path="wardrobe_product.rs"]
+mod wardrobe_product;
 
 const EXACT_STEAM:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
 const MAX_TX_COMMANDS:usize=16;
@@ -33,6 +36,7 @@ pub enum TypedOperationKind{
     WardrobeSelection,
     IndependentTime,
     BackpackFruitSplitExact3,
+    WardrobeSameSlotExact1,
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct TypedOperationRegistryEntry{
@@ -45,7 +49,7 @@ pub struct TypedOperationRegistryEntry{
 }
 /// Product enablement is *always* FALSE. 01D/01E native validation may
 /// independently open a single operation later, never a general Writer flag.
-pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;6]=[
+pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;7]=[
     TypedOperationRegistryEntry{kind:TypedOperationKind::InventoryExistingAmountDecrease,
         name:"inventory.existing.amount.decrease@1",schema:626,
         dev_implementation:true,native_v3_verified:false,product_enabled:false},
@@ -62,6 +66,7 @@ pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;6]=[
         name:"time.independent@1",schema:626,
         dev_implementation:false,native_v3_verified:false,product_enabled:false},
     TypedOperationRegistryEntry{kind:TypedOperationKind::BackpackFruitSplitExact3,name:"backpack.fruit.split.exact3@1",schema:626,dev_implementation:true,native_v3_verified:false,product_enabled:false},
+    TypedOperationRegistryEntry{kind:TypedOperationKind::WardrobeSameSlotExact1,name:"wardrobe.same-slot.exact1@1",schema:626,dev_implementation:true,native_v3_verified:false,product_enabled:false},
 ];
 
 #[derive(Clone,Debug)]
