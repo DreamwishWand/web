@@ -226,4 +226,16 @@ mod tests{
     build_id:FRP_BUILD.into(),schema:624,externally_attested:true},[1;32]).unwrap();
   assert_eq!(result.receipt().unwrap().schema,624);
  }
+
+ #[cfg(feature="product-switch624-frp01-scoped")]
+ #[test]
+ #[ignore="QA-only synthetic fixture for changed protected exact15/24 generated ABI"]
+ fn qa1934_emit_protected_frp624_synthetic_fixture(){
+  let d=doc();
+  assert_eq!(d["GameInfo"]["Version"],json!(624));
+  let raw=serde_json::to_vec(&d).unwrap();
+  assert!(raw.len()<1024*1024);
+  std::fs::write("/tmp/qrc1934-frp624-source.json",&raw).unwrap();
+  println!("QRC1934_PROTECTED_FRP624_SYNTHETIC_FIXTURE_ONLY bytes={}",raw.len());
+ }
 }

@@ -1,0 +1,52 @@
+name: 05 QR-C Switch624 FRP01 protected exact15 generated ABI L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-frp624-protected-exact15-l2.yml'
+      - 'tests/qa/qrc1934-frp624-protected-generated.cjs'
+      - 'crates/ddv-save-core/src/frp624_product_target.rs'
+permissions:
+  contents: read
+jobs:
+  qrc1934-generated-frp624:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrc1934-cargo-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed Source identity and changed-only QA boundary
+        run: |
+          set -euo pipefail
+          git cat-file -e 2d3eb658e87a6eaa8cd641ed3c921078177eba59^{commit}
+          test "$(git merge-base 2d3eb658e87a6eaa8cd641ed3c921078177eba59 HEAD)" = 2d3eb658e87a6eaa8cd641ed3c921078177eba59
+          git diff --name-only 2d3eb658e87a6eaa8cd641ed3c921078177eba59 HEAD | LC_ALL=C sort >/tmp/qrc1934-actual-paths
+          printf '%s\n' '.github/workflows/05qrc-frp624-protected-exact15-l2.yml' 'crates/ddv-save-core/src/frp624_product_target.rs' 'tests/qa/qrc1934-frp624-protected-generated.cjs' | LC_ALL=C sort >/tmp/qrc1934-expected-paths
+          diff -u /tmp/qrc1934-expected-paths /tmp/qrc1934-actual-paths
+          git diff --exit-code 2d3eb658e87a6eaa8cd641ed3c921078177eba59 HEAD -- crates/ddv-save-core/Cargo.toml crates/ddv-save-core/src/wasm_switch624_frp01.rs crates/ddv-save-core/src/wasm_worker.rs crates/ddv-save-core/src/worker_session.rs crates/ddv-save-core/src/worker_switch624_frp01.rs
+          echo QRC1934_FIXED_SOURCE_QA_ONLY_BOUNDARY_PASS
+      - name: Actual generated Worker ABI, independent CAS and child reopen
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock > /tmp/qrc1934-lock.sha
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch624-frp01-scoped --lib qa1934_emit_protected_frp624_synthetic_fixture -- --ignored --nocapture
+          test -s /tmp/qrc1934-frp624-source.json
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrc1934-bindgen
+          for profile in off own mixed; do
+            case "$profile" in
+              off) features='worker-wasm,indexed-read' ;;
+              own) features='worker-wasm,product-switch624-frp01-scoped' ;;
+              mixed) features='worker-wasm,product-switch624-frp01-scoped,product-switch626-rm01-scoped' ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            /tmp/wand-qrc1934-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "/tmp/qrc1934-$profile" --target nodejs --no-typescript
+          done
+          sha256sum -c /tmp/qrc1934-lock.sha
+          node --check tests/qa/qrc1934-frp624-protected-generated.cjs
+          node tests/qa/qrc1934-frp624-protected-generated.cjs
