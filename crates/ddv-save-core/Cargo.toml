@@ -24,6 +24,8 @@ product-collection-scoped = ["indexed-read"]
 
 # ACT916 scoped product candidate, explicitly excluded from current Pages.
 product-amount-scoped = ["semantic-writer-dev"]
+# Exact Steam626 vase product release surface; no distribution grant.
+product-steam626-vase-add-scoped = ["product-amount-scoped"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
