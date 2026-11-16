@@ -768,7 +768,7 @@ jobs:
           test "$(find "$RUNNER_TEMP/wand-steam626-backpack-split-proof" -maxdepth 1 -type f | wc -l)" -eq 2
           test ! -e static/worker-wasm-scoped-steam626-backpack-split
           test ! -e build/worker-wasm-scoped-steam626-backpack-split
-          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-steam626-backpack-split-release-anchor.mjs)"
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)"
           node scripts/int-protected-ci-gate.mjs deploy
       - name: Upload proof metadata only (never executable subjects)
         uses: actions/upload-artifact@v4
@@ -888,7 +888,7 @@ jobs:
           test "$(find "$RUNNER_TEMP/wand-switch626-backpack-split-proof" -maxdepth 1 -type f | wc -l)" -eq 2
           test ! -e static/worker-wasm-scoped-switch626-backpack-split
           test ! -e build/worker-wasm-scoped-switch626-backpack-split
-          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-switch626-backpack-split-release-anchor.mjs)"
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)"
           node scripts/int-protected-ci-gate.mjs deploy
       - name: Upload proof metadata only (never executable subjects)
         uses: actions/upload-artifact@v4
@@ -1008,7 +1008,7 @@ jobs:
           test "$(find "$RUNNER_TEMP/wand-steam626-wardrobe-proof" -maxdepth 1 -type f | wc -l)" -eq 2
           test ! -e static/worker-wasm-scoped-steam626-wardrobe
           test ! -e build/worker-wasm-scoped-steam626-wardrobe
-          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-steam626-wardrobe-release-anchor.mjs)"
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)"
           node scripts/int-protected-ci-gate.mjs deploy
       - name: Upload proof metadata only (never executable subjects)
         uses: actions/upload-artifact@v4
@@ -1128,7 +1128,7 @@ jobs:
           test "$(find "$RUNNER_TEMP/wand-switch626-wardrobe-proof" -maxdepth 1 -type f | wc -l)" -eq 2
           test ! -e static/worker-wasm-scoped-switch626-wardrobe
           test ! -e build/worker-wasm-scoped-switch626-wardrobe
-          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-switch626-wardrobe-release-anchor.mjs)"
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)"
           node scripts/int-protected-ci-gate.mjs deploy
       - name: Upload proof metadata only (never executable subjects)
         uses: actions/upload-artifact@v4

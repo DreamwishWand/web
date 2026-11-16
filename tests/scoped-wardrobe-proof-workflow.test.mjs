@@ -227,7 +227,7 @@ const specs={
   }
 };
 const inputs=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_steam_backpack_proof_source","scoped_switch_backpack_proof_source","scoped_steam_wardrobe_proof_source","scoped_switch_wardrobe_proof_source"];
-const block=n=>{const start=y.indexOf('  '+n+':\n');assert.ok(start>=0);const rest=y.slice(start+1),end=rest.search(/\n  [a-z_]+:\n/);return end<0?rest:rest.slice(0,end)};
+const block=n=>{const start=y.indexOf('  '+n+':\n');assert.ok(start>=0);const rest=y.slice(start+1),end=rest.search(/\n  [a-z0-9_]+:\n/);return end<0?rest:rest.slice(0,end)};
 for(const [job,s] of Object.entries(specs))test(s.key+' exact fixed proof-only job',()=>{
  const p=block(job),pins=[...p.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(m=>[m[1],m[2]]);
  assert.deepEqual(pins,s.pins);assert.ok(p.includes('--no-default-features --features '+s.feature+',worker-wasm'));assert.ok(p.includes('WAND_PROOF_EXPECTED_SOURCE: \$\{\{ inputs.'+s.input+' \}\}'));
@@ -235,5 +235,7 @@ for(const [job,s] of Object.entries(specs))test(s.key+' exact fixed proof-only j
  const order=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','node scripts/readonly-release/scoped-wardrobe-proof.mjs build '+s.key,'node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','node scripts/readonly-release/scoped-wardrobe-proof.mjs verify-protected-candidate '+s.key,'node scripts/int-protected-ci-gate.mjs deploy','actions/upload-artifact@v4'];let i=-1;for(const m of order){i=p.indexOf(m,i+1);assert.ok(i>=0,m);}
  assert.doesNotMatch(p,/actions\/(?:deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
  const upload=p.slice(p.indexOf('actions/upload-artifact@v4'));assert.ok(upload.includes('wand-'+s.key+'-proof/pins.json'));assert.ok(upload.includes('wand-'+s.key+'-proof/attestation-bundle.jsonl'));assert.doesNotMatch(upload,/ddv_save_core|fixtures\/|static\/|build\//);
+  const anchor='product-scoped-wardrobe-release-anchor.mjs';
+ assert.ok(p.includes('test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/'+anchor+')"'));
  assert.equal((p.match(/subject-path: \|\n(?: +tests\/wasm-distribution\/fixtures\/[^\n]+\n){3}/g)||[]).length,1);
 });
