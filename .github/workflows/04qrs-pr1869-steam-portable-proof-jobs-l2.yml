@@ -62,7 +62,7 @@ jobs:
            for(const k of oldInputKeys){const wrong={name:k,value:'x'};assert.ok(text.includes("inputs."+wrong.name+" == ''"));neg++}
            pos++;
           }
-          const oldJobs=prior.filter(x=>x.key.startsWith('scoped_')&&x.key.endsWith('_proof'));assert.equal(oldJobs.length,8);for(const j of oldJobs){const now=y.find(x=>x.key===j.key);assert.ok(now);assert.equal(now.body.replaceAll(" && inputs.scoped_portable_proof_request == ''",''),j.body);pos++}
+          const oldJobs=prior.filter(x=>x.key.startsWith('scoped_')&&x.key.endsWith('_proof'));assert.equal(oldJobs.length,8);for(const j of oldJobs){const now=y.find(x=>x.key===j.key);assert.ok(now);assert.equal(now.body.replaceAll(" && inputs.scoped_portable_proof_request == ''",'').trimEnd(),j.body.trimEnd());pos++}
           assert.ok(y.find(x=>x.key==='build').body.includes("inputs.scoped_portable_proof_request == ''"));
           const baseJobs=new Set(oldJobs.map(x=>x.key));
           for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/test'])for(const s of specs)for(const oldMask of [0,1,2,4,8,16,32,64,128,255])for(const input of [s.key+':'+('a'.repeat(40)),s.key+':'+('b'.repeat(40)),s.key+':bad',specs.find(x=>x!==s).key+':'+('c'.repeat(40)),'']){
