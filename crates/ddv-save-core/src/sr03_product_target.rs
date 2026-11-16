@@ -188,6 +188,61 @@ impl ProductSession{
           counter_sha:digest(b,f(b,g,"NextGridObjectID")?)?,stock_sha:digest(b,entry)?,houses_sha:digest(b,house_span)?,pairs:refs.pairs})
     }
 }
+
+#[cfg(feature="product-steam626-sr03-scoped")]
+struct Sr03Prepared{target:Sr03Target,edits:Vec<Replacement>,projected:[u8;32]}
+#[cfg(feature="product-steam626-sr03-scoped")]
+impl ProductSession{
+    fn prepare_sr03_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32)->CoreResult<Sr03Prepared>{
+        use super::super::switch624_road_rm01::{MixedQ5Expected,collect_mixed_q5_current};
+        let t=self.mint_sr03_target(e,grid,keep,moved)?;
+        let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+        need(st.semantic.is_none()&&st.revision==0&&st.generation==1,"SR03_PRODUCT_EPOCH")?;
+        let b=&self.decoded;let r=indexed_read::roots(b)?;
+        let start=indexed_read::skip_ws(b,0);let top=Span{begin:start,end:indexed_read::value_end(b,start)?};
+        let (_,defs)=super::pack()?;super::subscribers(b,r.player,r.world,top,defs,ROAD as i32,true)?;
+        let project=|s:Span,keys:&[&str]|->CoreResult<Value>{
+            let mut m=serde_json::Map::new();
+            for &k in keys{m.insert(k.into(),value(b,f(b,s,k)?,MAX_GRID)?);}
+            Ok(Value::Object(m))
+        };
+        let player=project(r.player,&["AchievementsData","DutySlots","BattlePassStates"])?;
+        let world=project(r.world,&["MissionSlots","RecurringEvents","TimeLostTreasures","NextTimeLostTreasureID","Snippets","NextSnippetID"])?;
+        super::comp03_product_target::check_sr03_applicability(&player,&world)?;
+        let source_sha=super::hex(&e.expected_decoded_sha256);
+        let grid_sha=super::hex(&t.grid_sha);let stock_sha=super::hex(&t.stock_sha);
+        let expected=MixedQ5Expected{source_sha:&source_sha,grid:t.grid,retained:t.local.keep,moved:t.local.moved,next:t.local.next,amount:t.stock,grid_sha:&grid_sha,inventory_entry_sha:&stock_sha};
+        let mut edits=collect_mixed_q5_current(self,&expected)?;
+        need(edits.len()==6,"SR03_PRODUCT_EDIT_COUNT")?;
+        edits.sort_by_key(|v|v.span.begin);
+        let mut hasher=Sha256::new();let mut pos=0;
+        for edit in &edits{
+            need(edit.span.begin>=pos&&edit.span.end>=edit.span.begin&&edit.span.end<=b.len()&&raw(b,edit.span)?==edit.old.as_slice(),"SR03_PRODUCT_RAW_CAS")?;
+            hasher.update(&b[pos..edit.span.begin]);hasher.update(&edit.new);pos=edit.span.end;
+        }
+        hasher.update(&b[pos..]);let projected=hasher.finalize().into();
+        Ok(Sr03Prepared{target:t,edits,projected})
+    }
+    pub(crate) fn preview_sr03_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32)->CoreResult<Value>{
+        let p=self.prepare_sr03_product(e,grid,keep,moved)?;let t=&p.target;
+        Ok(json!({"contract":"wand.worker.steam626.scoped-sr03-mixed-q5@1","itemId":ROAD,
+            "gridId":t.grid,"retainedId":t.local.keep,"movedId":t.local.moved,"expectedNextId":t.local.next,
+            "oldAmount":t.stock,"newAmount":t.stock-3,"inventoryDelta":-3,
+            "gridSha256":super::hex(&t.grid_sha),"inventoryEntrySha256":super::hex(&t.stock_sha),
+            "projectedDecodedSha256":super::hex(&p.projected),"exactFieldChangedCount":8,
+            "sessionId":super::hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
+            "decodedSha256":super::hex(&e.expected_decoded_sha256),"productWriterAuthorized":false,"originalOverwriteAuthorized":false}))
+    }
+    pub(crate) fn stage_sr03_product(&self,e:WorkerEnvelope,grid:u32,keep:u32,moved:u32,next:u32,old:u32,
+        grid_sha:[u8;32],stock_sha:[u8;32],projected:[u8;32])->CoreResult<SemanticStageReceipt>{
+        need(e.action==WorkerAction::Stage,"SR03_PRODUCT_STAGE_ACTION")?;
+        let p=self.prepare_sr03_product(WorkerEnvelope{action:WorkerAction::ReadDomain,..e},grid,keep,moved)?;
+        let t=&p.target;
+        need(t.grid==grid&&t.local.keep==keep&&t.local.moved==moved&&t.local.next==next&&t.stock==old&&
+            t.grid_sha==grid_sha&&t.stock_sha==stock_sha&&p.projected==projected,"SR03_PRODUCT_STAGE_CAS")?;
+        self.commit_semantic_replacements(e,p.edits,8,Some(p.projected))
+    }
+}
 #[cfg(test)]
 mod tests{
  use super::*;
@@ -204,6 +259,36 @@ mod tests{
   let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),crate::BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s
  }
  fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+
+ #[cfg(feature="product-steam626-sr03-scoped")]
+ #[test]fn sr03_product_exact8_atomic_cas_and_lifecycle(){
+  let mut d=doc();
+  d["World"]["MissionSlots"]=json!({});d["World"]["RecurringEvents"]=json!({});
+  d["World"]["TimeLostTreasures"]=json!({});d["World"]["NextTimeLostTreasureID"]=json!(1);
+  d["World"]["Snippets"]=json!({});d["World"]["NextSnippetID"]=json!(0);
+  d["Player"]["AchievementsData"]=json!([]);d["Player"]["DutySlots"]=json!({});
+  d["Player"]["EvolveStatesProfile"]=json!({"EvolveProgressState":{}});
+  d["Player"]["BattlePassStates"]=json!({"Progress":{},"FtueProgress":{"TasksProgress":[],"WeeklyTasksProgress":[]}});
+  d["ConditionalEventHistory"]=json!({"ActiveEvents":{}});
+  let s=open(&d);let e=env(&s);let p=s.prepare_sr03_product(e,90001,10,11).unwrap();
+  let t=&p.target;let q=s.preview_sr03_product(e,90001,10,11).unwrap();
+  assert_eq!(q["exactFieldChangedCount"],8);assert_eq!(q["newAmount"],7);
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  assert!(s.stage_sr03_product(e,90001,10,11,50,10,t.grid_sha,t.stock_sha,p.projected).is_err());
+  assert!(s.stage_sr03_product(stage,90001,10,11,51,10,t.grid_sha,t.stock_sha,p.projected).is_err());
+  assert!(s.stage_sr03_product(stage,90001,10,11,50,9,t.grid_sha,t.stock_sha,p.projected).is_err());
+  assert!(s.stage_sr03_product(stage,90001,10,11,50,10,[0;32],t.stock_sha,p.projected).is_err());
+  assert!(s.stage_sr03_product(stage,90001,10,11,50,10,t.grid_sha,[0;32],p.projected).is_err());
+  assert!(s.stage_sr03_product(stage,90001,10,11,50,10,t.grid_sha,t.stock_sha,[0;32]).is_err());
+  assert_eq!(env(&s),e);
+  let receipt=s.stage_sr03_product(stage,90001,10,11,50,10,t.grid_sha,t.stock_sha,p.projected).unwrap();
+  assert_eq!(receipt.exact_field_changed_count,8);assert_eq!(receipt.staged_decoded_sha256,p.projected);
+  assert!(!receipt.product_writer_authorized&&!receipt.original_overwrite_authorized);
+  assert!(s.stage_sr03_product(stage,90001,10,11,50,10,t.grid_sha,t.stock_sha,p.projected).is_err());
+  assert_eq!(s.receipt().unwrap().decoded_sha256,e.expected_decoded_sha256);
+  let mut bad=d.clone();bad["World"]["RecurringEvents"]=json!({"999999999":{"Unknown":{}}});
+  let bad=open(&bad);assert!(bad.preview_sr03_product(env(&bad),90001,10,11).is_err());
+ }
  #[test]fn sr03_subgrid_empty_zero_counter_and_bounded_child(){
   let mut d=json!({"Grids":{"20":{"ID":20,"TessellationFactor":2,"GridDataPath":"GridData/Furniture/NonIP_Update17/CoffeeShopTable-GridData.json","GridDefaultLayoutPath":"","NextGridObjectID":0,"Objects":{}}},"DiffGrids":{}});
   let p=json!({"DesignID":null,"GridID":20});

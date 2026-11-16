@@ -20,7 +20,7 @@ const MAX_TX_COMMANDS:usize=16;
 const MAX_MAP_ID:u64=u32::MAX as u64;
 const MAX_CONSERVATIVE_AMOUNT:u64=9999;
 const MAX_CONTAINER_SLOTS:usize=256;
-#[cfg(not(target_arch="wasm32"))]
+#[cfg(any(not(target_arch="wasm32"),feature="product-steam626-sr03-scoped"))]
 #[path="switch624_road_rm01.rs"]
 mod switch624_road_rm01;
 #[cfg(not(target_arch="wasm32"))]
@@ -34,6 +34,7 @@ pub enum TypedOperationKind{
     AppearanceSelection,
     WardrobeSelection,
     IndependentTime,
+    Steam626RoadSr03MixedQ5,
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct TypedOperationRegistryEntry{
@@ -46,7 +47,7 @@ pub struct TypedOperationRegistryEntry{
 }
 /// Product enablement is *always* FALSE. 01D/01E native validation may
 /// independently open a single operation later, never a general Writer flag.
-pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;5]=[
+pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;6]=[
     TypedOperationRegistryEntry{kind:TypedOperationKind::InventoryExistingAmountDecrease,
         name:"inventory.existing.amount.decrease@1",schema:626,
         dev_implementation:true,native_v3_verified:false,product_enabled:false},
@@ -62,6 +63,9 @@ pub const TYPED_OPERATION_REGISTRY:[TypedOperationRegistryEntry;5]=[
     TypedOperationRegistryEntry{kind:TypedOperationKind::IndependentTime,
         name:"time.independent@1",schema:626,
         dev_implementation:false,native_v3_verified:false,product_enabled:false},
+    TypedOperationRegistryEntry{kind:TypedOperationKind::Steam626RoadSr03MixedQ5,
+        name:"road.steam626.sr03.mixed-q5@1",schema:626,
+        dev_implementation:true,native_v3_verified:false,product_enabled:false},
 ];
 
 #[derive(Clone,Debug)]

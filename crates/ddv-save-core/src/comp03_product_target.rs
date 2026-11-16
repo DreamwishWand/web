@@ -275,6 +275,11 @@ impl ProductSession{
     }
 }
 
+#[cfg(feature="product-steam626-sr03-scoped")]
+pub(super) fn check_sr03_applicability(player:&Value,world:&Value)->CoreResult<()>{
+    applicable::check_sr03_supplement(EXACT_STEAM,super::DEP.as_bytes(),SUPPLEMENT,player,world,super::filter_disjoint).map_err(denied)?;
+    Ok(())
+}
 #[cfg(test)]
 mod tests{
     use super::*;
