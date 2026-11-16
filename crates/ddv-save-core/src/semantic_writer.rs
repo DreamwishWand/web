@@ -9,7 +9,9 @@ use super::indexed_read::{self,Span};
 use crate::{CoreError,CoreResult,strict_document::validate_entire_document};
 use sha2::{Digest,Sha256};
 
-#[cfg(feature="product-amount-scoped")]
+// FRP624 target is nested under the existing scoped provider: compile the
+// Rust-only provider without granting generic Amount Worker exports.
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-readonly"))]
 #[path="product_amount_scoped.rs"]
 mod product_amount_scoped;
 #[path="comp03_shape.rs"]
