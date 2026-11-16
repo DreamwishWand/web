@@ -235,6 +235,11 @@ impl ProductSession{
         self.commit_semantic_replacements(e,vec![edit],1,None)
     }
 }
+// Switch626 portable Restore: separate explicit Build, fixed ordinary target.
+// The existing scoped provider re-mints eligibility; file digest is not a grant.
+#[path="switch626_catalog0_portable_restore.rs"]
+mod portable_restore;
+
 #[cfg(test)]
 mod tests{
  use super::*;use serde_json::json;
@@ -249,6 +254,41 @@ mod tests{
  build_id:if sw{BID.into()}else{EXACT_STEAM.into()},schema:626,externally_attested:true}).unwrap()}
  fn env(s:&ProductSession,action:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
  session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action}}
+ #[test]fn switch626_catalog0_portable_restore_exact1_build_lineage(){
+  use crate::portable_backup::{PortableBackupBuild,decode_inventory_amount_backup_for_build,encode_inventory_amount_backup_for_build,decode_inventory_amount_backup};
+  let mut prior=doc();prior["Player"]["ListInventories"]["0"]["Inventory"]["40000076"]["Amount"]=json!(998);
+  let a=open(&prior,true);let ae=env(&a,WorkerAction::ReadDomain);let backup=a.capture_switch626_catalog0_portable_backup(ae,ITEM).unwrap();
+  let snap=decode_inventory_amount_backup_for_build(PortableBackupBuild::Switch626,&backup).unwrap();
+  assert_eq!(snap.amount,998);assert!(decode_inventory_amount_backup(&backup).is_err());
+  let d=doc();let s=open(&d,true);let e=env(&s,WorkerAction::ReadDomain);let before=s.receipt().unwrap();
+  let p=s.preview_switch626_catalog0_portable_restore(e,ITEM,&backup).unwrap();assert_eq!(p.projected_sha,a.sha);
+  let steam=encode_inventory_amount_backup_for_build(PortableBackupBuild::Steam626,0,ITEM,&snap.source_decoded_sha256,&serde_json::to_vec(&snap.payload).unwrap()).unwrap();
+  assert!(s.preview_switch626_catalog0_portable_restore(e,ITEM,&steam).is_err());
+  let st=env(&s,WorkerAction::Stage);let run=|s:&ProductSession,e,b:&[u8],old,new,entry,bs,out|s.stage_switch626_catalog0_portable_restore(e,ITEM,b,old,new,entry,bs,out);
+  assert!(run(&s,e,&backup,999,998,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+  assert!(run(&s,st,&backup,998,998,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+  assert!(run(&s,st,&backup,999,997,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+  assert!(run(&s,st,&backup,999,998,[0;32],p.backup_sha,p.projected_sha).is_err());
+  assert!(run(&s,st,&backup,999,998,p.entry_sha,[0;32],p.projected_sha).is_err());
+  assert!(run(&s,st,&backup,999,998,p.entry_sha,p.backup_sha,[0;32]).is_err());
+  assert!(run(&open(&d,true),st,&backup,999,998,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+  let steam_session=open(&d,false);assert!(steam_session.preview_switch626_catalog0_portable_restore(env(&steam_session,WorkerAction::ReadDomain),ITEM,&backup).is_err());
+  assert!(s.preview_switch626_catalog0_portable_restore(e,ITEM+1,&backup).is_err());
+  let mut foreign=prior.clone();foreign["Unknown"]["keep"]=json!([3,4]);let foreign=open(&foreign,true);
+  let fb=foreign.capture_switch626_catalog0_portable_backup(env(&foreign,WorkerAction::ReadDomain),ITEM).unwrap();
+  assert!(s.preview_switch626_catalog0_portable_restore(e,ITEM,&fb).is_err());
+  let mut bad=snap.payload.clone();bad["entrySha256"]=json!("0".repeat(64));
+  let bad=encode_inventory_amount_backup_for_build(PortableBackupBuild::Switch626,0,ITEM,&snap.source_decoded_sha256,&serde_json::to_vec(&bad).unwrap()).unwrap();
+  assert!(s.preview_switch626_catalog0_portable_restore(e,ITEM,&bad).is_err());
+  assert_eq!(s.receipt().unwrap(),before);
+  let r=run(&s,st,&backup,999,998,p.entry_sha,p.backup_sha,p.projected_sha).unwrap();
+  assert_eq!(r.exact_field_changed_count,1);assert_eq!(r.staged_decoded_sha256,a.sha);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+  assert!(run(&s,st,&backup,999,998,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+  s.undo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();assert!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).is_err());
+  s.redo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();let out_e=env(&s,WorkerAction::ExportEditedCopy);
+  let out=s.take_typed_semantic_decoded_once(out_e).unwrap();assert!(s.take_typed_semantic_decoded_once(out_e).is_err());
+  assert_eq!(out,serde_json::to_vec(&prior).unwrap());assert_eq!(sha(&s.decoded),before.decoded_sha256);
+ }
  #[test]fn fixed_switch_catalog0_harvest_pair_is_duty_layer_and_type_exact(){
   let base=json!({"Data":{"Type":"ItemType_ActivityItem","ActivityItemType":"ActivityItemType_Crop","Item":0,"ItemList":[],"AnyActivityItem":false,"MaxUnlockLevel":100,"CropType":"CropTypeCondition_Fruit","MinUnlockLevel":0}});
   assert!(crop_filter(&base,ITEM as i32,2110000038,0).is_ok());
