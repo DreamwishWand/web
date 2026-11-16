@@ -1,0 +1,52 @@
+name: 04 QR-S ACT1210 Chest repins (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1210-chest-repins.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 95fd32d0d5db385aa3f16b86c5a3cc5906cc53c2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed original and accepted composite Git objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "95fd32d0d5db385aa3f16b86c5a3cc5906cc53c2"
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = "f9afd96f5e5770c2da1086c762ccee7f4ad0209a"
+          test "$(git rev-parse HEAD:tests/scoped-switch-chest-proof-workflow.test.mjs)" = "83d8949ef9185a4385f923e4ec0959aa22c03930"
+          cat > tests/qa-act1210.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync} from 'node:fs';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim();
+          const oldPins=[["crates/ddv-save-core","aceda9d906c3137d717824a3079e84165ab5f62e"],["scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs","1cec59930562e9b6918490e54761808d3819c434"],["scripts/readonly-release/seal-scoped-switch-chest-private.mjs","bf6daf8f8096eb69a34dbf6e80d67d8e31bc95b0"],["scripts/readonly-release/seal.mjs","5b86ff1cf2dc009ba1733bf213e4cb979bf500ec"],["src/lib/ddv/core/save/product-scoped-switch-chest-release-anchor.mjs","374064f2da8a5681134aeb555166ebe00fce0704"],["src/lib/ddv/core/save/product-scoped-switch-chest-release.mjs","7dc69bc0765d6a08e888b99bd976c60c7b9723ce"],["src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs","959d0ef46c220ed6a402499ca3587b00275d8244"],["src/lib/dev/product-switch-chest-client.mjs","ac21d47f40ffea370d175c8cd06c4bd27be16570"],["src/lib/dev/product-switch-chest.worker.mjs","b6645a9746d01be64dc1452232c0b36dd848bec6"],["src/routes/editor/chest/+page.svelte","1576744c5b11d189e6e82a4edd93fde6e7cf3bea"],["src/lib/dev/LocalAmountEditorDev.svelte","a958bb624f198d22f254c213388f81825a3c1e81"],["src/lib/dev/local-amount-copy.mjs","1555ade03a3d155507b693d2d8bc34bb9122d044"],["src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs","debdddd102897db9731f185139c947c8b597592b"],["src/lib/ddv/core/save/product-scoped-amount-transport.mjs","6819a2ce761422e5569cd79b0da3df984e0dc9bf"],["src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs","98028bca717df75d423d26dec8cc6add6486f8ef"],["src/lib/ddv/core/save/product-wasm-read-owner.mjs","bb4e5073e81d5a1d032812ccaae0911ac5130bc3"],["src/lib/dev/local-scoped-edit-worker-port.mjs","c0f81cb0b6cda895714c83e5bbf765b86c34acf8"],["src/lib/dev/local-amount-workflow.mjs","558d8247734f35d64b4d2646d69e7b6af1718f9f"],["src/lib/dev/local-amount-worker-adapter.mjs","7e2a6fc8250cd5d6ca5cceb0f95e83e06d2d4bd6"],["src/lib/ddv/core/save/local-encrypted-copy-store.mjs","67f6579622e5d8903d3798d5921d2ea525980eda"],["src/lib/dev/local-amount-codec-reopen.worker.mjs","955d95056d4c115b24b77db2ec2f31ef90992882"],["src/lib/ddv/core/save/local-original-backup.mjs","7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f"]];
+          const accepted='ceacdebaf1dc3ba48d77356f52187678a6df272f';
+          const old=git('show','e58c03c4:.github/workflows/pages.yml');
+          const current=readFileSync('.github/workflows/pages.yml','utf8');
+          const extract=y=>[...y.slice(y.indexOf('  scoped_switch_chest_proof:\n')).matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(m=>[m[1],m[2]]);
+          assert.deepEqual(extract(old),oldPins);
+          assert.ok(git('rev-parse',accepted+'^{tree}').startsWith('c27004356'));
+          const expected=oldPins.map(([p,h],i)=>[p,i>=10&&i<18?git('rev-parse',accepted+':'+p):h]);
+          const changed=expected.filter((x,i)=>x[1]!==oldPins[i][1]);assert.equal(changed.length,8);
+          for(const [p,h] of changed){assert.equal(git('cat-file','-t',h),'blob');assert.match(git('ls-tree',accepted,'--',p),/^100644 blob /)}
+          assert.deepEqual(extract(current),expected);
+          let patched=old;for(const [p,h] of changed){const prior=oldPins.find(x=>x[0]===p)[1];const before='test "$(git rev-parse HEAD:'+p+')" = '+prior;const after='test "$(git rev-parse HEAD:'+p+')" = '+h;assert.equal(patched.split(before).length,2);patched=patched.replace(before,after);}
+          assert.equal(current,patched);
+          let neg=0;const check=x=>assert.deepEqual(extract(x),expected);
+          for(const [p,h] of expected){const token='test "$(git rev-parse HEAD:'+p+')" = '+h;assert.throws(()=>check(current.replace(token,token.replace(h,'f'.repeat(40)))));neg++;assert.throws(()=>check(current.replace(token,'')));neg++}
+          for(const [p,h] of changed){const prior=oldPins.find(x=>x[0]===p)[1];assert.throws(()=>check(current.replace('HEAD:'+p+')" = '+h,'HEAD:'+p+')" = '+prior)));neg++}
+          assert.throws(()=>check(current+'\n          test "$(git rev-parse HEAD:unrelated)" = '+'a'.repeat(40)));neg++;
+          console.log('ACT1210_CHEST_REPINS_L2_PASS',JSON.stringify({pins:22,changed:8,unchanged:14,negative:neg,actualGit:true,actualSignature:false}));
+          
+          EOF
+          node tests/qa-act1210.mjs
