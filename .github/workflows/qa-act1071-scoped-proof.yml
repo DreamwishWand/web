@@ -1,0 +1,102 @@
+name: QA ACT1071 isolated proof workflow preflight
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-act1071-scoped-proof.yml'
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cc54ce1f1d1b925dd61cefe7bc29bd64b9e1e29e
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Actual workflow and isolated Git preflight, no signing or deployment
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 4418c63034a89ed9eba9ab9bfc27b5fc6cd97ae7
+          git fetch --no-tags origin eaeafb84b55d522f1f6eab6e84d879780fc1d031 0fdcf9234a94f9134292205e55ff0f1926f40b5e d66cac7c6f3e218aa930e866ce7e8157b1e64001
+          python3 - <<'PY'
+          import os, re, subprocess as s, tempfile, pathlib, yaml, json
+          H='cc54ce1f1d1b925dd61cefe7bc29bd64b9e1e29e'
+          B='8121f0767a1aee82969f75d189a1b8614c2c17da'
+          C='eaeafb84b55d522f1f6eab6e84d879780fc1d031'
+          W='0fdcf9234a94f9134292205e55ff0f1926f40b5e'
+          R='d66cac7c6f3e218aa930e866ce7e8157b1e64001'
+          def git(*args, **kw):
+              return s.check_output(['git',*args],text=True,**kw).strip()
+          current=yaml.load(git('show',H+':.github/workflows/pages.yml'),Loader=yaml.BaseLoader)
+          old=yaml.load(git('show',B+':.github/workflows/pages.yml'),Loader=yaml.BaseLoader)
+          jobs=current['jobs']; proof=jobs['scoped_collection_proof']; steps=proof['steps']
+          assert current['permissions']==old['permissions'] and current['concurrency']==old['concurrency']
+          assert jobs['deploy']==old['jobs']['deploy']
+          assert {k:v for k,v in jobs['build'].items() if k!='if'}==old['jobs']['build']
+          assert jobs['build']['if']=="github.event_name != 'workflow_dispatch' || inputs.scoped_collection_proof_source == ''"
+          assert proof['if']=="github.event_name == 'workflow_dispatch' && inputs.scoped_collection_proof_source != '' && github.ref == 'refs/heads/main'"
+          assert jobs['deploy']['needs']=='build' or jobs['deploy']['needs']==['build']
+          assert 'if' not in jobs['deploy'] or 'always()' not in jobs['deploy']['if']
+          assert set(jobs)=={'build','deploy','scoped_collection_proof'}
+          assert current['on']['workflow_dispatch']['inputs']['scoped_collection_proof_source']['default']==''
+          pos=0; neg=0
+          def report(name, expected, got):
+              global pos,neg
+              assert expected==got,(name,expected,got)
+              if expected: pos+=1
+              else: neg+=1
+              print('POS' if expected else 'NEG',name,flush=True)
+          for ev,inp,ref,expected in [('push','','refs/heads/main',(True,False)),('workflow_dispatch','','refs/heads/main',(True,False)),('workflow_dispatch','a'*40,'refs/heads/main',(False,True)),('workflow_dispatch','a'*40,'refs/heads/other',(False,False))]:
+              def evaluate(expr):
+                  return eval(expr.replace('github.event_name',repr(ev)).replace('inputs.scoped_collection_proof_source',repr(inp)).replace('github.ref',repr(ref)).replace('&&',' and ').replace('||',' or '),{'__builtins__':{}})
+              assert (evaluate(jobs['build']['if']),evaluate(proof['if']))==expected
+          print('DISPATCH_MATRIX_4PASS')
+          run=next(x['run'] for x in steps if x.get('name')=='Require exact accepted source and immutable scoped proof inputs')
+          pins=re.findall(r'git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})',run)
+          assert len(pins)==11
+          for p,sha in pins:
+              print('PIN',p,sha)
+          origin=os.getcwd()
+          with tempfile.TemporaryDirectory() as d:
+              git('clone','--no-hardlinks','--no-checkout',origin,d)
+              os.chdir(d)
+              git('config','user.name','QA');git('config','user.email','qa@example.invalid')
+              git('read-tree',H)
+              git('restore','--source='+C,'--staged','--','crates/ddv-save-core')
+              for p,sha in pins:
+                  if p=='crates/ddv-save-core': continue
+                  ref=next((x for x in [W,R,H] if s.run(['git','rev-parse','--verify',x+':'+p],capture_output=True,text=True).stdout.strip()==sha),None)
+                  assert ref,(p,sha)
+                  git('restore','--source='+ref,'--staged','--',p)
+              tree=git('write-tree'); candidate=git('commit-tree',tree,'-p',H,'-m','isolated QA exact pinned composition')
+              git('checkout','--detach',candidate)
+              for p,sha in pins: assert git('rev-parse','HEAD:'+p)==sha
+              def invoke(**changes):
+                  env={**os.environ,'WAND_PROOF_EXPECTED_SOURCE':candidate,'GITHUB_SHA':candidate,'GITHUB_WORKFLOW_SHA':candidate,'GITHUB_REF':'refs/heads/main','GITHUB_REPOSITORY_ID':'1371485649',**changes}
+                  return s.run(['bash','-c',run],env=env,capture_output=True).returncode==0
+              report('exact actual pinned composition',True,invoke())
+              for k,v in [('WAND_PROOF_EXPECTED_SOURCE','bad'),('WAND_PROOF_EXPECTED_SOURCE','a'*40),('GITHUB_SHA','b'*40),('GITHUB_WORKFLOW_SHA','c'*40),('GITHUB_REF','refs/heads/other'),('GITHUB_REPOSITORY_ID','1')]:
+                  report(k+' '+v[:12],False,invoke(**{k:v}))
+              for p in ['static/worker-wasm-scoped-collection','build/worker-wasm-scoped-collection']:
+                  pathlib.Path(p).mkdir(parents=True,exist_ok=True);report(p+' exists',False,invoke());pathlib.Path(p).rmdir()
+              for p in ['crates/ddv-save-core/Cargo.toml','src/lib/ddv/core/save/product-scoped-collection-release.mjs','src/routes/editor/collection/+page.svelte']:
+                  with open(p,'a') as f:f.write('\n# QA drift\n')
+                  git('add',p);git('commit','-m','isolated drift');drift=git('rev-parse','HEAD')
+                  report(p+' changed',False,invoke(WAND_PROOF_EXPECTED_SOURCE=drift,GITHUB_SHA=drift,GITHUB_WORKFLOW_SHA=drift))
+                  git('reset','--hard',candidate)
+              os.chdir(origin)
+          names=[x.get('name','') for x in steps]
+          assert len([x for x in steps if x.get('uses','').startswith('actions/attest-build-provenance@')])==1
+          sign=next(i for i,x in enumerate(steps) if x.get('id')=='scoped_sigstore')
+          assert steps[sign-1]['run']=='node scripts/int-protected-ci-gate.mjs deploy'
+          assert steps[sign-1]['env']['WAND_CI_RECEIPT']==steps[sign+1]['env']['WAND_CI_RECEIPT']
+          assert steps[sign+1]['run'].strip().endswith('node scripts/int-protected-ci-gate.mjs deploy')
+          assert steps[sign+1]['run'].find('verify-protected-candidate')>=0
+          assert len(steps[sign]['with']['subject-path'].strip().splitlines())==3
+          assert steps[-1]['uses']=='actions/upload-artifact@v4'
+          assert steps[-1]['with']['path'].strip().splitlines()==['${{ runner.temp }}/wand-scoped-proof/pins.json','${{ runner.temp }}/wand-scoped-proof/attestation-bundle.jsonl']
+          assert not any('deploy-pages' in x.get('uses','') or 'upload-pages-artifact' in x.get('uses','') for x in steps)
+          assert 'cargo build --locked' in next(x['run'] for x in steps if x.get('name')=='Verify unchanged R22 approved inputs and generate scoped proof subjects')
+          print('ACT1071_QA_PASS',json.dumps({'pos':pos,'neg':neg,'dispatchCases':4,'pinnedEntries':len(pins),'actualShell':True,'actualSigning':False,'actualDeploy':False}))
+          PY
