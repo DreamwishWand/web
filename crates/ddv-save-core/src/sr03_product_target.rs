@@ -318,6 +318,67 @@ impl ProductSession{
         self.commit_semantic_replacements(e,p.edits,8,Some(p.projected))
     }
 }
+// R01 product scope: separate feature, no RM01/SR03 dispatch or authority.
+#[cfg(feature="product-switch626-r01-scoped")]
+struct R01Prepared{target:R01Target,edits:Vec<Replacement>,projected:[u8;32]}
+#[cfg(feature="product-switch626-r01-scoped")]
+impl ProductSession{
+    fn prepare_switch626_r01_product(&self,e:WorkerEnvelope,grid:u32,x:u32,y:u32)->CoreResult<R01Prepared>{
+        use super::super::switch624_road_rm01::{R01Q3Expected,collect_r01_q3_current};
+        let t=self.mint_switch626_r01_target(e,grid,x,y)?;
+        let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+        need(st.semantic.is_none()&&st.revision==0&&st.generation==1,"R01_PRODUCT_EPOCH")?;
+        let b=&self.decoded;let r=indexed_read::roots(b)?;
+        let start=indexed_read::skip_ws(b,0);let top=Span{begin:start,end:indexed_read::value_end(b,start)?};
+        // Same current Switch626 subscriber and applicability closure, with
+        // no stock debit and no relaxed exclusions for existing geometry.
+        let (_,defs)=super::pack()?;
+        super::subscribers_bound(b,r.player,r.world,top,defs,ROAD as i32,true,true)?;
+        let project=|s:Span,keys:&[&str]|->CoreResult<Value>{
+            let mut m=serde_json::Map::new();
+            for &k in keys{m.insert(k.into(),value(b,f(b,s,k)?,MAX_GRID)?);}
+            Ok(Value::Object(m))
+        };
+        let player=project(r.player,&["AchievementsData","DutySlots","BattlePassStates"])?;
+        let world=project(r.world,&["MissionSlots","RecurringEvents","TimeLostTreasures","NextTimeLostTreasureID","Snippets","NextSnippetID"])?;
+        super::comp03_product_target::check_switch626_rm01_applicability(&player,&world)?;
+        let source_sha=super::hex(&e.expected_decoded_sha256);
+        let grid_sha=super::hex(&t.grid_sha);let stock_sha=super::hex(&t.stock_sha);
+        let expected=R01Q3Expected{source_sha:&source_sha,grid:t.grid,x:t.x,y:t.y,next:t.next,
+            amount:t.stock,grid_sha:&grid_sha,inventory_entry_sha:&stock_sha};
+        let mut edits=collect_r01_q3_current(self,&expected)?;
+        need(edits.len()==2,"R01_PRODUCT_EDIT_COUNT")?;
+        edits.sort_by_key(|v|v.span.begin);
+        let mut hasher=Sha256::new();let mut pos=0;
+        for edit in &edits{
+            need(edit.span.begin>=pos&&edit.span.end>=edit.span.begin&&edit.span.end<=b.len()&&raw(b,edit.span)?==edit.old.as_slice(),"R01_PRODUCT_RAW_CAS")?;
+            hasher.update(&b[pos..edit.span.begin]);hasher.update(&edit.new);pos=edit.span.end;
+        }
+        hasher.update(&b[pos..]);
+        Ok(R01Prepared{target:t,edits,projected:hasher.finalize().into()})
+    }
+    #[allow(dead_code)]
+    pub(crate) fn preview_switch626_r01_product(&self,e:WorkerEnvelope,grid:u32,x:u32,y:u32)->CoreResult<Value>{
+        let p=self.prepare_switch626_r01_product(e,grid,x,y)?;let t=&p.target;
+        Ok(json!({"contract":"wand.worker.switch626.scoped-r01-orthogonal-q3@1",
+            "itemId":ROAD,"gridId":t.grid,"x":t.x,"y":t.y,"expectedNextId":t.next,
+            "oldAmount":t.stock,"newAmount":t.stock,"inventoryDelta":0,
+            "gridSha256":super::hex(&t.grid_sha),"inventoryEntrySha256":super::hex(&t.stock_sha),
+            "projectedDecodedSha256":super::hex(&p.projected),"exactFieldChangedCount":4,
+            "sessionId":super::hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
+            "decodedSha256":super::hex(&e.expected_decoded_sha256),"productWriterAuthorized":false,"originalOverwriteAuthorized":false}))
+    }
+    #[allow(dead_code)]
+    pub(crate) fn stage_switch626_r01_product(&self,e:WorkerEnvelope,grid:u32,x:u32,y:u32,next:u32,old:u32,
+        grid_sha:[u8;32],stock_sha:[u8;32],projected:[u8;32])->CoreResult<SemanticStageReceipt>{
+        need(e.action==WorkerAction::Stage,"R01_PRODUCT_STAGE_ACTION")?;
+        let p=self.prepare_switch626_r01_product(WorkerEnvelope{action:WorkerAction::ReadDomain,..e},grid,x,y)?;
+        let t=&p.target;
+        need(t.grid==grid&&t.x==x&&t.y==y&&t.next==next&&t.stock==old&&
+            t.grid_sha==grid_sha&&t.stock_sha==stock_sha&&p.projected==projected,"R01_PRODUCT_STAGE_CAS")?;
+        self.commit_semantic_replacements(e,p.edits,4,Some(p.projected))
+    }
+}
 #[cfg(test)]
 mod tests{
  use super::*;
@@ -379,6 +440,45 @@ mod tests{
   let now=env(&s);s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..now}).unwrap();let now=env(&s);s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..now}).unwrap();let now=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};let out=s.take_typed_semantic_decoded_once(now).unwrap();assert_eq!(sha(&out),p.projected);assert!(s.take_typed_semantic_decoded_once(now).is_err());
   let steam=open(&d);assert!(steam.preview_switch626_rm01_product(env(&steam),90001,10,11).is_err());
   for mode in 0..5{let mut bad=d.clone();match mode{0=>bad["World"]["RecurringEvents"]["1"]["ItemSpawning"]["RecurringEventItemID"]=json!(2010000179),1=>bad["World"]["RecurringEvents"]["1"]["ItemSpawning"]["GridID"]=json!(1),2=>bad["Player"]["DutySlots"]["0"]["Slots"][0]["DifficultyLayer"]=json!(1),3=>bad["Player"]["DutySlots"]["0"]["Slots"][0]["ItemsUsed"]=json!([40100068]),_=>bad["Player"]["DutySlots"]["0"]["Slots"][0]["StepData"]["ItemFilter"]["Data"]["Item"]=json!(40100068)}let x=open_switch(&bad);assert!(x.preview_switch626_rm01_product(env(&x),90001,10,11).is_err(),"mode {mode}");}
+ }
+ #[cfg(feature="product-switch626-r01-scoped")]
+ #[test]fn switch626_r01_product_exact4_layout_only_cas(){
+  let mut d=doc();let x=d["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"].as_u64().unwrap() as u32;
+  let y=d["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"].as_u64().unwrap() as u32;
+  let far_x=if x<190{388}else{0};let far_y=if y<100{196}else{0};
+  let g=&mut d["World"]["GridCollection"]["Grids"]["90001"];
+  g["Objects"]["10"]["X"]=json!(far_x);g["Objects"]["10"]["Y"]=json!(far_y);
+  g["Objects"].as_object_mut().unwrap().remove("11");
+  d["World"]["MissionSlots"]=json!({});d["World"]["RecurringEvents"]=json!({});
+  d["World"]["TimeLostTreasures"]=json!({});d["World"]["NextTimeLostTreasureID"]=json!(1);
+  d["World"]["Snippets"]=json!({});d["World"]["NextSnippetID"]=json!(0);
+  d["Player"]["AchievementsData"]=json!([]);d["Player"]["DutySlots"]=json!({});
+  d["Player"]["EvolveStatesProfile"]=json!({"EvolveProgressState":{}});
+  d["Player"]["BattlePassStates"]=json!({"Progress":{},"FtueProgress":{"TasksProgress":[],"WeeklyTasksProgress":[]}});
+  d["ConditionalEventHistory"]=json!({"ActiveEvents":{}});
+  let open_switch=|v:&Value|{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),
+    crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s};
+  let s=open_switch(&d);let e=env(&s);let p=s.prepare_switch626_r01_product(e,90001,x,y).unwrap();
+  let t=&p.target;let before=s.receipt().unwrap();let q=s.preview_switch626_r01_product(e,90001,x,y).unwrap();
+  assert_eq!(q["exactFieldChangedCount"],4);assert_eq!(q["inventoryDelta"],0);assert_eq!(q["oldAmount"],q["newAmount"]);
+  assert_eq!(s.receipt().unwrap(),before);
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  assert!(s.stage_switch626_r01_product(e,90001,x,y,50,10,t.grid_sha,t.stock_sha,p.projected).is_err());
+  assert!(s.stage_switch626_r01_product(stage,90001,x,y,51,10,t.grid_sha,t.stock_sha,p.projected).is_err());
+  assert!(s.stage_switch626_r01_product(stage,90001,x,y,50,9,t.grid_sha,t.stock_sha,p.projected).is_err());
+  assert!(s.stage_switch626_r01_product(stage,90001,x,y,50,10,[0;32],t.stock_sha,p.projected).is_err());
+  assert!(s.stage_switch626_r01_product(stage,90001,x,y,50,10,t.grid_sha,[0;32],p.projected).is_err());
+  assert!(s.stage_switch626_r01_product(stage,90001,x,y,50,10,t.grid_sha,t.stock_sha,[0;32]).is_err());
+  assert!(open_switch(&d).stage_switch626_r01_product(stage,90001,x,y,50,10,t.grid_sha,t.stock_sha,p.projected).is_err());
+  assert!(open(&d).preview_switch626_r01_product(e,90001,x,y).is_err());
+  assert_eq!(s.receipt().unwrap(),before);
+  let receipt=s.stage_switch626_r01_product(stage,90001,x,y,50,10,t.grid_sha,t.stock_sha,p.projected).unwrap();
+  assert_eq!(receipt.exact_field_changed_count,4);assert_eq!(receipt.staged_decoded_sha256,p.projected);
+  assert!(!receipt.product_writer_authorized&&!receipt.original_overwrite_authorized);
+  assert!(s.stage_switch626_r01_product(stage,90001,x,y,50,10,t.grid_sha,t.stock_sha,p.projected).is_err());
+  assert_eq!(s.receipt().unwrap().decoded_sha256,e.expected_decoded_sha256);
+  let mut bad=d.clone();bad["World"]["RecurringEvents"]=json!({"999999999":{"Unknown":{}}});
+  let b=open_switch(&bad);assert!(b.preview_switch626_r01_product(env(&b),90001,x,y).is_err());
  }
  #[test]fn switch626_r01_current_session_target_no_seed_exemption(){
   let mut d=doc();
