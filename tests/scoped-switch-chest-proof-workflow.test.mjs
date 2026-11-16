@@ -67,27 +67,27 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "src/lib/dev/LocalAmountEditorDev.svelte",
-    "dad444b7cfc037960bdcec7a869aa0792040c95e"
+    "da627ecd86d4435c026e611b241aa489d8259dac"
   ],
   [
     "src/lib/dev/local-amount-copy.mjs",
-    "dcebde6318864381adb51898f4a2c9c87da23007"
+    "9631b4ee40f47432a2a26a6df386b0db9353b09d"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-    "470f8fc590cb23d9e3ce932c41929ccd65b185ed"
+    "bbac7640c061740bfd4bb6388d1e33ee2c88fbe7"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
-    "620a19633aee1fbfd7ef8461ff1b66f9bc18b0db"
+    "c266d64d63b3480f14459f5323ef53e58dcb70af"
   ],
   [
     "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-    "562c4f5a29a0fea87a901f9f408358abe8eb002c"
+    "1ac9e68b29b64bc68877855e3df089a9ea6585b7"
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-    "4f34a20d16fceb27a8f9010819e603dec8c342b9"
+    "8d2d1da0be2f356cbf0159277685f1683ac84ec4"
   ],
   [
     "src/lib/dev/local-scoped-edit-worker-port.mjs",
@@ -95,7 +95,7 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "src/lib/dev/local-amount-workflow.mjs",
-    "f04e70600fcf62b43166258716e54448bc4f3381"
+    "54a5dc90fb0b82ec51f1716089d4fd607eecceb9"
   ],
   [
     "src/lib/dev/local-amount-worker-adapter.mjs",
