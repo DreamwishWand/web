@@ -222,7 +222,7 @@ fn saved_objective(b:&[u8],s:Span,item:i32,furniture:bool,refs:&mut usize)->Core
 }
 // History IDs alone do not prove current registration. Only the typed saved
 // state variants of this scoped build are understood; never ignore new state.
-fn saved_event_states(b:&[u8],active:Span)->CoreResult<()>{
+pub(super) fn saved_event_states(b:&[u8],active:Span)->CoreResult<()>{
     need(b.get(active.begin)==Some(&b'{'),"PRODUCT_AMOUNT_EVENT_STATE")?;
     let mut refs=0usize;
     for(k,event)in members(b,active,4096)?{
