@@ -204,6 +204,41 @@ const switch626ChestEntries=[
     }
   }
 ];
+const switch626ChestFeatureEntries=[
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "0939c989984ff49aff466da35e427289758d8d4f"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "70e9a9b32ff4cafc2efa9f2dc7caada82224b8b7"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "0fcdac70758ca09675fa28c4b854e4c1885e681b"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "cd141f4eff59d92333026316a5cb6f144ddfaa19"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "d5e20db31ce4302964989d65355d1e26a61e22ec"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "502fd7b446c04b943ce624e830a846428d1ec213"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -266,6 +301,12 @@ function selectAcceptedCorePair(baseCore,sourceCore){
   return {entries:switch626ChestEntries,count:4,metadata:{
    sourcePr:1422,sourceHead:'5a5ce7eab0e5922d15e50b9ed699c44570c23f30',
    sourceTree:'a73f5b6da2856b2329cee3b158c6e1e74b097d3c'}};
+ }
+ if(baseCore==='2b50d1208e830433bd86bb9506b8cf67228d518d'){
+  if(sourceCore!=='aceda9d906c3137d717824a3079e84165ab5f62e')deny('CANDIDATE_CORE_TREE');
+  return {entries:switch626ChestFeatureEntries,count:3,metadata:{
+   sourcePr:1458,sourceHead:'d2f903e43f84bb11e1133c2e3933fce9977dc122',
+   sourceTree:'9b0b7dacdd40ddcfd5f86aa1143b6b795cede583'}};
  }
  deny('BASE_CORE_TREE');
 }
