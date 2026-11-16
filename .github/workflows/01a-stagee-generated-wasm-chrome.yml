@@ -20,6 +20,6 @@ jobs:
           cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
           sha256sum crates/ddv-save-core/Cargo.lock > /tmp/qrc1891-lock.sha
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib qa1891_makeup_color1_lexical_exact1 -- --nocapture
-          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib qa1891_makeup_color1_child_reopen -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib qa1891_makeup_color1_child_reopen -- --ignored --nocapture
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib qa1891_makeup_color1_reference_negatives -- --nocapture
           sha256sum -c /tmp/qrc1891-lock.sha
