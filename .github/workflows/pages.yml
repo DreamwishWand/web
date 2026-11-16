@@ -327,7 +327,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = ca1ef1772b53ff535618fc8263cd647f757f3dad
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = e5c863b756e9593afcfe4f3c24f122c91a4c4b6f
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-collection-candidate.mjs)" = 0f8d9d8e00ea8531e7bac51a0b2c62afbd468292
           test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-collection-private.mjs)" = 4faaa553470b0f491fc611bd8e5c1590255cb1e4
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec

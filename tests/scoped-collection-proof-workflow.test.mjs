@@ -8,7 +8,7 @@ test('proof-only Collection dispatch cannot use normal Pages build/deploy or upl
  assert.match(y,/deploy:\s+needs: build/);
  assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_collection_proof_source != '' && inputs.scoped_switch_chest_proof_source == '' && github.ref == 'refs\/heads\/main'/);
  assert.match(proof,/test "\$WAND_PROOF_EXPECTED_SOURCE" = "\$GITHUB_SHA"/);
- assert.match(proof,/ca1ef1772b53ff535618fc8263cd647f757f3dad/);
+ assert.match(proof,/e5c863b756e9593afcfe4f3c24f122c91a4c4b6f/);
  assert.match(proof,/--no-default-features --features product-collection-scoped,semantic-writer-dev,worker-wasm/);
  const order=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','node scripts/wasm-distribution/build-scoped-collection-candidate.mjs','node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate','actions/upload-artifact@v4'];
  let i=-1;for(const m of order){const n=proof.indexOf(m);assert.ok(n>i,m);i=n;}
