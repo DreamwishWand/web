@@ -7,6 +7,7 @@ const sha=v=>typeof v==='string'&&/^[0-9a-f]{64}$/.test(v);
 const STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',SWITCH='9A239D3DB569756D';
 // Actual Core-fixed ABI scope, not a JS eligibility registry.
 const DEF=2120000159,ITEM=40004511,PEER=40004668;
+export const FIXED_COLLECTION_SELECTOR=Object.freeze({definitionId:DEF,groupIndex:0,itemId:ITEM});
 export function createFixedCollectionTransport(wasm,initial,identity,options){
  if(typeof document!=='undefined'||!options||typeof options.current!=='function'||
   !identity||identity.schema!==626||
