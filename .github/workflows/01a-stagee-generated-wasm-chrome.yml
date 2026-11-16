@@ -115,4 +115,4 @@ jobs:
           const lp=parse(l.preview_steam626_vase_add(G,x,y,...sc(lr)));assert.equal(lp.contract,'wand.worker.steam626.scoped-vase-add@1');assert.equal(lp.projectedDecodedSha256,sha(oldOracle.want));const lt=parse(l.stage_steam626_vase_add(G,x,y,3,9,lp.entrySha256,lp.gridSha256,lp.projectedDecodedSha256,...sc(lr)));assert.equal(lt.exactFieldChangedCount,3);l.begin_scoped_edit_output(...sc(lt));assert.deepEqual(Buffer.from(l.next_scoped_edit_output_chunk()),oldOracle.want);l.close();l.free();pos++;
           const [s,sr]=open('legacy',decorated(),steam);deny(()=>s.preview_steam626_vase_add(G,x,y,...sc(sr)));s.close();s.free();
           assert.equal(pos,3);assert.equal(neg,51);console.log('QRC1572_SWITCH_VASE_ACTUAL '+pos+'POS '+neg+'NEG 5CENSUS');
-                    JS
+          JS
