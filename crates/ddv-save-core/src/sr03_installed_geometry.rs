@@ -18,12 +18,12 @@ pub(crate) struct Rect(pub(crate) i64,pub(crate) i64,pub(crate) i64,pub(crate) i
 impl Rect{fn intersects(self,o:Self)->bool{self.0<o.2&&o.0<self.2&&self.1<o.3&&o.1<self.3}fn valid(self)->bool{self.0<self.2&&self.1<self.3}}
 #[derive(Debug,PartialEq,Eq)]
 pub(crate) struct LocalTarget{pub(crate) keep:u32,pub(crate) moved:u32,pub(crate) next:u32,pub(crate) x:u32,pub(crate) y:u32}
-pub(crate) struct MeadowGeometry{data:Value,mask:Vec<u8>}
+pub(crate) struct MeadowGeometry{data:Value,mask:Vec<u8>,switch626:bool}
 impl MeadowGeometry{
  /// E2902/E2931 exact 73 frame/child pins and floor on attested Switch626.
  pub(crate) fn fixed_switch626(build:&str,schema:u32)->Option<Self>{
   if build!="9A239D3DB569756D"||schema!=626{return None}
-  Self::fixed(BUILD,626)
+  let mut p=Self::fixed(BUILD,626)?;p.switch626=true;Some(p)
  }
  pub(crate) fn fixed(build:&str,schema:u32)->Option<Self>{
   if build!=BUILD||schema!=626||format!("{:x}",Sha256::digest(PACK.as_bytes()))!=PACK_SHA{return None}
@@ -31,7 +31,7 @@ impl MeadowGeometry{
   if data["contract"]!="wand.steam626.sr03.geometry-delta@1"||data["build"]!=BUILD||n(&data["schema"])?!=626||data["shared"].as_array()?.len()!=13||data["delta"].as_array()?.len()!=59{return None}
   let h=data["floor4Hex"].as_str()?;if h.len()!=4900{return None}let mut mask=Vec::with_capacity(2450);
   for i in (0..h.len()).step_by(2){mask.push(u8::from_str_radix(h.get(i..i+2)?,16).ok()?)}
-  Some(Self{data,mask})
+  Some(Self{data,mask,switch626:false})
  }
  /// Common callback is internal, from the fixed installed COMP03 resolver,
  /// NOT a public ABI input. Logical definition dimensions are converted with
@@ -147,3 +147,15 @@ mod tests{
  for (k,v) in [("ID",json!(0)),("GridDataPath",json!("bad")),("GridDefaultLayoutPath",json!("overlay")),("TessellationFactor",json!(1)),("NextGridObjectID",json!(11))]{let mut q=d.clone();q[k]=v;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none())}for(k,v)in[("X",json!(1)),("State",json!({})),("Orientation",json!("GridOrientation_Up")),("ItemID",json!(40000066)),("ID",json!(12))]{let mut q=d.clone();q["Objects"]["10"][k]=v;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none())}
  let mut q=d.clone();let mut o=q["Objects"]["10"].clone();o["ID"]=json!(12);q["Objects"]["12"]=o;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none());let x=n(&q["Objects"]["10"]["X"]).unwrap() as i64;let y=n(&q["Objects"]["10"]["Y"]).unwrap() as i64;assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(x,y,x+2,y+2))).is_none());assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(x-4,y,x-2,y+2))).is_none());let far_x=x+12; q["Objects"]["12"]["X"]=json!(far_x);assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(far_x,y,far_x+2,y+2))).is_some());q["Objects"]["12"]["X"]=json!(far_x-1);assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(far_x-1,y,far_x+1,y+2))).is_none());}
 }
+
+impl MeadowGeometry{
+ fn clear_ambient(&self,objects:&serde_json::Map<String,Value>,next:u32,exclude:&[u32],boxes:&[Rect],common:&impl Fn(u32)->Option<(u32,u32)>,effective:&mut impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<()>{
+  for(k,o)in objects{if !exact_fields(o,&["ID","ItemID","X","Y","Orientation","State"]){return None}let id=n(&o["ID"])?;if k!=&id.to_string()||id>=next{return None}if exclude.contains(&id){continue}
+   let dims=self.dimensions(n(&o["ItemID"])?,common)?;let ox=i64::from(n(&o["X"])?);let oy=i64::from(n(&o["Y"])?);o["Orientation"].as_str()?;
+   let rect=effective(o,dims)?;if !rect.valid()||ox<rect.0||ox>=rect.2||oy<rect.1||oy>=rect.3||boxes.iter().any(|b|b.intersects(rect)){return None}
+  }
+  Some(())
+ }
+}
+#[path="fence_product_geometry.rs"]
+mod fence_product_geometry;
