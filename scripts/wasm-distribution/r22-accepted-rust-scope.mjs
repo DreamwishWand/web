@@ -749,6 +749,134 @@ const steam626AppearanceCumulativeEntries=[
     }
   }
 ];
+// Post-Appearance Portable candidate: exact immutable mode/blob pairs; no authority grant.
+const steam626PortablePostAppearanceEntries=[
+  {
+    "path": ".github/workflows/core-product-session-boundary.yml",
+    "before": {
+      "mode": "100644",
+      "blob": "825c0e92d7c9f5a1e86900d3a67ccff57b15babf"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "a6ef41069bf39ec9bd0a59635b287d1b48b7961b"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "6e3102f66faa31174e110c2fe760a9c9ef38d10c"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "ebc56b9812e10124ecf3fb05a52eb0c9a8638224"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/catalog0_portable_restore.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "a29b2f9f94ac9b9e040d5a73d57ae2dccfb66d1d"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/chest_portable_restore.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "d7bc4867c8c14e7593e32f4a45b66fb460412767"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/portable_backup.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "c075bbf764aa2372eaf2a844d81ca1c10e11c1c3"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "238b0aeada96ed13e4b74f8020791f45df5a8acd"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_amount_scoped.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "e6e360f5326b9a5cf6884600a4c9ecf642aa12fa"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "11452db0fe69c501b1b2187cb06dadc778501317"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_portable_catalog0.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "c74eebc495da62c670f25d749ffe56c67b36889c"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_portable_chest.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "86ea11e32b52a830f7b7fdbb464400a46df99f03"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "0a8d533f1ba8d7b7a35322a9ac8459287e09481c"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "e76e3c209a355684f05fe02cd87031b6126238cf"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_portable_catalog0.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "3c8a0780aee62d591ba69bf5e58985f6f18f9860"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_portable_chest.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "898340f9a8f5c8dc6fa0d00814e2048390a62cd4"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "f155092b4fa406cd0db946033ec81071f1496cba"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "2d325fd528dc4d2fb71bf86ec2d3d8a285552423"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "dd59264c1c20325c66e6aecc3413e91d10fc72ed"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "bb4ab60ef80075b7d6bf04e11fa33f9c2eeca0a9"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -841,6 +969,10 @@ function selectAcceptedCorePair(baseCore,sourceCore){
   return {entries:steam626AppearanceCumulativeEntries,count:14,metadata:{
    sourcePr:1699,sourceHead:'06adf0c44a77e3ba653a62a14160207a7a9d91be',
    sourceTree:'dfe419896223d4f3fed14e63bb5aaf1abb573a47'}};
+ }
+ if(baseCore==='fa7aeef5dc1459104564bf1eb9704d315ab7c415'){
+  if(sourceCore!=='d7d936a7664cf4440b2e4702099be38823cee622')deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626PortablePostAppearanceEntries,count:13,metadata:{sourcePr:1794,sourceHead:'62bb6343825d363aef9429e471901d41a0e9cdcd',sourceTree:'e2622bd24a8f09a008a6bb7c04790d15b70d9dfc',preparedCandidateTree:'1b0410236c09492eec59eeaf6c5a7e29deb876f4'}};
  }
  deny('BASE_CORE_TREE');
 }
