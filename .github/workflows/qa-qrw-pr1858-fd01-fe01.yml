@@ -25,12 +25,15 @@ jobs:
         run: |
           set -euo pipefail
           echo "QRW1858_PIN_HEAD=$(git rev-parse HEAD)"
-          echo "QRW1858_PIN_COUNT=$(git diff --name-only 3a3614888b543c2c53483a6e41b4a50f6e6687fc HEAD | wc -l)"
+          echo "QRW1858_PIN_DIRECT_MAIN_COUNT=$(git diff --name-only 3a3614888b543c2c53483a6e41b4a50f6e6687fc HEAD | wc -l)"
           echo "QRW1858_PIN_UI=$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)"
           echo "QRW1858_PIN_ROUTE=$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)"
           test "$(git rev-parse HEAD)" = '40a594235515b65b58b1c7d81e5ce6ca3fe1fd85'
-          test "$(git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | wc -l)" = 21
-          git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | sort >/tmp/qrw-paths.actual
+          test "$(git merge-base '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD)" = 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf'
+          test "$(git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' '3a3614888b543c2c53483a6e41b4a50f6e6687fc' | wc -l)" = 2
+          test "$(git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | wc -l)" = 23
+          test "$(git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD | wc -l)" = 21
+          git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD | sort >/tmp/qrw-paths.actual
           cat > /tmp/qrw-paths.expected <<'PATHS'
           src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
           src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
@@ -55,7 +58,7 @@ jobs:
           tests/wep-comp03-reference-consumer.test.mjs
           PATHS
           diff -u /tmp/qrw-paths.expected /tmp/qrw-paths.actual
-          git diff --raw '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD
+          git diff --raw 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD
           test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 'fbb42e811ea3c0e0f37013bcb2165206580219bd'
           test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = '838d945fdb28c35ba914f28b87fd1f16095a434e'
           set -euo pipefail
@@ -164,12 +167,15 @@ jobs:
         run: |
           set -euo pipefail
           echo "QRW1858_PIN_HEAD=$(git rev-parse HEAD)"
-          echo "QRW1858_PIN_COUNT=$(git diff --name-only 3a3614888b543c2c53483a6e41b4a50f6e6687fc HEAD | wc -l)"
+          echo "QRW1858_PIN_DIRECT_MAIN_COUNT=$(git diff --name-only 3a3614888b543c2c53483a6e41b4a50f6e6687fc HEAD | wc -l)"
           echo "QRW1858_PIN_UI=$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)"
           echo "QRW1858_PIN_ROUTE=$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)"
           test "$(git rev-parse HEAD)" = '40a594235515b65b58b1c7d81e5ce6ca3fe1fd85'
-          test "$(git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | wc -l)" = 21
-          git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | sort >/tmp/qrw-paths.actual
+          test "$(git merge-base '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD)" = 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf'
+          test "$(git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' '3a3614888b543c2c53483a6e41b4a50f6e6687fc' | wc -l)" = 2
+          test "$(git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | wc -l)" = 23
+          test "$(git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD | wc -l)" = 21
+          git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD | sort >/tmp/qrw-paths.actual
           cat > /tmp/qrw-paths.expected <<'PATHS'
           src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
           src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
@@ -194,7 +200,7 @@ jobs:
           tests/wep-comp03-reference-consumer.test.mjs
           PATHS
           diff -u /tmp/qrw-paths.expected /tmp/qrw-paths.actual
-          git diff --raw '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD
+          git diff --raw 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD
           test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 'fbb42e811ea3c0e0f37013bcb2165206580219bd'
           test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = '838d945fdb28c35ba914f28b87fd1f16095a434e'
           set -euo pipefail
@@ -300,12 +306,15 @@ jobs:
         run: |
           set -euo pipefail
           echo "QRW1858_PIN_HEAD=$(git rev-parse HEAD)"
-          echo "QRW1858_PIN_COUNT=$(git diff --name-only 3a3614888b543c2c53483a6e41b4a50f6e6687fc HEAD | wc -l)"
+          echo "QRW1858_PIN_DIRECT_MAIN_COUNT=$(git diff --name-only 3a3614888b543c2c53483a6e41b4a50f6e6687fc HEAD | wc -l)"
           echo "QRW1858_PIN_UI=$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)"
           echo "QRW1858_PIN_ROUTE=$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)"
           test "$(git rev-parse HEAD)" = '40a594235515b65b58b1c7d81e5ce6ca3fe1fd85'
-          test "$(git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | wc -l)" = 21
-          git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | sort >/tmp/qrw-paths.actual
+          test "$(git merge-base '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD)" = 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf'
+          test "$(git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' '3a3614888b543c2c53483a6e41b4a50f6e6687fc' | wc -l)" = 2
+          test "$(git diff --name-only '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD | wc -l)" = 23
+          test "$(git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD | wc -l)" = 21
+          git diff --name-only 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD | sort >/tmp/qrw-paths.actual
           cat > /tmp/qrw-paths.expected <<'PATHS'
           src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
           src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
@@ -330,7 +339,7 @@ jobs:
           tests/wep-comp03-reference-consumer.test.mjs
           PATHS
           diff -u /tmp/qrw-paths.expected /tmp/qrw-paths.actual
-          git diff --raw '3a3614888b543c2c53483a6e41b4a50f6e6687fc' HEAD
+          git diff --raw 'f8bdc1b7c55de6209ee10118cef8799ccdfb6faf' HEAD
           test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 'fbb42e811ea3c0e0f37013bcb2165206580219bd'
           test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = '838d945fdb28c35ba914f28b87fd1f16095a434e'
       - run: npm ci --no-audit --no-fund
