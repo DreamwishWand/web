@@ -153,7 +153,7 @@ fn doc()->Value{json!({"GameInfo":{"Version":626},"ConditionalEventHistory":{"Ac
  "CollectionSets":[{"CollectionDefinitionID":2120000001,"GroupData":[{"GroupsCollectionItems":{"50000352":true,"50000214":true}}]}]}})}
 fn open(d:&Value,switch:bool)->ProductSession{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),BuildIdentity{platform:if switch{Platform::Switch}else{Platform::SteamWindows},build_kind:if switch{BuildKind::SwitchBid}else{BuildKind::SteamFullVersion},build_id:(if switch{BID}else{EXACT_STEAM}).into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s}
 fn env(s:&ProductSession,action:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action}}
-#[test]fn wardrobe_decoded_string_selected_aliases(){
+#[test]fn product_wardrobe_exact1_both_builds_decoded_string_selected_aliases(){
     for raw in [r#""\u00350000352""#,r#""\u00350000214""#,r#""50000\u003352""#,r#""50000214""#,r#""50000352""#]{
         let text=format!(r#"{{"World":{{"Unknown":{raw}}}}}"#);
         let b=text.as_bytes();assert!(walk(b,Span{begin:0,end:b.len()},&mut Vec::new(),&mut 0).is_err());
