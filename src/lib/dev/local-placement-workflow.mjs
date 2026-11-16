@@ -11,12 +11,20 @@ const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-25
 const baseReceipt='kind,ok,writerAuthorized,nativeV3Verified,originalOverwriteAuthorized';
 const safe=(r,k,extra='')=>exact(r,baseReceipt+extra)&&r.kind===k&&r.ok===true&&r.writerAuthorized===false&&r.nativeV3Verified===false&&r.originalOverwriteAuthorized===false;
 const empty=()=>({phase:'closed',sourceName:'',backupName:null,preview:null,editedName:null});
-const build=COLLECTION_EXACT1_BUILDS['steam-windows'];
-export const STEAM626_PLACEMENT_BUILD=build;
+export const STEAM626_PLACEMENT_BUILD=COLLECTION_EXACT1_BUILDS['steam-windows'];
+export const SWITCH626_BACKPACK_BUILD=COLLECTION_EXACT1_BUILDS.switch;
+const backpackSlot=n=>uint(n)&&n<256;
+const backpackSelector=s=>exact(s,'sourceSlot,destinationSlot')&&backpackSlot(s.sourceSlot)&&backpackSlot(s.destinationSlot)&&s.sourceSlot!==s.destinationSlot;
+export function createLocalBackpackDevWorkflow(adapter,{trustedLocalHarness=false,platform}={}){
+ if(!['steam-windows','switch'].includes(platform))fail();
+ return createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness,operation:platform==='switch'?'backpack-switch':'backpack-steam'});
+}
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation}={}){
- if(trustedLocalHarness!==true||!['comp03','vase'].includes(operation)||!adapter)fail();
- for(const k of ['open','backupOriginal','previewPlacement','stagePlacement','undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
- const comp=operation==='comp03',count=comp?9:3;
+ if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch'].includes(operation)||!adapter)fail();
+ const backpack=operation==='backpack-steam'||operation==='backpack-switch';
+ const previewMethod=backpack?'previewBackpack':'previewPlacement',stageMethod=backpack?'stageBackpack':'stagePlacement';
+ for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
+ const comp=operation==='comp03',count=comp?9:3,build=operation==='backpack-switch'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
  const set=p=>{state={...state,...p};return snapshot()};
@@ -51,8 +59,13 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
   backup=Object.freeze({name:r.backupName,sha:source.sha,size:source.size});return set({phase:'ready',backupName:backup.name});
  });
  const preview=selector=>run(['ready','previewed'],async check=>{
-  if(!backup||!(comp?exact(selector,'seedId')&&positive(selector.seedId):exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
-  const r=await adapter.previewPlacement({...selector});check();
+  if(!backup||!(backpack?backpackSelector(selector):comp?exact(selector,'seedId')&&positive(selector.seedId):exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
+  const r=await adapter[previewMethod]({...selector});check();
+  if(backpack){
+   if(!exact(r,'containerId,sourceSlot,destinationSlot,itemId,oldAmount,newSourceAmount,newDestinationAmount,quantity,effectiveStackBound,exactFieldChangedCount,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized')||
+    r.containerId!==0||r.sourceSlot!==selector.sourceSlot||r.destinationSlot!==selector.destinationSlot||r.itemId!==30200001||!uint(r.oldAmount)||r.oldAmount<2||r.oldAmount>50||r.newSourceAmount!==r.oldAmount-1||r.newDestinationAmount!==1||r.quantity!==1||r.effectiveStackBound!==50||r.exactFieldChangedCount!==3||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();
+   return set({phase:'previewed',preview:Object.freeze({...r})});
+  }
   const common='itemId,gridId,nextObjectId,oldAmount,newAmount,exactFieldChangedCount,scopedCandidate,writerAuthorized,editedCopyAuthorized';
   if(!exact(r,common+(comp?',seedId,inventoryDelta,retainSeed,addObjects':',inventoryId,x,y,orientation,inventoryDelta,addObjects'))||
    r.itemId!==(comp?40100038:40000066)||!positive(r.gridId)||!positive(r.nextObjectId)||!positive(r.oldAmount)||!uint(r.newAmount)||r.exactFieldChangedCount!==count||
@@ -61,7 +74,7 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
     r.gridId===selector.gridId&&r.x===selector.x&&r.y===selector.y&&r.inventoryId===0&&r.orientation==='GridOrientation_Up'&&r.oldAmount===r.newAmount+1&&r.inventoryDelta===-1&&r.addObjects===1))fail();
   return set({phase:'previewed',preview:Object.freeze({...r})});
  });
- const stage=()=>run(['previewed'],async check=>{const r=await adapter.stagePlacement();check();if(!safe(r,'STAGED',',exactFieldChangedCount')||r.exactFieldChangedCount!==count)fail();return set({phase:'staged'})});
+ const stage=()=>run(['previewed'],async check=>{const r=await adapter[stageMethod]();check();if(!safe(r,'STAGED',',exactFieldChangedCount')||r.exactFieldChangedCount!==count)fail();return set({phase:'staged'})});
  const undo=()=>run(['staged'],async check=>{const r=await adapter.undo();check();if(!safe(r,'UNDONE'))fail();return set({phase:'undone'})});
  const redo=()=>run(['undone'],async check=>{const r=await adapter.redo();check();if(!safe(r,'REDONE'))fail();return set({phase:'staged'})});
  const exportEditedCopy=()=>run(['staged'],async check=>{
