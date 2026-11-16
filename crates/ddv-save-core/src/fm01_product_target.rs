@@ -91,4 +91,53 @@ mod tests{
   let mut bad=d.clone();bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["13"]["Orientation"]=json!("GridOrientation_Down");
   let q=open(&bad);assert!(q.mint_switch626_fm01_target(env(&q),90001,ids).is_err());
  }
+
+ #[test]fn qa1777_fm01_independent_lexical_target(){
+  let mut d=doc();d["Opaque"]=json!({"escape":"keep","other":[1,2,3]});
+  let ids=[10,11,12,13,14];
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true};
+  let raw=serde_json::to_string(&d).unwrap().replace("\"escape\":\"keep\"","\"escape\":\"\\u006beep\"");
+  let mut s=ProductSession::open_decoded_readonly(raw.as_bytes().to_vec(),build.clone()).unwrap();s.worker_bound=true;
+  let e=env(&s);let t=s.mint_switch626_fm01_target(e,90001,ids).unwrap();let before=s.receipt().unwrap();
+  let hash=|v:&Value|sha(&serde_json::to_vec(v).unwrap());
+  let g=&d["World"]["GridCollection"]["Grids"]["90001"];
+  assert_eq!(t.scope,e);assert_eq!((t.grid,t.ids,t.next,t.stock),(90001,ids,50,10));
+  assert_eq!(t.root_sha,hash(&d["World"]["Villages"][0]["Areas"]["2"]));assert_eq!(t.grid_sha,hash(g));
+  assert_eq!(t.counter_sha,sha(b"50"));assert_eq!(t.stock_sha,hash(&d["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]));
+  assert_eq!(t.houses_sha,sha(b"[]"));
+  for(i,id)in ids.iter().enumerate(){assert_eq!(t.old_rows_sha[i],hash(&g["Objects"][id.to_string()]));}
+  assert_eq!(s.decoded.as_ref(),raw.as_bytes());assert_eq!(s.receipt().unwrap(),before);
+  let mut neg=0;
+  for i in 0..16{
+   let mut q=d.clone();
+   match i{
+    0=>q["World"]["Villages"][0]["Areas"]["2"]["GridIDs"]=json!([90001,90001]),
+    1=>q["World"]["Villages"][0]["Areas"]["2"]["Unlocked"]=json!(false),
+    2=>q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(2147483645u32),
+    3=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Unknown"]=json!(1),
+    4=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["11"]["State"]=json!({"FenceMode":{"Diagonal":true}}),
+    5=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["13"]["Orientation"]=json!("GridOrientation_Down"),
+    6=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["14"]["ItemID"]=json!(40700248),
+    7=>q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(0),
+    8=>q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Marker"]=json!("ItemMarker_None"),
+    9=>q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Future"]=json!(1),
+    10=>q["Player"]["ListInventories"]["1"]=json!({"ID":1,"Inventory":{"40700246":{"Amount":1}}}),
+    11=>q["World"]["GridCollection"]["Grids"]["90001"]["GridDefaultLayoutPath"]=json!("foreign"),
+    12=>q["World"]["GridCollection"]["Grids"]["90001"]["TessellationFactor"]=json!(1),
+    13=>q["World"]["GridCollection"]["DiffGrids"]["90001"]=json!({"ID":90001}),
+    14=>q["Opaque"]["ref"]=json!({"GridID":90001,"ObjectID":52}),
+    _=>{let o=q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"].clone();q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["15"]=o;}
+   }
+   let x=open(&q);let xe=env(&x);assert!(x.mint_switch626_fm01_target(xe,90001,ids).is_err(),"case {i}");assert_eq!(env(&x),xe);neg+=1;
+  }
+  for id in ids.into_iter().chain(50..53){let mut q=d.clone();q["Opaque"]["ref"]=json!({"GridID":90001,"ObjectID":id});let x=open(&q);let xe=env(&x);assert!(x.mint_switch626_fm01_target(xe,90001,ids).is_err());assert_eq!(env(&x),xe);neg+=1;}
+  for bad in [WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e},WorkerEnvelope{action:WorkerAction::Stage,..e}]{assert!(s.mint_switch626_fm01_target(bad,90001,ids).is_err());neg+=1;}
+  let mut x=open(&d);x.worker_bound=false;assert!(x.mint_switch626_fm01_target(env(&x),90001,ids).is_err());neg+=1;
+  let x=open(&d);assert!(x.mint_switch626_fm01_target(e,90001,ids).is_err());neg+=1;
+  let mut x=ProductSession::open_decoded_readonly(raw.as_bytes().to_vec(),crate::BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:"releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22".into(),schema:626,externally_attested:true}).unwrap();x.worker_bound=true;
+  assert!(x.mint_switch626_fm01_target(env(&x),90001,ids).is_err());neg+=1;
+  assert!(s.mint_switch626_fm01_target(e,90001,[10,11,12,13,13]).is_err());neg+=1;
+  assert_eq!(neg,31);assert_eq!(s.receipt().unwrap(),before);println!("QRC1777_FM01_TARGET_ACTUAL 1POS {neg}NEG OLD5_FRESH3");
+ }
+
 }
