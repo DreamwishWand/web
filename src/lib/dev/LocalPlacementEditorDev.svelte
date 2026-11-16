@@ -14,9 +14,10 @@
  $: backpack=operation.startsWith('backpack-');
  $: wardrobe=operation.startsWith('wardrobe-');
  $: mixedRoad=operation==='sr03'||operation==='rm01';
- $: rawTitle=operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
+ $: r01=operation==='r01';
+ $: rawTitle=r01?words.r01Title:operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
  $: title=productMode?rawTitle.split(' — ')[0]+(productMode==='private-product-v2'?' — V2':''):rawTitle;
- $: detail=wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:words.vaseDetail;
+ $: detail=wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:r01?words.r01Detail:words.vaseDetail;
  $: p=state.preview;
  $: valid=wardrobe?true:backpack?Number.isSafeInteger(x)&&x>=0&&x<256&&Number.isSafeInteger(y)&&y>=0&&y<256&&x!==y:operation==='comp03'?Number.isSafeInteger(seed)&&seed>0:Number.isSafeInteger(grid)&&grid>0&&Number.isSafeInteger(x)&&x>=0&&Number.isSafeInteger(y)&&y>=0&&(!mixedRoad||(x>0&&y>0&&x!==y));
  onMount(()=>{
@@ -43,12 +44,12 @@
  }
 </script>
 <section class="placement" data-dev-placement data-product-writer="off" data-public-route={productMode==='public-accepted'?'on':'off'} data-operation={operation}>
- <h2>{title}</h2><p>{wardrobe?words.wardrobeSafety:backpack?words.backpackSafety:operation==='rm01'?words.rm01Safety:words.safety}</p><p>{detail}</p>
+ <h2>{title}</h2><p>{wardrobe?words.wardrobeSafety:backpack?words.backpackSafety:(operation==='rm01'||r01)?words.rm01Safety:words.safety}</p><p>{detail}</p>
  {#if !workflow}<p role="status">{words.off}</p>
  {:else}
   {#if state.phase==='closed'}
    <label>{words.file}<input bind:this={input} type="file" accept=".p1g,application/octet-stream" disabled={pending} on:change={select}/></label>
-   <p>{words.platform}: <code>{operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'?SWITCH626_BACKPACK_BUILD.buildId:STEAM626_PLACEMENT_BUILD.buildId}</code></p>
+   <p>{words.platform}: <code>{operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'||r01?SWITCH626_BACKPACK_BUILD.buildId:STEAM626_PLACEMENT_BUILD.buildId}</code></p>
    <label class="confirm"><input type="checkbox" bind:checked={confirmed} disabled={pending}/>{words.confirmBuild}</label>
    <button disabled={pending||!file||!confirmed} on:click={()=>act(w=>w.openFile({file,buildConfirmed:confirmed}))}>{words.openFile}</button>
   {:else}
@@ -88,6 +89,7 @@
       </figure>
      {/if}
      {:else if mixedRoad}<p>{words.retainedId}: {p.retainedId} · {words.movedId}: {p.movedId}</p><p>{words.added}: {p.nextObjectId}, {p.nextObjectId+1}, {p.nextObjectId+2}</p>
+     {:else if r01}<p>X: {p.x} · Y: {p.y}</p><p>{words.added}: {p.nextObjectId}, {p.nextObjectId+1}, {p.nextObjectId+2}</p>
      {:else}<p>X: {p.x} · Y: {p.y} · {p.orientation}</p>{/if}
      <p>{p.oldAmount} → {p.newAmount}</p>{/if}<p>{detail}</p>
     </div>
