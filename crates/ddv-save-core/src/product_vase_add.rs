@@ -6,6 +6,8 @@ use super::*;
 use serde_json::json;
 #[path="grid_append.rs"]
 mod grid_append;
+#[path="product_vase_effective.rs"]
+mod product_vase_effective;
 const ITEM:u32=40000066;
 const DEF:&str="60f840fa471e3678b5f7a018466d150882ad7bddaece6ada9a86327fd1c0607a";
 const GRID_DATA:&str="GridData/Villages/Village04-DarkLevel-GridData.json";
