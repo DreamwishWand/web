@@ -13,7 +13,7 @@
  $: words=localPlacementCopy($locale);
  $: backpack=operation.startsWith('backpack-');
  $: wardrobe=operation.startsWith('wardrobe-');
- $: rawTitle=operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
+ $: rawTitle=operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='vase-switch'?'Switch '+words.vaseTitle:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
  $: title=productMode?rawTitle.split(' — ')[0]+(productMode==='private-product-v2'?' — V2':''):rawTitle;
  $: detail=wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:words.vaseDetail;
  $: p=state.preview;
@@ -42,12 +42,12 @@
  }
 </script>
 <section class="placement" data-dev-placement data-product-writer="off" data-public-route={productMode==='public-accepted'?'on':'off'} data-operation={operation}>
- <h2>{title}</h2><p>{wardrobe?words.wardrobeSafety:backpack?words.backpackSafety:words.safety}</p><p>{detail}</p>
+ <h2>{title}</h2><p>{wardrobe?words.wardrobeSafety:backpack?words.backpackSafety:operation==='vase-switch'?words.safety.replace('Steam626','Switch626'):words.safety}</p><p>{detail}</p>
  {#if !workflow}<p role="status">{words.off}</p>
  {:else}
   {#if state.phase==='closed'}
    <label>{words.file}<input bind:this={input} type="file" accept=".p1g,application/octet-stream" disabled={pending} on:change={select}/></label>
-   <p>{words.platform}: <code>{operation==='backpack-switch'||operation==='wardrobe-switch'?SWITCH626_BACKPACK_BUILD.buildId:STEAM626_PLACEMENT_BUILD.buildId}</code></p>
+   <p>{words.platform}: <code>{operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='vase-switch'?SWITCH626_BACKPACK_BUILD.buildId:STEAM626_PLACEMENT_BUILD.buildId}</code></p>
    <label class="confirm"><input type="checkbox" bind:checked={confirmed} disabled={pending}/>{words.confirmBuild}</label>
    <button disabled={pending||!file||!confirmed} on:click={()=>act(w=>w.openFile({file,buildConfirmed:confirmed}))}>{words.openFile}</button>
   {:else}

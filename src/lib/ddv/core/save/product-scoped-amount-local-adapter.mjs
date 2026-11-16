@@ -42,6 +42,7 @@ export function createProductFixedCollectionLocalAdapter(options={}){return crea
 export function createProductSteam626Comp03LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'comp03')}
 export function createProductSteam626Comp03SpatialLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'comp03-spatial')}
 export function createProductSteam626VaseAddLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'vase')}
+export function createProductSwitch626VaseAddLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'vase-switch')}
 export function createProductSteam626BackpackLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,'steam')}
 export function createProductSwitch626BackpackLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,'switch')}
 export function createProductSteam626WardrobeLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,'steam')}
@@ -85,8 +86,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   async open(args){
    if(closeUnverified)fail();revoke();return run(async t=>{
     if(!keys(args,'file,originalSha256,build')||!keys(args.build,'platform,buildKind,buildId,schema,externallyConfirmed')||
-     !((!switchChest&&!catalog&&backpackScope!=='switch'&&wardrobeScope!=='switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
-       ((collection||switchChest||catalog||backpackScope==='switch'||wardrobeScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
+     !((!switchChest&&!catalog&&placementScope!=='vase-switch'&&backpackScope!=='switch'&&wardrobeScope!=='switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
+       ((collection||switchChest||catalog||placementScope==='vase-switch'||backpackScope==='switch'||wardrobeScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
      args.build.schema!==626||args.build.externallyConfirmed!==true||!uint(t)||t<1)fail();
     const input=Object.freeze({file:args.file,originalSha256:args.originalSha256,build:Object.freeze({...args.build})});
     const r=await bridge.openScopedEncrypted(input);check(t);
