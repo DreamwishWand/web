@@ -135,7 +135,7 @@ jobs:
            const denied=validate();assert.notEqual(denied.status,0);assert.match(denied.stderr+denied.stdout,/CARGO_LOCK_SHA_DRIFT_NEEDS_NEW_REVIEW/);runtimeNeg++;neg++;
            writeFileSync(lock,badLock);
            const originalPages=readFileSync(pages);
-           writeFileSync(pages,originalPages.toString('utf8').replace('actions/attest-build-provenance@v2','disabled-qa-proof'));
+           writeFileSync(pages,originalPages.toString('utf8').replaceAll('actions/attest-build-provenance@v2','disabled-qa-proof'));
            const pagesDenied=validate();assert.notEqual(pagesDenied.status,0);assert.match(pagesDenied.stderr+pagesDenied.stdout,/PAGES_RELEASE_POLICY_NOT_OWNER_AUTHORIZED/);runtimeNeg++;neg++;
            writeFileSync(pages,originalPages);
            console.log('QRS_PR1941_R22_CARGO_EXACT_PIN_L2_PASS',JSON.stringify({pos,neg,runtimeNeg,scopeNeg,onePath:path,oldConfig,newConfig,oldCargo,newCargo,protectedMain:main,sourceHead:source,actualGit:true,actualVerifierPreflight:true,simulationOnly:true,actualSignature:false,productWriterEnabled:false}));
