@@ -7,6 +7,10 @@ use serde_json::{json,Value};
 #[path="comp03_installed_geometry.rs"]
 mod installed_geometry;
 use installed_geometry::{InstalledGeometry,LocalGeometry};
+#[path="comp03_shape.rs"]
+mod comp03_shape;
+#[path="grid_append.rs"]
+mod grid_append;
 
 const MAX_GRID_BYTES:usize=2*1024*1024;
 const MAX_ALIAS_NODES:usize=1_000_000;
@@ -262,6 +266,68 @@ impl ProductSession{
     }
 }
 
+// ACT999: exact same-session layout proposal. No Stage authority yet:
+// this opaque preparation is NOT the effective provider/rights/subscriber
+// binder. Only the existing ledger may commit after that remaining gate.
+#[derive(Debug)]
+#[allow(dead_code)]
+pub(crate) struct Comp03PreparedLayout {
+    target:Comp03SavedReferenceTarget,
+    edits:[Replacement;2],
+    projected_sha:[u8;32],
+}
+impl ProductSession{
+    #[allow(dead_code)]
+    pub(crate) fn prepare_comp03_product_layout(&self,e:WorkerEnvelope,seed:u32)
+        ->CoreResult<Comp03PreparedLayout>{
+        let target=self.mint_comp03_saved_reference_target(e,seed)?;
+        let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+        if st.semantic.is_some()||st.revision!=0||st.generation!=1{
+            return Err(denied("COMP03_LAYOUT_EPOCH"));
+        }
+        let t=&target.physical;let b=&self.decoded;
+        let roots=indexed_read::roots(b)?;
+        let gc=field(b,roots.world,"GridCollection")?;
+        let grid=field(b,field(b,gc,"Grids")?,&t.grid.to_string())?;
+        if digest(b,grid)?!=t.grid_sha{return Err(denied("COMP03_LAYOUT_GRID_CAS"));}
+        let objects=field(b,grid,"Objects")?;
+        let counter=field(b,grid,"NextGridObjectID")?;
+        let next=t.geometry.next;
+        let end=next.checked_add(8).filter(|x|*x<=i32::MAX as u32)
+            .ok_or(denied("COMP03_LAYOUT_COUNTER"))?;
+        if bytes(b,counter)?!=next.to_string().as_bytes()||
+           digest(b,field(b,objects,&seed.to_string())?)?!=t.seed_sha||
+           digest(b,field(b,objects,"0")?)?!=t.well_sha{
+            return Err(denied("COMP03_LAYOUT_TARGET_CAS"));
+        }
+        // The existing physical target proves a nonempty object map, exact
+        // current allocator, unique IDs, geometry and no target aliases.
+        // Reuse the identical shape source and shared Native append encoder.
+        let rows=comp03_shape::additions(next,t.geometry.seed_x,t.geometry.seed_y)
+            .ok_or(denied("COMP03_LAYOUT_SHAPE"))?;
+        let closing=objects.end.checked_sub(1).ok_or(denied("COMP03_LAYOUT_MAP"))?;
+        if rows.len()!=8||b.get(closing)!=Some(&b'}'){
+            return Err(denied("COMP03_LAYOUT_MAP"));
+        }
+        let mut edits=[
+            Replacement{span:Span{begin:closing,end:objects.end},old:vec![b'}'],
+                new:grid_append::payload(&rows)?},
+            Replacement{span:counter,old:bytes(b,counter)?.to_vec(),new:end.to_string().into_bytes()}
+        ];
+        edits.sort_by_key(|r|r.span.begin);
+        if edits[0].span.end>edits[1].span.begin{return Err(denied("COMP03_LAYOUT_OVERLAP"));}
+        // Project the exact byte output digest without allocating a second
+        // full decoded document. No mutation, export, or semantic ledger.
+        let mut hasher=Sha256::new();let mut pos=0;
+        for edit in &edits{
+            if bytes(b,edit.span)?!=edit.old.as_slice(){return Err(denied("COMP03_LAYOUT_OLD_CAS"));}
+            hasher.update(&b[pos..edit.span.begin]);hasher.update(&edit.new);pos=edit.span.end;
+        }
+        hasher.update(&b[pos..]);
+        Ok(Comp03PreparedLayout{target,edits,projected_sha:hasher.finalize().into()})
+    }
+}
+
 #[cfg(test)]
 mod tests{
     use super::*;
@@ -285,6 +351,52 @@ mod tests{
     fn env(s:&ProductSession)->WorkerEnvelope{
         let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,
             expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}
+    }
+
+    #[test]
+    fn comp03_prepared_exact9_byte_projection_without_authority(){
+        for (g,s,seed) in [(90001,90002,500),(301,742,42)]{
+            let d=doc(g,s,seed);
+            let raw=serde_json::to_vec(&d).unwrap();
+            let session=open(&d);let e=env(&session);let before=session.receipt().unwrap();
+            let proposal=session.prepare_comp03_product_layout(e,seed).unwrap();
+            assert_eq!(proposal.target.physical.grid,g);assert_eq!(proposal.edits.len(),2);
+            assert_eq!(session.receipt().unwrap(),before);
+            let mut out=raw.clone();
+            for edit in proposal.edits.iter().rev(){
+                assert_eq!(&out[edit.span.begin..edit.span.end],edit.old.as_slice());
+                out.splice(edit.span.begin..edit.span.end,edit.new.iter().copied());
+            }
+            assert_eq!(sha(&out),proposal.projected_sha);
+            validate_entire_document(&out,626).unwrap();
+            let mut want=d.clone();
+            let grid=&mut want["World"]["GridCollection"]["Grids"][g.to_string()];
+            let next=seed+10;let rows=comp03_shape::additions(next,16,24).unwrap();
+            for row in rows{
+                let id=row["ID"].as_u64().unwrap().to_string();
+                grid["Objects"][id]=row;
+            }
+            grid["NextGridObjectID"]=json!(next+8);
+            let actual:Value=serde_json::from_slice(&out).unwrap();
+            assert_eq!(actual,want);
+            // Undo projection reproduces the exact original, including the
+            // closing-brace insertion and length-changing counter.
+            let mut undo=out.clone();let mut delta=0isize;
+            let ranges:Vec<_>=proposal.edits.iter().map(|edit|{
+                let begin=(edit.span.begin as isize+delta) as usize;
+                delta+=edit.new.len() as isize-edit.old.len() as isize;
+                (begin,begin+edit.new.len(),edit.old.clone())
+            }).collect();
+            for (begin,end,old) in ranges.into_iter().rev(){undo.splice(begin..end,old);}
+            assert_eq!(undo,raw);
+            assert!(open(&d).prepare_comp03_product_layout(e,seed).is_err());
+            assert!(session.prepare_comp03_product_layout(WorkerEnvelope{expected_revision:1,..e},seed).is_err());
+            assert!(session.prepare_comp03_product_layout(WorkerEnvelope{action:WorkerAction::Stage,..e},seed).is_err());
+            assert!(session.prepare_comp03_product_layout(e,seed+1).is_err());
+            let mut q=d.clone();q["Player"]["Ref"]=json!({"GridID":g,"GridObjectID":next});
+            let x=open(&q);assert!(x.prepare_comp03_product_layout(env(&x),seed).is_err());
+            session.close().unwrap();assert!(session.prepare_comp03_product_layout(e,seed).is_err());
+        }
     }
 
     #[test]
