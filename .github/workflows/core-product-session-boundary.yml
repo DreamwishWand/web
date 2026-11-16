@@ -55,6 +55,16 @@ jobs:
         run: |
           cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped --lib product_amount_scoped --verbose
           cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped
+      - name: ACT1186 S-R03 scoped exact8 native and dedicated Worker ABI
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-sr03-scoped --lib sr03_product_exact8_atomic_cas_and_lifecycle --verbose
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-sr03-scoped --lib sr03_shared_typed_collector_matches_native_exact8_bytes --verbose
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-sr03-scoped
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-sr03-scoped,product-collection-scoped
+      - name: Steam Chest and placement cumulative dedicated Worker compile
+        run: |
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-chest-scoped
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-chest-scoped,product-switch626-chest-scoped,product-steam626-comp03-spatial-preview,product-steam626-sr03-scoped,product-collection-scoped
       - name: Compile WASM Worker plus opt-in indexed-read types without binding to UI
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read
       - name: Rust wasm32 ABI compilation (no UI/bundle assumption)
@@ -76,6 +86,11 @@ jobs:
           cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped,product-collection-scoped --lib product_amount_scoped --verbose
           cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped,product-collection-scoped --lib product_collection_source_tests --verbose
           cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped,product-collection-scoped
+      - name: ACT1181 exact COMP03 spatial projection and opt-in WASM compile
+        shell: bash
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --locked --features product-steam626-comp03-spatial-preview --lib comp03_spatial_projection_current_bound_exact9 --verbose
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --locked --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-comp03-spatial-preview
       - name: Reject embedded private files or Writer promotion
         shell: bash
         run: |
@@ -84,6 +99,6 @@ jobs:
           ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|writer_authorized: *true|apply_authorized: *true' crates/ddv-save-core/src
           # Exact path + literal allowlist, SHA-pinned public-derived metadata only.
           includes="$(git grep -n -E 'include_(bytes|str)!' HEAD -- crates/ddv-save-core/src | cut -d: -f1,2,4-)"
-          expected="$(printf '%s\n' 'HEAD:crates/ddv-save-core/src/private_collection_read.rs:const PRODUCT_PACK:&[u8]=include_bytes!("../data/collection-furniture-626.json");' 'HEAD:crates/ddv-save-core/src/product_amount_scoped.rs:const ELIG:&str=include_str!("../data/steam626-amount-packaged-candidates.json");' 'HEAD:crates/ddv-save-core/src/product_amount_scoped.rs:const DEP:&str=include_str!("../data/steam626-amount-dependency-projection.json");' 'HEAD:crates/ddv-save-core/src/product_amount_scoped.rs:const LAYOUT:&str=include_str!("../data/steam626-amount-layout-reference.jsonl");')"
+          expected="$(printf '%s\n' 'HEAD:crates/ddv-save-core/src/comp03_product_target.rs:const SUPPLEMENT:&[u8]=include_bytes!("../data/steam626-placement-applicable-supplement.json");' 'HEAD:crates/ddv-save-core/src/private_collection_read.rs:const PRODUCT_PACK:&[u8]=include_bytes!("../data/collection-furniture-626.json");' 'HEAD:crates/ddv-save-core/src/product_amount_scoped.rs:const ELIG:&str=include_str!("../data/steam626-amount-packaged-candidates.json");' 'HEAD:crates/ddv-save-core/src/product_amount_scoped.rs:const DEP:&str=include_str!("../data/steam626-amount-dependency-projection.json");' 'HEAD:crates/ddv-save-core/src/product_amount_scoped.rs:const LAYOUT:&str=include_str!("../data/steam626-amount-layout-reference.jsonl");')"
           test "$includes" = "$expected"
-          printf '%s\n' 'b9ebc7bebf2c3e1df274b9a98a7b7276896270faa303a41657ecc6c56db84f4f  crates/ddv-save-core/data/collection-furniture-626.json' '05a6bea5582232b27569dbb71f8666d7d60c11a35515d844d2f21b2ae557b23d  crates/ddv-save-core/data/steam626-amount-packaged-candidates.json' '78a1ba539b2e6f43182cea2c2ea35c9d10e51f27d4adbb8d4dbc6cce7f7dcd65  crates/ddv-save-core/data/steam626-amount-dependency-projection.json' '501ba50d0a6f02ff09080357424f3ae5b3f17644ed64d7830566586baf6fce6f  crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl' | sha256sum -c -
+          printf '%s\n' 'b9ebc7bebf2c3e1df274b9a98a7b7276896270faa303a41657ecc6c56db84f4f  crates/ddv-save-core/data/collection-furniture-626.json' '05a6bea5582232b27569dbb71f8666d7d60c11a35515d844d2f21b2ae557b23d  crates/ddv-save-core/data/steam626-amount-packaged-candidates.json' '78a1ba539b2e6f43182cea2c2ea35c9d10e51f27d4adbb8d4dbc6cce7f7dcd65  crates/ddv-save-core/data/steam626-amount-dependency-projection.json' '501ba50d0a6f02ff09080357424f3ae5b3f17644ed64d7830566586baf6fce6f  crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl' 'fd9284fa7a9e9cf2d533296efe12b396b7f598171d535783209ab3474294b064  crates/ddv-save-core/data/steam626-placement-applicable-supplement.json' | sha256sum -c -
