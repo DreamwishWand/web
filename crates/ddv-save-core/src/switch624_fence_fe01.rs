@@ -124,6 +124,7 @@ fn layout_edits(b:&[u8],members:&[(u32,usize,Span)],del:&[u32],objs:Span,
     edits.push(replace(b,counter,n4.to_string().into_bytes())?);
     Ok(edits)
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     pub fn stage_switch624_fence_fe01_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
@@ -134,6 +135,7 @@ impl ProductSession{
         self.commit_semantic_replacements(e,edits,7,None)
     }
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     /// Exact Switch626 FE01 preserve7 layout-only; no inventory edit/refund.
     pub fn stage_switch626_fence_fe01_layout(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
@@ -385,6 +387,50 @@ fn historical_collect(s:&ProductSession,p:&Value,op:HistoricalFenceOp)->CoreResu
     }
     layout_edits(b,&members,&del,objs,counter,n3,plan)
 }
+// Detached product collector: geometry/references/epoch must be re-minted
+// by the typed product target before this internal lexical helper is called.
+// No caller plan, stock mutation, new executor, or public authority.
+#[allow(dead_code)]
+pub(super) struct Fm01Expected {
+    pub(super) grid:u32,pub(super) ids:[u32;5],pub(super) next:u32,
+    pub(super) stock:u32,pub(super) grid_sha:[u8;32],pub(super) stock_sha:[u8;32],
+    pub(super) counter_sha:[u8;32],pub(super) old_rows_sha:[[u8;32];5],
+}
+#[allow(dead_code)]
+pub(super) fn collect_fm01_current(s:&ProductSession,w:&Fm01Expected)->CoreResult<Vec<Replacement>>{
+    let b=&s.decoded;let roots=indexed_read::roots(b)?;
+    let gc=object_field(b,roots.world,"GridCollection")?;
+    let grid=object_field(b,object_field(b,gc,"Grids")?,&w.grid.to_string())?;
+    let counter=object_field(b,grid,"NextGridObjectID")?;
+    if sha(raw(b,grid)?)!=w.grid_sha||sha(raw(b,counter)?)!=w.counter_sha||
+       number(b,counter)?!=w.next as u64{return Err(denied("FM01_CURRENT_GRID_CAS"));}
+    let objs=object_field(b,grid,"Objects")?;
+    for(i,id)in w.ids.iter().enumerate(){
+        let row=object_field(b,objs,&id.to_string())?;
+        if sha(raw(b,row)?)!=w.old_rows_sha[i]{return Err(denied("FM01_CURRENT_ROW_CAS"));}
+    }
+    let route=object_field(b,object_field(b,roots.player,"ListInventories")?,"0")?;
+    let stock=object_field(b,object_field(b,route,"Inventory")?,&BASE.to_string())?;
+    if sha(raw(b,stock)?)!=w.stock_sha||num(b,stock,"Amount")?!=w.stock||
+       w.stock==0||w.stock as u64>MAX_CONSERVATIVE_AMOUNT{return Err(denied("FM01_CURRENT_STOCK_CAS"));}
+    let first=object_field(b,objs,&w.ids[0].to_string())?;
+    let x=num(b,first,"X")?;let y=num(b,first,"Y")?;
+    let coord=|v:u32,d:u32|v.checked_add(d).filter(|n|*n<=i32::MAX as u32).ok_or(denied("FM01_CURRENT_COORD"));
+    let end=w.next.checked_add(3).filter(|n|*n<=i32::MAX as u32).ok_or(denied("FM01_CURRENT_COUNTER"))?;
+    if end==3{return Err(denied("FM01_CURRENT_COUNTER"));}
+    let created=[fence_record(w.next,EXT1,x,coord(y,2)?,true,false),
+        fence_record(w.next+1,BASE,x,coord(y,4)?,false,false),
+        fence_record(w.next+2,BASE,coord(x,2)?,coord(y,6)?,false,true)];
+    // Only internal canonical construction, the existing exact native
+    // collector independently rechecks every old/new record and raw CAS.
+    let p=json!({"contract":HistoricalFenceOp::Switch626Fm01.contract(),"layout":"PRESERVE_EXISTING",
+        "sourceDecodedSha256":digest(b),"gridId":w.grid,"expectedNextId":w.next,
+        "gridSha256":digest(raw(b,grid)?),"retainedIds":[w.ids[0]],"deletedIds":&w.ids[1..],
+        "created":created,"inventoryEntrySha256":{(BASE.to_string()):digest(raw(b,stock)?)}});
+    historical_collect(s,&p,HistoricalFenceOp::Switch626Fm01)
+}
+
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     fn stage_historical_fence(&self,e:WorkerEnvelope,plan:&[u8],op:HistoricalFenceOp)->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
@@ -453,6 +499,32 @@ mod historical_layout_tests{
             expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:a}}
     fn stage(s:&ProductSession,e:WorkerEnvelope,p:&Value,frp:bool)->CoreResult<SemanticStageReceipt>{
         if frp{s.stage_switch624_fence_frp01_archive(e,&enc(p).unwrap())}else{s.stage_switch624_fence_fm01_archive(e,&enc(p).unwrap())}
+    }
+    #[test]
+    fn fm01_current_typed_collector_native_parity_and_raw_cas(){
+        let(mut d,mut p)=fixture(false);d["GameInfo"]["Version"]=json!(626);
+        p["contract"]=json!(HistoricalFenceOp::Switch626Fm01.contract());bind(&d,&mut p,false);
+        let s=ProductSession::open_decoded_readonly(enc(&d).unwrap(),crate::BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+        let b=&s.decoded;let roots=indexed_read::roots(b).unwrap();let gc=object_field(b,roots.world,"GridCollection").unwrap();
+        let grid=object_field(b,object_field(b,gc,"Grids").unwrap(),"9").unwrap();
+        let objs=object_field(b,grid,"Objects").unwrap();let counter=object_field(b,grid,"NextGridObjectID").unwrap();
+        let route=object_field(b,object_field(b,roots.player,"ListInventories").unwrap(),"0").unwrap();
+        let stock=object_field(b,object_field(b,route,"Inventory").unwrap(),"40700246").unwrap();
+        let ids=[10,11,12,13,14];let old_rows_sha=ids.map(|id|sha(raw(b,object_field(b,objs,&id.to_string()).unwrap()).unwrap()));
+        let mut w=Fm01Expected{grid:9,ids,next:50,stock:30,grid_sha:sha(raw(b,grid).unwrap()),stock_sha:sha(raw(b,stock).unwrap()),
+            counter_sha:sha(raw(b,counter).unwrap()),old_rows_sha};
+        let a=collect_fm01_current(&s,&w).unwrap();let n=historical_collect(&s,&p,HistoricalFenceOp::Switch626Fm01).unwrap();
+        assert_eq!(a.len(),n.len());
+        for(x,y)in a.iter().zip(&n){assert_eq!((x.span.begin,x.span.end,&x.old,&x.new),(y.span.begin,y.span.end,&y.old,&y.new));}
+        let before=s.receipt().unwrap();
+        w.next=51;assert!(collect_fm01_current(&s,&w).is_err());w.next=50;
+        w.stock=29;assert!(collect_fm01_current(&s,&w).is_err());w.stock=30;
+        let g=w.grid_sha;w.grid_sha=[0;32];assert!(collect_fm01_current(&s,&w).is_err());w.grid_sha=g;
+        let c=w.counter_sha;w.counter_sha=[0;32];assert!(collect_fm01_current(&s,&w).is_err());w.counter_sha=c;
+        let h=w.stock_sha;w.stock_sha=[0;32];assert!(collect_fm01_current(&s,&w).is_err());w.stock_sha=h;
+        for i in 0..5{let h=w.old_rows_sha[i];w.old_rows_sha[i]=[0;32];assert!(collect_fm01_current(&s,&w).is_err());w.old_rows_sha[i]=h;}
+        assert_eq!(s.receipt().unwrap(),before);
     }
     #[test]
     fn switch626_fm01_exact8_no_inventory_and_contract_denials(){
@@ -635,6 +707,7 @@ fn add_collect(s:&ProductSession,p:&Value,shape:FenceAddShape)->CoreResult<Vec<R
     }
     layout_edits(b,&[],&[],objs,counter,end,plan)
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     fn stage_fence_add(&self,e:WorkerEnvelope,plan:&[u8],shape:FenceAddShape)->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
