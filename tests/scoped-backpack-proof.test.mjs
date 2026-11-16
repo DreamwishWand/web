@@ -20,7 +20,7 @@ function subject(s,w=wasm(s),js=Buffer.from('export default function(){}'),patch
 for(const [s,o] of [[steam,sw],[sw,steam]])test(s.key+' fixed three subject inspection and private anchor only',async()=>{
  assert.equal(fixedBackpackProofScope(s.key),s);assert.equal(s.methods.length,13);assert.equal(s.exports.length,22);assert.throws(()=>inspectBackpackSubjects(s,subject(s,undefined,undefined,{source:{...JSON.parse(subject(s)[0]).source,features:['product-backpack-scoped','worker-wasm']}}),source));
  const bytes=subject(s),p=inspectBackpackSubjects(s,bytes,source);
- for(const n of ['preview_steam626_sr03','stage_steam626_sr03']){
+ for(const n of ['preview_steam626_sr03','stage_steam626_sr03','preview_switch626_rm01','stage_switch626_rm01']){
   assert.throws(()=>inspectBackpackSubjects(s,subject(s,wasm(s),Buffer.from(n)),source));
   assert.throws(()=>inspectBackpackSubjects(s,subject(s,wasm(s,'workerwasmsource_'+n)),source));
  }
