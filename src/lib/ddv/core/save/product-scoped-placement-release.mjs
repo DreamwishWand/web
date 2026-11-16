@@ -13,18 +13,16 @@ const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const digest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
 const buildId='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
-function spec(key,operation,feature,preview,stage,path,platform='steam-windows',build=buildId,extraMethods=[]){
- const methods=Object.freeze(['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page',preview,stage,...extraMethods,'toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close']);
+function spec(key,operation,feature,preview,stage,path,platform='steam-windows',build=buildId){
+ const methods=Object.freeze(['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page',preview,stage,'toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close']);
  const exports=Object.freeze(['memory','__wbg_workerwasmsource_free','workerwasmsource_new',...methods.map(n=>'workerwasmsource_'+n),'__wbindgen_externrefs','__wbindgen_malloc','__externref_table_dealloc','__wbindgen_realloc','__wbindgen_free','__wbindgen_start'].sort());
  return Object.freeze({key,operation,platform,buildId:build,features:Object.freeze([feature,'worker-wasm']),methods,exports,path,assetDir:'worker-wasm-scoped-'+key,prefix:'wand.scoped-'+key});
 }
 export const COMP03_RELEASE=spec('steam626-comp03','steam626.comp03.layout.exact9','product-steam626-comp03-scoped','preview_steam626_comp03','stage_steam626_comp03','/editor/world/comp03/');
 export const VASE_ADD_RELEASE=spec('steam626-vase-add','steam626.vase.add.exact3','product-steam626-vase-add-scoped','preview_steam626_vase_add','stage_steam626_vase_add','/editor/world/vase/');
-// The existing Core feature contains both Build-bound pairs. Each route/anchor
-// remains independently fixed to one Build; actual generated census is required.
-const backpackExtra=['preview_switch626_backpack_split','stage_switch626_backpack_split'];
-export const STEAM_BACKPACK_RELEASE=spec('steam626-backpack-split','steam626.backpack.fruit-split.exact3','product-backpack-scoped','preview_steam626_backpack_split','stage_steam626_backpack_split','/editor/backpack/steam/','steam-windows',buildId,backpackExtra);
-export const SWITCH_BACKPACK_RELEASE=spec('switch626-backpack-split','switch626.backpack.fruit-split.exact3','product-backpack-scoped','preview_steam626_backpack_split','stage_steam626_backpack_split','/editor/backpack/switch/','switch','9A239D3DB569756D',backpackExtra);
+// PR1509 dedicated feature: one Build-bound pair per artifact. Actual generated census required.
+export const STEAM_BACKPACK_RELEASE=spec('steam626-backpack-split','steam626.backpack.fruit-split.exact3','product-steam626-backpack-scoped','preview_steam626_backpack_split','stage_steam626_backpack_split','/editor/backpack/steam/','steam-windows',buildId);
+export const SWITCH_BACKPACK_RELEASE=spec('switch626-backpack-split','switch626.backpack.fruit-split.exact3','product-switch626-backpack-scoped','preview_switch626_backpack_split','stage_switch626_backpack_split','/editor/backpack/switch/','switch','9A239D3DB569756D');
 const known=s=>s===COMP03_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE;
 const asset=(a,n,max)=>exact(a,'path,sizeBytes,sha256')&&a.path===n&&size(a.sizeBytes,max)&&sha(a.sha256);
 export function placementPinsOk(s,p){return known(s)&&exact(p,'contract,sourceHead,manifestSha256,manifestSizeBytes,jsSha256,jsSizeBytes,wasmSha256,wasmSizeBytes')&&p.contract===s.prefix+'.pinned-digests@1'&&head(p.sourceHead)&&[p.manifestSha256,p.jsSha256,p.wasmSha256].every(sha)&&size(p.manifestSizeBytes,64*1024)&&size(p.jsSizeBytes,2*1024*1024)&&size(p.wasmSizeBytes,20*1024*1024)}
@@ -61,7 +59,7 @@ async function load(s,a){
  const [js,wasm]=await Promise.all([checkedFetch(url('ddv_save_core.js'),p.jsSizeBytes,p.jsSha256,'text/javascript',fetch),checkedFetch(url('ddv_save_core_bg.wasm'),p.wasmSizeBytes,p.wasmSha256,'application/wasm',fetch)]);
  if(wasm[0]!==0||wasm[1]!==97||wasm[2]!==115||wasm[3]!==109)fail();
  const backpack=s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE;
- const denied=new RegExp(baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack?'(?:comp03|vase_add)':s===COMP03_RELEASE?'vase_add':'comp03')+(backpack?'':'|(?:preview|stage)_(?:steam626|switch626)_backpack_split'),'i');
+ const denied=new RegExp(baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack?'(?:comp03|vase_add)':s===COMP03_RELEASE?'vase_add':'comp03')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split','i');
  const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{deniedSymbol:denied,requiredMethods:s.methods,exactPrototype:true,exactWasmExports:s.exports});
  return Object.freeze({WorkerWasmSource,sourceHead:p.sourceHead,checkedBothJsAndWasm:true,sameOriginFetchOnly:true,writerAuthorized:false,productConsumerEnabled:false,attestationVerifiedAtBuild:true,...scope(a)});
 }
