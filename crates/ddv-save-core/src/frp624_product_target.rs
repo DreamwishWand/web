@@ -180,4 +180,144 @@ mod tests{
   let mut q=d.clone();let mut ambient=q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"].clone();ambient["ID"]=json!(13);ambient["ItemID"]=json!(40005494);ambient["Orientation"]=json!("GridOrientation_UpLeft");q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["13"]=ambient;
   let s=open(&q,FRP_BUILD,624);assert_eq!(s.mint_switch624_frp01_target(env(&s),90001,ids).unwrap_err().0,"FRP01_TARGET_GEOMETRY");
  }
+
+ #[cfg(feature="product-switch624-frp01-stage-internal")]
+ #[test]
+ fn qa1885_counter51_exact7_lexical_cas(){
+  let mut d=doc();
+  d["Opaque"]=json!({"escaped":"keep","untouched":[1,{"source":"keep"}],"decoyCounter":51});
+  d["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(51);
+  let src=serde_json::to_string(&d).unwrap();
+  let raw=src.replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");
+  assert_ne!(src,raw);
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+    build_id:FRP_BUILD.into(),schema:624,externally_attested:true};
+  let s=ProductSession::open_switch624_frp01_in_worker(raw.as_bytes().to_vec(),build.clone(),[17;32]).unwrap();
+  let e=env(&s);let original=s.receipt().unwrap();
+  let p=s.preview_switch624_frp01_product(e,90001,[10,11,12]).unwrap();
+  assert_eq!((p.target.next,p.target.old_stock,p.target.new_stock),(51,10,20));
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  let mut neg=0;
+  assert!(s.stage_switch624_frp01_product(e,&p).is_err());neg+=1;
+  assert!(s.stage_switch624_frp01_product(WorkerEnvelope{expected_revision:1,..stage},&p).is_err());neg+=1;
+  assert!(s.stage_switch624_frp01_product(WorkerEnvelope{expected_index_generation:2,..stage},&p).is_err());neg+=1;
+  assert!(s.stage_switch624_frp01_product(WorkerEnvelope{expected_decoded_sha256:[0;32],..stage},&p).is_err());neg+=1;
+  let mut forged=s.preview_switch624_frp01_product(e,90001,[10,11,12]).unwrap();forged.projected[3]^=1;
+  assert!(s.stage_switch624_frp01_product(stage,&forged).is_err());neg+=1;
+  let other=ProductSession::open_switch624_frp01_in_worker(raw.as_bytes().to_vec(),build.clone(),[19;32]).unwrap();
+  assert!(other.stage_switch624_frp01_product(WorkerEnvelope{action:WorkerAction::Stage,..env(&other)},&p).is_err());neg+=1;
+  assert_eq!(s.receipt().unwrap(),original);
+  let r=s.stage_switch624_frp01_product(stage,&p).unwrap();
+  assert_eq!((r.operation_count,r.exact_field_changed_count),(7,7));
+  assert_eq!(r.staged_decoded_sha256,p.projected);
+  assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+  assert!(s.stage_switch624_frp01_product(stage,&p).is_err());neg+=1;
+  s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).is_err());neg+=1;
+  s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+  let out_e=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};
+  let out=s.take_typed_semantic_decoded_once(out_e).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(out_e).is_err());neg+=1;
+  let mut want=d.clone();let grid=&mut want["World"]["GridCollection"]["Grids"]["90001"];
+  let x=grid["Objects"]["10"]["X"].as_u64().unwrap();let y=grid["Objects"]["10"]["Y"].as_u64().unwrap();
+  grid["NextGridObjectID"]=json!(54);
+  for id in ["10","11","12"]{grid["Objects"].as_object_mut().unwrap().remove(id);}
+  for(id,item,dy,left) in [(51,40700268u32,0u64,false),(52,40700269u32,2,true),(53,40700268u32,4,false)]{
+   grid["Objects"][id.to_string()]=json!({"ID":id,"ItemID":item,"X":x,"Y":y+dy,
+      "Orientation":if left{"GridOrientation_Left"}else{"GridOrientation_Down"},"State":null});
+  }
+  let expected=serde_json::to_string(&want).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");
+  assert_eq!(out,expected.as_bytes());
+  assert_eq!(s.decoded.as_ref(),raw.as_bytes());
+  assert_eq!(want["Player"],d["Player"]);
+  assert_eq!(sha(&out),p.projected);
+  std::fs::write("/tmp/qrc1885-frp624-independent-reopen.json",out).unwrap();
+  assert_eq!(neg,9);
+  println!("QRC1885_FRP624_COUNTER51_LEXICAL_ACTUAL 1POS {neg}NEG EXACT7 ORIGINAL_PRESERVED");
+ }
+
+ #[cfg(feature="product-switch624-frp01-stage-internal")]
+ #[test]
+ fn qa1885_reopen_child_independent(){
+  let out=std::fs::read("/tmp/qrc1885-frp624-independent-reopen.json").unwrap();
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+    build_id:FRP_BUILD.into(),schema:624,externally_attested:true};
+  let s=ProductSession::open_switch624_frp01_in_worker(out.clone(),build,[33;32]).unwrap();
+  let r=s.receipt().unwrap();
+  assert_eq!((r.revision,r.index_generation,r.schema),(0,1,624));
+  assert_eq!(r.decoded_sha256,sha(&out));
+  assert!(!r.writer_authorized&&!r.edited_copy_authorized&&!r.apply_authorized);
+  let d:Value=serde_json::from_slice(&out).unwrap();
+  let g=&d["World"]["GridCollection"]["Grids"]["90001"];
+  assert_eq!(g["NextGridObjectID"],json!(54));
+  assert_eq!(g["Objects"].as_object().unwrap().len(),3);
+  for id in ["51","52","53"]{assert!(g["Objects"].get(id).is_some());}
+  for id in ["10","11","12"]{assert!(g["Objects"].get(id).is_none());}
+  assert_eq!(d["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"],10);
+  assert_eq!(d["Player"]["ListInventories"]["0"]["Inventory"]["40700268"]["Amount"],20);
+  assert!(String::from_utf8(out).unwrap().contains(r#"\u006beep"#));
+  println!("QRC1885_FRP624_CHILD_REOPEN_PASS schema624 counter54 original lexical opaque preserved");
+ }
+
+ #[cfg(feature="product-switch624-frp01-stage-internal")]
+ #[test]
+ fn qa1885_counter_unsafe_negatives(){
+  let d=doc();let mut n=0;
+  for i in 0..5{let mut q=d.clone();match i{
+   0=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["11"]["ItemID"]=json!(40700248),
+   1=>q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX),
+   2=>q["Player"]["ListInventories"]["0"]["Inventory"]["40700268"]["Amount"]=json!(0),
+   3=>q["World"]["GridCollection"]["DiffGrids"]["90001"]=json!({"ID":90001}),
+   _=>q["Unknown"]=json!({"GridID":90001,"ObjectID":52}),
+  }
+   let s=open(&q,FRP_BUILD,624);
+   assert!(s.preview_switch624_frp01_product(env(&s),90001,[10,11,12]).is_err(),"negative {i}");
+   n+=1;
+  }
+  assert_eq!(n,5);
+  println!("QRC1885_FRP624_UNSAFE_COUNTER_NEGATIVES {n}NEG");
+ }
+
+
+ #[cfg(feature="product-switch624-frp01-stage-internal")]
+ #[test]
+ fn qa1885_unrelated_grid_objects_preserved(){
+  let d0=doc();
+  let x=d0["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"].as_u64().unwrap() as u32;
+  let y=d0["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"].as_u64().unwrap() as u32;
+  let p=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();
+  let (fx,fy)=(0..386u32).step_by(2).flat_map(|a|(0..190u32).step_by(2).map(move|b|(a,b)))
+   .find(|&(a,b)|(a.abs_diff(x)>20||b.abs_diff(y)>20)&&(0..2).all(|i|(0..2).all(|j|p.floor4(a+i,b+j)))).unwrap();
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+    build_id:FRP_BUILD.into(),schema:624,externally_attested:true};
+  for extra_id in ["1","13"]{
+   let mut d=d0.clone();
+   let id:u32=extra_id.parse().unwrap();
+   d["World"]["GridCollection"]["Grids"]["90001"]["Objects"][extra_id]=json!({
+      "ID":id,"ItemID":40700246,"X":fx,"Y":fy,"Orientation":"GridOrientation_Down","State":null});
+   d["Opaque"]=json!({"escaped":"keep","nested":{"unknownField":"untouched"}});
+   let raw=serde_json::to_string(&d).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");
+   let s=ProductSession::open_switch624_frp01_in_worker(raw.as_bytes().to_vec(),build.clone(),[id as u8;32]).unwrap();
+   let e=env(&s);
+   let p=s.preview_switch624_frp01_product(e,90001,[10,11,12]).unwrap();
+   let r=s.stage_switch624_frp01_product(WorkerEnvelope{action:WorkerAction::Stage,..e},&p).unwrap();
+   assert_eq!(r.exact_field_changed_count,7);
+   let out=s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).unwrap();
+   let mut wanted=d.clone();let grid=&mut wanted["World"]["GridCollection"]["Grids"]["90001"];
+   grid["NextGridObjectID"]=json!(53);
+   for k in ["10","11","12"]{grid["Objects"].as_object_mut().unwrap().remove(k);}
+   for(k,item,dy,left)in [(50,40700268,0,false),(51,40700269,2,true),(52,40700268,4,false)]{
+    grid["Objects"][k.to_string()]=json!({"ID":k,"ItemID":item,"X":x,"Y":y+dy,
+       "Orientation":if left{"GridOrientation_Left"}else{"GridOrientation_Down"},"State":null});
+   }
+   let expected=serde_json::to_string(&wanted).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");
+   assert_eq!(out,expected.as_bytes(),"extra_id={extra_id}: lexical mismatch");
+   assert_eq!(s.decoded.as_ref(),raw.as_bytes());
+   assert_eq!(wanted["Player"],d["Player"]);
+   let reopened=ProductSession::open_switch624_frp01_in_worker(out,build.clone(),[99;32]).unwrap();
+   assert_eq!(reopened.receipt().unwrap().decoded_sha256,r.staged_decoded_sha256);
+   println!("QRC1885_FRP624_UNRELATED_OBJECT_ACTUAL extra_id={extra_id} EXACT7 BYTE_PRESERVED");
+  }
+ }
+
 }
