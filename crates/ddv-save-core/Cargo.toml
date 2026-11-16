@@ -38,6 +38,9 @@ product-switch626-rm01-scoped = ["product-amount-scoped"]
 # Separate fixed Steam626 appearance product scopes; no generic appearance writer.
 product-steam626-hair-scoped = ["product-amount-scoped"]
 product-steam626-skin-scoped = ["product-amount-scoped"]
+# Dedicated Switch626 appearance; no generic cross-platform writer.
+product-switch626-hair-scoped = ["product-amount-scoped"]
+product-switch626-skin-scoped = ["product-amount-scoped"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
