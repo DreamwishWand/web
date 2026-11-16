@@ -62,6 +62,49 @@ impl ProductSession{
    counter_sha:digest(b,f(b,g,"NextGridObjectID")?)?,houses_sha:digest(b,house_span)?,old_rows_sha,pairs:refs.pairs})
  }
 }
+#[cfg(feature="product-switch626-fe01-scoped")]
+struct Fe01Prepared{target:Fe01Target,edits:Vec<Replacement>,projected:[u8;32]}
+#[cfg(feature="product-switch626-fe01-scoped")]
+impl ProductSession{
+ fn prepare_switch626_fe01_product(&self,e:WorkerEnvelope,grid:u32,ids:[u32;4])->CoreResult<Fe01Prepared>{
+  use super::super::super::switch624_fence_fe01::{Fe01CurrentExpected,collect_fe01_current};
+  let t=self.mint_switch626_fe01_target(e,grid,ids)?;
+  let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+  need(st.semantic.is_none()&&st.revision==0&&st.generation==1,"FE01_PRODUCT_EPOCH")?;
+  let w=Fe01CurrentExpected{grid:t.grid,next:t.next,grid_sha:t.grid_sha,counter_sha:t.counter_sha,ids:t.ids,old_rows_sha:t.old_rows_sha};
+  let mut edits=collect_fe01_current(self,&w)?;
+  need((3..=4).contains(&edits.len()),"FE01_PRODUCT_EDIT_COUNT")?;
+  edits.sort_by_key(|v|v.span.begin);
+  let b=&self.decoded;let mut h=Sha256::new();let mut pos=0;
+  for edit in &edits{
+   need(edit.span.begin>=pos&&edit.span.end>=edit.span.begin&&edit.span.end<=b.len()&&raw(b,edit.span)?==edit.old.as_slice(),"FE01_PRODUCT_RAW_CAS")?;
+   h.update(&b[pos..edit.span.begin]);h.update(&edit.new);pos=edit.span.end;
+  }
+  h.update(&b[pos..]);let projected=h.finalize().into();
+  Ok(Fe01Prepared{target:t,edits,projected})
+ }
+ #[allow(dead_code)]
+ pub(crate) fn preview_switch626_fe01_product(&self,e:WorkerEnvelope,grid:u32,ids:[u32;4])->CoreResult<Value>{
+  let p=self.prepare_switch626_fe01_product(e,grid,ids)?;let t=&p.target;
+  Ok(json!({"contract":"wand.worker.switch626.scoped-fe01-layout@1","layout":"PRESERVE_EXISTING","gridId":t.grid,"oldIds":t.ids,"retainedIds":&t.ids[..2],"deletedIds":&t.ids[2..],"oldRowsSha256":t.old_rows_sha.map(|v|super::super::hex(&v)),
+   "expectedNextId":t.next,"inventoryDelta":0,"rootSha256":super::super::hex(&t.root_sha),"gridSha256":super::super::hex(&t.grid_sha),
+   "counterSha256":super::super::hex(&t.counter_sha),"housesSha256":super::super::hex(&t.houses_sha),
+   "projectedDecodedSha256":super::super::hex(&p.projected),"exactFieldChangedCount":7,
+   "sessionId":super::super::hex(&e.session_id),"revision":e.expected_revision,"indexGeneration":e.expected_index_generation,
+   "decodedSha256":super::super::hex(&e.expected_decoded_sha256),"productWriterAuthorized":false,"originalOverwriteAuthorized":false}))
+ }
+ #[allow(dead_code)]
+ pub(crate) fn stage_switch626_fe01_product(&self,e:WorkerEnvelope,grid:u32,ids:[u32;4],next:u32,
+  root_sha:[u8;32],grid_sha:[u8;32],counter_sha:[u8;32],houses_sha:[u8;32],old_rows_sha:[[u8;32];4],projected:[u8;32])->CoreResult<SemanticStageReceipt>{
+  need(e.action==WorkerAction::Stage,"FE01_PRODUCT_STAGE_ACTION")?;
+  let p=self.prepare_switch626_fe01_product(WorkerEnvelope{action:WorkerAction::ReadDomain,..e},grid,ids)?;
+  let t=&p.target;
+  need(t.grid==grid&&t.next==next&&t.root_sha==root_sha&&t.grid_sha==grid_sha&&t.counter_sha==counter_sha&&t.houses_sha==houses_sha&&
+    t.ids==ids&&t.old_rows_sha==old_rows_sha&&p.projected==projected,"FE01_PRODUCT_STAGE_CAS")?;
+  self.commit_semantic_replacements(e,p.edits,7,Some(p.projected))
+ }
+}
+
 #[cfg(test)]
 mod tests{
  use super::*;use serde_json::json;
@@ -78,6 +121,39 @@ mod tests{
  }
  fn open(d:&Value)->ProductSession{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s}
  fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
+ #[cfg(feature="product-switch626-fe01-scoped")]
+ #[test]fn switch626_fe01_product_exact7_atomic_cas_lifecycle(){
+  let(d,x,y)=doc(true);let s=open(&d);let e=env(&s);let ids=[10,11,12,13];
+  let p=s.prepare_switch626_fe01_product(e,90001,ids).unwrap();let t=&p.target;let before=s.receipt().unwrap();
+  let q=s.preview_switch626_fe01_product(e,90001,ids).unwrap();assert_eq!(q["exactFieldChangedCount"],7);assert_eq!(q["inventoryDelta"],0);
+  let st=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  let run=|s:&ProductSession,e,next,root,grid,counter,houses,rows,projected|
+   s.stage_switch626_fe01_product(e,90001,ids,next,root,grid,counter,houses,rows,projected);
+  let h=[t.root_sha,t.grid_sha,t.counter_sha,t.houses_sha,p.projected];
+  for i in 0..5{let mut a=h;a[i]=[0;32];assert!(run(&s,st,50,a[0],a[1],a[2],a[3],t.old_rows_sha,a[4]).is_err());}
+  for i in 0..4{let mut rows=t.old_rows_sha;rows[i]=[0;32];assert!(run(&s,st,50,h[0],h[1],h[2],h[3],rows,h[4]).is_err());}
+  let valid=|s:&ProductSession,e|run(s,e,50,h[0],h[1],h[2],h[3],t.old_rows_sha,h[4]);
+  assert!(valid(&s,e).is_err());assert!(valid(&open(&d),st).is_err());
+  assert!(run(&s,st,51,h[0],h[1],h[2],h[3],t.old_rows_sha,h[4]).is_err());
+  let mut unbound=open(&d);unbound.worker_bound=false;assert!(unbound.preview_switch626_fe01_product(env(&unbound),90001,ids).is_err());
+  let mut bad=d.clone();bad["Unknown"]=json!({"GridID":90001,"ObjectID":50});let bad=open(&bad);
+  assert!(bad.preview_switch626_fe01_product(env(&bad),90001,ids).is_err());
+  assert_eq!(s.receipt().unwrap(),before);
+  let r=valid(&s,st).unwrap();assert_eq!(r.exact_field_changed_count,7);assert_eq!(r.staged_decoded_sha256,p.projected);
+  assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);assert!(valid(&s,st).is_err());
+  s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).is_err());
+  s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+  let export=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};
+  let out=s.take_typed_semantic_decoded_once(export).unwrap();assert!(s.take_typed_semantic_decoded_once(export).is_err());
+  let mut wanted=d.clone();let g=&mut wanted["World"]["GridCollection"]["Grids"]["90001"];
+  g["NextGridObjectID"]=json!(54);
+  for id in ["12","13"]{g["Objects"].as_object_mut().unwrap().remove(id);}
+  for(id,item,dy,left)in [(50,40700248,2,true),(51,BASE,6,false),(52,BASE,10,false),(53,40700248,12,true)]{g["Objects"][id.to_string()]=row(id,item,x,y+dy,left);}
+  assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),wanted);assert_eq!(sha(&out),p.projected);assert_eq!(sha(&s.decoded),before.decoded_sha256);
+  let reopened=ProductSession::open_decoded_readonly(out,crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+  assert_eq!(reopened.receipt().unwrap().decoded_sha256,p.projected);
+ }
  #[test]fn switch626_fd01_target_fresh3_no_exemption(){
   let(d,x,y)=doc(false);let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();
   let t=s.mint_switch626_fd01_target(e,90001,x,y).unwrap();assert_eq!((t.next,t.stock),(50,10));assert_eq!(s.receipt().unwrap(),before);
