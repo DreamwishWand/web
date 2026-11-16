@@ -26,6 +26,9 @@ product-collection-scoped = ["indexed-read"]
 product-amount-scoped = ["semantic-writer-dev"]
 # Scoped Backpack source candidate, no release authority.
 product-backpack-scoped = ["product-amount-scoped"]
+# Dedicated per-Build Backpack release candidates, no distribution authority.
+product-steam626-backpack-scoped = ["product-backpack-scoped"]
+product-switch626-backpack-scoped = ["product-backpack-scoped"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
