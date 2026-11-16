@@ -85,4 +85,4 @@ jobs:
           }
           assert.equal(pos,dedicated.length);assert.equal(neg,4*dedicated.length+1);
           console.log('QRC1570_CUMULATIVE_ACTUAL '+pos+'POS '+neg+'NEG '+configs.length+'CENSUS');
-                    JS
+          JS
