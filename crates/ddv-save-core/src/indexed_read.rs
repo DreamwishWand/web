@@ -2170,6 +2170,57 @@ mod private_avatar {
             assert!(open(v).read_private_wardrobe_same_slot(e,0,50000002,50000003).is_err());
             s.close().unwrap();assert!(s.read_private_wardrobe_same_slot(e,0,50000002,50000003).is_err());
         }
+
+        #[test]
+        fn qa_switch626_wardrobe_delta_cross_build_raw_receipt_equivalence(){
+            let mut pos=0;let mut neg=0;
+            for male in [true,false]{
+                let mut v=dependency_doc();v["Player"]["AvatarIsMale"]=json!(male);
+                for (name,id) in [("MaleAvatar",50000002),("FemaleAvatar",50000001)]{
+                    v["Player"][name]["Clothes"]=json!({"0":id});
+                    v["Player"][name]["IncompatibleClothes"]=json!({});
+                    v["Player"][name]["ClothingCustomization"]=json!({});
+                }
+                v["Player"]["ListInventories"]["1"]["Inventory"]["50000001"]["Marker"]=json!("ItemMarker_None");
+                v["Player"]["ListInventories"]["1"]["Inventory"]["50000002"]["Marker"]=json!("ItemMarker_Favorite");
+                v["Player"]["ListInventories"]["1"]["Inventory"]["50000007"]=json!({"Amount":7,"Marker":"ItemMarker_Favorite","Opaque":"keep"});
+                let raw=serde_json::to_string_pretty(&v).unwrap().replace("\"keep\"","\"\\u006beep\"");
+                let mk=|platform,build_kind,build_id:&str,attested|ProductSession::open_decoded_readonly(raw.as_bytes().to_vec(),
+                    BuildIdentity{platform,build_kind,build_id:build_id.into(),schema:626,externally_attested:attested});
+                let s=mk(Platform::Switch,BuildKind::SwitchBid,"9A239D3DB569756D",true).unwrap();
+                let t=mk(Platform::SteamWindows,BuildKind::SteamFullVersion,EXACT,true).unwrap();
+                let sr=s.receipt().unwrap();let tr=t.receipt().unwrap();let e=env(sr);let te=env(tr);
+                let old=if male{50000002}else{50000001};let branch=if male{"MaleAvatar"}else{"FemaleAvatar"};
+                let a=s.read_private_switch626_wardrobe_same_slot(e,0,old,50000007).unwrap().to_private_receipt_json();
+                let z=t.read_private_wardrobe_same_slot(te,0,old,50000007).unwrap().to_private_receipt_json();
+                assert_eq!(a["contract"],"wand.native.private.switch626.wardrobe-same-slot-readset@1");
+                assert_eq!(a["avatar"]["contract"],"wand.native.private.switch626.active-avatar-read@1");
+                assert_eq!(a["avatar"]["platform"],"Switch");assert_eq!(a["avatar"]["buildKind"],"SwitchBid");assert_eq!(a["avatar"]["buildId"],"9A239D3DB569756D");
+                assert!(a["avatar"].get("fullVersion").is_none());assert_eq!(a["avatar"]["activeBranch"],branch);
+                assert_eq!(z["avatar"]["platform"],"SteamWindows");assert_eq!(z["avatar"]["fullVersion"],EXACT);
+                for k in ["slot","oldItemId","proposedItemId","oldScalarSha256","clothesMapSha256","inventory","fullDocumentRustValidated"]{assert_eq!(a[k],z[k]);}
+                for k in ["sameSlotDefinitionVerified","effectiveEligibilityVerified","rightsVerified","subscriberClosureVerified","productReadAccepted","writerAuthorized","editedCopyAuthorized","applyAuthorized"]{assert_eq!(a[k],false);assert_eq!(z[k],false);}
+                assert_eq!(a["oldScalarSha256"],sha(old.to_string().as_bytes()));assert_eq!(s.decoded.as_ref(),raw.as_bytes());
+                assert_eq!(s.receipt().unwrap(),sr);assert_eq!(t.receipt().unwrap(),tr);
+                assert!(s.read_private_wardrobe_same_slot(e,0,old,50000007).is_err());neg+=1;
+                assert!(t.read_private_switch626_wardrobe_same_slot(te,0,old,50000007).is_err());neg+=1;
+                assert!(s.read_private_switch626_wardrobe_same_slot(te,0,old,50000007).is_err());neg+=1;
+                for wrong in [WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e},WorkerEnvelope{action:WorkerAction::Stage,..e}]{
+                    assert!(s.read_private_switch626_wardrobe_same_slot(wrong,0,old,50000007).is_err());neg+=1;
+                }
+                for (platform,kind,id,attested) in [(Platform::Switch,BuildKind::SwitchBid,"52BD625D9B4E0053",true),
+                    (Platform::Switch,BuildKind::SwitchBid,"9A239D3DB569756D",false),
+                    (Platform::SteamWindows,BuildKind::SwitchBid,"9A239D3DB569756D",true),
+                    (Platform::Switch,BuildKind::SteamFullVersion,EXACT,true)]{
+                    match mk(platform,kind,id,attested){Ok(w)=>assert!(w.read_private_switch626_wardrobe_same_slot(env(w.receipt().unwrap()),0,old,50000007).is_err()),Err(_)=>{}}
+                    neg+=1;
+                }
+                s.close().unwrap();assert!(s.read_private_switch626_wardrobe_same_slot(e,0,old,50000007).is_err());neg+=1;
+                pos+=1;
+            }
+            assert_eq!((pos,neg),(2,22));
+        }
+
         #[test]
         fn switch626_wardrobe_adapter_build_and_session_denials(){
             let mut v=dependency_doc();
