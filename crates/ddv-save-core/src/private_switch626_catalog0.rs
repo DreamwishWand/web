@@ -163,4 +163,84 @@ mod tests{
         d["Player"]["ListInventories"]["0"]["Inventory"]["40000001"]["Amount"]=json!(6);
         assert_eq!(out,serde_json::to_vec(&d).unwrap());
     }
+
+    #[test]
+    fn qa_switch626_catalog0_raw_exact1_current_witness_and_boundary(){
+        fn raw_open(b:&[u8])->ProductSession{
+            ProductSession::open_decoded_readonly(b.to_vec(),BuildIdentity{platform:Platform::Switch,
+                build_kind:BuildKind::SwitchBid,build_id:BID.into(),schema:626,externally_attested:true}).unwrap()
+        }
+        fn plan(b:&[u8],item:u32,old:u32)->Value{
+            let player=indexed_read::roots(b).unwrap().player;
+            let rec=object_field(b,object_field(b,player,"ListInventories").unwrap(),"0").unwrap();
+            let entry=object_field(b,object_field(b,rec,"Inventory").unwrap(),&item.to_string()).unwrap();
+            let h=|v:Span|private_amount_hex(&sha(&b[v.begin..v.end]));
+            json!({"contract":CONTRACT,"buildId":BID,"sourceDecodedSha256":private_amount_hex(&sha(b)),
+                "originalSha256":"07".repeat(32),"backupSha256":"07".repeat(32),"originalSizeBytes":123,"backupSizeBytes":123,
+                "revision":0,"indexGeneration":1,"selector":{"inventoryId":0,"itemId":item},
+                "target":{"itemId":item,"oldAmount":old,"newAmount":old-1,"compatibleItemType":"ItemType_Furniture","entrySha256":h(entry),"chest":null},
+                "routeSha256":h(rec),"restrictionSha256":h(object_field(b,rec,"CompatibleFurnitureTypes").unwrap()),"markerSha256":h(object_field(b,entry,"Marker").unwrap())})
+        }
+        let mut pos=0;let mut neg=0;let h=[7;32];
+        for old in [2u32,9999]{
+            let raw=format!(r#"{{"GameInfo":{{"Version":626}},"World":{{"Opaque":1e0}},"Player":{{"ListInventories":{{"0":{{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{{"List":["FurnitureItemType_Default"]}},"Inventory":{{"40000019":{{"Amount": {old},"Marker":"ItemMarker_None","Unknown":"\u0041"}},"40000020":{{"Amount":3,"Marker":"ItemMarker_None"}}}}}}}}}}}}"#);
+            let want=raw.replace(&format!(r#""Amount": {old},"Marker":"ItemMarker_None","Unknown""#),&format!(r#""Amount": {},"Marker":"ItemMarker_None","Unknown""#,old-1));
+            let s=raw_open(raw.as_bytes());let e=env(&s,WorkerAction::ReadDomain);
+            let p=plan(raw.as_bytes(),40000019,old);let bytes=serde_json::to_vec(&p).unwrap();
+            let c=s.mint_private_switch626_bound_catalog0_candidate(e,&bytes,h,123,h,123).unwrap();
+            let stage=env(&s,WorkerAction::Stage);
+            let r=s.stage_private_switch626_bound_catalog0_candidate(stage,&c).unwrap();
+            assert_eq!((r.operation_count,r.exact_field_changed_count),(1,1));assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+            assert_eq!(r.staged_decoded_sha256,sha(want.as_bytes()));
+            assert!(s.stage_private_switch626_bound_catalog0_candidate(stage,&c).is_err());neg+=1;
+            s.undo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).is_err());neg+=1;
+            s.redo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+            let ex=env(&s,WorkerAction::ExportEditedCopy);assert_eq!(s.take_typed_semantic_decoded_once(ex).unwrap(),want.as_bytes());
+            assert!(s.take_typed_semantic_decoded_once(ex).is_err());neg+=1;
+            assert_eq!(s.decoded.as_ref(),raw.as_bytes());pos+=1;
+        }
+        let d=doc();let b=serde_json::to_vec(&d).unwrap();let s=raw_open(&b);let e=env(&s,WorkerAction::ReadDomain);
+        let p=plan(&b,40000001,7);let bytes=serde_json::to_vec(&p).unwrap();let before=s.receipt().unwrap();
+        let mint=|q:&Value|s.mint_private_switch626_bound_catalog0_candidate(e,&serde_json::to_vec(q).unwrap(),h,123,h,123);
+        for (k,v) in [("routeSha256",json!("a".repeat(64))),("restrictionSha256",json!("b".repeat(64))),("markerSha256",json!("c".repeat(64))),
+            ("sourceDecodedSha256",json!("d".repeat(64))),("originalSizeBytes",json!(124)),("backupSizeBytes",json!(124)),
+            ("buildId",json!("other")),("extra",json!(true))]{
+            let mut q=p.clone();q[k]=v;assert!(mint(&q).is_err(),"{k}");neg+=1;
+        }
+        for (k,v) in [("newAmount",json!(8)),("newAmount",json!(5)),("newAmount",json!(0)),("oldAmount",json!("7")),("entrySha256",json!("f".repeat(64))),("chest",json!({}))]{
+            let mut q=p.clone();q["target"][k]=v;assert!(mint(&q).is_err(),"{k}");neg+=1;
+        }
+        for wrong in [WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e},WorkerEnvelope{action:WorkerAction::Stage,..e}]{
+            assert!(s.mint_private_switch626_bound_catalog0_candidate(wrong,&bytes,h,123,h,123).is_err());neg+=1;
+        }
+        assert!(s.mint_private_switch626_bound_catalog0_candidate(e,&serde_json::to_vec_pretty(&p).unwrap(),h,123,h,123).is_err());neg+=1;
+        assert!(s.mint_private_switch626_bound_catalog0_candidate(e,&bytes,h,123,h,124).is_err());neg+=1;
+        assert!(open(&d).mint_private_switch626_bound_catalog0_candidate(e,&bytes,h,123,h,123).is_err());neg+=1;
+        assert_eq!(s.receipt().unwrap(),before);
+        // Rebound actual shapes with fresh raw source and plan hashes.
+        for k in 0..8{
+            let mut x=d.clone();let r=&mut x["Player"]["ListInventories"]["0"];
+            let mut item=40000001;
+            match k{
+                0=>r["Inventory"]["40000001"]["Marker"]=json!("ItemMarker_Favorite"),
+                1=>r["Inventory"]["40000001"]["Marker"]=json!("ItemMarker_Unknown"),
+                2=>r["Inventory"]["40000001"]["Amount"]=json!(1),
+                3=>r["Inventory"]["40000001"]["Amount"]=json!(10000),
+                4=>r["ID"]=json!(1),
+                5=>r["CompatibleItemType"]=json!("ItemType_Clothing"),
+                6=>r["CompatibleFurnitureTypes"]=json!({"List":["FurnitureItemType_Unknown"]}),
+                _=>{item=40100001;r["Inventory"][item.to_string()]=json!({"Amount":7,"Marker":"ItemMarker_None"});}
+            }
+            let b=serde_json::to_vec(&x).unwrap();let z=raw_open(&b);let e=env(&z,WorkerAction::ReadDomain);let before=z.receipt().unwrap();
+            let q=plan(&b,item,if k==2{1}else if k==3{10000}else{7});
+            assert!(z.mint_private_switch626_bound_catalog0_candidate(e,&serde_json::to_vec(&q).unwrap(),h,123,h,123).is_err(),"rebound {k}");
+            assert_eq!(z.receipt().unwrap(),before);neg+=1;
+        }
+        let mut z=raw_open(&b);let e=env(&z,WorkerAction::ReadDomain);z.worker_bound=true;
+        assert!(z.mint_private_switch626_bound_catalog0_candidate(e,&bytes,h,123,h,123).is_err());neg+=1;
+        z.worker_bound=false;z.close().unwrap();assert!(z.mint_private_switch626_bound_catalog0_candidate(e,&bytes,h,123,h,123).is_err());neg+=1;
+        assert_eq!((pos,neg),(2,36));
+    }
+
 }
