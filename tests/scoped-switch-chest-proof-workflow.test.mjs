@@ -8,7 +8,7 @@ test('proof-only Switch Chest dispatch cannot use normal Pages build/deploy or u
  assert.match(y,/deploy:\s+needs: build/);
  assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && github.ref == 'refs\/heads\/main'/);
  assert.match(proof,/test "\$WAND_PROOF_EXPECTED_SOURCE" = "\$GITHUB_SHA"/);
- assert.match(proof,/aceda9d906c3137d717824a3079e84165ab5f62e/);
+ assert.match(proof,/e5c863b756e9593afcfe4f3c24f122c91a4c4b6f/);
  assert.match(proof,/--no-default-features --features product-switch626-chest-scoped,worker-wasm/);
  const order=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','node scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs','node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate','actions/upload-artifact@v4'];
  let i=-1;for(const m of order){const n=proof.indexOf(m);assert.ok(n>i,m);i=n;}
@@ -27,7 +27,7 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
  assert.deepEqual(pins,[
   [
     "crates/ddv-save-core",
-    "aceda9d906c3137d717824a3079e84165ab5f62e"
+    "e5c863b756e9593afcfe4f3c24f122c91a4c4b6f"
   ],
   [
     "scripts/wasm-distribution/build-scoped-switch-chest-candidate.mjs",
@@ -75,7 +75,7 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-    "bbac7640c061740bfd4bb6388d1e33ee2c88fbe7"
+    "a3a1c586bab326cdfe49eedcdf1b9bf8a2ee39b4"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
@@ -83,15 +83,15 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-    "1ac9e68b29b64bc68877855e3df089a9ea6585b7"
+    "8f63c96637aa9d77c9db25dba73ffb396a41dc61"
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-    "8d2d1da0be2f356cbf0159277685f1683ac84ec4"
+    "e31e15b24526bdf903433608e329e81b5776014f"
   ],
   [
     "src/lib/dev/local-scoped-edit-worker-port.mjs",
-    "a22209de4e59c220f1c854496e170c0450630e7b"
+    "d2f1cd290340eb0a0ea2e74028ca0916276bc946"
   ],
   [
     "src/lib/dev/local-amount-workflow.mjs",
