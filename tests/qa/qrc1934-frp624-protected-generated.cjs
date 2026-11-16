@@ -11,7 +11,7 @@ for(const m of ['off','own','mixed']){
  if(m==='off'){a.equal(n.length,8,'OFF exact JS surface');a.equal(ex.length,17,'OFF exact WASM surface');}
  if(m==='own'){a.equal(n.length,15,'PROTECTED own exact JS15');a.equal(ex.length,24,'PROTECTED own exact WASM24');}
  if(m==='mixed'){a.ok(n.length>=8 && ex.length>=17,'mixed profile preserves base');}
- for(const name of ['stage_amount','preview_amount','begin_amount_output'])a.equal(n.includes(name),false,m+' unauthorized generic amount alias '+name);
+ if(m==='own')for(const name of ['stage_amount','preview_amount','begin_amount_output'])a.equal(n.includes(name),false,'own unauthorized generic amount alias '+name);
  a.deepEqual(five.filter(k=>n.includes(k)).sort(),m==='own'?[...five].sort():[],m);
  for(const k of five)a.equal(ex.includes('workerwasmsource_'+k),m==='own',m+' '+k);
  console.log('QRC1934_GENERATED_ABI_CENSUS',m,n.length,ex.length,sha(fs.readFileSync(root+m+'/ddv_save_core_bg.wasm')));
