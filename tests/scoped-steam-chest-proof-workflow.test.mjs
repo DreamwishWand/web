@@ -2,11 +2,11 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
-const proof=y.slice(y.indexOf('  scoped_steam_chest_proof:\n'));
+const proof=y.slice(y.indexOf('  scoped_steam_chest_proof:\n'),y.indexOf('  scoped_sr03_proof:\n'));
 test('Steam Chest proof dispatch is exclusive, exact source, metadata only',()=>{
- assert.match(y,/build:\s+if: github.event_name != 'workflow_dispatch' \|\| \(inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == ''\)/);
+ assert.match(y,/build:\s+if: github.event_name != 'workflow_dispatch' \|\| \(inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_r01_proof_source == ''\)/);
  assert.match(y,/deploy:\s+needs: build/);
- assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && github.ref == 'refs\/heads\/main'/);
+ assert.match(proof,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && inputs.scoped_rm01_proof_source == '' && inputs.scoped_r01_proof_source == '' && github.ref == 'refs\/heads\/main'/);
  assert.match(proof,/test "\$WAND_PROOF_EXPECTED_SOURCE" = "\$GITHUB_SHA"/);
  assert.match(proof,/test "\$GITHUB_WORKFLOW_SHA" = "\$GITHUB_SHA"/);
  assert.match(proof,/--no-default-features --features product-steam626-chest-scoped,worker-wasm/);
@@ -24,7 +24,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
  assert.deepEqual(pins,[
   [
     "crates/ddv-save-core",
-    "f942165161b98cf7f9de16a1f7459cf3d337dc61"
+    "1318590f458f274017a6c0bd9d65f81b97cc1ade"
   ],
   [
     "scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs",
@@ -32,7 +32,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "scripts/readonly-release/seal-scoped-steam-chest-private.mjs",
-    "fb34157d277c10e09789924b2272c41a8c3ee63c"
+    "f0d27044af7edcbd9e614f23a90da1e9deb4a023"
   ],
   [
     "scripts/readonly-release/seal.mjs",
@@ -72,23 +72,23 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-    "10cccffef547265fead5096e8ed342a639a4be2e"
+    "94bdf2b9d585410d32a1f3717b3926d2136efac1"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
-    "d4643ccf023b6784c80fa5b2a377afe7936113ce"
+    "cb58ac87357cfc7f3fba9219fd3c482a5883fbc2"
   ],
   [
     "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-    "38b2097c748c563955dff817d9ce287a1987fc31"
+    "ba8c9ccf4df6b4f8e6decd694cb0e62151b53bec"
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-    "fdd485a11d9f41a24fdefd2d8603c055e19408bd"
+    "fdce9056fb422b99238021d1a588f2a812129147"
   ],
   [
     "src/lib/dev/local-scoped-edit-worker-port.mjs",
-    "1c62e99e9f56e1fb034c12c18f97fb55ac14a4b4"
+    "6e8f6c91a72e5a8290475d657746509c8c3c4df1"
   ],
   [
     "src/lib/dev/local-amount-workflow.mjs",
@@ -116,7 +116,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.d.mts",
-    "ea035656d13a8498f0433c900a8eb98817285f6c"
+    "61a20a75f75fa0f9444db377f3dbac7d31526b66"
   ]
 ]);
 });
