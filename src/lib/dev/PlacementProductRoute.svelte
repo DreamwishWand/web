@@ -4,13 +4,13 @@
  import {localPlacementCopy} from './local-placement-copy.mjs';
  import LocalPlacementEditorDev from './LocalPlacementEditorDev.svelte';
  import {createComp03ReviewPort} from './comp03-product-route-port.mjs';
- import {createProductVaseAddPort,createProductSr03Port,createProductSteamBackpackPort,createProductSwitchBackpackPort,createProductSteamWardrobePort,createProductSwitchWardrobePort,productPlacementPortScope} from './product-placement-client.mjs';
+ import {createProductVaseAddPort,createProductSr03Port,createProductRm01Port,createProductSteamBackpackPort,createProductSwitchBackpackPort,createProductSteamWardrobePort,createProductSwitchWardrobePort,productPlacementPortScope} from './product-placement-client.mjs';
  export let fixedOperation='comp03';
  let port=null,scope=null;
  $: words=localPlacementCopy($locale);
- $: title=(fixedOperation==='comp03'?words.compTitle:fixedOperation==='vase'?words.vaseTitle:fixedOperation==='sr03'?words.sr03Title:fixedOperation==='backpack-steam'?words.backpackSteamTitle:fixedOperation==='backpack-switch'?words.backpackSwitchTitle:fixedOperation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle).split(' — ')[0];
+ $: title=(fixedOperation==='comp03'?words.compTitle:fixedOperation==='vase'?words.vaseTitle:fixedOperation==='sr03'?words.sr03Title:fixedOperation==='rm01'?words.rm01Title:fixedOperation==='backpack-steam'?words.backpackSteamTitle:fixedOperation==='backpack-switch'?words.backpackSwitchTitle:fixedOperation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle).split(' — ')[0];
  onMount(()=>{
-  const abort=new AbortController(),create=({comp03:createComp03ReviewPort,vase:createProductVaseAddPort,'backpack-steam':createProductSteamBackpackPort,'backpack-switch':createProductSwitchBackpackPort,'wardrobe-steam':createProductSteamWardrobePort,'wardrobe-switch':createProductSwitchWardrobePort,sr03:createProductSr03Port})[fixedOperation];
+  const abort=new AbortController(),create=({comp03:createComp03ReviewPort,vase:createProductVaseAddPort,'backpack-steam':createProductSteamBackpackPort,'backpack-switch':createProductSwitchBackpackPort,'wardrobe-steam':createProductSteamWardrobePort,'wardrobe-switch':createProductSwitchWardrobePort,sr03:createProductSr03Port,rm01:createProductRm01Port})[fixedOperation];
   if(!create)return;
   const clear=()=>{const p=port;port=null;scope=null;p?.dispose()};
   void create({signal:abort.signal,onFault:clear}).then(p=>{if(abort.signal.aborted){p.dispose();return}port=p;scope=productPlacementPortScope(p)}).catch(clear);
