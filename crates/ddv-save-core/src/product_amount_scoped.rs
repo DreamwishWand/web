@@ -5,6 +5,8 @@
 use super::*;
 use serde_json::Value;
 use std::sync::OnceLock;
+#[path="comp03_product_target.rs"]
+mod comp03_product_target;
 const ELIG:&str=include_str!("../data/steam626-amount-packaged-candidates.json");
 const DEP:&str=include_str!("../data/steam626-amount-dependency-projection.json");
 const ELIG_SHA:&str="05a6bea5582232b27569dbb71f8666d7d60c11a35515d844d2f21b2ae557b23d";

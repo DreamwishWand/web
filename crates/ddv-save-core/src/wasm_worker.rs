@@ -35,7 +35,7 @@ pub struct WorkerWasmSource {
 }
 #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 #[derive(Clone,Copy,PartialEq,Eq)]
-enum ScopedEditDomain { Amount, Collection }
+enum ScopedEditDomain { Amount, Collection, Comp03 }
 #[wasm_bindgen]
 impl WorkerWasmSource {
     #[wasm_bindgen(constructor)]
@@ -318,6 +318,21 @@ impl WorkerWasmSource {
     }
     /// ACT916 opt-in bounded same-session discovery. No caller eligibility.
     #[cfg(feature="product-amount-scoped")]
+    pub fn preview_steam626_comp03(&self,seed:u32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        Ok(guard.preview_comp03_product(e,seed).map_err(|e|err(e.0))?.to_string())
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub fn stage_steam626_comp03(&self,seed:u32,grid:u32,next:u32,old:u32,grid_sha:&str,seed_sha:&str,stock_sha:&str,projected:&str,
+        session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
+        let r=guard.stage_comp03_product(e,seed,grid,next,old,from_hex(grid_sha)?,from_hex(seed_sha)?,from_hex(stock_sha)?,from_hex(projected)?).map_err(|e|err(e.0))?;
+        self.scoped_domain.set(Some(ScopedEditDomain::Comp03));
+        Ok(scoped_edit_receipt(r,"wand.worker.steam626.scoped-comp03-layout@1"))
+    }
+    #[cfg(feature="product-amount-scoped")]
     pub fn discover_scoped_amount(&self,profile:&str,offset:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
@@ -444,7 +459,7 @@ fn scoped_selection(profile:&str,id:u32,selector:u32)->Result<crate::ExistingAmo
 impl WorkerWasmSource {
     #[cfg(feature="product-amount-scoped")]
     fn require_amount_domain(&self)->Result<(),JsValue>{
-        if self.scoped_domain.get()==Some(ScopedEditDomain::Collection){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}
+        if matches!(self.scoped_domain.get(),Some(ScopedEditDomain::Collection|ScopedEditDomain::Comp03)){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}
         Ok(())
     }
     fn toggle_scoped_edit_inner(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str,contract:&str)->Result<String,JsValue>{
