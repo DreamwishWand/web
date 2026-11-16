@@ -5,16 +5,18 @@ const fail=()=>{throw Error('LOCAL_DEV_WORKER_DENIED')};
 const exact=(o,k)=>o&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).sort().join(',')===k.split(',').sort().join(',');
 const uint=n=>Number.isSafeInteger(n)&&n>=1&&n<=0xffffffff;
 const which=v=>v==='backup'||v==='edited';
-const methods=Object.freeze({
+const placementMethods=Object.freeze({open:1,backupOriginal:0,previewPlacement:1,stagePlacement:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
+const methods=Object.freeze({comp03:placementMethods,vase:placementMethods,
  amount:Object.freeze({open:1,backupOriginal:0,listVerifiedTargets:0,stageTyped:1,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0}),
  collection:Object.freeze({open:1,inspectCollectionTargets:0,backupOriginal:1,previewCollectionTarget:2,stageCollectionTarget:2,undo:1,redo:1,exportEditedCopy:1,downloadVerifiedCopy:2,close:0})
 });
-const spec=mode=>{if(mode!=='amount'&&mode!=='collection')fail();return methods[mode]};
+const spec=mode=>{if(!Object.hasOwn(methods,mode))fail();return methods[mode]};
 const closedAck=r=>exact(r,'kind,ok,writerAuthorized,nativeV3Verified,originalOverwriteAuthorized')&&
  r.kind==='CLOSED'&&r.ok===true&&r.writerAuthorized===false&&r.nativeV3Verified===false&&r.originalOverwriteAuthorized===false;
 const validArgs=(mode,m,args,allowed)=>{
  if(!Object.hasOwn(allowed,m)||!Array.isArray(args)||args.length!==allowed[m])return false;
- if(m==='downloadVerifiedCopy')return mode==='amount'?which(args[0]):uint(args[0])&&which(args[1]);
+ if(m==='downloadVerifiedCopy')return mode==='collection'?uint(args[0])&&which(args[1]):which(args[0]);
+ if(m==='previewPlacement')return mode==='comp03'?exact(args[0],'seedId')&&uint(args[0].seedId):mode==='vase'&&exact(args[0],'gridId,x,y')&&uint(args[0].gridId)&&['x','y'].every(k=>Number.isSafeInteger(args[0][k])&&args[0][k]>=0&&args[0][k]<=0xffffffff);
  if(mode==='collection'&&['backupOriginal','undo','redo','exportEditedCopy'].includes(m))return uint(args[0]);
  if(mode==='collection'&&['previewCollectionTarget','stageCollectionTarget'].includes(m))return uint(args[0])&&Number.isSafeInteger(args[1])&&args[1]===0;
  return true;
@@ -33,9 +35,9 @@ function install(port,adapter,mode){
    const token=++epoch;closing=v.id;
    try{
     const data=await adapter.close();
-    if(token!==epoch||closing!==v.id||(mode==='collection'&&!closedAck(data)))fail();
+    if(token!==epoch||closing!==v.id||(mode!=='amount'&&!closedAck(data)))fail();
     closeFailed=false;port.postMessage({id:v.id,ok:true,data});
-   }catch{if(mode==='collection')closeFailed=true;deny()}
+   }catch{if(mode!=='amount')closeFailed=true;deny()}
    finally{if(closing===v.id)closing=null}
    return;
   }
@@ -80,3 +82,8 @@ export const installLocalDevAmountWorker=(port,adapter)=>install(port,adapter,'a
 export const createLocalAmountDevPort=worker=>createPort(worker,'amount');
 export const installLocalCollectionDevWorker=(port,adapter)=>install(port,adapter,'collection');
 export const createLocalCollectionDevPort=worker=>createPort(worker,'collection');
+
+export const installLocalComp03DevWorker=(port,adapter)=>install(port,adapter,'comp03');
+export const createLocalComp03DevPort=worker=>createPort(worker,'comp03');
+export const installLocalVaseDevWorker=(port,adapter)=>install(port,adapter,'vase');
+export const createLocalVaseDevPort=worker=>createPort(worker,'vase');
