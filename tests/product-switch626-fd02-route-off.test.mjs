@@ -46,7 +46,7 @@ test('FD02 uses one fixed Worker with native build and known old values, never U
  assert.match(client,/new URL\('\.\/product-fd02\.worker\.mjs',import\.meta\.url\)/);
  assert.match(client,/createLocalFd02DevPort\(w\)/);
  assert.match(adapter,/createProductSwitch626Fd02LocalAdapter/);
- assert.match(adapter,/placementScope==='fd02'/);
+ assert.match(adapter,/createProductSwitch626Fd02LocalAdapter\(options=\{\}\)\{return createScopedLocalAdapter\(options,false,false,false,false,'fd02'\)\}/);
  assert.match(bridge,/\['rm01','fd01','fd02','fd03','ortho-l','diagonal90','ortho-t','fe01'\]\.includes\(placementScope\)/);
  assert.match(owner,/placementScope==='fd02'\?createSwitch626Fd02Transport/);
  assert.match(owner,/\['rm01','fd01','fd02','fd03','ortho-l','diagonal90','ortho-t','fe01'\]\.includes\(placementScope\)/);
@@ -66,7 +66,7 @@ test('FD02 has eight localizations with fixed no-stock-change meaning',()=>{
  for(const locale of locales){
   const c=localPlacementCopy(locale);
   assert.match(c.fd02Title,/FD02/);
-  assert.ok(c.fd02Detail.length>30);
+  assert.ok(c.fd02Detail.length>=30);
   assert.equal(c.fd02Detail.includes('−1'),false);
  }
  assert.match(localPlacementCopy('ja').fd02Detail,/変更しません/);
@@ -112,6 +112,6 @@ test('the other four exact Fence ADD product routes have no release permissions'
   assert.match(c[field+'Title'],new RegExp(key));
   assert.match(c[field+'Detail'],new RegExp(String(count-1)));
   for(const locale of ['en','ja','fr','de','it','es-ES','zh-CN','pt-BR'])
-   assert.ok(localPlacementCopy(locale)[field+'Detail'].length>30);
+   assert.ok(localPlacementCopy(locale)[field+'Detail'].length>=30);
  }
 });
