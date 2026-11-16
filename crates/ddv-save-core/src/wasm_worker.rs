@@ -531,6 +531,14 @@ impl WorkerWasmSource {
     }
     #[cfg(all(feature="product-amount-scoped",not(any(feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     #[cfg(not(feature="product-portable-restore-scoped"))]
+    #[cfg(not(feature="product-switch626-catalog0-scoped"))]
+    pub fn next_scoped_amount_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+        self.require_amount_domain()?;
+        self.next_scoped_edit_output_chunk_inner()
+    }
+    // One internal ledger and one output buffer, with legacy Amount
+    // contract aliases. The tag labels the successful Stage; it cannot
+    // authorize any command or mint a new session.
     #[cfg(all(feature="product-switch626-catalog0-scoped",not(feature="product-portable-restore-scoped"),not(any(feature="product-collection-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"))))]
     pub fn discover_switch626_catalog0(&self,offset:u32,session_id:&str,
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
@@ -573,14 +581,6 @@ impl WorkerWasmSource {
         let r=guard.stage_switch626_catalog0(e,selection,old,new,from_hex(entry_sha256)?).map_err(|e|err(e.0))?;
         self.scoped_domain.set(Some(ScopedEditDomain::SwitchCatalog0));
         Ok(scoped_edit_receipt(r,"wand.worker.switch626.scoped-catalog0@1"))
-    }
-    // One internal ledger and one output buffer, with legacy Amount
-    // contract aliases. The tag labels the successful Stage; it cannot
-    // authorize any command or mint a new session.
-    #[cfg(not(feature="product-switch626-catalog0-scoped"))]
-    pub fn next_scoped_amount_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
-        self.require_amount_domain()?;
-        self.next_scoped_edit_output_chunk_inner()
     }
     pub fn close(&mut self)->Result<(),JsValue>{
         self.closed=true;self.buffer.clear();self.entropy.fill(0);
