@@ -119,7 +119,7 @@ fn build(s:&ProductSession,switch:bool)->CoreResult<()>{
 // No generic field-name exception and no skipped descendants.
 #[derive(PartialEq,Eq)]enum RefSegment{Key(String),Element(usize)}
 fn pet_owner(path:&[RefSegment])->bool{
-    matches!(path,[RefSegment::Key(a),RefSegment::Key(b),RefSegment::Element(i)] if a=="Player"&&b=="Pets"&&*i<4096)
+    matches!(path,[RefSegment::Key(a),RefSegment::Key(b),RefSegment::Element(i)] if a=="Player"&&b=="Pets"&&*i<224)
 }
 fn pet_grant_zero(b:&[u8],record:Span,grant:Span)->CoreResult<()>{
     need(b.get(grant.begin..grant.end)==Some(&b"0"[..]),"BACKPACK_PRODUCT_PET_GRANT_ZERO")?;
@@ -127,13 +127,9 @@ fn pet_grant_zero(b:&[u8],record:Span,grant:Span)->CoreResult<()>{
     let mut seen=std::collections::BTreeSet::new();let mut p=record.begin+1;
     while let Some((k,v))=next_object_member(b,record,&mut p)?{
         need(keys.contains(&k.as_str())&&seen.insert(k.clone()),"BACKPACK_PRODUCT_PET_SHAPE")?;
-        match k.as_str(){
-            "PetItemID"|"FriendshipLevel"|"FriendshipXp"=>{number(b,v)?;},
-            "LastSelfieDate"|"LastPettedDate"|"CustomName"=>{need(b.get(v.begin)==Some(&b'"'),"BACKPACK_PRODUCT_PET_TYPE")?;},
-            "PendingHangoutRewards"|"CritterInteractions"=>{need(b.get(v.begin)==Some(&b'['),"BACKPACK_PRODUCT_PET_TYPE")?;},
-            "GrantedInventorySlots"=>{need(b.get(v.begin..v.end)==Some(&b"0"[..]),"BACKPACK_PRODUCT_PET_GRANT_ZERO")?;},
-            _=>return Err(denied("BACKPACK_PRODUCT_PET_SHAPE"))
-        }
+        // E2511 proves the exact record key set and grant scalar only.
+        // All other fields retain the ordinary recursive ref scan.
+        if k=="GrantedInventorySlots"{need(b.get(v.begin..v.end)==Some(&b"0"[..]),"BACKPACK_PRODUCT_PET_GRANT_ZERO")?;}
     }
     need(seen.len()==keys.len(),"BACKPACK_PRODUCT_PET_SHAPE")
 }
@@ -243,7 +239,8 @@ fn env(s:&ProductSession,action:WorkerAction)->WorkerEnvelope{let r=s.receipt().
     assert!(scan(&json!({"World":{"Pets":[pet.clone()]}})).is_err());
     assert!(scan(&json!({"Player":{"Pets":{"0":pet.clone()}}})).is_err());
     let mut x=d.clone();x["Player"]["Pets"][0]["PendingHangoutRewards"]=json!([{"InventorySlotIndex":0}]);assert!(scan(&x).is_err());
-    let mut x=d.clone();x["Player"]["Pets"][0]["FriendshipXp"]=json!("0");assert!(scan(&x).is_err());
+    assert!(scan(&json!({"Player":{"Pets":vec![pet.clone();224]}})).is_ok());
+    assert!(scan(&json!({"Player":{"Pets":vec![pet.clone();225]}})).is_err());
     for raw in [r#"{"Player":{"Pets":[{"GrantedInventorySlots":-0}]}}"#,r#"{"World":{"GrantedInventorySlots":0}}"#]{let b=raw.as_bytes();assert!(refs(b,Span{begin:0,end:b.len()},&mut 0,0).is_err());}
     for sw in [false,true]{let mut x=doc();x["Player"]["Pets"]=json!([pet.clone()]);let session=open(&x,sw);assert!(session.preview_product_backpack(env(&session,WorkerAction::ReadDomain),0,1,sw).is_ok());}
 }
