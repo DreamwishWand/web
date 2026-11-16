@@ -1,0 +1,64 @@
+name: 04 QR-S PR1599 wardrobe proof jobs (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr1599-wardrobe-proof-job.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 59349765b42a6b88d839f23e29ead4736d21f1ce
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed workflow and independent dispatch/pin checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "59349765b42a6b88d839f23e29ead4736d21f1ce"
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = "ea95bdc390315cbb7a4fecccba83f295df2a0652"
+          cat > tests/qa-pr1599.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync} from 'node:fs';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim();
+          const raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'});
+          const y=readFileSync('.github/workflows/pages.yml','utf8'),old=raw('4f8ac7f05e520cbcfc909f4374f4238982954b08','.github/workflows/pages.yml'),vars=["collection","switch_chest","steam_chest","steam_backpack","switch_backpack","steam_wardrobe","switch_wardrobe"];
+          const names=['build',...vars.map(n=>'scoped_'+n+'_proof')];
+          const jobs=s=>Object.fromEntries([...s.matchAll(/^  ([a-z_]+):\n(?=    )/gm)].filter(m=>names.includes(m[1])||m[1]==='deploy').map(m=>{const start=m.index,end=s.slice(start+1).search(/^  [a-z_]+:\n/m);return [m[1],end<0?s.slice(start):s.slice(start,start+1+end)]}));
+          const j=jobs(y),o=jobs(old),strip=s=>s.replace(/^    if:.*\n/m,'').trimEnd();
+          for(const n of names.slice(0,-2))assert.equal(strip(j[n]),strip(o[n]),n);
+          assert.equal(j.deploy.trimEnd(),o.deploy.trimEnd());
+          assert.equal(y.slice(y.indexOf('permissions:'),y.indexOf('jobs:')),old.slice(old.indexOf('permissions:'),old.indexOf('jobs:')));
+          const guard=n=>j[n].match(/^    if: (.*)$/m)[1];
+          function evalGuard(g,event,ref,values){let e=g.replaceAll('github.event_name',JSON.stringify(event)).replaceAll('github.ref',JSON.stringify(ref));for(let i=0;i<vars.length;i++)e=e.replaceAll('inputs.scoped_'+vars[i]+'_proof_source',JSON.stringify(values[i]));assert.match(e,/^[\w'"/= !&|().-]+$/);return Function('"use strict";return ('+e+')')()}
+          let cases=0,neg=0,pinCount=0;
+          for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/other'])for(let mask=0;mask<2**vars.length;mask++){const v=vars.map((_,i)=>mask&(1<<i)?'a'.repeat(40):'');const on=names.filter(n=>evalGuard(guard(n),event,ref,v));const expected=event==='push'?['build']:mask===0?['build']:ref==='refs/heads/main'&&(mask&(mask-1))===0?[names[1+Math.log2(mask)]]:[];assert.deepEqual(on,expected);cases++}
+          const extract=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(m=>[m[1],m[2]]);
+          const core='b7954e72768b6c213685e95f22096696c3e91437',web='03ac88813951f4295b15092272a9932700341e2f',adapter='3dce01a0a886841fda2af9ddfede1b228ca6001b';
+          assert.equal(git('rev-parse',core+':crates/ddv-save-core'),'61485cb8ed43950c97591d81e00cf24ebe534bd2');
+          for(const v of vars.slice(-2)){
+           const n='scoped_'+v+'_proof',proof=j[n],key=v.replace('_','626-')+("wardrobe"==='backpack'?'-split':''),feature='product-'+v.replace('_','626-')+'-scoped';
+           const pins=extract(proof);assert.equal(pins.length,26);assert.equal(new Set(pins.map(x=>x[0])).size,26);
+           for(const [i,[p,h]] of pins.entries()){const r=i===0?core:i===1?adapter:web;assert.equal(git('rev-parse',r+':'+p),h,p);assert.match(git('ls-tree',r,'--',p),i===0?/^040000 tree /:/^100644 blob /);}
+           pinCount+=pins.length;
+           const check=x=>assert.deepEqual(extract(x),pins);
+           for(const [p,h] of pins){const t='test "$(git rev-parse HEAD:'+p+')" = '+h;assert.equal(proof.split(t).length,2);assert.throws(()=>check(proof.replace(t,t.replace(h,'f'.repeat(40)))));neg++;assert.throws(()=>check(proof.replace(t,'')));neg++}
+           assert.throws(()=>check(proof+'\n test "$(git rev-parse HEAD:foreign)" = '+'a'.repeat(40)));neg++;
+           assert.ok(proof.includes('--features '+feature+',worker-wasm'),feature);
+           assert.match(proof,/test "\$WAND_PROOF_EXPECTED_SOURCE" = "\$GITHUB_SHA"/);assert.match(proof,/test "\$GITHUB_WORKFLOW_SHA" = "\$GITHUB_SHA"/);assert.match(proof,/test "\$GITHUB_REF" = refs\/heads\/main/);assert.match(proof,/test "\$GITHUB_REPOSITORY_ID" = 1371485649/);
+           const order=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','cargo build --locked','node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate','node scripts/int-protected-ci-gate.mjs deploy','actions/upload-artifact@v4'];let offset=-1;for(const m of order){const k=proof.indexOf(m,offset+1);assert.ok(k>offset,m);offset=k}
+           const subject=proof.slice(proof.indexOf('subject-path: |'),proof.indexOf('      - name: Verify exact signer'));assert.deepEqual(subject.trim().split('\n').slice(1).map(s=>s.trim().split('/').pop()),['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json']);
+           const upload=proof.slice(proof.indexOf('actions/upload-artifact@v4'));assert.deepEqual(upload.split('\n').filter(s=>s.includes('runner.temp')).map(s=>s.trim().split('/').pop()),['pins.json','attestation-bundle.jsonl']);assert.doesNotMatch(proof,/actions\/(?:deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
+           assert.ok(proof.includes('static/worker-wasm-scoped-'+key));assert.ok(proof.includes('tests/wasm-distribution/fixtures/scoped-'+key));
+          }
+          console.log('PR1599_PROOF_JOBS_L2_PASS',JSON.stringify({dispatchCases:cases,pins:pinCount,negative:neg,actualGit:true,actualDispatch:false,actualSignature:false}));
+          
+          EOF
+          node tests/qa-pr1599.mjs
