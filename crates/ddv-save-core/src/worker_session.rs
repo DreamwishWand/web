@@ -390,3 +390,7 @@ mod tests {
         assert_eq!(borrowed.receipt().unwrap_err().0, "SESSION_CLOSED");
     }
 }
+
+#[cfg(feature="product-steam626-makeup-color1-scoped")]
+#[path="worker_steam626_makeup_color1.rs"]
+mod makeup_color1_worker;
