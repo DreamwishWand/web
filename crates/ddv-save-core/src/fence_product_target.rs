@@ -248,6 +248,15 @@ mod fixed_add_tests{
   {
    let p=s.prepare_fixed_fence_add(e,kind,90001,x,y).unwrap().0;
    assert_eq!(p.exact,kind.count() as usize+1);
+   // New Worker guard exercises the same fixed target in a distinct fresh session.
+   let fresh=open(&d);let fe=env(&fresh);let fp=fresh.prepare_fixed_fence_add(fe,kind,90001,x,y).unwrap().0;
+   let ft=&fp.target;let mut guard=crate::worker_session::WorkerSessionGuard::attach(fresh);
+   let pre=match kind{FenceAddTargetKind::Fd02=>guard.preview_switch626_fd02(fe,90001,x,y),FenceAddTargetKind::Fd03=>guard.preview_switch626_fd03(fe,90001,x,y),FenceAddTargetKind::OrthoL=>guard.preview_switch626_ortho_l(fe,90001,x,y),FenceAddTargetKind::Diagonal90=>guard.preview_switch626_diagonal90(fe,90001,x,y),FenceAddTargetKind::OrthoT=>guard.preview_switch626_ortho_t(fe,90001,x,y)}.unwrap();
+   assert_eq!(pre["exactFieldChangedCount"],fp.exact);assert_eq!(pre["inventoryDelta"],0);
+   let fst=WorkerEnvelope{action:WorkerAction::Stage,..fe};
+   let stage=|g:&crate::worker_session::WorkerSessionGuard,projected|match kind{FenceAddTargetKind::Fd02=>g.stage_switch626_fd02(fst,90001,x,y,ft.next,ft.root_sha,ft.grid_sha,ft.counter_sha,ft.houses_sha,ft.stock,ft.stock_sha,projected),FenceAddTargetKind::Fd03=>g.stage_switch626_fd03(fst,90001,x,y,ft.next,ft.root_sha,ft.grid_sha,ft.counter_sha,ft.houses_sha,ft.stock,ft.stock_sha,projected),FenceAddTargetKind::OrthoL=>g.stage_switch626_ortho_l(fst,90001,x,y,ft.next,ft.root_sha,ft.grid_sha,ft.counter_sha,ft.houses_sha,ft.stock,ft.stock_sha,projected),FenceAddTargetKind::Diagonal90=>g.stage_switch626_diagonal90(fst,90001,x,y,ft.next,ft.root_sha,ft.grid_sha,ft.counter_sha,ft.houses_sha,ft.stock,ft.stock_sha,projected),FenceAddTargetKind::OrthoT=>g.stage_switch626_ortho_t(fst,90001,x,y,ft.next,ft.root_sha,ft.grid_sha,ft.counter_sha,ft.houses_sha,ft.stock,ft.stock_sha,projected)};
+   assert!(stage(&guard,[0;32]).is_err());let gr=stage(&guard,fp.projected).unwrap();assert_eq!(gr.exact_field_changed_count,fp.exact);
+   assert!(stage(&guard,fp.projected).is_err());let out=WorkerEnvelope{expected_revision:gr.revision,expected_index_generation:gr.index_generation,action:WorkerAction::ExportEditedCopy,..fst};assert_eq!(sha(&guard.take_scoped_edit(out).unwrap()),fp.projected);assert!(guard.take_scoped_edit(out).is_err());
    let st=WorkerEnvelope{action:WorkerAction::Stage,..e};
    let valid=|s:&ProductSession,e,w:&FixedFenceAddPreview|s.stage_fixed_fence_add(e,kind,w);
    assert!(valid(&s,e,&p).is_err());assert!(valid(&open(&d),st,&p).is_err());
