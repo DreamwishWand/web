@@ -719,6 +719,63 @@ mod tests{
         "BattlePassStates":{"Progress":{},"FtueProgress":{"TasksProgress":[],"WeeklyTasksProgress":[]}}},"Unknown":{"x":1}})}
     fn open(d:&Value)->ProductSession{ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),crate::BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap()}
     fn scope(s:&ProductSession,action:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action}}
+
+    #[test]fn qa1771_catalog0_portable_lineage(){
+        let mut d=doc();d["Unknown"]["escaped"]=json!("keep");d["Unknown"]["decoy"]=json!({"Amount":3,"other":[1,2,3]});
+        let raw=serde_json::to_string_pretty(&d).unwrap().replace("\"escaped\": \"keep\"","\"escaped\": \"\\u006beep\"");
+        let target=d["Player"]["ListInventories"]["0"]["Inventory"]["40000048"].clone();
+        // Independent lexical oracle: locate the full formatted target entry, not a bare Amount token.
+        let old=serde_json::to_string_pretty(&target).unwrap();
+        let lines:Vec<&str>=old.lines().collect();
+        // Derive the actual indentation from the unique target-specific marker / ItemID in the complete JSON.
+        let mut matches=Vec::new();
+        for pad in 0..24{
+          let block=format!("{}\n{}",lines[0],lines[1..].iter().map(|l|format!("{}{}"," ".repeat(pad),l)).collect::<Vec<_>>().join("\n"));
+          if raw.contains(&block){matches.push(block);}
+        }
+        assert_eq!(matches.len(),1);let block=&matches[0];assert_eq!(raw.matches(block).count(),1);
+        let expected=raw.replacen(block,&block.replacen("\"Amount\": 3","\"Amount\": 2",1),1);
+        let build=crate::BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true};
+        let make=|b:&str|ProductSession::open_decoded_readonly(b.as_bytes().to_vec(),build.clone()).unwrap();
+        let a=make(&expected);let ae=scope(&a,WorkerAction::ReadDomain);
+        let backup=a.capture_product_catalog0_portable_backup(ae,40000048).unwrap();let v:Value=serde_json::from_slice(&backup).unwrap();
+        assert_eq!(v["provenance"]["decodedSha256"],hex(&sha(expected.as_bytes())));
+        assert_eq!(v["payload"]["amount"],2);assert_eq!(serde_json::to_vec(&v).unwrap(),backup);
+        let s=make(&raw);let e=scope(&s,WorkerAction::ReadDomain);let before=s.receipt().unwrap();
+        let p=s.preview_product_catalog0_portable_restore(e,40000048,&backup).unwrap();assert_eq!(p.projected_sha,sha(expected.as_bytes()));
+        let mut neg=0;
+        // Independently re-seal a valid canonical envelope, proving SHA is not permission.
+        let reseal=|mut v:Value|{v.as_object_mut().unwrap().remove("sha256");let h=hex(&sha(&serde_json::to_vec(&v).unwrap()));v["sha256"]=json!(h);serde_json::to_vec(&v).unwrap()};
+        for i in 0..7{
+          let mut b=v.clone();match i{
+            0=>b["sourceBuild"]["schema"]=json!(624),
+            1=>b["schemaVersion"]=json!(2),
+            2=>b["target"]["itemId"]=json!(40000053),
+            3=>b["provenance"]["decodedSha256"]=json!("0".repeat(64)),
+            4=>b["payload"]["entrySha256"]=json!("0".repeat(64)),
+            5=>b["payload"]["amount"]=json!(1),
+            _=>b["type"]=json!("grid.layout")
+          }
+          assert!(s.preview_product_catalog0_portable_restore(e,40000048,&reseal(b)).is_err(),"resealed case {i}");neg+=1;
+        }
+        for bad in [vec![0xff],vec![b' ';1024*1024+1],{let mut b=backup.clone();b.push(b' ');b}]{
+          assert!(s.preview_product_catalog0_portable_restore(e,40000048,&bad).is_err());neg+=1;
+        }
+        let altered=raw.replace("\\u006beep","keep");let other=make(&altered);let e=scope(&other,WorkerAction::ReadDomain);
+        assert!(other.preview_product_catalog0_portable_restore(e,40000048,&backup).is_err());neg+=1;
+        let e=scope(&s,WorkerAction::ReadDomain);let st=scope(&s,WorkerAction::Stage);
+        let run=|s:&ProductSession,e:WorkerEnvelope,b:&[u8],old,new,es,bs,ps|s.stage_product_catalog0_portable_restore(e,40000048,b,old,new,es,bs,ps);
+        for (old,new,es,bs,ps) in [(4,2,p.entry_sha,p.backup_sha,p.projected_sha),(3,1,p.entry_sha,p.backup_sha,p.projected_sha),(3,2,[0;32],p.backup_sha,p.projected_sha),(3,2,p.entry_sha,[0;32],p.projected_sha),(3,2,p.entry_sha,p.backup_sha,[0;32])]{assert!(run(&s,st,&backup,old,new,es,bs,ps).is_err());neg+=1;}
+        assert_eq!(s.receipt().unwrap(),before);
+        let r=run(&s,st,&backup,3,2,p.entry_sha,p.backup_sha,p.projected_sha).unwrap();assert_eq!(r.exact_field_changed_count,1);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+        assert!(run(&s,st,&backup,3,2,p.entry_sha,p.backup_sha,p.projected_sha).is_err());neg+=1;
+        s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());neg+=1;
+        s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();let out_e=scope(&s,WorkerAction::ExportEditedCopy);
+        let out=s.take_typed_semantic_decoded_once(out_e).unwrap();assert_eq!(out,expected.as_bytes());assert_eq!(s.decoded.as_ref(),raw.as_bytes());
+        assert!(s.take_typed_semantic_decoded_once(out_e).is_err());neg+=1;
+        let reopened=ProductSession::open_decoded_readonly(out,build.clone()).unwrap();assert_eq!(reopened.receipt().unwrap().decoded_sha256,a.sha);
+        assert_eq!(neg,19);println!("QRC1771_CATALOG0_PORTABLE_ACTUAL 1POS {neg}NEG EXACT1 bytes={}",backup.len());
+    }
     #[test]fn fixed_pack_and_catalog_exact1_no_product_flag(){
         pack().unwrap();let d=doc();let s=open(&d);let e=scope(&s,WorkerAction::ReadDomain);
         let sel=ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048};
