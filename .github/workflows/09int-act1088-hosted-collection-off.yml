@@ -29,7 +29,7 @@ jobs:
           test -z "$(git ls-files static/worker-wasm-scoped-collection)"
           curl -fsS --retry 1 --max-time 20 -H 'Cache-Control: no-cache' https://dreamwishwand.github.io/web/worker-wasm/manifest.json -o "$RUNNER_TEMP/act1088-manifest.json"
           echo "9bcaf4977ca9f079bb2fe98774855ab2ae6621396089d5dfe1fa79eb74b4b575  $RUNNER_TEMP/act1088-manifest.json" | sha256sum -c -
-          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const m=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+"/act1088-manifest.json","utf8")); assert.equal(m.sourceHead,"0cf4395b77ab7bbffb6e67c83266df779c27e71d")'
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const m=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+"/act1088-manifest.json","utf8")); assert.equal(m.source.commit,"0cf4395b77ab7bbffb6e67c83266df779c27e71d")'
       - name: Install existing browser driver in detached temp directory
         run: |
           mkdir -p "$RUNNER_TEMP/act1088-hosted"
