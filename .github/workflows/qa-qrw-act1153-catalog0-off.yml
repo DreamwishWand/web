@@ -1,0 +1,128 @@
+name: QA ONLY ACT1153 Switch626 Catalog0 OFF product route (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1153-catalog0-off.yml'
+permissions:
+  contents: read
+jobs:
+  off-route:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f0ec3bc752e1e88202f90abd1de2f5b6367b17e3
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin fixed source and accepted release boundary
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'f0ec3bc752e1e88202f90abd1de2f5b6367b17e3'
+          test "$(git rev-parse HEAD:src/routes/editor/items/catalog0/+page.svelte)" = bcf517ea94f8c1e0aa0dc2c3c530cc9810444c90
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-copy.mjs)" = 9631b4ee40f47432a2a26a6df386b0db9353b09d
+          test "$(git rev-parse HEAD:src/lib/dev/product-switch-catalog0-client.mjs)" = 72b33eefcebb4325347f0b23ab14852e93bb35bf
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-switch-catalog0-release.mjs)" = 27c7769cca317146dd6da5e31f7e46109413e228
+          test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = da627ecd86d4435c026e611b241aa489d8259dac
+          test "$(git rev-parse HEAD:src/lib/dev/product-switch-catalog0.worker.mjs)" = b797e4d7d0b5cbd7d8c5a14914be6cb55307f0ff
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-switch-catalog0-release-anchor.mjs)" = d9c74cefcd49ffd3980e74fc78f6af1354b9f8f7
+          test "$(git rev-parse HEAD:src/routes/editor/+page.svelte)" = 54e78331769cfa1c9c7e30b882df4505aab686c6
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test -z "$(git ls-files static/worker-wasm-scoped-switch-catalog0)"
+      - run: npm ci --no-audit --no-fund
+      - name: Independent bounded actual client denial and locale data
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createProductSwitchCatalog0Port,productSwitchCatalog0PortScope,scopedSwitchCatalog0ReadyOk} from './src/lib/dev/product-switch-catalog0-client.mjs';
+          import {localAmountCopy,DEV_AMOUNT_UI_LOCALES} from './src/lib/dev/local-amount-copy.mjs';
+          let negatives=0;
+          const deny=(v)=>{assert.equal(v,false);negatives++};
+          assert.equal(DEV_AMOUNT_UI_LOCALES.length,8);
+          for(const locale of DEV_AMOUNT_UI_LOCALES){const c=localAmountCopy(locale,false,'',false,true);assert.equal(typeof c.title,'string');assert.equal(typeof c.intro,'string');assert.ok(c.title&&c.intro.includes('40000076'));assert.equal(Object.isFrozen(c),true)}
+          const builds=[{platform:'switch',buildId:'9A239D3DB569756D',productV2EvidenceSha256:null}];
+          const scope={releaseId:'a'.repeat(64),operation:'switch626.catalog0.exact1',mode:'private-product-v2',builds};
+          const ready={kind:'SCOPED_SWITCH_CATALOG0_RUNTIME_READY',...scope,writerAuthorized:false};
+          assert.equal(scopedSwitchCatalog0ReadyOk(ready,scope),true); // shape predicate only, never a trusted runtime
+          for(const patch of [{kind:'OTHER'},{releaseId:'b'.repeat(64)},{operation:'switch626.chest.exact1'},{mode:'public-accepted'},{writerAuthorized:true},{builds:[]},{builds:[{...builds[0],platform:'steam-windows'}]},{builds:[{...builds[0],buildId:'unknown'}]},{builds:[{...builds[0],productV2EvidenceSha256:'c'.repeat(64)}]},{extra:true}]){
+            deny(scopedSwitchCatalog0ReadyOk({...ready,...patch},scope));
+          }
+          const {writerAuthorized,...missing}=ready;deny(scopedSwitchCatalog0ReadyOk(missing,scope));
+          for(const fake of [ready,Object.freeze({...ready}),{...ready,open(){},dispose(){}}]){assert.equal(productSwitchCatalog0PortScope(fake),null);negatives++}
+          Object.defineProperty(globalThis,'document',{configurable:true,value:{}});
+          Object.defineProperty(globalThis,'location',{configurable:true,value:new URL('https://dreamwishwand.github.io/web/editor/items/catalog0/?enable=true')});
+          let constructed=0;Object.defineProperty(globalThis,'Worker',{configurable:true,value:class{constructor(){constructed++;throw Error('unexpected worker')}}});
+          const ac=new AbortController();ac.abort();
+          for(const options of [{},{anchor:scope,verifiedLocalDevGate:true,workerFactory:()=>{}},{signal:ac.signal},{onFault:1}]){
+            await assert.rejects(createProductSwitchCatalog0Port(options));negatives++;
+          }
+          assert.equal(constructed,0);
+          console.log('QRW1490_OFF_CLIENT_ACTUAL_PASS',JSON.stringify({negatives,localeCount:8,workerConstructed:constructed,positiveSignedRuntime:false}));
+          NODE
+      - name: Build real production static route (null anchor)
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run build
+          test -f build/editor/items/catalog0/index.html
+          test -f build/editor/index.html
+          test ! -e build/worker-wasm-scoped-switch-catalog0
+      - name: Install existing browser driver
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Serve actual static output on isolated loopback
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/qrw1490-static"
+          ln -s "$PWD/build" "$RUNNER_TEMP/qrw1490-static/web"
+          python3 -m http.server 4177 --bind 127.0.0.1 --directory "$RUNNER_TEMP/qrw1490-static" > /tmp/qrw1490-http.log 2>&1 &
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4177/web/editor/items/catalog0/ >/dev/null; then exit 0; fi; sleep 1; done
+          cat /tmp/qrw1490-http.log
+          exit 1
+      - name: Actual Chrome hydrated OFF route / reload / forged local flags
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const root='http://127.0.0.1:4177/web';
+          const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+            const context=await browser.newContext({locale:'en-US'});
+            await context.addInitScript(()=>{
+              window.__qrw1490Workers=[];
+              const original=window.Worker;
+              window.Worker=new Proxy(original,{construct(target,args,newTarget){window.__qrw1490Workers.push(String(args[0]));return Reflect.construct(target,args,newTarget)}});
+              localStorage.setItem('verifiedLocalDevGate','true');
+              localStorage.setItem('productSwitchCatalog0Enabled','true');
+            });
+            const page=await context.newPage();const errors=[],scopedRequests=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('request',r=>{if(r.url().includes('/worker-wasm-scoped-switch-catalog0/'))scopedRequests.push(r.url())});
+            let checked=0;
+            const hydrated=async()=>{await page.waitForFunction(()=>!!document.documentElement.dataset.locale);await page.waitForLoadState('networkidle')};
+            const assertOff=async()=>{
+              await hydrated();
+              const route=page.locator('[data-switch-catalog0-product-route]');
+              assert.equal(await route.getAttribute('data-switch-catalog0-scope'),'off');
+              assert.equal(await route.locator('input[type=file]').count(),0);
+              assert.equal(await route.locator('[data-dev-amount-editor]').count(),0);
+              assert.equal(await route.locator('[role=status]').count(),1);
+              assert.equal(await page.evaluate(()=>window.__qrw1490Workers.length),0);
+              checked++;
+            };
+            for(const suffix of ['/editor/items/catalog0/','/editor/items/catalog0/?enable=true&mode=public-accepted#writer','/editor/items/catalog0/?build=9A239D3DB569756D','/editor/items/catalog0/?platform=steam-windows&mode=private-product-v2']){
+              const response=await page.goto(root+suffix);assert.equal(response.status(),200);await assertOff();
+            }
+            await page.reload();await assertOff();
+            const hub=await page.goto(root+'/editor/');assert.equal(hub.status(),200);await hydrated();
+            assert.equal(await page.locator('a[href*="/editor/items/catalog0/"]').count(),0);
+            assert.equal(await page.evaluate(()=>window.__qrw1490Workers.length),0);
+            await page.goBack();await assertOff();
+            assert.deepEqual(scopedRequests,[]);assert.deepEqual(errors,[]);
+            console.log('QRW1490_OFF_CHROME_ACTUAL_PASS',JSON.stringify({routeChecks:checked,hubLink:false,workerConstructed:0,scopedRequests:0,pageErrors:0,realSignedPositive:false}));
+            await context.close();
+          }finally{await browser.close()}
+          NODE
