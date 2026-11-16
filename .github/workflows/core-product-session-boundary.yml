@@ -84,6 +84,11 @@ jobs:
           cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-rm01-scoped,product-steam626-sr03-scoped,product-steam626-chest-scoped,product-switch626-chest-scoped,product-steam626-comp03-spatial-preview,product-collection-scoped
       - name: Compile WASM Worker plus opt-in indexed-read types without binding to UI
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read
+      - name: ACT1507 Steam626 fixed Eyeball ColorIndex2 exact1 shared ledger (OFF)
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib steam626_eyecolor2_ --verbose
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,semantic-writer-dev
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,semantic-writer-dev,product-steam626-hair-scoped,product-steam626-skin-scoped
       - name: Rust wasm32 ABI compilation (no UI/bundle assumption)
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm
       - name: Worker-side mock WASM read-only negative tests

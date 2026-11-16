@@ -390,6 +390,10 @@ mod appearance_observer;
 #[cfg(any(test,feature="semantic-writer-dev"))]
 #[path="product_hair_target.rs"]
 mod product_hair_target;
+// ACT1507 independent exact Steam626 Eyeball ColorIndex2; private Stage only.
+#[cfg(feature="semantic-writer-dev")]
+#[path="product_eyeball_color2.rs"]
+mod product_eyeball_color2;
 #[cfg(any(test,feature="semantic-writer-dev"))]
 #[path="product_skin_target.rs"]
 mod product_skin_target;
