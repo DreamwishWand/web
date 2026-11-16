@@ -183,4 +183,77 @@ mod tests{
         assert_eq!(s.take_typed_semantic_decoded_once(export).unwrap(),expected);
         assert!(s.take_typed_semantic_decoded_once(export).is_err());
     }
+
+    #[test]
+    fn qa_wardrobe_exact1_noncanonical_raw_independent_plan_and_current_scope(){
+        fn open_raw(raw:&[u8])->ProductSession{
+            ProductSession::open_decoded_readonly(raw.to_vec(),BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+                build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap()
+        }
+        // Build the readset independently from exact lexical spans; compare
+        // to the typed reader only for stock rows already accepted in ACT1076.
+        fn make(s:&ProductSession,e:WorkerEnvelope,raw:&[u8],want:&[u8],old:i32,new:i32)->Value{
+            let p=indexed_read::roots(raw).unwrap().player;
+            let m=object_field(raw,p,"MaleAvatar").unwrap();let f=object_field(raw,p,"FemaleAvatar").unwrap();
+            let c=object_field(raw,m,"Clothes").unwrap();
+            let h=|v:Span|hex(&sha(&raw[v.begin..v.end]));
+            let read=s.read_private_wardrobe_same_slot(e,0,old,new).unwrap().to_private_receipt_json();
+            let saved=json!({"avatarIsMale":true,"activeBranch":"MaleAvatar","maleAvatarSha256":h(m),"femaleAvatarSha256":h(f),
+                "incompatibleClothesMapSha256":h(object_field(raw,m,"IncompatibleClothes").unwrap()),
+                "customizationMapSha256":h(object_field(raw,m,"ClothingCustomization").unwrap()),
+                "oldScalarSha256":h(object_field(raw,c,"0").unwrap()),"clothesMapSha256":h(c),"inventory":read["inventory"]});
+            json!({"contract":CONTRACT,"fullVersion":EXACT_STEAM,"sourceDecodedSha256":hex(&sha(raw)),"slot":0,
+                "oldItemId":old,"newItemId":new,"savedReadSet":saved,"oldDefinitionSha256":hex(&sha(b"old synthetic")),
+                "newDefinitionSha256":hex(&sha(b"new synthetic")),"candidateReceiptSha256":hex(&sha(b"candidate synthetic")),
+                "affectedClosureSha256":hex(&sha(b"closure synthetic")),"expectedEditedDecodedSha256":hex(&sha(want))})
+        }
+        let mut pos=0;let mut neg=0;
+        for (old,new) in [(50000002,50000003),(50000002,50000007)]{
+            let mut d=doc();
+            d["Player"]["ListInventories"]["1"]["Inventory"]["50000007"]=json!({"Amount":7,"Marker":"ItemMarker_Favorite","Opaque":"keep"});
+            let raw=serde_json::to_string_pretty(&d).unwrap().replace("\"keep\"","\"\\u006beep\"").replace("\"yes\"","\"\\u0079es\"");
+            let needle=format!("\"0\": {old}");
+            assert_eq!(raw.matches(&needle).count(),1);
+            let want=raw.replace(&needle,&format!("\"0\": {new}"));
+            let s=open_raw(raw.as_bytes());let before=s.receipt().unwrap();let e=env(before,WorkerAction::ReadDomain);
+            let p=make(&s,e,raw.as_bytes(),want.as_bytes(),old,new);
+            let t=mint(&s,e,&p).unwrap();assert_eq!(s.receipt().unwrap(),before);
+            for key in ["maleAvatarSha256","femaleAvatarSha256","incompatibleClothesMapSha256","customizationMapSha256","oldScalarSha256","clothesMapSha256"]{
+                let mut q=p.clone();q["savedReadSet"][key]=json!("ab".repeat(32));assert!(mint(&s,e,&q).is_err());neg+=1;
+            }
+            for key in ["listInventoriesSha256","recordSha256","mapSha256"]{
+                let mut q=p.clone();q["savedReadSet"]["inventory"][key]=json!("cd".repeat(32));assert!(mint(&s,e,&q).is_err());neg+=1;
+            }
+            for key in ["oldStock","proposedStock"]{
+                let mut q=p.clone();q["savedReadSet"]["inventory"][key]["markerSha256"]=json!("ab".repeat(32));assert!(mint(&s,e,&q).is_err());neg+=1;
+            }
+            let mut q=p.clone();q["oldDefinitionSha256"]=q["newDefinitionSha256"].clone();assert!(mint(&s,e,&q).is_err());neg+=1;
+            let bytes=serde_json::to_vec_pretty(&p).unwrap();assert!(s.mint_private_wardrobe_same_slot_target(e,&bytes,sha(&bytes)).is_err());neg+=1;
+            let mut q=p.clone();q["expectedEditedDecodedSha256"]=json!(hex(&sha(b"wrong output")));
+            let bad=mint(&s,e,&q).unwrap();let st=env(before,WorkerAction::Stage);
+            assert!(s.stage_private_wardrobe_same_slot(st,&bad).is_err());neg+=1;
+            assert_eq!(s.receipt().unwrap(),before);
+            let other=open_raw(raw.as_bytes());assert!(other.stage_private_wardrobe_same_slot(env(other.receipt().unwrap(),WorkerAction::Stage),&t).is_err());neg+=1;
+            let r=s.stage_private_wardrobe_same_slot(st,&t).unwrap();
+            assert_eq!((r.operation_count,r.exact_field_changed_count),(1,1));assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+            assert_eq!(r.staged_decoded_sha256,sha(want.as_bytes()));
+            assert!(s.stage_private_wardrobe_same_slot(st,&t).is_err());neg+=1;
+            s.undo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());neg+=1;
+            s.redo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+            let ex=env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+            assert_eq!(s.take_typed_semantic_decoded_once(ex).unwrap(),want.as_bytes());
+            assert!(s.take_typed_semantic_decoded_once(ex).is_err());neg+=1;
+            assert_eq!(s.decoded.as_ref(),raw.as_bytes());pos+=1;
+        }
+        let mut d=doc();d["Player"]["AvatarIsMale"]=json!(false);
+        let s=open(&d);let e=env(s.receipt().unwrap(),WorkerAction::ReadDomain);
+        let r=s.read_private_wardrobe_same_slot(e,0,50000001,50000003).unwrap().to_private_receipt_json();
+        let p=json!({"contract":CONTRACT,"fullVersion":EXACT_STEAM,"sourceDecodedSha256":hex(&e.expected_decoded_sha256),"slot":0,"oldItemId":50000001,"newItemId":50000003,"savedReadSet":projection(&r),"oldDefinitionSha256":"11".repeat(32),"newDefinitionSha256":"22".repeat(32),"candidateReceiptSha256":"33".repeat(32),"affectedClosureSha256":"44".repeat(32),"expectedEditedDecodedSha256":"55".repeat(32)});
+        assert!(mint(&s,e,&p).is_err());neg+=1;
+        let mut z=open(&doc());z.worker_bound=true;let e=env(z.receipt().unwrap(),WorkerAction::ReadDomain);
+        assert!(mint(&z,e,&p).is_err());neg+=1;
+        assert_eq!((pos,neg),(2,38));
+    }
+
 }
