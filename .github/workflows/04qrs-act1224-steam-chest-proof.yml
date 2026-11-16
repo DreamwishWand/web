@@ -1,0 +1,86 @@
+name: 04 QR-S ACT1224 Steam Chest proof job (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1224-steam-chest-proof.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 806a25117ca8e5ef9136248a8a873229def64b89
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed source, dispatch and raw Git pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "806a25117ca8e5ef9136248a8a873229def64b89"
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = "509a8567b3da441484c332fc29bfff6e90259e98"
+          test "$(git rev-parse HEAD:tests/scoped-steam-chest-proof-workflow.test.mjs)" = "b8ab31d4b71e3c7f3b55a14087e9292e48befffa"
+          cat > tests/qa-act1224.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync,mkdtempSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim();
+          const raw=(ref,p)=>execFileSync('git',['show',ref+':'+p],{encoding:'utf8'});
+          const y=readFileSync('.github/workflows/pages.yml','utf8'),parent=raw('95fd32d0d5db385aa3f16b86c5a3cc5906cc53c2','.github/workflows/pages.yml');
+          const name=['build','scoped_collection_proof','scoped_switch_chest_proof','scoped_steam_chest_proof'];
+          const jobs=s=>Object.fromEntries([...s.matchAll(/^  ([a-z_]+):\n(?=    )/gm)].filter(m=>name.includes(m[1])||m[1]==='deploy').map(m=>{const start=m.index,end=s.slice(start+1).search(/^  [a-z_]+:\n/m);return [m[1],end<0?s.slice(start):s.slice(start,start+1+end)]}));
+          const j=jobs(y),old=jobs(parent);
+          const stripGuard=s=>s.replace(/^    if:.*\n/m,'');
+          for(const n of ['scoped_collection_proof','scoped_switch_chest_proof'])assert.equal(stripGuard(j[n]).trimEnd(),stripGuard(old[n]).trimEnd());
+          assert.equal(stripGuard(j.build).trimEnd(),stripGuard(old.build).trimEnd());
+          assert.equal(j.deploy.trimEnd(),old.deploy.trimEnd());
+          assert.equal(y.slice(y.indexOf('permissions:'),y.indexOf('jobs:')),parent.slice(parent.indexOf('permissions:'),parent.indexOf('jobs:')));
+          const vars=['collection','switch_chest','steam_chest'];
+          const guard=n=>j[n].match(/^    if: (.*)$/m)[1];
+          function evaluate(s,event,ref,values){
+           let e=s.replaceAll('github.event_name',JSON.stringify(event)).replaceAll('github.ref',JSON.stringify(ref));
+           for(let i=0;i<3;i++)e=e.replaceAll('inputs.scoped_'+vars[i]+'_proof_source',JSON.stringify(values[i]));
+           assert.match(e,/^[\w'"/= !&|().-]+$/);
+           return Function('"use strict";return ('+e+')')();
+          }
+          let cases=0;
+          for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/other'])for(let mask=0;mask<8;mask++){
+           const values=vars.map((_,i)=>mask&(1<<i)?'a'.repeat(40):'');
+           const enabled=name.filter(n=>evaluate(guard(n),event,ref,values));
+           const expected=event==='push'?['build']:mask===0?['build']:ref==='refs/heads/main'&&[1,2,4].includes(mask)?[name[1+Math.log2(mask)]]:[];
+           assert.deepEqual(enabled,expected);cases++;
+          }
+          const proof=j.scoped_steam_chest_proof;
+          const extract=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(m=>[m[1],m[2]]);
+          const pins=extract(proof);assert.equal(pins.length,24);assert.equal(new Set(pins.map(x=>x[0])).size,24);
+          const coreBase='a5f205a30c7c3c79c319a90e018273dff55d9669',dir=mkdtempSync(join(tmpdir(),'qa1224-')),env={...process.env,GIT_INDEX_FILE:join(dir,'index')};
+          const idx=(...a)=>execFileSync('git',a,{encoding:'utf8',env}).trim();
+          try{
+           idx('read-tree',coreBase);assert.equal(git('rev-parse',coreBase+':crates/ddv-save-core'),'aceda9d906c3137d717824a3079e84165ab5f62e');
+           for(const [p,r,h] of [['crates/ddv-save-core/Cargo.toml','c0a12d3f3dc177c3370864aeb1c5c65457b29b9f','00226c1e27b511da4e543b08430f99b6f1dd9088'],['crates/ddv-save-core/src/wasm_worker.rs','c0a12d3f3dc177c3370864aeb1c5c65457b29b9f','9db54faf767734ded719b556e2ef2c76d15f36c5'],['crates/ddv-save-core/src/product_amount_scoped.rs','e5de8fd4f9b8f09be7c27f9decb42bd3ee6de67e','864792dae67657462c74c0f4d7d0996d1d78941a']]){
+           assert.equal(git('rev-parse',r+':'+p),h);assert.match(git('ls-tree',r,'--',p),/^100644 blob /);idx('update-index','--cacheinfo','100644,'+h+','+p);
+           }
+           const tree=idx('write-tree');assert.equal(git('rev-parse',tree+':crates/ddv-save-core'),pins[0][1]);assert.equal(pins[0][1],'e5c863b756e9593afcfe4f3c24f122c91a4c4b6f');
+          }finally{rmSync(dir,{recursive:true,force:true})}
+          for(const [i,[p,h]] of pins.entries())if(i){const r=i<=3?'808c51d7553e212ea07173b76d54ec482ff304d9':'ceacdebaf1dc3ba48d77356f52187678a6df272f';assert.equal(git('rev-parse',r+':'+p),h,p);assert.match(git('ls-tree',r,'--',p),/^100644 blob /);}
+          let neg=0;const check=s=>assert.deepEqual(extract(s),pins);
+          for(const [p,h] of pins){const token='test "$(git rev-parse HEAD:'+p+')" = '+h;assert.equal(proof.split(token).length,2);assert.throws(()=>check(proof.replace(token,token.replace(h,'f'.repeat(40)))));neg++;assert.throws(()=>check(proof.replace(token,'')));neg++}
+          assert.throws(()=>check(proof+'\n test "$(git rev-parse HEAD:foreign)" = '+'a'.repeat(40)));neg++;
+          const order=['test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"','test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"','node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','node scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs','node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate','node scripts/int-protected-ci-gate.mjs deploy','actions/upload-artifact@v4'];
+          let offset=-1;for(const m of order){const k=proof.indexOf(m,offset+1);assert.ok(k>offset,m);offset=k}
+          assert.match(proof,/\[\[ "\$WAND_PROOF_EXPECTED_SOURCE" =~ \^\[0-9a-f\]\{40\}\$ \]\]/);
+          assert.match(proof,/test "\$GITHUB_REF" = refs\/heads\/main/);assert.match(proof,/test "\$GITHUB_REPOSITORY_ID" = 1371485649/);
+          const subject=proof.slice(proof.indexOf('subject-path: |'),proof.indexOf('      - name: Verify exact signer'));
+          assert.deepEqual(subject.trim().split('\n').slice(1).map(s=>s.trim().split('/').pop()),['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json']);
+          const upload=proof.slice(proof.indexOf('actions/upload-artifact@v4'));assert.deepEqual(upload.split('\n').filter(s=>s.includes('runner.temp')).map(s=>s.trim().split('/').pop()),['pins.json','attestation-bundle.jsonl']);
+          assert.doesNotMatch(proof,/actions\/(?:deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
+          console.log('ACT1224_STEAM_CHEST_PROOF_JOB_L2_PASS',JSON.stringify({dispatchCases:cases,pins:24,negative:neg,actualGit:true,actualDispatch:false,actualSignature:false}));
+          
+          EOF
+          node tests/qa-act1224.mjs
