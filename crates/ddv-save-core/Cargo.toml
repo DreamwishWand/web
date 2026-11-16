@@ -26,6 +26,8 @@ product-collection-scoped = ["indexed-read"]
 product-amount-scoped = ["semantic-writer-dev"]
 # Exact Steam626 comp03 product release surface; no distribution grant.
 product-steam626-comp03-scoped = ["product-amount-scoped"]
+# Separate read-only companion; existing @1 release export census unchanged.
+product-steam626-comp03-spatial-preview = ["product-steam626-comp03-scoped"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }

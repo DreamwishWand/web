@@ -323,6 +323,12 @@ impl WorkerWasmSource {
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         Ok(guard.preview_comp03_product(e,seed).map_err(|e|err(e.0))?.to_string())
     }
+    #[cfg(feature="product-steam626-comp03-spatial-preview")]
+    pub fn preview_steam626_comp03_spatial(&self,seed:u32,projected_sha:&str,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
+        Ok(guard.preview_comp03_spatial(e,seed,from_hex(projected_sha)?).map_err(|e|err(e.0))?.to_string())
+    }
     #[cfg(feature="product-amount-scoped")]
     pub fn stage_steam626_comp03(&self,seed:u32,grid:u32,next:u32,old:u32,grid_sha:&str,seed_sha:&str,stock_sha:&str,projected:&str,
         session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{

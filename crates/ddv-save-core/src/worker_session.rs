@@ -58,6 +58,11 @@ impl WorkerSessionGuard {
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         self.session.preview_comp03_product(e,seed)
     }
+    #[cfg(feature="product-steam626-comp03-spatial-preview")]
+    pub(crate) fn preview_comp03_spatial(&self,e:WorkerEnvelope,seed:u32,projected:[u8;32])->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_comp03_spatial(e,seed,projected)
+    }
     #[cfg(feature="product-amount-scoped")]
     pub(crate) fn stage_comp03_product(&self,e:WorkerEnvelope,seed:u32,grid:u32,next:u32,old:u32,
         grid_sha:[u8;32],seed_sha:[u8;32],stock_sha:[u8;32],projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{

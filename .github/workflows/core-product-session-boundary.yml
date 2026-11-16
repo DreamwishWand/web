@@ -76,6 +76,11 @@ jobs:
           cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped,product-collection-scoped --lib product_amount_scoped --verbose
           cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped,product-collection-scoped --lib product_collection_source_tests --verbose
           cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped,product-collection-scoped
+      - name: ACT1181 exact COMP03 spatial projection and opt-in WASM compile
+        shell: bash
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --locked --features product-steam626-comp03-spatial-preview --lib comp03_spatial_projection_current_bound_exact9 --verbose
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --locked --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-comp03-spatial-preview
       - name: Reject embedded private files or Writer promotion
         shell: bash
         run: |
