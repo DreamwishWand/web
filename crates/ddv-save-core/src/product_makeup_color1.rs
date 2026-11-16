@@ -186,7 +186,7 @@ mod tests{
   let commit=|h:&crate::worker_session::WorkerSessionGuard,token:&str,projected:[u8;32]|
       h.stage_makeup_color1(stage,token,&p.entry_sha,&p.female_sha,&p.male_sha,
                              &p.routes_sha,projected);
-  assert!(commit(&g,"00",&p.projected).is_err());
+  assert!(commit(&g,"00",p.projected).is_err());
   let mut bad=p.projected;bad[0]^=1;assert!(commit(&g,&p.token_sha,bad).is_err());
   assert!(g.stage_makeup_color1(e,&p.token_sha,&p.entry_sha,&p.female_sha,&p.male_sha,
                                  &p.routes_sha,p.projected).is_err());
