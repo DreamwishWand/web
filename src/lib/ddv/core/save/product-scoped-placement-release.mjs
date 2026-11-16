@@ -5,6 +5,7 @@ import {ACTIVE_RELEASE_TUPLE,matchReleaseTuple,manifestMatchesRelease} from './p
 import {checkedFetch,compileVerifiedWorker} from './product-rust-wasm-candidate-loader.mjs';
 import {PROTECTED_COMP03_RELEASE_ANCHOR,PROTECTED_VASE_ADD_RELEASE_ANCHOR} from './product-scoped-placement-release-anchor.mjs';
 import {PROTECTED_STEAM_BACKPACK_RELEASE_ANCHOR,PROTECTED_SWITCH_BACKPACK_RELEASE_ANCHOR} from './product-scoped-backpack-release-anchor.mjs';
+import {PROTECTED_STEAM_WARDROBE_RELEASE_ANCHOR,PROTECTED_SWITCH_WARDROBE_RELEASE_ANCHOR} from './product-scoped-wardrobe-release-anchor.mjs';
 const fail=()=>{throw Error('SCOPED_PLACEMENT_RELEASE_DENIED')};
 const exact=(o,k)=>o!==null&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).sort().join(',')===k.split(',').sort().join(',');
 const sha=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x),head=x=>typeof x==='string'&&/^[a-f0-9]{40}$/.test(x);
@@ -23,7 +24,9 @@ export const VASE_ADD_RELEASE=spec('steam626-vase-add','steam626.vase.add.exact3
 // PR1509 dedicated feature: one Build-bound pair per artifact. Actual generated census required.
 export const STEAM_BACKPACK_RELEASE=spec('steam626-backpack-split','steam626.backpack.fruit-split.exact3','product-steam626-backpack-scoped','preview_steam626_backpack_split','stage_steam626_backpack_split','/editor/backpack/steam/','steam-windows',buildId);
 export const SWITCH_BACKPACK_RELEASE=spec('switch626-backpack-split','switch626.backpack.fruit-split.exact3','product-switch626-backpack-scoped','preview_switch626_backpack_split','stage_switch626_backpack_split','/editor/backpack/switch/','switch','9A239D3DB569756D');
-const known=s=>s===COMP03_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE;
+export const STEAM_WARDROBE_RELEASE=spec('steam626-wardrobe','steam626.wardrobe.same-slot.exact1','product-steam626-wardrobe-scoped','preview_steam626_wardrobe','stage_steam626_wardrobe','/editor/wardrobe/steam/');
+export const SWITCH_WARDROBE_RELEASE=spec('switch626-wardrobe','switch626.wardrobe.same-slot.exact1','product-switch626-wardrobe-scoped','preview_switch626_wardrobe','stage_switch626_wardrobe','/editor/wardrobe/switch/','switch','9A239D3DB569756D');
+const known=s=>s===COMP03_RELEASE||s===VASE_ADD_RELEASE||s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE||s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
 const asset=(a,n,max)=>exact(a,'path,sizeBytes,sha256')&&a.path===n&&size(a.sizeBytes,max)&&sha(a.sha256);
 export function placementPinsOk(s,p){return known(s)&&exact(p,'contract,sourceHead,manifestSha256,manifestSizeBytes,jsSha256,jsSizeBytes,wasmSha256,wasmSizeBytes')&&p.contract===s.prefix+'.pinned-digests@1'&&head(p.sourceHead)&&[p.manifestSha256,p.jsSha256,p.wasmSha256].every(sha)&&size(p.manifestSizeBytes,64*1024)&&size(p.jsSizeBytes,2*1024*1024)&&size(p.wasmSizeBytes,20*1024*1024)}
 export function placementManifestOk(s,m,p,tuple=ACTIVE_RELEASE_TUPLE){
@@ -58,8 +61,8 @@ async function load(s,a){
  if(!placementManifestOk(s,m,p,a))fail();
  const [js,wasm]=await Promise.all([checkedFetch(url('ddv_save_core.js'),p.jsSizeBytes,p.jsSha256,'text/javascript',fetch),checkedFetch(url('ddv_save_core_bg.wasm'),p.wasmSizeBytes,p.wasmSha256,'application/wasm',fetch)]);
  if(wasm[0]!==0||wasm[1]!==97||wasm[2]!==115||wasm[3]!==109)fail();
- const backpack=s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE;
- const denied=new RegExp(baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack?'(?:comp03|vase_add)':s===COMP03_RELEASE?'vase_add':'comp03')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split','i');
+ const backpack=s===STEAM_BACKPACK_RELEASE||s===SWITCH_BACKPACK_RELEASE,wardrobe=s===STEAM_WARDROBE_RELEASE||s===SWITCH_WARDROBE_RELEASE;
+ const denied=new RegExp(baseDenied+'|(?:discover|preview|stage)_switch626_catalog0|(?:preview|stage)_steam626_'+(backpack||wardrobe?'(?:comp03|vase_add)':s===COMP03_RELEASE?'vase_add':'comp03')+'|(?:preview|stage)_'+(backpack?(s===STEAM_BACKPACK_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_backpack_split'+'|(?:preview|stage)_'+(wardrobe?(s===STEAM_WARDROBE_RELEASE?'switch626':'steam626'):'(?:steam626|switch626)')+'_wardrobe','i');
  const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{deniedSymbol:denied,requiredMethods:s.methods,exactPrototype:true,exactWasmExports:s.exports});
  return Object.freeze({WorkerWasmSource,sourceHead:p.sourceHead,checkedBothJsAndWasm:true,sameOriginFetchOnly:true,writerAuthorized:false,productConsumerEnabled:false,attestationVerifiedAtBuild:true,...scope(a)});
 }
@@ -76,3 +79,6 @@ export const getComp03MountInfo=comp.mount,loadProtectedComp03RustWasm=comp.runt
 
 const steamBackpack=fixed(STEAM_BACKPACK_RELEASE,PROTECTED_STEAM_BACKPACK_RELEASE_ANCHOR),switchBackpack=fixed(SWITCH_BACKPACK_RELEASE,PROTECTED_SWITCH_BACKPACK_RELEASE_ANCHOR);
 export const getSteamBackpackMountInfo=steamBackpack.mount,loadProtectedSteamBackpackRustWasm=steamBackpack.runtime,getSwitchBackpackMountInfo=switchBackpack.mount,loadProtectedSwitchBackpackRustWasm=switchBackpack.runtime;
+
+const steamWardrobe=fixed(STEAM_WARDROBE_RELEASE,PROTECTED_STEAM_WARDROBE_RELEASE_ANCHOR),switchWardrobe=fixed(SWITCH_WARDROBE_RELEASE,PROTECTED_SWITCH_WARDROBE_RELEASE_ANCHOR);
+export const getSteamWardrobeMountInfo=steamWardrobe.mount,loadProtectedSteamWardrobeRustWasm=steamWardrobe.runtime,getSwitchWardrobeMountInfo=switchWardrobe.mount,loadProtectedSwitchWardrobeRustWasm=switchWardrobe.runtime;
