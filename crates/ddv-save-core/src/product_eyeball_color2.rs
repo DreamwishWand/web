@@ -344,4 +344,18 @@ mod tests{
     build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
   assert_eq!(reopen.receipt().unwrap().schema,626);
  }
+
+ #[cfg(feature="product-switch626-eyecolor2-scoped")]
+ #[test]
+ #[ignore="Independent generated ABI synthetic fixture only; not encrypted product Save"]
+ fn qa1929_emit_synthetic_generated_switch_eyecolor2(){
+  let mut d=doc();
+  d["Player"]["MaleAvatar"]["Eyeball"]["OpaqueGeneratedEye"]=json!({"unknown":[true,82,null]});
+  let raw=serde_json::to_vec(&d).unwrap();
+  assert_eq!(d["GameInfo"]["Version"],json!(626));
+  assert_eq!(d["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"],json!(64));
+  assert!(raw.len()<1024*1024);
+  std::fs::write("/tmp/qrc1929-eyecolor2-source.json",&raw).unwrap();
+  println!("QRC1929_SYNTHETIC_FIXTURE_ONLY bytes={}",raw.len());
+ }
 }

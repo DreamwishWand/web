@@ -1,0 +1,52 @@
+name: 05 QR-C Switch626 EyeColor2 generated ABI L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-switch-eyecolor2-generated-l2.yml'
+      - 'tests/qa/qrc1929-switch-eyecolor2-generated.cjs'
+      - 'crates/ddv-save-core/src/product_eyeball_color2.rs'
+permissions:
+  contents: read
+jobs:
+  qrc1929-switch-eyecolor2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrc1929-cargo-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Confirm fixed Source and test-only exact3 hunk
+        run: |
+          set -euo pipefail
+          git cat-file -e b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6^{commit}
+          test "$(git merge-base b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6 HEAD)" = b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6
+          git diff --name-only b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6 HEAD | LC_ALL=C sort >/tmp/qrc1929-actual
+          printf '%s\n' '.github/workflows/05qrc-switch-eyecolor2-generated-l2.yml' 'crates/ddv-save-core/src/product_eyeball_color2.rs' 'tests/qa/qrc1929-switch-eyecolor2-generated.cjs' | LC_ALL=C sort >/tmp/qrc1929-expected
+          diff -u /tmp/qrc1929-expected /tmp/qrc1929-actual
+          git diff --exit-code b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6 HEAD -- crates/ddv-save-core/Cargo.toml crates/ddv-save-core/src/wasm_steam626_eyecolor2.rs crates/ddv-save-core/src/wasm_worker.rs crates/ddv-save-core/src/worker_session.rs crates/ddv-save-core/src/worker_steam626_eyecolor2.rs
+          echo QRC1929_FIXED_SOURCE_QA_ONLY_BOUNDARY_PASS
+      - name: Actual generated opt-in EyeColor2 exact1 ABI with independent Reopen
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock > /tmp/qrc1929-lock.sha
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch626-eyecolor2-scoped --lib qa1929_emit_synthetic_generated_switch_eyecolor2 -- --ignored --nocapture
+          test -s /tmp/qrc1929-eyecolor2-source.json
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrc1929-bindgen
+          for mode in off own mixed; do
+            case "$mode" in
+              off) features=worker-wasm,indexed-read ;;
+              own) features=worker-wasm,product-switch626-eyecolor2-scoped ;;
+              mixed) features=worker-wasm,product-switch626-eyecolor2-scoped,product-steam626-hair-scoped ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            /tmp/wand-qrc1929-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "/tmp/qrc1929-$mode" --target nodejs --no-typescript
+          done
+          sha256sum -c /tmp/qrc1929-lock.sha
+          node --check tests/qa/qrc1929-switch-eyecolor2-generated.cjs
+          node tests/qa/qrc1929-switch-eyecolor2-generated.cjs
