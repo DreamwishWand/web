@@ -1,0 +1,68 @@
+name: 04 QR-S ACT1536 PR1894 COMP03 proof9 rebinding (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr1894-comp03-proof9-current-pin-l2.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 94a77e5fc0e7774974f2e5cf8cdcf210047c3ed8
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed source changed-only independent counterexamples
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-fixed.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'}),blob=(r,p)=>g('rev-parse',r+':'+p);
+          const head='94a77e5fc0e7774974f2e5cf8cdcf210047c3ed8',base='0fe2aba5d5783b30b7a3beb60ac88c2dfaa76dd6',wf='.github/workflows/pages.yml';
+          assert.equal(g('rev-parse','HEAD'),head);assert.equal(blob(head,wf),'98465fbf4612b60382f70fe10c37c7131c51fae4');assert.equal(g('rev-parse',head+'^'),base);
+          const y=raw(head,wf),old=raw(base,wf),names=['scoped_collection_proof','scoped_switch_chest_proof','scoped_steam_chest_proof','scoped_sr03_proof','scoped_comp03_spatial_proof','scoped_rm01_proof','scoped_hair_proof','scoped_skin_proof','scoped_comp03_proof'],keys=names.map(n=>n+'_source'),tail=" && inputs.scoped_comp03_proof_source == ''";
+          const section=(s,n)=>{const i=s.indexOf('\n  '+n+':\n');assert.ok(i>=0,n);const j=s.slice(i+1).search(/\n  [a-z0-9_]+:\n/);return j<0?s.slice(i):s.slice(i,i+1+j)};
+          const pins=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g)].map(m=>[m[1],m[2]]);
+          const b=section(y,names.at(-1)),p=pins(b);assert.equal(p.length,41);assert.equal(new Set(p.map(x=>x[0])).size,41);
+          const inverse=y.slice(0,y.indexOf('\n  scoped_comp03_proof:\n')).replace(/      scoped_comp03_proof_source:\n(?:        [^\n]+\n){4}/,'').split(tail).join('').trimEnd();assert.equal(inverse,old.trimEnd());let pos=1,neg=0,stale=0,oldPins=0;
+          for(const n of names.slice(0,-1)){const before=section(old,n),after=section(y,n);assert.equal(after.split(tail).join(''),before);for(const [k,h] of pins(before)){oldPins++;if(blob(base,k)!==h)stale++}pos++}
+          for(const [k,h] of p){assert.equal(h,blob(base,k),k);assert.equal(h,blob(head,k),k);assert.notEqual(h,(h[0]==='0'?'1':'0')+h.slice(1));neg++}
+          assert.equal(stale,0);assert.equal(blob(base,'scripts/wasm-distribution/approved-Cargo.lock'),'b667b42cfef2032c2925be7b2aa9b7142bff4b52');
+          const feature='product-steam626-comp03-scoped',key='steam626-comp03';assert.match(raw(base,'crates/ddv-save-core/Cargo.toml'),/^product-steam626-comp03-scoped\s*=/m);
+          const stages=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','--no-default-features --features '+feature+',worker-wasm','scoped-placement-proof.mjs build '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/upload-artifact@v4'];let last=-1;for(const s of stages){last=b.indexOf(s,last+1);assert.ok(last>=0,s)}
+          for(const s of ['test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"','test "$GITHUB_REPOSITORY_ID" = 1371485649','test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"','test "$GITHUB_REF" = refs/heads/main','test -z "$(git ls-files static/worker-wasm-scoped-steam626-comp03)"','test ! -e static/worker-wasm-scoped-steam626-comp03','test ! -e build/worker-wasm-scoped-steam626-comp03'])assert.ok(b.includes(s),s);
+          assert.doesNotMatch(b,/actions\/(deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
+          const sub=b.slice(b.indexOf('subject-path: |'),b.indexOf('      - name: Verify exact signer'));assert.deepEqual(sub.match(/tests\/wasm-distribution\/fixtures\/scoped-[^\s]+/g),['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json'].map(x=>'tests/wasm-distribution/fixtures/scoped-'+key+'/'+x));
+          const upload=b.slice(b.indexOf('actions/upload-artifact@v4'));assert.match(upload,/pins\.json/);assert.match(upload,/attestation-bundle\.jsonl/);assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-|static\/|build\//);pos++;
+          const guards=['build',...names].map(n=>section(y,n).split('\n').find(l=>l.trim().startsWith('if:')).trim().slice(4));
+          const evalGuard=(g,event,ref,v)=>g.split(' || ').some(or=>or.replace(/^\(|\)$/g,'').split(' && ').every(t=>{const m=t.match(/^(github\.event_name|github\.ref|inputs\.[a-z0-9_]+) (==|!=) '([^']*)'$/);assert.ok(m,t);const x=m[1]==='github.event_name'?event:m[1]==='github.ref'?ref:v[m[1].slice(7)];return m[2]==='=='?x===m[3]:x!==m[3]}));
+          for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/other'])for(let mask=0;mask<512;mask++){const v=Object.fromEntries(keys.map((k,i)=>[k,mask&(1<<i)?'x':''])),out=guards.map(g=>evalGuard(g,event,ref,v)),expected=[event!=='workflow_dispatch'||mask===0,...keys.map((k,i)=>event==='workflow_dispatch'&&ref==='refs/heads/main'&&mask===(1<<i))];assert.deepEqual(out,expected);if(expected.some(Boolean))pos++;else neg++}
+          // Exact original accepted five postimages, re-pinned only; preserve all other bytes.
+          const original='580c5d1577058ef703409f225f5055328d5e2b0e';
+          const originalPaths=['.github/workflows/pages.yml','tests/scoped-collection-proof-workflow.test.mjs','tests/scoped-sr03-spatial-proof-workflow.test.mjs','tests/scoped-steam-chest-proof-workflow.test.mjs','tests/scoped-switch-chest-proof-workflow.test.mjs'];
+          const staleCore=['fa7aeef5dc1459104564bf1eb9704d315ab7c415','754df0e98e4c074fb7f6ec30243e79c4d1a1b42a'],currentCore='63d1b9f88a07c79c54cb433f4d1cbd9cf1e1ed4b';
+          assert.deepEqual(g('diff','--name-only',base,head).split('\n'),originalPaths);
+          assert.equal(blob(base,'crates/ddv-save-core'),currentCore);assert.equal(blob(head,'crates/ddv-save-core'),currentCore);
+          assert.equal(blob(base,'scripts/wasm-distribution/approved-Cargo.lock'),blob(head,'scripts/wasm-distribution/approved-Cargo.lock'));
+          assert.equal(blob(base,'scripts/wasm-distribution/r22-accepted-rust-scope.mjs'),blob(head,'scripts/wasm-distribution/r22-accepted-rust-scope.mjs'));
+          let swaps=0;
+          for(const path of originalPaths){
+           let oldPost=raw(original,path);const current=raw(head,path);
+           for(const from of staleCore){const occurrences=oldPost.split(from).length-1;swaps+=occurrences;oldPost=oldPost.split(from).join(currentCore);}
+           assert.equal(oldPost,current,path);pos++;
+          }
+          assert.equal(swaps,19);
+          const origNew=section(raw(original,wf),'scoped_comp03_proof');assert.ok(origNew.includes('scoped_comp03_proof_source'));
+          assert.equal(b.split(currentCore).length-1,origNew.split(staleCore[0]).length-1+origNew.split(staleCore[1]).length-1);
+          for(const [path,hash] of p){const mismatch=(hash[0]==='0'?'1':'0')+hash.slice(1);assert.notEqual(blob(base,path),mismatch);neg++;}
+          console.log('QRS_PR1894_REBIND_EXACT19_ONLY_PASS',JSON.stringify({postimages:5,swaps,oldAcceptedSource:original,currentSource:head,actualGit:true,actualSignature:false}));
+          console.log('QRS_PR1894_COMP03_PROOF9_CURRENT_PIN_L2_PASS',JSON.stringify({pos,neg,pins:41,oldPins,stale,actualGit:true,truthCases:2048,actualSignature:false,protectedAcceptance:false}));
+          EOF
+          node qa-fixed.mjs
