@@ -53,3 +53,71 @@ jobs:
           ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
           test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
           test -f crates/ddv-save-core/src/wasm_worker.rs
+
+      - name: QA ONLY ACT1155/1169 changed binder and dedicated feature bundle
+        run: |
+          set -euo pipefail
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          "$B" "$W" --out-dir /tmp/qa-backpack-off --target nodejs --no-typescript
+          for mode in steam switch steam-mixed switch-mixed dual; do
+            case "$mode" in
+              steam) features=worker-wasm,product-steam626-backpack-scoped ;;
+              switch) features=worker-wasm,product-switch626-backpack-scoped ;;
+              steam-mixed) features=worker-wasm,product-steam626-backpack-scoped,product-collection-scoped ;;
+              switch-mixed) features=worker-wasm,product-switch626-backpack-scoped,product-collection-scoped ;;
+              dual) features=worker-wasm,product-steam626-backpack-scoped,product-switch626-backpack-scoped ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            "$B" "$W" --out-dir "/tmp/qa-backpack-$mode" --target nodejs --no-typescript
+          done
+          node <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          let C;
+          const builds=[['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],['switch','switch-bid','9A239D3DB569756D',626,true]];
+          const names=['steam626','switch626'],sha=b=>createHash('sha256').update(b).digest('hex'),raw=d=>Buffer.from(JSON.stringify(d,null,2)),item=30200001;
+          const doc=(old=4)=>({GameInfo:{Version:626},World:{Unknown:{keep:1}},Player:{ContainerInventories:{0:{ID:0,Size:4,ExtraSize:1,BelongsToPlayer:true,BlockMoveTo:false,ParentItemID:null,Inventory:[{ItemID:item,Amount:old,State:null,Unknown:'keep'},{ItemID:0,Amount:0,State:null},{ItemID:0,Amount:0,State:null},{ItemID:0,Amount:0,State:null}]}}},Opaque:{escaped:'\\u0000',pad:'x'.repeat(1100000)}});
+          let nonce=0,pos=0,neg=0,red=[];
+          function open(d,b){const w=new C(...b,new Uint8Array(32).fill(++nonce)),x=raw(d);for(let i=0;i<x.length;i+=1048576)w.append_chunk(x.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(x));return [w,r]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],parse=JSON.parse;
+          const pv=(w,r,i,s=0,d=1)=>parse(w['preview_'+names[i]+'_backpack_split'](s,d,...sc(r)));
+          const st=(w,r,i,p,s=0,d=1,old=p.oldAmount)=>parse(w['stage_'+names[i]+'_backpack_split'](s,d,old,p.witnessSha256,p.projectedDecodedSha256,...sc(r)));
+          const inv=d=>d.Player.ContainerInventories[0].Inventory,rec=d=>d.Player.ContainerInventories[0];
+          const deny=f=>{assert.throws(f);neg++};
+          const cls=m=>require('/tmp/qa-backpack-'+m+'/ddv_save_core.js').WorkerWasmSource;
+          const methodNames=C=>Object.getOwnPropertyNames(C.prototype).filter(n=>!['constructor','free','__destroy_into_raw'].includes(n)).sort();
+          const neutral=['toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk'];
+          const off=methodNames(cls('off'));assert.equal(off.length,8);
+          let census=0;for(const mode of ['off','steam','switch','steam-mixed','switch-mixed','dual']){
+            const T=cls(mode),m=methodNames(T),b=fs.readFileSync('/tmp/qa-backpack-'+mode+'/ddv_save_core_bg.wasm');
+            const ex=WebAssembly.Module.exports(new WebAssembly.Module(b)).map(x=>x.name);
+            const none=mode==='off'||mode==='dual',name=mode.startsWith('steam')?'steam626':'switch626';
+            const expected=none?off:[...off,...neutral,'preview_'+name+'_backpack_split','stage_'+name+'_backpack_split'].sort();
+            assert.deepEqual(m,expected,mode);assert.equal(ex.length,expected.length+9,mode);
+            for(const n of expected)assert.ok(ex.includes('workerwasmsource_'+n),n);
+            console.log('QA_BACKPACK_CENSUS '+mode+' '+m.length+'/'+ex.length+' '+sha(b));census++;
+          }
+          const pet={PetItemID:120000001,FriendshipLevel:1,FriendshipXp:0,LastSelfieDate:'2000-01-01T00:00:00Z',LastPettedDate:'2000-01-01T00:00:00Z',GrantedInventorySlots:0,CustomName:'',PendingHangoutRewards:[],CritterInteractions:[]};
+          function make(n=224){const d=doc();d.Opaque={keep:'preserve'};d.Player.Pets=Array.from({length:n},()=>structuredClone(pet));return d;}
+          function openBytes(bytes,b){const w=new C(...b,new Uint8Array(32).fill(++nonce));try{for(let j=0;j<bytes.length;j+=1048576)w.append_chunk(bytes.subarray(j,j+1048576));const r=parse(w.finish());assert.equal(r.decodedSha256,sha(bytes));return [w,r]}catch(e){w.close();w.free();throw e}}
+          const enc=d=>raw(d),replaceToken=(d,t)=>Buffer.from(raw(d).toString().replace('"GrantedInventorySlots": 0','"GrantedInventorySlots": '+t));
+          const cases=[
+            ['225',()=>enc(make(225))],['nonzero',()=>replaceToken(make(1),'1')],['negative',()=>replaceToken(make(1),'-1')],['boolean',()=>replaceToken(make(1),'false')],['string',()=>replaceToken(make(1),'"0"')],['float',()=>replaceToken(make(1),'0.0')],['minus-zero',()=>replaceToken(make(1),'-0')],['null',()=>replaceToken(make(1),'null')],
+            ['wrong-owner',()=>{const d=make(1);d.World.Pets=d.Player.Pets;delete d.Player.Pets;return enc(d)}],
+            ['object-not-array',()=>{const d=make(1);d.Player.Pets={0:pet};return enc(d)}],
+            ['extra-key',()=>{const d=make(1);d.Player.Pets[0].Unknown=0;return enc(d)}],
+            ['missing-key',()=>{const d=make(1);delete d.Player.Pets[0].CustomName;return enc(d)}],
+            ['alias-key',()=>{const d=make(1);delete d.Player.Pets[0].GrantedInventorySlots;d.Player.Pets[0].granted_inventory_slots=0;return enc(d)}],
+            ['child-position',()=>{const d=make(1);d.Player.Pets[0].PendingHangoutRewards=[{InventorySlotIndex:0}];return enc(d)}],
+            ['duplicate-key',()=>Buffer.from(raw(make(1)).toString().replace('"GrantedInventorySlots": 0','"GrantedInventorySlots": 0, "GrantedInventorySlots": 0'))]
+          ];
+          for(let i=0;i<2;i++){
+            C=cls(i?'switch':'steam');const d=make(),[w,r]=open(d,builds[i]),p=pv(w,r,i),want=structuredClone(d);
+            inv(want)[0].Amount--;inv(want)[1].ItemID=item;inv(want)[1].Amount=1;
+            assert.equal(p.projectedDecodedSha256,sha(raw(want)));const t=st(w,r,i,p);assert.equal(t.exactFieldChangedCount,3);assert.equal(t.stagedDecodedSha256,sha(raw(want)));
+            const u=parse(w.toggle_scoped_edit(false,...sc(t)));assert.throws(()=>w.begin_scoped_edit_output(...sc(u)));const v=parse(w.toggle_scoped_edit(true,...sc(u)));w.begin_scoped_edit_output(...sc(v));assert.deepEqual(Buffer.from(w.next_scoped_edit_output_chunk()),raw(want));assert.throws(()=>w.next_scoped_edit_output_chunk());w.close();w.free();pos++;
+            for(const [label,bytes] of cases){let pair;try{pair=openBytes(bytes(),builds[i])}catch(e){if(label!=='duplicate-key')throw e;neg++;continue}const [a,b]=pair;let ok=true;try{pv(a,b,i);ok=false}catch{}try{st(a,b,i,p);ok=false}catch{}a.close();a.free();if(!ok)red.push({i,label});else neg++;}
+            const [foreign,fr]=open(make(1),builds[1-i]);assert.throws(()=>pv(foreign,fr,i));foreign.close();foreign.free();neg++;
+          }
+          console.log('ACT1155_1169_BACKPACK_REPAIR '+pos+'POS '+neg+'NEG '+census+'CENSUS RED='+JSON.stringify(red));assert.equal(pos,2);assert.equal(neg,32);assert.equal(census,6);assert.deepEqual(red,[]);
+          JS
