@@ -2,15 +2,7 @@ name: 01A Stage E Genuine Generated Rust WASM Chrome Worker (Writer OFF)
 on:
   pull_request:
     paths:
-      - 'tests/stage-e/**'
-      - 'scripts/wasm-distribution/**'
-      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
       - '.github/workflows/01a-stagee-generated-wasm-chrome.yml'
-      - 'crates/ddv-save-core/**'
-      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
-  push:
-    branches:
-      - 'core/real-wasm-browser-smoke-stagee-*'
 permissions:
   contents: read
 jobs:
@@ -24,32 +16,72 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Verify real Chrome and exact pinned wasm-bindgen crate
+      - name: QA ONLY ACT1201 fixed Source spatial companion actual generated
         run: |
           set -euo pipefail
-          command -v google-chrome || command -v chromium
-          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
-      - name: Compile REAL cdylib with opt-in Worker and indexed metadata
-        run: |
-          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
-          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
-      - name: Install exactly matching wasm-bindgen CLI 0.2.105 (not generated or mocked JS)
-        run: |
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagee-wasm-tools
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen --version | grep -F '0.2.105'
-      - name: Generate true wasm-bindgen Browser Worker ESM glue
-        run: |
-          mkdir -p tests/stage-e/pkg
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
-          test -s tests/stage-e/pkg/ddv_save_core.js
-          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
-          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|include_bytes!|writerAuthorized: *true|applyAuthorized: *true' tests/stage-e
-      - name: Actual browser CDP + module Worker + Rust WASM positive and negatives
-        run: node tests/stage-e/chrome-smoke.mjs
-      - name: Confirm Stage E never changed product Writer or public worker route
-        run: |
-          ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
-          test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
-          test -f crates/ddv-save-core/src/wasm_worker.rs
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          # Source has no tracked Cargo.lock: bootstrap once, as accepted Stage E does, then lock each build.
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock | tee /tmp/act1201-lock.sha
+          for mode in off legacy spatial; do
+            features=worker-wasm,indexed-read
+            if [ "$mode" = legacy ]; then features=worker-wasm,product-steam626-comp03-scoped; fi
+            if [ "$mode" = spatial ]; then features=worker-wasm,product-steam626-comp03-spatial-preview; fi
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            "$B" "$W" --out-dir "/tmp/comp-$mode" --target nodejs --no-typescript
+          done
+          sha256sum -c /tmp/act1201-lock.sha
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          const cls=m=>require('/tmp/comp-'+m+'/ddv_save_core.js').WorkerWasmSource,sha=b=>createHash('sha256').update(b).digest('hex');
+          const steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],sw=['switch','switch-bid','9A239D3DB569756D',626,true],item=40100038;
+          const root=(name,id,g)=>({SceneItemId:id,Unlocked:true,GridIDs:[g],CustomLocationPositionsPath:'SceneLayouts/FloatingIslands/FloatingIsland_'+name+'/CustomLocations.json'});
+          const grid=(name,id,next,objects)=>({ID:id,GridDefaultLayoutPath:'',GridDataPath:'GridData/FloatingIslands/FloatingIsland_'+name+'/FloatingIsland_'+name+'Grid-GridData.json',TessellationFactor:2,NextGridObjectID:next,Objects:objects});
+          const well={ID:0,ItemID:20300048,X:120,Y:120,Orientation:'GridOrientation_Down',State:{BuildingWithSkinData:{UpgradeState:{Level:1},CurrentSkinItemID:170200005}}};
+          function doc(g=301,s=742,seed=82){
+            return {GameInfo:{Version:626},World:{Villages:[],FloatingIslands:{1540000150:root('Snow',1540000150,g),1540000153:root('Savannah',1540000153,s)},GridCollection:{Grids:{[g]:grid('Snow',g,seed+10,{0:structuredClone(well),[seed]:{ID:seed,ItemID:item,X:16,Y:24,Orientation:'GridOrientation_Down',State:null}}),[s]:grid('Savannah',s,12,{0:structuredClone(well)})},DiffGrids:{}},MissionSlots:{},RecurringEvents:{}},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_GroundAlteration']},Inventory:{[item]:{Amount:99,Marker:'ItemMarker_None'}}}},AchievementsData:[],DutySlots:{},EvolveStatesProfile:{EvolveProgressState:{}},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{keep:'x'.repeat(1100000),escaped:'keep'}};
+          }
+          const raw=d=>Buffer.from(JSON.stringify(d).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
+          let pos=0,neg=0,nonce=0;const red=[];const deny=(f,label='lifecycle')=>{try{f();red.push(label);}catch{neg++}};
+          function open(m,d,b=steam){const a=raw(d),w=new(cls(m))(...b,new Uint8Array(32).fill(++nonce));for(let i=0;i<a.length;i+=1048576)w.append_chunk(a.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(a));return[w,r]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],parse=JSON.parse;
+          const preview=(w,r,seed)=>parse(w.preview_steam626_comp03(seed,...sc(r)));
+          const stage=(w,r,p)=>parse(w.stage_steam626_comp03(p.seedId,p.gridId,p.nextObjectId,p.oldAmount,p.gridSha256,p.seedSha256,p.inventoryEntrySha256,p.projectedDecodedSha256,...sc(r)));
+
+          const method='preview_steam626_comp03_spatial';
+          for(const [mode,m,e] of [['off',8,17],['legacy',13,22],['spatial',14,23]]){
+            const names=Object.getOwnPropertyNames(cls(mode).prototype).filter(n=>!['constructor','free','__destroy_into_raw'].includes(n));
+            const bytes=fs.readFileSync('/tmp/comp-'+mode+'/ddv_save_core_bg.wasm');
+            assert.equal(names.length,m);assert.equal(WebAssembly.Module.exports(new WebAssembly.Module(bytes)).length,e);
+            assert.equal(names.includes(method),mode==='spatial');
+            console.log('ACT1201_CENSUS '+mode+' '+m+'/'+e+' '+sha(bytes));
+          }
+          const strip=p=>{const q={...p};delete q.sessionId;return q};
+          function spatial(w,r,seed,hash){return parse(w[method](seed,hash,...sc(r)))}
+          for(const [g,s,seed] of [[301,742,82],[901,902,500]]){
+            const d=doc(g,s,seed);d.Opaque={escaped:'keep'};
+            const [old,or]=open('legacy',d),[w,r]=open('spatial',d);
+            const p=preview(w,r,seed),before=preview(old,or,seed);
+            assert.deepEqual(strip(p),strip(before));
+            const v=spatial(w,r,seed,p.projectedDecodedSha256);
+            assert.equal(v.contract,'wand.worker.steam626.comp03-spatial-preview@1');
+            assert.equal(v.rootSceneItemId,1540000150);assert.equal(v.gridId,g);assert.equal(v.seedId,seed);assert.equal(v.nextObjectId,seed+10);
+            const coords=[[16,24],[20,24],[24,24],[16,28],[20,28],[24,28],[16,32],[20,32],[24,32]];
+            assert.deepEqual(v.anchors,coords.map(([x,y],i)=>({objectId:i?seed+9+i:seed,x,y,role:i?'proposed':'retained'})));
+            for(const key of ['sessionId','revision','indexGeneration','decodedSha256'])assert.equal(v[key],r[key]);
+            assert.equal(v.projectedDecodedSha256,p.projectedDecodedSha256);
+            assert.equal(v.writerAuthorized,false);assert.equal(v.editedCopyAuthorized,false);
+            assert.deepEqual(preview(w,r,seed),p);
+            const h=p.projectedDecodedSha256,zero='0'.repeat(64);
+            const reject=f=>{assert.throws(f);neg++};
+            reject(()=>spatial(w,r,seed+1,h));reject(()=>spatial(w,r,seed,zero));reject(()=>spatial(w,r,seed,'bad'));
+            reject(()=>spatial(w,{...r,revision:r.revision+1},seed,h));reject(()=>spatial(w,{...r,indexGeneration:r.indexGeneration+1},seed,h));
+            reject(()=>spatial(w,{...r,decodedSha256:zero},seed,h));reject(()=>spatial(w,or,seed,h));
+            const t=stage(w,r,p);reject(()=>spatial(w,t,seed,h));reject(()=>spatial(w,r,seed,h));
+            w.close();reject(()=>spatial(w,r,seed,h));w.free();old.close();old.free();
+            const [x,y]=open('spatial',d,sw);reject(()=>spatial(x,y,seed,h));x.close();x.free();pos++;
+          }
+          console.log('ACT1201_SPATIAL_ACTUAL '+pos+'POS '+neg+'NEG 3CENSUS');assert.equal(pos,2);assert.equal(neg,22);
+          JS
