@@ -1,4 +1,4 @@
-name: [04 QR-S][ACT1516] PR1868 Portable and Appearance Proof2 compatibility L2 (QA ONLY) (QA ONLY)
+name: "[04 QR-S][ACT1516] PR1868 Portable and Appearance Proof2 compatibility L2 (QA ONLY)"
 on:
   pull_request:
     paths:
