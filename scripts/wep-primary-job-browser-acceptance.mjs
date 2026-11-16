@@ -544,8 +544,9 @@ async function isSemanticallyDisabled(locator) {
 
 async function runLocaleLayoutAcceptance(page, report) {
   const locales = ['de', 'fr', 'pt-BR', 'ja', 'zh-CN'];
-  const localeSelect = page.locator('#site-locale');
   await page.setViewportSize({ width: 1280, height: 1100 });
+  const localeSelect = page.locator('#site-locale-mobile');
+  const settingsSheet = page.locator('dialog.ui-sheet:has(#site-locale-mobile)');
   await localeSelect.waitFor({ state: 'attached' });
 
   const localeSearch = page.locator('[data-wep-search-input]');
@@ -554,11 +555,13 @@ async function runLocaleLayoutAcceptance(page, report) {
   report.localeLayout = {};
 
   for (const locale of locales) {
-    await localeSelect.selectOption(locale, { force: true });
+    await page.locator('.immersive-settings').click();
+    await localeSelect.selectOption(locale);
     await page.waitForFunction(
       (expected) => document.documentElement.lang === expected,
       locale
     );
+    await settingsSheet.locator('.ui-sheet-header button').click();
 
     const afterSwitch = await editorSemanticSnapshot(page);
     assert.deepEqual(
