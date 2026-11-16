@@ -1,0 +1,128 @@
+name: QA ONLY PR1455 Switch626 Chest OFF product route (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1455-switch-chest-off-route.yml'
+permissions:
+  contents: read
+jobs:
+  off-route:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9294b770b336f1cda966945611cb7c96f2d99e61
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin fixed source and accepted release boundary
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '9294b770b336f1cda966945611cb7c96f2d99e61'
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-copy.mjs)" = 1555ade03a3d155507b693d2d8bc34bb9122d044
+          test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = a958bb624f198d22f254c213388f81825a3c1e81
+          test "$(git rev-parse HEAD:src/lib/dev/product-switch-chest-client.mjs)" = ac21d47f40ffea370d175c8cd06c4bd27be16570
+          test "$(git rev-parse HEAD:src/lib/dev/product-switch-chest.worker.mjs)" = b6645a9746d01be64dc1452232c0b36dd848bec6
+          test "$(git rev-parse HEAD:src/routes/editor/chest/+page.svelte)" = 1576744c5b11d189e6e82a4edd93fde6e7cf3bea
+          test "$(git rev-parse HEAD:src/routes/editor/+page.svelte)" = 54e78331769cfa1c9c7e30b882df4505aab686c6
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-switch-chest-release.mjs)" = 7dc69bc0765d6a08e888b99bd976c60c7b9723ce
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-switch-chest-release-anchor.mjs)" = 374064f2da8a5681134aeb555166ebe00fce0704
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test -z "$(git ls-files static/worker-wasm-scoped-switch-chest)"
+      - run: npm ci --no-audit --no-fund
+      - name: Independent bounded actual client denial and locale data
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createProductSwitchChestPort,productSwitchChestPortScope,scopedSwitchChestReadyOk} from './src/lib/dev/product-switch-chest-client.mjs';
+          import {localAmountCopy,DEV_AMOUNT_UI_LOCALES} from './src/lib/dev/local-amount-copy.mjs';
+          let negatives=0;
+          const deny=(v)=>{assert.equal(v,false);negatives++};
+          assert.equal(DEV_AMOUNT_UI_LOCALES.length,8);
+          for(const locale of DEV_AMOUNT_UI_LOCALES){const c=localAmountCopy(locale,true);assert.equal(typeof c.title,'string');assert.equal(typeof c.intro,'string');assert.ok(c.title&&c.intro);assert.equal(Object.isFrozen(c),true)}
+          const builds=[{platform:'switch',buildId:'9A239D3DB569756D',productV2EvidenceSha256:null}];
+          const scope={releaseId:'a'.repeat(64),operation:'switch626.chest.exact1',mode:'private-product-v2',builds};
+          const ready={kind:'SCOPED_SWITCH_CHEST_RUNTIME_READY',...scope,writerAuthorized:false};
+          assert.equal(scopedSwitchChestReadyOk(ready,scope),true); // shape predicate only, never a trusted runtime
+          for(const patch of [{kind:'OTHER'},{releaseId:'b'.repeat(64)},{operation:'amount'},{mode:'public-accepted'},{writerAuthorized:true},{builds:[]},{builds:[{...builds[0],platform:'steam'}]},{builds:[{...builds[0],buildId:'unknown'}]},{builds:[{...builds[0],productV2EvidenceSha256:'c'.repeat(64)}]},{extra:true}]){
+            deny(scopedSwitchChestReadyOk({...ready,...patch},scope));
+          }
+          const {writerAuthorized,...missing}=ready;deny(scopedSwitchChestReadyOk(missing,scope));
+          for(const fake of [ready,Object.freeze({...ready}),{...ready,open(){},dispose(){}}]){assert.equal(productSwitchChestPortScope(fake),null);negatives++}
+          Object.defineProperty(globalThis,'document',{configurable:true,value:{}});
+          Object.defineProperty(globalThis,'location',{configurable:true,value:new URL('https://dreamwishwand.github.io/web/editor/chest/?enable=true')});
+          let constructed=0;Object.defineProperty(globalThis,'Worker',{configurable:true,value:class{constructor(){constructed++;throw Error('unexpected worker')}}});
+          const ac=new AbortController();ac.abort();
+          for(const options of [{},{anchor:scope,verifiedLocalDevGate:true,workerFactory:()=>{}},{signal:ac.signal},{onFault:1}]){
+            await assert.rejects(createProductSwitchChestPort(options));negatives++;
+          }
+          assert.equal(constructed,0);
+          console.log('QRW1455_OFF_CLIENT_ACTUAL_PASS',JSON.stringify({negatives,localeCount:8,workerConstructed:constructed,positiveSignedRuntime:false}));
+          NODE
+      - name: Build real production static route (null anchor)
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run build
+          test -f build/editor/chest/index.html
+          test -f build/editor/index.html
+          test ! -e build/worker-wasm-scoped-switch-chest
+      - name: Install existing browser driver
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Serve actual static output on isolated loopback
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/qrw1455-static"
+          ln -s "$PWD/build" "$RUNNER_TEMP/qrw1455-static/web"
+          python3 -m http.server 4177 --bind 127.0.0.1 --directory "$RUNNER_TEMP/qrw1455-static" > /tmp/qrw1455-http.log 2>&1 &
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4177/web/editor/chest/ >/dev/null; then exit 0; fi; sleep 1; done
+          cat /tmp/qrw1455-http.log
+          exit 1
+      - name: Actual Chrome hydrated OFF route / reload / forged local flags
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const root='http://127.0.0.1:4177/web';
+          const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+            const context=await browser.newContext({locale:'en-US'});
+            await context.addInitScript(()=>{
+              window.__qrw1455Workers=[];
+              const original=window.Worker;
+              window.Worker=new Proxy(original,{construct(target,args,newTarget){window.__qrw1455Workers.push(String(args[0]));return Reflect.construct(target,args,newTarget)}});
+              localStorage.setItem('verifiedLocalDevGate','true');
+              localStorage.setItem('productSwitchChestEnabled','true');
+            });
+            const page=await context.newPage();const errors=[],scopedRequests=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('request',r=>{if(r.url().includes('/worker-wasm-scoped-switch-chest/'))scopedRequests.push(r.url())});
+            let checked=0;
+            const hydrated=async()=>{await page.waitForFunction(()=>!!document.documentElement.dataset.locale);await page.waitForLoadState('networkidle')};
+            const assertOff=async()=>{
+              await hydrated();
+              const route=page.locator('[data-switch-chest-product-route]');
+              assert.equal(await route.getAttribute('data-switch-chest-scope'),'off');
+              assert.equal(await route.locator('input[type=file]').count(),0);
+              assert.equal(await route.locator('[data-dev-amount-editor]').count(),0);
+              assert.equal(await route.locator('[role=status]').count(),1);
+              assert.equal(await page.evaluate(()=>window.__qrw1455Workers.length),0);
+              checked++;
+            };
+            for(const suffix of ['/editor/chest/','/editor/chest/?enable=true&mode=public-accepted#writer','/editor/chest/?build=9A239D3DB569756D','/editor/chest/?platform=steam-windows&mode=private-product-v2']){
+              const response=await page.goto(root+suffix);assert.equal(response.status(),200);await assertOff();
+            }
+            await page.reload();await assertOff();
+            const hub=await page.goto(root+'/editor/');assert.equal(hub.status(),200);await hydrated();
+            assert.equal(await page.locator('a[href*="/editor/chest/"]').count(),0);
+            assert.equal(await page.evaluate(()=>window.__qrw1455Workers.length),0);
+            await page.goBack();await assertOff();
+            assert.deepEqual(scopedRequests,[]);assert.deepEqual(errors,[]);
+            console.log('QRW1455_OFF_CHROME_ACTUAL_PASS',JSON.stringify({routeChecks:checked,hubLink:false,workerConstructed:0,scopedRequests:0,pageErrors:0,realSignedPositive:false}));
+            await context.close();
+          }finally{await browser.close()}
+          NODE
