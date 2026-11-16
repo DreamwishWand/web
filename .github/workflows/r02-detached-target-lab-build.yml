@@ -2,7 +2,7 @@ name: ACT1326 fixed R02 private-lab executable transport (NO SAVE)
 on:
   pull_request:
     paths:
-      - '.github/workflows/r02-private-target-lab-build.yml'
+      - '.github/workflows/r02-detached-target-lab-build.yml'
 permissions:
   contents: read
 jobs:
