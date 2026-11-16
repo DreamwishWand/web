@@ -137,6 +137,7 @@ async function actualStorageFixture(){
     return {sourceBytes,sourceName:'profile',sourceEpoch:1,opened,baselineDocument,draftDocument:structuredClone(baselineDocument),placementBinding,worldBinding,itemDefinitionsById:p.itemDefinitionsById,exactBuildConfirmed:true};
   };
   let f=await build();
+  const clear=await build();
   const mover=f.draftDocument.objects.find(o=>o.itemId===ITEM);
   const classify=d=>placementBinding.classifyMinimumTransformPlacement({document:d,editorId:mover.editorId}).result.valid;
   let destination;
@@ -149,7 +150,7 @@ async function actualStorageFixture(){
   f=await build();
   f.draftDocument.objects.find(o=>o.itemId===ITEM).x=destination;
   assert.equal(classify(f.draftDocument),false,'canonical occupied destination');
-  return {f,destination,classify};
+  return {f,clear,destination,classify};
 }
 
 test('storage MOVE cannot export into actual occupied destination by omitting existing object from baseline and draft',async()=>{
@@ -167,14 +168,13 @@ test('storage MOVE cannot export into actual occupied destination by omitting ex
 });
 
 test('storage MOVE canonical legal destination exports exact X only, preserves inventory, rejects stale and repeated review',async()=>{
-  const {f}=await actualStorageFixture();
+  const {f:occupied,clear:f}=await actualStorageFixture();
+  await assert.rejects(()=>reviewStorageSameGridMoveVerifiedExportV125(occupied),/WEP_STORAGE_INVALID_DESTINATION/);
   const mover=f.draftDocument.objects.find(o=>o.itemId===ITEM);
-  // Choose an independently validated adjacent destination not occupied by
-  // the fixture's second object. Its full baseline remains present.
+  // Use the already accepted 452→453 adjacent cell on the separate
+  // unoccupied synthetic source, rather than assuming the occupied fixture
+  // leaves its neighboring cells free.
   mover.x=453;
-  const valid=f.placementBinding.classifyMinimumTransformPlacement({document:f.draftDocument,editorId:mover.editorId});
-  // If the fixture's farther occupant intersects this footprint, move left.
-  if(!valid.result.valid) mover.x=451;
   assert.equal(f.placementBinding.classifyMinimumTransformPlacement({document:f.draftDocument,editorId:mover.editorId}).result.valid,true);
   const stale=structuredClone(f.opened);stale.profile.Player.Opaque={changed:true};
   await assert.rejects(()=>reviewStorageSameGridMoveVerifiedExportV125({...f,opened:stale}),/WEP_STORAGE_SOURCE_PROFILE_MISMATCH/);
