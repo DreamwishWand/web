@@ -1661,6 +1661,10 @@ impl ProductSession {
     pub fn read_private_backpack_slot_pair(&self,e:WorkerEnvelope,source_slot:usize,destination_slot:usize)
         ->CoreResult<serde_json::Value>{
         build_check(self)?;
+        self.observe_private_backpack_slot_pair(e,source_slot,destination_slot)
+    }
+    fn observe_private_backpack_slot_pair(&self,e:WorkerEnvelope,source_slot:usize,destination_slot:usize)
+        ->CoreResult<serde_json::Value>{
         let st=self.lock()?;
         indexed_read::validate_scope(self,&st,&e)?;
         if source_slot==destination_slot||source_slot>=MAX_CONTAINER_SLOTS||destination_slot>=MAX_CONTAINER_SLOTS{

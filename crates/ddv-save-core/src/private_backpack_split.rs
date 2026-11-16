@@ -2,7 +2,17 @@
 use super::*;
 use serde_json::Value;
 const CONTRACT:&str="wand.private.steam626.backpack-fruit-split-exact3@1";
+const SWITCH_CONTRACT:&str="wand.private.switch626.backpack-fruit-split-exact3@1";
+const SWITCH_BID:&str="9A239D3DB569756D";
 const ITEM:u32=30200001;
+fn switch_build(s:&ProductSession)->CoreResult<()>{
+    let b=&s.native_source_build;
+    if s.worker_bound||b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||
+       b.build_id!=SWITCH_BID||b.schema!=626||!b.externally_attested{
+        return Err(denied("BACKPACK_SPLIT_SWITCH_BUILD"));
+    }
+    Ok(())
+}
 const DEFINITION:&str="9f9b24ad7ec2fc56149887d1b0824de24128cca6101f374ffd4f4b04bbb099cc";
 fn digest(v:&Value)->CoreResult<[u8;32]>{
     let s=v.as_str().ok_or(denied("BACKPACK_SPLIT_DIGEST"))?;
@@ -13,16 +23,17 @@ fn digest(v:&Value)->CoreResult<[u8;32]>{
     }if out==[0;32]{return Err(denied("BACKPACK_SPLIT_DIGEST"))}Ok(out)
 }
 fn hex(v:&[u8])->String{v.iter().map(|b|format!("{b:02x}")).collect()}
-fn plan(bytes:&[u8])->CoreResult<Value>{
+fn plan(bytes:&[u8],switch:bool)->CoreResult<Value>{
     if bytes.is_empty()||bytes.len()>8192{return Err(denied("BACKPACK_SPLIT_PLAN_SIZE"))}
     let v:Value=serde_json::from_slice(bytes).map_err(|_|denied("BACKPACK_SPLIT_PLAN_JSON"))?;
     let keys=["contract","sourceDecodedSha256","definitionSha256","sourceSlot","destinationSlot","oldAmount",
         "containerSha256","mapSha256","slotsSha256","parentSha256","sourceEntrySha256","destinationEntrySha256",
         "sourceStateSha256","destinationStateSha256","expectedOutputSha256"];
     let m=v.as_object().ok_or(denied("BACKPACK_SPLIT_PLAN_KEYS"))?;
-    if m.len()!=keys.len()||keys.iter().any(|k|!m.contains_key(*k))||
+    if m.len()!=keys.len()+usize::from(switch)||keys.iter().any(|k|!m.contains_key(*k))||
+        (switch&&v["buildId"]!=SWITCH_BID)||
         serde_json::to_vec(&v).map_err(|_|denied("BACKPACK_SPLIT_PLAN_JSON"))?.as_slice()!=bytes||
-        v["contract"]!=CONTRACT||v["definitionSha256"]!=DEFINITION{
+        v["contract"]!=(if switch{SWITCH_CONTRACT}else{CONTRACT})||v["definitionSha256"]!=DEFINITION{
         return Err(denied("BACKPACK_SPLIT_PLAN_CANONICAL"));
     }
     Ok(v)
@@ -31,15 +42,41 @@ impl ProductSession{
     pub fn stage_private_steam626_backpack_fruit_split_exact3(&self,e:WorkerEnvelope,bytes:&[u8])
         ->CoreResult<SemanticStageReceipt>{
         build_check(self)?;
+        self.stage_private_backpack_fruit_split(e,bytes,false)
+    }
+    pub fn read_private_switch626_backpack_fruit_slot_pair(&self,e:WorkerEnvelope,src:usize,dst:usize)
+        ->CoreResult<Value>{
+        switch_build(self)?;
+        let mut w=self.observe_private_backpack_slot_pair(e,src,dst)?;
+        if w["source"]["itemId"]!=ITEM||w["packagedStackBound"]!=50{
+            return Err(denied("BACKPACK_SPLIT_SWITCH_FRUIT_ONLY"));
+        }
+        let m=w.as_object_mut().ok_or(denied("BACKPACK_SPLIT_SWITCH_RECEIPT"))?;
+        m.remove("fullVersion");
+        m.insert("contract".into(),Value::from("wand.native.private.switch626.backpack-fruit-slot-pair-read@1"));
+        m.insert("platform".into(),Value::from("Switch"));
+        m.insert("buildKind".into(),Value::from("SwitchBid"));
+        m.insert("buildId".into(),Value::from(SWITCH_BID));
+        Ok(w)
+    }
+    pub fn stage_private_switch626_backpack_fruit_split_exact3(&self,e:WorkerEnvelope,bytes:&[u8])
+        ->CoreResult<SemanticStageReceipt>{
+        switch_build(self)?;
+        self.stage_private_backpack_fruit_split(e,bytes,true)
+    }
+    fn stage_private_backpack_fruit_split(&self,e:WorkerEnvelope,bytes:&[u8],switch:bool)
+        ->CoreResult<SemanticStageReceipt>{
         if self.worker_bound{return Err(denied("BACKPACK_SPLIT_PRIVATE_ONLY"))}
         {let st=self.lock()?;check(self,&st,&e,WorkerAction::Stage)?;
         if st.revision!=0||st.generation!=1||st.semantic.is_some(){return Err(denied("BACKPACK_SPLIT_FRESH_ONLY"))}}
-        let p=plan(bytes)?;
+        let p=plan(bytes,switch)?;
         if digest(&p["sourceDecodedSha256"])?!=self.sha{return Err(denied("BACKPACK_SPLIT_SOURCE_CAS"))}
         let slot=|k:&str|p[k].as_u64().and_then(|n|usize::try_from(n).ok()).filter(|n|*n<MAX_CONTAINER_SLOTS).ok_or(denied("BACKPACK_SPLIT_SLOT"));
         let src=slot("sourceSlot")?;let dst=slot("destinationSlot")?;
         let old=p["oldAmount"].as_u64().filter(|n|(2..=50).contains(n)).ok_or(denied("BACKPACK_SPLIT_AMOUNT"))? as u32;
-        let w=self.read_private_backpack_slot_pair(WorkerEnvelope{action:WorkerAction::ReadDomain,..e},src,dst)?;
+        let read=WorkerEnvelope{action:WorkerAction::ReadDomain,..e};
+        let w=if switch{self.read_private_switch626_backpack_fruit_slot_pair(read,src,dst)?}
+              else{self.read_private_backpack_slot_pair(read,src,dst)?};
         if w["source"]["itemId"]!=ITEM||w["source"]["oldAmount"]!=old||w["packagedStackBound"]!=50{
             return Err(denied("BACKPACK_SPLIT_ITEM_AMOUNT_CAS"));
         }
@@ -98,6 +135,40 @@ mod tests{
         let e=env(s.receipt().unwrap(),WorkerAction::Stage);let r=s.stage_private_steam626_backpack_fruit_split_exact3(e,&b).unwrap();
         assert_eq!(r.exact_field_changed_count,3);assert_eq!(r.operation_count,3);assert!(!r.product_writer_authorized);
         assert!(s.stage_private_steam626_backpack_fruit_split_exact3(e,&b).is_err());
+        s.undo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+        let ex=env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+        assert_eq!(s.take_typed_semantic_decoded_once(ex).unwrap(),expected);
+        assert!(s.take_typed_semantic_decoded_once(ex).is_err());
+    }
+    fn open_switch(d:&Value)->ProductSession{ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),
+        BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+        build_id:SWITCH_BID.into(),schema:626,externally_attested:true}).unwrap()}
+    #[test]fn switch_backpack_build_delta_and_exact3(){
+        let(steam,mut p,expected)=fixture();let s=open_switch(&doc());
+        let r=s.receipt().unwrap();let read=env(r,WorkerAction::ReadDomain);
+        let w=s.read_private_switch626_backpack_fruit_slot_pair(read,0,1).unwrap();
+        assert_eq!(w["buildId"],SWITCH_BID);assert_eq!(w["platform"],"Switch");
+        assert_eq!(w["buildKind"],"SwitchBid");assert!(w.get("fullVersion").is_none());
+        assert_eq!(w["writerAuthorized"],false);
+        let sw=steam.read_private_backpack_slot_pair(env(steam.receipt().unwrap(),WorkerAction::ReadDomain),0,1).unwrap();
+        for k in ["container","source","destination","decodedSha256"]{assert_eq!(w[k],sw[k]);}
+        let e=env(s.receipt().unwrap(),WorkerAction::Stage);
+        assert!(s.read_private_backpack_slot_pair(read,0,1).is_err());
+        assert!(steam.read_private_switch626_backpack_fruit_slot_pair(env(steam.receipt().unwrap(),WorkerAction::ReadDomain),0,1).is_err());
+        assert!(s.stage_private_switch626_backpack_fruit_split_exact3(e,&serde_json::to_vec(&p).unwrap()).is_err());
+        p["contract"]=json!(SWITCH_CONTRACT);p["buildId"]=json!(SWITCH_BID);
+        let b=serde_json::to_vec(&p).unwrap();
+        assert!(s.stage_private_steam626_backpack_fruit_split_exact3(e,&b).is_err());
+        assert!(steam.stage_private_switch626_backpack_fruit_split_exact3(env(steam.receipt().unwrap(),WorkerAction::Stage),&b).is_err());
+        let mut wrong=p.clone();wrong["buildId"]=json!("0000000000000000");
+        assert!(s.stage_private_switch626_backpack_fruit_split_exact3(e,&serde_json::to_vec(&wrong).unwrap()).is_err());
+        assert!(open_switch(&doc()).stage_private_switch626_backpack_fruit_split_exact3(e,&b).is_err());
+        let receipt=s.stage_private_switch626_backpack_fruit_split_exact3(e,&b).unwrap();
+        assert_eq!(receipt.operation_count,3);assert_eq!(receipt.exact_field_changed_count,3);
+        assert!(!receipt.product_writer_authorized);assert!(!receipt.original_overwrite_authorized);
+        assert!(s.stage_private_switch626_backpack_fruit_split_exact3(e,&b).is_err());
         s.undo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
         assert!(s.take_typed_semantic_decoded_once(env(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());
         s.redo_typed_semantic_batch(env(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
