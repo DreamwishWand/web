@@ -1,0 +1,91 @@
+name: INT ACT1088 hosted Collection OFF (fixed deployment; never merge)
+on:
+  push:
+    branches:
+      - '09int/act1088-hosted-collection-off-0cf4395b'
+    paths:
+      - '.github/workflows/09int-act1088-hosted-collection-off.yml'
+permissions:
+  contents: read
+jobs:
+  hosted-off:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '0cf4395b77ab7bbffb6e67c83266df779c27e71d'
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify fixed accepted source and exact deployed release manifest
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '0cf4395b77ab7bbffb6e67c83266df779c27e71d'
+          test "$(git rev-parse HEAD:src/routes/editor/collection/+page.svelte)" = e6bffa8987530a9a62444260e2105cd64fcd7aff
+          test "$(git rev-parse HEAD:src/lib/collection/CollectionExact1Dev.svelte)" = 59ab5f644b64c0db3bb27d5b84499b3f19e1fcfe
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-collection-release-anchor.mjs)" = fd4368ece7d36d39382cb9b21bfef8ad3da267b8
+          test -z "$(git ls-files static/worker-wasm-scoped-collection)"
+          curl -fsS --retry 1 --max-time 20 -H 'Cache-Control: no-cache' https://dreamwishwand.github.io/web/worker-wasm/manifest.json -o "$RUNNER_TEMP/act1088-manifest.json"
+          echo "9bcaf4977ca9f079bb2fe98774855ab2ae6621396089d5dfe1fa79eb74b4b575  $RUNNER_TEMP/act1088-manifest.json" | sha256sum -c -
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const m=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+"/act1088-manifest.json","utf8")); assert.equal(m.sourceHead,"0cf4395b77ab7bbffb6e67c83266df779c27e71d")'
+      - name: Install existing browser driver in detached temp directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/act1088-hosted"
+          cd "$RUNNER_TEMP/act1088-hosted"
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+      - name: Actual Chrome hydrated OFF route / reload / forged local flags
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/act1088-hosted"
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const root='https://dreamwishwand.github.io/web';
+          const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+            const context=await browser.newContext({locale:'en-US'});
+            await context.addInitScript(()=>{
+              window.__qrw1058Workers=[];
+              const original=window.Worker;
+              window.Worker=new Proxy(original,{construct(target,args,newTarget){window.__qrw1058Workers.push(String(args[0]));return Reflect.construct(target,args,newTarget)}});
+              localStorage.setItem('verifiedLocalDevGate','true');
+              localStorage.setItem('productCollectionEnabled','true');
+            });
+            const page=await context.newPage();const errors=[],scopedRequests=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('request',r=>{if(r.url().includes('/worker-wasm-scoped-collection/'))scopedRequests.push(r.url())});
+            let checked=0;
+            const hydrated=async()=>{await page.waitForFunction(()=>!!document.documentElement.dataset.locale);await page.waitForLoadState('networkidle')};
+            const assertOff=async()=>{
+              await hydrated();
+              assert.equal(new URL(page.url()).origin,'https://dreamwishwand.github.io');
+              assert.equal(new URL(page.url()).pathname,'/web/editor/collection/');
+              const route=page.locator('[data-collection-product-route]');
+              assert.equal(await route.getAttribute('data-collection-scope'),'off');
+              assert.equal(await route.locator('input[type=file]').count(),0);
+              assert.equal(await route.locator('[data-collection-exact1]').count(),0);
+              assert.equal(await route.locator('[role=status]').count(),1);
+              assert.equal(await page.evaluate(()=>window.__qrw1058Workers.length),0);
+              checked++;
+            };
+            for(const suffix of ['/editor/collection/','/editor/collection/?enable=true&mode=public-accepted#writer','/editor/collection/?build=9A239D3DB569756D']){
+              const response=await page.goto(root+suffix);assert.equal(response.status(),200);await assertOff();
+            }
+            await page.reload();await assertOff();
+            const hub=await page.goto(root+'/editor/');assert.equal(hub.status(),200);await hydrated();
+            assert.equal(await page.locator('[data-editor-hub] [data-editor-collection]').count(),0);
+            assert.equal(await page.evaluate(()=>window.__qrw1058Workers.length),0);
+            await page.goBack();await assertOff();
+            assert.deepEqual(scopedRequests,[]);assert.deepEqual(errors,[]);
+            console.log('ACT1088_HOSTED_COLLECTION_OFF_ACTUAL_PASS',JSON.stringify({routeChecks:checked,hubLink:false,workerConstructed:0,scopedRequests:0,pageErrors:0,realSignedPositive:false}));
+            await context.close();
+          }finally{await browser.close()}
+          NODE
+      - name: Recheck same deployed release after browser
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 1 --max-time 20 -H 'Cache-Control: no-cache' https://dreamwishwand.github.io/web/worker-wasm/manifest.json -o "$RUNNER_TEMP/act1088-manifest-after.json"
+          echo "9bcaf4977ca9f079bb2fe98774855ab2ae6621396089d5dfe1fa79eb74b4b575  $RUNNER_TEMP/act1088-manifest-after.json" | sha256sum -c -
