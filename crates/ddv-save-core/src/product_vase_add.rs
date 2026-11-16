@@ -206,4 +206,84 @@ mod tests{
         let mut q=d.clone();q["ConditionalEventHistory"]["ActiveEvents"]["1"]=json!({"SpawnState":{"SpawnedObjects":[{"GridID":8,"GridObjectID":9}]}});
         let s=open(&q);assert!(s.mint_vase_physical_target(env(&s),7,8,8).is_ok());
     }
+
+    #[test]
+    fn qa_vase_product_raw_exact3_and_current_target_boundaries(){
+        let mut pos=0;let mut neg=0;
+        let raw=r#"{"GameInfo":{"Version":626},"World":{"Villages":[{"Areas":{"6":{"Unlocked":true,"GridIDs":[7]}}}],"FloatingIslands":{},"GridCollection":{"Grids":{"7":{"ID":7,"GridDataPath":"GridData/Villages/Village04-DarkLevel-GridData.json","GridDefaultLayoutPath":"","TessellationFactor":2,"NextGridObjectID":100,"Objects":{"4":{"ID":4,"ItemID":40000001,"X":2,"Y":2,"Orientation":"GridOrientation_Up","State":null}  }}},"DiffGrids":{}}},"Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_Default"]},"Inventory":{"40000066":{"Amount":3,"Marker":"ItemMarker_None"}}}},"ContainerInventories":{}},"ConditionalEventHistory":{"ActiveEvents":{}},"Unknown":{"preserve":"\u0041", "opaque":[1e0,false]}}"#;
+        let mut s=ProductSession::open_decoded_readonly(raw.as_bytes().to_vec(),crate::BuildIdentity{
+            platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap();
+        s.worker_bound=true;let e=env(&s);let before=s.receipt().unwrap();
+        let t=s.mint_vase_physical_target(e,7,8,8).unwrap();
+        let mut edits=s.collect_vase_exact3_candidate(&t).unwrap();assert_eq!(edits.len(),3);
+        let mut out=s.decoded.to_vec();edits.sort_by_key(|r|r.span.begin);
+        for r in edits.iter().rev(){assert_eq!(&out[r.span.begin..r.span.end],r.old.as_slice());out.splice(r.span.begin..r.span.end,r.new.iter().copied());}
+        let expected=raw.replace(r#""NextGridObjectID":100"#,r#""NextGridObjectID":101"#)
+            .replace(r#""State":null}  }"#,r#""State":null}  ,"100":{"ID":100,"ItemID":40000066,"Orientation":"GridOrientation_Up","State":null,"X":8,"Y":8}}"#)
+            .replace(r#""Amount":3,"Marker":"ItemMarker_None""#,r#""Amount":2,"Marker":"ItemMarker_None""#);
+        assert_eq!(out,expected.as_bytes());validate_entire_document(&out,626).unwrap();
+        assert_eq!(s.decoded.as_ref(),raw.as_bytes());assert_eq!(s.receipt().unwrap(),before);pos+=1;
+        let mut d=doc();
+        d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(i32::MAX-1);
+        d["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Amount"]=json!(2);
+        let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();
+        let t=s.mint_vase_physical_target(e,7,498,348).unwrap();
+        let mut edits=s.collect_vase_exact3_candidate(&t).unwrap();assert_eq!(edits.len(),3);
+        let mut out=s.decoded.to_vec();edits.sort_by_key(|r|r.span.begin);
+        for r in edits.iter().rev(){assert_eq!(&out[r.span.begin..r.span.end],r.old.as_slice());out.splice(r.span.begin..r.span.end,r.new.iter().copied());}
+        let mut want=d.clone();
+        want["World"]["GridCollection"]["Grids"]["7"]["Objects"][(i32::MAX-1).to_string()]=json!({"ID":i32::MAX-1,"ItemID":ITEM,"X":498,"Y":348,"Orientation":"GridOrientation_Up","State":null});
+        want["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(i32::MAX);
+        want["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Amount"]=json!(1);
+        assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),want);validate_entire_document(&out,626).unwrap();
+        assert_eq!(s.receipt().unwrap(),before);pos+=1;
+        let base=doc();
+        for k in 0..19{
+            let mut d=base.clone();let g=&mut d["World"]["GridCollection"]["Grids"]["7"];
+            match k{
+                0=>g["NextGridObjectID"]=json!(i32::MAX),
+                1=>g["NextGridObjectID"]=json!(0),
+                2=>g["NextGridObjectID"]=json!("9"),
+                3=>g["NextGridObjectID"]=json!(9.0),
+                4=>g["Objects"]=json!({}),
+                5=>{let v=g["Objects"]["4"].clone();g["Objects"]["04"]=v;},
+                6=>g["Objects"]["4"]["ItemID"]=json!(0),
+                7=>g["Objects"]["4"]["X"]=json!("2"),
+                8=>g["Objects"]["4"]["Y"]=json!(null),
+                9=>g["TessellationFactor"]=json!(1),
+                10=>g["Objects"]["9"]=json!({"ID":9,"ItemID":40000001,"X":12,"Y":12,"State":null}),
+                11=>d["World"]["Villages"][0]["Areas"]["6"]["GridIDs"]=json!([7,8]),
+                12=>d["World"]["Villages"].as_array_mut().unwrap().push(json!({"Areas":{"6":{"Unlocked":true,"GridIDs":[7]}}})),
+                13=>d["World"]["GridCollection"]["DiffGrids"]["7"]=json!({"ID":7}),
+                14=>d["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Amount"]=json!("3"),
+                15=>d["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Marker"]=json!(null),
+                16=>d["ConditionalEventHistory"]["ActiveEvents"]["2"]=json!({"SpawnState":{"SpawnedObjects":[{"GridID":7,"GridObjectID":9},{"GridID":8,"GridObjectID":9}]}}),
+                17=>d["ConditionalEventHistory"]["ActiveEvents"]["2"]=json!({"SpawnState":{"SpawnedObjects":[{"GridID":7,"GridObjectID":"9"}]}}),
+                _=>d["Player"]["ContainerInventories"]["2"]=json!({"ID":2,"BelongsToPlayer":true,"Size":1,"ExtraSize":0,"Inventory":[{"ItemID":ITEM,"Amount":1,"State":null}]}),
+            }
+            let s=open(&d);let before=s.receipt().unwrap();
+            assert!(s.mint_vase_physical_target(env(&s),7,8,8).is_err(),"denial {k}");
+            assert_eq!(s.receipt().unwrap(),before);assert_eq!(s.decoded.as_ref(),serde_json::to_vec(&d).unwrap());neg+=1;
+        }
+        let s=open(&base);let e=env(&s);let t=s.mint_vase_physical_target(e,7,8,8).unwrap();let before=s.receipt().unwrap();
+        for wrong in [WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e}]{
+            assert!(s.mint_vase_physical_target(wrong,7,8,8).is_err());neg+=1;
+        }
+        for (x,y) in [(u32::MAX-1,8),(8,u32::MAX-1),(499,348),(498,350)]{
+            assert!(s.mint_vase_physical_target(e,7,x,y).is_err());neg+=1;
+        }
+        assert!(open(&base).collect_vase_exact3_candidate(&t).is_err());neg+=1;
+        assert_eq!(s.receipt().unwrap(),before);
+        // Shared append is equivalent to the original native Road payload.
+        for n in [1usize,3,6,9]{
+            let rows:Vec<Value>=(0..n).map(|i|json!({"ID":100+i,"ItemID":40100068,"State":null,"X":2*i,"Y":4})).collect();
+            let mut want=Vec::new();for r in &rows{want.extend_from_slice(format!(",\"{}\":",r["ID"].as_u64().unwrap()).as_bytes());want.extend_from_slice(&serde_json::to_vec(r).unwrap());}want.push(b'}');
+            assert_eq!(grid_append::payload(&rows).unwrap(),want);pos+=1;
+        }
+        for id in [json!(-1),json!(1.0),json!("1"),json!(4294967296u64),json!(null)]{
+            assert!(grid_append::payload(&[json!({"ID":id})]).is_err());neg+=1;
+        }
+        assert_eq!((pos,neg),(6,31));
+    }
+
 }
