@@ -1,0 +1,83 @@
+name: 04 QR-S Switch Appearance R22 incremental exact10 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-switch-appearance-incremental-exact10.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1ec802ffb96650284253334c4e830dfd06f0f407
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Isolated actual Git exact14 gate delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-r22-gate.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {writeFileSync,mkdtempSync,rmSync,unlinkSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const main='1ec802ffb96650284253334c4e830dfd06f0f407',fixed='9e319b374c86185b9f3e178db1bb3ef31923c632',source='86a213d15e898846f4610dbe088690ca2c162f5f',prior='06adf0c44a77e3ba653a62a14160207a7a9d91be',steamGate='d574affb21c4254f355fbb80d8879a8f5eda1948',rmCore='6e73a255b021b20099506c989947594f88a46c97',oldBase='ffaa286501bc3008b598e5429be7b930bdc70f1d';
+          const core='crates/ddv-save-core',cfg='scripts/wasm-distribution/protected-release-inputs.json',helper='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',testHelper='scripts/wasm-distribution/qa-switch-appearance-r22.mjs',lock='scripts/wasm-distribution/approved-Cargo.lock';
+          const dir=mkdtempSync(join(tmpdir(),'wand-switch-appearance-r22-')),env={...process.env,GIT_INDEX_FILE:join(dir,'index'),GIT_NO_REPLACE_OBJECTS:'1',GIT_AUTHOR_NAME:'QA',GIT_AUTHOR_EMAIL:'qa@example.invalid',GIT_COMMITTER_NAME:'QA',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8',env,maxBuffer:16*1024*1024,stdio:['ignore','pipe','pipe']}).trim(),raw=(ref,p)=>execFileSync('git',['show',ref+':'+p],{encoding:'utf8',env}),blob=s=>execFileSync('git',['hash-object','-w','--stdin'],{input:s,encoding:'utf8',env}).trim();
+          const entry=(ref,p)=>{const x=g('ls-tree',ref,'--',p);if(!x)return null;const m=/^(100644|100755) blob ([a-f0-9]{40})\t(.+)$/.exec(x);assert.ok(m&&m[3]===p,p);return {mode:m[1],blob:m[2]}};
+          const set=(p,e)=>e?g('update-index','--add','--cacheinfo',e.mode,e.blob,p):g('update-index','--force-remove','--',p);
+          const make=(parent,changes)=>{g('read-tree',parent);for(const [p,e] of changes)set(p,e);return g('commit-tree',g('write-tree'),'-p',parent,'-m','isolated QA only')};
+          assert.equal(g('rev-parse','HEAD'),main);
+          assert.equal(g('rev-parse',main+':'+helper),'83a26102290370bc492417bdc57b1571b5f3c775');
+          assert.equal(g('rev-parse',fixed+':'+helper),'ab28078abde5bfc36cfad3265d3702ad5f009920');
+          assert.deepEqual(g('diff','--name-only',fixed+'^',fixed).split('\n'),[helper]);
+          const old=raw(steamGate,helper),cur=raw(fixed,helper),block=cur.slice(cur.indexOf('const switch626AppearanceCumulativeEntries=['),cur.indexOf('const gatePaths='));
+          const p0=cur.indexOf(" if(baseCore==='fa7aeef5dc1459104564bf1eb9704d315ab7c415')"),p1=cur.indexOf(" deny('BASE_CORE_TREE');",p0);
+          assert.ok(block.startsWith('const switch626AppearanceCumulativeEntries=[')&&p0>0&&p1>p0);
+          assert.equal(cur.replace(block,'').replace(cur.slice(p0,p1),''),old);
+          assert.equal(g('rev-parse',main+':'+core),'f942165161b98cf7f9de16a1f7459cf3d337dc61');
+          assert.equal(g('rev-parse',source+':'+core),'1f61f3058f31b35e6db9cf424d4147fcde9c3905');
+          assert.equal(g('rev-parse',source+'^{tree}'),'0eb841d2c9cf982dd82759c0f203091c40b47269');
+          const paths=g('diff','--name-only','--no-renames',prior,source,'--',core,'.github/workflows/core-product-session-boundary.yml').split('\n');
+          assert.equal(paths.length,9);
+          const changes=paths.map(p=>[p,entry(source,p)]);
+          const steamPaths=g('diff','--name-only','--no-renames',rmCore,prior,'--',core,'.github/workflows/core-product-session-boundary.yml').split('\n');assert.equal(steamPaths.length,13);const steamCfg=raw(main,cfg).replace(entry(main,core+'/Cargo.toml').blob,entry(prior,core+'/Cargo.toml').blob);assert.equal(blob(steamCfg),'dd59264c1c20325c66e6aecc3413e91d10fc72ed');const gate=make(main,[[helper,entry(fixed,helper)]]),steamChanges=[...steamPaths.map(p=>[p,entry(prior,p)]),[cfg,{mode:'100644',blob:blob(steamCfg)}]],steam=make(gate,steamChanges);assert.equal(g('rev-parse',steam+':'+core),'fa7aeef5dc1459104564bf1eb9704d315ab7c415');const conf=raw(steam,cfg),oldCargo=entry(steam,core+'/Cargo.toml').blob,newCargo=entry(source,core+'/Cargo.toml').blob,config=conf.replace(oldCargo,newCargo);
+          assert.equal(blob(config),'0e54f4da3b1f14c18f63b6c199c59077eae97f73');
+          assert.deepEqual({...JSON.parse(config),cargoTomlGitBlob:oldCargo},JSON.parse(conf));
+          changes.push([cfg,{mode:'100644',blob:blob(config)}]);
+          const pins=changes.map(([p,e])=>({path:p,before:entry(steam,p),after:e}));
+          const literal=JSON.parse(block.slice(block.indexOf('['),block.lastIndexOf(']')+1));
+          const sorted=x=>x.slice().sort((a,b)=>a.path.localeCompare(b.path));
+          assert.deepEqual(sorted(literal),sorted(pins));
+          assert.ok(pins.every(x=>x.after.mode==='100644'&&(!x.before||x.before.mode==='100644')));
+          const candidate=make(steam,changes);
+          assert.equal(g('rev-parse',candidate+':'+core),'1f61f3058f31b35e6db9cf424d4147fcde9c3905');
+          assert.equal(g('rev-parse',make(candidate,pins.map(x=>[x.path,x.before]))+'^{tree}'),g('rev-parse',steam+'^{tree}'));
+          for(const ref of [main,gate,steam,candidate]){assert.equal(entry(ref,lock).blob,'b667b42cfef2032c2925be7b2aa9b7142bff4b52');assert.equal(entry(ref,core+'/Cargo.lock'),null)}
+          writeFileSync(testHelper,cur,{flag:'wx'});
+          try{
+           const {verifyAcceptedRustScope,verifyExactScopeEntries}=await import('./'+testHelper);
+           const oldVerify=(await import('./'+helper)).verifyAcceptedRustScope;
+           let pos=0,neg=0;const no=f=>{assert.throws(f);neg++},verify=(b,c)=>verifyAcceptedRustScope(process.cwd(),b,c);
+           const r=verify(steam,candidate);assert.equal(r.entryCount,10);assert.equal(r.sourcePr,1734);assert.equal(r.sourceHead,source);assert.equal(r.writerAuthorized,false);assert.equal(r.mergeAuthorized,false);pos++;
+           assert.equal(verifyExactScopeEntries(process.cwd(),steam,candidate,pins).entries.length,10);pos++;
+           const noise=['qa-r22-base-only.txt',{mode:'100644',blob:blob('independent base only')}],advance=make(steam,[noise]);
+           assert.equal(verify(advance,make(advance,changes)).entryCount,10);pos++;
+           const rm01='b937c1d2cebcd81dfa7b18a754b46e43da118b13';assert.equal(oldVerify(process.cwd(),oldBase,rm01).entryCount,14);assert.equal(verify(oldBase,rm01).entryCount,14);pos++;assert.equal(verify(gate,steam).entryCount,14);pos++;no(()=>verify(gate,candidate));
+           for(const [p,e] of changes){const rest=changes.filter(x=>x[0]!==p);no(()=>verify(steam,make(steam,rest)));no(()=>verify(steam,make(steam,[...rest,[p,{mode:'100755',blob:e.blob}]])));no(()=>verify(steam,make(steam,[...rest,[p,{mode:'100644',blob:blob('wrong postimage '+p)}]])))}
+           for(const p of [helper,'scripts/wasm-distribution/verify-protected-release.mjs','scripts/int-selection-preflight.mjs',lock,core+'/Cargo.lock'])no(()=>verify(steam,make(steam,[...changes,[p,{mode:'100644',blob:blob('wrong '+p)}]])));
+           no(()=>verify(steam,make(steam,[...changes,noise])));
+           no(()=>verify(main,make(main,[...changes,[helper,entry(fixed,helper)]])));
+           no(()=>oldVerify(process.cwd(),main,make(main,changes)));
+           no(()=>verify(candidate,steam));no(()=>verify(steam,'bad'));no(()=>verify(steam,main));
+           console.log('QRS_PR1750_SWITCH_APPEARANCE_INCREMENTAL_EXACT10_L2_PASS',JSON.stringify({pos,neg,pins:10,actualGit:true,actualSignature:false,protectedAcceptance:false}));
+          }finally{unlinkSync(testHelper);rmSync(dir,{recursive:true,force:true})}
+          EOF
+          node qa-r22-gate.mjs
