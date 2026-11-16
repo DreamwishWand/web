@@ -1,0 +1,83 @@
+name: 04 QR-S ACT1365 PR1740 proof6 current L2 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1365-rm01-current-proof6.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3678811ff50e194ce9bce1ec8afcedd96f8843fb
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact actual pins, exclusive dispatch and new RM01 deny only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 3678811ff50e194ce9bce1ec8afcedd96f8843fb
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = cc02f680de2d77b752e2e5cc93258e3b25b22a1a
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = b3153ee192eb19a23d467e8bcab02358dea5b5eb
+          cat > qa-current-proof5.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync,writeFileSync,unlinkSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {COMP03_RELEASE as comp,COMP03_SPATIAL_RELEASE as sp,SR03_RELEASE as sr,VASE_ADD_RELEASE as vase,RM01_RELEASE as rm} from './src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {fixedPlacementProofScope as fixed,inspectPlacementSubjects as inspect,privatePlacementIdentity as identity,replacePrivatePlacementAnchor as replace} from './scripts/readonly-release/scoped-placement-proof.mjs';
+          const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim(),head=git('rev-parse','HEAD'),parent='181edfc5fe9a9a8205ad94f2eb9e7416630a714c',main='31e3137a13b23cbe45b9779c8ce991db80fe3e98',previous='181edfc5fe9a9a8205ad94f2eb9e7416630a714c',raw=(ref,p)=>execFileSync('git',['show',ref+':'+p],{encoding:'utf8'});
+          const y=readFileSync('.github/workflows/pages.yml','utf8'),old=raw(parent,'.github/workflows/pages.yml'),adapter='scripts/readonly-release/scoped-placement-proof.mjs',oldAdapter=raw(previous,adapter),newAdapter=raw(head,adapter);
+          const names=['scoped_collection_proof','scoped_switch_chest_proof','scoped_steam_chest_proof','scoped_sr03_proof','scoped_comp03_spatial_proof','scoped_rm01_proof'],keys=names.map(n=>n+'_source');
+          const section=(text,n)=>{const i=text.indexOf('\n  '+n+':\n');assert.ok(i>=0,n);const j=text.slice(i+1).search(/\n  [a-z0-9_]+:\n/);return j<0?text.slice(i):text.slice(i,i+1+j)};
+          const tail=" && inputs.scoped_rm01_proof_source == ''",start=y.indexOf('\n  scoped_rm01_proof:\n');
+          const inverse=y.slice(0,start).replace(/      scoped_rm01_proof_source:\n(?:        [^\n]+\n){4}/,'').split(tail).join('').split('b3153ee192eb19a23d467e8bcab02358dea5b5eb').join('55d9e32cd52ee5845c2f4fbfb51b8b65ac88ab3b');
+          assert.equal(inverse,old);
+          let pos=1,neg=0,pins=0;
+          for(const [i,n] of names.entries()){
+            const b=section(y,n),entries=[...b.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g)].map(m=>[m[1],m[2]]);
+            const count=[...section(old,names[Math.min(i,4)]).matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g)].length;
+            assert.equal(entries.length,i<5?count:38);assert.equal(new Set(entries.map(x=>x[0])).size,entries.length);
+            for(const [p,h] of entries){assert.equal(git('rev-parse',head+':'+p),h);pins++;assert.notEqual(git('rev-parse',head+':'+p),(h[0]==='0'?'1':'0')+h.slice(1));neg++;
+              if(p===adapter){assert.equal(h,'b3153ee192eb19a23d467e8bcab02358dea5b5eb');assert.equal(git('rev-parse',main+':'+p),'55d9e32cd52ee5845c2f4fbfb51b8b65ac88ab3b')}
+              else assert.equal(git('rev-parse',main+':'+p),h);
+            }
+            if(i<5){assert.equal(b.split(tail).join('').split('b3153ee192eb19a23d467e8bcab02358dea5b5eb').join('55d9e32cd52ee5845c2f4fbfb51b8b65ac88ab3b'),section(old,n));pos++;continue}
+            const key='switch626-rm01',feature='product-switch626-rm01-scoped';
+            const stages=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','--no-default-features --features '+feature+',worker-wasm','scoped-placement-proof.mjs build '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/upload-artifact@v4'];let last=-1;for(const s of stages){last=b.indexOf(s,last+1);assert.ok(last>=0,s)}
+            assert.ok(b.includes('test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"'));assert.ok(b.includes('test "$GITHUB_REPOSITORY_ID" = 1371485649'));assert.ok(b.includes('test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"'));
+            assert.doesNotMatch(b,/actions\/(?:deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
+            const sub=b.slice(b.indexOf('subject-path: |'),b.indexOf('      - name: Verify exact signer'));assert.deepEqual(sub.match(/tests\/wasm-distribution\/fixtures\/scoped-[^\s]+/g),['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json'].map(x=>'tests/wasm-distribution/fixtures/scoped-'+key+'/'+x));
+            const upload=b.slice(b.indexOf('actions/upload-artifact@v4'));assert.match(upload,/pins\.json/);assert.match(upload,/attestation-bundle\.jsonl/);assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-|static\/|build\//);pos++;
+          }
+          assert.equal(pins,172);
+          const guards=['build',...names].map(n=>section(y,n).split('\n').find(l=>l.trim().startsWith('if:')).trim().slice(4));
+          const evalGuard=(g,event,ref,values)=>g.split(' || ').some(or=>or.replace(/^\(|\)$/g,'').split(' && ').every(term=>{const m=term.match(/^(github\.event_name|github\.ref|inputs\.[a-z0-9_]+) (==|!=) '([^']*)'$/);assert.ok(m,term);const v=m[1]==='github.event_name'?event:m[1]==='github.ref'?ref:values[m[1].slice(7)];return m[2]==='=='?v===m[3]:v!==m[3]}));
+          for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/other'])for(let mask=0;mask<64;mask++){const v=Object.fromEntries(keys.map((k,i)=>[k,mask&(1<<i)?'x':''])),out=guards.map(g=>evalGuard(g,event,ref,v)),expect=[event!=='workflow_dispatch'||mask===0,...keys.map((k,i)=>event==='workflow_dispatch'&&ref==='refs/heads/main'&&mask===(1<<i))];assert.deepEqual(out,expect);if(expect.some(Boolean))pos++;else neg++}
+          const sha=b=>createHash('sha256').update(b).digest('hex'),u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a},str=s=>[...u(Buffer.byteLength(s)),...Buffer.from(s)],sec=(id,b)=>[id,...u(b.length),...b];
+          const wasm=s=>{const es=s.exports.flatMap(n=>[...str(n),n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(s.exports.length),...es]),...sec(10,[1,2,0,11])])};
+          const pack=(s,j,w)=>[Buffer.from(JSON.stringify({contract:s.prefix+'.runtime@1',operation:s.operation,source:{repository:tuple.repository,commit:head,cargoTomlSha256:'b'.repeat(64),cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:s.features,defaultFeatures:false,toolchain:'rustc 1.99.1 (test)'},assets:{js:{path:'ddv_save_core.js',sizeBytes:j.length,sha256:sha(j)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}},abi:{exportClass:'WorkerWasmSource',methods:s.methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false}})),j,w];
+          const temp='scripts/readonly-release/qa-old-placement-proof.mjs';writeFileSync(temp,oldAdapter,{flag:'wx'});
+          try{const oldInspect=(await import('./'+temp)).inspectPlacementSubjects;
+            const j=Buffer.from('export default function(){}'),w=wasm(rm);assert.equal(fixed(rm.key),rm);assert.equal(rm.methods.length,13);assert.equal(rm.exports.length,22);
+            const p=inspect(rm,pack(rm,j,w),head),a=identity(rm,p,'http://127.0.0.1:4188');assert.equal(a.builds[0].platform,'switch');assert.equal(a.builds[0].buildId,'9A239D3DB569756D');assert.equal(a.builds[0].productV2EvidenceSha256,null);assert.throws(()=>oldInspect(rm,pack(rm,j,w),head));pos++;
+            const dir='src/lib/ddv/core/save/',prior=readFileSync(dir+'product-scoped-rm01-release-anchor.mjs','utf8'),out=replace(rm,prior,a);assert.ok(out.includes('PROTECTED_RM01_RELEASE_ANCHOR=Object.freeze('));pos++;
+            for(const name of ['product-scoped-sr03-release-anchor.mjs','product-scoped-comp03-spatial-release-anchor.mjs','product-scoped-placement-release-anchor.mjs']){assert.throws(()=>replace(rm,readFileSync(dir+name,'utf8'),a));neg++}
+            for(const s of [comp,vase,sr,sp]){
+              const b=pack(s,j,wasm(s));assert.equal(fixed(s.key),s);assert.deepEqual(inspect(s,b,head),oldInspect(s,b,head));pos++;
+              for(const symbol of ['preview_switch626_rm01','stage_switch626_rm01']){assert.throws(()=>inspect(s,pack(s,Buffer.from(symbol),wasm(s)),head));neg++}
+              for(const symbol of s.methods.filter(n=>/^(preview|stage)_/.test(n))){assert.throws(()=>inspect(rm,pack(rm,Buffer.from(symbol),w),head));neg++}
+              assert.throws(()=>inspect(s,pack(s,j,w),head));assert.throws(()=>inspect(rm,pack(rm,j,wasm(s)),head));neg+=2;
+            }
+            assert.throws(()=>fixed('switch626-r01'));assert.throws(()=>identity(rm,p,tuple.origin));neg+=2;
+          }finally{unlinkSync(temp)}
+          console.log('ACT1365_PR1740_CURRENT_PROOF6_L2_PASS',JSON.stringify({pos,neg,pins,actualGit:true,syntheticChangedUnion:true,actualSignature:false,protectedAcceptance:false}));
+          EOF
+          node qa-current-proof5.mjs
