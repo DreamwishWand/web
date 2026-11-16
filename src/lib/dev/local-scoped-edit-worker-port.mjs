@@ -7,7 +7,8 @@ const uint=n=>Number.isSafeInteger(n)&&n>=1&&n<=0xffffffff;
 const which=v=>v==='backup'||v==='edited';
 const placementMethods=Object.freeze({open:1,backupOriginal:0,previewPlacement:1,stagePlacement:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
 const backpackMethods=Object.freeze({open:1,backupOriginal:0,previewBackpack:1,stageBackpack:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
-const methods=Object.freeze({comp03:placementMethods,vase:placementMethods,backpack:backpackMethods,
+const wardrobeMethods=Object.freeze({open:1,backupOriginal:0,previewWardrobe:0,stageWardrobe:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
+const methods=Object.freeze({comp03:placementMethods,vase:placementMethods,backpack:backpackMethods,wardrobe:wardrobeMethods,
  amount:Object.freeze({open:1,backupOriginal:0,listVerifiedTargets:0,stageTyped:1,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0}),
  collection:Object.freeze({open:1,inspectCollectionTargets:0,backupOriginal:1,previewCollectionTarget:2,stageCollectionTarget:2,undo:1,redo:1,exportEditedCopy:1,downloadVerifiedCopy:2,close:0})
 });
@@ -92,3 +93,6 @@ export const createLocalVaseDevPort=worker=>createPort(worker,'vase');
 
 export const installLocalBackpackDevWorker=(port,adapter)=>install(port,adapter,'backpack');
 export const createLocalBackpackDevPort=worker=>createPort(worker,'backpack');
+
+export const installLocalWardrobeDevWorker=(port,adapter)=>install(port,adapter,'wardrobe');
+export const createLocalWardrobeDevPort=worker=>createPort(worker,'wardrobe');
