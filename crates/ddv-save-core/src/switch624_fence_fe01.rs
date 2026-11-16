@@ -889,6 +889,13 @@ mod add_tests{
             assert!(stage(&s,e,&enc(&q).unwrap(),i).is_err());
             let mut q=p.clone();q["created"][1]["ItemID"]=json!(40000001);
             assert!(stage(&s,e,&enc(&q).unwrap(),i).is_err());
+            // FE01 split extension is not the existing orthogonal n1 extension.
+            if i!=1 {
+                for j in [1usize,3,5].into_iter().filter(|j|*j<wanted[i].len()){
+                    let mut q=p.clone();q["created"][j]["ItemID"]=json!(40700248);
+                    assert!(stage(&s,e,&enc(&q).unwrap(),i).is_err());
+                }
+            }
             assert_eq!(s.receipt().unwrap().revision,0);
             let r=stage(&s,e,&bytes,i).unwrap();
             let n=if i==2{8}else{6};
