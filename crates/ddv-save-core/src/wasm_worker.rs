@@ -316,13 +316,13 @@ impl WorkerWasmSource {
         self.scoped_domain.set(Some(ScopedEditDomain::Collection));
         Ok(scoped_edit_receipt(r,"wand.worker.scoped-edit@1"))
     }
-    #[cfg(feature="product-wardrobe-scoped")]
+    #[cfg(all(feature="product-wardrobe-scoped",not(feature="product-switch626-wardrobe-scoped")))]
     pub fn preview_steam626_wardrobe(&self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         Ok(guard.preview_wardrobe(e,false).map_err(|e|err(e.0))?.to_string())
     }
-    #[cfg(feature="product-wardrobe-scoped")]
+    #[cfg(all(feature="product-wardrobe-scoped",not(feature="product-switch626-wardrobe-scoped")))]
     pub fn stage_steam626_wardrobe(&self,old:u32,new:u32,witness_sha256:&str,projected_sha256:&str,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
@@ -330,13 +330,13 @@ impl WorkerWasmSource {
         self.scoped_domain.set(Some(ScopedEditDomain::Wardrobe));
         Ok(scoped_edit_receipt(r,"wand.worker.steam626.wardrobe-same-slot@1"))
     }
-    #[cfg(feature="product-wardrobe-scoped")]
+    #[cfg(all(feature="product-wardrobe-scoped",not(feature="product-steam626-wardrobe-scoped")))]
     pub fn preview_switch626_wardrobe(&self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         Ok(guard.preview_wardrobe(e,true).map_err(|e|err(e.0))?.to_string())
     }
-    #[cfg(feature="product-wardrobe-scoped")]
+    #[cfg(all(feature="product-wardrobe-scoped",not(feature="product-steam626-wardrobe-scoped")))]
     pub fn stage_switch626_wardrobe(&self,old:u32,new:u32,witness_sha256:&str,projected_sha256:&str,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
@@ -391,15 +391,15 @@ impl WorkerWasmSource {
     // One internal ledger and one output buffer, with legacy Amount
     // contract aliases. The tag labels the successful Stage; it cannot
     // authorize any command or mint a new session.
-    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(all(feature="product-steam626-wardrobe-scoped",feature="product-switch626-wardrobe-scoped"))))]
     pub fn toggle_scoped_edit(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         self.toggle_scoped_edit_inner(redo,session_id,revision,index_generation,decoded_sha256,"wand.worker.scoped-edit@1")
     }
-    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(all(feature="product-steam626-wardrobe-scoped",feature="product-switch626-wardrobe-scoped"))))]
     pub fn begin_scoped_edit_output(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         self.begin_scoped_edit_output_inner(session_id,revision,index_generation,decoded_sha256,"wand.worker.scoped-edit-output@1")
     }
-    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(all(feature="product-steam626-wardrobe-scoped",feature="product-switch626-wardrobe-scoped"))))]
     pub fn next_scoped_edit_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
         self.next_scoped_edit_output_chunk_inner()
     }

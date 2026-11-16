@@ -26,6 +26,8 @@ product-collection-scoped = ["indexed-read"]
 product-amount-scoped = ["semantic-writer-dev"]
 # ACT1147 source-only fixed ordinary Wardrobe pair.
 product-wardrobe-scoped = ["product-amount-scoped"]
+product-steam626-wardrobe-scoped = ["product-wardrobe-scoped"]
+product-switch626-wardrobe-scoped = ["product-wardrobe-scoped"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
