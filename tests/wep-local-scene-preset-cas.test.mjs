@@ -99,3 +99,18 @@ test('portable layer requires an exact primitive enum; no coercion or IDB open',
  }
  assert.equal(opens,0);
 });
+
+test('local save rejects revision exhaustion and UTF-8 oversized artifact before opening IDB',async()=>{
+ let opens=0;
+ const factory={open(){opens++;throw Error('MUST_NOT_OPEN_IDB');}};
+ const artifact=captured().artifact;
+ const input={factory,title:'Scene',artifact,idFactory:()=> 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'};
+ for(const expectedRevision of [Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER+1])
+  await assert.rejects(saveLocalScene({...input,expectedRevision}),/INPUT_INVALID/);
+ const huge=structuredClone(artifact);
+ huge.source.areaKey='界'.repeat(1400000);
+ assert.ok(JSON.stringify(huge).length<4*1024*1024);
+ assert.ok(new TextEncoder().encode(JSON.stringify(huge)).length>4*1024*1024);
+ await assert.rejects(saveLocalScene({...input,artifact:huge,expectedRevision:0}),/LIMIT_REACHED/);
+ assert.equal(opens,0);
+});
