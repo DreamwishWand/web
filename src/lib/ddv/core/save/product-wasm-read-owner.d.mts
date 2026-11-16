@@ -129,9 +129,11 @@ export type CollectionCandidateSourceOwner=ProductWasmReadOwner & Readonly<{
  writerAuthorized:false;editedCopyAuthorized:false;applyAuthorized:false;
  }>>;
 }>;
-export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowScopedAmountSource:true;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false}):ScopedAmountSourceOwner;
-export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowScopedCollectionSource:true;allowScopedAmountSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false}):FixedCollectionSourceOwner;
-export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowCollectionCandidateSource:true;allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowSwitch626ChestSource?:false}):CollectionCandidateSourceOwner;
-export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options?:{allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false}):ProductWasmReadOwner;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowScopedAmountSource:true;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false}):ScopedAmountSourceOwner;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowScopedCollectionSource:true;allowScopedAmountSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false}):FixedCollectionSourceOwner;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowCollectionCandidateSource:true;allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false}):CollectionCandidateSourceOwner;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options?:{allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false}):ProductWasmReadOwner;
 
-export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowSwitch626ChestSource:true;allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false}):ScopedAmountSourceOwner;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowSwitch626ChestSource:true;allowSteam626ChestSource?:false;allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false}):ScopedAmountSourceOwner;
+
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowSteam626ChestSource:true;allowSwitch626ChestSource?:false;allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false}):ScopedAmountSourceOwner;
