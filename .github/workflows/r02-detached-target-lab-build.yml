@@ -1,0 +1,102 @@
+name: ACT1326 fixed R02 private-lab executable transport (NO SAVE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r02-private-target-lab-build.yml'
+permissions:
+  contents: read
+jobs:
+  build-only:
+    if: github.head_ref == '01b/act1326-r02-detached-lab' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 01a16f4ce09882088dec0094566b48babf7b78a1
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Fixed source and approved Lock; add ignored transport-only test in temporary checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 01a16f4ce09882088dec0094566b48babf7b78a1
+          p=crates/ddv-save-core/src/sr03_product_target.rs
+          test "$(git hash-object "$p")" = 2a22fb5f004eda081f0764bb1fc2708bda390550
+          test "$(git hash-object crates/ddv-save-core/src/sr03_installed_geometry.rs)" = 8b102d8904fb7863235050180131c23747916df5
+          test "$(git hash-object scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          python3 - <<'PY'
+          import pathlib, subprocess, json
+          specs=json.loads("[{\"name\":\"sr03_installed_geometry.rs\",\"pre\":\"8b102d8904fb7863235050180131c23747916df5\",\"post\":\"5f30ff06e460a5ac1b88a0aaba210b2c1548a9fd\",\"adds\":[[123,\" pub(crate) fn local_r02_with_buildings(&self,grid:&Value,x:u32,y:u32,houses:&Value,common:impl Fn(u32)->Option<(u32,u32)>,mut other:impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<u32>{\\n  self.local_r02(grid,x,y,common,|o,dims|match n(&o[\\\"ItemID\\\"])?{\\n   20500005|20300115=>self.effective_building(o,houses),\\n   _=>other(o,dims),\\n  })\\n }\\n pub(crate) fn local_r02(&self,grid:&Value,x:u32,y:u32,common:impl Fn(u32)->Option<(u32,u32)>,mut effective:impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<u32>{\\n  if n(&grid[\\\"ID\\\"])?==0||grid[\\\"GridDataPath\\\"]!=GRID||grid[\\\"GridDefaultLayoutPath\\\"]!=\\\"\\\"||n(&grid[\\\"TessellationFactor\\\"])?!=2{return None}\\n  let next=n(&grid[\\\"NextGridObjectID\\\"])?;\\n  if next==0||next.checked_add(4)?>i32::MAX as u32||x%4!=0||y%4!=0||x.checked_add(6)?>W||y.checked_add(6)?>H{return None}\\n  let objects=grid[\\\"Objects\\\"].as_object()?;\\n  if objects.is_empty()||objects.len()>4096||objects.contains_key(\\\"0\\\")||self.dimensions(ROAD,&common)?!=(2,2){return None}\\n  let anchors=[(x,y),(x+4,y+4),(x+4,y),(x,y+4)];\\n  let mut boxes=Vec::with_capacity(4);\\n  for (x,y) in anchors{for dx in 0..2{for dy in 0..2{if !self.floor4(x+dx,y+dy){return None}}}boxes.push(Rect(i64::from(x)-2,i64::from(y)-2,i64::from(x)+4,i64::from(y)+4));}\\n  self.clear_ambient(objects,next,&[],&boxes,&common,&mut effective)?;\\n  Some(next)\\n }\"]]},{\"name\":\"sr03_product_target.rs\",\"pre\":\"2a22fb5f004eda081f0764bb1fc2708bda390550\",\"post\":\"1f4304341e889cf0085c62403807cb92ff6f1b6a\",\"adds\":[[34,\"#[derive(Debug)]\\npub(crate) struct R02Target{\\n    scope:WorkerEnvelope, grid:u32, x:u32,y:u32,next:u32,stock:u32,\\n    root_sha:[u8;32],grid_sha:[u8;32],counter_sha:[u8;32],stock_sha:[u8;32],\\n    houses_sha:[u8;32],pairs:usize,\\n}\"],[211,\"    /// R02 four-anchor read-only target; no Stage/Writer authority.\\n    #[allow(dead_code)]\\n    pub(crate) fn mint_switch626_r02_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<R02Target>{\\n        road_build(self,RoadBuild::Switch626)?;let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;\\n        need(self.worker_bound&&st.semantic.is_none()&&st.revision==0&&st.generation==1&&gid>0,\\\"R02_TARGET_EPOCH\\\")?;\\n        let common=InstalledGeometry::fixed().ok_or(denied(\\\"R02_TARGET_COMMON_PROVIDER\\\"))?;\\n        let pack=MeadowGeometry::fixed_switch626(\\\"9A239D3DB569756D\\\",626).ok_or(denied(\\\"R02_TARGET_PROVIDER\\\"))?;\\n        let b=&self.decoded;let roots=indexed_read::roots(b)?;let w=roots.world;\\n        let(root,g,gs,ds)=selected(b,w,gid)?;\\n        let next=n(b,g,\\\"NextGridObjectID\\\")?;\\n        let end=next.checked_add(4).ok_or(denied(\\\"R02_TARGET_COUNTER\\\"))?;\\n        need(next>0&&end<=i32::MAX as u32,\\\"R02_TARGET_COUNTER\\\")?;\\n        let start=indexed_read::skip_ws(b,0);let top=Span{begin:start,end:indexed_read::value_end(b,start)?};\\n        let refs=super::placement_saved_refs::scan(b,top,gid,None,next,end)?;\\n        need(refs.root(gid)==1&&refs.parent(gid)==0,\\\"R02_TARGET_REFERENCE_ALIAS\\\")?;\\n        let(houses,house_span)=house_items(b,w)?;\\n        let objects=f(b,g,\\\"Objects\\\")?;let mut budget=0;\\n        for(_,o)in members(b,objects,4096)?{saved_grid_state(b,f(b,o,\\\"State\\\")?,ROAD as i32,&mut budget)?;}\\n        let grid=value(b,g,MAX_GRID)?;\\n        let minted=pack.local_r02_with_buildings(&grid,x,y,&houses,|i|common.dimensions(i),\\n            |o,dims|ambient(b,w,gs,ds,&refs,&houses,o,dims)).ok_or(denied(\\\"R02_TARGET_GEOMETRY\\\"))?;\\n        need(minted==next,\\\"R02_TARGET_COUNTER\\\")?;\\n        // R02 needs four owned units and a positive remainder. Read-only witness.\\n        let(old,entry)=stock(b,roots.player)?;\\n        need(old>4,\\\"R02_TARGET_STOCK\\\")?;\\n        Ok(R02Target{scope:e,grid:gid,x,y,next,stock:old,root_sha:digest(b,root)?,grid_sha:digest(b,g)?,\\n            counter_sha:digest(b,f(b,g,\\\"NextGridObjectID\\\")?)?,stock_sha:digest(b,entry)?,houses_sha:digest(b,house_span)?,pairs:refs.pairs})\\n    }\\n\"],[422,\" #[test]fn switch626_r02_current_session_target_no_seed_exemption(){\\n  let mut d=doc();\\n  let p=MeadowGeometry::fixed_switch626(\\\"9A239D3DB569756D\\\",626).unwrap();\\n  let (x,y)=(0..387u32).step_by(4).flat_map(|x|(0..195u32).step_by(4).map(move|y|(x,y))).find(|&(x,y)|[(x,y),(x+4,y+4),(x+4,y),(x,y+4)].iter().all(|&(a,b)|(0..2).all(|i|(0..2).all(|j|p.floor4(a+i,b+j))))).unwrap();\\n  d[\\\"World\\\"][\\\"GridCollection\\\"][\\\"Grids\\\"][\\\"90001\\\"][\\\"Objects\\\"][\\\"10\\\"][\\\"X\\\"]=json!(x);\\n  d[\\\"World\\\"][\\\"GridCollection\\\"][\\\"Grids\\\"][\\\"90001\\\"][\\\"Objects\\\"][\\\"10\\\"][\\\"Y\\\"]=json!(y);\\n  let open_switch=|v:&Value|{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:\\\"9A239D3DB569756D\\\".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s};\\n  let s=open_switch(&d);\\n  // Existing mixed seeds are NOT exempt in R02.\\n  assert!(s.mint_switch626_r02_target(env(&s),90001,x,y).is_err());\\n  let far_x=if x<190{388}else{0};let far_y=if y<100{196}else{0};\\n  let g=&mut d[\\\"World\\\"][\\\"GridCollection\\\"][\\\"Grids\\\"][\\\"90001\\\"];\\n  g[\\\"Objects\\\"][\\\"10\\\"][\\\"X\\\"]=json!(far_x);g[\\\"Objects\\\"][\\\"10\\\"][\\\"Y\\\"]=json!(far_y);\\n  g[\\\"Objects\\\"].as_object_mut().unwrap().remove(\\\"11\\\");\\n  let s=open_switch(&d);let e=env(&s);let before=s.receipt().unwrap();\\n  let t=s.mint_switch626_r02_target(e,90001,x,y).unwrap();\\n  assert_eq!((t.grid,t.x,t.y,t.next,t.stock),(90001,x,y,50,10));\\n  assert_eq!(s.receipt().unwrap(),before);\\n  let steam=open(&d);assert!(steam.mint_switch626_r02_target(env(&steam),90001,x,y).is_err());\\n  assert!(open_switch(&d).mint_switch626_r02_target(e,90001,x,y).is_err());\\n  assert!(s.mint_switch626_r02_target(WorkerEnvelope{expected_revision:1,..e},90001,x,y).is_err());\\n  assert!(s.mint_switch626_r02_target(WorkerEnvelope{action:WorkerAction::Stage,..e},90001,x,y).is_err());\\n  assert!(s.mint_switch626_r02_target(e,90001,x+1,y).is_err());\\n  for i in 0..14{let mut q=d.clone();match i{\\n   0=>q[\\\"World\\\"][\\\"Villages\\\"][0][\\\"Areas\\\"][\\\"2\\\"][\\\"Unlocked\\\"]=json!(false),\\n   1=>q[\\\"Unknown\\\"]=json!({\\\"GridIDs\\\":[90001]}),\\n   2=>q[\\\"Unknown\\\"]=json!({\\\"GridID\\\":90001,\\\"ObjectID\\\":50}),\\n   3=>q[\\\"Unknown\\\"]=json!({\\\"GridID\\\":90001,\\\"ObjectID\\\":51}),\\n   4=>q[\\\"Unknown\\\"]=json!({\\\"GridID\\\":90001,\\\"ObjectID\\\":52}),\\n   5=>q[\\\"World\\\"][\\\"GridCollection\\\"][\\\"DiffGrids\\\"][\\\"90001\\\"]=json!({\\\"ID\\\":90001}),\\n   6=>q[\\\"World\\\"][\\\"GridCollection\\\"][\\\"Grids\\\"][\\\"90001\\\"][\\\"GridDefaultLayoutPath\\\"]=json!(\\\"foreign\\\"),\\n   7=>q[\\\"World\\\"][\\\"GridCollection\\\"][\\\"Grids\\\"][\\\"90001\\\"][\\\"NextGridObjectID\\\"]=json!(i32::MAX),\\n   8=>q[\\\"Player\\\"][\\\"ListInventories\\\"][\\\"0\\\"][\\\"Inventory\\\"][\\\"40100068\\\"][\\\"Amount\\\"]=json!(0),\\n   9=>q[\\\"Player\\\"][\\\"ListInventories\\\"][\\\"0\\\"][\\\"Inventory\\\"][\\\"40100068\\\"][\\\"Marker\\\"]=json!(\\\"ItemMarker_None\\\"),\\n   10=>q[\\\"World\\\"][\\\"GridCollection\\\"][\\\"Grids\\\"][\\\"90001\\\"][\\\"Objects\\\"][\\\"10\\\"][\\\"X\\\"]=json!(x),\\n   11=>q[\\\"World\\\"][\\\"GridCollection\\\"][\\\"Grids\\\"][\\\"90001\\\"][\\\"Objects\\\"][\\\"10\\\"][\\\"ID\\\"]=json!(50),\\n   12=>q[\\\"Unknown\\\"]=json!({\\\"GridID\\\":90001,\\\"ObjectID\\\":53}),\\n   _=>q[\\\"Player\\\"][\\\"ListInventories\\\"][\\\"0\\\"][\\\"Inventory\\\"][\\\"40100068\\\"][\\\"Amount\\\"]=json!(4)\\n  }\\n  if i==10{q[\\\"World\\\"][\\\"GridCollection\\\"][\\\"Grids\\\"][\\\"90001\\\"][\\\"Objects\\\"][\\\"10\\\"][\\\"Y\\\"]=json!(y);}\\n  let s=open_switch(&q);let before=s.receipt().unwrap();\\n  assert!(s.mint_switch626_r02_target(env(&s),90001,x,y).is_err(),\\\"R02 mode {i}\\\");\\n  assert_eq!(s.receipt().unwrap(),before);}\\n }\"]]}]")
+          for s in specs:
+              p=pathlib.Path('crates/ddv-save-core/src')/s['name']
+              assert subprocess.check_output(['git','hash-object',str(p)],text=True).strip()==s['pre']
+              lines=p.read_text().split('\n')
+              for i,add in reversed(s['adds']):
+                  lines[i:i]=add.split('\n')
+              p.write_text('\n'.join(lines))
+              assert subprocess.check_output(['git','hash-object',str(p)],text=True).strip()==s['post']
+          PY
+          cat >> "$p" <<'RS'
+
+          #[cfg(all(test,not(target_arch="wasm32")))]
+          mod private_r02_lab {
+              use super::*;
+              use std::{env,fs};
+              #[test]
+              #[ignore="local authorized decoded input only; never executed in CI"]
+              fn genuine_r02_current_target(){
+                  let path=env::var("WAND_R02_PRIVATE_DECODED").expect("local input path");
+                  let expect_path=env::var("WAND_R02_PRIVATE_EXPECT").expect("local receipt path");
+                  let bytes=fs::read(&path).expect("local input");
+                  let plan:Value=serde_json::from_slice(&fs::read(&expect_path).expect("local receipt")).expect("local receipt JSON");
+                  let expected=&plan["target"];
+                  let num=|v:&Value,k:&str|v[k].as_u64().and_then(|n|u32::try_from(n).ok()).expect("expected uint");
+                  assert_eq!(hex(&sha(&bytes)),expected["decodedSha"].as_str().expect("expected decoded SHA"));
+                  let mut s=ProductSession::open_decoded_readonly(bytes,crate::BuildIdentity{
+                      platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+                      build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).expect("strict actual open");
+                  s.worker_bound=true;
+                  let before=s.receipt().expect("receipt");
+                  let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:before.session_id,
+                      expected_revision:before.revision,expected_index_generation:before.index_generation,
+                      expected_decoded_sha256:before.decoded_sha256,action:WorkerAction::ReadDomain};
+                  let g=num(expected,"grid");
+                  let t=s.mint_switch626_r02_target(e,g,num(expected,"x"),num(expected,"y")).expect("actual fixed Binder target");
+                  let actual=json!({"decodedSha":hex(&before.decoded_sha256),"grid":t.grid,
+                      "x":t.x,"y":t.y,"next":t.next,"stock":t.stock,"pairs":t.pairs,
+                      "rootSha":hex(&t.root_sha),"gridSha":hex(&t.grid_sha),
+                      "counterSha":hex(&t.counter_sha),"stockSha":hex(&t.stock_sha),"housesSha":hex(&t.houses_sha)});
+                  assert_eq!(&actual,expected,"actual exact target receipt");
+                  let old=&plan["blockedPose"];
+                  let denied=s.mint_switch626_r02_target(e,g,num(old,"x"),num(old,"y")).unwrap_err();
+                  assert_eq!(denied.0,"R02_TARGET_GEOMETRY");
+                  assert_eq!(s.receipt().expect("read-only receipt"),before);
+                  assert_eq!(hex(&sha(&fs::read(&path).expect("unchanged local input"))),expected["decodedSha"].as_str().unwrap());
+                  println!("R02_PRIVATE_TARGET_ACTUAL_PASS 1POS1NEG12FIELDS");
+              }
+          }
+          RS
+          # The only tracked workspace delta is the ignored transport harness.
+          test "$(git diff --name-only | sort)" = "$(printf '%s\n' crates/ddv-save-core/src/sr03_installed_geometry.rs crates/ddv-save-core/src/sr03_product_target.rs | sort)"
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped --lib switch626_r02_current_session_target_no_seed_exemption -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped --lib --no-run --message-format=json > "$RUNNER_TEMP/r02-build.jsonl"
+          mkdir -p "$RUNNER_TEMP/r02-lab"
+          python3 - "$RUNNER_TEMP" <<'PY'
+          import json, pathlib, shutil, sys, hashlib, subprocess
+          p=pathlib.Path(sys.argv[1]); a=[json.loads(l) for l in (p/'r02-build.jsonl').read_text().splitlines()]
+          ex=[v['executable'] for v in a if v.get('reason')=='compiler-artifact' and v.get('executable') and v.get('profile',{}).get('test') and v.get('target',{}).get('name') in ('ddv_save_core','ddv-save-core')]
+          assert len(ex)==1, len(ex)
+          out=p/'r02-lab'; exe=out/'r02-private-target-test';shutil.copy2(ex[0],exe)
+          h=lambda q:hashlib.sha256(pathlib.Path(q).read_bytes()).hexdigest()
+          m={'source':'01a16f4ce09882088dec0094566b48babf7b78a1','binder':'1f4304341e889cf0085c62403807cb92ff6f1b6a','geometry':'5f30ff06e460a5ac1b88a0aaba210b2c1548a9fd','feature':'product-amount-scoped','lockGit':'b667b42cfef2032c2925be7b2aa9b7142bff4b52','lockSha256':h('crates/ddv-save-core/Cargo.lock'),'harnessSha256':h('crates/ddv-save-core/src/sr03_product_target.rs'),'executableSha256':h(exe),'compiler':subprocess.check_output(['rustc','-Vv'],text=True),'purpose':'build-only local ignored test; no actual save in CI'}
+          (out/'manifest.json').write_text(json.dumps(m,sort_keys=True,separators=(',',':'))+'\n')
+          print('R02_LAB_BUILD_ONLY',m['source'],m['executableSha256'],m['lockSha256'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r02-fixed-private-target-test
+          path: ${{ runner.temp }}/r02-lab/
+          if-no-files-found: error
+          retention-days: 1
