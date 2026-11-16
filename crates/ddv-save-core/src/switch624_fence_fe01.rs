@@ -103,6 +103,36 @@ fn collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
     }
     layout_edits(b,&members,&del,objs,counter,n4,plan)
 }
+// Typed FE01 current collector; requires independently re-minted target.
+// Existing exact native collector still decides the lexical edit ranges.
+#[allow(dead_code)]
+pub(super) struct Fe01CurrentExpected{
+ pub(super) grid:u32,pub(super) ids:[u32;4],pub(super) next:u32,
+ pub(super) grid_sha:[u8;32],pub(super) counter_sha:[u8;32],pub(super) old_rows_sha:[[u8;32];4],
+}
+#[allow(dead_code)]
+pub(super) fn collect_fe01_current(s:&ProductSession,w:&Fe01CurrentExpected)->CoreResult<Vec<Replacement>>{
+ let b=&s.decoded;let roots=indexed_read::roots(b)?;
+ let gc=object_field(b,roots.world,"GridCollection")?;
+ let grid=object_field(b,object_field(b,gc,"Grids")?,&w.grid.to_string())?;
+ let counter=object_field(b,grid,"NextGridObjectID")?;
+ if sha(raw(b,grid)?)!=w.grid_sha||sha(raw(b,counter)?)!=w.counter_sha||
+    number(b,counter)?!=w.next as u64{return Err(denied("FE01_CURRENT_GRID_CAS"));}
+ let objs=object_field(b,grid,"Objects")?;
+ for(i,id)in w.ids.iter().enumerate(){let row=object_field(b,objs,&id.to_string())?;
+  if sha(raw(b,row)?)!=w.old_rows_sha[i]{return Err(denied("FE01_CURRENT_ROW_CAS"));}}
+ let first=object_field(b,objs,&w.ids[0].to_string())?;
+ let x=num(b,first,"X")?;let y=num(b,first,"Y")?;
+ let at=|d:u32|y.checked_add(d).filter(|v|*v<=i32::MAX as u32).ok_or(denied("FE01_CURRENT_COORD"));
+ if w.next==0||w.next.checked_add(4).filter(|v|*v<=i32::MAX as u32).is_none(){return Err(denied("FE01_CURRENT_COUNTER"));}
+ let created=[obj(w.next,NEW_EXT,x,at(2)?),obj(w.next+1,BASE,x,at(6)?),
+    obj(w.next+2,BASE,x,at(10)?),obj(w.next+3,NEW_EXT,x,at(12)?)];
+ let p=json!({"contract":"wand.private.switch626.fence-fe01-layout@1","layout":"PRESERVE_EXISTING",
+    "sourceDecodedSha256":digest(b),"gridId":w.grid,"expectedNextId":w.next,"gridSha256":digest(raw(b,grid)?),
+    "retainedIds":&w.ids[..2],"deletedIds":&w.ids[2..],"created":created});
+ collect(s,&p)
+}
+
 fn layout_edits(b:&[u8],members:&[(u32,usize,Span)],del:&[u32],objs:Span,
     counter:Span,n4:u32,plan:&[Value])->CoreResult<Vec<Replacement>>{
     // Remove exact member ranges, including only their adjacent separators.
@@ -124,6 +154,7 @@ fn layout_edits(b:&[u8],members:&[(u32,usize,Span)],del:&[u32],objs:Span,
     edits.push(replace(b,counter,n4.to_string().into_bytes())?);
     Ok(edits)
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     pub fn stage_switch624_fence_fe01_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
@@ -134,6 +165,7 @@ impl ProductSession{
         self.commit_semantic_replacements(e,edits,7,None)
     }
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     /// Exact Switch626 FE01 preserve7 layout-only; no inventory edit/refund.
     pub fn stage_switch626_fence_fe01_layout(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
@@ -195,6 +227,25 @@ mod tests{
         for id in ["11","12"]{g["Objects"].as_object_mut().unwrap().remove(id);}
         for o in p["created"].as_array().unwrap(){g["Objects"][o["ID"].as_u64().unwrap().to_string()]=o.clone();}
         assert_eq!(serde_json::from_slice::<Value>(&out).unwrap(),want);assert_eq!(sha(&out),r.staged_decoded_sha256);
+    }
+    #[test]
+    fn fe01_current_typed_collector_native_parity_and_raw_cas(){
+        let mut d=doc();d["GameInfo"]["Version"]=json!(626);
+        let s=ProductSession::open_decoded_readonly(enc(&d).unwrap(),crate::BuildIdentity{
+          platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+        let b=&s.decoded;let r=indexed_read::roots(b).unwrap();let gc=object_field(b,r.world,"GridCollection").unwrap();
+        let grid=object_field(b,object_field(b,gc,"Grids").unwrap(),"9").unwrap();let objs=object_field(b,grid,"Objects").unwrap();
+        let counter=object_field(b,grid,"NextGridObjectID").unwrap();
+        let mut p=plan(&d);p["contract"]=json!("wand.private.switch626.fence-fe01-layout@1");
+        let ids=[10,13,11,12];let old_rows_sha=ids.map(|id|sha(raw(b,object_field(b,objs,&id.to_string()).unwrap()).unwrap()));
+        let mut w=Fe01CurrentExpected{grid:9,ids,next:50,grid_sha:sha(raw(b,grid).unwrap()),counter_sha:sha(raw(b,counter).unwrap()),old_rows_sha};
+        let a=collect_fe01_current(&s,&w).unwrap();let n=collect(&s,&p).unwrap();assert_eq!(a.len(),n.len());
+        for(x,y)in a.iter().zip(&n){assert_eq!((x.span.begin,x.span.end,&x.old,&x.new),(y.span.begin,y.span.end,&y.old,&y.new));}
+        let before=s.receipt().unwrap();w.next=51;assert!(collect_fe01_current(&s,&w).is_err());w.next=50;
+        let h=w.grid_sha;w.grid_sha=[0;32];assert!(collect_fe01_current(&s,&w).is_err());w.grid_sha=h;
+        let h=w.counter_sha;w.counter_sha=[0;32];assert!(collect_fe01_current(&s,&w).is_err());w.counter_sha=h;
+        for i in 0..4{let h=w.old_rows_sha[i];w.old_rows_sha[i]=[0;32];assert!(collect_fe01_current(&s,&w).is_err());w.old_rows_sha[i]=h;}
+        assert_eq!(s.receipt().unwrap(),before);
     }
     #[test]
     fn fe01_exact7_preserve_endpoints_player_undo_redo_one_time(){
@@ -385,6 +436,7 @@ fn historical_collect(s:&ProductSession,p:&Value,op:HistoricalFenceOp)->CoreResu
     }
     layout_edits(b,&members,&del,objs,counter,n3,plan)
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     fn stage_historical_fence(&self,e:WorkerEnvelope,plan:&[u8],op:HistoricalFenceOp)->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
@@ -635,6 +687,7 @@ fn add_collect(s:&ProductSession,p:&Value,shape:FenceAddShape)->CoreResult<Vec<R
     }
     layout_edits(b,&[],&[],objs,counter,end,plan)
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     fn stage_fence_add(&self,e:WorkerEnvelope,plan:&[u8],shape:FenceAddShape)->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
