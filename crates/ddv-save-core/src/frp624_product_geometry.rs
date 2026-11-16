@@ -6,9 +6,11 @@ use super::*;
 use serde_json::json;
 pub(crate) const FRP_BUILD:&str="52BD625D9B4E0053";
 const BASE:u32=40700246;const EXT:u32=40700247;const NEW_BASE:u32=40700268;const NEW_EXT:u32=40700269;
+// 248/253 pins are SHA256 of compact [id,624 base record,624 geometry record];
+// 268/269 are exact equal raw frame payload pins from PR1823.
 const EXTRA:[(u32,u32,u32,&str);4]=[
- (40700248,2,1,"6e5920e6c1bf9037ec0f40827b8deaa698bd39c0c59c55e656fceb4c601b0959"),
- (40700253,1,1,"b3b21c3f451c01c9908e34965480ceb14745b1a72825982c66ccc388dbdf8c78"),
+ (40700248,2,1,"c3be5db7522ba5092a8cf0c03fa5931c346755debf78faa35f6e21d22dd2c632"),
+ (40700253,1,1,"db32a0360243e4bf08224b3fe059eeb0e69f8704362a2b2d9e4ee62daea6b783"),
  (NEW_BASE,1,1,"e967b9b3c71c759cf1eaba2a717defafa573e52681ed7de39005170f1d24a4ec"),
  (NEW_EXT,1,1,"f35fbcf3245c638d0a42281cd334fce8a4a3a4d3b34e2b8d693722663fab0a71"),
 ];
