@@ -23,7 +23,7 @@ export function inspectScopedSwitchCatalog0Subjects(bytes,source,tuple=ACTIVE_RE
  const p={contract:'wand.scoped-switch-catalog0.pinned-digests@1',sourceHead:source,
   manifestSha256:sha(mf),manifestSizeBytes:mf.length,jsSha256:sha(js),jsSizeBytes:js.length,wasmSha256:sha(wasm),wasmSizeBytes:wasm.length};
  if(!scopedSwitchCatalog0ManifestOk(m,p,tuple))fail();
- const module=new WebAssembly.Module(wasm),denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|(?:discover|preview|stage|toggle)_scoped_amount|(?:begin_scoped_amount_output|next_scoped_amount_output_chunk)|preview_scoped_collection_candidate|(?:preview|stage)_fixed_collection|(?:discover|preview|stage)_switch626_chest|(?:preview|stage)_steam626_(?:comp03|vase_add)|(?:preview|stage)_steam626_sr03)/i;
+ const module=new WebAssembly.Module(wasm),denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|(?:discover|preview|stage|toggle)_scoped_amount|(?:begin_scoped_amount_output|next_scoped_amount_output_chunk)|preview_scoped_collection_candidate|(?:preview|stage)_fixed_collection|(?:discover|preview|stage)_switch626_chest|(?:preview|stage)_steam626_(?:comp03|vase_add)|(?:preview|stage)_steam626_sr03|(?:preview|stage)_switch626_rm01)/i;
  if(!scopedSwitchCatalog0WasmExportsOk(module)||WebAssembly.Module.exports(module).some(x=>denied.test(x.name))||denied.test(new TextDecoder('utf-8',{fatal:true}).decode(js)))fail();
  return Object.freeze(p);
 }
