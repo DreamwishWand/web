@@ -286,4 +286,96 @@ mod tests{
    let s=open(&d);assert!(s.prepare_fixed_makeup_color1(env(&s,WorkerAction::ReadDomain)).is_err(),"negative {i}");
   }
  }
+
+ #[cfg(feature="product-switch626-makeup-color1-internal")]
+ #[test]fn qa1545_switch626_makeup_real_shape_compatible_build(){
+  let mut d=doc();
+  d["World"]["OpaqueCompatibleSwitch"]=json!({"unknown":[true,null,765]});
+  d["Player"]["MaleAvatar"]["Makeup"]["1"]["KeepOpaque"]=json!({"literal":[1,"keep"]});
+  let original=serde_json::to_vec(&d).unwrap();
+  let s=open_switch(&d);let read=env(&s,WorkerAction::ReadDomain);
+  let p=s.prepare_switch626_fixed_makeup_color1(read).unwrap();
+  assert_eq!(&s.decoded[p.span.begin..p.span.end],b"53");
+  assert_eq!(d["Player"]["FemaleAvatar"]["Makeup"]["1"]["MakeupItemID"],json!(140100011));
+  for sex in ["MaleAvatar","FemaleAvatar"]{
+   assert_eq!(d["Player"][sex]["Makeup"]["1"]["ColorIndex2"],json!(0));
+   assert_eq!(d["Player"][sex]["Makeup"]["1"]["ColorIndex3"],json!(0));
+  }
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..read};
+  let mut neg=0usize;
+  macro_rules! deny {($ex:expr)=>{{assert!(($ex).is_err());neg+=1;}};}
+  deny!(s.prepare_fixed_makeup_color1(read));
+  deny!(s.stage_switch626_fixed_makeup_color1(read,&p));
+  for witness in 0..6{
+   let mut f=s.prepare_switch626_fixed_makeup_color1(read).unwrap();
+   match witness{
+    0=>f.token_sha="0".repeat(64),
+    1=>f.female_sha="0".repeat(64),
+    2=>f.male_sha="0".repeat(64),
+    3=>f.entry_sha="0".repeat(64),
+    4=>f.routes_sha="0".repeat(64),
+    _=>f.projected[0]^=1
+   }
+   deny!(s.stage_switch626_fixed_makeup_color1(stage,&f));
+  }
+  deny!(s.stage_switch626_fixed_makeup_color1(WorkerEnvelope{expected_revision:1,..stage},&p));
+  deny!(s.stage_switch626_fixed_makeup_color1(WorkerEnvelope{expected_index_generation:2,..stage},&p));
+  deny!(s.stage_switch626_fixed_makeup_color1(WorkerEnvelope{expected_decoded_sha256:[0;32],..stage},&p));
+  let other=open_switch(&d);
+  deny!(other.stage_switch626_fixed_makeup_color1(env(&other,WorkerAction::Stage),&p));
+  let steam=open(&d);
+  deny!(steam.prepare_switch626_fixed_makeup_color1(env(&steam,WorkerAction::ReadDomain)));
+  let mut bad_bid=ProductSession::open_decoded_readonly(original.clone(),
+    BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+      build_id:"0000000000000000".into(),schema:626,externally_attested:true}).unwrap();
+  bad_bid.worker_bound=true;
+  deny!(bad_bid.prepare_switch626_fixed_makeup_color1(env(&bad_bid,WorkerAction::ReadDomain)));
+  for i in 0..5{
+   let mut bad=d.clone();
+   match i{
+    0=>bad["Player"]["FemaleAvatar"]["Makeup"]["1"]["MakeupItemID"]=json!(140100014),
+    1=>bad["Player"]["FemaleAvatar"]["Makeup"]["1"]["ColorIndex3"]=json!(-1),
+    2=>bad["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex2"]=json!(-1),
+    3=>bad["Player"]["ListInventories"]["3"]["Inventory"]["140100011"]["Amount"]=json!(0),
+    _=>bad["Player"]["AvatarIsMale"]=json!(false)
+   }
+   let obj=open_switch(&bad);
+   deny!(obj.prepare_switch626_fixed_makeup_color1(env(&obj,WorkerAction::ReadDomain)));
+  }
+  let r=s.stage_switch626_fixed_makeup_color1(stage,&p).unwrap();
+  assert_eq!((r.operation_count,r.exact_field_changed_count),(1,1));
+  assert!(!r.native_v3_verified&&!r.product_writer_authorized&&!r.original_overwrite_authorized);
+  deny!(s.stage_switch626_fixed_makeup_color1(stage,&p));
+  s.undo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+  deny!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)));
+  s.redo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+  let e=env(&s,WorkerAction::ExportEditedCopy);
+  let edited=s.take_typed_semantic_decoded_once(e).unwrap();
+  deny!(s.take_typed_semantic_decoded_once(e));
+  let mut expected=d.clone();expected["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"]=json!(60);
+  assert_eq!(edited,serde_json::to_vec(&expected).unwrap());
+  assert_eq!(serde_json::to_vec(&d).unwrap(),original);
+  assert_eq!(sha(&edited),hex(&r.staged_decoded_sha256));
+  std::fs::write("/tmp/qrc1545-switch-makeup-original.json",&original).unwrap();
+  std::fs::write("/tmp/qrc1545-switch-makeup-edited.json",&edited).unwrap();
+  println!("QRC1545_SWITCH_MAKEUP_COMPAT_ACTUAL 1POS {}NEG EXACT1 DISTINCT_FEMALE_ITEM ZERO_SAVED_CHANNELS ORIGINAL_UNCHANGED",neg);
+ }
+ #[cfg(feature="product-switch626-makeup-color1-internal")]
+ #[test]
+ #[ignore="QA-only independent decoded Reopen, not encrypted P1G V2"]
+ fn qa1545_switch626_makeup_child_reopen(){
+  let b=std::fs::read("/tmp/qrc1545-switch-makeup-edited.json").unwrap();
+  let o=std::fs::read("/tmp/qrc1545-switch-makeup-original.json").unwrap();
+  let value:Value=serde_json::from_slice(&b).unwrap();
+  let old:Value=serde_json::from_slice(&o).unwrap();
+  assert_eq!(old["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"],json!(53));
+  assert_eq!(value["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"],json!(60));
+  assert_eq!(old["Player"]["FemaleAvatar"],value["Player"]["FemaleAvatar"]);
+  assert_eq!(old["Player"]["ListInventories"],value["Player"]["ListInventories"]);
+  assert_eq!(old["World"],value["World"]);
+  assert_ne!(sha(&b),sha(&o));
+  let fresh=open_switch(&value);assert_eq!(fresh.receipt().unwrap().schema,626);
+  assert!(fresh.prepare_switch626_fixed_makeup_color1(env(&fresh,WorkerAction::ReadDomain)).is_err(),"old CAS rejects new value");
+  println!("QRC1545_SWITCH_MAKEUP_CHILD_REOPEN_PASS schema626 exact1");
+ }
 }
