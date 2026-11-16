@@ -53,3 +53,63 @@ jobs:
           ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
           test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
           test -f crates/ddv-save-core/src/wasm_worker.rs
+      - name: QA ONLY ACT1108 current puzzle and zero quota root
+        run: |
+          set -euo pipefail
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          "$B" "$W" --out-dir /tmp/vase-off --target nodejs --no-typescript
+          for mode in both; do
+            features=worker-wasm,product-amount-scoped
+            if [ "$mode" = both ]; then features="$features,product-collection-scoped"; fi
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            "$B" "$W" --out-dir "/tmp/vase-$mode" --target nodejs --no-typescript
+          done
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          const cls=m=>require('/tmp/vase-'+m+'/ddv_save_core.js').WorkerWasmSource,sha=b=>createHash('sha256').update(b).digest('hex');
+          const steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],sw=['switch','switch-bid','9A239D3DB569756D',626,true],item=40000066;
+          const data=fs.readFileSync('crates/ddv-save-core/data/steam626-vase-geometry-quota.jsonl','utf8').trim().split('\n').slice(1).map(JSON.parse);
+          const bits=Buffer.concat(data.filter(x=>x[0]==='floor').map(x=>Buffer.from(x[2],'hex')));
+          const floor=(x,y)=>{if(x<2||x+4>250||y<2||y+4>175)return false;for(let i=x-2;i<x+4;i++)for(let j=y-2;j<y+4;j++){const n=i*175+j;if(!(bits[n>>3]&(1<<(n%8))))return false;}return true};
+          let poses=[];for(let x=2;x<247;x++)for(let y=2;y<172;y++)if(floor(x,y))poses.push([x*2,y*2]);assert.equal(poses.length,9299);
+          const [x,y]=poses[0], [x2,y2]=poses[poses.length-1];
+          const sup=JSON.parse(fs.readFileSync('crates/ddv-save-core/data/steam626-placement-applicable-supplement.json','utf8'));
+          const [eventId]=Object.entries(sup.recurring).find(([k,v])=>v[0]==='ItemSpawning'&&v[2]==='offline-preserve');
+          function doc(gid=7,next=9,x=x2,y=y2){
+            const ox=x<250?480:2,oy=y<175?330:2;
+            return {GameInfo:{Version:626},World:{Villages:[{Areas:{6:{Unlocked:true,GridIDs:[gid]}},VillageObjectLimitName:'Village04ObjectLimit',HighEndVillageObjectLimitName:'HighEndVillageObjectLimit',BoughtObjectLimit:{UniqueLimit:0,InstanceLimit:0,Exclusions:[],SpecificItemLimits:[]}}],FloatingIslands:{},ExtraLimitObject:false,GridCollection:{Grids:{[gid]:{ID:gid,GridDataPath:'GridData/Villages/Village04-DarkLevel-GridData.json',GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:next,Objects:{4:{ID:4,ItemID:item,X:ox,Y:oy,Orientation:'GridOrientation_Up',State:null}}}},DiffGrids:{}},MissionSlots:{},RecurringEvents:{},TimeLostTreasures:{},NextTimeLostTreasureID:1,Snippets:{},NextSnippetID:0},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{[item]:{Amount:3,Marker:'ItemMarker_None'}}}},ContainerInventories:{},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{keep:'x'.repeat(1100000),escaped:'keep'}};
+          }
+          const raw=d=>Buffer.from(JSON.stringify(d).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
+          let pos=0,neg=0,nonce=0;const deny=f=>{assert.throws(f);neg++};
+          function open(m,d,b=steam){const a=raw(d),w=new(cls(m))(...b,new Uint8Array(32).fill(++nonce));for(let i=0;i<a.length;i+=1048576)w.append_chunk(a.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(a));return[w,r]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],parse=JSON.parse;
+          const preview=(w,r,gid,x,y)=>parse(w.preview_steam626_vase_add(gid,x,y,...sc(r)));
+          const stage=(w,r,p)=>parse(w.stage_steam626_vase_add(p.gridId,p.x,p.y,p.oldAmount,p.nextObjectId,p.entrySha256,p.gridSha256,p.projectedDecodedSha256,...sc(r)));
+
+          const G=7,N=9,isVase=true,pv=[x,y];
+          const base=()=>doc(7,9,x,y);
+          const aux=id=>({ID:id,GridDefaultLayoutPath:'',GridDataPath:'GridData/Villages/Village04-DarkLevel-GridData.json',TessellationFactor:2,NextGridObjectID:1,Objects:{}});
+          const wrappers=d=>{d.World.GridCollection.Grids[8801]=aux(8801);d.World.GridCollection.Grids[8802]=aux(8802);d.World.BuildingInfos={901:{GridIDs:{List:[8801,8802]}}};};
+          const preset=d=>{const a=aux(G),b=aux(9901);b.NextGridObjectID=45;b.Objects[44]={ID:44,ItemID:40000066,X:2,Y:2,Orientation:'GridOrientation_Up',State:{SubGrid:{GridID:G,DesignID:null}}};d.World.DecorationPresets=[{GridCollection:{Grids:{[G]:a,9901:b},DiffGrids:{}}}];};
+          const room=d=>{for(const id of [8811,8812,8813,8814,8815,8816])d.World.GridCollection.Grids[id]=aux(id);d.World.PlayerHouses=[{Floors:[{Rooms:{0:{FloorGridID:8811,WallGridIDs:{0:8812,1:8813,2:8814,3:8815}}}}]}];d.World.BuildingInfos={...(d.World.BuildingInfos||{}),902:{Room:{FloorGridID:8816,WallGridIDs:{}}}};};
+          const combine=d=>{wrappers(d);preset(d);room(d);};
+          const actualPreview=(w,r)=>preview(w,r,G,...pv);
+          function oracle(d){const gr=d.World.GridCollection.Grids[G],obj=JSON.stringify(gr.Objects),entry=d.Player.ListInventories[0].Inventory[item],coords=isVase?[pv]:[[20,24],[24,24],[16,28],[20,28],[24,28],[16,32],[20,32],[24,32]];
+            const tail=coords.map(([X,Y],i)=>',"'+(N+i)+'":'+JSON.stringify({ID:N+i,ItemID:item,Orientation:isVase?'GridOrientation_Up':'GridOrientation_Down',State:null,X,Y})).join('');
+            const oldGrid=JSON.stringify(gr),newGrid=oldGrid.replace('"Objects":'+obj,'"Objects":'+obj.slice(0,-1)+tail+'}').replace('"NextGridObjectID":'+N,'"NextGridObjectID":'+(N+coords.length));
+            let want=raw(d).toString().replace(oldGrid,newGrid);if(isVase)want=want.replace('"Amount":3,"Marker":"ItemMarker_None"','"Amount":2,"Marker":"ItemMarker_None"');
+            const p=isVase?{gridId:G,x:pv[0],y:pv[1],oldAmount:3,nextObjectId:N,entrySha256:sha(Buffer.from(JSON.stringify(entry))),gridSha256:sha(Buffer.from(oldGrid)),projectedDecodedSha256:sha(Buffer.from(want))}:{gridId:G,seedId:82,oldAmount:99,nextObjectId:N,gridSha256:sha(Buffer.from(oldGrid)),seedSha256:sha(Buffer.from(JSON.stringify(gr.Objects[82]))),inventoryEntrySha256:sha(Buffer.from(JSON.stringify(entry))),projectedDecodedSha256:sha(Buffer.from(want))};
+            const expected=structuredClone(d);coords.forEach(([X,Y],i)=>expected.World.GridCollection.Grids[G].Objects[N+i]={ID:N+i,ItemID:item,Orientation:isVase?'GridOrientation_Up':'GridOrientation_Down',State:null,X,Y});expected.World.GridCollection.Grids[G].NextGridObjectID+=coords.length;if(isVase)expected.Player.ListInventories[0].Inventory[item].Amount--;
+            assert.deepEqual(JSON.parse(want),expected);return {p,want:Buffer.from(want)};}
+          const realm='Worlds!InsideOut!DreamProductions',layout='SceneLayouts/Realms/InsideOut/DreamProductions/InsideOut-DreamProductions-DefaultLayout.json';
+          const row=(m,s,u,g,a)=>({MissionItemID:m,StepID:s,SubStepID:u,GridIDs:[g],AnswerGridIDs:[a]});
+          function puzzle(d){const c=d.World.GridCollection;c.Grids[7701]={...aux(7701),GridDataPath:'GridData/Worlds/InsideOut_DreamProductions_Stage-GridData.json'};c.Grids[7702]={...aux(7702),GridDataPath:'GridData/Worlds/InsideOut_DreamProductions_Puzzle02-GridData.json'};c.DiffGrids[7703]={ID:7703,GridDefaultLayoutPath:layout};d.World.Realms={[realm]:{GridIDs:[7701,7703,7702],SceneryPuzzles:[row(2070001289,2,1,0,0),row(2070001290,13,0,2,2)]}};d.World.SceneryPuzzles=[row(2070001289,2,1,7701,0),row(2070001290,13,0,7702,2)];}
+          function zero(d){d.World.GridCollection.Grids[0]={...aux(0),GridDataPath:'GridData/Villages/Village04-SnowLevel-GridData.json'};d.World.Villages[0].Areas[7]={Unlocked:true,GridIDs:[0]};}
+          const z=d=>d.World.GridCollection.Grids[0],a=d=>d.World.Villages[0].Areas,pr=[],nr=[];let yes=0,no=0;
+          const positive=[['zero-root',zero],['combined',d=>{zero(d);puzzle(d);combine(d);}]];
+          const negative=[['wrong-area',d=>{a(d)[8]=a(d)[7];delete a(d)[7]}],['locked',d=>a(d)[7].Unlocked=false],['multi',d=>a(d)[7].GridIDs=[0,7]],['missing',d=>delete d.World.GridCollection.Grids[0]],['path',d=>z(d).GridDataPath='Other'],['tess',d=>z(d).TessellationFactor=1],['default-layout',d=>z(d).GridDefaultLayoutPath='Other'],['overlay',d=>d.World.GridCollection.DiffGrids[0]={ID:0}],['dup-root',d=>a(d)[8]={Unlocked:true,GridIDs:[0]}],['child-zero',d=>d.World.GridCollection.Grids[G].Objects[4].State={SubGrid:{GridID:0,DesignID:null}}],['outside-alias',d=>d.Opaque.GridIDs=[0]],['puzzle-mirror-zero',d=>{puzzle(d);d.World.SceneryPuzzles[0].GridIDs=[0]}]];
+          for(const [label,mut] of positive){const d=base();d.Opaque={escaped:'keep'};mut(d);const o=oracle(d);let w;try{let r;[w,r]=open('both',d);const p=actualPreview(w,r);assert.equal(p.projectedDecodedSha256,sha(o.want));const t=stage(w,r,o.p);assert.equal(t.exactFieldChangedCount,3);assert.equal(t.stagedDecodedSha256,sha(o.want));w.begin_scoped_edit_output(...sc(t));assert.deepEqual(Buffer.from(w.next_scoped_edit_output_chunk()),o.want);yes++;}catch(e){pr.push({label,error:String(e).slice(0,220)});}finally{if(w){w.close();w.free();}}}
+          for(const [label,mut] of negative){const d=base();d.Opaque={};zero(d);mut(d);const o=oracle(d);let w;try{let r;[w,r]=open('both',d);let p=false,s=false;try{actualPreview(w,r);p=true}catch{}try{stage(w,r,o.p);s=true}catch{}if(p||s)nr.push({label,p,s});else no++;}catch(e){nr.push({label,error:String(e).slice(0,220)})}finally{if(w){w.close();w.free()}}}
+          console.log('ACT1108_ZERO_ROOT_DELTA '+yes+'POS '+no+'NEG POS_RED='+JSON.stringify(pr)+' NEG_RED='+JSON.stringify(nr));assert.deepEqual(pr,[]);assert.deepEqual(nr,[]);assert.equal(yes,2);assert.equal(no,12);
+          JS
