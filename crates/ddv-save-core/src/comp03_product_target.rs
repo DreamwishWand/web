@@ -262,6 +262,36 @@ impl ProductSession{
             "decodedSha256":super::hex(&e.expected_decoded_sha256),"exactFieldChangedCount":9,
             "scopedCandidate":true,"writerAuthorized":false,"editedCopyAuthorized":false}))
     }
+    /// Versioned read-only companion, separately opted in. Reuse the
+    /// current effective binder and exact append shape; no second geometry.
+    #[cfg(feature="product-steam626-comp03-spatial-preview")]
+    pub(crate) fn preview_comp03_spatial(&self,e:WorkerEnvelope,seed:u32,projected:[u8;32])->CoreResult<Value>{
+        let p=self.prepare_comp03_effective_layout(e,seed)?;
+        let t=&p.target.physical;
+        if projected!=p.projected_sha{return Err(denied("COMP03_SPATIAL_PREVIEW_CAS"))}
+        let rows=comp03_shape::additions(t.geometry.next,t.geometry.seed_x,t.geometry.seed_y)
+            .ok_or(denied("COMP03_SPATIAL_SHAPE"))?;
+        if rows.len()!=8{return Err(denied("COMP03_SPATIAL_COUNT"))}
+        let mut anchors=vec![json!({"objectId":t.seed,"x":t.geometry.seed_x,"y":t.geometry.seed_y,"role":"retained"})];
+        for (i,r) in rows.iter().enumerate(){
+            if r["ID"].as_u64()!=Some(u64::from(t.geometry.next)+i as u64)||
+               r["ItemID"]!=ROAD||r["Orientation"]!="GridOrientation_Down"||!r["State"].is_null(){
+                return Err(denied("COMP03_SPATIAL_ROW"));
+            }
+            let x=r["X"].as_u64().filter(|v|*v<=260).ok_or(denied("COMP03_SPATIAL_COORD"))?;
+            let y=r["Y"].as_u64().filter(|v|*v<=260).ok_or(denied("COMP03_SPATIAL_COORD"))?;
+            anchors.push(json!({"objectId":r["ID"],"x":x,"y":y,"role":"proposed"}));
+        }
+        // Existing target proof guarantees unique current/allocator IDs.
+        // Recheck epoch after projection to avoid returning a stale view.
+        let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+        if st.semantic.is_some()||st.revision!=0||st.generation!=1{return Err(denied("COMP03_SPATIAL_EPOCH"))}
+        Ok(json!({"contract":"wand.worker.steam626.comp03-spatial-preview@1",
+            "rootSceneItemId":1540000150u32,"gridId":t.grid,"seedId":t.seed,"nextObjectId":t.geometry.next,
+            "anchors":anchors,"sessionId":super::hex(&e.session_id),"revision":e.expected_revision,
+            "indexGeneration":e.expected_index_generation,"decodedSha256":super::hex(&e.expected_decoded_sha256),
+            "projectedDecodedSha256":super::hex(&p.projected_sha),"writerAuthorized":false,"editedCopyAuthorized":false}))
+    }
     pub(crate) fn stage_comp03_product(&self,e:WorkerEnvelope,seed:u32,grid:u32,next:u32,old:u32,
         grid_sha:[u8;32],seed_sha:[u8;32],stock_sha:[u8;32],projected:[u8;32])->CoreResult<SemanticStageReceipt>{
         if e.action!=WorkerAction::Stage{return Err(denied("COMP03_EFFECTIVE_ACTION"))}
@@ -300,6 +330,37 @@ mod tests{
             expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}
     }
 
+    #[cfg(feature="product-steam626-comp03-spatial-preview")]
+    #[test]
+    fn comp03_spatial_projection_current_bound_exact9(){
+        let mut d=doc(90001,90002,500);
+        d["World"]["MissionSlots"]=json!({});d["World"]["RecurringEvents"]=json!({});
+        d["Player"]["AchievementsData"]=json!([]);d["Player"]["DutySlots"]=json!({});
+        d["Player"]["EvolveStatesProfile"]=json!({"EvolveProgressState":{}});
+        d["Player"]["BattlePassStates"]=json!({"Progress":{},"FtueProgress":{"TasksProgress":[],"WeeklyTasksProgress":[]}});
+        d["ConditionalEventHistory"]=json!({"ActiveEvents":{}});
+        let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();
+        let p=s.prepare_comp03_effective_layout(e,500).unwrap();
+        let v=s.preview_comp03_spatial(e,500,p.projected_sha).unwrap();
+        assert_eq!(v["contract"],"wand.worker.steam626.comp03-spatial-preview@1");
+        assert_eq!(v["rootSceneItemId"],1540000150u32);assert_eq!(v["gridId"],90001);assert_eq!(v["seedId"],500);
+        assert_eq!(v["projectedDecodedSha256"],super::super::hex(&p.projected_sha));
+        let a=v["anchors"].as_array().unwrap();assert_eq!(a.len(),9);
+        assert_eq!(a[0],json!({"objectId":500,"x":16,"y":24,"role":"retained"}));
+        let expected=[(20,24),(24,24),(16,28),(20,28),(24,28),(16,32),(20,32),(24,32)];
+        for (i,(x,y)) in expected.into_iter().enumerate(){assert_eq!(a[i+1],json!({"objectId":510+i,"x":x,"y":y,"role":"proposed"}));}
+        assert_eq!(s.receipt().unwrap(),before);assert_eq!(v["writerAuthorized"],false);
+        assert!(s.preview_comp03_spatial(e,500,[0;32]).is_err());
+        assert!(s.preview_comp03_spatial(e,501,p.projected_sha).is_err());
+        assert!(s.preview_comp03_spatial(WorkerEnvelope{expected_revision:1,..e},500,p.projected_sha).is_err());
+        assert!(s.preview_comp03_spatial(WorkerEnvelope{expected_index_generation:2,..e},500,p.projected_sha).is_err());
+        assert!(s.preview_comp03_spatial(WorkerEnvelope{action:WorkerAction::Stage,..e},500,p.projected_sha).is_err());
+        assert!(open(&d).preview_comp03_spatial(e,500,p.projected_sha).is_err());
+        let t=&p.target.physical;
+        s.stage_comp03_product(WorkerEnvelope{action:WorkerAction::Stage,..e},500,t.grid,t.geometry.next,t.stock,t.grid_sha,t.seed_sha,t.stock_sha,p.projected_sha).unwrap();
+        assert!(s.preview_comp03_spatial(env(&s),500,p.projected_sha).is_err());
+        s.close().unwrap();assert!(s.preview_comp03_spatial(e,500,p.projected_sha).is_err());
+    }
     #[test]
     fn comp03_effective_atomic_exact9_and_current_cas(){
         let mut d=doc(90001,90002,500);
