@@ -44,13 +44,13 @@ function spatialReview(r,p){
  return Object.freeze({gridId:r.gridId,seedId:r.seedId,markers:overlay.markers});
 }
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation,spatialPreviewEnabled=false}={}){
- if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','portable-catalog0','portable-chest'].includes(operation)||!adapter)fail();
+ if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','portable-catalog0','portable-chest','portable-switch-catalog0','portable-switch-chest'].includes(operation)||!adapter)fail();
  const portable=operation.startsWith('portable-'),portableMode=portable?operation.slice(9):null;
  const backpack=operation==='backpack-steam'||operation==='backpack-switch',wardrobe=operation==='wardrobe-steam'||operation==='wardrobe-switch';
  const previewMethod=portable?'previewPortableRestore':wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=portable?'stagePortableRestore':wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
  if(portable&&typeof adapter.capturePortableBackup!=='function')fail();
  for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
- const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=portable||wardrobe?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
+ const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=portable||wardrobe?1:comp?9:sr03?8:3,build=portableMode?.startsWith('switch-')||operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
  if(typeof spatialPreviewEnabled!=='boolean'||(spatialPreviewEnabled&&(!comp||typeof adapter.spatialPreview!=='function')))fail();
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
@@ -91,7 +91,7 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
    if(!(portableFile instanceof File)||!portableFile.name.toLowerCase().endsWith('.wand.json')||portableFile.size<1||portableFile.size>1048576)fail();
    const b=new Uint8Array(await Blob.prototype.arrayBuffer.call(portableFile));let r;
    try{check();if(!portableBytesOk(b)||b.length!==portableFile.size)fail();r=await adapter[previewMethod]({...selector},b);check()}finally{b.fill(0)}
-   const chest=portableMode==='chest';
+   const chest=portableMode==='chest'||portableMode==='switch-chest';
    if(!exact(r,'itemId,oldAmount,newAmount,exactFieldChangedCount,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized'+(chest?',containerId,slotIndex':''))||!positive(r.itemId)||!positive(r.newAmount)||r.oldAmount!==r.newAmount+1||r.oldAmount>9999||r.exactFieldChangedCount!==1||r.writerAuthorized!==false||r.editedCopyAuthorized!==false||r.originalOverwriteAuthorized!==false||(chest?(r.containerId!==selector.containerId||r.slotIndex!==selector.slotIndex||r.oldAmount!==50||r.newAmount!==49):r.itemId!==selector.itemId))fail();
    return set({phase:'previewed',preview:Object.freeze({...r})});
   }

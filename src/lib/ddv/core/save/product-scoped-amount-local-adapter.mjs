@@ -51,7 +51,7 @@ export function createProductSwitch626WardrobeLocalAdapter(options={}){return cr
 export function createProductCatalog0PortableLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,'catalog0')}
 export function createProductChestPortableLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,'chest')}
 function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null,backpackScope=null,wardrobeScope=null,portableScope=null){
- const portable=portableScope!==null,placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,previewEdit=placement||backpack||wardrobe||portable,placementCount=wardrobe?1:(placementScope==='comp03'||placementScope==='comp03-spatial')?9:(placementScope==='sr03'||placementScope==='rm01')?8:3;
+ const switchPortable=portableScope==='switch-catalog0'||portableScope==='switch-chest',portable=portableScope!==null,placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,previewEdit=placement||backpack||wardrobe||portable,placementCount=wardrobe?1:(placementScope==='comp03'||placementScope==='comp03-spatial')?9:(placementScope==='sr03'||placementScope==='rm01')?8:3;
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||
   (discoverScopedTargets!==undefined&&typeof discoverScopedTargets!=='function')||
   (allowCoreDiscoverySource&&discoverScopedTargets!==undefined)||
@@ -89,8 +89,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   async open(args){
    if(closeUnverified)fail();revoke();return run(async t=>{
     if(!keys(args,'file,originalSha256,build')||!keys(args.build,'platform,buildKind,buildId,schema,externallyConfirmed')||
-     !((!switchChest&&!catalog&&placementScope!=='rm01'&&backpackScope!=='switch'&&wardrobeScope!=='switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
-       ((collection||switchChest||catalog||placementScope==='rm01'||backpackScope==='switch'||wardrobeScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
+     !((!switchPortable&&!switchChest&&!catalog&&placementScope!=='rm01'&&backpackScope!=='switch'&&wardrobeScope!=='switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
+       ((switchPortable||collection||switchChest||catalog||placementScope==='rm01'||backpackScope==='switch'||wardrobeScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
      args.build.schema!==626||args.build.externallyConfirmed!==true||!uint(t)||t<1)fail();
     const input=Object.freeze({file:args.file,originalSha256:args.originalSha256,build:Object.freeze({...args.build})});
     const r=await bridge.openScopedEncrypted(input);check(t);
@@ -193,3 +193,6 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   })}
  });
 }
+
+export const createProductSwitchCatalog0PortableLocalAdapter=(options)=>createScopedLocalAdapter(options,false,false,false,false,null,null,null,'switch-catalog0');
+export const createProductSwitchChestPortableLocalAdapter=(options)=>createScopedLocalAdapter(options,false,false,false,false,null,null,null,'switch-chest');

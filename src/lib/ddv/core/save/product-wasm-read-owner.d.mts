@@ -168,3 +168,6 @@ export type PortableRestoreOwner<T,P>=ProductWasmReadOwner&Readonly<{capturePort
 type PortableExclusive={placementScope?:null;backpackScope?:null;wardrobeScope?:null;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;allowSwitch626Catalog0Source?:false;allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false};
 export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:PortableExclusive&{portableScope:'catalog0'}):PortableRestoreOwner<PortableCatalog0Target,PortableRestorePreview>;
 export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:PortableExclusive&{portableScope:'chest'}):PortableRestoreOwner<PortableChestTarget,PortableRestorePreview&PortableChestTarget>;
+
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:PortableExclusive&{portableScope:'switch-catalog0'}):PortableRestoreOwner<Readonly<{itemId:40000076}>,PortableRestorePreview>;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:PortableExclusive&{portableScope:'switch-chest'}):PortableRestoreOwner<PortableChestTarget,PortableRestorePreview&PortableChestTarget>;

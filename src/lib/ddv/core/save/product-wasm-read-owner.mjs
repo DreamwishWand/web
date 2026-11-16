@@ -43,7 +43,7 @@ function strictReceipt(r){
  */
 export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null,portableScope=null}={}){
  if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source].every(v=>typeof v==='boolean')||
-    (![null,'comp03','comp03-spatial','vase','sr03','rm01'].includes(placementScope))||(![null,'steam','switch'].includes(backpackScope))||(![null,'steam','switch'].includes(wardrobeScope))||(![null,'catalog0','chest'].includes(portableScope))||
+    (![null,'comp03','comp03-spatial','vase','sr03','rm01'].includes(placementScope))||(![null,'steam','switch'].includes(backpackScope))||(![null,'steam','switch'].includes(wardrobeScope))||(![null,'catalog0','chest','switch-catalog0','switch-chest'].includes(portableScope))||
     [allowScopedAmountSource,allowScopedCollectionSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,placementScope!==null,backpackScope!==null,wardrobeScope!==null,portableScope!==null].filter(Boolean).length>1||
     ((allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||placementScope!==null||backpackScope!==null||wardrobeScope!==null||portableScope!==null)&&allowCollectionCandidateSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
@@ -81,7 +81,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
    const {build,decodedChunks}=args;
    const identity=exactBuild(build);
    if(((allowSwitch626ChestSource||allowSwitch626Catalog0Source)&&identity.platform!=='switch')||(allowSteam626ChestSource&&identity.platform!=='steam-windows'))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
-   if((portableEnabled&&identity.platform!=='steam-windows')||(placementEnabled&&identity.platform!==(placementScope==='rm01'?'switch':'steam-windows'))||(backpackEnabled&&identity.platform!==(backpackScope==='switch'?'switch':'steam-windows'))||(wardrobeEnabled&&identity.platform!==(wardrobeScope==='switch'?'switch':'steam-windows')))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
+   if((portableEnabled&&identity.platform!==(portableScope.startsWith('switch-')?'switch':'steam-windows'))||(placementEnabled&&identity.platform!==(placementScope==='rm01'?'switch':'steam-windows'))||(backpackEnabled&&identity.platform!==(backpackScope==='switch'?'switch':'steam-windows'))||(wardrobeEnabled&&identity.platform!==(wardrobeScope==='switch'?'switch':'steam-windows')))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
    if(!decodedChunks||typeof decodedChunks[Symbol.asyncIterator]!=='function')
      fail('PRODUCT_WORKER_CHUNK_SOURCE_REQUIRED');
    let wasm=null,bytes=0;
@@ -433,7 +433,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
    if(allowScopedCollectionSource!==true||!a||!a.scoped)fail('PRODUCT_WORKER_COLLECTION_FIXED_SOURCE_OFF');
    return a.scoped;
  };
- const portable=()=>{const a=active;if(!portableEnabled||!a||a.identity.platform!=='steam-windows'||!a.scoped)fail('PRODUCT_WORKER_PORTABLE_OFF');return a.scoped};
+ const portable=()=>{const a=active;if(!portableEnabled||!a||a.identity.platform!==(portableScope.startsWith('switch-')?'switch':'steam-windows')||!a.scoped)fail('PRODUCT_WORKER_PORTABLE_OFF');return a.scoped};
  const placement=()=>{const a=active;if(!placementEnabled||!a||a.identity.platform!==(placementScope==='rm01'?'switch':'steam-windows')||!a.scoped)fail('PRODUCT_WORKER_SCOPED_PLACEMENT_OFF');return a.scoped};
  const backpack=()=>{const a=active;if(!backpackEnabled||!a||a.identity.platform!==(backpackScope==='switch'?'switch':'steam-windows')||!a.scoped)fail('PRODUCT_WORKER_SCOPED_BACKPACK_OFF');return a.scoped};
  const wardrobe=()=>{const a=active;if(!wardrobeEnabled||!a||a.identity.platform!==(wardrobeScope==='switch'?'switch':'steam-windows')||!a.scoped)fail('PRODUCT_WORKER_SCOPED_WARDROBE_OFF');return a.scoped};

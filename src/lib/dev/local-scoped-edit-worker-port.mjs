@@ -10,7 +10,7 @@ const placementMethods=Object.freeze({open:1,backupOriginal:0,previewPlacement:1
 const backpackMethods=Object.freeze({open:1,backupOriginal:0,previewBackpack:1,stageBackpack:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
 const wardrobeMethods=Object.freeze({open:1,backupOriginal:0,previewWardrobe:0,stageWardrobe:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
 const portableMethods=Object.freeze({open:1,backupOriginal:0,capturePortableBackup:1,previewPortableRestore:2,stagePortableRestore:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
-const methods=Object.freeze({'portable-catalog0':portableMethods,'portable-chest':portableMethods,comp03:placementMethods,'comp03-spatial':Object.freeze({...placementMethods,spatialPreview:0}),vase:placementMethods,sr03:placementMethods,rm01:placementMethods,backpack:backpackMethods,wardrobe:wardrobeMethods,
+const methods=Object.freeze({'portable-catalog0':portableMethods,'portable-chest':portableMethods,'portable-switch-catalog0':portableMethods,'portable-switch-chest':portableMethods,comp03:placementMethods,'comp03-spatial':Object.freeze({...placementMethods,spatialPreview:0}),vase:placementMethods,sr03:placementMethods,rm01:placementMethods,backpack:backpackMethods,wardrobe:wardrobeMethods,
  amount:Object.freeze({open:1,backupOriginal:0,listVerifiedTargets:0,stageTyped:1,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0}),
  collection:Object.freeze({open:1,inspectCollectionTargets:0,backupOriginal:1,previewCollectionTarget:2,stageCollectionTarget:2,undo:1,redo:1,exportEditedCopy:1,downloadVerifiedCopy:2,close:0})
 });
@@ -112,3 +112,8 @@ export const installLocalCatalog0PortableWorker=(port,adapter)=>install(port,ada
 export const createLocalCatalog0PortablePort=worker=>createPort(worker,'portable-catalog0');
 export const installLocalChestPortableWorker=(port,adapter)=>install(port,adapter,'portable-chest');
 export const createLocalChestPortablePort=worker=>createPort(worker,'portable-chest');
+
+export const installLocalSwitchCatalog0PortableWorker=(port,adapter)=>install(port,adapter,'portable-switch-catalog0');
+export const createLocalSwitchCatalog0PortablePort=worker=>createPort(worker,'portable-switch-catalog0');
+export const installLocalSwitchChestPortableWorker=(port,adapter)=>install(port,adapter,'portable-switch-chest');
+export const createLocalSwitchChestPortablePort=worker=>createPort(worker,'portable-switch-chest');
