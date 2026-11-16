@@ -18,6 +18,18 @@ export const SCOPED_COLLECTION_METHODS=Object.freeze([
  'issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','preview_scoped_collection_candidate',
  'preview_fixed_collection','stage_fixed_collection','toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close'
 ]);
+// E2172 actual public-OFF 17-export census + exact accepted six Collection
+// methods. The generated scoped module must have no hidden extra export.
+export const SCOPED_COLLECTION_WASM_EXPORTS=Object.freeze([
+ 'memory','__wbg_workerwasmsource_free','workerwasmsource_new',
+ ...SCOPED_COLLECTION_METHODS.map(n=>'workerwasmsource_'+n),
+ '__wbindgen_externrefs','__wbindgen_malloc','__externref_table_dealloc','__wbindgen_realloc','__wbindgen_free','__wbindgen_start'
+].sort());
+export function scopedCollectionWasmExportsOk(module){
+ const actual=WebAssembly.Module.exports(module);
+ return JSON.stringify(actual.map(x=>x.name).sort())===JSON.stringify(SCOPED_COLLECTION_WASM_EXPORTS)&&
+  actual.every(x=>x.kind===(x.name==='memory'?'memory':x.name==='__wbindgen_externrefs'?'table':'function'));
+}
 const denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|(?:discover|preview|stage|toggle)_scoped_amount|(?:begin_scoped_amount_output|next_scoped_amount_output_chunk))/i;
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
 export const SCOPED_COLLECTION_ASSET_DIR='worker-wasm-scoped-collection';
@@ -94,7 +106,7 @@ export async function loadPinnedScopedCollectionBytes({basePath,trustedPins,rele
  const [js,wasm]=await Promise.all([checkedFetch(url('ddv_save_core.js'),p.jsSizeBytes,p.jsSha256,'text/javascript',fetcher),
   checkedFetch(url('ddv_save_core_bg.wasm'),p.wasmSizeBytes,p.wasmSha256,'application/wasm',fetcher)]);
  if(wasm[0]!==0||wasm[1]!==97||wasm[2]!==115||wasm[3]!==109)fail();
- const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{deniedSymbol:denied,requiredMethods:SCOPED_COLLECTION_METHODS,exactPrototype:true});
+ const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{deniedSymbol:denied,requiredMethods:SCOPED_COLLECTION_METHODS,exactPrototype:true,exactWasmExports:SCOPED_COLLECTION_WASM_EXPORTS});
  return Object.freeze({WorkerWasmSource,sourceHead:p.sourceHead,checkedBothJsAndWasm:true,sameOriginFetchOnly:true,writerAuthorized:false,productConsumerEnabled:false});
 }
 // No caller URL or mode can select the release. This pure predicate is also
