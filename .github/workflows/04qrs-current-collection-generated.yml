@@ -1,0 +1,65 @@
+name: 04 QR-S current Collection generated proof subjects (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-current-collection-generated.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-collection-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 91b13c88f8481e1b280647e5f94d0fd857043677
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Actual current approved Lock and dedicated generated subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "91b13c88f8481e1b280647e5f94d0fd857043677"
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = e5c863b756e9593afcfe4f3c24f122c91a4c4b6f
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-collection-private.mjs)" = 4faaa553470b0f491fc611bd8e5c1590255cb1e4
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-collection-tools
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-collection-scoped,semantic-writer-dev,worker-wasm
+          /tmp/wand-collection-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-collection-current --target web --no-typescript
+          cat > qa-current-collection.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {readFileSync,copyFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {execFileSync} from 'node:child_process';
+          import {pathToFileURL} from 'node:url';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {inspectScopedCollectionSubjects as inspect} from './scripts/readonly-release/seal-scoped-collection-private.mjs';
+          import * as s from './src/lib/ddv/core/save/product-scoped-collection-release.mjs';
+          const source='91b13c88f8481e1b280647e5f94d0fd857043677',sha=b=>createHash('sha256').update(b).digest('hex'),dir='/tmp/wand-collection-current';
+          const methods=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','preview_scoped_collection_candidate','preview_fixed_collection','stage_fixed_collection','toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk','close'].sort();
+          const js=readFileSync(dir+'/ddv_save_core.js'),wasm=readFileSync(dir+'/ddv_save_core_bg.wasm'),cargo=readFileSync('crates/ddv-save-core/Cargo.toml'),lock=readFileSync('crates/ddv-save-core/Cargo.lock'),toolchain=execFileSync('rustc',['--version','--verbose'],{encoding:'utf8'});
+          assert.equal(sha(lock),'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c');
+          copyFileSync(dir+'/ddv_save_core.js',dir+'/glue.mjs');const cls=(await import(pathToFileURL(dir+'/glue.mjs').href)).WorkerWasmSource;
+          assert.deepEqual(Object.getOwnPropertyNames(cls.prototype).filter(n=>!['constructor','free','__destroy_into_raw'].includes(n)).sort(),methods);
+          const ex=WebAssembly.Module.exports(new WebAssembly.Module(wasm));assert.equal(ex.length,23);assert.deepEqual(ex.map(x=>x.name).sort(),[...s.SCOPED_COLLECTION_WASM_EXPORTS].sort());
+          const manifest={contract:'wand.scoped-collection.runtime@1',operation:s.SCOPED_COLLECTION_RELEASE_OP,source:{repository:tuple.repository,commit:source,cargoTomlSha256:sha(cargo),cargoLockSha256:sha(lock),cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:s.SCOPED_COLLECTION_FEATURES,defaultFeatures:false,toolchain},assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:sha(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:wasm.length,sha256:sha(wasm)}},abi:{exportClass:'WorkerWasmSource',methods:s.SCOPED_COLLECTION_METHODS,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false}};
+          const pack=(j=js,w=wasm,patch={})=>[Buffer.from(JSON.stringify({...manifest,assets:{js:{path:'ddv_save_core.js',sizeBytes:j.length,sha256:sha(j)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}},...patch})),j,w];
+          const b=pack(),p=inspect(b,source);assert.equal(p.jsSha256,sha(js));assert.equal(p.wasmSha256,sha(wasm));assert.equal(p.manifestSha256,sha(b[0]));
+          let neg=0;const no=f=>{assert.throws(f);neg++};
+          for(const token of ['preview_scoped_amount','stage_scoped_amount','dev_stage','private_native'])no(()=>inspect(pack(Buffer.concat([js,Buffer.from('\n// '+token)])),source));
+          for(const patch of [{operation:'foreign'},{source:{...manifest.source,features:['product-amount-scoped','worker-wasm']}},{source:{...manifest.source,cargoLockSha256:'0'.repeat(64)}},{abi:{...manifest.abi,writerAuthorized:true}},{release:{...manifest.release,autoUpload:true}}])no(()=>inspect(pack(js,wasm,patch),source));
+          no(()=>inspect([b[0],Buffer.concat([js,Buffer.from(' ')]),wasm],source));no(()=>inspect(b,'a'.repeat(40)));
+          console.log('CURRENT_COLLECTION_PROOF_SUBJECT_L2_PASS',JSON.stringify({pos:1,neg,methods:14,exports:23,actualGeneratedWasm:true,approvedLock:true,actualSignature:false,jsSha256:sha(js),wasmSha256:sha(wasm),manifestSha256:p.manifestSha256}));
+          
+          EOF
+          node qa-current-collection.mjs
+          test -z "$(git diff --name-only HEAD -- static build src/lib/ddv/core/save)"
