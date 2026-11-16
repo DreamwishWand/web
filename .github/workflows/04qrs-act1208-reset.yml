@@ -1,0 +1,81 @@
+name: 04 QR-S ACT1208 reset boundary (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1208-reset.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9df8dea35d1a386f4d384eff8becba5bc1e41ccd
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed source and independent reset cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "9df8dea35d1a386f4d384eff8becba5bc1e41ccd"
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = "d08d7cb0995b8af9f631448024c8acc83d68a743"
+          test "$(git rev-parse HEAD:tests/int-protected-ci-gate.test.mjs)" = "36faa9b31bf7a802123554f8e35d1c46d0341462"
+          cat > tests/qa-act1208.mjs <<'EOF'
+          import {test} from 'node:test';
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {inspectProtectedCi,revalidateProtectedCi,githubPublicJson,createPublicJsonGetter} from '../scripts/int-protected-ci-gate.mjs';
+          const head='a'.repeat(40),other='b'.repeat(40),root='/repos/DreamwishWand/web';
+          const input={repository:'DreamwishWand/web',head,workflowBlob:'4dbc0572b70a9a8245695fed5e4a6369ee2f529a'};
+          const repo={id:1371485649,full_name:'DreamwishWand/web',default_branch:'main',private:false};
+          const ref={ref:'refs/heads/main',object:{type:'commit',sha:head}};
+          const run={id:123,workflow_id:370723530,path:'.github/workflows/ci.yml',head_sha:head,head_branch:'main',event:'push',run_attempt:1,status:'completed',conclusion:'success',repository:{id:1371485649},head_repository:{id:1371485649}};
+          const job={id:456,name:'verify',run_id:123,run_attempt:1,head_sha:head,status:'completed',conclusion:'success'};
+          function mock(options={}){
+           const calls=[];let refs=0,runs=0;
+           const get=async p=>{
+            calls.push(p);
+            if(p===root)return options.repo??repo;
+            if(p===root+'/git/ref/heads/main'){refs++;return refs>1&&options.staleAfter?{...ref,object:{...ref.object,sha:other}}:options.ref??ref;}
+            if(p.startsWith(root+'/actions/runs?'))return options.list??{total_count:1,workflow_runs:[run]};
+            if(p===root+'/actions/runs/123'){runs++;return runs>1&&options.rerun?{...run,run_attempt:2}:options.run??run;}
+            if(p===root+'/actions/runs/123/attempts/1/jobs?per_page=100')return options.jobs??{total_count:1,jobs:[job]};
+            throw Error('UNEXPECTED_REQUEST:'+p);
+           };
+           return {get,calls};
+          }
+          
+          let pos=0,neg=0;
+          const limited=(headers={},status=403)=>new Response('opaque',{status,headers:{'x-ratelimit-remaining':'0','x-ratelimit-reset':'1794807555',...headers}});
+          const ok=x=>new Response(JSON.stringify(x),{headers:{'content-type':'application/json'}});
+          async function scenario(delta,expected,headers={},path=root,status=403){
+           let calls=0;const sleeps=[],urls=[];const get=createPublicJsonGetter(async(u,o)=>{urls.push(u.href);assert.equal(o.method,'GET');assert.equal(o.redirect,'error');assert.equal(Object.keys(o.headers).some(k=>k.toLowerCase()==='authorization'),false);return ++calls===1?limited(headers,status):ok(repo)},async ms=>sleeps.push(ms),()=>1794807555000-delta);
+           if(expected===null){await assert.rejects(get(path));assert.equal(calls,1);assert.deepEqual(sleeps,[]);neg++}
+           else{assert.deepEqual(await get(path),repo);assert.equal(calls,2);assert.equal(urls[0],urls[1]);assert.deepEqual(sleeps,[expected]);pos++}
+          }
+          for(const [d,w] of [[136882,138000],[179000,180000],[178999,180000],[179001,null],[586078,null],[0,null],[-1,null],[1,2000]])await scenario(d,w);
+          for(const h of [{'retry-after':'1'},{'retry-after':'5'}])await scenario(586078,Number(h['retry-after'])*1000,h);
+          for(const h of [{'retry-after':'0'},{'retry-after':'6'},{'retry-after':'garbage'},{'retry-after':'2, 3'},{'x-ratelimit-remaining':'1'},{'x-ratelimit-remaining':'0,0'},{'x-ratelimit-reset':'garbage'},{'x-ratelimit-reset':'1794807555,1794807555'},{'x-ratelimit-reset':'9999999999'}])await scenario(136882,null,h);
+          await scenario(136882,null,{},root+'/actions/runs?other=1');await scenario(136882,null,{},root,429);
+          for(const [first,second,expected] of [[175000,5,180000],[176000,4,180000],[176000,5,null]]){
+           const waits=[],seen=new Map();const g=createPublicJsonGetter(async u=>{let c=seen.get(u.pathname)||0;seen.set(u.pathname,c+1);return c?ok(repo):u.pathname===root?limited():limited({'retry-after':String(second)})},async ms=>waits.push(ms),()=>1794807555000-(first-1000));
+           await g(root);if(expected===null){await assert.rejects(g(root+'/git/ref/heads/main'));assert.deepEqual(waits,[first]);neg++}else{await g(root+'/git/ref/heads/main');assert.equal(waits.reduce((a,b)=>a+b),expected);pos++}
+          }
+          {let c=0;const waits=[];const get=createPublicJsonGetter(async()=>++c===2?ok(repo):limited(),async ms=>waits.push(ms),()=>1794807418118);await get(root);await assert.rejects(get(root+'/git/ref/heads/main'));assert.equal(c,3);assert.deepEqual(waits,[138000]);neg++}
+          {let c=0;const get=createPublicJsonGetter(async()=>{c++;return limited()},async()=>{},()=>1794807418118);await assert.rejects(get(root));assert.equal(c,2);neg++}
+          {let c=0;const get=createPublicJsonGetter(async()=>{c++;const r=limited();Object.defineProperty(r,'redirected',{value:true});return r},async()=>assert.fail('redirect retry'),()=>1794807418118);await assert.rejects(get(root));assert.equal(c,1);neg++}
+          const receipt=await inspectProtectedCi(input,mock().get);
+          for(const opt of [{},{staleAfter:true},{rerun:true},{jobs:{total_count:1,jobs:[{...job,id:987}]}}]){
+           const m=mock(opt),counts=new Map(),waits=[];const g=createPublicJsonGetter(async u=>{const p=u.pathname+u.search;const n=counts.get(p)||0;counts.set(p,n+1);if(p===root&&n===0)return limited();return ok(await m.get(p))},async ms=>waits.push(ms),()=>1794807418118);
+           if(Object.keys(opt).length){await assert.rejects(revalidateProtectedCi(input,receipt,g));neg++}else{assert.deepEqual(await revalidateProtectedCi(input,receipt,g),receipt);pos++}assert.deepEqual(waits,[138000]);
+          }
+          const code=readFileSync(new URL('../scripts/int-protected-ci-gate.mjs',import.meta.url),'utf8');
+          assert.match(code,/const get=createPublicJsonGetter\(\);[\s\S]*for\(let i=0;i<6;i\+\+\)[\s\S]*inspectProtectedCi\(input,get\)/);
+          assert.match(code,/revalidateProtectedCi\(input,JSON.parse\(raw\),get\)/);
+          console.log('ACT1208_RESET_L2_PASS',JSON.stringify({pos,neg,liveRetry:false,retryBudgetMs:180000,pollWaitSeparateMs:50000}));
+          
+          EOF
+          node tests/qa-act1208.mjs
