@@ -1,0 +1,105 @@
+name: QR-W Room Finish one-time independent L2
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-room-finish-one-time.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed source pins and isolated independent test
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only 9a5fd4b53141d2fce64045441eea4cda83ea9e63 HEAD)" = '.github/workflows/qa-qrw-room-finish-one-time.yml'
+          test "$(git rev-parse HEAD:src/lib/wep/room-finish-verified-export-v125.ts)" = bfe540b8150bd96f90388aeb977246cceea0cb72
+          test "$(git rev-parse HEAD:tests/wep-room-finish-post-01e-v125.test.mjs)" = c4011574c34cd14f138867c866ab2a89a9abf3c9
+          test "$(git rev-parse HEAD:.github/workflows/wep-decorate-stage1-browser.yml)" = 305ccb23595691d069a62e3a5a787428d20b8106
+          cp tests/wep-room-finish-post-01e-v125.test.mjs tests/.qa-qrw-room-finish.mjs
+          cat >> tests/.qa-qrw-room-finish.mjs <<'NODE'
+          test('QRW1391 independent one-time Room Finish all three modes and cross-entry receipt',async()=>{
+            const {verifyRoomFinishReplacementArtifactPipelineV125:verify}=await import('../src/lib/wep/room-finish-verified-export-v125.ts');
+            const {mkdtemp,writeFile,rm}=await import('node:fs/promises');
+            const {tmpdir}=await import('node:os');
+            const {join}=await import('node:path');
+            const {spawnSync}=await import('node:child_process');
+            const f=await fixture(), originalSha=sha(f.sourceBytes);
+            const floor=applyRoomFinishDraftMutationV125(f.document,compileRoomFinishFlooringDraftV125({document:f.document,profile:f.opened.profile,pack:f.pack,itemId:160100001}));
+            const wall=scope=>applyRoomFinishDraftMutationV125(f.document,compileRoomFinishWallpaperDraftV125({document:f.document,profile:f.opened.profile,pack:f.pack,itemId:160000000,scope,wallPosition:1}));
+            const drafts=[floor,wall(WALLPAPER_SCOPE.CURRENT_WALL),wall(WALLPAPER_SCOPE.ALL_WALLS)];
+            const input=draftDocument=>({sourceBytes:f.sourceBytes,sourceName:'profile',sourceEpoch:11,opened:f.opened,draftDocument,exactBuildConfirmed:true});
+            const review=d=>reviewRoomFinishVerifiedExportV125(input(d));
+            const args=(r,d,extra={})=>({review:r,currentSourceEpoch:11,sourceBytes:f.sourceBytes,draftDocument:d,...extra});
+            const stale=/WEP_ROOM_FINISH_REVIEW_STALE/;
+            const source=/WEP_ROOM_FINISH_SOURCE_CHANGED_SINCE_PLAN/;
+            let neg=0,pos=0;
+            const deny=async(label,fn,re)=>{await assert.rejects(fn,re,label);neg++;console.log('QRW1391_NEG_PASS',label)};
+            for(let i=0;i<drafts.length;i++){
+              const d=drafts[i],mode=['FLOORING','CURRENT_WALL','ALL_WALLS'][i];
+              const r=await review(d);
+              await deny(mode+' cloned review',()=>commitRoomFinishVerifiedExportV125(args(structuredClone(r),d)),stale);
+              await deny(mode+' stale epoch',()=>commitRoomFinishVerifiedExportV125(args(r,d,{currentSourceEpoch:12})),source);
+              const changed=structuredClone(d);changed.qaUnrelatedField=true;
+              await deny(mode+' changed document shell',()=>commitRoomFinishVerifiedExportV125(args(r,changed)),stale);
+              const other=await review(d);other.plan.planId='qa-mutated';
+              await deny(mode+' altered nested plan',()=>commitRoomFinishVerifiedExportV125(args(other,d)),stale);
+              const pending=commitRoomFinishVerifiedExportV125(args(r,d));
+              await deny(mode+' concurrent alternate pipeline',()=>verify(args(r,d)),stale);
+              await deny(mode+' concurrent commit',()=>commitRoomFinishVerifiedExportV125(args(r,d)),stale);
+              const out=await pending;
+              await deny(mode+' replay alternate pipeline',()=>verify(args(r,d)),stale);
+              await deny(mode+' replay commit',()=>commitRoomFinishVerifiedExportV125(args(r,d)),stale);
+              assert.equal(out.status,'PASS');assert.equal(out.productExportAuthorized,true);assert.equal(out.productApplyAuthorized,false);
+              assert.equal(out.persistentWriteAuthorized,false);assert.equal(out.directSourceReplacementAuthorized,false);
+              const expected=structuredClone(f.opened.profile),room=expected.World.PlayerHouses[0].Floors[0].Rooms['0'];
+              if(i===0)room.Flooring=160100001;
+              if(i===1)room.Wallpapers['1']=160000000;
+              if(i===2){room.Wallpapers={'0':160000000,'1':160000000,'2':160000000,'3':160000000};delete room.WallpaperOffsetById['160000224'];}
+              const reopened=await openWorldSaveBytes(out.artifacts.edited.bytes,{sourcePlatform:'switch'});
+              assert.deepEqual(reopened.profile,expected);
+              assert.deepEqual(Array.from(out.artifacts.backup.bytes),Array.from(f.sourceBytes));
+              assert.equal(sha(out.artifacts.backup.bytes),originalSha);assert.equal(sha(f.sourceBytes),originalSha);
+              const dir=await mkdtemp(join(tmpdir(),'wand-qrw1391-'));
+              try{
+                await writeFile(join(dir,'edited.p1g'),out.artifacts.edited.bytes,{flag:'wx'});
+                await writeFile(join(dir,'expected.json'),JSON.stringify(expected),{flag:'wx'});
+                const script="import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';const [url,edited,expected]=process.argv.slice(1);const {openWorldSaveBytes}=await import(url);const r=await openWorldSaveBytes(new Uint8Array(await readFile(edited)),{sourcePlatform:'switch'});assert.deepEqual(r.profile,JSON.parse(await readFile(expected,'utf8')));";
+                const child=spawnSync(process.execPath,['--input-type=module','-e',script,new URL('../src/lib/wep/world-save-source.ts',import.meta.url).href,join(dir,'edited.p1g'),join(dir,'expected.json')],{encoding:'utf8'});
+                assert.equal(child.status,0,child.stderr);
+              }finally{await rm(dir,{recursive:true,force:true})}
+              pos++;console.log('QRW1391_POS_PASS',mode);
+            }
+            const changedProfile=structuredClone(f.opened);changedProfile.profile.World.OpaqueWorld.keep.future=false;
+            await deny('opened profile mismatched',()=>reviewRoomFinishVerifiedExportV125({...input(floor),opened:changedProfile}),/WEP_ROOM_FINISH_SOURCE_PROFILE_MISMATCH/);
+            const race=structuredClone(f.opened),rp=reviewRoomFinishVerifiedExportV125({...input(floor),opened:race});race.profile.World.OpaqueWorld.keep.future=false;
+            await deny('opened profile changes during review',()=>rp,stale);
+            const raceDraft=structuredClone(floor),dp=review(raceDraft);raceDraft.qaUnrelatedField=true;
+            await deny('draft shell changes during review',()=>dp,stale);
+            const foreign=profile();foreign.World.OpaqueWorld.keep.future=false;const foreignBytes=Uint8Array.from(makeSyntheticP1gProfile(foreign));
+            const fr=await review(floor);
+            await deny('wrong encrypted source',()=>commitRoomFinishVerifiedExportV125(args(fr,floor,{sourceBytes:foreignBytes})),source);
+            await deny('failed commit consumed receipt',()=>commitRoomFinishVerifiedExportV125(args(fr,floor)),stale);
+            const mr=await review(floor),mutated=f.sourceBytes.slice();const mp=commitRoomFinishVerifiedExportV125(args(mr,floor,{sourceBytes:mutated}));mutated[mutated.length-1]^=1;
+            await deny('source bytes mutate during commit',()=>mp,/WEP_ROOM_FINISH_SOURCE_MUTATED/);
+            await deny('mutated source failure consumed receipt',()=>commitRoomFinishVerifiedExportV125(args(mr,floor)),stale);
+            assert.equal(pos,3);assert.equal(neg,31);
+            console.log('QRW1391_ROOM_FINISH_ACTUAL_PASS',JSON.stringify({positive:pos,negative:neg,independentProcessReopen:true,exactFullDocument:true,backupShaUnchanged:true,writer:false}));
+          });
+          NODE
+      - name: Independent actual synthetic P1G one-time Room Finish
+        run: |
+          node --test --test-name-pattern='^QRW1391' tests/.qa-qrw-room-finish.mjs
+      - name: No tracked changes or private Save
+        run: |
+          git diff --exit-code HEAD
+          test -z "$(git ls-files '*.p1g')"
