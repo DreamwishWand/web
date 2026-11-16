@@ -85,6 +85,22 @@ impl WorkerSessionGuard {
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         self.session.stage_switch626_scoped_chest(e,selection,old,new,entry)
     }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn discover_switch626_catalog0(&self,e:WorkerEnvelope,offset:u32)
+        ->CoreResult<(Vec<crate::CoreExistingAmountTarget>,Option<u32>,u32)>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.discover_switch626_scoped_catalog0(e,offset)
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn preview_switch626_catalog0(&self,e:WorkerEnvelope,selection:crate::ExistingAmountSelection,new:u32)->CoreResult<crate::CoreExistingAmountTarget>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.preview_switch626_scoped_catalog0(e,selection,new)
+    }
+    #[cfg(feature="product-amount-scoped")]
+    pub(crate) fn stage_switch626_catalog0(&self,e:WorkerEnvelope,selection:crate::ExistingAmountSelection,old:u32,new:u32,entry:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.stage_switch626_scoped_catalog0(e,selection,old,new,entry)
+    }
     #[cfg(feature="product-collection-scoped")]
     pub(crate) fn preview_collection_candidate(&self,e:WorkerEnvelope,definition:u32,group:usize,item:u32)->CoreResult<serde_json::Value>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
