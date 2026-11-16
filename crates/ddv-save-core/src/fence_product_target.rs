@@ -122,6 +122,18 @@ mod tests{
  fn open(d:&Value)->ProductSession{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s}
  fn env(s:&ProductSession)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:WorkerAction::ReadDomain}}
  #[cfg(feature="product-switch626-fd01-scoped")]
+ #[test]fn switch626_fd01_worker_guard_boundary(){
+  let(d,x,y)=doc(false);let s=open(&d);let e=env(&s);let p=s.prepare_switch626_fd01_product(e,90001,x,y).unwrap();let t=&p.target;
+  let(next,root,grid,counter,houses,stock,entry,projected)=(t.next,t.root_sha,t.grid_sha,t.counter_sha,t.houses_sha,t.stock,t.stock_sha,p.projected);
+  let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+  assert_eq!(g.preview_switch626_fd01(e,90001,x,y).unwrap()["exactFieldChangedCount"],4);
+  let st=WorkerEnvelope{action:WorkerAction::Stage,..e};
+  assert!(g.stage_switch626_fd01(st,90001,x,y,next,root,grid,counter,houses,stock,entry,[0;32]).is_err());
+  let r=g.stage_switch626_fd01(st,90001,x,y,next,root,grid,counter,houses,stock,entry,projected).unwrap();assert_eq!(r.exact_field_changed_count,4);
+  assert!(g.stage_switch626_fd01(st,90001,x,y,next,root,grid,counter,houses,stock,entry,projected).is_err());
+  let out=WorkerEnvelope{expected_revision:r.revision,expected_index_generation:r.index_generation,action:WorkerAction::ExportEditedCopy,..st};assert_eq!(sha(&g.take_scoped_edit(out).unwrap()),projected);assert!(g.take_scoped_edit(out).is_err());
+ }
+ #[cfg(feature="product-switch626-fd01-scoped")]
  #[test]fn switch626_fd01_product_exact4_atomic_cas_lifecycle(){
   let(d,x,y)=doc(false);let s=open(&d);let e=env(&s);
   let p=s.prepare_switch626_fd01_product(e,90001,x,y).unwrap();let t=&p.target;let before=s.receipt().unwrap();
