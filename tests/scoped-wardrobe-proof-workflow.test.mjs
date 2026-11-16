@@ -226,7 +226,7 @@ const specs={
     ]
   }
 };
-const inputs=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_steam_backpack_proof_source","scoped_switch_backpack_proof_source","scoped_steam_wardrobe_proof_source","scoped_switch_wardrobe_proof_source"];
+const inputs=["scoped_collection_proof_source","scoped_switch_chest_proof_source","scoped_steam_chest_proof_source","scoped_steam_backpack_proof_source","scoped_switch_backpack_proof_source","scoped_steam_wardrobe_proof_source","scoped_switch_wardrobe_proof_source","scoped_comp03_proof_source","scoped_comp03_spatial_proof_source"];
 const block=n=>{const start=y.indexOf('  '+n+':\n');assert.ok(start>=0);const rest=y.slice(start+1),end=rest.search(/\n  [a-z0-9_]+:\n/);return end<0?rest:rest.slice(0,end)};
 for(const [job,s] of Object.entries(specs))test(s.key+' exact fixed proof-only job',()=>{
  const p=block(job),pins=[...p.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(m=>[m[1],m[2]]);

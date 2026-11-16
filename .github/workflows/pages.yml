@@ -40,6 +40,16 @@ on:
         type: string
         required: false
         default: ''
+      scoped_comp03_proof_source:
+        description: 'Exact accepted protected-main SHA for proof-only Steam626 COMP03 (exclusive with all other proof inputs)'
+        type: string
+        required: false
+        default: ''
+      scoped_comp03_spatial_proof_source:
+        description: 'Exact accepted protected-main SHA for proof-only Steam626 COMP03 spatial (exclusive with all other proof inputs)'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -53,7 +63,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name != 'workflow_dispatch' || (inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '')
+    if: github.event_name != 'workflow_dispatch' || (inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && inputs.scoped_comp03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '')
     runs-on: ubuntu-latest
     env:
       # Owner 2026-11-11 explicitly authorized only these 3 inert assets.
@@ -321,7 +331,7 @@ jobs:
   # Explicit protected proof-only dispatch. No normal Pages build/deploy, no
   # public scoped files, no generated anchor, no executable artifact upload.
   scoped_collection_proof:
-    if: github.event_name == 'workflow_dispatch' && inputs.scoped_collection_proof_source != '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_collection_proof_source != '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && inputs.scoped_comp03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WAND_SOURCE_HEAD: ${{ github.sha }}
@@ -426,7 +436,7 @@ jobs:
           if-no-files-found: error
 
   scoped_switch_chest_proof:
-    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && inputs.scoped_comp03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WAND_SOURCE_HEAD: ${{ github.sha }}
@@ -542,7 +552,7 @@ jobs:
           if-no-files-found: error
 
   scoped_steam_chest_proof:
-    if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_chest_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && inputs.scoped_comp03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WAND_SOURCE_HEAD: ${{ github.sha }}
@@ -660,7 +670,7 @@ jobs:
           if-no-files-found: error
 
   scoped_steam_backpack_proof:
-    if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_backpack_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_backpack_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && inputs.scoped_comp03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WAND_SOURCE_HEAD: ${{ github.sha }}
@@ -780,7 +790,7 @@ jobs:
           if-no-files-found: error
 
   scoped_switch_backpack_proof:
-    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_backpack_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_backpack_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && inputs.scoped_comp03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WAND_SOURCE_HEAD: ${{ github.sha }}
@@ -900,7 +910,7 @@ jobs:
           if-no-files-found: error
 
   scoped_steam_wardrobe_proof:
-    if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_wardrobe_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_steam_wardrobe_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && inputs.scoped_comp03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WAND_SOURCE_HEAD: ${{ github.sha }}
@@ -1020,7 +1030,7 @@ jobs:
           if-no-files-found: error
 
   scoped_switch_wardrobe_proof:
-    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_wardrobe_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_switch_wardrobe_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_comp03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WAND_SOURCE_HEAD: ${{ github.sha }}
@@ -1137,4 +1147,254 @@ jobs:
           path: |
             ${{ runner.temp }}/wand-switch626-wardrobe-proof/pins.json
             ${{ runner.temp }}/wand-switch626-wardrobe-proof/attestation-bundle.jsonl
+          if-no-files-found: error
+
+  scoped_comp03_proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_comp03_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_comp03_proof_source }}
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
+      WAND_RELEASE_BASE_PATH: /web
+      WAND_CANDIDATE_BASE_PATH: /web
+      WAND_SCOPED_CORE_DIR: ${{ github.workspace }}
+      CARGO_TARGET_DIR: /tmp/wand-scoped-steam626-comp03-proof-rust
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-steam626-comp03-proof-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected source in separate proof-only job
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact accepted source and immutable scoped proof inputs
+        run: |
+          set -euo pipefail
+          [[ "$WAND_PROOF_EXPECTED_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = f94a61d1e2223b16198ebaf710575b626d413c9f
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 5e0bcc0ed447eea1b020219fe8bafd32a4d49073
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = cddd6e98c8ef461349c96205140dc1f2a9d47a95
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)" = 8bf869bf71546c467194483955e256cbe104c312
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs)" = 3dbd5b6bd2268a3a42589364fa06ab09da84565b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = 7969122897ebc81bb249dda14d578038a9ffe9e2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)" = f3f12518965dde92617962b5505b8212f4e04980
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs)" = d5b167f35b10ecc5b16d40e84e9d9bb324288539
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-transport.mjs)" = 2be98e17bf3941ccf0a727b920d9dfb0ad3357b6
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 77502255e9bb2b28d048ec6aab6d4fd22859c60e
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = f6603e6afc1a01a5c748549eb2bd1c00f5d3d5f8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 09ef40c1b41f053052dd2b0a4a42dbc181f9b09f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = a3f44c61c1f5e12213844eae1077ca1884c431a9
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 1624ce84b68c0256015eb5c9ddf67b76d7b7d72a
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = fd2d3fde1bc0863f0303b91f7b3aa005547df18a
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-copy.mjs)" = 6ba8502e79a27e3d2860374b5e6d0bebde4ff383
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = c9b0f0ed818cec691a7735bccda8e10b908e0def
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 85d258ab428ad1eb72e2c7cf9d52f956f607b8cb
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = cbbb2839705b192b15505169787739b21b9190c5
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = d52e38c1140ed13b8fb10b5c70e09fb9af99439d
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/dev/comp03-product-route-port.mjs)" = 6f3c3fe4c01c1ed0bcc196f20af015929fe4ab6f
+          test "$(git rev-parse HEAD:src/lib/dev/product-comp03.worker.mjs)" = 6c6822b86bf0c2f676256121eeb6cf5a412e4f7e
+          test "$(git rev-parse HEAD:src/lib/dev/product-comp03-spatial.worker.mjs)" = 5f905509d1b1de216bf6e780da68d3c6358c1cab
+          test "$(git rev-parse HEAD:src/lib/wep/Comp03ReferencePattern.svelte)" = af6861ca808e7e44ab3e419c146a36090d63fb7f
+          test "$(git rev-parse HEAD:src/lib/wep/comp03-spatial-preview.ts)" = c147c8d84ad9f0b9ca240208bd3679418fe133a0
+          test "$(git rev-parse HEAD:src/routes/editor/world/comp03/+page.svelte)" = 90191a132481a5b38fc6554012b633f06d2f9d34
+          test -z "$(git ls-files static/worker-wasm-scoped-steam626-comp03)"
+          test ! -e static/worker-wasm-scoped-steam626-comp03
+          test ! -e build/worker-wasm-scoped-steam626-comp03
+      - name: Require exact successful protected-main CI before proof build
+        id: scoped_ci
+        run: node scripts/int-protected-ci-gate.mjs build
+      - name: Fixed approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify unchanged R22 approved inputs and generate scoped proof subjects
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-comp03-scoped,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-steam626-comp03-proof-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/scoped-placement-proof.mjs build steam626-comp03 "$GITHUB_SHA"
+          test "$(find tests/wasm-distribution/fixtures/scoped-steam626-comp03 -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-scoped-steam626-comp03
+          test ! -e build/worker-wasm-scoped-steam626-comp03
+      - name: Revalidate exact predecessor and live main immediately before signing
+        env:
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/int-protected-ci-gate.mjs deploy
+      - name: Attest only three scoped proof subjects with existing Pages issuer
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/scoped-steam626-comp03/ddv_save_core.js
+            tests/wasm-distribution/fixtures/scoped-steam626-comp03/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/scoped-steam626-comp03/manifest.json
+      - name: Verify exact signer and subject bytes; stage only bundle and pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SCOPED_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-steam626-comp03-proof"
+          node scripts/readonly-release/scoped-placement-proof.mjs verify-protected-candidate steam626-comp03 "$GITHUB_SHA" tests/wasm-distribution/fixtures/scoped-steam626-comp03 "$WAND_SCOPED_BUNDLE" > "$RUNNER_TEMP/wand-steam626-comp03-verified.txt"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const p=JSON.parse(fs.readFileSync("tests/wasm-distribution/fixtures/scoped-steam626-comp03-pins.json","utf8")); const prefix="SCOPED_PLACEMENT_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-steam626-comp03-verified.txt","utf8").trim().split("\n").filter(l=>l.startsWith(prefix)); assert.equal(lines.length,1); assert.deepEqual(JSON.parse(lines[0].slice(prefix.length)),p); assert.equal(p.sourceHead,process.env.GITHUB_SHA); fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-steam626-comp03-proof/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_SCOPED_BUNDLE" "$RUNNER_TEMP/wand-steam626-comp03-proof/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-steam626-comp03-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-scoped-steam626-comp03
+          test ! -e build/worker-wasm-scoped-steam626-comp03
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)"
+          node scripts/int-protected-ci-gate.mjs deploy
+      - name: Upload proof metadata only (never executable subjects)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoped-steam626-comp03-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-steam626-comp03-proof/pins.json
+            ${{ runner.temp }}/wand-steam626-comp03-proof/attestation-bundle.jsonl
+          if-no-files-found: error
+
+  scoped_comp03_spatial_proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_comp03_spatial_proof_source != '' && inputs.scoped_collection_proof_source == '' && inputs.scoped_switch_chest_proof_source == '' && inputs.scoped_steam_chest_proof_source == '' && inputs.scoped_steam_backpack_proof_source == '' && inputs.scoped_switch_backpack_proof_source == '' && inputs.scoped_steam_wardrobe_proof_source == '' && inputs.scoped_switch_wardrobe_proof_source == '' && inputs.scoped_comp03_proof_source == '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_comp03_spatial_proof_source }}
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_APPROVED_RELEASE_LOCK: '1'
+      WAND_RELEASE_BASE_PATH: /web
+      WAND_CANDIDATE_BASE_PATH: /web
+      WAND_SCOPED_CORE_DIR: ${{ github.workspace }}
+      CARGO_TARGET_DIR: /tmp/wand-scoped-steam626-comp03-spatial-proof-rust
+      WAND_BINDGEN_CLI: /tmp/wand-scoped-steam626-comp03-spatial-proof-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected source in separate proof-only job
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact accepted source and immutable scoped proof inputs
+        run: |
+          set -euo pipefail
+          [[ "$WAND_PROOF_EXPECTED_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = f94a61d1e2223b16198ebaf710575b626d413c9f
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 5e0bcc0ed447eea1b020219fe8bafd32a4d49073
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = cddd6e98c8ef461349c96205140dc1f2a9d47a95
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)" = 8bf869bf71546c467194483955e256cbe104c312
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs)" = 3dbd5b6bd2268a3a42589364fa06ab09da84565b
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = 7969122897ebc81bb249dda14d578038a9ffe9e2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)" = f3f12518965dde92617962b5505b8212f4e04980
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs)" = d5b167f35b10ecc5b16d40e84e9d9bb324288539
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-transport.mjs)" = 2be98e17bf3941ccf0a727b920d9dfb0ad3357b6
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 77502255e9bb2b28d048ec6aab6d4fd22859c60e
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = f6603e6afc1a01a5c748549eb2bd1c00f5d3d5f8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 09ef40c1b41f053052dd2b0a4a42dbc181f9b09f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = a3f44c61c1f5e12213844eae1077ca1884c431a9
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 1624ce84b68c0256015eb5c9ddf67b76d7b7d72a
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = fd2d3fde1bc0863f0303b91f7b3aa005547df18a
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-copy.mjs)" = 6ba8502e79a27e3d2860374b5e6d0bebde4ff383
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = c9b0f0ed818cec691a7735bccda8e10b908e0def
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 85d258ab428ad1eb72e2c7cf9d52f956f607b8cb
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = cbbb2839705b192b15505169787739b21b9190c5
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = d52e38c1140ed13b8fb10b5c70e09fb9af99439d
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-codec-reopen.worker.mjs)" = 955d95056d4c115b24b77db2ec2f31ef90992882
+          test "$(git rev-parse HEAD:src/lib/dev/comp03-product-route-port.mjs)" = 6f3c3fe4c01c1ed0bcc196f20af015929fe4ab6f
+          test "$(git rev-parse HEAD:src/lib/dev/product-comp03.worker.mjs)" = 6c6822b86bf0c2f676256121eeb6cf5a412e4f7e
+          test "$(git rev-parse HEAD:src/lib/dev/product-comp03-spatial.worker.mjs)" = 5f905509d1b1de216bf6e780da68d3c6358c1cab
+          test "$(git rev-parse HEAD:src/lib/wep/Comp03ReferencePattern.svelte)" = af6861ca808e7e44ab3e419c146a36090d63fb7f
+          test "$(git rev-parse HEAD:src/lib/wep/comp03-spatial-preview.ts)" = c147c8d84ad9f0b9ca240208bd3679418fe133a0
+          test "$(git rev-parse HEAD:src/routes/editor/world/comp03/+page.svelte)" = 90191a132481a5b38fc6554012b633f06d2f9d34
+          test -z "$(git ls-files static/worker-wasm-scoped-steam626-comp03-spatial)"
+          test ! -e static/worker-wasm-scoped-steam626-comp03-spatial
+          test ! -e build/worker-wasm-scoped-steam626-comp03-spatial
+      - name: Require exact successful protected-main CI before proof build
+        id: scoped_ci
+        run: node scripts/int-protected-ci-gate.mjs build
+      - name: Fixed approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify unchanged R22 approved inputs and generate scoped proof subjects
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-comp03-spatial-preview,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-scoped-steam626-comp03-spatial-proof-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/scoped-placement-proof.mjs build steam626-comp03-spatial "$GITHUB_SHA"
+          test "$(find tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-scoped-steam626-comp03-spatial
+          test ! -e build/worker-wasm-scoped-steam626-comp03-spatial
+      - name: Revalidate exact predecessor and live main immediately before signing
+        env:
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/int-protected-ci-gate.mjs deploy
+      - name: Attest only three scoped proof subjects with existing Pages issuer
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial/ddv_save_core.js
+            tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial/manifest.json
+      - name: Verify exact signer and subject bytes; stage only bundle and pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SCOPED_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-steam626-comp03-spatial-proof"
+          node scripts/readonly-release/scoped-placement-proof.mjs verify-protected-candidate steam626-comp03-spatial "$GITHUB_SHA" tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial "$WAND_SCOPED_BUNDLE" > "$RUNNER_TEMP/wand-steam626-comp03-spatial-verified.txt"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const p=JSON.parse(fs.readFileSync("tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial-pins.json","utf8")); const prefix="SCOPED_PLACEMENT_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-steam626-comp03-spatial-verified.txt","utf8").trim().split("\n").filter(l=>l.startsWith(prefix)); assert.equal(lines.length,1); assert.deepEqual(JSON.parse(lines[0].slice(prefix.length)),p); assert.equal(p.sourceHead,process.env.GITHUB_SHA); fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-steam626-comp03-spatial-proof/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_SCOPED_BUNDLE" "$RUNNER_TEMP/wand-steam626-comp03-spatial-proof/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-steam626-comp03-spatial-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-scoped-steam626-comp03-spatial
+          test ! -e build/worker-wasm-scoped-steam626-comp03-spatial
+          test -z "$(git diff --name-only HEAD -- src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs)"
+          node scripts/int-protected-ci-gate.mjs deploy
+      - name: Upload proof metadata only (never executable subjects)
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoped-steam626-comp03-spatial-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-steam626-comp03-spatial-proof/pins.json
+            ${{ runner.temp }}/wand-steam626-comp03-spatial-proof/attestation-bundle.jsonl
           if-no-files-found: error
