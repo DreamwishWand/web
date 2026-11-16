@@ -370,3 +370,7 @@ mod tests {
         assert_eq!(borrowed.receipt().unwrap_err().0, "SESSION_CLOSED");
     }
 }
+
+#[cfg(feature="product-switch626-fe01-scoped")]
+#[path="worker_switch626_fe01.rs"]
+mod switch626_fe01;
