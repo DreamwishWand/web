@@ -254,6 +254,36 @@ mod tests{
  build_id:if sw{BID.into()}else{EXACT_STEAM.into()},schema:626,externally_attested:true}).unwrap()}
  fn env(s:&ProductSession,action:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
  session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action}}
+
+ #[test]fn qa1782_switch_portable_build_delta(){
+  let mut d=doc();d["Unknown"]["escape"]=json!("keep");
+  let raw=serde_json::to_string(&d).unwrap().replace("\"escape\":\"keep\"","\"escape\":\"\\u006beep\"");
+  let entry=&d["Player"]["ListInventories"]["0"]["Inventory"]["40000076"];
+  let block=serde_json::to_string(entry).unwrap();assert_eq!(raw.matches(&block).count(),1);
+  let expected=raw.replacen(&block,&block.replacen("\"Amount\":999","\"Amount\":998",1),1);
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true};
+  let make=|raw:&str,b:crate::BuildIdentity|ProductSession::open_decoded_readonly(raw.as_bytes().to_vec(),b).unwrap();
+  let prior=make(&expected,build.clone());let ae=env(&prior,WorkerAction::ReadDomain);
+  let backup=prior.capture_switch626_catalog0_portable_backup(ae,ITEM).unwrap();
+  let v:Value=serde_json::from_slice(&backup).unwrap();assert_eq!(v["sourceBuild"],json!({"platform":"Switch","buildKind":"SwitchBid","buildId":"9A239D3DB569756D","gameVersion":"1.25.3","schema":626}));
+  assert_eq!(v["payload"]["amount"],998);assert_eq!(v["provenance"]["decodedSha256"],hex(&sha(expected.as_bytes())));
+  let reseal=|mut v:Value|{v.as_object_mut().unwrap().remove("sha256");let h=hex(&sha(&serde_json::to_vec(&v).unwrap()));v["sha256"]=json!(h);serde_json::to_vec(&v).unwrap()};
+  assert_eq!(reseal(v.clone()),backup);
+  let s=make(&raw,build.clone());let e=env(&s,WorkerAction::ReadDomain);let before=s.receipt().unwrap();
+  let p=s.preview_switch626_catalog0_portable_restore(e,ITEM,&backup).unwrap();assert_eq!(p.projected_sha,sha(expected.as_bytes()));
+  let mut neg=0;
+  for (field,bad) in [("platform",json!("SteamWindows")),("buildKind",json!("SteamFullVersion")),("buildId",json!("releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22")),("schema",json!(624)),("gameVersion",json!("1.25.2"))]{
+   let mut q=v.clone();q["sourceBuild"][field]=bad;assert!(s.preview_switch626_catalog0_portable_restore(e,ITEM,&reseal(q)).is_err(),"{field}");neg+=1;
+  }
+  let mut q=v.clone();q["sourceBuild"]["extra"]=json!(true);assert!(s.preview_switch626_catalog0_portable_restore(e,ITEM,&reseal(q)).is_err());neg+=1;
+  let mut q=v.clone();q["provenance"]["decodedSha256"]=json!("0".repeat(64));assert!(s.preview_switch626_catalog0_portable_restore(e,ITEM,&reseal(q)).is_err());neg+=1;
+  let mut q=v.clone();q["target"]["itemId"]=json!(40000077);assert!(s.preview_switch626_catalog0_portable_restore(e,ITEM,&reseal(q)).is_err());neg+=1;
+  assert_eq!(s.receipt().unwrap(),before);
+  let st=env(&s,WorkerAction::Stage);let r=s.stage_switch626_catalog0_portable_restore(st,ITEM,&backup,999,998,p.entry_sha,p.backup_sha,p.projected_sha).unwrap();assert_eq!(r.exact_field_changed_count,1);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+  let out=s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).unwrap();assert_eq!(out,expected.as_bytes());assert_eq!(s.decoded.as_ref(),raw.as_bytes());
+  let reopened=ProductSession::open_decoded_readonly(out,build).unwrap();assert_eq!(reopened.receipt().unwrap().decoded_sha256,prior.sha);
+  assert_eq!(neg,8);println!("QRC1782_SWITCH_PORTABLE_BUILD_ACTUAL 1POS {neg}NEG EXACT1 bytes={}",backup.len());
+ }
  #[test]fn switch626_catalog0_portable_restore_exact1_build_lineage(){
   use crate::portable_backup::{PortableBackupBuild,decode_inventory_amount_backup_for_build,encode_inventory_amount_backup_for_build,decode_inventory_amount_backup};
   let mut prior=doc();prior["Player"]["ListInventories"]["0"]["Inventory"]["40000076"]["Amount"]=json!(998);
