@@ -325,11 +325,16 @@ mod tests{
   deny!(other.stage_switch626_fixed_makeup_color1(env(&other,WorkerAction::Stage),&p));
   let steam=open(&d);
   deny!(steam.prepare_switch626_fixed_makeup_color1(env(&steam,WorkerAction::ReadDomain)));
-  let mut bad_bid=ProductSession::open_decoded_readonly(original.clone(),
+  let wrong_bid=ProductSession::open_decoded_readonly(original.clone(),
     BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
-      build_id:"0000000000000000".into(),schema:626,externally_attested:true}).unwrap();
-  bad_bid.worker_bound=true;
-  deny!(bad_bid.prepare_switch626_fixed_makeup_color1(env(&bad_bid,WorkerAction::ReadDomain)));
+      build_id:"0000000000000000".into(),schema:626,externally_attested:true});
+  match wrong_bid{
+   Err(err)=>{assert_eq!(err.0,"EXACT_BUILD_ID_MISMATCH");neg+=1;},
+   Ok(mut bad_bid)=>{
+    bad_bid.worker_bound=true;
+    deny!(bad_bid.prepare_switch626_fixed_makeup_color1(env(&bad_bid,WorkerAction::ReadDomain)));
+   }
+  }
   for i in 0..5{
    let mut bad=d.clone();
    match i{
