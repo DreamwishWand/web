@@ -53,3 +53,31 @@ mod tests{
         }
     }
 }
+/// Exact horizontal three-add descriptor (R01 layout only). No debit,
+/// placement authorization, Build, occupancy, or target identity proof.
+pub(super) fn exact_q3(next:u32,x:u32,y:u32)->Option<[Value;3]>{
+    if next==0||next.checked_add(3)?>i32::MAX as u32{return None;}
+    let x4=x.checked_add(4)?;let x8=x.checked_add(8)?;
+    if x8>i32::MAX as u32||y>i32::MAX as u32{return None;}
+    Some([object(next,x,y,false),object(next+1,x4,y,false),object(next+2,x8,y,false)])
+}
+#[cfg(test)]
+mod r01_tests{
+    use super::*;
+    #[test]
+    fn exact_q3_layout_only_descriptor_and_bounds(){
+        let rows=exact_q3(50,40,20).unwrap();
+        assert_eq!(rows,[
+            json!({"ID":50,"ItemID":40100068,"X":40,"Y":20,"Orientation":"GridOrientation_Down","State":null}),
+            json!({"ID":51,"ItemID":40100068,"X":44,"Y":20,"Orientation":"GridOrientation_Down","State":null}),
+            json!({"ID":52,"ItemID":40100068,"X":48,"Y":20,"Orientation":"GridOrientation_Down","State":null})
+        ]);
+        let max=i32::MAX as u32;
+        let edge=exact_q3(max-3,max-8,max).unwrap();
+        assert_eq!(edge[2]["ID"],json!(max-1));assert_eq!(edge[2]["X"],json!(max));
+        for (n,x,y) in [(0,40,20),(max-2,40,20),(u32::MAX,40,20),
+            (50,max-7,20),(50,40,max+1),(50,u32::MAX,20)]{
+            assert!(exact_q3(n,x,y).is_none());
+        }
+    }
+}

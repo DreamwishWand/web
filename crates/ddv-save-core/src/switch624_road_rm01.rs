@@ -364,6 +364,23 @@ fn r02_plan_parse(bytes:&[u8],contract:&str)->CoreResult<Value>{
     }
     Ok(v)
 }
+/// R01 internal lexical collector input: minted by the same-session target.
+/// No external plan, geometry authority, Stage, export or inventory grant.
+#[allow(dead_code)]
+#[derive(Clone,Copy)]
+pub(super) struct R01Q3Expected<'a>{
+    pub(super) source_sha:&'a str,pub(super) grid:u32,
+    pub(super) x:u32,pub(super) y:u32,pub(super) next:u32,pub(super) amount:u32,
+    pub(super) grid_sha:&'a str,pub(super) inventory_entry_sha:&'a str,
+}
+#[allow(dead_code)]
+pub(super) fn collect_r01_q3_current(s:&ProductSession,t:&R01Q3Expected<'_>)->CoreResult<Vec<Replacement>>{
+    let objects=road_mixed_shape::exact_q3(t.next,t.x,t.y).ok_or(denied("R01_COORD_BOUND"))?;
+    let p=json!({"contract":R01_626_CONTRACT,"sourceDecodedSha256":t.source_sha,
+        "gridId":t.grid,"expectedNextId":t.next,"expectedAmount":t.amount,
+        "gridSha256":t.grid_sha,"inventoryEntrySha256":t.inventory_entry_sha,"objects":objects});
+    road_add_collect(s,&p,true)
+}
 fn r02_collect(s:&ProductSession,p:&Value)->CoreResult<Vec<Replacement>>{
     road_add_collect(s,p,false)
 }
@@ -382,9 +399,7 @@ fn road_add_collect(s:&ProductSession,p:&Value,r01:bool)->CoreResult<Vec<Replace
     let x=uint(&plan[0]["X"])?;let y=uint(&plan[0]["Y"])?;
     let x4=x.checked_add(4).filter(|n|*n<=i32::MAX as u32).ok_or(denied("R02_COORD_BOUND"))?;
     let wanted=if r01{
-        let x8=x.checked_add(8).filter(|n|*n<=i32::MAX as u32).ok_or(denied("R01_COORD_BOUND"))?;
-        if y>i32::MAX as u32{return Err(denied("R01_COORD_BOUND"));}
-        vec![obj(next,x,y,false),obj(next+1,x4,y,false),obj(next+2,x8,y,false)]
+        road_mixed_shape::exact_q3(next,x,y).ok_or(denied("R01_COORD_BOUND"))?.to_vec()
     }else{
         let y4=y.checked_add(4).filter(|n|*n<=i32::MAX as u32).ok_or(denied("R02_COORD_BOUND"))?;
         vec![obj(next,x,y,true),obj(next+1,x4,y4,true),obj(next+2,x4,y,true),obj(next+3,x,y4,true)]
@@ -495,6 +510,32 @@ mod r02_tests{
     fn scope(s:&ProductSession,a:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();
         WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
         expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:a}}
+    #[test]
+    fn r01_current_collector_lexical_parity_and_cas(){
+        let (mut d,mut p)=fixture();d["GameInfo"]["Version"]=json!(626);
+        p["contract"]=json!(R01_626_CONTRACT);
+        p["objects"]=json!([obj(50,40,20,false),obj(51,44,20,false),obj(52,48,20,false)]);
+        bind(&d,&mut p);
+        let s=ProductSession::open_decoded_readonly(enc(&d).unwrap(),crate::BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),
+            schema:626,externally_attested:true}).unwrap();
+        let t=R01Q3Expected{source_sha:p["sourceDecodedSha256"].as_str().unwrap(),grid:9,x:40,y:20,
+            next:50,amount:30,grid_sha:p["gridSha256"].as_str().unwrap(),
+            inventory_entry_sha:p["inventoryEntrySha256"].as_str().unwrap()};
+        let native=road_add_collect(&s,&p,true).unwrap();
+        let current=collect_r01_q3_current(&s,&t).unwrap();
+        assert_eq!(current.len(),2);assert_eq!(native.len(),2);
+        for (a,b) in current.iter().zip(native.iter()){
+            assert_eq!((a.span.begin,a.span.end),(b.span.begin,b.span.end));
+            assert_eq!(a.old,b.old);assert_eq!(a.new,b.new);
+        }
+        for bad in [R01Q3Expected{source_sha:"bad",..t},R01Q3Expected{grid:0,..t},
+            R01Q3Expected{next:51,..t},R01Q3Expected{amount:29,..t},
+            R01Q3Expected{grid_sha:"bad",..t},R01Q3Expected{inventory_entry_sha:"bad",..t},
+            R01Q3Expected{x:u32::MAX,..t},R01Q3Expected{y:u32::MAX,..t}]{
+            assert!(collect_r01_q3_current(&s,&bad).is_err());
+        }
+    }
     #[test]
     fn r01_switch626_exact4_layout_inventory_unchanged(){
         let (old,mut p)=fixture();let mut d=old.clone();d["GameInfo"]["Version"]=json!(626);
