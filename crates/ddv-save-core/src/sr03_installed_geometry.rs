@@ -97,11 +97,36 @@ impl MeadowGeometry{
   let anchors=[(x,y),(x+4,y),(x+4,y+4),(x+8,y),(x+8,y+4)];
   let mut boxes=Vec::with_capacity(5);
   for (x,y) in anchors{for dx in 0..2{for dy in 0..2{if !self.floor4(x+dx,y+dy){return None}}}boxes.push(Rect(i64::from(x)-2,i64::from(y)-2,i64::from(x)+4,i64::from(y)+4));}
-  for(k,o)in objects{if !exact_fields(o,&["ID","ItemID","X","Y","Orientation","State"]){return None}let id=n(&o["ID"])?;if k!=&id.to_string()||id>=next{return None}if id==keep||id==moved{continue}
-   let dims=self.dimensions(n(&o["ItemID"])?,&common)?;let ox=i64::from(n(&o["X"])?);let oy=i64::from(n(&o["Y"])?);o["Orientation"].as_str()?;
+  self.clear_ambient(objects,next,&[keep,moved],&boxes,&common,&mut effective)?;
+  Some(LocalTarget{keep,moved,next,x,y})
+ }
+ /// Exact R01 horizontal three-add pose; no debit, no target/Stage authority.
+ /// Unlike mixed q5, NO existing object is exempted from the halo scan.
+ /// The caller binds the exact Switch626 provider and same-session references.
+ pub(crate) fn local_r01_with_buildings(&self,grid:&Value,x:u32,y:u32,houses:&Value,common:impl Fn(u32)->Option<(u32,u32)>,mut other:impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<u32>{
+  self.local_r01(grid,x,y,common,|o,dims|match n(&o["ItemID"])?{
+   20500005|20300115=>self.effective_building(o,houses),
+   _=>other(o,dims),
+  })
+ }
+ pub(crate) fn local_r01(&self,grid:&Value,x:u32,y:u32,common:impl Fn(u32)->Option<(u32,u32)>,mut effective:impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<u32>{
+  if n(&grid["ID"])?==0||grid["GridDataPath"]!=GRID||grid["GridDefaultLayoutPath"]!=""||n(&grid["TessellationFactor"])?!=2{return None}
+  let next=n(&grid["NextGridObjectID"])?;
+  if next==0||next.checked_add(3)?>i32::MAX as u32||x%4!=0||y%4!=0||x.checked_add(10)?>W||y.checked_add(2)?>H{return None}
+  let objects=grid["Objects"].as_object()?;
+  if objects.is_empty()||objects.len()>4096||objects.contains_key("0")||self.dimensions(ROAD,&common)?!=(2,2){return None}
+  let anchors=[(x,y),(x+4,y),(x+8,y)];
+  let mut boxes=Vec::with_capacity(3);
+  for (x,y) in anchors{for dx in 0..2{for dy in 0..2{if !self.floor4(x+dx,y+dy){return None}}}boxes.push(Rect(i64::from(x)-2,i64::from(y)-2,i64::from(x)+4,i64::from(y)+4));}
+  self.clear_ambient(objects,next,&[],&boxes,&common,&mut effective)?;
+  Some(next)
+ }
+ fn clear_ambient(&self,objects:&serde_json::Map<String,Value>,next:u32,exclude:&[u32],boxes:&[Rect],common:&impl Fn(u32)->Option<(u32,u32)>,effective:&mut impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<()>{
+  for(k,o)in objects{if !exact_fields(o,&["ID","ItemID","X","Y","Orientation","State"]){return None}let id=n(&o["ID"])?;if k!=&id.to_string()||id>=next{return None}if exclude.contains(&id){continue}
+   let dims=self.dimensions(n(&o["ItemID"])?,common)?;let ox=i64::from(n(&o["X"])?);let oy=i64::from(n(&o["Y"])?);o["Orientation"].as_str()?;
    let rect=effective(o,dims)?;if !rect.valid()||ox<rect.0||ox>=rect.2||oy<rect.1||oy>=rect.3||boxes.iter().any(|b|b.intersects(rect)){return None}
   }
-  Some(LocalTarget{keep,moved,next,x,y})
+  Some(())
  }
 }
 fn scaled(w:u32,h:u32,t:u32)->Option<(u32,u32)>{if ![1,2].contains(&t)||w==0||h==0{return None}let a=w.checked_mul(2)?;let b=h.checked_mul(2)?;if a%t!=0||b%t!=0{return None}Some((a/t,b/t))}
@@ -146,4 +171,27 @@ mod tests{
  #[test]fn installed_delta_and_exact_local_scope(){let p=MeadowGeometry::fixed(BUILD,626).unwrap();assert!(MeadowGeometry::fixed("foreign",626).is_none());assert!(MeadowGeometry::fixed(BUILD,624).is_none());assert_eq!(p.dimensions(ROAD,common),Some((2,2)));assert!(p.dimensions(ROAD,|_|None).is_none());assert!(p.dimensions(0,common).is_none());assert_eq!((0..196).flat_map(|x|(0..100).map(move|y|(x,y))).filter(|&(x,y)|p.floor4(x*2,y*2)).count(),13208);assert!(!p.floor4(W,0));assert!(!p.floor4(0,H));let d=fixture(&p);assert!(p.local_candidate(&d,10,11,common,|_,_|None).is_some());
  for (k,v) in [("ID",json!(0)),("GridDataPath",json!("bad")),("GridDefaultLayoutPath",json!("overlay")),("TessellationFactor",json!(1)),("NextGridObjectID",json!(11))]{let mut q=d.clone();q[k]=v;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none())}for(k,v)in[("X",json!(1)),("State",json!({})),("Orientation",json!("GridOrientation_Up")),("ItemID",json!(40000066)),("ID",json!(12))]{let mut q=d.clone();q["Objects"]["10"][k]=v;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none())}
  let mut q=d.clone();let mut o=q["Objects"]["10"].clone();o["ID"]=json!(12);q["Objects"]["12"]=o;assert!(p.local_candidate(&q,10,11,common,|_,_|None).is_none());let x=n(&q["Objects"]["10"]["X"]).unwrap() as i64;let y=n(&q["Objects"]["10"]["Y"]).unwrap() as i64;assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(x,y,x+2,y+2))).is_none());assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(x-4,y,x-2,y+2))).is_none());let far_x=x+12; q["Objects"]["12"]["X"]=json!(far_x);assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(far_x,y,far_x+2,y+2))).is_some());q["Objects"]["12"]["X"]=json!(far_x-1);assert!(p.local_candidate(&q,10,11,common,|_,_|Some(Rect(far_x-1,y,far_x+1,y+2))).is_none());}
+}
+
+#[cfg(test)]
+mod r01_local_tests {
+ use super::*;use serde_json::json;
+ #[test]fn exact_r01_no_existing_seed_exemption(){
+  let p=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();
+  let common=|id|if id==ROAD{Some((2,2))}else{None};
+  let(x,y)=(0..W-10).step_by(4).flat_map(|x|(0..H-2).step_by(4).map(move|y|(x,y)))
+   .find(|&(x,y)|[(x,y),(x+4,y),(x+8,y)].iter().all(|&(a,b)|(0..2).all(|i|(0..2).all(|j|p.floor4(a+i,b+j))))).unwrap();
+  let fx=if x<190{388}else{0};let fy=if y<100{196}else{0};
+  let mut g=json!({"ID":42,"GridDataPath":GRID,"GridDefaultLayoutPath":"","TessellationFactor":2,"NextGridObjectID":50,"Objects":{"12":{"ID":12,"ItemID":ROAD,"X":fx,"Y":fy,"Orientation":"GridOrientation_Down","State":null}}});
+  let effective=|o:&Value,_|{let a=i64::from(n(&o["X"])?);let b=i64::from(n(&o["Y"])?);Some(Rect(a,b,a+2,b+2))};
+  assert_eq!(p.local_r01(&g,x,y,common,effective),Some(50));
+  for (a,b) in [(x,y),(x+4,y),(x+8,y),(x+10,y),(x,y+2)]{
+   g["Objects"]["12"]["X"]=json!(a);g["Objects"]["12"]["Y"]=json!(b);
+   assert!(p.local_r01(&g,x,y,common,effective).is_none());
+  }
+  g["Objects"]["12"]["X"]=json!(fx);g["Objects"]["12"]["Y"]=json!(fy);
+  assert!(p.local_r01(&g,x+1,y,common,effective).is_none());
+  assert!(p.local_r01(&g,x,y,common,|_,_|None).is_none());
+  for (k,v) in [("NextGridObjectID",json!(i32::MAX)),("GridDefaultLayoutPath",json!("foreign")),("TessellationFactor",json!(1))]{let mut q=g.clone();q[k]=v;assert!(p.local_r01(&q,x,y,common,effective).is_none());}
+ }
 }
