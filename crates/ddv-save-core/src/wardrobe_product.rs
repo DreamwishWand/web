@@ -94,7 +94,14 @@ fn walk(b:&[u8],s:Span,p:&mut Vec<Seg>,nodes:&mut usize)->CoreResult<()>{
             p.push(Seg::E);walk(b,Span{begin:pos,end},p,nodes)?;p.pop();
             pos=indexed_read::skip_ws(b,end);if pos==s.end-1{break}need(b.get(pos)==Some(&b','),"WARDROBE_PRODUCT_REF_ARRAY")?;pos=indexed_read::skip_ws(b,pos+1);
         }},
-        Some(_)=>{let raw=&b[s.begin..s.end];if raw==b"50000352"||raw==b"50000214"||raw==b"\"50000352\""||raw==b"\"50000214\""{
+        Some(_)=>{let raw=&b[s.begin..s.end];
+            // E2545: classify decoded string values, not just raw spellings.
+            // Canonical integer old ID is still the only allowed active value.
+            let selected_string=if raw.first()==Some(&b'"'){
+                let decoded:String=serde_json::from_slice(raw).map_err(|_|denied("WARDROBE_PRODUCT_REF_STRING"))?;
+                chosen(&decoded)
+            }else{false};
+            if raw==b"50000352"||raw==b"50000214"||selected_string{
             need(p.len()==4&&k(p,0,"Player")&&k(p,1,"MaleAvatar")&&k(p,2,"Clothes")&&k(p,3,"0")&&raw==b"50000352","WARDROBE_PRODUCT_UNKNOWN_ITEM_REF")?;
         }},None=>return Err(denied("WARDROBE_PRODUCT_REF_SPAN")),
     }Ok(())
@@ -146,6 +153,21 @@ fn doc()->Value{json!({"GameInfo":{"Version":626},"ConditionalEventHistory":{"Ac
  "CollectionSets":[{"CollectionDefinitionID":2120000001,"GroupData":[{"GroupsCollectionItems":{"50000352":true,"50000214":true}}]}]}})}
 fn open(d:&Value,switch:bool)->ProductSession{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),BuildIdentity{platform:if switch{Platform::Switch}else{Platform::SteamWindows},build_kind:if switch{BuildKind::SwitchBid}else{BuildKind::SteamFullVersion},build_id:(if switch{BID}else{EXACT_STEAM}).into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s}
 fn env(s:&ProductSession,action:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action}}
+#[test]fn wardrobe_decoded_string_selected_aliases(){
+    for raw in [r#""\u00350000352""#,r#""\u00350000214""#,r#""50000\u003352""#,r#""50000214""#,r#""50000352""#]{
+        let text=format!(r#"{{"World":{{"Unknown":{raw}}}}}"#);
+        let b=text.as_bytes();assert!(walk(b,Span{begin:0,end:b.len()},&mut Vec::new(),&mut 0).is_err());
+    }
+    let raw=br#"{"World":{"Unknown":"\u00350000000"}}"#;assert!(walk(raw,Span{begin:0,end:raw.len()},&mut Vec::new(),&mut 0).is_ok());
+    for sw in [false,true]{
+        let d=doc();let raw=serde_json::to_string(&d).unwrap();
+        for alias in [r#""\u00350000352""#,r#""\u00350000214""#,r#""50000\u003352""#]{
+            let text=raw.replace(r#""keep":1"#,&format!(r#""keep":{alias}"#));assert_ne!(text,raw);
+            let mut session=ProductSession::open_decoded_readonly(text.into_bytes(),BuildIdentity{platform:if sw{Platform::Switch}else{Platform::SteamWindows},build_kind:if sw{BuildKind::SwitchBid}else{BuildKind::SteamFullVersion},build_id:(if sw{BID}else{EXACT_STEAM}).into(),schema:626,externally_attested:true}).unwrap();session.worker_bound=true;
+            assert!(session.preview_product_wardrobe(env(&session,WorkerAction::ReadDomain),sw).is_err());
+        }
+    }
+}
 #[test]fn product_wardrobe_exact1_both_builds(){
  for sw in [false,true]{let d=doc();let s=open(&d,sw);let e=env(&s,WorkerAction::ReadDomain);let t=s.bind_wardrobe(e,sw).unwrap();assert!(s.preview_product_wardrobe(e,!sw).is_err());
  let st=env(&s,WorkerAction::Stage);assert!(s.stage_product_wardrobe(st,OLD,NEW,[0;32],t.out,sw).is_err());assert!(s.stage_product_wardrobe(st,NEW,OLD,t.witness,t.out,sw).is_err());assert!(open(&d,sw).stage_product_wardrobe(st,OLD,NEW,t.witness,t.out,sw).is_err());
