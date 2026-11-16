@@ -42,6 +42,7 @@ async function* decodedUtf8Chunks(text){
 }
 export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null,readDurableOriginalBackup=null}={}){
   const amountEnabled=allowScopedAmountSource===true||allowSwitch626ChestSource===true||allowSteam626ChestSource===true||allowSwitch626Catalog0Source===true;
+  const frp=placementScope==='frp01';
   const placementEnabled=placementScope!==null,backpackEnabled=backpackScope!==null,wardrobeEnabled=wardrobeScope!==null,appearanceEnabled=appearanceScope!==null;
   const scopedEnabled=amountEnabled||allowScopedCollectionSource===true||placementEnabled||backpackEnabled||wardrobeEnabled||appearanceEnabled;
   // Constructor itself enforces Worker-only (document must be absent).
@@ -69,13 +70,13 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
        fail('P1G_WORKER_INPUT_DENIED');
     const {build,encryptedBytes}=args;
     // This is an EXTERNAL candidate claim, never inferred from P1G schema.
-    if(!build||build.externallyConfirmed!==true||build.schema!==626)
+    if(!build||build.externallyConfirmed!==true||build.schema!==(frp?624:626))
       fail('P1G_WORKER_EXTERNAL_BUILD_REQUIRED');
     const isolated=new Uint8Array(encryptedBytes);
     try{
       const decoded=await p1gPackagedProfileCodec.loadProfile(isolated);
       if(token!==epoch)fail('P1G_WORKER_OPEN_REVOKED');
-      if(decoded.metadata?.profileVersion!==626)
+      if(decoded.metadata?.profileVersion!==(frp?624:626))
         fail('P1G_WORKER_PROFILE_SCHEMA_MISMATCH');
       // Only the existing Rust owner creates/mints the authoritative
       // ProductSession and performs strict whole-document validation.
@@ -83,7 +84,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
         build,decodedChunks:decodedUtf8Chunks(decoded.jsonText)
       });
       if(token!==epoch)fail('P1G_WORKER_OPEN_REVOKED');
-      if(receipt.schema!==626||
+      if(receipt.schema!==(frp?624:626)||
          receipt.fullDocumentJsonValidated!==true||
          receipt.allDomainReferencesVerified!==false||
          receipt.productReadAccepted!==false||
@@ -117,7 +118,7 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmount
     if(collectionCloseUnverified)fail('P1G_WORKER_COLLECTION_CLOSE_UNVERIFIED');
     close();const token=epoch;
     if(!scopedEnabled||!exact(args,'file,build,originalSha256')||
-       !(args.file instanceof File)||!(appearanceEnabled?args.build?.platform==='steam-windows':wardrobeEnabled?args.build?.platform===(wardrobeScope==='switch'?'switch':'steam-windows'):backpackEnabled?args.build?.platform===(backpackScope==='switch'?'switch':'steam-windows'):(allowSwitch626ChestSource===true||allowSwitch626Catalog0Source===true||placementScope==='rm01')?args.build?.platform==='switch':(args.build?.platform==='steam-windows'||(allowScopedCollectionSource===true&&args.build?.platform==='switch')))||
+       !(args.file instanceof File)||!(appearanceEnabled?args.build?.platform==='steam-windows':wardrobeEnabled?args.build?.platform===(wardrobeScope==='switch'?'switch':'steam-windows'):backpackEnabled?args.build?.platform===(backpackScope==='switch'?'switch':'steam-windows'):(allowSwitch626ChestSource===true||allowSwitch626Catalog0Source===true||(placementScope==='rm01'||frp))?args.build?.platform==='switch':(args.build?.platform==='steam-windows'||(allowScopedCollectionSource===true&&args.build?.platform==='switch')))||
        typeof args.originalSha256!=='string'||!(/^[0-9a-f]{64}$/).test(args.originalSha256))
       fail('P1G_WORKER_SCOPED_INPUT_DENIED');
     const {file,build,originalSha256}=args;
