@@ -617,6 +617,9 @@ fn eligible_bound(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32,binding:
 #[path="product_switch626_chest.rs"]
 mod product_switch626_chest;
 
+#[path="catalog0_portable_restore.rs"]
+mod catalog0_portable_restore;
+
 const DISCOVERY_SCAN_PAGE:usize=16;
 const DISCOVERY_MAX_CANDIDATES:usize=4096;
 fn discovery_selections(b:&[u8],player:Span,profile:&str)->CoreResult<Vec<ExistingAmountSelection>>{
@@ -731,6 +734,59 @@ mod tests{
         s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
         s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();let e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(e).unwrap();assert!(s.take_typed_semantic_decoded_once(e).is_err());
         let mut wanted=d;wanted["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);assert_eq!(out,serde_json::to_vec(&wanted).unwrap());
+    }
+    #[test]fn catalog0_portable_backup_exact_lineage_decrease(){
+        use crate::portable_backup::{decode_inventory_amount_backup,encode_inventory_amount_backup};
+        let mut prior=doc();prior["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);
+        let a=open(&prior);let ae=scope(&a,WorkerAction::ReadDomain);
+        let backup=a.capture_product_catalog0_portable_backup(ae,40000048).unwrap();
+        let decoded=decode_inventory_amount_backup(&backup).unwrap();
+        assert_eq!(decoded.amount,2);assert_eq!(decoded.source_decoded_sha256,hex(&a.sha));
+        assert_eq!(backup,a.capture_inventory_amount_backup(ae,0,40000048).unwrap());
+        let d=doc();let s=open(&d);let e=scope(&s,WorkerAction::ReadDomain);let before=s.receipt().unwrap();
+        let p=s.preview_product_catalog0_portable_restore(e,40000048,&backup).unwrap();
+        assert_eq!((p.old_amount,p.new_amount),(3,2));assert_eq!(p.projected_sha,a.sha);
+        assert_eq!(p.backup_sha,sha(&backup));assert_eq!(s.receipt().unwrap(),before);
+        let st=scope(&s,WorkerAction::Stage);
+        let run=|s:&ProductSession,e,b:&[u8],old,new,entry,bs,out|s.stage_product_catalog0_portable_restore(e,40000048,b,old,new,entry,bs,out);
+        assert!(run(&s,e,&backup,3,2,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        assert!(run(&s,st,&backup,4,2,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        assert!(run(&s,st,&backup,3,1,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        assert!(run(&s,st,&backup,3,2,[0;32],p.backup_sha,p.projected_sha).is_err());
+        assert!(run(&s,st,&backup,3,2,p.entry_sha,[0;32],p.projected_sha).is_err());
+        assert!(run(&s,st,&backup,3,2,p.entry_sha,p.backup_sha,[0;32]).is_err());
+        assert!(run(&open(&d),st,&backup,3,2,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        assert!(s.preview_product_catalog0_portable_restore(e,40000053,&backup).is_err());
+        let mut tamper=backup.clone();tamper.push(b' ');assert!(s.preview_product_catalog0_portable_restore(e,40000048,&tamper).is_err());
+        let mut v=decoded.payload.clone();v["entrySha256"]=json!("0".repeat(64));
+        let bad_entry=encode_inventory_amount_backup(0,40000048,&decoded.source_decoded_sha256,&serde_json::to_vec(&v).unwrap()).unwrap();
+        assert!(s.preview_product_catalog0_portable_restore(e,40000048,&bad_entry).is_err());
+        let foreign=encode_inventory_amount_backup(0,40000048,&"0".repeat(64),&serde_json::to_vec(&decoded.payload).unwrap()).unwrap();
+        assert!(s.preview_product_catalog0_portable_restore(e,40000048,&foreign).is_err());
+        let mut unrelated=prior.clone();unrelated["Unknown"]["x"]=json!(9);
+        let other=open(&unrelated);let other_backup=other.capture_product_catalog0_portable_backup(scope(&other,WorkerAction::ReadDomain),40000048).unwrap();
+        assert!(s.preview_product_catalog0_portable_restore(e,40000048,&other_backup).is_err());
+        let current_backup=s.capture_product_catalog0_portable_backup(e,40000048).unwrap();
+        assert!(s.preview_product_catalog0_portable_restore(e,40000048,&current_backup).is_err());
+        assert!(a.preview_product_catalog0_portable_restore(ae,40000048,&current_backup).is_err());
+        let mut blocked=d.clone();blocked["World"]["GridCollection"]["Grids"]["7"]=json!({"ID":7,"Objects":{"1":{"ItemID":40000048}}});
+        let blocked=open(&blocked);assert!(blocked.preview_product_catalog0_portable_restore(scope(&blocked,WorkerAction::ReadDomain),40000048,&backup).is_err());
+        assert_eq!(s.receipt().unwrap(),before);
+        let r=run(&s,st,&backup,3,2,p.entry_sha,p.backup_sha,p.projected_sha).unwrap();
+        assert_eq!(r.exact_field_changed_count,1);assert_eq!(r.staged_decoded_sha256,a.sha);assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+        assert!(run(&s,st,&backup,3,2,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        assert!(s.capture_product_catalog0_portable_backup(scope(&s,WorkerAction::ReadDomain),40000048).is_err());
+        s.undo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();assert!(s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).is_err());
+        s.redo_typed_semantic_batch(scope(&s,WorkerAction::Stage)).unwrap();
+        let out_e=scope(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(out_e).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(out_e).is_err());
+        assert_eq!(out,serde_json::to_vec(&prior).unwrap());assert_eq!(sha(&s.decoded),before.decoded_sha256);
+        let reopened=ProductSession::open_decoded_readonly(out,crate::BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap();
+        assert_eq!(reopened.receipt().unwrap().decoded_sha256,a.sha);
+        let mut one=prior.clone();one["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(1);
+        let one=open(&one);let one_backup=one.capture_product_catalog0_portable_backup(scope(&one,WorkerAction::ReadDomain),40000048).unwrap();
+        assert_eq!(decode_inventory_amount_backup(&one_backup).unwrap().amount,1);
+        assert_eq!(a.preview_product_catalog0_portable_restore(ae,40000048,&one_backup).unwrap().projected_sha,one.sha);
     }
     fn chest_doc()->Value{
         let mut d=doc();let p=&mut d["Player"];
