@@ -413,3 +413,20 @@ test('Room Finish fails closed for unowned candidate, wrong subtype and a second
     scope:WALLPAPER_SCOPE.ALL_WALLS
   }),/WEP_ROOM_FINISH_PENDING_REVIEW_REQUIRED/);
 });
+
+test('Room Finish one issued Review permits exactly one encrypted export, including overlapping calls',async()=>{
+  const f=await fixture();
+  const draftDocument=applyRoomFinishDraftMutationV125(f.document,compileRoomFinishFlooringDraftV125({document:f.document,profile:f.opened.profile,pack:f.pack,itemId:160100001}));
+  const review=await reviewRoomFinishVerifiedExportV125({sourceBytes:f.sourceBytes,sourceName:'profile',sourceEpoch:9,opened:f.opened,draftDocument,exactBuildConfirmed:true});
+  const commit=()=>commitRoomFinishVerifiedExportV125({review,currentSourceEpoch:9,sourceBytes:f.sourceBytes,draftDocument});
+  const results=await Promise.allSettled([commit(),commit()]);
+  const fulfilled=results.filter(x=>x.status==='fulfilled');
+  assert.equal(fulfilled.length,1,'one issued Room Finish Review must not yield two encrypted exports');
+  assert.match(String(results.find(x=>x.status==='rejected')?.reason?.code??''),/WEP_ROOM_FINISH_REVIEW_STALE/);
+  const actual=await openWorldSaveBytes(fulfilled[0].value.artifacts.edited.bytes,{sourcePlatform:'switch'});
+  const expected=structuredClone(f.opened.profile);
+  expected.World.PlayerHouses[0].Floors[0].Rooms['0'].Flooring=160100001;
+  assert.deepEqual(actual.profile,expected);
+  assert.deepEqual(Array.from(fulfilled[0].value.artifacts.backup.bytes),Array.from(f.sourceBytes));
+  await assert.rejects(commit,/WEP_ROOM_FINISH_REVIEW_STALE/);
+});
