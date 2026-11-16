@@ -165,3 +165,32 @@ test('storage MOVE cannot export into actual occupied destination by omitting ex
   assert.equal(reopened.profile.World.GridCollection.Grids['3'].Objects['42'].X,destination);
   assert.fail('unsafe storage MOVE exported overlapping destination');
 });
+
+test('storage MOVE canonical legal destination exports exact X only, preserves inventory, rejects stale and repeated review',async()=>{
+  const {f}=await actualStorageFixture();
+  const mover=f.draftDocument.objects.find(o=>o.itemId===ITEM);
+  // Choose an independently validated adjacent destination not occupied by
+  // the fixture's second object. Its full baseline remains present.
+  mover.x=453;
+  const valid=f.placementBinding.classifyMinimumTransformPlacement({document:f.draftDocument,editorId:mover.editorId});
+  // If the fixture's farther occupant intersects this footprint, move left.
+  if(!valid.result.valid) mover.x=451;
+  assert.equal(f.placementBinding.classifyMinimumTransformPlacement({document:f.draftDocument,editorId:mover.editorId}).result.valid,true);
+  const stale=structuredClone(f.opened);stale.profile.Player.Opaque={changed:true};
+  await assert.rejects(()=>reviewStorageSameGridMoveVerifiedExportV125({...f,opened:stale}),/WEP_STORAGE_SOURCE_PROFILE_MISMATCH/);
+  const review=await reviewStorageSameGridMoveVerifiedExportV125(f);
+  const commit=review=>commitStorageFurnitureVerifiedExportV125({...f,review,currentSourceEpoch:1});
+  await assert.rejects(()=>commit(structuredClone(review)),/WEP_STORAGE_REVIEW_STALE/);
+  const altered=await reviewStorageSameGridMoveVerifiedExportV125(f);
+  altered.change.afterObject.x+=1;
+  await assert.rejects(()=>commit(altered),/WEP_STORAGE_REVIEW_STALE/);
+  const pending=commit(review);
+  await assert.rejects(()=>commit(review),/WEP_STORAGE_REVIEW_STALE/);
+  const result=await pending;
+  const actual=await openWorldSaveBytes(result.artifacts.edited.bytes,{sourcePlatform:'switch'});
+  const expected=structuredClone(f.opened.profile);
+  expected.World.GridCollection.Grids['3'].Objects['42'].X=mover.x;
+  assert.deepEqual(actual.profile,expected);
+  assert.deepEqual(Array.from(result.artifacts.backup.bytes),Array.from(f.sourceBytes));
+  await assert.rejects(()=>commit(review),/WEP_STORAGE_REVIEW_STALE/);
+});
