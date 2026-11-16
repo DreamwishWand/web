@@ -275,4 +275,101 @@ mod tests{
         }
         let mut t=open(&d);t.worker_bound=false;assert!(t.mint_comp03_physical_target(env(&t),500).is_err());
     }
+
+    #[test]
+    fn qa_comp03_physical_target_typed_identity_closure(){
+        let (gid,sid,seed)=(7654321u32,7654322u32,73u32);
+        let mut d=doc(gid,sid,seed);
+        let g=gid.to_string();let sg=sid.to_string();
+        // Numeric ObjectID is local to its Grid; a different grid's equal
+        // ObjectID is not a direct root/SubGrid alias.
+        d["World"]["GridCollection"]["Grids"][&sg]["Objects"][seed.to_string()]=json!({"ID":seed,"ItemID":ROAD,"X":200,"Y":200,"Orientation":"GridOrientation_Down","State":null});
+        d["World"]["Unrelated"]=json!({"GridIDs":[999999],"SubGrid":{"GridID":999999}});
+        let old_stock=serde_json::to_string(&d["Player"]["ListInventories"]["0"]["Inventory"]["40100038"]).unwrap();
+        let lexical_stock=old_stock.replace(":",": ");
+        let raw=serde_json::to_string(&d).unwrap().replace(&old_stock,&lexical_stock).into_bytes();
+        let mut s=ProductSession::open_decoded_readonly(raw.clone(),crate::BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap();
+        s.worker_bound=true;let e=env(&s);let before=s.receipt().unwrap();
+        let t=s.mint_comp03_physical_target(e,seed).unwrap();
+        let hash_value=|v:&Value|sha(&serde_json::to_vec(v).unwrap());
+        let target=&d["World"]["GridCollection"]["Grids"][&g];
+        assert_eq!((t.grid,t.sibling,t.seed,t.stock),(gid,sid,seed,99));
+        assert_eq!(t.scope,e);assert_eq!(t.grid_sha,hash_value(target));
+        assert_eq!(t.root_sha,hash_value(&d["World"]["FloatingIslands"]["1540000150"]));
+        assert_eq!(t.sibling_root_sha,hash_value(&d["World"]["FloatingIslands"]["1540000153"]));
+        assert_eq!(t.seed_sha,hash_value(&target["Objects"][seed.to_string()]));
+        assert_eq!(t.well_sha,hash_value(&target["Objects"]["0"]));
+        assert_eq!(t.sibling_well_sha,hash_value(&d["World"]["GridCollection"]["Grids"][&sg]["Objects"]["0"]));
+        assert_eq!(t.stock_sha,sha(lexical_stock.as_bytes()));
+        assert_eq!(s.receipt().unwrap(),before);assert_eq!(s.decoded.as_ref(),raw.as_slice());
+        let mut failures=Vec::new();let mut neg=0;
+        let mut check=|name:&str,q:Value|{
+            let x=open(&q);let b=x.receipt().unwrap();
+            if x.mint_comp03_physical_target(env(&x),seed).is_ok(){failures.push(name.to_string());}
+            assert_eq!(x.receipt().unwrap(),b);neg+=1;
+        };
+        // A map key does not make a contradictory stored ID unambiguous.
+        // Selected/sibling aliases under a foreign map key must fail closed.
+        for id in [gid,sid]{
+            let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"]["999999"]=json!({"ID":id,"ModifiedObjects":{}});
+            check(if id==gid{"diff_key_id_target_alias"}else{"diff_key_id_sibling_alias"},q);
+            let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["999999"]=json!({"ID":id,"Objects":{}});
+            check(if id==gid{"plain_key_id_target_alias"}else{"plain_key_id_sibling_alias"},q);
+        }
+        for scene in [1540000150u32,1540000153]{
+            let mut q=d.clone();q["World"]["FloatingIslands"]["1540000999"]=json!({"SceneItemId":scene,"Unlocked":true,"GridIDs":[999999],"CustomLocationPositionsPath":"other"});
+            check(if scene==1540000150{"duplicate_scene_target_identity"}else{"duplicate_scene_sibling_identity"},q);
+        }
+        for (name,extra) in [("nested_direct_root_alias",json!({"Nested":[{"GridIDs":[gid]}]})),
+            ("nested_subgrid_alias",json!({"Nested":[{"SubGrid":{"GridID":sid}}]})),
+            ("malformed_alias_type",json!({"GridIDs":[gid.to_string()]})),
+            ("malformed_subgrid_type",json!({"SubGrid":{"GridID":sid.to_string()}}))]{
+            let mut q=d.clone();q["World"]["Extra"]=extra;check(name,q);
+        }
+        let mut q=d.clone();q["World"]["GridCollection"]["DiffGrids"][&sg]=json!({"ID":sid});check("sibling_overlay",q);
+        let mut q=d.clone();q["World"]["GridCollection"]["Grids"][&sg]["ID"]=json!(gid);check("sibling_key_id_mismatch",q);
+        let mut q=d.clone();q["World"]["GridCollection"]["Grids"][&sg]["GridDefaultLayoutPath"]=json!("layout");check("sibling_default",q);
+        let mut q=d.clone();q["World"]["FloatingIslands"]["1540000153"]["Unlocked"]=json!(false);check("sibling_locked",q);
+        let mut q=d.clone();q["Player"]["ListInventories"]["0"]["Inventory"]["40100038"]["Amount"]=json!(10000);check("stock_bound",q);
+        let mut q=d.clone();q["Player"]["ListInventories"]["8"]=json!({"ID":9,"Inventory":{}});check("route_key_id_mismatch",q);
+        drop(check);
+        assert!(s.mint_comp03_physical_target(WorkerEnvelope{expected_decoded_sha256:[0;32],..e},seed).is_err());neg+=1;
+        assert!(s.mint_comp03_physical_target(WorkerEnvelope{expected_revision:1,..e},seed).is_err());neg+=1;
+        assert!(s.mint_comp03_physical_target(WorkerEnvelope{expected_index_generation:2,..e},seed).is_err());neg+=1;
+        assert!(s.mint_comp03_physical_target(WorkerEnvelope{action:WorkerAction::Stage,..e},seed).is_err());neg+=1;
+        assert!(open(&d).mint_comp03_physical_target(e,seed).is_err());neg+=1;
+        let mut foreign=open(&d);foreign.native_source_build.externally_attested=false;
+        assert!(foreign.mint_comp03_physical_target(env(&foreign),seed).is_err());neg+=1;
+        let mut foreign=open(&d);foreign.native_source_build.build_id="foreign".into();
+        assert!(foreign.mint_comp03_physical_target(env(&foreign),seed).is_err());neg+=1;
+        assert_eq!(s.receipt().unwrap(),before);s.close().unwrap();
+        assert!(s.mint_comp03_physical_target(e,seed).is_err());neg+=1;
+        assert_eq!(neg,24);
+        assert!(failures.is_empty(),"COMP03 typed identity contradictory alias accepted: {:?}",failures);
+    }
+
+
+    #[test]
+    fn qa_comp03_repaired_namespace_types_and_bounds() {
+        let d=doc(7654321,7654322,73);
+        let mut good=d.clone();
+        good["World"]["GridCollection"]["Grids"]["70001"]=json!({"ID":70001,"Objects":{"73":{"ID":73}}});
+        good["World"]["GridCollection"]["DiffGrids"]["70002"]=json!({"ID":70002});
+        good["World"]["FloatingIslands"]["1540000999"]=json!({"SceneItemId":1540000999,"GridIDs":[70001]});
+        let s=open(&good);assert!(s.mint_comp03_physical_target(env(&s),73).is_ok());
+        let mut cases=Vec::new();
+        for map in ["Grids","DiffGrids"] {
+            for (key,value) in [("070001",json!({"ID":70001})),("70001",json!({"ID":"70001"})),("70001",json!({"ID":-1})),("70001",json!({"ID":4294967296u64})),("70001",json!({})),("70001",json!(null))] {
+                let mut q=d.clone();q["World"]["GridCollection"][map][key]=value;cases.push(q);
+            }
+        }
+        for (key,value) in [("01540000999",json!({"SceneItemId":1540000999})),("1540000999",json!({"SceneItemId":"1540000999"})),("1540000999",json!({"SceneItemId":-1})),("1540000999",json!({}))] {
+            let mut q=d.clone();q["World"]["FloatingIslands"][key]=value;cases.push(q);
+        }
+        let mut q=d.clone();
+        for i in 10000..14100 {q["World"]["FloatingIslands"][i.to_string()]=json!({"SceneItemId":i});}
+        cases.push(q);
+        for q in cases {let s=open(&q);let b=s.receipt().unwrap();assert!(s.mint_comp03_physical_target(env(&s),73).is_err());assert_eq!(s.receipt().unwrap(),b);}
+    }
+
 }
