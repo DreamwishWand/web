@@ -1,0 +1,105 @@
+name: INT ACT1214 hosted Wardrobe and shared OFF (fixed deployment; never merge)
+on:
+  push:
+    branches:
+      - '09int/act1214-hosted-wardrobe-off-8977a742'
+    paths:
+      - '.github/workflows/09int-act1214-hosted-wardrobe-off.yml'
+permissions:
+  contents: read
+jobs:
+  hosted-off:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '8977a74297eaed789062464a8e1424e53f8c7499'
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify fixed source and current deployed manifest
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '8977a74297eaed789062464a8e1424e53f8c7499'
+          test "$(git rev-parse HEAD:src/routes/editor/items/catalog0/+page.svelte)" = bcf517ea94f8c1e0aa0dc2c3c530cc9810444c90
+          test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = da627ecd86d4435c026e611b241aa489d8259dac
+          test "$(git rev-parse HEAD:src/routes/editor/backpack/steam/+page.svelte)" = fb299a0e52ea5872de1eca93a8ceaaddb4f451a7
+          test "$(git rev-parse HEAD:src/routes/editor/backpack/switch/+page.svelte)" = f35ffa7cdc5817ceb32a009699e9039192cc60d3
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = 11cb70c60664b9327718409248ebd29868431a4b
+          test "$(git rev-parse HEAD:src/routes/editor/wardrobe/steam/+page.svelte)" = ba71becc76ad9c4c531465309b72a62ffdbfd8e2
+          test "$(git rev-parse HEAD:src/routes/editor/wardrobe/switch/+page.svelte)" = c2f80d35b3cee7ebb2073952cb31f60fb0603206
+          test -z "$(git ls-files 'static/worker-wasm-scoped-*')"
+          curl -fsS --retry 1 --max-time 20 -H 'Cache-Control: no-cache' https://dreamwishwand.github.io/web/worker-wasm/manifest.json -o "$RUNNER_TEMP/catalog0-manifest.json"
+          echo "e32299360d23a5360fbfcbdd529208651434ddd373df101dd440d26377d6e228  $RUNNER_TEMP/catalog0-manifest.json" | sha256sum -c -
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; assert.equal(JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+"/catalog0-manifest.json","utf8")).source.commit,"8977a74297eaed789062464a8e1424e53f8c7499")'
+      - name: Existing Chrome driver in isolated temp directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/catalog0-hosted"
+          cd "$RUNNER_TEMP/catalog0-hosted"
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+      - name: Actual hydrated Wardrobe and eight existing OFF routes
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/catalog0-hosted"
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const root='https://dreamwishwand.github.io/web';
+          const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try {
+            const context=await browser.newContext({locale:'en-US'});
+            await context.addInitScript(()=>{
+              window.__catalog0Workers=[];
+              window.Worker=new Proxy(window.Worker,{construct(target,args,newTarget){window.__catalog0Workers.push(String(args[0]));return Reflect.construct(target,args,newTarget)}});
+              for(const k of ['verifiedLocalDevGate','productCatalog0Enabled','productSwitchCatalog0Enabled','productChestEnabled','productCollectionEnabled','productBackpackEnabled','productSteamBackpackEnabled','productSwitchBackpackEnabled','productWardrobeEnabled','productSteamWardrobeEnabled','productSwitchWardrobeEnabled']) localStorage.setItem(k,'true');
+            });
+            const page=await context.newPage(),errors=[],scopedRequests=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('request',r=>{if(r.url().includes('/worker-wasm-scoped-'))scopedRequests.push(r.url())});
+            const hydrated=async()=>{await page.waitForFunction(()=>!!document.documentElement.dataset.locale);await page.waitForLoadState('networkidle')};
+            const routes=[
+              ['/editor/items/catalog0/','[data-switch-catalog0-product-route]','data-switch-catalog0-scope'],
+              ['/editor/chest/','[data-switch-chest-product-route]','data-switch-chest-scope'],
+              ['/editor/chest/steam/','[data-steam-chest-product-route]','data-steam-chest-scope'],
+              ['/editor/collection/','[data-collection-product-route]','data-collection-scope'],
+              ['/editor/world/comp03/','[data-placement-product-route="comp03"]','data-placement-scope'],
+              ['/editor/world/vase/','[data-placement-product-route="vase"]','data-placement-scope'],
+              ['/editor/backpack/steam/','[data-placement-product-route="backpack-steam"]','data-placement-scope'],
+              ['/editor/backpack/switch/','[data-placement-product-route="backpack-switch"]','data-placement-scope'],
+              ['/editor/wardrobe/steam/','[data-placement-product-route="wardrobe-steam"]','data-placement-scope'],
+              ['/editor/wardrobe/switch/','[data-placement-product-route="wardrobe-switch"]','data-placement-scope']
+            ];
+            let checks=0;
+            for(const [suffix,selector,attribute] of routes){
+              const off=async()=>{
+                await hydrated();
+                assert.equal(new URL(page.url()).origin,'https://dreamwishwand.github.io');
+                assert.equal(new URL(page.url()).pathname,'/web'+suffix);
+                const route=page.locator(selector);
+                assert.equal(await route.getAttribute(attribute),'off');
+                assert.equal(await route.locator('input[type=file]').count(),0);
+                assert.equal(await route.locator('[role=status]').count(),1);
+                assert.equal(await page.evaluate(()=>window.__catalog0Workers.length),0);
+                checks++;
+              };
+              for(const tail of ['', '?enable=true&mode=public-accepted&build=9A239D3DB569756D#writer']){
+                assert.equal((await page.goto(root+suffix+tail)).status(),200);await off();
+              }
+              if(suffix.includes('catalog0')||suffix.includes('/backpack/')||suffix.includes('/wardrobe/')){await page.reload();await off();}
+            }
+            assert.equal((await page.goto(root+'/editor/')).status(),200);await hydrated();
+            assert.equal(await page.locator('[data-editor-hub] a[href*="/editor/items/catalog0/"], [data-editor-hub] a[href*="/editor/backpack/"], [data-editor-hub] a[href*="/editor/wardrobe/"]').count(),0);
+            assert.equal(await page.evaluate(()=>window.__catalog0Workers.length),0);
+            assert.deepEqual(scopedRequests,[]);assert.deepEqual(errors,[]);
+            console.log('ACT1214_HOSTED_WARDROBE_SHARED_OFF_ACTUAL_PASS',JSON.stringify({routes:10,routeChecks:checks,hubLink:false,workerConstructed:0,scopedRequests:0,pageErrors:0,realSignedPositive:false}));
+            await context.close();
+          }finally{await browser.close()}
+          NODE
+      - name: Recheck deployed manifest after browser
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 1 --max-time 20 -H 'Cache-Control: no-cache' https://dreamwishwand.github.io/web/worker-wasm/manifest.json -o "$RUNNER_TEMP/catalog0-manifest-after.json"
+          echo "e32299360d23a5360fbfcbdd529208651434ddd373df101dd440d26377d6e228  $RUNNER_TEMP/catalog0-manifest-after.json" | sha256sum -c -
