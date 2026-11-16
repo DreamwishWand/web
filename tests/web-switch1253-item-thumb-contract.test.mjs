@@ -12,7 +12,8 @@ import {
 } from '../src/lib/item-media/switch1253-public-item-images.mjs';
 
 import {ITEM_IMAGE_OWNER_DECISION_ID} from '../src/lib/item-media/public-item-images.mjs';
-const item='40006096';
+const item='40000047';
+const quarantined='40006096';
 const pin=SWITCH1253_NATIVE_PINS[item];
 function approvedRelease(){
  // Synthetic authorization fixture, NOT a real accepted licence or prod flag.
@@ -76,7 +77,7 @@ test('synthetic reviewed manifest renders only same-BID registered one-item immu
  assert.equal(switch1253ItemImagePath(item,valid),part);
  assert.equal(scopedSwitch1253ItemImageHref('/web',item,valid),'/web/'+part);
  assert.equal(scopedSwitch1253ItemImageHref('',item,valid),'/'+part);
- for(const bad of ['40000047','40002422','1','00040006096','../../../img.png',0])
+ for(const bad of ['40006096','40002422','1','00040000047','../../../img.png',0])
    assert.equal(scopedSwitch1253ItemImageHref('/web',bad,valid),null);
  for(const path of ['https://bad.example','/web/../','//bad/path','/web?q=x'])
    assert.equal(scopedSwitch1253ItemImageHref(path,item,valid),null);
@@ -98,7 +99,7 @@ test('old R39/schema624/Steam/other BID/unknown game build never promote a curre
  ])assert.throws(()=>validateSwitch1253ItemImageCatalog({...manifest(),source},approvedRelease()),/PLATFORM_VERSION_BID_SCHEMA/);
 });
 test('unreviewed eligible sprite, hidden sprite, unknown item, SHA or pixel mismatch and Rights OFF all deny',()=>{
- for(const id of ['40000047','40002422','999000123']){
+ for(const id of ['40002422','999000123']){
   const m=manifest();m.items={[id]:{...m.items[item]}};
   assert.throws(()=>validateSwitch1253ItemImageCatalog(m,approvedRelease()),/ITEM_ID_NATIVE_SHA/);
  }
@@ -238,9 +239,9 @@ test('Issue604 scoped Owner decision and UNKNOWN license remain separate facts',
  assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
 });
 
-test('ACT397 exact eligible2 draft is versioned metadata only, and cannot authorize publication',()=>{
+test('E1640 draft excludes visually quarantined Tree but preserves historical ACT397 pin',()=>{
  const m=prepareSwitch1253ItemImageManifest();
- assert.deepEqual(Object.keys(m.items),['40000047','40006096']);
+ assert.deepEqual(Object.keys(m.items),['40000047']);
  assert.equal(m.publication.gate,'MEDIA_PUBLIC_PREPARED_OFF');
  assert.equal(m.publication.rightsHolderLicense,'UNKNOWN');
  assert.equal(m.publication.operatorReceiptSha256,null);
@@ -249,7 +250,8 @@ test('ACT397 exact eligible2 draft is versioned metadata only, and cannot author
  assert.equal(m.items['40000047'].originalNativeStreamSha256,'b0352f4fde178c423dbfa0f02c1f3f6fbfdb24bd4edf2603b67ce2f74485a68c');
  assert.equal(m.items['40000047'].sourcePngSha256,'c156d4e1a32de6e61a851704349f17333098bab39f20ace06f56a7ecf591cc26');
  assert.equal(m.items['40000047'].webpSha256,'b3d130ebf054038655970ed6b9a963b387b2c82be4a1658c2835775ac61d1f54');
- assert.equal(m.items['40006096'].webpSha256,'4d2cbdf8cac7ad46ee5f7baa112ae5af34d2fc05de271db1a49d98d003a03858');
+ assert.equal(m.items['40006096'],undefined);
+ assert.equal(SWITCH1253_NATIVE_PINS['40006096'].webpSha256,'4d2cbdf8cac7ad46ee5f7baa112ae5af34d2fc05de271db1a49d98d003a03858');
  for(const id of Object.keys(m.items)){
   assert.equal(m.items[id].publicationDecision,'NOT_RUN');
   assert.equal(m.items[id].rightsStatus,'UNKNOWN');
@@ -259,43 +261,36 @@ test('ACT397 exact eligible2 draft is versioned metadata only, and cannot author
  m.items['40000047'].webpSha256='f'.repeat(64);
  assert.equal(prepareSwitch1253ItemImageManifest().items['40000047'].webpSha256,SWITCH1253_NATIVE_PINS['40000047'].webpSha256);
 });
-test('synthetic operator fixture validates both exact per-item raster pins and immutable URL paths, but no hidden or cross-pinned item',()=>{
- const r=approvedRelease(),m=manifest(),id='40000047',p=SWITCH1253_NATIVE_PINS[id];
- r.rightsHolderLicense='UNKNOWN';r.licenseEvidenceSha256=null;
- m.publication.rightsHolderLicense='UNKNOWN';m.publication.licenseEvidenceSha256=null;
- r.items[item].rightsStatus='UNKNOWN';m.items[item].rightsStatus='UNKNOWN';
- r.items[id]={originalNativeStreamSha256:p.originalNativeStreamSha256,sourcePngSha256:p.sourcePngSha256,webpSha256:p.webpSha256,rightsStatus:'UNKNOWN',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',visibility:'RELEASED_PLAYER_FACING'};
- m.items[id]={...p,pixelStatus:'SWITCH_RGBA_EXACT_VERIFIED',visibility:'RELEASED_PLAYER_FACING',rightsStatus:'UNKNOWN',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',assetStatus:'WEBP_LOSSLESS_VERIFIED_160'};
+test('E1640 stale exact approved Tree row is quarantined without suppressing valid Wardrobe',()=>{
+ const r=approvedRelease(),m=manifest(),p=SWITCH1253_NATIVE_PINS[quarantined];
+ r.items[quarantined]={...r.items[item],originalNativeStreamSha256:p.originalNativeStreamSha256,sourcePngSha256:p.sourcePngSha256,webpSha256:p.webpSha256};
+ m.items[quarantined]={...m.items[item],...p};
  const good=validateSwitch1253ItemImageCatalog(m,r);
- assert.equal(good.count,2);
- for(const k of [id,item]){
-  const p=SWITCH1253_NATIVE_PINS[k];
-  assert.equal(scopedSwitch1253ItemImageHref('/web',k,good),'/web/ddv/item-images/'+SWITCH1253_ITEM_IMAGE_VARIANT+'/'+p.originalNativeStreamSha256.slice(0,2)+'/'+p.originalNativeStreamSha256+'-'+p.sourcePngSha256+'-'+p.webpSha256+'.webp');
- }
- assert.equal(scopedSwitch1253ItemImageHref('/web','40002422',good),null);
+ assert.equal(good.count,1);assert.equal(good.items[quarantined],undefined);
+ assert.ok(scopedSwitch1253ItemImageHref('/web',item,good));
+ assert.equal(scopedSwitch1253ItemImageHref('/web',quarantined,good),null);
+ // Old pre-quarantine cached or forged catalog must also fail at URL boundary.
+ const stale={target:SWITCH1253_TARGET,assetVariant:SWITCH1253_ITEM_IMAGE_VARIANT,codec:'WEBP_LOSSLESS_RGBA_EXACT',items:{[quarantined]:p}};
+ assert.equal(switch1253ItemImagePath(quarantined,stale),null);
+ assert.equal(scopedSwitch1253ItemImageHref('/web',quarantined,stale),null);
+ const only=structuredClone(m);delete only.items[item];
+ assert.equal(validateSwitch1253ItemImageCatalog(only,r).count,0);
  for(const change of [
-  x=>{x.items[id].rasterStatus=pin.rasterStatus;},
-  x=>{x.items[id].webpSha256=pin.webpSha256;},
-  x=>{x.items[id].sourcePngSha256=pin.sourcePngSha256;},
-  x=>{x.items[id].originalNativeStreamSha256=pin.originalNativeStreamSha256;},
-  x=>{x.items[id].visibility='HIDDEN';},
-  x=>{x.items[id].publicationDecision='NOT_RUN';},
-  x=>{x.items[id].url='https://example.invalid/a.webp';},
-  x=>{x.items['40002422']={...x.items[id]};}
+  x=>{x.items[item].rasterStatus=p.rasterStatus;},
+  x=>{x.items[item].webpSha256=p.webpSha256;},
+  x=>{x.items[item].sourcePngSha256=p.sourcePngSha256;},
+  x=>{x.items[item].originalNativeStreamSha256=p.originalNativeStreamSha256;},
+  x=>{x.items[item].visibility='HIDDEN';},
+  x=>{x.items[item].publicationDecision='NOT_RUN';},
+  x=>{x.items[item].url='https://example.invalid/a.webp';},
+  x=>{x.items['40002422']={...x.items[item]};}
  ]){
-  const x=structuredClone(m);change(x);
-  assert.throws(()=>validateSwitch1253ItemImageCatalog(x,r),/ITEM_ID_NATIVE_SHA/);
+  const x=structuredClone(m);change(x);assert.throws(()=>validateSwitch1253ItemImageCatalog(x,r),/ITEM_ID_NATIVE_SHA/);
  }
  const hidden=structuredClone(m),hiddenReview=structuredClone(r);
- hidden.items['40002422']={...m.items[id]};
- hiddenReview.items['40002422']={...r.items[id]};
+ hidden.items['40002422']={...m.items[item]};hiddenReview.items['40002422']={...r.items[item]};
  assert.throws(()=>validateSwitch1253ItemImageCatalog(hidden,hiddenReview),/ITEM_ID_NATIVE_SHA/);
  assert.throws(()=>validateSwitch1253ItemImageCatalog(m),/MEDIA_RIGHTS_OPERATOR_HOST_GATE_OFF/);
- // Partial rollout allowed: one eligible item may be removed independently.
- delete m.items[id];delete r.items[id];
- const one=validateSwitch1253ItemImageCatalog(m,r);
- assert.equal(one.count,1);
- assert.equal(scopedSwitch1253ItemImageHref('/web',id,one),null);
 });
 
 test('mutable manifest revalidates with no-store; stale open catalog clears and one withdrawn item cannot render',async()=>{
@@ -338,16 +333,18 @@ test('refresh cancels on hidden/dispose, no stale delayed response resurrection 
  assert.equal(calls.length,n);assert.equal(tick,null);
  assert.match(readFileSync(new URL('../src/lib/ui/ItemThumb.svelte',import.meta.url),'utf8'),/onMount\(\(\) => retainSwitch1253PublicItemImageSource\(base\)\)/);
 });
-test('eligible two manifest refresh removes only withdrawn row; same-BID survivor stays available',async()=>{
- const r=approvedRelease(),m=manifest(),id='40000047',p=SWITCH1253_NATIVE_PINS[id];
- r.items[id]={originalNativeStreamSha256:p.originalNativeStreamSha256,sourcePngSha256:p.sourcePngSha256,webpSha256:p.webpSha256,rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',visibility:'RELEASED_PLAYER_FACING'};
- m.items[id]={...p,pixelStatus:'SWITCH_RGBA_EXACT_VERIFIED',visibility:'RELEASED_PLAYER_FACING',rightsStatus:'DOCUMENTED_LICENSE_APPROVED',publicationDecision:'OWNER_SCOPED_PUBLICATION_ACCEPTED',assetStatus:'WEBP_LOSSLESS_VERIFIED_160'};
+test('quarantined Tree stays absent through refresh and valid Wardrobe withdrawal',async()=>{
+ const r=approvedRelease(),m=manifest(),p=SWITCH1253_NATIVE_PINS[quarantined];
+ r.items[quarantined]={...r.items[item],originalNativeStreamSha256:p.originalNativeStreamSha256,sourcePngSha256:p.sourcePngSha256,webpSha256:p.webpSha256};
+ m.items[quarantined]={...m.items[item],...p};
  let raw=m;const states=[],c=createSwitch1253ManifestController(r,v=>states.push(v));
  const fetcher=async()=>new Response(JSON.stringify(raw),{headers:{'content-type':'application/json'}});
- assert.equal((await c.load('/web',fetcher)).count,2);
- raw=structuredClone(m);delete raw.items[id];
- assert.equal((await c.load('/web',fetcher,true)).count,1);
- assert.equal(scopedSwitch1253ItemImageHref('/web',id,states.at(-1).catalog),null);
+ assert.equal((await c.load('/web',fetcher)).count,1);
+ assert.equal(scopedSwitch1253ItemImageHref('/web',quarantined,states.at(-1).catalog),null);
  assert.ok(scopedSwitch1253ItemImageHref('/web',item,states.at(-1).catalog));
+ raw=structuredClone(m);delete raw.items[item];
+ assert.equal((await c.load('/web',fetcher,true)).count,0);
+ assert.equal(scopedSwitch1253ItemImageHref('/web',item,states.at(-1).catalog),null);
+ assert.equal(scopedSwitch1253ItemImageHref('/web',quarantined,states.at(-1).catalog),null);
  c.clear();
 });
