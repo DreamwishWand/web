@@ -10,12 +10,12 @@ const ROUTE:u32=9;
 const OLD:i32=64;
 const NEW:i32=69;
 #[derive(Debug)]
-pub(super) struct FixedEyeballColor2{
- pub(super) scope:WorkerEnvelope,pub(super) span:Span,
- pub(super) active_eye_sha:String,pub(super) inactive_eye_sha:String,
- pub(super) male_sha:String,pub(super) female_sha:String,
- pub(super) stock_entry_sha:String,pub(super) route_sha:String,
- pub(super) selected_token_sha:String,pub(super) projected:[u8;32],
+pub(crate) struct FixedEyeballColor2{
+ pub(crate) scope:WorkerEnvelope,pub(crate) span:Span,
+ pub(crate) active_eye_sha:String,pub(crate) inactive_eye_sha:String,
+ pub(crate) male_sha:String,pub(crate) female_sha:String,
+ pub(crate) stock_entry_sha:String,pub(crate) route_sha:String,
+ pub(crate) selected_token_sha:String,pub(crate) projected:[u8;32],
 }
 fn check_ok(ok:bool,why:&'static str)->CoreResult<()>{
  if ok{Ok(())}else{Err(denied(why))}
@@ -67,7 +67,7 @@ fn stock(b:&[u8],player:&[(String,Span)])->CoreResult<(String,String)>{
  Ok((sha(&b[rec.begin..rec.end]),sha(&b[entry.begin..entry.end])))
 }
 impl ProductSession{
- pub(super) fn prepare_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
+ pub(crate) fn prepare_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
   product_appearance_scope(self,&e)?;
   self.prepare_fixed_eyecolor2_lexical(e)
  }
@@ -98,7 +98,7 @@ impl ProductSession{
  // ACT1508: exact affected Switch626 Build delta. Separate admission only;
  // no extra scanner/Session or public Worker command.
  #[cfg(feature="product-switch626-eyecolor2-internal")]
- pub(super) fn prepare_fixed_switch626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
+ pub(crate) fn prepare_fixed_switch626_eyecolor2(&self,e:WorkerEnvelope)->CoreResult<FixedEyeballColor2>{
   use crate::{Platform,BuildKind};
   let b=&self.native_source_build;
   if !self.worker_bound||b.platform!=Platform::Switch||b.build_kind!=BuildKind::SwitchBid||
@@ -108,7 +108,7 @@ impl ProductSession{
   self.prepare_fixed_eyecolor2_lexical(e)
  }
  #[cfg(feature="product-switch626-eyecolor2-internal")]
- pub(super) fn stage_fixed_switch626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
+ pub(crate) fn stage_fixed_switch626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
      ->CoreResult<crate::SemanticStageReceipt>{
   check_ok(e.action==WorkerAction::Stage,"EYECOLOR2_SWITCH_STAGE_ACTION")?;
   let current=self.prepare_fixed_switch626_eyecolor2(WorkerEnvelope{action:WorkerAction::ReadDomain,..e})?;
@@ -120,7 +120,7 @@ impl ProductSession{
    "EYECOLOR2_SWITCH_STAGE_WITNESS_CAS")?;
   self.commit_switch626_eyecolor2_candidate(e,current.span,OLD,NEW,current.projected)
  }
- pub(super) fn stage_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
+ pub(crate) fn stage_fixed_steam626_eyecolor2(&self,e:WorkerEnvelope,p:&FixedEyeballColor2)
      ->CoreResult<crate::SemanticStageReceipt>{
   check_ok(e.action==WorkerAction::Stage,"EYECOLOR2_STAGE_ACTION")?;
   let current=self.prepare_fixed_steam626_eyecolor2(WorkerEnvelope{action:WorkerAction::ReadDomain,..e})?;
