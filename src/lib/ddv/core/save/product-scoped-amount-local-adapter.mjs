@@ -66,10 +66,11 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
      !((args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
        (collection&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
      args.build.schema!==626||args.build.externallyConfirmed!==true||!uint(t)||t<1)fail();
-    const r=await bridge.openScopedEncrypted(args);check(t);
+    const input=Object.freeze({file:args.file,originalSha256:args.originalSha256,build:Object.freeze({...args.build})});
+    const r=await bridge.openScopedEncrypted(input);check(t);
     if(r.sourceShaMatched!==true||r.originalSizeMatched!==true||r.fullDocumentValidated!==true||r.writerAuthorized!==false)fail();
-    await store.open(args.file,args.originalSha256);check(t);
-    source={file:args.file,name:args.file.name,sha:args.originalSha256,size:args.file.size,build:Object.freeze({...args.build}),selection:t};phase='opened';return kind('OPEN');
+    await store.open(input.file,input.originalSha256);check(t);
+    source={file:input.file,name:input.file.name,sha:input.originalSha256,size:input.file.size,build:input.build,selection:t};phase='opened';return kind('OPEN');
    })
   },
   backupOriginal(selection){selectionCheck(selection);requirePhase('opened');if(collection&&targets.length!==1)fail();return run(async t=>{
@@ -129,8 +130,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   close
  };
  const collectionMutation=k=>({kind:k,selection:source.selection,choice:0,exactFieldChangedCount:1,...collectionSafety});
- const fixedPreview=()=>{
-  const p=bridge.previewFixedCollection(FIXED_COLLECTION_SELECTOR);
+ const fixedPreview=(inspect=false)=>{
+  const p=inspect?bridge.inspectFixedCollection(FIXED_COLLECTION_SELECTOR):bridge.previewFixedCollection(FIXED_COLLECTION_SELECTOR);
   if(!keys(p,'definitionId,groupIndex,itemId,oldValue,newValue,groupState,falseCount,remainingFalseCount,fixedDefinitionVerified,installedRuntimeParityVerified,writerAuthorized,editedCopyAuthorized,applyAuthorized')||
    p.definitionId!==FIXED_COLLECTION_SELECTOR.definitionId||p.groupIndex!==0||p.itemId!==FIXED_COLLECTION_SELECTOR.itemId||
    p.oldValue!==false||p.newValue!==true||p.groupState!=='NotComplete'||p.falseCount!==3||p.remainingFalseCount!==2||
@@ -143,8 +144,7 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
  // no installed-runtime parity or wider eligibility is asserted.
  return Object.freeze({open:api.open,close,backupOriginal:api.backupOriginal,undo:api.undo,redo:api.redo,exportEditedCopy:api.exportEditedCopy,downloadVerifiedCopy:api.downloadVerifiedCopy,
   inspectCollectionTargets(){requirePhase('opened');return run(async()=>{
-   const p=bridge.inspectFixedCollection(FIXED_COLLECTION_SELECTOR);
-   if(p.fixedDefinitionVerified!==true||p.installedRuntimeParityVerified!==false||p.writerAuthorized!==false||p.oldValue!==false||p.falseCount!==3||p.itemId!==FIXED_COLLECTION_SELECTOR.itemId||p.definitionId!==FIXED_COLLECTION_SELECTOR.definitionId||p.groupIndex!==0)fail();
+   fixedPreview(true);
    const target=Object.freeze({...FIXED_COLLECTION_SELECTOR,oldValue:false,groupState:'NotComplete',falseCount:3,coreMinted:true,eligibilityVerified:true});targets=[target];
    return {selection:source.selection,build:source.build,originalName:source.name,originalSha256:source.sha,originalSizeBytes:source.size,targets:[target],...collectionSafety};
   })},
