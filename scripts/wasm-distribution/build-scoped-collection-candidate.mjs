@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {join,resolve} from 'node:path';
 import {RELEASE_TUPLES,ACTIVE_RELEASE_TUPLE,protectedPagesContextMatches,releaseDelivery} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
-import {SCOPED_COLLECTION_RELEASE_OP,SCOPED_COLLECTION_FEATURES,SCOPED_COLLECTION_METHODS,scopedCollectionManifestOk}
+import {SCOPED_COLLECTION_RELEASE_OP,SCOPED_COLLECTION_FEATURES,SCOPED_COLLECTION_METHODS,scopedCollectionManifestOk,scopedCollectionWasmExportsOk}
  from '../../src/lib/ddv/core/save/product-scoped-collection-release.mjs';
 const fail=()=>{throw Error('SCOPED_COLLECTION_CANDIDATE_DENIED')};
 const sha=b=>createHash('sha256').update(b).digest('hex');
@@ -24,7 +24,7 @@ if(!toolchain.startsWith('rustc 1.99.1 ')||!bindgen||execFileSync(bindgen,['--ve
 const generated=join(root,'tests/stage-e/pkg'),out=join(root,'tests/wasm-distribution/fixtures/scoped-collection');
 const names=['ddv_save_core.js','ddv_save_core_bg.wasm'];
 const [js,wasm]=await Promise.all(names.map(n=>readFile(join(generated,n))));
-if(!js.length||js.length>2*1024*1024||!wasm.length||wasm.length>20*1024*1024||wasm.toString('hex',0,4)!=='0061736d')fail();
+if(!js.length||js.length>2*1024*1024||!wasm.length||wasm.length>20*1024*1024||wasm.toString('hex',0,4)!=='0061736d'||!scopedCollectionWasmExportsOk(new WebAssembly.Module(wasm)))fail();
 const cargo=await readFile(join(core,'crates/ddv-save-core/Cargo.toml'));
 const m={contract:'wand.scoped-collection.runtime@1',operation:SCOPED_COLLECTION_RELEASE_OP,
  source:{repository:tuple.repository,commit:source,cargoTomlSha256:sha(cargo),cargoLockSha256:sha(lock),cargoLockOrigin:'approved-repository-lock',
