@@ -8,6 +8,7 @@
   import {localAmountCopy,localAmountTargetLabel} from './local-amount-copy.mjs';
   import {productSwitchChestPortScope} from './product-switch-chest-client.mjs';
   import {productSteamChestPortScope} from './product-steam-chest-client.mjs';
+  import {productSwitchCatalog0PortScope} from './product-switch-catalog0-client.mjs';
   import {createLocalAmountDevWorkflow,STEAM626_FULL_VERSION,SWITCH626_CHEST_BID} from './local-amount-workflow.mjs';
 
   export let trustedWorkerAdapter=null;
@@ -16,12 +17,12 @@
   export let scopedExactOne=false;
   // Trusted mount fixes the exact Switch Build; no user-selectable ABI.
   export let scopedSwitch626Chest=false;
-  let exactOne=false,switchChest=false,steamChest=false,productMode='';
+  let exactOne=false,switchChest=false,steamChest=false,switchCatalog0=false,productMode='';
   let workflow=null,available=false,pending=false,error=false;
   let file=null,sourceSha='',buildConfirmed=false,newAmount='';
   let chosen=0,focusTarget=null,fileInput=null,uiEpoch=0;
   let state={phase:'closed',targets:[],preview:null,editedCopy:null,backupVerified:false};
-  $: words=localAmountCopy($locale,switchChest,productMode,steamChest);
+  $: words=localAmountCopy($locale,switchChest,productMode,steamChest,switchCatalog0);
   $: openable=available&&!pending&&file!==null&&
     /^[0-9a-f]{64}$/.test(sourceSha)&&buildConfirmed;
   $: current=state.targets?.[chosen]||null;
@@ -33,14 +34,15 @@
     // Compile-time Vite guard plus explicit trusted capability. DEV/OFF here
     // never means Owner has authorized PRODUCT_OPERATION_ENABLED or Writer ON.
     const switchScope=productSwitchChestPortScope(trustedWorkerAdapter),steamScope=productSteamChestPortScope(trustedWorkerAdapter);
-    const productScope=switchScope||steamScope;
+    const catalogScope=productSwitchCatalog0PortScope(trustedWorkerAdapter);
+    const productScope=switchScope||steamScope||catalogScope;
     if(!productScope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
     try{
       productMode=productScope?.mode||'';
-      steamChest=!!steamScope;
-      switchChest=!!switchScope||(!steamChest&&scopedSwitch626Chest===true);
-      exactOne=switchChest||steamChest||scopedExactOne===true;
-      workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,exactOneDecrease:exactOne,switch626Chest:switchChest,steam626Chest:steamChest});
+      steamChest=!!steamScope;switchCatalog0=!!catalogScope;
+      switchChest=!!switchScope||(!steamChest&&!switchCatalog0&&scopedSwitch626Chest===true);
+      exactOne=switchChest||steamChest||switchCatalog0||scopedExactOne===true;
+      workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,exactOneDecrease:exactOne,switch626Chest:switchChest,steam626Chest:steamChest,switch626Catalog0:switchCatalog0});
       available=true;state=workflow.snapshot();
     }catch{available=false}
     return ()=>{++uiEpoch;const active=workflow;workflow=null;available=false;
@@ -64,7 +66,7 @@
       const v=await closing;
       if(workflow!==active||token!==uiEpoch)return;
       state=v;file=f;
-      if((switchChest||steamChest)&&f){
+      if((switchChest||steamChest||switchCatalog0)&&f){
         if(f.size<1||f.size>128*1024*1024||!f.name.toLowerCase().endsWith('.p1g'))throw Error('FILE_DENIED');
         const bytes=new Uint8Array(await Blob.prototype.arrayBuffer.call(f));
         try{
@@ -90,7 +92,7 @@
     }finally{if(workflow===active&&token===uiEpoch)pending=false}
   }
   const open=()=>act(()=>workflow.open({
-    file,...(switchChest?{switchBid:SWITCH626_CHEST_BID}:{fullVersion:STEAM626_FULL_VERSION}),originalSha256:sourceSha,
+    file,...((switchChest||switchCatalog0)?{switchBid:SWITCH626_CHEST_BID}:{fullVersion:STEAM626_FULL_VERSION}),originalSha256:sourceSha,
     buildConfirmed
   }));
   const backup=()=>act(()=>workflow.backupAndRead());
@@ -130,7 +132,7 @@
   }
 </script>
 
-<details open={steamChest} class="dev-amount-editor" data-dev-amount-editor data-product-writer="off"
+<details open={steamChest||switchCatalog0} class="dev-amount-editor" data-dev-amount-editor data-product-writer="off"
  data-public-route={productMode==='public-accepted'?'on':'off'} data-cloud="off" data-original-overwrite="off">
   <summary bind:this={focusTarget} data-dev-amount-summary>{words.title}</summary>
   <section class="content" aria-label={words.title}>
@@ -145,8 +147,8 @@
         <label for="dev-amount-sha">{words.sha}</label>
         <input id="dev-amount-sha" type="text" maxlength="64" pattern="[a-f0-9]{64}"
           spellcheck="false" autocapitalize="off" autocomplete="off"
-          bind:value={sourceSha} readonly={switchChest||steamChest} disabled={pending}/>
-        <p>{words.build}: <code>{switchChest?SWITCH626_CHEST_BID:STEAM626_FULL_VERSION}</code> · schema 626</p>
+          bind:value={sourceSha} readonly={switchChest||steamChest||switchCatalog0} disabled={pending}/>
+        <p>{words.build}: <code>{switchChest||switchCatalog0?SWITCH626_CHEST_BID:STEAM626_FULL_VERSION}</code> · schema 626</p>
         <label class="check">
           <input type="checkbox" bind:checked={buildConfirmed} disabled={pending}/>
           <span>{words.confirm}</span>
