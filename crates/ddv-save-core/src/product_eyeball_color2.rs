@@ -292,4 +292,85 @@ mod tests{
   switch.worker_bound=true;
   assert!(switch.prepare_fixed_steam626_eyecolor2(envelope(&switch,WorkerAction::ReadDomain)).is_err());
  }
+
+ #[cfg(feature="product-switch626-eyecolor2-internal")]
+ #[test]
+ fn qa1920_switch626_eyecolor2_exact_witness_refutation(){
+  let mut d=doc();
+  d["World"]["OpaqueUnknown"]=json!({"escaped":"a\\b","nested":[42,true,null]});
+  d["Player"]["MaleAvatar"]["Eyeball"]["OpaqueEye"]=json!({"unknown":99,"choice":[7,8]});
+  d["Player"]["ListInventories"]["9"]["Inventory"]["70000010"]["OpaqueInventory"]=
+    json!({"payload":"untouched"});
+  let source=serde_json::to_vec(&d).unwrap();
+  let s=open_switch(&d);
+  let read=envelope(&s,WorkerAction::ReadDomain);
+  assert!(s.prepare_fixed_steam626_eyecolor2(read).is_err());
+  let p=s.prepare_fixed_switch626_eyecolor2(read).unwrap();
+  assert_eq!(&s.decoded[p.span.begin..p.span.end],b"64");
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..read};
+  let mut neg=1usize;
+  macro_rules! deny {($x:expr)=>{{assert!(($x).is_err());neg+=1;}};}
+  let mut f=s.prepare_fixed_switch626_eyecolor2(read).unwrap();
+  f.active_eye_sha="0".repeat(64);deny!(s.stage_fixed_switch626_eyecolor2(stage,&f));
+  let mut f=s.prepare_fixed_switch626_eyecolor2(read).unwrap();
+  f.inactive_eye_sha="0".repeat(64);deny!(s.stage_fixed_switch626_eyecolor2(stage,&f));
+  let mut f=s.prepare_fixed_switch626_eyecolor2(read).unwrap();
+  f.male_sha="0".repeat(64);deny!(s.stage_fixed_switch626_eyecolor2(stage,&f));
+  let mut f=s.prepare_fixed_switch626_eyecolor2(read).unwrap();
+  f.female_sha="0".repeat(64);deny!(s.stage_fixed_switch626_eyecolor2(stage,&f));
+  let mut f=s.prepare_fixed_switch626_eyecolor2(read).unwrap();
+  f.stock_entry_sha="0".repeat(64);deny!(s.stage_fixed_switch626_eyecolor2(stage,&f));
+  let mut f=s.prepare_fixed_switch626_eyecolor2(read).unwrap();
+  f.route_sha="0".repeat(64);deny!(s.stage_fixed_switch626_eyecolor2(stage,&f));
+  let mut f=s.prepare_fixed_switch626_eyecolor2(read).unwrap();
+  f.selected_token_sha="0".repeat(64);deny!(s.stage_fixed_switch626_eyecolor2(stage,&f));
+  let mut f=s.prepare_fixed_switch626_eyecolor2(read).unwrap();
+  f.projected[0]^=1;deny!(s.stage_fixed_switch626_eyecolor2(stage,&f));
+  let mut f=s.prepare_fixed_switch626_eyecolor2(read).unwrap();
+  f.span.begin+=1;deny!(s.stage_fixed_switch626_eyecolor2(stage,&f));
+  let mut f=s.prepare_fixed_switch626_eyecolor2(read).unwrap();
+  f.scope.expected_revision=2;deny!(s.stage_fixed_switch626_eyecolor2(stage,&f));
+  deny!(s.stage_fixed_switch626_eyecolor2(read,&p));
+  deny!(s.stage_fixed_switch626_eyecolor2(WorkerEnvelope{session_id:[0;16],..stage},&p));
+  deny!(s.stage_fixed_switch626_eyecolor2(WorkerEnvelope{expected_revision:1,..stage},&p));
+  deny!(s.stage_fixed_switch626_eyecolor2(WorkerEnvelope{expected_index_generation:2,..stage},&p));
+  deny!(s.stage_fixed_switch626_eyecolor2(WorkerEnvelope{expected_decoded_sha256:[0;32],..stage},&p));
+  let other=open_switch(&d);
+  deny!(other.stage_fixed_switch626_eyecolor2(envelope(&other,WorkerAction::Stage),&p));
+  let steam=open(&d);
+  deny!(steam.prepare_fixed_switch626_eyecolor2(envelope(&steam,WorkerAction::ReadDomain)));
+  let result=s.stage_fixed_switch626_eyecolor2(stage,&p).unwrap();
+  assert_eq!((result.operation_count,result.exact_field_changed_count),(1,1));
+  assert!(!result.native_v3_verified&&!result.product_writer_authorized&&!result.original_overwrite_authorized);
+  deny!(s.stage_fixed_switch626_eyecolor2(stage,&p));
+  s.undo_typed_semantic_batch(envelope(&s,WorkerAction::Stage)).unwrap();
+  deny!(s.take_typed_semantic_decoded_once(envelope(&s,WorkerAction::ExportEditedCopy)));
+  s.redo_typed_semantic_batch(envelope(&s,WorkerAction::Stage)).unwrap();
+  let export=envelope(&s,WorkerAction::ExportEditedCopy);
+  let edited=s.take_typed_semantic_decoded_once(export).unwrap();
+  deny!(s.take_typed_semantic_decoded_once(export));
+  let mut expected=d.clone();expected["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"]=json!(69);
+  assert_eq!(edited,serde_json::to_vec(&expected).unwrap());
+  assert_eq!(serde_json::to_vec(&d).unwrap(),source);
+  assert_eq!(sha(&edited),hex(&result.staged_decoded_sha256));
+  std::fs::write("/tmp/qrc1920-switch-eyecolor2-original.json",&source).unwrap();
+  std::fs::write("/tmp/qrc1920-switch-eyecolor2-edited.json",&edited).unwrap();
+  println!("QRC1920_SWITCH_EYECOLOR2_ABI_DELTA 1POS {}NEG EXACT1 OPAQUE_AND_ORIGINAL_UNCHANGED",neg);
+ }
+ #[cfg(feature="product-switch626-eyecolor2-internal")]
+ #[test]
+ #[ignore="QA-only external process decoded Reopen, not encrypted P1G V2"]
+ fn qa1920_switch626_eyecolor2_child_reopen(){
+  let decoded=std::fs::read("/tmp/qrc1920-switch-eyecolor2-edited.json").unwrap();
+  let original=std::fs::read("/tmp/qrc1920-switch-eyecolor2-original.json").unwrap();
+  let v:Value=serde_json::from_slice(&decoded).unwrap();
+  assert_eq!(v["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"],json!(69));
+  let s=open_switch(&v);
+  assert_eq!(s.receipt().unwrap().schema,626);
+  assert!(s.prepare_fixed_switch626_eyecolor2(envelope(&s,WorkerAction::ReadDomain)).is_err());
+  let before:Value=serde_json::from_slice(&original).unwrap();
+  assert_eq!(before["Player"]["MaleAvatar"]["Eyeball"]["ColorIndex2"],json!(64));
+  assert_ne!(sha(&decoded),sha(&original));
+  println!("QRC1920_SWITCH_EYECOLOR2_CHILD_REOPEN_PASS schema626 exact1");
+ }
 }
