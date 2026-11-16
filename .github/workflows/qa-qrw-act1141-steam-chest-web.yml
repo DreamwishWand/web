@@ -1,0 +1,279 @@
+name: QA ONLY ACT1141 Steam626 Chest local and OFF route (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1141-steam-chest-web.yml'
+permissions:
+  contents: read
+jobs:
+  real-local:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrw1477-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e7db7c2f0e011d990db92be3d7af1eb96af843d3
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed Web and accepted Core source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'e7db7c2f0e011d990db92be3d7af1eb96af843d3'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 5b0cfe564952d49d102fa7d3071e8811e1d0e440
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 6ea7eb4b3206890ab3cbac280cf9b8fa9d783210
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 576635b31e947188261cdb834ca5223379327dfb
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 17cc92004cf9734ca55338b8c06c94f7dc163ee5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs)" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = c0f81cb0b6cda895714c83e5bbf765b86c34acf8
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-workflow.mjs)" = f04e70600fcf62b43166258716e54448bc4f3381
+          git cat-file -e e5de8fd4f9b8f09be7c27f9decb42bd3ee6de67e^{commit} || git fetch --no-tags origin e5de8fd4f9b8f09be7c27f9decb42bd3ee6de67e
+          git worktree add --detach /tmp/wand-qrw1477-core e5de8fd4f9b8f09be7c27f9decb42bd3ee6de67e
+          test "$(git -C /tmp/wand-qrw1477-core rev-parse HEAD)" = 'e5de8fd4f9b8f09be7c27f9decb42bd3ee6de67e'
+          test "$(git -C /tmp/wand-qrw1477-core rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 0fcdac70758ca09675fa28c4b854e4c1885e681b
+          test "$(git -C /tmp/wand-qrw1477-core rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 864792dae67657462c74c0f4d7d0996d1d78941a
+          test "$(git -C /tmp/wand-qrw1477-core rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 0939c989984ff49aff466da35e427289758d8d4f
+          cp tests/fixtures/ddv-save-core-accepted.Cargo.lock /tmp/wand-qrw1477-core/crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  /tmp/wand-qrw1477-core/crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+      - name: Generate actual locked Steam Amount WASM
+        run: |
+          cargo build --locked --manifest-path /tmp/wand-qrw1477-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-amount-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrw1477-tools
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-qrw1477-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Temporary synthetic fixture and actual browser worker (no tracked product route)
+        run: |
+          mkdir -p src/routes/test-qrw1477 static/qa-qrw1477
+          cat > tests/.qa-qrw1477-fixture.mjs <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
+          const lines=readFileSync('/tmp/wand-qrw1477-core/crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl','utf8').trim().split('\n').slice(1).map(JSON.parse);
+          const a=lines.find(x=>!x[0].includes('OogieBoogieHouse')&&x[4].every(g=>g[2].length===0));
+          const overlay=x=>({ID:19,GridDefaultLayoutPath:x[0],GridDefaultLayoutType:x[1],DefaultLayoutGridID:x[4][0][0],DefaultGridHashCode:-4,DefaultGridDataHashCode:6,ModifiedObjects:{},RemovedObjects:[]});
+          function doc(){const slots=Array.from({length:48},()=>({ItemID:0,Amount:0,State:null}));slots[0]={ItemID:30200000,Amount:50,State:null,Unknown:7};return {GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{GridCollection:{Grids:{7:{ID:7,GridDefaultLayoutPath:'',Objects:{4:{ID:4,ItemID:40001680,State:{Storage:{ContainerInventoryID:12,DefaultContainerInventoryData:'',UnlockKeyItemID:0,UnlockLocId:'',DesignID:null}}}}}},DiffGrids:{19:overlay(a)}},MissionSlots:{},Villages:[{Areas:{2:{GridIDs:[7],Unlocked:true}}}]},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{40000048:{Amount:3,Marker:'ItemMarker_None'}}},2:{ID:2,CompatibleItemType:'ItemType_ActivityItem',Inventory:{30200000:{Amount:2}}}},ContainerInventories:{0:{ID:0,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:30200000,Amount:5,State:{}}]},1:{ID:1,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:0,Amount:0,State:null}]},12:{ID:12,ParentItemID:40001680,BelongsToPlayer:true,BlockMoveTo:false,Size:48,ExtraSize:0,Inventory:slots}},BackpackOverflow:{Items:[]},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Opaque:{keep:'x'.repeat(1100000),n:7}};}
+          const d=doc(),want=structuredClone(d);want.Player.ContainerInventories[12].Inventory[0].Amount=49;
+          const b=makeSyntheticP1gProfile(d);
+          writeFileSync('static/qa-qrw1477/input.p1g',b);
+          writeFileSync('static/qa-qrw1477/meta.json',JSON.stringify({sha:createHash('sha256').update(b).digest('hex'),expected:want}));
+          NODE
+          node tests/.qa-qrw1477-fixture.mjs
+          cp tests/stage-e/pkg/ddv_save_core_bg.wasm static/qa-qrw1477/
+          cat > src/routes/test-qrw1477/+page.svelte <<'SVELTE'
+          <script>
+          import {onMount} from 'svelte';
+          onMount(()=>{
+            const w=new Worker(new URL('./qa.worker.mjs',import.meta.url),{type:'module'});
+            w.onmessage=e=>{window.__qrw1477=e.data};
+            w.onerror=e=>{window.__qrw1477={error:e.message}};
+            return ()=>w.terminate();
+          });
+          </script>
+          <p>Isolated synthetic QA only</p>
+          SVELTE
+          cat > src/routes/test-qrw1477/qa.worker.mjs <<'NODE'
+          import init,{WorkerWasmSource} from '../../../tests/stage-e/pkg/ddv_save_core.js';
+          import {createProductSteam626ChestLocalAdapter} from '$lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          const need=(v,k)=>{if(!v)throw Error(k)};
+          const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
+          const sw={platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626,externallyConfirmed:true};
+          const steam={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true};
+          const cmd={kind:'ChestExistingSlotAmountDecrease',containerId:12,slotIndex:0,expectedItemId:30200000,expectedOldAmount:50,newAmount:49};
+          let neg=0,opens=0;
+          const deny=async(f,k)=>{let rejected=false;try{await f()}catch{rejected=true}need(rejected,k);neg++};
+          try{
+            const r=await fetch('/qa-qrw1477/ddv_save_core_bg.wasm');need(r.ok&&r.headers.get('content-type')?.startsWith('application/wasm'),'WASM MIME');
+            await init({module_or_path:await r.arrayBuffer()});
+            const bytes=new Uint8Array(await (await fetch('/qa-qrw1477/input.p1g')).arrayBuffer()),meta=await (await fetch('/qa-qrw1477/meta.json')).json();
+            need(await hash(bytes)===meta.sha,'source sha');
+            const file=new File([bytes],'synthetic.p1g'),input={file,build:steam,originalSha256:meta.sha};
+            const root=await navigator.storage.getDirectory();
+            // Count only actual Rust constructor use, never substitute fake receipts.
+            const factory=async()=>({WorkerWasmSource:class extends WorkerWasmSource{constructor(...a){super(...a);opens++}}});
+            await deny(()=>createProductSteam626ChestLocalAdapter({wasmFactory:factory,coreDiscoveryProfile:'catalog0-furniture'}),'Catalog0 constructor');
+            await deny(()=>createProductSteam626ChestLocalAdapter({wasmFactory:factory,discoverScopedTargets:()=>[]}),'forged discovery');
+            const a=createProductSteam626ChestLocalAdapter({wasmFactory:factory});
+            await deny(()=>a.open({...input,build:sw}),'foreign build');
+            await deny(()=>a.open({...input,build:{...steam,buildId:'wrong'}}),'wrong FullVersion');
+            need(opens===0,'foreign build constructed');
+            await a.open(input);need(opens===1,'one session');
+            await deny(()=>a.stageTyped([cmd]),'no backup');
+            const b=await a.backupOriginal(),targets=await a.listVerifiedTargets();
+            need(targets.targets.length===1&&targets.targets[0].targetId===12&&targets.targets[0].slotIndex===0&&targets.targets[0].itemId===30200000&&targets.targets[0].oldAmount===50,'exact target');
+            await a.stageTyped([cmd]);await a.undo();await deny(()=>a.exportEditedCopy(),'undo export');await a.redo();
+            const o=await a.exportEditedCopy();need(o.freshWorkerReopenVerified===true&&o.writerAuthorized===false&&o.originalOverwriteAuthorized===false,'export fresh worker');
+            const backup=await a.downloadVerifiedCopy('backup'),edit=await a.downloadVerifiedCopy('edited');
+            need(backup.name!==edit.name&&backup.name!==file.name&&edit.name!==file.name,'names');
+            need(await hash(backup.encryptedBytes)===meta.sha&&await hash(new Uint8Array(await file.arrayBuffer()))===meta.sha,'backup/source bytes');
+            const bfile=await (await root.getFileHandle(backup.name)).getFile(),efile=await (await root.getFileHandle(edit.name)).getFile();
+            need(await hash(new Uint8Array(await bfile.arrayBuffer()))===meta.sha&&await hash(new Uint8Array(await efile.arrayBuffer()))===edit.sha256,'actual OPFS readback');
+            await deny(()=>a.exportEditedCopy(),'replay output');
+            need((await a.close()).kind==='CLOSED','close');
+            await deny(()=>a.downloadVerifiedCopy('edited'),'closed download');
+            await a.open(input);await a.backupOriginal();await a.listVerifiedTargets();
+            await deny(()=>a.stageTyped([{...cmd,expectedOldAmount:51}]),'old CAS');
+            await deny(()=>a.stageTyped([cmd]),'revoked session');
+            await a.open(input);await a.backupOriginal();await a.listVerifiedTargets();
+            await deny(()=>a.stageTyped([{...cmd,newAmount:48}]),'non49');await a.close();
+            await a.open(input);const b2=await a.backupOriginal();await a.listVerifiedTargets();await a.stageTyped([cmd]);
+            const w=await (await root.getFileHandle(b2.backupName)).createWritable();await w.write(new Uint8Array([1,2,3]));await w.close();
+            await deny(()=>a.exportEditedCopy(),'tampered durable backup');await a.close();
+            need(await hash(new Uint8Array(await file.arrayBuffer()))===meta.sha,'final original');
+            postMessage({ok:true,neg,opens,actualOpfs:true,freshCodecWorker:true,backup:Array.from(backup.encryptedBytes),edited:Array.from(edit.encryptedBytes),backupName:backup.name,editedName:edit.name,writer:false});
+          }catch(e){postMessage({error:String(e?.stack||e)})}
+          NODE
+      - name: Actual Chrome OPFS and independent process encrypted Reopen
+        run: |
+          cat > tests/.qa-qrw1477-browser.mjs <<'NODE'
+          import {chromium} from 'playwright-core';
+          import {spawn,spawnSync} from 'node:child_process';
+          import {writeFileSync,readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const port=4182,origin='http://127.0.0.1:'+port;
+          const server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port',String(port),'--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});
+          let browser;
+          try{
+            for(let i=0;i<100;i++){try{if((await fetch(origin+'/test-qrw1477/')).ok)break}catch{}await new Promise(r=>setTimeout(r,250))}
+            const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);
+            assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+            const page=await browser.newPage();await page.goto(origin+'/test-qrw1477/');
+            await page.waitForFunction(()=>!!window.__qrw1477,{},{timeout:90000});
+            const q=await page.evaluate(()=>window.__qrw1477);assert.ok(q.ok,q.error);assert.equal(q.neg,12);assert.equal(q.opens,4);assert.equal(q.actualOpfs,true);assert.equal(q.freshCodecWorker,true);assert.equal(q.writer,false);
+            writeFileSync('/tmp/qrw1477-backup.p1g',Buffer.from(q.backup));writeFileSync('/tmp/qrw1477-edited.p1g',Buffer.from(q.edited));
+            assert.deepEqual(readFileSync('/tmp/qrw1477-backup.p1g'),readFileSync('static/qa-qrw1477/input.p1g'));
+            const check=spawnSync(process.execPath,['--input-type=module','-e',"import {readFileSync} from 'node:fs';import assert from 'node:assert/strict';import {p1gPackagedProfileCodec as c} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';const p=await c.loadProfile(new Uint8Array(readFileSync('/tmp/qrw1477-edited.p1g')));assert.deepEqual(JSON.parse(p.jsonText),JSON.parse(readFileSync('static/qa-qrw1477/meta.json','utf8')).expected);console.log('QRW1477_INDEPENDENT_FULL_DOCUMENT_REOPEN_PASS')"],{stdio:'inherit'});
+            assert.equal(check.status,0);
+            console.log('QRW1477_REAL_CHROME_OPFS_PASS',JSON.stringify({positive:1,negative:q.neg,actualRustSessions:q.opens,actualOpfs:true,freshCodecWorker:true,independentProcessReopen:true,writer:false}));
+          }finally{if(browser)await browser.close();server.kill()}
+          NODE
+          node tests/.qa-qrw1477-browser.mjs
+
+  off-route:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e7db7c2f0e011d990db92be3d7af1eb96af843d3
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin fixed source and accepted release boundary
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'e7db7c2f0e011d990db92be3d7af1eb96af843d3'
+          test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = dad444b7cfc037960bdcec7a869aa0792040c95e
+          test "$(git rev-parse HEAD:src/lib/dev/local-amount-copy.mjs)" = dcebde6318864381adb51898f4a2c9c87da23007
+          test "$(git rev-parse HEAD:src/lib/dev/product-steam-chest-client.mjs)" = a4534f259a4c6730640d4fa56f38a13580415719
+          test "$(git rev-parse HEAD:src/lib/dev/product-steam-chest.worker.mjs)" = d801ded148ad1ce00bc02861da4088636e5ebe86
+          test "$(git rev-parse HEAD:src/routes/editor/chest/steam/+page.svelte)" = 927d2776e6091d50b54e7e7e92c3e173b64b4ec7
+          test "$(git rev-parse HEAD:src/routes/editor/+page.svelte)" = 54e78331769cfa1c9c7e30b882df4505aab686c6
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-steam-chest-release.mjs)" = 2ae152ac9f2d7dc671fdfa0ac9c58a4a276a2566
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-steam-chest-release-anchor.mjs)" = d31894accdbfd977953aeedd4055aa027a0f0cb8
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test -z "$(git ls-files static/worker-wasm-scoped-steam-chest)"
+      - run: npm ci --no-audit --no-fund
+      - name: Independent bounded actual client denial and locale data
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createProductSteamChestPort,productSteamChestPortScope,scopedSteamChestReadyOk} from './src/lib/dev/product-steam-chest-client.mjs';
+          import {localAmountCopy,DEV_AMOUNT_UI_LOCALES} from './src/lib/dev/local-amount-copy.mjs';
+          let negatives=0;
+          const deny=(v)=>{assert.equal(v,false);negatives++};
+          assert.equal(DEV_AMOUNT_UI_LOCALES.length,8);
+          for(const locale of DEV_AMOUNT_UI_LOCALES){const c=localAmountCopy(locale,false,'',true);assert.equal(typeof c.title,'string');assert.equal(typeof c.intro,'string');assert.ok(c.title&&c.intro);assert.equal(Object.isFrozen(c),true)}
+          const builds=[{platform:'steam-windows',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',productV2EvidenceSha256:null}];
+          const scope={releaseId:'a'.repeat(64),operation:'steam626.chest.exact1',mode:'private-product-v2',builds};
+          const ready={kind:'SCOPED_STEAM_CHEST_RUNTIME_READY',...scope,writerAuthorized:false};
+          assert.equal(scopedSteamChestReadyOk(ready,scope),true); // shape predicate only, never a trusted runtime
+          for(const patch of [{kind:'OTHER'},{releaseId:'b'.repeat(64)},{operation:'amount'},{mode:'public-accepted'},{writerAuthorized:true},{builds:[]},{builds:[{...builds[0],platform:'switch'}]},{builds:[{...builds[0],buildId:'unknown'}]},{builds:[{...builds[0],productV2EvidenceSha256:'c'.repeat(64)}]},{extra:true}]){
+            deny(scopedSteamChestReadyOk({...ready,...patch},scope));
+          }
+          const {writerAuthorized,...missing}=ready;deny(scopedSteamChestReadyOk(missing,scope));
+          for(const fake of [ready,Object.freeze({...ready}),{...ready,open(){},dispose(){}}]){assert.equal(productSteamChestPortScope(fake),null);negatives++}
+          Object.defineProperty(globalThis,'document',{configurable:true,value:{}});
+          Object.defineProperty(globalThis,'location',{configurable:true,value:new URL('https://dreamwishwand.github.io/web/editor/chest/steam/?enable=true')});
+          let constructed=0;Object.defineProperty(globalThis,'Worker',{configurable:true,value:class{constructor(){constructed++;throw Error('unexpected worker')}}});
+          const ac=new AbortController();ac.abort();
+          for(const options of [{},{anchor:scope,verifiedLocalDevGate:true,workerFactory:()=>{}},{signal:ac.signal},{onFault:1}]){
+            await assert.rejects(createProductSteamChestPort(options));negatives++;
+          }
+          assert.equal(constructed,0);
+          console.log('QRW1477_OFF_CLIENT_ACTUAL_PASS',JSON.stringify({negatives,localeCount:8,workerConstructed:constructed,positiveSignedRuntime:false}));
+          NODE
+      - name: Build real production static route (null anchor)
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run build
+          test -f build/editor/chest/steam/index.html
+          test -f build/editor/index.html
+          test ! -e build/worker-wasm-scoped-steam-chest
+      - name: Install existing browser driver
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Serve actual static output on isolated loopback
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/qrw1477-static"
+          ln -s "$PWD/build" "$RUNNER_TEMP/qrw1477-static/web"
+          python3 -m http.server 4177 --bind 127.0.0.1 --directory "$RUNNER_TEMP/qrw1477-static" > /tmp/qrw1477-http.log 2>&1 &
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4177/web/editor/chest/steam/ >/dev/null; then exit 0; fi; sleep 1; done
+          cat /tmp/qrw1477-http.log
+          exit 1
+      - name: Actual Chrome hydrated OFF route / reload / forged local flags
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const root='http://127.0.0.1:4177/web';
+          const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+            const context=await browser.newContext({locale:'en-US'});
+            await context.addInitScript(()=>{
+              window.__qrw1477Workers=[];
+              const original=window.Worker;
+              window.Worker=new Proxy(original,{construct(target,args,newTarget){window.__qrw1477Workers.push(String(args[0]));return Reflect.construct(target,args,newTarget)}});
+              localStorage.setItem('verifiedLocalDevGate','true');
+              localStorage.setItem('productSteamChestEnabled','true');
+            });
+            const page=await context.newPage();const errors=[],scopedRequests=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('request',r=>{if(r.url().includes('/worker-wasm-scoped-steam-chest/'))scopedRequests.push(r.url())});
+            let checked=0;
+            const hydrated=async()=>{await page.waitForFunction(()=>!!document.documentElement.dataset.locale);await page.waitForLoadState('networkidle')};
+            const assertOff=async()=>{
+              await hydrated();
+              const route=page.locator('[data-steam-chest-product-route]');
+              assert.equal(await route.getAttribute('data-steam-chest-scope'),'off');
+              assert.equal(await route.locator('input[type=file]').count(),0);
+              assert.equal(await route.locator('[data-dev-amount-editor]').count(),0);
+              assert.equal(await route.locator('[role=status]').count(),1);
+              assert.equal(await page.evaluate(()=>window.__qrw1477Workers.length),0);
+              checked++;
+            };
+            for(const suffix of ['/editor/chest/steam/','/editor/chest/steam/?enable=true&mode=public-accepted#writer','/editor/chest/steam/?build=9A239D3DB569756D','/editor/chest/steam/?platform=switch&mode=private-product-v2']){
+              const response=await page.goto(root+suffix);assert.equal(response.status(),200);await assertOff();
+            }
+            await page.reload();await assertOff();
+            const hub=await page.goto(root+'/editor/');assert.equal(hub.status(),200);await hydrated();
+            assert.equal(await page.locator('a[href*="/editor/chest/steam/"]').count(),0);
+            assert.equal(await page.evaluate(()=>window.__qrw1477Workers.length),0);
+            await page.goBack();await assertOff();
+            assert.deepEqual(scopedRequests,[]);assert.deepEqual(errors,[]);
+            console.log('QRW1477_OFF_CHROME_ACTUAL_PASS',JSON.stringify({routeChecks:checked,hubLink:false,workerConstructed:0,scopedRequests:0,pageErrors:0,realSignedPositive:false}));
+            await context.close();
+          }finally{await browser.close()}
+          NODE
