@@ -1,0 +1,104 @@
+name: QR-W ACT1040 Storage MOVE independent changed-only L2
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1040-storage-move.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed source pins and isolated independent test
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only 1238e722efb849f4d7023ff5eb7a29a857e413a3 HEAD)" = '.github/workflows/qa-qrw-act1040-storage-move.yml'
+          test "$(git rev-parse HEAD:src/lib/wep/storage-furniture-v125.ts)" = ec6f2ec01b959ab8eb612d51c3fb822cb75ecf9c
+          test "$(git rev-parse HEAD:tests/wep-storage-furniture-v125.test.mjs)" = 47528f864f2e3ee0a23e1c134a8ef85a07a854aa
+          test "$(git rev-parse HEAD:src/routes/editor/world/+page.svelte)" = 5f334aed2923a0c2c0d4bf39827a29d164c9742b
+          test "$(git rev-parse HEAD:docs/wep/world-editor-localization-inventory-20261002.json)" = 19ebce8d5dfbbd28b50863b35241b3d50cf8dac8
+          test "$(git rev-parse HEAD:src/lib/wep/placement-legality-v19.ts)" = 9e3b7e294bc8c57cb7b16605c7911905c574702d
+          cp tests/wep-storage-furniture-v125.test.mjs tests/.qa-qrw-act1040.mjs
+          cat >> tests/.qa-qrw-act1040.mjs <<'NODE'
+          const cp1040=f=>({...f,sourceBytes:f.sourceBytes.slice(),opened:structuredClone(f.opened),baselineDocument:structuredClone(f.baselineDocument),draftDocument:structuredClone(f.draftDocument),itemDefinitionsById:structuredClone(f.itemDefinitionsById)});
+          const target1040=d=>d.objects.find(o=>o.itemId===ITEM);
+          const peer1040=d=>d.objects.find(o=>o.itemId===40000048);
+          const review1040=f=>reviewStorageSameGridMoveVerifiedExportV125(f);
+          const commit1040=(f,r,extra={})=>commitStorageFurnitureVerifiedExportV125({...f,review:r,currentSourceEpoch:f.sourceEpoch,...extra});
+          test('QRW1040 independent canonical occupancy and route, receipt, exact output',async()=>{
+            const {f:occupied,clear,destination}=await actualStorageFixture();
+            const mk=()=>{const f=cp1040(clear);target1040(f.draftDocument).x=453;return f};
+            const hash=async b=>Buffer.from(await webcrypto.subtle.digest('SHA-256',b)).toString('hex');
+            const good=mk(),sha=await hash(good.sourceBytes);
+            const deny=async(label,fn,pattern)=>{await assert.rejects(fn,pattern,label);console.log('QRW1040_NEG_PASS',label)};
+            const baseline=/WEP_STORAGE_BASELINE_SOURCE_MISMATCH|WEP_STORAGE_SOURCE_PROFILE_MISMATCH|WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE|WEP_EXPORT_TARGET_IDENTITY_MISMATCH/;
+            const stale=/WEP_STORAGE_REVIEW_STALE|WEP_STORAGE_SOURCE_CHANGED_SINCE_PLAN/;
+            // All occupancy geometry is the real pinned classifier, never a fake VALID stub.
+            assert.equal(occupied.placementBinding.classifyMinimumTransformPlacement({document:occupied.draftDocument,editorId:target1040(occupied.draftDocument).editorId}).result.valid,false);
+            await deny('canonical occupied',()=>review1040(cp1040(occupied)),/WEP_STORAGE_INVALID_DESTINATION/);
+            for(const [label,mutate] of [
+              ['omitted occupant',d=>{d.objects=d.objects.filter(o=>o.itemId!==40000048)}],
+              ['relocated occupant',d=>{peer1040(d).x=1;peer1040(d).y=1}],
+              ['changed occupant item',d=>{peer1040(d).itemId=40000066}],
+              ['duplicate occupant',d=>{d.objects.push(structuredClone(peer1040(d)))}],
+              ['extra occupant',d=>{d.objects.push({...structuredClone(peer1040(d)),editorId:'qa-extra',source:{...peer1040(d).source,gridObjectId:999,objectMapKey:'999'}})}],
+              ['wrong occupant identity',d=>{peer1040(d).source.objectMapKey='999'}],
+              ['wrong selected orientation',d=>{target1040(d).orientation=4}],
+              ['wrong selected old coordinate',d=>{target1040(d).y+=1}],
+              ['wrong root',d=>{d.target.rootGridId=7}],
+              ['wrong path',d=>{d.target.gridDataPath='GridData/qa-unknown.json'}],
+              ['wrong tessellation',d=>{d.target.tessellationFactor=1}],
+              ['wrong area',d=>{d.target.areaId=999}],
+              ['wrong village',d=>{d.target.villageIndex=999}]
+            ]){
+              const x=cp1040(occupied);mutate(x.baselineDocument);mutate(x.draftDocument);
+              await deny(label,()=>review1040(x),baseline);
+            }
+            const wrongProfile=mk();wrongProfile.opened.profile.Player.Opaque={changed:true};
+            await deny('wrong opened profile',()=>review1040(wrongProfile),/WEP_STORAGE_SOURCE_PROFILE_MISMATCH/);
+            const wrongContainer=mk();for(const d of [wrongContainer.baselineDocument,wrongContainer.draftDocument])target1040(d).metadata.storageCapability.containerInventoryId=999;
+            await deny('wrong container id',()=>review1040(wrongContainer),baseline);
+            const pendingDraft=mk();const rp=review1040(pendingDraft);target1040(pendingDraft.draftDocument).x=454;
+            await deny('draft changes during review',()=>rp,/WEP_STORAGE_REVIEW_STALE/);
+            const pendingDefs=mk();const dp=review1040(pendingDefs);pendingDefs.itemDefinitionsById[String(ITEM)].defaultContainerSize=32;
+            await deny('definitions change during review',()=>dp,/WEP_STORAGE_REVIEW_STALE/);
+            const r=await review1040(good);
+            await deny('cloned receipt',()=>commit1040(good,structuredClone(r)),stale);
+            await deny('foreign source epoch',()=>commit1040(good,r,{currentSourceEpoch:good.sourceEpoch+1}),stale);
+            const changed=cp1040(good);target1040(changed.draftDocument).x=454;
+            await deny('changed draft after review',()=>commit1040(changed,r),stale);
+            const defs=cp1040(good);defs.itemDefinitionsById[String(ITEM)].defaultContainerSize=32;
+            await deny('changed definitions after review',()=>commit1040(defs,r),stale);
+            const foreign=mk(),fr=await review1040(foreign);
+            await deny('different encrypted source',()=>commit1040(foreign,fr,{sourceBytes:occupied.sourceBytes.slice()}),stale);
+            const altered=mk(),ar=await review1040(altered);ar.plan.planId='qa-altered';
+            await deny('altered plan receipt',()=>commit1040(altered,ar),stale);
+            const first=commit1040(good,r);await deny('concurrent receipt reuse',()=>commit1040(good,r),stale);
+            const out=await first;
+            assert.equal(out.status,'PASS');assert.equal(out.persistentWriteAuthorized,false);assert.equal(out.productApplyAuthorized,false);
+            const reopened=await openWorldSaveBytes(out.artifacts.edited.bytes,{sourcePlatform:'switch'});
+            const expected=structuredClone(good.opened.profile);expected.World.GridCollection.Grids['3'].Objects['42'].X=453;
+            assert.deepEqual(reopened.profile,expected);
+            assert.deepEqual(out.artifacts.backup.bytes,good.sourceBytes);
+            assert.equal(await hash(good.sourceBytes),sha);
+            assert.equal(await hash(out.artifacts.backup.bytes),sha);
+            await deny('replayed receipt after export',()=>commit1040(good,r),stale);
+            console.log('QRW1040_STORAGE_MOVE_ACTUAL_PASS',JSON.stringify({positive:1,negative:25,exactFullDocument:true,backupShaUnchanged:true,writer:false}));
+          });
+          NODE
+      - name: Independent real P1G source-bound storage MOVE falsification
+        run: |
+          node --test --test-name-pattern='^QRW1040' tests/.qa-qrw-act1040.mjs
+      - name: No tracked changes or private Save
+        run: |
+          git diff --exit-code HEAD
+          test -z "$(git ls-files '*.p1g')"
