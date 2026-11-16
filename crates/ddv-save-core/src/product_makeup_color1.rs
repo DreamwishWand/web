@@ -171,4 +171,75 @@ mod tests{
    let s=open(&d);assert!(s.prepare_fixed_makeup_color1(env(&s,WorkerAction::ReadDomain)).is_err(),"negative {i}");
   }
  }
+
+ #[test]fn qa1891_makeup_color1_lexical_exact1(){
+  let mut d=doc();d["Opaque"]=json!({"escaped":"keep","decoy":[53,60]});
+  d["Player"]["MaleAvatar"]["Makeup"]["1"]["KeepOpaque"]=json!({"raw":"keep","decoy":53});
+  let raw=serde_json::to_string(&d).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");
+  let build=BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+   build_id:APPEARANCE_BUILD.into(),schema:626,externally_attested:true};
+  let mut s=ProductSession::open_decoded_readonly(raw.as_bytes().to_vec(),build.clone()).unwrap();s.worker_bound=true;
+  let e=env(&s,WorkerAction::ReadDomain);let before=s.receipt().unwrap();let p=s.prepare_fixed_makeup_color1(e).unwrap();
+  assert_eq!(&s.decoded[p.span.begin..p.span.end],b"53");
+  let st=WorkerEnvelope{action:WorkerAction::Stage,..e};let mut neg=0;
+  assert!(s.stage_fixed_makeup_color1(e,&p).is_err());neg+=1;
+  for bad in [WorkerEnvelope{expected_revision:1,..st},
+              WorkerEnvelope{expected_index_generation:2,..st},
+              WorkerEnvelope{expected_decoded_sha256:[0;32],..st}]{
+   assert!(s.stage_fixed_makeup_color1(bad,&p).is_err());neg+=1;
+  }
+  let mut forged=s.prepare_fixed_makeup_color1(e).unwrap();forged.projected[0]^=1;
+  assert!(s.stage_fixed_makeup_color1(st,&forged).is_err());neg+=1;
+  let mut foreign=ProductSession::open_decoded_readonly(raw.as_bytes().to_vec(),build).unwrap();foreign.worker_bound=true;
+  assert!(foreign.stage_fixed_makeup_color1(env(&foreign,WorkerAction::Stage),&p).is_err());neg+=1;
+  assert_eq!(s.receipt().unwrap(),before);
+  let r=s.stage_fixed_makeup_color1(st,&p).unwrap();
+  assert_eq!((r.operation_count,r.exact_field_changed_count),(1,1));
+  assert!(!r.product_writer_authorized&&!r.original_overwrite_authorized);
+  assert!(s.stage_fixed_makeup_color1(st,&p).is_err());neg+=1;
+  s.undo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).is_err());neg+=1;
+  s.redo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+  let ex=env(&s,WorkerAction::ExportEditedCopy);let out=s.take_typed_semantic_decoded_once(ex).unwrap();
+  assert!(s.take_typed_semantic_decoded_once(ex).is_err());neg+=1;
+  let mut want=d.clone();want["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"]=json!(60);
+  let expected=serde_json::to_string(&want).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");
+  assert_eq!(out,expected.as_bytes());assert_eq!(s.decoded.as_ref(),raw.as_bytes());
+  assert_eq!(want["Player"]["ListInventories"],d["Player"]["ListInventories"]);
+  assert_eq!(want["Player"]["FemaleAvatar"],d["Player"]["FemaleAvatar"]);
+  assert_eq!(sha(&out),hex(&r.staged_decoded_sha256));
+  std::fs::write("/tmp/qrc1891-makeup1-reopen.json",out).unwrap();
+  assert_eq!(neg,9);
+  println!("QRC1891_MAKEUP_COLOR1_ACTUAL 1POS {neg}NEG EXACT1 LEXICAL_ORIGINAL_UNCHANGED");
+ }
+ #[test]fn qa1891_makeup_color1_child_reopen(){
+  let out=std::fs::read("/tmp/qrc1891-makeup1-reopen.json").unwrap();
+  let build=BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+    build_id:APPEARANCE_BUILD.into(),schema:626,externally_attested:true};
+  let s=ProductSession::open_decoded_readonly(out.clone(),build).unwrap();let r=s.receipt().unwrap();
+  assert_eq!((r.revision,r.index_generation,r.schema),(0,1,626));
+  assert_eq!(sha(&out),hex(&r.decoded_sha256));
+  assert!(!r.writer_authorized&&!r.edited_copy_authorized&&!r.apply_authorized);
+  let d:Value=serde_json::from_slice(&out).unwrap();
+  assert_eq!(d["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"],60);
+  assert_eq!(d["Player"]["FemaleAvatar"]["Makeup"]["1"]["ColorIndex1"],60);
+  for channel in ["ColorIndex2","ColorIndex3"]{assert_eq!(d["Player"]["MaleAvatar"]["Makeup"]["1"][channel],-1);}
+  assert_eq!(d["Player"]["ListInventories"]["3"]["Inventory"]["140100014"]["Amount"],2);
+  assert!(String::from_utf8(out).unwrap().contains(r#"\u006beep"#));
+  println!("QRC1891_MAKEUP_COLOR1_CHILD_REOPEN_PASS schema626");
+ }
+ #[test]fn qa1891_makeup_color1_reference_negatives(){
+  let mut neg=0;
+  for i in 0..5{let mut d=doc();match i{
+   0=>d["Player"]["ListInventories"]["1"]["Inventory"]["50000001"]["Amount"]=json!(0),
+   1=>d["Player"]["MaleAvatar"]["Makeup"]["01"]=d["Player"]["MaleAvatar"]["Makeup"]["1"].clone(),
+   2=>d["Player"]["FemaleAvatar"]["Makeup"]["1"]["ColorIndex2"]=json!(2),
+   3=>d["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex3"]=json!(2),
+   _=>d["Player"]["ListInventories"]["3"]["CompatibleItemType"]=json!("ItemType_ActivityItem"),
+  }
+   let s=open(&d);assert!(s.prepare_fixed_makeup_color1(env(&s,WorkerAction::ReadDomain)).is_err(),"case{i}");neg+=1;
+  }
+  assert_eq!(neg,5);println!("QRC1891_MAKEUP_COLOR1_REFERENCE_ACTUAL {neg}NEG");
+ }
+
 }
