@@ -34,4 +34,15 @@ const wardrobeRows={
  'pt-BR':['Roupa Steam — DEV local OFF','Roupa Switch — DEV local OFF','Slot interno superior','Substituir a roupa equipada 50000352 por 50000214 já possuída no mesmo slot; propriedade e estoque intactos.','Somente local, sem envio ou sobrescrita. Build, compatibilidade e posse verificadas pelo Core.']
 };
 const wardrobeKeys=['wardrobeSteamTitle','wardrobeSwitchTitle','wardrobeSlot','wardrobeDetail','wardrobeSafety'];
-export const localPlacementCopy=l=>Object.freeze({...collectionExact1Copy(l),...Object.fromEntries(keys.map((k,i)=>[k,(rows[l]||rows.en)[i]])),...Object.fromEntries(backpackKeys.map((k,i)=>[k,(backpackRows[l]||backpackRows.en)[i]])),...Object.fromEntries(wardrobeKeys.map((k,i)=>[k,(wardrobeRows[l]||wardrobeRows.en)[i]]))});
+const sr03={
+ en:['Road S-R03 · fixed 5-piece layout — local DEV/OFF','Keep 1 · move 1 · add 3 · stock −3','Retained Object ID','Moved Object ID'],
+ ja:['道路S-R03・固定5個配置 — ローカルDEV/OFF','1個保持・1個移動・3個追加・在庫3個消費','保持するObject ID','移動するObject ID'],
+ fr:['Route S-R03 · disposition fixe de 5 — DEV local OFF','Conserver 1 · déplacer 1 · ajouter 3 · stock −3','ID objet conservé','ID objet déplacé'],
+ de:['Weg S-R03 · festes 5er-Layout — lokal DEV/AUS','1 behalten · 1 verschieben · 3 hinzufügen · Bestand −3','Behaltene Objekt-ID','Verschobene Objekt-ID'],
+ it:['Strada S-R03 · schema fisso da 5 — DEV locale OFF','Mantieni 1 · sposta 1 · aggiungi 3 · scorte −3','ID oggetto mantenuto','ID oggetto spostato'],
+ 'es-ES':['Camino S-R03 · diseño fijo de 5 — DEV local OFF','Conservar 1 · mover 1 · añadir 3 · stock −3','ID objeto conservado','ID objeto movido'],
+ 'zh-CN':['道路 S-R03 · 固定5件布局 — 本地DEV关闭','保留1件·移动1件·新增3件·库存−3','保留对象 ID','移动对象 ID'],
+ 'pt-BR':['Caminho S-R03 · layout fixo de 5 — DEV local OFF','Manter 1 · mover 1 · adicionar 3 · estoque −3','ID do objeto mantido','ID do objeto movido']
+};
+const sr03Keys=['sr03Title','sr03Detail','retainedId','movedId'];
+export const localPlacementCopy=l=>Object.freeze({...collectionExact1Copy(l),...Object.fromEntries(keys.map((k,i)=>[k,(rows[l]||rows.en)[i]])),...Object.fromEntries(backpackKeys.map((k,i)=>[k,(backpackRows[l]||backpackRows.en)[i]])),...Object.fromEntries(wardrobeKeys.map((k,i)=>[k,(wardrobeRows[l]||wardrobeRows.en)[i]])),...Object.fromEntries(sr03Keys.map((k,i)=>[k,(sr03[l]||sr03.en)[i]]))});
