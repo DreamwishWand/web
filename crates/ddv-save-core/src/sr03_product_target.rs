@@ -23,6 +23,15 @@ pub(crate) struct Sr03Target{
     root_sha:[u8;32],grid_sha:[u8;32],keep_sha:[u8;32],moved_sha:[u8;32],
     counter_sha:[u8;32],stock_sha:[u8;32],houses_sha:[u8;32],pairs:usize,
 }
+/// R01 layout-only target: no seed removals and no inventory debit.
+/// Internal receipt only; never a mutation/Stage grant.
+#[derive(Debug,PartialEq,Eq)]
+#[allow(dead_code)]
+pub(crate) struct R01Target{
+    scope:WorkerEnvelope, grid:u32, x:u32,y:u32,next:u32,stock:u32,
+    root_sha:[u8;32],grid_sha:[u8;32],counter_sha:[u8;32],stock_sha:[u8;32],
+    houses_sha:[u8;32],pairs:usize,
+}
 fn raw(b:&[u8],s:Span)->CoreResult<&[u8]>{b.get(s.begin..s.end).ok_or(denied("SR03_TARGET_SPAN"))}
 fn digest(b:&[u8],s:Span)->CoreResult<[u8;32]>{Ok(sha(raw(b,s)?))}
 fn value(b:&[u8],s:Span,max:usize)->CoreResult<Value>{
@@ -169,6 +178,37 @@ fn ambient(b:&[u8],world:Span,gs:Span,ds:Span,refs:&Incoming,houses:&Value,o:&Va
     wide(x,y,r)
 }
 impl ProductSession{
+    /// R01: exact horizontal three-add candidate using the same immutable
+    /// Switch626 Session and existing typed provider/reference/stock checks.
+    /// This is a read-only target; caller still owes R01 applicability/rights.
+    #[allow(dead_code)]
+    pub(crate) fn mint_switch626_r01_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<R01Target>{
+        road_build(self,RoadBuild::Switch626)?;let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
+        need(self.worker_bound&&st.semantic.is_none()&&st.revision==0&&st.generation==1&&gid>0,"R01_TARGET_EPOCH")?;
+        let common=InstalledGeometry::fixed().ok_or(denied("R01_TARGET_COMMON_PROVIDER"))?;
+        let pack=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).ok_or(denied("R01_TARGET_PROVIDER"))?;
+        let b=&self.decoded;let roots=indexed_read::roots(b)?;let w=roots.world;
+        let(root,g,gs,ds)=selected(b,w,gid)?;
+        let next=n(b,g,"NextGridObjectID")?;
+        let end=next.checked_add(3).ok_or(denied("R01_TARGET_COUNTER"))?;
+        need(next>0&&end<=i32::MAX as u32,"R01_TARGET_COUNTER")?;
+        let start=indexed_read::skip_ws(b,0);let top=Span{begin:start,end:indexed_read::value_end(b,start)?};
+        let refs=super::placement_saved_refs::scan(b,top,gid,None,next,end)?;
+        need(refs.root(gid)==1&&refs.parent(gid)==0,"R01_TARGET_REFERENCE_ALIAS")?;
+        let(houses,house_span)=house_items(b,w)?;
+        let objects=f(b,g,"Objects")?;let mut budget=0;
+        for(_,o)in members(b,objects,4096)?{saved_grid_state(b,f(b,o,"State")?,ROAD as i32,&mut budget)?;}
+        let grid=value(b,g,MAX_GRID)?;
+        let minted=pack.local_r01_with_buildings(&grid,x,y,&houses,|i|common.dimensions(i),
+            |o,dims|ambient(b,w,gs,ds,&refs,&houses,o,dims)).ok_or(denied("R01_TARGET_GEOMETRY"))?;
+        need(minted==next,"R01_TARGET_COUNTER")?;
+        // Reuse existing exact stock route + physical totals as a conservative
+        // read-only witness (>3, Favorite); never subtract stock in R01.
+        let(old,entry)=stock(b,roots.player)?;
+        Ok(R01Target{scope:e,grid:gid,x,y,next,stock:old,root_sha:digest(b,root)?,grid_sha:digest(b,g)?,
+            counter_sha:digest(b,f(b,g,"NextGridObjectID")?)?,stock_sha:digest(b,entry)?,houses_sha:digest(b,house_span)?,pairs:refs.pairs})
+    }
+
     /// Mint only an opaque target from one immutable, current worker session.
     /// No UI-supplied provider, rights, rectangle, hashes or Stage permission.
     #[allow(dead_code)]
@@ -339,6 +379,46 @@ mod tests{
   let now=env(&s);s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..now}).unwrap();let now=env(&s);s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..now}).unwrap();let now=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};let out=s.take_typed_semantic_decoded_once(now).unwrap();assert_eq!(sha(&out),p.projected);assert!(s.take_typed_semantic_decoded_once(now).is_err());
   let steam=open(&d);assert!(steam.preview_switch626_rm01_product(env(&steam),90001,10,11).is_err());
   for mode in 0..5{let mut bad=d.clone();match mode{0=>bad["World"]["RecurringEvents"]["1"]["ItemSpawning"]["RecurringEventItemID"]=json!(2010000179),1=>bad["World"]["RecurringEvents"]["1"]["ItemSpawning"]["GridID"]=json!(1),2=>bad["Player"]["DutySlots"]["0"]["Slots"][0]["DifficultyLayer"]=json!(1),3=>bad["Player"]["DutySlots"]["0"]["Slots"][0]["ItemsUsed"]=json!([40100068]),_=>bad["Player"]["DutySlots"]["0"]["Slots"][0]["StepData"]["ItemFilter"]["Data"]["Item"]=json!(40100068)}let x=open_switch(&bad);assert!(x.preview_switch626_rm01_product(env(&x),90001,10,11).is_err(),"mode {mode}");}
+ }
+ #[test]fn switch626_r01_current_session_target_no_seed_exemption(){
+  let mut d=doc();
+  let x=d["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"].as_u64().unwrap() as u32;
+  let y=d["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"].as_u64().unwrap() as u32;
+  let open_switch=|v:&Value|{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s};
+  let s=open_switch(&d);
+  // Existing mixed seeds are NOT exempt in R01.
+  assert!(s.mint_switch626_r01_target(env(&s),90001,x,y).is_err());
+  let far_x=if x<190{388}else{0};let far_y=if y<100{196}else{0};
+  let g=&mut d["World"]["GridCollection"]["Grids"]["90001"];
+  g["Objects"]["10"]["X"]=json!(far_x);g["Objects"]["10"]["Y"]=json!(far_y);
+  g["Objects"].as_object_mut().unwrap().remove("11");
+  let s=open_switch(&d);let e=env(&s);let before=s.receipt().unwrap();
+  let t=s.mint_switch626_r01_target(e,90001,x,y).unwrap();
+  assert_eq!((t.grid,t.x,t.y,t.next,t.stock),(90001,x,y,50,10));
+  assert_eq!(s.receipt().unwrap(),before);
+  let steam=open(&d);assert!(steam.mint_switch626_r01_target(env(&steam),90001,x,y).is_err());
+  assert!(open_switch(&d).mint_switch626_r01_target(e,90001,x,y).is_err());
+  assert!(s.mint_switch626_r01_target(WorkerEnvelope{expected_revision:1,..e},90001,x,y).is_err());
+  assert!(s.mint_switch626_r01_target(WorkerEnvelope{action:WorkerAction::Stage,..e},90001,x,y).is_err());
+  assert!(s.mint_switch626_r01_target(e,90001,x+1,y).is_err());
+  for i in 0..12{let mut q=d.clone();match i{
+   0=>q["World"]["Villages"][0]["Areas"]["2"]["Unlocked"]=json!(false),
+   1=>q["Unknown"]=json!({"GridIDs":[90001]}),
+   2=>q["Unknown"]=json!({"GridID":90001,"ObjectID":50}),
+   3=>q["Unknown"]=json!({"GridID":90001,"ObjectID":51}),
+   4=>q["Unknown"]=json!({"GridID":90001,"ObjectID":52}),
+   5=>q["World"]["GridCollection"]["DiffGrids"]["90001"]=json!({"ID":90001}),
+   6=>q["World"]["GridCollection"]["Grids"]["90001"]["GridDefaultLayoutPath"]=json!("foreign"),
+   7=>q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX),
+   8=>q["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(0),
+   9=>q["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Marker"]=json!("ItemMarker_None"),
+   10=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"]=json!(x),
+   _=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["ID"]=json!(50)
+  }
+  if i==10{q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"]=json!(y);}
+  let s=open_switch(&q);let before=s.receipt().unwrap();
+  assert!(s.mint_switch626_r01_target(env(&s),90001,x,y).is_err(),"R01 mode {i}");
+  assert_eq!(s.receipt().unwrap(),before);}
  }
  #[test]fn sr03_subgrid_empty_zero_counter_and_bounded_child(){
   let mut d=json!({"Grids":{"20":{"ID":20,"TessellationFactor":2,"GridDataPath":"GridData/Furniture/NonIP_Update17/CoffeeShopTable-GridData.json","GridDefaultLayoutPath":"","NextGridObjectID":0,"Objects":{}}},"DiffGrids":{}});
