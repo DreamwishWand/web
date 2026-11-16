@@ -5,9 +5,20 @@ use sha2::{Digest,Sha256};
 use serde_json::{json,Value};
 use super::super::{Platform,BuildKind};
 pub(super) const APPEARANCE_BUILD:&str="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
+// Internal scope selection, never supplied by the UI.
+#[derive(Clone,Copy,PartialEq,Eq)]
+pub(super) enum AppearanceBuildScope{Steam626,Switch626}
+pub(super) const SWITCH_APPEARANCE_BID:&str="9A239D3DB569756D";
 pub(super) fn product_appearance_scope(s:&ProductSession,e:&WorkerEnvelope)->CoreResult<()> {
+    product_appearance_scope_for(s,e,AppearanceBuildScope::Steam626)
+}
+pub(super) fn product_appearance_scope_for(s:&ProductSession,e:&WorkerEnvelope,scope:AppearanceBuildScope)->CoreResult<()> {
     let b=&s.native_source_build;
-    if !s.worker_bound || b.platform!=Platform::SteamWindows || b.build_kind!=BuildKind::SteamFullVersion || b.build_id!=APPEARANCE_BUILD || b.schema!=626 || !b.externally_attested {return Err(denied("APPEARANCE_EXACT_WORKER_BUILD_REQUIRED"));}
+    let exact=match scope{
+        AppearanceBuildScope::Steam626=>b.platform==Platform::SteamWindows&&b.build_kind==BuildKind::SteamFullVersion&&b.build_id==APPEARANCE_BUILD,
+        AppearanceBuildScope::Switch626=>b.platform==Platform::Switch&&b.build_kind==BuildKind::SwitchBid&&b.build_id==SWITCH_APPEARANCE_BID,
+    };
+    if !s.worker_bound||!exact||b.schema!=626||!b.externally_attested{return Err(denied("APPEARANCE_EXACT_WORKER_BUILD_REQUIRED"));}
     let state=s.lock()?;validate_scope(s,&state,e)
 }
 pub(super) const MAX_AVATAR_FIELDS:usize=64;

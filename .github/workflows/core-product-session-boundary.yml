@@ -47,6 +47,7 @@ jobs:
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib product_hair_fixed_exact1_shared_ledger_candidate --verbose
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib product_skin_fixed_exact1_shared_ledger_candidate --verbose
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib appearance_producer_bound_stage_recomputes_readset --verbose
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib switch626_appearance_exact1_build_scoped_core --verbose
       - name: Prove one typed Rust Writer module typechecks in wasm32 without public ABI export
         run: |
           set -euo pipefail

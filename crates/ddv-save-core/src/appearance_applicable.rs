@@ -103,7 +103,10 @@ pub(super) struct AppearanceCurrentWitness{
 // complete affected producer and reference-definition joins remain distinct.
 impl ProductSession{
     pub(super) fn prepare_hair_current_applicability(&self,e:WorkerEnvelope,new:i32)->CoreResult<AppearanceCurrentWitness>{
-        let t=self.prepare_fixed_product_hair_candidate(e,new)?;
+        self.prepare_hair_current_applicability_for(e,new,AppearanceBuildScope::Steam626)
+    }
+    fn prepare_hair_current_applicability_for(&self,e:WorkerEnvelope,new:i32,scope:AppearanceBuildScope)->CoreResult<AppearanceCurrentWitness>{
+        let t=self.prepare_fixed_product_hair_candidate_for(e,new,scope)?;
         let st=self.lock()?;validate_scope(self,&st,&e)?;
         need(st.revision==0&&st.generation==1,"HAIR_APPLICABLE_EPOCH")?;
         let b=&self.decoded;let root=roots(b)?;
@@ -111,7 +114,7 @@ impl ProductSession{
         let f=branch(b,required(&player,"FemaleAvatar")?)?;let m=branch(b,required(&player,"MaleAvatar")?)?;
         hair_branch_guard(&f)?;hair_branch_guard(&m)?;
         let flags=skin_dialogue_flags(b,Some(required(&world,"DialogueFlags")?),FLAG)?;
-        let readset=json!({"contract":"wand.core.steam626.hair-current-applicability-inputs@1",
+        let readset=json!({"contract":match scope{AppearanceBuildScope::Steam626=>"wand.core.steam626.hair-current-applicability-inputs@1",AppearanceBuildScope::Switch626=>"wand.core.switch626.hair-current-applicability-inputs@1"},
             "female":branch_dependencies(b,required(&player,"FemaleAvatar")?)?,
             "male":branch_dependencies(b,required(&player,"MaleAvatar")?)?,
             "femaleReferences":branch_json(&f),"maleReferences":branch_json(&m),
@@ -123,7 +126,10 @@ impl ProductSession{
         Ok(AppearanceCurrentWitness{scope:e,selected_token_sha:t.old_token_sha,readset_sha,readset})
     }
     pub(super) fn prepare_skin_current_applicability(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<AppearanceCurrentWitness>{
-        let t=self.prepare_fixed_product_skin_candidate(e,character,new)?;
+        self.prepare_skin_current_applicability_for(e,character,new,AppearanceBuildScope::Steam626)
+    }
+    fn prepare_skin_current_applicability_for(&self,e:WorkerEnvelope,character:i32,new:i32,scope:AppearanceBuildScope)->CoreResult<AppearanceCurrentWitness>{
+        let t=self.prepare_fixed_product_skin_candidate_for(e,character,new,scope)?;
         let definition=skin_definition(SKIN_PACK,character,t.old,new)?;
         let st=self.lock()?;validate_scope(self,&st,&e)?;
         need(st.revision==0&&st.generation==1,"SKIN_APPLICABLE_EPOCH")?;
@@ -138,7 +144,7 @@ impl ProductSession{
             else{need(skin!=Some(i64::from(t.old))&&skin!=Some(i64::from(new)),"SKIN_APPLICABLE_FOREIGN_SELECTION")?;}
         }
         need(selected==1,"SKIN_APPLICABLE_CHARACTER_ALIAS")?;
-        let readset=json!({"contract":"wand.core.steam626.skin-current-applicability-inputs@1",
+        let readset=json!({"contract":match scope{AppearanceBuildScope::Steam626=>"wand.core.steam626.skin-current-applicability-inputs@1",AppearanceBuildScope::Switch626=>"wand.core.switch626.skin-current-applicability-inputs@1"},
             "definition":definition,"selectedCharacterSha256":t.character_sha,
             "oldStock":t.old_stock,"newStock":t.new_stock,"dialogueFlags":t.flags,
             "allCharacterSelections":chars,"subscribers":current_subscribers(b,&player,&world)?,
@@ -304,12 +310,18 @@ fn skin_definition_join(readset:&Value,pack:&Value)->CoreResult<Value>{
 }
 impl ProductSession{
     pub(super) fn prepare_hair_definition_bound(&self,e:WorkerEnvelope,new:i32)->CoreResult<AppearanceCurrentWitness>{
-        let mut t=self.prepare_hair_current_applicability(e,new)?;
+        self.prepare_hair_definition_bound_for(e,new,AppearanceBuildScope::Steam626)
+    }
+    fn prepare_hair_definition_bound_for(&self,e:WorkerEnvelope,new:i32,scope:AppearanceBuildScope)->CoreResult<AppearanceCurrentWitness>{
+        let mut t=self.prepare_hair_current_applicability_for(e,new,scope)?;
         let join=hair_definition_join(&t.readset,appearance_definitions()?)?;
         t.readset["definitionJoin"]=join;t.readset_sha=digest(&t.readset)?;Ok(t)
     }
     pub(super) fn prepare_skin_definition_bound(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<AppearanceCurrentWitness>{
-        let mut t=self.prepare_skin_current_applicability(e,character,new)?;
+        self.prepare_skin_definition_bound_for(e,character,new,AppearanceBuildScope::Steam626)
+    }
+    fn prepare_skin_definition_bound_for(&self,e:WorkerEnvelope,character:i32,new:i32,scope:AppearanceBuildScope)->CoreResult<AppearanceCurrentWitness>{
+        let mut t=self.prepare_skin_current_applicability_for(e,character,new,scope)?;
         let join=skin_definition_join(&t.readset,appearance_definitions()?)?;
         t.readset["definitionJoin"]=join;t.readset_sha=digest(&t.readset)?;Ok(t)
     }
@@ -380,7 +392,10 @@ fn skin_schedule_guard(pack:&Value)->CoreResult<()>{
 }
 impl ProductSession{
     pub(super) fn prepare_hair_producer_bound(&self,e:WorkerEnvelope,new:i32)->CoreResult<AppearanceCurrentWitness>{
-        let mut t=self.prepare_hair_definition_bound(e,new)?;
+        self.prepare_hair_producer_bound_for(e,new,AppearanceBuildScope::Steam626)
+    }
+    fn prepare_hair_producer_bound_for(&self,e:WorkerEnvelope,new:i32,scope:AppearanceBuildScope)->CoreResult<AppearanceCurrentWitness>{
+        let mut t=self.prepare_hair_definition_bound_for(e,new,scope)?;
         let pack=appearance_definitions()?;
         let j=affected_subscriber_guard(&t.readset,pack,true)?;
         hair_wear_guard(&t.readset,pack)?;
@@ -388,7 +403,10 @@ impl ProductSession{
         t.readset_sha=digest(&t.readset)?;Ok(t)
     }
     pub(super) fn prepare_skin_producer_bound(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<AppearanceCurrentWitness>{
-        let mut t=self.prepare_skin_definition_bound(e,character,new)?;
+        self.prepare_skin_producer_bound_for(e,character,new,AppearanceBuildScope::Steam626)
+    }
+    fn prepare_skin_producer_bound_for(&self,e:WorkerEnvelope,character:i32,new:i32,scope:AppearanceBuildScope)->CoreResult<AppearanceCurrentWitness>{
+        let mut t=self.prepare_skin_definition_bound_for(e,character,new,scope)?;
         let pack=appearance_definitions()?;
         let j=affected_subscriber_guard(&t.readset,pack,false)?;
         skin_schedule_guard(pack)?;
@@ -448,6 +466,51 @@ impl ProductSession{
     #[cfg(feature="product-steam626-skin-scoped")]
     pub(crate) fn stage_steam626_skin_bound_worker(&self,e:WorkerEnvelope,character:i32,new:i32,expected:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
         self.stage_skin_producer_bound(e,character,new,expected,projected)
+    }
+}
+
+// Switch626 exact Build adapter: the Steam projection retains its original
+// catalog provenance (01E ACT1313/1314 exact ten raw definition equivalence).
+// The Switch receipt has its own contract; no caller-selected Build or rights.
+#[cfg(feature="semantic-writer-dev")]
+impl ProductSession{
+    #[allow(dead_code)]
+    pub(crate) fn preview_switch626_hair_bound_worker(&self,e:WorkerEnvelope,new:i32)->CoreResult<Value>{
+        let scope=AppearanceBuildScope::Switch626;
+        let w=self.prepare_hair_producer_bound_for(e,new,scope)?;
+        let t=self.prepare_fixed_product_hair_candidate_for(e,new,scope)?;
+        let p=self.project_appearance_scalar_candidate(t.span,t.old,t.new)?;
+        Ok(json!({"contract":"wand.core.switch626.hair-exact1-preview@1","old":t.old,"new":t.new,
+            "activeMale":t.active_male,"selectedTokenSha256":w.selected_token_sha,"readsetSha256":w.readset_sha,
+            "projectedDecodedSha256":super::appearance_observer::hex(&p),"exactFieldChangedCount":1,"writerAuthorized":false,"originalOverwriteAuthorized":false}))
+    }
+    #[allow(dead_code)]
+    pub(crate) fn stage_switch626_hair_bound_worker(&self,e:WorkerEnvelope,new:i32,expected:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        need(e.action==WorkerAction::Stage,"HAIR_BOUND_STAGE_ACTION")?;
+        let read=WorkerEnvelope{action:WorkerAction::ReadDomain,..e};let scope=AppearanceBuildScope::Switch626;
+        let w=self.prepare_hair_producer_bound_for(read,new,scope)?;
+        need(w.readset_sha==expected,"HAIR_BOUND_READSET_CAS")?;
+        let t=self.prepare_fixed_product_hair_candidate_for(read,new,scope)?;
+        self.commit_switch626_appearance_scalar_candidate(e,t.span,t.old,t.new,projected)
+    }
+    #[allow(dead_code)]
+    pub(crate) fn preview_switch626_skin_bound_worker(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<Value>{
+        let scope=AppearanceBuildScope::Switch626;
+        let w=self.prepare_skin_producer_bound_for(e,character,new,scope)?;
+        let t=self.prepare_fixed_product_skin_candidate_for(e,character,new,scope)?;
+        let p=self.project_appearance_scalar_candidate(t.span,t.old,t.new)?;
+        Ok(json!({"contract":"wand.core.switch626.skin-exact1-preview@1","old":t.old,"new":t.new,
+            "characterId":t.character,"selectedTokenSha256":w.selected_token_sha,"readsetSha256":w.readset_sha,
+            "projectedDecodedSha256":super::appearance_observer::hex(&p),"exactFieldChangedCount":1,"writerAuthorized":false,"originalOverwriteAuthorized":false}))
+    }
+    #[allow(dead_code)]
+    pub(crate) fn stage_switch626_skin_bound_worker(&self,e:WorkerEnvelope,character:i32,new:i32,expected:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        need(e.action==WorkerAction::Stage,"SKIN_BOUND_STAGE_ACTION")?;
+        let read=WorkerEnvelope{action:WorkerAction::ReadDomain,..e};let scope=AppearanceBuildScope::Switch626;
+        let w=self.prepare_skin_producer_bound_for(read,character,new,scope)?;
+        need(w.readset_sha==expected,"SKIN_BOUND_READSET_CAS")?;
+        let t=self.prepare_fixed_product_skin_candidate_for(read,character,new,scope)?;
+        self.commit_switch626_appearance_scalar_candidate(e,t.span,t.old,t.new,projected)
     }
 }
 
@@ -519,6 +582,34 @@ mod tests{
         if hair{d["Player"]["MaleAvatar"]["HairColorIndex"]=json!(20);}else{d["World"]["Characters"][0]["SkinID"]=json!(SKIN_NEW);}
         let o=s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).unwrap();
         assert_eq!(o,serde_json::to_vec(&d).unwrap());
+    }
+ }
+ #[cfg(feature="semantic-writer-dev")]
+ #[test]fn switch626_appearance_exact1_build_scoped_core(){
+    let mut d=definition_doc();d["Player"]["FemaleAvatar"]["HairColorIndex"]=json!(20);
+    let make=|v:&Value|{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),
+        BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:SWITCH_APPEARANCE_BID.into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s};
+    for hair in [true,false]{
+        let s=make(&d);let e=env(&s);
+        let preview=|s:&ProductSession,e|if hair{s.preview_switch626_hair_bound_worker(e,20)}else{s.preview_switch626_skin_bound_worker(e,SKIN_CHARACTER,SKIN_NEW)};
+        let p=preview(&s,e).unwrap();let sha=p["readsetSha256"].as_str().unwrap();
+        let scope=AppearanceBuildScope::Switch626;
+        let (span,old,new)=if hair{let t=s.prepare_fixed_product_hair_candidate_for(e,20,scope).unwrap();(t.span,t.old,t.new)}
+            else{let t=s.prepare_fixed_product_skin_candidate_for(e,SKIN_CHARACTER,SKIN_NEW,scope).unwrap();(t.span,t.old,t.new)};
+        let projected=s.project_appearance_scalar_candidate(span,old,new).unwrap();
+        let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+        let call=|s:&ProductSession,e,sha:&str,p|if hair{s.stage_switch626_hair_bound_worker(e,20,sha,p)}else{s.stage_switch626_skin_bound_worker(e,SKIN_CHARACTER,SKIN_NEW,sha,p)};
+        assert_eq!(p["exactFieldChangedCount"],1);assert_eq!(p["writerAuthorized"],false);assert!(p.get("readset").is_none());
+        let steam=open(d.clone());assert!(preview(&steam,env(&steam)).is_err());
+        let foreign=make(&d);assert!(call(&foreign,stage,sha,projected).is_err());
+        assert!(call(&s,e,sha,projected).is_err());assert!(call(&s,stage,"bad",projected).is_err());assert!(call(&s,stage,sha,[0;32]).is_err());
+        let mut bad=d.clone();if hair{bad["Player"]["AvatarIsMale"]=json!(false);}else{bad["World"]["DialogueFlags"]=json!([]);}
+        let b=make(&bad);assert!(preview(&b,env(&b)).is_err());
+        let r=call(&s,stage,sha,projected).unwrap();assert_eq!(r.exact_field_changed_count,1);assert!(!r.product_writer_authorized);
+        assert!(call(&s,stage,sha,projected).is_err());
+        let mut expected=d.clone();if hair{expected["Player"]["MaleAvatar"]["HairColorIndex"]=json!(20);}else{expected["World"]["Characters"][0]["SkinID"]=json!(SKIN_NEW);}
+        let out_e=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};
+        assert_eq!(s.take_typed_semantic_decoded_once(out_e).unwrap(),serde_json::to_vec(&expected).unwrap());assert!(s.take_typed_semantic_decoded_once(out_e).is_err());
     }
  }
  #[cfg(feature="product-steam626-hair-scoped")]
