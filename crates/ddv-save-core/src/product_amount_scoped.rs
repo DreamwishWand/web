@@ -747,6 +747,22 @@ mod tests{
             "State":{"Storage":{"ContainerInventoryID":12,"DefaultContainerInventoryData":"","UnlockKeyItemID":0,"UnlockLocId":"","DesignID":null}}}}});
         d["World"]["Villages"]=json!([{"Areas":{"2":{"GridIDs":[7],"Unlocked":true}}}]);d
     }
+    #[cfg(feature="product-steam626-chest-portable-restore")]
+    #[test]fn chest_portable_worker_guard_boundary(){
+        let mut prior=chest_doc();prior["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);
+        let a=open(&prior);let ae=scope(&a,WorkerAction::ReadDomain);let ag=crate::worker_session::WorkerSessionGuard::attach(a);
+        let backup=ag.capture_chest_portable(ae,12,0).unwrap();
+        let s=open(&chest_doc());let e=scope(&s,WorkerAction::ReadDomain);let st=scope(&s,WorkerAction::Stage);
+        let p=s.preview_product_chest_portable_restore(e,12,0,&backup).unwrap();
+        let mut g=crate::worker_session::WorkerSessionGuard::attach(s);
+        let v=g.preview_chest_portable(e,12,0,&backup).unwrap();assert_eq!(v["oldAmount"],json!(50));assert_eq!(v["projectedSha256"],json!(hex(&p.projected_sha)));
+        assert!(g.preview_chest_portable(ae,12,0,&backup).is_err());assert!(g.preview_chest_portable(e,12,1,&backup).is_err());
+        assert!(g.stage_chest_portable(st,12,0,&backup,50,49,p.entry_sha,[0;32],p.projected_sha).is_err());
+        let r=g.stage_chest_portable(st,12,0,&backup,50,49,p.entry_sha,p.backup_sha,p.projected_sha).unwrap();assert_eq!(r.exact_field_changed_count,1);
+        assert!(g.stage_chest_portable(st,12,0,&backup,50,49,p.entry_sha,p.backup_sha,p.projected_sha).is_err());
+        let out=WorkerEnvelope{expected_revision:r.revision,expected_index_generation:r.index_generation,action:WorkerAction::ExportEditedCopy,..st};
+        assert_eq!(g.take_scoped_edit(out).unwrap(),serde_json::to_vec(&prior).unwrap());assert!(g.take_scoped_edit(out).is_err());
+    }
     #[test]fn linked_chest_portable_backup_exact_lineage_decrease(){
         use crate::portable_backup::{decode_linked_chest_amount_backup,encode_linked_chest_amount_backup,decode_inventory_amount_backup};
         let mut prior=chest_doc();prior["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);
