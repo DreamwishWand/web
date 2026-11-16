@@ -1,0 +1,83 @@
+name: ACT1501 fixed Steam Single Fence private-lab executable transport (NO SAVE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/steam-single-fence-private-target-lab-build.yml'
+permissions:
+  contents: read
+jobs:
+  build-only:
+    if: github.head_ref == '01b/steam-single-fence-private-target-lab' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f32ddca99f5cca1322d5823b9cfdef3fa21cd38c
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Fixed source and approved Lock; add ignored transport-only test in temporary checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = f32ddca99f5cca1322d5823b9cfdef3fa21cd38c
+          p=crates/ddv-save-core/src/steam_single_fence_product_target.rs
+          test "$(git hash-object "$p")" = dd71dddccb4e961952529905dc7ac6f54f38cea5
+          test "$(git hash-object crates/ddv-save-core/src/sr03_installed_geometry.rs)" = c05cc7338cd4d2df6f7ba93d818aed02661bd767
+          test "$(git hash-object crates/ddv-save-core/src/sr03_product_target.rs)" = 99785da18c75bd86fb8ab60f49948b4cd667fe87
+          test "$(git hash-object scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cat >> "$p" <<'RS'
+
+          #[cfg(all(test,not(target_arch="wasm32")))]
+          mod private_single_fence_lab{
+              use super::*;
+              use std::{env,fs};
+              fn hex32(v:&[u8;32])->String{v.iter().map(|x|format!("{x:02x}")).collect()}
+              fn num(v:&Value)->u32{v.as_u64().and_then(|n|u32::try_from(n).ok()).unwrap()}
+              #[test]
+              #[ignore="authorized local input only; never execute in CI"]
+              fn genuine_steam_single_fence_target(){
+                  let path=env::var("WAND_STEAM_SINGLE_FENCE_PRIVATE_DECODED").unwrap();
+                  let bytes=fs::read(&path).unwrap();
+                  let plan:Value=serde_json::from_slice(&fs::read(env::var("WAND_STEAM_SINGLE_FENCE_PRIVATE_EXPECT").unwrap()).unwrap()).unwrap();
+                  let want=&plan["target"];let bad=&plan["blocked"];
+                  assert_eq!(hex32(&sha(&bytes)),want["decodedSha"].as_str().unwrap());
+                  let mut s=ProductSession::open_decoded_readonly(bytes,crate::BuildIdentity{
+                      platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+                      build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap();
+                  s.worker_bound=true;let before=s.receipt().unwrap();
+                  let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:before.session_id,expected_revision:before.revision,expected_index_generation:before.index_generation,expected_decoded_sha256:before.decoded_sha256,action:WorkerAction::ReadDomain};
+                  let t=s.mint_steam626_single_fence_target(e,num(&want["grid"]),num(&want["x"]),num(&want["y"])).expect("actual fixed target");
+                  let got=serde_json::json!({"decodedSha":hex32(&before.decoded_sha256),"grid":t.grid,"x":t.x,"y":t.y,"next":t.next,"stock":t.stock,"pairs":t.pairs,"rootSha":hex32(&t.root_sha),"gridSha":hex32(&t.grid_sha),"counterSha":hex32(&t.counter_sha),"stockSha":hex32(&t.stock_sha),"housesSha":hex32(&t.houses_sha)});
+                  assert_eq!(&got,want);
+                  assert_eq!(s.mint_steam626_single_fence_target(e,t.grid,num(&bad["x"]),num(&bad["y"])).unwrap_err().0,"SINGLE_FENCE_GEOMETRY");
+                  assert!(s.mint_steam626_single_fence_target(WorkerEnvelope{expected_revision:1,..e},t.grid,t.x,t.y).is_err());
+                  assert!(s.mint_steam626_single_fence_target(WorkerEnvelope{action:WorkerAction::Stage,..e},t.grid,t.x,t.y).is_err());
+                  assert_eq!(s.receipt().unwrap(),before);
+                  assert_eq!(hex32(&sha(&fs::read(path).unwrap())),want["decodedSha"].as_str().unwrap());
+                  println!("STEAM_SINGLE_FENCE_PRIVATE_TARGET_ACTUAL_PASS 1POS1GEOMETRY_NEG2CAS_NEG12FIELDS");
+              }
+          }
+          RS
+          # The only tracked workspace delta is the ignored transport harness.
+          test "$(git diff --name-only)" = "$p"
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-amount-scoped --lib --no-run --message-format=json > "$RUNNER_TEMP/steam-single-fence-build.jsonl"
+          mkdir -p "$RUNNER_TEMP/steam-single-fence-lab"
+          python3 - "$RUNNER_TEMP" <<'PY'
+          import json, pathlib, shutil, sys, hashlib, subprocess
+          p=pathlib.Path(sys.argv[1]); a=[json.loads(l) for l in (p/'steam-single-fence-build.jsonl').read_text().splitlines()]
+          ex=[v['executable'] for v in a if v.get('reason')=='compiler-artifact' and v.get('executable') and v.get('profile',{}).get('test') and v.get('target',{}).get('name') in ('ddv_save_core','ddv-save-core')]
+          assert len(ex)==1, len(ex)
+          out=p/'steam-single-fence-lab'; exe=out/'steam-single-fence-private-target-test';shutil.copy2(ex[0],exe)
+          h=lambda q:hashlib.sha256(pathlib.Path(q).read_bytes()).hexdigest()
+          m={'source':'f32ddca99f5cca1322d5823b9cfdef3fa21cd38c','binder':'dd71dddccb4e961952529905dc7ac6f54f38cea5','geometry':'c05cc7338cd4d2df6f7ba93d818aed02661bd767','feature':'product-amount-scoped','lockGit':'b667b42cfef2032c2925be7b2aa9b7142bff4b52','lockSha256':h('crates/ddv-save-core/Cargo.lock'),'harnessSha256':h('crates/ddv-save-core/src/steam_single_fence_product_target.rs'),'executableSha256':h(exe),'compiler':subprocess.check_output(['rustc','-Vv'],text=True),'purpose':'build-only local ignored test; no actual save in CI'}
+          (out/'manifest.json').write_text(json.dumps(m,sort_keys=True,separators=(',',':'))+'\n')
+          print('STEAM_SINGLE_FENCE_LAB_BUILD_ONLY',m['source'],m['executableSha256'],m['lockSha256'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: steam-single-fence-fixed-private-target-test
+          path: ${{ runner.temp }}/steam-single-fence-lab/
+          if-no-files-found: error
+          retention-days: 1
