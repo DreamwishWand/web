@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
 const BUILD: &str = "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
-const DATA_SHA: &str = "16c8ee8f05ad5a89f73c5572c3a019f12f3054eccb142c1c3cb813ccd691611c";
+const DATA_SHA: &str = "cee30ee6462856d369289351f8ee0d3f50b9da99f8a0a1c8257ac0e651d9866c";
 const COMMON_SHA: &str = "78a1ba539b2e6f43182cea2c2ea35c9d10e51f27d4adbb8d4dbc6cce7f7dcd65";
 type R<T> = Result<T, &'static str>;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -25,10 +25,12 @@ fn text(v:&Value)->R<&str>{v.as_str().ok_or("PLACEMENT_TEXT")}
 fn def<'a>(d:&'a Value,group:&str,id:u32)->R<&'a Value>{need(id>0,"PLACEMENT_ID")?;d[group].get(id.to_string()).ok_or("PLACEMENT_DEFINITION_UNKNOWN")}
 fn canonical_key(k:&str)->R<u32>{let x=k.parse::<u32>().map_err(|_|"PLACEMENT_KEY")?;need(x.to_string()==k,"PLACEMENT_KEY")?;Ok(x)}
 fn pack(bytes:&[u8])->R<Value>{
- need(bytes.len()==155615&&hex(&Sha256::digest(bytes))==DATA_SHA,"PLACEMENT_PACK_SHA")?;
+ need(bytes.len()==162406&&hex(&Sha256::digest(bytes))==DATA_SHA,"PLACEMENT_PACK_SHA")?;
  let d:Value=serde_json::from_slice(bytes).map_err(|_|"PLACEMENT_PACK_JSON")?;
- need(d["contract"]=="wand.core.steam626.placement-applicable-supplement@1"&&d["build"]==BUILD&&d["commonDependencySha256"]==COMMON_SHA,"PLACEMENT_PACK_CONTRACT")?;
+ need(d["contract"]=="wand.core.steam626.placement-applicable-supplement@2"&&d["build"]==BUILD&&d["commonDependencySha256"]==COMMON_SHA,"PLACEMENT_PACK_CONTRACT")?;
  for (k,c) in [("missions",965),("achievements",509),("duties",509),("recurring",508)]{need(map(&d[k],c)?.len()==c,"PLACEMENT_PACK_COUNT")?;}
+ need(d["vaseItemId"]==40000066&&d["vaseDefinitionSha256"]=="60f840fa471e3678b5f7a018466d150882ad7bddaece6ada9a86327fd1c0607a","PLACEMENT_VASE_FIXED_DEFINITION")?;
+ need(array(&d["vaseSceneIds"],182)?.len()==182&&array(&d["vaseTimeBendingDataIds"],82)?.len()==82&&array(&d["vaseVillageAreaNames"],48)?.len()==48,"PLACEMENT_VASE_PACK_COUNT")?;
  Ok(d)
 }
 fn missions(w:&Value,d:&Value)->R<()>{
@@ -99,7 +101,65 @@ fn duties(p:&Value,d:&Value,scope:PlacementScope)->R<()>{
   }else if !f.is_null(){need(f.as_object().is_some()&&f["Type"].as_str().is_some_and(|t|!t.is_empty()&&t!="ItemType_Furniture"),"PLACEMENT_DUTY_FILTER")?;}
  }} Ok(())
 }
+// VaseAdd is the fixed ordinary subtype0 Vase target 40000066, not a generic furniture
+// capability. The existing same-session binder must bind that exact effective definition and
+// provider, geometry/quota/occupied cells, stock and references before minting a target.
+// The recurring classification describes offline preservation, NOT a promise that later
+// random spawn positions or scheduling in the game are identical after adding furniture.
+fn known_u32(v:&Value,ids:&Value)->R<bool>{
+ let x=n(v)?;Ok(array(ids,4096)?.iter().any(|i|i.as_u64()==Some(u64::from(x))))
+}
+fn guid(v:&Value)->bool{
+ let Some(s)=v.as_str() else{return false};
+ s.len()==36&&s.bytes().enumerate().all(|(i,b)|if matches!(i,8|13|18|23){b==b'-'}else{b.is_ascii_hexdigit()})
+}
+fn date(v:&Value,nullable:bool)->bool{
+ (nullable&&v.is_null())||v.as_str().is_some_and(|s|!s.is_empty()&&s.len()<=128)
+}
+fn vase_roots(w:&Value,d:&Value)->R<()>{
+ let mut max_id=0;
+ for(k,v)in map(&w["TimeLostTreasures"],4096)?{
+  let id=canonical_key(k)?;
+  let o=map(v,4)?;
+  need(id>0&&n(&v["ID"])?==id&&o.len()==4&&["ID","ForcedTimeBendingDataItemID","Location","CustomLocation"].iter().all(|k|o.contains_key(*k)),"PLACEMENT_TREASURE_SHAPE")?;
+  max_id=max_id.max(id);
+  let forced=n(&v["ForcedTimeBendingDataItemID"])?;
+  need(forced==0||known_u32(&v["ForcedTimeBendingDataItemID"],&d["vaseTimeBendingDataIds"])?,"PLACEMENT_TREASURE_FORCED")?;
+  let loc=map(&v["Location"],1)?;
+  need(loc.len()==1,"PLACEMENT_TREASURE_LOCATION")?;
+  if let Some(a)=loc.get("VillageArea"){
+   need(array(&d["vaseVillageAreaNames"],48)?.iter().any(|x|x==a),"PLACEMENT_TREASURE_LOCATION")?;
+  }else if let Some(a)=loc.get("Scene"){
+   need(known_u32(a,&d["vaseSceneIds"])?,"PLACEMENT_TREASURE_LOCATION")?;
+  }else{return Err("PLACEMENT_TREASURE_LOCATION")}
+  let c=&v["CustomLocation"];
+  if !c.is_null(){need(map(c,1)?.len()==1&&guid(&c["GUID"]),"PLACEMENT_TREASURE_GUID")?;}
+ }
+ need(n(&w["NextTimeLostTreasureID"])? > max_id,"PLACEMENT_TREASURE_COUNTER")?;
+ // Current supported scope has no live Snippet references. A different live state
+ // requires its own affected proof, never an implicit general allow.
+ need(map(&w["Snippets"],4096)?.is_empty(),"PLACEMENT_SNIPPET_LIVE")?;
+ n(&w["NextSnippetID"])?;
+ Ok(())
+}
+fn vase_event_shape(kind:&str,body:&Value)->R<()>{
+ let keys:&[&str]=match kind{
+  "ItemSpawning"=>&["RecurringEventItemID","NextOccurrence","EndDate","LastOccurrence"],
+  "TimeLostTreasureSpawning"=>&["RecurringEventItemID","NextOccurrence","EndDate"],
+  "SnippetSpawning"=>&["RecurringEventItemID","NextOccurrence","EndDate","Tokens","Snippets"],
+  _=>return Ok(())
+ };
+ let o=map(body,keys.len())?;
+ need(o.len()==keys.len()&&keys.iter().all(|k|o.contains_key(*k)),"PLACEMENT_RECURRING_SAVED_SHAPE")?;
+ need(date(&body["NextOccurrence"],false)&&date(&body["EndDate"],true),"PLACEMENT_RECURRING_TIME")?;
+ if kind=="ItemSpawning"{need(date(&body["LastOccurrence"],true),"PLACEMENT_RECURRING_TIME")?;}
+ if kind=="SnippetSpawning"{
+  need(n(&body["Tokens"])?<=i32::MAX as u32&&array(&body["Snippets"],4096)?.is_empty(),"PLACEMENT_SNIPPET_REFERENCE")?;
+ }
+ Ok(())
+}
 fn recurring(w:&Value,d:&Value,scope:PlacementScope)->R<()>{
+ if scope==PlacementScope::VaseAdd{vase_roots(w,d)?;}
  let mode=if scope==PlacementScope::Comp03LayoutOnly{1}else{2};
  for (k,v) in map(&w["RecurringEvents"],4096)?{
   canonical_key(k)?;let o=map(v,1)?;need(o.len()==1,"PLACEMENT_RECURRING_ONEOF")?;
@@ -109,7 +169,11 @@ fn recurring(w:&Value,d:&Value,scope:PlacementScope)->R<()>{
   let class=row[mode].as_str().ok_or("PLACEMENT_RECURRING_APPLICABILITY_UNKNOWN")?;
   if scope==PlacementScope::Comp03LayoutOnly {
    need(matches!(class,"village"|"other-scene"|"disjoint"|"known-nonplacement"),"PLACEMENT_RECURRING_APPLICABILITY_UNKNOWN")?;
-  } else {need(class=="disjoint","PLACEMENT_RECURRING_APPLICABILITY_UNKNOWN")?;}
+  } else {
+   need(matches!(class,"disjoint"|"offline-preserve"),"PLACEMENT_RECURRING_APPLICABILITY_UNKNOWN")?;
+   if class=="offline-preserve"{need(matches!(kind.as_str(),"ItemSpawning"|"TimeLostTreasureSpawning"|"SnippetSpawning"),"PLACEMENT_RECURRING_OFFLINE_KIND")?;}
+   vase_event_shape(kind,body)?;
+  }
  } Ok(())
 }
 fn battlepass(p:&Value)->R<()>{
@@ -147,7 +211,7 @@ mod tests{
  fn test_pack()->Value{pack(&fixture()).unwrap()}
  fn sample()->(Value,Value){
   (json!({"AchievementsData":[],"DutySlots":{},"BattlePassStates":{"Progress":{},"FtueProgress":{"TasksProgress":[],"WeeklyTasksProgress":[]}}}),
-   json!({"MissionSlots":{},"RecurringEvents":{}}))
+   json!({"MissionSlots":{},"RecurringEvents":{},"TimeLostTreasures":{},"NextTimeLostTreasureID":1,"Snippets":{},"NextSnippetID":0}))
  }
  #[test] fn pinned_definition_pack_and_two_scopes(){
   let data=test_pack();let d=&data;let(p,w)=sample();
@@ -186,5 +250,38 @@ mod tests{
   assert!(check(PlacementScope::VaseAdd,&p,&w,d).is_err());w["MissionSlots"]=json!({});
   p["BattlePassStates"]["FtueProgress"]["TasksProgress"]=json!([{"TaskState":"BattlePassTaskState_OnGoing"}]);
   assert!(check(PlacementScope::Comp03LayoutOnly,&p,&w,d).is_err());
+ }
+
+ #[test] fn vase_offline_roots_and_producer_negative_controls(){
+  let data=test_pack();let d=&data;let(p,mut w)=sample();
+  let scene=d["vaseSceneIds"][0].as_u64().unwrap();
+  w["TimeLostTreasures"]=json!({"1":{"ID":1,"ForcedTimeBendingDataItemID":0,"Location":{"Scene":scene},"CustomLocation":null}});
+  w["NextTimeLostTreasureID"]=json!(2);
+  let ts="2026-01-01T00:00:00Z";
+  for kind in ["ItemSpawning","TimeLostTreasureSpawning","SnippetSpawning"]{
+   let (id,_)=d["recurring"].as_object().unwrap().iter().find(|(_,r)|r[0]==kind&&r[2]=="offline-preserve").unwrap();
+   let mut b=json!({"RecurringEventItemID":id.parse::<u32>().unwrap(),"NextOccurrence":ts,"EndDate":null});
+   if kind=="ItemSpawning"{b["LastOccurrence"]=Value::Null;}
+   if kind=="SnippetSpawning"{b["Tokens"]=json!(1);b["Snippets"]=json!([]);}
+   w["RecurringEvents"]=json!({"1":{(kind):b}});
+   assert!(check(PlacementScope::VaseAdd,&p,&w,d).is_ok());
+   let mut bad=w.clone();bad["RecurringEvents"]["1"][kind]["GridID"]=json!(1);
+   assert!(check(PlacementScope::VaseAdd,&p,&bad,d).is_err());
+   if kind=="SnippetSpawning"{let mut bad=w.clone();bad["RecurringEvents"]["1"][kind]["Snippets"]=json!([1]);assert!(check(PlacementScope::VaseAdd,&p,&bad,d).is_err());}
+  }
+  for bad in [
+    json!({"GridID":1}),json!({"Scene":1}),json!({"VillageArea":"UNKNOWN"}),json!({"Scene":scene,"VillageArea":"VillageAreaType_Beach"})
+  ]{
+   let mut q=w.clone();q["TimeLostTreasures"]["1"]["Location"]=bad;
+   assert!(check(PlacementScope::VaseAdd,&p,&q,d).is_err());
+  }
+  let mut q=w.clone();q["TimeLostTreasures"]["1"]["ForcedTimeBendingDataItemID"]=json!(40000066);
+  assert!(check(PlacementScope::VaseAdd,&p,&q,d).is_err());
+  q=w.clone();q["NextTimeLostTreasureID"]=json!(1);assert!(check(PlacementScope::VaseAdd,&p,&q,d).is_err());
+  q=w.clone();q["Snippets"]=json!({"1":{}});assert!(check(PlacementScope::VaseAdd,&p,&q,d).is_err());
+  q=w.clone();q["TimeLostTreasures"]["1"]["CustomLocation"]=json!({"GUID":"bad"});assert!(check(PlacementScope::VaseAdd,&p,&q,d).is_err());
+  q=w.clone();q["TimeLostTreasures"]["1"]["CustomLocation"]=json!({"GUID":"01234567-89ab-cdef-0123-456789abcdef"});assert!(check(PlacementScope::VaseAdd,&p,&q,d).is_ok());
+  // COMP03 remains independent of Vase-specific live roots; unknown recurring still denied.
+  q=w.clone();q["Snippets"]=json!({"1":{}});assert!(check(PlacementScope::Comp03LayoutOnly,&p,&q,d).is_ok());
  }
 }
