@@ -14,10 +14,10 @@
  $: backpack=operation.startsWith('backpack-');
  $: wardrobe=operation.startsWith('wardrobe-');
  $: mixedRoad=operation==='sr03'||operation==='rm01';
- $: appearance=operation==='hair'||operation==='skin';
- $: rawTitle=operation==='hair'?words.hairTitle:operation==='skin'?words.skinTitle:operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
+ $: appearance=['hair','skin','switch-hair','switch-skin'].includes(operation);
+ $: rawTitle=operation==='switch-hair'?words.hairTitle.replace('Steam626','Switch626'):operation==='switch-skin'?words.skinTitle.replace('Steam626','Switch626'):(operation==='hair'||operation==='switch-hair')?words.hairTitle:(operation==='skin'||operation==='switch-skin')?words.skinTitle:operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
  $: title=productMode?rawTitle.split(' — ')[0]+(productMode==='private-product-v2'?' — V2':''):rawTitle;
- $: detail=appearance?(operation==='hair'?words.hairDetail:words.skinDetail):wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:words.vaseDetail;
+ $: detail=appearance?((operation==='hair'||operation==='switch-hair')?words.hairDetail:words.skinDetail):wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:words.vaseDetail;
  $: p=state.preview;
  $: valid=(wardrobe||appearance)?true:backpack?Number.isSafeInteger(x)&&x>=0&&x<256&&Number.isSafeInteger(y)&&y>=0&&y<256&&x!==y:operation==='comp03'?Number.isSafeInteger(seed)&&seed>0:Number.isSafeInteger(grid)&&grid>0&&Number.isSafeInteger(x)&&x>=0&&Number.isSafeInteger(y)&&y>=0&&(!mixedRoad||(x>0&&y>0&&x!==y));
  onMount(()=>{
@@ -44,12 +44,12 @@
  }
 </script>
 <section class="placement" data-dev-placement data-product-writer="off" data-public-route={productMode==='public-accepted'?'on':'off'} data-operation={operation}>
- <h2>{title}</h2><p>{wardrobe?words.wardrobeSafety:backpack?words.backpackSafety:operation==='rm01'?words.rm01Safety:words.safety}</p><p>{detail}</p>
+ <h2>{title}</h2><p>{wardrobe?words.wardrobeSafety:backpack?words.backpackSafety:operation==='rm01'?words.rm01Safety:operation==='switch-hair'||operation==='switch-skin'?words.safety.replace('Steam626','Switch626'):words.safety}</p><p>{detail}</p>
  {#if !workflow}<p role="status">{words.off}</p>
  {:else}
   {#if state.phase==='closed'}
    <label>{words.file}<input bind:this={input} type="file" accept=".p1g,application/octet-stream" disabled={pending} on:change={select}/></label>
-   <p>{words.platform}: <code>{operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'?SWITCH626_BACKPACK_BUILD.buildId:STEAM626_PLACEMENT_BUILD.buildId}</code></p>
+   <p>{words.platform}: <code>{operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'||operation==='switch-hair'||operation==='switch-skin'?SWITCH626_BACKPACK_BUILD.buildId:STEAM626_PLACEMENT_BUILD.buildId}</code></p>
    <label class="confirm"><input type="checkbox" bind:checked={confirmed} disabled={pending}/>{words.confirmBuild}</label>
    <button disabled={pending||!file||!confirmed} on:click={()=>act(w=>w.openFile({file,buildConfirmed:confirmed}))}>{words.openFile}</button>
   {:else}
@@ -68,7 +68,7 @@
     <div class="review" aria-live="polite" data-placement-preview>
      <strong>{words.verified}</strong>
      {#if wardrobe}<p>{words.wardrobeSlot}: {p.slot}</p><p>Item ID: {p.oldItemId} → {p.newItemId}</p>
-     {:else if appearance}<p>{p.old} → {p.new}</p>{#if operation==='skin'}<p>Character ID: {p.characterId}</p>{/if}
+     {:else if appearance}<p>{p.old} → {p.new}</p>{#if (operation==='skin'||operation==='switch-skin')}<p>Character ID: {p.characterId}</p>{/if}
      {:else if backpack}<p>Backpack 0 · Item ID: {p.itemId}</p><p>{words.sourceSlot}: {p.sourceSlot} · {p.oldAmount} → {p.newSourceAmount}</p><p>{words.destinationSlot}: {p.destinationSlot} · 0 → {p.newDestinationAmount}</p>
      {:else}<p>{words.grid}: {p.gridId} · Item ID: {p.itemId}</p>
      {#if operation==='comp03'}<p>{words.seed}: {p.seedId}</p><Comp03ReferencePattern locale={$locale}/>
@@ -95,7 +95,7 @@
      <p>{p.oldAmount} → {p.newAmount}</p>{/if}<p>{detail}</p>
     </div>
    {/if}
-   {#if state.phase==='previewed'}<button disabled={pending||!valid||(appearance?(p?.old!==(operation==='hair'?74:170000054)||p?.new!==(operation==='hair'?20:170000000)||(operation==='skin'&&p?.characterId!==10000053)):wardrobe?p?.slot!==0||p?.oldItemId!==50000352||p?.newItemId!==50000214:backpack?p?.sourceSlot!==x||p?.destinationSlot!==y:operation==='comp03'?p?.seedId!==seed:mixedRoad?p?.gridId!==grid||p?.retainedId!==x||p?.movedId!==y:p?.gridId!==grid||p?.x!==x||p?.y!==y)} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
+   {#if state.phase==='previewed'}<button disabled={pending||!valid||(appearance?(p?.old!==((operation==='hair'||operation==='switch-hair')?74:170000054)||p?.new!==((operation==='hair'||operation==='switch-hair')?20:170000000)||((operation==='skin'||operation==='switch-skin')&&p?.characterId!==10000053)):wardrobe?p?.slot!==0||p?.oldItemId!==50000352||p?.newItemId!==50000214:backpack?p?.sourceSlot!==x||p?.destinationSlot!==y:operation==='comp03'?p?.seedId!==seed:mixedRoad?p?.gridId!==grid||p?.retainedId!==x||p?.movedId!==y:p?.gridId!==grid||p?.x!==x||p?.y!==y)} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
    {#if state.phase==='staged'}<button disabled={pending} on:click={()=>act(w=>w.undo())}>{words.undo}</button><button disabled={pending} on:click={()=>act(w=>w.exportEditedCopy())}>{words.export}</button>{/if}
    {#if state.phase==='undone'}<button disabled={pending} on:click={()=>act(w=>w.redo())}>{words.redo}</button>{/if}
    {#if state.phase==='exported'}<p role="status">{words.done}</p><p><code>{state.editedName}</code></p><button disabled={pending} on:click={()=>download('edited')}>{words.downloadEdited}</button>{/if}
