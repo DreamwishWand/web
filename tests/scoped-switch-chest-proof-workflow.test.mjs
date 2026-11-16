@@ -35,7 +35,7 @@ test('Switch Chest proof pins exact accepted Web composite, no stale or extra pa
   ],
   [
     "scripts/readonly-release/seal-scoped-switch-chest-private.mjs",
-    "bf6daf8f8096eb69a34dbf6e80d67d8e31bc95b0"
+    "6c8dfc4afea309eac4af94da778b01dde43b3f1c"
   ],
   [
     "scripts/readonly-release/seal.mjs",
