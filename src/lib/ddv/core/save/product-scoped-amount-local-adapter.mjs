@@ -50,15 +50,19 @@ export function createProductSteam626WardrobeLocalAdapter(options={}){return cre
 export function createProductSwitch626WardrobeLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,'switch')}
 export function createProductSteam626HairLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,'hair')}
 export function createProductSteam626SkinLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,'skin')}
-function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null){
- const placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,appearance=appearanceScope!==null,previewEdit=placement||backpack||wardrobe||appearance,placementCount=(wardrobe||appearance)?1:(placementScope==='comp03'||placementScope==='comp03-spatial')?9:(placementScope==='sr03'||placementScope==='rm01')?8:3;
+export function createProductCatalog0PortableLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,null,'catalog0')}
+export function createProductChestPortableLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,null,'chest')}
+export function createProductSwitchCatalog0PortableLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,null,'switch-catalog0')}
+export function createProductSwitchChestPortableLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,null,null,null,null,'switch-chest')}
+function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null,portableScope=null){
+ const switchPortable=portableScope==='switch-catalog0'||portableScope==='switch-chest',portable=portableScope!==null,placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,appearance=appearanceScope!==null,previewEdit=placement||backpack||wardrobe||appearance||portable,placementCount=(wardrobe||appearance)?1:(placementScope==='comp03'||placementScope==='comp03-spatial')?9:(placementScope==='sr03'||placementScope==='rm01')?8:3;
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||
   (discoverScopedTargets!==undefined&&typeof discoverScopedTargets!=='function')||
   (allowCoreDiscoverySource&&discoverScopedTargets!==undefined)||
   ((collection||previewEdit)&&(allowCoreDiscoverySource||discoverScopedTargets!==undefined))||
   !['linked-crop-chest48','catalog0-furniture'].includes(coreDiscoveryProfile))fail();
  const store=createLocalEncryptedCopyStore(getDirectory?{getDirectory}:{});
- const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:!collection&&!switchChest&&!steamChest&&!catalog&&!previewEdit,allowSwitch626Catalog0Source:catalog,allowSwitch626ChestSource:switchChest,allowSteam626ChestSource:steamChest,allowScopedCollectionSource:collection,placementScope,backpackScope,wardrobeScope,appearanceScope,readDurableOriginalBackup:b=>store.durable(b)});
+ const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:!collection&&!switchChest&&!steamChest&&!catalog&&!previewEdit,allowSwitch626Catalog0Source:catalog,allowSwitch626ChestSource:switchChest,allowSteam626ChestSource:steamChest,allowScopedCollectionSource:collection,placementScope,backpackScope,wardrobeScope,appearanceScope,portableScope,readDurableOriginalBackup:b=>store.durable(b)});
  let epoch=0,source=null,backup=null,targets=[],phase='closed',busy=false,closeUnverified=false;
  const revoke=()=>{
   epoch++;store.close();source=null;backup=null;targets=[];phase='closed';busy=false;
@@ -89,8 +93,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   async open(args){
    if(closeUnverified)fail();revoke();return run(async t=>{
     if(!keys(args,'file,originalSha256,build')||!keys(args.build,'platform,buildKind,buildId,schema,externallyConfirmed')||
-     !((!switchChest&&!catalog&&placementScope!=='rm01'&&backpackScope!=='switch'&&wardrobeScope!=='switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
-       ((collection||switchChest||catalog||placementScope==='rm01'||backpackScope==='switch'||wardrobeScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
+     !((!switchPortable&&!switchChest&&!catalog&&placementScope!=='rm01'&&backpackScope!=='switch'&&wardrobeScope!=='switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
+       ((switchPortable||collection||switchChest||catalog||placementScope==='rm01'||backpackScope==='switch'||wardrobeScope==='switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
      args.build.schema!==626||args.build.externallyConfirmed!==true||!uint(t)||t<1)fail();
     const input=Object.freeze({file:args.file,originalSha256:args.originalSha256,build:Object.freeze({...args.build})});
     const r=await bridge.openScopedEncrypted(input);check(t);
@@ -134,8 +138,8 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
    if(staged.applied!==true||staged.exactFieldChangedCount!==1||staged.writerAuthorized!==false)fail();
    phase='staged';return kind('STAGED');
   })},
-  undo(selection){selectionCheck(selection);requirePhase('staged');return run(async()=>{const r=appearance?bridge.toggleScopedAppearance(false):wardrobe?bridge.toggleScopedWardrobe(false):backpack?bridge.toggleScopedBackpack(false):placement?bridge.toggleScopedPlacement(false):collection?bridge.toggleFixedCollection(false):bridge.toggleScopedAmount(false);if(r.applied!==false)fail();phase='undone';return collection?collectionMutation('UNDONE'):kind('UNDONE')})},
-  redo(selection){selectionCheck(selection);requirePhase('undone');return run(async()=>{const r=appearance?bridge.toggleScopedAppearance(true):wardrobe?bridge.toggleScopedWardrobe(true):backpack?bridge.toggleScopedBackpack(true):placement?bridge.toggleScopedPlacement(true):collection?bridge.toggleFixedCollection(true):bridge.toggleScopedAmount(true);if(r.applied!==true)fail();phase='staged';return collection?collectionMutation('REDONE'):kind('REDONE')})},
+  undo(selection){selectionCheck(selection);requirePhase('staged');return run(async()=>{const r=portable?bridge.togglePortableRestore(false):appearance?bridge.toggleScopedAppearance(false):wardrobe?bridge.toggleScopedWardrobe(false):backpack?bridge.toggleScopedBackpack(false):placement?bridge.toggleScopedPlacement(false):collection?bridge.toggleFixedCollection(false):bridge.toggleScopedAmount(false);if(r.applied!==false)fail();phase='undone';return collection?collectionMutation('UNDONE'):kind('UNDONE')})},
+  redo(selection){selectionCheck(selection);requirePhase('undone');return run(async()=>{const r=portable?bridge.togglePortableRestore(true):appearance?bridge.toggleScopedAppearance(true):wardrobe?bridge.toggleScopedWardrobe(true):backpack?bridge.toggleScopedBackpack(true):placement?bridge.toggleScopedPlacement(true):collection?bridge.toggleFixedCollection(true):bridge.toggleScopedAmount(true);if(r.applied!==true)fail();phase='staged';return collection?collectionMutation('REDONE'):kind('REDONE')})},
   exportEditedCopy(selection){selectionCheck(selection);requirePhase('staged');return run(async t=>{
    if(typeof freshCodecReopen!=='function')fail();
    const o=await bridge.exportScopedEditedCopy();
@@ -164,6 +168,11 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
    p.fixedDefinitionVerified!==true||p.installedRuntimeParityVerified!==false||p.writerAuthorized!==false||p.editedCopyAuthorized!==false||p.applyAuthorized!==false)fail();
   return p;
  };
+ if(portable)return Object.freeze({open:api.open,close,backupOriginal:api.backupOriginal,undo:api.undo,redo:api.redo,exportEditedCopy:api.exportEditedCopy,downloadVerifiedCopy:api.downloadVerifiedCopy,
+  capturePortableBackup(...args){requirePhase('backed');return run(async()=>{if(args.length!==1)fail();return {name:'wand-'+portableScope+'-backup.wand.json',portableBytes:bridge.capturePortableBackup(args[0])}})},
+  previewPortableRestore(...args){if(!['backed','previewed'].includes(phase))fail();return run(async()=>{if(args.length!==2)fail();const p=bridge.previewPortableRestore(...args);if(p.exactFieldChangedCount!==1||p.writerAuthorized!==false||p.editedCopyAuthorized!==false)fail();phase='previewed';return p})},
+  stagePortableRestore(...args){requirePhase('previewed');return run(async t=>{if(args.length)fail();const r=await bridge.stagePortableRestore();check(t);if(r.applied!==true||r.exactFieldChangedCount!==1||r.writerAuthorized!==false)fail();phase='staged';return {...kind('STAGED'),exactFieldChangedCount:1}})}
+ });
  if(previewEdit)return Object.freeze({open:api.open,close,backupOriginal:api.backupOriginal,undo:api.undo,redo:api.redo,exportEditedCopy:api.exportEditedCopy,downloadVerifiedCopy:api.downloadVerifiedCopy,
   ...(placementScope==='comp03-spatial'?{spatialPreview(...args){requirePhase('previewed');return run(async()=>{if(args.length)fail();return bridge.spatialPreview()})}}:{}),
    [appearance?'previewAppearance':wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement'](...args){if(!['backed','previewed'].includes(phase))fail();return run(async()=>{if(args.length!==((wardrobe||appearance)?0:1))fail();const p=appearance?bridge.previewScopedAppearance():wardrobe?bridge.previewScopedWardrobe():backpack?bridge.previewScopedBackpack(args[0]):bridge.previewScopedPlacement(args[0]);if(p.exactFieldChangedCount!==placementCount||p.writerAuthorized!==false||p.editedCopyAuthorized!==false)fail();phase='previewed';return p})},

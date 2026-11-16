@@ -29,6 +29,7 @@ function replyFile(req,res){
     p.startsWith('/tests/stage-e/pkg/')||
     ['/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
     '/src/lib/ddv/core/save/product-scoped-amount-transport.mjs',
+    '/src/lib/ddv/core/save/product-scoped-portable-transport.mjs',
     '/src/lib/ddv/core/save/product-scoped-placement-transport.mjs',
     '/src/lib/ddv/core/save/product-scoped-backpack-transport.mjs',
     '/src/lib/ddv/core/save/product-scoped-wardrobe-transport.mjs',
