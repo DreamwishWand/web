@@ -1,0 +1,49 @@
+name: 04 QR-S PR1765 active proof foreign closure (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-proof3-appearance-r01-r02-foreign.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c33e7659e896f844b198d69670b515348bd0347b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Three active inspectors new foreign symbols and exact workflow pin3
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-foreign-delta.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {writeFileSync,unlinkSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'}),blob=(r,p)=>g('rev-parse',r+':'+p),base='44c6cc91ed797db7b58555252731dd7664132e24',head='c33e7659e896f844b198d69670b515348bd0347b',wf='.github/workflows/pages.yml';
+          assert.equal(g('rev-parse','HEAD'),head);
+          const kinds=[['collection','COLLECTION','Collection'],['switch-chest','SWITCH_CHEST','SwitchChest'],['steam-chest','STEAM_CHEST','SteamChest']],symbols=[...['steam626_hair','steam626_skin','switch626_hair','switch626_skin','switch626_r01','switch626_r02'].flatMap(n=>['preview_'+n,'stage_'+n])];
+          const sha=b=>createHash('sha256').update(b).digest('hex'),u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a},str=s=>[...u(Buffer.byteLength(s)),...Buffer.from(s)],sec=(id,b)=>[id,...u(b.length),...b],wasm=names=>{const es=names.flatMap(n=>[...str(n),n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(names.length),...es]),...sec(10,[1,2,0,11])])};
+          const source='b'.repeat(40),clean=Buffer.from('export default function(){}'),delta='|(?:preview|stage)_(?:steam626|switch626)_(?:hair|skin)|(?:preview|stage)_switch626_(?:r01|r02)',swaps=[];let pos=0,neg=0;
+          for(const [key,cap,camel] of kinds){
+            const p='scripts/readonly-release/seal-scoped-'+key+'-private.mjs',tmp='scripts/readonly-release/qa-old-'+key+'.mjs',o=raw(base,p),n=raw(head,p);assert.equal(n.replace(delta,''),o);swaps.push([blob(base,p),blob(head,p)]);writeFileSync(tmp,o,{flag:'wx'});
+            try{
+              const prev=(await import('./'+tmp))['inspectScoped'+camel+'Subjects'],next=(await import('./'+p))['inspectScoped'+camel+'Subjects'],mod=await import('./src/lib/ddv/core/save/product-scoped-'+key+'-release.mjs'),op=mod['SCOPED_'+cap+'_RELEASE_OP'],features=mod['SCOPED_'+cap+'_FEATURES'],methods=mod['SCOPED_'+cap+'_METHODS'],exports=mod['SCOPED_'+cap+'_WASM_EXPORTS'],w=wasm(exports);
+              const pack=(js,wasm)=>[Buffer.from(JSON.stringify({contract:'wand.scoped-'+key+'.runtime@1',operation:op,source:{repository:tuple.repository,commit:source,cargoTomlSha256:'a'.repeat(64),cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features,defaultFeatures:false,toolchain:'rustc 1.99.1 (qa)'},assets:{js:{path:'ddv_save_core.js',sizeBytes:js.length,sha256:sha(js)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:wasm.length,sha256:sha(wasm)}},abi:{exportClass:'WorkerWasmSource',methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false}})),js,wasm];
+              assert.deepEqual(next(pack(clean,w),source),prev(pack(clean,w),source));pos++;
+              for(const symbol of symbols){const b=pack(Buffer.concat([clean,Buffer.from('\n// '+symbol)]),w);assert.doesNotThrow(()=>prev(b,source));assert.throws(()=>next(b,source));assert.throws(()=>next(pack(clean,wasm([...exports,'workerwasmsource_'+symbol])),source));neg+=2}
+            }finally{unlinkSync(tmp)}
+          }
+          const a=raw(base,wf),b=raw(head,wf);assert.equal(swaps.reduce((s,[x,y])=>s.split(x).join(y),a),b);assert.equal(swaps.reduce((s,[x,y])=>s.split(y).join(x),b),a);assert.equal(swaps.reduce((n,[x])=>n+a.split(x).length-1,0),3);pos++;
+          const pins=[...b.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g)];assert.equal(pins.length,172);for(const [,p,h] of pins)assert.equal(blob(head,p),h);pos++;
+          assert.equal(g('diff','--name-only',base,head).split('\n').length,9);
+          console.log('QRS_PR1765_FOREIGN_CLOSURE_L2_PASS',JSON.stringify({pos,neg,pins:172,actualGit:true,syntheticChangedForeign:true,actualSignature:false,protectedAcceptance:false}));
+          EOF
+          node qa-foreign-delta.mjs
