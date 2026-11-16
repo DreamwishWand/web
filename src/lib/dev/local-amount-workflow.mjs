@@ -53,8 +53,8 @@ const cleanState=()=>({
   phase:'closed',fileName:'',backupVerified:false,targets:[],
   choice:-1,newAmount:'',preview:null,editedCopy:null,error:''
 });
-export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false,switch626Chest=false}={}){
-  if(trustedLocalHarness!==true||typeof exactOneDecrease!=='boolean'||typeof switch626Chest!=='boolean'||(switch626Chest&&!exactOneDecrease)||!adapter||typeof adapter!=='object')
+export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false,switch626Chest=false,steam626Chest=false}={}){
+  if(trustedLocalHarness!==true||typeof exactOneDecrease!=='boolean'||typeof switch626Chest!=='boolean'||typeof steam626Chest!=='boolean'||(switch626Chest&&steam626Chest)||((switch626Chest||steam626Chest)&&!exactOneDecrease)||!adapter||typeof adapter!=='object')
     fail('LOCAL_HARNESS_GATE_OFF');
   for(const method of ['open','backupOriginal','listVerifiedTargets','stageTyped',
     'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])
@@ -146,7 +146,7 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
       if(!only(r,'targets,rawDocumentExposed')||r.rawDocumentExposed!==false||
          !Array.isArray(r.targets)||r.targets.length>256)fail('UNTRUSTED_TARGET_LIST');
       const targets=r.targets.map(trustedTarget);
-      if(switch626Chest&&targets.some(t=>t.kind!=='ChestExistingSlotAmountDecrease'||t.targetId<=1||t.slotIndex>=48||t.oldAmount!==50))fail('SWITCH_CHEST_SCOPE_DENIED');
+      if((switch626Chest||steam626Chest)&&targets.some(t=>t.kind!=='ChestExistingSlotAmountDecrease'||t.targetId<=1||t.slotIndex>=48||t.oldAmount!==50))fail('SWITCH_CHEST_SCOPE_DENIED');
       const ids=new Set(targets.map(t=>t.kind+':'+t.targetId+':'+t.itemId+':'+t.slotIndex));
       if(ids.size!==targets.length)fail('DUPLICATE_TARGET');
       return commit({phase:'ready',backupVerified:true,targets},()=>{backupBinding=bound});
