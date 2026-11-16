@@ -2106,6 +2106,99 @@ mod private_avatar {
             assert!(open(v).read_private_avatar_dependencies(e).is_err());
             s.close().unwrap();assert!(s.read_private_avatar_dependencies(e).is_err());
         }
+
+        #[test]
+        fn qa_wardrobe_same_slot_current_branch_raw_stock_and_epoch(){
+            fn fixture(male:bool)->Value{
+                let mut d=dependency_doc();
+                d["Player"]["AvatarIsMale"]=json!(male);
+                for (b,id) in [("MaleAvatar",50000002),("FemaleAvatar",50000001)]{
+                    d["Player"][b]["Clothes"]=json!({"0":id});
+                    d["Player"][b]["IncompatibleClothes"]=json!({});
+                    d["Player"][b]["ClothingCustomization"]=json!({});
+                }
+                d["Player"]["ListInventories"]["1"]["Inventory"]["50000001"]["Marker"]=json!("ItemMarker_Favorite");
+                d["Player"]["ListInventories"]["1"]["Inventory"]["50000002"]["Marker"]=json!("ItemMarker_None");
+                d["Player"]["ListInventories"]["1"]["Inventory"]["50000007"]=json!({"Amount":7,"Marker":"ItemMarker_Favorite","Opaque":"keep"});
+                d
+            }
+            fn raw_open(raw:&[u8])->ProductSession{
+                ProductSession::open_decoded_readonly(raw.to_vec(),BuildIdentity{
+                    platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+                    build_id:EXACT.into(),schema:626,externally_attested:true}).unwrap()
+            }
+            let mut pos=0;let mut neg=0;
+            for male in [true,false]{
+                let d=fixture(male);let branch=if male{"MaleAvatar"}else{"FemaleAvatar"};
+                let old=if male{50000002}else{50000001};
+                let raw=serde_json::to_string_pretty(&d).unwrap().replace("\"keep\"","\"\\u006beep\"");
+                let s=raw_open(raw.as_bytes());let before=s.receipt().unwrap();let e=env(before);
+                let r=s.read_private_wardrobe_same_slot(e,0,old,50000007).unwrap().to_private_receipt_json();
+                let player=members(raw.as_bytes(),roots(raw.as_bytes()).unwrap().player,1024).unwrap();
+                let av=members(raw.as_bytes(),required(&player,branch).unwrap(),128).unwrap();
+                let clothes=required(&av,"Clothes").unwrap();let list=required(&player,"ListInventories").unwrap();
+                let ls=members(raw.as_bytes(),list,128).unwrap();let rec=required(&ls,"1").unwrap();
+                let rf=members(raw.as_bytes(),rec,64).unwrap();let map=required(&rf,"Inventory").unwrap();
+                let items=members(raw.as_bytes(),map,16384).unwrap();
+                let h=|v:Span|sha(&raw.as_bytes()[v.begin..v.end]);
+                assert_eq!(r["avatar"]["activeBranch"],branch);assert_eq!(r["oldItemId"],old);
+                assert_eq!(r["oldScalarSha256"],sha(old.to_string().as_bytes()));assert_eq!(r["clothesMapSha256"],h(clothes));
+                assert_eq!(r["inventory"]["listInventoriesSha256"],h(list));assert_eq!(r["inventory"]["recordSha256"],h(rec));
+                assert_eq!(r["inventory"]["mapSha256"],h(map));
+                assert_eq!(r["inventory"]["oldStock"]["entrySha256"],h(required(&items,&old.to_string()).unwrap()));
+                assert_eq!(r["inventory"]["proposedStock"]["entrySha256"],h(required(&items,"50000007").unwrap()));
+                assert_eq!(r["inventory"]["proposedStock"]["savedAmount"],7);
+                assert_eq!(r["inventory"]["proposedStock"]["savedMarker"],"ItemMarker_Favorite");
+                for k in ["sameSlotDefinitionVerified","effectiveEligibilityVerified","rightsVerified","subscriberClosureVerified","productReadAccepted","writerAuthorized","editedCopyAuthorized","applyAuthorized"]{assert_eq!(r[k],false);}
+                assert_eq!(s.receipt().unwrap(),before);assert_eq!(s.decoded.as_ref(),raw.as_bytes());
+                assert_eq!(s.read_private_wardrobe_same_slot(e,0,old,50000007).unwrap().to_private_receipt_json(),r);
+                let a=s.read_private_avatar_dependencies(e).unwrap().to_private_receipt_json();
+                assert!(!a["ownership"]["routes"][0]["entries"].as_array().unwrap().iter().any(|x|x["itemId"]==50000007));
+                pos+=1;
+            }
+            let d=fixture(true);let s=open(d.clone());let before=s.receipt().unwrap();let e=env(before);
+            for wrong in [WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e},WorkerEnvelope{action:WorkerAction::Stage,..e}]{
+                assert!(s.read_private_wardrobe_same_slot(wrong,0,50000002,50000007).is_err());neg+=1;
+            }
+            assert!(open(d.clone()).read_private_wardrobe_same_slot(e,0,50000002,50000007).is_err());neg+=1;
+            for (slot,old,new) in [(u32::MAX,50000002,50000007),(0,50000002,140000001),(0,-50000002,50000007),(0,50000001,50000007)]{
+                assert!(s.read_private_wardrobe_same_slot(e,slot,old,new).is_err());neg+=1;
+            }
+            for k in 0..20{
+                let mut x=d.clone();
+                match k{
+                    0=>{x["Player"]["MaleAvatar"].as_object_mut().unwrap().remove("Clothes");},
+                    1=>{x["Player"]["MaleAvatar"].as_object_mut().unwrap().remove("IncompatibleClothes");},
+                    2=>{x["Player"]["MaleAvatar"].as_object_mut().unwrap().remove("ClothingCustomization");},
+                    3=>x["Player"]["MaleAvatar"]["ClothingCustomization"]=json!({"50000002":0}),
+                    4=>x["Player"]["MaleAvatar"]["Clothes"]=json!({"5":50000002}),
+                    5=>x["Player"]["MaleAvatar"]["Clothes"]=json!({"0":"50000002"}),
+                    6=>x["Player"]["MaleAvatar"]["Clothes"]=json!({"0":50000002,"1":50000007}),
+                    7=>x["Player"]["FemaleAvatar"]["IncompatibleClothes"]=json!({"1":50000007}),
+                    8=>x["Player"]["FemaleAvatar"]["ClothingCustomization"]=json!({"50000007":0}),
+                    9=>x["Player"]["AvatarIsMale"]=json!("true"),
+                    10=>x["Player"]["ListInventories"]["1"]["ID"]=json!(2),
+                    11=>x["Player"]["ListInventories"]["1"]["CompatibleItemType"]=json!("ItemType_Furniture"),
+                    12=>x["Player"]["ListInventories"]["2"]=json!({"ID":2,"CompatibleItemType":"ItemType_Clothing","Inventory":{}}),
+                    13=>{x["Player"]["ListInventories"]["1"]["Inventory"]["50000002"].as_object_mut().unwrap().remove("Marker");},
+                    14=>x["Player"]["ListInventories"]["1"]["Inventory"]["50000002"]["Amount"]=json!(0),
+                    15=>x["Player"]["ListInventories"]["1"]["Inventory"]["50000002"]["Marker"]=json!("ItemMarker_New"),
+                    16=>{x["Player"]["ListInventories"]["1"]["Inventory"]["50000007"].as_object_mut().unwrap().remove("Marker");},
+                    17=>x["Player"]["ListInventories"]["1"]["Inventory"]["050000007"]=json!({"Amount":7,"Marker":"ItemMarker_None"}),
+                    18=>x["Player"]["ListInventories"]["1"]["Inventory"]["50000007"]["Amount"]=json!(2147483648u64),
+                    _=>x["Player"]["ListInventories"]["1"]["Inventory"]["50000007"]["Marker"]=json!(true),
+                }
+                let z=open(x);let b=z.receipt().unwrap();assert!(z.read_private_wardrobe_same_slot(env(b),0,50000002,50000007).is_err(),"rebound {k}");
+                assert_eq!(z.receipt().unwrap(),b);neg+=1;
+            }
+            let sw=ProductSession::open_decoded_readonly(serde_json::to_vec(&d).unwrap(),BuildIdentity{
+                platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+            assert!(sw.read_private_wardrobe_same_slot(env(sw.receipt().unwrap()),0,50000002,50000007).is_err());neg+=1;
+            assert_eq!(s.receipt().unwrap(),before);s.close().unwrap();
+            assert!(s.read_private_wardrobe_same_slot(e,0,50000002,50000007).is_err());neg+=1;
+            assert_eq!((pos,neg),(2,30));
+        }
+
         #[test]
         fn wardrobe_same_slot_proposed_stock_read_only(){
             let mut v=dependency_doc();
