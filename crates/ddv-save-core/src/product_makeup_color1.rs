@@ -212,7 +212,9 @@ mod tests{
   assert_eq!(neg,9);
   println!("QRC1891_MAKEUP_COLOR1_ACTUAL 1POS {neg}NEG EXACT1 LEXICAL_ORIGINAL_UNCHANGED");
  }
- #[test]fn qa1891_makeup_color1_child_reopen(){
+ #[test]
+ #[ignore = "separate-process oracle requires previously written fixed test export"]
+ fn qa1891_makeup_color1_child_reopen(){
   let out=std::fs::read("/tmp/qrc1891-makeup1-reopen.json").unwrap();
   let build=BuildIdentity{platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
     build_id:APPEARANCE_BUILD.into(),schema:626,externally_attested:true};
