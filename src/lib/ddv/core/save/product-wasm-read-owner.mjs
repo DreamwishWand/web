@@ -1,4 +1,4 @@
-import {createScopedAmountTransport} from './product-scoped-amount-transport.mjs';
+import {createScopedAmountTransport,createSwitch626ChestTransport} from './product-scoped-amount-transport.mjs';
 import {createFixedCollectionTransport} from './product-fixed-collection-transport.mjs';
 import {readCollectionCandidate} from '../../../collection/collection-candidate-read.mjs';
 // R04 opt-in read-only boundary owned by the SAME local Worker. No product UI
@@ -37,18 +37,21 @@ function strictReceipt(r){
  * wasmFactory is a trusted static Worker import, not a message field. The
  * worker-side decode source owns the async decoded-chunk iterable.
  */
-export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false}={}){
- if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource].every(v=>typeof v==='boolean')||
-    (allowScopedAmountSource&&allowScopedCollectionSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
+export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false}={}){
+ if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource].every(v=>typeof v==='boolean')||
+    [allowScopedAmountSource,allowScopedCollectionSource,allowSwitch626ChestSource].filter(Boolean).length>1||
+    (allowSwitch626ChestSource&&allowCollectionCandidateSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
  if(typeof document!=='undefined')fail('PRODUCT_WORKER_NOT_ISOLATED');
+ const amountEnabled=allowScopedAmountSource||allowSwitch626ChestSource;
+ const verifiedClose=allowScopedCollectionSource||allowSwitch626ChestSource;
  let epoch=0,active=null,collectionOpening=false,blockedClose=null;
  // Collection must not issue a CLOSED receipt or open B while cleanup of A
  // remains unverified. Keep the old instance only for an explicit Close retry.
  const destroy=wasm=>{
    try{wasm.close()}
    catch(e){
-     if(allowScopedCollectionSource){blockedClose=wasm;fail('PRODUCT_WORKER_COLLECTION_CLOSE_UNVERIFIED')}
+     if(verifiedClose){blockedClose=wasm;fail('PRODUCT_WORKER_COLLECTION_CLOSE_UNVERIFIED')}
    }
  };
  const revoke=()=>{
@@ -58,7 +61,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
  };
  const close=()=>{
    revoke();
-   if(allowScopedCollectionSource){
+   if(verifiedClose){
      if(collectionOpening)fail('PRODUCT_WORKER_COLLECTION_CLOSE_PENDING');
      if(blockedClose){const old=blockedClose;destroy(old);blockedClose=null}
    }
@@ -66,16 +69,17 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
  };
  const openDecoded=async (args={})=>{
    // Revoke A synchronously BEFORE await, validation, or decoding B.
-   if(allowScopedCollectionSource&&(collectionOpening||blockedClose))fail('PRODUCT_WORKER_COLLECTION_CLOSE_UNVERIFIED');
+   if(verifiedClose&&(collectionOpening||blockedClose))fail('PRODUCT_WORKER_COLLECTION_CLOSE_UNVERIFIED');
    revoke();const token=epoch;
    if(!isPlain(args)||Object.keys(args).sort().join(',')!=='build,decodedChunks')
        fail('PRODUCT_WORKER_UNTRUSTED_OPEN_ARGS');
    const {build,decodedChunks}=args;
    const identity=exactBuild(build);
+   if(allowSwitch626ChestSource&&identity.platform!=='switch')fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
    if(!decodedChunks||typeof decodedChunks[Symbol.asyncIterator]!=='function')
      fail('PRODUCT_WORKER_CHUNK_SOURCE_REQUIRED');
    let wasm=null,bytes=0;
-   if(allowScopedCollectionSource)collectionOpening=true;
+   if(verifiedClose)collectionOpening=true;
    try{
      const module=await wasmFactory();
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
@@ -104,12 +108,13 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
      const a={wasm,receipt,identity,cursors:new Map(),scoped:null};
      // Existing read-only Worker never instantiates the opt-in transport.
-     if(allowScopedAmountSource===true){
-       if(identity.platform!=='steam-windows')fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
+     if(amountEnabled){
+       if(identity.platform!==(allowSwitch626ChestSource?'switch':'steam-windows'))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
        if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
-       a.scoped=createScopedAmountTransport(wasm,receipt,{
-         parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},
-         maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES});
+       const options={parse:strictTypedJson,current:()=>active===a,revoke:()=>{if(active===a)revoke()},
+         maxBytes:PRODUCT_WASM_WORKER_MAX_BYTES,chunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES};
+       a.scoped=allowSwitch626ChestSource?createSwitch626ChestTransport(wasm,receipt,identity,options):
+         createScopedAmountTransport(wasm,receipt,options);
      }
      if(allowScopedCollectionSource){
        a.scoped=createFixedCollectionTransport(wasm,receipt,identity,{
@@ -123,7 +128,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
      if(error instanceof Error&&/^PRODUCT_WORKER_/.test(error.message))throw error;
      fail('PRODUCT_WORKER_RUST_FAILURE');
    }finally{
-     try{if(wasm)destroy(wasm)}finally{if(allowScopedCollectionSource)collectionOpening=false}
+     try{if(wasm)destroy(wasm)}finally{if(verifiedClose)collectionOpening=false}
    }
  };
  const readCoreVersion=scope=>{
@@ -388,7 +393,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
  // ACT916 opt-in, Worker-private only. One existing wasm instance.
  const scoped=()=>{
    const a=active;
-   if(allowScopedAmountSource!==true||!a||a.identity.platform!=='steam-windows'||!a.scoped)
+   if(!amountEnabled||!a||a.identity.platform!==(allowSwitch626ChestSource?'switch':'steam-windows')||!a.scoped)
      fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
    return a.scoped;
  };
@@ -428,7 +433,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
    issueSavedDiffGridsCursor,readSavedDiffGridsPage,
    close,submitOperation,getCapabilities,
    getReceipt:()=>active&&!active.scoped?.hasMutation()?active.receipt:null,
-   ...(allowScopedAmountSource===true?{discoverScopedTargets:profile=>scoped().discoverTargets(profile),previewScopedAmount:selection=>scoped().previewTarget(selection),
+   ...(amountEnabled?{discoverScopedTargets:profile=>scoped().discoverTargets(profile),previewScopedAmount:selection=>scoped().previewTarget(selection),
      stageScopedAmount:()=>scoped().stage(),toggleScopedAmount:redo=>scoped().toggle(redo),
      takeScopedAmountOutput:()=>scoped().takeOutput()}: {}),
    ...(allowCollectionCandidateSource===true?{readCollectionCandidate:readCollectionCandidateSource}:{}),
