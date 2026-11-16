@@ -124,6 +124,7 @@ fn layout_edits(b:&[u8],members:&[(u32,usize,Span)],del:&[u32],objs:Span,
     edits.push(replace(b,counter,n4.to_string().into_bytes())?);
     Ok(edits)
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     pub fn stage_switch624_fence_fe01_archive(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
@@ -134,6 +135,7 @@ impl ProductSession{
         self.commit_semantic_replacements(e,edits,7,None)
     }
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     /// Exact Switch626 FE01 preserve7 layout-only; no inventory edit/refund.
     pub fn stage_switch626_fence_fe01_layout(&self,e:WorkerEnvelope,plan:&[u8])->CoreResult<SemanticStageReceipt>{
@@ -273,11 +275,9 @@ impl HistoricalFenceOp {
 const EXT1:u32=40700247;
 const REPLACEMENT_BASE:u32=40700268;
 const REPLACEMENT_EXT1:u32=40700269;
-fn fence_record(id:u32,item:u32,x:u32,y:u32,left:bool,diagonal:bool)->Value{
-    json!({"ID":id,"ItemID":item,"X":x,"Y":y,
-        "Orientation":if left{"GridOrientation_Left"}else{"GridOrientation_Down"},
-        "State":if diagonal{json!({"FenceMode":{"Diagonal":true}})}else{Value::Null}})
-}
+#[path="fence_add_shape.rs"]
+mod fence_add_shape;
+use fence_add_shape::{fence_record,records_at,FD01_DESCRIPTORS,FD02_DESCRIPTORS,FD03_DESCRIPTORS,ORTHO_L_DESCRIPTORS,DIAGONAL90_DESCRIPTORS,ORTHO_T_DESCRIPTORS,ShapeError};
 fn exact_ids(v:&Value,n:usize)->CoreResult<Vec<u32>>{
     let a=v.as_array().filter(|v|v.len()==n).ok_or(denied("FENCE_LAYOUT_IDS"))?;
     a.iter().map(uint).collect()
@@ -385,6 +385,7 @@ fn historical_collect(s:&ProductSession,p:&Value,op:HistoricalFenceOp)->CoreResu
     }
     layout_edits(b,&members,&del,objs,counter,n3,plan)
 }
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     fn stage_historical_fence(&self,e:WorkerEnvelope,plan:&[u8],op:HistoricalFenceOp)->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
@@ -553,17 +554,12 @@ impl FenceAddShape {
     }}
     fn records(self)->u32{match self{Self::OrthoL|Self::Diagonal90|Self::Switch626OrthoL|Self::Switch626Diagonal90=>5,Self::OrthoT|Self::Switch626OrthoT=>7,Self::DiagonalN3Positive|Self::DiagonalN3Mirrored|Self::DiagonalN6Positive|Self::Switch626Fd01|Self::Switch626Fd02|Self::Switch626Fd03=>3}}
     fn descriptors(self)->&'static [(u32,i32,i32,bool,bool)]{match self{
-        Self::OrthoL|Self::Switch626OrthoL=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
-            (EXT1,4,2,true,false),(BASE,4,4,false,false)],
-        Self::Diagonal90|Self::Switch626Diagonal90=>&[(BASE,0,0,false,true),(40700253,2,2,false,true),(BASE,4,4,false,true),
-            (40700253,6,2,true,true),(BASE,8,0,false,true)],
-        Self::OrthoT|Self::Switch626OrthoT=>&[(BASE,0,0,false,false),(EXT1,2,0,false,false),(BASE,4,0,false,false),
-            (EXT1,6,0,false,false),(BASE,8,0,false,false),(EXT1,4,2,true,false),(BASE,4,4,false,false)],
-        // ACT732 exact historical diagonal tranche A: N3 both slopes,
-        // N6 positive single n4 extension, no inferred other lengths.
-        Self::DiagonalN3Positive|Self::Switch626Fd01=>&[(BASE,0,0,false,true),(40700253,2,2,false,true),(BASE,4,4,false,true)],
-        Self::DiagonalN3Mirrored|Self::Switch626Fd02=>&[(BASE,0,0,false,true),(40700253,2,-2,true,true),(BASE,4,-4,false,true)],
-        Self::DiagonalN6Positive|Self::Switch626Fd03=>&[(BASE,0,0,false,true),(40700256,2,2,false,true),(BASE,10,10,false,true)],
+        Self::OrthoL|Self::Switch626OrthoL=>ORTHO_L_DESCRIPTORS,
+        Self::Diagonal90|Self::Switch626Diagonal90=>DIAGONAL90_DESCRIPTORS,
+        Self::OrthoT|Self::Switch626OrthoT=>ORTHO_T_DESCRIPTORS,
+        Self::DiagonalN3Positive|Self::Switch626Fd01=>FD01_DESCRIPTORS,
+        Self::DiagonalN3Mirrored|Self::Switch626Fd02=>FD02_DESCRIPTORS,
+        Self::DiagonalN6Positive|Self::Switch626Fd03=>FD03_DESCRIPTORS,
     }}
 }
 fn add_plan_parse(bytes:&[u8],shape:FenceAddShape)->CoreResult<Value>{
@@ -580,11 +576,10 @@ fn add_plan_parse(bytes:&[u8],shape:FenceAddShape)->CoreResult<Value>{
     Ok(v)
 }
 fn add_wanted(shape:FenceAddShape,next:u32,x:u32,y:u32)->CoreResult<Vec<Value>>{
-    let coord=|v:u32,d:i32|i64::from(v).checked_add(i64::from(d))
-        .filter(|n|*n>=0&&*n<=i64::from(i32::MAX)).map(|n|n as u32).ok_or(denied("FENCE_ADD_COORD_BOUND"));
-    shape.descriptors().iter().enumerate().map(|(i,(item,dx,dy,left,diag))|
-        Ok(fence_record(next.checked_add(i as u32).ok_or(denied("FENCE_ADD_COUNTER_OVERFLOW"))?,
-            *item,coord(x,*dx)?,coord(y,*dy)?,*left,*diag))).collect()
+    records_at(shape.descriptors(),next,x,y).map_err(|e|match e{
+        ShapeError::Counter=>denied("FENCE_ADD_COUNTER_OVERFLOW"),
+        ShapeError::Coordinate=>denied("FENCE_ADD_COORD_BOUND"),
+    })
 }
 fn add_collect(s:&ProductSession,p:&Value,shape:FenceAddShape)->CoreResult<Vec<Replacement>>{
     let b=&s.decoded;
@@ -635,6 +630,52 @@ fn add_collect(s:&ProductSession,p:&Value,shape:FenceAddShape)->CoreResult<Vec<R
     }
     layout_edits(b,&[],&[],objs,counter,end,plan)
 }
+// Typed current fixed ADD adapters; only the same immutable reminted target
+// can enter. Native lexical collector is reused; no caller plan.
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) struct FixedFenceAddExpected{
+ pub(super) grid:u32,pub(super) next:u32,pub(super) x:u32,pub(super) y:u32,
+ pub(super) stock:u32,pub(super) grid_sha:[u8;32],pub(super) counter_sha:[u8;32],pub(super) stock_sha:[u8;32],
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+fn collect_fixed_fence_add(s:&ProductSession,w:&FixedFenceAddExpected,shape:FenceAddShape)->CoreResult<Vec<Replacement>>{
+ let b=&s.decoded;let roots=indexed_read::roots(b)?;let gc=object_field(b,roots.world,"GridCollection")?;
+ let grid=object_field(b,object_field(b,gc,"Grids")?,&w.grid.to_string())?;
+ let counter=object_field(b,grid,"NextGridObjectID")?;
+ if sha(raw(b,grid)?)!=w.grid_sha||sha(raw(b,counter)?)!=w.counter_sha||number(b,counter)?!=w.next as u64{
+  return Err(denied("FIXED_FENCE_ADD_GRID_CAS"));}
+ let route=object_field(b,object_field(b,roots.player,"ListInventories")?,"0")?;
+ let stock=object_field(b,object_field(b,route,"Inventory")?,&BASE.to_string())?;
+ if sha(raw(b,stock)?)!=w.stock_sha||num(b,stock,"Amount")?!=w.stock||w.stock==0||w.stock as u64>MAX_CONSERVATIVE_AMOUNT{
+  return Err(denied("FIXED_FENCE_ADD_STOCK_CAS"));}
+ let created=add_wanted(shape,w.next,w.x,w.y)?;
+ let p=json!({"contract":shape.contract(),"layout":"PRESERVE_EXISTING","sourceDecodedSha256":digest(b),
+    "gridId":w.grid,"expectedNextId":w.next,"gridSha256":digest(raw(b,grid)?),
+    "created":created,"inventoryEntrySha256":digest(raw(b,stock)?)});
+ add_collect(s,&p,shape)
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) fn collect_fd02_current(s:&ProductSession,w:&FixedFenceAddExpected)->CoreResult<Vec<Replacement>>{
+ collect_fixed_fence_add(s,w,FenceAddShape::Switch626Fd02)
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) fn collect_fd03_current(s:&ProductSession,w:&FixedFenceAddExpected)->CoreResult<Vec<Replacement>>{
+ collect_fixed_fence_add(s,w,FenceAddShape::Switch626Fd03)
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) fn collect_ortho_l_current(s:&ProductSession,w:&FixedFenceAddExpected)->CoreResult<Vec<Replacement>>{
+ collect_fixed_fence_add(s,w,FenceAddShape::Switch626OrthoL)
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) fn collect_diagonal90_current(s:&ProductSession,w:&FixedFenceAddExpected)->CoreResult<Vec<Replacement>>{
+ collect_fixed_fence_add(s,w,FenceAddShape::Switch626Diagonal90)
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) fn collect_ortho_t_current(s:&ProductSession,w:&FixedFenceAddExpected)->CoreResult<Vec<Replacement>>{
+ collect_fixed_fence_add(s,w,FenceAddShape::Switch626OrthoT)
+}
+
+#[cfg(not(target_arch="wasm32"))]
 impl ProductSession{
     fn stage_fence_add(&self,e:WorkerEnvelope,plan:&[u8],shape:FenceAddShape)->CoreResult<SemanticStageReceipt>{
         let build=&self.native_source_build;
