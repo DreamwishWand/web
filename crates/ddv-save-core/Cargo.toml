@@ -38,6 +38,8 @@ product-switch626-rm01-scoped = ["product-amount-scoped"]
 # Separate fixed Steam626 appearance product scopes; no generic appearance writer.
 product-steam626-hair-scoped = ["product-amount-scoped"]
 product-steam626-skin-scoped = ["product-amount-scoped"]
+# ACT1487 exact Switch626 Makeup1 Build adapter, internal Source only; no public Worker grant.
+product-switch626-makeup-color1-internal = ["semantic-writer-dev"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
