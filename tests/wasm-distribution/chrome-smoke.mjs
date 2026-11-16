@@ -25,6 +25,7 @@ if(!binary)throw Error('ENV_WAIT_DEP_CHROME_NOT_INSTALLED');
 // source pkg substitute. Other source/test paths are local QA harness only.
 const base=process.env.WAND_CANDIDATE_BASE_PATH;
 if(base!=='/web'&&base!=='')throw Error('R22_BASE_ENV_REQUIRED');
+const scoped=process.env.WAND_SCOPED_COLLECTION_CANDIDATE==='1';
 const strictCsp=process.env.WAND_PROTECTED_RELEASE_CSP==='1';
 const cspHeaders=strictCsp?{
  'content-security-policy':"default-src 'none'; script-src 'self' blob: 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
@@ -38,6 +39,13 @@ function replyFile(req,res){
  catch{res.writeHead(400);res.end();return}
  if(p.includes('..')||p.includes('/.')||p.includes('\\')||p.includes('%')){
   res.writeHead(403);res.end();return;
+ }
+ if(scoped&&p.startsWith(base+'/worker-wasm-scoped-collection/')){
+  const n=p.slice((base+'/worker-wasm-scoped-collection/').length);
+  if(!['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm'].includes(n)){res.writeHead(404);res.end();return}
+  return readFile(resolve(repoRoot,'tests/wasm-distribution/fixtures/scoped-collection',n)).then(bytes=>{
+   res.writeHead(200,{'content-type':mime[extname(n)],...cspHeaders,'cache-control':'no-store'});res.end(bytes);
+  }).catch(()=>{res.writeHead(404);res.end()});
  }
  if(p.startsWith(base+'/worker-wasm/')){
   const relative=p.slice((base+'/worker-wasm/').length);
@@ -62,7 +70,12 @@ function replyFile(req,res){
    rel.startsWith('/tests/stage-f/')||
    ['/src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs',
     '/src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',
+    '/src/lib/ddv/core/save/product-scoped-collection-release.mjs',
+    '/src/lib/ddv/core/save/product-scoped-collection-release-anchor.mjs',
     '/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
+    '/src/lib/ddv/core/save/product-scoped-amount-transport.mjs',
+    '/src/lib/ddv/core/save/product-fixed-collection-transport.mjs',
+    '/src/lib/ddv/core/save/local-original-backup.mjs',
     '/src/lib/collection/collection-candidate-read.mjs',
     '/src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs',
     '/src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs',
@@ -74,12 +87,15 @@ function replyFile(req,res){
  let path;
  if(rel.startsWith('/tests/wasm-distribution/fixtures/')){
   const n=rel.slice('/tests/wasm-distribution/fixtures/'.length);
+  if(scoped&&n==='scoped-collection-pins.json')path=resolve(repoRoot,'tests/wasm-distribution/fixtures',n);
+  else {
   if(!['ci-pins.json','synthetic626-diffgrids.p1g',
          'expected-diffgrids.json'].includes(n)){
    res.writeHead(404);res.end();return;
   }
   path=resolve(repoRoot,n==='ci-pins.json'?
    'tests/wasm-distribution/fixtures/'+n:'tests/stage-f/fixtures/'+n);
+  }
  }else path=resolve(repoRoot,'.'+rel);
  if(!path.startsWith(repoRoot+'/')){res.writeHead(403);res.end();return}
  readFile(path).then(bytes=>{
@@ -143,7 +159,7 @@ try{
   await connect();
   await rpc('Page.enable');
   await rpc('Runtime.enable');
-  await rpc('Page.navigate',{url:'http://127.0.0.1:'+port+(base||'')+'/tests/wasm-distribution/index.html'});
+  await rpc('Page.navigate',{url:'http://127.0.0.1:'+port+(base||'')+'/tests/wasm-distribution/index.html'+(scoped?'?qa=scoped-collection':'')});
   // Navigation may destroy the old about:blank execution context. Wait until
   // the *new* document exists before creating an awaitPromise CDP task.
   let navigated=false;
@@ -183,6 +199,13 @@ try{
     (result.exceptionDetails.exception?.description||
       result.exceptionDetails.text||'unknown').slice(0,900));
   const report=result.result?.value;
+  if(scoped){
+   assert.equal(report?.result,'SCOPED_COLLECTION_SIGNED_RUNTIME_CANDIDATE_CHROME_PASS');
+   assert.equal(report.sourceHead,process.env.WAND_SOURCE_HEAD);assert.equal(report.basePath,base);
+   assert.equal(report.positive,2);assert.equal(report.negative,9);assert.equal(report.productEnabled,false);
+   assert.equal(report.writerAuthorized,false);assert.equal(report.actualChrome,true);
+   console.log(report.result,JSON.stringify(report));
+  }else{
   assert.equal(report?.result,
     'R22_TRUE_GENERATED_BOTH_JS_AND_WASM_SAME_ORIGIN_CHROME_PASS');
   if(strictCsp)assert.equal(report?.realChromeModuleWorker,true,'R22_STRICT_CSP_CHROME_WORKER');
@@ -202,6 +225,7 @@ try{
    sourceHead:report.sourceHead,basePath:base,records:report.diffgrids,
    signatureVerified:false,writer:false,privateSteamP1g:false
   });
+  }
 }catch(error){
   console.error('R22_DISTRIBUTION_CHROME_REAL_WASM_FAIL:',String(error?.stack||error).slice(0,1200));
   process.exitCode=1;

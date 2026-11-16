@@ -2,17 +2,23 @@
  import {onMount} from 'svelte';
  import {locale} from '$lib/i18n/runtime.js';
  import {collectionExact1Copy} from './collection-exact1-copy.mjs';
- import {createCollectionExact1Consumer} from './collection-exact1-consumer.mjs';
- // Source-only isolated consumer. No import from public /editor/items yet.
+ import {createCollectionExact1Consumer,COLLECTION_EXACT1_BUILDS} from './collection-exact1-consumer.mjs';
+ import {productCollectionPortScope} from './product-collection-client.mjs';
+ // The existing DEV harness remains unchanged; the product mount accepts
+ // only a branded port from the trusted sealed-release Worker.
  export let trustedWorkerAdapter=null;
  export let verifiedLocalDevGate=false;
  let consumer=null,pending=false,error=false,choice=0,epoch=0;
+ let fileMode=false,file=null,platform='',confirmed=false,productScope=null;
+ $: allowedPlatforms=productScope?productScope.builds.map(b=>b.platform):['steam-windows','switch'];
+ $: selectedBuild=allowedPlatforms.includes(platform)?COLLECTION_EXACT1_BUILDS[platform]||null:null;
  let state={phase:'closed',targets:[],preview:null,backupName:null,editedName:null,sourceName:''};
  $: words=collectionExact1Copy($locale);
  $: phase=state.phase;
  onMount(()=>{
-  if(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter)return;
-  try{consumer=createCollectionExact1Consumer(trustedWorkerAdapter,{trustedLocalHarness:true});state=consumer.snapshot()}catch{}
+  productScope=productCollectionPortScope(trustedWorkerAdapter);
+  if(!productScope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
+  try{consumer=createCollectionExact1Consumer(trustedWorkerAdapter,{trustedLocalHarness:true});fileMode=typeof trustedWorkerAdapter.open==='function';state=consumer.snapshot()}catch{productScope=null}
   return ()=>{epoch++;const active=consumer;consumer=null;if(active)void active.close().catch(()=>{})};
  });
  async function act(fn){
@@ -22,8 +28,16 @@
   catch{if(consumer===active&&t===epoch){state=active.snapshot();error=true}}
   finally{if(consumer===active&&t===epoch)pending=false}
  }
+ async function chooseFile(e){
+  const f=e.currentTarget.files?.[0]||null;e.currentTarget.value='';
+  if(!consumer||pending)return;
+  const a=consumer,t=++epoch;pending=true;error=false;file=null;confirmed=false;choice=0;
+  try{const p=a.close();state=a.snapshot();await p;if(consumer===a&&epoch===t)file=f}
+  catch{if(consumer===a&&epoch===t)error=true}
+  finally{if(consumer===a&&epoch===t){state=a.snapshot();pending=false}}
+ }
  async function close(){
-  if(!consumer)return;const a=consumer,t=++epoch;pending=true;error=false;choice=0;
+  if(!consumer)return;const a=consumer,t=++epoch;pending=true;error=false;choice=0;file=null;confirmed=false;
   const p=a.close();state=a.snapshot();
   try{await p}catch{if(consumer===a&&epoch===t)error=true}
   finally{if(consumer===a&&epoch===t){state=a.snapshot();pending=false}}
@@ -39,15 +53,31 @@
   finally{if(consumer===a&&t===epoch)pending=false}
  }
 </script>
-<section class="collection-exact1" data-collection-exact1 data-product-writer="off" data-public-route="off" aria-label={words.title}>
+<section class="collection-exact1" data-collection-exact1 data-product-writer="off" data-public-route={productScope?.mode==='public-accepted'?'on':'off'} data-collection-runtime={productScope?.mode||'dev-off'} aria-label={words.title}>
  <h2>{words.title}</h2><p>{words.intro}</p>
  {#if !consumer}<p role="status">{words.off}</p>
  {:else}
-  {#if phase==='closed'}<button type="button" on:click={()=>act(a=>a.load())} disabled={pending}>{words.load}</button>
+  {#if phase==='closed'}
+   {#if fileMode}
+    <label for="collection-local-file">{words.file}</label>
+    <input id="collection-local-file" type="file" accept=".p1g,application/octet-stream" on:change={chooseFile} disabled={pending}/>
+    {#if file}<p><code>{file.name}</code></p>{/if}
+    <label for="collection-local-build">{words.platform}</label>
+    <select id="collection-local-build" bind:value={platform} on:change={()=>confirmed=false} disabled={pending}>
+     <option value="">{words.chooseBuild}</option>
+     {#if allowedPlatforms.includes('steam-windows')}<option value="steam-windows">Steam (Windows)</option>{/if}
+     {#if allowedPlatforms.includes('switch')}<option value="switch">Nintendo Switch</option>{/if}
+    </select>
+    {#if selectedBuild}<p><code>{selectedBuild.buildId}</code> · schema 626</p>
+     <label class="check"><input type="checkbox" bind:checked={confirmed} disabled={pending}/><span>{words.confirmBuild}</span></label>
+    {/if}
+    <button type="button" data-collection-open on:click={()=>act(a=>a.openFile({file,build:selectedBuild}))} disabled={pending||!file||!selectedBuild||!confirmed}>{words.openFile}</button>
+   {:else}<button type="button" on:click={()=>act(a=>a.load())} disabled={pending}>{words.load}</button>{/if}
+   {#if pending}<button type="button" on:click={close}>{words.close}</button>{/if}
   {:else if phase==='close-failed'}
    <button type="button" on:click={close} disabled={pending}>{words.close}</button>
   {:else}
-   <p><code>{state.sourceName}</code></p><button type="button" on:click={close}>{words.close}</button>
+   <p><code>{state.sourceName}</code></p>{#if fileMode&&state.build}<p><code>{state.build.buildId}</code> · schema 626</p>{/if}<button type="button" on:click={close}>{words.close}</button>
    {#if phase==='opened'}<button type="button" on:click={()=>act(a=>a.backupOriginal())} disabled={pending}>{words.backup}</button>{/if}
    {#if state.backupName}<button type="button" on:click={()=>download('backup')} disabled={pending}>{words.downloadBackup}</button>{/if}
    {#if phase==='ready'||phase==='previewed'}
@@ -71,7 +101,8 @@
 </section>
 <style>
  .collection-exact1{box-sizing:border-box;min-width:0;max-width:100%;display:grid;gap:12px;border:1px solid var(--border);border-radius:14px;padding:16px;background:var(--surface);overflow-wrap:anywhere}
- h2,p{margin:0}button,select{font:inherit;min-width:0;max-width:100%;min-height:44px;padding:9px 12px;color:var(--ink);border:1px solid var(--border);border-radius:9px;background:var(--surface-raised)}
- button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}button:disabled{opacity:.5;cursor:not-allowed}
+ h2,p{margin:0}button,select,input[type=file]{box-sizing:border-box;font:inherit;min-width:0;max-width:100%;min-height:44px;padding:9px 12px;color:var(--ink);border:1px solid var(--border);border-radius:9px;background:var(--surface-raised)}
+ input[type=file]{width:100%}.check{display:flex;align-items:flex-start;gap:8px;min-width:0}.check input{flex-shrink:0}
+ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}button:disabled{opacity:.5;cursor:not-allowed}
  .actions{display:flex;flex-wrap:wrap;gap:8px}.preview{padding:12px;border:1px solid var(--border);border-radius:9px}code{overflow-wrap:anywhere}
 </style>
