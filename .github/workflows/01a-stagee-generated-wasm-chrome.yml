@@ -22,4 +22,5 @@ jobs:
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch624-frp01-stage-internal --lib qa1885_counter51_exact7_lexical_cas -- --nocapture
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch624-frp01-stage-internal --lib qa1885_reopen_child_independent -- --nocapture
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch624-frp01-stage-internal --lib qa1885_counter_unsafe_negatives -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch624-frp01-stage-internal --lib qa1885_unrelated_grid_objects_preserved -- --nocapture
           sha256sum -c /tmp/qrc1885-lock.sha
