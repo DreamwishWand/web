@@ -278,4 +278,46 @@ mod tests{
   println!("QRC1885_FRP624_UNSAFE_COUNTER_NEGATIVES {n}NEG");
  }
 
+
+ #[cfg(feature="product-switch624-frp01-stage-internal")]
+ #[test]
+ fn qa1885_unrelated_grid_objects_preserved(){
+  let d0=doc();
+  let x=d0["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"].as_u64().unwrap() as u32;
+  let y=d0["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"].as_u64().unwrap() as u32;
+  let p=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();
+  let (fx,fy)=(0..386u32).step_by(2).flat_map(|a|(0..190u32).step_by(2).map(move|b|(a,b)))
+   .find(|&(a,b)|(a.abs_diff(x)>20||b.abs_diff(y)>20)&&(0..2).all(|i|(0..2).all(|j|p.floor4(a+i,b+j)))).unwrap();
+  let build=crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+    build_id:FRP_BUILD.into(),schema:624,externally_attested:true};
+  for extra_id in ["1","13"]{
+   let mut d=d0.clone();
+   let id:u32=extra_id.parse().unwrap();
+   d["World"]["GridCollection"]["Grids"]["90001"]["Objects"][extra_id]=json!({
+      "ID":id,"ItemID":40700246,"X":fx,"Y":fy,"Orientation":"GridOrientation_Down","State":null});
+   d["Opaque"]=json!({"escaped":"keep","nested":{"unknownField":"untouched"}});
+   let raw=serde_json::to_string(&d).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");
+   let s=ProductSession::open_switch624_frp01_in_worker(raw.as_bytes().to_vec(),build.clone(),[id as u8;32]).unwrap();
+   let e=env(&s);
+   let p=s.preview_switch624_frp01_product(e,90001,[10,11,12]).unwrap();
+   let r=s.stage_switch624_frp01_product(WorkerEnvelope{action:WorkerAction::Stage,..e},&p).unwrap();
+   assert_eq!(r.exact_field_changed_count,7);
+   let out=s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)}).unwrap();
+   let mut wanted=d.clone();let grid=&mut wanted["World"]["GridCollection"]["Grids"]["90001"];
+   grid["NextGridObjectID"]=json!(53);
+   for k in ["10","11","12"]{grid["Objects"].as_object_mut().unwrap().remove(k);}
+   for(k,item,dy,left)in [(50,40700268,0,false),(51,40700269,2,true),(52,40700268,4,false)]{
+    grid["Objects"][k.to_string()]=json!({"ID":k,"ItemID":item,"X":x,"Y":y+dy,
+       "Orientation":if left{"GridOrientation_Left"}else{"GridOrientation_Down"},"State":null});
+   }
+   let expected=serde_json::to_string(&wanted).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");
+   assert_eq!(out,expected.as_bytes(),"extra_id={extra_id}: lexical mismatch");
+   assert_eq!(s.decoded.as_ref(),raw.as_bytes());
+   assert_eq!(wanted["Player"],d["Player"]);
+   let reopened=ProductSession::open_switch624_frp01_in_worker(out,build.clone(),[99;32]).unwrap();
+   assert_eq!(reopened.receipt().unwrap().decoded_sha256,r.staged_decoded_sha256);
+   println!("QRC1885_FRP624_UNRELATED_OBJECT_ACTUAL extra_id={extra_id} EXACT7 BYTE_PRESERVED");
+  }
+ }
+
 }
