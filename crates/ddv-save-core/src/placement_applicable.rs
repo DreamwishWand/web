@@ -7,10 +7,8 @@
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
-use std::sync::OnceLock;
 
 const BUILD: &str = "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
-const DATA: &str = include_str!("../data/steam626-placement-applicable-supplement.json");
 const DATA_SHA: &str = "16c8ee8f05ad5a89f73c5572c3a019f12f3054eccb142c1c3cb813ccd691611c";
 const COMMON_SHA: &str = "78a1ba539b2e6f43182cea2c2ea35c9d10e51f27d4adbb8d4dbc6cce7f7dcd65";
 type R<T> = Result<T, &'static str>;
@@ -26,15 +24,12 @@ fn n(v:&Value)->R<u32>{v.as_u64().and_then(|x|u32::try_from(x).ok()).ok_or("PLAC
 fn text(v:&Value)->R<&str>{v.as_str().ok_or("PLACEMENT_TEXT")}
 fn def<'a>(d:&'a Value,group:&str,id:u32)->R<&'a Value>{need(id>0,"PLACEMENT_ID")?;d[group].get(id.to_string()).ok_or("PLACEMENT_DEFINITION_UNKNOWN")}
 fn canonical_key(k:&str)->R<u32>{let x=k.parse::<u32>().map_err(|_|"PLACEMENT_KEY")?;need(x.to_string()==k,"PLACEMENT_KEY")?;Ok(x)}
-fn pack()->R<&'static Value>{
- static P:OnceLock<R<Value>>=OnceLock::new();
- P.get_or_init(||{
-  need(hex(&Sha256::digest(DATA.as_bytes()))==DATA_SHA,"PLACEMENT_PACK_SHA")?;
-  let d:Value=serde_json::from_str(DATA).map_err(|_|"PLACEMENT_PACK_JSON")?;
-  need(d["contract"]=="wand.core.steam626.placement-applicable-supplement@1"&&d["build"]==BUILD&&d["commonDependencySha256"]==COMMON_SHA,"PLACEMENT_PACK_CONTRACT")?;
-  for (k,c) in [("missions",965),("achievements",509),("duties",509),("recurring",508)]{need(map(&d[k],c)?.len()==c,"PLACEMENT_PACK_COUNT")?;}
-  Ok(d)
- }).as_ref().map_err(|e|*e)
+fn pack(bytes:&[u8])->R<Value>{
+ need(bytes.len()==155615&&hex(&Sha256::digest(bytes))==DATA_SHA,"PLACEMENT_PACK_SHA")?;
+ let d:Value=serde_json::from_slice(bytes).map_err(|_|"PLACEMENT_PACK_JSON")?;
+ need(d["contract"]=="wand.core.steam626.placement-applicable-supplement@1"&&d["build"]==BUILD&&d["commonDependencySha256"]==COMMON_SHA,"PLACEMENT_PACK_CONTRACT")?;
+ for (k,c) in [("missions",965),("achievements",509),("duties",509),("recurring",508)]{need(map(&d[k],c)?.len()==c,"PLACEMENT_PACK_COUNT")?;}
+ Ok(d)
 }
 fn missions(w:&Value,d:&Value)->R<()>{
  let mut slots=0;let mut objectives=0;
@@ -101,7 +96,7 @@ fn duties(p:&Value,d:&Value,scope:PlacementScope)->R<()>{
    // These are the only explicit area branches established by E2135/E2156.
    need(matches!(scope,PlacementScope::VaseAdd|PlacementScope::Comp03LayoutOnly),"PLACEMENT_SCOPE")?;
    need(matches!(n(&row[1])?,4|12)&&f["Type"]=="ItemType_Furniture","PLACEMENT_DUTY_AREA")?;
-  }else if !f.is_null(){need(f.as_object().is_some()&&f["Type"]!="ItemType_Furniture","PLACEMENT_DUTY_FILTER")?;}
+  }else if !f.is_null(){need(f.as_object().is_some()&&f["Type"].as_str().is_some_and(|t|!t.is_empty()&&t!="ItemType_Furniture"),"PLACEMENT_DUTY_FILTER")?;}
  }} Ok(())
 }
 fn recurring(w:&Value,d:&Value,scope:PlacementScope)->R<()>{
@@ -137,9 +132,9 @@ fn battlepass(p:&Value)->R<()>{
 /// Input must be the current strict Core-owned Player/World slices (never a UI projection).
 /// Caller must additionally run existing common subscriber, explicit refs and provider/target checks.
 /// This helper never creates a target, changes a document, invokes a game event or grants authority.
-pub(crate) fn check_supplement(build:&str,common_bytes:&[u8],scope:PlacementScope,player:&Value,world:&Value)->R<SupplementChecked>{
+pub(crate) fn check_supplement(build:&str,common_bytes:&[u8],supplement_bytes:&[u8],scope:PlacementScope,player:&Value,world:&Value)->R<SupplementChecked>{
  need(build==BUILD&&hex(&Sha256::digest(common_bytes))==COMMON_SHA,"PLACEMENT_COMMON_BUILD_OR_PACK")?;
- let d=pack()?;check(scope,player,world,d)
+ let d=pack(supplement_bytes)?;check(scope,player,world,&d)
 }
 fn check(scope:PlacementScope,player:&Value,world:&Value,d:&Value)->R<SupplementChecked>{
  missions(world,d)?;achievements(player,d)?;duties(player,d,scope)?;recurring(world,d,scope)?;battlepass(player)?;
@@ -148,19 +143,22 @@ fn check(scope:PlacementScope,player:&Value,world:&Value,d:&Value)->R<Supplement
 #[cfg(test)]
 mod tests{
  use super::*;use serde_json::json;
+ fn fixture()->Vec<u8>{std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("data/steam626-placement-applicable-supplement.json")).unwrap()}
+ fn test_pack()->Value{pack(&fixture()).unwrap()}
  fn sample()->(Value,Value){
   (json!({"AchievementsData":[],"DutySlots":{},"BattlePassStates":{"Progress":{},"FtueProgress":{"TasksProgress":[],"WeeklyTasksProgress":[]}}}),
    json!({"MissionSlots":{},"RecurringEvents":{}}))
  }
  #[test] fn pinned_definition_pack_and_two_scopes(){
-  let d=pack().unwrap();let(p,w)=sample();
+  let data=test_pack();let d=&data;let(p,w)=sample();
   assert!(check(PlacementScope::VaseAdd,&p,&w,d).is_ok());
   assert!(check(PlacementScope::Comp03LayoutOnly,&p,&w,d).is_ok());
-  assert!(check_supplement(BUILD,b"untrusted",PlacementScope::VaseAdd,&p,&w).is_err());
-  assert!(check_supplement("wrong",b"",PlacementScope::Comp03LayoutOnly,&p,&w).is_err());
+  assert!(check_supplement(BUILD,b"untrusted",&fixture(),PlacementScope::VaseAdd,&p,&w).is_err());
+  assert!(check_supplement("wrong",b"",&fixture(),PlacementScope::Comp03LayoutOnly,&p,&w).is_err());
+  let mut changed=fixture();changed[0]^=1;assert_eq!(pack(&changed),Err("PLACEMENT_PACK_SHA"));assert_eq!(pack(b""),Err("PLACEMENT_PACK_SHA"));
  }
  #[test] fn recurring_per_scope_and_unknown(){
-  let d=pack().unwrap();let(p,mut w)=sample();
+  let data=test_pack();let d=&data;let(p,mut w)=sample();
   let (id,row)=d["recurring"].as_object().unwrap().iter().find(|(_,r)|r[1]=="village"&&r[2].is_null()).unwrap();
   let n=id.parse::<u32>().unwrap();let k=row[0].as_str().unwrap();
   w["RecurringEvents"]=json!({"1":{(k):{"RecurringEventItemID":n}}});
@@ -174,7 +172,7 @@ mod tests{
   assert!(check(PlacementScope::Comp03LayoutOnly,&p,&w,d).is_err());
  }
  #[test] fn duty_area_and_active_mission_achievement_guards(){
-  let d=pack().unwrap();let(mut p,mut w)=sample();
+  let data=test_pack();let d=&data;let(mut p,mut w)=sample();
   let (id,layers)=d["duties"].as_object().unwrap().iter().find(|(_,x)|x.as_array().unwrap().iter().any(|r|r[0]==33&&r[1]==4)).unwrap();
   let layer=layers.as_array().unwrap().iter().position(|r|r[0]==33&&r[1]==4).unwrap();
   p["DutySlots"]=json!({"a":{"Slots":[{"State":"DutySlotState_OnGoing","DutyId":id.parse::<u32>().unwrap(),"DifficultyLayer":layer,"StepData":{"ItemFilter":{"Data":{"Type":"ItemType_Furniture"}}}}]}});
