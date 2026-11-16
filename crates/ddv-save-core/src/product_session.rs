@@ -198,6 +198,20 @@ impl ProductSession {
         decoded: Vec<u8>, build: BuildIdentity, entropy: [u8;32]
     ) -> CoreResult<Self> {
         build.validate_registry_candidate()?;
+        Self::open_worker_validated(decoded,build,entropy,b"wand.product.worker.session.v1")
+    }
+    /// Only the FRP01 dedicated Worker route may call this admission. The
+    /// generic 626 registry and historical native archive entry remain unchanged.
+    #[cfg(all(feature="product-switch624-frp01-readonly",any(all(feature="worker-wasm",target_arch="wasm32"),test)))]
+    pub(crate) fn open_switch624_frp01_in_worker(decoded:Vec<u8>,build:BuildIdentity,entropy:[u8;32])->CoreResult<Self>{
+        if build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||
+           build.build_id!="52BD625D9B4E0053"||build.schema!=624||!build.externally_attested{
+            return Err(CoreError("FRP01_EXACT_SWITCH624_REQUIRED"));
+        }
+        Self::open_worker_validated(decoded,build,entropy,b"wand.product.worker.frp01.readonly.v1")
+    }
+    #[cfg(any(all(feature="worker-wasm",target_arch="wasm32"),all(test,feature="product-switch624-frp01-readonly")))]
+    fn open_worker_validated(decoded:Vec<u8>,build:BuildIdentity,entropy:[u8;32],session_domain:&[u8])->CoreResult<Self>{
         if decoded.is_empty() || decoded.len() > MAX_DECODED_BYTES {
             return Err(CoreError("DECODED_SOURCE_BOUNDS"));
         }
@@ -217,12 +231,13 @@ impl ProductSession {
             h.finalize().into()
         };
         let mut hash = Sha256::new();
-        hash.update(b"wand.product.worker.session.v1");
+        hash.update(session_domain);
         hash.update(entropy);
         hash.update(sha);
         let digest = hash.finalize();
         let mut id=[0u8;16];
         id.copy_from_slice(&digest[..16]);
+        if id==[0;16]{return Err(CoreError("SESSION_ID_INVALID"));}
         let state=State {id,revision:0,generation:1,closed:false,
             #[cfg(feature = "synthetic-stage-b")] lab:None,
                 #[cfg(feature = "private-native-v2")] private_offline:None,

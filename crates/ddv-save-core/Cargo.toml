@@ -35,6 +35,8 @@ product-steam626-comp03-spatial-preview = ["product-steam626-comp03-scoped"]
 product-steam626-sr03-scoped = ["product-amount-scoped"]
 # Exact Switch626 mixed Road RM01; independent of Steam SR03.
 product-switch626-rm01-scoped = ["product-amount-scoped"]
+# Exact Switch624 FRP01 read-only candidate; never a generic 624 or Writer grant.
+product-switch624-frp01-readonly = ["product-amount-scoped"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
