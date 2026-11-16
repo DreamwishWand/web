@@ -44,6 +44,33 @@ impl ProductSession{
             characters_sha:sha(&b[chars.begin..chars.end]),inventory_sha:sha(&b[lists.begin..lists.end]),old_stock:os,new_stock:ns,flags})
     }
 }
+// Fixed catalog operation policy; the other static matches are NOT approved.
+// Still no Stage/Writer authorization or condition-runtime claim.
+const FIXED_OLD:i32=170000054;
+impl ProductSession {
+    pub(super) fn prepare_fixed_product_skin_candidate(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<SkinCandidate>{
+        let t=self.prepare_product_skin_candidate(e,character,new)?;
+        if t.old!=FIXED_OLD{return Err(denied("SKIN_FIXED_OLD_SCOPE"));}
+        Ok(t)
+    }
+}
+// Internal typed Stage candidate; no product dispatch/entitlement or condition
+// runtime authority. The current applicable closure is required before ABI use.
+#[cfg(feature="semantic-writer-dev")]
+impl ProductSession{
+    pub(super) fn project_fixed_skin_candidate(&self,e:WorkerEnvelope,character:i32,new:i32)->CoreResult<[u8;32]>{
+        let t=self.prepare_fixed_product_skin_candidate(e,character,new)?;
+        self.project_appearance_scalar_candidate(t.span,t.old,t.new)
+    }
+    pub(super) fn stage_fixed_skin_candidate(&self,e:WorkerEnvelope,character:i32,new:i32,old:i32,
+        old_sha:&str,character_sha:&str,inventory_sha:&str,projected:[u8;32])->CoreResult<crate::SemanticStageReceipt>{
+        if e.action!=WorkerAction::Stage{return Err(denied("SKIN_PRODUCT_STAGE_ACTION"));}
+        let t=self.prepare_fixed_product_skin_candidate(WorkerEnvelope{action:WorkerAction::ReadDomain,..e},character,new)?;
+        if t.old!=old||t.old_token_sha!=old_sha||t.character_sha!=character_sha||t.inventory_sha!=inventory_sha{
+            return Err(denied("SKIN_PRODUCT_STAGE_CAS"));}
+        self.commit_appearance_scalar_candidate(e,t.span,t.old,t.new,projected)
+    }
+}
 #[cfg(test)]
 mod tests{
     use super::*;use crate::{BuildIdentity,BuildKind,Platform};use serde_json::json;
@@ -71,6 +98,36 @@ mod tests{
             let foreign=open(doc(old));assert!(foreign.prepare_product_skin_candidate(e,CHARACTER,ORDINARY_NEW).is_err());
             s.close().unwrap();assert!(s.prepare_product_skin_candidate(e,CHARACTER,ORDINARY_NEW).is_err());
         }
+    }
+    #[test]fn product_skin_fixed_scope_not_three_static_pairs(){
+        for old in STATIC_OLD{
+            let s=open(doc(old));let e=env(&s);let before=s.receipt().unwrap();
+            assert_eq!(s.prepare_fixed_product_skin_candidate(e,CHARACTER,ORDINARY_NEW).is_ok(),old==FIXED_OLD);
+            assert!(s.prepare_fixed_product_skin_candidate(e,CHARACTER+1,ORDINARY_NEW).is_err());
+            assert!(s.prepare_fixed_product_skin_candidate(e,CHARACTER,old).is_err());
+            assert_eq!(s.receipt().unwrap(),before);
+        }
+    }
+    #[cfg(feature="semantic-writer-dev")]
+    #[test]fn product_skin_fixed_exact1_shared_ledger_candidate(){
+        let mut d=doc(FIXED_OLD);let s=open(d.clone());let e=env(&s);
+        let t=s.prepare_fixed_product_skin_candidate(e,CHARACTER,ORDINARY_NEW).unwrap();
+        let projected=s.project_fixed_skin_candidate(e,CHARACTER,ORDINARY_NEW).unwrap();
+        let stage=WorkerEnvelope{action:WorkerAction::Stage,..e};
+        let call=|s:&ProductSession,e:WorkerEnvelope,old,sha:&str,p|s.stage_fixed_skin_candidate(e,CHARACTER,ORDINARY_NEW,old,sha,&t.character_sha,&t.inventory_sha,p);
+        assert!(call(&s,e,t.old,&t.old_token_sha,projected).is_err());
+        assert!(call(&s,stage,t.old,"bad",projected).is_err());
+        assert!(call(&s,stage,t.old+1,&t.old_token_sha,projected).is_err());
+        assert!(call(&s,stage,t.old,&t.old_token_sha,[0;32]).is_err());
+        let foreign=open(d.clone());assert!(call(&foreign,stage,t.old,&t.old_token_sha,projected).is_err());
+        let r=call(&s,stage,t.old,&t.old_token_sha,projected).unwrap();assert_eq!(r.exact_field_changed_count,1);assert_eq!(r.staged_decoded_sha256,projected);assert!(!r.product_writer_authorized);
+        assert!(call(&s,stage,t.old,&t.old_token_sha,projected).is_err());
+        let now=env(&s);s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..now}).unwrap();
+        let now=env(&s);assert!(s.take_typed_semantic_decoded_once(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..now}).is_err());
+        s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..now}).unwrap();
+        let out_e=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};let out=s.take_typed_semantic_decoded_once(out_e).unwrap();
+        assert!(s.take_typed_semantic_decoded_once(out_e).is_err());d["World"]["Characters"][0]["SkinID"]=json!(ORDINARY_NEW);
+        assert_eq!(out,serde_json::to_vec(&d).unwrap());assert_eq!(s.receipt().unwrap().decoded_sha256,e.expected_decoded_sha256);
     }
     #[test]fn product_skin_physical_negative_controls(){
         let old=STATIC_OLD[0];let mut variants=Vec::new();

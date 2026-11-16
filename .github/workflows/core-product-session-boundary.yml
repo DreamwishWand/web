@@ -42,6 +42,10 @@ jobs:
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features indexed-read,synthetic-stage-b --test indexed_read_stagec --verbose
       - name: One ProductSession true semantic batch DEV-only feature native compile and tests
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --test semantic_inventory_writer_dev --verbose
+      - name: Hair and Skin fixed exact1 internal shared-ledger candidate tests
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib product_hair_fixed_exact1_shared_ledger_candidate --verbose
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib product_skin_fixed_exact1_shared_ledger_candidate --verbose
       - name: Prove one typed Rust Writer module typechecks in wasm32 without public ABI export
         run: |
           set -euo pipefail
