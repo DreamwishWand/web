@@ -58,3 +58,46 @@ for(const [mode,create,selector] of [['comp03',createProductSteam626Comp03LocalA
   }finally{if(old)Object.defineProperty(navigator,'locks',old);else delete navigator.locks}
  });
 }
+
+import {installLocalComp03DevWorker,createLocalComp03DevPort,installLocalVaseDevWorker,createLocalVaseDevPort} from '../src/lib/dev/local-scoped-edit-worker-port.mjs';
+import {createLocalPlacementDevWorkflow} from '../src/lib/dev/local-placement-workflow.mjs';
+import {localPlacementCopy} from '../src/lib/dev/local-placement-copy.mjs';
+import {COLLECTION_EXACT1_LOCALES} from '../src/lib/collection/collection-exact1-copy.mjs';
+test('all eight placement locale titles and safety labels use fixed operation-specific copy',()=>{
+ assert.equal(COLLECTION_EXACT1_LOCALES.length,8);
+ for(const l of COLLECTION_EXACT1_LOCALES){const w=localPlacementCopy(l);for(const k of ['compTitle','vaseTitle','seed','grid','compDetail','vaseDetail','verified','stagePlacement','safety','file','confirmBuild','backup','close','closeFailed','downloadEdited'])assert.ok(w[k],l+':'+k);assert.match(w.compDetail,/8/);assert.match(w.vaseDetail,/1/)}
+});
+for(const [mode,create,install,portFactory,selector,bad] of [
+ ['comp03',createProductSteam626Comp03LocalAdapter,installLocalComp03DevWorker,createLocalComp03DevPort,{seedId:4},{gridId:7,x:8,y:8}],
+ ['vase',createProductSteam626VaseAddLocalAdapter,installLocalVaseDevWorker,createLocalVaseDevPort,{gridId:7,x:8,y:8},{seedId:4}]
+]){
+ test(mode+' Data Editor controller + fixed shared RPC + existing local P1G adapter',async()=>{
+  const m=mock(mode),{root}=storage(),old=Object.getOwnPropertyDescriptor(navigator,'locks');
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_name,fn)=>fn()}});
+  try{
+   const a=create({wasmFactory:m.factory,getDirectory:async()=>root,freshCodecReopen:async(b,s)=>hash(utf((await p1gPackagedProfileCodec.loadProfile(b)).jsonText))===s});
+   const server={},worker={terminate(){}};
+   server.postMessage=data=>{const copy=structuredClone(data);queueMicrotask(()=>worker.onmessage({data:copy}))};
+   worker.postMessage=data=>queueMicrotask(()=>server.onmessage({data}));
+   install(server,a);const port=portFactory(worker);
+   assert.equal(port.stageTyped,undefined);assert.equal(port.stageCollectionTarget,undefined);
+   const ui=createLocalPlacementDevWorkflow(port,{trustedLocalHarness:true,operation:mode});
+   await assert.rejects(ui.openFile({file,buildConfirmed:false}));assert.equal(m.opens(),0);
+   await ui.openFile({file,buildConfirmed:true});await assert.rejects(ui.stage());await ui.backupOriginal();
+   await assert.rejects(port.previewPlacement(bad));await assert.rejects(port.stagePlacement(selector));
+   assert.equal(m.stages(),0);await ui.preview(selector);
+   const p=ui.snapshot().preview;assert.equal(p.exactFieldChangedCount,m.count);assert.equal(p.sessionId,undefined);assert.equal(p.gridSha256,undefined);
+   await ui.stage();await ui.undo();await assert.rejects(ui.exportEditedCopy());await ui.redo();await ui.exportEditedCopy();
+   const b=await ui.downloadVerifiedCopy('backup'),e=await ui.downloadVerifiedCopy('edited');
+   assert.equal(hash(b.encryptedBytes),originalSha256);assert.equal((await p1gPackagedProfileCodec.loadProfile(e.encryptedBytes)).jsonText,JSON.stringify(m.expected));assert.equal(m.opens(),1);assert.equal(m.stages(),1);
+   await ui.close();assert.equal(ui.snapshot().phase,'closed');assert.equal(ui.snapshot().preview,null);await assert.rejects(ui.downloadVerifiedCopy('edited'));port.dispose();
+  }finally{if(old)Object.defineProperty(navigator,'locks',old);else delete navigator.locks}
+ });
+}
+test('placement strict RPC refuses failed close acknowledgement until successful retry',async()=>{
+ let calls=0,opens=0;const server={},worker={terminate(){}};
+ server.postMessage=data=>queueMicrotask(()=>worker.onmessage({data:structuredClone(data)}));
+ worker.postMessage=data=>queueMicrotask(()=>server.onmessage({data}));
+ installLocalComp03DevWorker(server,{open:async()=>{opens++;return {}},close:async()=>({kind:'CLOSED',ok:true,writerAuthorized:++calls===1,nativeV3Verified:false,originalOverwriteAuthorized:false})});
+ const port=createLocalComp03DevPort(worker);await assert.rejects(port.close());await assert.rejects(port.open({}));assert.equal(opens,0);await port.close();await port.open({});assert.equal(opens,1);port.dispose();
+});
