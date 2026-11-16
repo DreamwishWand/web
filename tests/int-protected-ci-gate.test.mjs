@@ -90,3 +90,25 @@ test('deploy consumes build receipt and reuses strict gate before deployment',()
  assert.ok(y.indexOf('node scripts/int-protected-ci-gate.mjs deploy')<y.indexOf('actions/deploy-pages@v4'));
  assert.doesNotMatch(y,/curl[^\n]*git\/ref\/heads\/main/);
 });
+
+test('403 diagnostics are bounded, numeric only and never authorize an ordinary denial',async()=>{
+ const p=root+'/git/ref/heads/main';
+ let calls=0;const delays=[];
+ const limited=()=>new Response('untrusted body',{status:403,headers:{'retry-after':'2','x-ratelimit-remaining':'0','x-ratelimit-reset':'1234567890'}});
+ const success=()=>new Response(JSON.stringify(ref),{headers:{'content-type':'application/json'}});
+ const got=await githubPublicJson(p,async(url,o)=>{
+   assert.equal(url.href,'https://api.github.com'+p);assert.equal(o.method,'GET');assert.equal(o.redirect,'error');
+   assert.equal(Object.keys(o.headers).some(k=>k.toLowerCase()==='authorization'),false);
+   return ++calls===1?limited():success();
+ },async ms=>delays.push(ms));
+ assert.deepEqual(got,ref);assert.equal(calls,2);assert.deepEqual(delays,[2000]);
+ for(const headers of [{},{'retry-after':'2'},{'retry-after':'6','x-ratelimit-remaining':'0'},
+   {'retry-after':'2','x-ratelimit-remaining':'1'},{'retry-after':'invalid','x-ratelimit-remaining':'0'}]){
+   calls=0;await assert.rejects(githubPublicJson(p,async()=>{calls++;return new Response('SECRET_BODY',{status:403,headers});},async()=>assert.fail('unexpected retry')),e=>{
+     assert.match(e.message,/GITHUB_API_DENIED:403:endpoint=main-ref/);assert.doesNotMatch(e.message,/SECRET_BODY|invalid/);return true;
+   });assert.equal(calls,1);
+ }
+ calls=0;await assert.rejects(githubPublicJson(p,async()=>{calls++;return limited();},async()=>{}),/GITHUB_API_DENIED:403:endpoint=main-ref/);assert.equal(calls,2);
+ calls=0;await assert.rejects(githubPublicJson(p,async()=>++calls===1?limited():new Response('{}',{status:302}),async()=>{}),/GITHUB_API_DENIED:302/);
+ calls=0;await assert.rejects(githubPublicJson(p,async()=>++calls===1?limited():new Response('bad',{headers:{'content-type':'text/html'}}),async()=>{}),/GITHUB_API_DENIED:200/);
+});
