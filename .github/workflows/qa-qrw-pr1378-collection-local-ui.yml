@@ -41,34 +41,47 @@ jobs:
           test "$(git -C /tmp/wand-qrw1378-core rev-parse HEAD)" = 5d30e6416326d5aca3844102517484429b0ab594
           cp tests/fixtures/ddv-save-core-accepted.Cargo.lock /tmp/wand-qrw1378-core/crates/ddv-save-core/Cargo.lock
           printf '%s\n' 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  /tmp/wand-qrw1378-core/crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          git cat-file -e 3b973736d1692803d2a494ecb8b32194dbd88cd7^{commit} || git fetch --no-tags origin 3b973736d1692803d2a494ecb8b32194dbd88cd7
+          test "$(git rev-parse 3b973736d1692803d2a494ecb8b32194dbd88cd7:src/lib/dev/local-scoped-edit-worker-port.mjs)" = c0f81cb0b6cda895714c83e5bbf765b86c34acf8
+          ! git cat-file -e HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs 2>/dev/null
+          git show 3b973736d1692803d2a494ecb8b32194dbd88cd7:src/lib/dev/local-scoped-edit-worker-port.mjs > src/lib/dev/local-scoped-edit-worker-port.mjs
+          test "$(git hash-object src/lib/dev/local-scoped-edit-worker-port.mjs)" = c0f81cb0b6cda895714c83e5bbf765b86c34acf8
           mkdir -p src/routes/test-dev-collection tests/dev-amount-ui-chrome
           cat > src/routes/test-dev-collection/+page.svelte <<'SVELTE'
           <script>
            import {onMount} from 'svelte';
            import CollectionExact1Dev from '$lib/collection/CollectionExact1Dev.svelte';
            import {setLocale} from '$lib/i18n/runtime.js';
+           import {createLocalCollectionDevPort} from '$lib/dev/local-scoped-edit-worker-port.mjs';
            let adapter=null;
            onMount(()=>{
-            const q={ready:false,mode:'ok',opens:0,closes:0,closeDone:0,stages:0,downloads:0,openDone:0,exported:null,backup:null,held:null,setLocale};
+            const q={ready:false,mode:'ok',opens:0,closes:0,closeDone:0,stages:0,downloads:0,openDone:0,exported:null,backup:null,held:null,setLocale,rawDenials:0};
             window.__qa=q;const w=new Worker(new URL('./qa.worker.mjs',import.meta.url),{type:'module'});
-            let seq=0;const pending=new Map();
-            const rpc=(method,...args)=>new Promise((resolve,reject)=>{const id=++seq;pending.set(id,{resolve,reject});w.postMessage({id,method,args})});
-            w.onmessage=({data:d})=>{const p=pending.get(d.id);if(!p)return;pending.delete(d.id);d.ok?p.resolve(d.value):p.reject(Error(d.error))};
-            w.onerror=e=>{q.error=e.message;for(const p of pending.values())p.reject(Error(e.message));pending.clear()};
-            rpc('init').then(()=>{
+            let port=null;
+            w.onerror=e=>{q.error=e.message};
+            w.onmessage=({data:d})=>{
+             if(d?.ready!==true){q.error='BOOT_DENIED';return}
+             port=createLocalCollectionDevPort(w);
+             // Real port server denial probes; malformed/cross-domain/replay IDs cannot dispatch.
+             q.probe=async()=>{
+              for(const v of [{id:0,method:'close',args:[]},{id:999999,method:'stageTyped',args:[[]]},{id:999999,method:'stageCollectionTarget',args:[1,1]},{id:999999,method:'open',args:[],mode:'amount'}]){
+               const result=await new Promise((resolve,reject)=>{const f=e=>{if(e.data?.id===v.id){w.removeEventListener('message',f);resolve(e.data)}};w.addEventListener('message',f);w.postMessage(v)});
+               if(result.ok!==false)throw Error('RAW_ACCEPT');q.rawDenials++;
+              }
+             };
              adapter=Object.freeze({
-              async open(a){q.opens++;try{return await rpc('open',a)}finally{q.openDone++}},
-              async close(){q.closes++;const mode=q.mode;try{if(mode==='reject')throw Error('QA_CLOSE_REJECT');const r=await rpc('close');if(mode==='hold')await new Promise(resolve=>q.held=resolve);q.held=null;return mode==='forged'?{...r,writerAuthorized:true}:r}finally{q.closeDone++}},
-              inspectCollectionTargets:()=>rpc('inspectCollectionTargets'),
-              async backupOriginal(...a){const r=await rpc('backupOriginal',...a);q.backup=r;return r},
-              previewCollectionTarget:(...a)=>rpc('previewCollectionTarget',...a),
-              stageCollectionTarget(...a){q.stages++;return rpc('stageCollectionTarget',...a)},
-              undo:(...a)=>rpc('undo',...a),redo:(...a)=>rpc('redo',...a),
-              async exportEditedCopy(...a){const r=await rpc('exportEditedCopy',...a);q.exported=r;return r},
-              async downloadVerifiedCopy(...a){try{return await rpc('downloadVerifiedCopy',...a)}finally{q.downloads++}}
+              async open(a){q.opens++;try{return await port.open(a)}finally{q.openDone++}},
+              async close(){q.closes++;const mode=q.mode;try{if(mode==='reject')throw Error('QA_CLOSE_REJECT');const r=await port.close();if(mode==='hold')await new Promise(resolve=>q.held=resolve);q.held=null;return mode==='forged'?{...r,writerAuthorized:true}:r}finally{q.closeDone++}},
+              inspectCollectionTargets:()=>port.inspectCollectionTargets(),
+              async backupOriginal(...a){const r=await port.backupOriginal(...a);q.backup=r;return r},
+              previewCollectionTarget:(...a)=>port.previewCollectionTarget(...a),
+              stageCollectionTarget(...a){q.stages++;return port.stageCollectionTarget(...a)},
+              undo:(...a)=>port.undo(...a),redo:(...a)=>port.redo(...a),
+              async exportEditedCopy(...a){const r=await port.exportEditedCopy(...a);q.exported=r;return r},
+              async downloadVerifiedCopy(...a){try{return await port.downloadVerifiedCopy(...a)}finally{q.downloads++}}
              });q.ready=true;
-            }).catch(e=>q.error=String(e));
-            return ()=>{w.terminate();for(const p of pending.values())p.reject(Error('UNMOUNT'));pending.clear()};
+            };
+            return ()=>{if(port)port.dispose();else w.terminate()};
            });
           </script>
           {#if adapter}<CollectionExact1Dev verifiedLocalDevGate={true} trustedWorkerAdapter={adapter}/>{/if}
@@ -76,13 +89,13 @@ jobs:
           cat > src/routes/test-dev-collection/qa.worker.mjs <<'NODE'
           import init,{WorkerWasmSource} from '../../../tests/stage-e/pkg/ddv_save_core.js';
           import {createProductFixedCollectionLocalAdapter} from '$lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
-          let adapter=null;
-          self.onmessage=async({data:{id,method,args}})=>{try{
-           let value;
-           if(method==='init'){if(adapter)throw Error('DUP');const r=await fetch(new URL('/qa-collection/ddv_save_core_bg.wasm',self.location.origin),{cache:'no-store'});if(!r.ok||!r.headers.get('content-type')?.startsWith('application/wasm'))throw Error('WASM_HTTP_MIME');await init({module_or_path:await r.arrayBuffer()});adapter=createProductFixedCollectionLocalAdapter({wasmFactory:async()=>({WorkerWasmSource})});value=true}
-           else{if(!adapter||!['open','close','inspectCollectionTargets','backupOriginal','previewCollectionTarget','stageCollectionTarget','undo','redo','exportEditedCopy','downloadVerifiedCopy'].includes(method))throw Error('METHOD');value=await adapter[method](...args)}
-           self.postMessage({id,ok:true,value});
-          }catch(e){self.postMessage({id,ok:false,error:String(e?.message||e)})}};
+          import {installLocalCollectionDevWorker} from '$lib/dev/local-scoped-edit-worker-port.mjs';
+          const r=await fetch(new URL('/qa-collection/ddv_save_core_bg.wasm',self.location.origin),{cache:'no-store'});
+          if(!r.ok||!r.headers.get('content-type')?.startsWith('application/wasm'))throw Error('WASM_HTTP_MIME');
+          await init({module_or_path:await r.arrayBuffer()});
+          const adapter=createProductFixedCollectionLocalAdapter({wasmFactory:async()=>({WorkerWasmSource})});
+          installLocalCollectionDevWorker(self,adapter);
+          self.postMessage({ready:true});
           NODE
           cat > tests/.qa-qrw1378-fixture.mjs <<'NODE'
           import {mkdir,writeFile} from 'node:fs/promises';
@@ -144,7 +157,7 @@ jobs:
             if(m.error)p.reject(Error(JSON.stringify(m.error)));else p.resolve(m.result);
            });
           }
-          const script="(async()=>{\n const q=()=>window.__qa,p=()=>document.querySelector('[data-collection-exact1]'),el=s=>p()?.querySelector(s),find=t=>Array.from(p()?.querySelectorAll('button')||[]).find(b=>b.textContent.trim()===t);\n const need=(v,k)=>{if(!v)throw Error('QA1378_'+k)};\n const wait=async(fn,k)=>{for(let i=0;i<1500;i++){if(q()?.error)throw Error(q().error);if(fn())return;await new Promise(r=>setTimeout(r,25))}throw Error('QA1378_WAIT_'+k+' '+p()?.textContent.slice(0,260))};\n const input=()=>el('#collection-local-file'),open=()=>el('[data-collection-open]'),select=()=>el('#collection-local-build'),confirm=()=>el('.check input');\n const click=t=>{const b=find(t);need(b&&!b.disabled,'CLICK_'+t);b.click()};\n const settled=()=>input()&&!input().disabled;\n const profile=new URL(location.href).searchParams.get('profile');\n await wait(()=>q()?.ready&&input(),'MOUNT');q().setLocale('en');\n const [r,m]=await Promise.all([fetch('/qa-collection/qa-collection.p1g'),fetch('/qa-collection/qa-collection.json')]);need(r.ok&&m.ok,'FIXTURE');const bytes=new Uint8Array(await r.arrayBuffer()),meta=await m.json();\n const pick=(name='synthetic.p1g')=>{const d=new DataTransfer();d.items.add(new File([bytes],name));input().files=d.files;input().dispatchEvent(new Event('change',{bubbles:true}))};\n const build=()=>{select().value=profile;select().dispatchEvent(new Event('change',{bubbles:true}))};\n const attest=()=>{confirm().checked=true;confirm().dispatchEvent(new Event('change',{bubbles:true}))};\n need(p().dataset.productWriter==='off'&&p().dataset.publicRoute==='off','FLAGS');\n need(open().disabled,'NO_FILE');build();await wait(()=>confirm(),'BUILD');attest();need(open().disabled,'NO_FILE_ATTESTED');\n let n=q().closeDone;pick('bad.txt');await wait(()=>q().closeDone===n+1&&settled(),'BAD_FILE_SELECTED');need(open().disabled&&!confirm().checked,'RESELECT_CONFIRM');attest();await wait(()=>!open().disabled,'BAD_FILE_ATTEST');open().click();\n await wait(()=>settled()&&el('[role=alert]'),'BAD_FILE_DENIED');need(q().opens===0,'BAD_FILE_NO_WORKER');\n n=q().closeDone;pick();await wait(()=>q().closeDone===n+1&&settled(),'FILE_SELECTED');need(open().disabled&&!confirm().checked,'UNCONFIRMED');\n // Switch the build selection, then return: confirmation must be reset.\n attest();select().value=profile==='switch'?'steam-windows':'switch';select().dispatchEvent(new Event('change',{bubbles:true}));await wait(()=>!confirm().checked,'BUILD_CHANGE_REVOKE');need(open().disabled,'BUILD_REVOKED');build();await wait(()=>select().value===profile,'BUILD_RETURN');attest();\n await wait(()=>!open().disabled,'OPEN_READY');open().click();await wait(()=>find('Verify encrypted original backup')&&!find('Verify encrypted original backup').disabled,'OPENED');\n need(q().opens===1&&!find('Stage exact change'),'NO_STAGE_BEFORE_BACKUP');\n click('Verify encrypted original backup');await wait(()=>find('Review change')&&!find('Review change').disabled,'BACKED');\n need(el('#collection-exact1-target').options.length===1&&el('#collection-exact1-target').options[0].textContent.includes('40004511'),'EXACT_TARGET');\n click('Review change');await wait(()=>find('Stage exact change')&&!find('Stage exact change').disabled,'PREVIEW');\n need(el('.preview').textContent.includes('Uncollected')&&el('.preview').textContent.includes('Collected')&&el('.preview').textContent.includes('2'),'EXACT_PREVIEW');\n click('Stage exact change');await wait(()=>find('Undo')&&!find('Undo').disabled,'STAGE');need(q().stages===1,'ONE_STAGE');\n click('Undo');await wait(()=>find('Redo')&&!find('Redo').disabled,'UNDO');click('Redo');await wait(()=>find('Save separate encrypted copy')&&!find('Save separate encrypted copy').disabled,'REDO');\n let d=q().downloads;click('Download original backup');await wait(()=>q().downloads===d+1&&!find('Download original backup').disabled,'BACKUP_DOWNLOAD');\n click('Save separate encrypted copy');await wait(()=>q().exported&&find('Download edited copy')&&!find('Download edited copy').disabled,'EXPORT');\n const out=q().exported;need(out.freshWorkerReopenVerified===true&&out.independentProcessReopenVerified===false&&out.writerAuthorized===false,'FRESH_REOPEN');\n d=q().downloads;click('Download edited copy');await wait(()=>q().downloads===d+1&&!find('Download edited copy').disabled,'EDITED_DOWNLOAD');\n n=q().closeDone;q().mode='forged';click('Close session');await wait(()=>q().closeDone===n+1&&el('[role=alert]')&&find('Close session')&&!find('Close session').disabled,'FORGED_CLOSE');\n need(!input()&&!find('Download edited copy')&&!open(),'FAILED_CLOSE_REVOKED');\n q().mode='ok';n=q().closeDone;click('Close session');await wait(()=>q().closeDone===n+1&&settled(),'CLOSE_RETRY');need(open().disabled&&!confirm().checked,'RETRY_NO_FILE');\n q().mode='hold';pick();await wait(()=>q().held&&input().disabled,'HELD_CLOSE');need(open().disabled,'PENDING_DENY');pick('ignored.p1g');q().mode='ok';q().held();await wait(()=>settled()&&p().textContent.includes('synthetic.p1g'),'SAME_FILE_RESELECT');\n attest();await wait(()=>!open().disabled,'REOPEN_READY');open().click();await wait(()=>find('Verify encrypted original backup')&&!find('Verify encrypted original backup').disabled,'REOPEN');need(q().opens===2&&q().stages===1,'FRESH_SAME_FILE');\n click('Close session');await wait(()=>settled()&&open().disabled,'FINAL_CLOSE');\n return {pass:true,profile,opens:q().opens,stages:q().stages,backup:out.backupName,edited:out.editedCopyName,editedSha:out.editedSha256,sourceSha:meta.originalSha256,writer:false};\n})()";
+          const script="(async()=>{\n const q=()=>window.__qa,p=()=>document.querySelector('[data-collection-exact1]'),el=s=>p()?.querySelector(s),find=t=>Array.from(p()?.querySelectorAll('button')||[]).find(b=>b.textContent.trim()===t);\n const need=(v,k)=>{if(!v)throw Error('QA1378_'+k)};\n const wait=async(fn,k)=>{for(let i=0;i<1500;i++){if(q()?.error)throw Error(q().error);if(fn())return;await new Promise(r=>setTimeout(r,25))}throw Error('QA1378_WAIT_'+k+' '+p()?.textContent.slice(0,260))};\n const input=()=>el('#collection-local-file'),open=()=>el('[data-collection-open]'),select=()=>el('#collection-local-build'),confirm=()=>el('.check input');\n const click=t=>{const b=find(t);need(b&&!b.disabled,'CLICK_'+t);b.click()};\n const settled=()=>input()&&!input().disabled;\n const profile=new URL(location.href).searchParams.get('profile');\n await wait(()=>q()?.ready&&input(),'MOUNT');q().setLocale('en');await q().probe();need(q().rawDenials===4,'PORT_DENIALS');\n const [r,m]=await Promise.all([fetch('/qa-collection/qa-collection.p1g'),fetch('/qa-collection/qa-collection.json')]);need(r.ok&&m.ok,'FIXTURE');const bytes=new Uint8Array(await r.arrayBuffer()),meta=await m.json();\n const pick=(name='synthetic.p1g')=>{const d=new DataTransfer();d.items.add(new File([bytes],name));input().files=d.files;input().dispatchEvent(new Event('change',{bubbles:true}))};\n const build=()=>{select().value=profile;select().dispatchEvent(new Event('change',{bubbles:true}))};\n const attest=()=>{confirm().checked=true;confirm().dispatchEvent(new Event('change',{bubbles:true}))};\n need(p().dataset.productWriter==='off'&&p().dataset.publicRoute==='off','FLAGS');\n need(open().disabled,'NO_FILE');build();await wait(()=>confirm(),'BUILD');attest();need(open().disabled,'NO_FILE_ATTESTED');\n let n=q().closeDone;pick('bad.txt');await wait(()=>q().closeDone===n+1&&settled(),'BAD_FILE_SELECTED');need(open().disabled&&!confirm().checked,'RESELECT_CONFIRM');attest();await wait(()=>!open().disabled,'BAD_FILE_ATTEST');open().click();\n await wait(()=>settled()&&el('[role=alert]'),'BAD_FILE_DENIED');need(q().opens===0,'BAD_FILE_NO_WORKER');\n n=q().closeDone;pick();await wait(()=>q().closeDone===n+1&&settled(),'FILE_SELECTED');need(open().disabled&&!confirm().checked,'UNCONFIRMED');\n // Switch the build selection, then return: confirmation must be reset.\n attest();select().value=profile==='switch'?'steam-windows':'switch';select().dispatchEvent(new Event('change',{bubbles:true}));await wait(()=>!confirm().checked,'BUILD_CHANGE_REVOKE');need(open().disabled,'BUILD_REVOKED');build();await wait(()=>select().value===profile,'BUILD_RETURN');attest();\n await wait(()=>!open().disabled,'OPEN_READY');open().click();await wait(()=>find('Verify encrypted original backup')&&!find('Verify encrypted original backup').disabled,'OPENED');\n need(q().opens===1&&!find('Stage exact change'),'NO_STAGE_BEFORE_BACKUP');\n click('Verify encrypted original backup');await wait(()=>find('Review change')&&!find('Review change').disabled,'BACKED');\n need(el('#collection-exact1-target').options.length===1&&el('#collection-exact1-target').options[0].textContent.includes('40004511'),'EXACT_TARGET');\n click('Review change');await wait(()=>find('Stage exact change')&&!find('Stage exact change').disabled,'PREVIEW');\n need(el('.preview').textContent.includes('Uncollected')&&el('.preview').textContent.includes('Collected')&&el('.preview').textContent.includes('2'),'EXACT_PREVIEW');\n click('Stage exact change');await wait(()=>find('Undo')&&!find('Undo').disabled,'STAGE');need(q().stages===1,'ONE_STAGE');\n click('Undo');await wait(()=>find('Redo')&&!find('Redo').disabled,'UNDO');click('Redo');await wait(()=>find('Save separate encrypted copy')&&!find('Save separate encrypted copy').disabled,'REDO');\n let d=q().downloads;click('Download original backup');await wait(()=>q().downloads===d+1&&!find('Download original backup').disabled,'BACKUP_DOWNLOAD');\n click('Save separate encrypted copy');await wait(()=>q().exported&&find('Download edited copy')&&!find('Download edited copy').disabled,'EXPORT');\n const out=q().exported;need(out.freshWorkerReopenVerified===true&&out.independentProcessReopenVerified===false&&out.writerAuthorized===false,'FRESH_REOPEN');\n d=q().downloads;click('Download edited copy');await wait(()=>q().downloads===d+1&&!find('Download edited copy').disabled,'EDITED_DOWNLOAD');\n n=q().closeDone;q().mode='forged';click('Close session');await wait(()=>q().closeDone===n+1&&el('[role=alert]')&&find('Close session')&&!find('Close session').disabled,'FORGED_CLOSE');\n need(!input()&&!find('Download edited copy')&&!open(),'FAILED_CLOSE_REVOKED');\n q().mode='ok';n=q().closeDone;click('Close session');await wait(()=>q().closeDone===n+1&&settled(),'CLOSE_RETRY');need(open().disabled&&!confirm().checked,'RETRY_NO_FILE');\n q().mode='hold';pick();await wait(()=>q().held&&input().disabled,'HELD_CLOSE');need(open().disabled,'PENDING_DENY');pick('ignored.p1g');q().mode='ok';q().held();await wait(()=>settled()&&p().textContent.includes('synthetic.p1g'),'SAME_FILE_RESELECT');\n attest();await wait(()=>!open().disabled,'REOPEN_READY');open().click();await wait(()=>find('Verify encrypted original backup')&&!find('Verify encrypted original backup').disabled,'REOPEN');need(q().opens===2&&q().stages===1,'FRESH_SAME_FILE');\n click('Close session');await wait(()=>settled()&&open().disabled,'FINAL_CLOSE');\n return {pass:true,profile,opens:q().opens,stages:q().stages,backup:out.backupName,edited:out.editedCopyName,editedSha:out.editedSha256,sourceSha:meta.originalSha256,writer:false,rawDenials:q().rawDenials};\n})()";
           
           try{
            server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port',String(port),'--strictPort'],
@@ -187,7 +200,7 @@ jobs:
            const {p1gPackagedProfileCodec}=await import('../../src/lib/ddv/core/save/p1g-packaged-profile-codec.js');
            const {createHash}=await import('node:crypto');
            const meta=JSON.parse(await readFile(join(root,'static/qa-collection','qa-collection.json'),'utf8'));
-           assert.equal(result.opens,2);assert.equal(result.stages,1);assert.equal(result.writer,false);
+           assert.equal(result.opens,2);assert.equal(result.stages,1);assert.equal(result.writer,false);assert.equal(result.rawDenials,4);
            assert.notEqual(result.backup,result.edited);
            const backupPath=join(downloadPath,result.backup),editedPath=join(downloadPath,result.edited);
            for(let n=0;n<150&&(!existsSync(backupPath)||!existsSync(editedPath));n++)await sleep(100);
