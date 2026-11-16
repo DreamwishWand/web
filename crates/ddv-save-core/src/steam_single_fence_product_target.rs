@@ -98,7 +98,7 @@ mod tests{
   assert_eq!(a.scope,e);
   assert_eq!(a,s.mint_steam626_single_fence_target(e,90001,x,y).unwrap(),"read-only repeated preview remains stable");
   assert_eq!(s.receipt().unwrap(),before);
-  assert_eq!(s.decoded,source,"no mutation/debit/export or original change");
+  assert_eq!(s.decoded.as_ref(),source.as_slice(),"no mutation/debit/export or original change");
   let mut neg=0usize;
   macro_rules! deny {($ex:expr)=>{{assert!(($ex).is_err());neg+=1;}};}
   deny!(s.mint_steam626_single_fence_target(WorkerEnvelope{action:WorkerAction::Stage,..e},90001,x,y));
@@ -131,7 +131,7 @@ mod tests{
    deny!(b.mint_steam626_single_fence_target(env(&b),90001,x,y));
   }
   assert_eq!(s.receipt().unwrap(),before);
-  assert_eq!(s.decoded,source);
+  assert_eq!(s.decoded.as_ref(),source.as_slice());
   std::fs::write("/tmp/qrc1938-singlefence-current-main-source.json",&source).unwrap();
   std::fs::write("/tmp/qrc1938-singlefence-current-main-coordinate.json",
     serde_json::to_vec(&json!({"x":x,"y":y})).unwrap()).unwrap();
@@ -148,7 +148,7 @@ mod tests{
   let t=s.mint_steam626_single_fence_target(e,90001,x,y).unwrap();
   assert_eq!((t.next,t.stock),(50,10));
   assert_eq!(s.receipt().unwrap(),before);
-  assert_eq!(s.decoded,raw);
+  assert_eq!(s.decoded.as_ref(),raw.as_slice());
   println!("QRC1938_MAIN_FIRST_CHILD_READONLY_REOPEN_PASS schema626 no_debit");
  }
 }
