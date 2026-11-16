@@ -272,4 +272,6 @@ mod tests{
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["12"]["Orientation"]=json!("GridOrientation_Down");let s=open(&q);assert!(s.mint_switch626_fe01_target(env(&s),90001,ids).is_err());
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["14"]=row(14,BASE,x,y+6,false);let s=open(&q);assert!(s.mint_switch626_fe01_target(env(&s),90001,ids).is_err());
  }
+ #[test]fn qa1865_1837_fixture(){let(mut d,x,y)=doc(false);d["Opaque"]=json!({"escaped":"keep","stockDecoy":10});let raw=serde_json::to_string(&d).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");std::fs::write("/tmp/qrc1837-input.json",raw).unwrap();std::fs::write("/tmp/qrc1837-xy.json",serde_json::to_string(&[x,y]).unwrap()).unwrap();}
+ #[test]fn qa1865_1838_fixture(){let(mut d,x,y)=doc(true);d["Opaque"]=json!({"escaped":"keep","stockDecoy":10});let raw=serde_json::to_string(&d).unwrap().replace("\"escaped\":\"keep\"","\"escaped\":\"\\u006beep\"");std::fs::write("/tmp/qrc1838-input.json",raw).unwrap();std::fs::write("/tmp/qrc1838-xy.json",serde_json::to_string(&[x,y]).unwrap()).unwrap();}
 }
