@@ -391,7 +391,7 @@ mod appearance_observer;
 #[path="product_hair_target.rs"]
 mod product_hair_target;
 // ACT1486: exact existing Makeup ColorIndex1 only, same Avatar observer/ledger.
-#[cfg(any(test,feature="semantic-writer-dev"))]
+#[cfg(feature="semantic-writer-dev")]
 #[path="product_makeup_color1.rs"]
 mod product_makeup_color1;
 #[cfg(any(test,feature="semantic-writer-dev"))]
