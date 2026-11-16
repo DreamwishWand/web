@@ -158,7 +158,7 @@ mod tests{
    let mut q=d.clone();
    match i{
     0=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["11"]["ItemID"]=json!(40700248),
-    1=>q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(51),
+    1=>q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX),
     2=>q["Player"]["ListInventories"]["0"]["Inventory"]["40700268"]["Amount"]=json!(0),
     _=>q["World"]["GridCollection"]["DiffGrids"]["90001"]=json!({"ID":90001}),
    }
