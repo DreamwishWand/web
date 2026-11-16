@@ -3,6 +3,8 @@
 //! expected output before calling. Digests are CAS, never product authority.
 use super::*;
 use serde_json::{Value,json};
+#[path="private_ordinary_vase_delete.rs"]
+mod private_ordinary_vase_delete;
 const ITEM:u32=40000066;
 const DEFINITION:&str="60f840fa471e3678b5f7a018466d150882ad7bddaece6ada9a86327fd1c0607a";
 const CONTRACT:&str="wand.private.steam626.ordinary-vase-add-exact3@1";
@@ -106,7 +108,7 @@ impl ProductSession{
 #[cfg(test)]
 mod ordinary_vase_tests{
     use super::*;use crate::{BuildIdentity,SessionReceipt};
-    fn doc()->Value{json!({"GameInfo":{"Version":626},"World":{
+    pub(super) fn doc()->Value{json!({"GameInfo":{"Version":626},"World":{
         "Villages":[{"Areas":{"6":{"Unlocked":true,"GridIDs":[7]}}}],
         "GridCollection":{"Grids":{"7":{"ID":7,"GridDataPath":"GridData/Villages/Village04-DarkLevel-GridData.json",
           "GridDefaultLayoutPath":"","TessellationFactor":2,"NextGridObjectID":9,
@@ -118,12 +120,12 @@ mod ordinary_vase_tests{
         "ConditionalEventHistory":{"ActiveEvents":{},"InboxSpawnCount":{}},"Unknown":{"keep":true}})}
     fn enc(v:&Value)->Vec<u8>{serde_json::to_vec(v).unwrap()}
     fn h(v:&Value)->String{hash(&enc(v))}
-    fn open(d:&Value)->ProductSession{ProductSession::open_decoded_readonly(enc(d),BuildIdentity{
+    pub(super) fn open(d:&Value)->ProductSession{ProductSession::open_decoded_readonly(enc(d),BuildIdentity{
         platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,build_id:EXACT_STEAM.into(),schema:626,externally_attested:true}).unwrap()}
-    fn env(r:SessionReceipt,a:WorkerAction)->WorkerEnvelope{WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
+    pub(super) fn env(r:SessionReceipt,a:WorkerAction)->WorkerEnvelope{WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,
         session_id:r.session_id,expected_revision:r.revision,expected_index_generation:r.index_generation,
         expected_decoded_sha256:r.decoded_sha256,action:a}}
-    fn plan(d:&Value)->(Value,Vec<u8>){
+    pub(super) fn plan(d:&Value)->(Value,Vec<u8>){
         let g=&d["World"]["GridCollection"]["Grids"]["7"];let mut out=d.clone();
         out["World"]["GridCollection"]["Grids"]["7"]["Objects"]["9"]=json!({"ID":9,"ItemID":ITEM,"X":8,"Y":8,"Orientation":"GridOrientation_Up","State":null});
         out["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(10);
