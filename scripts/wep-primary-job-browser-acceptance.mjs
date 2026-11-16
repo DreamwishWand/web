@@ -646,10 +646,12 @@ async function runLocaleLayoutAcceptance(page, report) {
     };
   }
 
+  await page.locator('.immersive-settings').click();
   await localeSelect.selectOption('en');
   await page.waitForFunction(
     () => document.documentElement.lang === 'en'
   );
+  await settingsSheet.locator('.ui-sheet-header button').click();
   assert.equal(await localeSearch.inputValue(), '40');
   await localeSearch.fill('');
 }
