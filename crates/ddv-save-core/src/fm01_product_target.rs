@@ -62,7 +62,7 @@ mod tests{
   json!({"GameInfo":{"Version":626},"World":{"Villages":[{"Areas":{"2":{"Unlocked":true,"GridIDs":[90001]}}}],
    "PlayerHouses":[],"GridCollection":{"Grids":{"90001":{"ID":90001,"GridDataPath":GRID,"GridDefaultLayoutPath":"","TessellationFactor":2,"NextGridObjectID":50,
    "Objects":{"10":row(10,BASE,x,y,false),"11":row(11,40700247,x+2,y,false),"12":row(12,BASE,x+4,y,false),"13":row(13,40700247,x+4,y+2,true),"14":row(14,BASE,x+4,y+4,false)}}},"DiffGrids":{}}},
-   "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_GroundAlteration"]},"Inventory":{"40700246":{"Amount":10,"Marker":"ItemMarker_Favorite"}}}},"ContainerInventories":{}}})
+   "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture","CompatibleFurnitureTypes":{"List":["FurnitureItemType_Fence"]},"Inventory":{"40700246":{"Amount":10,"Marker":"ItemMarker_Favorite"}}}},"ContainerInventories":{}}})
  }
  fn open(d:&Value)->ProductSession{
   let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s
@@ -84,6 +84,8 @@ mod tests{
    let mut bad=d.clone();bad["Player"]["ListInventories"]["0"]["Inventory"]["40700246"][field]=v;let q=open(&bad);
    assert!(q.mint_switch626_fm01_target(env(&q),90001,ids).is_err());
   }
+  let mut wrong_route=d.clone();wrong_route["Player"]["ListInventories"]["0"]["CompatibleFurnitureTypes"]["List"]=json!(["FurnitureItemType_GroundAlteration"]);
+  let q=open(&wrong_route);assert_eq!(q.mint_switch626_fm01_target(env(&q),90001,ids).unwrap_err().0,"AMOUNT_ZERO_ROUTE_SUBTYPE_DENIED");
   let mut bad=d.clone();bad["World"]["GridCollection"]["DiffGrids"]["90001"]=json!({"ID":90001});
   let q=open(&bad);assert!(q.mint_switch626_fm01_target(env(&q),90001,ids).is_err());
   let mut bad=d.clone();bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["13"]["Orientation"]=json!("GridOrientation_Down");
