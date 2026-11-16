@@ -6,18 +6,20 @@
   import {onMount,tick} from 'svelte';
   import {locale} from '$lib/i18n/runtime.js';
   import {localAmountCopy,localAmountTargetLabel} from './local-amount-copy.mjs';
-  import {createLocalAmountDevWorkflow,STEAM626_FULL_VERSION} from './local-amount-workflow.mjs';
+  import {createLocalAmountDevWorkflow,STEAM626_FULL_VERSION,SWITCH626_CHEST_BID} from './local-amount-workflow.mjs';
 
   export let trustedWorkerAdapter=null;
   export let verifiedLocalDevGate=false;
   // Trusted caller fixes this scope at mount; no user-editable mode selector.
   export let scopedExactOne=false;
-  let exactOne=false;
+  // Trusted mount fixes the exact Switch Build; no user-selectable ABI.
+  export let scopedSwitch626Chest=false;
+  let exactOne=false,switchChest=false;
   let workflow=null,available=false,pending=false,error=false;
   let file=null,sourceSha='',buildConfirmed=false,newAmount='';
   let chosen=0,focusTarget=null,fileInput=null,uiEpoch=0;
   let state={phase:'closed',targets:[],preview:null,editedCopy:null,backupVerified:false};
-  $: words=localAmountCopy($locale);
+  $: words=localAmountCopy($locale,switchChest);
   $: openable=available&&!pending&&file!==null&&
     /^[0-9a-f]{64}$/.test(sourceSha)&&buildConfirmed;
   $: current=state.targets?.[chosen]||null;
@@ -30,8 +32,9 @@
     // never means Owner has authorized PRODUCT_OPERATION_ENABLED or Writer ON.
     if(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter)return;
     try{
-      exactOne=scopedExactOne===true;
-      workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,exactOneDecrease:exactOne});
+      switchChest=scopedSwitch626Chest===true;
+      exactOne=switchChest||scopedExactOne===true;
+      workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,exactOneDecrease:exactOne,switch626Chest:switchChest});
       available=true;state=workflow.snapshot();
     }catch{available=false}
     return ()=>{++uiEpoch;const active=workflow;workflow=null;available=false;
@@ -55,8 +58,17 @@
       const v=await closing;
       if(workflow!==active||token!==uiEpoch)return;
       state=v;file=f;
+      if(switchChest&&f){
+        if(f.size<1||f.size>128*1024*1024||!f.name.toLowerCase().endsWith('.p1g'))throw Error('FILE_DENIED');
+        const bytes=new Uint8Array(await Blob.prototype.arrayBuffer.call(f));
+        try{
+          const digest=await crypto.subtle.digest('SHA-256',bytes);
+          if(workflow!==active||token!==uiEpoch)return;
+          sourceSha=Array.from(new Uint8Array(digest),n=>n.toString(16).padStart(2,'0')).join('');
+        }finally{bytes.fill(0)}
+      }
     }catch{
-      if(workflow===active&&token===uiEpoch){error=true;state=active.snapshot()}
+      if(workflow===active&&token===uiEpoch){resetInput();error=true;state=active.snapshot()}
     }finally{if(workflow===active&&token===uiEpoch)pending=false}
   }
   async function act(operation){
@@ -72,7 +84,7 @@
     }finally{if(workflow===active&&token===uiEpoch)pending=false}
   }
   const open=()=>act(()=>workflow.open({
-    file,fullVersion:STEAM626_FULL_VERSION,originalSha256:sourceSha,
+    file,...(switchChest?{switchBid:SWITCH626_CHEST_BID}:{fullVersion:STEAM626_FULL_VERSION}),originalSha256:sourceSha,
     buildConfirmed
   }));
   const backup=()=>act(()=>workflow.backupAndRead());
@@ -127,8 +139,8 @@
         <label for="dev-amount-sha">{words.sha}</label>
         <input id="dev-amount-sha" type="text" maxlength="64" pattern="[a-f0-9]{64}"
           spellcheck="false" autocapitalize="off" autocomplete="off"
-          bind:value={sourceSha} disabled={pending}/>
-        <p>{words.build}: <code>{STEAM626_FULL_VERSION}</code> · schema 626</p>
+          bind:value={sourceSha} readonly={switchChest} disabled={pending}/>
+        <p>{words.build}: <code>{switchChest?SWITCH626_CHEST_BID:STEAM626_FULL_VERSION}</code> · schema 626</p>
         <label class="check">
           <input type="checkbox" bind:checked={buildConfirmed} disabled={pending}/>
           <span>{words.confirm}</span>
