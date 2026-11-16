@@ -51,7 +51,7 @@ impl MeadowGeometry{
     if !exact_fields(a,&["Built","UpgradeState","PlayerHouseIndex"])||a["Built"]!=true||n(&a["PlayerHouseIndex"])?!=0
      ||!exact_fields(&a["UpgradeState"],&["Level"])||n(&a["UpgradeState"]["Level"])?!=4{return None}
     let hs=houses.as_array()?;if hs.is_empty()||hs.len()>4096{return None}
-    if n(&hs[0]["HouseItemID"])?!=item||hs.iter().filter(|v|n(&v["HouseItemID"])==Some(item)).count()!=1{return None}
+    if n(&hs[0]["HouseItemID"])?!=item||hs.iter().any(|v|!v.is_object()||n(&v["HouseItemID"]).is_none())||hs.iter().filter(|v|n(&v["HouseItemID"])==Some(item)).count()!=1{return None}
     ("cf32d344d2621e4caa83d7c05652013e7f7ed008fd1ed13a1ab3562a159f52ff",26,22)
    },
    20300115=>{
@@ -124,7 +124,7 @@ mod tests{
   for (key,value) in [("Built",json!(false)),("PlayerHouseIndex",json!(false)),("PlayerHouseIndex",json!(1)),("UpgradeState",json!({"Level":3})),("UpgradeState",json!({"Level":4,"Extra":0}))]{
    let mut q=house.clone();q["State"]["HouseData"][key]=value;assert!(p.effective_building(&q,&h).is_none());
   }
-  for bad in [json!([]),json!([{"HouseItemID":20500006}]),json!([{"HouseItemID":20500005},{"HouseItemID":20500005}])]{
+  for bad in [json!([]),json!([{"HouseItemID":20500006}]),json!([{"HouseItemID":20500005},{"HouseItemID":20500005}]),json!([{"HouseItemID":20500005},null]),json!([{"HouseItemID":20500005},{"HouseItemID":"20500005"}]),json!([{"HouseItemID":20500005},{}])]{
    assert!(p.effective_building(&house,&bad).is_none());
   }
   for (key,value) in [("CurrentSkinItemID",json!(false)),("CurrentSkinItemID",json!(20300116)),("UpgradeState",json!({"Level":1}))]{
