@@ -1,0 +1,49 @@
+name: 04 QR-S Steam Proof8 current exact7 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-steam-proof8-current-exact7.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: adf5f5c2ac0324ebf88ad474d3036bb9b1840dbb
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual Git pins and accepted projected inverse
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-current-proof8.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'}),blob=(r,p)=>g('rev-parse',r+':'+p);
+          const head='adf5f5c2ac0324ebf88ad474d3036bb9b1840dbb',base='50afe1a403f0fd9e64143181b0d0b0758c5208c4',projected='2c1ad81de113521d1c3438709a76dbcc7456fab7',wf='.github/workflows/pages.yml';
+          const paths=[wf,'scripts/readonly-release/scoped-placement-proof.mjs','tests/scoped-placement-proof.test.mjs','tests/scoped-collection-proof-workflow.test.mjs','tests/scoped-switch-chest-proof-workflow.test.mjs','tests/scoped-steam-chest-proof-workflow.test.mjs','tests/scoped-sr03-spatial-proof-workflow.test.mjs'];
+          assert.equal(g('rev-parse','HEAD'),head);assert.equal(g('rev-parse',head+'^{tree}'),'d97b11114b41331744e5b1f248bfca1306fcf8d1');
+          assert.deepEqual(g('diff','--name-only',base,head).split('\n').sort(),paths.slice().sort());
+          const swaps=[['f4eae0a1c49ba66790a4a12719c6f7b0c21a6b52','9dc1d8fa5c2f422814a20fd8368e4f3516a6c79a'],['6c8dfc4afea309eac4af94da778b01dde43b3f1c','a77c7d7e2df093a6b28c00c89846d2707c20be5f'],['f0d27044af7edcbd9e614f23a90da1e9deb4a023','bf3ab5129e072f64d18ede2ce2b3055e61aef485']];
+          let literals=0;
+          for(const p of paths){let a=raw(projected,p),b=raw(head,p);for(const [x,y] of swaps){literals+=a.split(x).length-1;a=a.split(x).join(y);b=b.split(y).join(x)}assert.equal(a,raw(head,p),p);assert.equal(b,raw(projected,p),p)}
+          assert.equal(literals,5);
+          const pins=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g)].map(m=>[m[1],m[2]]);
+          const y=raw(head,wf),old=raw(base,wf),p=pins(y),prior=pins(old),proj=pins(raw(projected,wf));
+          assert.equal(p.length,252);assert.equal(prior.length,172);assert.equal(proj.length,252);
+          const unique=new Set();let changed=0;
+          for(const [i,[k,h]] of p.entries()){assert.equal(blob(head,k),h,k);assert.equal(proj[i][0],k);if(proj[i][1]!==h){assert.ok(swaps.some(([a,b])=>a===proj[i][1]&&b===h));changed++}unique.add(k)}
+          assert.equal(changed,3);
+          for(const [k,h] of prior){if(k==='crates/ddv-save-core'||k==='scripts/wasm-distribution/protected-release-inputs.json')assert.notEqual(blob(head,k),h)}
+          const stale=prior.filter(([k,h])=>blob(base,k)!==h);assert.equal(stale.length,9);assert.ok(stale.every(([k])=>k==='crates/ddv-save-core'||k==='scripts/wasm-distribution/protected-release-inputs.json'));
+          for(const k of ['crates/ddv-save-core','scripts/wasm-distribution/protected-release-inputs.json','scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/wasm-distribution/approved-Cargo.lock'])assert.equal(blob(base,k),blob(head,k));
+          const foreign=['collection','switch-chest','steam-chest'];for(const [i,n] of foreign.entries())assert.equal(blob(head,'scripts/readonly-release/seal-scoped-'+n+'-private.mjs'),swaps[i][1]);
+          assert.equal(blob(head,'scripts/readonly-release/scoped-placement-proof.mjs'),'932c1c1de44ae6f223fe53b0f14b8e0071eee22d');
+          console.log('QRS_PR1822_CURRENT_PROOF8_EXACT7_L2_PASS',JSON.stringify({pins:p.length,unique:unique.size,paths:paths.length,projectedPinChanges:changed,literals,staleRepaired:stale.length,actualGit:true,protectedAcceptance:false,actualSignature:false}));
+          EOF
+          node qa-current-proof8.mjs
