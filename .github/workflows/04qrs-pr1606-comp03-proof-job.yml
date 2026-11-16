@@ -31,7 +31,7 @@ jobs:
           const raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8'});
           const y=readFileSync('.github/workflows/pages.yml','utf8'),old=raw('59349765b42a6b88d839f23e29ead4736d21f1ce','.github/workflows/pages.yml'),vars=["collection","switch_chest","steam_chest","steam_backpack","switch_backpack","steam_wardrobe","switch_wardrobe","comp03","comp03_spatial"];
           const names=['build',...vars.map(n=>'scoped_'+n+'_proof')];
-          const jobs=s=>Object.fromEntries([...s.matchAll(/^  ([a-z_]+):\n(?=    )/gm)].filter(m=>names.includes(m[1])||m[1]==='deploy').map(m=>{const start=m.index,end=s.slice(start+1).search(/^  [a-z_]+:\n/m);return [m[1],end<0?s.slice(start):s.slice(start,start+1+end)]}));
+          const jobs=s=>Object.fromEntries([...s.matchAll(/^  ([a-z0-9_]+):\n(?=    )/gm)].filter(m=>names.includes(m[1])||m[1]==='deploy').map(m=>{const start=m.index,end=s.slice(start+1).search(/^  [a-z0-9_]+:\n/m);return [m[1],end<0?s.slice(start):s.slice(start,start+1+end)]}));
           const j=jobs(y),o=jobs(old),strip=s=>s.replace(/^    if:.*\n/m,'').trimEnd();
           for(const n of names.slice(0,-2))assert.equal(strip(j[n]),strip(o[n]),n);
           assert.equal(j.deploy.trimEnd(),o.deploy.trimEnd());
