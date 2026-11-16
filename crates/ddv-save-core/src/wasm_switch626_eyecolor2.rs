@@ -30,25 +30,25 @@ impl WorkerWasmSource {
         let r=guard.stage_switch_eyecolor2(e,active_sha,inactive_sha,male_sha,female_sha,
              stock_sha,route_sha,token_sha,from_hex(projected_sha)?)
              .map_err(|x|err(x.0))?;
-        self.scoped_domain.set(Some(ScopedEditDomain::EyeColor2));
+        self.scoped_domain.set(Some(ScopedEditDomain::SwitchEyeColor2));
         Ok(scoped_edit_receipt(r,CONTRACT))
     }
     pub fn toggle_switch626_eyecolor2(&self,redo:bool,session_id:&str,revision:u64,
         index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
-        if self.scoped_domain.get()!=Some(ScopedEditDomain::EyeColor2){
+        if self.scoped_domain.get()!=Some(ScopedEditDomain::SwitchEyeColor2){
             return Err(err("EYECOLOR2_ABI_DOMAIN_MISMATCH"));
         }
         self.toggle_scoped_edit_inner(redo,session_id,revision,index_generation,decoded_sha256,CONTRACT)
     }
     pub fn begin_switch626_eyecolor2_output(&mut self,session_id:&str,revision:u64,
         index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
-        if self.scoped_domain.get()!=Some(ScopedEditDomain::EyeColor2){
+        if self.scoped_domain.get()!=Some(ScopedEditDomain::SwitchEyeColor2){
             return Err(err("EYECOLOR2_ABI_DOMAIN_MISMATCH"));
         }
         self.begin_scoped_edit_output_inner(session_id,revision,index_generation,decoded_sha256,OUTPUT)
     }
     pub fn next_switch626_eyecolor2_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
-        if self.scoped_domain.get()!=Some(ScopedEditDomain::EyeColor2){
+        if self.scoped_domain.get()!=Some(ScopedEditDomain::SwitchEyeColor2){
             return Err(err("EYECOLOR2_ABI_DOMAIN_MISMATCH"));
         }
         self.next_scoped_edit_output_chunk_inner()
