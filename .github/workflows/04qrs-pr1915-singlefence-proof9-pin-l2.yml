@@ -1,0 +1,77 @@
+name: "[04 QR-S][ACT1553] PR1915 Steam626 SingleFence Proof9 pin L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr1915-singlefence-proof9-pin-l2.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 02ca43cc180a311dca3eadd80c66137c86bddc51
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reuse unchanged core/product tests
+        run: |
+          set -euo pipefail
+          node --test tests/scoped-collection-proof-workflow.test.mjs tests/scoped-steam-chest-proof-workflow.test.mjs tests/scoped-switch-chest-proof-workflow.test.mjs
+      - name: Changed only independent negative and pin checks
+        run: |
+          set -euo pipefail
+          cat > qa-independent.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8',maxBuffer:16*1024*1024}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8',maxBuffer:16*1024*1024});
+          const head='02ca43cc180a311dca3eadd80c66137c86bddc51',base='6ab753009692a3d84a7bf744e555d2f756bfc374';
+          assert.equal(g('rev-parse','HEAD'),head);assert.equal(g('rev-parse','HEAD^'),base);
+          const paths=g('diff','--name-only',base,head).split('\n');assert.equal(paths.length,6);
+          const rust=['crates/ddv-save-core/src/fence_add_shape.rs'];for(const p of rust)assert.ok(paths.includes(p));
+          const pins=paths.filter(p=>!rust.includes(p));assert.equal(pins.length,5);const wf='.github/workflows/pages.yml';assert.ok(pins.includes(wf));
+          const oldCore='63d1b9f88a07c79c54cb433f4d1cbd9cf1e1ed4b',newCore='a6c0aaa626840b9d7bf7944aa9699b580f456eba';assert.equal(g('rev-parse',head+':crates/ddv-save-core'),newCore);
+          const purePath='crates/ddv-save-core/src/fence_add_shape.rs';
+          const oldRust=raw(base,purePath),newRust=raw(head,purePath);
+          assert.ok(newRust.startsWith(oldRust),'exact unchanged shared Rust prefix');
+          assert.equal(newRust.slice(oldRust.length).split('\n').length-1,27);
+          assert.match(newRust.slice(oldRust.length),/fn exact_steam626_fence_single_ortho/);
+          assert.doesNotMatch(newRust.slice(oldRust.length),/pub\s+fn\s+(?:stage|commit|export)|inventory_route|entitlement/i);
+          let count=0,pos=0,neg=0;
+          for(const p of pins){const before=raw(base,p),after=raw(head,p);assert.notEqual(before,after);
+           const hits=after.split(newCore).length-1;assert.ok(hits>0);assert.equal(after.replaceAll(newCore,oldCore),before);count+=hits;pos++;assert.notEqual(after.replace(newCore,'e'+newCore.slice(1)),after);neg++;
+          }
+          assert.equal(count,19);
+          const y=raw(head,wf),old=raw(base,wf),sections=s=>[...s.matchAll(/^  (scoped_[a-z0-9_]+_proof):\n/gm)].map(x=>({n:x[1],at:x.index})).map((x,i,a)=>({name:x.n,body:s.slice(x.at, i+1<a.length?a[i+1].at:s.length)}));
+          const newSec=sections(y),oldSec=sections(old);assert.equal(newSec.length,9);assert.deepEqual(newSec.map(x=>x.name),oldSec.map(x=>x.name));
+          const getPins=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]+)\)" = ([0-9a-f]{40})/g)].map(m=>[m[1],m[2]]);
+          let newPins=0,changedPins=0;
+          for(let i=0;i<9;i++){const curr=getPins(newSec[i].body),oldp=getPins(oldSec[i].body);assert.equal(curr.length,oldp.length);for(let j=0;j<curr.length;j++){assert.equal(curr[j][0],oldp[j][0]);if(curr[j][0]==='crates/ddv-save-core'){assert.equal(curr[j][1],newCore);assert.equal(oldp[j][1],oldCore);changedPins++;}else{assert.equal(curr[j][1],oldp[j][1]);}newPins++}pos++;}
+          assert.equal(changedPins,9);assert.equal(newPins,293);
+          // Counterexamples for stale Core, protected CI, issuer and subjects.
+          for(const section of newSec){
+           const pinList=getPins(section.body);
+           assert.equal(pinList.filter(([path])=>path==='crates/ddv-save-core').length,1);
+           assert.equal(pinList.find(([path])=>path==='crates/ddv-save-core')[1],newCore);
+           assert.notEqual(pinList.find(([path])=>path==='crates/ddv-save-core')[1],oldCore);neg++;
+           for(const fragment of ['node scripts/int-protected-ci-gate.mjs build','node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','actions/upload-artifact@v4'])assert.ok(section.body.includes(fragment),fragment);
+           assert.doesNotMatch(section.body,/actions\/(?:deploy-pages|upload-pages-artifact)@|seal-private-v2/);
+           const sub=section.body.slice(section.body.indexOf('subject-path: |'),section.body.indexOf('      - name: Verify exact signer'));
+           assert.equal([...sub.matchAll(/ddv_save_core(?:_bg)?\.(?:js|wasm)|manifest\.json/g)].length,3);
+           const upload=section.body.slice(section.body.indexOf('actions/upload-artifact@v4'));
+           assert.match(upload,/pins\.json/);
+           assert.match(upload,/attestation-bundle\.jsonl/);
+           assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-|static\/|build\//);
+          }
+          assert.equal(raw(head,'scripts/wasm-distribution/protected-release-inputs.json'),raw(base,'scripts/wasm-distribution/protected-release-inputs.json'));
+          assert.equal(raw(head,'scripts/readonly-release/scoped-placement-proof.mjs'),raw(base,'scripts/readonly-release/scoped-placement-proof.mjs'));
+          assert.equal(raw(head,'src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs'),raw(base,'src/lib/ddv/core/save/product-scoped-appearance-release-anchor.mjs'));
+          assert.equal(g('rev-parse',head+':scripts/wasm-distribution/r22-accepted-rust-scope.mjs'),g('rev-parse',base+':scripts/wasm-distribution/r22-accepted-rust-scope.mjs'));pos++;
+          assert.equal(g('rev-parse',head+':scripts/wasm-distribution/approved-Cargo.lock'),g('rev-parse',base+':scripts/wasm-distribution/approved-Cargo.lock'));pos++;
+          for(const p of paths.filter(p=>p.startsWith('tests/'))){assert.ok(raw(head,p).includes(newCore));neg++}
+          console.log('QRS_PR1915_SINGLEFENCE_PROOF9_PIN_L2_PASS',JSON.stringify({pos,neg,paths:6,pinPaths:5,swaps:19,pins:newPins,changed:changedPins,unchanged:newPins-changedPins,oldCore,newCore,protectedAcceptance:false,actualSignature:false}));
+          EOF
+          node qa-independent.mjs
