@@ -1,0 +1,138 @@
+name: QA ONLY PR1471 placement product OFF routes (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1471-placement-off-routes.yml'
+permissions:
+  contents: read
+jobs:
+  off-routes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 142232d024392685099838867420f3f3fe255ab0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact fixed source and no scoped static assets
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '142232d024392685099838867420f3f3fe255ab0'
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = 40118cad5114a94f48fb3d14dccd178ed83add6a
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 8b33a2391f43347620cb457d9bee6fdff7fbbad3
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = b9842a2c5446f7543760cfc177da363324bc4a9c
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 466a722c1320a665f2137417b7391b41e4b0de1b
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-copy.mjs)" = 21db30a8db8820a9e316be52ba3f9120d38b92b5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release-anchor.mjs)" = 8bf869bf71546c467194483955e256cbe104c312
+          test "$(git rev-parse HEAD:src/routes/editor/world/comp03/+page.svelte)" = 90191a132481a5b38fc6554012b633f06d2f9d34
+          test "$(git rev-parse HEAD:src/routes/editor/world/vase/+page.svelte)" = 0e352ed5d69d22a69d5d09732da74502553a604d
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-worker-boot.mjs)" = d054cfdf6ff2e8680ac59cd07daef043921bc0a5
+          test "$(git rev-parse HEAD:src/lib/dev/product-comp03.worker.mjs)" = 6c6822b86bf0c2f676256121eeb6cf5a412e4f7e
+          test "$(git rev-parse HEAD:src/lib/dev/product-vase-add.worker.mjs)" = c75b494954622335552ab067833c58f3bbb4fa3f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 959d0ef46c220ed6a402499ca3587b00275d8244
+          test "$(git rev-parse HEAD:src/routes/editor/+page.svelte)" = 54e78331769cfa1c9c7e30b882df4505aab686c6
+          test -z "$(git ls-files static/worker-wasm-scoped-steam626-comp03 static/worker-wasm-scoped-steam626-vase-add)"
+      - run: npm ci --no-audit --no-fund
+      - name: Actual client null-anchor and cross-operation brand denial
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createProductComp03Port,createProductVaseAddPort,productPlacementPortScope,placementReadyOk} from './src/lib/dev/product-placement-client.mjs';
+          import {COMP03_RELEASE,VASE_ADD_RELEASE,getComp03MountInfo,getVaseAddMountInfo} from './src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {localPlacementCopy} from './src/lib/dev/local-placement-copy.mjs';
+          const locales=['en','ja','fr','it','de','es-ES','zh-CN','pt-BR'];
+          for(const l of locales){const c=localPlacementCopy(l);assert.ok(c.compTitle&&c.vaseTitle&&c.compTitle!==c.vaseTitle&&c.off);assert.equal(Object.isFrozen(c),true)}
+          Object.defineProperty(globalThis,'document',{configurable:true,value:{}});
+          Object.defineProperty(globalThis,'location',{configurable:true,writable:true,value:new URL('https://dreamwishwand.github.io/web/editor/world/comp03/')});
+          let workers=0;Object.defineProperty(globalThis,'Worker',{configurable:true,value:class{constructor(){workers++;throw Error('unexpected worker')}}});
+          const builds=[{platform:'steam-windows',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',productV2EvidenceSha256:null}];
+          const counts={};
+          for(const [spec,other,create,mount] of [[COMP03_RELEASE,VASE_ADD_RELEASE,createProductComp03Port,getComp03MountInfo],[VASE_ADD_RELEASE,COMP03_RELEASE,createProductVaseAddPort,getVaseAddMountInfo]]){
+            let neg=0;
+            const scope={releaseId:'a'.repeat(64),operation:spec.operation,mode:'private-product-v2',builds};
+            const ready={kind:'SCOPED_PLACEMENT_RUNTIME_READY',...scope,writerAuthorized:false};
+            assert.equal(placementReadyOk(ready,scope),true); // shape only, not authority
+            for(const patch of [{kind:'OTHER'},{operation:other.operation},{releaseId:'b'.repeat(64)},{mode:'public-accepted'},{writerAuthorized:true},{builds:[]},{builds:[{...builds[0],platform:'switch'}]},{builds:[{...builds[0],buildId:'unknown'}]},{builds:[{...builds[0],productV2EvidenceSha256:'c'.repeat(64)}]},{extra:true}]){
+              assert.equal(placementReadyOk({...ready,...patch},scope),false);neg++;
+            }
+            const {writerAuthorized,...missing}=ready;assert.equal(placementReadyOk(missing,scope),false);neg++;
+            for(const fake of [ready,Object.freeze({...ready}),{...ready,open(){},dispose(){}}]){assert.equal(productPlacementPortScope(fake),null);neg++}
+            globalThis.location=new URL('https://dreamwishwand.github.io/web'+spec.path+'?operation='+other.operation+'&mode=public-accepted');
+            const ac=new AbortController();ac.abort();
+            for(const args of [{},{anchor:scope,verifiedLocalDevGate:true,workerFactory:()=>{}},{signal:ac.signal},{onFault:1}]){await assert.rejects(create(args));neg++}
+            await assert.rejects(mount());neg++;
+            counts[spec.key]=neg;
+          }
+          assert.equal(workers,0);
+          console.log('QRW1471_OFF_CLIENT_ACTUAL_PASS',JSON.stringify({counts,localeCount:8,workerConstructed:workers,positiveSignedRuntime:false}));
+          NODE
+      - name: Actual production static build (both anchors null)
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run build
+          test -f build/editor/world/comp03/index.html
+          test -f build/editor/world/vase/index.html
+          test ! -e build/worker-wasm-scoped-steam626-comp03
+          test ! -e build/worker-wasm-scoped-steam626-vase-add
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Serve actual static output
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/qrw1471-static"
+          ln -s "$PWD/build" "$RUNNER_TEMP/qrw1471-static/web"
+          python3 -m http.server 4177 --bind 127.0.0.1 --directory "$RUNNER_TEMP/qrw1471-static" > /tmp/qrw1471-http.log 2>&1 &
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4177/web/editor/world/comp03/ >/dev/null; then exit 0; fi; sleep 1; done
+          cat /tmp/qrw1471-http.log
+          exit 1
+      - name: Actual Chrome both product routes and cross-operation forged inputs
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const root='http://127.0.0.1:4177/web',browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          try{
+            const context=await browser.newContext({locale:'en-US'});
+            await context.addInitScript(()=>{
+              window.__qrw1471Workers=[];
+              const original=window.Worker;
+              window.Worker=new Proxy(original,{construct(target,args,newTarget){window.__qrw1471Workers.push(String(args[0]));return Reflect.construct(target,args,newTarget)}});
+              for(const k of ['verifiedLocalDevGate','productComp03Enabled','productVaseAddEnabled','productPlacementEnabled'])localStorage.setItem(k,'true');
+            });
+            const page=await context.newPage(),errors=[],requests=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            page.on('request',r=>{if(/worker-wasm-scoped-steam626-(comp03|vase-add)\//.test(r.url()))requests.push(r.url())});
+            const counts={comp03:0,vase:0};
+            const hydrated=async()=>{await page.waitForFunction(()=>!!document.documentElement.dataset.locale);await page.waitForLoadState('networkidle')};
+            const off=async op=>{
+              await hydrated();
+              const route=page.locator('[data-placement-product-route]');
+              assert.equal(await route.getAttribute('data-placement-product-route'),op);
+              assert.equal(await route.getAttribute('data-placement-scope'),'off');
+              assert.equal(await route.locator('input[type=file]').count(),0);
+              assert.equal(await route.locator('[data-dev-placement]').count(),0);
+              assert.equal(await route.locator('[role=status]').count(),1);
+              assert.equal(await page.evaluate(()=>window.__qrw1471Workers.length),0);
+              counts[op]++;
+            };
+            for(const op of ['comp03','vase']){
+              const other=op==='comp03'?'vase':'comp03';
+              for(const q of ['', '?enable=true&mode=public-accepted#writer','?operation='+other+'&platform=switch&build=9A239D3DB569756D','?verifiedLocalDevGate=true&mode=private-product-v2']){
+                const r=await page.goto(root+'/editor/world/'+op+'/'+q);assert.equal(r.status(),200);await off(op);
+              }
+              await page.reload();await off(op);
+              const hub=await page.goto(root+'/editor/');assert.equal(hub.status(),200);await hydrated();
+              assert.equal(await page.locator('a[href*="/editor/world/comp03/"],a[href*="/editor/world/vase/"]').count(),0);
+              assert.equal(await page.evaluate(()=>window.__qrw1471Workers.length),0);
+              await page.goBack();await off(op);
+            }
+            assert.deepEqual(requests,[]);assert.deepEqual(errors,[]);
+            console.log('QRW1471_OFF_CHROME_ACTUAL_PASS',JSON.stringify({counts,hubLinks:0,workerConstructed:0,scopedRequests:0,pageErrors:0,realSignedPositive:false}));
+            await context.close();
+          }finally{await browser.close()}
+          NODE
