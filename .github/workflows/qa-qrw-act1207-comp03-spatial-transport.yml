@@ -1,0 +1,100 @@
+name: QA ONLY ACT1207 COMP03 spatial changed transport (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1207-comp03-spatial-transport.yml'
+permissions:
+  contents: read
+jobs:
+  actual-spatial-transport:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/qrw-spatial-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6923b27fecb7b0eef31b4be6a251df79f469bf7a
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Exact accepted Core and current transport source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '6923b27fecb7b0eef31b4be6a251df79f469bf7a'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-transport.mjs)" = 2be98e17bf3941ccf0a727b920d9dfb0ad3357b6
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 42b91ce322f5a088a6f15114b4af315e4c7138ac
+          git cat-file -e 7fe14c7f2d227d50263ab98d00d0467947247de8^{commit} || git fetch --no-tags origin 7fe14c7f2d227d50263ab98d00d0467947247de8
+          git worktree add --detach /tmp/qrw-spatial-core 7fe14c7f2d227d50263ab98d00d0467947247de8
+          test "$(git -C /tmp/qrw-spatial-core rev-parse HEAD)" = '7fe14c7f2d227d50263ab98d00d0467947247de8'
+          test "$(git -C /tmp/qrw-spatial-core rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 'e4d2840eaa9fb502190d3ad2375b465ae5e43087'
+          test "$(git -C /tmp/qrw-spatial-core rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 8b9ba713bdc6e041f24a6abb7475160e88619e0e
+      - name: Reproduce ACT1201 accepted optional artifact exact lock and WASM SHA
+        run: |
+          set -euo pipefail
+          rustc --version | grep -F 'rustc 1.100.0 (0ef1bc386 2026-11-09)'
+          cargo generate-lockfile --manifest-path /tmp/qrw-spatial-core/crates/ddv-save-core/Cargo.toml
+          echo '6bd3642b96af61a84a0b0d96b7e7e911415f519bcb4683c1092ea0bf191f71ac  /tmp/qrw-spatial-core/crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrw-spatial-tools
+          cargo build --locked --manifest-path /tmp/qrw-spatial-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-comp03-spatial-preview
+          /tmp/qrw-spatial-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/qrw-spatial-node --target nodejs --no-typescript
+          echo '41fb5ee0b41fdd3238302411a9cf150db16df65214aaeb76e55369d633f38bdd  /tmp/qrw-spatial-node/ddv_save_core_bg.wasm' | sha256sum -c -
+          sha256sum /tmp/qrw-spatial-node/ddv_save_core.js
+      - name: Actual generated boundary with independent coordinate and byte oracle
+        run: |
+          cat > tests/.qa-act1207-spatial.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {createRequire} from 'node:module';
+          import {resolve} from 'node:path';
+          import {pathToFileURL} from 'node:url';
+          const sha=b=>createHash('sha256').update(b).digest('hex'), gitBlob=b=>createHash('sha1').update('blob '+b.length+'\0').update(b).digest('hex');
+          const tp=resolve('src/lib/ddv/core/save/product-scoped-placement-transport.mjs');
+          assert.equal(gitBlob(readFileSync(tp)),'2be98e17bf3941ccf0a727b920d9dfb0ad3357b6');
+          assert.equal(gitBlob(readFileSync('src/lib/ddv/core/save/product-scoped-amount-transport.mjs')),'42b91ce322f5a088a6f15114b4af315e4c7138ac');
+          const {createSteam626Comp03SpatialTransport:spatial,createSteam626Comp03Transport:legacy}=await import(pathToFileURL(tp).href);
+          const {WorkerWasmSource:W}=createRequire(import.meta.url)('/tmp/qrw-spatial-node/ddv_save_core.js');
+          const steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],identity={platform:steam[0],buildKind:steam[1],buildId:steam[2],schema:626},item=40100038;
+          const root=(name,id,g)=>({SceneItemId:id,Unlocked:true,GridIDs:[g],CustomLocationPositionsPath:'SceneLayouts/FloatingIslands/FloatingIsland_'+name+'/CustomLocations.json'});
+          const grid=(name,id,next,objects)=>({ID:id,GridDefaultLayoutPath:'',GridDataPath:'GridData/FloatingIslands/FloatingIsland_'+name+'/FloatingIsland_'+name+'Grid-GridData.json',TessellationFactor:2,NextGridObjectID:next,Objects:objects});
+          const well={ID:0,ItemID:20300048,X:120,Y:120,Orientation:'GridOrientation_Down',State:{BuildingWithSkinData:{UpgradeState:{Level:1},CurrentSkinItemID:170200005}}};
+          function fixture(g=301,s=742,seed=82,x=16,y=24){
+           const d={GameInfo:{Version:626},World:{Villages:[],FloatingIslands:{1540000150:root('Snow',1540000150,g),1540000153:root('Savannah',1540000153,s)},GridCollection:{Grids:{[g]:grid('Snow',g,seed+10,{0:structuredClone(well),[seed]:{ID:seed,ItemID:item,X:x,Y:y,Orientation:'GridOrientation_Down',State:null}}),[s]:grid('Savannah',s,12,{0:structuredClone(well)})},DiffGrids:{}},MissionSlots:{},RecurringEvents:{}},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_GroundAlteration']},Inventory:{[item]:{Amount:99,Marker:'ItemMarker_None'}}}},AchievementsData:[],DutySlots:{},EvolveStatesProfile:{EvolveProgressState:{}},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{escaped:'keep'}};
+           return {d,g,seed,x,y,next:seed+10};
+          }
+          const raw=d=>Buffer.from(JSON.stringify(d).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
+          function oracle(f){const {d,g,seed,x,y,next}=f,gr=d.World.GridCollection.Grids[g],coords=[[x+4,y],[x+8,y],[x,y+4],[x+4,y+4],[x+8,y+4],[x,y+8],[x+4,y+8],[x+8,y+8]],anchors=[{objectId:seed,x,y,role:'retained'},...coords.map(([x,y],i)=>({objectId:next+i,x,y,role:'proposed'}))];
+           const oldGrid=JSON.stringify(gr),obj=JSON.stringify(gr.Objects),tail=coords.map(([X,Y],i)=>',"'+(next+i)+'":'+JSON.stringify({ID:next+i,ItemID:item,Orientation:'GridOrientation_Down',State:null,X,Y})).join('');
+           const newGrid=oldGrid.replace('"Objects":'+obj,'"Objects":'+obj.slice(0,-1)+tail+'}').replace('"NextGridObjectID":'+next,'"NextGridObjectID":'+(next+8));
+           const want=Buffer.from(raw(d).toString().replace(oldGrid,newGrid)),expected=structuredClone(d);
+           for(let i=0;i<8;i++){const [X,Y]=coords[i];expected.World.GridCollection.Grids[g].Objects[next+i]={ID:next+i,ItemID:item,Orientation:'GridOrientation_Down',State:null,X,Y};}expected.World.GridCollection.Grids[g].NextGridObjectID+=8;assert.deepEqual(JSON.parse(want),expected);return {anchors,projected:sha(want)};
+          }
+          let nonce=0,pos=0,neg=0;
+          function open(f,change=null){const a=raw(f.d),w=new W(...steam,new Uint8Array(32).fill(++nonce));for(let i=0;i<a.length;i+=1048576)w.append_chunk(a.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(a));
+           let active=true,revokes=0,stageCalls=0,actualSpatial=0,lastArgs=null,lastRaw=null;
+           const api=new Proxy(w,{get(o,k){const v=o[k];if(typeof v!=='function')return v;if(k==='preview_steam626_comp03_spatial')return (...args)=>{actualSpatial++;lastArgs=args;lastRaw=JSON.parse(v.apply(o,args));return JSON.stringify(change?change(structuredClone(lastRaw)):lastRaw);};if(k==='stage_steam626_comp03')return (...args)=>{stageCalls++;return v.apply(o,args);};return v.bind(o);}});
+           function revoke(){if(active){active=false;revokes++;w.close();}}
+           const opts={parse:(s,max)=>{assert.equal(typeof s,'string');assert(Buffer.byteLength(s)<=max);return JSON.parse(s);},current:()=>active,revoke,maxBytes:16*1024*1024,chunkBytes:1048576};
+           return {w,r,api,opts,revoke,stats:()=>({active,revokes,stageCalls,actualSpatial,lastArgs,lastRaw}),finish(){revoke();w.free();}};
+          }
+          const deny=f=>{assert.throws(f);neg++;};
+          const cases=[fixture(),fixture(303,744,93,20,28)];
+          for(const f of cases){const s=open(f),o=oracle(f);try{
+           const t=spatial(s.api,s.r,identity,s.opts),p=t.previewTarget({seedId:f.seed});assert.equal(p.gridId,f.g);assert.equal(p.seedId,f.seed);assert.equal(p.projectedDecodedSha256,undefined);assert.equal(p.sessionId,undefined);
+           const v=t.spatialPreview();assert.deepEqual(v,{rootSceneItemId:1540000150,gridId:f.g,seedId:f.seed,nextObjectId:f.next,anchors:o.anchors,writerAuthorized:false,editedCopyAuthorized:false});assert(Object.isFrozen(v)&&Object.isFrozen(v.anchors)&&v.anchors.every(Object.isFrozen));assert.deepEqual(s.stats().lastArgs,[f.seed,o.projected,s.r.sessionId,0n,1n,s.r.decodedSha256]);assert.equal(s.stats().lastRaw.projectedDecodedSha256,o.projected);assert.equal(s.stats().stageCalls,0);
+           assert.equal(t.stage().applied,true);assert.equal(s.stats().stageCalls,1);assert.equal(t.hasMutation(),true);deny(()=>t.spatialPreview());assert.equal(s.stats().revokes,1);assert.equal(s.stats().actualSpatial,1);pos++;
+           }finally{s.finish();}
+          }
+          const alterations=[r=>({...r,sessionId:r.sessionId==='a'.repeat(32)?'b'.repeat(32):'a'.repeat(32)}),r=>({...r,projectedDecodedSha256:'0'.repeat(64)}),r=>({...r,rootSceneItemId:1540000153}),r=>({...r,gridId:r.gridId+1}),r=>({...r,revision:1}),r=>({...r,indexGeneration:2}),r=>({...r,anchors:r.anchors.slice(1)}),r=>({...r,anchors:r.anchors.map((a,i)=>i===1?{...a,objectId:r.seedId}:a)}),r=>({...r,anchors:r.anchors.map((a,i)=>i===1?{...a,x:261}:a)}),r=>({...r,writerAuthorized:true}),r=>({...r,editedCopyAuthorized:true}),r=>({...r,unexpected:1})];
+          for(const alter of alterations){const f=cases[0],s=open(f,alter);try{const t=spatial(s.api,s.r,identity,s.opts);t.previewTarget({seedId:f.seed});deny(()=>t.spatialPreview());assert.equal(s.stats().actualSpatial,1);assert.equal(s.stats().revokes,1);deny(()=>t.stage());assert.equal(s.stats().stageCalls,0);}finally{s.finish();}}
+          for(const kind of ['before','closed','legacy']){const f=cases[0],s=open(f);try{const t=(kind==='legacy'?legacy:spatial)(s.api,s.r,identity,s.opts);if(kind==='legacy'){assert.equal(t.spatialPreview,undefined);assert.equal(s.stats().actualSpatial,0);continue;}if(kind==='closed'){t.previewTarget({seedId:f.seed});s.revoke();}deny(()=>t.spatialPreview());assert.equal(s.stats().actualSpatial,0);assert.equal(s.stats().stageCalls,0);}finally{s.finish();}}
+          assert.equal(pos,2);assert.equal(neg,28);console.log('ACT1207_ACTUAL_TRANSPORT_PASS '+JSON.stringify({pos,neg,actualGeneratedWasm:true,syntheticFixture:true,publicGrant:false,productV2:false}));
+          NODE
+          node --check tests/.qa-act1207-spatial.mjs
+          node tests/.qa-act1207-spatial.mjs
