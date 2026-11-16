@@ -457,4 +457,57 @@ mod tests{
    _=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["11"]["Orientation"]=json!("GridOrientation_Up")
   }let x=open(&q);let before=x.receipt().unwrap();assert!(x.mint_sr03_target(env(&x),90001,10,11).is_err(),"mode {i}");assert_eq!(x.receipt().unwrap(),before);}
  }
+
+ #[test]fn qa1673_r01_changed_target_oracle(){
+  let mut d=doc();let (x,y)={let o=&d["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"];(o["X"].as_u64().unwrap() as u32,o["Y"].as_u64().unwrap() as u32)};
+  let open_build=|v:&Value,platform,kind,id:&str,attested|{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(v).unwrap(),crate::BuildIdentity{platform,build_kind:kind,build_id:id.into(),schema:626,externally_attested:attested}).unwrap();s.worker_bound=true;s};
+  let sw=|v:&Value|open_build(v,Platform::Switch,BuildKind::SwitchBid,"9A239D3DB569756D",true);
+  let mut pos=0;let mut neg=0;
+  // Changed shared ambient dispatch: mixed old2 retain exemption; R01 none.
+  let s=sw(&d);let e=env(&s);assert!(s.mint_mixed_road_target(e,90001,10,11,RoadBuild::Switch626).is_ok());pos+=1;
+  assert!(s.mint_switch626_r01_target(e,90001,x,y).is_err());neg+=1;
+  let steam=open(&d);assert!(steam.mint_sr03_target(env(&steam),90001,10,11).is_ok());pos+=1;
+  let g=&mut d["World"]["GridCollection"]["Grids"]["90001"];
+  g["Objects"].as_object_mut().unwrap().remove("11");
+  g["Objects"]["10"]["X"]=json!(if x<190{388}else{0});g["Objects"]["10"]["Y"]=json!(if y<100{196}else{0});
+  let bytes=serde_json::to_vec(&d).unwrap();let s=sw(&d);let e=env(&s);let t=s.mint_switch626_r01_target(e,90001,x,y).unwrap();
+  let hash=|v:&Value|sha(&serde_json::to_vec(v).unwrap());
+  assert_eq!(t.root_sha,hash(&d["World"]["Villages"][0]["Areas"]["2"]));
+  assert_eq!(t.grid_sha,hash(&d["World"]["GridCollection"]["Grids"]["90001"]));
+  assert_eq!(t.counter_sha,sha(b"50"));assert_eq!(t.stock_sha,hash(&d["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]));
+  assert_eq!(t.houses_sha,sha(b"[]"));assert_eq!((t.grid,t.x,t.y,t.next,t.stock),(90001,x,y,50,10));assert_eq!(t.scope,e);
+  assert_eq!(s.decoded.as_ref(),bytes.as_slice());assert_eq!(env(&s),e);pos+=1;
+  // Boundary contact at the exclusive right edge vs one raw unit overlap.
+  for (dx,ok) in [(12,true),(11,false)]{
+   let mut q=d.clone();let o=&mut q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"];o["X"]=json!(x+dx);o["Y"]=json!(y);
+   let a=sw(&q);let ae=env(&a);assert_eq!(a.mint_switch626_r01_target(ae,90001,x,y).is_ok(),ok);
+   assert_eq!(env(&a),ae);if ok{pos+=1}else{neg+=1}
+  }
+  for (i,v) in [(0,0),(1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),(10,10),(11,11)]{
+   let mut q=d.clone();match v{
+    0=>q["World"]["Villages"][0]["Areas"]["2"]["GridIDs"]=json!([90001,90001]),
+    1=>q["World"]["BuildingInfos"]=json!({"1":{"GridIDs":[90001]}}),
+    2=>q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(2147483645u32),
+    3=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["ItemID"]=json!(49999999),
+    4=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Orientation"]=json!("GridOrientation_Future"),
+    5=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["State"]=json!({"Future":true}),
+    6=>q["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"]=json!(10000),
+    7=>q["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Future"]=json!(1),
+    8=>q["Player"]["ListInventories"]["1"]=json!({"ID":1,"Inventory":{"40100068":{"Amount":1}}}),
+    9=>q["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Future"]=json!(1),
+    10=>q["Unknown"]=json!({"GridId":90001,"GridObjectId":51}),
+    _=>q["World"]["GridCollection"]["Grids"]["90001"]["TessellationFactor"]=json!(1)
+   }
+   let a=sw(&q);let ae=env(&a);assert!(a.mint_switch626_r01_target(ae,90001,x,y).is_err(),"case {i}");assert_eq!(env(&a),ae);neg+=1;
+  }
+  for bad in [WorkerEnvelope{expected_index_generation:2,..e},WorkerEnvelope{expected_decoded_sha256:[0;32],..e},WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..e}]{
+   assert!(s.mint_switch626_r01_target(bad,90001,x,y).is_err());neg+=1;
+  }
+  let mut a=sw(&d);a.worker_bound=false;assert!(a.mint_switch626_r01_target(env(&a),90001,x,y).is_err());neg+=1;
+  let a=sw(&d);assert!(a.mint_switch626_r01_target(e,90001,x,y).is_err());neg+=1;
+  let a=sw(&d);let ae=env(&a);a.close().unwrap();assert!(a.mint_switch626_r01_target(ae,90001,x,y).is_err());neg+=1;
+  let a=sw(&d);assert!(a.mint_switch626_r01_target(env(&a),90001,u32::MAX-3,y).is_err());neg+=1;
+  let a=sw(&d);assert!(a.mint_switch626_r01_target(env(&a),90001,0,0).is_err());neg+=1;
+  assert_eq!(pos,4);assert_eq!(neg,22);println!("QRC1673_R01_TARGET_ACTUAL {}POS {}NEG 12FIELDS",pos,neg);
+ }
 }
