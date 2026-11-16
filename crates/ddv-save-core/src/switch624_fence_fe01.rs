@@ -709,6 +709,21 @@ mod add_tests{
     fn scope(s:&ProductSession,a:WorkerAction)->WorkerEnvelope{let r=s.receipt().unwrap();
         WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:r.session_id,expected_revision:r.revision,
             expected_index_generation:r.index_generation,expected_decoded_sha256:r.decoded_sha256,action:a}}
+
+ #[test]fn qa1806_ext1_causal_exact(){
+  let shapes=[FenceAddShape::Switch626OrthoL,FenceAddShape::Switch626OrthoT];
+  let tuples=[vec![(40700246,40,20,false),(40700247,42,20,false),(40700246,44,20,false),(40700247,44,22,true),(40700246,44,24,false)],vec![(40700246,40,20,false),(40700247,42,20,false),(40700246,44,20,false),(40700247,46,20,false),(40700246,48,20,false),(40700247,44,22,true),(40700246,44,24,false)]];
+  for (i,shape) in shapes.into_iter().enumerate(){let(mut d,mut p)=fixture(shape);d["GameInfo"]["Version"]=json!(626);let rows:Vec<Value>=tuples[i].iter().enumerate().map(|(j,(item,x,y,left))|json!({"ID":50+j,"ItemID":item,"X":x,"Y":y,"Orientation":if *left{"GridOrientation_Left"}else{"GridOrientation_Down"},"State":null})).collect();p["created"]=json!(rows);bind(&d,&mut p);
+   let s=open626(&d);let e=scope(&s,WorkerAction::Stage);let before=s.receipt().unwrap();let mut neg=0;
+   for j in [1usize,3,5].into_iter().filter(|j|*j<rows.len()){for item in [40700248,40700253]{let mut q=p.clone();q["created"][j]["ItemID"]=json!(item);assert!(s.stage_fence_add(e,&enc(&q).unwrap(),shape).is_err());neg+=1;}}
+   let mut q=p.clone();q["contract"]=json!(FenceAddShape::Switch626Diagonal90.contract());assert!(s.stage_fence_add(e,&enc(&q).unwrap(),shape).is_err());neg+=1;
+   assert!(s.stage_fence_add(WorkerEnvelope{expected_revision:1,..e},&enc(&p).unwrap(),shape).is_err());neg+=1;
+   assert_eq!(s.receipt().unwrap(),before);
+   let mut expected=d.clone();let g=&mut expected["World"]["GridCollection"]["Grids"]["9"];g["NextGridObjectID"]=json!(50+rows.len());for row in &rows{g["Objects"][row["ID"].as_u64().unwrap().to_string()]=row.clone();}
+   let r=s.stage_fence_add(e,&enc(&p).unwrap(),shape).unwrap();assert_eq!(r.exact_field_changed_count,rows.len()+1);let out=s.take_typed_semantic_decoded_once(scope(&s,WorkerAction::ExportEditedCopy)).unwrap();assert_eq!(out,enc(&expected).unwrap());assert_eq!(s.decoded.as_ref(),enc(&d).unwrap().as_slice());assert_eq!(neg,if i==0{6}else{8});println!("QRC1806_{}_EXT1_ACTUAL 1POS {neg}NEG EXACT{}",if i==0{"L"}else{"T"},rows.len()+1);
+  }
+ }
+
     const SHAPES:[FenceAddShape;3]=[FenceAddShape::OrthoL,FenceAddShape::Diagonal90,FenceAddShape::OrthoT];
     #[test]
     fn nonstraight_exact6_6_8_layout_only_undo_redo_export(){
