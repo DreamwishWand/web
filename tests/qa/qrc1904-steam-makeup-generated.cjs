@@ -28,12 +28,16 @@ const scope=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decod
 let neg=0;
 const deny=(f,label)=>{a.throws(f,undefined,label);neg++;};
 {
- const wrong=create('switch','switch-bid','9A239D3DB569756D');
- const wr=JSON.parse(wrong.finish());
- deny(()=>wrong.preview_steam626_makeup_color1(...scope(wr)),'foreign Build operation');wrong.close();wrong.free();
- const fake=create('steam-windows','steam-full-version','invalid-build');
- const fr=JSON.parse(fake.finish());
- deny(()=>fake.preview_steam626_makeup_color1(...scope(fr)),'wrong Steam Build operation');fake.close();fake.free();
+ const denyWrongBuild=(platform,kind,bid,label)=>{
+  const w=create(platform,kind,bid);
+  let r;
+  try {r=JSON.parse(w.finish());}
+  catch(e){a.match(String(e),/EXACT_BUILD_ID_MISMATCH|BUILD_IDENTITY_NOT_ATTESTED|BUILD_PLATFORM_MISMATCH|EXACT_WORKER_BUILD_REQUIRED/);neg++;w.close();w.free();return;}
+  deny(()=>w.preview_steam626_makeup_color1(...scope(r)),label);
+  w.close();w.free();
+ };
+ denyWrongBuild('switch','switch-bid','9A239D3DB569756D','foreign Build');
+ denyWrongBuild('steam-windows','steam-full-version','invalid-build','wrong Steam Build');
 }
 const w=create(),r=JSON.parse(w.finish());
 a.equal(r.schema,626);a.equal(r.decodedSha256,initialHash);
