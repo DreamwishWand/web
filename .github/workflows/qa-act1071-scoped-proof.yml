@@ -75,6 +75,7 @@ jobs:
                   git('restore','--source='+ref,'--staged','--',p)
               tree=git('write-tree'); candidate=git('commit-tree',tree,'-p',H,'-m','isolated QA exact pinned composition')
               git('checkout','--detach',candidate)
+              git('checkout-index','--all','--force')
               for p,sha in pins: assert git('rev-parse','HEAD:'+p)==sha
               def invoke(**changes):
                   env={**os.environ,'WAND_PROOF_EXPECTED_SOURCE':candidate,'GITHUB_SHA':candidate,'GITHUB_WORKFLOW_SHA':candidate,'GITHUB_REF':'refs/heads/main','GITHUB_REPOSITORY_ID':'1371485649',**changes}
