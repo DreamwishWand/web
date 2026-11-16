@@ -431,7 +431,9 @@ fn scan_grids(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>)->CoreResult<O
     scan_grids_bound(b,world,item,chest,LayoutBinding::SteamReferenceOnly)
 }
 fn scan_grids_bound(b:&[u8],world:Span,item:i32,chest:Option<(u32,i32)>,binding:LayoutBinding)->CoreResult<Option<Link>>{
-    if binding!=LayoutBinding::SteamReferenceOnly{
+    if binding==LayoutBinding::Switch626ChestStatic{
+        need(chest.is_some(),"PRODUCT_SWITCH626_CHEST_ONLY")?;
+    }else if binding==LayoutBinding::Steam626ChestStatic{
         need(chest.is_some(),"PRODUCT_AMOUNT_STATIC_CHEST_ONLY")?;
     }
     let gc=f(b,world,"GridCollection")?;let mut count=0usize;let mut total=0usize;let mut link=None;
@@ -556,9 +558,11 @@ fn eligible(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32)->CoreResult<(
     eligible_bound(s,t,new,binding)
 }
 fn eligible_bound(s:&ProductSession,t:&CoreExistingAmountTarget,new:u32,binding:LayoutBinding)->CoreResult<()>{
-    if binding!=LayoutBinding::SteamReferenceOnly{
+    if binding==LayoutBinding::Switch626ChestStatic{
+        need(matches!(t.view().selection,ExistingAmountSelection::Chest{..}),"PRODUCT_SWITCH626_CHEST_ONLY")?;
+    }else if binding==LayoutBinding::Steam626ChestStatic{
+        build_check(s)?;
         need(matches!(t.view().selection,ExistingAmountSelection::Chest{..}),"PRODUCT_AMOUNT_STATIC_CHEST_ONLY")?;
-        if binding==LayoutBinding::Steam626ChestStatic{build_check(s)?;}
     }
     let (a,d)=pack()?;let v=t.view();let item=v.item_id;
     need(v.old_amount.checked_sub(1)==Some(new)&&new>0,"PRODUCT_AMOUNT_DECREASE_ONE")?;
@@ -766,7 +770,9 @@ mod tests{
         assert_eq!(s.receipt().unwrap(),before);
         let steam=open(&d);
         assert!(steam.preview_switch626_scoped_chest(scope(&steam,WorkerAction::ReadDomain),sel,49).is_err());
-        assert!(steam.preview_scoped_product_amount(scope(&steam,WorkerAction::ReadDomain),sel,49).is_err());
+        // ACT916 adds this independent Steam profile; Switch entry points
+        // remain denied on Steam, and Steam entry points denied on Switch.
+        assert!(steam.preview_scoped_product_amount(scope(&steam,WorkerAction::ReadDomain),sel,49).is_ok());
         assert!(s.preview_scoped_product_amount(e,sel,49).is_err());
         assert!(s.preview_switch626_scoped_chest(e,sel,48).is_err());
         assert!(s.preview_switch626_scoped_chest(e,ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},49).is_err());
