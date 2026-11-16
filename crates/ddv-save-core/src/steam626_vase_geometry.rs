@@ -180,9 +180,18 @@ pub(crate) fn check_local_pose(p:&GeometryPack,build_id:&str,schema:u32,grid:&Va
     // a same-session World.Keyholes binding, never a default grant.
     check_local_pose_with_ambient(p,build_id,schema,grid,gid,x,y,|_|Err("VASE_GEOMETRY_AMBIENT_KEYHOLE"))
 }
-pub(crate) fn check_local_pose_with_ambient<F>(p:&GeometryPack,build_id:&str,schema:u32,grid:&Value,gid:u32,x:u32,y:u32,mut keyhole:F)->R<()>
+pub(crate) fn check_local_pose_with_ambient<F>(p:&GeometryPack,build_id:&str,schema:u32,grid:&Value,gid:u32,x:u32,y:u32,keyhole:F)->R<()>
 where F:FnMut(&str)->R<()> {
     build(build_id,schema)?;
+    check_local_pose_bound(p,build_id,grid,gid,x,y,keyhole)
+}
+pub(crate) fn check_switch626_local_pose_with_ambient<F>(p:&GeometryPack,build_id:&str,schema:u32,grid:&Value,gid:u32,x:u32,y:u32,keyhole:F)->R<()>
+where F:FnMut(&str)->R<()> {
+    need(build_id=="9A239D3DB569756D"&&schema==626,"VASE_GEOMETRY_SWITCH626_BUILD")?;
+    check_local_pose_bound(p,build_id,grid,gid,x,y,keyhole)
+}
+fn check_local_pose_bound<F>(p:&GeometryPack,build_id:&str,grid:&Value,gid:u32,x:u32,y:u32,mut keyhole:F)->R<()>
+where F:FnMut(&str)->R<()> {
     need(gid>0 && u(field(grid,"ID")?)?==gid && field(grid,"GridDataPath")?==GRID
         && field(grid,"GridDefaultLayoutPath")?=="" && u(field(grid,"TessellationFactor")?)?==2,
         "VASE_GEOMETRY_GRID")?;
@@ -225,9 +234,18 @@ pub(crate) struct QuotaBound {
 /// decode. All unknown quota definitions, state kinds and aliases deny.
 /// Count all distinct IDs and all records except exact GroundAlteration
 /// membership; never subtract unproved exclusions or unknown IDs.
-pub(crate) fn check_village_quota<F>(p:&GeometryPack,build_id:&str,schema:u32,village:&Value,extra:&Value,selected:u32,mut observe:F)->R<QuotaBound>
+pub(crate) fn check_village_quota<F>(p:&GeometryPack,build_id:&str,schema:u32,village:&Value,extra:&Value,selected:u32,observe:F)->R<QuotaBound>
 where F:FnMut(u32)->R<GridObservation> {
     build(build_id,schema)?;
+    check_village_quota_bound(p,village,extra,selected,observe)
+}
+pub(crate) fn check_switch626_village_quota<F>(p:&GeometryPack,build_id:&str,schema:u32,village:&Value,extra:&Value,selected:u32,observe:F)->R<QuotaBound>
+where F:FnMut(u32)->R<GridObservation> {
+    need(build_id=="9A239D3DB569756D"&&schema==626,"VASE_GEOMETRY_SWITCH626_BUILD")?;
+    check_village_quota_bound(p,village,extra,selected,observe)
+}
+fn check_village_quota_bound<F>(p:&GeometryPack,village:&Value,extra:&Value,selected:u32,mut observe:F)->R<QuotaBound>
+where F:FnMut(u32)->R<GridObservation> {
     need(extra.is_boolean() && field(village,"VillageObjectLimitName")?=="Village04ObjectLimit"
         && field(village,"HighEndVillageObjectLimitName")?=="HighEndVillageObjectLimit"
         && field(village,"BoughtObjectLimit")?==&json!({"UniqueLimit":0,"InstanceLimit":0,"Exclusions":[],"SpecificItemLimits":[]}),

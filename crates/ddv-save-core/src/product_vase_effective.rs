@@ -51,7 +51,10 @@ impl ProductSession{
     #[allow(dead_code)]
     pub(crate) fn mint_vase_effective_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)
         ->CoreResult<VaseEffectiveTarget>{
-        let t=self.mint_vase_physical_target(e,gid,x,y)?;
+        self.mint_vase_effective_for(VaseBuild::Steam626,e,gid,x,y)
+    }
+    fn mint_vase_effective_for(&self,build:VaseBuild,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<VaseEffectiveTarget>{
+        let t=self.mint_vase_physical_for(build,e,gid,x,y)?;
         let edits=self.collect_vase_exact3_candidate(&t)?;
         let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
         need(st.semantic.is_none()&&st.revision==0&&st.generation==1,"VASE_BINDER_EPOCH")?;
@@ -71,28 +74,42 @@ impl ProductSession{
         }
         let incoming=super::super::placement_saved_refs::scan(b,top,gid,None,t.next,t.next.checked_add(1).ok_or(denied("VASE_BINDER_COUNTER"))?)?;
         let selected=bounded_value(b,*grids.get(&gid).ok_or(denied("VASE_BINDER_GRID"))?)?;
-        geometry::check_local_pose_with_ambient(p,EXACT_STEAM,626,&selected,gid,x,y,|guid|{
+        let keyhole=|guid:&str|{
             // Same immutable validated World, exact matching GUID. The callback
             // is internal and cannot be supplied by the public ABI.
             let kh=f(b,r.world,"Keyholes").map_err(|e|e.0)?;
             let row=f(b,kh,guid).map_err(|e|e.0)?;
             need(strv(b,row,"GUID").map_err(|e|e.0)?==guid,"VASE_BINDER_KEYHOLE_GUID").map_err(|e|e.0)
-        }).map_err(denied)?;
-        let quota=geometry::check_village_quota(p,EXACT_STEAM,626,&v,&extra,gid,|id|{
+        };
+        match build{
+            VaseBuild::Steam626=>geometry::check_local_pose_with_ambient(p,EXACT_STEAM,626,&selected,gid,x,y,keyhole),
+            VaseBuild::Switch626=>geometry::check_switch626_local_pose_with_ambient(p,SWITCH626_BID,626,&selected,gid,x,y,keyhole)
+        }.map_err(denied)?;
+        let observe=|id:u32|{
             let span=*grids.get(&id).ok_or("VASE_BINDER_QUOTA_GRID")?;
             let grid=bounded_value(b,span).map_err(|e|e.0)?;
             Ok(geometry::GridObservation{grid,root_refs:*incoming.roots.get(&id).unwrap_or(&0),
                 parent_refs:*incoming.parents.get(&id).unwrap_or(&0),overlay:diff.contains(&id)})
-        }).map_err(denied)?;
+        };
+        let quota=match build{
+            VaseBuild::Steam626=>geometry::check_village_quota(p,EXACT_STEAM,626,&v,&extra,gid,observe),
+            VaseBuild::Switch626=>geometry::check_switch626_village_quota(p,SWITCH626_BID,626,&v,&extra,gid,observe)
+        }.map_err(denied)?;
         // Existing amount predicates resolve exact active item/condition
         // references. Placement supplement adds operation-specific kinds,
         // area/recurring/treasure/snippet and offline-only event policy.
         // Do not weaken either guard or treat the supplement as a grant.
-        subscribers(b,r.player,r.world,top,d,ITEM as i32,true)?;
+        subscribers_for(b,r.player,r.world,top,d,ITEM as i32,true,build==VaseBuild::Switch626)?;
         let player=projection(b,r.player,&["AchievementsData","DutySlots","BattlePassStates"])?;
         let world=projection(b,r.world,&["MissionSlots","RecurringEvents","TimeLostTreasures","NextTimeLostTreasureID","Snippets","NextSnippetID"])?;
-        applicable::check_supplement(EXACT_STEAM,DEP.as_bytes(),SUPPLEMENT,
-            applicable::PlacementScope::VaseAdd,&player,&world).map_err(denied)?;
+        match build{
+            VaseBuild::Steam626=>applicable::check_supplement(EXACT_STEAM,DEP.as_bytes(),SUPPLEMENT,
+                applicable::PlacementScope::VaseAdd,&player,&world),
+            VaseBuild::Switch626=>applicable::check_switch626_vase_supplement(SWITCH626_BID,DEP.as_bytes(),SUPPLEMENT,&player,&world,&|s|{
+                let id=s["DutyId"].as_u64().and_then(|v|u32::try_from(v).ok()).ok_or("VASE_SWITCH_CROP_ID")?;
+                super::super::switch626_crop_filter::crop_filter(&s["StepData"]["ItemFilter"],ITEM as i32,id,0).map_err(|e|e.0)
+            })
+        }.map_err(denied)?;
         let projected_sha=projected(b,&edits)?;
         Ok(VaseEffectiveTarget{physical:t,quota,scanned_pairs:incoming.pairs,projected_sha})
     }
@@ -105,7 +122,7 @@ impl ProductSession{
         need(e.action==WorkerAction::Stage,"VASE_BINDER_STAGE_ACTION")?;
         let read=WorkerEnvelope{action:WorkerAction::ReadDomain,..e};
         let v=&t.physical;
-        let now=self.mint_vase_effective_target(read,v.grid,v.x,v.y)?;
+        let now=self.mint_vase_effective_for(v.build,read,v.grid,v.x,v.y)?;
         need(now==*t,"VASE_BINDER_TARGET_CAS")?;
         self.commit_current_vase(e,&now)
     }
@@ -118,9 +135,15 @@ impl ProductSession{
     /// The UI receives only the selected pose, exact old values and digests.
     pub(crate) fn preview_vase_product_add(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)
         ->CoreResult<Value>{
-        let t=self.mint_vase_effective_target(e,gid,x,y)?;
+        self.preview_vase_for(VaseBuild::Steam626,e,gid,x,y)
+    }
+    pub(crate) fn preview_switch626_vase_product_add(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<Value>{
+        self.preview_vase_for(VaseBuild::Switch626,e,gid,x,y)
+    }
+    fn preview_vase_for(&self,build:VaseBuild,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<Value>{
+        let t=self.mint_vase_effective_for(build,e,gid,x,y)?;
         let p=&t.physical;let v=p.stock.view();
-        Ok(json!({"contract":"wand.worker.steam626.scoped-vase-add@1",
+        Ok(json!({"contract":build.contract(),
             "itemId":ITEM,"inventoryId":0,"gridId":gid,"x":x,"y":y,
             "orientation":"GridOrientation_Up","nextObjectId":p.next,
             "oldAmount":v.old_amount,"newAmount":v.old_amount-1,
@@ -136,9 +159,15 @@ impl ProductSession{
     pub(crate) fn stage_vase_product_add(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32,
         old:u32,next:u32,entry:[u8;32],grid:[u8;32],projected:[u8;32])
         ->CoreResult<SemanticStageReceipt>{
+        self.stage_vase_for(VaseBuild::Steam626,e,gid,x,y,old,next,entry,grid,projected)
+    }
+    pub(crate) fn stage_switch626_vase_product_add(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32,old:u32,next:u32,entry:[u8;32],grid:[u8;32],projected:[u8;32])->CoreResult<SemanticStageReceipt>{
+        self.stage_vase_for(VaseBuild::Switch626,e,gid,x,y,old,next,entry,grid,projected)
+    }
+    fn stage_vase_for(&self,build:VaseBuild,e:WorkerEnvelope,gid:u32,x:u32,y:u32,old:u32,next:u32,entry:[u8;32],grid:[u8;32],projected:[u8;32])->CoreResult<SemanticStageReceipt>{
         need(e.action==WorkerAction::Stage,"VASE_BINDER_STAGE_ACTION")?;
         let read=WorkerEnvelope{action:WorkerAction::ReadDomain,..e};
-        let t=self.mint_vase_effective_target(read,gid,x,y)?;
+        let t=self.mint_vase_effective_for(build,read,gid,x,y)?;
         let v=t.physical.stock.view();
         need(v.old_amount==old&&t.physical.next==next&&v.entry_sha256==entry&&
             t.physical.grid_sha==grid&&t.projected_sha==projected,"VASE_BINDER_PREVIEW_CAS")?;
@@ -221,6 +250,28 @@ mod tests{
         let receipt=s.stage_vase_product_add(st,7,x,y,3,9,entry,grid,out).unwrap();
         assert_eq!(receipt.exact_field_changed_count,3);assert_eq!(receipt.staged_decoded_sha256,out);
         assert!(s.stage_vase_product_add(st,7,x,y,3,9,entry,grid,out).is_err());
+    }
+    #[test]
+    fn switch626_vase_exact3_build_crop_and_recurring(){
+        let(x,y)=pose();let mut d=doc(x,y);
+        let ts="2026-01-01T00:00:00Z";
+        d["World"]["RecurringEvents"]["1"]=json!({"ItemSpawning":{"RecurringEventItemID":2010000176,"NextOccurrence":ts,"EndDate":null,"LastOccurrence":null}});
+        d["Player"]["DutySlots"]["0"]=json!({"Slots":[{"State":"DutySlotState_OnGoing","DutyId":2110000038,"DifficultyLayer":0,"ItemsUsed":[],"StepData":{"ItemFilter":{"Data":{"Type":"ItemType_ActivityItem","ActivityItemType":"ActivityItemType_Crop","Item":0,"ItemList":[],"AnyActivityItem":false,"MaxUnlockLevel":100,"CropType":"CropTypeCondition_Fruit"}}}}]});
+        let open_sw=|d:&Value|{let mut s=ProductSession::open_decoded_readonly(serde_json::to_vec(d).unwrap(),crate::BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,build_id:SWITCH626_BID.into(),schema:626,externally_attested:true}).unwrap();s.worker_bound=true;s};
+        let s=open_sw(&d);let e=env(&s,WorkerAction::ReadDomain);let t=s.mint_vase_effective_for(VaseBuild::Switch626,e,7,x,y).unwrap();
+        let p=s.preview_switch626_vase_product_add(e,7,x,y).unwrap();assert_eq!(p["contract"],"wand.worker.switch626.scoped-vase-add@1");
+        assert!(s.preview_vase_product_add(e,7,x,y).is_err());
+        let steam=open(&d);assert!(steam.preview_switch626_vase_product_add(env(&steam,WorkerAction::ReadDomain),7,x,y).is_err());
+        let v=t.physical.stock.view();let st=env(&s,WorkerAction::Stage);
+        assert!(s.stage_switch626_vase_product_add(st,7,x,y,v.old_amount,9,v.entry_sha256,t.physical.grid_sha,[0;32]).is_err());
+        let r=s.stage_switch626_vase_product_add(st,7,x,y,v.old_amount,9,v.entry_sha256,t.physical.grid_sha,t.projected_sha).unwrap();
+        assert_eq!(r.exact_field_changed_count,3);assert!(!r.product_writer_authorized);
+        s.undo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();s.redo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+        let out=s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)).unwrap();
+        d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["9"]=json!({"ID":9,"ItemID":ITEM,"X":x,"Y":y,"Orientation":"GridOrientation_Up","State":null});
+        d["World"]["GridCollection"]["Grids"]["7"]["NextGridObjectID"]=json!(10);
+        d["Player"]["ListInventories"]["0"]["Inventory"]["40000066"]["Amount"]=json!(2);
+        assert_eq!(out,serde_json::to_vec(&d).unwrap());
     }
     #[test]
     fn vase_effective_current_denials(){
