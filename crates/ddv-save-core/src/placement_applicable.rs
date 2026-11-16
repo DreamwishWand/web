@@ -284,4 +284,83 @@ mod tests{
   // COMP03 remains independent of Vase-specific live roots; unknown recurring still denied.
   q=w.clone();q["Snippets"]=json!({"1":{}});assert!(check(PlacementScope::Comp03LayoutOnly,&p,&q,d).is_ok());
  }
+
+ #[test]
+ fn qa_vase_recurring_delta_exact124_and_current_root_guards(){
+  let d=test_pack();let(p,w)=sample();
+  let raw=std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/qa-act1091-pr1416-parent.json")).unwrap();
+  assert_eq!(hex(&Sha256::digest(&raw)),"16c8ee8f05ad5a89f73c5572c3a019f12f3054eccb142c1c3cb813ccd691611c");
+  assert!(pack(&raw).is_err());
+  let prior:Value=serde_json::from_slice(&raw).unwrap();
+  for k in ["missions","achievements","duties","build","commonDependencySha256"]{assert_eq!(d[k],prior[k]);}
+  let oldpins=prior["pins"].as_object().unwrap();
+  for (k,v) in oldpins{assert_eq!(&d["pins"][k],v);}
+  let mut delta=(0,0,0);let mut pos=0;let mut neg=1;
+  let date="2026-11-16T00:00:00Z";
+  let mut events=serde_json::Map::new();
+  for (id,row) in d["recurring"].as_object().unwrap(){
+   let prev=&prior["recurring"][id];assert_eq!(&row[0],&prev[0]);assert_eq!(&row[1],&prev[1]);
+   let kind=row[0].as_str().unwrap();let n=id.parse::<u32>().unwrap();
+   let mut body=json!({"RecurringEventItemID":n,"NextOccurrence":date,"EndDate":null});
+   if kind=="ItemSpawning"{body["LastOccurrence"]=json!(date);}
+   if kind=="SnippetSpawning"{body["Tokens"]=json!(0);body["Snippets"]=json!([]);}
+   let mut x=w.clone();x["RecurringEvents"]=json!({"9":{(kind):body.clone()}});
+   let comp=matches!(prev[1].as_str(),Some("village"|"other-scene"|"disjoint"|"known-nonplacement"));
+   assert_eq!(recurring(&x,&d,PlacementScope::Comp03LayoutOnly).is_ok(),comp,"parent COMP03 {id}");
+   if comp{pos+=1}else{neg+=1}
+   if row[2]!=prev[2]{
+    assert!(prev[2].is_null());assert_eq!(row[2],"offline-preserve");
+    match kind{"ItemSpawning"=>delta.0+=1,"TimeLostTreasureSpawning"=>delta.1+=1,"SnippetSpawning"=>delta.2+=1,_=>panic!("unexpected kind")}
+    assert!(check(PlacementScope::VaseAdd,&p,&x,&d).is_ok(),"{id}");pos+=1;
+    events.insert(id.clone(),json!({(kind):body.clone()}));
+    let mut z=x.clone();z["RecurringEvents"]["9"][kind]["NextOccurrence"]=Value::Null;
+    assert!(check(PlacementScope::VaseAdd,&p,&z,&d).is_err(),"{id} null time");neg+=1;
+    z=x.clone();z["RecurringEvents"]["9"][kind]["TargetObjectID"]=json!(123);
+    assert!(check(PlacementScope::VaseAdd,&p,&z,&d).is_err(),"{id} unknown field");neg+=1;
+   }else if row[2].is_null(){
+    assert!(check(PlacementScope::VaseAdd,&p,&x,&d).is_err(),"{id} unresolved");neg+=1;
+   }
+  }
+  assert_eq!(delta,(63,30,31));
+  let mut w=w;w["RecurringEvents"]=Value::Object(events);
+  assert!(check(PlacementScope::VaseAdd,&p,&w,&d).is_ok());pos+=1;
+  // Exact membership and fresh current roots, including allocator namespace.
+  let sid=d["vaseSceneIds"].as_array().unwrap().last().unwrap().clone();
+  let tid=d["vaseTimeBendingDataIds"].as_array().unwrap().last().unwrap().clone();
+  let area=d["vaseVillageAreaNames"].as_array().unwrap().last().unwrap().clone();
+  w["TimeLostTreasures"]=json!({"5":{"ID":5,"ForcedTimeBendingDataItemID":tid,"Location":{"Scene":sid},"CustomLocation":{"GUID":"12345678-ABCD-1234-abcd-123456789abc"}},"11":{"ID":11,"ForcedTimeBendingDataItemID":0,"Location":{"VillageArea":area},"CustomLocation":null}});
+  w["NextTimeLostTreasureID"]=json!(12);
+  assert!(check(PlacementScope::VaseAdd,&p,&w,&d).is_ok());pos+=1;
+  for k in 0..16{
+   let mut z=w.clone();
+   match k{
+    0=>{z["TimeLostTreasures"]["05"]=z["TimeLostTreasures"]["5"].clone();},
+    1=>z["TimeLostTreasures"]["5"]["ID"]=json!(6),
+    2=>z["TimeLostTreasures"]["5"]["ID"]=json!("5"),
+    3=>z["TimeLostTreasures"]["5"]["ForcedTimeBendingDataItemID"]=json!(u32::MAX),
+    4=>z["TimeLostTreasures"]["5"]["Location"]=json!({"Scene":u32::MAX}),
+    5=>z["TimeLostTreasures"]["5"]["Location"]=json!({"VillageArea":"Unknown"}),
+    6=>z["TimeLostTreasures"]["5"]["Location"]=json!({"Scene":sid,"GridID":7}),
+    7=>z["TimeLostTreasures"]["5"]["CustomLocation"]=json!({"GUID":"12345678-ABCD-1234-abcd-123456789abZ"}),
+    8=>z["TimeLostTreasures"]["5"]["CustomLocation"]=json!({"GUID":"12345678-ABCD-1234-abcd-123456789abc","GridID":7}),
+    9=>z["TimeLostTreasures"]["5"]["ItemID"]=json!(40000066),
+    10=>z["NextTimeLostTreasureID"]=json!(11),
+    11=>z["NextTimeLostTreasureID"]=json!("12"),
+    12=>z["Snippets"]=json!({"1":{"ID":1}}),
+    13=>z["NextSnippetID"]=json!(-1),
+    14=>{z.as_object_mut().unwrap().remove("TimeLostTreasures");},
+    _=>{z.as_object_mut().unwrap().remove("Snippets");}
+   }
+   assert!(check(PlacementScope::VaseAdd,&p,&z,&d).is_err(),"roots {k}");neg+=1;
+  }
+  let (id,_)=d["recurring"].as_object().unwrap().iter().find(|(_,r)|r[0]=="SnippetSpawning"&&r[2]=="offline-preserve").unwrap();
+  for v in [json!(-1),json!(2147483648u64),json!("1"),json!(false)]{
+   let mut z=w.clone();z["RecurringEvents"][id]["SnippetSpawning"]["Tokens"]=v;
+   assert!(check(PlacementScope::VaseAdd,&p,&z,&d).is_err());neg+=1;
+  }
+  let mut z=w.clone();z["RecurringEvents"][id]["SnippetSpawning"]["Snippets"]=json!([1]);
+  assert!(check(PlacementScope::VaseAdd,&p,&z,&d).is_err());neg+=1;
+  assert_eq!((pos,neg),(626,290));
+ }
+
 }
