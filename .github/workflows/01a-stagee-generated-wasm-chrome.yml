@@ -2,15 +2,7 @@ name: 01A Stage E Genuine Generated Rust WASM Chrome Worker (Writer OFF)
 on:
   pull_request:
     paths:
-      - 'tests/stage-e/**'
-      - 'scripts/wasm-distribution/**'
-      - 'src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs'
       - '.github/workflows/01a-stagee-generated-wasm-chrome.yml'
-      - 'crates/ddv-save-core/**'
-      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
-  push:
-    branches:
-      - 'core/real-wasm-browser-smoke-stagee-*'
 permissions:
   contents: read
 jobs:
@@ -24,32 +16,128 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Verify real Chrome and exact pinned wasm-bindgen crate
+      - name: QA ONLY current SR03 COMP03 Spatial Switch Chest cumulative ABI and shared pack3
         run: |
           set -euo pipefail
-          command -v google-chrome || command -v chromium
-          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
-          grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
-      - name: Compile REAL cdylib with opt-in Worker and indexed metadata
-        run: |
-          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
-          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
-      - name: Install exactly matching wasm-bindgen CLI 0.2.105 (not generated or mocked JS)
-        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock | tee /tmp/qrc1616-lock.sha
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagee-wasm-tools
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen --version | grep -F '0.2.105'
-      - name: Generate true wasm-bindgen Browser Worker ESM glue
-        run: |
-          mkdir -p tests/stage-e/pkg
-          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
-          test -s tests/stage-e/pkg/ddv_save_core.js
-          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
-          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|include_bytes!|writerAuthorized: *true|applyAuthorized: *true' tests/stage-e
-      - name: Actual browser CDP + module Worker + Rust WASM positive and negatives
-        run: node tests/stage-e/chrome-smoke.mjs
-      - name: Confirm Stage E never changed product Writer or public worker route
-        run: |
-          ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
-          test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
-          test -f crates/ddv-save-core/src/wasm_worker.rs
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          for mode in off legacy legacy-mixed chest chest-mixed comp comp-mixed spatial spatial-mixed dual dual-spatial sr03 sr03-mixed chest-sr03 comp-sr03 spatial-sr03 all; do
+            case "$mode" in
+              off) f=indexed-read ;;
+              legacy) f=product-amount-scoped ;;
+              legacy-mixed) f=product-amount-scoped,product-collection-scoped ;;
+              chest) f=product-switch626-chest-scoped ;;
+              chest-mixed) f=product-switch626-chest-scoped,product-collection-scoped ;;
+              comp) f=product-steam626-comp03-scoped ;;
+              comp-mixed) f=product-steam626-comp03-scoped,product-collection-scoped ;;
+              spatial) f=product-steam626-comp03-spatial-preview ;;
+              spatial-mixed) f=product-steam626-comp03-spatial-preview,product-collection-scoped ;;
+              dual) f=product-switch626-chest-scoped,product-steam626-comp03-scoped ;;
+              dual-spatial) f=product-switch626-chest-scoped,product-steam626-comp03-spatial-preview,product-collection-scoped ;;
+              sr03) f=product-steam626-sr03-scoped ;;
+              sr03-mixed) f=product-steam626-sr03-scoped,product-collection-scoped ;;
+              chest-sr03) f=product-switch626-chest-scoped,product-steam626-sr03-scoped ;;
+              comp-sr03) f=product-steam626-comp03-scoped,product-steam626-sr03-scoped ;;
+              spatial-sr03) f=product-steam626-comp03-spatial-preview,product-steam626-sr03-scoped,product-collection-scoped ;;
+              all) f=product-switch626-chest-scoped,product-steam626-comp03-spatial-preview,product-steam626-sr03-scoped,product-collection-scoped ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "worker-wasm,$f"
+            "$B" "$W" --out-dir "/tmp/comp-$mode" --target nodejs --no-typescript
+          done
+          sha256sum -c /tmp/qrc1616-lock.sha
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          const cls=m=>require('/tmp/comp-'+m+'/ddv_save_core.js').WorkerWasmSource,sha=b=>createHash('sha256').update(b).digest('hex'),parse=JSON.parse;
+          const steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],sw=['switch','switch-bid','9A239D3DB569756D',626,true],item=40100038;
+          const readers=['append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page','close'];
+          const neutral=['toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk'],legacy=['discover_scoped_amount','preview_scoped_amount','stage_scoped_amount','toggle_scoped_amount','begin_scoped_amount_output','next_scoped_amount_output_chunk'],coll=['preview_scoped_collection_candidate','preview_fixed_collection','stage_fixed_collection'],comp=['preview_steam626_comp03','stage_steam626_comp03'],chest=['discover_switch626_chest','preview_switch626_chest','stage_switch626_chest'],sp=['preview_steam626_comp03_spatial'];
+          const sr03=['preview_steam626_sr03','stage_steam626_sr03'];
+          const modes=[['off',readers],['legacy',[...readers,...neutral,...legacy,...comp,...chest]],['legacy-mixed',[...readers,...neutral,...legacy,...comp,...chest,...coll]],['chest',[...readers,...neutral,...chest]],['chest-mixed',[...readers,...neutral,...chest]],['comp',[...readers,...neutral,...comp]],['comp-mixed',[...readers,...neutral,...comp]],['spatial',[...readers,...neutral,...comp,...sp]],['spatial-mixed',[...readers,...neutral,...comp,...sp]],['dual',readers],['dual-spatial',readers],['sr03',[...readers,...neutral,...sr03]],['sr03-mixed',[...readers,...neutral,...sr03]],['chest-sr03',readers],['comp-sr03',readers],['spatial-sr03',readers],['all',readers]];
+          for(const [m,expect] of modes){
+           const n=Object.getOwnPropertyNames(cls(m).prototype).filter(k=>!['constructor','free','__destroy_into_raw'].includes(k)).sort(),bytes=fs.readFileSync('/tmp/comp-'+m+'/ddv_save_core_bg.wasm'),ex=WebAssembly.Module.exports(new WebAssembly.Module(bytes)).map(v=>v.name);
+           assert.deepEqual(n,expect.slice().sort(),m);assert.equal(ex.length,n.length+9,m);for(const k of n)assert.ok(ex.includes('workerwasmsource_'+k),m+' '+k);
+           console.log('QRC1616_CENSUS '+m+' '+n.length+'/'+ex.length+' '+sha(bytes));
+          }
+          const root=(name,id,g)=>({SceneItemId:id,Unlocked:true,GridIDs:[g],CustomLocationPositionsPath:'SceneLayouts/FloatingIslands/FloatingIsland_'+name+'/CustomLocations.json'});
+          const grid=(name,id,next,objects)=>({ID:id,GridDefaultLayoutPath:'',GridDataPath:'GridData/FloatingIslands/FloatingIsland_'+name+'/FloatingIsland_'+name+'Grid-GridData.json',TessellationFactor:2,NextGridObjectID:next,Objects:objects});
+          const well={ID:0,ItemID:20300048,X:120,Y:120,Orientation:'GridOrientation_Down',State:{BuildingWithSkinData:{UpgradeState:{Level:1},CurrentSkinItemID:170200005}}};
+          function doc(g=301,s=742,seed=82){return {GameInfo:{Version:626},World:{Villages:[],FloatingIslands:{1540000150:root('Snow',1540000150,g),1540000153:root('Savannah',1540000153,s)},GridCollection:{Grids:{[g]:grid('Snow',g,seed+10,{0:structuredClone(well),[seed]:{ID:seed,ItemID:item,X:16,Y:24,Orientation:'GridOrientation_Down',State:null}}),[s]:grid('Savannah',s,12,{0:structuredClone(well)})},DiffGrids:{}},MissionSlots:{},RecurringEvents:{}},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_GroundAlteration']},Inventory:{[item]:{Amount:99,Marker:'ItemMarker_None'}}}},AchievementsData:[],DutySlots:{},EvolveStatesProfile:{EvolveProgressState:{}},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{escaped:'keep'}};}
+          function chestDoc(){const slots=Array.from({length:48},()=>({ItemID:0,Amount:0,State:null}));slots[0]={ItemID:30200000,Amount:50,State:null,Unknown:7};return {GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{GridCollection:{Grids:{7:{ID:7,GridDefaultLayoutPath:'',Objects:{4:{ID:4,ItemID:40001680,State:{Storage:{ContainerInventoryID:12,DefaultContainerInventoryData:'',UnlockKeyItemID:0,UnlockLocId:'',DesignID:null}}}}}},DiffGrids:{}},MissionSlots:{},Villages:[{Areas:{2:{GridIDs:[7],Unlocked:true}}}]},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{40000048:{Amount:3,Marker:'ItemMarker_None'}}},2:{ID:2,CompatibleItemType:'ItemType_ActivityItem',Inventory:{30200000:{Amount:2}}}},ContainerInventories:{0:{ID:0,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:30200000,Amount:5,State:{}}]},1:{ID:1,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:0,Amount:0,State:null}]},12:{ID:12,ParentItemID:40001680,BelongsToPlayer:true,BlockMoveTo:false,Size:48,ExtraSize:0,Inventory:slots}},BackpackOverflow:{Items:[]},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},Opaque:{escaped:'keep'}};}
+          const raw=d=>Buffer.from(JSON.stringify(d).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
+          let nonce=0,pos=0,neg=0;const deny=(f,label)=>{assert.throws(f,undefined,label);neg++};
+          function open(m,d,b=steam){const a=raw(d),w=new(cls(m))(...b,new Uint8Array(32).fill(++nonce));for(let i=0;i<a.length;i+=1048576)w.append_chunk(a.subarray(i,i+1048576));const r=parse(w.finish());assert.equal(r.decodedSha256,sha(a));return[w,r]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256];
+          const pv=(w,r)=>parse(w.preview_steam626_comp03(82,...sc(r)));
+          const stage=(w,r,p)=>parse(w.stage_steam626_comp03(p.seedId,p.gridId,p.nextObjectId,p.oldAmount,p.gridSha256,p.seedSha256,p.inventoryEntrySha256,p.projectedDecodedSha256,...sc(r)));
+          const spatial=(w,r,p)=>parse(w.preview_steam626_comp03_spatial(82,p.projectedDecodedSha256,...sc(r)));
+          const strip=p=>{const q={...p};delete q.sessionId;return q};
+          function oracle(d){const gr=d.World.GridCollection.Grids[301],obj=JSON.stringify(gr.Objects),coords=[[20,24],[24,24],[16,28],[20,28],[24,28],[16,32],[20,32],[24,32]],tail=coords.map(([X,Y],i)=>',"'+(92+i)+'":'+JSON.stringify({ID:92+i,ItemID:item,Orientation:'GridOrientation_Down',State:null,X,Y})).join('');
+          const old=JSON.stringify(gr),next=old.replace('"Objects":'+obj,'"Objects":'+obj.slice(0,-1)+tail+'}').replace('"NextGridObjectID":92','"NextGridObjectID":100');
+          const want=Buffer.from(raw(d).toString().replace(old,next));const expected=structuredClone(d);for(const [i,[X,Y]] of coords.entries())expected.World.GridCollection.Grids[301].Objects[92+i]={ID:92+i,ItemID:item,Orientation:'GridOrientation_Down',State:null,X,Y};expected.World.GridCollection.Grids[301].NextGridObjectID=100;assert.deepEqual(parse(want.toString()),expected);return want;}
+          for(const m of ['comp','comp-mixed','spatial','spatial-mixed','legacy']){
+           const d=doc(),want=oracle(d),[w,r]=open(m,d),p=pv(w,r);assert.equal(p.projectedDecodedSha256,sha(want));
+           if(m.startsWith('spatial')){
+             const a=spatial(w,r,p);assert.equal(a.contract,'wand.worker.steam626.comp03-spatial-preview@1');assert.equal(a.anchors.length,9);assert.deepEqual(a.anchors.map(x=>[x.x,x.y]),[[16,24],[20,24],[24,24],[16,28],[20,28],[24,28],[16,32],[20,32],[24,32]]);
+             assert.equal(a.writerAuthorized,false);assert.equal(a.editedCopyAuthorized,false);assert.deepEqual(pv(w,r),p);
+             deny(()=>spatial(w,r,{...p,projectedDecodedSha256:'0'.repeat(64)}),'spatial-sha');
+           }
+           deny(()=>stage(w,r,{...p,gridSha256:'0'.repeat(64)}),'stage-sha');const t=stage(w,r,p);assert.equal(t.exactFieldChangedCount,9);assert.equal(t.stagedDecodedSha256,sha(want));deny(()=>stage(w,r,p),'replay');
+           const u=parse(w.toggle_scoped_edit(false,...sc(t)));deny(()=>w.begin_scoped_edit_output(...sc(u)),'undone');const v=parse(w.toggle_scoped_edit(true,...sc(u)));w.begin_scoped_edit_output(...sc(v));assert.deepEqual(Buffer.from(w.next_scoped_edit_output_chunk()),want);deny(()=>w.next_scoped_edit_output_chunk(),'once');w.close();w.free();
+           const [x,y]=open(m,d,sw);deny(()=>pv(x,y),'wrong-build-comp');x.close();x.free();pos++;
+          }
+          for(const m of ['chest','chest-mixed','legacy-mixed']){
+           const d=chestDoc(),want=structuredClone(d);want.Player.ContainerInventories[12].Inventory[0].Amount=49;const [w,r]=open(m,d,sw),p=parse(w.preview_switch626_chest(12,0,49,...sc(r)));
+           const st=(z,b,c)=>parse(z.stage_switch626_chest(12,0,50,49,c.entrySha256,...sc(b)));
+           deny(()=>st(w,r,{...p,entrySha256:'0'.repeat(64)}),'chest-sha');const t=st(w,r,p);assert.equal(t.exactFieldChangedCount,1);assert.equal(t.stagedDecodedSha256,sha(raw(want)));deny(()=>st(w,r,p),'replay');
+           const u=parse(w.toggle_scoped_edit(false,...sc(t)));deny(()=>w.begin_scoped_edit_output(...sc(u)),'undone');const v=parse(w.toggle_scoped_edit(true,...sc(u)));w.begin_scoped_edit_output(...sc(v));assert.deepEqual(Buffer.from(w.next_scoped_edit_output_chunk()),raw(want));deny(()=>w.next_scoped_edit_output_chunk(),'once');w.close();w.free();
+           const [a,b]=open(m,d,steam);deny(()=>a.preview_switch626_chest(12,0,49,...sc(b)),'wrong-build-chest');a.close();a.free();pos++;
+          }
+          for(const m of ['dual','dual-spatial'])for(const b of [steam,sw]){const [w,r]=open(m,doc(),b);assert.equal(typeof w.stage_steam626_comp03,'undefined');assert.equal(typeof w.stage_switch626_chest,'undefined');assert.equal(typeof w.preview_steam626_comp03_spatial,'undefined');assert.equal(typeof w.begin_scoped_edit_output,'undefined');w.close();w.free();}
+          for(const mode of ['comp','spatial']){
+           const d=doc();d.World.RecurringEvents={1:{ItemSpawning:{RecurringEventItemID:2010000007,NextOccurrence:'2026-01-01T00:00:00Z',EndDate:null,LastOccurrence:null}}};
+           const [w,r]=open(mode,d),p=pv(w,r),want=oracle(d);assert.equal(p.projectedDecodedSha256,sha(want));
+           const t=stage(w,r,p);assert.equal(t.exactFieldChangedCount,9);w.begin_scoped_edit_output(...sc(t));assert.deepEqual(Buffer.from(w.next_scoped_edit_output_chunk()),want);w.close();w.free();pos++;
+           for(const [label,mut] of [['unknown-comp-column',q=>q.World.RecurringEvents[1].ItemSpawning.RecurringEventItemID=2010000009],['wrong-kind',q=>q.World.RecurringEvents[1]={Unknown:{RecurringEventItemID:2010000007}}],['noncanonical-key',q=>{q.World.RecurringEvents['01']=q.World.RecurringEvents[1];delete q.World.RecurringEvents[1]}]]){
+            const q=structuredClone(d);mut(q);const [a,b]=open(mode,q);deny(()=>pv(a,b),label);a.close();a.free();
+           }
+          }
+          {
+          const G=90001,K=10,M=11,N=50,R=40100068,X=204,Y=116,ts='2026-01-01T00:00:00Z',Z='0'.repeat(64);
+          const obj=(ID,X,Y,diag=false)=>({ID,ItemID:R,Orientation:'GridOrientation_Down',State:diag?{FenceMode:{Diagonal:true}}:null,X,Y});
+          const grid=d=>d.World.GridCollection.Grids[G],entry=d=>d.Player.ListInventories[0].Inventory[R];
+          const duty=id=>({State:'DutySlotState_OnGoing',DutyId:id,DifficultyLayer:0,ItemsUsed:[],StepData:{ItemFilter:{Data:{Type:'ItemType_Furniture',Item:0,ItemList:[],AnyActivityItem:false,Tags:[],MinRarity:1,MaxRarity:5}}}});
+          const choice=id=>({ChooseItem:{RecurringEventItemID:2011100000,NextOccurrence:ts,EndDate:null,ChosenItemID:id}});
+          const task=()=>({TaskState:'BattlePassTaskState_NotStarted',Objective:{CurAmount:0,TargetAmount:5,ItemIdsCollected:[],ItemFilter:{Data:{Item:0,ItemList:[],AnyActivityItem:false,Type:'ItemType_Clothing'}}}});
+          function doc(){return {GameInfo:{Version:626},World:{Villages:[{Areas:{2:{Unlocked:true,GridIDs:[G]}}}],PlayerHouses:[],GridCollection:{Grids:{[G]:{ID:G,GridDataPath:'GridData/Villages/Village04-MeadowLevel-GridData.json',GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:N,Objects:{[K]:obj(K,X,Y),[M]:obj(M,X+4,Y)}}},DiffGrids:{}},MissionSlots:{},RecurringEvents:{1:choice(31700067)},TimeLostTreasures:{},NextTimeLostTreasureID:1,Snippets:{},NextSnippetID:0},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_GroundAlteration']},Inventory:{[R]:{Amount:10,Marker:'ItemMarker_Favorite'}}}},ContainerInventories:{},AchievementsData:[],DutySlots:{0:{Slots:[duty(2110000201),duty(2110000208)]}},EvolveStatesProfile:{EvolveProgressState:{}},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[task()],WeeklyTasksProgress:[]}}},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{escaped:'keep',other:[1,2,3]}}}
+          function oracle(d){
+           const gr=grid(d),o=gr.Objects,old=JSON.stringify(gr),moved=JSON.stringify(o[M]),nextObj=obj(M,X+8,Y+4,true);
+           const tail=[[N,X+4,Y],[N+1,X+4,Y+4],[N+2,X+8,Y]].map(([i,x,y])=>',"'+i+'":'+JSON.stringify(obj(i,x,y,true))).join('');
+           const oldObjects=JSON.stringify(o),newObjects=oldObjects.replace(moved,JSON.stringify(nextObj)).slice(0,-1)+tail+'}';
+           const newGrid=old.replace('"Objects":'+oldObjects,'"Objects":'+newObjects).replace('"NextGridObjectID":50','"NextGridObjectID":53');
+           const want=Buffer.from(raw(d).toString().replace(old,newGrid).replace('"Amount":10,"Marker":"ItemMarker_Favorite"','"Amount":7,"Marker":"ItemMarker_Favorite"'));
+           const expected=structuredClone(d);grid(expected).Objects[M]=nextObj;for(const [i,x,y] of [[N,X+4,Y],[N+1,X+4,Y+4],[N+2,X+8,Y]])grid(expected).Objects[i]=obj(i,x,y,true);
+           grid(expected).NextGridObjectID=53;entry(expected).Amount=7;
+           assert.deepEqual(JSON.parse(want),expected);assert.equal(JSON.stringify(grid(expected).Objects[K]),JSON.stringify(o[K]));
+           return {want,p:{gridId:G,retainedId:K,movedId:M,expectedNextId:N,oldAmount:10,gridSha256:sha(Buffer.from(old)),inventoryEntrySha256:sha(Buffer.from(JSON.stringify(entry(d)))),projectedDecodedSha256:sha(want)}};
+          }
+           const rp=(w,r)=>parse(w.preview_steam626_sr03(G,K,M,...sc(r)));
+           const rs=(w,r,p)=>parse(w.stage_steam626_sr03(p.gridId,p.retainedId,p.movedId,p.expectedNextId,p.oldAmount,p.gridSha256,p.inventoryEntrySha256,p.projectedDecodedSha256,...sc(r)));
+           for(const mode of ['sr03','sr03-mixed']){
+            const d=doc(),o=oracle(d),[w,r]=open(mode,d),p=rp(w,r);
+            for(const [k,v] of Object.entries(o.p))assert.equal(p[k],v,k);
+            assert.equal(p.exactFieldChangedCount,8);assert.equal(p.inventoryDelta,-3);
+            deny(()=>rs(w,r,{...o.p,projectedDecodedSha256:Z}),'sr03 projected CAS');
+            const t=rs(w,r,o.p);assert.equal(t.exactFieldChangedCount,8);assert.equal(t.stagedDecodedSha256,sha(o.want));assert.equal(t.writerAuthorized,false);
+            deny(()=>rs(w,r,o.p),'sr03 replay');const u=parse(w.toggle_scoped_edit(false,...sc(t)));deny(()=>w.begin_scoped_edit_output(...sc(u)),'sr03 undone');
+            const v=parse(w.toggle_scoped_edit(true,...sc(u)));w.begin_scoped_edit_output(...sc(v));assert.deepEqual(Buffer.from(w.next_scoped_edit_output_chunk()),o.want);deny(()=>w.next_scoped_edit_output_chunk(),'sr03 once');w.close();w.free();pos++;
+            for(const [label,mut] of [['unknown-road-choice',q=>q.World.RecurringEvents[1].ChooseItem.ChosenItemID=31700077],['fresh-ref',q=>q.Opaque.Ref={GridID:G,GridObjectID:N+2}]]){
+             const q=doc();mut(q);const [a,b]=open(mode,q);deny(()=>rp(a,b),label);a.close();a.free();
+            }
+            const [a,b]=open(mode,d,sw);deny(()=>rp(a,b),'sr03 foreign Build');a.close();a.free();
+           }
+          }
+          assert.equal(pos,12);assert.equal(neg,62);console.log('QRC1616_CUMULATIVE_ACTUAL '+pos+'POS '+neg+'NEG 17CENSUS');
+          JS
