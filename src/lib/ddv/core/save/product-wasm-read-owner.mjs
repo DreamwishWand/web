@@ -26,8 +26,8 @@ function exactBuild(b,frp=false){
    fail('PRODUCT_WORKER_BUILD_NOT_VERIFIED');
  return Object.freeze({platform:b.platform,buildKind:b.buildKind,buildId:b.buildId,schema:frp?624:626});
 }
-function strictReceipt(r,expectedSchema=626){
- if(!isPlain(r)||r.contract!==PRODUCT_WASM_READ_CONTRACT||
+function strictReceipt(r,expectedSchema=626,frp=false){
+ if(!isPlain(r)||r.contract!==PRODUCT_WASM_READ_CONTRACT||(frp?r.operation!=='switch624-frp01-readonly':Object.hasOwn(r,'operation'))||
     !sessionHex.test(r.sessionId)||!shaHex.test(r.decodedSha256)||
     r.revision!==0||r.indexGeneration!==1||r.schema!==expectedSchema||
     r.fullDocumentJsonValidated!==true||r.productWorkerBound!==true||
@@ -114,7 +114,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
      }
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
      if(bytes===0)fail('PRODUCT_WORKER_EMPTY_DOCUMENT');
-     const receipt=strictReceipt(JSON.parse(wasm.finish()),identity.schema);
+     const receipt=strictReceipt(JSON.parse(frp?wasm.finish_switch624_frp01_readonly():wasm.finish()),identity.schema,frp);
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
      const a={wasm,receipt,identity,cursors:new Map(),scoped:null};
      // Existing read-only Worker never instantiates the opt-in transport.
