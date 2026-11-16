@@ -749,6 +749,156 @@ const steam626AppearanceCumulativeEntries=[
     }
   }
 ];
+// Fixed current-main FD01/FE01 compatible Core. Gate-first only; never self-authorizes.
+const fd01Fe01AfterFd02SharedEntries=[
+  {
+    "path": ".github/workflows/core-product-session-boundary.yml",
+    "before": {
+      "mode": "100644",
+      "blob": "825c0e92d7c9f5a1e86900d3a67ccff57b15babf"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "6237ca727129e0f933d6f2040ac993530d1b66e7"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "6e3102f66faa31174e110c2fe760a9c9ef38d10c"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "effccf08990c8c1bc0626e5b0342fc68f6baf811"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/fence_product_geometry.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "71957aae82a384ec17f0f36667a31fd2c0915151"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/fence_product_target.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "6de331b47f6b71bc17eeb34c41dfd38ea55f020f"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/placement_saved_refs.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "cfce44352cda8d431628ff3a22b3fd9330fce44f"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "78ad4f9f704fc701c31e93c1525edac4a722db13"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/semantic_writer.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "281eb155d91b572a69ea5e844b3880eac2660f78"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "fe914df7b69f168ba94889d5761d4b10667f7531"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/sr03_installed_geometry.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "b8a90450543e984d71a1f4e96198a149ac5c98c2"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "e3139d1c987dd0e2483d529c640d98ee118cee8f"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/sr03_product_target.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "4af0dcf34272e3413c6b05d14abf400781837585"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "20f306356908288cc8ff26bb126d28f087595697"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/switch624_fence_fe01.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "72c682cc9d0eb81c6e9cc73cf7830a00633cacc1"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "1f3c9b12c87c6dba97a138cb1b847804e00b4e08"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_switch626_fd01.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "5a5f6fe40c88d5a7f81c6a9d912f8b4e42b580b8"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_switch626_fe01.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "26384cd66a7aa513dda15a4b00e3d6c1a2ee4abe"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "0a8d533f1ba8d7b7a35322a9ac8459287e09481c"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "59264164dcb6f04f3d33de9c053bb00061d10669"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "f155092b4fa406cd0db946033ec81071f1496cba"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "914bd8e6a45a6d26f5011a9f4c95a4f459d0f498"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_switch626_fd01.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "50e1f9a82e429d1a7092217b2928d0c6b9aca97e"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_switch626_fe01.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "d5ebae15c1f13e16080f60a21905c4205528c47f"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -841,6 +991,13 @@ function selectAcceptedCorePair(baseCore,sourceCore){
   return {entries:steam626AppearanceCumulativeEntries,count:14,metadata:{
    sourcePr:1699,sourceHead:'06adf0c44a77e3ba653a62a14160207a7a9d91be',
    sourceTree:'dfe419896223d4f3fed14e63bb5aaf1abb573a47'}};
+ }
+ if(baseCore==='9d779873e935cbdd7b1b11b372a318af7ebc68b5'){
+  if(sourceCore!=='3522a06ee4e1a01c60b510ec008d830e5899a61e')deny('CANDIDATE_CORE_TREE');
+  return {entries:fd01Fe01AfterFd02SharedEntries,count:15,metadata:{
+   sourcePr:1895,sourceHead:'fa71e802269f688d804304d3cc0966f1a3c27f10',
+   sourceTree:'2cfe703f307f2d1df0a9d7337f3a02419c4498f5',
+   acceptedAncestorPr:1865,acceptedAncestorHead:'c08fa74061e899f6330c2dfa5d80879938a7460e'}};
  }
  deny('BASE_CORE_TREE');
 }
