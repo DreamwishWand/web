@@ -77,8 +77,8 @@ jobs:
            ({W,R,DT},'WEB_STEAM1253_EXACT3_EXTENSION_SCOPE_PASS',[door,switch]),
            ({W,R,C,I,U,T},'WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS',[switch])]:
            a=run(paths,guard);b=run(paths,oldguard);assert a==b and a[0]==0 and marker in a[1] and a[2]==cmd,(paths,a,b);legacy+=1
-          bad=[four-{W},four-{T},four|{D},four|{DT},four|{U},four|{'README.md'},four|{'src/routes/collection/+page.svelte'},(four-{P})|{D},(four-{T})|{'tests/unrelated.test.mjs'},six- {D},six|{'src/lib/community/unrelated.mjs'}]
-          # Removing P is an intentionally previously accepted policy exact3, not a new exact4.
+          bad=[four-{W},four-{T},four|{D},four|{DT},four|{I},four|{'README.md'},four|{'src/routes/collection/+page.svelte'},(four-{P})|{D},(four-{T})|{'tests/unrelated.test.mjs'},six- {D},six|{'src/lib/community/unrelated.mjs'}]
+          # Removing P selects existing policy exact3; adding U selects existing prep exact5. Both were tested above as inherited modes, not new exact4. Adding I is not an accepted mode.
           for paths in bad:
            rc,out,cmd=run(paths,guard);assert rc!=0 and 'TREE_QUARANTINE_MAIN_EXACT4_SCOPE_PASS' not in out and 'SHARED_TREE_QUARANTINE_EXACT6_SCOPE_PASS' not in out and not cmd,(paths,rc,out,cmd);neg+=1
           # The shared workflow only selects the image gate when R changes. A non-image change is not a grant.
