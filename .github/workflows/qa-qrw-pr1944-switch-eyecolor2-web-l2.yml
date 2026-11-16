@@ -2,7 +2,7 @@ name: QA ONLY PR1944 Switch EyeColor2 exact1 actual Web L2 (NEVER MERGE)
 on:
   pull_request:
     paths:
-      - '.github/workflows/qa-qrw-pr1930-eye-color2-web-l2.yml'
+      - '.github/workflows/qa-qrw-pr1944-switch-eyecolor2-web-l2.yml'
 permissions:
   contents: read
 jobs:
