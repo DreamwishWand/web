@@ -1,0 +1,121 @@
+name: 04 QR-S ACT1048 actual Git source-bound gate (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1048-r22-exact-source-l2.yml'
+permissions:
+  contents: read
+jobs:
+  exact-source-bound:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '122652c98192514e3ec586a0d0293a3b31cdb309'
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Fixed production gate, actual reviewed source and isolated Git model
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 122652c98192514e3ec586a0d0293a3b31cdb309
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = 2226837c18168a0f1c08adf835c8d5282557c19b
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
+          test "$(git rev-parse HEAD:scripts/int-selection-preflight.mjs)" = e13337fe51b9ce11d14957565b166b000328a62c
+          git fetch --no-tags origin eaeafb84b55d522f1f6eab6e84d879780fc1d031
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {execFileSync,spawnSync} from 'node:child_process';
+          import fs from 'node:fs';
+          import os from 'node:os';
+          import path from 'node:path';
+          import {verifyAcceptedRustScope} from './scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          const original='eaeafb84b55d522f1f6eab6e84d879780fc1d031', originalBase='2ec84d06a24d5fe964c7e8b8186a6b442650593b', acceptedBase='122652c98192514e3ec586a0d0293a3b31cdb309';
+          const home=fs.mkdtempSync(path.join(os.tmpdir(),'act1048-'));
+          const repo=path.join(home,'repo'), index=path.join(home,'index');
+          const env={...process.env,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',
+            GIT_AUTHOR_NAME:'QA synthetic',GIT_AUTHOR_EMAIL:'qa@example.invalid',GIT_COMMITTER_NAME:'QA synthetic',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
+          const run=(cwd,args,extra={},input)=>execFileSync('git',args,{cwd,env:{...env,...extra},encoding:'utf8',input,stdio:['pipe','pipe','pipe']});
+          const g=(...a)=>run(repo,a).trim(), ix=(...a)=>run(repo,a,{GIT_INDEX_FILE:index}).trim();
+          const fixed='crates/ddv-save-core', gate='scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          let pos=0,neg=0;
+          const yes=(name,fn)=>{fn();pos++;console.log('POS',name)};
+          const no=(name,fn)=>{assert.throws(fn,undefined,name);neg++;console.log('NEG',name)};
+          try{
+            run(process.cwd(),['clone','--no-hardlinks','--no-checkout',process.cwd(),repo]);
+            g('cat-file','-e',original+'^{commit}');
+            assert.equal(g('rev-parse',original+'^{tree}'),'45ab484b15cef5e5db8993619d6c3f69e3e3acf4');
+            assert.equal(g('rev-parse',originalBase+':'+fixed),'7de35a07df55bdf7f439caac6e4d734dd91fe9ba');
+            assert.equal(g('rev-parse',original+':'+fixed),'ca1ef1772b53ff535618fc8263cd647f757f3dad');
+            assert.equal(g('rev-parse',acceptedBase+':'+fixed),g('rev-parse',originalBase+':'+fixed));
+            const paths=run(repo,['diff','--name-only','-z','--no-renames',originalBase,original,'--']).split('\0').filter(Boolean);
+            assert.equal(paths.length,15);
+            const writeBlob=s=>run(repo,['hash-object','-w','--stdin'],{},s).trim();
+            const entry=(rev,p)=>{const raw=g('ls-tree',rev,'--',p);const m=/^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/.exec(raw);assert(m&&m[3]===p);return {mode:m[1],blob:m[2]}};
+            const set=(p,mode,blob)=>ix('update-index','--add','--cacheinfo',mode+','+blob+','+p);
+            const make=(base,changes,edit=()=>{})=>{
+              fs.rmSync(index,{force:true});ix('read-tree',base);
+              for(const p of changes){const e=entry(original,p);set(p,e.mode,e.blob)}
+              edit();const t=ix('write-tree');
+              return run(repo,['commit-tree',t,'-p',base],{},'isolated synthetic candidate\n').trim();
+            };
+            const exact=make(acceptedBase,paths);
+            const cfg='scripts/wasm-distribution/protected-release-inputs.json';
+            const v='scripts/wasm-distribution/verify-protected-release.mjs';
+            const target=fixed+'/src/wasm_worker.rs';
+            yes('actual exact15 on model gate-only protected base',()=>{
+              const x=verifyAcceptedRustScope(repo,acceptedBase,exact);
+              assert.equal(x.entryCount,15);assert.equal(x.mergeAuthorized,false);assert.equal(x.writerAuthorized,false);
+              assert.equal(g('rev-parse',exact+':'+fixed),g('rev-parse',original+':'+fixed));
+            });
+            no('historical base without accepted gate',()=>verifyAcceptedRustScope(repo,originalBase,original));
+            no('candidate self-introduces gate',()=>verifyAcceptedRustScope(repo,originalBase,exact));
+            no('wrong ancestor or source',()=>verifyAcceptedRustScope(repo,exact,acceptedBase));
+            no('missing approved path',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths.filter(p=>p!==target))));
+            no('extra path',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set('qa-unapproved.txt','100644',writeBlob('extra')))));
+            no('changed approved blob',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set(target,'100644',writeBlob('changed')))));
+            no('changed approved mode',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set(target,'100755',entry(original,target).blob))));
+            no('deleted approved path',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>ix('update-index','--force-remove',target))));
+            no('candidate changes gate',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set(gate,'100644',writeBlob('// changed')))));
+            no('candidate changes verifier',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set(v,'100644',writeBlob('// changed')))));
+            no('candidate changes pin config',()=>verifyAcceptedRustScope(repo,acceptedBase,make(acceptedBase,paths,()=>set(cfg,'100644',writeBlob('{}')))));
+            const maintenance=make(acceptedBase,[],()=>set('qa-maintenance.txt','100644',writeBlob('model maintenance')));
+            const invoke=(base,head,extra={},alter)=>{
+              g('checkout','--force','--detach',head);g('update-ref','refs/remotes/origin/main',base);
+              fs.copyFileSync(path.join(repo,'scripts/wasm-distribution/approved-Cargo.lock'),path.join(repo,fixed,'Cargo.lock'));
+              if(alter)alter();
+              const ref='refs/pull/1/merge';
+              return spawnSync(process.execPath,[v,'inputs'],{cwd:repo,encoding:'utf8',env:{...env,
+                GITHUB_ACTIONS:'true',GITHUB_REPOSITORY_ID:'1371485649',GITHUB_REPOSITORY:'DreamwishWand/web',GITHUB_EVENT_NAME:'pull_request',
+                GITHUB_REF:ref,GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/01a-protected-main-signed-wasm-release-off.yml@'+ref,
+                WAND_SOURCE_HEAD:head,WAND_PR_BASE_SHA:base,WAND_PUBLIC_READONLY_ASSET_GATE:'OWNER_APPROVED_THREE_FILES_20261111',WAND_APPROVED_RELEASE_LOCK:'1',...extra}});
+            };
+            const passes=x=>{assert.equal(x.status,0,x.stderr);assert(x.stdout.includes('R22_RELEASE_INPUTS_ONLY_SOURCE_PINNED'))};
+            const rejects=(x,marker)=>{assert.notEqual(x.status,0);assert(x.stderr.includes(marker),x.stderr)};
+            yes('actual verifier ordinary maintenance',()=>passes(invoke(acceptedBase,maintenance)));
+            yes('actual verifier approved exact15',()=>{const x=invoke(acceptedBase,exact);passes(x);assert(x.stdout.includes('R22_ACCEPTED_EXACT_SOURCE_SCOPE_MATCH_ONLY'))});
+            no('malformed source id',()=>passes(invoke(acceptedBase,exact,{WAND_SOURCE_HEAD:'invalid'})));
+            no('wrong repository',()=>passes(invoke(acceptedBase,exact,{GITHUB_REPOSITORY_ID:'1'})));
+            no('wrong workflow',()=>passes(invoke(acceptedBase,exact,{GITHUB_WORKFLOW_REF:'wrong'})));
+            no('stale live base',()=>passes(invoke(acceptedBase,exact,{WAND_PR_BASE_SHA:originalBase})));
+            no('wrong lock',()=>passes(invoke(acceptedBase,exact,{},()=>fs.appendFileSync(path.join(repo,fixed,'Cargo.lock'),'# altered\n'))));
+            const driftBase=make(acceptedBase,[],()=>set(fixed+'/src/qa-unreviewed-core-drift.rs','100644',writeBlob('// synthetic unrelated Core drift\n')));
+            const drift=make(driftBase,paths);
+            assert.notEqual(g('rev-parse',driftBase+':'+fixed),g('rev-parse',originalBase+':'+fixed));
+            assert.notEqual(g('rev-parse',drift+':'+fixed),g('rev-parse',original+':'+fixed));
+            // Observe separately: a changed protected Core tree is NOT the exact previously reviewed cumulative tree.
+            // This models a new protected base, not real protected authorization or an external attack.
+            let driftHelperAllowed=false;
+            try{verifyAcceptedRustScope(repo,driftBase,drift);driftHelperAllowed=true}catch{}
+            const driftResult=invoke(driftBase,drift);
+            console.log('ACT1048_CORE_DRIFT_OBSERVATION',JSON.stringify({helperAllowed:driftHelperAllowed,verifierAllowed:driftResult.status===0,baseTree:g('rev-parse',driftBase+':'+fixed),candidateTree:g('rev-parse',drift+':'+fixed),modeledProtectedBase:true,actualAuthorization:false}));
+            console.log('ACT1048_ACTUAL_GIT_SCOPE',JSON.stringify({pos,neg,exactSource:acceptedBase,historicalCandidate:original,exact15:true,authority:false,publication:false,driftHelperAllowed,driftVerifierAllowed:driftResult.status===0}));
+          }finally{fs.rmSync(home,{recursive:true,force:true})}
+          JS
