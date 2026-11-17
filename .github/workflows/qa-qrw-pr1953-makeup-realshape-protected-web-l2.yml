@@ -1,0 +1,157 @@
+name: QA ONLY PR1953 Makeup corrected realshape protected Web ABI L2 (NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1953-makeup-realshape-protected-web-l2.yml'
+permissions:
+  contents: read
+jobs:
+  makeup-protected-web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_TARGET_DIR: /tmp/qrw1953-rust-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0d3ee41f74488157e0d87c4b1cd0e67a426e3987
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Pin corrected ABI Source7, preserved old Web Source18, real saved shape and generate own/off/mixed WASM
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '0d3ee41f74488157e0d87c4b1cd0e67a426e3987'
+          git diff --name-only 9381034fe55f1207fc46c11a385959bc335f68ca HEAD | LC_ALL=C sort >/tmp/qrw1953-source.actual
+          cat >/tmp/qrw1953-source.expected <<'PATHS'
+          .github/workflows/core-product-session-boundary.yml
+          crates/ddv-save-core/Cargo.toml
+          crates/ddv-save-core/src/product_makeup_color1.rs
+          crates/ddv-save-core/src/wasm_steam626_makeup_color1.rs
+          crates/ddv-save-core/src/wasm_worker.rs
+          crates/ddv-save-core/src/worker_session.rs
+          crates/ddv-save-core/src/worker_steam626_makeup_color1.rs
+          PATHS
+          diff -u /tmp/qrw1953-source.expected /tmp/qrw1953-source.actual
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_makeup_color1.rs)" = '8b63567d8c72811263b987450287a9855a0af5d0'
+          grep -F 'const INACTIVE_ITEM:i32=140100011;' crates/ddv-save-core/src/product_makeup_color1.rs
+          grep -F '"ColorIndex2":0,"ColorIndex3":0' crates/ddv-save-core/src/product_makeup_color1.rs
+          git cat-file -e 4f7c1651cac16c98a2e456d285691ca949615090^{commit} || git fetch --no-tags origin 4f7c1651cac16c98a2e456d285691ca949615090
+          git worktree add --detach /tmp/qrw1953-web 4f7c1651cac16c98a2e456d285691ca949615090
+          test "$(git -C /tmp/qrw1953-web rev-parse HEAD)" = '4f7c1651cac16c98a2e456d285691ca949615090'
+          git -C /tmp/qrw1953-web diff --name-only 1e337c0cbb75ed99cd0d08439836d5f4d29b07c4 HEAD | LC_ALL=C sort >/tmp/qrw1953-web.actual
+          cat >/tmp/qrw1953-web.expected <<'PATHS'
+          src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
+          src/lib/ddv/core/save/product-scoped-makeup-color1-release-anchor.mjs
+          src/lib/ddv/core/save/product-scoped-placement-release.mjs
+          src/lib/ddv/core/save/product-wasm-read-owner.d.mts
+          src/lib/ddv/core/save/product-wasm-read-owner.mjs
+          src/lib/dev/LocalPlacementEditorDev.svelte
+          src/lib/dev/PlacementProductRoute.svelte
+          src/lib/dev/local-placement-copy.mjs
+          src/lib/dev/local-placement-workflow.mjs
+          src/lib/dev/local-scoped-edit-worker-port.mjs
+          src/lib/dev/product-makeup-color1.worker.mjs
+          src/lib/dev/product-placement-client.mjs
+          src/routes/editor/appearance/makeup-color1/steam/+page.svelte
+          tests/product-steam626-makeup-color1-route-off.test.mjs
+          tests/stage-e/chrome-smoke.mjs
+          tests/stage-f/chrome-smoke.mjs
+          tests/wasm-distribution/chrome-smoke.mjs
+          tools/owner-local-steam-v1/server.mjs
+          PATHS
+          diff -u /tmp/qrw1953-web.expected /tmp/qrw1953-web.actual
+          grep -F 'PROTECTED_MAKEUP_COLOR1_RELEASE_ANCHOR=null' /tmp/qrw1953-web/src/lib/ddv/core/save/product-scoped-makeup-color1-release-anchor.mjs
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock >/tmp/qrw1953-lock.sha
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrw1953-tools
+          for mode in own off mixed; do
+            case "$mode" in
+              own) features=worker-wasm,product-steam626-makeup-color1-scoped ;;
+              off) features=worker-wasm,indexed-read ;;
+              mixed) features=worker-wasm,product-steam626-makeup-color1-scoped,product-steam626-hair-scoped ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            mkdir -p "/tmp/qrw1953-web/static/qa-makeup/$mode"
+            /tmp/qrw1953-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "/tmp/qrw1953-web/static/qa-makeup/$mode" --target web --no-typescript
+          done
+          sha256sum /tmp/qrw1953-web/static/qa-makeup/{own,off,mixed}/ddv_save_core_bg.wasm
+          sha256sum -c /tmp/qrw1953-lock.sha
+          git diff --exit-code -- crates/ddv-save-core/src
+      - name: Pinned Web dependency installation
+        run: |
+          cd /tmp/qrw1953-web
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual Chrome strict generated own 13 JS / 22 WASM and off/mixed/extraneous/corruption denials
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/qrw1953-web/src/routes/test-qrw-makeup
+          cat >/tmp/qrw1953-web/src/routes/test-qrw-makeup/+page.svelte <<'SVELTE'
+          <script>
+          import {onMount} from 'svelte';
+          import {MAKEUP_COLOR1_RELEASE} from '$lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {compileVerifiedWorker} from '$lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs';
+          onMount(()=>{(async()=>{try{
+            const read=async mode=>{
+              const [jr,wr]=await Promise.all([fetch('/qa-makeup/'+mode+'/ddv_save_core.js'),fetch('/qa-makeup/'+mode+'/ddv_save_core_bg.wasm')]);
+              if(!jr.ok||!wr.ok||!wr.headers.get('content-type')?.startsWith('application/wasm'))throw Error('MIME_DENIED');
+              return{js:new Uint8Array(await jr.arrayBuffer()),wasm:new Uint8Array(await wr.arrayBuffer())};
+            };
+            const own=await read('own'),off=await read('off'),mixed=await read('mixed');
+            const ex=b=>WebAssembly.Module.exports(new WebAssembly.Module(b)).map(x=>x.name);
+            const ownExports=ex(own.wasm),offExports=ex(off.wasm),mixedExports=ex(mixed.wasm);
+            const req={deniedSymbol:/(?!)/,requiredMethods:MAKEUP_COLOR1_RELEASE.methods,exactPrototype:true,exactWasmExports:MAKEUP_COLOR1_RELEASE.exports};
+            if(req.requiredMethods.length!==13||req.exactWasmExports.length!==22||ownExports.length!==22||offExports.length!==17)throw Error('GENERATED_METHOD_COUNT_DRIFT');
+            const W=await compileVerifiedWorker(own.js,own.wasm,req);
+            const methods=Object.getOwnPropertyNames(W.prototype).filter(x=>!['constructor','free','__destroy_into_raw'].includes(x));
+            const dedicated=['preview_steam626_makeup_color1','stage_steam626_makeup_color1','toggle_steam626_makeup_color1','begin_steam626_makeup_color1_output','next_steam626_makeup_color1_output_chunk'];
+            if(methods.length!==13||!req.requiredMethods.every(x=>methods.includes(x))||!dedicated.every(x=>methods.includes(x)))throw Error('WRONG_MAKEUP_PROTO');
+            let instance=false;
+            const w=new W('steam-windows','steam-full-version',MAKEUP_COLOR1_RELEASE.buildId,626,true,new Uint8Array(32).fill(7));
+            if(typeof w.append_chunk!=='function'||typeof w.finish!=='function'||typeof w.close!=='function')throw Error('WORKER_ABI_UNCALLABLE');
+            w.close();w.free();instance=true;
+            let neg=0;const deny=async(fn,name)=>{try{await fn()}catch{neg++;return}throw Error('UNSAFE_ACCEPT_'+name)};
+            await deny(()=>compileVerifiedWorker(off.js,off.wasm,req),'OFF');
+            await deny(()=>compileVerifiedWorker(mixed.js,mixed.wasm,req),'MIXED');
+            const injected=new TextEncoder().encode(new TextDecoder().decode(own.js)+'\nWorkerWasmSource.prototype.qa_extra=function(){};');
+            await deny(()=>compileVerifiedWorker(injected,own.wasm,req),'EXTRA_JS');
+            const corrupted=own.wasm.slice();corrupted[0]^=255;
+            await deny(()=>compileVerifiedWorker(own.js,corrupted,req),'CORRUPT_WASM');
+            window.__qmw={ok:true,methods:methods.length,wasm:ownExports.length,off:offExports.length,mixed:mixedExports.length,neg,instance,publicWriter:false,signed:false,genuine:false,fullSaveWebL2:false};
+          }catch(e){window.__qmw={error:String(e?.stack||e)}}})()});
+          </script>
+          <p>Makeup real-shape protected Web generated ABI; QA-only runtime.</p>
+          SVELTE
+          cat >/tmp/qrw1953-web/tests/.qa-makeup-abi-chrome.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          import {spawn,spawnSync} from 'node:child_process';
+          const origin='http://127.0.0.1:4186',server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4186','--strictPort'],{cwd:'/tmp/qrw1953-web',env:{...process.env,BASE_PATH:''},stdio:'inherit'});let browser;
+          try{
+            let ready=false;
+            for(let i=0;i<120;i++){try{if((await fetch(origin+'/test-qrw-makeup/')).ok){ready=true;break}}catch{}await new Promise(resolve=>setTimeout(resolve,250))}
+            assert.ok(ready,'development Web route reachable');
+            const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);
+            assert.ok(bin,'actual Chromium installed');
+            browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+            const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            await page.goto(origin+'/test-qrw-makeup/');
+            await page.waitForFunction(()=>!!window.__qmw,{},{timeout:90000});
+            const result=await page.evaluate(()=>window.__qmw);
+            if(result.error){console.log('QRW1953_WEB_RUNTIME_RED',result.error);throw Error(result.error)}
+            assert.equal(result.ok,true);assert.equal(result.methods,13);assert.equal(result.wasm,22);assert.equal(result.off,17);assert.equal(result.neg,4);assert.equal(result.instance,true);
+            assert.equal(result.publicWriter,false);assert.equal(result.signed,false);assert.equal(result.genuine,false);assert.equal(result.fullSaveWebL2,false);assert.deepEqual(errors,[]);
+            console.log('QRW1953_MAKEUP_REALSHAPE_PROTECTED_RUNTIME_ACTUAL_PASS '+JSON.stringify({...result,actualChrome:true,webSource:'PR1926',coreSource:'PR1953',actualWorkerBoundary:true,actualOpfs:false,independentEncryptedReopen:false}));
+          }finally{await browser?.close();server.kill()}
+          NODE
+          cd /tmp/qrw1953-web
+          node --check tests/.qa-makeup-abi-chrome.mjs
+          node tests/.qa-makeup-abi-chrome.mjs
+          git diff --exit-code -- src/lib src/routes/editor
