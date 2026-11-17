@@ -9,7 +9,7 @@ const placementMethods=Object.freeze({open:1,backupOriginal:0,previewPlacement:1
 const backpackMethods=Object.freeze({open:1,backupOriginal:0,previewBackpack:1,stageBackpack:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
 const wardrobeMethods=Object.freeze({open:1,backupOriginal:0,previewWardrobe:0,stageWardrobe:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
 const appearanceMethods=Object.freeze({open:1,backupOriginal:0,previewAppearance:0,stageAppearance:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
-const methods=Object.freeze({appearance:appearanceMethods,comp03:placementMethods,'comp03-spatial':Object.freeze({...placementMethods,spatialPreview:0}),vase:placementMethods,sr03:placementMethods,rm01:placementMethods,backpack:backpackMethods,wardrobe:wardrobeMethods,
+const methods=Object.freeze({appearance:appearanceMethods,eyecolor2:appearanceMethods,comp03:placementMethods,'comp03-spatial':Object.freeze({...placementMethods,spatialPreview:0}),vase:placementMethods,sr03:placementMethods,rm01:placementMethods,backpack:backpackMethods,wardrobe:wardrobeMethods,
  amount:Object.freeze({open:1,backupOriginal:0,listVerifiedTargets:0,stageTyped:1,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0}),
  collection:Object.freeze({open:1,inspectCollectionTargets:0,backupOriginal:1,previewCollectionTarget:2,stageCollectionTarget:2,undo:1,redo:1,exportEditedCopy:1,downloadVerifiedCopy:2,close:0})
 });
@@ -108,3 +108,5 @@ export const createLocalComp03SpatialDevPort=worker=>createPort(worker,'comp03-s
 
 export const installLocalAppearanceDevWorker=(port,adapter)=>install(port,adapter,'appearance');
 export const createLocalAppearanceDevPort=worker=>createPort(worker,'appearance');
+export const installLocalEyeColor2DevWorker=(port,adapter)=>install(port,adapter,'eyecolor2');
+export const createLocalEyeColor2DevPort=worker=>createPort(worker,'eyecolor2');
