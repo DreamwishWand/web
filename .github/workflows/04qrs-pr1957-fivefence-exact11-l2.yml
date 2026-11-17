@@ -38,7 +38,7 @@ jobs:
            referenceSource='88c1b08464201b85a90880c442ec2526bd2dda05',
            currentMain='7e9170e42f29856919020aa654d0832ca8493925',
            oldCore='a506951b125b2f492f4d75293234574263342e90',
-           newCore='e92b94a3f93ce977155001283d823b4a3a4953db',
+           newCore='e92b94a3f93ce977155001283d823b4b3a4953db',
            latestCore='63d1b9f88a07c79c54cb433f4d1cbd9cf1e1ed4b',
            gatePath='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
            gateOldBlob='497340934b1859d82b76d6b9ac48bb1bb9f97893',
