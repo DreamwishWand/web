@@ -903,9 +903,24 @@ const fd01Fe01PostFrpMain6abEntries=[
 // Exactly one previously scoped pure 27-line Fence shape source hunk.
 // This tuple is a source selector, never Merge/Writer/entitlement authority.
 const steam626SingleFencePostFd01Fe01Main63cEntries=[
- {path:'crates/ddv-save-core/src/fence_add_shape.rs',
+ {path:"crates/ddv-save-core/src/fence_add_shape.rs",
   before:{mode:'100644',blob:'ab4b9aefde13523f6740dfe147e4e78668e9096e'},
-  after:{mode:'100644',blob:'6805c67f525829744dde2fe32b31668b5c401e12'}}
+  after:{mode:'100644',blob:'6805c67f525829744dde2fe32b31668b5c401e12'}},
+ {path:".github/workflows/pages.yml",
+  before:{mode:'100644',blob:'98465fbf4612b60382f70fe10c37c7131c51fae4'},
+  after:{mode:'100644',blob:'d7f1bde3a54c4160c734d261999dd154bc28868e'}},
+ {path:"tests/scoped-collection-proof-workflow.test.mjs",
+  before:{mode:'100644',blob:'7acb7a44105ed4d8e99717f8942b95ac97d54332'},
+  after:{mode:'100644',blob:'55907be6ee4717e3c00f84c0f022b12256ef8c34'}},
+ {path:"tests/scoped-sr03-spatial-proof-workflow.test.mjs",
+  before:{mode:'100644',blob:'2461489ebb017377a3b2de7ca2cf3330647ff2bd'},
+  after:{mode:'100644',blob:'8fc8dfc2678d434df60a6d84d3a093f37f3918a0'}},
+ {path:"tests/scoped-steam-chest-proof-workflow.test.mjs",
+  before:{mode:'100644',blob:'e9c8bba3c9c1fea3a955ab72bf6db32d92b324e5'},
+  after:{mode:'100644',blob:'115d0301aea69e7af8c9513c9aee0257b62d0db7'}},
+ {path:"tests/scoped-switch-chest-proof-workflow.test.mjs",
+  before:{mode:'100644',blob:'fe3070464a2a7b039da1af79bae0b6488e7c6065'},
+  after:{mode:'100644',blob:'9e747f2bc4e60ce29451f4309e760a9cc3f14aaa'}}
 ];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
@@ -1009,7 +1024,7 @@ function selectAcceptedCorePair(baseCore,sourceCore){
  }
  if(baseCore==='a506951b125b2f492f4d75293234574263342e90'){
   if(sourceCore!=='681177d588b7bfba04f2497dff81e36163a3350e')deny('CANDIDATE_CORE_TREE');
-  return {entries:steam626SingleFencePostFd01Fe01Main63cEntries,count:1,metadata:{
+  return {entries:steam626SingleFencePostFd01Fe01Main63cEntries,count:6,metadata:{
    sourcePr:1861,sourceHead:'9017266e795ded11dc0e1c40eb52425e8d999a6b',
    acceptedAncestorPr:1931,acceptedAncestorHead:'49c6db828b12ddb86a7a639bf7cb106c987e165c',
    independentSourceQa:'REQUIRED_CURRENT_CORE_RELEASE_PROFILE_L2_NOT_RUN'}};
