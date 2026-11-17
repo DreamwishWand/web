@@ -952,6 +952,27 @@ const appearanceFourAfterFenceTargetExact7Entries=[
   {path:'crates/ddv-save-core/src/product_eyeball_color2.rs',before:null,after:{mode:'100644',blob:'c33c032d21ee91d0f4d341e44b00efb606e4e327'}},
   {path:'scripts/wasm-distribution/protected-release-inputs.json',before:{mode:'100644',blob:'7afda02936b28335d6ceec7f75a649e3aef067f2'},after:{mode:'100644',blob:'44e639fc5219bf41f61d22fbbc0b34383df8cd6a'}}
 ];
+// ACT-20261117-09PCODE-FIVEFENCE-MAIN7F-COMPOSED-EXACT12-R22.
+// Five accepted Switch626 Fence ADD operations from PR1921, current Appearance
+// and SingleFence Core preserved. Seven immutable source leaves; four
+// scoped non-clobbering shared additions MUST receive current Core/ABI QA.
+// Exactly one protected input change: Cargo TOML Git blob; Writer/rights OFF.
+// All original pre/post Git blobs and source order/mode are immutable.
+// This profile is NOT an integration or product/permission authorization.
+const switch626FiveFenceComposedMain7fExact12Entries=[
+  {path:'.github/workflows/core-product-session-boundary.yml',before:{mode:'100644',blob:'a33bb679f4d22a6b0a1b64dafaa78300277adcc5'},after:{mode:'100644',blob:'6c5e9e7ca1a7caeb6b66e88d0f3a3d532f2216c3'}},
+  {path:'crates/ddv-save-core/Cargo.toml',before:{mode:'100644',blob:'a5bdd2af0a3f33b827fb55f87d6e0637ef50fd67'},after:{mode:'100644',blob:'2f8452ee3c7a45bab9bb6cb7ab62010120e37c44'}},
+  {path:'crates/ddv-save-core/src/fence_product_geometry.rs',before:{mode:'100644',blob:'71957aae82a384ec17f0f36667a31fd2c0915151'},after:{mode:'100644',blob:'62e18579c4ea99cf1c4b97608f23ba4054f9106e'}},
+  {path:'crates/ddv-save-core/src/fence_product_target.rs',before:{mode:'100644',blob:'6de331b47f6b71bc17eeb34c41dfd38ea55f020f'},after:{mode:'100644',blob:'15858ed0da6a7dd4df45e9a34c4c91c5c40661e4'}},
+  {path:'crates/ddv-save-core/src/semantic_writer.rs',before:{mode:'100644',blob:'20a63726d78e1d00a0c1cc854f5c22cc325cb0ef'},after:{mode:'100644',blob:'21cb91a48f6697f464df82eb7443d795b5a50716'}},
+  {path:'crates/ddv-save-core/src/sr03_installed_geometry.rs',before:{mode:'100644',blob:'843b9189047995d3bdce94b31190ebb17b0f8458'},after:{mode:'100644',blob:'69ded024dfe186da025b5a270854050ddbd42061'}},
+  {path:'crates/ddv-save-core/src/switch624_fence_fe01.rs',before:{mode:'100644',blob:'65e4e7a0ae70001c935fbbd90e2da05727c8a07d'},after:{mode:'100644',blob:'b4de9324dd2426c365a87933516144f5a0f69be6'}},
+  {path:'crates/ddv-save-core/src/wasm_switch626_fixed_fence_add.rs',before:null,after:{mode:'100644',blob:'887b076f1593fb0337e3b817d464369b4dfea367'}},
+  {path:'crates/ddv-save-core/src/wasm_worker.rs',before:{mode:'100644',blob:'59264164dcb6f04f3d33de9c053bb00061d10669'},after:{mode:'100644',blob:'fa47aae53ecf0d242b234a1ede67dd210ae8c67b'}},
+  {path:'crates/ddv-save-core/src/worker_session.rs',before:{mode:'100644',blob:'914bd8e6a45a6d26f5011a9f4c95a4f459d0f498'},after:{mode:'100644',blob:'b89295b6d665e191e3872a50924a9091bf9d35d7'}},
+  {path:'crates/ddv-save-core/src/worker_switch626_fixed_fence_add.rs',before:null,after:{mode:'100644',blob:'708494849861b95c478fbe66500e6af884cc2f40'}},
+  {path:'scripts/wasm-distribution/protected-release-inputs.json',before:{mode:'100644',blob:'44e639fc5219bf41f61d22fbbc0b34383df8cd6a'},after:{mode:'100644',blob:'f81df4334a4d75760f33607eeca4385adffc966c'}}
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1076,6 +1097,17 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    protectedCargoAfter:'a5bdd2af0a3f33b827fb55f87d6e0637ef50fd67',
    immutableSourceProjectionCore:'bfea42aa4f2097deffe73d2016de62b1103c0723',
    independentSecurityL2Required:true}};
+ }
+ if(baseCore==='bfea42aa4f2097deffe73d2016de62b1103c0723'){
+  if(sourceCore!=='fa23c80199225e20639be7da80c8236b4b82a013')deny('CANDIDATE_CORE_TREE');
+  return {entries:switch626FiveFenceComposedMain7fExact12Entries,count:12,metadata:{
+   inheritedSourcePr:1921,inheritedSourceHead:'88c1b08464201b85a90880c442ec2526bd2dda05',
+   inheritedOnlyGitLeaves:7,composedCurrentSharedLeaves:4,
+   acceptedOriginalOldR22Pr:1957,acceptedOriginalOldR22QaPr:1961,
+   protectedInputOnlyCargoBlobPin:true,
+   composedCurrentSourceRoot:'2e865ef598565f86c2fb14dde7624683b1e04d7d',
+   securityL2NotInferred:true,currentCoreAbiQaNotInherited:true,
+   writerAuthorized:false}}; 
  }
  deny('BASE_CORE_TREE');
 }
