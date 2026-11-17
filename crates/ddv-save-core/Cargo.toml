@@ -38,6 +38,10 @@ product-switch626-rm01-scoped = ["product-amount-scoped"]
 # Separate fixed Steam626 appearance product scopes; no generic appearance writer.
 product-steam626-hair-scoped = ["product-amount-scoped"]
 product-steam626-skin-scoped = ["product-amount-scoped"]
+# 01A accepted isolated Switch626 Makeup Color1 Source only.
+product-switch626-makeup-color1-internal = ["semantic-writer-dev"]
+# 01A accepted isolated Switch626 Eyeball Color2 Source only.
+product-switch626-eyecolor2-internal = ["semantic-writer-dev"]
 
 product-switch626-fd01-scoped = ["product-amount-scoped"]
 product-switch626-fe01-scoped = ["product-amount-scoped"]

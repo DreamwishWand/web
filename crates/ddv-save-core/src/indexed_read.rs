@@ -390,6 +390,13 @@ mod appearance_observer;
 #[cfg(any(test,feature="semantic-writer-dev"))]
 #[path="product_hair_target.rs"]
 mod product_hair_target;
+// ACT1486/1507 accepted fixed Makeup + Eyeball Stage; semantic writer only.
+#[cfg(feature="semantic-writer-dev")]
+#[path="product_makeup_color1.rs"]
+mod product_makeup_color1;
+#[cfg(feature="semantic-writer-dev")]
+#[path="product_eyeball_color2.rs"]
+mod product_eyeball_color2;
 #[cfg(any(test,feature="semantic-writer-dev"))]
 #[path="product_skin_target.rs"]
 mod product_skin_target;
