@@ -111,7 +111,7 @@ jobs:
             reject(gateSource,bad.commit,'blob '+x.path);
            }
            const extras=[['unexpected-sibling',{mode:'100644',blob:gateOldBlob},'qa-never-authorized.txt'],
-                         ['gate-self',{mode:'100644',blob:gateNewBlob},gatePath],
+                         ['gate-self',{mode:'100644',blob:gateOldBlob},gatePath],
                          ['lock-change',{mode:'100644',blob:gateOldBlob},'scripts/wasm-distribution/approved-Cargo.lock'],
                          ['wrong-core',{mode:'100644',blob:gateOldBlob},'crates/ddv-save-core/src/fence_add_shape.rs']];
            for(const [name,post,path] of extras){
