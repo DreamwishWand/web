@@ -160,12 +160,12 @@ impl WorkerSessionGuard {
     }
     // Shared scoped-edit lifecycle: same existing semantic ledger as the
     // amount ABI; no second operation state or export pipeline.
-    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
     pub(crate) fn toggle_scoped_edit(&self,e:WorkerEnvelope,redo:bool)->CoreResult<crate::SemanticStageReceipt>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         if redo{self.session.redo_typed_semantic_batch(e)}else{self.session.undo_typed_semantic_batch(e)}
     }
-    #[cfg(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
     pub(crate) fn take_scoped_edit(&mut self,e:WorkerEnvelope)->CoreResult<Vec<u8>>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         let out=self.session.take_typed_semantic_decoded_once(e)?;
@@ -401,3 +401,7 @@ mod switch626_fd01;
 #[cfg(feature="product-switch626-fe01-scoped")]
 #[path="worker_switch626_fe01.rs"]
 mod switch626_fe01;
+
+#[cfg(feature="product-steam626-makeup-color1-scoped")]
+#[path="worker_steam626_makeup_color1.rs"]
+mod makeup_color1_worker;
