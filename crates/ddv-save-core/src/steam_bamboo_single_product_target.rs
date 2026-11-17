@@ -88,7 +88,7 @@ mod tests{
   let s=open(&d,false);let e=env(&s);let original=s.receipt().unwrap();
   let t=s.mint_steam626_bamboo_single_target(e,90001,x,y).unwrap();
   assert_eq!((t.grid,t.x,t.y,t.next,t.stock),(90001,x,y,50,9140));
-  assert_eq!((t.scope,t.pairs),(e,original.index_generation as usize*0+t.pairs));
+  assert_eq!(t.scope,e);
   assert_eq!(s.receipt().unwrap(),original);
   assert_eq!(s.decoded.as_ref(),source.as_slice());
   let mut neg=0u32;
@@ -96,7 +96,6 @@ mod tests{
   // without touching existing Road or single ordinary Fence semantics.
   for case in 0..22{
    let mut bad=d.clone();
-   let w=&mut bad["World"];
    match case{
     0=>bad["Player"]["ListInventories"]["0"]["Inventory"]["40700007"]["Amount"]=json!(0),
     1=>bad["Player"]["ListInventories"]["0"]["Inventory"]["40700007"]["Amount"]=json!(1),
@@ -106,20 +105,20 @@ mod tests{
     5=>bad["Player"]["ListInventories"]["0"]["CompatibleItemType"]=json!("ItemType_ActivityItem"),
     6=>bad["Player"]["ListInventories"]["0"]["ID"]=json!(2),
     7=>bad["Player"]["ListInventories"]["1"]=json!({"ID":1,"CompatibleItemType":"ItemType_Furniture","Inventory":{"40700007":{"Amount":2,"Marker":"ItemMarker_None"}}}),
-    8=>w["Villages"][0]["Areas"]["2"]["Unlocked"]=json!(false),
-    9=>w["GridCollection"]["Grids"]["90001"]["TessellationFactor"]=json!(1),
-    10=>w["GridCollection"]["Grids"]["90001"]["GridDataPath"]=json!("foreign/noncanonical"),
-    11=>w["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(10),
-    12=>w["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX),
-    13=>w["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"]=json!(x),
-    14=>{w["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"]=json!(x+2);w["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"]=json!(y);},
-    15=>w["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"]=json!(y),
-    16=>w["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["ID"]=json!(11),
-    17=>w["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["State"]=json!({"FenceMode":{"Diagonal":true}}),
-    18=>w["UnknownAlias"]=json!({"GridID":90001,"ObjectID":50}),
-    19=>w["GridCollection"]["Grids"]["90001"]["ID"]=json!(90002),
-    20=>w["Villages"][0]["Areas"]["2"]["GridIDs"]=json!([90002]),
-    _=>w["GridCollection"]["Grids"]["90001"]["GridDefaultLayoutPath"]=json!("unexpected"),
+    8=>bad["World"]["Villages"][0]["Areas"]["2"]["Unlocked"]=json!(false),
+    9=>bad["World"]["GridCollection"]["Grids"]["90001"]["TessellationFactor"]=json!(1),
+    10=>bad["World"]["GridCollection"]["Grids"]["90001"]["GridDataPath"]=json!("foreign/noncanonical"),
+    11=>bad["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(10),
+    12=>bad["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX),
+    13=>bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"]=json!(x),
+    14=>{bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"]=json!(x+2);bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"]=json!(y);},
+    15=>bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"]=json!(y),
+    16=>bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["ID"]=json!(11),
+    17=>bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["State"]=json!({"FenceMode":{"Diagonal":true}}),
+    18=>bad["World"]["UnknownAlias"]=json!({"GridID":90001,"ObjectID":50}),
+    19=>bad["World"]["GridCollection"]["Grids"]["90001"]["ID"]=json!(90002),
+    20=>bad["World"]["Villages"][0]["Areas"]["2"]["GridIDs"]=json!([90002]),
+    _=>bad["World"]["GridCollection"]["Grids"]["90001"]["GridDefaultLayoutPath"]=json!("unexpected"),
    }
    let q=open(&bad,false);
    assert!(q.mint_steam626_bamboo_single_target(env(&q),90001,x,y).is_err(),"bamboo negative {case}");
