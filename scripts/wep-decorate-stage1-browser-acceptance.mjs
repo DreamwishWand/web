@@ -45,6 +45,8 @@ async function fillVerifiedExploreSearch(page,itemId='40000048'){
   await panel.waitFor({state:'visible'});
   assert.equal(await toggle.getAttribute('aria-expanded'),'true');
   assert.equal(await search.isEnabled(),true);
+  // Expansion must restore keyboard focus before the handoff filter is edited.
+  await eventually(async()=>await search.evaluate(node=>node===document.activeElement),15000);
   await search.fill(itemId);
 }
 async function verifyDownloadedSavePair(page,success,original,sourceName,expectedProfile){
