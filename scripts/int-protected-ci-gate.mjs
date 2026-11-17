@@ -51,6 +51,11 @@ export async function githubPublicJson(path,fetcher=fetch,sleep=wait,state=retry
   const url=new URL('https://api.github.com'+path);
   if(url.origin!=='https://api.github.com')deny('UNSAFE_API_ORIGIN');
   const category=apiCategory(path);
+  // Deny every non-allowlisted endpoint and noncanonical path BEFORE any
+  // authenticated GET; neither a GitHub redirect nor URL normalization may
+  // change the request path carrying a scoped bearer credential.
+  if(category==='other')deny('UNSAFE_API_CATEGORY');
+  if(url.pathname+url.search!==path)deny('UNSAFE_API_PATH');
   if(token!==undefined&&(typeof token!=='string'||!/^ghs_[A-Za-z0-9_]{20,255}$/.test(token)))deny('PROTECTED_CI_READ_TOKEN_DENIED');
   const headers={Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'DreamwishWand-protected-CI'};
   if(token!==undefined)headers.Authorization='Bearer '+token;

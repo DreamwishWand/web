@@ -201,3 +201,26 @@ test('every protected Pages Gate invocation has scoped read token and read permi
  assert.match(y,/permissions:\n  contents: read\n  actions: read\n/);
  assert.match(y,/  deploy:\n[\s\S]*?    permissions:\n      pages: write\n      id-token: write\n      actions: read\n/);
 });
+
+
+test('authenticated protected GET rejects six unlisted or normalized endpoints before bearer fetch',async()=>{
+ const token='ghs_'+'Z'.repeat(40);
+ const unexpected=[
+  '/repos/DreamwishWand/web/issues/1',
+  '/repos/DreamwishWand/web/actions/workflows?per_page=100',
+  '/repos/DreamwishWand/web/actions/runs/123?secret=1',
+  '/repos/DreamwishWand/web/actions/runs?branch=main&event=push&head_sha='+input.head+'&per_page=101',
+  '/repos/DreamwishWand/other-repository',
+  '/repos/DreamwishWand/web/%2e%2e/other-repository'
+ ];
+ let requests=0;
+ for(const p of unexpected){
+  await assert.rejects(githubPublicJson(p,async(_url,opts)=>{
+   requests++;
+   assert.equal(opts.method,'GET');
+   assert.equal(opts.headers.Authorization,'Bearer '+token);
+   return new Response('{}',{headers:{'content-type':'application/json'}});
+  },undefined,undefined,undefined,token),/UNSAFE_API_(?:CATEGORY|PATH)/);
+ }
+ assert.equal(requests,0,'unlisted endpoint must be rejected before any bearer request');
+});
