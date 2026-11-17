@@ -1,0 +1,159 @@
+name: QA ONLY 04 QR-W MAIN933 Backpack Wardrobe shared5 mixed Web L2 (NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-main933-backpack-wardrobe-mixed-l2.yml'
+permissions:
+  contents: read
+jobs:
+  generated-local:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - domain: backpack
+            web: 93332153aed6b3b24ae885084470974c367eb484
+            core: b4ed4aead84b6e1e7c0d9fa05f959e2f1bbf7ba6
+            owner: c65930ffa0158542071202f02d912ad20ed25075
+            bridge: 22fff2a30705c620c3a9375167fd64ff0affcd08
+            adapter: 107a44cfdcfdaf8cd1769bba3e90c0056fb59cc0
+            worker: ef06ca9eba6819ffdf1c7119b97ed852ff697eea
+            cargo: 110fd1474801fe315e649a75e0ae4a0c5199d7b1
+            transport: 3fe3988a54718be81a9b6bf2109a0cf8e240a72e
+          - domain: wardrobe
+            web: 93332153aed6b3b24ae885084470974c367eb484
+            core: 6bfaf9d145abced41175817a17bf85a3e33145a2
+            owner: c65930ffa0158542071202f02d912ad20ed25075
+            bridge: 22fff2a30705c620c3a9375167fd64ff0affcd08
+            adapter: 107a44cfdcfdaf8cd1769bba3e90c0056fb59cc0
+            worker: 0a33495fcca291b4ed0206e6cd34e4785b8154bf
+            cargo: 37fc921fd524526f6c3626a7bc1ac44d248d36f7
+            transport: 8a8b93403c203b116a68afe85b03080c2d6473c9
+    env:
+      CARGO_TARGET_DIR: /tmp/qrw-generated-local-target
+      DOMAIN: ${{ matrix.domain }}
+      CORE: ${{ matrix.core }}
+      WEB: ${{ matrix.web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.web }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Pin accepted Core and current Web bytes
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$WEB"
+          # Five shared Web boundaries changed since old domain-specific QA; pin new live protected main identity.
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = c65930ffa0158542071202f02d912ad20ed25075
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 22fff2a30705c620c3a9375167fd64ff0affcd08
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = b391cac5ce961a40692e65755be4d289a7a1eb7d
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 7e54a2c67d4dfda9e26d0b89687dcd809571a40c
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 8a68955bea6d9048b44349e37f30f1f9e6178fc2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 107a44cfdcfdaf8cd1769bba3e90c0056fb59cc0
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = '${{ matrix.owner }}'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = '${{ matrix.bridge }}'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = '${{ matrix.adapter }}'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-$DOMAIN-transport.mjs)" = '${{ matrix.transport }}'
+          git cat-file -e "$CORE^{commit}" || git fetch --no-tags origin "$CORE"
+          git worktree add --detach /tmp/qrw-generated-core "$CORE"
+          test "$(git -C /tmp/qrw-generated-core rev-parse HEAD)" = "$CORE"
+          test "$(git -C /tmp/qrw-generated-core rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = '${{ matrix.worker }}'
+          test "$(git -C /tmp/qrw-generated-core rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = '${{ matrix.cargo }}'
+          cp tests/fixtures/ddv-save-core-accepted.Cargo.lock /tmp/qrw-generated-core/crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  /tmp/qrw-generated-core/crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+      - name: Reproduce accepted dedicated Web WASM per Build (no Core re-QA)
+        run: |
+          set -euo pipefail
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrw-generated-tools
+          for platform in steam switch; do
+            cargo build --locked --manifest-path /tmp/qrw-generated-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "worker-wasm,product-${platform}626-$DOMAIN-scoped"
+            mkdir -p tests/qa-generated/$platform static/qa-generated/$platform
+            /tmp/qrw-generated-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/qa-generated/$platform --target web --no-typescript
+            cp tests/qa-generated/$platform/ddv_save_core_bg.wasm static/qa-generated/$platform/
+            sha256sum tests/qa-generated/$platform/ddv_save_core.js static/qa-generated/$platform/ddv_save_core_bg.wasm
+          done
+      - run: npm ci --no-audit --no-fund
+      - name: Changed current shared Web cross-operation regression only
+        run: |
+          node --test tests/product-scoped-backpack-local-adapter.test.mjs tests/product-scoped-wardrobe-local-adapter.test.mjs
+          echo QRW_MAIN933_SHARED5_BACKPACK_WARDROBE_NODE_CONTRACT_PASS
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Accepted synthetic fixture with independent expected document
+        run: |
+          mkdir -p src/routes/test-qrw-generated static/qa-generated
+          cat > tests/.qa-generated-fixture.mjs <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';import assert from 'node:assert/strict';import {makeSyntheticP1gProfile} from './helpers/p1g-fixture.mjs';
+          const sha=b=>createHash('sha256').update(b).digest('hex'),domain=process.env.DOMAIN;let d,want;
+          if(domain==='backpack'){
+            const item=30200001,pet={PetItemID:120000001,FriendshipLevel:1,FriendshipXp:0,LastSelfieDate:'2000-01-01T00:00:00Z',LastPettedDate:'2000-01-01T00:00:00Z',GrantedInventorySlots:0,CustomName:'',PendingHangoutRewards:[],CritterInteractions:[]};
+            d={GameInfo:{Version:626},World:{Unknown:{keep:1}},Player:{ContainerInventories:{0:{ID:0,Size:4,ExtraSize:1,BelongsToPlayer:true,BlockMoveTo:false,ParentItemID:null,Inventory:[{ItemID:item,Amount:4,State:null,Unknown:'keep'},{ItemID:0,Amount:0,State:null},{ItemID:0,Amount:0,State:null},{ItemID:0,Amount:0,State:null}]}},Pets:Array.from({length:224},()=>structuredClone(pet))},Opaque:{keep:'preserve'}};
+            want=structuredClone(d);const inv=want.Player.ContainerInventories[0].Inventory;inv[0].Amount=3;inv[1].ItemID=item;inv[1].Amount=1;
+          }else{
+            const old=50000352,newId=50000214,pack=readFileSync('/tmp/qrw-generated-core/crates/ddv-save-core/data/wardrobe-clothing-compat-v1.json');assert.equal(sha(pack),'9bcf2cf489238074df8ea0b385a6675c8efcd51bb009cac37d8e107ec1a5d0b2');const rows=JSON.parse(pack).rows,map=new Map(rows.map(x=>[x[0],x]));
+            const conflict=(a,b)=>{const x=map.get(a),y=map.get(b);return !!(x[3]&(1<<y[2]))||x[4].includes(b)||(x[2]===9&&[0,1,7,15].includes(y[2]))||(y[2]===9&&[0,1,7,15].includes(x[2]));};
+            const bottom=rows.find(x=>x[2]===1&&!conflict(old,x[0])&&!conflict(x[0],old)&&!conflict(newId,x[0])&&!conflict(x[0],newId))[0],stock=n=>({Amount:n,Marker:'ItemMarker_None'}),avatar=()=>({Clothes:{},IncompatibleClothes:{},ClothingCustomization:{},Makeup:{}}),m=avatar();m.Clothes={0:old,1:bottom};
+            d={GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},World:{Unknown:{keep:1}},Player:{AvatarIsMale:true,FemaleAvatar:avatar(),MaleAvatar:m,MaleClothingDesigns:[],FemaleClothingDesigns:[],OutfitPresets:[],ListInventories:{1:{ID:1,CompatibleItemType:'ItemType_Clothing',Inventory:{[old]:stock(8),[newId]:stock(9),[bottom]:stock(1)}},3:{ID:3,CompatibleItemType:'ItemType_Makeup',Inventory:{}}},CollectionSets:[{CollectionDefinitionID:2120000001,GroupData:[{GroupsCollectionItems:{[old]:true,[newId]:true}}]}]},Opaque:{Unrelated:'50000999'}};
+            want=structuredClone(d);want.Player.MaleAvatar.Clothes[0]=newId;
+          }
+          const b=makeSyntheticP1gProfile(d);writeFileSync('static/qa-generated/input.p1g',b);writeFileSync('static/qa-generated/meta.json',JSON.stringify({domain,sha:sha(b),expected:want}));
+          NODE
+          node tests/.qa-generated-fixture.mjs
+          cat > src/routes/test-qrw-generated/+page.svelte <<'SVELTE'
+          <script>
+          import {onMount} from 'svelte';
+          onMount(()=>{const w=new Worker(new URL('./qa.worker.mjs',import.meta.url),{type:'module'});w.onmessage=e=>window.__qrwGenerated=e.data;w.onerror=e=>window.__qrwGenerated={error:e.message};return()=>w.terminate()});
+          </script>
+          <p>Isolated synthetic QA only</p>
+          SVELTE
+          cat > src/routes/test-qrw-generated/qa.worker.mjs <<'NODE'
+          import steamInit,{WorkerWasmSource as Steam} from '../../../tests/qa-generated/steam/ddv_save_core.js';
+          import switchInit,{WorkerWasmSource as Switch} from '../../../tests/qa-generated/switch/ddv_save_core.js';
+          import * as adapters from '$lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          const need=(v,k)=>{if(!v)throw Error(k)},sha=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
+          const st={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true},sw={platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626,externallyConfirmed:true};
+          let neg=0;const deny=async(f,k)=>{let ok=false;try{await f()}catch{ok=true}need(ok,k);neg++};
+          try{
+            const meta=await(await fetch('/qa-generated/meta.json')).json(),bytes=new Uint8Array(await(await fetch('/qa-generated/input.p1g')).arrayBuffer());need(await sha(bytes)===meta.sha,'fixture original');
+            const root=await navigator.storage.getDirectory(),results=[],ward=meta.domain==='wardrobe',kind=ward?'Wardrobe':'Backpack',count=ward?1:3;
+            for(const [mode,init,Cls,build,foreign] of [['Steam',steamInit,Steam,st,sw],['Switch',switchInit,Switch,sw,st]]){
+              const r=await fetch('/qa-generated/'+mode.toLowerCase()+'/ddv_save_core_bg.wasm');need(r.ok&&r.headers.get('content-type')?.startsWith('application/wasm'),'WASM MIME');await init({module_or_path:await r.arrayBuffer()});
+              const create=adapters['createProduct'+mode+'626'+kind+'LocalAdapter'],file=new File([bytes],meta.domain+'-'+mode+'.p1g'),input={file,build,originalSha256:meta.sha};
+              let opens=0,closes=0,failClose=false;
+              const factory=async()=>({WorkerWasmSource:class extends Cls{constructor(...x){super(...x);opens++}close(){if(failClose){failClose=false;throw Error('QA close failure before actual cleanup')}closes++;return super.close()}}});
+              const a=create({wasmFactory:factory}),preview=()=>ward?a.previewWardrobe():a.previewBackpack({sourceSlot:0,destinationSlot:1}),stage=()=>ward?a.stageWardrobe():a.stageBackpack();
+              need(!a.stageTyped&&!a.previewPlacement&&!a.stageCollectionTarget&&(ward?!a.previewBackpack:!a.previewWardrobe),'foreign surface');
+              await deny(()=>a.open({...input,build:foreign}),'foreign build');need(opens===0,'foreign session');
+              await a.open(input);need(opens===1,'one actual owner');await deny(preview,'preview prebackup');await deny(stage,'stage prebackup');await a.backupOriginal();
+              const p=await preview();need(p.witnessSha256===undefined&&p.projectedDecodedSha256===undefined,'private receipt');need(ward?p.oldItemId===50000352&&p.newItemId===50000214:p.oldAmount===4&&p.newSourceAmount===3&&p.newDestinationAmount===1,'preview');
+              need((await stage()).exactFieldChangedCount===count,'exact stage');await a.undo();await deny(()=>a.exportEditedCopy(),'undo export');await a.redo();const o=await a.exportEditedCopy();need(o.freshWorkerReopenVerified===true&&o.writerAuthorized===false,'fresh codec worker');
+              const b=await a.downloadVerifiedCopy('backup'),e=await a.downloadVerifiedCopy('edited');need(b.name!==e.name&&b.name!==file.name&&e.name!==file.name,'separate names');need(await sha(b.encryptedBytes)===meta.sha&&await sha(new Uint8Array(await file.arrayBuffer()))===meta.sha,'original backup');
+              const bf=await(await root.getFileHandle(b.name)).getFile(),ef=await(await root.getFileHandle(e.name)).getFile();need(await sha(new Uint8Array(await bf.arrayBuffer()))===meta.sha&&await sha(new Uint8Array(await ef.arrayBuffer()))===e.sha256,'actual OPFS');
+              await deny(()=>a.exportEditedCopy(),'replay');await a.close();await deny(()=>a.downloadVerifiedCopy('edited'),'closed');need(opens===1&&closes===1,'actual close');
+              const q=create({wasmFactory:factory});await q.open(input);failClose=true;await deny(()=>q.close(),'failed close');const before=opens;await deny(()=>q.open(input),'unverified close barrier');need(opens===before,'no second owner');await q.close();await q.open(input);await q.close();need(opens===3&&closes===3,'strict close retry');
+              results.push({mode,count,opens,closes,backup:Array.from(b.encryptedBytes),edited:Array.from(e.encryptedBytes)});
+            }
+            postMessage({ok:true,domain:meta.domain,results,neg});
+          }catch(e){postMessage({error:String(e?.stack||e)})}
+          NODE
+      - name: Actual Chrome OPFS, current shared DOM/Worker, mixed-scope refusal and independent OS full-document reopen
+        run: |
+          cat > tests/.qa-generated-browser.mjs <<'NODE'
+          import {chromium} from 'playwright-core';import {spawn,spawnSync} from 'node:child_process';import {writeFileSync,readFileSync} from 'node:fs';import assert from 'node:assert/strict';
+          const origin='http://127.0.0.1:4182',server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4182','--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});let browser;
+          try{
+            for(let i=0;i<100;i++){try{if((await fetch(origin+'/test-qrw-generated/')).ok)break}catch{}await new Promise(r=>setTimeout(r,250))}
+            const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});const page=await browser.newPage();await page.goto(origin+'/test-qrw-generated/');await page.waitForFunction(()=>!!window.__qrwGenerated,{},{timeout:120000});const q=await page.evaluate(()=>window.__qrwGenerated);assert.ok(q.ok,q.error);assert.equal(q.results.length,2);assert.equal(q.neg,16);
+            for(const r of q.results){const f='/tmp/qrw-generated-'+r.mode+'.p1g';writeFileSync(f,Buffer.from(r.edited));assert.deepEqual(Buffer.from(r.backup),readFileSync('static/qa-generated/input.p1g'));const check=spawnSync(process.execPath,['--input-type=module','-e',"import {readFileSync} from 'node:fs';import assert from 'node:assert/strict';import {p1gPackagedProfileCodec as c} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';const p=await c.loadProfile(new Uint8Array(readFileSync(process.argv[1])));assert.deepEqual(JSON.parse(p.jsonText),JSON.parse(readFileSync('static/qa-generated/meta.json','utf8')).expected)",f],{stdio:'inherit'});assert.equal(check.status,0);console.log('QRW_GENERATED_LOCAL_OP_PASS',JSON.stringify({domain:q.domain,build:r.mode,exact:r.count,actualRustSessions:r.opens,closes:r.closes,opfs:true,independentReopen:true,writer:false}));}
+            console.log('QRW_MAIN933_BACKPACK_WARDROBE_GENERATED_LOCAL_DOMAIN_PASS',JSON.stringify({domain:q.domain,positive:2,negative:q.neg,actualGeneratedWasm:true,actualOpfs:true,independentReopen:true,genuine:false,signed:false}));
+          }finally{if(browser)await browser.close();server.kill()}
+          NODE
+          node tests/.qa-generated-browser.mjs
