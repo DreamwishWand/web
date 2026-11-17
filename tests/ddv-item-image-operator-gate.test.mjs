@@ -89,6 +89,10 @@ test("synthetic fully scoped operator receipt can clear only SOURCE preflight, n
   fake.assetBundleSha256 = digest("c");
   fake.assetManifestEvidenceRef = "SYNTHETIC_MANIFEST_REF";
   fake.deploymentAuthorizationRef = "SYNTHETIC_DEPLOYMENT_REF";
+  // A verified empty/current suppression ledger is distinct from an UNKNOWN
+  // ledger restored by an older bundle or a stale deployment.
+  fake.suppressionLedger = [];
+  fake.suppressionLedgerProvenance = "SYNTHETIC_SCOPED_LEDGER_VERIFIED";
   assert.deepEqual(preflightGameImageOperatorReceipt(fake), { readyForOperatorReview: true, reasons: [] });
   assert.equal(preflightGameImageOperatorReceipt({...fake, rightsContact: {...fake.rightsContact, tested: false}}).readyForOperatorReview, false);
   assert.equal(preflightGameImageOperatorReceipt({...fake, rightsContact: {...fake.rightsContact, tested: undefined}}).readyForOperatorReview, false);
@@ -99,6 +103,28 @@ test("synthetic fully scoped operator receipt can clear only SOURCE preflight, n
     .reasons.includes("OPERATOR_CONTROL_NOT_PROVED:cdnInvalidation"));
   assert.ok(preflightGameImageOperatorReceipt({...fake, copyrightLicenceStatus:"DOCUMENTED",copyrightLicenceEvidenceRef:null})
     .reasons.includes("CLAIMED_LICENCE_HAS_NO_EVIDENCE"));
+  const deny = (packet, label) => {
+    const output = preflightGameImageOperatorReceipt(packet);
+    assert.equal(output.readyForOperatorReview,false,label);
+    assert.ok(output.reasons.includes("SUPPRESSION_LEDGER_OR_PROVENANCE_NOT_VERIFIED"),label);
+  };
+  for (const provenance of [
+    null,undefined,false, "", "UNKNOWN", "NOT_RUN", "NOT_VERIFIED",
+    "not_verified", "NOT_VERIFIED ", " SYNTHETIC_SCOPED_LEDGER_VERIFIED",
+    "SYNTHETIC_SCOPED_LEDGER_VERIFIED\nINJECTED"
+  ]) deny({...fake,suppressionLedgerProvenance:provenance},String(provenance));
+  for (const ledger of [
+    null,undefined,{}, "[]",
+    [{kind:"SOURCE_SHA256",value:"invalid",state:"HIDDEN",incidentRef:"SYNTHETIC"}],
+    [{kind:"ITEM_ID",value:"40000047",state:"RESTORED",incidentRef:"SYNTHETIC"}],
+    [{kind:"WEBP_SHA256",value:digest("b"),state:"HIDDEN",incidentRef:"NOT_RUN"}],
+    [{kind:"ITEM_ID",value:"40000047",state:"HIDDEN",incidentRef:""}]
+  ]) deny({...fake,suppressionLedger:ledger},JSON.stringify(ledger));
+  // Valid HIDDEN records never permit the corresponding asset candidate.
+  const suppressed = [{kind:"SOURCE_SHA256",value:image.sourcePngSha256,state:"HIDDEN",incidentRef:"SYNTHETIC_TAKEDOWN"}];
+  assert.deepEqual(preflightGameImageOperatorReceipt({...fake,suppressionLedger:suppressed}),
+    {readyForOperatorReview:true,reasons:[]});
+  assert.ok(preflightGameItemImage(image,ctx,suppressed).reasons.includes("ITEM_OR_SHARED_HASH_HIDDEN"));
 });
 
 test("asset can only be a technical pack candidate with exact version/visibility/provenance", () => {

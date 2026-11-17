@@ -179,6 +179,17 @@ export function preflightGameImageOperatorReceipt(receipt) {
     if (!check || check.verified !== true || !evidence(check.evidenceRef))
       reasons.push("OPERATOR_CONTROL_NOT_PROVED:" + key);
   }
+  // Do not treat a missing or stale restore of the HIDDEN ItemID/shared-hash
+  // ledger as a verified empty ledger. Even all eight operator checkboxes
+  // cannot replace the independently validated suppression source.
+  const suppressionProvenance = receipt.suppressionLedgerProvenance;
+  if (!validateImageSuppressionLedger(receipt.suppressionLedger) ||
+      typeof suppressionProvenance !== "string" ||
+      suppressionProvenance !== suppressionProvenance.trim() ||
+      !evidence(suppressionProvenance) ||
+      /^(?:UNKNOWN|NOT_RUN|NOT_VERIFIED)$/i.test(suppressionProvenance) ||
+      /[\p{Cc}\p{Cf}]/u.test(suppressionProvenance))
+    reasons.push("SUPPRESSION_LEDGER_OR_PROVENANCE_NOT_VERIFIED");
   if (!evidence(receipt.assetBundleSha256) || !sha(receipt.assetBundleSha256) ||
       !evidence(receipt.assetManifestEvidenceRef)) reasons.push("ASSET_RELEASE_BUNDLE_NOT_PINNED");
   if (!evidence(receipt.deploymentAuthorizationRef))
