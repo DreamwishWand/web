@@ -135,8 +135,10 @@ test('reset-only recovery: exact public GET, bounded delay, one reset per phase'
    await assert.rejects(g(p),/GITHUB_API_DENIED:403/);assert.equal(n,1);
  }
  for(const path of ['/repos/DreamwishWand/web-extra/actions/runs/123','/repos/DreamwishWand/web/actions/runs?unexpected=1']){
-   const g=createPublicJsonGetter(async()=>limited(),async()=>assert.fail('unexpected retry'),()=>now);
-   await assert.rejects(g(path),/GITHUB_API_DENIED:403:endpoint=other/);
+   let requests=0;
+   const g=createPublicJsonGetter(async()=>{requests++;return limited();},async()=>assert.fail('unexpected retry'),()=>now);
+   await assert.rejects(g(path),/UNSAFE_API_CATEGORY/);
+   assert.equal(requests,0,'non-allowlisted endpoint must be rejected before fetch');
  }
  for(const [seconds,expected] of [[179,180000],[180,0]]){
    let n=0;const sleeps=[];
@@ -167,4 +169,60 @@ test('reset recovery cannot grant stale main or changed deploy receipt',async()=
    },async()=>{},()=>now);
    await assert.rejects(revalidateProtectedCi(input,receipt,get),/PROTECTED_MAIN_STALE|RUN_IDENTITY_MISMATCH/);
  }
+});
+
+
+test('scoped authenticated GitHub transport is exact GET-only and does not leak token',async()=>{
+ const token='ghs_'+'A'.repeat(40),p=root+'/git/ref/heads/main';
+ const result=await githubPublicJson(p,async(url,o)=>{
+   assert.equal(url.href,'https://api.github.com'+p);
+   assert.equal(o.method,'GET');assert.equal(o.redirect,'error');
+   assert.equal(o.headers.Authorization,'Bearer '+token);
+   return new Response(JSON.stringify(ref),{headers:{'content-type':'application/json'}});
+ },undefined,undefined,undefined,token);
+ assert.deepEqual(result,ref);
+ for(const invalid of ['','abc','ghs_BAD_DOLLAR','ghs_bad\nAuthorization:evil']){
+   await assert.rejects(githubPublicJson(p,async()=>assert.fail('invalid token must not fetch'),
+     undefined,undefined,undefined,invalid),/PROTECTED_CI_READ_TOKEN_DENIED/);
+ }
+ await assert.rejects(githubPublicJson('/repos/DreamwishWand/../bad',
+   async()=>assert.fail('invalid path must not fetch'),undefined,undefined,undefined,token),/UNSAFE_API_PATH/);
+ const expired=await githubPublicJson(p,async(_url,o)=>{
+   assert.equal(o.headers.Authorization,'Bearer '+token);
+   return new Response('SECRET_DO_NOT_LOG',{status:403,headers:{'x-ratelimit-remaining':'0'}});
+ },async()=>assert.fail('no retry'),undefined,undefined,token).then(()=>null,e=>e);
+ assert.match(expired.message,/GITHUB_API_DENIED:403:endpoint=main-ref/);
+ assert.doesNotMatch(expired.message,/SECRET_DO_NOT_LOG|ghs_/);
+});
+
+test('every protected Pages Gate invocation has scoped read token and read permission',()=>{
+ const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
+ const gateSteps=y.split(/\n(?=      - name: )/).filter(s=>s.includes('node scripts/int-protected-ci-gate.mjs'));
+ assert.ok(gateSteps.length>=12);
+ for(const step of gateSteps)assert.match(step,/^          WAND_GATE_READ_TOKEN: \$\{\{ github\.token \}\}$/m);
+ assert.match(y,/permissions:\n  contents: read\n  actions: read\n/);
+ assert.match(y,/  deploy:\n[\s\S]*?    permissions:\n      pages: write\n      id-token: write\n      actions: read\n/);
+});
+
+
+test('authenticated protected GET rejects six unlisted or normalized endpoints before bearer fetch',async()=>{
+ const token='ghs_'+'Z'.repeat(40);
+ const unexpected=[
+  '/repos/DreamwishWand/web/issues/1',
+  '/repos/DreamwishWand/web/actions/workflows?per_page=100',
+  '/repos/DreamwishWand/web/actions/runs/123?secret=1',
+  '/repos/DreamwishWand/web/actions/runs?branch=main&event=push&head_sha='+input.head+'&per_page=101',
+  '/repos/DreamwishWand/other-repository',
+  '/repos/DreamwishWand/web/%2e%2e/other-repository'
+ ];
+ let requests=0;
+ for(const p of unexpected){
+  await assert.rejects(githubPublicJson(p,async(_url,opts)=>{
+   requests++;
+   assert.equal(opts.method,'GET');
+   assert.equal(opts.headers.Authorization,'Bearer '+token);
+   return new Response('{}',{headers:{'content-type':'application/json'}});
+  },undefined,undefined,undefined,token),/UNSAFE_API_(?:CATEGORY|PATH)/);
+ }
+ assert.equal(requests,0,'unlisted endpoint must be rejected before any bearer request');
 });
