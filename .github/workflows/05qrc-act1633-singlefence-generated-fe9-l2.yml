@@ -29,6 +29,8 @@ jobs:
           printf '%s\n' '.github/workflows/05qrc-act1633-singlefence-generated-fe9-l2.yml' 'crates/ddv-save-core/src/steam_single_fence_product_target.rs' 'tests/qa/qrc2034-singlefence-generated-fe9.cjs' | LC_ALL=C sort >/tmp/qrc2034-expected
           diff -u /tmp/qrc2034-expected /tmp/qrc2034-actual
           git diff --exit-code fe9baeb82b4bb61b31e1d0e66d93dd31076d8891 HEAD -- crates/ddv-save-core/Cargo.toml crates/ddv-save-core/src/wasm_worker.rs crates/ddv-save-core/src/worker_session.rs crates/ddv-save-core/src/product_session.rs crates/ddv-save-core/src/wasm_steam_single_fence_readonly.rs
+          node --check tests/qa/qrc2034-singlefence-generated-fe9.cjs
+          echo QRC2034_SINGLEFENCE_EARLY_NODE_SYNTAX_PASS
           echo QRC2034_SINGLEFENCE_IMMUTABLE_SOURCE_QA_ONLY_BOUNDARY_PASS
       - name: Real opt-in Rust feature, generated JS/WASM three profiles, adversarial target
         run: |
