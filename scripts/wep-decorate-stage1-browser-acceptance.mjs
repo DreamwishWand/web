@@ -30,6 +30,25 @@ async function eventually(fn,timeout=30000){
   if(last)throw last;
   throw new Error('Timed out waiting for condition.');
 }
+// Explore Search is deliberately collapsed by default (DEC-UX-07).
+// A WEP handoff must use the visible disclosure, never type into a hidden field.
+async function fillVerifiedExploreSearch(page,itemId='40000048'){
+  const toggle=page.locator('[data-explore-search-toggle]');
+  const panel=page.locator('[data-explore-search-panel]');
+  const search=panel.locator('input[type="search"]');
+  await toggle.waitFor({state:'visible'});
+  assert.equal(await toggle.getAttribute('aria-controls'),'explore-search-panel');
+  assert.equal(await toggle.getAttribute('aria-expanded'),'false');
+  assert.equal(await panel.isVisible(),false);
+  assert.equal(await search.isDisabled(),true);
+  await toggle.click();
+  await panel.waitFor({state:'visible'});
+  assert.equal(await toggle.getAttribute('aria-expanded'),'true');
+  assert.equal(await search.isEnabled(),true);
+  // Expansion must restore keyboard focus before the handoff filter is edited.
+  await eventually(async()=>await search.evaluate(node=>node===document.activeElement),15000);
+  await search.fill(itemId);
+}
 async function verifyDownloadedSavePair(page,success,original,sourceName,expectedProfile){
   const get=async name=>{
     const pending=page.waitForEvent('download',{timeout:10000});
@@ -328,7 +347,7 @@ try{
   pass('PENDING_WAND_PRESET_FAILS_CLOSED_WITHOUT_CONNECTED_PREFLIGHT');
 
   await page.goto(root+'/explore/',{waitUntil:'networkidle'});
-  await page.locator('.controls input[type="search"]').fill('40000048');
+  await fillVerifiedExploreSearch(page);
   await eventually(async()=>await page.locator('.card-review').count()===1);
   const beforeExplore=await page.evaluate((handoffKey)=>Object.fromEntries(
     Object.entries(localStorage).filter(([key])=>key!==handoffKey)
@@ -448,7 +467,7 @@ try{
 
   // Exact ordinary Furniture ADD remains bound to its accepted verified-export path.
   await page.goto(root+'/explore/',{waitUntil:'networkidle'});
-  await page.locator('.controls input[type="search"]').fill('40000048');
+  await fillVerifiedExploreSearch(page);
   await eventually(async()=>await page.locator('.card-review').count()===1);
   await page.locator('.card-review').click();
   const addQuick=page.locator('.quick-review');
@@ -748,7 +767,7 @@ try{
   },root+'/explore/');
   await page.locator('a[data-wep-client-nav="explore"]').click();
   await page.waitForURL(/\/explore\/?$/);
-  await page.locator('.controls input[type="search"]').fill('40000048');
+  await fillVerifiedExploreSearch(page);
   await eventually(async()=>await page.locator('.card-review').count()===1);
   await page.locator('.card-review').click();
   await page.locator('.quick-review').getByRole('button',{name:'Place in World Editor'}).click();
@@ -882,7 +901,7 @@ try{
     scrollWidth:node.scrollWidth,clientWidth:node.clientWidth
   }));
   assertNoOverflow(mobileExploreMetrics,'mobile Explore 320px');
-  await mobilePage.locator('.controls input[type="search"]').fill('40000048');
+  await fillVerifiedExploreSearch(mobilePage);
   await eventually(async()=>await mobilePage.locator('.card-review').count()===1);
   await mobilePage.locator('.card-review').click();
   assert.equal(await mobilePage.locator('.quick-review').getByRole('button',{name:'Place in World Editor'}).count(),0);
