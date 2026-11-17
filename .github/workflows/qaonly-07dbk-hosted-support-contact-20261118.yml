@@ -1,0 +1,107 @@
+name: QA ONLY 07 DBK hosted single support contact actual Pages READONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qaonly-07dbk-hosted-support-contact-20261118.yml'
+permissions:
+  contents: read
+jobs:
+  hosted-contact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d8fb979fc7719a79d8c5ac5efcf35e8fb4437419
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin actual signed main and accepted single Owner mailbox, no new entitlement
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = d8fb979fc7719a79d8c5ac5efcf35e8fb4437419
+          test "$(git rev-parse HEAD:src/lib/SiteFooter.svelte)" = f1b000991acdc03da6b890a4cb524bf54a2e0e1f
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {ACTIVE_RELEASE_TUPLE} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          assert.equal(ACTIVE_RELEASE_TUPLE.repository,'DreamwishWand/web');
+          assert.equal(ACTIVE_RELEASE_TUPLE.origin,'https://dreamwishwand.github.io');
+          assert.equal(ACTIVE_RELEASE_TUPLE.basePath,'/web');
+          console.log('DBK_HOSTED_ACTIVE_TUPLE_FIXED_SIGNED_MAIN_D8FB_PASS');
+          NODE
+      - name: Actual externally served GitHub Pages GET HTTP200 HTML exactly one Owner support mailto on five routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/dbk-actual-pages
+          for key in root help explore collection world; do
+            case "$key" in
+              root) route='' ;;
+              help) route='help/' ;;
+              explore) route='explore/' ;;
+              collection) route='collection/' ;;
+              world) route='editor/world/' ;;
+            esac
+            meta="$(curl --fail-with-body --silent --show-error --location --connect-timeout 8 --max-time 35 --retry 2 --output "/tmp/dbk-actual-pages/$key.html" --write-out '%{http_code}|%{content_type}' "https://dreamwishwand.github.io/web/$route")"
+            case "$meta" in 200\|text/html*) ;; *) echo "DBK_HOSTED_HTTP_MIME_FAIL $key $meta"; exit 1;; esac
+            test -s "/tmp/dbk-actual-pages/$key.html"
+            echo "DBK_HOSTED_REAL_HTTPS200_HTML $key $meta"
+          done
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          for(const key of ['root','help','explore','collection','world']){
+            const html=readFileSync('/tmp/dbk-actual-pages/'+key+'.html','utf8');
+            const anchors=[...html.matchAll(/<a\b[^>]*\bdata-owner-support-contact\b[^>]*>/gi)].map(x=>x[0]);
+            assert.equal(anchors.length,1,key+' exactly one contact element');
+            assert.ok(anchors[0].includes('href="mailto:support@dreamwishwand.com"'),key+' exact literal mailbox');
+            assert.equal([...html.matchAll(/<p\b[^>]*\bdata-image-rights-attribution\b[^>]*>/gi)].length,1,key+' rights attribution still included');
+            assert.equal(anchors[0].includes('?'),false,key+' no prefilled email headers');
+            assert.equal(anchors[0].includes('#'),false,key+' no mailto fragment');
+            assert.equal(anchors[0].includes('rights@'),false,key+' no alternate role');
+            assert.equal(anchors[0].includes('privacy@'),false,key+' no alternate role');
+            console.log('DBK_HOSTED_REAL_HTML_SINGLE_MAILTO_AND_RIGHTS_COPY',key);
+          }
+          console.log('DBK_HOSTED_5_DIRECT_HTTPS_HTML_MAILTO_SCOPED_PASS');
+          NODE
+      - name: Real hosted Chromium checks visible keyboard-focusable footer across routes at desktop and mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          CHROME_BIN="$CHROME_BIN" node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const browser=await chromium.launch({
+            executablePath:process.env.CHROME_BIN,
+            headless:true,args:['--no-sandbox','--disable-dev-shm-usage']
+          });
+          try{
+            const page=await browser.newPage({viewport:{width:1366,height:900}});
+            for(const key of ['','help/','explore/','collection/','editor/world/']){
+              await page.goto('https://dreamwishwand.github.io/web/'+key,{waitUntil:'domcontentloaded',timeout:35000});
+              const link=page.locator('footer a[data-owner-support-contact]');
+              await link.waitFor({timeout:25000});
+              assert.equal(await link.count(),1,key+' one');
+              assert.equal(await link.getAttribute('href'),'mailto:support@dreamwishwand.com',key+' exact address');
+              assert.equal((await link.innerText()).trim(),'support@dreamwishwand.com',key+' text');
+              assert.equal(await link.isVisible(),true,key+' visible');
+              assert.equal(await page.locator('[data-image-rights-attribution]').count(),1,key+' rights preserved');
+              await link.focus();
+              assert.equal(await link.evaluate(e=>e===document.activeElement),true,key+' keyboard focusable');
+              await page.setViewportSize({width:320,height:800});
+              await link.scrollIntoViewIfNeeded();
+              const b=await link.boundingBox();
+              assert.ok(b && b.width>0 && b.height>0 && b.x>=-1 && b.x+b.width<=321,key+' mobile not clipped '+JSON.stringify(b));
+              await page.setViewportSize({width:1366,height:900});
+              console.log('DBK_HOSTED_REAL_CHROME_VISIBLE_MAILTO_FOCUS_MOBILE',key||'root');
+            }
+            console.log('DBK_HOSTED_5ROUTE_CHROME_REAL_MAILTO_FOCUS_320_PASS');
+          } finally {await browser.close();}
+          NODE
