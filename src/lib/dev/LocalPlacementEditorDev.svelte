@@ -117,7 +117,10 @@
    {#if state.phase==='previewed'&&makeup}<button disabled={pending||!valid||p?.makeupItemId!==140100014||p?.slot!==1||p?.field!=='ColorIndex1'||p?.oldColorIndex!==53||p?.newColorIndex!==60||p?.inventoryDelta!==0} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
     {#if state.phase==='previewed'&&eye}<button disabled={pending||!valid||p?.eyeballItemId!==70000010||p?.field!=='ColorIndex2'||p?.oldColorIndex!==64||p?.newColorIndex!==69||p?.inventoryDelta!==0} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
    {#if !eye&&!makeup}
-   {#if state.phase==='previewed'}<button disabled={pending||!valid||(fe01?p?.gridId!==grid||!p?.oldIds?.every((v,i)=>v===oldIds[i]):appearance?(p?.old!==(operation==='hair'?74:170000054)||p?.new!==(operation==='hair'?20:170000000)||(operation==='skin'&&p?.characterId!==10000053)):wardrobe?p?.slot!==0||p?.oldItemId!==50000352||p?.newItemId!==50000214:backpack?p?.sourceSlot!==x||p?.destinationSlot!==y:operation==='comp03'?p?.seedId!==seed:mixedRoad?p?.gridId!==grid||p?.retainedId!==x||p?.movedId!==y:p?.gridId!==grid||p?.x!==x||p?.y!==y)} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
+   {#if state.phase==='previewed'&&fe01}<button disabled={pending||!valid||p?.gridId!==grid||!p?.oldIds?.every((v,i)=>v===oldIds[i])} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
+   {#if !fe01}
+   {#if state.phase==='previewed'}<button disabled={pending||!valid||(appearance?(p?.old!==(operation==='hair'?74:170000054)||p?.new!==(operation==='hair'?20:170000000)||(operation==='skin'&&p?.characterId!==10000053)):wardrobe?p?.slot!==0||p?.oldItemId!==50000352||p?.newItemId!==50000214:backpack?p?.sourceSlot!==x||p?.destinationSlot!==y:operation==='comp03'?p?.seedId!==seed:mixedRoad?p?.gridId!==grid||p?.retainedId!==x||p?.movedId!==y:p?.gridId!==grid||p?.x!==x||p?.y!==y)} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
+   {/if}
    {/if}
    {#if state.phase==='staged'}<button disabled={pending} on:click={()=>act(w=>w.undo())}>{words.undo}</button><button disabled={pending} on:click={()=>act(w=>w.exportEditedCopy())}>{words.export}</button>{/if}
    {#if state.phase==='undone'}<button disabled={pending} on:click={()=>act(w=>w.redo())}>{words.redo}</button>{/if}
