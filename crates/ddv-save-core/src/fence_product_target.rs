@@ -497,6 +497,91 @@ mod fixed_add_tests{
   let mut q=d.clone();q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(0);let s=open(&q);assert!(mint(&s,env(&s),90001,x,y).is_err());
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX);let s=open(&q);assert!(mint(&s,env(&s),90001,x,y).is_err());
  }
+
+ // New current Appearance+Fence composition ABI counterexample. Synthetic
+ // decoded doc ONLY: this neither accesses a private P1G nor grants Writer ON.
+ #[cfg(all(feature="product-switch626-fence-add-stage-internal",
+           feature="product-switch626-makeup-color1-internal",
+           feature="product-switch626-eyecolor2-internal"))]
+ #[test]
+ fn qrc1989_composed_appearance_fence_abi_5pos60neg(){
+  let specs:[(FenceAddTargetKind,&[(i32,i32,u32,u32)]);5]=[
+   (FenceAddTargetKind::Fd02,&[(0,0,2,2),(2,-2,2,2),(4,-4,2,2)]),
+   (FenceAddTargetKind::Fd03,&[(0,0,2,2),(2,2,8,8),(10,10,2,2)]),
+   (FenceAddTargetKind::OrthoL,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(4,2,2,2),(4,4,2,2)]),
+   (FenceAddTargetKind::Diagonal90,&[(0,0,2,2),(2,2,2,2),(4,4,2,2),(6,2,2,2),(8,0,2,2)]),
+   (FenceAddTargetKind::OrthoT,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(6,0,2,2),(8,0,2,2),(4,2,2,2),(4,4,2,2)])];
+  let kinds=[FenceAddTargetKind::Fd02,FenceAddTargetKind::Fd03,FenceAddTargetKind::OrthoL,
+             FenceAddTargetKind::Diagonal90,FenceAddTargetKind::OrthoT];
+  let provider=MeadowGeometry::fixed_switch626("9A239D3DB569756D",626).unwrap();
+  let(mut positives,mut negatives)=(0u32,0u32);
+  for(kind,foot)in specs{
+   let(x,y)=(0..376u32).step_by(2).flat_map(|a|(4..184u32).step_by(2).map(move|b|(a,b)))
+    .find(|&(a,b)|foot.iter().all(|&(dx,dy,w,h)|{
+     let xx=(i64::from(a)+i64::from(dx)) as u32;
+     let yy=(i64::from(b)+i64::from(dy)) as u32;
+     (0..w).all(|i|(0..h).all(|j|provider.floor4(xx+i,yy+j)))
+    })).unwrap();
+   let d=json!({"GameInfo":{"Version":626},"World":{"Villages":[{"Areas":{"2":{"Unlocked":true,"GridIDs":[90001]}}}],"PlayerHouses":[],
+    "GridCollection":{"Grids":{"90001":{"ID":90001,"GridDataPath":GRID,"GridDefaultLayoutPath":"","TessellationFactor":2,
+    "NextGridObjectID":50,"Objects":{"10":row(if x<190{388}else{0},if y<100{196}else{0})}}},"DiffGrids":{}}},
+    "Player":{"ListInventories":{"0":{"ID":0,"CompatibleItemType":"ItemType_Furniture",
+    "CompatibleFurnitureTypes":{"List":["FurnitureItemType_Fence"]},
+    "Inventory":{"40700246":{"Amount":10,"Marker":"ItemMarker_Favorite"}}}},"ContainerInventories":{}}});
+   let s=open(&d);let e=env(&s);let before=s.receipt().unwrap();
+   let p=s.prepare_fixed_fence_add(e,kind,90001,x,y).unwrap().0;
+   assert_eq!((p.target.kind,p.target.stock,p.target.next,p.exact),
+              (kind,10,50,kind.count() as usize+1));
+   assert_eq!(s.receipt().unwrap(),before);
+   let st=WorkerEnvelope{action:WorkerAction::Stage,..e};
+   // Wrong Op kind on a valid SAME-SESSION CAS must always deny.
+   for other in kinds{if other!=kind{
+    assert!(s.stage_fixed_fence_add(st,other,&p).is_err(),"wrong kind {kind:?}->{other:?}");
+    negatives+=1;
+   }}
+   // Wrong action, stale revision/generation/hash, and forged session.
+   for bad in [WorkerEnvelope{action:WorkerAction::ReadDomain,..st},
+     WorkerEnvelope{expected_revision:1,..st},
+     WorkerEnvelope{expected_index_generation:e.expected_index_generation+1,..st},
+     WorkerEnvelope{expected_decoded_sha256:[0;32],..st},
+     WorkerEnvelope{session_id:[0;16],..st}]{
+    assert!(s.stage_fixed_fence_add(bad,kind,&p).is_err(),"bad scope {kind:?}");
+    negatives+=1;
+   }
+   let foreign=open(&d);
+   assert!(foreign.stage_fixed_fence_add(st,kind,&p).is_err());negatives+=1;
+   let mut forged=s.prepare_fixed_fence_add(e,kind,90001,x,y).unwrap().0;
+   forged.projected=[0;32];
+   assert!(s.stage_fixed_fence_add(st,kind,&forged).is_err());negatives+=1;
+   let mut forged=s.prepare_fixed_fence_add(e,kind,90001,x,y).unwrap().0;
+   forged.target.grid=90002;
+   assert!(s.stage_fixed_fence_add(st,kind,&forged).is_err());negatives+=1;
+   assert_eq!(s.receipt().unwrap(),before,"failed stages must not change state");
+   // Genuine typed Rust internal path in current co-compiled feature set.
+   let staged=s.stage_fixed_fence_add(st,kind,&p).unwrap();
+   assert_eq!(staged.exact_field_changed_count,kind.count() as usize+1);
+   assert!(!staged.product_writer_authorized&&!staged.original_overwrite_authorized);
+   assert!(s.stage_fixed_fence_add(st,kind,&p).is_err());
+   s.undo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+   s.redo_typed_semantic_batch(WorkerEnvelope{action:WorkerAction::Stage,..env(&s)}).unwrap();
+   let exp=WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..env(&s)};
+   let decoded=s.take_typed_semantic_decoded_once(exp).unwrap();
+   assert!(s.take_typed_semantic_decoded_once(exp).is_err());
+   let updated:Value=serde_json::from_slice(&decoded).unwrap();
+   assert_eq!(updated["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"],json!(10));
+   assert_eq!(updated["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"],json!(50+kind.count()));
+   assert_eq!(updated["World"]["GridCollection"]["Grids"]["90001"]["Objects"].as_object().unwrap().len(),kind.count() as usize+1);
+   assert_eq!(sha(&s.decoded),before.decoded_sha256);
+   let reopened=ProductSession::open_decoded_readonly(decoded,crate::BuildIdentity{
+    platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+    build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
+   assert_eq!(reopened.receipt().unwrap().decoded_sha256,staged.staged_decoded_sha256);
+   positives+=1;
+  }
+  assert_eq!((positives,negatives),(5,60));
+  println!("QRC1989_APPEARANCE_FIVEFENCE_COMPOSED_SYNTHETIC_ABI_PASS 5POS 60NEG EXACT4_4_6_6_8 SAME_RUST_CORE MIXED_INTERNAL_FEATURES CAS_UNDO_REDO_ONE_TIME_DECODED_REOPEN ORIGINAL_SHA_UNCHANGED STOCK_NO_DEBIT WRITER_OFF PRIVATE_P1G_V2_NOT_RUN");
+ }
+
  #[test]fn switch626_fd02_fixed_target(){run(FenceAddTargetKind::Fd02,ProductSession::mint_switch626_fd02_target,&[(0,0,2,2),(2,-2,2,2),(4,-4,2,2)]);}
  #[test]fn switch626_fd03_full_envelope_target(){run(FenceAddTargetKind::Fd03,ProductSession::mint_switch626_fd03_target,&[(0,0,2,2),(2,2,8,8),(10,10,2,2)]);}
  #[test]fn switch626_ortho_l_fixed_target(){run(FenceAddTargetKind::OrthoL,ProductSession::mint_switch626_ortho_l_target,&[(0,0,2,2),(2,0,2,2),(4,0,2,2),(4,2,2,2),(4,4,2,2)]);}
