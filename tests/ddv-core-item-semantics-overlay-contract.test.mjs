@@ -231,3 +231,53 @@ test('Missing source/unknown version/unknown build/identity-spoofed profile is n
   assert.equal(r.sourceIdentityAttestedByInspector,false);
   assert.equal(r.personalCollectionDisplayAuthorized,false);
 });
+
+test('R08: inherited profile/identity/Collection/Inventory fields are never original raw fields',()=>{
+ for(const [identity,version] of [[id1250,624],[id1253,626]]){
+  const src=()=>makeProfile(version);
+  const root=src(),game=root.GameInfo;
+  delete root.GameInfo;Object.setPrototypeOf(root,{GameInfo:game});
+  assert.equal(col({profile:root,identity}).code,'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED');
+
+  const inheritedIdentity=Object.assign(Object.create({buildId:identity.buildId}),identity);
+  delete inheritedIdentity.buildId;
+  assert.equal(col({profile:src(),identity:inheritedIdentity}).code,
+    'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED');
+
+  const setsProfile=src(),sets=setsProfile.Player.CollectionSets;
+  delete setsProfile.Player.CollectionSets;
+  Object.setPrototypeOf(setsProfile.Player,{CollectionSets:sets});
+  assert.equal(col({profile:setsProfile,identity}).code,'COLLECTION_SETS_MISSING_OR_UNBOUNDED');
+
+  const definitionProfile=src(),entry=definitionProfile.Player.CollectionSets[0];
+  delete entry.CollectionDefinitionID;
+  Object.setPrototypeOf(entry,{CollectionDefinitionID:2120000121});
+  assert.equal(col({profile:definitionProfile,identity}).code,'COLLECTION_DEFINITION_ROW_INVALID');
+
+  const groupProfile=src(),def=groupProfile.Player.CollectionSets[0],groups=def.GroupData;
+  delete def.GroupData;Object.setPrototypeOf(def,{GroupData:groups});
+  assert.equal(col({profile:groupProfile,identity}).code,'COLLECTION_GROUP_DATA_UNVERIFIED');
+
+  const itemsProfile=src(),group=itemsProfile.Player.CollectionSets[0].GroupData[0],items=group.GroupsCollectionItems;
+  delete group.GroupsCollectionItems;Object.setPrototypeOf(group,{GroupsCollectionItems:items});
+  assert.equal(col({profile:itemsProfile,identity}).code,'COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED');
+
+  const invProfile=src(),lists=invProfile.Player.ListInventories;
+  delete invProfile.Player.ListInventories;Object.setPrototypeOf(invProfile.Player,{ListInventories:lists});
+  assert.equal(inv({profile:invProfile,identity}).code,'LIST_INVENTORIES_MISSING');
+
+  const mapProfile=src(),container=mapProfile.Player.ListInventories['0'],map=container.Inventory;
+  delete container.Inventory;Object.setPrototypeOf(container,{Inventory:map});
+  assert.equal(inv({profile:mapProfile,identity}).code,'INVENTORY_RECORD_OR_ITEMS_MALFORMED');
+
+  const amountProfile=src(),stock=amountProfile.Player.ListInventories['0'].Inventory['40700050'];
+  delete stock.Amount;
+  let inheritedReads=0;
+  const ancestor=Object.defineProperty({},'Amount',{get(){inheritedReads++;throw Error('read inherited Amount');}});
+  Object.setPrototypeOf(stock,ancestor);
+  const blocked=inv({profile:amountProfile,identity});
+  assert.equal(blocked.code,'INVENTORY_AMOUNT_FIELD_INVALID');
+  assert.equal(inheritedReads,0);
+  assert.equal(blocked.writerAuthorized,false);
+ }
+});
