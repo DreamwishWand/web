@@ -9,6 +9,7 @@
     <span class="footer-brand"><Icon name="sparkle" decorative={true} size={16} /> Dreamwish Wand</span>
     <p class="image-rights-attribution" data-image-rights-attribution>{imageRightsAttribution($locale)}</p>
     <a href={base + '/help/'}>{t('shared.footer.helpBugs', {}, $locale)}</a>
+    <a data-owner-support-contact href="mailto:support@dreamwishwand.com">support@dreamwishwand.com</a>
   </div>
 </footer>
 
