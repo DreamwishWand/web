@@ -1,0 +1,133 @@
+name: QA ONLY 04 QR-W PR2032 EC5F repaired exact two Image Gate L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2032-ec5f-steam2-pin-guard-l2.yml'
+permissions:
+  contents: read
+jobs:
+  current-guard-real-git:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ec5fbaa2266591c0b2b939436826bdabf1fffdfb
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin Source gate original parent and two original product postimages
+        shell: bash
+        run: |
+          set -euo pipefail
+          GUARD=ec5fbaa2266591c0b2b939436826bdabf1fffdfb
+          PARENT=2c9cd43c043ba8f97c1826dad38c2290e202b9d7
+          CHILD=6d69321e6310c1197a7f587f0b7d9aa4851a11ab
+          test "$(git rev-parse HEAD)" = "$GUARD"
+          # The repaired product gate has two exact first-parent commits from main:
+          # first 6d7283 (old historic TRUE_RED), then ec5fbaa (repaired Source).
+          # Do not misclassify this historical Source lineage as a new product failure.
+          test "$(git rev-parse HEAD^)" = 6d7283e0debbdf7e5218ea91e18b31814c7bfd8b
+          test "$(git rev-parse HEAD^^)" = "$PARENT"
+          test "$(git diff --name-only "$PARENT" HEAD)" = '.github/workflows/web-shared-catalog-detail.yml'
+          test "$(git rev-parse HEAD:.github/workflows/web-shared-catalog-detail.yml)" = 5ca38e38912351068684d065f584029392d3d1e3
+          git cat-file -e "$CHILD^{commit}" || git fetch --no-tags origin "$CHILD"
+          test "$(git rev-parse "$CHILD:src/lib/item-media/switch1253-public-item-images.mjs")" = 73f15d221cede4ce2c195a48e57321a7293ab501
+          test "$(git rev-parse "$CHILD:tests/web-steam1253-door-primary-contract.test.mjs")" = e34ede0c1ef9dcfd072f2511c454795406abed4e
+          git show "$CHILD:src/lib/item-media/switch1253-public-item-images.mjs" > /tmp/qrw2032-accepted-media.mjs
+          git show "$CHILD:tests/web-steam1253-door-primary-contract.test.mjs" > /tmp/qrw2032-accepted-contract.test.mjs
+          git update-ref refs/remotes/origin/main "$GUARD"
+          echo QRW2032_FIXED_GUARD_PARENT_PRODUCT_BLOBS_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Extract and execute EXACT current-source GitHub workflow Item guard, not a QA rewrite
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/web-shared-catalog-detail.yml')
+          ls=p.read_text().splitlines()
+          marker='      - name: Current-main bounded Item regression, not fixed old PR380 eight-path diff'
+          assert ls.count(marker)==1
+          i=ls.index(marker); assert ls[i+1].strip()=='shell: bash' and ls[i+2].strip()=='run: |'
+          start=i+3
+          end=next((j for j in range(start,len(ls)) if ls[j].startswith('      - name: ')),None)
+          assert end is not None and end>start+100
+          lines=ls[start:end]
+          assert all(not x.strip() or x.startswith('          ') for x in lines)
+          script='\n'.join(x[10:] if x.strip() else '' for x in lines)+'\n'
+          assert script.count('WEB_STEAM1253_CURRENT_TWO_PINS_EXACT2_SCOPE_PASS')==1
+          assert script.count('git diff --name-only "$BASE" HEAD')>=2
+          assert script.count('STEAM_CURRENT_TWO_PINS_SCOPE')==2
+          assert script.count('WEB_STEAM1253_UNPAIRED_CONTRACT_TEST_DENIED')==1
+          assert script.count('73f15d221cede4ce2c195a48e57321a7293ab501')==1
+          assert script.count('e34ede0c1ef9dcfd072f2511c454795406abed4e')==1
+          Path('/tmp/qrw2032-real-guard.sh').write_text(script)
+          print('QRW2032_EXACT_GITHUB_SOURCE_STEP_EXTRACTED_PASS',len(script),len(lines))
+          PY
+          bash -n /tmp/qrw2032-real-guard.sh
+      - name: Compose authentic exact two original postimages as isolated temporary Git child and prove positive
+        shell: bash
+        run: |
+          set -euo pipefail
+          GUARD=ec5fbaa2266591c0b2b939436826bdabf1fffdfb
+          cp /tmp/qrw2032-accepted-media.mjs src/lib/item-media/switch1253-public-item-images.mjs
+          cp /tmp/qrw2032-accepted-contract.test.mjs tests/web-steam1253-door-primary-contract.test.mjs
+          git add -- src/lib/item-media/switch1253-public-item-images.mjs tests/web-steam1253-door-primary-contract.test.mjs
+          git -c user.name='QA Isolation' -c user.email='qa@example.invalid' commit -m 'TEMP QA ONLY: original two accepted postimages on fixed guard'
+          test "$(git rev-parse HEAD^)" = "$GUARD"
+          test "$(git diff --name-only HEAD^ HEAD | wc -l | tr -d ' ')" = 2
+          test "$(git rev-parse HEAD:src/lib/item-media/switch1253-public-item-images.mjs)" = 73f15d221cede4ce2c195a48e57321a7293ab501
+          test "$(git rev-parse HEAD:tests/web-steam1253-door-primary-contract.test.mjs)" = e34ede0c1ef9dcfd072f2511c454795406abed4e
+          bash /tmp/qrw2032-real-guard.sh | tee /tmp/qrw2032-actual-positive.log
+          grep -qx WEB_STEAM1253_CURRENT_TWO_PINS_EXACT2_SCOPE_PASS /tmp/qrw2032-actual-positive.log
+          grep -qx WEB_ITEM_ORIGINAL_ACCEPTED_BEHAVIOR_REGRESSION_PASS /tmp/qrw2032-actual-positive.log
+          echo QRW2032_REAL_EXACT2_SOURCE_CHILD_GUARD_POSITIVE_PASS
+      - name: Mutated candidate negative tests exercise SAME real source guard and old branch failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          GUARD=ec5fbaa2266591c0b2b939436826bdabf1fffdfb
+          MEDIA=src/lib/item-media/switch1253-public-item-images.mjs
+          CONTRACT=tests/web-steam1253-door-primary-contract.test.mjs
+          OTHER=tests/web-switch1253-item-thumb-contract.test.mjs
+          make_commit() {
+            git add -A
+            git -c user.name='QA Isolation' -c user.email='qa@example.invalid' commit -m "TEMP QA ONLY mutated $1" >/dev/null
+          }
+          run_case() {
+            label="$1"
+            if bash /tmp/qrw2032-real-guard.sh >/tmp/qrw2032-"$label".log 2>&1; then
+              echo "QRW2032_NEGATIVE_TRUE_RED_UNAUTHORIZED_ACCEPTED $label"
+              tail -35 /tmp/qrw2032-"$label".log
+              return 1
+            fi
+            echo "QRW2032_NEGATIVE_DENIED_PASS $label"
+          }
+          reset_guard() { git reset --hard "$GUARD" >/dev/null; }
+          reset_guard; cp /tmp/qrw2032-accepted-media.mjs "$MEDIA"; make_commit missing-test; run_case missing-test
+          reset_guard; cp /tmp/qrw2032-accepted-contract.test.mjs "$CONTRACT"; make_commit missing-source; run_case missing-source
+          reset_guard; cp /tmp/qrw2032-accepted-media.mjs "$MEDIA"; cp /tmp/qrw2032-accepted-contract.test.mjs "$CONTRACT"; printf '\n// QA unauthorised extra test path\n' >> "$OTHER"; make_commit extra-source; run_case extra-source
+          reset_guard; cp /tmp/qrw2032-accepted-media.mjs "$MEDIA"; printf '\n// QA substituted wrong test\n' >> "$OTHER"; make_commit substituted-test; run_case substituted-test
+          reset_guard; cp /tmp/qrw2032-accepted-media.mjs "$MEDIA"; cp /tmp/qrw2032-accepted-contract.test.mjs "$CONTRACT"; printf '\n// QA unexpected settings path\n' >> src/lib/entity/shared-catalog-directory.mjs; make_commit wrong-cross-scope; run_case wrong-cross-scope
+          reset_guard; cp /tmp/qrw2032-accepted-media.mjs "$MEDIA"; cp /tmp/qrw2032-accepted-contract.test.mjs "$CONTRACT"; python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/lib/item-media/switch1253-public-item-images.mjs')
+          s=p.read_text();old="fallbackPolicy:'NO_FALLBACK_SWITCH_VISUAL_QUARANTINED'"
+          assert s.count(old)==1
+          p.write_text(s.replace(old,"fallbackPolicy:'EXPLICIT_FALLBACK_ONLY'"))
+          PY
+          make_commit cross-build-fallback; run_case cross-build-fallback
+          reset_guard; cp /tmp/qrw2032-accepted-media.mjs "$MEDIA"; cp /tmp/qrw2032-accepted-contract.test.mjs "$CONTRACT"; python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/lib/item-media/switch1253-public-item-images.mjs')
+          s=p.read_text();key="mediaPublic:false"
+          assert s.count(key)>=2
+          p.write_text(s.replace(key,"mediaPublic:true",1))
+          PY
+          make_commit unauthorized-public; run_case unauthorized-public
+          reset_guard; cp /tmp/qrw2032-accepted-media.mjs "$MEDIA"; cp /tmp/qrw2032-accepted-contract.test.mjs "$CONTRACT"; printf '\n// QA third path unreviewed rights gate\n' >> src/lib/ui/ItemImagePreferences.svelte; make_commit extra-rights-ui; run_case extra-rights-ui
+          reset_guard
+          echo QRW2032_EC5F_REAL_GUARD_EIGHT_NEGATIVES_DENIED_PASS
