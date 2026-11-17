@@ -400,3 +400,6 @@ mod fence_product_target;
 
 #[path="steam_single_fence_product_target.rs"]
 mod steam_single_fence_product_target;
+
+#[path="frp624_product_target.rs"]
+mod frp624_product_target;

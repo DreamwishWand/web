@@ -264,6 +264,12 @@ pub(super) fn scan_fe01(b:&[u8],top:Span,g:u32,ids:[u32;4],next:u32)->CoreResult
  validate_puzzles(b,top)?;
  let mut a=Incoming::default();walk(b,top,&mut Vec::new(),None,g,&ids,next,end,&mut a)?;Ok(a)
 }
+/// Exact Switch624 FRP01 old3/fresh3; existing typed walker only.
+pub(super) fn scan_frp01(b:&[u8],top:Span,g:u32,ids:[u32;3],next:u32)->CoreResult<Incoming>{
+ let end=next.checked_add(3).ok_or(denied("PLACEMENT_REF_RANGE"))?;
+ need(g>0&&next>0&&end<=i32::MAX as u32&&ids.iter().all(|i|*i>0&&*i<next)&&ids[0]!=ids[1]&&ids[0]!=ids[2]&&ids[1]!=ids[2],"PLACEMENT_REF_FRP01_SCOPE")?;
+ validate_puzzles(b,top)?;let mut a=Incoming::default();walk(b,top,&mut Vec::new(),None,g,&ids,next,end,&mut a)?;Ok(a)
+}
 #[cfg(test)]
 mod tests{
     use super::*;use serde_json::json;
