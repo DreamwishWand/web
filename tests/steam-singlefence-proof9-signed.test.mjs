@@ -71,3 +71,30 @@ test('Proof9 dedicated workflow only explicit dispatch, exact main CI CAS and si
  assert.match(cli,/proofOnly:true,publicAssets:false,productConsumerEnabled:false/);
  assert.match(cli,/realEncryptedSaveV2Verified:false/);
 });
+
+test('Proof9 fixed private staging rejects symlinked tests/wasm-distribution/fixtures and child, while allowing fresh absent fixture parent only',()=>{
+ const trust=cli.slice(cli.indexOf('async function privateProofDirectory('),cli.indexOf('async function readProofBytes('));
+ assert.ok(trust.startsWith('async function privateProofDirectory(createFresh=false)'));
+ assert.match(trust,/realpath\(root\)/);
+ assert.match(trust,/for\(const \[i,part\] of \['tests','wasm-distribution','fixtures'\]\.entries\(\)\)/);
+ assert.match(trust,/st=await lstat\(parent\)/);
+ assert.match(trust,/i!==2\|\|!createFresh\|\|error\?\.code!=='ENOENT'/);
+ assert.match(trust,/mkdir\(parent,\{recursive:false\}\)/);
+ assert.match(trust,/st\.isSymbolicLink\(\)\|\|!st\.isDirectory\(\)/);
+ assert.match(trust,/canonical=await realpath\(parent\)/);
+ assert.match(trust,/canonical!==parent/);
+ assert.match(trust,/mkdir\(dir,\{recursive:false\}\)/);
+ assert.match(trust,/child=await lstat\(dir\);canonical=await realpath\(dir\)/);
+ assert.match(trust,/child\.isSymbolicLink\(\)\|\|!child\.isDirectory\(\)\|\|canonical!==dir/);
+ assert.doesNotMatch(trust,/recursive:true/);
+});
+test('Proof9 signs only existing canonical private bytes and creates no public output or overwrite route',()=>{
+ const staged=cli.slice(cli.indexOf('async function generateProofSubjects('),cli.indexOf('async function actualProtectedCi('));
+ assert.match(staged,/const receipt=inspectProofSubjects\(\[raw,js,wasm\],source\)/);
+ assert.match(staged,/const dir=await privateProofDirectory\(true\)/);
+ assert.match(staged,/if\(await privateProofDirectory\(\)!==dir\)fail\(\)/);
+ assert.match(staged,/writeFile\(join\(dir,names\[i\]\),\[raw,js,wasm\]\[i\],\{flag:'wx',mode:0o600\}\)/);
+ assert.match(cli,/async function readProofBytes\(\)\{\s*const dir=await privateProofDirectory\(\)/);
+ assert.match(cli,/const dir=await privateProofDirectory\(\);\s*const verified=await verifySignedReleaseSubjects/);
+ assert.doesNotMatch(staged,/deploy-pages|upload-pages-artifact|static\/worker-wasm|build\/worker-wasm/);
+});
