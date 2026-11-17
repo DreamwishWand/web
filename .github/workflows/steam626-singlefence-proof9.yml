@@ -1,0 +1,107 @@
+name: Steam626 SingleFence Proof9 (protected proof only, never deploy)
+
+on:
+  workflow_dispatch:
+    inputs:
+      scoped_singlefence_proof_source:
+        description: 'Exact current protected main SHA; sole 09 INT dispatch, no Pages deployment'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: wand-steam626-singlefence-proof9-exclusive
+  cancel-in-progress: false
+
+jobs:
+  proof_only:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_singlefence_proof_source != '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_singlefence_proof_source }}
+      CARGO_TARGET_DIR: /tmp/wand-steam626-singlefence-proof9-rust
+      WAND_BINDGEN_CLI: /tmp/wand-steam626-singlefence-proof9-bindgen/bin/wasm-bindgen
+    steps:
+      - name: Check out exact protected main (never a PR or fork)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify fixed signer workflow, exact current ten original Git inputs, no Writer
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$WAND_PROOF_EXPECTED_SOURCE"
+          node scripts/readonly-release/steam-singlefence-proof9-signed.mjs source-check
+          test ! -e static/worker-wasm-steam626-singlefence-proof9
+          test ! -e build/worker-wasm-steam626-singlefence-proof9
+      - name: Require exact successful protected-main cumulative CI
+        id: scoped_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
+        run: node scripts/readonly-release/steam-singlefence-proof9-signed.mjs ci-build
+      - name: Set exact approved Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Build only isolated readonly Worker WASM subjects in ephemeral test directory
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-singlefence-readonly,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-steam626-singlefence-proof9-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/steam-singlefence-proof9-signed.mjs build-subjects
+          test "$(find tests/wasm-distribution/fixtures/steam626-singlefence-proof9 -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-steam626-singlefence-proof9
+          test ! -e build/worker-wasm-steam626-singlefence-proof9
+      - name: Recheck exact protected main and successful CI before attesting
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+        run: node scripts/readonly-release/steam-singlefence-proof9-signed.mjs ci-recheck
+      - name: Attest ONLY exact three inert private proof subjects with GitHub OIDC
+        id: scoped_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/steam626-singlefence-proof9/ddv_save_core.js
+            tests/wasm-distribution/fixtures/steam626-singlefence-proof9/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/steam626-singlefence-proof9/manifest.json
+      - name: Independently verify all three exact Sigstore subjects and latest CI again
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
+          WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
+          WAND_PROOF_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/readonly-release/steam-singlefence-proof9-signed.mjs ci-recheck
+          test -s "$WAND_PROOF_BUNDLE"
+          mkdir "$RUNNER_TEMP/wand-steam626-singlefence-proof9"
+          node scripts/readonly-release/steam-singlefence-proof9-signed.mjs verify-signed > "$RUNNER_TEMP/wand-steam626-singlefence-verified.log"
+          node --input-type=module -e 'import fs from "node:fs"; import assert from "node:assert/strict"; const prefix="SINGLEFENCE_PROOF9_EXACT_THREE_SIGNATURES_VERIFIED_PROOF_ONLY "; const lines=fs.readFileSync(process.env.RUNNER_TEMP+"/wand-steam626-singlefence-verified.log","utf8").trim().split("\n").filter(l=>l.startsWith(prefix));assert.equal(lines.length,1);const p=JSON.parse(lines[0].slice(prefix.length));assert.equal(p.sourceHead,process.env.GITHUB_SHA);assert.equal(p.publicWriter,false);assert.equal(p.operationOn,false);fs.writeFileSync(process.env.RUNNER_TEMP+"/wand-steam626-singlefence-proof9/pins.json",JSON.stringify(p)+"\n",{flag:"wx"});'
+          cp "$WAND_PROOF_BUNDLE" "$RUNNER_TEMP/wand-steam626-singlefence-proof9/attestation-bundle.jsonl"
+          test "$(find "$RUNNER_TEMP/wand-steam626-singlefence-proof9" -maxdepth 1 -type f | wc -l)" -eq 2
+          test ! -e static/worker-wasm-steam626-singlefence-proof9
+          test ! -e build/worker-wasm-steam626-singlefence-proof9
+          node scripts/readonly-release/steam-singlefence-proof9-signed.mjs ci-recheck
+      - name: Upload only verified proof metadata (no executable JS, WASM or public Pages)
+        uses: actions/upload-artifact@v4
+        with:
+          name: steam626-singlefence-proof9-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/wand-steam626-singlefence-proof9/pins.json
+            ${{ runner.temp }}/wand-steam626-singlefence-proof9/attestation-bundle.jsonl
+          if-no-files-found: error
