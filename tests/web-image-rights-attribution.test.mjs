@@ -18,11 +18,14 @@ test('public rights attribution exactly reuses eight DBK draft texts, no operato
  assert.equal(imageRightsAttribution('unsupported'),IMAGE_RIGHTS_ATTRIBUTION.en);
  assert.equal(imageRightsAttribution('JA'),IMAGE_RIGHTS_ATTRIBUTION.ja);
 });
-test('shared footer visible text follows locale, keeps existing Help link, no contact or media authority',()=>{
+test('shared footer retains eight-language rights copy and Help plus the one verified support mailbox, never rights publication authority',()=>{
  const footer=read('../src/lib/SiteFooter.svelte');
  assert.match(footer,/data-image-rights-attribution>\{imageRightsAttribution\(\$locale\)\}/);
  assert.match(footer,/href=\{base \+ '\/help\/'\}/);
- assert.doesNotMatch(footer,/<img|<video|mailto:|\{@html|fetch\(|mediaPublic|rightsContact|operatorReceipt|humanReviewed/);
+ assert.match(footer,/<a[^>]*data-owner-support-contact[^>]*href="mailto:support@dreamwishwand\.com"[^>]*>support@dreamwishwand\.com<\/a>/);
+ assert.equal((footer.match(/mailto:/g)??[]).length,1);
+ assert.doesNotMatch(footer,/rights@dreamwishwand\.com|privacy@dreamwishwand\.com|fe3d5b10@/);
+ assert.doesNotMatch(footer,/<img|<video|\{@html|fetch\(|mediaPublic|rightsContact|operatorReceipt|humanReviewed/);
  assert.match(read('../src/routes/+layout.svelte'),/<SiteFooter \/>/);
 });
 
