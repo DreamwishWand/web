@@ -1,0 +1,237 @@
+name: "04 QR-S ACT1639 repaired main344 SingleFence Reader R22 exact9 Security L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qrs-act1639-pr2042-steam626-singlefence-reader-r22-exact9-l2.yml"
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6becd73388c0ae46e14113f2e31a0da41dec1a16
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Fetch immutable source PR2034
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e fe9baeb82b4bb61b31e1d0e66d93dd31076d8891^{commit} || git fetch --no-tags origin fe9baeb82b4bb61b31e1d0e66d93dd31076d8891
+      - name: Independent exact9 actual-Git Security Scope and malicious-superset refutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-singlefence-r22-exact9.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {mkdtempSync,rmSync,writeFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {tmpdir} from 'node:os';
+          import {runInNewContext} from 'node:vm';
+
+          const sourceBase='2c9cd43c043ba8f97c1826dad38c2290e202b9d7',
+            main='344e4e1105037d732eeacc1bdff68fa140c2fafa',
+            gate='6becd73388c0ae46e14113f2e31a0da41dec1a16',
+            source='fe9baeb82b4bb61b31e1d0e66d93dd31076d8891',
+            gatePath='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
+            inputPath='scripts/wasm-distribution/protected-release-inputs.json',
+            oldScript='7c778ad1dfaed2b6ff82b4200dab134384783179',
+            newScript='8357c23027abbfa8e6ea137265af035a00cd90fe',
+            oldCore='b454aeef4455408b73aaafd6d3629dfdeb7ae63c',
+            newCore='821d4609dcf93ace38feb00193dfaf6d8d9b363f',
+            oldInput='865aa54e99d11029250478ba6583bdec226dfa6d',
+            newInput='53db0a9f23c3345056d87d2fcc98f8e7097501ea',
+            oldCargo='cfd550b690e42e93a48b913457c35a5ea0cb7bc7',
+            newCargo='f7c3b723804f9f3e11ffcbcd0f786d23e4e540bd',
+            projectedRoot='6e27659a0e707593d99a040c8034ad29e1604d2f',
+            build='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+            cwd=process.cwd();
+          const temp=mkdtempSync(join(tmpdir(),'qrs-sf-r22-exact9-'));
+          const env={...process.env,GIT_INDEX_FILE:join(temp,'index'),GIT_NO_REPLACE_OBJECTS:'1',
+            GIT_AUTHOR_NAME:'Independent QA Git',GIT_AUTHOR_EMAIL:'independent@example.invalid',
+            GIT_COMMITTER_NAME:'Independent QA Git',GIT_COMMITTER_EMAIL:'independent@example.invalid'};
+          const git=(...args)=>execFileSync('git',args,{cwd,env,encoding:'utf8',maxBuffer:16*1024*1024}).trim();
+          const raw=(sha,path)=>execFileSync('git',['show',sha+':'+path],{cwd,env,encoding:'utf8',maxBuffer:16*1024*1024});
+          const entry=(sha,path)=>{
+            const s=git('ls-tree',sha,'--',path);
+            if(!s)return null;
+            const match=/^(100644|100755|120000) blob ([0-9a-f]{40})\t(.+)$/.exec(s);
+            assert.ok(match&&match[3]===path,'exact immutable path/mode '+path);
+            return {mode:match[1],blob:match[2]};
+          };
+          const project=(parent,pairs)=>{
+            git('read-tree',parent);
+            for(const [path,value] of pairs){
+              if(value)git('update-index','--add','--cacheinfo',value.mode,value.blob,path);
+              else git('update-index','--force-remove','--',path);
+            }
+            const tree=git('write-tree');
+            return {tree,commit:git('commit-tree',tree,'-p',parent,'-m','QA only isolated synthetic candidate')};
+          };
+          let positive=0,negative=0;
+          let verifyAcceptedRustScope;
+          const deny=(parent,commit,label)=>{
+            assert.throws(()=>verifyAcceptedRustScope(cwd,parent,commit),/R22_ACCEPTED_SCOPE_|SELECTION_|error|Error/i,label);
+            negative++;
+          };
+          try {
+            ({verifyAcceptedRustScope}=await import('file://'+cwd+'/'+gatePath));
+            assert.equal(git('rev-parse','HEAD'),gate);
+            const gateParents=git('rev-list','--parents','-n','1',gate).split(/\s+/);
+            console.log('QRS_ACT1639_GATE_PARENT_DIAGNOSTIC',JSON.stringify({
+              gate,requestedMain:main,commitParents:gateParents.slice(1),
+              linearDirectChild:gateParents.length===2&&gateParents[1]===main,
+              protectedMainAncestor:git('merge-base',main,gate)===main
+            }));
+            assert.equal(gateParents.length,2,'Gate Source must not have a merge parent');
+            assert.equal(gateParents[1],main,'Gate first parent must be exact reviewed protected main');
+            // Original Reader PR2034 is a reviewed sibling from accepted main2c9,
+            // not a descendant of later signed main344. Git old/new pins are
+            // recomposed onto main344; do not demand branch rebase or old stacks.
+            assert.equal(git('merge-base',main,source),sourceBase,'fixed original Source must fork at accepted Core main2c9');
+            assert.equal(git('merge-base',main,gate),main,'Gate itself is direct main344 child');
+            assert.deepEqual(git('diff','--name-only',main,gate).split('\n'),[gatePath]);
+            assert.equal(entry(main,gatePath)?.blob,oldScript);
+            assert.equal(entry(gate,gatePath)?.blob,newScript);
+            positive++;
+
+            const previous=raw(main,gatePath),current=raw(gate,gatePath);
+            const marker='const steam626SingleFenceReaderMain2c9Exact9Entries=';
+            const begin=current.indexOf(marker),afterList=current.indexOf('const gatePaths=',begin);
+            const pairBegin=current.lastIndexOf(" if(baseCore===",current.indexOf("return {entries:steam626SingleFenceReaderMain2c9Exact9Entries"));
+            const pairEnd=current.indexOf(" deny('BASE_CORE_TREE');",pairBegin);
+            assert.ok(begin>0&&afterList>begin&&pairBegin>afterList&&pairEnd>pairBegin);
+            const addedComment='\n// 09P-CODE exact Steam626 SingleFence isolated Reader source8 + protected Cargo-only pin.\n// No generic Writer/Stage, issuer grant, Sign, Deploy or Feature auto-enable.\n';
+            assert.ok(current.slice(begin-210,begin).includes('SingleFence isolated Reader'),'added profile comment only');
+            const scrubbed=current.slice(0,begin)+current.slice(afterList,pairBegin)+current.slice(pairEnd);
+            assert.equal(scrubbed.replace(addedComment,'').replace('(profile.metadata.sourcePr===2012||profile.metadata.sourcePr===2034)','profile.metadata.sourcePr===2012'),
+              previous,'old R22 profiles, issuer/Lock checks and all guards must be byte-for-byte unchanged');
+            const open=current.indexOf('[',begin),close=current.indexOf('];',open);
+            assert.ok(open>begin&&close>open);
+            const pins=JSON.parse(JSON.stringify(runInNewContext('('+current.slice(open,close+1)+')')));
+            assert.equal(pins.length,9);
+            assert.equal(pins.filter(x=>x.before===null).length,2);
+            assert.equal(new Set(pins.map(x=>x.path)).size,9);
+            assert.equal(pins.filter(x=>x.path===inputPath).length,1);
+            assert.deepEqual(
+              git('diff','--name-only',sourceBase,source).split('\n').sort(),
+              pins.filter(x=>x.path!==inputPath).map(x=>x.path).sort());
+            positive++;
+
+            const beforeText=raw(main,inputPath);
+            assert.equal(entry(main,inputPath)?.blob,oldInput);
+            assert.equal(beforeText.split(oldCargo).length-1,1);
+            const afterText=beforeText.replace(oldCargo,newCargo);
+            const afterFile=join(temp,'protected-release-inputs.json');
+            writeFileSync(afterFile,afterText);
+            assert.equal(git('hash-object','-w',afterFile),newInput);
+            const before=JSON.parse(beforeText),after=JSON.parse(afterText);
+            assert.deepEqual(after,{...before,cargoTomlGitBlob:newCargo},'one approved protected config field ONLY');
+            assert.equal(after.writerEnabled,false);
+            assert.equal(after.productConsumerEnabled,false);
+            assert.equal(after.defaultFeatures,false);
+            assert.deepEqual(after.features,['indexed-read','worker-wasm']);
+            assert.equal(after.approvedCargoLockSha256,before.approvedCargoLockSha256);
+            positive++;
+
+            for(const p of pins){
+              assert.deepEqual(entry(gate,p.path),p.before,'preimage '+p.path);
+              assert.deepEqual(p.after,p.path===inputPath
+                ?{mode:'100644',blob:newInput}:entry(source,p.path),'original immutable product post Git '+p.path);
+              assert.equal(p.after.mode,'100644');
+              assert.equal(git('cat-file','-t',p.after.blob),'blob');
+              positive++;
+            }
+            assert.equal(git('rev-parse',gate+':crates/ddv-save-core'),oldCore);
+            assert.equal(git('rev-parse',source+':crates/ddv-save-core'),newCore);
+            const projected=project(gate,pins.map(x=>[x.path,x.after]));
+            assert.equal(projected.tree,projectedRoot,
+              'actual candidate post-Gate product root must match immutable release contract');
+            assert.equal(git('rev-parse',projected.commit+':crates/ddv-save-core'),newCore);
+            const receipt=verifyAcceptedRustScope(cwd,gate,projected.commit);
+            assert.equal(receipt.status,'R22_EXACT_ACCEPTED_SOURCE_SCOPE_MATCH_ONLY');
+            assert.equal(receipt.entryCount,9);
+            assert.equal(receipt.sourcePr,2034);
+            assert.equal(receipt.sourceHead,source);
+            assert.equal(receipt.sourceLeafCount,8);
+            assert.equal(receipt.exactSteamBuild,build);
+            assert.equal(receipt.readerOnly,true);
+            assert.equal(receipt.postGateProductTree,projectedRoot);
+            assert.equal(receipt.postGateProductTreeFromValidatedSourceCommit,true);
+            assert.equal(receipt.generatedAbiL2Required,true);
+            assert.equal(receipt.independentSecurityL2Required,true);
+            assert.equal(receipt.writerAuthorized,false);
+            assert.equal(receipt.operationOn,false);
+            assert.equal(receipt.mergeAuthorized,false);
+            positive++;
+
+            const reversed=project(projected.commit,pins.map(x=>[x.path,x.before]));
+            assert.equal(reversed.tree,git('rev-parse',gate+'^{tree}'));
+            positive++;
+
+            for(const p of pins){
+              deny(gate,project(gate,pins.filter(x=>x.path!==p.path).map(x=>[x.path,x.after])).commit,'missing '+p.path);
+              deny(gate,project(gate,pins.map(x=>[x.path,x.path===p.path?{mode:'100755',blob:x.after.blob}:x.after])).commit,'bad mode '+p.path);
+              deny(gate,project(gate,pins.map(x=>[x.path,x.path===p.path?{mode:'100644',blob:x.before?.blob??oldScript}:x.after])).commit,'wrong blob '+p.path);
+            }
+            const extra=[
+              '.github/workflows/pages.yml',
+              '.github/workflows/proof9-singlefence-dispatch.yml',
+              'scripts/int-selection-preflight.mjs',
+              'scripts/wasm-distribution/verify-protected-release.mjs',
+              'scripts/wasm-distribution/approved-Cargo.lock',
+              'scripts/readonly-release/seal.mjs',
+              gatePath,
+              'scripts/wasm-distribution/publish-product-writer.mjs',
+              'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',
+              'proof9-no-permission.json'
+            ];
+            for(const path of extra){
+              deny(gate,project(gate,[...pins.map(x=>[x.path,x.after]),[path,{mode:'100644',blob:oldScript}]]).commit,'scope extension '+path);
+            }
+            deny(main,projected.commit,'new gate not on parent');
+            deny(main,gate,'source cannot self authorize');
+            deny(main,source,'raw product source does not include approved Cargo pin');
+            deny(gate,gate,'no-op cannot grant writer');
+            deny(projected.commit,gate,'reverse unauthorized');
+            deny(gate,source,'foreign candidate missing approved gate');
+            const forged=project(gate,pins.map(x=>[x.path,x.path===inputPath?
+              {mode:'100644',blob:oldInput}:x.after]));
+            deny(gate,forged.commit,'protected release Cargo pin rollback');
+            positive++;
+
+            for(const path of [
+              '.github/workflows/pages.yml',
+              'scripts/int-selection-preflight.mjs',
+              'scripts/wasm-distribution/verify-protected-release.mjs',
+              'scripts/wasm-distribution/approved-Cargo.lock',
+              'scripts/readonly-release/seal.mjs'
+            ]){
+              assert.deepEqual(entry(main,path),entry(gate,path),'protected issuer/Lock/Pages must be unchanged');
+              positive++;
+            }
+            const beforePairs=[...previous.matchAll(/if\(baseCore==='([0-9a-f]{40})'\)/g)].map(m=>m[1]);
+            const afterPairs=[...current.matchAll(/if\(baseCore==='([0-9a-f]{40})'\)/g)].map(m=>m[1]);
+            assert.deepEqual(afterPairs.filter(x=>x!==oldCore),beforePairs,'historical profile identity');
+            assert.equal(afterPairs.filter(x=>x===oldCore).length,1);
+            assert.equal(afterPairs.length,beforePairs.length+1);
+            positive++;
+            console.log('QRS_ACT1639_REPAIRED_MAIN344_SINGLEFENCE_READER_R22_EXACT9_SECURITY_L2_PASS',JSON.stringify({
+              positive,negative,pins:9,sourceLeafCount:8,oldProfiles:beforePairs.length,
+              protectedConfigCargoSingleFieldOnly:true,exactGitModesAndBlobs:true,
+              actualPostGateTree:projected.tree,corePairVerified:true,
+              exactSteamBuild:receipt.exactSteamBuild,
+              issuerLockPagesUnchanged:true,readonlyProfile:true,
+              proof9Dispatched:false,signedProof9SubjectsVerified:false,
+              publicWriter:false,operationOn:false,encryptedOwnerV2:false,
+              realSignedProductPages:false
+            }));
+          } finally{rmSync(temp,{recursive:true,force:true});}
+          NODE
+          node qa-singlefence-r22-exact9.mjs
