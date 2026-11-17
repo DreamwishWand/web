@@ -46,17 +46,17 @@ test('Switch626 Build delta uses one product Worker and existing Steam exact sca
   read('src/lib/ddv/core/save/product-steam626-eyecolor2-transport.mjs')
  ]);
  assert.match(owner,/appearanceScope==='eyecolor2-switch'\?createSwitch626EyeColor2Transport/);
- assert.match(owner,/appearanceScope==='eyecolor2-switch'\?'switch':'steam-windows'/);
- assert.match(bridge,/appearanceScope==='eyecolor2-switch'\?'switch':'steam-windows'/);
+ assert.match(owner,/\(appearanceScope==='eyecolor2-switch'\|\|appearanceScope==='makeup-color1-switch'\)\?'switch':'steam-windows'/);
+ assert.match(bridge,/\(appearanceScope==='eyecolor2-switch'\|\|appearanceScope==='makeup-color1-switch'\)\?'switch':'steam-windows'/);
  assert.match(adapter,/createProductSwitch626EyeColor2LocalAdapter/);
  assert.match(adapter,/appearanceScope==='eyecolor2-switch'/);
- assert.match(workflow,/operation==='eyecolor2-switch'\?SWITCH626_BACKPACK_BUILD/);
+ assert.match(workflow,/\(operation==='eyecolor2-switch'\|\|operation==='makeup-color1-switch'\)\?SWITCH626_BACKPACK_BUILD/);
  assert.match(workflow,/operation==='eyecolor2'\|\|operation==='eyecolor2-switch'/);
  assert.match(client,/createProductSwitchEyeColor2Port/);
  assert.match(transport,/createSwitch626EyeColor2Transport/);
  assert.match(transport,/prefix=switchBuild\?'switch626':'steam626'/);
  assert.match(ui,/data-product-writer="off"/);
- assert.match(ui,/operation==='eyecolor2-switch'\?SWITCH626_BACKPACK_BUILD.buildId/);
+ assert.match(ui,/\(operation==='eyecolor2-switch'\|\|operation==='makeup-color1-switch'\)\?SWITCH626_BACKPACK_BUILD\.buildId/);
  assert.match(ui,/p\?\.oldColorIndex!==64\|\|p\?\.newColorIndex!==69/);
  assert.ok(compile(ui,{filename:'LocalPlacementEditorDev.svelte',generate:'client'}).js.code.length>0);
 });
