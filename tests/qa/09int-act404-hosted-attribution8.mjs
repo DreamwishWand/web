@@ -29,7 +29,8 @@ const fit=async label=>{
 };
 try{
  for(const path of ['/','/collection/','/explore/','/help/','/editor/world/']){
-  await page.goto(origin+base+path,{waitUntil:'domcontentloaded'});
+  const routeResponse=await page.goto(origin+base+path,{waitUntil:'domcontentloaded'});
+  console.log('ACT404_HOSTED_ROUTE_PROBE',JSON.stringify({path,status:routeResponse?.status(),url:page.url(),title:(await page.title()).slice(0,80),notices:await notice.count(),links:await help.count()}));
   await notice.waitFor({timeout:20000});
   assert.equal(await notice.count(),1,path);
   assert.equal(await help.count(),1,path);
