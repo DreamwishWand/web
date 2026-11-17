@@ -130,7 +130,7 @@ jobs:
             }
           }
           for(const d of [
-            {repositoryId:42},{sourceHead:'HEAD'},{sourceHead:baseline},
+            {repositoryId:42},{sourceHead:'HEAD'},{sourceHead:''},
             {buildId:'Switch626'},{buildId:'Steam624'},{blobs:{}},
             {writerAuthorized:true},{operationOn:true},{signedSubjectsVerified:true},
             {proofDispatched:true},{releaseAuthorized:true}
