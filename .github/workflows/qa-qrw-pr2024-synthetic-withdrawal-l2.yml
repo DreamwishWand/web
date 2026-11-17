@@ -1,0 +1,102 @@
+name: QA ONLY QR-W PR2024 Synthetic Takedown Withdrawal L2 (NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2024-synthetic-withdrawal-l2.yml'
+permissions:
+  contents: read
+jobs:
+  changed-withdrawal-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - name: Checkout exact fixed candidate (not this QA branch)
+        uses: actions/checkout@v4
+        with:
+          ref: 22f2a667d8c29d90aca0c7c9e3f05ab0eabd6104
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Immutable exact-two DELETE and control/source isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=93332153aed6b3b24ae885084470974c367eb484
+          HEAD=22f2a667d8c29d90aca0c7c9e3f05ab0eabd6104
+          PREFIX=static/__dbk-takedown-rehearsal__/20261113
+          test "$(git rev-parse HEAD)" = "$HEAD"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          test "$(git diff --name-status "$BASE" HEAD | wc -l | tr -d ' ')" = 2
+          git diff --name-status "$BASE" HEAD > /tmp/qrw-withdrawal.actual
+          printf 'D\t%s/alias.webp\nD\t%s/canary.webp\n' "$PREFIX" "$PREFIX" >/tmp/qrw-withdrawal.expected
+          diff -u /tmp/qrw-withdrawal.expected /tmp/qrw-withdrawal.actual
+          for n in alias canary; do
+            test ! -e "$PREFIX/$n.webp"
+            ! git cat-file -e "HEAD:$PREFIX/$n.webp" 2>/dev/null
+            test "$(git rev-parse "$BASE:$PREFIX/$n.webp")" = 6e2d38c4a7f4c8166d22f1069d00726cd9fa3c5e
+            git show "$BASE:$PREFIX/$n.webp" > "/tmp/qrw-original-$n.webp"
+            echo "ff3faebd2f71d24f08b4fdcb5135f36accd8badb7c4dff81e7d7a318457fab50  /tmp/qrw-original-$n.webp" | sha256sum -c -
+            test "$(wc -c < "/tmp/qrw-original-$n.webp" | tr -d ' ')" = 44
+          done
+          test -f "$PREFIX/control.webp"
+          test "$(git rev-parse HEAD:"$PREFIX/control.webp")" = c080c82101f223bbf5a7a07bb17879b02466fafa
+          echo "5d8814f2a6795e7c976a43d97e98332b9ecf831857db7d0e726604f5b4656997  $PREFIX/control.webp" | sha256sum -c -
+          cmp -s /tmp/qrw-original-alias.webp /tmp/qrw-original-canary.webp
+          ! cmp -s "$PREFIX/control.webp" /tmp/qrw-original-canary.webp
+          test "$(wc -c < "$PREFIX/control.webp" | tr -d ' ')" = 44
+          echo QRW2024_WITHDRAWAL_SOURCE_EXACT2_DELETE_CONTROL_PRESERVE_PASS
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build actual static Pages output from fixed Source
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          BASE_PATH=/web npm run build
+          test -f build/404.html
+          test ! -e build/__dbk-takedown-rehearsal__/20261113/alias.webp
+          test ! -e build/__dbk-takedown-rehearsal__/20261113/canary.webp
+          test -f build/__dbk-takedown-rehearsal__/20261113/control.webp
+          cmp static/__dbk-takedown-rehearsal__/20261113/control.webp build/__dbk-takedown-rehearsal__/20261113/control.webp
+          echo QRW2024_STATIC_PAGES_BUILD_NEGATIVE2_POSITIVE_CONTROL_PASS
+      - name: Fresh local HTTP GET/HEAD bare and old/new query cache variants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server --bind 127.0.0.1 48761 --directory build >/tmp/qrw-http.log 2>&1 &
+          http_pid=$!
+          trap 'kill "$http_pid" 2>/dev/null || true' EXIT
+          base='http://127.0.0.1:48761/__dbk-takedown-rehearsal__/20261113'
+          for i in $(seq 1 40); do
+            if curl --silent --max-time 2 --output /dev/null "$base/control.webp"; then break; fi
+            sleep 1
+          done
+          tmp="$(mktemp -d)"
+          trap 'kill "$http_pid" 2>/dev/null || true; rm -rf "$tmp"' EXIT
+          for n in alias canary; do
+            for query in '' '?v=20261113' '?v=20261117' '?cacheBust=qrw2024'; do
+              code=$(curl --silent --show-error --path-as-is --connect-timeout 5 --max-time 15 --header 'Cache-Control: no-cache, no-store' --header 'Pragma: no-cache' --output "$tmp/body" --dump-header "$tmp/headers" --write-out '%{http_code}' "$base/$n.webp$query")
+              test "$code" = 404 || { echo "QRW_WITHDRAWAL_GET_RED $n$query HTTP=$code"; exit 1; }
+              mime=$(awk 'tolower($1)=="content-type:" {print tolower($2)}' "$tmp/headers" | tr -d '\r' | tail -n 1)
+              [[ "$mime" != image/webp* ]] || { echo "QRW_WITHDRAWAL_GET_MIME_RED $n$query"; exit 1; }
+              ! cmp -s "$tmp/body" "/tmp/qrw-original-$n.webp" || { echo "QRW_WITHDRAWAL_OLD_BYTES_RED $n$query"; exit 1; }
+              hcode=$(curl --silent --show-error --path-as-is --head --connect-timeout 5 --max-time 15 --header 'Cache-Control: no-cache, no-store' --output /dev/null --write-out '%{http_code}' "$base/$n.webp$query")
+              test "$hcode" = 404 || { echo "QRW_WITHDRAWAL_HEAD_RED $n$query HTTP=$hcode"; exit 1; }
+            done
+          done
+          code=$(curl --silent --show-error --connect-timeout 5 --max-time 15 --dump-header "$tmp/control-header" --output "$tmp/control.webp" --write-out '%{http_code}' "$base/control.webp")
+          test "$code" = 200
+          cmp -s "$tmp/control.webp" build/__dbk-takedown-rehearsal__/20261113/control.webp
+          echo '5d8814f2a6795e7c976a43d97e98332b9ecf831857db7d0e726604f5b4656997  '"$tmp/control.webp" | sha256sum -c -
+          mime=$(awk 'tolower($1)=="content-type:" {print tolower($2)}' "$tmp/control-header" | tr -d '\r' | tail -n 1)
+          [[ "$mime" = image/webp* ]] || { echo "QRW_CONTROL_MIME_RED $mime"; exit 1; }
+          hcode=$(curl --silent --show-error --head --output /dev/null --write-out '%{http_code}' "$base/control.webp")
+          test "$hcode" = 200
+          echo QRW2024_LOCAL_HTTP_8GET_8HEAD_WITHDRAWN_CONTROL_BYTES_MIME_PASS_NOT_HOSTED_CDN
+      - name: No product mutation from QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test "$(git rev-parse HEAD)" = '22f2a667d8c29d90aca0c7c9e3f05ab0eabd6104'
+          echo QRW2024_QA_ONLY_NO_PRODUCT_MUTATION_PASS
