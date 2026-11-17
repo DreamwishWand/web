@@ -24,7 +24,7 @@
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "7898fe66999d01fff70c2b19ca104dbf438f3013",
     "src/lib/tour/presets-my-tour-copy.mjs": "2d7370ff990e840fe9a211726070f44713c48c1c",
-    "src/lib/SiteFooter.svelte": "0f1b6e2e9dfc6226fe17ed6af5de68c5b3ac5042",
+    "src/lib/SiteFooter.svelte": "f1b000991acdc03da6b890a4cb524bf54a2e0e1f",
     "src/lib/i18n/image-rights-attribution.js": "d34d810c43dcd9e2d685f8e20985089f2f7b1b11",
     "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "32c1834fbb5c5ca42307d81ad0cc5314c616c2ea",
     "src/lib/wep/world-editor-stage1-copy.js": "b5241358967cc0daa7f1cba6870f551810af717d",
@@ -162,6 +162,7 @@
           "設定",
           "Dreamwish Wandは非公式のファンサービスであり、DisneyまたはGameloftと提携・協賛・公認の関係にはありません。Disney Dreamlight Valleyの名称・キャラクター・ゲーム内アイテム画像・アートワーク等の権利はDisney、Gameloft、その他の各権利者に帰属します。画像はゲーム内アイテムの識別を目的として表示します。権利表示は画像使用の許諾を意味しません。",
           "Help & Bugs",
+          "support@dreamwishwand.com",
           "このページの使い方"
         ],
         "helpLabelsByLocale": {
