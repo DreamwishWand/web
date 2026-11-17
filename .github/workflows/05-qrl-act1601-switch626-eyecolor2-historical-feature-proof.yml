@@ -85,12 +85,12 @@ jobs:
             assert(js.includes(Buffer.from(n)),'missing historical JS '+n);
             assert(symbols.some(x=>x.endsWith('_'+n)),'missing historical binary export '+n);
           }
-          for(const denied of ['steam626_makeup_color1','steam626_eyecolor2','switch626_eyecolor2']){
+          for(const denied of ['steam626_makeup_color1','steam626_eyecolor2']){
             assert(!symbols.some(x=>x.includes(denied)),'foreign ABI '+denied);
           }
           const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
           const receipt={
-            contract:'wand.qrl.act1601.switch626.historical-scoped-abi@1',
+            contract:'wand.qrl.act1601.switch626-eyecolor2.historical-scoped-abi@1',
             verdict:'HISTORICAL_SOURCE_COMPILE_ONLY_NOT_CURRENT_PRODUCT',
             sourceCommit:'b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6',
             currentMainAtQueue:'85ff72a69bb41d4a7c3fbafaa69521c0904a5aac',
@@ -103,7 +103,7 @@ jobs:
             publicWriter:false,publicOn:false,merged:false,signed:false,pages:false
           };
           fs.writeFileSync(base+'qrl-receipt.json',JSON.stringify(receipt,null,2)+'\n',{flag:'wx'});
-          console.log('QRL_HISTORICAL_SWITCH_MAKEUP_ABI_PASS',JSON.stringify({sourceCommit:receipt.sourceCommit,exports:symbols.length,methodCount:5,wasm:receipt.generatedWasmSha256,js:receipt.generatedJsSha256,actualProductV2:'NOT_RUN'}));
+          console.log('QRL_HISTORICAL_SWITCH626_EYECOLOR2_ABI_PASS',JSON.stringify({sourceCommit:receipt.sourceCommit,exports:symbols.length,methodCount:5,wasm:receipt.generatedWasmSha256,js:receipt.generatedJsSha256,actualProductV2:'NOT_RUN'}));
           NODE
       - name: Store unsigned QA-only historical build with no Save/Codec/key and no Pages grant
         uses: actions/upload-artifact@v4
