@@ -91,7 +91,7 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   async open(args){
    if(closeUnverified)fail();revoke();return run(async t=>{
     if(!keys(args,'file,originalSha256,build')||!keys(args.build,'platform,buildKind,buildId,schema,externallyConfirmed')||
-     !((!switchChest&&!catalog&&placementScope!=='rm01'&&backpackScope!=='switch'&&wardrobeScope!=='switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
+     !((!switchChest&&!catalog&&placementScope!=='rm01'&&backpackScope!=='switch'&&wardrobeScope!=='switch'&&appearanceScope!=='makeup-color1-switch'&&args.build.platform==='steam-windows'&&args.build.buildKind==='steam-full-version'&&args.build.buildId===STEAM)||
        ((collection||switchChest||catalog||placementScope==='rm01'||backpackScope==='switch'||wardrobeScope==='switch'||appearanceScope==='makeup-color1-switch')&&args.build.platform==='switch'&&args.build.buildKind==='switch-bid'&&args.build.buildId===SWITCH))||
      args.build.schema!==626||args.build.externallyConfirmed!==true||!uint(t)||t<1)fail();
     const input=Object.freeze({file:args.file,originalSha256:args.originalSha256,build:Object.freeze({...args.build})});
