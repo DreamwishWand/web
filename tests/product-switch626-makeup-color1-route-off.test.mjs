@@ -52,6 +52,8 @@ test('Switch Makeup UI and P1G bridge bind fixed Build, no arbitrary color or ri
  assert.match(owner,/appearanceScope==='makeup-color1-switch'\?'switch':'steam-windows'/);
  assert.match(bridge,/appearanceScope==='makeup-color1-switch'\?'switch':'steam-windows'/);
  assert.match(adapter,/createProductSwitch626MakeupColor1LocalAdapter/);
+ assert.match(adapter,/appearanceScope!=='makeup-color1-switch'&&args\.build\.platform==='steam-windows'/);
+ assert.match(adapter,/appearanceScope==='makeup-color1-switch'\)&&args\.build\.platform==='switch'/);
  assert.match(adapter,/appearanceScope==='makeup-color1-switch'/);
  assert.match(workflow,/operation==='makeup-color1-switch'\?SWITCH626_BACKPACK_BUILD/);
  assert.match(workflow,/r\.makeupItemId!==140100014/);
