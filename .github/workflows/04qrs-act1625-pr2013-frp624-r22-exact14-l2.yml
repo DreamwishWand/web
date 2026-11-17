@@ -142,10 +142,12 @@ jobs:
               expectedMatchedPreGate:expectedTree===preGateProjected.tree,
               expectedMatchedActual:expectedTree===projected.tree
             }));
-            assert.equal(projected.tree,expectedTree,'Gate-source documented projectedProductTree must bind actual protected Gate+14 Source composition');
+            const projectedIdentityMismatch=projected.tree!==expectedTree;
+            assert.equal(preGateProjected.tree,expectedTree,'reproduce source pre-Gate projection forensics');
             assert.equal(git('rev-parse',projected.commit+':crates/ddv-save-core'),targetCore);
             const receipt=verifyAcceptedRustScope(cwd,gate,projected.commit);
             assert.equal(receipt.entryCount,14);
+            assert.equal(receipt.projectedProductTree,expectedTree,'Source Gate exposes pre-Gate metadata even though actual candidate is post-Gate');
             assert.equal(receipt.sourcePr,2012);
             assert.equal(receipt.schema,624);
             assert.equal(receipt.exactSwitchBid,'52BD625D9B4E0053');
@@ -194,6 +196,16 @@ jobs:
             assert.equal(afterPairs.filter(x=>x===baseCore).length,1);
             assert.equal(afterPairs.length,beforePairs.length+1);
             pos++;
+            if(projectedIdentityMismatch){
+              console.error('QRS_ACT1625_FRP624_GATE_PRODUCT_TREE_IDENTITY_TRUE_RED',JSON.stringify({
+                documentedTree:expectedTree,
+                preGateSourceTree:preGateProjected.tree,
+                actualPostGateExact14Tree:projected.tree,
+                exactScopePositiveAndAdversarialChecksPassed:true,
+                publicWriter:false,actualSignedPages:false
+              }));
+              throw Error('FRP624_R22_PRODUCT_TREE_IDENTITY_TRUE_RED');
+            }
             console.log('QRS_ACT1625_FRP624_EXACT14_R22_CARGO_SECURITY_L2_PASS',JSON.stringify({
               positive:pos,negative:neg,pins:14,sourceLeafCount:13,
               oldProfiles:beforePairs.length,corePairVerified:true,
