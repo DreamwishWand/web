@@ -8,6 +8,8 @@
 use super::{BuildKind, Platform, ProductSession, WorkerAction, WorkerEnvelope};
 use crate::{CoreError, CoreResult};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
+use super::indexed_read::{self, Span};
 
 #[path = "road_mixed_shape.rs"]
 mod road_mixed_shape;
@@ -55,6 +57,127 @@ pub(super) struct RoadQ1ReadOnlyPreparation {
 
 fn denied(message: &'static str) -> CoreError { CoreError(message) }
 
+fn raw<'a>(b: &'a [u8], span: Span) -> CoreResult<&'a [u8]> {
+    b.get(span.begin..span.end).ok_or(denied("ROAD_Q1_OLD_SPAN"))
+}
+fn field_opt(b: &[u8], parent: Span, name: &str) -> CoreResult<Option<Span>> {
+    if parent.end <= parent.begin + 1 || parent.end > b.len()
+        || b.get(parent.begin) != Some(&b'{')
+        || b.get(parent.end - 1) != Some(&b'}') {
+        return Err(denied("ROAD_Q1_OLD_OBJECT_REQUIRED"));
+    }
+    let mut pos = parent.begin + 1;
+    let mut budget = 0usize;
+    loop {
+        pos = indexed_read::skip_ws(b, pos);
+        if pos == parent.end - 1 { return Ok(None); }
+        budget += 1;
+        if budget > 100_000 || pos >= parent.end - 1 {
+            return Err(denied("ROAD_Q1_OLD_OBJECT_BOUND"));
+        }
+        let key_end = indexed_read::string_end(b, pos)?;
+        if key_end - pos > 128 { return Err(denied("ROAD_Q1_OLD_KEY_BOUND")); }
+        let key: String = serde_json::from_slice(raw(b, Span { begin: pos, end: key_end })?)
+            .map_err(|_| denied("ROAD_Q1_OLD_KEY"))?;
+        let colon = indexed_read::skip_ws(b, key_end);
+        if b.get(colon) != Some(&b':') { return Err(denied("ROAD_Q1_OLD_COLON")); }
+        let begin = indexed_read::skip_ws(b, colon + 1);
+        let end = indexed_read::value_end(b, begin)?;
+        if end > parent.end - 1 { return Err(denied("ROAD_Q1_OLD_FIELD_BOUND")); }
+        let next = indexed_read::skip_ws(b, end);
+        let span = Span { begin, end };
+        // ProductSession already performed full-document duplicate-key denial.
+        if key == name { return Ok(Some(span)); }
+        match b.get(next) {
+            Some(b',') if next < parent.end - 1 => pos = next + 1,
+            Some(b'}') if next == parent.end - 1 => return Ok(None),
+            _ => return Err(denied("ROAD_Q1_OLD_FIELD_DELIMITER")),
+        }
+    }
+}
+fn field(b: &[u8], parent: Span, name: &str) -> CoreResult<Span> {
+    field_opt(b, parent, name)?.ok_or(denied("ROAD_Q1_OLD_FIELD_MISSING"))
+}
+fn integer(b: &[u8], span: Span) -> CoreResult<u32> {
+    let bytes = raw(b, span)?;
+    if bytes.is_empty() || bytes.len() > 10 ||
+        !bytes.iter().all(u8::is_ascii_digit) ||
+        (bytes.len() > 1 && bytes[0] == b'0') {
+        return Err(denied("ROAD_Q1_OLD_UINT_CANONICAL"));
+    }
+    std::str::from_utf8(bytes).map_err(|_| denied("ROAD_Q1_OLD_UINT_UTF8"))?
+        .parse::<u32>().map_err(|_| denied("ROAD_Q1_OLD_UINT_BOUNDS"))
+}
+fn digest(b: &[u8], span: Span) -> CoreResult<[u8; 32]> {
+    Ok(Sha256::digest(raw(b, span)?).into())
+}
+#[derive(Clone, Copy)]
+struct ActualRoadQ1Readset {
+    next: u32, stock: u32,
+    area_sha: [u8; 32], grid_sha: [u8; 32], stock_sha: [u8; 32],
+}
+/// Authenticate a deliberately limited subset of old values from the SAME
+/// immutable Rust-owned decoded document. Geometry/halo/rights/ref subscriber
+/// closure are still unknown. No edit, new SaveSession or second Engine.
+fn read_actual_old(b: &[u8]) -> CoreResult<ActualRoadQ1Readset> {
+    let roots = indexed_read::roots(b)?;
+    let villages = field(b, roots.world, "Villages")?;
+    if b.get(villages.begin) != Some(&b'[') ||
+       b.get(villages.end - 1) != Some(&b']') {
+        return Err(denied("ROAD_Q1_VILLAGES_REQUIRED"));
+    }
+    let vi = indexed_read::skip_ws(b, villages.begin + 1);
+    if vi >= villages.end - 1 { return Err(denied("ROAD_Q1_VILLAGE_EMPTY")); }
+    let village = Span { begin: vi, end: indexed_read::value_end(b, vi)? };
+    if village.end >= villages.end { return Err(denied("ROAD_Q1_VILLAGE_BOUND")); }
+    let area = field(b, field(b, village, "Areas")?, "6")?;
+    if raw(b, field(b, area, "Unlocked")?)? != b"true" {
+        return Err(denied("ROAD_Q1_AREA_LOCKED"));
+    }
+    let ids = field(b, area, "GridIDs")?;
+    if ids.end - ids.begin > 512 { return Err(denied("ROAD_Q1_GRID_IDS_BOUND")); }
+    let grid_ids: Vec<u32> = serde_json::from_slice(raw(b, ids)?)
+        .map_err(|_| denied("ROAD_Q1_GRID_IDS_TYPE"))?;
+    if grid_ids != [GRID] { return Err(denied("ROAD_Q1_GRID_ROOT_MISMATCH")); }
+
+    let gc = field(b, roots.world, "GridCollection")?;
+    let grid = field(b, field(b, gc, "Grids")?, "1")?;
+    if integer(b, field(b, grid, "ID")?)? != GRID {
+        return Err(denied("ROAD_Q1_GRID_ID_MISMATCH"));
+    }
+    if integer(b, field(b, grid, "TessellationFactor")?)? != 2 ||
+       raw(b, field(b, grid, "GridDefaultLayoutPath")?)? != b"\"\"" {
+        return Err(denied("ROAD_Q1_GRID_LAYOUT_DENIED"));
+    }
+    let diff = field(b, gc, "DiffGrids")?;
+    if field_opt(b, diff, "1")?.is_some() {
+        return Err(denied("ROAD_Q1_GRID_OVERLAY_DENIED"));
+    }
+    let next = integer(b, field(b, grid, "NextGridObjectID")?)?;
+    if next == 0 || next.checked_add(1).is_none_or(|v| v > i32::MAX as u32) {
+        return Err(denied("ROAD_Q1_ACTUAL_COUNTER_BOUND"));
+    }
+    let objects = field(b, grid, "Objects")?;
+    if field_opt(b, objects, &next.to_string())?.is_some() {
+        return Err(denied("ROAD_Q1_ACTUAL_ID_COLLISION"));
+    }
+    let route = field(b, field(b, roots.player, "ListInventories")?, "0")?;
+    if integer(b, field(b, route, "ID")?)? != 0 {
+        return Err(denied("ROAD_Q1_CATALOG0_MISMATCH"));
+    }
+    let entry = field(b, field(b, route, "Inventory")?, "40100068")?;
+    let stock = integer(b, field(b, entry, "Amount")?)?;
+    if stock < 2 || stock > STOCK_MAX {
+        return Err(denied("ROAD_Q1_ACTUAL_STOCK_BOUNDS"));
+    }
+    Ok(ActualRoadQ1Readset {
+        next, stock,
+        area_sha: digest(b, area)?,
+        grid_sha: digest(b, grid)?,
+        stock_sha: digest(b, entry)?,
+    })
+}
+
 impl ProductSession {
     /// Bounded non-authorizing sketch. Does NOT scan/validate the ambient
     /// halo, grid occupancy, counter aliases, provider entitlement or game
@@ -77,12 +200,11 @@ impl ProductSession {
         if old.envelope.action != WorkerAction::ReadDomain {
             return Err(denied("ROAD_Q1_READ_DOMAIN_ONLY"));
         }
-        // Validate the actual existing ProductSession identity, source,
-        // revision, generation and close state; no caller-minted session.
-        self.dispatch(WorkerEnvelope {
-            action: WorkerAction::ReadCoreSchemaWitness,
-            ..old.envelope
-        })?;
+        // One ProductSession scope validator rejects staged-ledger reads as well
+        // as stale/foreign/replayed session identity, epoch and decoded SHA.
+        let state = self.lock()?;
+        indexed_read::validate_scope(self, &state, &old.envelope)?;
+        drop(state);
         if old.source_sha != self.sha
             || old.envelope.expected_decoded_sha256 != self.sha
         {
@@ -101,6 +223,15 @@ impl ProductSession {
         }
         if old.stock < 2 || old.stock > STOCK_MAX {
             return Err(denied("ROAD_Q1_NO_UNAUTHORIZED_DEBIT"));
+        }
+        // These THREE old-value witnesses are now authenticated against
+        // the Rust-owned document, not merely the caller's nonzero hashes.
+        // References/ambient/rights remain explicitly UNVERIFIED.
+        let actual = read_actual_old(&self.decoded)?;
+        if old.next_object_id != actual.next || old.stock != actual.stock ||
+           old.root_sha != actual.area_sha || old.grid_sha != actual.grid_sha ||
+           old.stock_sha != actual.stock_sha {
+            return Err(denied("ROAD_Q1_ACTUAL_OLD_VALUES_CAS"));
         }
         let proposed_object =
             road_mixed_shape::exact_steam626_road_single_orthogonal(
@@ -145,8 +276,21 @@ mod road_q1_prep_tests {
         ProductSession::open_decoded_readonly(
             serde_json::to_vec(&json!({
                 "GameInfo": { "Version": 626 },
-                "World": {},
-                "Player": {},
+                "World": {
+                    "Villages": [{"Areas": {"6": {"Unlocked": true, "GridIDs": [1]}}}],
+                    "GridCollection": {"Grids": {"1": {
+                        "ID": 1, "GridDataPath": "GridData/Worlds/Plaza-GridData.json",
+                        "GridDefaultLayoutPath": "", "TessellationFactor": 2,
+                        "NextGridObjectID": 15949, "Objects": {
+                            "8": {"ID": 8, "ItemID": 40100068, "X": 20, "Y": 30,
+                                  "Orientation": "GridOrientation_Down", "State": null}
+                        }
+                    }}, "DiffGrids": {}}
+                },
+                "Player": {"ListInventories": {"0": {"ID": 0,
+                    "CompatibleItemType": "ItemType_Furniture",
+                    "Inventory": {"40100068": {"Amount": 9, "Marker": "ItemMarker_Favorite"}}
+                }}},
                 "Unknown": { "keep": [1, 2, 3] }
             })).unwrap(),
             build,
@@ -154,6 +298,7 @@ mod road_q1_prep_tests {
     }
     fn expected(session: &ProductSession) -> RoadQ1ExpectedOld {
         let r = session.receipt().unwrap();
+        let actual = read_actual_old(&session.decoded).unwrap();
         RoadQ1ExpectedOld {
             envelope: WorkerEnvelope {
                 contract: PRODUCT_WORKER_CONTRACT,
@@ -166,8 +311,8 @@ mod road_q1_prep_tests {
             source_sha: r.decoded_sha256,
             area: AREA, grid: GRID, next_object_id: 15949,
             stock: 9, x: 40, y: 20,
-            root_sha: [1; 32], grid_sha: [2; 32],
-            stock_sha: [3; 32], refs_sha: [4; 32], ambient_sha: [5; 32],
+            root_sha: actual.area_sha, grid_sha: actual.grid_sha,
+            stock_sha: actual.stock_sha, refs_sha: [4; 32], ambient_sha: [5; 32],
         }
     }
 
@@ -238,6 +383,21 @@ mod road_q1_prep_tests {
         assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
         wrong = old;
         wrong.y = u32::MAX;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.root_sha = [99; 32];
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.grid_sha = [99; 32];
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.stock_sha = [99; 32];
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.stock = 8;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.next_object_id = 15948;
         assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
         wrong = old;
         wrong.refs_sha = [0; 32];
