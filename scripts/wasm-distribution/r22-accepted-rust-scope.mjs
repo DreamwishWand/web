@@ -973,6 +973,19 @@ const switch626FiveFenceComposedMain7fExact12Entries=[
   {path:'crates/ddv-save-core/src/worker_switch626_fixed_fence_add.rs',before:null,after:{mode:'100644',blob:'708494849861b95c478fbe66500e6af884cc2f40'}},
   {path:'scripts/wasm-distribution/protected-release-inputs.json',before:{mode:'100644',blob:'44e639fc5219bf41f61d22fbbc0b34383df8cd6a'},after:{mode:'100644',blob:'f81df4334a4d75760f33607eeca4385adffc966c'}}
 ];
+// 09P-CODE 2026-11-17 fixed Steam626 active Male Makeup slot1 ColorIndex1.
+// Original PR2006 exact seven typed Source leaves and one Cargo-only protected
+// input; unrelated Core, Build, rights, Secret, Export, Writer and ON denied.
+const steam626MakeupGeneratedAfterFiveFenceExact8Entries=[
+ {path:'.github/workflows/core-product-session-boundary.yml',before:{mode:'100644',blob:'6c5e9e7ca1a7caeb6b66e88d0f3a3d532f2216c3'},after:{mode:'100644',blob:'c83fb6ba5b874048ce59e8221ef309222252af0b'}},
+ {path:'crates/ddv-save-core/Cargo.toml',before:{mode:'100644',blob:'2f8452ee3c7a45bab9bb6cb7ab62010120e37c44'},after:{mode:'100644',blob:'d66296a76c6c380fb4475c70b20e3ebb00adc7eb'}},
+ {path:'crates/ddv-save-core/src/product_makeup_color1.rs',before:{mode:'100644',blob:'cc79ca8e87c2b6c82e84fc9c84636faf01df1455'},after:{mode:'100644',blob:'952fa70789192f3207df6e4fcdf49d028d62a4d0'}},
+ {path:'crates/ddv-save-core/src/wasm_steam626_makeup_color1.rs',before:null,after:{mode:'100644',blob:'e9b98a46b18b099e6ab0601a2a3171e52c4ca0c2'}},
+ {path:'crates/ddv-save-core/src/wasm_worker.rs',before:{mode:'100644',blob:'fa47aae53ecf0d242b234a1ede67dd210ae8c67b'},after:{mode:'100644',blob:'f43e5809473be8b68b50342c5efff2221e83f97f'}},
+ {path:'crates/ddv-save-core/src/worker_session.rs',before:{mode:'100644',blob:'b89295b6d665e191e3872a50924a9091bf9d35d7'},after:{mode:'100644',blob:'857262786d8426c8d5fb9926c93ab7d293711eaf'}},
+ {path:'crates/ddv-save-core/src/worker_steam626_makeup_color1.rs',before:null,after:{mode:'100644',blob:'4c2c4741253c82d61faf8e2cc2d6e2fdef3eddb4'}},
+ {path:'scripts/wasm-distribution/protected-release-inputs.json',before:{mode:'100644',blob:'f81df4334a4d75760f33607eeca4385adffc966c'},after:{mode:'100644',blob:'f70ddb4e88900d12fa426519ea7315c2e0812ba2'}}
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1108,6 +1121,16 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    composedCurrentSourceRoot:'2e865ef598565f86c2fb14dde7624683b1e04d7d',
    securityL2NotInferred:true,currentCoreAbiQaNotInherited:true,
    writerAuthorized:false}}; 
+ }
+ if(baseCore==='fa23c80199225e20639be7da80c8236b4b82a013'){
+  if(sourceCore!=='82d9500795262b9475160285a2778333d91603ea')deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626MakeupGeneratedAfterFiveFenceExact8Entries,count:8,metadata:{
+   sourcePr:2006,sourceHead:'8abad34033967b524e88d7be3c19ca259f081437',
+   sourceLeafCount:7,protectedInputOnlyCargoBlobPin:true,
+   protectedCargoBefore:'2f8452ee3c7a45bab9bb6cb7ab62010120e37c44',
+   protectedCargoAfter:'d66296a76c6c380fb4475c70b20e3ebb00adc7eb',
+   currentAbiL2NotInferred:true,securityL2Required:true,
+   privateOriginalSaveV2:'NOT_RUN',writerAuthorized:false}};
  }
  deny('BASE_CORE_TREE');
 }
