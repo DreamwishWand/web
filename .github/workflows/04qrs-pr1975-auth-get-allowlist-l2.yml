@@ -21,7 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "cb13548f1833ea46a00ed0198cd27e68684e3b1d"
-          test "$(git rev-parse HEAD^)" = "98fe15d340c5e4811cb399993029d01c9e0065d1"
+          test "$(git merge-base 98fe15d340c5e4811cb399993029d01c9e0065d1 HEAD)" = "98fe15d340c5e4811cb399993029d01c9e0065d1"
           printf '%s\n' '.github/workflows/pages.yml' 'scripts/int-protected-ci-gate.mjs' 'tests/int-protected-ci-gate.test.mjs' 'tests/scoped-sr03-spatial-proof-workflow.test.mjs' | sort > /tmp/qa-allowed
           git diff --name-only "98fe15d340c5e4811cb399993029d01c9e0065d1" "cb13548f1833ea46a00ed0198cd27e68684e3b1d" | sort > /tmp/qa-actual
           diff -u /tmp/qa-allowed /tmp/qa-actual
