@@ -1,0 +1,196 @@
+name: QA ONLY 04 QR-W ACT1637 Steam626 two Item pins product rights and reference L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2038-steam-twopin-metadata-l2.yml'
+permissions:
+  contents: read
+jobs:
+  two-product-pins:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 82bb02153dd861f678c862c0ab04676cc3f89690
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze actual first-parent and inherited original two postblobs, no media bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 82bb02153dd861f678c862c0ab04676cc3f89690
+          test "$(git rev-parse HEAD^)" = 344e4e1105037d732eeacc1bdff68fa140c2fafa
+          test "$(git rev-parse HEAD:.github/workflows/web-shared-catalog-detail.yml)" = 5ca38e38912351068684d065f584029392d3d1e3
+          test "$(git rev-parse HEAD:src/lib/item-media/switch1253-public-item-images.mjs)" = 73f15d221cede4ce2c195a48e57321a7293ab501
+          test "$(git rev-parse HEAD:tests/web-steam1253-door-primary-contract.test.mjs)" = e34ede0c1ef9dcfd072f2511c454795406abed4e
+          test "$(git rev-parse HEAD^:src/lib/item-media/switch1253-public-item-images.mjs)" = 3a34acc622c280a5d415b462a71125ea207dfe6e
+          test "$(git rev-parse HEAD^:tests/web-steam1253-door-primary-contract.test.mjs)" = 6860507dfc4635c9e2eb9fb1906f7234a4b940b4
+          git diff --name-only HEAD^ HEAD | LC_ALL=C sort > /tmp/qrw2038-actual
+          printf '%s\n' src/lib/item-media/switch1253-public-item-images.mjs tests/web-steam1253-door-primary-contract.test.mjs | LC_ALL=C sort > /tmp/qrw2038-expected
+          diff -u /tmp/qrw2038-expected /tmp/qrw2038-actual
+          test "$(git diff --name-only HEAD^ HEAD | wc -l | tr -d ' ')" = 2
+          test "$(git ls-tree HEAD src/lib/item-media/switch1253-public-item-images.mjs | awk '{print $1}')" = 100644
+          test "$(git ls-tree HEAD tests/web-steam1253-door-primary-contract.test.mjs | awk '{print $1}')" = 100644
+          echo QRW2038_FIXED_PRODUCT_EXACT2_INHERITED_ORIGINAL_POSTBLOBS_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independent actual product JS Steam626 two-pin reference and publication denials
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import * as m from './src/lib/item-media/switch1253-public-item-images.mjs';
+          import {readFileSync} from 'node:fs';
+          const ids=['40000047','40006096'], [wardrobe,dice]=ids;
+          const expectDeny=(name,fn)=>{assert.throws(fn,undefined,name);count.neg++;};
+          const expectNull=(name,actual)=>{assert.equal(actual,null,name);count.neg++;};
+          const count={pos:0,neg:0};
+          const expected = {
+            '40000047':{webp:'30ab4e9c59d87e2796a56a2bdda2b87bfc03bb39364b3d2267d31db2804865e0',guid:'26d1b07fac5a07a4ebea467b962fb6a4',bytes:19944, policy:'EXPLICIT_FALLBACK_ONLY',fallback:'9A239D3DB569756D'},
+            '40006096':{webp:'75292936edd3ed82fd97e69f7e8e09771ce4c9ec36d867c7703b066a95b1854c',guid:'b569dad82cd3de74397780d1fa7be96a',bytes:17638,policy:'NO_FALLBACK_SWITCH_VISUAL_QUARANTINED',fallback:null}
+          };
+          const keys=Object.keys(m.STEAM1253_NATIVE_PINS).sort();
+          assert.deepEqual(keys,['40300045','40006110','40005160',...ids].sort());count.pos++;
+          assert.equal(m.STEAM1253_REVIEWED_RELEASE.mediaPublic,false);
+          assert.equal(m.STEAM1253_REVIEWED_RELEASE.rightsHolderLicense,'UNKNOWN');
+          assert.equal(m.STEAM1253_REVIEWED_RELEASE.rightsReview,'NOT_RUN');
+          assert.equal(m.STEAM1253_REVIEWED_RELEASE.receivingContact,'NOT_RUN');
+          assert.equal(m.STEAM1253_REVIEWED_RELEASE.operatorReceiptSha256,null);
+          assert.deepEqual(Object.keys(m.STEAM1253_REVIEWED_RELEASE.items),[]);count.pos++;
+          assert.ok(Object.isFrozen(m.STEAM1253_NATIVE_PINS));count.pos++;
+          for(const id of ids){
+            const pin=m.STEAM1253_NATIVE_PINS[id],e=expected[id];
+            assert.ok(Object.isFrozen(pin));
+            assert.equal(pin.platform,'Steam Windows');
+            assert.equal(pin.gameVersion,'1.25.3');
+            assert.equal(pin.schema,626);
+            assert.equal(pin.fullVersion,'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22');
+            assert.equal(pin.webpSha256,e.webp);
+            assert.equal(pin.iconGuid,e.guid);
+            assert.equal(pin.bytes,e.bytes);
+            assert.equal(pin.width,160);assert.equal(pin.height,160);
+            assert.equal(pin.visibility,'RELEASED_PLAYER_FACING');
+            assert.equal(pin.codec,'WEBP_LOSSLESS_RGBA_EXACT');
+            assert.equal(pin.fallbackPolicy,e.policy);
+            assert.equal(pin.fallbackBuildID,e.fallback);
+            if(id===dice){
+              for(const k of ['fallbackPlatform','fallbackBundleSha256','fallbackNativeStreamSha256'])assert.equal(pin[k],null);
+              assert.ok(m.SWITCH1253_VISUAL_QUARANTINE[id]);
+            }else{
+              assert.equal(pin.fallbackPlatform,'Nintendo Switch');
+              assert.equal(pin.fallbackNativeStreamSha256,m.SWITCH1253_NATIVE_PINS[id].originalNativeStreamSha256);
+              assert.equal(pin.fallbackBundleSha256,m.SWITCH1253_ORIGINAL_BUNDLE_SHA256);
+            }
+            for(const k of ['originalBundleSha256','originalNativeStreamSha256','sourcePngSha256','webpSha256','rgba160Sha256']){
+              assert.match(pin[k],/^[0-9a-f]{64}$/);
+            }
+            assert.match(pin.iconGuid,/^[0-9a-f]{32}$/);
+            count.pos++;
+          }
+          function make(idsToPrepare=ids){
+            const raw=m.prepareSteam1253ItemImageManifest(idsToPrepare);
+            const release={...m.STEAM1253_REVIEWED_RELEASE,mediaPublic:true,rightsReview:'OPERATOR_ACCEPTED',receivingContact:'MANAGED_VERIFIED',takedown:'MANAGED_TESTED',managedHttps:'MANAGED_VERIFIED',attribution:'EIGHT_LOCALES_REVIEWED',oldUrlAndCache:'MANAGED_TESTED',rollback:'MANAGED_TESTED',operatorReceiptSha256:'b'.repeat(64),items:{}};
+            for(const id of idsToPrepare){
+              raw.items[id].publicationDecision='OWNER_SCOPED_PUBLICATION_ACCEPTED';
+              release.items[id]=Object.fromEntries(['originalNativeStreamSha256','sourcePngSha256','webpSha256','rightsStatus','publicationDecision','visibility'].map(k=>[k,raw.items[id][k]]));
+            }
+            const {mediaPublic,items,...publication}=release;raw.publication={gate:'MEDIA_PUBLIC_SCOPED_ON',...publication};
+            return {raw,release};
+          }
+          const pair=make(),cat=m.validateSteam1253ItemImageCatalog(pair.raw,pair.release);
+          assert.equal(cat.count,2);count.pos++;
+          for(const id of ids){
+            const pin=m.STEAM1253_NATIVE_PINS[id];
+            const href='/web/ddv/item-images/'+m.STEAM1253_ITEM_IMAGE_VARIANT+'/'+pin.webpSha256.slice(0,2)+'/'+pin.webpSha256+'.webp';
+            assert.equal(m.scopedSwitch1253ItemImageHref('/web',id,cat),href);
+            assert.equal(m.scopedSteam1253ItemImageHref('/web',id,cat),href);
+            assert.equal(m.scopedSteam1253ItemImageHref('/web',id,structuredClone(cat)),null);
+            assert.notEqual(m.STEAM1253_ITEM_IMAGE_VARIANT,m.SWITCH1253_ITEM_IMAGE_VARIANT);
+            count.pos++;
+          }
+          expectDeny('runtime compiled OFF denies valid synthetic manifest',()=>m.validateSteam1253ItemImageCatalog(pair.raw));
+          expectDeny('runtime no receipt denies unmodified prepared manifest',()=>m.validateSteam1253ItemImageCatalog(m.prepareSteam1253ItemImageManifest(ids)));
+          for(const id of ids){
+            const pin=m.STEAM1253_NATIVE_PINS[id];
+            for(const [key,bad] of Object.entries({platform:'Nintendo Switch',schema:624,gameVersion:'1.24.0',fullVersion:'INCORRECT-BUILD',webpSha256:'0'.repeat(64),originalNativeStreamSha256:'f'.repeat(64),originalBundleSha256:'a'.repeat(64),rgba160Sha256:'1'.repeat(64),iconGuid:'e'.repeat(32),codec:'OTHER',visibility:'HIDDEN',fallbackPolicy:'EXPLICIT_FALLBACK_ONLY-MUTATED',width:96,height:0,bytes:0})){
+              const x=structuredClone(pair.raw);x.items[id][key]=bad;
+              expectDeny('tampered '+id+'/'+key,()=>m.validateSteam1253ItemImageCatalog(x,pair.release));
+            }
+            for(const key of Object.keys(pin)){
+              const x=structuredClone(pair.raw);delete x.items[id][key];
+              expectDeny('missing '+id+'/'+key,()=>m.validateSteam1253ItemImageCatalog(x,pair.release));
+            }
+            for(const key of ['rightsStatus','publicationDecision']){
+              const x=structuredClone(pair.raw);x.items[id][key]='FORGED';
+              expectDeny('invalid '+id+'/'+key,()=>m.validateSteam1253ItemImageCatalog(x,pair.release));
+            }
+            const x=structuredClone(pair.raw);x.items[id].unreviewedExtra='malicious';
+            expectDeny('extra '+id,()=>m.validateSteam1253ItemImageCatalog(x,pair.release));
+          }
+          for(const bad of ['40002422','40003299','40300001','constructor','__proto__','00040000047','400000470','400060960']){
+            expectDeny('unknown/hidden/id '+bad,()=>m.prepareSteam1253ItemImageManifest([bad]));
+            expectNull('unapproved href '+bad,m.scopedSwitch1253ItemImageHref('/web',bad,cat));
+          }
+          for(const invalid of [[],[wardrobe,wardrobe],[dice,dice],['40002422'],[40000047],null,{}]){
+            expectDeny('unapproved selection',()=>m.prepareSteam1253ItemImageManifest(invalid));
+          }
+          for(const id of ids){
+            const single=make([id]),result=m.validateSteam1253ItemImageCatalog(single.raw,single.release);
+            assert.equal(result.count,1);
+            assert.ok(m.scopedSwitch1253ItemImageHref('/web',id,result));
+            expectNull('no resurrect absent sibling',m.scopedSwitch1253ItemImageHref('/web',ids.find(z=>z!==id),result));
+            count.pos++;
+          }
+          for(const id of ids){
+            const x=structuredClone(pair.raw);
+            delete x.items[id];
+            const withdrawn=m.validateSteam1253ItemImageCatalog(x,pair.release);
+            expectNull('single withdrawal even with valid peer',m.scopedSwitch1253ItemImageHref('/web',id,withdrawn));
+            assert.ok(m.scopedSwitch1253ItemImageHref('/web',ids.find(z=>z!==id),withdrawn));
+            count.pos++;
+          }
+          {
+            const x=structuredClone(pair.raw);
+            x.items[wardrobe]={...x.items[dice]};
+            expectDeny('wrong original mapping wardrobe to dice',()=>m.validateSteam1253ItemImageCatalog(x,pair.release));
+            const y=structuredClone(pair.raw);
+            y.items[dice]={...y.items[wardrobe]};
+            expectDeny('wrong original mapping dice to wardrobe',()=>m.validateSteam1253ItemImageCatalog(y,pair.release));
+          }
+          for(const [id,mutate] of [
+            ['switch manifest injected',x=>x.switch={raw:'Switch-unreviewed'}],
+            ['assetVariant changed',x=>x.assetVariant=m.SWITCH1253_ITEM_IMAGE_VARIANT],
+            ['schema changed',x=>x.schema=m.SWITCH1253_ITEM_IMAGE_SCHEMA],
+            ['publication gate injected',x=>x.publication.gate='MEDIA_PUBLIC_PREPARED_OFF'],
+            ['publication rights forged',x=>x.publication.rightsReview='AUTOMATIC_ACCEPTED'],
+            ['release item forged',x=>x.items[wardrobe].rightsStatus='DOCUMENTED_LICENSE_APPROVED'],
+            ['unexpected root',x=>x.mediaPublic=true],
+          ]){
+            const x=structuredClone(pair.raw);mutate(x);
+            expectDeny(id,()=>m.validateSteam1253ItemImageCatalog(x,pair.release));
+          }
+          const releaseFake={...pair.release,mediaPublic:false};
+          expectDeny('operator override cannot enable compiled release by false flag',()=>m.validateSteam1253ItemImageCatalog(pair.raw,releaseFake));
+          const releaseNoReceipt={...pair.release,operatorReceiptSha256:null};
+          expectDeny('no operator receipt',()=>m.validateSteam1253ItemImageCatalog(pair.raw,releaseNoReceipt));
+          const releaseNoContact={...pair.release,receivingContact:'NOT_RUN'};
+          expectDeny('no verified receiving contact',()=>m.validateSteam1253ItemImageCatalog(pair.raw,releaseNoContact));
+          const releaseUnreviewed={...pair.release,rightsReview:'NOT_RUN'};
+          expectDeny('no operator rights review',()=>m.validateSteam1253ItemImageCatalog(pair.raw,releaseUnreviewed));
+          const releaseWrongReference={...pair.release,items:{...pair.release.items,[wardrobe]:pair.release.items[dice]}};
+          expectDeny('cross item release SHA',()=>m.validateSteam1253ItemImageCatalog(pair.raw,releaseWrongReference));
+          for(const base of ['../../','https://example.test','//bad','/web?x=1']){
+            expectNull('bad base',m.scopedSwitch1253ItemImageHref(base,wardrobe,cat));
+            expectNull('bad base dice',m.scopedSwitch1253ItemImageHref(base,dice,cat));
+          }
+          assert.equal(m.scopedSwitch1253ItemImageHref('/web',dice,{...cat}),null);
+          count.neg++;
+          assert.equal(m.SWITCH1253_VISUAL_QUARANTINE[dice],'E1640_SWITCH_DICE_TREE_STRIPED');count.pos++;
+          assert.equal(m.prepareSwitch1253ItemImageManifest().items[dice],undefined);count.pos++;
+          assert.equal(m.scopedSwitch1253ItemImageHref('/web',dice,null),null);count.neg++;
+          console.log('QRW2038_STEAM626_WARDROBE_DICE_PRODUCT_METADATA_RIGHTS_NEGATIVES_SCOPED_PASS',JSON.stringify({positive:count.pos,negative:count.neg,actualProductSource:true,syntheticOperatorOverride:true,genuineGamePixels:false,rightsVerified:false,mediaPublic:false}));
+          NODE
