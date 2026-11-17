@@ -27,15 +27,17 @@ pub struct WorkerWasmSource {
     build:BuildIdentity,
     entropy:[u8;32],
     session:Option<WorkerSessionGuard>,
+    #[cfg(feature="product-switch624-frp01-readonly")]
+    frp01_session:Option<WorkerSessionGuard>,
     closed:bool,
-    #[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
     scoped_output:Option<(Vec<u8>,usize)>,
-    #[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
     scoped_domain:std::cell::Cell<Option<ScopedEditDomain>>,
 }
-#[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 #[derive(Clone,Copy,PartialEq,Eq)]
-enum ScopedEditDomain { Amount, Collection, SwitchChest, Comp03, Sr03, SwitchRm01, Hair, Skin, SwitchFd01, SwitchFe01, SwitchFd02, SwitchFd03, SwitchOrthoL, SwitchDiagonal90, SwitchOrthoT, MakeupColor1 }
+enum ScopedEditDomain { Amount, Collection, SwitchChest, Comp03, Sr03, SwitchRm01, Hair, Skin, SwitchFd01, SwitchFe01, SwitchFd02, SwitchFd03, SwitchOrthoL, SwitchDiagonal90, SwitchOrthoT, MakeupColor1, SwitchFrp01 }
 #[wasm_bindgen]
 impl WorkerWasmSource {
     #[wasm_bindgen(constructor)]
@@ -58,9 +60,11 @@ impl WorkerWasmSource {
         Ok(Self{buffer:Vec::new(),
             build:BuildIdentity{platform,build_kind,build_id,schema:schema.into(),externally_attested},
             entropy:seed,session:None,closed:false,
-            #[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+            #[cfg(feature="product-switch624-frp01-readonly")]
+            frp01_session:None,
+            #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
             scoped_output:None,
-            #[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+            #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
             scoped_domain:std::cell::Cell::new(None)})
     }
     /// No JS-owned second session, raw Save, UI readset, or unbounded transferable.
@@ -101,6 +105,30 @@ impl WorkerWasmSource {
             "editedCopyAuthorized":false,
             "applyAuthorized":false
         }).to_string())
+    }
+    /// Explicit one-operation read-only admission. No generic finish, cursor,
+    /// mutation, export, or foreign Build is reachable through this binding.
+    #[cfg(feature="product-switch624-frp01-readonly")]
+    pub fn finish_switch624_frp01_readonly(&mut self)->Result<String,JsValue>{
+        if self.closed||self.session.is_some()||self.frp01_session.is_some(){return Err(err("WORKER_ALREADY_FINALIZED"));}
+        let bytes=std::mem::take(&mut self.buffer);let seed=self.entropy;self.entropy.fill(0);self.closed=true;
+        let session=ProductSession::open_switch624_frp01_in_worker(bytes,self.build.clone(),seed).map_err(|e|err(e.0))?;
+        let guard=WorkerSessionGuard::attach(session);let r=guard.receipt().map_err(|e|err(e.0))?;
+        self.frp01_session=Some(guard);
+        Ok(serde_json::json!({"contract":r.contract,"sessionId":hex(&r.session_id),
+            "revision":r.revision,"indexGeneration":r.index_generation,"decodedSha256":hex(&r.decoded_sha256),
+            "schema":r.schema,"operation":"switch624-frp01-readonly","fullDocumentJsonValidated":r.full_document_json_validated,
+            "allDomainReferencesVerified":false,"productWorkerBound":r.product_worker_bound,"productReadAccepted":false,
+            "writerAuthorized":false,"editedCopyAuthorized":false,"applyAuthorized":false}).to_string())
+    }
+    #[cfg(feature="product-switch624-frp01-readonly")]
+    pub fn read_switch624_frp01_target(&self,grid:u32,old0:u32,old1:u32,old2:u32,session_id:&str,
+        revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.frp01_session.as_ref().ok_or(err("FRP01_WORKER_SESSION_NOT_READY"))?;
+        let e=WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(session_id)?,
+            expected_revision:revision,expected_index_generation:index_generation,
+            expected_decoded_sha256:from_hex(decoded_sha256)?,action:WorkerAction::ReadDomain};
+        Ok(guard.read_switch624_frp01_target(e,grid,[old0,old1,old2]).map_err(|e|err(e.0))?.to_string())
     }
     pub fn read_core_version_witness(&self,session_id:&str,
                     revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
@@ -574,11 +602,13 @@ impl WorkerWasmSource {
     }
     pub fn close(&mut self)->Result<(),JsValue>{
         self.closed=true;self.buffer.clear();self.entropy.fill(0);
-        #[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+        #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
         {if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);} self.scoped_domain.set(None);}
         if let Some(mut session)=self.session.take(){
             session.close().map_err(|e|err(e.0))?;
         }
+        #[cfg(feature="product-switch624-frp01-readonly")]
+        if let Some(mut guard)=self.frp01_session.take(){guard.close().map_err(|e|err(e.0))?;}
         Ok(())
     }
 }
@@ -591,20 +621,22 @@ impl Drop for WorkerWasmSource {
         self.buffer.fill(0);
         self.buffer.clear();
         self.entropy.fill(0);
-        #[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+        #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
         {if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);} self.scoped_domain.set(None);}
         if let Some(mut guard)=self.session.take() {
             let _=guard.close();
         }
+        #[cfg(feature="product-switch624-frp01-readonly")]
+        if let Some(mut guard)=self.frp01_session.take(){let _=guard.close();}
     }
 }
 
-#[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 fn scoped_edit_envelope(id:&str,revision:u64,generation:u64,sha:&str,action:WorkerAction)->Result<WorkerEnvelope,JsValue>{
     Ok(WorkerEnvelope{contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(id)?,expected_revision:revision,
         expected_index_generation:generation,expected_decoded_sha256:from_hex(sha)?,action})
 }
-#[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 fn scoped_edit_receipt(r:crate::SemanticStageReceipt,contract:&str)->String{
     serde_json::json!({"contract":contract,"sessionId":hex(&r.session_id),
         "revision":r.revision,"indexGeneration":r.index_generation,"decodedSha256":hex(&r.original_decoded_sha256),
@@ -623,7 +655,7 @@ fn scoped_selection(profile:&str,id:u32,selector:u32)->Result<crate::ExistingAmo
     }
 }
 
-#[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
 impl WorkerWasmSource {
     #[cfg(feature="product-amount-scoped")]
     fn require_amount_domain(&self)->Result<(),JsValue>{
@@ -667,6 +699,21 @@ mod switch626_fe01;
 #[path="wasm_switch626_fixed_fence_add.rs"]
 mod switch626_fixed_fence_add;
 
-#[cfg(all(feature="product-steam626-makeup-color1-scoped",not(any(feature="product-amount-scoped",feature="product-collection-scoped",feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped",feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped",feature="product-switch626-makeup-color1-internal",feature="product-switch626-eyecolor2-internal"))))]
+#[cfg(all(feature="product-switch624-frp01-scoped",not(any(
+ feature="product-amount-scoped",feature="product-collection-scoped",
+ feature="product-steam626-makeup-color1-scoped",feature="product-steam626-chest-scoped",
+ feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",
+ feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped",
+ feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",
+ feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped",
+ feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",
+ feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",
+ feature="product-switch626-ortho-t-scoped",feature="product-switch626-makeup-color1-internal",
+ feature="product-switch626-eyecolor2-internal"
+))))]
+#[path="wasm_switch624_frp01.rs"]
+mod scoped_switch624_frp01;
+
+#[cfg(all(feature="product-steam626-makeup-color1-scoped",not(any(feature="product-amount-scoped",feature="product-collection-scoped",feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped",feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped",feature="product-switch626-makeup-color1-internal",feature="product-switch626-eyecolor2-internal",feature="product-switch624-frp01-scoped"))))]
 #[path="wasm_steam626_makeup_color1.rs"]
 mod scoped_steam626_makeup_color1;
