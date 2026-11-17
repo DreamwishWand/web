@@ -9,7 +9,7 @@ const placementMethods=Object.freeze({open:1,backupOriginal:0,previewPlacement:1
 const backpackMethods=Object.freeze({open:1,backupOriginal:0,previewBackpack:1,stageBackpack:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
 const wardrobeMethods=Object.freeze({open:1,backupOriginal:0,previewWardrobe:0,stageWardrobe:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
 const appearanceMethods=Object.freeze({open:1,backupOriginal:0,previewAppearance:0,stageAppearance:0,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0});
-const methods=Object.freeze({appearance:appearanceMethods,eyecolor2:appearanceMethods,'makeup-color1':appearanceMethods,comp03:placementMethods,'comp03-spatial':Object.freeze({...placementMethods,spatialPreview:0}),vase:placementMethods,sr03:placementMethods,rm01:placementMethods,backpack:backpackMethods,wardrobe:wardrobeMethods,
+const methods=Object.freeze({appearance:appearanceMethods,eyecolor2:appearanceMethods,'makeup-color1':appearanceMethods,comp03:placementMethods,'comp03-spatial':Object.freeze({...placementMethods,spatialPreview:0}),vase:placementMethods,sr03:placementMethods,rm01:placementMethods,fd01:placementMethods,fd02:placementMethods,fd03:placementMethods,'ortho-l':placementMethods,diagonal90:placementMethods,'ortho-t':placementMethods,fe01:placementMethods,backpack:backpackMethods,wardrobe:wardrobeMethods,
  amount:Object.freeze({open:1,backupOriginal:0,listVerifiedTargets:0,stageTyped:1,undo:0,redo:0,exportEditedCopy:0,downloadVerifiedCopy:1,close:0}),
  collection:Object.freeze({open:1,inspectCollectionTargets:0,backupOriginal:1,previewCollectionTarget:2,stageCollectionTarget:2,undo:1,redo:1,exportEditedCopy:1,downloadVerifiedCopy:2,close:0})
 });
@@ -19,7 +19,7 @@ const closedAck=r=>exact(r,'kind,ok,writerAuthorized,nativeV3Verified,originalOv
 const validArgs=(mode,m,args,allowed)=>{
  if(!Object.hasOwn(allowed,m)||!Array.isArray(args)||args.length!==allowed[m])return false;
  if(m==='downloadVerifiedCopy')return mode==='collection'?uint(args[0])&&which(args[1]):which(args[0]);
- if(m==='previewPlacement')return (mode==='comp03'||mode==='comp03-spatial')?exact(args[0],'seedId')&&uint(args[0].seedId):(mode==='sr03'||mode==='rm01')?exact(args[0],'gridId,retainedId,movedId')&&['gridId','retainedId','movedId'].every(k=>uint(args[0][k]))&&args[0].retainedId!==args[0].movedId:mode==='vase'&&exact(args[0],'gridId,x,y')&&uint(args[0].gridId)&&['x','y'].every(k=>Number.isSafeInteger(args[0][k])&&args[0][k]>=0&&args[0][k]<=0xffffffff);
+ if(m==='previewPlacement')return mode==='fe01'?exact(args[0],'gridId,oldIds')&&uint(args[0].gridId)&&args[0].gridId>0&&Array.isArray(args[0].oldIds)&&args[0].oldIds.length===4&&args[0].oldIds.every(v=>uint(v)&&v>0)&&new Set(args[0].oldIds).size===4:(mode==='comp03'||mode==='comp03-spatial')?exact(args[0],'seedId')&&uint(args[0].seedId):(mode==='sr03'||mode==='rm01')?exact(args[0],'gridId,retainedId,movedId')&&['gridId','retainedId','movedId'].every(k=>uint(args[0][k]))&&args[0].retainedId!==args[0].movedId:['vase','fd01','fd02','fd03','ortho-l','diagonal90','ortho-t'].includes(mode)&&exact(args[0],'gridId,x,y')&&(!['fd01','fd02','fd03','ortho-l','diagonal90','ortho-t'].includes(mode)||args[0].gridId>0)&&uint(args[0].gridId)&&['x','y'].every(k=>Number.isSafeInteger(args[0][k])&&args[0][k]>=0&&args[0][k]<=0xffffffff);
  if(m==='previewBackpack')return mode==='backpack'&&exact(args[0],'sourceSlot,destinationSlot')&&['sourceSlot','destinationSlot'].every(k=>Number.isSafeInteger(args[0][k])&&args[0][k]>=0&&args[0][k]<256)&&args[0].sourceSlot!==args[0].destinationSlot;
  if(mode==='collection'&&['backupOriginal','undo','redo','exportEditedCopy'].includes(m))return uint(args[0]);
  if(mode==='collection'&&['previewCollectionTarget','stageCollectionTarget'].includes(m))return uint(args[0])&&Number.isSafeInteger(args[1])&&args[1]===0;
@@ -112,3 +112,18 @@ export const installLocalEyeColor2DevWorker=(port,adapter)=>install(port,adapter
 export const createLocalEyeColor2DevPort=worker=>createPort(worker,'eyecolor2');
 export const installLocalMakeupColor1DevWorker=(port,adapter)=>install(port,adapter,'makeup-color1');
 export const createLocalMakeupColor1DevPort=worker=>createPort(worker,'makeup-color1');
+
+export const installLocalFd01DevWorker=(port,adapter)=>install(port,adapter,'fd01');
+export const createLocalFd01DevPort=worker=>createPort(worker,'fd01');
+export const installLocalFd02DevWorker=(port,adapter)=>install(port,adapter,'fd02');
+export const createLocalFd02DevPort=worker=>createPort(worker,'fd02');
+export const installLocalFd03DevWorker=(port,adapter)=>install(port,adapter,'fd03');
+export const createLocalFd03DevPort=worker=>createPort(worker,'fd03');
+export const installLocalOrthoLDevWorker=(port,adapter)=>install(port,adapter,'ortho-l');
+export const createLocalOrthoLDevPort=worker=>createPort(worker,'ortho-l');
+export const installLocalDiagonal90DevWorker=(port,adapter)=>install(port,adapter,'diagonal90');
+export const createLocalDiagonal90DevPort=worker=>createPort(worker,'diagonal90');
+export const installLocalOrthoTDevWorker=(port,adapter)=>install(port,adapter,'ortho-t');
+export const createLocalOrthoTDevPort=worker=>createPort(worker,'ortho-t');
+export const installLocalFe01DevWorker=(port,adapter)=>install(port,adapter,'fe01');
+export const createLocalFe01DevPort=worker=>createPort(worker,'fe01');

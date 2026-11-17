@@ -10,10 +10,18 @@ const digest=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-
 // Shared existing one-session scoped edit ledger / bounded output transport.
 // Domain wrappers select only their fixed ABI and receipt contract. Never UI.
 // The owner constructs exactly ONE domain transport for its active Session.
+// Dedicated Fence operations: no generic count-4/7 or cross-scope lifecycle grant.
+function switchFenceLifecycle(count,contract,stageContract,outputContract,toggle,begin,next){
+ for(const [slug,fields,method] of [['fd01',4,'fd01'],['fe01',7,'fe01'],['fd02',4,'fd02'],['fd03',4,'fd03'],['ortho-l',6,'ortho_l'],['diagonal90',6,'diagonal90'],['ortho-t',8,'ortho_t']]){
+  const stem='wand.worker.switch626.scoped-'+slug+'-layout';
+  if(count===fields&&contract===stem+'@1'&&stageContract===contract&&outputContract===stem+'-output@1'&&toggle==='toggle_switch626_'+method&&begin==='begin_switch626_'+method+'_output'&&next==='next_switch626_'+method+'_output_chunk')return true;
+ }
+ return false;
+}
 export function createScopedEditLifecycle(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes,contract,stageContract=contract,outputContract,toggleMethod,beginMethod,nextMethod,exactCount=1,expectedProjection=()=>null}){
  if(typeof document!=='undefined'||!wasm||typeof parse!=='function'||typeof current!=='function'||typeof revoke!=='function'||
   !Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>128*1024*1024||!Number.isSafeInteger(chunkBytes)||chunkBytes<1||chunkBytes>1024*1024||
-  !([1,3,9].includes(exactCount)||(exactCount===8&&contract==='wand.worker.scoped-edit@1'&&['wand.worker.steam626.scoped-sr03-mixed-q5@1','wand.worker.switch626.scoped-rm01-mixed-q5@1'].includes(stageContract)&&outputContract==='wand.worker.scoped-edit-output@1'&&toggleMethod==='toggle_scoped_edit'&&beginMethod==='begin_scoped_edit_output'&&nextMethod==='next_scoped_edit_output_chunk'))||typeof expectedProjection!=='function'||typeof wasm[toggleMethod]!=='function'||typeof wasm[beginMethod]!=='function'||typeof wasm[nextMethod]!=='function')fail();
+  !([1,3,9].includes(exactCount)||switchFenceLifecycle(exactCount,contract,stageContract,outputContract,toggleMethod,beginMethod,nextMethod)||(exactCount===8&&contract==='wand.worker.scoped-edit@1'&&['wand.worker.steam626.scoped-sr03-mixed-q5@1','wand.worker.switch626.scoped-rm01-mixed-q5@1'].includes(stageContract)&&outputContract==='wand.worker.scoped-edit-output@1'&&toggleMethod==='toggle_scoped_edit'&&beginMethod==='begin_scoped_edit_output'&&nextMethod==='next_scoped_edit_output_chunk'))||typeof expectedProjection!=='function'||typeof wasm[toggleMethod]!=='function'||typeof wasm[beginMethod]!=='function'||typeof wasm[nextMethod]!=='function')fail();
  let scope=initial,ledger=null,consumed=false;
  const ensure=()=>{if(!current()||consumed)fail()};
  const args=()=>[scope.sessionId,BigInt(scope.revision),BigInt(scope.indexGeneration),scope.decodedSha256];
