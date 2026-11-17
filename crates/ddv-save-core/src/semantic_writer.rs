@@ -23,7 +23,7 @@ const MAX_CONTAINER_SLOTS:usize=256;
 #[cfg(any(not(target_arch="wasm32"),feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"))]
 #[path="switch624_road_rm01.rs"]
 mod switch624_road_rm01;
-#[cfg(any(not(target_arch="wasm32"),feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped"))]
+#[cfg(any(not(target_arch="wasm32"),feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped",feature="product-switch626-fence-add-stage-internal"))]
 #[path="switch624_fence_fe01.rs"]
 mod switch624_fence_fe01;
 

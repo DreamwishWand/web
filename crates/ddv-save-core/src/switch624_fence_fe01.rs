@@ -344,6 +344,7 @@ fn historical_plan_parse(bytes:&[u8],op:HistoricalFenceOp)->CoreResult<Value>{
     }
     Ok(v)
 }
+#[cfg(not(target_arch="wasm32"))]
 fn historical_collect(s:&ProductSession,p:&Value,op:HistoricalFenceOp)->CoreResult<Vec<Replacement>>{
     let b=&s.decoded;
     if p["sourceDecodedSha256"]!=digest(b){return Err(denied("FENCE_LAYOUT_SOURCE_CAS"));}
@@ -1076,3 +1077,49 @@ mod add_tests{
     }
 
 }
+
+// Typed current fixed ADD adapters; only the same immutable reminted target
+// can enter. Native lexical collector is reused; no caller plan.
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) struct FixedFenceAddExpected{
+ pub(super) grid:u32,pub(super) next:u32,pub(super) x:u32,pub(super) y:u32,
+ pub(super) stock:u32,pub(super) grid_sha:[u8;32],pub(super) counter_sha:[u8;32],pub(super) stock_sha:[u8;32],
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+fn collect_fixed_fence_add(s:&ProductSession,w:&FixedFenceAddExpected,shape:FenceAddShape)->CoreResult<Vec<Replacement>>{
+ let b=&s.decoded;let roots=indexed_read::roots(b)?;let gc=object_field(b,roots.world,"GridCollection")?;
+ let grid=object_field(b,object_field(b,gc,"Grids")?,&w.grid.to_string())?;
+ let counter=object_field(b,grid,"NextGridObjectID")?;
+ if sha(raw(b,grid)?)!=w.grid_sha||sha(raw(b,counter)?)!=w.counter_sha||number(b,counter)?!=w.next as u64{
+  return Err(denied("FIXED_FENCE_ADD_GRID_CAS"));}
+ let route=object_field(b,object_field(b,roots.player,"ListInventories")?,"0")?;
+ let stock=object_field(b,object_field(b,route,"Inventory")?,&BASE.to_string())?;
+ if sha(raw(b,stock)?)!=w.stock_sha||num(b,stock,"Amount")?!=w.stock||w.stock==0||w.stock as u64>MAX_CONSERVATIVE_AMOUNT{
+  return Err(denied("FIXED_FENCE_ADD_STOCK_CAS"));}
+ let created=add_wanted(shape,w.next,w.x,w.y)?;
+ let p=json!({"contract":shape.contract(),"layout":"PRESERVE_EXISTING","sourceDecodedSha256":digest(b),
+    "gridId":w.grid,"expectedNextId":w.next,"gridSha256":digest(raw(b,grid)?),
+    "created":created,"inventoryEntrySha256":digest(raw(b,stock)?)});
+ add_collect(s,&p,shape)
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) fn collect_fd02_current(s:&ProductSession,w:&FixedFenceAddExpected)->CoreResult<Vec<Replacement>>{
+ collect_fixed_fence_add(s,w,FenceAddShape::Switch626Fd02)
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) fn collect_fd03_current(s:&ProductSession,w:&FixedFenceAddExpected)->CoreResult<Vec<Replacement>>{
+ collect_fixed_fence_add(s,w,FenceAddShape::Switch626Fd03)
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) fn collect_ortho_l_current(s:&ProductSession,w:&FixedFenceAddExpected)->CoreResult<Vec<Replacement>>{
+ collect_fixed_fence_add(s,w,FenceAddShape::Switch626OrthoL)
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) fn collect_diagonal90_current(s:&ProductSession,w:&FixedFenceAddExpected)->CoreResult<Vec<Replacement>>{
+ collect_fixed_fence_add(s,w,FenceAddShape::Switch626Diagonal90)
+}
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+pub(super) fn collect_ortho_t_current(s:&ProductSession,w:&FixedFenceAddExpected)->CoreResult<Vec<Replacement>>{
+ collect_fixed_fence_add(s,w,FenceAddShape::Switch626OrthoT)
+}
+

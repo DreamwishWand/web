@@ -159,6 +159,7 @@ impl MeadowGeometry{
 }
 #[path="fence_product_geometry.rs"]
 mod fence_product_geometry;
+pub(crate) use fence_product_geometry::FenceAddTargetKind;
 
 
 // Exact Steam626 single ordinary Fence footprint; shape/stock rights are
