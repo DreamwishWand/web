@@ -100,6 +100,11 @@ pub use private_native_v2::PrivateOfflineReceipt;
 #[cfg(feature = "semantic-writer-dev")]
 #[path = "semantic_writer.rs"]
 mod semantic_writer;
+// ACT1664 independent fixed Road40100068 single-Q1 preparation only.
+// No Stage, Writer ABI, external rights or public Worker method is added.
+#[cfg(feature = "semantic-writer-dev")]
+#[path = "steam626_road_q1_atomic_prep.rs"]
+mod steam626_road_q1_atomic_prep;
 #[cfg(feature = "semantic-writer-dev")]
 pub use semantic_writer::{
     TypedOperationKind,TypedOperationRegistryEntry,TypedSemanticCommand,
