@@ -1,0 +1,158 @@
+name: QA ONLY 04 QR-W ACT1668 PR2073 HIDDEN suppression ledger restore L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2073-suppression-restore-l2.yml'
+permissions:
+  contents: read
+jobs:
+  suppression-restored:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7b7f5bbf5ade642e2a3b7548a52405bd2de5a9f1
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze exact source pair and unchanged Owner mailbox packet
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 7b7f5bbf5ade642e2a3b7548a52405bd2de5a9f1
+          test "$(git merge-base HEAD b233820ac6951f445214eef6956f95b14bc80497)" = b233820ac6951f445214eef6956f95b14bc80497
+          cat >/tmp/qrw2073-pins <<'PINS'
+          62bde9e09250c0014dde3b20b03320f82cfa8f64 ops/ddv-item-image-operator-gate.mjs
+          50e7668290366be4e1d90e62ee1dc22b9bec7577 tests/ddv-item-image-operator-gate.test.mjs
+          PINS
+          while read -r blob path; do
+            test "$(git rev-parse "HEAD:$path")" = "$blob"
+            test "$(git ls-tree HEAD "$path" | awk '{print $1}')" = 100644
+          done </tmp/qrw2073-pins
+          test "$(git rev-parse HEAD:ops/ddv-item-image-operator-readiness-template.json)" = 079e548e367771d9b1b8e33bff87be90ad58598e
+          test "$(git rev-parse HEAD:tests/dbk-solo-owner-postpublish.test.mjs)" = 9c9f40532b8fac14af67a594f37a70c3d3c561be
+          cut -d' ' -f2- /tmp/qrw2073-pins | LC_ALL=C sort >/tmp/qrw2073-expected
+          git diff --name-only b233820ac6951f445214eef6956f95b14bc80497 HEAD | LC_ALL=C sort >/tmp/qrw2073-actual
+          diff -u /tmp/qrw2073-expected /tmp/qrw2073-actual
+          echo QRW2073_EXACT_TWO_CURRENT_PRODUCT_GIT_BLOBS_PINNED_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Reuse existing actual operator Gate, suppression takedown and solo-owner invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/ddv-item-image-operator-gate.test.mjs tests/dbk-solo-owner-postpublish.test.mjs
+          echo QRW2073_EXISTING_RIGHTS_OPERATOR_TAKEDOWN_TESTS_PASS
+      - name: Independently refute missing and restored HIDDEN provenance on actual Gate, protect hidden shared hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {OWNER_IMAGE_DECISION,IMAGE_NOTICE_LOCALES,
+            validateImageSuppressionLedger,preflightGameImageOperatorReceipt,
+            preflightGameItemImage,planGameImageTakedown
+          } from './ops/ddv-item-image-operator-gate.mjs';
+          const template=JSON.parse(readFileSync('ops/ddv-item-image-operator-readiness-template.json','utf8'));
+          const synthetic=structuredClone(template), SHA=s=>'a'.repeat(63)+s;
+          let positive=0,negative=0;
+          assert.equal(synthetic.contract,'wand.dbk.item-image-operator-preflight@1');
+          assert.equal(synthetic.classification,'DRAFT_OPERATOR_PACKET_NOT_PUBLICATION_PERMISSION');
+          assert.equal(synthetic.ownerDecision,OWNER_IMAGE_DECISION);
+          assert.equal(synthetic.publicationState,'OFF');
+          assert.equal(synthetic.suppressionLedgerProvenance,'NOT_VERIFIED');
+          assert.deepEqual(synthetic.suppressionLedger,[]);
+          assert.ok(IMAGE_NOTICE_LOCALES.every(code=>synthetic.locales[code].humanReviewed===false));
+          assert.ok(Object.values(synthetic.controls).every(x=>x.verified===false));
+          assert.equal(synthetic.assetBundleSha256,null);
+          assert.equal(synthetic.deploymentAuthorizationRef,null);
+          assert.equal(synthetic.rightsContact.url,'mailto:support@dreamwishwand.com');
+          positive++;
+          const notReady=preflightGameImageOperatorReceipt(synthetic);
+          assert.equal(notReady.readyForOperatorReview,false);
+          assert.ok(notReady.reasons.includes('SUPPRESSION_LEDGER_OR_PROVENANCE_NOT_VERIFIED'));
+          assert.ok(!notReady.reasons.includes('WORKING_RIGHTS_CONTACT_NOT_PROVED'));
+          assert.equal(notReady.reasons.filter(s=>s.startsWith('ATTRIBUTION_LOCALE_NOT_REVIEWED:')).length,8);
+          assert.equal(notReady.reasons.filter(s=>s.startsWith('OPERATOR_CONTROL_NOT_PROVED:')).length,8);
+          positive++;
+          for(const code of IMAGE_NOTICE_LOCALES){
+            synthetic.locales[code].humanReviewed=true;
+            synthetic.locales[code].reviewEvidenceRef='SYNTHETIC_LOCALE_EVIDENCE';
+          }
+          for(const x of Object.values(synthetic.controls)){
+            x.verified=true;x.evidenceRef='SYNTHETIC_CONTROL_EVIDENCE';
+          }
+          synthetic.assetBundleSha256='c'.repeat(64);
+          synthetic.assetManifestEvidenceRef='SYNTHETIC_PINNED_MANIFEST';
+          synthetic.deploymentAuthorizationRef='SYNTHETIC_OPERATOR_ONLY_NOT_DEPLOYMENT';
+          const fail=(label,packet,reason='SUPPRESSION_LEDGER_OR_PROVENANCE_NOT_VERIFIED')=>{
+            const r=preflightGameImageOperatorReceipt(packet);
+            assert.equal(r.readyForOperatorReview,false,label);
+            assert.ok(r.reasons.includes(reason),label+' missing '+reason+': '+r.reasons.join(','));
+            negative++;
+          };
+          const packet=structuredClone(synthetic);
+          // All OTHER checks satisfied still cannot substitute for unknown old/restore ledger.
+          fail('original ledger provenance NOT_VERIFIED',packet);
+          const clean={...packet,suppressionLedger:[],suppressionLedgerProvenance:'SYNTHETIC_SCOPED_LEDGER_VERIFIED'};
+          assert.deepEqual(preflightGameImageOperatorReceipt(clean),{readyForOperatorReview:true,reasons:[]});positive++;
+          for(const p of [undefined,null,false,0,{},[], '', 'UNKNOWN','unknown','NOT_RUN','not_run','NOT_VERIFIED','not_verified',
+            ' NOT_VERIFIED','NOT_VERIFIED ','VERIFIED\nINJECT','VERIFIED\r\nRESTORE','VERIFIED\tSTAGED','VERIFIED\u200B','VERIFIED\u2060',' VERIFIED_SCOPED','VERIFIED_SCOPED ']){
+            fail('provenance missing, sentinel, stale or hidden control '+String(p),{...clean,suppressionLedgerProvenance:p});
+          }
+          for(const ledger of [undefined,null,{},'[]',false,3,[null],[{}],
+            [{kind:'ITEM_ID',value:'40000047',state:'RESTORED',incidentRef:'SYNTHETIC'}],
+            [{kind:'ITEM_ID',value:'40000047',state:'VISIBLE',incidentRef:'SYNTHETIC'}],
+            [{kind:'ITEM_ID',value:'0',state:'HIDDEN',incidentRef:'SYNTHETIC'}],
+            [{kind:'ITEM_ID',value:'40000047',state:'HIDDEN',incidentRef:'UNKNOWN'}],
+            [{kind:'ITEM_ID',value:'40000047',state:'HIDDEN',incidentRef:'NOT_RUN'}],
+            [{kind:'SOURCE_SHA256',value:'notsha',state:'HIDDEN',incidentRef:'SYNTHETIC'}],
+            [{kind:'WEBP_SHA256',value:'short',state:'HIDDEN',incidentRef:'SYNTHETIC'}],
+            [{kind:'SOURCE_SHA256',value:'b'.repeat(64),state:'RESTORED',incidentRef:'SYNTHETIC'}],
+            [{kind:'WEBP_SHA256',value:'b'.repeat(64),state:'VISIBLE',incidentRef:'SYNTHETIC'}]
+          ])fail('invalid restored hidden ledger '+JSON.stringify(ledger),{...clean,suppressionLedger:ledger});
+          const switchSource={platform:'Nintendo Switch',fullVersion:'1.24.13',bid:'R39-SYNTHETIC-BID',schema:623};
+          const switchTarget={platform:'Nintendo Switch',fullVersion:'1.25.3',bid:'9A239D3DB569756D',schema:626};
+          const image={itemId:'40000047',sourceGuid:'SYNTHETIC-GUID',sourcePngSha256:'a'.repeat(64),webpSha256:'b'.repeat(64),
+            sourceIdentity:switchSource,sourceEvidenceRef:'SYNTHETIC_SOURCE',
+            targetIdentity:switchTarget,targetMappingVerified:true,targetEvidenceRef:'SYNTHETIC_TARGET',
+            visibilityClass:'PLAYER_VISIBLE_VERIFIED',nativePlayerVisibleVerified:true,visibilityEvidenceRef:'SYNTHETIC_VISIBLE',
+            unreleased:false,isPrivateSaveMedia:false,isUserCreatedMedia:false};
+          const c={targetIdentity:switchTarget};
+          assert.equal(preflightGameItemImage(image,c,[]).candidate,true);positive++;
+          for(const [kind,value] of [
+            ['ITEM_ID','40000047'],['ITEM_ID',40000047],['SOURCE_SHA256','a'.repeat(64)],
+            ['SOURCE_SHA256','A'.repeat(64)],['WEBP_SHA256','b'.repeat(64)],['WEBP_SHA256','B'.repeat(64)]
+          ]){
+            const hidden=[{kind,value,state:'HIDDEN',incidentRef:'SYNTHETIC_ACTUAL_HIDE'}];
+            assert.equal(validateImageSuppressionLedger(hidden),true);
+            assert.equal(preflightGameImageOperatorReceipt({...clean,suppressionLedger:hidden}).readyForOperatorReview,true,
+              'operator RECEIPT synthetically reviewable is not per-item media publication');
+            const item=preflightGameItemImage(image,c,hidden);
+            assert.equal(item.candidate,false,kind+':'+value);
+            assert.ok(item.reasons.includes('ITEM_OR_SHARED_HASH_HIDDEN'));
+            negative++;
+          }
+          const rows=[
+            image,
+            {...image,itemId:'40000048',webpSha256:'d'.repeat(64),sourcePngSha256:'a'.repeat(64)},
+            {...image,itemId:'40000049',sourcePngSha256:'d'.repeat(64),webpSha256:'e'.repeat(64)}
+          ];
+          const takedown=planGameImageTakedown(rows,{kind:'ITEM_ID',value:'40000047'});
+          assert.equal(takedown.resolvable,true);
+          assert.deepEqual(takedown.itemIds,['40000047','40000048','40000049']);
+          assert.ok(takedown.actionsRequired.includes('CHECK_RESTORE_BACKUPS_AND_ROLLBACK'));
+          positive++;
+          fail('nonverified provenance even HIDDEN valid', {...clean,suppressionLedgerProvenance:'NOT_VERIFIED',suppressionLedger:[{kind:'SOURCE_SHA256',value:'a'.repeat(64),state:'HIDDEN',incidentRef:'SYNTHETIC'}]});
+          assert.equal(preflightGameImageOperatorReceipt({...clean,rightsContact:{...clean.rightsContact,url:'mailto:a@example.test?bcc=private'}}).reasons.includes('WORKING_RIGHTS_CONTACT_NOT_PROVED'),true);negative++;
+          assert.equal(preflightGameImageOperatorReceipt({...clean,rightsContact:{...clean.rightsContact,verificationEvidenceRef:'WRONG_RECEIPT'}}).reasons.includes('WORKING_RIGHTS_CONTACT_NOT_PROVED'),true);negative++;
+          assert.equal(template.publicationState,'OFF');
+          assert.equal(template.deploymentAuthorizationRef,null);
+          assert.equal(template.assetBundleSha256,null);
+          assert.equal(template.suppressionLedgerProvenance,'NOT_VERIFIED');positive++;
+          console.log('QRW2073_SUPPRESSION_LEDGER_RESTORE_ACTUAL_GATE_CHANGED_L2_PASS',
+            JSON.stringify({positive,negative,syntheticOperatorOnly:true,publicAsset:false,actualCDNRollbackNotTested:true,historicalContactRedFixed:true}));
+          NODE
