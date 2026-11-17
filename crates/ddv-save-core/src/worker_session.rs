@@ -187,6 +187,30 @@ impl WorkerSessionGuard {
             "referencePairs":t.pairs,"writerAuthorized":false,"productReadAccepted":false
         }))
     }
+    /// ACT1630: one immutable, exact Steam626 SingleFence target under the
+    /// same ProductSession/Mutex, with no semantic writer or second engine.
+    #[cfg(all(feature="product-steam626-singlefence-readonly",not(feature="semantic-writer-dev")))]
+    pub(crate) fn read_steam626_singlefence_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)
+        ->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("SINGLEFENCE_WORKER_CLOSED"));}
+        let t=self.session.mint_steam626_single_fence_target(e,gid,x,y)?;
+        let hex=|v:&[u8]|v.iter().map(|b|format!("{b:02x}")).collect::<String>();
+        Ok(serde_json::json!({
+            "contract":"wand.worker.steam626.singlefence.readonly-target@1",
+            "sessionId":hex(&t.scope.session_id),"revision":t.scope.expected_revision,
+            "indexGeneration":t.scope.expected_index_generation,
+            "decodedSha256":hex(&t.scope.expected_decoded_sha256),
+            "platform":"SteamWindows","schema":626,"itemId":40700246,
+            "gridId":t.grid,"x":t.x,"y":t.y,"nextGridObjectId":t.next,
+            "oldStock":t.stock,"rootSha256":hex(&t.root_sha),
+            "gridSha256":hex(&t.grid_sha),"counterSha256":hex(&t.counter_sha),
+            "stockSha256":hex(&t.stock_sha),"housesSha256":hex(&t.houses_sha),
+            "referencePairs":t.pairs,"stockDelta":0,"readOnly":true,
+            "productReadAccepted":false,"writerAuthorized":false,
+            "stageAuthorized":false,"editedCopyAuthorized":false,
+            "operationOn":false
+        }))
+    }
     pub(crate) fn close(&mut self) -> CoreResult<()> {
         if self.closed { return Err(CoreError("WORKER_SESSION_ALREADY_CLOSED")); }
         self.closed = true;
