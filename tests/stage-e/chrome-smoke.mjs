@@ -31,6 +31,7 @@ function replyFile(req,res){
     p==='/src/lib/ddv/core/save/product-scoped-backpack-transport.mjs'||
     p==='/src/lib/ddv/core/save/product-scoped-wardrobe-transport.mjs'||
     p==='/src/lib/ddv/core/save/product-scoped-appearance-transport.mjs'||
+    p==='/src/lib/ddv/core/save/product-steam626-eyecolor2-transport.mjs'||
     p==='/src/lib/ddv/core/save/product-fixed-collection-transport.mjs'||
     p==='/src/lib/collection/collection-candidate-read.mjs';
   if(!allowed||p.includes('..')||p.includes('/.')){
