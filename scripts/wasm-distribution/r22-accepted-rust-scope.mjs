@@ -937,6 +937,21 @@ const steam626SingleFenceReadOnlyTargetAfterShapeEntries=[
   before:null,
   after:{mode:'100644',blob:'dd71dddccb4e961952529905dc7ac6f54f38cea5'}}
 ];
+// ACT-20261117-09PCODE-APPEARANCE-FOUR-OPS-AFTER-FENCE-TARGET-R22-EXACT7.
+// Six fixed accepted PR1952 Rust/CI leaves plus one Cargo pin-only release
+// input, on current main7a7d after accepted 01B SingleFence Target exact3.
+// No new Stage/Writer/rights/issuer/Lock/Pages flag or wildcard authority.
+// The protected config can change only cargoTomlGitBlob to the reviewed
+// Cargo.toml post Git blob; its independent Security L2 remains mandatory.
+const appearanceFourAfterFenceTargetExact7Entries=[
+  {path:'.github/workflows/core-product-session-boundary.yml',before:{mode:'100644',blob:'6237ca727129e0f933d6f2040ac993530d1b66e7'},after:{mode:'100644',blob:'a33bb679f4d22a6b0a1b64dafaa78300277adcc5'}},
+  {path:'crates/ddv-save-core/Cargo.toml',before:{mode:'100644',blob:'effccf08990c8c1bc0626e5b0342fc68f6baf811'},after:{mode:'100644',blob:'a5bdd2af0a3f33b827fb55f87d6e0637ef50fd67'}},
+  {path:'crates/ddv-save-core/src/indexed_read.rs',before:{mode:'100644',blob:'38e7f27c486acc2058895bc48356832b27f87555'},after:{mode:'100644',blob:'47b8b07e013f357fceee51cbc0ce676b271fb207'}},
+  {path:'crates/ddv-save-core/src/semantic_writer.rs',before:{mode:'100644',blob:'fe914df7b69f168ba94889d5761d4b10667f7531'},after:{mode:'100644',blob:'20a63726d78e1d00a0c1cc854f5c22cc325cb0ef'}},
+  {path:'crates/ddv-save-core/src/product_makeup_color1.rs',before:null,after:{mode:'100644',blob:'cc79ca8e87c2b6c82e84fc9c84636faf01df1455'}},
+  {path:'crates/ddv-save-core/src/product_eyeball_color2.rs',before:null,after:{mode:'100644',blob:'c33c032d21ee91d0f4d341e44b00efb606e4e327'}},
+  {path:'scripts/wasm-distribution/protected-release-inputs.json',before:{mode:'100644',blob:'7afda02936b28335d6ceec7f75a649e3aef067f2'},after:{mode:'100644',blob:'44e639fc5219bf41f61d22fbbc0b34383df8cd6a'}}
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1051,6 +1066,16 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    projectedRootBeforeGate:'d1ba48232832889d3c96d293cc6dbe316a1d007a',
    fixedSourceQaPr:1949,
    independentNewReleaseProfileL2:'NOT_RUN'}};
+ }
+ if(baseCore==='7068b711eb70c074edfc9a81c542e310fa9bb691'){
+  if(sourceCore!=='bfea42aa4f2097deffe73d2016de62b1103c0723')deny('CANDIDATE_CORE_TREE');
+  return {entries:appearanceFourAfterFenceTargetExact7Entries,count:7,metadata:{
+   sourcePr:1952,sourceHead:'91c5c2a3da3c2a287c9210f3b2330c1f858cfb6a',
+   productSourceExact6:true,protectedCargoPinOnly:true,
+   protectedCargoBefore:'effccf08990c8c1bc0626e5b0342fc68f6baf811',
+   protectedCargoAfter:'a5bdd2af0a3f33b827fb55f87d6e0637ef50fd67',
+   immutableSourceProjectionCore:'bfea42aa4f2097deffe73d2016de62b1103c0723',
+   independentSecurityL2Required:true}};
  }
  deny('BASE_CORE_TREE');
 }
