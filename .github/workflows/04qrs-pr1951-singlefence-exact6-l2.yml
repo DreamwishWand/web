@@ -60,7 +60,7 @@ jobs:
           const reject=(base,source,reason)=>{assert.throws(()=>verifyAcceptedRustScope(process.cwd(),base,source),/R22_ACCEPTED_SCOPE|SELECTION|error|Error/i,reason);neg++};
           try{
            assert.equal(g('rev-parse','HEAD'),gateSource);
-           assert.equal(g('rev-parse',gateSource+'^'),oldMain);
+           assert.equal(g('merge-base',oldMain,gateSource),oldMain);
            assert.equal(blob(oldMain,gatePath),gateOldBlob);assert.equal(blob(gateSource,gatePath),gateNewBlob);
            assert.deepEqual(g('diff','--name-only',oldMain,gateSource).split('\n'),[gatePath]);pos++;
            const before=raw(oldMain,gatePath),after=raw(gateSource,gatePath);
