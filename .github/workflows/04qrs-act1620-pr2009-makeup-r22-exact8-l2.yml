@@ -78,7 +78,7 @@ jobs:
             ({verifyAcceptedRustScope}=await import('file://'+cwd+'/'+gatePath));
             assert.equal(git('rev-parse','HEAD'),gate);
             assert.equal(git('rev-parse',gate+'^'),parent);
-            assert.equal(git('rev-parse',original+'^'),parent);
+            assert.equal(git('merge-base',parent,original),parent,'fixed original Source must be descended from reviewed main');
             assert.deepEqual(git('diff','--name-only',parent,gate).split('\n'),[gatePath]);
             assert.equal(entry(parent,gatePath)?.blob,oldGate);
             assert.equal(entry(gate,gatePath)?.blob,newGate);
