@@ -330,4 +330,30 @@ mod tests{
      build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true}).unwrap();
   assert_eq!(reopened.receipt().unwrap().schema,626);
  }
+
+ #[cfg(feature="product-switch626-makeup-color1-scoped")]
+ #[test]
+ #[ignore="QA-only bounded physical saved-shape fixture for Switch626 generated ABI, NOT encrypted P1G product V2"]
+ fn qa1954_emit_corrected_switch_makeup_generated_fixture(){
+  let mut d=doc();
+  d["World"]["UnknownNotEdited"]=json!({"keep":[true,null,31]});
+  d["Player"]["MaleAvatar"]["Makeup"]["1"]["KeepOpaque"]=json!({"nested":[8,9]});
+  let male=&d["Player"]["MaleAvatar"]["Makeup"]["1"];
+  let female=&d["Player"]["FemaleAvatar"]["Makeup"]["1"];
+  assert_eq!(male["MakeupItemID"],json!(140100014));
+  assert_eq!(male["ColorIndex1"],json!(53));
+  assert_eq!(female["MakeupItemID"],json!(140100011));
+  assert_eq!(female["ColorIndex1"],json!(60));
+  for avatar in ["MaleAvatar","FemaleAvatar"]{
+   assert_eq!(d["Player"][avatar]["Makeup"]["1"]["ColorIndex2"],json!(0));
+   assert_eq!(d["Player"][avatar]["Makeup"]["1"]["ColorIndex3"],json!(0));
+  }
+  let inv=&d["Player"]["ListInventories"]["3"]["Inventory"];
+  assert_eq!(inv["140100014"]["Amount"],json!(2));
+  assert_eq!(inv["140100011"]["Amount"],json!(1));
+  let bytes=serde_json::to_vec(&d).unwrap();
+  assert!(bytes.len()<1024*1024);
+  std::fs::write("/tmp/qrc1954-makeup-source.json",&bytes).unwrap();
+  println!("QRC1954_SWITCH626_CORRECTED_FIXTURE_SYNTHETIC bytes={} physical_inactive_item140100011 C2C3_0_0",bytes.len());
+ }
 }
