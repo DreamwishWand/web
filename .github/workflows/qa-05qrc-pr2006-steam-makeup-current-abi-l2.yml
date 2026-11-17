@@ -35,7 +35,7 @@ jobs:
           set -euo pipefail
           cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
           sha256sum crates/ddv-save-core/Cargo.lock >/tmp/qrc2006-lock.sha
-          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-makeup-color1-scoped --lib qa1953_emit_corrected_realshape_generated_fixture -- --ignored --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-makeup-color1-scoped --lib qa2006_emit_corrected_realshape_generated_fixture -- --ignored --nocapture
           test -s /tmp/qrc2006-makeup-source.json
           cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrc2006-bindgen
           for mode in off own mixed; do
