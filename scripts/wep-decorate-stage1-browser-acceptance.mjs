@@ -328,7 +328,10 @@ try{
   pass('PENDING_WAND_PRESET_FAILS_CLOSED_WITHOUT_CONNECTED_PREFLIGHT');
 
   await page.goto(root+'/explore/',{waitUntil:'networkidle'});
-  await page.locator('.controls input[type="search"]').fill('40000048');
+  // DEC-UX-07 Explore Search is opt-in; open it before a WEP item handoff.
+  assert.equal(await page.locator('[data-explore-search-toggle]').getAttribute('aria-expanded'),'false');
+  await page.locator('[data-explore-search-toggle]').click();
+  await page.locator('[data-explore-search-panel] input[type="search"]').fill('40000048');
   await eventually(async()=>await page.locator('.card-review').count()===1);
   const beforeExplore=await page.evaluate((handoffKey)=>Object.fromEntries(
     Object.entries(localStorage).filter(([key])=>key!==handoffKey)
@@ -448,7 +451,10 @@ try{
 
   // Exact ordinary Furniture ADD remains bound to its accepted verified-export path.
   await page.goto(root+'/explore/',{waitUntil:'networkidle'});
-  await page.locator('.controls input[type="search"]').fill('40000048');
+  // DEC-UX-07 Explore Search is opt-in; open it before a WEP item handoff.
+  assert.equal(await page.locator('[data-explore-search-toggle]').getAttribute('aria-expanded'),'false');
+  await page.locator('[data-explore-search-toggle]').click();
+  await page.locator('[data-explore-search-panel] input[type="search"]').fill('40000048');
   await eventually(async()=>await page.locator('.card-review').count()===1);
   await page.locator('.card-review').click();
   const addQuick=page.locator('.quick-review');
@@ -748,7 +754,10 @@ try{
   },root+'/explore/');
   await page.locator('a[data-wep-client-nav="explore"]').click();
   await page.waitForURL(/\/explore\/?$/);
-  await page.locator('.controls input[type="search"]').fill('40000048');
+  // DEC-UX-07 Explore Search is opt-in; open it before a WEP item handoff.
+  assert.equal(await page.locator('[data-explore-search-toggle]').getAttribute('aria-expanded'),'false');
+  await page.locator('[data-explore-search-toggle]').click();
+  await page.locator('[data-explore-search-panel] input[type="search"]').fill('40000048');
   await eventually(async()=>await page.locator('.card-review').count()===1);
   await page.locator('.card-review').click();
   await page.locator('.quick-review').getByRole('button',{name:'Place in World Editor'}).click();
@@ -882,7 +891,9 @@ try{
     scrollWidth:node.scrollWidth,clientWidth:node.clientWidth
   }));
   assertNoOverflow(mobileExploreMetrics,'mobile Explore 320px');
-  await mobilePage.locator('.controls input[type="search"]').fill('40000048');
+  assert.equal(await mobilePage.locator('[data-explore-search-toggle]').getAttribute('aria-expanded'),'false');
+  await mobilePage.locator('[data-explore-search-toggle]').click();
+  await mobilePage.locator('[data-explore-search-panel] input[type="search"]').fill('40000048');
   await eventually(async()=>await mobilePage.locator('.card-review').count()===1);
   await mobilePage.locator('.card-review').click();
   assert.equal(await mobilePage.locator('.quick-review').getByRole('button',{name:'Place in World Editor'}).count(),0);
