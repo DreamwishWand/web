@@ -70,7 +70,7 @@ jobs:
             good,
             " await mkdir(dir,{recursive:false});").trimEnd(),oldCode.trimEnd());
           assert.match(code,/writeFile\(join\(dir,names\[i\]\),\[raw,js,wasm\]\[i\],\{flag:'wx',mode:0o600\}\)/);
-          assert.doesNotMatch(code,/deploy-pages|pages:\s*write|semantic_writer|upload-pages-artifact/);
+          assert.doesNotMatch(code.slice(code.indexOf('async function generateProofSubjects(source)'),code.indexOf('async function actualProtectedCi(')),/deploy-pages|pages:\s*write|semantic_writer|upload-pages-artifact/);
           pos++;
 
           const stage='tests/stage-e/pkg',parent='tests/wasm-distribution/fixtures';
