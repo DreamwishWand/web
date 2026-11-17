@@ -135,8 +135,10 @@ test('reset-only recovery: exact public GET, bounded delay, one reset per phase'
    await assert.rejects(g(p),/GITHUB_API_DENIED:403/);assert.equal(n,1);
  }
  for(const path of ['/repos/DreamwishWand/web-extra/actions/runs/123','/repos/DreamwishWand/web/actions/runs?unexpected=1']){
-   const g=createPublicJsonGetter(async()=>limited(),async()=>assert.fail('unexpected retry'),()=>now);
-   await assert.rejects(g(path),/GITHUB_API_DENIED:403:endpoint=other/);
+   let requests=0;
+   const g=createPublicJsonGetter(async()=>{requests++;return limited();},async()=>assert.fail('unexpected retry'),()=>now);
+   await assert.rejects(g(path),/UNSAFE_API_CATEGORY/);
+   assert.equal(requests,0,'non-allowlisted endpoint must be rejected before fetch');
  }
  for(const [seconds,expected] of [[179,180000],[180,0]]){
    let n=0;const sleeps=[];
