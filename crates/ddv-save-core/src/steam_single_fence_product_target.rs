@@ -24,7 +24,14 @@ impl ProductSession{
  #[allow(dead_code)]
  pub(crate) fn mint_steam626_single_fence_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<SteamSingleFenceTarget>{
   road_build(self,RoadBuild::Steam626)?;let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
-  need(self.worker_bound&&st.semantic.is_none()&&st.revision==0&&st.generation==1&&gid>0,"SINGLE_FENCE_EPOCH")?;
+  need(self.worker_bound&&{
+   // The isolated Reader build has no SemanticLedger type or Stage feature.
+   // Under the original writer-enabled fixture keep exactly its old predicate.
+   #[cfg(feature="semantic-writer-dev")]
+   {st.semantic.is_none()}
+   #[cfg(not(feature="semantic-writer-dev"))]
+   {true}
+  }&&st.revision==0&&st.generation==1&&gid>0,"SINGLE_FENCE_EPOCH")?;
   let common=InstalledGeometry::fixed().ok_or(denied("SINGLE_FENCE_COMMON_PROVIDER"))?;
   let pack=MeadowGeometry::fixed(EXACT_STEAM,626).ok_or(denied("SINGLE_FENCE_PROVIDER"))?;
   let b=&self.decoded;let roots=indexed_read::roots(b)?;let w=roots.world;
