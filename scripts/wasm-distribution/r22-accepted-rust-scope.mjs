@@ -986,6 +986,147 @@ const steam626MakeupGeneratedAfterFiveFenceExact8Entries=[
  {path:'crates/ddv-save-core/src/worker_steam626_makeup_color1.rs',before:null,after:{mode:'100644',blob:'4c2c4741253c82d61faf8e2cc2d6e2fdef3eddb4'}},
  {path:'scripts/wasm-distribution/protected-release-inputs.json',before:{mode:'100644',blob:'f81df4334a4d75760f33607eeca4385adffc966c'},after:{mode:'100644',blob:'f70ddb4e88900d12fa426519ea7315c2e0812ba2'}}
 ];
+const switch624FrpMain838Exact14Entries=[
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "d66296a76c6c380fb4475c70b20e3ebb00adc7eb"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "cfd550b690e42e93a48b913457c35a5ea0cb7bc7"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/frp624_product_geometry.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "6b676bf797e45825f6fd86dd69b9b92812db24af"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/frp624_product_stage.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "4450172a472d2364e4d2fd38c02bfca835e9349c"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/frp624_product_target.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "1885c46e3224a70439d5883b4cc48f1083034eb4"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/placement_saved_refs.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "78ad4f9f704fc701c31e93c1525edac4a722db13"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "2ad0d925cebfcb19bb39b2afe5ff6404966ad849"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "ac17f7a736f6c61152b4a7fd032f711b3fbec7cf"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "6c7cf61f41a8b985ae5ccbd7d84c0aa475040f28"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/semantic_writer.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "21cb91a48f6697f464df82eb7443d795b5a50716"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "9472a792277f15e69d64118919835b12bed129f1"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/sr03_installed_geometry.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "69ded024dfe186da025b5a270854050ddbd42061"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "d4210353815073ea871f18c8e8bc432cff653e89"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/sr03_product_target.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "679475ec3fab8e8ec9f1e8ca3e91cde435ac6f5f"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "8d5d168413ac7a93d1fc3ef168d8da98b1701c61"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_switch624_frp01.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "b60f40a3c87d97f21332fc6d8f005e100c4fd7fa"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "f43e5809473be8b68b50342c5efff2221e83f97f"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "e7da141bc3525f234b999b0febc47540d95e1560"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "857262786d8426c8d5fb9926c93ab7d293711eaf"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "c30662b61b08c52179c027f53a1a96f7be4d2bd9"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_switch624_frp01.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "8081180b5be4578067eaca7d4fee8d6f61a6a300"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "f70ddb4e88900d12fa426519ea7315c2e0812ba2"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "865aa54e99d11029250478ba6583bdec226dfa6d"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1027,8 +1168,20 @@ export function verifyAcceptedRustScope(cwd,base,source){
  const profile=selectAcceptedCorePair(baseCore,sourceCore);
  const result=verifyExactScopeEntries(cwd,base,source,profile.entries);
  if(result.entries.length!==profile.count)deny('FIXED_SCOPE_COUNT');
+ // The pre-Gate projection has a different root from the Gate+product commit.
+ // Never embed the post-Gate Git tree SHA inside the Gate script itself:
+ // doing so would make its own blob/tree identity self-referential.
+ // Derive it from the exact validated candidate commit at verification time.
+ const postGateProductTree=profile.metadata.sourcePr===2012
+  ?git(cwd,'rev-parse','--verify',source+'^{tree}'):undefined;
+ if(postGateProductTree!==undefined&&!SHA.test(postGateProductTree))
+  deny('PRODUCT_TREE');
  return {status:'R22_EXACT_ACCEPTED_SOURCE_SCOPE_MATCH_ONLY',
-  ...profile.metadata,candidateHead:source,base,entryCount:profile.count,
+  ...profile.metadata,
+  ...(postGateProductTree?{
+   postGateProductTree,postGateProductTreeFromValidatedSourceCommit:true
+  }:{}),
+  candidateHead:source,base,entryCount:profile.count,
   mergeAuthorized:false,writerAuthorized:false};
 }
 
@@ -1131,6 +1284,20 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    protectedCargoAfter:'d66296a76c6c380fb4475c70b20e3ebb00adc7eb',
    currentAbiL2NotInferred:true,securityL2Required:true,
    privateOriginalSaveV2:'NOT_RUN',writerAuthorized:false}};
+ }
+ if(baseCore==='82d9500795262b9475160285a2778333d91603ea'){
+  if(sourceCore!=='b454aeef4455408b73aaafd6d3629dfdeb7ae63c')deny('CANDIDATE_CORE_TREE');
+  return {entries:switch624FrpMain838Exact14Entries,count:14,metadata:{
+   sourcePr:2012,sourceHead:'18cf476873a8c6b469748372604004e86f41e31b',
+   schema:624,exactSwitchBid:'52BD625D9B4E0053',
+   sourceLeafCount:13,acceptedHistoricalSourcePr:1934,
+   protectedConfigBefore:'f70ddb4e88900d12fa426519ea7315c2e0812ba2',
+   protectedConfigAfter:'865aa54e99d11029250478ba6583bdec226dfa6d',
+   approvedCargoBlobBefore:'d66296a76c6c380fb4475c70b20e3ebb00adc7eb',
+   approvedCargoBlobAfter:'cfd550b690e42e93a48b913457c35a5ea0cb7bc7',
+   preGateExact14ProjectionTree:'93e0776f1f1f11ba1550a3ba9e3ff521c194b391',
+   independentNewAbiL2Required:true,independentSecurityL2Required:true,
+   realEncryptedOriginalP1gV2:'NOT_RUN',writerAuthorized:false,opOn:false}};
  }
  deny('BASE_CORE_TREE');
 }
