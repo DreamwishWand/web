@@ -9,7 +9,7 @@ use super::indexed_read::{self,Span};
 use crate::{CoreError,CoreResult,strict_document::validate_entire_document};
 use sha2::{Digest,Sha256};
 
-#[cfg(feature="product-amount-scoped")]
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-readonly"))]
 #[path="product_amount_scoped.rs"]
 mod product_amount_scoped;
 #[path="comp03_shape.rs"]

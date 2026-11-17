@@ -57,6 +57,11 @@ product-switch626-ortho-l-scoped = ["product-switch626-fence-add-stage-internal"
 product-switch626-diagonal90-scoped = ["product-switch626-fence-add-stage-internal"]
 product-switch626-ortho-t-scoped = ["product-switch626-fence-add-stage-internal"]
 
+# Switch624 FRP01 exact-BID opt-in. Public Writer OFF.
+product-switch624-frp01-readonly = ["semantic-writer-dev"]
+product-switch624-frp01-stage-internal = ["product-switch624-frp01-readonly"]
+product-switch624-frp01-scoped = ["product-switch624-frp01-stage-internal"]
+
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
 sha2 = "=0.10.8"
