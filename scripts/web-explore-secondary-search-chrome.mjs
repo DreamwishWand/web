@@ -12,7 +12,7 @@ try{
     page.on('pageerror',error=>failures.push(String(error)));
     try{
       await page.goto('http://127.0.0.1:4298/web/explore/',{waitUntil:'domcontentloaded',timeout:30000});
-      await page.locator('.controls').waitFor({state:'visible',timeout:30000});
+      await page.locator('.explore-page > .controls').waitFor({state:'visible',timeout:30000});
       const toggle=page.locator('[data-explore-search-toggle]');
       const panel=page.locator('[data-explore-search-panel]');
       const input=panel.locator('input[type="search"]');
@@ -21,7 +21,7 @@ try{
       assert.equal(await toggle.getAttribute('aria-expanded'),'false');
       assert.equal(await panel.isVisible(),false);
       assert.equal(await input.isDisabled(),true);
-      const originalResults=(await page.locator('.summary strong').innerText()).trim();
+      const originalResults=(await page.locator('.explore-page > .summary strong').innerText()).trim();
       assert.ok(await page.locator('.card').count()>0,'verified decorating catalog should have items');
       await toggle.click();
       assert.equal(await toggle.getAttribute('aria-expanded'),'true');
@@ -36,9 +36,9 @@ try{
       assert.equal(await panel.isVisible(),false);
       assert.equal(await input.isDisabled(),true);
       assert.equal(await toggle.evaluate(el=>el===document.activeElement),true);
-      await page.waitForFunction(text=>document.querySelector('.summary strong')?.textContent?.trim()===text,originalResults,{timeout:15000});
+      await page.waitForFunction(text=>document.querySelector('.explore-page > .summary strong')?.textContent?.trim()===text,originalResults,{timeout:15000});
       assert.ok(await page.locator('.card').count()>0,'closing Search must restore visual browse');
-      assert.equal(await page.locator('.controls select').count(),3,'family/universe/moodboard unchanged');
+      assert.equal(await page.locator('.explore-page > .controls select').count(),3,'family/universe/moodboard unchanged');
       await toggle.click();
       assert.equal(await input.inputValue(),'','previous query must not survive collapse');
       await toggle.click();
