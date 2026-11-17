@@ -400,3 +400,7 @@ mod fence_product_target;
 
 #[path="steam_single_fence_product_target.rs"]
 mod steam_single_fence_product_target;
+
+// ACT1570 exact BambooFence01 separate read-only Target; no generic Fence authority.
+#[path="steam_bamboo_single_product_target.rs"]
+mod steam_bamboo_single_product_target;
