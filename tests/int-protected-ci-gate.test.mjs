@@ -168,3 +168,36 @@ test('reset recovery cannot grant stale main or changed deploy receipt',async()=
    await assert.rejects(revalidateProtectedCi(input,receipt,get),/PROTECTED_MAIN_STALE|RUN_IDENTITY_MISMATCH/);
  }
 });
+
+
+test('scoped authenticated GitHub transport is exact GET-only and does not leak token',async()=>{
+ const token='ghs_'+'A'.repeat(40),p=root+'/git/ref/heads/main';
+ const result=await githubPublicJson(p,async(url,o)=>{
+   assert.equal(url.href,'https://api.github.com'+p);
+   assert.equal(o.method,'GET');assert.equal(o.redirect,'error');
+   assert.equal(o.headers.Authorization,'Bearer '+token);
+   return new Response(JSON.stringify(ref),{headers:{'content-type':'application/json'}});
+ },undefined,undefined,undefined,token);
+ assert.deepEqual(result,ref);
+ for(const invalid of ['','abc','ghs_BAD_DOLLAR','ghs_bad\nAuthorization:evil']){
+   await assert.rejects(githubPublicJson(p,async()=>assert.fail('invalid token must not fetch'),
+     undefined,undefined,undefined,invalid),/PROTECTED_CI_READ_TOKEN_DENIED/);
+ }
+ await assert.rejects(githubPublicJson('/repos/DreamwishWand/../bad',
+   async()=>assert.fail('invalid path must not fetch'),undefined,undefined,undefined,token),/UNSAFE_API_PATH/);
+ const expired=await githubPublicJson(p,async(_url,o)=>{
+   assert.equal(o.headers.Authorization,'Bearer '+token);
+   return new Response('SECRET_DO_NOT_LOG',{status:403,headers:{'x-ratelimit-remaining':'0'}});
+ },async()=>assert.fail('no retry'),undefined,token).then(()=>null,e=>e);
+ assert.match(expired.message,/GITHUB_API_DENIED:403:endpoint=main-ref/);
+ assert.doesNotMatch(expired.message,/SECRET_DO_NOT_LOG|ghs_/);
+});
+
+test('every protected Pages Gate invocation has scoped read token and read permission',()=>{
+ const y=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
+ const gateSteps=y.split(/\n(?=      - name: )/).filter(s=>s.includes('node scripts/int-protected-ci-gate.mjs'));
+ assert.ok(gateSteps.length>=12);
+ for(const step of gateSteps)assert.match(step,/^          WAND_GATE_READ_TOKEN: \$\{\{ github\.token \}\}$/m);
+ assert.match(y,/permissions:\n  contents: read\n  actions: read\n/);
+ assert.match(y,/  deploy:\n[\s\S]*?    permissions:\n      pages: write\n      id-token: write\n      actions: read\n/);
+});
