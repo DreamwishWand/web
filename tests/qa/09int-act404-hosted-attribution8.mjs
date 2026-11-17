@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
-import {IMAGE_RIGHTS_ATTRIBUTION} from '../src/lib/i18n/image-rights-attribution.js';
-import {SUPPORTED_LOCALES} from '../src/lib/i18n/registry.js';
-import {t} from '../src/lib/i18n/runtime.js';
+import {IMAGE_RIGHTS_ATTRIBUTION} from '../../src/lib/i18n/image-rights-attribution.js';
+import {SUPPORTED_LOCALES} from '../../src/lib/i18n/registry.js';
+import {t} from '../../src/lib/i18n/runtime.js';
 const origin='https://dreamwishwand.github.io',base='/web';
 const landing=await fetch(origin+base+'/',{redirect:'follow'});
 assert.equal(landing.status,200,'actual hosted Pages landing status');
