@@ -24,7 +24,14 @@ impl ProductSession{
  #[allow(dead_code)]
  pub(crate) fn mint_steam626_single_fence_target(&self,e:WorkerEnvelope,gid:u32,x:u32,y:u32)->CoreResult<SteamSingleFenceTarget>{
   road_build(self,RoadBuild::Steam626)?;let st=self.lock()?;check(self,&st,&e,WorkerAction::ReadDomain)?;
-  need(self.worker_bound&&st.semantic.is_none()&&st.revision==0&&st.generation==1&&gid>0,"SINGLE_FENCE_EPOCH")?;
+  need(self.worker_bound&&{
+   // The isolated Reader build has no SemanticLedger type or Stage feature.
+   // Under the original writer-enabled fixture keep exactly its old predicate.
+   #[cfg(feature="semantic-writer-dev")]
+   {st.semantic.is_none()}
+   #[cfg(not(feature="semantic-writer-dev"))]
+   {true}
+  }&&st.revision==0&&st.generation==1&&gid>0,"SINGLE_FENCE_EPOCH")?;
   let common=InstalledGeometry::fixed().ok_or(denied("SINGLE_FENCE_COMMON_PROVIDER"))?;
   let pack=MeadowGeometry::fixed(EXACT_STEAM,626).ok_or(denied("SINGLE_FENCE_PROVIDER"))?;
   let b=&self.decoded;let roots=indexed_read::roots(b)?;let w=roots.world;
@@ -32,7 +39,12 @@ impl ProductSession{
   let end=next.checked_add(1).ok_or(denied("SINGLE_FENCE_COUNTER"))?;
   need(next>0&&end<=i32::MAX as u32,"SINGLE_FENCE_COUNTER")?;
   let start=indexed_read::skip_ws(b,0);let top=Span{begin:start,end:indexed_read::value_end(b,start)?};
+  // The accepted Writer source has one extra module nesting level.
+  #[cfg(feature="semantic-writer-dev")]
   let refs=super::super::placement_saved_refs::scan(b,top,gid,None,next,end)?;
+  // Writer-free Reader retains the identical reference scanner and predicates.
+  #[cfg(not(feature="semantic-writer-dev"))]
+  let refs=super::placement_saved_refs::scan(b,top,gid,None,next,end)?;
   need(refs.root(gid)==1&&refs.parent(gid)==0,"SINGLE_FENCE_REFERENCE_ALIAS")?;
   let(houses,house_span)=house_items(b,w)?;let objects=f(b,g,"Objects")?;let mut budget=0;
   for(_,o)in members(b,objects,4096)?{saved_grid_state(b,f(b,o,"State")?,BASE as i32,&mut budget)?;}

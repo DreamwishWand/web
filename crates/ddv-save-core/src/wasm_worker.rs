@@ -717,3 +717,9 @@ mod scoped_switch624_frp01;
 #[cfg(all(feature="product-steam626-makeup-color1-scoped",not(any(feature="product-amount-scoped",feature="product-collection-scoped",feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped",feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped",feature="product-switch626-makeup-color1-internal",feature="product-switch626-eyecolor2-internal",feature="product-switch624-frp01-scoped"))))]
 #[path="wasm_steam626_makeup_color1.rs"]
 mod scoped_steam626_makeup_color1;
+
+// Dedicated compile-time Reader ABI. Any mixed semantic-writer-dev build
+// exposes NO SingleFence Reader method, preserving strict off/mixed denial.
+#[cfg(all(feature="product-steam626-singlefence-readonly",not(feature="semantic-writer-dev")))]
+#[path="wasm_steam_single_fence_readonly.rs"]
+mod isolated_steam_single_fence_readonly;
