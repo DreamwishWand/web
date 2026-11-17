@@ -723,7 +723,7 @@ jobs:
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = a21a180a077b1cbeaa68580c4156fc246a36f307
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 5a3940b6dc3254aae3fd91a1ba24b69a79ccd934
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = 1f72c540d9e9ab949402d550a706961935cf7ec2
@@ -887,7 +887,7 @@ jobs:
           test "$(git rev-parse HEAD:src/routes/editor/world/comp03/+page.svelte)" = 90191a132481a5b38fc6554012b633f06d2f9d34
           test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = dd59264c1c20325c66e6aecc3413e91d10fc72ed
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = a21a180a077b1cbeaa68580c4156fc246a36f307
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 5a3940b6dc3254aae3fd91a1ba24b69a79ccd934
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
@@ -996,7 +996,7 @@ jobs:
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = a21a180a077b1cbeaa68580c4156fc246a36f307
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 5a3940b6dc3254aae3fd91a1ba24b69a79ccd934
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = 1f72c540d9e9ab949402d550a706961935cf7ec2
@@ -1132,7 +1132,7 @@ jobs:
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = a21a180a077b1cbeaa68580c4156fc246a36f307
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 5a3940b6dc3254aae3fd91a1ba24b69a79ccd934
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = 1f72c540d9e9ab949402d550a706961935cf7ec2
@@ -1270,7 +1270,7 @@ jobs:
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = a21a180a077b1cbeaa68580c4156fc246a36f307
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 5a3940b6dc3254aae3fd91a1ba24b69a79ccd934
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = 1f72c540d9e9ab949402d550a706961935cf7ec2
@@ -1436,7 +1436,7 @@ jobs:
           test "$(git rev-parse HEAD:src/routes/editor/world/comp03/+page.svelte)" = 90191a132481a5b38fc6554012b633f06d2f9d34
           test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = dd59264c1c20325c66e6aecc3413e91d10fc72ed
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = a21a180a077b1cbeaa68580c4156fc246a36f307
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 5a3940b6dc3254aae3fd91a1ba24b69a79ccd934
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
