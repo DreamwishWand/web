@@ -151,13 +151,17 @@ jobs:
           from pathlib import Path
           records=Path('/tmp/qrl-bamboo-cargo-compiler-artifacts.jsonl').read_text().splitlines()
           candidates=[]
+          all_test=[]
           for line in records:
             try: a=json.loads(line)
             except json.JSONDecodeError: continue
             if a.get('reason')=='compiler-artifact' and a.get('profile',{}).get('test'):
-              if a.get('executable') and 'lib' in a.get('target',{}).get('kind',[]):
+              all_test.append({'target':a.get('target',{}).get('name'),
+                               'kind':a.get('target',{}).get('kind'),
+                               'hasExecutable':bool(a.get('executable'))})
+              if a.get('executable') and a.get('target',{}).get('name') in ('ddv_save_core','ddv-save-core'):
                 candidates.append(a['executable'])
-          assert len(candidates)==1,('NATIVE_TEST_BINARY_CENSUS',len(candidates))
+          assert len(candidates)==1,('NATIVE_TEST_BINARY_CENSUS',len(candidates),all_test)
           target=Path('/tmp/qrl-bamboo-artifact');target.mkdir(mode=0o700,exist_ok=False)
           executable=target/'qrl-bamboo-owner-real-rust-test'
           shutil.copy2(candidates[0],executable);executable.chmod(0o700)
