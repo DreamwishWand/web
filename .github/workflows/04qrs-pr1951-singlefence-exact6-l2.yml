@@ -79,7 +79,7 @@ jobs:
            const additions=pins.filter(p=>p.before===null),modified=pins.filter(p=>p.before!==null);
            assert.equal(additions.length,0);assert.equal(modified.length,6);
            const scopePaths=[...pins.map(p=>p.path)].sort();
-           assert.deepEqual(g('diff','--name-only',oldMain,productSource).split('\n').sort(),scopePaths);
+           assert.deepEqual(g('diff','--name-only',gateSource,productSource).split('\n').sort(),scopePaths);
            assert.equal(blob(oldMain,'crates/ddv-save-core'),oldCore);
            assert.equal(blob(productSource,'crates/ddv-save-core'),newCore);
            assert.equal(g('rev-parse',productSource+'^{tree}'),'07310e5f878de3bb92baac0d80fcc480c9a0d4ed');
@@ -91,22 +91,22 @@ jobs:
             assert.ok(x.path==='crates/ddv-save-core/src/fence_add_shape.rs'||x.path==='.github/workflows/pages.yml'||x.path.startsWith('tests/'));
             pos++;
            }
-           const full=commit(oldMain,pins.map(x=>[x.path,x.after]));
+           const full=commit(gateSource,pins.map(x=>[x.path,x.after]));
            assert.equal(full.tree,g('rev-parse',productSource+'^{tree}'));pos++;
            const inverse=commit(full.commit,pins.map(x=>[x.path,x.before]));
-           assert.equal(inverse.tree,g('rev-parse',oldMain+'^{tree}'));pos++;
-           const good=verifyAcceptedRustScope(process.cwd(),oldMain,productSource);
+           assert.equal(inverse.tree,g('rev-parse',gateSource+'^{tree}'));pos++;
+           const good=verifyAcceptedRustScope(process.cwd(),gateSource,productSource);
            assert.equal(good.entryCount,6);
            assert.equal(good.sourcePr,1861);
            assert.equal(good.mergeAuthorized,false);assert.equal(good.writerAuthorized,false);pos++;
            // Every omitted path, bad mode and wrong blob is rejected by the real gate inspector.
            for(const x of pins){
-            const omitted=commit(oldMain,pins.filter(y=>y.path!==x.path).map(y=>[y.path,y.after]));
-            reject(oldMain,omitted.commit,'omitted '+x.path);
-            const chmod=commit(oldMain,pins.map(y=>[y.path,y.path===x.path?{mode:'100755',blob:y.after.blob}:y.after]));
-            reject(oldMain,chmod.commit,'mode '+x.path);
-            const bad=commit(oldMain,pins.map(y=>[y.path,y.path===x.path?{mode:y.after.mode,blob:y.before?.blob??gateOldBlob}:y.after]));
-            reject(oldMain,bad.commit,'blob '+x.path);
+            const omitted=commit(gateSource,pins.filter(y=>y.path!==x.path).map(y=>[y.path,y.after]));
+            reject(gateSource,omitted.commit,'omitted '+x.path);
+            const chmod=commit(gateSource,pins.map(y=>[y.path,y.path===x.path?{mode:'100755',blob:y.after.blob}:y.after]));
+            reject(gateSource,chmod.commit,'mode '+x.path);
+            const bad=commit(gateSource,pins.map(y=>[y.path,y.path===x.path?{mode:y.after.mode,blob:y.before?.blob??gateOldBlob}:y.after]));
+            reject(gateSource,bad.commit,'blob '+x.path);
            }
            const extras=[['unexpected-sibling',{mode:'100644',blob:gateOldBlob},'qa-never-authorized.txt'],
                          ['gate-self',{mode:'100644',blob:gateNewBlob},gatePath],
@@ -114,8 +114,8 @@ jobs:
                          ['wrong-core',{mode:'100644',blob:gateOldBlob},'crates/ddv-save-core/src/fence_product_target.rs']];
            for(const [name,post,path] of extras){
             const changes=pins.map(x=>[x.path,x.after]);changes.push([path,post]);
-            const out=commit(oldMain,changes);
-            reject(oldMain,out.commit,name);
+            const out=commit(gateSource,changes);
+            reject(gateSource,out.commit,name);
            }
            reject(productSource,oldMain,'reverse pair');
            reject(currentMain,productSource,'current-main drift must fail closed');
@@ -127,7 +127,7 @@ jobs:
              pos++;
            }
            for(const gate of ['scripts/wasm-distribution/verify-protected-release.mjs',gatePath,'scripts/int-selection-preflight.mjs']){
-             assert.equal(blob(oldMain,gate),blob(productSource,gate),gate);
+             assert.equal(blob(gateSource,gate),blob(productSource,gate),gate);
              pos++;
            }
            const priorPairs=[...before.matchAll(/if\(baseCore==='([a-f0-9]{40})'\)/g)].map(x=>x[1]);
