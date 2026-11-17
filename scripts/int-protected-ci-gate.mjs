@@ -56,7 +56,10 @@ export async function githubPublicJson(path,fetcher=fetch,sleep=wait,state=retry
   // change the request path carrying a scoped bearer credential.
   if(category==='other')deny('UNSAFE_API_CATEGORY');
   if(url.pathname+url.search!==path)deny('UNSAFE_API_PATH');
-  if(token!==undefined&&(typeof token!=='string'||!/^ghs_[A-Za-z0-9_]{20,255}$/.test(token)))deny('PROTECTED_CI_READ_TOKEN_DENIED');
+  // GitHub App installation GITHUB_TOKEN is now often stateless ghs_APPID_JWT
+  // (~520 characters with JWT dots/dashes). Accept both approved formats
+  // as opaque bounded ASCII; never log, parse, or trust token claims here.
+  if(token!==undefined&&(typeof token!=='string'||!/^ghs_[A-Za-z0-9._-]{36,2044}$/.test(token)||/[\r\n]/.test(token)))deny('PROTECTED_CI_READ_TOKEN_DENIED');
   const headers={Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'DreamwishWand-protected-CI'};
   if(token!==undefined)headers.Authorization='Bearer '+token;
   const request=()=>fetcher(url,{method:'GET',redirect:'error',

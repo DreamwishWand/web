@@ -226,3 +226,38 @@ test('authenticated protected GET rejects six unlisted or normalized endpoints b
  }
  assert.equal(requests,0,'unlisted endpoint must be rejected before any bearer request');
 });
+
+test('scoped GitHub installation token accepts legacy and stateless ghs_APPID_JWT without widening GET',async()=>{
+ const p=root+'/git/ref/heads/main';
+ const legacy='ghs_'+'A'.repeat(40);
+ const stateless='ghs_12345678_'+('A'.repeat(165))+'.'+('B'.repeat(160))+'.'+('C'.repeat(160));
+ assert.ok(stateless.length>255&&stateless.length<2048);
+ let sends=0;
+ for(const token of [legacy,stateless]){
+  const data=await githubPublicJson(p,async(url,opts)=>{
+   sends++;
+   assert.equal(url.href,'https://api.github.com'+p);
+   assert.equal(opts.method,'GET');
+   assert.equal(opts.redirect,'error');
+   assert.equal(opts.headers.Authorization,'Bearer '+token);
+   return new Response(JSON.stringify(ref),{headers:{'content-type':'application/json'}});
+  },undefined,undefined,undefined,token);
+  assert.deepEqual(data,ref);
+ }
+ assert.equal(sends,2);
+ for(const token of [
+  'ghs_'+'A'.repeat(35),
+  'ghs_'+'A'.repeat(2045),
+  'ghs_'+'A'.repeat(40)+'\n',
+  'ghs_'+'A'.repeat(40)+'\r\n',
+  'ghs_'+'A'.repeat(40)+' ',
+  'ghs_'+'A'.repeat(40)+':evil',
+  'ghs_'+'A'.repeat(40)+'/',
+  'ghp_'+'A'.repeat(40)
+ ]){
+  await assert.rejects(githubPublicJson(p,async()=>assert.fail('malformed token must fail before request'),undefined,undefined,undefined,token),/PROTECTED_CI_READ_TOKEN_DENIED/);
+ }
+ assert.equal(sends,2,'malformed forms must never reach fetch');
+ const invalidEndpoint=root+'/issues/1';
+ await assert.rejects(githubPublicJson(invalidEndpoint,async()=>assert.fail('bearer must not access other endpoint'),undefined,undefined,undefined,stateless),/UNSAFE_API_CATEGORY/);
+});
