@@ -182,3 +182,11 @@ export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFact
  allowSwitch626Catalog0Source?:false;allowScopedAmountSource?:false;
  allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false
 }):ScopedMakeupColor1SourceOwner;
+
+export type ScopedSwitchMakeupColor1SourceOwner=ScopedMakeupColor1SourceOwner;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{
+ appearanceScope:'makeup-color1-switch';placementScope?:null;backpackScope?:null;wardrobeScope?:null;
+ allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;
+ allowSwitch626Catalog0Source?:false;allowScopedAmountSource?:false;
+ allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false;
+}):ScopedSwitchMakeupColor1SourceOwner;
