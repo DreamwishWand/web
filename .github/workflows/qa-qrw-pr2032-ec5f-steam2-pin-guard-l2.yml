@@ -26,7 +26,11 @@ jobs:
           PARENT=2c9cd43c043ba8f97c1826dad38c2290e202b9d7
           CHILD=6d69321e6310c1197a7f587f0b7d9aa4851a11ab
           test "$(git rev-parse HEAD)" = "$GUARD"
-          test "$(git rev-parse HEAD^)" = "$PARENT"
+          # The repaired product gate has two exact first-parent commits from main:
+          # first 6d7283 (old historic TRUE_RED), then ec5fbaa (repaired Source).
+          # Do not misclassify this historical Source lineage as a new product failure.
+          test "$(git rev-parse HEAD^)" = 6d7283e0debbdf7e5218ea91e18b31814c7bfd8b
+          test "$(git rev-parse HEAD^^)" = "$PARENT"
           test "$(git diff --name-only "$PARENT" HEAD)" = '.github/workflows/web-shared-catalog-detail.yml'
           test "$(git rev-parse HEAD:.github/workflows/web-shared-catalog-detail.yml)" = 5ca38e38912351068684d065f584029392d3d1e3
           git cat-file -e "$CHILD^{commit}" || git fetch --no-tags origin "$CHILD"
