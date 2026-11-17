@@ -96,6 +96,11 @@ jobs:
           cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-fd01-scoped,product-switch626-fe01-scoped,product-steam626-hair-scoped,product-steam626-skin-scoped,product-switch626-rm01-scoped,product-collection-scoped
       - name: Compile WASM Worker plus opt-in indexed-read types without binding to UI
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read
+      - name: ACT1630 isolated Steam626 SingleFence Reader (no generic Writer)
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features product-steam626-singlefence-readonly --lib steam626_single_fence_target_exact1_no_debit --verbose
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-singlefence-readonly
+          grep -Fx 'product-steam626-singlefence-readonly = ["indexed-read"]' crates/ddv-save-core/Cargo.toml
       - name: ACT1486 Steam626 exact1 fixed Makeup Color1 source (Writer OFF)
         run: |
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib makeup_color1_ --verbose
