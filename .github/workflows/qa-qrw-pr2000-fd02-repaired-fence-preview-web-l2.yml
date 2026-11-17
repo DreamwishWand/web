@@ -1,0 +1,211 @@
+name: QA ONLY PR2000 FD02 Fence Preview fixed Web L2 (NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2000-fd02-repaired-fence-preview-web-l2.yml'
+permissions:
+  contents: read
+jobs:
+  prepared:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: db28df2ee0013ce6bb9830af61c5287c369c030b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Frozen PR2000 35 changed Web paths and inherited accepted FD02 fixture and generated WASM
+        run: |
+          set -euo pipefail
+          echo "QRW2000_FROZEN_HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = 'db28df2ee0013ce6bb9830af61c5287c369c030b'
+          test "$(git merge-base 'dcfe89c6be2ad5e3da6479dee27a2ae9feba3978' HEAD)" = 'dcfe89c6be2ad5e3da6479dee27a2ae9feba3978'
+          test "$(git diff --name-only 'dcfe89c6be2ad5e3da6479dee27a2ae9feba3978' HEAD | wc -l)" = 35
+          git diff --name-only 'dcfe89c6be2ad5e3da6479dee27a2ae9feba3978' HEAD | sort >/tmp/qrw-paths.actual
+          cat >/tmp/qrw-paths.expected <<'PATHS'
+          src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
+          src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
+          src/lib/ddv/core/save/product-scoped-amount-transport.mjs
+          src/lib/ddv/core/save/product-scoped-fd01-release-anchor.mjs
+          src/lib/ddv/core/save/product-scoped-fd02-release-anchor.mjs
+          src/lib/ddv/core/save/product-scoped-fe01-release-anchor.mjs
+          src/lib/ddv/core/save/product-scoped-five-fence-release-anchor.mjs
+          src/lib/ddv/core/save/product-scoped-placement-release.mjs
+          src/lib/ddv/core/save/product-scoped-placement-transport.mjs
+          src/lib/ddv/core/save/product-wasm-read-owner.d.mts
+          src/lib/ddv/core/save/product-wasm-read-owner.mjs
+          src/lib/dev/LocalPlacementEditorDev.svelte
+          src/lib/dev/PlacementProductRoute.svelte
+          src/lib/dev/local-placement-copy.mjs
+          src/lib/dev/local-placement-workflow.mjs
+          src/lib/dev/local-scoped-edit-worker-port.mjs
+          src/lib/dev/product-diagonal90.worker.mjs
+          src/lib/dev/product-fd01.worker.mjs
+          src/lib/dev/product-fd02.worker.mjs
+          src/lib/dev/product-fd03.worker.mjs
+          src/lib/dev/product-fe01.worker.mjs
+          src/lib/dev/product-ortho-l.worker.mjs
+          src/lib/dev/product-ortho-t.worker.mjs
+          src/lib/dev/product-placement-client.mjs
+          src/routes/editor/world/diagonal90/switch/+page.svelte
+          src/routes/editor/world/fd01/switch/+page.svelte
+          src/routes/editor/world/fd02/switch/+page.svelte
+          src/routes/editor/world/fd03/switch/+page.svelte
+          src/routes/editor/world/fe01/switch/+page.svelte
+          src/routes/editor/world/ortho-l/switch/+page.svelte
+          src/routes/editor/world/ortho-t/switch/+page.svelte
+          tests/product-switch626-fd01-fe01-transport.test.mjs
+          tests/product-switch626-fd02-route-off.test.mjs
+          tests/product-switch626-fence-workflow-preview-compat.test.mjs
+          tests/product-switch626-five-fence-typed-transport.test.mjs
+          PATHS
+          diff -u /tmp/qrw-paths.expected /tmp/qrw-paths.actual
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = '8a68955bea6d9048b44349e37f30f1f9e6178fc2'
+          test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = '3079016006355a1846b267a9404a25000faf46ce'
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = 'b391cac5ce961a40692e65755be4d289a7a1eb7d'
+          test "$(git rev-parse HEAD:tests/product-switch626-fence-workflow-preview-compat.test.mjs)" = 'c71d2471d25db15621eeb571919190301a861528'
+          git cat-file -e 5a9d32d51d4201d3c94065689ad62fe43b3f34d5^{commit} || git fetch --no-tags origin 5a9d32d51d4201d3c94065689ad62fe43b3f34d5
+          git cat-file -e 46fb3081172120d31b2684d0491c7bc52004f92a^{commit} || git fetch --no-tags origin 46fb3081172120d31b2684d0491c7bc52004f92a
+          git worktree add --detach /tmp/qrw-core 5a9d32d51d4201d3c94065689ad62fe43b3f34d5
+          test "$(git -C /tmp/qrw-core rev-parse HEAD)" = '5a9d32d51d4201d3c94065689ad62fe43b3f34d5'
+          rustc --version | grep -F 'rustc 1.100.0 (0ef1bc386 2026-11-09)'
+          cargo generate-lockfile --manifest-path /tmp/qrw-core/crates/ddv-save-core/Cargo.toml
+          echo '6bd3642b96af61a84a0b0d96b7e7e911415f519bcb4683c1092ea0bf191f71ac  /tmp/qrw-core/crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          test "$(git -C /tmp/qrw-core hash-object crates/ddv-save-core/src/fence_product_target.rs)" = 'd6abcac10a03e97fbab08e6bd6a03bec63dacfbd'
+          git show 46fb3081172120d31b2684d0491c7bc52004f92a:crates/ddv-save-core/src/fence_product_target.rs > /tmp/qrw-core/crates/ddv-save-core/src/fence_product_target.rs
+          test "$(git -C /tmp/qrw-core hash-object crates/ddv-save-core/src/fence_product_target.rs)" = '74e1338d962b122c677fb59879654b3529b8156e'
+          test "$(git -C /tmp/qrw-core diff --name-only)" = 'crates/ddv-save-core/src/fence_product_target.rs'
+          CARGO_TARGET_DIR=/tmp/qrw-fixture-target cargo test --locked --manifest-path /tmp/qrw-core/crates/ddv-save-core/Cargo.toml --features product-switch626-fence-add-stage-internal --lib qa1856_five_fixtures | tee /tmp/qrw-fixtures.log
+          grep -F 'qa1856_five_fixtures ... ok' /tmp/qrw-fixtures.log
+          mkdir -p artifacts/fixtures
+          test -s /tmp/qrc1856-FD02.json && test -s /tmp/qrc1856-FD02-xy.json
+          cp /tmp/qrc1856-FD02.json artifacts/fixtures/FD02.json
+          cp /tmp/qrc1856-FD02-xy.json artifacts/fixtures/FD02-xy.json
+          test -s /tmp/qrc1856-FD03.json && test -s /tmp/qrc1856-FD03-xy.json
+          cp /tmp/qrc1856-FD03.json artifacts/fixtures/FD03.json
+          cp /tmp/qrc1856-FD03-xy.json artifacts/fixtures/FD03-xy.json
+          test -s /tmp/qrc1856-L.json && test -s /tmp/qrc1856-L-xy.json
+          cp /tmp/qrc1856-L.json artifacts/fixtures/L.json
+          cp /tmp/qrc1856-L-xy.json artifacts/fixtures/L-xy.json
+          test -s /tmp/qrc1856-D90.json && test -s /tmp/qrc1856-D90-xy.json
+          cp /tmp/qrc1856-D90.json artifacts/fixtures/D90.json
+          cp /tmp/qrc1856-D90-xy.json artifacts/fixtures/D90-xy.json
+          test -s /tmp/qrc1856-T.json && test -s /tmp/qrc1856-T-xy.json
+          cp /tmp/qrc1856-T.json artifacts/fixtures/T.json
+          cp /tmp/qrc1856-T-xy.json artifacts/fixtures/T-xy.json
+          git -C /tmp/qrw-core restore --source HEAD -- crates/ddv-save-core/src/fence_product_target.rs
+          test "$(git -C /tmp/qrw-core hash-object crates/ddv-save-core/src/fence_product_target.rs)" = 'd6abcac10a03e97fbab08e6bd6a03bec63dacfbd'
+          git -C /tmp/qrw-core diff --exit-code
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrw-tools
+          B=/tmp/qrw-tools/bin/wasm-bindgen
+          W=/tmp/qrw-target/wasm32-unknown-unknown/release/ddv_save_core.wasm
+          CARGO_TARGET_DIR=/tmp/qrw-target cargo build --locked --manifest-path /tmp/qrw-core/crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch626-fd02-scoped
+          "$B" "$W" --out-dir /tmp/qrw-node --target nodejs --no-typescript
+          echo '5ed8305bdef664b96442da74a80c3e26ee4c5dde3c09752354e262943621e1b0  /tmp/qrw-node/ddv_save_core_bg.wasm' | sha256sum -c -
+          mkdir -p artifacts/fd02
+          "$B" "$W" --out-dir artifacts/fd02 --target web --no-typescript
+          sha256sum artifacts/fd02/ddv_save_core_bg.wasm > artifacts/fd02/ddv_save_core_bg.wasm.sha256
+          sha256sum -c artifacts/fd02/ddv_save_core_bg.wasm.sha256
+          test -s artifacts/fd02/ddv_save_core.js
+          git diff --exit-code -- src/lib tests/helpers/p1g-fixture.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qrw2000-fd02-changed-web-only
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 1
+  fd02-actual:
+    needs: prepared
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: db28df2ee0013ce6bb9830af61c5287c369c030b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: qrw2000-fd02-changed-web-only
+          path: artifacts
+      - name: Verified inherited FD02 fixture and WASM on frozen PR2000 changed Web
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'db28df2ee0013ce6bb9830af61c5287c369c030b'
+          mkdir -p tests/qa-op static/qa-op src/routes/test-qrw-op
+          cp artifacts/fd02/ddv_save_core.js tests/qa-op/
+          cp artifacts/fd02/ddv_save_core_bg.wasm tests/qa-op/
+          cp artifacts/fd02/ddv_save_core_bg.wasm static/qa-op/
+          cp artifacts/fixtures/FD02.json /tmp/qrc1856-FD02.json
+          cp artifacts/fixtures/FD02-xy.json /tmp/qrc1856-FD02-xy.json
+          sha256sum -c artifacts/fd02/ddv_save_core_bg.wasm.sha256
+          cmp artifacts/fd02/ddv_save_core_bg.wasm static/qa-op/ddv_save_core_bg.wasm
+          test -s tests/qa-op/ddv_save_core.js
+      - run: npm ci --no-audit --no-fund
+      - name: Current PR2000 SevenFence + Appearance4 scope-specific Node contract regression
+        run: |
+          node --test tests/product-switch626-fd01-fe01-transport.test.mjs tests/product-switch626-fd02-route-off.test.mjs tests/product-switch626-five-fence-typed-transport.test.mjs tests/wep-comp03-reference-consumer.test.mjs tests/product-steam626-makeup-color1-route-off.test.mjs tests/product-switch626-eyecolor2-route-off.test.mjs tests/product-switch626-fence-workflow-preview-compat.test.mjs
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual fd02 Worker UI OPFS CAS and independent exact Reopen
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';import assert from 'node:assert/strict';const s=readFileSync('tests/helpers/p1g-fixture.mjs','utf8'),a="const profile = Buffer.from(JSON.stringify(root), 'utf8');",b="const profile = Buffer.from(root);";assert.equal(s.split(a).length,2);const t=s.replace(a,b);assert.equal(t.replace(b,a),s);writeFileSync('tests/.qa-raw-fixture.mjs',t);
+          NODE
+          cat > tests/.qa-fixture.mjs <<'NODE'
+          import assert from 'node:assert/strict';import {readFileSync,writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';import {makeSyntheticP1gProfile} from './.qa-raw-fixture.mjs';
+          const sha=b=>createHash('sha256').update(b).digest('hex'),op='fd02',spec=[[0,0,40700246,false,true],[2,-2,40700253,true,true],[4,-4,40700246,false,true]],input=readFileSync('/tmp/qrc1856-FD02.json'),d=JSON.parse(input),[x,y]=JSON.parse(readFileSync('/tmp/qrc1856-FD02-xy.json')),G=90001,expected=structuredClone(d),g=d.World.GridCollection.Grids[G],eg=expected.World.GridCollection.Grids[G];assert.ok(g);assert.equal(g.NextGridObjectID,50);
+          const rec=(ID,ItemID,X,Y,left,diag)=>({ID,ItemID,Orientation:left?'GridOrientation_Left':'GridOrientation_Down',State:diag?{FenceMode:{Diagonal:true}}:null,X,Y});
+          eg.NextGridObjectID=50+spec.length;for(const [i,[dx,dy,item,left,diag]] of spec.entries())eg.Objects[50+i]=rec(50+i,item,x+dx,y+dy,left,diag);
+          const lexical=v=>JSON.stringify(v).replace('"escape":"keep"','"escape":"\\u006beep"'),want=Buffer.from(lexical(expected));assert.notEqual(sha(input),sha(want));assert.deepEqual(expected.Player,d.Player);const bad=structuredClone(d);delete bad.World.GridCollection.Grids[G].Objects[10];
+          const selector={gridId:G,x,y},bytes=makeSyntheticP1gProfile(input);writeFileSync('static/qa-op/input.p1g',bytes);writeFileSync('static/qa-op/bad.p1g',makeSyntheticP1gProfile(Buffer.from(lexical(bad))));writeFileSync('static/qa-op/meta.json',JSON.stringify({op,sha:sha(bytes),inputText:input.toString(),expectedText:want.toString(),selector,exact:spec.length+1,nextObjectId:50}));
+          NODE
+          node tests/.qa-fixture.mjs
+          cat > src/routes/test-qrw-op/qa.worker.mjs <<'NODE'
+          import init,{WorkerWasmSource} from '../../../tests/qa-op/ddv_save_core.js';
+          import {createProductSwitch626Fd02LocalAdapter} from '$lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          import {createProductWasmReadOwner} from '$lib/ddv/core/save/product-wasm-read-owner.mjs';import {createP1gRustWorkerReadOnlyBridge} from '$lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+          import {installLocalFd02DevWorker} from '$lib/dev/local-scoped-edit-worker-port.mjs';
+          try{const resp=await fetch('/qa-op/ddv_save_core_bg.wasm');if(!resp.ok||!resp.headers.get('content-type')?.startsWith('application/wasm'))throw Error('WASM MIME');await init({module_or_path:await resp.arrayBuffer()});
+          const names=['preview_switch626_fd02','stage_switch626_fd02','toggle_switch626_fd02','begin_switch626_fd02_output','next_switch626_fd02_output_chunk'];const methods=Object.getOwnPropertyNames(WorkerWasmSource.prototype).filter(k=>!['constructor','free','__destroy_into_raw'].includes(k));if(methods.length!==13||!names.every(k=>methods.includes(k)))throw Error('ABI mismatch');
+          let mixed=0,opens=0,closes=0,hold=false,release=null;const never=async()=>{throw Error('unexpected factory')};
+          for(const create of [createProductWasmReadOwner,createP1gRustWorkerReadOnlyBridge])for(const extra of [{backpackScope:'steam'},{wardrobeScope:'switch'},{appearanceScope:'hair'},{appearanceScope:'skin'},{appearanceScope:'eyecolor2'},{appearanceScope:'eyecolor2-switch'},{appearanceScope:'makeup-color1'},{appearanceScope:'makeup-color1-switch'},{allowScopedAmountSource:true},{allowScopedCollectionSource:true},{allowSwitch626ChestSource:true},{allowSteam626ChestSource:true},{allowSwitch626Catalog0Source:true},{allowCollectionCandidateSource:true}]){let denied=false;try{create(never,{placementScope:'fd02',...extra})}catch{denied=true}if(!denied)throw Error('mixed owner/bridge');mixed++}
+          const factory=async()=>({WorkerWasmSource:class extends WorkerWasmSource{constructor(...a){super(...a);opens++}close(){closes++;return super.close()}}});const a=createProductSwitch626Fd02LocalAdapter({wasmFactory:factory});const wrapped={...a,async previewPlacement(...args){const p=await a.previewPlacement(...args);if(hold){hold=false;await new Promise(r=>{release=r;postMessage({kind:'QA_PENDING'})})}return p},async close(){const p=await a.close();postMessage({kind:'QA_COUNTS',opens,closes});return p}};
+          installLocalFd02DevWorker(self,wrapped);self.addEventListener('message',e=>{if(e.data?.kind==='QA_ARM'){hold=true;postMessage({kind:'QA_ARMED'})}if(e.data?.kind==='QA_RELEASE'){release?.();release=null}});postMessage({kind:'QA_LOCAL_READY',mixed});}catch(e){postMessage({kind:'QA_ERROR',error:String(e?.stack||e)})}
+          NODE
+          cat > src/routes/test-qrw-op/+page.svelte <<'SVELTE'
+          <script>import {onMount} from 'svelte';import {setLocale} from '$lib/i18n/runtime.js';import LocalPlacementEditorDev from '$lib/dev/LocalPlacementEditorDev.svelte';import {localPlacementCopy} from '$lib/dev/local-placement-copy.mjs';import {createLocalFd02DevPort} from '$lib/dev/local-scoped-edit-worker-port.mjs';import {createProductFd01Port,createProductFd02Port,createProductFd03Port,createProductOrthoLPort,createProductDiagonal90Port,createProductOrthoTPort,createProductFe01Port,createProductEyeColor2Port,createProductSwitchEyeColor2Port,createProductMakeupColor1Port,createProductSwitchMakeupColor1Port} from '$lib/dev/product-placement-client.mjs';let adapter=null;const operation='fd02',trace={receipts:[],mutate:false,counts:null};
+          onMount(()=>{setLocale('en');let w,p;let workers=0;const original=window.Worker;window.Worker=new Proxy(original,{construct(t,a,n){workers++;return Reflect.construct(t,a,n)}});(async()=>{try{let denied=0;for(const portFactory of [createProductFd01Port,createProductFd02Port,createProductFd03Port,createProductOrthoLPort,createProductDiagonal90Port,createProductOrthoTPort,createProductFe01Port,createProductEyeColor2Port,createProductSwitchEyeColor2Port,createProductMakeupColor1Port,createProductSwitchMakeupColor1Port]){let blocked=false;try{await portFactory()}catch{blocked=true}if(!blocked)throw Error('null anchor granted for '+portFactory.name);denied++}if(denied!==11||workers!==0)throw Error('11 protected release anchors or Worker isolation');w=new Worker(new URL('./qa.worker.mjs',import.meta.url),{type:'module'});const events=new Map();w.addEventListener('message',e=>{if(e.data?.kind==='QA_COUNTS')trace.counts=e.data;const cb=events.get(e.data?.kind);if(cb){events.delete(e.data.kind);cb(e.data)}});const wait=k=>new Promise(resolve=>events.set(k,resolve));const ready=await Promise.race([wait('QA_LOCAL_READY'),wait('QA_ERROR')]);if(ready.kind!=='QA_LOCAL_READY')throw Error(ready.error);p=createLocalFd02DevPort(w);adapter=Object.freeze({...p,async previewPlacement(...args){const v=await p.previewPlacement(...args);trace.receipts.push(v);return trace.mutate?{...v,x:v.x+1}:v}});window.__qa={p,trace,wait,send:k=>w.postMessage({kind:k}),mixed:ready.mixed,words:localPlacementCopy('en'),workers:()=>workers};}catch(e){window.__qa={error:String(e?.stack||e)}}})();return()=>{p?.dispose();w?.terminate()}});</script>
+          {#if adapter}<LocalPlacementEditorDev trustedWorkerAdapter={adapter} verifiedLocalDevGate={true} fixedOperation={operation}/>{/if}
+          SVELTE
+          cat > tests/.qa-browser.mjs <<'NODE'
+          import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {spawn,spawnSync} from 'node:child_process';import {readFileSync,writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';
+          const sha=b=>createHash('sha256').update(b).digest('hex'),origin='http://127.0.0.1:4186',server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4186','--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});let browser;
+          try{let ready=false;for(let i=0;i<100;i++){try{if((await fetch(origin+'/test-qrw-op/')).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,250))}assert.ok(ready);const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+          const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(String(e)));await page.goto(origin+'/test-qrw-op/');await page.waitForFunction(()=>!!window.__qa,{},{timeout:90000});assert.equal(await page.evaluate(()=>window.__qa.error),undefined);const meta=JSON.parse(readFileSync('static/qa-op/meta.json','utf8')),bytes=readFileSync('static/qa-op/input.p1g');assert.equal(sha(bytes),meta.sha);
+          const boundary=await page.evaluate(async m=>{const {p,wait,send,trace}=window.__qa,need=(x,k)=>{if(!x)throw Error(k)},sel=m.selector,build={platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626,externallyConfirmed:true},foreign={platform:'steam-windows',buildKind:'steam-full-version',buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,externallyConfirmed:true},sha=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');let neg=0;const deny=async(f,k)=>{let d=false;try{await f()}catch{d=true}need(d,k);neg++};const get=async n=>{const b=new Uint8Array(await(await fetch('/qa-op/'+n+'.p1g')).arrayBuffer());return {file:new File([b],n+'.p1g'),build,originalSha256:await sha(b)}};
+          const input=await get('input');need(p.previewAppearance===undefined&&p.previewBackpack===undefined&&p.previewWardrobe===undefined&&p.spatialPreview===undefined,'foreign port surface');await deny(()=>p.previewPlacement(sel),'before open');await deny(()=>p.previewPlacement({gridId:90001,retainedId:10,movedId:11}),'foreign selector');await deny(()=>p.open({...input,build:foreign}),'foreign Build');await deny(()=>p.open({...input,build:{...build,buildId:'0000000000000000'}}),'wrong BID');
+          await deny(()=>p.previewPlacement({gridId:90001,x:-1,y:20}),'negative x');await deny(()=>p.previewPlacement({gridId:90001,x:1.5,y:20}),'fraction x');
+          await p.open(await get('bad'));await p.backupOriginal();await deny(()=>p.previewPlacement(sel),'invalid old rows');await deny(()=>p.stagePlacement(),'bad stage');await p.close();
+          await p.open(input);await deny(()=>p.previewPlacement(sel),'before backup');await p.backupOriginal();await deny(()=>p.stagePlacement(),'before preview');const armed=wait('QA_ARMED');send('QA_ARM');await armed;const pending=wait('QA_PENDING');const late=p.previewPlacement(sel).then(()=>false,()=>true);await pending;await p.close();send('QA_RELEASE');need(await late,'late preview crossed close');neg++;await deny(()=>p.previewPlacement(sel),'closed');return {neg,mixed:window.__qa.mixed,counts:trace.counts};},meta);
+          assert.equal(boundary.mixed,28);assert.equal(boundary.neg,12);
+          const words=await page.evaluate(()=>window.__qa.words),ed=page.locator('[data-dev-placement]'),btn=k=>ed.getByRole('button',{name:words[k],exact:true});async function prepare(){const f=ed.locator('input[type=file]');await f.waitFor();await f.setInputFiles({name:'synthetic-fd02.p1g',mimeType:'application/octet-stream',buffer:bytes});await ed.locator('input[type=checkbox]').check();await btn('openFile').click();await btn('backup').click();await btn('review').waitFor();const nums=ed.locator('input[type=number]'),values=[meta.selector.gridId,meta.selector.x,meta.selector.y];assert.equal(await nums.count(),values.length);for(const [i,v] of values.entries())await nums.nth(i).fill(String(v));}
+          await prepare();await page.evaluate(()=>window.__qa.trace.mutate=true);await btn('review').click();await ed.getByRole('alert').waitFor();assert.equal(await ed.locator('[data-placement-preview]').count(),0);assert.equal(await btn('stagePlacement').count(),0);
+          await page.evaluate(()=>window.__qa.trace.mutate=false);await prepare();await btn('review').click();await btn('stagePlacement').waitFor();const review=ed.locator('[data-placement-preview]');assert.match(await review.innerText(),/50, 51, 52/);assert.ok((await review.innerText()).includes(words.fd02Detail),'operation-specific no-stock-change copy');await ed.locator('input[type=number]').nth(1).fill(String(meta.selector.x+1));assert.equal(await btn('stagePlacement').isDisabled(),true);await ed.locator('input[type=number]').nth(1).fill(String(meta.selector.x));const pr=await page.evaluate(()=>window.__qa.trace.receipts.at(-1));assert.equal(pr.exactFieldChangedCount,4);assert.equal(pr.inventoryDelta,0);assert.equal(pr.layout,'PRESERVE_EXISTING');assert.equal(pr.addObjects,3);assert.equal(pr.writerAuthorized,false);assert.equal(pr.oldAmount,pr.newAmount);assert.equal(pr.gridId,90001);for(const k of ['sessionId','readset','readsetSha256','projectedDecodedSha256','rootSha256','gridSha256','counterSha256','inventoryEntrySha256','housesSha256','oldRowsSha256'])assert.equal(k in pr,false,k);
+          await btn('stagePlacement').click();await btn('undo').waitFor();await btn('undo').click();await btn('redo').waitFor();assert.equal(await btn('export').count(),0);await btn('redo').click();await btn('export').click();await btn('downloadEdited').waitFor();
+          const out=await page.evaluate(async()=>{const {p}=window.__qa,b=await p.downloadVerifiedCopy('backup'),e=await p.downloadVerifiedCopy('edited'),root=await navigator.storage.getDirectory(),bf=await(await root.getFileHandle(b.name)).getFile(),ef=await(await root.getFileHandle(e.name)).getFile();let replay=false;try{await p.exportEditedCopy()}catch{replay=true}return {b:{name:b.name,sha:b.sha256,bytes:Array.from(b.encryptedBytes),disk:Array.from(new Uint8Array(await bf.arrayBuffer()))},e:{name:e.name,sha:e.sha256,bytes:Array.from(e.encryptedBytes),disk:Array.from(new Uint8Array(await ef.arrayBuffer()))},replay}});
+          assert.equal(out.replay,true);assert.notEqual(out.b.name,out.e.name);assert.notEqual(out.b.name,'synthetic-fd02.p1g');assert.notEqual(out.e.name,'synthetic-fd02.p1g');assert.deepEqual(Buffer.from(out.b.bytes),bytes);assert.deepEqual(Buffer.from(out.b.disk),bytes);assert.deepEqual(out.e.bytes,out.e.disk);assert.equal(sha(Buffer.from(out.e.bytes)),out.e.sha);assert.notEqual(out.e.sha,meta.sha);
+          writeFileSync('/tmp/qrw-edited.p1g',Buffer.from(out.e.bytes));writeFileSync('/tmp/qrw-original.p1g',bytes);
+          const check=spawnSync(process.execPath,['--input-type=module','-e',"import {readFileSync} from 'node:fs';import assert from 'node:assert/strict';import {p1gPackagedProfileCodec as c} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';const m=JSON.parse(readFileSync('static/qa-op/meta.json','utf8'));for(const [file,want] of [['/tmp/qrw-original.p1g',m.inputText],['/tmp/qrw-edited.p1g',m.expectedText]]){const p=await c.loadProfile(new Uint8Array(readFileSync(file)));assert.equal(p.jsonText,want)}"],{stdio:'inherit'});assert.equal(check.status,0);await btn('close').click();await ed.locator('input[type=file]').waitFor();assert.equal(await review.count(),0);
+          const end=await page.evaluate(()=>({counts:window.__qa.trace.counts,workers:window.__qa.workers()}));assert.equal(end.workers,1);assert.ok(end.counts.opens>=4);assert.equal(end.counts.opens,end.counts.closes);assert.deepEqual(errors,[]);console.log('QRW2000_FENCE_APPEARANCE_UNION_FD02_WEB_ACTUAL_PASS '+JSON.stringify({positive:1,offAnchorsDenied:11,negative:boundary.neg+3,mixedDenied:boundary.mixed,actualWorker:end.workers,actualRustSessions:end.counts.opens,actualCloses:end.counts.closes,actualOpfs:true,independentReopen:true,exact:4,actualDom:true,lateClose:true,signed:false,genuine:false}));}finally{await browser?.close();server.kill()}
+          NODE
+          node tests/.qa-browser.mjs
+          git diff --exit-code -- src/lib tests/helpers/p1g-fixture.mjs
+
