@@ -31,7 +31,7 @@ test('Collapsing Search clears stale query and retains all preexisting decoratin
   assert.match(source,/bind:value=\{selectedBoardId\}/);
   assert.match(source,/filterCollectionRecords\(decorationRecords,\{query,family,universe\}\)/);
   assert.match(source,/on:click=\{\(event\)=>openQuickReview\(item,event\)\}/);
-  assert.match(source,/on:click=\(\)=>toggleMoodboard\(item\)\}/);
-  assert.match(source,/on:click=\(\)=>placeInWorldEditor\(selectedItem\)\}/);
+  assert.match(source,/on:click=\{\(\)=>toggleMoodboard\(item\)\}/);
+  assert.match(source,/on:click=\{\(\)=>placeInWorldEditor\(selectedItem\)\}/);
   assert.doesNotMatch(source,/<label><span>\{copy\.search\}<\/span><input type="search" bind:value=\{query\} \/><\/label>/);
 });
