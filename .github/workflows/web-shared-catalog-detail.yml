@@ -93,6 +93,13 @@ jobs:
           src/lib/item-media/switch1253-public-item-images.mjs
           tests/web-steam1253-door-primary-contract.test.mjs
           STEAM_EXTENSION_SCOPE
+            # ACT726: current-main original PR1184 exact two-pin metadata/test,
+            # with the already-accepted Door/Tree-quarantine workflow unchanged.
+            # This permits ONLY these two paths; no glob, rights, ON or media asset.
+            cat > /tmp/steam1253-current-two-pins-expected <<'STEAM_CURRENT_TWO_PINS_SCOPE'
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-steam1253-door-primary-contract.test.mjs
+          STEAM_CURRENT_TWO_PINS_SCOPE
             cat > /tmp/steam1253-tree-quarantine-expected <<'TREE_QUARANTINE_SCOPE'
           .github/workflows/web-shared-catalog-detail.yml
           scripts/web-steam1253-door-collection-chrome.mjs
@@ -117,6 +124,9 @@ jobs:
             elif diff -q /tmp/steam1253-extension-expected /tmp/switch1253-actual >/dev/null; then
               node --test tests/web-steam1253-door-primary-contract.test.mjs
               echo WEB_STEAM1253_EXACT3_EXTENSION_SCOPE_PASS
+            elif diff -q /tmp/steam1253-current-two-pins-expected /tmp/switch1253-actual >/dev/null; then
+              node --test tests/web-steam1253-door-primary-contract.test.mjs
+              echo WEB_STEAM1253_CURRENT_TWO_PINS_EXACT2_SCOPE_PASS
             elif diff -q /tmp/steam1253-exact1-expected /tmp/switch1253-actual >/dev/null; then
               node --test tests/web-steam1253-door-primary-contract.test.mjs
               echo WEB_STEAM1253_DOOR_EXACT4_SCOPE_PASS
