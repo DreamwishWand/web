@@ -391,6 +391,10 @@ mod tests {
     }
 }
 
+#[cfg(feature="product-switch626-fence-add-stage-internal")]
+#[path="worker_switch626_fixed_fence_add.rs"]
+mod switch626_fixed_fence_add;
+
 #[cfg(feature="product-switch626-fd01-scoped")]
 #[path="worker_switch626_fd01.rs"]
 mod switch626_fd01;

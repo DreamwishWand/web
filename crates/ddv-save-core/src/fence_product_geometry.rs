@@ -94,3 +94,46 @@ mod tests{
   assert!(p.fe01_house_bound(&h,&json!([{"HouseItemID":20500024},{"HouseItemID":20500024}])).is_none());
  }
 }
+
+
+ // Exact target footprints (not record constructors): audited against PR1795
+ // fixed 981cf518 and corrected PR1806 97950a1e descriptors. Only the five
+ // fixed operation variants can enter; no caller-provided rows or lengths.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub(crate) enum FenceAddTargetKind{Fd02,Fd03,OrthoL,Diagonal90,OrthoT}
+impl FenceAddTargetKind{
+ pub(crate) fn count(self)->u32{match self{Self::Fd02|Self::Fd03=>3,Self::OrthoL|Self::Diagonal90=>5,Self::OrthoT=>7}}
+ fn footprints(self)->&'static[(u32,i32,i32,bool,(u32,u32))]{
+  const EXT1:u32=40700247;const EXT6:u32=40700256;
+  match self{
+   Self::Fd02=>&[(BASE,0,0,false,(2,2)),(FD_EXT,2,-2,true,(2,2)),(BASE,4,-4,false,(2,2))],
+   Self::Fd03=>&[(BASE,0,0,false,(2,2)),(EXT6,2,2,false,(8,8)),(BASE,10,10,false,(2,2))],
+   Self::OrthoL=>&[(BASE,0,0,false,(2,2)),(EXT1,2,0,false,(2,2)),(BASE,4,0,false,(2,2)),(EXT1,4,2,true,(2,2)),(BASE,4,4,false,(2,2))],
+   Self::Diagonal90=>&[(BASE,0,0,false,(2,2)),(FD_EXT,2,2,false,(2,2)),(BASE,4,4,false,(2,2)),(FD_EXT,6,2,true,(2,2)),(BASE,8,0,false,(2,2))],
+   Self::OrthoT=>&[(BASE,0,0,false,(2,2)),(EXT1,2,0,false,(2,2)),(BASE,4,0,false,(2,2)),(EXT1,6,0,false,(2,2)),(BASE,8,0,false,(2,2)),(EXT1,4,2,true,(2,2)),(BASE,4,4,false,(2,2))]
+  }
+ }
+}
+impl MeadowGeometry{
+ /// Exact fixed add shapes only. FD03 deliberately retains the entire
+ /// conservative 8x8 extension rectangle, not just four occupied cells.
+ #[allow(dead_code)]
+ pub(crate) fn local_fence_add(&self,g:&Value,kind:FenceAddTargetKind,x:u32,y:u32,
+  common:impl Fn(u32)->Option<(u32,u32)>,mut effective:impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<u32>{
+  if !self.switch626{return None}
+  let next=header(g,kind.count())?;let objects=g["Objects"].as_object()?;
+  if objects.is_empty()||objects.len()>4096||objects.contains_key("0"){return None}
+  let mut boxes=Vec::with_capacity(kind.count() as usize);
+  for &(item,dx,dy,left,expected) in kind.footprints(){
+   let (w,h)=self.fence_dimensions(item,&common)?;
+   let (w,h)=if left{(h,w)}else{(w,h)};
+   if (w,h)!=expected{return None}
+   let a=u32::try_from(i64::from(x).checked_add(i64::from(dx))?).ok()?;
+   let b=u32::try_from(i64::from(y).checked_add(i64::from(dy))?).ok()?;
+   boxes.push(self.target_cells(a,b,w,h)?);
+  }
+  // No existing rows are excluded, including matching fence seeds.
+  self.clear_ambient(objects,next,&[],&boxes,&common,&mut effective)?;
+  Some(next)
+ }
+}
