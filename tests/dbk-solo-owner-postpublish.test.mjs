@@ -135,10 +135,14 @@ test("image takedown closure cannot be claimed without linked image + actual CDN
  assert.equal(verifySoloOwnerCaseClosure(plan,{...fake,cdnInvalidationVerified:true,cdnEvidenceRef:"SYNTHETIC-CDN-REF"}).readyForHumanRecordReview,true);
 });
 
-test("existing 8-language game-art packet stays OFF, unreviewed and without invented contact",()=>{
+test("existing eight-language packet stays OFF and unreviewed with only the externally verified common mailbox",()=>{
  const existing=JSON.parse(readFileSync(new URL("../ops/ddv-item-image-operator-readiness-template.json",import.meta.url),"utf8"));
  assert.equal(existing.publicationState,"OFF");
- assert.equal(existing.rightsContact,null);
+ assert.deepEqual(existing.rightsContact,{
+  url:"mailto:support@dreamwishwand.com",
+  tested:true,
+  verificationEvidenceRef:"E-07DBK-20261117-ACT419-SUPPORT-LIVE-INBOUND-OUTBOUND-SCOPED-PASS"
+ });
  assert.equal(existing.copyrightLicenceStatus,"UNKNOWN");
  assert.equal(Object.keys(existing.locales).length,8);
  assert.ok(Object.values(existing.locales).every(x=>x.humanReviewed===false));
