@@ -56,6 +56,34 @@ jobs:
             for p in scripts/web-moodboard-atomic-entry-chrome.mjs tests/web-moodboard-atomic-entry.test.mjs .github/workflows/web-moodboard-atomic-entry.yml; do
               test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
             done
+          elif test "$(git rev-parse HEAD:src/lib/moodboards/cover-preview.mjs)" = 0ef6b9515d79dc252823643f80cf0bd84c3b9b14 && \
+               test "$(git rev-parse HEAD:src/routes/moodboards/+page.svelte)" = 64a448995c0cdd5dce5c54b54b9d5727f2449a4a && \
+               test "$(git rev-parse HEAD:src/lib/moodboards/copy.js)" = 9c20f3a06d580af6d290e6b8498b6a1bf6f9d831 && \
+               test "$(git rev-parse HEAD:tests/web-moodboard-cover-preview.test.mjs)" = f563d0580cd429461ad5f2767821cdca594a7171 && \
+               test "$(git rev-parse HEAD:scripts/web-moodboard-cover-preview-chrome.mjs)" = 6f0ed52e669f85094836b57640377d151f1ae951 && \
+               test "$(git rev-parse HEAD:.github/workflows/08web-decux43-moodboard-cover.yml)" = 9ae826c801d16c43e7ea5ea13a37346f086f2844; then
+            # DEC-UX-43 is a separately frozen exact7 Source+test change.
+            # Previous optional-entry and portability Scope tests remain unchanged.
+            cat >/tmp/atomic-entry-decux43-scope <<'SCOPE'
+          .github/workflows/web-moodboard-atomic-entry.yml
+          .github/workflows/08web-decux43-moodboard-cover.yml
+          scripts/web-moodboard-cover-preview-chrome.mjs
+          src/lib/moodboards/copy.js
+          src/lib/moodboards/cover-preview.mjs
+          src/routes/moodboards/+page.svelte
+          tests/web-moodboard-cover-preview.test.mjs
+          SCOPE
+            LC_ALL=C sort /tmp/atomic-entry-decux43-scope >/tmp/atomic-entry-decux43-expected
+            diff -u /tmp/atomic-entry-decux43-expected /tmp/atomic-entry-actual
+            for p in .github/workflows/web-moodboard-atomic-entry.yml src/lib/moodboards/copy.js src/routes/moodboards/+page.svelte; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M
+            done
+            for p in .github/workflows/08web-decux43-moodboard-cover.yml scripts/web-moodboard-cover-preview-chrome.mjs src/lib/moodboards/cover-preview.mjs tests/web-moodboard-cover-preview.test.mjs; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+            done
+            for p in .github/workflows/web-moodboard-atomic-entry.yml .github/workflows/08web-decux43-moodboard-cover.yml scripts/web-moodboard-cover-preview-chrome.mjs src/lib/moodboards/copy.js src/lib/moodboards/cover-preview.mjs src/routes/moodboards/+page.svelte tests/web-moodboard-cover-preview.test.mjs; do
+              test "$(git ls-tree HEAD "$p" | awk '{print $1}')" = 100644
+            done
           else
             # Explicit ACT519 migration successor scope, not a general path-filter bypass.
             cat >/tmp/atomic-entry-migration-scope <<'SCOPE'
