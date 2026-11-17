@@ -1,8 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
 import {SINGLEFENCE_PROOF9_BASE as base,SINGLEFENCE_PROOF9_BID as build,
  SINGLEFENCE_PROOF9_PINS as pins,SINGLEFENCE_PROOF9_ALLOWED_DIFF as allowed,
- verifySteamSingleFenceProof9Preflight as check} from '../scripts/readonly-release/steam-singlefence-proof9-preflight.mjs';
+ verifySteamSingleFenceProof9Preflight as check,
+ inspectGitProof9Candidate} from '../scripts/readonly-release/steam-singlefence-proof9-preflight.mjs';
 const candidate='a'.repeat(40);
 function fixture(){
  return {repositoryId:1371485649,protectedMain:base,parent:base,candidate,buildId:build,
@@ -40,4 +42,19 @@ test('SingleFence Proof9 never accepts user flags, mutable result, or signing au
  const b=fixture();b.writerEnabled=true;refused(b);
  const c=fixture();c.operationOn=true;refused(c);
  const result=check(fixture());assert.ok(Object.isFrozen(result));assert.ok(Object.isFrozen(pins));
+});
+
+test('SingleFence Proof9 actual Git parent, ten immutable blobs and exact Source-only diff on fixed PR branch',()=>{
+ const branch='09p-code-act1582-singlefence-proof9-source-preflight-main933';
+ if(process.env.GITHUB_HEAD_REF!==branch)return;
+ const head=execFileSync('git',['rev-parse','--verify','refs/remotes/origin/'+branch],{encoding:'utf8'}).trim();
+ assert.match(head,/^[a-f0-9]{40}$/);
+ const receipt=inspectGitProof9Candidate(head,base);
+ assert.equal(receipt.status,'SINGLEFENCE_PROOF9_SOURCE_PINS_EXACT_ONLY');
+ assert.equal(receipt.candidate,head);
+ assert.equal(receipt.pinCount,10);
+ assert.equal(receipt.proofDispatched,false);
+ assert.equal(receipt.signedSubjectsVerified,false);
+ assert.equal(receipt.writerAuthorized,false);
+ assert.throws(()=>inspectGitProof9Candidate(head,'f'.repeat(40)),/SINGLEFENCE_PROOF9_PREFLIGHT_DENIED/);
 });
