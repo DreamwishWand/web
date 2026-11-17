@@ -1,0 +1,158 @@
+name: QA ONLY 04 QR-W ACT1654 PR2059 single verified operator-contact packet L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2059-strict-owner-contact-newhead-l2.yml'
+permissions:
+  contents: read
+jobs:
+  operator-packet:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 09dfa25253f14e04449e2863941491a6a67aaa52
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze four corrected original product files; operator Gate repair only, no Pages or media
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 09dfa25253f14e04449e2863941491a6a67aaa52
+          test "$(git merge-base HEAD d63b9c47a9271c30186e546bff0b2cf0ebabde48)" = d63b9c47a9271c30186e546bff0b2cf0ebabde48
+          cat >/tmp/qrw2059-post <<'POST'
+          ad5ee1ab37848b6a401c6a9183057b3c2ed88111 ops/ddv-item-image-operator-gate.mjs
+          079e548e367771d9b1b8e33bff87be90ad58598e ops/ddv-item-image-operator-readiness-template.json
+          9c9f40532b8fac14af67a594f37a70c3d3c561be tests/dbk-solo-owner-postpublish.test.mjs
+          f0e4c52db22e37744fa9371927043c9de4af1374 tests/ddv-item-image-operator-gate.test.mjs
+          POST
+          while read -r blob path; do
+            test "$(git rev-parse "HEAD:$path")" = "$blob"
+            test "$(git ls-tree HEAD "$path" | awk '{print $1}')" = 100644
+          done < /tmp/qrw2059-post
+          cut -d' ' -f2- /tmp/qrw2059-post | LC_ALL=C sort >/tmp/qrw2059-expected
+          git diff --name-only d63b9c47a9271c30186e546bff0b2cf0ebabde48 HEAD | LC_ALL=C sort >/tmp/qrw2059-actual
+          diff -u /tmp/qrw2059-expected /tmp/qrw2059-actual
+          echo QRW2059_REPAIRED_FIXED_SINGLE_CONTACT_PRODUCT_THREE_GIT_BLOBS_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Run inherited actual operator and solo-owner trust/refusal tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/ddv-item-image-operator-gate.test.mjs tests/dbk-solo-owner-postpublish.test.mjs
+          echo QRW2059_REPAIRED_INHERITED_ACTUAL_OPERATOR_TEST_SUITES_PASS
+      - name: Independent real operator preflight, single exact verified contact, eight locale and all asset-denial negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {preflightGameImageOperatorReceipt,IMAGE_NOTICE_LOCALES,OWNER_IMAGE_DECISION} from './ops/ddv-item-image-operator-gate.mjs';
+          const doc=JSON.parse(readFileSync('ops/ddv-item-image-operator-readiness-template.json','utf8'));
+          const original=structuredClone(doc), expected='mailto:support@dreamwishwand.com',
+            ref='E-07DBK-20261117-ACT419-SUPPORT-LIVE-INBOUND-OUTBOUND-SCOPED-PASS';
+          let pos=0,neg=0;
+          assert.equal(doc.contract,'wand.dbk.item-image-operator-preflight@1');
+          assert.equal(doc.classification,'DRAFT_OPERATOR_PACKET_NOT_PUBLICATION_PERMISSION');
+          assert.equal(doc.ownerDecision,OWNER_IMAGE_DECISION);pos++;
+          assert.deepEqual(doc.rightsContact,{url:expected,tested:true,verificationEvidenceRef:ref});pos++;
+          assert.equal(doc.publicationState,'OFF');
+          assert.equal(doc.copyrightLicenceStatus,'UNKNOWN');
+          assert.equal(doc.copyrightLicenceEvidenceRef,null);
+          assert.equal(doc.assetBundleSha256,null);
+          assert.equal(doc.assetManifestEvidenceRef,null);
+          assert.equal(doc.deploymentAuthorizationRef,null);pos++;
+          assert.deepEqual(Object.keys(doc.locales).sort(),[...IMAGE_NOTICE_LOCALES].sort());
+          assert.ok(Object.values(doc.locales).every(v=>v.humanReviewed===false&&v.reviewEvidenceRef===null));
+          assert.deepEqual(Object.keys(doc.controls).sort(),['noticeIntake','itemAndHashHide','originRemoval','cdnInvalidation','oldUrlAndCacheDenial','backupRestoreReconciliation','rollbackRehearsal','provenanceAudit'].sort());
+          assert.ok(Object.values(doc.controls).every(v=>v.verified===false&&v.evidenceRef===null));pos++;
+          assert.deepEqual(doc.suppressionLedger,[]);
+          assert.equal(doc.suppressionLedgerProvenance,'NOT_VERIFIED');pos++;
+          const initial=preflightGameImageOperatorReceipt(doc);
+          assert.equal(initial.readyForOperatorReview,false);
+          assert.equal(initial.reasons.includes('WORKING_RIGHTS_CONTACT_NOT_PROVED'),false);
+          assert.equal(initial.reasons.filter(x=>x.startsWith('ATTRIBUTION_LOCALE_NOT_REVIEWED:')).length,8);
+          assert.equal(initial.reasons.filter(x=>x.startsWith('OPERATOR_CONTROL_NOT_PROVED:')).length,8);
+          assert.ok(initial.reasons.includes('ASSET_RELEASE_BUNDLE_NOT_PINNED'));
+          assert.ok(initial.reasons.includes('EXPLICIT_OPERATOR_DEPLOYMENT_NOT_AUTHORIZED'));pos++;
+          function gateDeny(label,p,reason){
+            const r=preflightGameImageOperatorReceipt(p);
+            assert.equal(r.readyForOperatorReview,false,label);
+            if(reason)assert.ok(r.reasons.includes(reason),label+' '+JSON.stringify(r.reasons));
+            neg++;
+          }
+          for(const bad of [
+            null,{url:expected,tested:false,verificationEvidenceRef:ref},
+            {url:expected,tested:true,verificationEvidenceRef:null},
+            {url:expected,tested:true,verificationEvidenceRef:'UNKNOWN'},
+            {url:expected,tested:true,verificationEvidenceRef:'NOT_RUN'},
+            {url:'mailto:invalid',tested:true,verificationEvidenceRef:ref},
+            {url:'http://example.test',tested:true,verificationEvidenceRef:ref},
+            {url:'javascript:alert(1)',tested:true,verificationEvidenceRef:ref},
+            {url:'mailto:a@example.test?bcc=private',tested:true,verificationEvidenceRef:ref},
+            {url:'mailto:',tested:true,verificationEvidenceRef:ref}
+          ])gateDeny('invalid unverified contact '+JSON.stringify(bad),{...doc,rightsContact:bad},'WORKING_RIGHTS_CONTACT_NOT_PROVED');
+          for(const locale of IMAGE_NOTICE_LOCALES){
+            const bad=structuredClone(doc);
+            bad.locales[locale]={...bad.locales[locale],humanReviewed:true,reviewEvidenceRef:'SYNTHETIC'};
+            gateDeny('one of eight reviewed cannot authorize',bad);
+          }
+          for(const control of Object.keys(doc.controls)){
+            const bad=structuredClone(doc);bad.controls[control]={verified:true,evidenceRef:'SYNTHETIC'};
+            gateDeny('single operational check cannot authorize',bad);
+          }
+          for(const [key,value] of Object.entries({
+            publicationState:'ON',assetBundleSha256:'0'.repeat(64),
+            assetManifestEvidenceRef:'SYNTHETIC',
+            deploymentAuthorizationRef:'SYNTHETIC',
+            suppressionLedgerProvenance:'CLAIMED_VERIFIED'
+          })){
+            const bad={...doc,[key]:value};
+            // No changed trust authority: altering one packet claim must not clear other controls.
+            gateDeny('isolated untrusted publication claim '+key,bad);
+          }
+          const exactPacket=x=>JSON.stringify(x.rightsContact)===JSON.stringify(original.rightsContact) &&
+            x.publicationState==='OFF'&&x.assetBundleSha256===null&&
+            x.assetManifestEvidenceRef===null&&x.deploymentAuthorizationRef===null&&
+            x.copyrightLicenceStatus==='UNKNOWN' &&
+            Object.values(x.locales).every(v=>v.humanReviewed===false) &&
+            Object.values(x.controls).every(v=>v.verified===false);
+          assert.equal(exactPacket(doc),true);pos++;
+          for(const forged of [
+            {rightsContact:{...doc.rightsContact,url:'mailto:another@example.org'}},
+            {rightsContact:{...doc.rightsContact,tested:false}},
+            {rightsContact:{...doc.rightsContact,verificationEvidenceRef:'SYNTHETIC_OTHER_CONTACT'}},
+            {publicationState:'ON'},
+            {assetBundleSha256:'a'.repeat(64)},
+            {copyrightLicenceStatus:'DOCUMENTED'}
+          ]){assert.equal(exactPacket({...doc,...forged}),false);neg++;}
+          // Repaired Head regression: former FALSE_ACCEPTANCE of verified support
+          // evidence for unrelated addresses, bcc, query, fragment and encoded separators.
+          for(const url of [
+            'mailto:a@example.test?bcc=private',
+            'mailto:support@dreamwishwand.com?bcc=private@example.test',
+            'mailto:support@dreamwishwand.com?subject=hello',
+            'mailto:support@dreamwishwand.com#fragment',
+            'mailto:support@dreamwishwand.com%3Fsubject=hidden',
+            'mailto:support@dreamwishwand.com,private@example.test',
+            'mailto:private@example.test',
+            'mailto:other@dreamwishwand.com',
+            'mailto:support@dreamwishwand.com%0Abcc:private@example.test',
+            'mailto:support@dreamwishwand.com%0D%0ABcc:other@example.test',
+            'mailto:support@dreamwishwand.com%23fragment'
+          ])gateDeny('fixed former RED and related forged mailto '+url,{...doc,rightsContact:{...doc.rightsContact,url}},'WORKING_RIGHTS_CONTACT_NOT_PROVED');
+          const forgedProof={...doc,rightsContact:{...doc.rightsContact,verificationEvidenceRef:'E-FORGED-OTHER-MAILBOX'}};
+          gateDeny('actual Owner mail cannot inherit unrelated receipt',forgedProof,'WORKING_RIGHTS_CONTACT_NOT_PROVED');
+          const validOther={...doc,rightsContact:{url:'mailto:operator@example.org',tested:true,verificationEvidenceRef:'SYNTHETIC_OPERATOR_PROOF'}};
+          const otherPreflight=preflightGameImageOperatorReceipt(validOther);
+          assert.ok(!otherPreflight.reasons.includes('WORKING_RIGHTS_CONTACT_NOT_PROVED'),'non-owner synthetic scenario remains possible without misusing real proof');
+          assert.equal(otherPreflight.readyForOperatorReview,false,'no operator8/publish authorization');
+          pos++;
+                    assert.equal(JSON.stringify(doc),JSON.stringify(original));pos++;
+          console.log('QRW2059_REPAIRED_OWNER_CONTACT_BCC_QUERY_FALSE_ACCEPTANCE_DENIED_PASS',JSON.stringify({positive:pos,negative:neg,actualSource:true,realExternalMailEvidenceInheritedNotRePerformed:true,operator8HumanVerified:false,rightsLicence:false,imagesPublic:false}));
+          NODE
