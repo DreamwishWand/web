@@ -138,6 +138,10 @@ async function generateProofSubjects(source){
  const raw=Buffer.from(JSON.stringify(m,null,2)+'\n');
  const receipt=inspectProofSubjects([raw,js,wasm],source);
  const dir=join(root,proofOutput);
+ // Runner checkout contains no committed fixture-parent directory. Create
+ // only this private staging parent; the exact three-subject target itself
+ // must remain fresh and exclusive (EEXIST still fails closed).
+ await mkdir(join(root,'tests/wasm-distribution/fixtures'),{recursive:true});
  await mkdir(dir,{recursive:false});
  for(let i=0;i<names.length;i++)
   await writeFile(join(dir,names[i]),[raw,js,wasm][i],{flag:'wx',mode:0o600});

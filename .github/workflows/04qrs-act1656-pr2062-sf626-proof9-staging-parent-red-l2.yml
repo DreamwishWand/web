@@ -1,0 +1,161 @@
+name: "04 QR-S ACT1656 Proof9 fresh-runner staging repair Security L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qrs-act1656-pr2062-sf626-proof9-staging-parent-red-l2.yml"
+permissions:
+  contents: read
+jobs:
+  independent-staging-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 95c6ca4f7e2f64d97537155d505ec8c5402d94dc
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Actual Git source 2 and fresh-runner private staging; hidden/symlink/overwrite negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/steam-singlefence-proof9-signed.test.mjs
+          cat > qrs-act1656-staging.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {spawnSync,execFileSync} from 'node:child_process';
+          import {
+            existsSync,mkdirSync,readFileSync,writeFileSync,rmSync,
+            readdirSync,symlinkSync,lstatSync,readlinkSync
+          } from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {join} from 'node:path';
+          import {tmpdir} from 'node:os';
+          import {mkdtempSync} from 'node:fs';
+          import {inspectProofSubjects} from './scripts/readonly-release/steam-singlefence-proof9-signed.mjs';
+          const expectedMain='940079cc166001a03cadb443303769c7a8ac62d9';
+          const source='95c6ca4f7e2f64d97537155d505ec8c5402d94dc';
+          const script='scripts/readonly-release/steam-singlefence-proof9-signed.mjs';
+          const testfile='tests/steam-singlefence-proof9-signed.test.mjs';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8',env:{...process.env,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
+          const gitBlob=(ref,p)=>{
+            const x=git('ls-tree',ref,'--',p);
+            const m=/^(100644|100755|120000|160000) (blob|commit) ([0-9a-f]{40})\t(.+)$/.exec(x);
+            assert.ok(m&&m[4]===p);return {mode:m[1],type:m[2],sha:m[3]};
+          };
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          let pos=0,neg=0;
+          assert.equal(git('rev-parse','HEAD'),source);
+          assert.deepEqual(git('rev-list','--parents','-n','1',source).split(/\s+/),[source,expectedMain]);
+          assert.equal(git('merge-base',source,expectedMain),expectedMain);
+          assert.deepEqual(git('diff','--name-only',expectedMain,source).split('\n').sort(),[script,testfile].sort());
+          assert.deepEqual(gitBlob(source,script),{mode:'100644',type:'blob',sha:'2179a242f40e772e4c6b55eebb460f58651c3c72'});
+          assert.deepEqual(gitBlob(source,testfile),{mode:'100644',type:'blob',sha:'d6efb06b831180fad47779e44628e5809c096da9'});
+          assert.deepEqual(gitBlob(expectedMain,'.github/workflows/steam626-singlefence-proof9.yml'),gitBlob(source,'.github/workflows/steam626-singlefence-proof9.yml'));
+          assert.deepEqual(gitBlob(expectedMain,'scripts/wasm-distribution/approved-Cargo.lock'),gitBlob(source,'scripts/wasm-distribution/approved-Cargo.lock'));
+          assert.equal(git('ls-tree',expectedMain,'tests/wasm-distribution/fixtures'),'');
+          assert.equal(git('ls-tree',expectedMain,'tests/wasm-distribution/fixtures/steam626-singlefence-proof9'),'');
+          pos++;
+
+          const code=readFileSync(script,'utf8');
+          const oldCode=git('show',expectedMain+':'+script);
+          const good=" await mkdir(join(root,'tests/wasm-distribution/fixtures'),{recursive:true});\n await mkdir(dir,{recursive:false});";
+          assert.ok(code.includes(good));
+          assert.equal(code.replace(
+            " // Runner checkout contains no committed fixture-parent directory. Create\n"+
+            " // only this private staging parent; the exact three-subject target itself\n"+
+            " // must remain fresh and exclusive (EEXIST still fails closed).\n"+
+            good,
+            " await mkdir(dir,{recursive:false});").trimEnd(),oldCode.trimEnd());
+          assert.match(code,/writeFile\(join\(dir,names\[i\]\),\[raw,js,wasm\]\[i\],\{flag:'wx',mode:0o600\}\)/);
+          assert.doesNotMatch(code.slice(code.indexOf('async function generateProofSubjects(source)'),code.indexOf('async function actualProtectedCi(')),/deploy-pages|pages:\s*write|semantic_writer|upload-pages-artifact/);
+          pos++;
+
+          const stage='tests/stage-e/pkg',parent='tests/wasm-distribution/fixtures';
+          const child=join(parent,'steam626-singlefence-proof9');
+          assert.equal(existsSync(parent),false,'genuine clean runner parent must be absent at start');
+          const n=Buffer.from('read_steam626_singlefence_target','utf8');
+          const sec=(id,b)=>Buffer.from([id,b.length,...b]);
+          const wasm=Buffer.concat([
+            Buffer.from([0,97,115,109,1,0,0,0]),
+            sec(1,[1,0x60,0,0]),
+            sec(3,[1,0]),
+            sec(7,[1,n.length,...n,0,0]),
+            sec(10,[1,2,0,0x0b])
+          ]);
+          assert.deepEqual(WebAssembly.Module.exports(new WebAssembly.Module(wasm)).map(x=>x.name),['read_steam626_singlefence_target']);
+          mkdirSync(stage,{recursive:true});
+          writeFileSync(join(stage,'ddv_save_core.js'),"export function read_steam626_singlefence_target(){ return null; }\n");
+          writeFileSync(join(stage,'ddv_save_core_bg.wasm'),wasm);
+          const env={...process.env,
+            GITHUB_ACTIONS:'true',
+            GITHUB_EVENT_NAME:'workflow_dispatch',
+            GITHUB_REPOSITORY_ID:'1371485649',
+            GITHUB_REPOSITORY:'DreamwishWand/web',
+            GITHUB_REF:'refs/heads/main',
+            GITHUB_SHA:source,GITHUB_WORKFLOW_SHA:source,
+            GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/steam626-singlefence-proof9.yml@refs/heads/main',
+            WAND_PROOF_EXPECTED_SOURCE:source
+          };
+          const run=()=>spawnSync('node',[script,'build-subjects'],{env,encoding:'utf8',timeout:60000});
+          const first=run();
+          assert.equal(first.status,0,'fresh-runner build-subjects must succeed with valid synthetic WASM: '+first.stderr);
+          assert.match(first.stdout,/SINGLEFENCE_PROOF9_THREE_UNSIGNED_CANDIDATE_PROOF_ONLY/);
+          assert.equal(lstatSync(parent).isDirectory(),true);
+          assert.equal(lstatSync(child).isDirectory(),true);
+          const names=['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm'];
+          assert.deepEqual(readdirSync(child).sort(),names.slice().sort());
+          const bytes=names.map(n=>readFileSync(join(child,n)));
+          const receipt=inspectProofSubjects(bytes,source);
+          assert.equal(receipt.manifestSha256,sha(bytes[0]));
+          assert.equal(receipt.jsSha256,sha(bytes[1]));
+          assert.equal(receipt.wasmSha256,sha(bytes[2]));
+          assert.equal(receipt.publicWriter,false);
+          assert.equal(receipt.operationOn,false);
+          pos++;
+
+          const second=run();
+          assert.notEqual(second.status,0,'second staged write must never overwrite original 3');
+          assert.match(second.stderr,/SINGLEFENCE_PROOF9_SIGNED_SCOPE_DENIED/);
+          assert.deepEqual(names.map(n=>sha(readFileSync(join(child,n)))),bytes.map(sha));
+          neg++;
+          const badDir=join(child,'extra');
+          writeFileSync(badDir,'unauthorized fourth subject');
+          assert.deepEqual(readdirSync(child).length,4);
+          const third=run();
+          assert.notEqual(third.status,0);
+          neg++;
+          rmSync(parent,{recursive:true,force:true});
+          assert.equal(existsSync(parent),false);
+
+          // Staging parent is inside protected checkout. An existing symlink
+          // must not redirect proof bytes into another directory or path.
+          const side=mkdtempSync(join(tmpdir(),'qrs-act1656-outside-'));
+          try {
+            const outside=join(side,'out');mkdirSync(outside);
+            symlinkSync(outside,parent,'dir');
+            assert.equal(lstatSync(parent).isSymbolicLink(),true);
+            const viaSymlink=run();
+            if(viaSymlink.status===0||existsSync(join(outside,'steam626-singlefence-proof9')))
+              throw new Error('TRUE_RED_STAGING_PARENT_SYMLINK_ESCAPES_PROOF_PRIVATE_CHECKOUT_TREE');
+            neg++;
+          } finally{
+            rmSync(parent,{force:true});
+            rmSync(side,{recursive:true,force:true});
+          }
+          assert.equal(existsSync('static/worker-wasm-steam626-singlefence-proof9'),false);
+          assert.equal(existsSync('build/worker-wasm-steam626-singlefence-proof9'),false);
+          pos++;
+          console.log('QRS_ACT1656_SF626_PROOF9_STAGING_PRIVATE_L2_PASS',JSON.stringify({
+            positive:pos,negative:neg,sourceHead:source,protectedMain:expectedMain,
+            exactTwoGitPaths:true,oldTrueRedStillRecorded:true,
+            cleanRunnerParentMissingPositive:true,exactThreeStaged:true,
+            repeatOverwriteDenied:true,extraSubjectDenied:true,
+            symlinkParentEscapeDenied:true,syntheticWasmOnly:true,
+            realRustGeneratedWasm:false,actualSigstore3:false,
+            publicWriter:false,operationOn:false
+          }));
+          NODE
+          node qrs-act1656-staging.mjs
