@@ -111,6 +111,48 @@ fn integer(b: &[u8], span: Span) -> CoreResult<u32> {
 fn digest(b: &[u8], span: Span) -> CoreResult<[u8; 32]> {
     Ok(Sha256::digest(raw(b, span)?).into())
 }
+/// Validate the saved object's own identity namespace, not just the
+/// absence of the next candidate key. This is ID arithmetic only, NOT
+/// authoritative geometry / references / floor / rights validation.
+fn verify_existing_object_ids(b: &[u8], objects: Span, next: u32) -> CoreResult<usize> {
+    if b.get(objects.begin) != Some(&b'{') ||
+       b.get(objects.end.saturating_sub(1)) != Some(&b'}') ||
+       objects.end > b.len() {
+        return Err(denied("ROAD_Q1_OBJECTS_MAP_REQUIRED"));
+    }
+    let mut pos = objects.begin + 1;
+    let mut count = 0usize;
+    loop {
+        pos = indexed_read::skip_ws(b, pos);
+        if pos == objects.end - 1 { return Ok(count); }
+        count += 1;
+        if count > 250_000 || pos >= objects.end - 1 {
+            return Err(denied("ROAD_Q1_OBJECT_COUNT_BOUND"));
+        }
+        let key_end = indexed_read::string_end(b, pos)?;
+        if key_end - pos > 32 { return Err(denied("ROAD_Q1_OBJECT_KEY_BOUND")); }
+        let key: String = serde_json::from_slice(raw(b, Span { begin: pos, end: key_end })?)
+            .map_err(|_| denied("ROAD_Q1_OBJECT_KEY_PARSE"))?;
+        let id = key.parse::<u32>().map_err(|_| denied("ROAD_Q1_OBJECT_KEY_UINT"))?;
+        if id == 0 || id >= next || key != id.to_string() {
+            return Err(denied("ROAD_Q1_OBJECT_ID_NAMESPACE"));
+        }
+        let colon = indexed_read::skip_ws(b, key_end);
+        if b.get(colon) != Some(&b':') { return Err(denied("ROAD_Q1_OBJECT_COLON")); }
+        let begin = indexed_read::skip_ws(b, colon + 1);
+        let end = indexed_read::value_end(b, begin)?;
+        if end > objects.end - 1 { return Err(denied("ROAD_Q1_OBJECT_SPAN")); }
+        if integer(b, field(b, Span { begin, end }, "ID")?)? != id {
+            return Err(denied("ROAD_Q1_OBJECT_VALUE_ID_MISMATCH"));
+        }
+        let after = indexed_read::skip_ws(b, end);
+        match b.get(after) {
+            Some(b',') if after < objects.end - 1 => pos = after + 1,
+            Some(b'}') if after == objects.end - 1 => return Ok(count),
+            _ => return Err(denied("ROAD_Q1_OBJECT_DELIMITER")),
+        }
+    }
+}
 #[derive(Clone, Copy)]
 struct ActualRoadQ1Readset {
     next: u32, stock: u32,
@@ -158,9 +200,9 @@ fn read_actual_old(b: &[u8]) -> CoreResult<ActualRoadQ1Readset> {
         return Err(denied("ROAD_Q1_ACTUAL_COUNTER_BOUND"));
     }
     let objects = field(b, grid, "Objects")?;
-    if field_opt(b, objects, &next.to_string())?.is_some() {
-        return Err(denied("ROAD_Q1_ACTUAL_ID_COLLISION"));
-    }
+    // A single stale/noncanonical saved Object ID makes a prospective
+    // NextObjectID unsafe even when the literal "next" key is absent.
+    verify_existing_object_ids(b, objects, next)?;
     let route = field(b, field(b, roots.player, "ListInventories")?, "0")?;
     if integer(b, field(b, route, "ID")?)? != 0 {
         return Err(denied("ROAD_Q1_CATALOG0_MISMATCH"));
@@ -337,6 +379,35 @@ mod road_q1_prep_tests {
         assert!(s.dispatch(WorkerEnvelope {
             action: WorkerAction::ExportEditedCopy, ..old.envelope
         }).is_err());
+    }
+
+    #[test]
+    fn road_q1_prep_saved_ids_must_be_canonical_unique_below_actual_counter() {
+        let s = fixture(false);
+        let original: Value = serde_json::from_slice(&s.decoded).unwrap();
+        let key = |id: &str, value_id: u32| {
+            let mut d = original.clone();
+            d["World"]["GridCollection"]["Grids"]["1"]["Objects"]
+                .as_object_mut().unwrap().insert(
+                    id.into(),
+                    json!({"ID":value_id,"ItemID":40100068,"X":22,"Y":30,
+                          "Orientation":"GridOrientation_Down","State":null})
+                );
+            let bytes = serde_json::to_vec(&d).unwrap();
+            assert!(read_actual_old(&bytes).is_err(), "unexpected object key {id}");
+        };
+        key("0", 0);
+        key("0009", 9);
+        key("15949", 15949);
+        key("15950", 15950);
+        key("7", 6);
+        key("not-a-number", 7);
+        // The counter cannot move behind any already persisted object.
+        let mut stale = original.clone();
+        stale["World"]["GridCollection"]["Grids"]["1"]["NextGridObjectID"] = json!(8);
+        assert!(read_actual_old(&serde_json::to_vec(&stale).unwrap()).is_err());
+        // Exact unchanged original remains a positive non-authorizing input.
+        assert!(read_actual_old(&s.decoded).is_ok());
     }
 
     #[test]
