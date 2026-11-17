@@ -39,7 +39,12 @@ impl ProductSession{
   let end=next.checked_add(1).ok_or(denied("SINGLE_FENCE_COUNTER"))?;
   need(next>0&&end<=i32::MAX as u32,"SINGLE_FENCE_COUNTER")?;
   let start=indexed_read::skip_ws(b,0);let top=Span{begin:start,end:indexed_read::value_end(b,start)?};
+  // The accepted Writer source has one extra module nesting level.
+  #[cfg(feature="semantic-writer-dev")]
   let refs=super::super::placement_saved_refs::scan(b,top,gid,None,next,end)?;
+  // Writer-free Reader retains the identical reference scanner and predicates.
+  #[cfg(not(feature="semantic-writer-dev"))]
+  let refs=super::placement_saved_refs::scan(b,top,gid,None,next,end)?;
   need(refs.root(gid)==1&&refs.parent(gid)==0,"SINGLE_FENCE_REFERENCE_ALIAS")?;
   let(houses,house_span)=house_items(b,w)?;let objects=f(b,g,"Objects")?;let mut budget=0;
   for(_,o)in members(b,objects,4096)?{saved_grid_state(b,f(b,o,"State")?,BASE as i32,&mut budget)?;}
