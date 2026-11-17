@@ -1,4 +1,4 @@
-// Protected Pages CI predecessor: public GitHub GET only; no credentials, no writes.
+// Protected Pages CI predecessor: exact allowlisted GitHub GET with optional scoped Actions read token; no writes.
 // This gate supplements existing signatures/lock/host checks; never changes them.
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
@@ -41,18 +41,21 @@ function apiDenied(response,category) {
 const MAX_PHASE_RETRY_MS=180000;
 function retryState(){return {waited:0,resetUsed:false};}
 // One state per build/deploy phase, including pending-CI checks.
-export function createPublicJsonGetter(fetcher=fetch,sleep=wait,now=Date.now){
+export function createPublicJsonGetter(fetcher=fetch,sleep=wait,now=Date.now,token=undefined){
   const state=retryState();
-  return path=>githubPublicJson(path,fetcher,sleep,state,now);
+  return path=>githubPublicJson(path,fetcher,sleep,state,now,token);
 }
-export async function githubPublicJson(path,fetcher=fetch,sleep=wait,state=retryState(),now=Date.now) {
+export async function githubPublicJson(path,fetcher=fetch,sleep=wait,state=retryState(),now=Date.now,token=undefined) {
   if(typeof path!=='string'||!path.startsWith('/repos/DreamwishWand/')||
      path.includes('..')||path.includes('#')||path.includes('\\'))deny('UNSAFE_API_PATH');
   const url=new URL('https://api.github.com'+path);
   if(url.origin!=='https://api.github.com')deny('UNSAFE_API_ORIGIN');
   const category=apiCategory(path);
+  if(token!==undefined&&(typeof token!=='string'||!/^ghs_[A-Za-z0-9_]{20,255}$/.test(token)))deny('PROTECTED_CI_READ_TOKEN_DENIED');
+  const headers={Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'DreamwishWand-protected-CI'};
+  if(token!==undefined)headers.Authorization='Bearer '+token;
   const request=()=>fetcher(url,{method:'GET',redirect:'error',
-    headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'DreamwishWand-protected-CI'},
+    headers,
     signal:AbortSignal.timeout(20000)});
   let response=await request();
   // Explicit primary limit only; a present but invalid Retry-After
@@ -139,7 +142,8 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
     const git=(...args)=>execFileSync('git',args,{encoding:'utf8',env:{...e,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
     if(git('rev-parse','HEAD')!==e.GITHUB_SHA||e.GITHUB_WORKFLOW_SHA!==e.GITHUB_SHA)deny('PROTECTED_CHECKOUT_MISMATCH');
     const input={repository:e.GITHUB_REPOSITORY,head:e.GITHUB_SHA,workflowBlob:git('rev-parse','HEAD:'+CI_PATH)};
-    const get=createPublicJsonGetter();
+    if(typeof e.WAND_GATE_READ_TOKEN!=='string'||e.WAND_GATE_READ_TOKEN.length===0)deny('PROTECTED_CI_READ_TOKEN_MISSING');
+    const get=createPublicJsonGetter(fetch,wait,Date.now,e.WAND_GATE_READ_TOKEN);
     let result;
     if(phase==='build'){
       for(let i=0;i<6;i++){
