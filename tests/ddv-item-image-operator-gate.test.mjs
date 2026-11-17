@@ -45,6 +45,34 @@ test("actual verified single support contact clears ONLY mailbox check; image pu
     assert.ok(preflightGameImageOperatorReceipt({...template, rightsContact:missing}).reasons.includes("WORKING_RIGHTS_CONTACT_NOT_PROVED"));
   }
   assert.ok(result.reasons.includes("EXPLICIT_OPERATOR_DEPLOYMENT_NOT_AUTHORIZED"));
+  // Historic independent QA PR2061 caught a real false acceptance of a
+  // foreign mailto with ?bcc using the support inbox's actual proof.
+  const ownerMail = template.rightsContact;
+  for (const url of [
+    "mailto:a@example.test?bcc=private",
+    "mailto:support@dreamwishwand.com?bcc=private@example.test",
+    "mailto:support@dreamwishwand.com?subject=test",
+    "mailto:support@dreamwishwand.com#fragment",
+    "mailto:support@dreamwishwand.com%3Fbcc=private",
+    "mailto:support@dreamwishwand.com,other@example.test",
+    "mailto:foreign@example.test",
+    "https://example.test/rights"
+  ]) {
+    const forged = {...ownerMail, url};
+    const output = preflightGameImageOperatorReceipt({...template,rightsContact:forged});
+    assert.equal(output.readyForOperatorReview,false,url);
+    assert.ok(output.reasons.includes("WORKING_RIGHTS_CONTACT_NOT_PROVED"),url);
+  }
+  const forgedProof = {...ownerMail, verificationEvidenceRef:"SYNTHETIC_OTHER_INBOX"};
+  assert.ok(preflightGameImageOperatorReceipt({...template,rightsContact:forgedProof})
+    .reasons.includes("WORKING_RIGHTS_CONTACT_NOT_PROVED"));
+  const syntheticStillSeparate = {
+    url:"mailto:operator@example.org", tested:true,
+    verificationEvidenceRef:"SYNTHETIC_EVIDENCE"
+  };
+  assert.ok(!preflightGameImageOperatorReceipt({...template,rightsContact:syntheticStillSeparate})
+    .reasons.includes("WORKING_RIGHTS_CONTACT_NOT_PROVED"),
+    "generic controlled synthetic receipt semantics unchanged");
 });
 
 test("synthetic fully scoped operator receipt can clear only SOURCE preflight, never publish", () => {
