@@ -99,7 +99,7 @@ export function verifySteamSingleFenceProof9Preflight(s){
 // Local/GitHub CLI inspection; no network, secret, mutation, upload or signing.
 export function inspectGitProof9Candidate(candidate,protectedMain){
  const cwd=resolve(import.meta.dirname,'../..');
- const git=(...a)=>execFileSync('git',a,{cwd,encoding:'utf8'}).trim();
+ const git=(...a)=>{try{return execFileSync('git',a,{cwd,encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim()}catch{fail()}};
  if(!SHA.test(candidate)||!SHA.test(protectedMain))fail();
  const verified=git('rev-parse','--verify',candidate+'^{commit}');
  if(verified!==candidate)fail();
