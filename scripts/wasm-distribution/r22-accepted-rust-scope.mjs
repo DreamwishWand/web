@@ -1127,6 +1127,104 @@ const switch624FrpMain838Exact14Entries=[
     }
   }
 ];
+
+// 09P-CODE exact Steam626 SingleFence isolated Reader source8 + protected Cargo-only pin.
+// No generic Writer/Stage, issuer grant, Sign, Deploy or Feature auto-enable.
+const steam626SingleFenceReaderMain2c9Exact9Entries=[
+  {
+    "path": ".github/workflows/core-product-session-boundary.yml",
+    "before": {
+      "mode": "100644",
+      "blob": "c83fb6ba5b874048ce59e8221ef309222252af0b"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "4e23432fb4dbcebdda43843047b2bb54ed07d2a0"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "cfd550b690e42e93a48b913457c35a5ea0cb7bc7"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "f7c3b723804f9f3e11ffcbcd0f786d23e4e540bd"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "6c7cf61f41a8b985ae5ccbd7d84c0aa475040f28"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "e7d919bdd36a0f6930f5d9ca4f5e9c21f8f42e54"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/steam_single_fence_product_target.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "dd71dddccb4e961952529905dc7ac6f54f38cea5"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "32e74beb57b49e9187d82a7ff229d460ac246974"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/steam_single_fence_readonly.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "6fe5d55a605ec8f66d6ba1df2432f962f9ea6b50"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_steam_single_fence_readonly.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "a4255e51db6a7168d045888e08c53c241ff4010d"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "e7da141bc3525f234b999b0febc47540d95e1560"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "fbf791896a49ccee89d7149caca8fd2115e58438"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "c30662b61b08c52179c027f53a1a96f7be4d2bd9"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "a25d249564570f0845772efa7e465aa86dd6b7f9"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "865aa54e99d11029250478ba6583bdec226dfa6d"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "53db0a9f23c3345056d87d2fcc98f8e7097501ea"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1172,7 +1270,7 @@ export function verifyAcceptedRustScope(cwd,base,source){
  // Never embed the post-Gate Git tree SHA inside the Gate script itself:
  // doing so would make its own blob/tree identity self-referential.
  // Derive it from the exact validated candidate commit at verification time.
- const postGateProductTree=profile.metadata.sourcePr===2012
+ const postGateProductTree=(profile.metadata.sourcePr===2012||profile.metadata.sourcePr===2034)
   ?git(cwd,'rev-parse','--verify',source+'^{tree}'):undefined;
  if(postGateProductTree!==undefined&&!SHA.test(postGateProductTree))
   deny('PRODUCT_TREE');
@@ -1298,6 +1396,19 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    preGateExact14ProjectionTree:'93e0776f1f1f11ba1550a3ba9e3ff521c194b391',
    independentNewAbiL2Required:true,independentSecurityL2Required:true,
    realEncryptedOriginalP1gV2:'NOT_RUN',writerAuthorized:false,opOn:false}};
+ }
+ if(baseCore==='b454aeef4455408b73aaafd6d3629dfaf6d8d9b363f'){
+  if(sourceCore!=='821d4609dcf93ace38feb00193dfaf6d8d9b363f')deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626SingleFenceReaderMain2c9Exact9Entries,count:9,metadata:{
+   sourcePr:2034,sourceHead:'fe9baeb82b4bb61b31e1d0e66d93dd31076d8891',
+   sourceTree:'85d92e1b21e93934e1dc20fb49ebaef37d599aad',
+   exactSteamBuild:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+   sourceLeafCount:8,protectedCargoBefore:'865aa54e99d11029250478ba6583bdec226dfa6d',
+   protectedCargoAfter:'53db0a9f23c3345056d87d2fcc98f8e7097501ea',
+   cargoBlobBefore:'cfd550b690e42e93a48b913457c35a5ea0cb7bc7',
+   cargoBlobAfter:'f7c3b723804f9f3e11ffcbcd0f786d23e4e540bd',
+   readerOnly:true,generatedAbiL2Required:true,independentSecurityL2Required:true,
+   realEncryptedOriginalP1gV2:'NOT_RUN',writerAuthorized:false,operationOn:false}};
  }
  deny('BASE_CORE_TREE');
 }
