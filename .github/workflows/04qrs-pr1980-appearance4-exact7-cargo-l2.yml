@@ -24,7 +24,7 @@ jobs:
       - name: Independently check actual Git Gate profile exact7, protected Cargo-only pin and deny mutations
         run: |
           set -euo pipefail
-          cat > /tmp/qrs-appearance4-exact7.mjs <<'EOF'
+          cat > qa-appearance4-exact7.mjs <<'EOF'
           import assert from 'node:assert/strict';
           import {execFileSync} from 'node:child_process';
           import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
@@ -149,4 +149,4 @@ jobs:
             }));
           }finally{rmSync(tmp,{recursive:true,force:true})}
           EOF
-          node /tmp/qrs-appearance4-exact7.mjs
+          node qa-appearance4-exact7.mjs
