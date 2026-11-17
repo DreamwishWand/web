@@ -11,11 +11,11 @@ const INACTIVE_ITEM:i32=140100011;
 const OLD:i32=53;
 const NEW:i32=60;
 #[derive(Debug)]
-pub(super) struct FixedMakeupColor1{
- pub(super) scope:WorkerEnvelope,pub(super) span:Span,
- pub(super) token_sha:String,pub(super) female_sha:String,
- pub(super) male_sha:String,pub(super) entry_sha:String,
- pub(super) routes_sha:String,pub(super) projected:[u8;32],
+pub(crate) struct FixedMakeupColor1{
+ pub(crate) scope:WorkerEnvelope,pub(crate) span:Span,
+ pub(crate) token_sha:String,pub(crate) female_sha:String,
+ pub(crate) male_sha:String,pub(crate) entry_sha:String,
+ pub(crate) routes_sha:String,pub(crate) projected:[u8;32],
 }
 // Exact physical saved slot; never create, remap or select a new item.
 fn slot1(b:&[u8],avatar:Span,expected_item:i32)->CoreResult<(Span,Span)>{
@@ -41,7 +41,7 @@ fn slot1(b:&[u8],avatar:Span,expected_item:i32)->CoreResult<(Span,Span)>{
 }
 fn ok(b:bool,s:&'static str)->CoreResult<()>{if b{Ok(())}else{Err(denied(s))}}
 impl ProductSession{
- pub(super) fn prepare_fixed_makeup_color1(&self,e:WorkerEnvelope)->CoreResult<FixedMakeupColor1>{
+ pub(crate) fn prepare_fixed_makeup_color1(&self,e:WorkerEnvelope)->CoreResult<FixedMakeupColor1>{
   product_appearance_scope(self,&e)?;
   self.prepare_fixed_makeup_color1_lexical(e)
  }
@@ -111,7 +111,7 @@ impl ProductSession{
      "MAKEUP_COLOR1_SWITCH_STAGE_CAS")?;
   self.commit_switch626_makeup_color1_candidate(e,now.span,OLD,NEW,now.projected)
  }
- pub(super) fn stage_fixed_makeup_color1(&self,e:WorkerEnvelope,p:&FixedMakeupColor1)
+ pub(crate) fn stage_fixed_makeup_color1(&self,e:WorkerEnvelope,p:&FixedMakeupColor1)
      ->CoreResult<crate::SemanticStageReceipt>{
   ok(e.action==WorkerAction::Stage,"MAKEUP_COLOR1_STAGE_ACTION")?;
   let now=self.prepare_fixed_makeup_color1(WorkerEnvelope{action:WorkerAction::ReadDomain,..e})?;
