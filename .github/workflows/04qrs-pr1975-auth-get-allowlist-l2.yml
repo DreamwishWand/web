@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: cb13548f1833ea46a00ed0198cd27e68684e3b1d
+          ref: a907d548bbe9cc3f3ed633fb9b53669620d618d4
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -20,17 +20,17 @@ jobs:
       - name: Verify exactly pinned 4-file Source and unchanged protected security inputs
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "cb13548f1833ea46a00ed0198cd27e68684e3b1d"
+          test "$(git rev-parse HEAD)" = "a907d548bbe9cc3f3ed633fb9b53669620d618d4"
           test "$(git merge-base 98fe15d340c5e4811cb399993029d01c9e0065d1 HEAD)" = "98fe15d340c5e4811cb399993029d01c9e0065d1"
           printf '%s\n' '.github/workflows/pages.yml' 'scripts/int-protected-ci-gate.mjs' 'tests/int-protected-ci-gate.test.mjs' 'tests/scoped-sr03-spatial-proof-workflow.test.mjs' | sort > /tmp/qa-allowed
-          git diff --name-only "98fe15d340c5e4811cb399993029d01c9e0065d1" "cb13548f1833ea46a00ed0198cd27e68684e3b1d" | sort > /tmp/qa-actual
+          git diff --name-only "98fe15d340c5e4811cb399993029d01c9e0065d1" "a907d548bbe9cc3f3ed633fb9b53669620d618d4" | sort > /tmp/qa-actual
           diff -u /tmp/qa-allowed /tmp/qa-actual
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = "26bb68a63b5bfd36f571f68781d39ee37bd6b23b"
-          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = "afd5fb5b79fe3b7529a7bb11a359462482cd5b66"
-          test "$(git rev-parse HEAD:tests/int-protected-ci-gate.test.mjs)" = "bb5e928564d45286b99fd473c8487e8a122c5e8d"
-          test "$(git rev-parse HEAD:tests/scoped-sr03-spatial-proof-workflow.test.mjs)" = "03ffbf85207c27d9ce8e654f8445351fb638ba77"
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = "a21a180a077b1cbeaa68580c4156fc246a36f307"
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = "d88d7f81074bd3bf123277e8dedf93bc2de3708a"
+          test "$(git rev-parse HEAD:tests/int-protected-ci-gate.test.mjs)" = "e87fbf6a290c21e5b896e46a42ac31097df9840c"
+          test "$(git rev-parse HEAD:tests/scoped-sr03-spatial-proof-workflow.test.mjs)" = "be322bc28700125d401f6be9a8692e18f35935e8"
           for file in scripts/int-ci-evidence-preflight.mjs scripts/wasm-distribution/verify-protected-release.mjs scripts/wasm-distribution/approved-Cargo.lock scripts/wasm-distribution/protected-release-inputs.json; do
-            test "$(git rev-parse 98fe15d340c5e4811cb399993029d01c9e0065d1:"$file")" = "$(git rev-parse cb13548f1833ea46a00ed0198cd27e68684e3b1d:"$file")"
+            test "$(git rev-parse 98fe15d340c5e4811cb399993029d01c9e0065d1:"$file")" = "$(git rev-parse a907d548bbe9cc3f3ed633fb9b53669620d618d4:"$file")"
           done
       - name: Run accepted public predecessor and auth regressions against fixed Source
         run: |
