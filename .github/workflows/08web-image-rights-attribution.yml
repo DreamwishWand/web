@@ -1,0 +1,45 @@
+name: 08 WEB image rights attribution eight locales
+on:
+  pull_request:
+    paths:
+      - 'src/lib/SiteFooter.svelte'
+      - 'src/lib/i18n/image-rights-attribution.js'
+      - 'tests/web-image-rights-attribution.test.mjs'
+      - 'scripts/web-image-rights-attribution-chrome.mjs'
+      - '.github/workflows/08web-image-rights-attribution.yml'
+  push:
+    branches: ['08web/image-rights-attribution-*']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/web-image-rights-attribution.test.mjs
+      - run: npm run check && npm run build
+        env:
+          BASE_PATH: /web
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real Chrome on built static product
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/attribution-preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4298/web/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4298/web/ >/dev/null
+          node scripts/web-image-rights-attribution-chrome.mjs
