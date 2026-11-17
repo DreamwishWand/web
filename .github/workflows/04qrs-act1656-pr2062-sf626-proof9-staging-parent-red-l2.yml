@@ -68,7 +68,7 @@ jobs:
             " // only this private staging parent; the exact three-subject target itself\n"+
             " // must remain fresh and exclusive (EEXIST still fails closed).\n"+
             good,
-            " await mkdir(dir,{recursive:false});"),oldCode);
+            " await mkdir(dir,{recursive:false});").trimEnd(),oldCode.trimEnd());
           assert.match(code,/writeFile\(join\(dir,names\[i\]\),\[raw,js,wasm\]\[i\],\{flag:'wx',mode:0o600\}\)/);
           assert.doesNotMatch(code,/deploy-pages|pages:\s*write|semantic_writer|upload-pages-artifact/);
           pos++;
