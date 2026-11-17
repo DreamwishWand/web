@@ -71,7 +71,9 @@ jobs:
           for(const path of unauthorized){
             let requests=0,error=null;
             try{
-              await githubPublicJson(path,async()=>{
+              await githubPublicJson(path,async(_url,options)=>{
+                assert.equal(options.method,'GET');
+                assert.equal(options.headers.Authorization,'Bearer '+token,'confirmed bearer on unexpected path');
                 requests++;
                 return new Response('{}',{headers:{'content-type':'application/json'}});
               },undefined,undefined,undefined,token);
