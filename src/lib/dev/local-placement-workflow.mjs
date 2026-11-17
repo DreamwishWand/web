@@ -43,13 +43,14 @@ function spatialReview(r,p){
  return Object.freeze({gridId:r.gridId,seedId:r.seedId,markers:overlay.markers});
 }
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation,spatialPreviewEnabled=false}={}){
- if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','hair','skin','eyecolor2','eyecolor2-switch'].includes(operation)||!adapter)fail();
+ if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','hair','skin','eyecolor2','eyecolor2-switch','makeup-color1','makeup-color1-switch'].includes(operation)||!adapter)fail();
  const backpack=operation==='backpack-steam'||operation==='backpack-switch',wardrobe=operation==='wardrobe-steam'||operation==='wardrobe-switch';
  const eye=operation==='eyecolor2'||operation==='eyecolor2-switch';
- const appearance=operation==='hair'||operation==='skin'||eye;
+ const makeup=operation==='makeup-color1'||operation==='makeup-color1-switch';
+ const appearance=operation==='hair'||operation==='skin'||eye||makeup;
  const previewMethod=appearance?'previewAppearance':wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=appearance?'stageAppearance':wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
  for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
- const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=(wardrobe||appearance)?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'||operation==='eyecolor2-switch'?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
+ const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=(wardrobe||appearance)?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'||(operation==='eyecolor2-switch'||operation==='makeup-color1-switch')?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
  if(typeof spatialPreviewEnabled!=='boolean'||(spatialPreviewEnabled&&(!comp||typeof adapter.spatialPreview!=='function')))fail();
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
@@ -87,6 +88,13 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
  const preview=selector=>run(['ready','previewed'],async check=>{
   if(!backup||!((wardrobe||appearance)?selector===undefined:backpack?backpackSelector(selector):comp?exact(selector,'seedId')&&positive(selector.seedId):sr03?exact(selector,'gridId,retainedId,movedId')&&positive(selector.gridId)&&positive(selector.retainedId)&&positive(selector.movedId)&&selector.retainedId!==selector.movedId:exact(selector,'gridId,x,y')&&positive(selector.gridId)&&uint(selector.x)&&uint(selector.y)))fail();
   const r=await ((wardrobe||appearance)?adapter[previewMethod]():adapter[previewMethod]({...selector}));check();
+  if(makeup){
+   if(!exact(r,'makeupItemId,slot,field,oldColorIndex,newColorIndex,inventoryDelta,exactFieldChangedCount,scopedCandidate,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized')||
+    r.makeupItemId!==140100014||r.slot!==1||r.field!=='ColorIndex1'||r.oldColorIndex!==53||r.newColorIndex!==60||
+    r.inventoryDelta!==0||r.exactFieldChangedCount!==1||r.scopedCandidate!==true||r.writerAuthorized!==false||
+    r.editedCopyAuthorized!==false||r.originalOverwriteAuthorized!==false)fail();
+   return set({phase:'previewed',preview:Object.freeze({...r})});
+  }
   if(eye){
    if(!exact(r,'eyeballItemId,field,oldColorIndex,newColorIndex,exactFieldChangedCount,inventoryDelta,writerAuthorized,editedCopyAuthorized,originalOverwriteAuthorized,productReadAccepted')||
     r.eyeballItemId!==70000010||r.field!=='ColorIndex2'||r.oldColorIndex!==64||r.newColorIndex!==69||
