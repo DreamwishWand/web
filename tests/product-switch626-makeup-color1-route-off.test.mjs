@@ -49,20 +49,20 @@ test('Switch Makeup UI and P1G bridge bind fixed Build, no arbitrary color or ri
   read('src/lib/ddv/core/save/product-steam626-makeup-color1-transport.mjs')
  ]);
  assert.match(owner,/appearanceScope==='makeup-color1-switch'\?createSwitch626MakeupColor1Transport/);
- assert.match(owner,/appearanceScope==='makeup-color1-switch'\?'switch':'steam-windows'/);
- assert.match(bridge,/appearanceScope==='makeup-color1-switch'\?'switch':'steam-windows'/);
+ assert.match(owner,/\(appearanceScope==='eyecolor2-switch'\|\|appearanceScope==='makeup-color1-switch'\)\?'switch':'steam-windows'/);
+ assert.match(bridge,/\(appearanceScope==='eyecolor2-switch'\|\|appearanceScope==='makeup-color1-switch'\)\?'switch':'steam-windows'/);
  assert.match(adapter,/createProductSwitch626MakeupColor1LocalAdapter/);
  assert.match(adapter,/appearanceScope!=='makeup-color1-switch'&&args\.build\.platform==='steam-windows'/);
- assert.match(adapter,/appearanceScope==='makeup-color1-switch'\)&&args\.build\.platform==='switch'/);
+ assert.match(adapter,/\(appearanceScope==='eyecolor2-switch'\|\|appearanceScope==='makeup-color1-switch'\)\)&&args\.build\.platform==='switch'/);
  assert.match(adapter,/appearanceScope==='makeup-color1-switch'/);
- assert.match(workflow,/operation==='makeup-color1-switch'\?SWITCH626_BACKPACK_BUILD/);
+ assert.match(workflow,/\(operation==='eyecolor2-switch'\|\|operation==='makeup-color1-switch'\)\?SWITCH626_BACKPACK_BUILD/);
  assert.match(workflow,/r\.makeupItemId!==140100014/);
  assert.match(workflow,/r\.oldColorIndex!==53\|\|r\.newColorIndex!==60/);
  assert.match(client,/new URL\('\.\/product-switch-makeup-color1\.worker\.mjs',import\.meta\.url\)/);
  assert.match(transport,/createSwitch626MakeupColor1Transport/);
  assert.match(transport,/prefix=switchBuild\?'switch626':'steam626'/);
  assert.match(ui,/data-product-writer="off"/);
- assert.match(ui,/operation==='makeup-color1-switch'\?SWITCH626_BACKPACK_BUILD.buildId/);
+ assert.match(ui,/\(operation==='eyecolor2-switch'\|\|operation==='makeup-color1-switch'\)\?SWITCH626_BACKPACK_BUILD\.buildId/);
  assert.match(ui,/p\?\.makeupItemId!==140100014/);
  assert.match(ui,/p\?\.oldColorIndex!==53\|\|p\?\.newColorIndex!==60/);
  assert.ok(compile(ui,{filename:'LocalPlacementEditorDev.svelte',generate:'client'}).js.code.length>0);
