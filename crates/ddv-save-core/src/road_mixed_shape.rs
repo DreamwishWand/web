@@ -8,6 +8,34 @@ pub(super) fn object(id:u32,x:u32,y:u32,diagonal:bool)->Value{
         "State":if diagonal{json!({"FenceMode":{"Diagonal":true}})}else{Value::Null}})
 }
 
+/// Exact Steam626 isolated ordinary Road Base 40100068, one record only.
+/// Pure shape; caller proves external Build, floor/footprint, current legal
+/// root, full ambient/reference halo, inventory debit, rights and epoch CAS.
+/// No generic road edit, ownership, quantity or mutation authority.
+#[allow(dead_code)]
+pub(super) fn exact_steam626_road_single_orthogonal(next:u32,x:u32,y:u32)->Option<Value>{
+    let max=i32::MAX as u32;
+    if next==0||next.checked_add(1)?>max||x>max||y>max{return None}
+    Some(object(next,x,y,false))
+}
+#[cfg(test)]
+mod steam_single_road_tests{
+    use super::*;
+    #[test]
+    fn exact_steam626_single_road_one_record_only(){
+        let r=exact_steam626_road_single_orthogonal(50,40,20).unwrap();
+        assert_eq!(r,json!({"ID":50,"ItemID":40100068,"X":40,"Y":20,
+            "Orientation":"GridOrientation_Down","State":null}));
+        let m=i32::MAX as u32;
+        assert_eq!(exact_steam626_road_single_orthogonal(m-1,m,m).unwrap(),
+            object(m-1,m,m,false));
+        for (n,x,y) in [(0,40,20),(m,40,20),(u32::MAX,40,20),
+            (50,m+1,20),(50,40,m+1),(50,u32::MAX,20),(50,40,u32::MAX)]{
+            assert!(exact_steam626_road_single_orthogonal(n,x,y).is_none());
+        }
+    }
+}
+
 pub(super) struct MixedRoadShape{
     pub(super) old:[Value;2],
     pub(super) after:[Value;5],
