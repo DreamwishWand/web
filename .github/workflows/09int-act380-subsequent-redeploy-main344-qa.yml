@@ -14,6 +14,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: 344e4e1105037d732eeacc1bdff68fa140c2fafa
+          fetch-depth: 2 # Needed to verify HEAD^ against previous protected signed deployment
           persist-credentials: false
       - name: Pin current source DELETE2 and unchanged control
         shell: bash
