@@ -1397,7 +1397,7 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    independentNewAbiL2Required:true,independentSecurityL2Required:true,
    realEncryptedOriginalP1gV2:'NOT_RUN',writerAuthorized:false,opOn:false}};
  }
- if(baseCore==='b454aeef4455408b73aaafd6d3629dfaf6d8d9b363f'){
+ if(baseCore==='b454aeef4455408b73aaafd6d3629dfdeb7ae63c'){
   if(sourceCore!=='821d4609dcf93ace38feb00193dfaf6d8d9b363f')deny('CANDIDATE_CORE_TREE');
   return {entries:steam626SingleFenceReaderMain2c9Exact9Entries,count:9,metadata:{
    sourcePr:2034,sourceHead:'fe9baeb82b4bb61b31e1d0e66d93dd31076d8891',
