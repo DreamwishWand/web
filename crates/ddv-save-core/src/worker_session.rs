@@ -401,3 +401,7 @@ mod switch626_fd01;
 #[cfg(feature="product-switch626-fe01-scoped")]
 #[path="worker_switch626_fe01.rs"]
 mod switch626_fe01;
+
+#[cfg(feature="product-steam626-makeup-color1-scoped")]
+#[path="worker_steam626_makeup_color1.rs"]
+mod makeup_color1_worker;
