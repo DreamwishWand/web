@@ -43,14 +43,14 @@ function spatialReview(r,p){
  return Object.freeze({gridId:r.gridId,seedId:r.seedId,markers:overlay.markers});
 }
 export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=false,operation,spatialPreviewEnabled=false}={}){
- if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','hair','skin','eyecolor2','eyecolor2-switch','makeup-color1','makeup-color1-switch'].includes(operation)||!adapter)fail();
+ if(trustedLocalHarness!==true||!['comp03','vase','backpack-steam','backpack-switch','wardrobe-steam','wardrobe-switch','sr03','rm01','fd01','fd02','fd03','ortho-l','diagonal90','ortho-t','fe01','hair','skin','eyecolor2','eyecolor2-switch','makeup-color1','makeup-color1-switch'].includes(operation)||!adapter)fail();
  const backpack=operation==='backpack-steam'||operation==='backpack-switch',wardrobe=operation==='wardrobe-steam'||operation==='wardrobe-switch';
  const eye=operation==='eyecolor2'||operation==='eyecolor2-switch';
  const makeup=operation==='makeup-color1'||operation==='makeup-color1-switch';
  const appearance=operation==='hair'||operation==='skin'||eye||makeup;
  const previewMethod=appearance?'previewAppearance':wardrobe?'previewWardrobe':backpack?'previewBackpack':'previewPlacement',stageMethod=appearance?'stageAppearance':wardrobe?'stageWardrobe':backpack?'stageBackpack':'stagePlacement';
  for(const k of ['open','backupOriginal',previewMethod,stageMethod,'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])if(typeof adapter[k]!=='function')fail();
- const comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=(wardrobe||appearance)?1:comp?9:sr03?8:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'||(operation==='eyecolor2-switch'||operation==='makeup-color1-switch')?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
+ const fd01=operation==='fd01',fd02=operation==='fd02',fd03=operation==='fd03',orthoL=operation==='ortho-l',diagonal90=operation==='diagonal90',orthoT=operation==='ortho-t',fe01=operation==='fe01',fenceAdd=fd01||fd02||fd03||orthoL||diagonal90||orthoT,comp=operation==='comp03',sr03=operation==='sr03'||operation==='rm01',count=(wardrobe||appearance)?1:comp?9:sr03?8:(fd01||fd02||fd03)?4:(orthoL||diagonal90)?6:orthoT?8:fe01?7:3,build=operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'||fenceAdd||fe01||(operation==='eyecolor2-switch'||operation==='makeup-color1-switch')?SWITCH626_BACKPACK_BUILD:STEAM626_PLACEMENT_BUILD;
  if(typeof spatialPreviewEnabled!=='boolean'||(spatialPreviewEnabled&&(!comp||typeof adapter.spatialPreview!=='function')))fail();
  let epoch=0,busy=false,closing=null,state=empty(),source=null,backup=null,edited=null;
  const snapshot=()=>Object.freeze({...state});
