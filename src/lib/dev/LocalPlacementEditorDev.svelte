@@ -36,7 +36,7 @@
  function clear(){file=null;confirmed=false;seed='';grid='';x='';y='';if(input)input.value=''}
  async function select(e){const f=e.currentTarget.files?.[0]||null;e.currentTarget.value='';clear();await act(async w=>{const s=await w.close();file=f;return s})}
  const close=()=>{clear();return act(w=>w.close())};
- const preview=()=>act(w=>w.preview((wardrobe||appearance||eye)?undefined:backpack?{sourceSlot:x,destinationSlot:y}:operation==='comp03'?{seedId:seed}:mixedRoad?{gridId:grid,retainedId:x,movedId:y}:{gridId:grid,x,y}));
+ const preview=()=>act(w=>w.preview((wardrobe||appearance||eye||makeup)?undefined:backpack?{sourceSlot:x,destinationSlot:y}:operation==='comp03'?{seedId:seed}:mixedRoad?{gridId:grid,retainedId:x,movedId:y}:{gridId:grid,x,y}));
  async function download(which){
   if(!workflow||pending)return;const w=workflow,t=epoch;pending=true;error=false;
   try{const r=await w.downloadVerifiedCopy(which);if(workflow!==w||epoch!==t){r.encryptedBytes.fill(0);return}
