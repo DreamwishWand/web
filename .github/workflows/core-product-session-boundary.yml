@@ -100,6 +100,11 @@ jobs:
         run: |
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features semantic-writer-dev --lib makeup_color1_ --verbose
           cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,semantic-writer-dev,product-switch626-rm01-scoped
+      - name: 09P current Steam626 Makeup exact1 owned generated WASM opt-in (Writer OFF)
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-makeup-color1-scoped --lib makeup_color1_ --verbose
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-makeup-color1-scoped
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-makeup-color1-scoped,product-switch626-makeup-color1-internal
       - name: ACT1487 Switch626 fixed Makeup Color1 Build-only adapter (OFF)
         run: |
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch626-makeup-color1-internal --lib switch626_makeup_color1_build_adapter_ --verbose
