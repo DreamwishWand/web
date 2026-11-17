@@ -1,0 +1,53 @@
+name: 05 QR-C ACT1633 Steam626 SingleFence generated ABI L2 QA ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-act1633-singlefence-generated-fe9-l2.yml'
+      - 'tests/qa/qrc2034-singlefence-generated-fe9.cjs'
+      - 'crates/ddv-save-core/src/steam_single_fence_product_target.rs'
+permissions:
+  contents: read
+jobs:
+  singlefence-generated-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrc2034-cargo-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Exact immutable Source and test-only diff
+        run: |
+          set -euo pipefail
+          git cat-file -e fe9baeb82b4bb61b31e1d0e66d93dd31076d8891^{commit}
+          test "$(git merge-base fe9baeb82b4bb61b31e1d0e66d93dd31076d8891 HEAD)" = fe9baeb82b4bb61b31e1d0e66d93dd31076d8891
+          git diff --name-only fe9baeb82b4bb61b31e1d0e66d93dd31076d8891 HEAD | LC_ALL=C sort >/tmp/qrc2034-actual
+          printf '%s\n' '.github/workflows/05qrc-act1633-singlefence-generated-fe9-l2.yml' 'crates/ddv-save-core/src/steam_single_fence_product_target.rs' 'tests/qa/qrc2034-singlefence-generated-fe9.cjs' | LC_ALL=C sort >/tmp/qrc2034-expected
+          diff -u /tmp/qrc2034-expected /tmp/qrc2034-actual
+          git diff --exit-code fe9baeb82b4bb61b31e1d0e66d93dd31076d8891 HEAD -- crates/ddv-save-core/Cargo.toml crates/ddv-save-core/src/wasm_worker.rs crates/ddv-save-core/src/worker_session.rs crates/ddv-save-core/src/product_session.rs crates/ddv-save-core/src/wasm_steam_single_fence_readonly.rs
+          echo QRC2034_SINGLEFENCE_IMMUTABLE_SOURCE_QA_ONLY_BOUNDARY_PASS
+      - name: Real opt-in Rust feature, generated JS/WASM three profiles, adversarial target
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock >/tmp/qrc2034-locked-sha
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features product-steam626-singlefence-readonly --lib qa2034_emit_singlefence_generated_fixture -- --ignored --nocapture
+          test -s /tmp/qrc2034-singlefence-fixture.json
+          test -s /tmp/qrc2034-singlefence-coords.json
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrc2034-bindgen
+          for profile in off own mixed; do
+            case "$profile" in
+              off) features='worker-wasm,indexed-read' ;;
+              own) features='worker-wasm,product-steam626-singlefence-readonly' ;;
+              mixed) features='worker-wasm,product-steam626-singlefence-readonly,product-amount-scoped' ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            /tmp/wand-qrc2034-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "/tmp/qrc2034-$profile" --target nodejs --no-typescript
+          done
+          sha256sum -c /tmp/qrc2034-locked-sha
+          node --check tests/qa/qrc2034-singlefence-generated-fe9.cjs
+          node tests/qa/qrc2034-singlefence-generated-fe9.cjs
