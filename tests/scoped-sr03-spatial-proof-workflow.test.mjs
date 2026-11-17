@@ -31,7 +31,7 @@ const specs=[
       ],
       [
         "scripts/int-protected-ci-gate.mjs",
-        "d08d7cb0995b8af9f631448024c8acc83d68a743"
+        "26bb68a63b5bfd36f571f68781d39ee37bd6b23b"
       ],
       [
         "scripts/wasm-distribution/verify-protected-release.mjs",
@@ -302,7 +302,7 @@ const specs=[
       ],
       [
         "scripts/int-protected-ci-gate.mjs",
-        "d08d7cb0995b8af9f631448024c8acc83d68a743"
+        "26bb68a63b5bfd36f571f68781d39ee37bd6b23b"
       ],
       [
         "scripts/wasm-distribution/verify-protected-release.mjs",
@@ -353,7 +353,7 @@ const specs=[
       ],
       [
         "scripts/int-protected-ci-gate.mjs",
-        "d08d7cb0995b8af9f631448024c8acc83d68a743"
+        "26bb68a63b5bfd36f571f68781d39ee37bd6b23b"
       ],
       [
         "scripts/wasm-distribution/verify-protected-release.mjs",
@@ -512,7 +512,7 @@ const specs=[
       ],
       [
         "scripts/int-protected-ci-gate.mjs",
-        "d08d7cb0995b8af9f631448024c8acc83d68a743"
+        "26bb68a63b5bfd36f571f68781d39ee37bd6b23b"
       ],
       [
         "scripts/wasm-distribution/verify-protected-release.mjs",
@@ -679,7 +679,7 @@ const specs=[
       ],
       [
         "scripts/int-protected-ci-gate.mjs",
-        "d08d7cb0995b8af9f631448024c8acc83d68a743"
+        "26bb68a63b5bfd36f571f68781d39ee37bd6b23b"
       ],
       [
         "scripts/wasm-distribution/verify-protected-release.mjs",
@@ -958,7 +958,7 @@ const specs=[
     ],
     [
       "scripts/int-protected-ci-gate.mjs",
-      "d08d7cb0995b8af9f631448024c8acc83d68a743"
+      "26bb68a63b5bfd36f571f68781d39ee37bd6b23b"
     ],
     [
       "scripts/wasm-distribution/verify-protected-release.mjs",
