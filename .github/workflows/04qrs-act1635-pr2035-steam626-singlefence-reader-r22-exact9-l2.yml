@@ -95,8 +95,10 @@ jobs:
             const pairBegin=current.lastIndexOf(" if(baseCore===",current.indexOf("return {entries:steam626SingleFenceReaderMain2c9Exact9Entries"));
             const pairEnd=current.indexOf(" deny('BASE_CORE_TREE');",pairBegin);
             assert.ok(begin>0&&afterList>begin&&pairBegin>afterList&&pairEnd>pairBegin);
+            const addedComment='\n// 09P-CODE exact Steam626 SingleFence isolated Reader source8 + protected Cargo-only pin.\n// No generic Writer/Stage, issuer grant, Sign, Deploy or Feature auto-enable.\n';
+            assert.ok(current.slice(afterList-171,afterList).includes('SingleFence isolated Reader'),'added profile comment only');
             const scrubbed=current.slice(0,begin)+current.slice(afterList,pairBegin)+current.slice(pairEnd);
-            assert.equal(scrubbed.replace('(profile.metadata.sourcePr===2012||profile.metadata.sourcePr===2034)','profile.metadata.sourcePr===2012'),
+            assert.equal(scrubbed.replace(addedComment,'').replace('(profile.metadata.sourcePr===2012||profile.metadata.sourcePr===2034)','profile.metadata.sourcePr===2012'),
               previous,'old R22 profiles, issuer/Lock checks and all guards must be byte-for-byte unchanged');
             const open=current.indexOf('[',begin),close=current.indexOf('];',open);
             assert.ok(open>begin&&close>open);
