@@ -188,7 +188,7 @@ test('scoped authenticated GitHub transport is exact GET-only and does not leak 
  const expired=await githubPublicJson(p,async(_url,o)=>{
    assert.equal(o.headers.Authorization,'Bearer '+token);
    return new Response('SECRET_DO_NOT_LOG',{status:403,headers:{'x-ratelimit-remaining':'0'}});
- },async()=>assert.fail('no retry'),undefined,token).then(()=>null,e=>e);
+ },async()=>assert.fail('no retry'),undefined,undefined,token).then(()=>null,e=>e);
  assert.match(expired.message,/GITHUB_API_DENIED:403:endpoint=main-ref/);
  assert.doesNotMatch(expired.message,/SECRET_DO_NOT_LOG|ghs_/);
 });
