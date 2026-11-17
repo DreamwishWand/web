@@ -202,9 +202,10 @@ impl ProductSession {
         }
         // One ProductSession scope validator rejects staged-ledger reads as well
         // as stale/foreign/replayed session identity, epoch and decoded SHA.
-        let state = self.lock()?;
-        indexed_read::validate_scope(self, &state, &old.envelope)?;
-        drop(state);
+        // Hold one existing Session mutex throughout the immutable old-value
+        // scan. Close/Stage cannot invalidate the CAS before this receipt ends.
+        let _state = self.lock()?;
+        indexed_read::validate_scope(self, &_state, &old.envelope)?;
         if old.source_sha != self.sha
             || old.envelope.expected_decoded_sha256 != self.sha
         {
