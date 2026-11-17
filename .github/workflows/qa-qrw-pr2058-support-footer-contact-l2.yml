@@ -1,0 +1,131 @@
+name: QA ONLY 04 QR-W ACT1650 PR2058 verified support Footer changed L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2058-support-footer-contact-l2.yml'
+permissions:
+  contents: read
+jobs:
+  contact-footer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 98d8c520880d27074e269da5abf3fcc236dc7814
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze original 4 changed product leaves and source base, no extra rights change
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 98d8c520880d27074e269da5abf3fcc236dc7814
+          test "$(git merge-base HEAD d63b9c47a9271c30186e546bff0b2cf0ebabde48)" = d63b9c47a9271c30186e546bff0b2cf0ebabde48
+          cat >/tmp/qrw2058-post <<'POST'
+          3032474056eec1e2d9e113a024946095c9bbf1b0 docs/wep/world-editor-localization-inventory-20261002.json
+          4f26958e45643d3cd6ce5ed3755b743d5cd7f269 scripts/web-image-rights-attribution-chrome.mjs
+          f1b000991acdc03da6b890a4cb524bf54a2e0e1f src/lib/SiteFooter.svelte
+          5ec80a65cdf8eb97d81b40ee956333a62bfafd92 tests/web-image-rights-attribution.test.mjs
+          POST
+          while read -r blob path; do
+            test "$(git rev-parse "HEAD:$path")" = "$blob"
+            test "$(git ls-tree HEAD "$path" | awk '{print $1}')" = 100644
+          done </tmp/qrw2058-post
+          cut -d' ' -f2- /tmp/qrw2058-post | LC_ALL=C sort >/tmp/qrw2058-expected
+          git diff --name-only d63b9c47a9271c30186e546bff0b2cf0ebabde48 HEAD | LC_ALL=C sort >/tmp/qrw2058-actual
+          diff -u /tmp/qrw2058-expected /tmp/qrw2058-actual
+          echo QRW2058_FIXED_SOURCE_FOUR_BLOBS_SCOPE_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Product rights/Help and verified contact exact four-change independent original Source negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/web-image-rights-attribution.test.mjs
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {IMAGE_RIGHTS_ATTRIBUTION} from './src/lib/i18n/image-rights-attribution.js';
+          import {SUPPORTED_LOCALES} from './src/lib/i18n/registry.js';
+          const footer=readFileSync('src/lib/SiteFooter.svelte','utf8'),
+            inventory=JSON.parse(readFileSync('docs/wep/world-editor-localization-inventory-20261002.json','utf8')),
+            rights=JSON.parse(readFileSync('ops/ddv-item-image-operator-readiness-template.json','utf8'));
+          let pos=0,neg=0;
+          const expected='support@dreamwishwand.com';
+          const contact=/<a\s+data-owner-support-contact\s+href="mailto:support@dreamwishwand\.com">support@dreamwishwand\.com<\/a>/g;
+          const matches=[...footer.matchAll(contact)];
+          assert.equal(matches.length,1);pos++;
+          assert.equal((footer.match(/mailto:/g)||[]).length,1);pos++;
+          assert.match(footer,/href=\{base \+ '\/help\/'\}/);pos++;
+          assert.match(footer,/\{imageRightsAttribution\(\$locale\)\}/);pos++;
+          assert.equal(Object.keys(IMAGE_RIGHTS_ATTRIBUTION).length,8);
+          assert.deepEqual([...SUPPORTED_LOCALES].map(x=>x.code).sort(),Object.keys(IMAGE_RIGHTS_ATTRIBUTION).sort());pos++;
+          const shell=inventory?.surfaces?.sharedShell || inventory?.sharedShell;
+          // The fixed product inventory and its immutable source-pinning are checked
+          // by the inherited Source test; a changed contact must not alter WEP route data.
+          assert.equal(rights.publicationState,'OFF');
+          assert.equal(rights.assetBundleSha256,null);
+          assert.equal(rights.deploymentAuthorizationRef,null);
+          assert.equal(rights.rightsContact,null);pos++;
+          assert.ok(Object.values(rights.locales).every(x=>x.humanReviewed===false));pos++;
+          assert.ok(Object.values(rights.controls).every(x=>x.verified===false));pos++;
+          const bad=[
+            footer.replace('mailto:'+expected,'mailto:attacker@example.net'),
+            footer.replace('>'+expected+'</a>','>another@external.test</a>'),
+            footer.replace('data-owner-support-contact','data-owner-support-contact data-owner-support-contact'),
+            footer.replace('data-owner-support-contact href','data-owner-support-contact target="_blank" href'),
+            footer.replace('mailto:'+expected,'javascript:alert(1)'),
+            footer.replace('<a data-owner-support-contact','<a data-owner-support-contact href="https://example.invalid"'),
+            footer.replace('href={base + \'/help/\'}','href="https://example.invalid/help/"'),
+            footer.replace('imageRightsAttribution($locale)','imageRightsAttribution("en")'),
+            footer.replace('href="mailto:'+expected+'"','href="mailto:'+expected+'?subject=private%20payload"'),
+            footer.replace('<a data-owner-support-contact','<script>fetch("https://example.invalid")</script><a data-owner-support-contact')
+          ];
+          for(const [i,text] of bad.entries()){
+            const ok=[...text.matchAll(contact)].length===1 &&
+              (text.match(/mailto:/g)||[]).length===1 &&
+              /href=\{base \+ '\/help\/'\}/.test(text) &&
+              /\{imageRightsAttribution\(\$locale\)\}/.test(text) &&
+              !/https:\/\/example\.invalid|javascript:|<script|target="_blank"|data-owner-support-contact data-owner-support-contact/.test(text);
+            assert.equal(ok,false,'unapproved mutated contact/copy '+i);neg++;
+          }
+          console.log('QRW2058_SITE_FOOTER_ONE_MAILTO_RIGHTS_NO_PUBLICATION_REFUTED_PASS',JSON.stringify({positive:pos,negative:neg,assetRightsVerified:false,publicMedia:false,genuineMailDeliveryTest:false}));
+          NODE
+      - name: Build real 8 locale Svelte product and do independent Chrome on Help/mobile/no-media
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm run check && npm run build
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/qrw2058-preview.log 2>&1 &
+          for i in $(seq 1 60); do if curl -fsS http://127.0.0.1:4298/web/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4298/web/ >/dev/null
+          node scripts/web-image-rights-attribution-chrome.mjs
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const page=await browser.newPage({viewport:{width:320,height:760},serviceWorkers:'block'});
+          try {
+            for(const path of ['/web/','/web/help/','/web/collection/','/web/editor/world/']){
+              await page.goto('http://127.0.0.1:4298'+path,{waitUntil:'domcontentloaded'});
+              const footer=page.locator('footer');
+              const contact=footer.locator('a[data-owner-support-contact]');
+              assert.equal(await contact.count(),1,path);
+              assert.equal(await contact.getAttribute('href'),'mailto:support@dreamwishwand.com',path);
+              assert.equal((await contact.innerText()).trim(),'support@dreamwishwand.com',path);
+              assert.equal(await footer.locator('a[href="/web/help/"]').count(),1,path);
+              assert.equal(await footer.locator('[data-image-rights-attribution]').count(),1,path);
+              assert.equal(await footer.locator('img, video').count(),0,path);
+              await contact.focus();
+              assert.equal(await contact.evaluate(el=>el===document.activeElement),true,path);
+            }
+            console.log('QRW2058_INDEPENDENT_REAL_CHROME_MOBILE_FOOTER_HELP_CONTACT_4ROUTES_PASS');
+          } finally { await page.close();await browser.close(); }
+          NODE
