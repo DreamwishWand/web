@@ -1,0 +1,61 @@
+name: 05 QR-C PR2003 Bamboo40700007 current FiveFence Target L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-pr2003-bamboo-current-fivefence-readonly-l2.yml'
+      - 'crates/ddv-save-core/src/steam_bamboo_single_product_target.rs'
+permissions:
+  contents: read
+jobs:
+  qrc2003-bamboo-fivefence-readonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrc2003-cargo-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Pin current PR2003 Source, QA-only exact2 and unchanged FiveFence Core
+        run: |
+          set -euo pipefail
+          SOURCE=e7d9f5c4fecdb12b7dd8800b7912606a7571e6db
+          git cat-file -e "$SOURCE^{commit}"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          git diff --name-only "$SOURCE" HEAD | LC_ALL=C sort >/tmp/qrc2003-actual
+          printf '%s\n' '.github/workflows/05qrc-pr2003-bamboo-current-fivefence-readonly-l2.yml' 'crates/ddv-save-core/src/steam_bamboo_single_product_target.rs' | LC_ALL=C sort >/tmp/qrc2003-expected
+          diff -u /tmp/qrc2003-expected /tmp/qrc2003-actual
+          git diff --exit-code "$SOURCE" HEAD -- \
+            crates/ddv-save-core/src/sr03_installed_geometry.rs \
+            crates/ddv-save-core/src/sr03_product_target.rs \
+            crates/ddv-save-core/src/fence_product_geometry.rs \
+            crates/ddv-save-core/src/fence_product_target.rs \
+            crates/ddv-save-core/src/steam_single_fence_product_target.rs \
+            crates/ddv-save-core/src/semantic_writer.rs \
+            crates/ddv-save-core/src/wasm_worker.rs \
+            crates/ddv-save-core/src/worker_session.rs \
+            crates/ddv-save-core/Cargo.toml \
+            scripts/wasm-distribution/protected-release-inputs.json
+          git grep -F 'pub(crate) use fence_product_geometry::FenceAddTargetKind;' "$SOURCE" -- crates/ddv-save-core/src/sr03_installed_geometry.rs
+          git grep -F 'local_steam_bamboo_single' "$SOURCE" -- crates/ddv-save-core/src/sr03_installed_geometry.rs
+          git grep -F 'mod steam_bamboo_single_product_target;' "$SOURCE" -- crates/ddv-save-core/src/sr03_product_target.rs
+          test "$(git rev-parse "$SOURCE:crates/ddv-save-core/src/steam_bamboo_single_product_target.rs")" = a5aef59173ee99454f7f108af58fa7c46dac6f19
+          echo QRC2003_FIXED_SOURCE_QA_ONLY_EXACT2_FIVEFENCE_PRESERVED_PASS
+      - name: Bamboo exact40700007 positives, 30 negatives, independent reopen; mixed FiveFence WASM compile
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock >/tmp/qrc2003-lock.sha
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-sr03-scoped,product-switch626-fence-add-stage-internal --lib qa2003_bamboo_changed_target_readonly_contract -- --nocapture
+          test -s /tmp/qrc2003-bamboo-fixture.json
+          test -s /tmp/qrc2003-bamboo-xy.txt
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-sr03-scoped,product-switch626-fence-add-stage-internal --lib qa2003_bamboo_child_readonly_reopen -- --ignored --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-sr03-scoped,product-switch626-fence-add-stage-internal --lib steam626_single_fence_target_exact1_no_debit -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-sr03-scoped,product-switch626-fence-add-stage-internal --lib bamboo_install_definition_and_fail_closed_witness -- --nocapture
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-sr03-scoped,product-switch626-fence-add-stage-internal
+          sha256sum -c /tmp/qrc2003-lock.sha
+          echo QRC2003_BAMBOO_CURRENT_FIVEFENCE_SYNTHETIC_L2_PASS_1POS30NEG_READONLY_NO_DEBIT
+          echo QRC2003_OWNER_PRIVATE_ACTUAL_ENCRYPTED_SAVE_RUST_TARGET_NOT_RUN
