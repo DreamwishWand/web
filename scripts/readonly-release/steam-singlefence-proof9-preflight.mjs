@@ -102,8 +102,21 @@ export function inspectGitProof9Candidate(candidate,protectedMain){
  const git=(...a)=>execFileSync('git',a,{cwd,encoding:'utf8'}).trim();
  if(!SHA.test(candidate)||!SHA.test(protectedMain))fail();
  const verified=git('rev-parse','--verify',candidate+'^{commit}');
- const parent=git('rev-parse','--verify',candidate+'^');
- if(verified!==candidate||parent!==protectedMain)fail();
+ if(verified!==candidate)fail();
+ // A main-first branch may have several ordinary commits. Require every
+ // intermediate commit to be linear and change only these two preflight paths.
+ // This preserves exact protected-main ancestry without permitting hidden
+ // merges, intermediate off-scope changes, or signed-release scope widening.
+ const chain=git('rev-list','--parents',protectedMain+'..'+candidate)
+  .split('\n').filter(Boolean).map(line=>line.trim().split(/\s+/));
+ if(!chain.length||chain.some(entry=>entry.length!==2)||
+    chain.at(-1)[1]!==protectedMain)fail();
+ for(let i=0;i<chain.length;i++){
+  if(i+1<chain.length&&chain[i][1]!==chain[i+1][0])fail();
+  const each=git('diff','--name-only',chain[i][1],chain[i][0]).split('\n').filter(Boolean);
+  if(each.some(path=>!SINGLEFENCE_PROOF9_ALLOWED_DIFF.includes(path)))fail();
+ }
+ const parent=protectedMain;
  const changedPaths=git('diff','--name-only',protectedMain,candidate).split('\n').filter(Boolean);
  const blobs={};
  for(const p of SINGLEFENCE_PROOF9_PINS){
