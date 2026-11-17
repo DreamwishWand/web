@@ -16,11 +16,12 @@
  $: mixedRoad=operation==='sr03'||operation==='rm01';
  $: appearance=operation==='hair'||operation==='skin';
  $: eye=operation==='eyecolor2'||operation==='eyecolor2-switch';
- $: rawTitle=eye?(operation==='eyecolor2-switch'?words.switchEyeColor2Title:words.eyeColor2Title):operation==='hair'?words.hairTitle:operation==='skin'?words.skinTitle:operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
+ $: makeup=operation==='makeup-color1'||operation==='makeup-color1-switch';
+ $: rawTitle=eye?(operation==='eyecolor2-switch'?words.switchEyeColor2Title:words.eyeColor2Title):makeup?(operation==='makeup-color1-switch'?words.switchMakeupColor1Title:words.makeupColor1Title):operation==='hair'?words.hairTitle:operation==='skin'?words.skinTitle:operation==='comp03'?words.compTitle:operation==='vase'?words.vaseTitle:operation==='sr03'?words.sr03Title:operation==='rm01'?words.rm01Title:operation==='backpack-steam'?words.backpackSteamTitle:operation==='backpack-switch'?words.backpackSwitchTitle:operation==='wardrobe-steam'?words.wardrobeSteamTitle:words.wardrobeSwitchTitle;
  $: title=productMode?rawTitle.split(' — ')[0]+(productMode==='private-product-v2'?' — V2':''):rawTitle;
- $: detail=eye?(operation==='eyecolor2-switch'?words.switchEyeColor2Detail:words.eyeColor2Detail):appearance?(operation==='hair'?words.hairDetail:words.skinDetail):wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:words.vaseDetail;
+ $: detail=eye?(operation==='eyecolor2-switch'?words.switchEyeColor2Detail:words.eyeColor2Detail):makeup?(operation==='makeup-color1-switch'?words.switchMakeupColor1Detail:words.makeupColor1Detail):appearance?(operation==='hair'?words.hairDetail:words.skinDetail):wardrobe?words.wardrobeDetail:backpack?words.backpackDetail:operation==='comp03'?words.compDetail:mixedRoad?words.sr03Detail:words.vaseDetail;
  $: p=state.preview;
- $: valid=(wardrobe||appearance||eye)?true:backpack?Number.isSafeInteger(x)&&x>=0&&x<256&&Number.isSafeInteger(y)&&y>=0&&y<256&&x!==y:operation==='comp03'?Number.isSafeInteger(seed)&&seed>0:Number.isSafeInteger(grid)&&grid>0&&Number.isSafeInteger(x)&&x>=0&&Number.isSafeInteger(y)&&y>=0&&(!mixedRoad||(x>0&&y>0&&x!==y));
+ $: valid=(wardrobe||appearance||eye||makeup)?true:backpack?Number.isSafeInteger(x)&&x>=0&&x<256&&Number.isSafeInteger(y)&&y>=0&&y<256&&x!==y:operation==='comp03'?Number.isSafeInteger(seed)&&seed>0:Number.isSafeInteger(grid)&&grid>0&&Number.isSafeInteger(x)&&x>=0&&Number.isSafeInteger(y)&&y>=0&&(!mixedRoad||(x>0&&y>0&&x!==y));
  onMount(()=>{
   const scope=productPlacementPortScope(trustedWorkerAdapter);
   if(!scope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
@@ -35,7 +36,7 @@
  function clear(){file=null;confirmed=false;seed='';grid='';x='';y='';if(input)input.value=''}
  async function select(e){const f=e.currentTarget.files?.[0]||null;e.currentTarget.value='';clear();await act(async w=>{const s=await w.close();file=f;return s})}
  const close=()=>{clear();return act(w=>w.close())};
- const preview=()=>act(w=>w.preview((wardrobe||appearance||eye)?undefined:backpack?{sourceSlot:x,destinationSlot:y}:operation==='comp03'?{seedId:seed}:mixedRoad?{gridId:grid,retainedId:x,movedId:y}:{gridId:grid,x,y}));
+ const preview=()=>act(w=>w.preview((wardrobe||appearance||eye||makeup)?undefined:backpack?{sourceSlot:x,destinationSlot:y}:operation==='comp03'?{seedId:seed}:mixedRoad?{gridId:grid,retainedId:x,movedId:y}:{gridId:grid,x,y}));
  async function download(which){
   if(!workflow||pending)return;const w=workflow,t=epoch;pending=true;error=false;
   try{const r=await w.downloadVerifiedCopy(which);if(workflow!==w||epoch!==t){r.encryptedBytes.fill(0);return}
@@ -45,12 +46,12 @@
  }
 </script>
 <section class="placement" data-dev-placement data-product-writer="off" data-public-route={productMode==='public-accepted'?'on':'off'} data-operation={operation}>
- <h2>{title}</h2><p>{eye?(operation==='eyecolor2-switch'?words.switchEyeColor2Safety:words.eyeColor2Safety):wardrobe?words.wardrobeSafety:backpack?words.backpackSafety:operation==='rm01'?words.rm01Safety:words.safety}</p><p>{detail}</p>
+ <h2>{title}</h2><p>{eye?(operation==='eyecolor2-switch'?words.switchEyeColor2Safety:words.eyeColor2Safety):makeup?(operation==='makeup-color1-switch'?words.switchMakeupColor1Safety:words.makeupColor1Safety):wardrobe?words.wardrobeSafety:backpack?words.backpackSafety:operation==='rm01'?words.rm01Safety:words.safety}</p><p>{detail}</p>
  {#if !workflow}<p role="status">{words.off}</p>
  {:else}
   {#if state.phase==='closed'}
    <label>{words.file}<input bind:this={input} type="file" accept=".p1g,application/octet-stream" disabled={pending} on:change={select}/></label>
-   <p>{words.platform}: <code>{operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'||operation==='eyecolor2-switch'?SWITCH626_BACKPACK_BUILD.buildId:STEAM626_PLACEMENT_BUILD.buildId}</code></p>
+   <p>{words.platform}: <code>{operation==='backpack-switch'||operation==='wardrobe-switch'||operation==='rm01'||(operation==='eyecolor2-switch'||operation==='makeup-color1-switch')?SWITCH626_BACKPACK_BUILD.buildId:STEAM626_PLACEMENT_BUILD.buildId}</code></p>
    <label class="confirm"><input type="checkbox" bind:checked={confirmed} disabled={pending}/>{words.confirmBuild}</label>
    <button disabled={pending||!file||!confirmed} on:click={()=>act(w=>w.openFile({file,buildConfirmed:confirmed}))}>{words.openFile}</button>
   {:else}
@@ -59,7 +60,8 @@
    {#if state.backupName}<button disabled={pending} on:click={()=>download('backup')}>{words.downloadBackup}</button>{/if}
    {#if ['ready','previewed'].includes(state.phase)}
     {#if eye}<p>{operation==='eyecolor2-switch'?words.switchEyeColor2Detail:words.eyeColor2Detail}</p>
-     {:else if appearance}<p>{detail}</p>
+     {:else if makeup}<p>{operation==='makeup-color1-switch'?words.switchMakeupColor1Detail:words.makeupColor1Detail}</p>
+      {:else if appearance}<p>{detail}</p>
     {:else if wardrobe}<p>{words.wardrobeDetail}</p>
     {:else if backpack}<label>{words.sourceSlot}<input type="number" min="0" max="255" step="1" bind:value={x} disabled={pending}/></label><label>{words.destinationSlot}<input type="number" min="0" max="255" step="1" bind:value={y} disabled={pending}/></label>
     {:else if operation==='comp03'}<label>{words.seed}<input type="number" min="1" max="4294967295" step="1" bind:value={seed} disabled={pending}/></label>
@@ -71,6 +73,7 @@
      <strong>{words.verified}</strong>
      {#if wardrobe}<p>{words.wardrobeSlot}: {p.slot}</p><p>Item ID: {p.oldItemId} → {p.newItemId}</p>
      {:else if eye}<p>Eyeball Item {p.eyeballItemId} · {p.field}: {p.oldColorIndex} → {p.newColorIndex}</p><p>Inventory Δ{p.inventoryDelta}</p>
+      {:else if makeup}<p>Makeup slot {p.slot} · Item {p.makeupItemId} · {p.field}: {p.oldColorIndex} → {p.newColorIndex}</p><p>Inventory Δ{p.inventoryDelta}</p>
       {:else if appearance}<p>{p.old} → {p.new}</p>{#if operation==='skin'}<p>Character ID: {p.characterId}</p>{/if}
      {:else if backpack}<p>Backpack 0 · Item ID: {p.itemId}</p><p>{words.sourceSlot}: {p.sourceSlot} · {p.oldAmount} → {p.newSourceAmount}</p><p>{words.destinationSlot}: {p.destinationSlot} · 0 → {p.newDestinationAmount}</p>
      {:else}<p>{words.grid}: {p.gridId} · Item ID: {p.itemId}</p>
@@ -98,8 +101,9 @@
      <p>{p.oldAmount} → {p.newAmount}</p>{/if}<p>{detail}</p>
     </div>
    {/if}
-   {#if state.phase==='previewed'&&eye}<button disabled={pending||!valid||p?.eyeballItemId!==70000010||p?.field!=='ColorIndex2'||p?.oldColorIndex!==64||p?.newColorIndex!==69||p?.inventoryDelta!==0} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
-   {#if !eye}
+   {#if state.phase==='previewed'&&makeup}<button disabled={pending||!valid||p?.makeupItemId!==140100014||p?.slot!==1||p?.field!=='ColorIndex1'||p?.oldColorIndex!==53||p?.newColorIndex!==60||p?.inventoryDelta!==0} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
+    {#if state.phase==='previewed'&&eye}<button disabled={pending||!valid||p?.eyeballItemId!==70000010||p?.field!=='ColorIndex2'||p?.oldColorIndex!==64||p?.newColorIndex!==69||p?.inventoryDelta!==0} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
+   {#if !eye&&!makeup}
    {#if state.phase==='previewed'}<button disabled={pending||!valid||(appearance?(p?.old!==(operation==='hair'?74:170000054)||p?.new!==(operation==='hair'?20:170000000)||(operation==='skin'&&p?.characterId!==10000053)):wardrobe?p?.slot!==0||p?.oldItemId!==50000352||p?.newItemId!==50000214:backpack?p?.sourceSlot!==x||p?.destinationSlot!==y:operation==='comp03'?p?.seedId!==seed:mixedRoad?p?.gridId!==grid||p?.retainedId!==x||p?.movedId!==y:p?.gridId!==grid||p?.x!==x||p?.y!==y)} on:click={()=>act(w=>w.stage())}>{words.stagePlacement}</button>{/if}
    {/if}
    {#if state.phase==='staged'}<button disabled={pending} on:click={()=>act(w=>w.undo())}>{words.undo}</button><button disabled={pending} on:click={()=>act(w=>w.exportEditedCopy())}>{words.export}</button>{/if}
