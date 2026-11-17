@@ -152,10 +152,20 @@ export function preflightGameImageOperatorReceipt(receipt) {
   if (receipt.copyrightLicenceStatus === "DOCUMENTED" && !evidence(receipt.copyrightLicenceEvidenceRef))
     reasons.push("CLAIMED_LICENCE_HAS_NO_EVIDENCE");
   const contact = receipt.rightsContact;
+  // A mailto link is one literal address, never a headers/query/fragment URI
+  // (including bcc), a recipient list, or an encoded header separator.
   const validContact = contact && typeof contact.url === "string" &&
-    (/^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(contact.url) ||
+    (/^mailto:[A-Za-z0-9._+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}$/.test(contact.url) ||
      /^https:\/\/[^\s/]+\.[^\s/]+(?:\/[^\s]*)?$/i.test(contact.url));
-  if (!validContact || !evidence(contact.verificationEvidenceRef) || contact.tested !== true)
+  // This evidence refers to precisely one actually received/replied Owner inbox.
+  // A valid-looking foreign contact must never reuse its verification receipt;
+  // likewise the Owner address must not be presented with unrelated evidence.
+  const ownerMail = "mailto:support@dreamwishwand.com";
+  const ownerProof = "E-07DBK-20261117-ACT419-SUPPORT-LIVE-INBOUND-OUTBOUND-SCOPED-PASS";
+  const ownerPairBound = (contact?.url === ownerMail) ===
+    (contact?.verificationEvidenceRef === ownerProof);
+  if (!validContact || !ownerPairBound ||
+      !evidence(contact.verificationEvidenceRef) || contact.tested !== true)
     reasons.push("WORKING_RIGHTS_CONTACT_NOT_PROVED");
   for (const locale of IMAGE_NOTICE_LOCALES) {
     const notice = receipt.locales?.[locale];
