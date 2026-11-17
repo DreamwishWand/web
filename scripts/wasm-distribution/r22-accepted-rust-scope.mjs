@@ -922,6 +922,21 @@ const steam626SingleFencePostFd01Fe01Main63cEntries=[
   before:{mode:'100644',blob:'fe3070464a2a7b039da1af79bae0b6488e7c6065'},
   after:{mode:'100644',blob:'9e747f2bc4e60ce29451f4309e760a9cc3f14aaa'}}
 ];
+// ACT-20261117-09PCODE-STEAM626-SINGLEFENCE-READONLY-TARGET-R22-GATE.
+// Only three previously accepted 01B read-only target source leaves on the
+// independently accepted 01C SingleFence Core. Never Stage/Writer/rights.
+// Before/after Git blobs and modes are pinned to protected main eaba5d43.
+const steam626SingleFenceReadOnlyTargetAfterShapeEntries=[
+ {path:"crates/ddv-save-core/src/sr03_installed_geometry.rs",
+  before:{mode:'100644',blob:'e3139d1c987dd0e2483d529c640d98ee118cee8f'},
+  after:{mode:'100644',blob:'843b9189047995d3bdce94b31190ebb17b0f8458'}},
+ {path:"crates/ddv-save-core/src/sr03_product_target.rs",
+  before:{mode:'100644',blob:'20f306356908288cc8ff26bb126d28f087595697'},
+  after:{mode:'100644',blob:'679475ec3fab8e8ec9f1e8ca3e91cde435ac6f5f'}},
+ {path:"crates/ddv-save-core/src/steam_single_fence_product_target.rs",
+  before:null,
+  after:{mode:'100644',blob:'dd71dddccb4e961952529905dc7ac6f54f38cea5'}}
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1028,6 +1043,14 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    sourcePr:1861,sourceHead:'9017266e795ded11dc0e1c40eb52425e8d999a6b',
    acceptedAncestorPr:1931,acceptedAncestorHead:'49c6db828b12ddb86a7a639bf7cb106c987e165c',
    independentSourceQa:'REQUIRED_CURRENT_CORE_RELEASE_PROFILE_L2_NOT_RUN'}};
+ }
+ if(baseCore==='681177d588b7bfba04f2497dff81e36163a3350e'){
+  if(sourceCore!=='7068b711eb70c074edfc9a81c542e310fa9bb691')deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626SingleFenceReadOnlyTargetAfterShapeEntries,count:3,metadata:{
+   sourcePr:1938,sourceHead:'01bccbf3dfb948b732fcb7c8e7be9e510c9a11a4',
+   projectedRootBeforeGate:'d1ba48232832889d3c96d293cc6dbe316a1d007a',
+   fixedSourceQaPr:1949,
+   independentNewReleaseProfileL2:'NOT_RUN'}};
  }
  deny('BASE_CORE_TREE');
 }
