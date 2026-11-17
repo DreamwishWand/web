@@ -46,7 +46,7 @@ jobs:
             oldCore='bfea42aa4f2097deffe73d2016de62b1103c0723',
             newCore='fa23c80199225e20639be7da80c8236b4b82a013';
           const tmp=mkdtempSync(join(tmpdir(),'qrs-fivefence-'));
-          const env={...process.env,GIT_INDEX_FILE:join(tmp,'index'),GIT_NO_REPLACE_OBJECTS:'1'};
+          const env={...process.env,GIT_INDEX_FILE:join(tmp,'index'),GIT_NO_REPLACE_OBJECTS:'1',GIT_AUTHOR_NAME:'Independent QA',GIT_AUTHOR_EMAIL:'qa@example.invalid',GIT_COMMITTER_NAME:'Independent QA',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
           const g=(...args)=>execFileSync('git',args,{cwd:repo,env,encoding:'utf8',maxBuffer:16*1024*1024}).trim();
           const raw=(ref,path)=>execFileSync('git',['show',ref+':'+path],{cwd:repo,env,encoding:'utf8',maxBuffer:16*1024*1024});
           const entry=(ref,path)=>{
@@ -62,13 +62,13 @@ jobs:
             const tree=g('write-tree'),commit=g('commit-tree',tree,'-p',base,'-m','qa-only isolated refutation');
             return {tree,commit};
           };
-          let pos=0,neg=0;
+          let pos=0,neg=0,verifyAcceptedRustScope;
           const bad=(base,candidate,label)=>{
             assert.throws(()=>verifyAcceptedRustScope(repo,base,candidate),/R22_ACCEPTED_SCOPE|SELECTION|error|Error/i,label);
             neg++;
           };
           try{
-            const {verifyAcceptedRustScope}=await import('file://'+repo+'/'+gatePath);
+            ({verifyAcceptedRustScope}=await import('file://'+repo+'/'+gatePath));
             assert.equal(g('rev-parse','HEAD'),gate);
             assert.equal(g('rev-parse',gate+'^'),main);
             assert.equal(g('rev-parse',source+'^'),gate);
