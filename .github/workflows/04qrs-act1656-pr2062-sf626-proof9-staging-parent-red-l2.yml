@@ -63,7 +63,12 @@ jobs:
           const oldCode=git('show',expectedMain+':'+script);
           const good=" await mkdir(join(root,'tests/wasm-distribution/fixtures'),{recursive:true});\n await mkdir(dir,{recursive:false});";
           assert.ok(code.includes(good));
-          assert.equal(code.replace(good," await mkdir(dir,{recursive:false});"),oldCode);
+          assert.equal(code.replace(
+            " // Runner checkout contains no committed fixture-parent directory. Create\\n"+
+            " // only this private staging parent; the exact three-subject target itself\\n"+
+            " // must remain fresh and exclusive (EEXIST still fails closed).\\n"+
+            good,
+            " await mkdir(dir,{recursive:false});"),oldCode);
           assert.match(code,/writeFile\(join\(dir,names\[i\]\),\[raw,js,wasm\]\[i\],\{flag:'wx',mode:0o600\}\)/);
           assert.doesNotMatch(code,/deploy-pages|pages:\s*write|semantic_writer|upload-pages-artifact/);
           pos++;
