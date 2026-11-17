@@ -71,3 +71,14 @@ test('Proof9 dedicated workflow only explicit dispatch, exact main CI CAS and si
  assert.match(cli,/proofOnly:true,publicAssets:false,productConsumerEnabled:false/);
  assert.match(cli,/realEncryptedSaveV2Verified:false/);
 });
+
+test('Proof9 fresh runner fixture-parent is created before exclusive private three-subject target',()=>{
+ const start=cli.indexOf('async function generateProofSubjects(source)');
+ const end=cli.indexOf('async function actualProtectedCi(',start);
+ assert.ok(start>0&&end>start);
+ const stage=cli.slice(start,end);
+ assert.match(stage,/const receipt=inspectProofSubjects\(\[raw,js,wasm\],source\);/);
+ assert.match(stage,/const dir=join\(root,proofOutput\);\s*\/\/[\s\S]*?await mkdir\(join\(root,'tests\/wasm-distribution\/fixtures'\),\{recursive:true\}\);\s*await mkdir\(dir,\{recursive:false\}\)/);
+ assert.match(stage,/writeFile\(join\(dir,names\[i\]\),\[raw,js,wasm\]\[i\],\{flag:'wx',mode:0o600\}\)/);
+ assert.doesNotMatch(stage,/(?:static\/worker-wasm|build\/worker-wasm|publish|deployPages|authorizeWriter)/);
+});
