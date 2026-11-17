@@ -18,9 +18,9 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - name: Exact Road40100068 Q1 proposal and fail-closed negative suite
-        run: cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --lib road_q1_prep_ --verbose
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --lib road_q1_prep_ --verbose
       - name: Existing single Rust Session DEV-only worker typecheck (no export added)
-        run: cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,semantic-writer-dev
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,semantic-writer-dev
       - name: Public Pages profile stays read-only
         shell: bash
         run: |
