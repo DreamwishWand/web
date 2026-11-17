@@ -1011,7 +1011,7 @@ const switch624FrpMain838Exact14Entries=[
     "before": null,
     "after": {
       "mode": "100644",
-      "blob": "413e8f252a0f188483254903fe9bd0e968e0b1d3"
+      "blob": "4450172a472d2364e4d2fd38c02bfca835e9349c"
     }
   },
   {
@@ -1168,8 +1168,20 @@ export function verifyAcceptedRustScope(cwd,base,source){
  const profile=selectAcceptedCorePair(baseCore,sourceCore);
  const result=verifyExactScopeEntries(cwd,base,source,profile.entries);
  if(result.entries.length!==profile.count)deny('FIXED_SCOPE_COUNT');
+ // The pre-Gate projection has a different root from the Gate+product commit.
+ // Never embed the post-Gate Git tree SHA inside the Gate script itself:
+ // doing so would make its own blob/tree identity self-referential.
+ // Derive it from the exact validated candidate commit at verification time.
+ const postGateProductTree=profile.metadata.sourcePr===2012
+  ?git(cwd,'rev-parse','--verify',source+'^{tree}'):undefined;
+ if(postGateProductTree!==undefined&&!SHA.test(postGateProductTree))
+  deny('PRODUCT_TREE');
  return {status:'R22_EXACT_ACCEPTED_SOURCE_SCOPE_MATCH_ONLY',
-  ...profile.metadata,candidateHead:source,base,entryCount:profile.count,
+  ...profile.metadata,
+  ...(postGateProductTree?{
+   postGateProductTree,postGateProductTreeFromValidatedSourceCommit:true
+  }:{}),
+  candidateHead:source,base,entryCount:profile.count,
   mergeAuthorized:false,writerAuthorized:false};
 }
 
@@ -1274,16 +1286,16 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    privateOriginalSaveV2:'NOT_RUN',writerAuthorized:false}};
  }
  if(baseCore==='82d9500795262b9475160285a2778333d91603ea'){
-  if(sourceCore!=='b23f5146efd66765e96c58d7efa6eb351d1e5da7')deny('CANDIDATE_CORE_TREE');
+  if(sourceCore!=='b454aeef4455408b73aaafd6d3629dfdeb7ae63c')deny('CANDIDATE_CORE_TREE');
   return {entries:switch624FrpMain838Exact14Entries,count:14,metadata:{
-   sourcePr:2012,sourceHead:'3304dcc6270d9551ca94df787b580d725c2ef88f',
+   sourcePr:2012,sourceHead:'18cf476873a8c6b469748372604004e86f41e31b',
    schema:624,exactSwitchBid:'52BD625D9B4E0053',
    sourceLeafCount:13,acceptedHistoricalSourcePr:1934,
    protectedConfigBefore:'f70ddb4e88900d12fa426519ea7315c2e0812ba2',
    protectedConfigAfter:'865aa54e99d11029250478ba6583bdec226dfa6d',
    approvedCargoBlobBefore:'d66296a76c6c380fb4475c70b20e3ebb00adc7eb',
    approvedCargoBlobAfter:'cfd550b690e42e93a48b913457c35a5ea0cb7bc7',
-   projectedProductTree:'e8e7f4187a0e77c0389487df9ab7e834395d6dba',
+   preGateExact14ProjectionTree:'93e0776f1f1f11ba1550a3ba9e3ff521c194b391',
    independentNewAbiL2Required:true,independentSecurityL2Required:true,
    realEncryptedOriginalP1gV2:'NOT_RUN',writerAuthorized:false,opOn:false}};
  }
