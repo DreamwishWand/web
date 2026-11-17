@@ -899,6 +899,124 @@ const fd01Fe01PostFrpMain6abEntries=[
     }
   }
 ];
+// ACT1520-1528 accepted five fixed Fence ADD after protected FD01/FE01; exact Core only, no writer grant.
+const fiveFencePostFD01Current63CExact11Entries=[
+  {
+    "path": ".github/workflows/core-product-session-boundary.yml",
+    "before": {
+      "mode": "100644",
+      "blob": "6237ca727129e0f933d6f2040ac993530d1b66e7"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "877fc5763a8198c3e0cd337babe00552e178d493"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "effccf08990c8c1bc0626e5b0342fc68f6baf811"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "711a59af5f15fad1142655097a3a1defd3871152"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/fence_product_geometry.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "71957aae82a384ec17f0f36667a31fd2c0915151"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "62e18579c4ea99cf1c4b97608f23ba4054f9106e"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/fence_product_target.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "6de331b47f6b71bc17eeb34c41dfd38ea55f020f"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "15858ed0da6a7dd4df45e9a34c4c91c5c40661e4"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/semantic_writer.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "fe914df7b69f168ba94889d5761d4b10667f7531"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "7205eca9cd139dfd263b60a7cc427f9a71aa8d8b"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/sr03_installed_geometry.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "e3139d1c987dd0e2483d529c640d98ee118cee8f"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "4ce1dd76f3e36b47923c52615e0525601252225e"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/switch624_fence_fe01.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "65e4e7a0ae70001c935fbbd90e2da05727c8a07d"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "b4de9324dd2426c365a87933516144f5a0f69be6"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_switch626_fixed_fence_add.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "887b076f1593fb0337e3b817d464369b4dfea367"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "59264164dcb6f04f3d33de9c053bb00061d10669"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "fa47aae53ecf0d242b234a1ede67dd210ae8c67b"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "914bd8e6a45a6d26f5011a9f4c95a4f459d0f498"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "b89295b6d665e191e3872a50924a9091bf9d35d7"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_switch626_fixed_fence_add.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "708494849861b95c478fbe66500e6af884cc2f40"
+    }
+  }
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -998,6 +1116,14 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    sourcePr:1914,sourceHead:'49c6db828b12ddb86a7a639bf7cb106c987e165c',
    sourceTree:'c93c06aa476e9eaca9996106328cf75f2cf86f2f',
    acceptedAncestorPr:1895,acceptedAncestorHead:'fa71e802269f688d804304d3cc0966f1a3c27f10'}};
+ }
+ if(baseCore==='a506951b125b2f492f4d75293234574263342e90'){
+  if(sourceCore!=='e92b94a3f93ce977155001283d823b4b3a4953db')deny('CANDIDATE_CORE_TREE');
+  return {entries:fiveFencePostFD01Current63CExact11Entries,count:11,metadata:{
+   sourcePr:1921,sourceHead:'88c1b08464201b85a90880c442ec2526bd2dda05',
+   sourceTree:'ad4619bf935fd9f3ec0863be03894e4a852aaebf',
+   acceptedAncestorPr:1888,acceptedAncestorHead:'0ab40fc034048379494cc5895b3a0ac4cf6e042f',
+   directParentPr:1931,directParentHead:'63c57390ef8bda9854b9294465006a67ebde0787'}};
  }
  deny('BASE_CORE_TREE');
 }
