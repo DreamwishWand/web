@@ -49,6 +49,7 @@ jobs:
           set -euo pipefail
           manifest=crates/ddv-save-core/Cargo.toml
           features=product-switch626-fence-add-stage-internal,product-switch626-makeup-color1-internal,product-switch626-eyecolor2-internal
+          cargo generate-lockfile --manifest-path "$manifest"
           sha256sum crates/ddv-save-core/Cargo.lock > /tmp/qrc1989-lock
           cargo test --locked --manifest-path "$manifest" --features "$features" --lib qrc1989_composed_appearance_fence_abi_5pos60neg -- --nocapture
           # Five previously accepted geometric Ops under the NEW combined
