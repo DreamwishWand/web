@@ -190,6 +190,64 @@ jobs:
           console.log('QRL_CURRENT_CORE_TEMPORARY_ADAPTER_ABI_PASS',
             JSON.stringify({op:receipt.op,methods:5,exports:actual.length,jsSha256:sha(js),wasmSha256:sha(wasm)}));
           NODE
+      - name: Real OFF and MIXED ABI denied in actual generated JS and WASM (new negatives only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/wand-qrl-compat-main
+          for profile in OFF MIXED; do
+            if [ "$profile" = OFF ]; then
+              features="worker-wasm,indexed-read"
+            else
+              features="worker-wasm,product-$QRL_OP-scoped,product-steam626-makeup-color1-scoped"
+            fi
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+              --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            out="/tmp/wand-qrl-compat-negative-$profile"
+            mkdir -p "$out"
+            /tmp/wand-qrl-compat-bindgen/bin/wasm-bindgen \
+              "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+              --out-dir "$out" --target web --no-typescript
+            QRL_NEGATIVE_PROFILE="$profile" QRL_NEGATIVE_DIR="$out" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          import crypto from 'node:crypto';
+          const dir=process.env.QRL_NEGATIVE_DIR;
+          const js=fs.readFileSync(dir+'/ddv_save_core.js');
+          const wasm=fs.readFileSync(dir+'/ddv_save_core_bg.wasm');
+          const exports=WebAssembly.Module.exports(new WebAssembly.Module(wasm)).map(x=>x.name);
+          const ops=['switch626_makeup_color1','steam626_eyecolor2','switch626_eyecolor2','steam626_makeup_color1'];
+          for(const op of ops){
+            const methods=['preview_'+op,'stage_'+op,'toggle_'+op,
+              'begin_'+op+'_output','next_'+op+'_output_chunk'];
+            for(const method of methods){
+              assert(!exports.some(name=>name.endsWith('_'+method)),
+                process.env.QRL_NEGATIVE_PROFILE+'_WASM_EXPOSED_'+method);
+              assert(!js.includes(Buffer.from(method)),
+                process.env.QRL_NEGATIVE_PROFILE+'_JS_EXPOSED_'+method);
+            }
+          }
+          console.log('QRL_ACT1601_SCOPE_REAL_NEGATIVE_ABI_PASS',JSON.stringify({
+            op:process.env.QRL_OP,profile:process.env.QRL_NEGATIVE_PROFILE,
+            absentMethods:20,
+            wasmSha256:crypto.createHash('sha256').update(wasm).digest('hex'),
+            signed:false,pages:false,publicWriter:false,productV2:'NOT_RUN'
+          }));
+          NODE
+          done
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const path='/tmp/wand-qrl-compat-generated/qrl-temp-port-proof.json';
+          const receipt=JSON.parse(fs.readFileSync(path,'utf8'));
+          if(receipt.census!=='CURRENT_CORE_TEMP_LEAF_GENERATED_WASM_5OF5_SCOPED_PASS'){
+            throw Error('BASE_ACCEPTANCE_MISSING');
+          }
+          receipt.offMixedRealGeneratedWasm='PASS_2_PROFILES_20_METHODS_EACH';
+          receipt.currentProductSourceMerged=false;
+          receipt.publicWriter=false;
+          receipt.publicOn=false;
+          fs.writeFileSync(path,JSON.stringify(receipt,null,2)+'\n');
+          NODE
       - name: Upload unsigned temporary compatibility witness NEVER Merge/Pages
         uses: actions/upload-artifact@v4
         with:
