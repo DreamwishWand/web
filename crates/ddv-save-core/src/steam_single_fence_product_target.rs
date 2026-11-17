@@ -89,4 +89,12 @@ mod tests{
   let mut q=d.clone();q["Player"]["ListInventories"]["0"]["Inventory"]["40700246"]["Amount"]=json!(1);let z=open(&q,false);assert!(z.mint_steam626_single_fence_target(env(&z),90001,x,y).is_err());
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX);let z=open(&q,false);assert!(z.mint_steam626_single_fence_target(env(&z),90001,x,y).is_err());
  }
+
+ #[test] #[ignore]
+ fn qa2034_emit_singlefence_generated_fixture(){
+  let (value,x,y)=fixture();
+  std::fs::write("/tmp/qrc2034-singlefence-fixture.json",serde_json::to_vec(&value).unwrap()).unwrap();
+  std::fs::write("/tmp/qrc2034-singlefence-coords.json",serde_json::to_vec(&json!({"x":x,"y":y})).unwrap()).unwrap();
+  println!("QRC2034_SINGLEFENCE_SYNTHETIC_FIXTURE_EMITTED x={x} y={y}");
+ }
 }
