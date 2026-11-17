@@ -899,6 +899,14 @@ const fd01Fe01PostFrpMain6abEntries=[
     }
   }
 ];
+// ACT-20261117-09INT-STEAM626-SINGLEFENCE-MAIN63C-GATE-ONLY.
+// Exactly one previously scoped pure 27-line Fence shape source hunk.
+// This tuple is a source selector, never Merge/Writer/entitlement authority.
+const steam626SingleFencePostFd01Fe01Main63cEntries=[
+ {path:'crates/ddv-save-core/src/fence_add_shape.rs',
+  before:{mode:'100644',blob:'ab4b9aefde13523f6740dfe147e4e78668e9096e'},
+  after:{mode:'100644',blob:'6805c67f525829744dde2fe32b31668b5c401e12'}}
+];
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -998,6 +1006,13 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    sourcePr:1914,sourceHead:'49c6db828b12ddb86a7a639bf7cb106c987e165c',
    sourceTree:'c93c06aa476e9eaca9996106328cf75f2cf86f2f',
    acceptedAncestorPr:1895,acceptedAncestorHead:'fa71e802269f688d804304d3cc0966f1a3c27f10'}};
+ }
+ if(baseCore==='a506951b125b2f492f4d75293234574263342e90'){
+  if(sourceCore!=='681177d588b7bfba04f2497dff81e36163a3350e')deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626SingleFencePostFd01Fe01Main63cEntries,count:1,metadata:{
+   sourcePr:1861,sourceHead:'9017266e795ded11dc0e1c40eb52425e8d999a6b',
+   acceptedAncestorPr:1931,acceptedAncestorHead:'49c6db828b12ddb86a7a639bf7cb106c987e165c',
+   independentSourceQa:'REQUIRED_CURRENT_CORE_RELEASE_PROFILE_L2_NOT_RUN'}};
  }
  deny('BASE_CORE_TREE');
 }
