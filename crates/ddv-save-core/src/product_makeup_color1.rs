@@ -11,11 +11,11 @@ const INACTIVE_ITEM:i32=140100011;
 const OLD:i32=53;
 const NEW:i32=60;
 #[derive(Debug)]
-pub(super) struct FixedMakeupColor1{
- pub(super) scope:WorkerEnvelope,pub(super) span:Span,
- pub(super) token_sha:String,pub(super) female_sha:String,
- pub(super) male_sha:String,pub(super) entry_sha:String,
- pub(super) routes_sha:String,pub(super) projected:[u8;32],
+pub(crate) struct FixedMakeupColor1{
+ pub(crate) scope:WorkerEnvelope,pub(crate) span:Span,
+ pub(crate) token_sha:String,pub(crate) female_sha:String,
+ pub(crate) male_sha:String,pub(crate) entry_sha:String,
+ pub(crate) routes_sha:String,pub(crate) projected:[u8;32],
 }
 // Exact physical saved slot; never create, remap or select a new item.
 fn slot1(b:&[u8],avatar:Span,expected_item:i32)->CoreResult<(Span,Span)>{
@@ -41,7 +41,7 @@ fn slot1(b:&[u8],avatar:Span,expected_item:i32)->CoreResult<(Span,Span)>{
 }
 fn ok(b:bool,s:&'static str)->CoreResult<()>{if b{Ok(())}else{Err(denied(s))}}
 impl ProductSession{
- pub(super) fn prepare_fixed_makeup_color1(&self,e:WorkerEnvelope)->CoreResult<FixedMakeupColor1>{
+ pub(crate) fn prepare_fixed_makeup_color1(&self,e:WorkerEnvelope)->CoreResult<FixedMakeupColor1>{
   product_appearance_scope(self,&e)?;
   self.prepare_fixed_makeup_color1_lexical(e)
  }
@@ -111,7 +111,7 @@ impl ProductSession{
      "MAKEUP_COLOR1_SWITCH_STAGE_CAS")?;
   self.commit_switch626_makeup_color1_candidate(e,now.span,OLD,NEW,now.projected)
  }
- pub(super) fn stage_fixed_makeup_color1(&self,e:WorkerEnvelope,p:&FixedMakeupColor1)
+ pub(crate) fn stage_fixed_makeup_color1(&self,e:WorkerEnvelope,p:&FixedMakeupColor1)
      ->CoreResult<crate::SemanticStageReceipt>{
   ok(e.action==WorkerAction::Stage,"MAKEUP_COLOR1_STAGE_ACTION")?;
   let now=self.prepare_fixed_makeup_color1(WorkerEnvelope{action:WorkerAction::ReadDomain,..e})?;
@@ -285,5 +285,30 @@ mod tests{
    }
    let s=open(&d);assert!(s.prepare_fixed_makeup_color1(env(&s,WorkerAction::ReadDomain)).is_err(),"negative {i}");
   }
+ }
+ #[cfg(feature="product-steam626-makeup-color1-scoped")]
+ #[test]
+ #[ignore="Independent generated JS/WASM synthetic real saved-shape fixture, NOT encrypted owner P1G V2"]
+ fn qa2006_emit_corrected_realshape_generated_fixture(){
+  let mut d=doc();
+  d["World"]["UnknownNotEdited"]=json!({"keep":[true,null,31]});
+  d["Player"]["MaleAvatar"]["Makeup"]["1"]["KeepOpaque"]=json!({"nested":[8,9]});
+  let male=&d["Player"]["MaleAvatar"]["Makeup"]["1"];
+  let female=&d["Player"]["FemaleAvatar"]["Makeup"]["1"];
+  assert_eq!(male["MakeupItemID"],json!(140100014));
+  assert_eq!(male["ColorIndex1"],json!(53));
+  assert_eq!(female["MakeupItemID"],json!(140100011));
+  assert_eq!(female["ColorIndex1"],json!(60));
+  for avatar in ["MaleAvatar","FemaleAvatar"]{
+   assert_eq!(d["Player"][avatar]["Makeup"]["1"]["ColorIndex2"],json!(0));
+   assert_eq!(d["Player"][avatar]["Makeup"]["1"]["ColorIndex3"],json!(0));
+  }
+  let inv=&d["Player"]["ListInventories"]["3"]["Inventory"];
+  assert_eq!(inv["140100014"]["Amount"],json!(2));
+  assert_eq!(inv["140100011"]["Amount"],json!(1));
+  let bytes=serde_json::to_vec(&d).unwrap();
+  assert!(bytes.len()<1024*1024);
+  std::fs::write("/tmp/qrc2006-makeup-source.json",&bytes).unwrap();
+  println!("QRC2006_CORRECTED_GENERATED_FIXTURE_ONLY bytes={} inactive_female_item140100011 saved_channels_zero",bytes.len());
  }
 }
