@@ -1,5 +1,5 @@
 // 09P CODE: protected Steam626 SingleFence Proof9 only. No Pages, Writer, Stage, or private Save.
-import {readFile,mkdir,writeFile,readdir} from 'node:fs/promises';
+import {readFile,mkdir,writeFile,readdir,lstat,realpath} from 'node:fs/promises';
 import {appendFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
@@ -119,8 +119,33 @@ export function inspectProofSubjects(bytes,source,tuple=PROOF_SIGNER){
   danger.test(new TextDecoder('utf-8',{fatal:true}).decode(js)))fail();
  return pinsFor(bytes,source);
 }
-async function readProofBytes(){
+// Fixed repo-local proof directory only: protect every existing ancestor from
+// symlink or non-directory redirection before a proof byte is staged or read.
+// The parent may be absent on a fresh Actions checkout; create ONLY that
+// missing parent, then create an exclusive child and never overwrite it.
+async function privateProofDirectory(createFresh=false){
+ let canonical;try{canonical=await realpath(root)}catch{fail()}
+ if(canonical!==root)fail();
+ let parent=root;
+ for(const [i,part] of ['tests','wasm-distribution','fixtures'].entries()){
+  parent=join(parent,part);
+  let st;
+  try{st=await lstat(parent)}catch(error){
+   if(i!==2||!createFresh||error?.code!=='ENOENT')fail();
+   try{await mkdir(parent,{recursive:false});st=await lstat(parent)}catch{fail()}
+  }
+  if(st.isSymbolicLink()||!st.isDirectory())fail();
+  try{canonical=await realpath(parent)}catch{fail()}
+  if(canonical!==parent)fail();
+ }
  const dir=join(root,proofOutput);
+ if(createFresh)try{await mkdir(dir,{recursive:false})}catch{fail()}
+ let child;try{child=await lstat(dir);canonical=await realpath(dir)}catch{fail()}
+ if(child.isSymbolicLink()||!child.isDirectory()||canonical!==dir)fail();
+ return dir;
+}
+async function readProofBytes(){
+ const dir=await privateProofDirectory();
  if(!same((await readdir(dir)).sort(),names.slice().sort()))fail();
  return Promise.all(names.map(n=>readFile(join(dir,n))));
 }
@@ -137,10 +162,11 @@ async function generateProofSubjects(source){
   release:releasePolicy,abi:requiredAbi};
  const raw=Buffer.from(JSON.stringify(m,null,2)+'\n');
  const receipt=inspectProofSubjects([raw,js,wasm],source);
- const dir=join(root,proofOutput);
- await mkdir(dir,{recursive:false});
- for(let i=0;i<names.length;i++)
+ const dir=await privateProofDirectory(true);
+ for(let i=0;i<names.length;i++){
+  if(await privateProofDirectory()!==dir)fail();
   await writeFile(join(dir,names[i]),[raw,js,wasm][i],{flag:'wx',mode:0o600});
+ }
  if(!same(receipt,inspectProofSubjects(await readProofBytes(),source)))fail();
  console.log('SINGLEFENCE_PROOF9_THREE_UNSIGNED_CANDIDATE_PROOF_ONLY',JSON.stringify(receipt));
 }
@@ -175,7 +201,7 @@ async function main(){
  }else{
   const bundle=process.env.WAND_PROOF_BUNDLE;
   if(typeof bundle!=='string'||!bundle||!(await readFile(bundle)).length)fail();
-  const dir=join(root,proofOutput);
+  const dir=await privateProofDirectory();
   const verified=await verifySignedReleaseSubjects(dir,source,bundle,PROOF_SIGNER,
    inspectProofSubjects);
   if(!same(verified,inspectProofSubjects(await readProofBytes(),source)))fail();
