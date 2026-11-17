@@ -80,7 +80,13 @@ const denied = (code, extra={}) => Object.freeze({
   denominator:null, numerator:null, writerAuthorized:false, ...extra
 });
 function sourceIdentity(profile, identity) {
-  if (!object(profile) || !object(profile.GameInfo) || !object(profile.Player) || !object(identity))
+  if (!object(profile) || !object(identity) ||
+      !Object.hasOwn(profile,'GameInfo') || !Object.hasOwn(profile,'Player') ||
+      !Object.hasOwn(identity,'sourcePlatform') || !Object.hasOwn(identity,'platform') ||
+      !Object.hasOwn(identity,'gameVersion') || !Object.hasOwn(identity,'buildId') ||
+      !Object.hasOwn(identity,'profileSchema') ||
+      !object(profile.GameInfo) || !Object.hasOwn(profile.GameInfo,'Version') ||
+      !object(profile.Player))
     return null;
   if (identity.sourcePlatform !== 'switch' || identity.platform !== 'switch')
     return null;
@@ -116,11 +122,14 @@ export function inspectCollectionSaveFlag({profile, identity, definitionId, grou
   if (!target) return denied('EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED');
   if (!positive(definitionId) || !unsigned(groupIndex) || groupIndex>256 || !positive(itemId))
     return denied('COLLECTION_KEY_INVALID');
+  if (!Object.hasOwn(profile.Player,'CollectionSets'))
+    return denied('COLLECTION_SETS_MISSING_OR_UNBOUNDED');
   const sets=profile.Player.CollectionSets;
   if (!Array.isArray(sets) || sets.length>10000) return denied('COLLECTION_SETS_MISSING_OR_UNBOUNDED');
   let match=null;
   for (const entry of sets) {
-    if (!positive(entry?.CollectionDefinitionID)) return denied('COLLECTION_DEFINITION_ROW_INVALID');
+    if (!object(entry) || !Object.hasOwn(entry,'CollectionDefinitionID') ||
+        !positive(entry.CollectionDefinitionID)) return denied('COLLECTION_DEFINITION_ROW_INVALID');
     if (entry.CollectionDefinitionID!==definitionId) continue;
     if (match!==null) return denied('COLLECTION_DUPLICATE_DEFINITION');
     match=entry;
@@ -129,7 +138,7 @@ export function inspectCollectionSaveFlag({profile, identity, definitionId, grou
     ...base(target,false), collectionDefinitionId:definitionId, groupIndex,
     itemId, rawFlag:'ABSENT_DEFINITION'
   });
-  if (!Array.isArray(match.GroupData) || match.GroupData.length>257)
+  if (!Object.hasOwn(match,'GroupData') || !Array.isArray(match.GroupData) || match.GroupData.length>257)
     return denied('COLLECTION_GROUP_DATA_UNVERIFIED');
   // Own-index presence must be checked BEFORE reading: a sparse array can
   // inherit a prototype group and otherwise counterfeit raw Collection data.
@@ -138,7 +147,8 @@ export function inspectCollectionSaveFlag({profile, identity, definitionId, grou
       groupIndex,itemId,rawFlag:'ABSENT_GROUP'});
   const group=match.GroupData[groupIndex];
   // A present but malformed group is not a missing group.
-  if (!object(group) || !object(group.GroupsCollectionItems))
+  if (!object(group) || !Object.hasOwn(group,'GroupsCollectionItems') ||
+      !object(group.GroupsCollectionItems))
     return denied('COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED');
   if (group.GroupIndex !== undefined && group.GroupIndex !== groupIndex)
     return denied('COLLECTION_GROUP_INDEX_CONFLICT');
@@ -159,6 +169,7 @@ export function inspectInventoryAmount({profile, identity, inventoryId, canonica
   if (!unsigned(inventoryId) || !positive(canonicalItemId) ||
       !unsigned(compatibleItemType))
     return denied('CANONICAL_INVENTORY_ROUTE_NOT_SPECIFIED');
+  if (!Object.hasOwn(profile.Player,'ListInventories')) return denied('LIST_INVENTORIES_MISSING');
   const all=profile.Player.ListInventories;
   if (!object(all)) return denied('LIST_INVENTORIES_MISSING');
   // Absent inventory is not a corrupted PRESENT inventory with missing
@@ -167,7 +178,8 @@ export function inspectInventoryAmount({profile, identity, inventoryId, canonica
     return Object.freeze({...base(target,false),inventoryId,canonicalItemId,
       rawAmount:null, rawEntry:'ABSENT_INVENTORY'});
   const inv=all[key(inventoryId)];
-  if (!object(inv) || !object(inv.Inventory))
+  if (!object(inv) || !Object.hasOwn(inv,'Inventory') ||
+      !Object.hasOwn(inv,'CompatibleItemType') || !object(inv.Inventory))
     return denied('INVENTORY_RECORD_OR_ITEMS_MALFORMED');
   if (inv.CompatibleItemType!==compatibleItemType)
     return denied('INVENTORY_COMPATIBLE_ITEM_TYPE_MISMATCH');
@@ -175,7 +187,7 @@ export function inspectInventoryAmount({profile, identity, inventoryId, canonica
     return Object.freeze({...base(target,false),inventoryId,canonicalItemId,
       rawAmount:null,rawEntry:'ABSENT_ITEM_ENTRY'});
   const stock=inv.Inventory[key(canonicalItemId)];
-  if (!object(stock) || !unsigned(stock.Amount))
+  if (!object(stock) || !Object.hasOwn(stock,'Amount') || !unsigned(stock.Amount))
     return denied('INVENTORY_AMOUNT_FIELD_INVALID');
   return Object.freeze({...base(target,true),inventoryId,canonicalItemId,
     compatibleItemType,rawAmount:stock.Amount,rawEntry:'PRESENT'});
