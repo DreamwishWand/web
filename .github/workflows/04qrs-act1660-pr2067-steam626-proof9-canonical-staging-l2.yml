@@ -1,0 +1,218 @@
+name: "04 QR-S ACT1660 Steam626 Proof9 canonical private staging Security L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qrs-act1660-pr2067-steam626-proof9-canonical-staging-l2.yml"
+permissions:
+  contents: read
+jobs:
+  independent-staging-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0e260fa5c323ef57e9eb77c848ffefd0f274819b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Independent real Git object and actual proof-only CLI private staging refutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/steam-singlefence-proof9-signed.test.mjs
+          cat > qrs-act1660-proof9-qa.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {spawnSync,execFileSync} from 'node:child_process';
+          import {createHash} from 'node:crypto';
+          import {mkdirSync,writeFileSync,readFileSync,rmSync,
+            lstatSync,existsSync,readdirSync,symlinkSync,renameSync,mkdtempSync}
+            from 'node:fs';
+          import {join} from 'node:path';
+          import {tmpdir} from 'node:os';
+          import {inspectProofSubjects} from './scripts/readonly-release/steam-singlefence-proof9-signed.mjs';
+          const source='0e260fa5c323ef57e9eb77c848ffefd0f274819b';
+          const main='4ab386cb2f8a9f99963ddd5badcb7ab5ffc0f74c';
+          const script='scripts/readonly-release/steam-singlefence-proof9-signed.mjs';
+          const testfile='tests/steam-singlefence-proof9-signed.test.mjs';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8',
+            env:{...process.env,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
+          const blob=(ref,path)=>{
+            const m=/^(100644|100755|120000|160000) (blob|commit) ([0-9a-f]{40})\t(.+)$/
+              .exec(git('ls-tree',ref,'--',path));
+            assert.ok(m&&m[4]===path,'valid real Git blob '+path);
+            return {mode:m[1],type:m[2],sha:m[3]};
+          };
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          let positive=0,negative=0;
+          assert.equal(git('rev-parse','HEAD'),source);
+          assert.deepEqual(git('rev-list','--parents','-n','1',source).split(/\s+/),[source,main]);
+          assert.deepEqual(git('diff','--name-only',main,source).split('\n').sort(),
+            [script,testfile].sort());
+          assert.deepEqual(blob(source,script),{
+            mode:'100644',type:'blob',sha:'96db23266051c67892549d889b429237a29f7056'
+          });
+          assert.deepEqual(blob(source,testfile),{
+            mode:'100644',type:'blob',sha:'34c304487a8eaf64c130e670e6db8ea2d7b28b84'
+          });
+          for(const name of [
+            '.github/workflows/steam626-singlefence-proof9.yml',
+            'scripts/wasm-distribution/approved-Cargo.lock',
+            'scripts/wasm-distribution/protected-release-inputs.json',
+            'scripts/readonly-release/seal.mjs',
+            '.github/workflows/ci.yml',
+            '.github/workflows/pages.yml'
+          ])assert.deepEqual(blob(main,name),blob(source,name),'protected signer/CI/Lock preserved '+name);
+          assert.equal(git('ls-tree',main,'tests/wasm-distribution/fixtures'),'');
+          positive++;
+
+          const code=readFileSync(script,'utf8');
+          const trust=code.slice(code.indexOf('async function privateProofDirectory('),
+            code.indexOf('async function readProofBytes('));
+          const generate=code.slice(code.indexOf('async function generateProofSubjects('),
+            code.indexOf('async function actualProtectedCi('));
+          assert.match(trust,/for\(const \[i,part\] of \['tests','wasm-distribution','fixtures'\]\.entries\(\)\)/);
+          assert.match(trust,/st=await lstat\(parent\)/);
+          assert.match(trust,/st\.isSymbolicLink\(\)\|\|!st\.isDirectory\(\)/);
+          assert.match(trust,/canonical=await realpath\(parent\)/);
+          assert.match(trust,/canonical!==parent/);
+          assert.match(trust,/mkdir\(parent,\{recursive:false\}\)/);
+          assert.match(trust,/mkdir\(dir,\{recursive:false\}\)/);
+          assert.match(trust,/child\.isSymbolicLink\(\)\|\|!child\.isDirectory\(\)\|\|canonical!==dir/);
+          assert.doesNotMatch(trust,/recursive:true/);
+          assert.match(generate,/const receipt=inspectProofSubjects\(\[raw,js,wasm\],source\)/);
+          assert.match(generate,/const dir=await privateProofDirectory\(true\)/);
+          assert.match(generate,/if\(await privateProofDirectory\(\)!==dir\)fail\(\)/);
+          assert.match(generate,/writeFile\(join\(dir,names\[i\]\),\[raw,js,wasm\]\[i\],\{flag:'wx',mode:0o600\}\)/);
+          assert.doesNotMatch(generate,/deploy-pages|upload-pages-artifact|static\/worker-wasm|build\/worker-wasm/);
+          positive++;
+
+          const stage='tests/stage-e/pkg';
+          const parent='tests/wasm-distribution/fixtures';
+          const child=join(parent,'steam626-singlefence-proof9');
+          const names=['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm'];
+          assert.equal(existsSync(parent),false,'fresh runner private fixture parent absent');
+          const exportName=Buffer.from('read_steam626_singlefence_target','utf8');
+          const section=(id,body)=>Buffer.from([id,body.length,...body]);
+          const wasm=Buffer.concat([
+            Buffer.from([0,97,115,109,1,0,0,0]),
+            section(1,[1,0x60,0,0]),
+            section(3,[1,0]),
+            section(7,[1,exportName.length,...exportName,0,0]),
+            section(10,[1,2,0,0x0b])
+          ]);
+          assert.deepEqual(WebAssembly.Module.exports(new WebAssembly.Module(wasm)).map(e=>e.name),
+            ['read_steam626_singlefence_target']);
+          const js="export function read_steam626_singlefence_target(){ return null; }\n";
+          mkdirSync(stage,{recursive:true});
+          writeFileSync(join(stage,'ddv_save_core.js'),js);
+          writeFileSync(join(stage,'ddv_save_core_bg.wasm'),wasm);
+          const env={...process.env,
+            GITHUB_ACTIONS:'true',GITHUB_EVENT_NAME:'workflow_dispatch',
+            GITHUB_REPOSITORY_ID:'1371485649',GITHUB_REPOSITORY:'DreamwishWand/web',
+            GITHUB_REF:'refs/heads/main',GITHUB_SHA:source,GITHUB_WORKFLOW_SHA:source,
+            GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/steam626-singlefence-proof9.yml@refs/heads/main',
+            WAND_PROOF_EXPECTED_SOURCE:source
+          };
+          const run=()=>spawnSync('node',[script,'build-subjects'],{
+            env,encoding:'utf8',timeout:60000
+          });
+          const deny=(label)=>{
+            const r=run();
+            assert.notEqual(r.status,0,label+' must be fail closed');
+            assert.match(r.stderr,/SINGLEFENCE_PROOF9_SIGNED_SCOPE_DENIED/,label);
+            negative++;
+          };
+
+          const clean=run();
+          assert.equal(clean.status,0,'fresh runner three-subject positive: '+clean.stderr);
+          assert.match(clean.stdout,/SINGLEFENCE_PROOF9_THREE_UNSIGNED_CANDIDATE_PROOF_ONLY/);
+          assert.equal(lstatSync(parent).isDirectory(),true);
+          assert.equal(lstatSync(child).isDirectory(),true);
+          assert.deepEqual(readdirSync(child).sort(),names.slice().sort());
+          const bytes=names.map(n=>readFileSync(join(child,n)));
+          const p=inspectProofSubjects(bytes,source);
+          assert.equal(p.sourceHead,source);
+          assert.deepEqual([p.manifestSha256,p.jsSha256,p.wasmSha256],bytes.map(sha));
+          assert.equal(p.publicWriter,false);
+          assert.equal(p.operationOn,false);
+          positive++;
+
+          deny('duplicate existing exact3 child');
+          assert.deepEqual(names.map(n=>sha(readFileSync(join(child,n)))),bytes.map(sha));
+          writeFileSync(join(child,'extra-inert.txt'),'unexpected fourth subject');
+          deny('extra fourth child content');
+          rmSync(parent,{recursive:true,force:true});
+          assert.equal(existsSync(parent),false);
+          positive++;
+
+          // Original TRUE_RED: a symlink already installed as private staging
+          // parent must fail before the child or ANY bytes can escape.
+          const outside=mkdtempSync(join(tmpdir(),'qrs-act1660-outside-'));
+          try{
+            const destination=join(outside,'redirect');mkdirSync(destination);
+            symlinkSync(destination,parent,'dir');
+            assert.equal(lstatSync(parent).isSymbolicLink(),true);
+            deny('original red parent symlink escape');
+            assert.equal(existsSync(join(destination,'steam626-singlefence-proof9')),false);
+            rmSync(parent,{force:true});
+            writeFileSync(parent,'foreign file replaces expected staging parent');
+            deny('non-directory fixture parent');
+            assert.equal(readFileSync(parent,'utf8'),'foreign file replaces expected staging parent');
+            rmSync(parent,{force:true});
+            mkdirSync(parent);
+            symlinkSync(destination,child,'dir');
+            deny('exclusive child symlink redirection');
+            assert.equal(existsSync(join(destination,'manifest.json')),false);
+            rmSync(child,{force:true});
+            rmSync(parent,{recursive:true,force:true});
+          }finally{
+            if(existsSync(parent)||lstatSafe(parent))rmSync(parent,{recursive:true,force:true});
+            rmSync(outside,{recursive:true,force:true});
+          }
+          positive++;
+
+          // Every ancestor, not just fixtures, must be canonical and local:
+          // move only the tests/wasm-distribution tree inside the disposable
+          // QA checkout and safely restore it.
+          const outer=mkdtempSync(join(tmpdir(),'qrs-act1660-ancestor-'));
+          const original='tests/wasm-distribution',backup='tests/wasm-distribution-qrs-backup';
+          try{
+            assert.equal(existsSync(backup),false);
+            renameSync(original,backup);
+            const foreign=join(outer,'foreign');mkdirSync(foreign);
+            symlinkSync(foreign,original,'dir');
+            deny('middle ancestor wasm-distribution symlink');
+            assert.equal(readdirSync(foreign).length,0);
+          }finally{
+            if(lstatSafe(original))rmSync(original,{force:true});
+            if(lstatSafe(backup))renameSync(backup,original);
+            rmSync(outer,{recursive:true,force:true});
+          }
+          positive++;
+
+          // Generated JS hostile writer surface never reaches staging.
+          writeFileSync(join(stage,'ddv_save_core.js'),js+'export function dev_stage(){}\n');
+          deny('malicious writer JS');
+          assert.equal(existsSync(parent),false);
+          writeFileSync(join(stage,'ddv_save_core.js'),js);
+
+          assert.equal(existsSync('static/worker-wasm-steam626-singlefence-proof9'),false);
+          assert.equal(existsSync('build/worker-wasm-steam626-singlefence-proof9'),false);
+          positive++;
+          function lstatSafe(path){try{return lstatSync(path)}catch{return null}}
+          console.log('QRS_ACT1660_SF626_PROOF9_CANONICAL_STAGING_L2_PASS',JSON.stringify({
+            positive,negative,sourceHead:source,protectedMain:main,
+            exactChangedSource2:true,realGitMainCas:true,
+            cleanRunnerMissingParentThreeSubjects:true,
+            originalRedParentSymlinkDenied:true,
+            childSymlinkDenied:true,middleAncestorSymlinkDenied:true,
+            nonDirectoryDenied:true,duplicateOverwriteDenied:true,
+            extraSubjectDenied:true,maliciousJsDenied:true,
+            syntheticValidReadonlyWasm:true,actualProductRustWasm:false,
+            realProtectedOidcSigstore3:false,publicWriter:false,operationOn:false
+          }));
+          NODE
+          node qrs-act1660-proof9-qa.mjs
