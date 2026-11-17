@@ -231,3 +231,30 @@ mod frp01_tests{
         }
     }
 }
+
+/// Exact Steam626 isolated ordinary Biome2Fence Base, one record only.
+/// Pure layout; caller separately proves the external Steam Build, target
+/// isolation/floor/footprint/references, rights, cost and stock CAS.
+/// Neither a product admission nor a grant to modify Inventory.
+#[allow(dead_code)]
+pub(super) fn exact_steam626_fence_single_ortho(next:u32,x:u32,y:u32)->Option<Value>{
+    if next==0||next.checked_add(1)?>i32::MAX as u32{return None}
+    let [record]:[Value;1]=records_at(&[(40700246,0,0,false,false)],next,x,y).ok()?.try_into().ok()?;
+    Some(record)
+}
+#[cfg(test)]
+mod steam_single_fence_tests{
+    use super::*;
+    #[test]
+    fn exact_steam626_single_ortho_base_no_other_record(){
+        let a=exact_steam626_fence_single_ortho(50,40,20).unwrap();
+        assert_eq!(a,json!({"ID":50,"ItemID":40700246,"X":40,"Y":20,"Orientation":"GridOrientation_Down","State":null}));
+        let m=i32::MAX as u32;
+        let edge=exact_steam626_fence_single_ortho(m-1,m,m).unwrap();
+        assert_eq!(edge,json!({"ID":m-1,"ItemID":40700246,"X":m,"Y":m,"Orientation":"GridOrientation_Down","State":null}));
+        for (n,x,y) in [(0,40,20),(m,40,20),(u32::MAX,40,20),
+            (50,m+1,20),(50,40,m+1),(50,u32::MAX,20),(50,40,u32::MAX)]{
+            assert!(exact_steam626_fence_single_ortho(n,x,y).is_none());
+        }
+    }
+}
