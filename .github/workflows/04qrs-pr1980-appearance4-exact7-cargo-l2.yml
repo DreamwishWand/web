@@ -1,0 +1,152 @@
+name: "04 QR-S ACT1608 PR1980 Appearance4 exact7 Cargo/R22 L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr1980-appearance4-exact7-cargo-l2.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f5fa1306ffdc9af3b21667d6d1fa508c73b598a8
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch immutable previously accepted Appearance4 Source commit
+        run: |
+          set -euo pipefail
+          git cat-file -e 91c5c2a3da3c2a287c9210f3b2330c1f858cfb6a^{commit} || git fetch --no-tags origin 91c5c2a3da3c2a287c9210f3b2330c1f858cfb6a
+      - name: Independently check actual Git Gate profile exact7, protected Cargo-only pin and deny mutations
+        run: |
+          set -euo pipefail
+          cat > /tmp/qrs-appearance4-exact7.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {runInNewContext} from 'node:vm';
+          import {verifyAcceptedRustScope} from './scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          const main='7a7dfea3bbd4753a5ab63a095625831dea583785',gate='f5fa1306ffdc9af3b21667d6d1fa508c73b598a8',historic='91c5c2a3da3c2a287c9210f3b2330c1f858cfb6a',
+            gatePath='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
+            oldGateBlob='61c5bc2ced90c6164af8ca0ae331802d0e0ef70a',
+            newGateBlob='57ae8395c280bb48b8ade0f134b445485b9de15f',
+            oldCore='7068b711eb70c074edfc9a81c542e310fa9bb691',
+            newCore='bfea42aa4f2097deffe73d2016de62b1103c0723',
+            oldCargo='effccf08990c8c1bc0626e5b0342fc68f6baf811',
+            newCargo='a5bdd2af0a3f33b827fb55f87d6e0637ef50fd67',
+            configPath='scripts/wasm-distribution/protected-release-inputs.json',
+            configAfter='44e639fc5219bf41f61d22fbbc0b34383df8cd6a',
+            expectedTree='781ef2064cc682641baa7ad5da7b0a7d3214bc43';
+          const tmp=mkdtempSync(join(tmpdir(),'qrs-appearance4-')),env={...process.env,
+            GIT_INDEX_FILE:join(tmp,'index'),GIT_NO_REPLACE_OBJECTS:'1',
+            GIT_AUTHOR_NAME:'Independent QA',GIT_AUTHOR_EMAIL:'qa@example.invalid',
+            GIT_COMMITTER_NAME:'Independent QA',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8',env,maxBuffer:16*1024*1024}).trim();
+          const raw=(ref,path)=>execFileSync('git',['show',ref+':'+path],{encoding:'utf8',env,maxBuffer:16*1024*1024});
+          const entry=(ref,path)=>{
+            const line=g('ls-tree',ref,'--',path);if(!line)return null;
+            const m=/^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/.exec(line);
+            assert.ok(m&&m[3]===path,path);return {mode:m[1],blob:m[2]};
+          };
+          const apply=(path,x)=>x?g('update-index','--add','--cacheinfo',x.mode,x.blob,path):g('update-index','--force-remove','--',path);
+          const commit=(base,change)=>{
+            g('read-tree',base);
+            for(const [p,x] of change)apply(p,x);
+            const tree=g('write-tree');return {tree,commit:g('commit-tree',tree,'-p',base,'-m','QA-only local isolated candidate')};
+          };
+          let pos=0,neg=0;
+          const reject=(base,source,reason)=>{
+            assert.throws(()=>verifyAcceptedRustScope(process.cwd(),base,source),
+              /R22_ACCEPTED_SCOPE|SELECTION|error|Error/i,reason);neg++;
+          };
+          try{
+            assert.equal(g('rev-parse','HEAD'),gate);
+            assert.equal(g('rev-parse',gate+'^'),main);
+            assert.deepEqual(g('diff','--name-only',main,gate).split('\n'),[gatePath]);
+            assert.deepEqual(entry(main,gatePath),{mode:'100644',blob:oldGateBlob});
+            assert.deepEqual(entry(gate,gatePath),{mode:'100644',blob:newGateBlob});pos++;
+            const pre=raw(main,gatePath),post=raw(gate,gatePath);
+            const marker='// ACT-20261117-09PCODE-APPEARANCE-FOUR-OPS-AFTER-FENCE-TARGET-R22-EXACT7.';
+            const m=post.indexOf(marker),end=post.indexOf('const gatePaths=',m);
+            assert.ok(m>0&&end>m);
+            const startSelector=post.indexOf(" if(baseCore==='"+oldCore+"')",end);
+            const endSelector=post.indexOf(" deny('BASE_CORE_TREE');",startSelector);
+            assert.ok(startSelector>end&&endSelector>startSelector);
+            assert.equal(post.slice(0,m)+post.slice(end,startSelector)+post.slice(endSelector),pre);pos++;
+            const declaration=post.indexOf('const appearanceFourAfterFenceTargetExact7Entries=');
+            const open=post.indexOf('[',declaration),close=post.indexOf('];',open);
+            const pins=JSON.parse(JSON.stringify(runInNewContext('('+post.slice(open,close+1)+')')));
+            assert.equal(pins.length,7);assert.equal(new Set(pins.map(x=>x.path)).size,7);
+            assert.equal(pins.filter(x=>x.before).length,5);
+            assert.equal(pins.filter(x=>!x.before).length,2);pos++;
+            const current=raw(main,configPath);
+            assert.equal(current.split(oldCargo).length-1,1);
+            const patched=current.replace(oldCargo,newCargo);
+            const file=join(tmp,'protected-release-inputs-after.json');writeFileSync(file,patched);
+            assert.equal(g('hash-object','-w',file),configAfter);
+            assert.deepEqual(JSON.parse(patched),{...JSON.parse(current),cargoTomlGitBlob:newCargo});
+            assert.equal(JSON.parse(patched).cargoTomlGitBlob,newCargo);pos++;
+            assert.deepEqual(pins.map(x=>x.path).sort(),[
+              '.github/workflows/core-product-session-boundary.yml',
+              'crates/ddv-save-core/Cargo.toml',
+              'crates/ddv-save-core/src/indexed_read.rs',
+              'crates/ddv-save-core/src/semantic_writer.rs',
+              'crates/ddv-save-core/src/product_makeup_color1.rs',
+              'crates/ddv-save-core/src/product_eyeball_color2.rs',
+              configPath].sort());pos++;
+            for(const x of pins){
+              assert.deepEqual(entry(main,x.path),x.before,x.path);
+              assert.equal(x.after.mode,'100644');
+              assert.equal(g('cat-file','-t',x.after.blob),'blob',x.path);
+              if(x.path!==configPath)assert.deepEqual(entry(historic,x.path),x.after,'historical exact immutable after blob');
+              else assert.deepEqual(x.after,{mode:'100644',blob:configAfter});
+              pos++;
+            }
+            const source=commit(gate,pins.map(x=>[x.path,x.after]));
+            assert.equal(source.tree,expectedTree);
+            assert.equal(g('rev-parse',source.commit+':crates/ddv-save-core'),newCore);pos++;
+            const rollback=commit(source.commit,pins.map(x=>[x.path,x.before]));
+            assert.equal(rollback.tree,g('rev-parse',gate+'^{tree}'));pos++;
+            const answer=verifyAcceptedRustScope(process.cwd(),gate,source.commit);
+            assert.equal(answer.entryCount,7);assert.equal(answer.sourcePr,1952);
+            assert.equal(answer.mergeAuthorized,false);assert.equal(answer.writerAuthorized,false);pos++;
+            for(const x of pins){
+              reject(gate,commit(gate,pins.filter(y=>y.path!==x.path).map(y=>[y.path,y.after])).commit,'missing '+x.path);
+              reject(gate,commit(gate,pins.map(y=>[y.path,y.path===x.path?{mode:'100755',blob:y.after.blob}:y.after])).commit,'mode '+x.path);
+              reject(gate,commit(gate,pins.map(y=>[y.path,y.path===x.path?{mode:y.after.mode,blob:y.before?.blob??oldGateBlob}:y.after])).commit,'post blob '+x.path);
+            }
+            const extra=[
+              ['extra',{mode:'100644',blob:oldGateBlob},'unauthorized-addition.txt'],
+              ['gate-self',{mode:'100644',blob:oldGateBlob},gatePath],
+              ['Lock',{mode:'100644',blob:oldGateBlob},'scripts/wasm-distribution/approved-Cargo.lock'],
+              ['Pages',{mode:'100644',blob:oldGateBlob},'.github/workflows/pages.yml'],
+              ['issuer',{mode:'100644',blob:oldGateBlob},'scripts/wasm-distribution/verify-protected-release.mjs'],
+              ['wrong protected profile',{mode:'100644',blob:oldGateBlob},'src/lib/ddv/core/save/product-scoped-placement-release.mjs']
+            ];
+            for(const [name,blob,path] of extra){reject(gate,commit(gate,[...pins.map(x=>[x.path,x.after]),[path,blob]]).commit,name);}
+            reject(source.commit,gate,'reverse pair');
+            reject(main,source.commit,'pre-gate pair');
+            reject(main,gate,'gate-self not eligible as product');
+            reject(main,historic,'foreign old Source');
+            for(const p of ['.github/workflows/pages.yml','scripts/int-protected-ci-gate.mjs','scripts/wasm-distribution/approved-Cargo.lock','scripts/wasm-distribution/verify-protected-release.mjs','scripts/int-selection-preflight.mjs']){
+              assert.deepEqual(entry(main,p),entry(gate,p));pos++;
+            }
+            const older=[...pre.matchAll(/if\(baseCore==='([0-9a-f]{40})'\)/g)].map(x=>x[1]);
+            const latest=[...post.matchAll(/if\(baseCore==='([0-9a-f]{40})'\)/g)].map(x=>x[1]);
+            assert.deepEqual(latest.filter(x=>x!==oldCore),older);
+            assert.equal(latest.filter(x=>x===oldCore).length,1);
+            assert.equal(latest.length,older.length+1);pos++;
+            console.log('QRS_PR1980_APPEARANCE4_EXACT7_CARGO_L2_PASS',JSON.stringify({
+              pos,neg,pins:7,modified:5,added:2,sourceTree:source.tree,inverse:true,
+              oldCore,newCore,onlyCargoPin:true,priorProfiles:older.length,
+              protectedIssuerUnchanged:true,actualSignature:false,productWriterEnabled:false
+            }));
+          }finally{rmSync(tmp,{recursive:true,force:true})}
+          EOF
+          node /tmp/qrs-appearance4-exact7.mjs
