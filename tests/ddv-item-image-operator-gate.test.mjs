@@ -21,7 +21,7 @@ const image = {
   isPrivateSaveMedia: false, isUserCreatedMedia: false
 };
 
-test("sample remains OFF: Owner media decision is not a licence, contact or actual operation PASS", () => {
+test("actual verified single support contact clears ONLY mailbox check; image publication and operator review remain OFF", () => {
   assert.equal(template.ownerDecision, OWNER_IMAGE_DECISION);
   assert.equal(template.copyrightLicenceStatus, "UNKNOWN");
   assert.equal(template.publicationState, "OFF");
@@ -30,7 +30,20 @@ test("sample remains OFF: Owner media decision is not a licence, contact or actu
   const result = preflightGameImageOperatorReceipt(template);
   assert.equal(result.readyForOperatorReview, false);
   for (const code of IMAGE_NOTICE_LOCALES) assert.ok(result.reasons.includes("ATTRIBUTION_LOCALE_NOT_REVIEWED:" + code));
-  assert.ok(result.reasons.includes("WORKING_RIGHTS_CONTACT_NOT_PROVED"));
+  assert.deepEqual(template.rightsContact, {
+    url: "mailto:support@dreamwishwand.com",
+    tested: true,
+    verificationEvidenceRef: "E-07DBK-20261117-ACT419-SUPPORT-LIVE-INBOUND-OUTBOUND-SCOPED-PASS"
+  });
+  assert.ok(!result.reasons.includes("WORKING_RIGHTS_CONTACT_NOT_PROVED"));
+  for (const missing of [
+    null,
+    {...template.rightsContact, tested:false},
+    {...template.rightsContact, verificationEvidenceRef:null},
+    {...template.rightsContact, url:"mailto:invalid"}
+  ]) {
+    assert.ok(preflightGameImageOperatorReceipt({...template, rightsContact:missing}).reasons.includes("WORKING_RIGHTS_CONTACT_NOT_PROVED"));
+  }
   assert.ok(result.reasons.includes("EXPLICIT_OPERATOR_DEPLOYMENT_NOT_AUTHORIZED"));
 });
 
