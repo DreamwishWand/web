@@ -77,6 +77,86 @@ mod tests{
   let mut q=d.clone();q["Player"]["ListInventories"]["0"]["Inventory"]["40700007"]["Amount"]=json!(1);let z=open(&q,false);assert!(z.mint_steam626_bamboo_single_target(env(&z),90001,x,y).is_err());
   let mut q=d.clone();q["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX);let z=open(&q,false);assert!(z.mint_steam626_bamboo_single_target(env(&z),90001,x,y).is_err());
  }
+ #[test]
+ fn qa2003_bamboo_changed_target_readonly_contract(){
+  // Reproduce only independently disclosed saved *scalar* witness (9140);
+  // all placement/geometry/root bytes remain synthetic, NOT an actual private Save.
+  let (mut d,x,y)=fixture();
+  d["Player"]["ListInventories"]["0"]["Inventory"]["40700007"]["Amount"]=json!(9140);
+  let source=serde_json::to_vec(&d).unwrap();
+  let s=open(&d,false);let e=env(&s);let original=s.receipt().unwrap();
+  let t=s.mint_steam626_bamboo_single_target(e,90001,x,y).unwrap();
+  assert_eq!((t.grid,t.x,t.y,t.next,t.stock),(90001,x,y,50,9140));
+  assert_eq!(t.scope,e);
+  assert_eq!(s.receipt().unwrap(),original);
+  assert_eq!(s.decoded.as_ref(),source.as_slice());
+  let mut neg=0u32;
+  // Table enumerates changed ItemID/physical inventory/geometry/reference boundaries,
+  // without touching existing Road or single ordinary Fence semantics.
+  for case in 0..22{
+   let mut bad=d.clone();
+   match case{
+    0=>bad["Player"]["ListInventories"]["0"]["Inventory"]["40700007"]["Amount"]=json!(0),
+    1=>bad["Player"]["ListInventories"]["0"]["Inventory"]["40700007"]["Amount"]=json!(1),
+    2=>bad["Player"]["ListInventories"]["0"]["Inventory"]["40700007"]["Amount"]=json!(10000),
+    3=>bad["Player"]["ListInventories"]["0"]["Inventory"]["40700007"]["Marker"]=json!("ItemMarker_Favorite"),
+    4=>{bad["Player"]["ListInventories"]["0"]["Inventory"]["40700007"].as_object_mut().unwrap().remove("Marker");},
+    5=>bad["Player"]["ListInventories"]["0"]["CompatibleItemType"]=json!("ItemType_ActivityItem"),
+    6=>bad["Player"]["ListInventories"]["0"]["ID"]=json!(2),
+    7=>bad["Player"]["ListInventories"]["1"]=json!({"ID":1,"CompatibleItemType":"ItemType_Furniture","Inventory":{"40700007":{"Amount":2,"Marker":"ItemMarker_None"}}}),
+    8=>bad["World"]["Villages"][0]["Areas"]["2"]["Unlocked"]=json!(false),
+    9=>bad["World"]["GridCollection"]["Grids"]["90001"]["TessellationFactor"]=json!(1),
+    10=>bad["World"]["GridCollection"]["Grids"]["90001"]["GridDataPath"]=json!("foreign/noncanonical"),
+    11=>bad["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(10),
+    12=>bad["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX),
+    13=>{bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"]=json!(x);bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"]=json!(y);},
+    14=>{bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"]=json!(x+2);bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"]=json!(y);},
+    15=>{bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["X"]=json!(x+3);bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["Y"]=json!(y);},
+    16=>bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["ID"]=json!(11),
+    17=>bad["World"]["GridCollection"]["Grids"]["90001"]["Objects"]["10"]["State"]=json!({"FenceMode":{"Diagonal":true}}),
+    18=>bad["World"]["UnknownAlias"]=json!({"GridID":90001,"ObjectID":50}),
+    19=>bad["World"]["GridCollection"]["Grids"]["90001"]["ID"]=json!(90002),
+    20=>bad["World"]["Villages"][0]["Areas"]["2"]["GridIDs"]=json!([90002]),
+    _=>bad["World"]["GridCollection"]["Grids"]["90001"]["GridDefaultLayoutPath"]=json!("unexpected"),
+   }
+   let q=open(&bad,false);
+   assert!(q.mint_steam626_bamboo_single_target(env(&q),90001,x,y).is_err(),"bamboo negative {case}");
+   neg+=1;
+  }
+  assert!(s.mint_steam626_bamboo_single_target(WorkerEnvelope{action:WorkerAction::Stage,..e},90001,x,y).is_err());neg+=1;
+  assert!(s.mint_steam626_bamboo_single_target(WorkerEnvelope{expected_revision:1,..e},90001,x,y).is_err());neg+=1;
+  assert!(s.mint_steam626_bamboo_single_target(WorkerEnvelope{expected_index_generation:e.expected_index_generation+1,..e},90001,x,y).is_err());neg+=1;
+  assert!(s.mint_steam626_bamboo_single_target(WorkerEnvelope{expected_decoded_sha256:[0;32],..e},90001,x,y).is_err());neg+=1;
+  let foreign=open(&d,false);
+  assert!(foreign.mint_steam626_bamboo_single_target(e,90001,x,y).is_err());neg+=1;
+  let switch=open(&d,true);
+  assert!(switch.mint_steam626_bamboo_single_target(env(&switch),90001,x,y).is_err());neg+=1;
+  assert!(s.mint_steam626_bamboo_single_target(e,90001,x+1,y).is_err());neg+=1;
+  assert!(s.mint_steam626_bamboo_single_target(e,90001,392,y).is_err());neg+=1;
+  assert_eq!(neg,30);
+  assert_eq!(s.receipt().unwrap(),original);
+  assert_eq!(s.decoded.as_ref(),source.as_slice());
+  std::fs::write("/tmp/qrc2003-bamboo-fixture.json",&source).unwrap();
+  std::fs::write("/tmp/qrc2003-bamboo-xy.txt",format!("{x},{y}")).unwrap();
+  println!("QRC2003_BAMBOO_SYNTHETIC_TARGET_PASS 1POS 30NEG EXACT_ITEM40700007 STOCK9140 NO_DEBIT ORIGINAL_UNCHANGED RIGHTS_UNKNOWN ACTUAL_PRIVATE_TARGET_NOT_RUN");
+ }
+ #[test]
+ #[ignore="Run in separate cargo test process after synthetic fixture emission"]
+ fn qa2003_bamboo_child_readonly_reopen(){
+  let bytes=std::fs::read("/tmp/qrc2003-bamboo-fixture.json").unwrap();
+  let coord_text=std::fs::read_to_string("/tmp/qrc2003-bamboo-xy.txt").unwrap();
+  let (left,right)=coord_text.trim().split_once(',').unwrap();
+  let(x,y)=(left.parse::<u32>().unwrap(),right.parse::<u32>().unwrap());
+  let d:Value=serde_json::from_slice(&bytes).unwrap();
+  let s=open(&d,false);let before=s.receipt().unwrap();let e=env(&s);
+  let t=s.mint_steam626_bamboo_single_target(e,90001,x,y).unwrap();
+  assert_eq!((t.grid,t.next,t.stock),(90001,50,9140));
+  assert_eq!(s.receipt().unwrap(),before);
+  assert_eq!(s.decoded.as_ref(),bytes.as_slice());
+  assert!(s.mint_steam626_bamboo_single_target(WorkerEnvelope{action:WorkerAction::Stage,..e},90001,x,y).is_err());
+  println!("QRC2003_BAMBOO_SYNTHETIC_CHILD_READONLY_REOPEN_PASS NO_DEBIT NOT_GENUINE_ENCRYPTED_P1G");
+ }
+
 }
 
 #[cfg(test)]
