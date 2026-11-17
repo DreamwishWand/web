@@ -35,7 +35,6 @@ jobs:
           PATHS
           diff -u /tmp/qrw1926-expected /tmp/qrw1926-actual
           test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = '2c8896e53aabe8eb7586d4a1b3dc953fba27d31a'
-          node --test tests/product-appearance-four-route-preview-selector.test.mjs
           grep -F '(wardrobe||appearance||eye||makeup)?undefined' src/lib/dev/LocalPlacementEditorDev.svelte
           test "$(git rev-parse HEAD:src/lib/dev/PlacementProductRoute.svelte)" = 'b5c78b306d059ae0f73b8f63306a67506ea7748d'
           grep -F 'PROTECTED_MAKEUP_COLOR1_RELEASE_ANCHOR=null' src/lib/ddv/core/save/product-scoped-makeup-color1-release-anchor.mjs
@@ -67,6 +66,8 @@ jobs:
           sha256sum -c /tmp/qrw1926-lock.sha
           git diff --exit-code -- src/lib tests/helpers/p1g-fixture.mjs
       - run: npm ci --no-audit --no-fund
+      - name: Source PR1992 independent focused Svelte regression after npm dependencies
+        run: node --test tests/product-appearance-four-route-preview-selector.test.mjs
       - run: npm install --no-save --package-lock=false playwright-core@1.55.0
       - name: Actual Steam626 MakeupColor1 Worker Chrome OPFS and independent codec Reopen
         run: |
