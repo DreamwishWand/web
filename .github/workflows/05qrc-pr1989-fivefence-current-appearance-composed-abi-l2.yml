@@ -1,0 +1,61 @@
+name: 05 QR-C PR1989 current Appearance FiveFence composed ABI L2 QA ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-pr1989-fivefence-current-appearance-composed-abi-l2.yml'
+      - 'crates/ddv-save-core/src/fence_product_target.rs'
+permissions:
+  contents: read
+jobs:
+  qrc1989-composed-fivefence-abi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TARGET_DIR: /tmp/qrc1989-composed-cargo
+      CARGO_INCREMENTAL: 0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed Source Git + QA-only path and unchanged cross-feature Core scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=aa48ef10152c181059745415836956eab861168f
+          git cat-file -e "$SOURCE^{commit}"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          git diff --name-only "$SOURCE" HEAD | LC_ALL=C sort > /tmp/qrc1989-diff
+          printf '%s\n' '.github/workflows/05qrc-pr1989-fivefence-current-appearance-composed-abi-l2.yml' \
+            'crates/ddv-save-core/src/fence_product_target.rs' | LC_ALL=C sort > /tmp/qrc1989-allowed
+          diff -u /tmp/qrc1989-allowed /tmp/qrc1989-diff
+          git diff --exit-code "$SOURCE" HEAD -- \
+            .github/workflows/core-product-session-boundary.yml \
+            crates/ddv-save-core/Cargo.toml \
+            crates/ddv-save-core/src/semantic_writer.rs \
+            crates/ddv-save-core/src/sr03_installed_geometry.rs \
+            crates/ddv-save-core/src/worker_session.rs \
+            crates/ddv-save-core/src/wasm_worker.rs \
+            crates/ddv-save-core/src/wasm_switch626_fixed_fence_add.rs \
+            crates/ddv-save-core/src/fence_product_geometry.rs \
+            scripts/wasm-distribution/protected-release-inputs.json
+          grep -Fq 'fn qrc1989_composed_appearance_fence_abi_5pos60neg' crates/ddv-save-core/src/fence_product_target.rs
+          echo QRC1989_FIXED_SOURCE_QA_ONLY_EXACT2_UNCHANGED_PRODUCT_ABI_PASS
+      - name: Fixed new-ABI current Appearance co-compiled Rust 5POS 60NEG with typed CAS+decoded Reopen
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest=crates/ddv-save-core/Cargo.toml
+          features=product-switch626-fence-add-stage-internal,product-switch626-makeup-color1-internal,product-switch626-eyecolor2-internal
+          cargo generate-lockfile --manifest-path "$manifest"
+          sha256sum crates/ddv-save-core/Cargo.lock > /tmp/qrc1989-lock
+          cargo test --locked --manifest-path "$manifest" --features "$features" --lib qrc1989_composed_appearance_fence_abi_5pos60neg -- --nocapture
+          # Five previously accepted geometric Ops under the NEW combined
+          # shared feature tuple only; not a blanket redo of old per-Op QA.
+          cargo test --locked --manifest-path "$manifest" --features "$features" --lib fixed_add_tests -- --nocapture
+          cargo check --locked --manifest-path "$manifest" --target wasm32-unknown-unknown \
+            --no-default-features --features worker-wasm,"$features"
+          sha256sum -c /tmp/qrc1989-lock
+          echo QRC1989_COMPOSED_L2_FOCUS_COMPLETE_PRIVATE_P1G_NOT_RUN_NO_WRITER_ON
