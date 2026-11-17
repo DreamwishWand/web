@@ -4,7 +4,11 @@
   "ownerDecision": "OWNER_GO_FOR_DDV_GAME_IMAGES_20261105",
   "copyrightLicenceStatus": "UNKNOWN",
   "copyrightLicenceEvidenceRef": null,
-  "rightsContact": null,
+  "rightsContact": {
+    "url": "mailto:support@dreamwishwand.com",
+    "tested": true,
+    "verificationEvidenceRef": "E-07DBK-20261117-ACT419-SUPPORT-LIVE-INBOUND-OUTBOUND-SCOPED-PASS"
+  },
   "assetBundleSha256": null,
   "assetManifestEvidenceRef": null,
   "deploymentAuthorizationRef": null,
@@ -87,5 +91,5 @@
   "suppressionLedger": [],
   "suppressionLedgerProvenance": "NOT_VERIFIED",
   "publicationState": "OFF",
-  "notes": "No game artwork, raw Save, private media, real contact, approval, asset bytes or deployment receipt is included."
+  "notes": "Only the single Owner-verified support@dreamwishwand.com receiving and reply address is evidenced. No game artwork, raw Save, private media, external correspondent, copyright licence permission, eight-locale human rights notice review, image takedown/CDN/rollback result, asset bytes or deployment authorization is included."
 }
