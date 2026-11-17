@@ -1,0 +1,201 @@
+name: "04 QR-S ACT1620 Steam626 Makeup exact8 R22/Cargo Security L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qrs-act1620-pr2009-makeup-r22-exact8-l2.yml"
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 31aa81b97ba6a3f9bb152a310bd9d7f5b21ef9d6
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Fetch immutable actual current Makeup Source PR2006
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e 8abad34033967b524e88d7be3c19ca259f081437^{commit} || git fetch --no-tags origin 8abad34033967b524e88d7be3c19ca259f081437
+      - name: Independent Git blob and adversarial exact8 R22/Cargo verification (no signer)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-makeup-r22-exact8.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {mkdtempSync,rmSync,writeFileSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {runInNewContext} from 'node:vm';
+
+          const cwd=process.cwd(), parent='0873503a14901cffa114b35e265d6f17cafe5bbc',
+            gate='31aa81b97ba6a3f9bb152a310bd9d7f5b21ef9d6',
+            original='8abad34033967b524e88d7be3c19ca259f081437',
+            gatePath='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
+            cfgPath='scripts/wasm-distribution/protected-release-inputs.json',
+            oldGate='dbada6f40c564b9a151eeea6a83580f7f02e5271',
+            newGate='e614ad232a11faff21f8dbef7c7943d1d54369f5',
+            baseCore='fa23c80199225e20639be7da80c8236b4b82a013',
+            targetCore='82d9500795262b9475160285a2778333d91603ea',
+            cargoBefore='2f8452ee3c7a45bab9bb6cb7ab62010120e37c44',
+            cargoAfter='d66296a76c6c380fb4475c70b20e3ebb00adc7eb',
+            configBefore='f81df4334a4d75760f33607eeca4385adffc966c',
+            configAfter='f70ddb4e88900d12fa426519ea7315c2e0812ba2';
+          const temp=mkdtempSync(join(tmpdir(),'qrs-pr2009-'));
+          const env={...process.env,GIT_INDEX_FILE:join(temp,'index'),GIT_NO_REPLACE_OBJECTS:'1',
+            GIT_AUTHOR_NAME:'QR-S test',GIT_AUTHOR_EMAIL:'qa@example.invalid',
+            GIT_COMMITTER_NAME:'QR-S test',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
+          const git=(...args)=>execFileSync('git',args,{cwd,env,encoding:'utf8',maxBuffer:16*1024*1024}).trim();
+          const blob=(ref,path)=>execFileSync('git',['show',ref+':'+path],{cwd,env,encoding:'utf8',maxBuffer:16*1024*1024});
+          const entry=(ref,path)=>{
+            const line=git('ls-tree',ref,'--',path);
+            if(!line)return null;
+            const m=/^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/.exec(line);
+            assert.ok(m&&m[3]===path,'unexpected Git mode/path '+path);
+            return {mode:m[1],blob:m[2]};
+          };
+          const patchIndex=(path,e)=>e?git('update-index','--add','--cacheinfo',e.mode,e.blob,path):git('update-index','--force-remove','--',path);
+          const project=(base,pairs)=>{
+            git('read-tree',base);
+            for(const [path,e] of pairs)patchIndex(path,e);
+            const tree=git('write-tree'),commit=git('commit-tree',tree,'-p',base,'-m','QA-only isolated projection');
+            return {tree,commit};
+          };
+          let positive=0,negative=0;
+          let verifyAcceptedRustScope;
+          const reject=(base,head,reason)=>{
+            assert.throws(()=>verifyAcceptedRustScope(cwd,base,head),/R22_ACCEPTED_SCOPE|SELECTION|error|Error/i,reason);
+            negative++;
+          };
+          try{
+            ({verifyAcceptedRustScope}=await import('file://'+cwd+'/'+gatePath));
+            assert.equal(git('rev-parse','HEAD'),gate);
+            assert.equal(git('rev-parse',gate+'^'),parent);
+            assert.equal(git('merge-base',parent,original),parent,'fixed original Source must be descended from reviewed main');
+            assert.deepEqual(git('diff','--name-only',parent,gate).split('\n'),[gatePath]);
+            assert.equal(entry(parent,gatePath)?.blob,oldGate);
+            assert.equal(entry(gate,gatePath)?.blob,newGate);
+            positive++;
+
+            const oldText=blob(parent,gatePath),newText=blob(gate,gatePath);
+            const marker='// 09P-CODE 2026-11-17 fixed Steam626 active Male Makeup slot1 ColorIndex1.';
+            const blockStart=newText.indexOf(marker),blockEnd=newText.indexOf('const gatePaths=',blockStart);
+            const pairStart=newText.indexOf(" if(baseCore==='"+baseCore+"')",blockEnd);
+            const pairEnd=newText.indexOf(" deny('BASE_CORE_TREE');",pairStart);
+            assert.ok(blockStart>0&&blockEnd>blockStart&&pairStart>blockEnd&&pairEnd>pairStart);
+            assert.equal(newText.slice(0,blockStart)+newText.slice(blockEnd,pairStart)+newText.slice(pairEnd),oldText,
+              'R22 Gate must be additive only, preserving every old selector and guard');
+            positive++;
+
+            const decl=newText.indexOf('const steam626MakeupGeneratedAfterFiveFenceExact8Entries=');
+            const open=newText.indexOf('[',decl),close=newText.indexOf('];',open);
+            assert.ok(decl>0&&open>decl&&close>open);
+            const pins=JSON.parse(JSON.stringify(runInNewContext('('+newText.slice(open,close+1)+')')));
+            assert.equal(pins.length,8);
+            assert.equal(new Set(pins.map(x=>x.path)).size,8);
+            assert.equal(pins.filter(x=>x.before===null).length,2);
+            assert.equal(pins.filter(x=>x.before!==null).length,6);
+            const expectedPaths=[
+              '.github/workflows/core-product-session-boundary.yml',
+              'crates/ddv-save-core/Cargo.toml',
+              'crates/ddv-save-core/src/product_makeup_color1.rs',
+              'crates/ddv-save-core/src/wasm_steam626_makeup_color1.rs',
+              'crates/ddv-save-core/src/wasm_worker.rs',
+              'crates/ddv-save-core/src/worker_session.rs',
+              'crates/ddv-save-core/src/worker_steam626_makeup_color1.rs',
+              cfgPath];
+            assert.deepEqual(pins.map(x=>x.path).sort(),expectedPaths.sort());
+            assert.deepEqual(git('diff','--name-only',parent,original).split('\n').sort(),expectedPaths.filter(x=>x!==cfgPath).sort());
+            positive++;
+
+            const configSrc=blob(parent,cfgPath),before=JSON.parse(configSrc);
+            assert.equal(entry(parent,cfgPath)?.blob,configBefore);
+            assert.equal(before.cargoTomlGitBlob,cargoBefore);
+            assert.equal(configSrc.split(cargoBefore).length-1,1);
+            const updatedBytes=configSrc.replace(cargoBefore,cargoAfter);
+            const generated=join(temp,'future-protected-release-inputs.json');
+            writeFileSync(generated,updatedBytes);
+            assert.equal(git('hash-object','-w',generated),configAfter);
+            assert.deepEqual(JSON.parse(updatedBytes),{...before,cargoTomlGitBlob:cargoAfter});
+            assert.equal(JSON.parse(updatedBytes).writerEnabled,false);
+            assert.equal(JSON.parse(updatedBytes).productConsumerEnabled,false);
+            assert.deepEqual(JSON.parse(updatedBytes).features,['indexed-read','worker-wasm']);
+            positive++;
+
+            for(const x of pins){
+              assert.deepEqual(entry(gate,x.path),x.before,'actual fixed Gate preimage '+x.path);
+              if(x.path===cfgPath)assert.deepEqual(x.after,{mode:'100644',blob:configAfter});
+              else assert.deepEqual(entry(original,x.path),x.after,'actual PR2006 accepted source postblob '+x.path);
+              assert.equal(x.after.mode,'100644');
+              assert.equal(git('cat-file','-t',x.after.blob),'blob');
+              positive++;
+            }
+            assert.equal(git('rev-parse',gate+':crates/ddv-save-core'),baseCore);
+            assert.equal(git('rev-parse',original+':crates/ddv-save-core'),targetCore);
+            const composed=project(gate,pins.map(x=>[x.path,x.after]));
+            assert.equal(git('rev-parse',composed.commit+':crates/ddv-save-core'),targetCore);
+            assert.deepEqual(git('diff','--name-only',gate,composed.commit).split('\n').sort(),pins.map(x=>x.path).sort());
+            const receipt=verifyAcceptedRustScope(cwd,gate,composed.commit);
+            assert.equal(receipt.entryCount,8);
+            assert.equal(receipt.sourcePr,2006);
+            assert.equal(receipt.protectedInputOnlyCargoBlobPin,true);
+            assert.equal(receipt.mergeAuthorized,false);
+            assert.equal(receipt.writerAuthorized,false);
+            positive++;
+
+            const inverse=project(composed.commit,pins.map(x=>[x.path,x.before]));
+            assert.equal(inverse.tree,git('rev-parse',gate+'^{tree}'));
+            positive++;
+
+            for(const pin of pins){
+              reject(gate,project(gate,pins.filter(x=>x.path!==pin.path).map(x=>[x.path,x.after])).commit,'missing '+pin.path);
+              reject(gate,project(gate,pins.map(x=>[x.path,x.path===pin.path?{mode:'100755',blob:x.after.blob}:x.after])).commit,'mode '+pin.path);
+              reject(gate,project(gate,pins.map(x=>[x.path,x.path===pin.path?{mode:'100644',blob:x.before?.blob??oldGate}:x.after])).commit,'wrong blob '+pin.path);
+            }
+            const extra=[
+              '.github/workflows/pages.yml',
+              'scripts/int-protected-ci-gate.mjs',
+              'scripts/wasm-distribution/verify-protected-release.mjs',
+              'scripts/wasm-distribution/approved-Cargo.lock',
+              'scripts/int-selection-preflight.mjs',
+              gatePath,
+              'src/lib/ddv/core/save/product-scoped-placement-release.mjs',
+              'unapproved-makeup-target.txt'];
+            for(const p of extra){
+              const altered=project(gate,[...pins.map(x=>[x.path,x.after]),[p,{mode:'100644',blob:oldGate}]]);
+              reject(gate,altered.commit,'extra '+p);
+            }
+            reject(parent,composed.commit,'Gate not installed on parent');
+            reject(gate,gate,'no-op not accepted');
+            reject(composed.commit,gate,'reverse pair');
+            reject(parent,original,'original missing release Cargo pin');
+            reject(parent,gate,'Gate itself is not product Source');
+            for(const p of ['.github/workflows/pages.yml',
+              'scripts/int-protected-ci-gate.mjs',
+              'scripts/wasm-distribution/verify-protected-release.mjs',
+              'scripts/wasm-distribution/approved-Cargo.lock',
+              'scripts/int-selection-preflight.mjs']){
+              assert.deepEqual(entry(parent,p),entry(gate,p),'protected issuer/Lock/Auth drift '+p);
+              positive++;
+            }
+            const beforePairs=[...oldText.matchAll(/if\(baseCore==='([0-9a-f]{40})'\)/g)].map(x=>x[1]);
+            const afterPairs=[...newText.matchAll(/if\(baseCore==='([0-9a-f]{40})'\)/g)].map(x=>x[1]);
+            assert.deepEqual(afterPairs.filter(x=>x!==baseCore),beforePairs);
+            assert.equal(afterPairs.filter(x=>x===baseCore).length,1);
+            assert.equal(afterPairs.length,beforePairs.length+1);
+            positive++;
+            console.log('QRS_ACT1620_MAKEUP_EXACT8_R22_CARGO_SECURITY_L2_PASS',JSON.stringify({
+              positive,negative,pins:8,sourceLeafCount:7,cargoPinFieldOnly:true,
+              originalSourcePostGitBlobsExact:true,currentCorePairExact:true,
+              issuerAndLockUnchanged:true,priorProfiles:beforePairs.length,
+              publicWriter:false,actualSignedRelease:false,genuineOwnerOriginalV2:false}));
+          }finally{rmSync(temp,{recursive:true,force:true});}
+          NODE
+          node qa-makeup-r22-exact8.mjs
