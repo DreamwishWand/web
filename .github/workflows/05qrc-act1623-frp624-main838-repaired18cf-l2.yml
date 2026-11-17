@@ -1,0 +1,53 @@
+name: 05 QR-C ACT1623 Switch624 FRP624 repaired Source18cf ABI L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-act1623-frp624-main838-repaired18cf-l2.yml'
+      - 'tests/qa/qrc2012-frp624-main838-repaired18cf-generated.cjs'
+      - 'crates/ddv-save-core/src/frp624_product_target.rs'
+permissions:
+  contents: read
+jobs:
+  qrc2012-generated-frp624:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrc2012-cargo-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed Source identity and changed-only QA boundary
+        run: |
+          set -euo pipefail
+          git cat-file -e 18cf476873a8c6b469748372604004e86f41e31b^{commit}
+          test "$(git merge-base 18cf476873a8c6b469748372604004e86f41e31b HEAD)" = 18cf476873a8c6b469748372604004e86f41e31b
+          git diff --name-only 18cf476873a8c6b469748372604004e86f41e31b HEAD | LC_ALL=C sort >/tmp/qrc2012-actual-paths
+          printf '%s\n' '.github/workflows/05qrc-act1623-frp624-main838-repaired18cf-l2.yml' 'crates/ddv-save-core/src/frp624_product_target.rs' 'tests/qa/qrc2012-frp624-main838-repaired18cf-generated.cjs' | LC_ALL=C sort >/tmp/qrc2012-expected-paths
+          diff -u /tmp/qrc2012-expected-paths /tmp/qrc2012-actual-paths
+          git diff --exit-code 18cf476873a8c6b469748372604004e86f41e31b HEAD -- crates/ddv-save-core/Cargo.toml crates/ddv-save-core/src/wasm_switch624_frp01.rs crates/ddv-save-core/src/wasm_worker.rs crates/ddv-save-core/src/worker_session.rs crates/ddv-save-core/src/worker_switch624_frp01.rs
+          echo QRC2012_MAIN838_FIXED_SOURCE_QA_ONLY_BOUNDARY_PASS
+      - name: Actual generated Worker ABI, independent CAS and child reopen
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock > /tmp/qrc2012-lock.sha
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-switch624-frp01-scoped --lib qa2012_emit_main838_frp624_generated_fixture -- --ignored --nocapture
+          test -s /tmp/qrc2012-frp624-source.json
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrc2012-bindgen
+          for profile in off own mixedmakeup mixedamount; do
+            case "$profile" in
+              off) features='worker-wasm,indexed-read' ;;
+              own) features='worker-wasm,product-switch624-frp01-scoped' ;;
+              mixedmakeup) features='worker-wasm,product-switch624-frp01-scoped,product-steam626-makeup-color1-scoped' ;;
+              mixedamount) features='worker-wasm,product-switch624-frp01-scoped,product-amount-scoped' ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            /tmp/wand-qrc2012-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "/tmp/qrc2012-$profile" --target nodejs --no-typescript
+          done
+          sha256sum -c /tmp/qrc2012-lock.sha
+          node --check tests/qa/qrc2012-frp624-main838-repaired18cf-generated.cjs
+          node tests/qa/qrc2012-frp624-main838-repaired18cf-generated.cjs
