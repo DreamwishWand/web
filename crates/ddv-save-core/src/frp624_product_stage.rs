@@ -29,7 +29,7 @@ impl ProductSession{
   need(digest(b,root)?==t.root_sha&&digest(b,g)?==t.grid_sha&&
     digest(b,counter)?==t.counter_sha&&digest(b,houses_span)?==t.houses_sha&&
     n(b,g,"NextGridObjectID")?==t.next,"FRP01_STAGE_ROOT_CAS")?;
-  let (old_stock,old_entry)=super::super::fm01_product_target::catalog(b,roots.player)?;
+  let (old_stock,old_entry)=super::super::fixed_fence_catalog(b,roots.player)?;
   let (new_stock,new_entry)=new_catalog(b,roots.player)?;
   need((old_stock,new_stock)==(t.old_stock,t.new_stock)&&
     digest(b,old_entry)?==t.old_stock_sha&&digest(b,new_entry)?==t.new_stock_sha,
