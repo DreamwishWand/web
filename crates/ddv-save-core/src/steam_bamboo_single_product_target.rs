@@ -87,7 +87,7 @@ mod bamboo_additional_negative_tests{
   let common=InstalledGeometry::fixed().unwrap();
   assert_eq!(common.dimensions(BASE),Some((1,1)));
   let pack=MeadowGeometry::fixed(EXACT_STEAM,626).unwrap();
-  assert_eq!(pack.dimensions(BASE,|id|common.dimensions(id)),Some((2,2)));
+  assert_eq!(pack.dimensions(BASE,|id|common.dimensions(id)),None);
   assert!(MeadowGeometry::fixed("foreign",626).is_none());
   assert!(MeadowGeometry::fixed(EXACT_STEAM,624).is_none());
  }

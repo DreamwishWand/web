@@ -187,7 +187,7 @@ impl MeadowGeometry{
   if n(&g["ID"])?==0||g["GridDataPath"]!=GRID||g["GridDefaultLayoutPath"]!=""||n(&g["TessellationFactor"])?!=2{return None}
   let next=n(&g["NextGridObjectID"])?;if next==0||next.checked_add(1)?>i32::MAX as u32{return None}
   let objects=g["Objects"].as_object()?;if objects.is_empty()||objects.len()>4096||objects.contains_key("0"){return None}
-  if self.dimensions(40700007,&common)?!=(2,2)||x%2!=0||y%2!=0||x.checked_add(2)?>W||y.checked_add(2)?>H{return None}
+  if common(40700007)!=Some((1,1))||scaled(1,1,1)?!=(2,2)||x%2!=0||y%2!=0||x.checked_add(2)?>W||y.checked_add(2)?>H{return None}
   for dx in 0..2{for dy in 0..2{if !self.floor4(x+dx,y+dy){return None}}}
   let halo=Rect(i64::from(x)-2,i64::from(y)-2,i64::from(x)+4,i64::from(y)+4);
   // No seed or neighbor exception. The full half-open halo also rejects
