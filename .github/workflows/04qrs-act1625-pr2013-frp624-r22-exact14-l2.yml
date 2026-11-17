@@ -135,7 +135,14 @@ jobs:
             assert.equal(git('rev-parse',gate+':crates/ddv-save-core'),baseCore);
             assert.equal(git('rev-parse',source+':crates/ddv-save-core'),targetCore);
             const projected=project(gate,pins.map(x=>[x.path,x.after]));
-            assert.equal(projected.tree,expectedTree);
+            const preGateProjected=project(main,pins.map(x=>[x.path,x.after]));
+            console.log('QRS_ACT1625_PROJECTED_TREE_DIAGNOSTIC',JSON.stringify({
+              documentedExpected:expectedTree,preGateSourceTree:preGateProjected.tree,
+              actualGateThenExact14Tree:projected.tree,
+              expectedMatchedPreGate:expectedTree===preGateProjected.tree,
+              expectedMatchedActual:expectedTree===projected.tree
+            }));
+            assert.equal(projected.tree,expectedTree,'Gate-source documented projectedProductTree must bind actual protected Gate+14 Source composition');
             assert.equal(git('rev-parse',projected.commit+':crates/ddv-save-core'),targetCore);
             const receipt=verifyAcceptedRustScope(cwd,gate,projected.commit);
             assert.equal(receipt.entryCount,14);
