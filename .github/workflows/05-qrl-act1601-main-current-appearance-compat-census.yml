@@ -1,0 +1,202 @@
+name: 05 QR-L ACT1601 current-main Appearance3 temporary ABI compatibility (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05-qrl-act1601-main-current-appearance-compat-census.yml'
+permissions:
+  contents: read
+jobs:
+  current-main-temporary-port:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - op: switch626-makeup-color1
+            historic: 07fe06eed7fea8eb08d55c13f5d40064068984dc
+            featuredep: product-switch626-makeup-color1-internal
+            wasmsrc: wasm_switch626_makeup_color1.rs
+            guardsrc: worker_switch626_makeup_color1.rs
+            domain: SwitchMakeupColor1
+            method: switch626_makeup_color1
+          - op: steam626-eyecolor2
+            historic: 320e56c75773d182d7c1306bfaf606e09975742d
+            featuredep: semantic-writer-dev
+            wasmsrc: wasm_steam626_eyecolor2.rs
+            guardsrc: worker_steam626_eyecolor2.rs
+            domain: EyeColor2
+            method: steam626_eyecolor2
+          - op: switch626-eyecolor2
+            historic: b6a0faee1b5d3f02ca735b9e99cd3629cb5725a6
+            featuredep: product-switch626-eyecolor2-internal
+            wasmsrc: wasm_switch626_eyecolor2.rs
+            guardsrc: worker_switch626_eyecolor2.rs
+            domain: SwitchEyeColor2
+            method: switch626_eyecolor2
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrl-compat-target
+      QRL_BASE: 'd63b9c47a9271c30186e546bff0b2cf0ebabde48'
+      QRL_QA_FILE: '.github/workflows/05-qrl-act1601-main-current-appearance-compat-census.yml'
+      QRL_OP: ${{ matrix.op }}
+      QRL_HISTORIC: ${{ matrix.historic }}
+      QRL_DEP: ${{ matrix.featuredep }}
+      QRL_WASM_SRC: ${{ matrix.wasmsrc }}
+      QRL_GUARD_SRC: ${{ matrix.guardsrc }}
+      QRL_DOMAIN: ${{ matrix.domain }}
+      QRL_METHOD: ${{ matrix.method }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact QA-only change scope and immutable current main/old Source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only "$QRL_BASE" HEAD | wc -l)" -eq 1
+          git diff --name-only "$QRL_BASE" HEAD | grep -Fx "$QRL_QA_FILE"
+          test -z "$(git diff --name-only "$QRL_BASE" HEAD -- crates scripts src static)"
+          git worktree add --detach /tmp/wand-qrl-compat-main "$QRL_BASE"
+          git -c protocol.version=2 fetch --no-tags origin "$QRL_HISTORIC"
+          test "$(git rev-parse FETCH_HEAD)" = "$QRL_HISTORIC"
+          git worktree add --detach /tmp/wand-qrl-compat-historic "$QRL_HISTORIC"
+          test "$(git -C /tmp/wand-qrl-compat-main rev-parse HEAD)" = "$QRL_BASE"
+          test "$(git -C /tmp/wand-qrl-compat-historic rev-parse HEAD)" = "$QRL_HISTORIC"
+          test ! -e /tmp/wand-qrl-compat-main/crates/ddv-save-core/src/"$QRL_WASM_SRC"
+          test ! -e /tmp/wand-qrl-compat-main/crates/ddv-save-core/src/"$QRL_GUARD_SRC"
+      - name: Temporary in-worktree thin old ABI port against actual current ProductSession
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,shutil
+          op=os.environ['QRL_OP']
+          dep=os.environ['QRL_DEP']
+          method=os.environ['QRL_METHOD']
+          dom=os.environ['QRL_DOMAIN']
+          feature='product-'+op+'-scoped'
+          src=Path('/tmp/wand-qrl-compat-historic/crates/ddv-save-core/src')
+          dst=Path('/tmp/wand-qrl-compat-main/crates/ddv-save-core/src')
+          cargo=Path('/tmp/wand-qrl-compat-main/crates/ddv-save-core/Cargo.toml')
+          orig=cargo.read_text()
+          assert feature not in orig and dep in orig
+          assert '[dependencies]' in orig
+          cargo.write_text(orig.replace('[dependencies]', '# QRL QA ONLY TEMP SOURCE, NO RELEASE\n'+feature+' = ["'+dep+'"]\n\n[dependencies]',1))
+          for e in ['QRL_WASM_SRC','QRL_GUARD_SRC']:
+              name=os.environ[e]
+              assert (src/name).exists() and not (dst/name).exists()
+              shutil.copyfile(src/name,dst/name)
+          # Older guarded adapter lives in the existing Rust Guard/Session/semantic lifecycle.
+          old='feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")'
+          new='feature="product-steam626-makeup-color1-scoped",feature="'+feature+'",all(feature="product-collection-scoped",feature="semantic-writer-dev")'
+          for name in ['wasm_worker.rs','worker_session.rs']:
+              path=dst/name
+              s=path.read_text()
+              assert s.count(old)>=2,(name,s.count(old))
+              s=s.replace(old,new)
+              if name=='wasm_worker.rs':
+                  sentinel='MakeupColor1, SwitchFrp01 }'
+                  assert s.count(sentinel)==1
+                  s=s.replace(sentinel,'MakeupColor1, SwitchFrp01, '+dom+' }')
+                  # Ensure old Steam Makeup exported surface is hidden in mixed profiles.
+                  oldSteam='feature="product-switch626-eyecolor2-internal",feature="product-switch624-frp01-scoped"'
+                  assert s.count(oldSteam)==1
+                  s=s.replace(oldSteam,'feature="product-switch626-eyecolor2-internal",feature="product-switch624-frp01-scoped",feature="'+feature+'"')
+                  blocked=['product-steam626-makeup-color1-scoped','product-amount-scoped','product-collection-scoped',
+                    'product-switch626-makeup-color1-scoped','product-steam626-eyecolor2-scoped','product-switch626-eyecolor2-scoped']
+                  blocked=[name for name in blocked if name!=feature]
+                  cfg='#[cfg(all(feature="'+feature+'",not(any('+','.join('feature="'+b+'"' for b in blocked)+'))))]'
+                  s+='\n// QRL QA ONLY: one-domain compile proof, not product release.\n'+cfg+'\n#[path="'+os.environ['QRL_WASM_SRC']+'"]\nmod qrl_temporary_wasm_adapter;\n'
+              else:
+                  s+='\n// QRL QA ONLY: exact old leaf on single existing Guard.\n#[cfg(feature="'+feature+'")]\n#[path="'+os.environ['QRL_GUARD_SRC']+'"]\nmod qrl_temporary_guard_adapter;\n'
+              path.write_text(s)
+          # Existing Core source deliberately unchanged except visibility for Eye guarded readset.
+          if 'eyecolor2' in op:
+              p=dst/'product_eyeball_color2.rs'
+              s=p.read_text()
+              assert s.count('pub(super)')>=10
+              p.write_text(s.replace('pub(super)','pub(crate)'))
+          elif 'makeup' in op:
+              p=dst/'product_makeup_color1.rs'
+              s=p.read_text()
+              targets=['pub(super) fn prepare_switch626_fixed_makeup_color1',
+                       'pub(super) fn stage_switch626_fixed_makeup_color1']
+              for t in targets:
+                  assert s.count(t)==1
+                  s=s.replace(t,t.replace('pub(super)','pub(crate)'))
+              p.write_text(s)
+          manifest=dst.parent/'Cargo.lock'
+          shutil.copyfile('/tmp/wand-qrl-compat-main/scripts/wasm-distribution/approved-Cargo.lock',manifest)
+          assert manifest.is_file()
+          import json
+          receipt={'kind':'QA_ONLY_NOT_SIGNED_NOT_PAGES','currentMain':os.environ['QRL_BASE'],
+             'historicOnlyLeaf':os.environ['QRL_HISTORIC'],'op':op,'feature':feature,
+             'patchedCurrentProductSourceCommitted':False,
+             'temporaryOnlyChanged':[ 'Cargo.toml','wasm_worker.rs','worker_session.rs',
+              'product_eyeball_color2.rs' if 'eyecolor2' in op else 'product_makeup_color1.rs',
+              os.environ['QRL_WASM_SRC'],os.environ['QRL_GUARD_SRC']],
+             'ownerOriginalSaveUsed':False,'actualCurrentProductV2':'NOT_RUN','publicWriter':False,'publicOn':False}
+          Path('/tmp/wand-qrl-compat-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          print('QRL_TEMPORARY_COMPAT_SOURCE_PREPARED',op,receipt['temporaryOnlyChanged'])
+          PY
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Compile actual current ProductSession plus historical leaf, exact one-Op feature
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/wand-qrl-compat-main
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release \
+            --target wasm32-unknown-unknown --no-default-features --features "worker-wasm,product-$QRL_OP-scoped"
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrl-compat-bindgen
+          mkdir -p /tmp/wand-qrl-compat-generated
+          /tmp/wand-qrl-compat-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir /tmp/wand-qrl-compat-generated --target web --no-typescript
+      - name: Real generated JS/WASM 5 export census; deny false current-product claim
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';import assert from 'node:assert/strict';import crypto from 'node:crypto';
+          const dir='/tmp/wand-qrl-compat-generated/', prefix=process.env.QRL_METHOD;
+          const js=fs.readFileSync(dir+'ddv_save_core.js');
+          const wasm=fs.readFileSync(dir+'ddv_save_core_bg.wasm');
+          const actual=WebAssembly.Module.exports(new WebAssembly.Module(wasm)).map(x=>x.name);
+          const meth=['preview_'+prefix,'stage_'+prefix,'toggle_'+prefix,
+                      'begin_'+prefix+'_output','next_'+prefix+'_output_chunk'];
+          for(const n of meth){
+            assert(js.includes(Buffer.from(n)),'JS_MISSING_'+n);
+            assert(actual.some(x=>x.endsWith('_'+n)),'WASM_MISSING_'+n);
+          }
+          for(const foreign of ['switch626_makeup_color1','steam626_eyecolor2','switch626_eyecolor2','steam626_makeup_color1']){
+            if(foreign===prefix)continue;
+            assert(!actual.some(x=>x.includes(foreign)),'FOREIGN_FEATURE_EXPORTED_'+foreign);
+          }
+          const sha=v=>crypto.createHash('sha256').update(v).digest('hex');
+          const receipt=JSON.parse(fs.readFileSync('/tmp/wand-qrl-compat-receipt.json','utf8'));
+          Object.assign(receipt,{census:'CURRENT_CORE_TEMP_LEAF_GENERATED_WASM_5OF5_SCOPED_PASS',
+            methodNames:meth,binaryExportCount:actual.length,
+            wasmSha256:sha(wasm),jsSha256:sha(js),generatedArtifactSigned:false,
+            currentProductSourceMerged:false,realOwnerOriginalV2:'NOT_RUN'});
+          fs.writeFileSync(dir+'qrl-temp-port-proof.json',JSON.stringify(receipt,null,2)+'\n',{flag:'wx'});
+          console.log('QRL_CURRENT_CORE_TEMPORARY_ADAPTER_ABI_PASS',
+            JSON.stringify({op:receipt.op,methods:5,exports:actual.length,jsSha256:sha(js),wasmSha256:sha(wasm)}));
+          NODE
+      - name: Upload unsigned temporary compatibility witness NEVER Merge/Pages
+        uses: actions/upload-artifact@v4
+        with:
+          name: qrl-act1601-temporary-current-compat-${{ matrix.op }}-NOT-PRODUCT
+          retention-days: 2
+          if-no-files-found: error
+          path: |
+            /tmp/wand-qrl-compat-generated/ddv_save_core.js
+            /tmp/wand-qrl-compat-generated/ddv_save_core_bg.wasm
+            /tmp/wand-qrl-compat-generated/qrl-temp-port-proof.json
