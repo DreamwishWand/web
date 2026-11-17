@@ -82,7 +82,14 @@ jobs:
           try {
             ({verifyAcceptedRustScope}=await import('file://'+cwd+'/'+gatePath));
             assert.equal(git('rev-parse','HEAD'),gate);
-            assert.equal(git('rev-parse',gate+'^'),main);
+            const gateParents=git('rev-list','--parents','-n','1',gate).split(/\s+/);
+            console.log('QRS_ACT1639_GATE_PARENT_DIAGNOSTIC',JSON.stringify({
+              gate,requestedMain:main,commitParents:gateParents.slice(1),
+              linearDirectChild:gateParents.length===2&&gateParents[1]===main,
+              protectedMainAncestor:git('merge-base',main,gate)===main
+            }));
+            assert.equal(gateParents.length,2,'Gate Source must not have a merge parent');
+            assert.equal(gateParents[1],main,'Gate first parent must be exact reviewed protected main');
             assert.equal(git('merge-base',main,source),main);
             assert.deepEqual(git('diff','--name-only',main,gate).split('\n'),[gatePath]);
             assert.equal(entry(main,gatePath)?.blob,oldScript);
