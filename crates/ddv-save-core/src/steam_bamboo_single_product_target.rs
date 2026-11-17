@@ -145,7 +145,8 @@ mod tests{
  #[ignore="Run in separate cargo test process after synthetic fixture emission"]
  fn qa1968_bamboo_child_readonly_reopen(){
   let bytes=std::fs::read("/tmp/qrc1968-bamboo-fixture.json").unwrap();
-  let (left,right)=std::fs::read_to_string("/tmp/qrc1968-bamboo-xy.txt").unwrap().trim().split_once(',').unwrap();
+  let coord_text=std::fs::read_to_string("/tmp/qrc1968-bamboo-xy.txt").unwrap();
+  let (left,right)=coord_text.trim().split_once(',').unwrap();
   let(x,y)=(left.parse::<u32>().unwrap(),right.parse::<u32>().unwrap());
   let d:Value=serde_json::from_slice(&bytes).unwrap();
   let s=open(&d,false);let before=s.receipt().unwrap();let e=env(&s);
