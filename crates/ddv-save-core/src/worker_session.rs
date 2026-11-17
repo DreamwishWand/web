@@ -160,16 +160,32 @@ impl WorkerSessionGuard {
     }
     // Shared scoped-edit lifecycle: same existing semantic ledger as the
     // amount ABI; no second operation state or export pipeline.
-    #[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
     pub(crate) fn toggle_scoped_edit(&self,e:WorkerEnvelope,redo:bool)->CoreResult<crate::SemanticStageReceipt>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         if redo{self.session.redo_typed_semantic_batch(e)}else{self.session.undo_typed_semantic_batch(e)}
     }
-    #[cfg(any(feature="product-amount-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+    #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
     pub(crate) fn take_scoped_edit(&mut self,e:WorkerEnvelope)->CoreResult<Vec<u8>>{
         if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
         let out=self.session.take_typed_semantic_decoded_once(e)?;
         self.closed=true;Ok(out)
+    }
+    #[cfg(feature="product-switch624-frp01-readonly")]
+    pub(crate) fn read_switch624_frp01_target(&self,e:WorkerEnvelope,grid:u32,ids:[u32;3])->CoreResult<serde_json::Value>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        let t=self.session.mint_switch624_frp01_target(e,grid,ids)?;
+        fn hex(bytes:&[u8])->String{bytes.iter().map(|b|format!("{b:02x}")).collect()}
+        Ok(serde_json::json!({
+            "contract":"wand.worker.switch624.frp01.readonly-target@1",
+            "sessionId":hex(&t.scope.session_id),"revision":t.scope.expected_revision,
+            "indexGeneration":t.scope.expected_index_generation,"decodedSha256":hex(&t.scope.expected_decoded_sha256),
+            "gridId":t.grid,"oldIds":t.ids,"nextGridObjectId":t.next,"oldStock":t.old_stock,"newStock":t.new_stock,
+            "rootSha256":hex(&t.root_sha),"gridSha256":hex(&t.grid_sha),"counterSha256":hex(&t.counter_sha),
+            "oldStockSha256":hex(&t.old_stock_sha),"newStockSha256":hex(&t.new_stock_sha),
+            "housesSha256":hex(&t.houses_sha),"oldRowsSha256":t.old_rows_sha.iter().map(|s|hex(s)).collect::<Vec<_>>(),
+            "referencePairs":t.pairs,"writerAuthorized":false,"productReadAccepted":false
+        }))
     }
     pub(crate) fn close(&mut self) -> CoreResult<()> {
         if self.closed { return Err(CoreError("WORKER_SESSION_ALREADY_CLOSED")); }
@@ -401,6 +417,10 @@ mod switch626_fd01;
 #[cfg(feature="product-switch626-fe01-scoped")]
 #[path="worker_switch626_fe01.rs"]
 mod switch626_fe01;
+
+#[cfg(feature="product-switch624-frp01-scoped")]
+#[path="worker_switch624_frp01.rs"]
+mod scoped_frp01;
 
 #[cfg(feature="product-steam626-makeup-color1-scoped")]
 #[path="worker_steam626_makeup_color1.rs"]
