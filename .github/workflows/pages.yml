@@ -53,6 +53,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   # Only the build job attests the three Owner-approved read-only binaries.
   id-token: write
   attestations: write
@@ -243,6 +244,8 @@ jobs:
           test -f build/404.html
       - name: Require successful exact protected-main CI before Pages upload
         id: protected_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
         run: node scripts/int-protected-ci-gate.mjs build
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -258,6 +261,7 @@ jobs:
     permissions:
       pages: write
       id-token: write
+      actions: read
     steps:
       - name: Set up Node.js for exact deploy-time CI revalidation
         uses: actions/setup-node@v4
@@ -265,6 +269,7 @@ jobs:
           node-version: '22'
       - name: Refuse stale main or CI receipt immediately before Pages deployment
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           WAND_CI_RECEIPT: ${{ needs.build.outputs.ci_receipt }}
         shell: bash
         run: |
@@ -272,7 +277,7 @@ jobs:
           [[ "$GITHUB_REPOSITORY_ID" == 1371485649 && "$GITHUB_REF" == refs/heads/main ]]
           [[ "$GITHUB_REPOSITORY" == DreamwishWand/web || "$GITHUB_REPOSITORY" == DreamwishWand/site ]]
           [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ && -n "$WAND_CI_RECEIPT" ]]
-          # Public exact commit, no token and no additional job permissions.
+          # Public exact commit fetch; protected CI receipt uses scoped Actions read token.
           # Read only the two pinned scripts from a disposable Git repository.
           dir="$(mktemp -d)"
           trap 'rm -rf "$dir"' EXIT
@@ -378,6 +383,8 @@ jobs:
           test ! -e build/worker-wasm-scoped-collection
       - name: Require exact successful protected-main CI before proof build
         id: scoped_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
         run: node scripts/int-protected-ci-gate.mjs build
       - name: Fixed approved Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -399,6 +406,7 @@ jobs:
           test ! -e build/worker-wasm-scoped-collection
       - name: Revalidate exact predecessor and live main immediately before signing
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
         run: node scripts/int-protected-ci-gate.mjs deploy
       - name: Attest only three scoped proof subjects with existing Pages issuer
@@ -411,6 +419,7 @@ jobs:
             tests/wasm-distribution/fixtures/scoped-collection/manifest.json
       - name: Verify exact signer and subject bytes; stage only bundle and pins
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
@@ -494,6 +503,8 @@ jobs:
           test ! -e build/worker-wasm-scoped-switch-chest
       - name: Require exact successful protected-main CI before proof build
         id: scoped_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
         run: node scripts/int-protected-ci-gate.mjs build
       - name: Fixed approved Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -515,6 +526,7 @@ jobs:
           test ! -e build/worker-wasm-scoped-switch-chest
       - name: Revalidate exact predecessor and live main immediately before signing
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
         run: node scripts/int-protected-ci-gate.mjs deploy
       - name: Attest only three scoped proof subjects with existing Pages issuer
@@ -527,6 +539,7 @@ jobs:
             tests/wasm-distribution/fixtures/scoped-switch-chest/manifest.json
       - name: Verify exact signer and subject bytes; stage only bundle and pins
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
@@ -612,6 +625,8 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam-chest
       - name: Require exact successful protected-main CI before proof build
         id: scoped_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
         run: node scripts/int-protected-ci-gate.mjs build
       - name: Fixed approved Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -633,6 +648,7 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam-chest
       - name: Revalidate exact predecessor and live main immediately before signing
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
         run: node scripts/int-protected-ci-gate.mjs deploy
       - name: Attest only three scoped proof subjects with existing Pages issuer
@@ -645,6 +661,7 @@ jobs:
             tests/wasm-distribution/fixtures/scoped-steam-chest/manifest.json
       - name: Verify exact signer and subject bytes; stage only bundle and pins
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
@@ -706,7 +723,7 @@ jobs:
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 26bb68a63b5bfd36f571f68781d39ee37bd6b23b
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = 1f72c540d9e9ab949402d550a706961935cf7ec2
@@ -744,6 +761,8 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam626-sr03
       - name: Require exact successful protected-main CI before proof build
         id: scoped_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
         run: node scripts/int-protected-ci-gate.mjs build
       - name: Fixed approved Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -765,6 +784,7 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam626-sr03
       - name: Revalidate exact predecessor and live main immediately before signing
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
         run: node scripts/int-protected-ci-gate.mjs deploy
       - name: Attest only three scoped proof subjects with existing Pages issuer
@@ -777,6 +797,7 @@ jobs:
             tests/wasm-distribution/fixtures/scoped-steam626-sr03/manifest.json
       - name: Verify exact signer and subject bytes; stage only bundle and pins
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
@@ -866,7 +887,7 @@ jobs:
           test "$(git rev-parse HEAD:src/routes/editor/world/comp03/+page.svelte)" = 90191a132481a5b38fc6554012b633f06d2f9d34
           test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = dd59264c1c20325c66e6aecc3413e91d10fc72ed
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 26bb68a63b5bfd36f571f68781d39ee37bd6b23b
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
@@ -877,6 +898,8 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam626-comp03-spatial
       - name: Require exact successful protected-main CI before proof build
         id: scoped_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
         run: node scripts/int-protected-ci-gate.mjs build
       - name: Fixed approved Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -898,6 +921,7 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam626-comp03-spatial
       - name: Revalidate exact predecessor and live main immediately before signing
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
         run: node scripts/int-protected-ci-gate.mjs deploy
       - name: Attest only three scoped proof subjects with existing Pages issuer
@@ -910,6 +934,7 @@ jobs:
             tests/wasm-distribution/fixtures/scoped-steam626-comp03-spatial/manifest.json
       - name: Verify exact signer and subject bytes; stage only bundle and pins
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
@@ -971,7 +996,7 @@ jobs:
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 26bb68a63b5bfd36f571f68781d39ee37bd6b23b
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = 1f72c540d9e9ab949402d550a706961935cf7ec2
@@ -1009,6 +1034,8 @@ jobs:
           test ! -e build/worker-wasm-scoped-switch626-rm01
       - name: Require exact successful protected-main CI before proof build
         id: scoped_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
         run: node scripts/int-protected-ci-gate.mjs build
       - name: Fixed approved Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -1030,6 +1057,7 @@ jobs:
           test ! -e build/worker-wasm-scoped-switch626-rm01
       - name: Revalidate exact predecessor and live main immediately before signing
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
         run: node scripts/int-protected-ci-gate.mjs deploy
       - name: Attest only three scoped proof subjects with existing Pages issuer
@@ -1042,6 +1070,7 @@ jobs:
             tests/wasm-distribution/fixtures/scoped-switch626-rm01/manifest.json
       - name: Verify exact signer and subject bytes; stage only bundle and pins
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
@@ -1103,7 +1132,7 @@ jobs:
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 26bb68a63b5bfd36f571f68781d39ee37bd6b23b
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = 1f72c540d9e9ab949402d550a706961935cf7ec2
@@ -1143,6 +1172,8 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam626-hair
       - name: Require exact successful protected-main CI before proof build
         id: scoped_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
         run: node scripts/int-protected-ci-gate.mjs build
       - name: Fixed approved Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -1164,6 +1195,7 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam626-hair
       - name: Revalidate exact predecessor and live main immediately before signing
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
         run: node scripts/int-protected-ci-gate.mjs deploy
       - name: Attest only three scoped proof subjects with existing Pages issuer
@@ -1176,6 +1208,7 @@ jobs:
             tests/wasm-distribution/fixtures/scoped-steam626-hair/manifest.json
       - name: Verify exact signer and subject bytes; stage only bundle and pins
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
@@ -1237,7 +1270,7 @@ jobs:
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
           test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 932c1c1de44ae6f223fe53b0f14b8e0071eee22d
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 26bb68a63b5bfd36f571f68781d39ee37bd6b23b
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = 1f72c540d9e9ab949402d550a706961935cf7ec2
@@ -1277,6 +1310,8 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam626-skin
       - name: Require exact successful protected-main CI before proof build
         id: scoped_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
         run: node scripts/int-protected-ci-gate.mjs build
       - name: Fixed approved Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -1298,6 +1333,7 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam626-skin
       - name: Revalidate exact predecessor and live main immediately before signing
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
         run: node scripts/int-protected-ci-gate.mjs deploy
       - name: Attest only three scoped proof subjects with existing Pages issuer
@@ -1310,6 +1346,7 @@ jobs:
             tests/wasm-distribution/fixtures/scoped-steam626-skin/manifest.json
       - name: Verify exact signer and subject bytes; stage only bundle and pins
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
@@ -1399,7 +1436,7 @@ jobs:
           test "$(git rev-parse HEAD:src/routes/editor/world/comp03/+page.svelte)" = 90191a132481a5b38fc6554012b633f06d2f9d34
           test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = dd59264c1c20325c66e6aecc3413e91d10fc72ed
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f69a44eb62da5fc5e51c743ee428324469205b25
-          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = d08d7cb0995b8af9f631448024c8acc83d68a743
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 26bb68a63b5bfd36f571f68781d39ee37bd6b23b
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = d4643ccf023b6784c80fa5b2a377afe7936113ce
@@ -1412,6 +1449,8 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam626-comp03
       - name: Require exact successful protected-main CI before proof build
         id: scoped_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
         run: node scripts/int-protected-ci-gate.mjs build
       - name: Fixed approved Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -1433,6 +1472,7 @@ jobs:
           test ! -e build/worker-wasm-scoped-steam626-comp03
       - name: Revalidate exact predecessor and live main immediately before signing
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
         run: node scripts/int-protected-ci-gate.mjs deploy
       - name: Attest only three scoped proof subjects with existing Pages issuer
@@ -1445,6 +1485,7 @@ jobs:
             tests/wasm-distribution/fixtures/scoped-steam626-comp03/manifest.json
       - name: Verify exact signer and subject bytes; stage only bundle and pins
         env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           WAND_SCOPED_BUNDLE: ${{ steps.scoped_sigstore.outputs.bundle-path }}
           WAND_CI_RECEIPT: ${{ steps.scoped_ci.outputs.ci_receipt }}
