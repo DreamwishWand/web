@@ -24,7 +24,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
  assert.deepEqual(pins,[
   [
     "crates/ddv-save-core",
-    "63d1b9f88a07c79c54cb433f4d1cbd9cf1e1ed4b"
+    "681177d588b7bfba04f2497dff81e36163a3350e"
   ],
   [
     "scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs",
