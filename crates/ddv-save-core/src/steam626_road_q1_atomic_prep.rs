@@ -1,0 +1,251 @@
+//! 01A ACT1664 Steam626 ordinary Road 40100068 single-Q1 atomic PREPARATION.
+//! No Stage, mutation, inventory debit, Rights admission, Export, Worker method,
+//! typed Registry permission, or user-facing feature is implemented here.
+//! The snapshot parameters below are UNTRUSTED CAS candidates, NOT Core-minted
+//! target/geometry/rights witnesses. Future Stage must mint the real target
+//! and verify external provider rights + indirect subscribers before applying.
+//! The single existing ProductSession supplies only identity/epoch/source CAS.
+use super::{BuildKind, Platform, ProductSession, WorkerAction, WorkerEnvelope};
+use crate::{CoreError, CoreResult};
+use serde_json::Value;
+
+#[path = "road_mixed_shape.rs"]
+mod road_mixed_shape;
+
+const EXACT_STEAM: &str =
+    "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
+const ITEM_ID: u32 = 40100068;
+const GRID: u32 = 1;
+const AREA: u32 = 6;
+const STOCK_MAX: u32 = 9999;
+
+/// Untrusted, typed expected-old inputs. None of these fields is a right or
+/// a substitute for an indexed/read-only Core-minted physical target.
+#[derive(Clone, Copy, Debug)]
+#[allow(dead_code)]
+pub(super) struct RoadQ1ExpectedOld {
+    pub(super) envelope: WorkerEnvelope,
+    pub(super) source_sha: [u8; 32],
+    pub(super) area: u32,
+    pub(super) grid: u32,
+    pub(super) next_object_id: u32,
+    pub(super) stock: u32,
+    pub(super) x: u32,
+    pub(super) y: u32,
+    pub(super) root_sha: [u8; 32],
+    pub(super) grid_sha: [u8; 32],
+    pub(super) stock_sha: [u8; 32],
+    pub(super) refs_sha: [u8; 32],
+    pub(super) ambient_sha: [u8; 32],
+}
+
+/// Proposed exact3 changes only. All public/auth flags are deliberately absent.
+/// This type cannot be passed as a Writer command; no caller gains a capability.
+#[derive(Clone, Debug, PartialEq)]
+#[allow(dead_code)]
+pub(super) struct RoadQ1ReadOnlyPreparation {
+    pub(super) proposed_object: Value,
+    pub(super) expected_new_id: u32,
+    pub(super) expected_next_after: u32,
+    pub(super) expected_stock_after: u32,
+    pub(super) proposed_changed_targets: usize,
+    pub(super) stage_authorized: bool,
+    pub(super) export_authorized: bool,
+}
+
+fn denied(message: &'static str) -> CoreError { CoreError(message) }
+
+impl ProductSession {
+    /// Bounded non-authorizing sketch. Does NOT scan/validate the ambient
+    /// halo, grid occupancy, counter aliases, provider entitlement or game
+    /// subscriber effects. Therefore this never authorizes Stage or Export.
+    /// Do not promote this result to a Core-minted target.
+    #[allow(dead_code)]
+    pub(super) fn prepare_steam626_road_single_q1_readonly(
+        &self,
+        old: RoadQ1ExpectedOld,
+    ) -> CoreResult<RoadQ1ReadOnlyPreparation> {
+        let build = &self.native_source_build;
+        if build.platform != Platform::SteamWindows
+            || build.build_kind != BuildKind::SteamFullVersion
+            || build.build_id != EXACT_STEAM
+            || build.schema != 626
+            || !build.externally_attested
+        {
+            return Err(denied("ROAD_Q1_EXACT_STEAM_BUILD_REQUIRED"));
+        }
+        if old.envelope.action != WorkerAction::ReadDomain {
+            return Err(denied("ROAD_Q1_READ_DOMAIN_ONLY"));
+        }
+        // Validate the actual existing ProductSession identity, source,
+        // revision, generation and close state; no caller-minted session.
+        self.dispatch(WorkerEnvelope {
+            action: WorkerAction::ReadCoreSchemaWitness,
+            ..old.envelope
+        })?;
+        if old.source_sha != self.sha
+            || old.envelope.expected_decoded_sha256 != self.sha
+        {
+            return Err(denied("ROAD_Q1_SOURCE_SHA_CAS"));
+        }
+        if old.area != AREA || old.grid != GRID {
+            return Err(denied("ROAD_Q1_FIXED_AREA_GRID"));
+        }
+        // These nonzero hash guards only reject missing old-value tokens.
+        // They do not authenticate caller claims against the decoded Save.
+        if [
+            old.root_sha, old.grid_sha, old.stock_sha,
+            old.refs_sha, old.ambient_sha,
+        ].iter().any(|digest| *digest == [0; 32]) {
+            return Err(denied("ROAD_Q1_OLD_HASH_REQUIRED"));
+        }
+        if old.stock < 2 || old.stock > STOCK_MAX {
+            return Err(denied("ROAD_Q1_NO_UNAUTHORIZED_DEBIT"));
+        }
+        let proposed_object =
+            road_mixed_shape::exact_steam626_road_single_orthogonal(
+                old.next_object_id, old.x, old.y,
+            ).ok_or(denied("ROAD_Q1_ID_OR_COORD_BOUNDS"))?;
+        if proposed_object["ItemID"] != ITEM_ID
+            || proposed_object["ID"] != old.next_object_id
+            || proposed_object["State"] != Value::Null
+        {
+            return Err(denied("ROAD_Q1_UNEXPECTED_SHAPE"));
+        }
+        let expected_next_after = old.next_object_id.checked_add(1)
+            .ok_or(denied("ROAD_Q1_COUNTER_OVERFLOW"))?;
+        let expected_stock_after = old.stock.checked_sub(1)
+            .ok_or(denied("ROAD_Q1_STOCK_UNDERFLOW"))?;
+        Ok(RoadQ1ReadOnlyPreparation {
+            proposed_object,
+            expected_new_id: old.next_object_id,
+            expected_next_after,
+            expected_stock_after,
+            proposed_changed_targets: 3,
+            stage_authorized: false,
+            export_authorized: false,
+        })
+    }
+}
+
+#[cfg(test)]
+mod road_q1_prep_tests {
+    use super::*;
+    use super::super::{BuildIdentity, PRODUCT_WORKER_CONTRACT};
+    use serde_json::json;
+
+    fn fixture(switch: bool) -> ProductSession {
+        let build = BuildIdentity {
+            platform: if switch { Platform::Switch } else { Platform::SteamWindows },
+            build_kind: if switch { BuildKind::SwitchBid } else { BuildKind::SteamFullVersion },
+            build_id: if switch { "9A239D3DB569756D" } else { EXACT_STEAM }.into(),
+            schema: 626,
+            externally_attested: true,
+        };
+        ProductSession::open_decoded_readonly(
+            serde_json::to_vec(&json!({
+                "GameInfo": { "Version": 626 },
+                "World": {},
+                "Player": {},
+                "Unknown": { "keep": [1, 2, 3] }
+            })).unwrap(),
+            build,
+        ).unwrap()
+    }
+    fn expected(session: &ProductSession) -> RoadQ1ExpectedOld {
+        let r = session.receipt().unwrap();
+        RoadQ1ExpectedOld {
+            envelope: WorkerEnvelope {
+                contract: PRODUCT_WORKER_CONTRACT,
+                session_id: r.session_id,
+                expected_revision: r.revision,
+                expected_index_generation: r.index_generation,
+                expected_decoded_sha256: r.decoded_sha256,
+                action: WorkerAction::ReadDomain,
+            },
+            source_sha: r.decoded_sha256,
+            area: AREA, grid: GRID, next_object_id: 15949,
+            stock: 9, x: 40, y: 20,
+            root_sha: [1; 32], grid_sha: [2; 32],
+            stock_sha: [3; 32], refs_sha: [4; 32], ambient_sha: [5; 32],
+        }
+    }
+
+    #[test]
+    fn road_q1_prep_exact3_draft_never_grants_stage_or_export() {
+        let s = fixture(false);
+        let old = expected(&s);
+        let before = s.receipt().unwrap();
+        let proposal = s.prepare_steam626_road_single_q1_readonly(old).unwrap();
+        assert_eq!(proposal.proposed_object, json!({
+            "ID":15949, "ItemID":40100068, "X":40, "Y":20,
+            "Orientation":"GridOrientation_Down", "State":null
+        }));
+        assert_eq!((proposal.expected_next_after, proposal.expected_stock_after,
+            proposal.proposed_changed_targets), (15950, 8, 3));
+        assert!(!proposal.stage_authorized && !proposal.export_authorized);
+        assert_eq!(s.receipt().unwrap(), before);
+        assert!(s.dispatch(WorkerEnvelope {
+            action: WorkerAction::Stage, ..old.envelope
+        }).is_err());
+        assert!(s.dispatch(WorkerEnvelope {
+            action: WorkerAction::ExportEditedCopy, ..old.envelope
+        }).is_err());
+    }
+
+    #[test]
+    fn road_q1_prep_wrong_build_session_cas_rights_and_bounds_denied() {
+        let s = fixture(false);
+        let old = expected(&s);
+        let mut wrong = old;
+        wrong.envelope.action = WorkerAction::Stage;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.envelope.expected_revision += 1;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.envelope.expected_index_generation += 1;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.envelope.session_id = [9; 16];
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.envelope.expected_decoded_sha256 = [9; 32];
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.source_sha = [9; 32];
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.grid = 7;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.area = 2;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.stock = 1;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.stock = 10_000;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.next_object_id = 0;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.next_object_id = i32::MAX as u32;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.x = i32::MAX as u32 + 1;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.y = u32::MAX;
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.refs_sha = [0; 32];
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        assert!(fixture(true).prepare_steam626_road_single_q1_readonly(old).is_err());
+        let foreign = fixture(false);
+        assert!(foreign.prepare_steam626_road_single_q1_readonly(old).is_err());
+        s.close().unwrap();
+        assert!(s.prepare_steam626_road_single_q1_readonly(old).is_err());
+    }
+}
