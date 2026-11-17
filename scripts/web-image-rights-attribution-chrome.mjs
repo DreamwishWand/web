@@ -59,9 +59,12 @@ try{
  await help.focus();assert.equal(await help.evaluate(e=>e===document.activeElement),true);
  await page.keyboard.press('Enter');await page.waitForURL('**/web/help/');
  await notice.waitFor();await waitCopy('pt-BR');
- assert.deepEqual(await page.locator('footer a').allTextContents(),[await help.innerText()]);
+ const contact=page.locator('footer a[data-owner-support-contact][href="mailto:support@dreamwishwand.com"]');
+ assert.equal(await contact.count(),1,'verified support link exists exactly once');
+ assert.equal((await contact.innerText()).trim(),'support@dreamwishwand.com');
+ assert.deepEqual(await page.locator('footer a').allTextContents(),[await help.innerText(),await contact.innerText()]);
  assert.deepEqual(media,[],'media OFF no image request');
  assert.deepEqual(unsafe,[],'no offorigin or mutation');
  assert.deepEqual(errors,[]);
- console.log('08WEB_IMAGE_ATTRIBUTION_HELP_KEYBOARD_NO_MEDIA_OR_CONTACT_PASS');
+ console.log('08WEB_IMAGE_ATTRIBUTION_HELP_KEYBOARD_NO_MEDIA_ONE_VERIFIED_CONTACT_PASS');
 }finally{await ctx.close();await browser.close()}
