@@ -237,4 +237,30 @@ mod tests{
      build_id:APPEARANCE_BUILD.into(),schema:626,externally_attested:true}).unwrap();
   assert_eq!(reopened.receipt().unwrap().schema,626);
  }
+
+ #[cfg(feature="product-steam626-makeup-color1-scoped")]
+ #[test]
+ #[ignore="Independent generated JS/WASM synthetic real saved-shape fixture, NOT encrypted owner P1G V2"]
+ fn qa1953_emit_corrected_realshape_generated_fixture(){
+  let mut d=doc();
+  d["World"]["UnknownNotEdited"]=json!({"keep":[true,null,31]});
+  d["Player"]["MaleAvatar"]["Makeup"]["1"]["KeepOpaque"]=json!({"nested":[8,9]});
+  let male=&d["Player"]["MaleAvatar"]["Makeup"]["1"];
+  let female=&d["Player"]["FemaleAvatar"]["Makeup"]["1"];
+  assert_eq!(male["MakeupItemID"],json!(140100014));
+  assert_eq!(male["ColorIndex1"],json!(53));
+  assert_eq!(female["MakeupItemID"],json!(140100011));
+  assert_eq!(female["ColorIndex1"],json!(60));
+  for avatar in ["MaleAvatar","FemaleAvatar"]{
+   assert_eq!(d["Player"][avatar]["Makeup"]["1"]["ColorIndex2"],json!(0));
+   assert_eq!(d["Player"][avatar]["Makeup"]["1"]["ColorIndex3"],json!(0));
+  }
+  let inv=&d["Player"]["ListInventories"]["3"]["Inventory"];
+  assert_eq!(inv["140100014"]["Amount"],json!(2));
+  assert_eq!(inv["140100011"]["Amount"],json!(1));
+  let bytes=serde_json::to_vec(&d).unwrap();
+  assert!(bytes.len()<1024*1024);
+  std::fs::write("/tmp/qrc1953-makeup-source.json",&bytes).unwrap();
+  println!("QRC1953_CORRECTED_GENERATED_FIXTURE_ONLY bytes={} inactive_female_item140100011 saved_channels_zero",bytes.len());
+ }
 }
