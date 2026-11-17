@@ -26,7 +26,7 @@ jobs:
           git cat-file -e 3304dcc6270d9551ca94df787b580d725c2ef88f^{commit}
           test "$(git merge-base 3304dcc6270d9551ca94df787b580d725c2ef88f HEAD)" = 3304dcc6270d9551ca94df787b580d725c2ef88f
           git diff --name-only 3304dcc6270d9551ca94df787b580d725c2ef88f HEAD | LC_ALL=C sort >/tmp/qrc2012-actual-paths
-          printf '%s\n' '.github/workflows/05qrc-frp624-protected-exact15-l2.yml' 'crates/ddv-save-core/src/frp624_product_target.rs' 'tests/qa/qrc2012-frp624-protected-generated.cjs' | LC_ALL=C sort >/tmp/qrc2012-expected-paths
+          printf '%s\n' '.github/workflows/05qrc-act1623-frp624-main838-generated-l2.yml' 'crates/ddv-save-core/src/frp624_product_target.rs' 'tests/qa/qrc2012-frp624-main838-generated.cjs' | LC_ALL=C sort >/tmp/qrc2012-expected-paths
           diff -u /tmp/qrc2012-expected-paths /tmp/qrc2012-actual-paths
           git diff --exit-code 3304dcc6270d9551ca94df787b580d725c2ef88f HEAD -- crates/ddv-save-core/Cargo.toml crates/ddv-save-core/src/wasm_switch624_frp01.rs crates/ddv-save-core/src/wasm_worker.rs crates/ddv-save-core/src/worker_session.rs crates/ddv-save-core/src/worker_switch624_frp01.rs
           echo QRC2012_MAIN838_FIXED_SOURCE_QA_ONLY_BOUNDARY_PASS
@@ -49,5 +49,5 @@ jobs:
             /tmp/wand-qrc2012-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "/tmp/qrc2012-$profile" --target nodejs --no-typescript
           done
           sha256sum -c /tmp/qrc2012-lock.sha
-          node --check tests/qa/qrc2012-frp624-protected-generated.cjs
-          node tests/qa/qrc2012-frp624-protected-generated.cjs
+          node --check tests/qa/qrc2012-frp624-main838-generated.cjs
+          node tests/qa/qrc2012-frp624-main838-generated.cjs
