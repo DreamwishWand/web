@@ -35,7 +35,8 @@ jobs:
           import {tmpdir} from 'node:os';
           import {runInNewContext} from 'node:vm';
 
-          const main='344e4e1105037d732eeacc1bdff68fa140c2fafa',
+          const sourceBase='2c9cd43c043ba8f97c1826dad38c2290e202b9d7',
+            main='344e4e1105037d732eeacc1bdff68fa140c2fafa',
             gate='6becd73388c0ae46e14113f2e31a0da41dec1a16',
             source='fe9baeb82b4bb61b31e1d0e66d93dd31076d8891',
             gatePath='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
@@ -90,7 +91,11 @@ jobs:
             }));
             assert.equal(gateParents.length,2,'Gate Source must not have a merge parent');
             assert.equal(gateParents[1],main,'Gate first parent must be exact reviewed protected main');
-            assert.equal(git('merge-base',main,source),main);
+            // Original Reader PR2034 is a reviewed sibling from accepted main2c9,
+            // not a descendant of later signed main344. Git old/new pins are
+            // recomposed onto main344; do not demand branch rebase or old stacks.
+            assert.equal(git('merge-base',main,source),sourceBase,'fixed original Source must fork at accepted Core main2c9');
+            assert.equal(git('merge-base',main,gate),main,'Gate itself is direct main344 child');
             assert.deepEqual(git('diff','--name-only',main,gate).split('\n'),[gatePath]);
             assert.equal(entry(main,gatePath)?.blob,oldScript);
             assert.equal(entry(gate,gatePath)?.blob,newScript);
@@ -115,7 +120,7 @@ jobs:
             assert.equal(new Set(pins.map(x=>x.path)).size,9);
             assert.equal(pins.filter(x=>x.path===inputPath).length,1);
             assert.deepEqual(
-              git('diff','--name-only',main,source).split('\n').sort(),
+              git('diff','--name-only',sourceBase,source).split('\n').sort(),
               pins.filter(x=>x.path!==inputPath).map(x=>x.path).sort());
             positive++;
 
