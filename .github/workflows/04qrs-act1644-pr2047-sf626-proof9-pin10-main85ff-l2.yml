@@ -1,0 +1,276 @@
+name: "04 QR-S ACT1644 SingleFence Proof9 current signed main85ff pin10 independent Security L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qrs-act1644-pr2047-sf626-proof9-pin10-main85ff-l2.yml"
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5944342126de4a2bfe76c18d805eca5d0bab9f86
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Actual immutable original proof-input Git blobs and full adversarial denial suite (no signer)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-singlefence-proof9-pin10.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {mkdtempSync,rmSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {tmpdir} from 'node:os';
+          import {
+            SINGLEFENCE_PROOF9_BASE as approvedMain,
+            SINGLEFENCE_PROOF9_BID as steamBuild,
+            SINGLEFENCE_PROOF9_PINS as pins,
+            SINGLEFENCE_PROOF9_ALLOWED_DIFF as allowed,
+            verifySteamSingleFenceProof9Preflight as verify,
+            inspectGitProof9Candidate as inspect
+          } from './scripts/readonly-release/steam-singlefence-proof9-preflight.mjs';
+
+          const head='5944342126de4a2bfe76c18d805eca5d0bab9f86';
+          const expectedMain='85ff72a69bb41d4a7c3fbafaa69521c0904a5aac';
+          const priorSignedMain='93332153aed6b3b24ae885084470974c367eb484';
+          const allowedPaths=[
+            'scripts/readonly-release/steam-singlefence-proof9-preflight.mjs',
+            'tests/steam-singlefence-proof9-preflight.test.mjs'
+          ].sort();
+          const temp=mkdtempSync(join(tmpdir(),'qrs-singlefence-pin10-'));
+          const env={...process.env,GIT_INDEX_FILE:join(temp,'index'),GIT_NO_REPLACE_OBJECTS:'1',
+            GIT_AUTHOR_NAME:'Independent QR-S',GIT_AUTHOR_EMAIL:'qrs@example.invalid',
+            GIT_COMMITTER_NAME:'Independent QR-S',GIT_COMMITTER_EMAIL:'qrs@example.invalid'};
+          const git=(...args)=>execFileSync('git',args,{env,encoding:'utf8',maxBuffer:16*1024*1024,stdio:['ignore','pipe','pipe']}).trim();
+          const gitEntry=(ref,path)=>{
+            const line=git('ls-tree',ref,'--',path);
+            if(!line)return null;
+            const m=/^(100644|100755|120000|160000) (blob|commit) ([0-9a-f]{40})\t(.+)$/.exec(line);
+            assert.ok(m&&m[4]===path,'unexpected Git object mode/path '+path);
+            return {mode:m[1],type:m[2],sha:m[3]};
+          };
+          const newBlob=content=>execFileSync('git',['hash-object','-w','--stdin'],{
+            env,input:content,encoding:'utf8'}).trim();
+          const writeIndex=(path,e)=>{
+            if(e)git('update-index','--add','--cacheinfo',e.mode,e.sha,path);
+            else git('update-index','--force-remove','--',path);
+          };
+          const project=(base,pairs)=>{
+            git('read-tree',base);
+            for(const [path,e] of pairs)writeIndex(path,e);
+            const tree=git('write-tree');
+            const commit=git('commit-tree',tree,'-p',base,'-m','QR-S isolated synthetic Git projection');
+            return {tree,commit};
+          };
+          let positive=0,negative=0;
+          const deny=o=>{
+            assert.throws(()=>verify(o),/SINGLEFENCE_PROOF9_PREFLIGHT_DENIED/);
+            negative++;
+          };
+          const denyGit=(candidate,base=expectedMain)=>{
+            assert.throws(()=>inspect(candidate,base),/SINGLEFENCE_PROOF9_PREFLIGHT_DENIED/);
+            negative++;
+          };
+          const fixture=()=>({
+            repositoryId:1371485649,protectedMain:expectedMain,parent:expectedMain,
+            candidate:head,buildId:steamBuild,changedPaths:[...allowedPaths],
+            blobs:Object.fromEntries(pins.map(p=>[p.path,{sha:p.sha,mode:p.mode,type:p.type}]))
+          });
+          try{
+            assert.equal(git('rev-parse','HEAD'),head,'fixed PR2047 current immutable Source');
+            assert.equal(approvedMain,expectedMain);
+            assert.equal(pins.length,10);
+            assert.deepEqual([...allowed],allowedPaths);
+            assert.equal(git('merge-base',expectedMain,head),expectedMain);
+            assert.equal(git('diff','--name-only',expectedMain,head).split('\n').sort().join('\n'),allowedPaths.join('\n'));
+            // Independent old->new source pin delta: exactly six change on the
+            // now protected signed Reader main85ff; four remain byte-identical.
+            const priorShaByPath={
+              'crates/ddv-save-core/src/steam_single_fence_product_target.rs':'dd71dddccb4e961952529905dc7ac6f54f38cea5',
+              'crates/ddv-save-core/src/product_session.rs':'6c7cf61f41a8b985ae5ccbd7d84c0aa475040f28',
+              'crates/ddv-save-core/src/wasm_worker.rs':'e7da141bc3525f234b999b0febc47540d95e1560',
+              'crates/ddv-save-core/Cargo.toml':'cfd550b690e42e93a48b913457c35a5ea0cb7bc7',
+              'scripts/wasm-distribution/r22-accepted-rust-scope.mjs':'7c778ad1dfaed2b6ff82b4200dab134384783179',
+              'scripts/wasm-distribution/protected-release-inputs.json':'865aa54e99d11029250478ba6583bdec226dfa6d'
+            };
+            assert.equal(Object.keys(priorShaByPath).length,6);
+            assert.equal(git('merge-base',priorSignedMain,expectedMain),priorSignedMain,
+              'prior signed input must be real protected ancestor, not a fake profile');
+            const changes=Object.keys(priorShaByPath).sort();
+            const preserved=pins.map(p=>p.path).filter(p=>!changes.includes(p)).sort();
+            assert.deepEqual(preserved,[
+              '.github/workflows/pages.yml',
+              'crates/ddv-save-core/src/fence_add_shape.rs',
+              'scripts/readonly-release/seal.mjs',
+              'scripts/wasm-distribution/approved-Cargo.lock'
+            ].sort());
+            positive++;
+            positive++;
+            const expectedNames=[
+              'crates/ddv-save-core/src/steam_single_fence_product_target.rs',
+              'crates/ddv-save-core/src/fence_add_shape.rs',
+              'crates/ddv-save-core/src/product_session.rs',
+              'crates/ddv-save-core/src/wasm_worker.rs',
+              'crates/ddv-save-core/Cargo.toml',
+              'scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
+              'scripts/wasm-distribution/protected-release-inputs.json',
+              'scripts/wasm-distribution/approved-Cargo.lock',
+              '.github/workflows/pages.yml',
+              'scripts/readonly-release/seal.mjs'
+            ];
+            assert.deepEqual(pins.map(p=>p.path).sort(),expectedNames.sort());
+            for(const p of pins){
+              assert.deepEqual(gitEntry(expectedMain,p.path),{mode:p.mode,type:p.type,sha:p.sha},
+                'independent accepted main actual SHA/mode/type '+p.path);
+              assert.deepEqual(gitEntry(head,p.path),{mode:p.mode,type:p.type,sha:p.sha},
+                'immutable candidate actual SHA/mode/type '+p.path);
+              const oldGit=gitEntry(priorSignedMain,p.path);
+              assert.deepEqual(oldGit,{
+                mode:'100644',type:'blob',
+                sha:priorShaByPath[p.path]??p.sha
+              },'actual old signed main933 pin preimage '+p.path);
+              assert.equal(oldGit.sha!==p.sha,Object.hasOwn(priorShaByPath,p.path),
+                'six changed and four immutable Git pin identities '+p.path);
+              assert.equal(p.mode,'100644');
+              assert.equal(p.type,'blob');
+              positive++;
+            }
+            const receipt=inspect(head,expectedMain);
+            assert.equal(receipt.status,'SINGLEFENCE_PROOF9_SOURCE_PINS_EXACT_ONLY');
+            assert.equal(receipt.candidate,head);
+            assert.equal(receipt.pinCount,10);
+            assert.equal(receipt.exactBuildId,steamBuild);
+            for(const key of ['proofDispatched','signedSubjectsVerified','realEncryptedSaveV2Verified',
+              'releaseAuthorized','writerAuthorized','operationOn'])
+              assert.equal(receipt[key],false,'no proof or public Writer grant: '+key);
+            assert.equal(Object.keys(receipt).sort().join(','),
+              ['status','contract','candidate','protectedMain','pinCount','exactBuildId',
+                'proofDispatched','signedSubjectsVerified','realEncryptedSaveV2Verified',
+                'releaseAuthorized','writerAuthorized','operationOn'].sort().join(','));
+            positive++;
+
+            // Independent pure-payload mutation refutation. The original Source test suite
+            // checked a smaller set, not all nested field type/shape and grant injections.
+            for(const p of pins){
+              for(const v of [
+                null,{},undefined,
+                {sha:p.sha,mode:'100755',type:p.type},
+                {sha:p.sha,mode:'120000',type:p.type},
+                {sha:p.sha,mode:p.mode,type:'tree'},
+                {sha:p.sha,mode:p.mode,type:'commit'},
+                {sha:'f'.repeat(40),mode:p.mode,type:p.type},
+                {sha:p.sha.toUpperCase(),mode:p.mode,type:p.type},
+                {sha:p.sha,mode:p.mode,type:p.type,signedSubjectsVerified:true}
+              ]){
+                const x=fixture();
+                if(v===undefined)delete x.blobs[p.path];else x.blobs[p.path]=v;
+                deny(x);
+              }
+            }
+            const corrupted=[
+              {repositoryId:'1371485649'}, {repositoryId:0}, {repositoryId:1371485650},
+              {protectedMain:'f'.repeat(40)}, {parent:'f'.repeat(40)},
+              {candidate:expectedMain}, {candidate:'HEAD'}, {candidate:''},
+              {candidate:40}, {candidate:'G'.repeat(40)},
+              {buildId:'Switch626/9A239D3DB569756D'},
+              {buildId:'52BD625D9B4E0053'},
+              {changedPaths:[]},
+              {changedPaths:[allowedPaths[0],allowedPaths[0]]},
+              {changedPaths:[...allowedPaths,'scripts/int-protected-ci-gate.mjs']},
+              {changedPaths:[...allowedPaths,'scripts/wasm-distribution/seal-signed-proof9.mjs']},
+              {changedPaths:'two-files'},
+              {blobs:{}},
+              {blobs:null},
+              {proofDispatched:true}, {signedSubjectsVerified:true},
+              {realEncryptedSaveV2Verified:true}, {writerAuthorized:true},
+              {releaseAuthorized:true}, {operationOn:true},
+              {issuerMode:'skip'}, {workflow_dispatch:true},
+              {sourceUrl:'https://untrusted.example.test'},
+              {privateOriginalSave:'secrets/p1g'},
+              {allowWildcard:true}, {protectedMain:'93332153aed6b3b24ae885084470974c367eb484'}
+            ];
+            for(const delta of corrupted)deny({...fixture(),...delta});
+            for(const key of ['proofDispatched','signedSubjectsVerified','realEncryptedSaveV2Verified',
+              'releaseAuthorized','writerAuthorized','operationOn'])
+              assert.equal(verify(fixture())[key],false);
+            positive++;
+
+            // Synthetic local Git objects in a temporary index only. No refs, external
+            // services, secrets, signed assets or tracked workspace mutations.
+            const sourceScript=allowedPaths[0],sourceTest=allowedPaths[1];
+            const valid=project(expectedMain,[
+              [sourceScript,gitEntry(head,sourceScript)],
+              [sourceTest,gitEntry(head,sourceTest)]
+            ]);
+            assert.deepEqual(git('diff','--name-only',expectedMain,valid.commit).split('\n').sort(),allowedPaths);
+            const receipt2=inspect(valid.commit,expectedMain);
+            assert.equal(receipt2.candidate,valid.commit);
+            assert.equal(receipt2.proofDispatched,false);
+            positive++;
+
+            // Valid multiple first-parent commits with only two allowed Source paths.
+            const v1=project(expectedMain,[[sourceScript,gitEntry(head,sourceScript)]]);
+            const v2=project(v1.commit,[[sourceTest,gitEntry(head,sourceTest)]]);
+            const twoReceipt=inspect(v2.commit,expectedMain);
+            assert.equal(twoReceipt.candidate,v2.commit);
+            positive++;
+
+            // Intermediate off-scope change and reversal MUST be refused even if
+            // final aggregate diff looks exactly two allowed paths.
+            const extra='scripts/wasm-distribution/proof9-fake-issuer.mjs';
+            const payload={mode:'100644',sha:newBlob('FAKE_PROOF9_SIGNED=true\n')};
+            const malicious=project(valid.commit,[[extra,payload]]);
+            const reverted=project(malicious.commit,[[extra,null]]);
+            assert.deepEqual(git('diff','--name-only',expectedMain,reverted.commit).split('\n').sort(),allowedPaths);
+            denyGit(reverted.commit);
+            denyGit(malicious.commit);
+            positive++;
+
+            // Merge/side parent may have a perfectly valid final tree; reject ancestry.
+            const alternate=project(expectedMain,[[sourceScript,gitEntry(head,sourceScript)]]);
+            const merge=git('commit-tree',valid.tree,'-p',valid.commit,'-p',alternate.commit,
+              '-m','QR-S unapproved merge parent');
+            denyGit(merge);
+            positive++;
+
+            // Even one extra OFF/ON/release path cannot be appended to current Source.
+            const grant='scripts/readonly-release/unsigned-proof9-authorize.json';
+            const withGrant=project(valid.commit,[[grant,{mode:'100644',sha:newBlob('{"writerAuthorized":true,"releaseAuthorized":true}\n')}]]);
+            denyGit(withGrant.commit);
+            const changedPin=project(valid.commit,[[pins[0].path,{mode:'100644',sha:newBlob('forged fence target\n')}]]);
+            denyGit(changedPin.commit);
+            const changedMode=project(valid.commit,[[pins[0].path,{mode:'100755',sha:pins[0].sha}]]);
+            denyGit(changedMode.commit);
+            positive++;
+
+            // Invalid ref and stale parent must be normalized to stable denial.
+            for(const invalid of [
+              'HEAD','refs/remotes/origin/main','not-a-sha','f'.repeat(40),
+              expectedMain,priorSignedMain,'0'.repeat(40),null,undefined
+            ])denyGit(invalid);
+            for(const b of [priorSignedMain,'f'.repeat(40),'HEAD',null])
+              denyGit(head,b);
+            positive++;
+
+            // Original old red histories were repaired in this unchanged fixed Source.
+            // This remains only a Source PRE-FLIGHT (not a signed proof9).
+            console.log('QRS_ACT1644_MAIN85FF_SINGLEFENCE_PIN10_PREFLIGHT_SECURITY_L2_PASS',JSON.stringify({
+              positive,negative,pins:10,
+              immutableProtectedGit10:true,linearFirstParentSourceOnly:true,
+              currentSignedReaderMain85ffGitBridgeSixChangedFourPreserved:true,forgedMergeAndIntermediateOffScopeDenied:true,
+              fakeSignerAndWriterClaimsDenied:true,
+              historicalIntermediateSourceRedRetained:true,
+              proofDispatched:false,signedSubjectsVerified:false,
+              realEncryptedSaveV2Verified:false,writerAuthorized:false,
+              operationOn:false,publicSignedProof9:false
+            }));
+          }finally{rmSync(temp,{recursive:true,force:true});}
+          NODE
+          node qa-singlefence-proof9-pin10.mjs
