@@ -1,0 +1,336 @@
+name: "04 QR-S ACT1648 SingleFence Proof9 signed3 exclusive issuer Security L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qrs-act1648-pr2055-sf626-proof9-exclusive-signed3-l2.yml"
+permissions:
+  contents: read
+jobs:
+  independent-proof-signer-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: edd930148acd1adb72dc8c0aacb68a9c1ff00966
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Independent protected signer / Git / synthetic actual WASM adversarial tests (no dispatch)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > qa-proof9-exclusive-signer-l2.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {createHash} from 'node:crypto';
+          import {mkdtempSync,mkdirSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {tmpdir} from 'node:os';
+          import {
+            validateProofGitSnapshot,
+            proofWorkflowContext,
+            inspectProofSubjects,
+            PROOF_SIGNER
+          } from './scripts/readonly-release/steam-singlefence-proof9-signed.mjs';
+          import {
+            SINGLEFENCE_PROOF9_PINS as pins,
+            SINGLEFENCE_PROOF9_BID as build
+          } from './scripts/readonly-release/steam-singlefence-proof9-preflight.mjs';
+          import {ACTIVE_RELEASE_TUPLE} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {verifySignedReleaseSubjects} from './scripts/readonly-release/seal.mjs';
+
+          const baseline='d63b9c47a9271c30186e546bff0b2cf0ebabde48';
+          const head='edd930148acd1adb72dc8c0aacb68a9c1ff00966';
+          const prior='010040992fe64611ba17c9f996a28400235adc68';
+          const exactPaths=[
+            '.github/workflows/steam626-singlefence-proof9.yml',
+            'scripts/readonly-release/steam-singlefence-proof9-signed.mjs',
+            'tests/steam-singlefence-proof9-signed.test.mjs'
+          ].sort();
+          const actualBlobs=[
+            'ac729a534269d5bb23f8fba8797a56e4a9f1e4b1',
+            '07164b1b7aac23ae62d24e962dcdd782afeac2ca',
+            '30e9cd77cce6dcda469db3adcb33d142a287e211'
+          ];
+          const git=(...args)=>execFileSync('git',args,{
+            encoding:'utf8',maxBuffer:10*1024*1024,
+            env:{...process.env,GIT_NO_REPLACE_OBJECTS:'1'}
+          }).trim();
+          const entry=(ref,path)=>{
+            const found=git('ls-tree',ref,'--',path);
+            if(!found)return null;
+            const m=/^(100644|100755|120000|160000) (blob|commit) ([0-9a-f]{40})\t(.+)$/.exec(found);
+            assert.ok(m&&m[4]===path,'exact Git object '+path);
+            return {mode:m[1],type:m[2],sha:m[3]};
+          };
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          const script=readFileSync('scripts/readonly-release/steam-singlefence-proof9-signed.mjs','utf8');
+          const workflow=readFileSync('.github/workflows/steam626-singlefence-proof9.yml','utf8');
+          const sourceContext=()=>({
+            WAND_PROOF_EXPECTED_SOURCE:head,GITHUB_ACTIONS:'true',
+            GITHUB_EVENT_NAME:'workflow_dispatch',
+            GITHUB_REPOSITORY_ID:'1371485649',
+            GITHUB_REPOSITORY:'DreamwishWand/web',
+            GITHUB_REF:'refs/heads/main',
+            GITHUB_SHA:head,GITHUB_WORKFLOW_SHA:head,
+            GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/steam626-singlefence-proof9.yml@refs/heads/main'
+          });
+          const pinFixture=()=>({
+            repositoryId:1371485649,sourceHead:head,buildId:build,
+            blobs:Object.fromEntries(pins.map(p=>[p.path,{sha:p.sha,mode:p.mode,type:p.type}]))
+          });
+          const deny=(fn,pattern=/SINGLEFENCE_PROOF9_SIGNED_SCOPE_DENIED/)=>{
+            assert.throws(fn,pattern);
+            negative++;
+          };
+          let positive=0,negative=0;
+          assert.equal(git('rev-parse','HEAD'),head);
+          assert.deepEqual(git('rev-list','--parents','-n','1',head).split(/\s+/),[head,baseline]);
+          assert.equal(git('merge-base',baseline,head),baseline);
+          assert.equal(git('merge-base',prior,baseline),prior);
+          assert.deepEqual(git('diff','--name-only',baseline,head).split('\n').sort(),exactPaths);
+          assert.deepEqual(exactPaths.map(path=>entry(baseline,path)),[null,null,null]);
+          assert.deepEqual(exactPaths.map(path=>entry(head,path)),actualBlobs.map(sha=>({mode:'100644',type:'blob',sha})));
+          assert.equal(git('rev-parse',baseline+':scripts/readonly-release/steam-singlefence-proof9-preflight.mjs'),
+            '7d15a66adf94e9c956644e3190dc2b637015d152');
+          positive++;
+
+          assert.equal(PROOF_SIGNER.repository,ACTIVE_RELEASE_TUPLE.repository);
+          assert.equal(PROOF_SIGNER.sourceRef,'refs/heads/main');
+          assert.equal(PROOF_SIGNER.signerWorkflow,
+            'DreamwishWand/web/.github/workflows/steam626-singlefence-proof9.yml');
+          assert.equal(PROOF_SIGNER.origin,ACTIVE_RELEASE_TUPLE.origin);
+          assert.equal(PROOF_SIGNER.basePath,ACTIVE_RELEASE_TUPLE.basePath);
+          const snapshot=pinFixture();
+          assert.equal(validateProofGitSnapshot(snapshot).status,'SINGLEFENCE_PROOF9_EXACT10_SOURCE_ONLY');
+          assert.equal(pins.length,10);
+          for(const p of pins){
+            assert.deepEqual(entry(baseline,p.path),{mode:p.mode,type:p.type,sha:p.sha},
+              'actual protected Git original pin '+p.path);
+            assert.deepEqual(entry(head,p.path),{mode:p.mode,type:p.type,sha:p.sha},
+              'candidate signer cannot change protected pin '+p.path);
+            positive++;
+            const cases=[
+              null,{},undefined,
+              {sha:'f'.repeat(40),mode:p.mode,type:p.type},
+              {sha:p.sha.toUpperCase(),mode:p.mode,type:p.type},
+              {sha:p.sha,mode:'100755',type:p.type},
+              {sha:p.sha,mode:'120000',type:p.type},
+              {sha:p.sha,mode:p.mode,type:'tree'},
+              {sha:p.sha,mode:p.mode,type:'commit'},
+              {sha:p.sha,mode:p.mode,type:p.type,releaseAuthorized:true}
+            ];
+            for(const bad of cases){
+              const f=pinFixture();
+              if(bad===undefined)delete f.blobs[p.path];else f.blobs[p.path]=bad;
+              deny(()=>validateProofGitSnapshot(f));
+            }
+          }
+          for(const d of [
+            {repositoryId:42},{sourceHead:'HEAD'},{sourceHead:''},
+            {buildId:'Switch626'},{buildId:'Steam624'},{blobs:{}},
+            {writerAuthorized:true},{operationOn:true},{signedSubjectsVerified:true},
+            {proofDispatched:true},{releaseAuthorized:true}
+          ])deny(()=>validateProofGitSnapshot({...pinFixture(),...d}));
+          positive++;
+
+          assert.equal(proofWorkflowContext(sourceContext()),head);
+          for(const delta of [
+            {GITHUB_ACTIONS:'false'},{GITHUB_ACTIONS:''},
+            {GITHUB_EVENT_NAME:'push'},{GITHUB_EVENT_NAME:'pull_request'},
+            {GITHUB_REPOSITORY_ID:'0'},{GITHUB_REPOSITORY:'fork/web'},
+            {GITHUB_REPOSITORY:'DreamwishWand/site'},
+            {GITHUB_REF:'refs/heads/dev'},{GITHUB_REF:'refs/pull/2055/merge'},
+            {GITHUB_SHA:baseline},{GITHUB_WORKFLOW_SHA:baseline},
+            {WAND_PROOF_EXPECTED_SOURCE:baseline},{WAND_PROOF_EXPECTED_SOURCE:'HEAD'},
+            {GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/pages.yml@refs/heads/main'},
+            {GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/steam626-singlefence-proof9.yml@refs/heads/dev'}
+          ])deny(()=>proofWorkflowContext({...sourceContext(),...delta}));
+          positive++;
+
+          const ordered=[
+            'source-check','ci-build','build-subjects','ci-recheck',
+            'actions/attest-build-provenance@v2','verify-signed',
+            'actions/upload-artifact@v4'
+          ];
+          let last=-1;
+          for(const token of ordered){
+            const index=workflow.indexOf(token);
+            assert.ok(index>last,'immutable proof-only step order: '+token);
+            last=index;positive++;
+          }
+          assert.match(workflow,/^on:\n  workflow_dispatch:/m);
+          assert.doesNotMatch(workflow,/\n  (?:push|pull_request|schedule|workflow_call):/);
+          assert.match(workflow,/github\.ref == 'refs\/heads\/main'/);
+          assert.match(workflow,/persist-credentials: false/);
+          assert.match(workflow,/id-token: write/);
+          assert.match(workflow,/attestations: write/);
+          assert.match(workflow,/contents: read/);
+          assert.match(workflow,/actions: read/);
+          assert.doesNotMatch(workflow,/contents: write|pages: write|deployments: write/);
+          assert.match(workflow,/cancel-in-progress: false/);
+          assert.match(workflow,/WAND_PROOF_EXPECTED_SOURCE/);
+          assert.match(workflow,/WAND_GATE_READ_TOKEN/);
+          assert.match(workflow,/--locked --manifest-path/);
+          assert.match(workflow,/--no-default-features --features product-steam626-singlefence-readonly,worker-wasm/);
+          assert.match(workflow,/--version 0\.2\.105 --locked/);
+          assert.match(workflow,/toolchain: '1\.99\.1'/);
+          assert.doesNotMatch(workflow,/actions\/(?:deploy-pages|upload-pages-artifact)@|npm run build|upload-release-asset|--features[^'\n]*semantic_writer/);
+          const upload=workflow.slice(workflow.indexOf('actions/upload-artifact@v4'));
+          assert.match(upload,/pins\.json/);
+          assert.match(upload,/attestation-bundle\.jsonl/);
+          assert.doesNotMatch(upload,/ddv_save_core|fixtures\/steam626-singlefence-proof9\/ddv|static\/|build\//);
+          assert.match(script,/verifySignedReleaseSubjects\(dir,source,bundle,PROOF_SIGNER/);
+          assert.match(script,/inspectProtectedCi\(ci,get\)/);
+          assert.match(script,/revalidateProtectedCi\(ci,JSON\.parse\(raw\),get\)/);
+          assert.match(script,/GIT_NO_REPLACE_OBJECTS:'1'/);
+          assert.match(script,/git\('merge-base','--is-ancestor',signedReaderAncestor,source\)/);
+          assert.match(script,/originalOverwriteAuthorized:false/);
+          assert.match(script,/realEncryptedSaveV2Verified:false/);
+          positive++;
+
+          // Independent minimal valid WebAssembly module: WASM magic+v1, one
+          // no-parameter function; no native build, no remote attestation.
+          const section=(id,body)=>Buffer.from([id,body.length,...body]);
+          const exportName=Buffer.from('read_steam626_singlefence_target','utf8');
+          const makeWasm=(withDanger=false)=>{
+            const exports=[1,...[exportName.length,...exportName,0,0]];
+            if(withDanger){
+              const n=Buffer.from('dev_stage','utf8');
+              exports[0]=2;exports.push(n.length,...n,0,0);
+            }
+            return Buffer.concat([
+              Buffer.from([0,97,115,109,1,0,0,0]),
+              section(1,[1,0x60,0,0]),
+              section(3,[1,0]),
+              section(7,exports),
+              section(10,[1,2,0,0x0b])
+            ]);
+          };
+          const cleanWasm=makeWasm();
+          assert.deepEqual(
+            WebAssembly.Module.exports(new WebAssembly.Module(cleanWasm)).map(e=>e.name),
+            ['read_steam626_singlefence_target']
+          );
+          const js=Buffer.from('export function read_steam626_singlefence_target() { return null; }\n');
+          const makeManifest=(w=cleanWasm,j=js)=>({
+            contract:'wand.steam626.singlefence.proof9.source-candidate@1',
+            kind:'PROOF_ONLY_THREE_SIGNED_SUBJECTS_NO_PUBLIC_DEPLOY',
+            source:{
+              repository:PROOF_SIGNER.repository,commit:head,buildId:build,
+              cargoTomlGitBlob:pins.find(p=>p.path==='crates/ddv-save-core/Cargo.toml').sha,
+              cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',
+              rustcVersion:'1.99.1',wasmBindgenCliVersion:'0.2.105',
+              features:['product-steam626-singlefence-readonly','worker-wasm'],
+              defaultFeatures:false
+            },
+            assets:{
+              js:{path:'ddv_save_core.js',sizeBytes:j.length,sha256:sha(j)},
+              wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}
+            },
+            release:{
+              proofOnly:true,publicAssets:false,productConsumerEnabled:false,
+              writerAuthorized:false,operationOn:false,autoUpload:false,
+              originalOverwriteAuthorized:false,realEncryptedSaveV2Verified:false
+            },
+            abi:{exportClass:'WorkerWasmSource',
+              method:'read_steam626_singlefence_target',writerAuthorized:false}
+          });
+          const pack=(m=makeManifest(),j=js,w=cleanWasm)=>
+            [Buffer.from(JSON.stringify(m)+'\n'),j,w];
+          const exactPack=pack();
+          const expectedPins=inspectProofSubjects(exactPack,head);
+          assert.equal(expectedPins.sourceHead,head);
+          assert.equal(expectedPins.publicWriter,false);
+          assert.equal(expectedPins.operationOn,false);
+          assert.equal(expectedPins.manifestSha256,sha(exactPack[0]));
+          assert.equal(expectedPins.jsSha256,sha(exactPack[1]));
+          assert.equal(expectedPins.wasmSha256,sha(exactPack[2]));
+          positive++;
+          for(const change of [
+            m=>{m.kind='PUBLIC_DEPLOY';},
+            m=>{m.contract='legacy-v0';},
+            m=>{m.source.commit=baseline;},
+            m=>{m.source.repository='fork/web';},
+            m=>{m.source.buildId='Switch626';},
+            m=>{m.source.cargoTomlGitBlob='0'.repeat(40);},
+            m=>{m.source.cargoLockSha256='0'.repeat(64);},
+            m=>{m.source.features=['worker-wasm'];},
+            m=>{m.source.defaultFeatures=true;},
+            m=>{m.source.rustcVersion='1.98.0';},
+            m=>{m.source.wasmBindgenCliVersion='0.2.104';},
+            m=>{m.assets.js.path='../private/save.p1g';},
+            m=>{m.assets.wasm.path='../../static/ddv_save_core_bg.wasm';},
+            m=>{m.assets.js.sizeBytes++;},
+            m=>{m.assets.wasm.sha256='f'.repeat(64);},
+            m=>{m.release.proofOnly=false;},
+            m=>{m.release.publicAssets=true;},
+            m=>{m.release.productConsumerEnabled=true;},
+            m=>{m.release.writerAuthorized=true;},
+            m=>{m.release.operationOn=true;},
+            m=>{m.release.autoUpload=true;},
+            m=>{m.release.originalOverwriteAuthorized=true;},
+            m=>{m.release.realEncryptedSaveV2Verified=true;},
+            m=>{m.abi.method='dev_stage';},
+            m=>{m.abi.writerAuthorized=true;},
+            m=>{m.abi.exportClass='WriterSession';},
+            m=>{m.newTrustedIssuer='unreviewed';}
+          ]){
+            const m=makeManifest();change(m);
+            deny(()=>inspectProofSubjects(pack(m),head));
+          }
+          for(const tuple of [
+            {...PROOF_SIGNER,signerWorkflow:'DreamwishWand/web/.github/workflows/pages.yml'},
+            {...PROOF_SIGNER,origin:'https://invalid.example'},
+            {...PROOF_SIGNER,sourceRef:'refs/heads/dev'}
+          ])deny(()=>inspectProofSubjects(exactPack,head,tuple));
+          for(const invalid of [
+            [],[exactPack[0]],[...exactPack,exactPack[0]],
+            [Buffer.alloc(0),js,cleanWasm],
+            [Buffer.from('{'),js,cleanWasm],
+            [Buffer.from([0xff]),js,cleanWasm],
+            [exactPack[0],Buffer.from('dev_stage'),cleanWasm],
+            [exactPack[0],js,Buffer.from('not wasm')],
+            [exactPack[0],js,makeWasm(true)],
+            [exactPack[0],Buffer.alloc(2*1024*1024+1),cleanWasm]
+          ])deny(()=>inspectProofSubjects(invalid,head));
+          for(const source of [
+            baseline,'HEAD',null,undefined,'f'.repeat(39),'f'.repeat(40)
+          ])deny(()=>inspectProofSubjects(exactPack,source));
+          positive++;
+
+          // Refute unsigned receipt as signed proof. Stub the external gh
+          // verifier so no actual signing, upload, or network ever occurs.
+          const temp=mkdtempSync(join(tmpdir(),'qrs-proof9-sig-denial-'));
+          const oldPath=process.env.PATH;
+          try{
+            const stub=join(temp,'gh');
+            writeFileSync(stub,'#!/bin/sh\nexit 19\n',{mode:0o755});
+            const dir=join(temp,'subjects');mkdirSync(dir);
+            for(const [i,name] of ['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm'].entries())
+              writeFileSync(join(dir,name),exactPack[i],{mode:0o600});
+            process.env.PATH=temp+':'+oldPath;
+            await assert.rejects(
+              verifySignedReleaseSubjects(dir,head,join(temp,'forged-attestation-bundle.jsonl'),
+                PROOF_SIGNER,inspectProofSubjects),
+              /SIGNATURE_VERIFICATION_DENIED/
+            );
+            negative++;
+          }finally{
+            process.env.PATH=oldPath;
+            rmSync(temp,{recursive:true,force:true});
+          }
+          console.log('QRS_ACT1648_SF626_EXCLUSIVE_SIGNED3_SECURITY_L2_PASS',JSON.stringify({
+            positive,negative,sourcePaths:3,protectedPins:10,sourceHead:head,
+            protectedMain:baseline,realGitObjects:true,issuerExact:true,
+            realWasmShapeRefutation:true,metadataOnlyNoPublish:true,
+            signedReceiptForgeryDenied:true,stubbedExternalVerifier:true,
+            protectedCiRevalidateContract:true,
+            proofDispatched:false,realSigned3Verified:false,
+            realEncryptedOwnerV2Verified:false,publicWriter:false,operationOn:false
+          }));
+          NODE
+          node qa-proof9-exclusive-signer-l2.mjs
