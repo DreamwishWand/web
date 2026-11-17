@@ -3,11 +3,11 @@ const a=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require
 const root='/tmp/qrc2034-',sha=b=>createHash('sha256').update(b).digest('hex');
 const X=profile=>require(root+profile+'/ddv_save_core.js').WorkerWasmSource;
 const methods=profile=>Object.getOwnPropertyNames(X(profile).prototype).filter(n=>!['constructor','free','__destroy_into_raw'].includes(n)).sort();
-const exports=profile=>WebAssembly.Module.exports(new WebAssembly.Module(fs.readFileSync(root+profile+'/ddv_save_core_bg.wasm'))).map(x=>x.name);
+const wasmExports=profile=>WebAssembly.Module.wasmExports(new WebAssembly.Module(fs.readFileSync(root+profile+'/ddv_save_core_bg.wasm'))).map(x=>x.name);
 const method='read_steam626_singlefence_target',wasmMethod='workerwasmsource_'+method;
 let base=methods('off'), own=methods('own'),mixed=methods('mixed');
 for(const p of ['off','own','mixed']){
-  let m=methods(p),ex=exports(p);
+  let m=methods(p),ex=wasmExports(p);
   a.equal(new Set(m).size,m.length,'no duplicate JS API');
   a.equal(m.includes(method),p==='own',p+' dedicated JS binding only on own');
   a.equal(ex.includes(wasmMethod),p==='own',p+' dedicated WASM binding only on own');
@@ -15,7 +15,7 @@ for(const p of ['off','own','mixed']){
   console.log('QRC2034_SINGLEFENCE_GENERATED_ABI',p,m.length,ex.length,sha(fs.readFileSync(root+p+'/ddv_save_core_bg.wasm')));
 }
 a.deepEqual(own.filter(s=>!base.includes(s)),[method],'own-only JS addition exactly one Reader');
-a.deepEqual(exports('own').filter(s=>!exports('off').includes(s)),[wasmMethod],'own-only WASM addition exactly one Reader');
+a.deepEqual(wasmExports('own').filter(s=>!wasmExports('off').includes(s)),[wasmMethod],'own-only WASM addition exactly one Reader');
 a.equal(base.includes(method),false);a.equal(mixed.includes(method),false);
 const sourcePath='/tmp/qrc2034-singlefence-fixture.json';
 const bytes=fs.readFileSync(sourcePath),originalSHA=sha(bytes),fixture=JSON.parse(bytes);
