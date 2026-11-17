@@ -218,3 +218,123 @@ jobs:
           node --check tests/.qa-qrw1973-union-chrome.mjs
           node tests/.qa-qrw1973-union-chrome.mjs
           git diff --exit-code -- src/lib tests/product-*.mjs
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Build two accepted distinct generated Rust feature profiles without repeating per-Op semantic QA
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '077f5e613a88b8dc49772f74a473eff3b587f103'
+          for info in "eye 9c3373f5031fdbdc20ac60019807b8320b886fb9" "makeup 887894abce6da036c9b926dd6ea78af6f096aeff"; do
+            read -r op sha <<<"$info"
+            git cat-file -e "$sha^{commit}" || git fetch --no-tags origin "$sha"
+            git worktree add --detach "/tmp/qrw1973-core-$op" "$sha"
+            test "$(git -C "/tmp/qrw1973-core-$op" rev-parse HEAD)" = "$sha"
+            cargo generate-lockfile --manifest-path "/tmp/qrw1973-core-$op/crates/ddv-save-core/Cargo.toml"
+            sha256sum "/tmp/qrw1973-core-$op/crates/ddv-save-core/Cargo.lock" >"/tmp/qrw1973-$op-lock.sha"
+          done
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrw1973-bindgen
+          for op in eye makeup; do
+            case "$op" in
+              eye) feature=product-steam626-eyecolor2-scoped; want=1d969d17c648cb5d3a996506eee1958eec99bf30b9130bfa1ffeaf8533f7cf08 ;;
+              makeup) feature=product-steam626-makeup-color1-scoped; want=e662abbb8034046dccda4aaf04b1e167ecc67e001adfe585d6a784a8811a6d4e ;;
+            esac
+            manifest="/tmp/qrw1973-core-$op/crates/ddv-save-core/Cargo.toml"
+            CARGO_TARGET_DIR="/tmp/qrw1973-target-$op" cargo build --locked --manifest-path "$manifest" --release --target wasm32-unknown-unknown --no-default-features --features "worker-wasm,$feature"
+            wasm="/tmp/qrw1973-target-$op/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+            /tmp/qrw1973-bindgen/bin/wasm-bindgen "$wasm" --out-dir "/tmp/qrw1973-node-$op" --target nodejs --no-typescript
+            echo "$want  /tmp/qrw1973-node-$op/ddv_save_core_bg.wasm" | sha256sum -c -
+            mkdir -p "static/qa-union/$op"
+            /tmp/qrw1973-bindgen/bin/wasm-bindgen "$wasm" --out-dir "static/qa-union/$op" --target web --no-typescript
+            sha256sum -c "/tmp/qrw1973-$op-lock.sha"
+          done
+          git diff --exit-code -- src/lib tests/product-*.mjs
+      - name: Actual one Chrome realm sequential two Rust Workers and strict cross-Op generated ABI rejection
+        run: |
+          set -euo pipefail
+          mkdir -p src/routes/test-qrw-appearance-union-wasm
+          cat >src/routes/test-qrw-appearance-union-wasm/+page.svelte <<'SVELTE'
+          <script>
+          import {onMount} from 'svelte';
+          import {EYECOLOR2_RELEASE,MAKEUP_COLOR1_RELEASE} from '$lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {compileVerifiedWorker} from '$lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs';
+          onMount(()=>{(async()=>{try{
+            const get=async op=>{
+              const [j,w]=await Promise.all([fetch('/qa-union/'+op+'/ddv_save_core.js'),fetch('/qa-union/'+op+'/ddv_save_core_bg.wasm')]);
+              if(!j.ok||!w.ok||!w.headers.get('content-type')?.startsWith('application/wasm'))throw Error('WASM_OR_JS_MIME_DENIED_'+op);
+              return{js:new Uint8Array(await j.arrayBuffer()),wasm:new Uint8Array(await w.arrayBuffer())};
+            };
+            const eye=await get('eye'),makeup=await get('makeup');
+            const opt=(rel,other)=>({
+              deniedSymbol:new RegExp('(?:preview|stage|toggle|begin|next)_steam626_'+other),
+              requiredMethods:rel.methods,exactPrototype:true,exactWasmExports:rel.exports
+            });
+            const eOpt=opt(EYECOLOR2_RELEASE,'makeup_color1'),mOpt=opt(MAKEUP_COLOR1_RELEASE,'eyecolor2');
+            const C1=await compileVerifiedWorker(eye.js,eye.wasm,eOpt);
+            const C2=await compileVerifiedWorker(makeup.js,makeup.wasm,mOpt);
+            const methods=C=>Object.getOwnPropertyNames(C.prototype).filter(k=>!['constructor','free','__destroy_into_raw'].includes(k));
+            const a=methods(C1),b=methods(C2);
+            const exportsOf=bytes=>WebAssembly.Module.exports(new WebAssembly.Module(bytes)).map(x=>x.name);
+            if(a.length!==13||b.length!==13||exportsOf(eye.wasm).length!==22||exportsOf(makeup.wasm).length!==22)throw Error('ABI_COUNT_DRIFT');
+            if(!a.includes('preview_steam626_eyecolor2')||a.includes('preview_steam626_makeup_color1')||
+               !b.includes('preview_steam626_makeup_color1')||b.includes('preview_steam626_eyecolor2'))
+              throw Error('CROSS_ABI_METHOD_LEAK');
+            let opens=0,closes=0;
+            for(const [C,spec] of [[C1,EYECOLOR2_RELEASE],[C2,MAKEUP_COLOR1_RELEASE]]){
+              const w=new C('steam-windows','steam-full-version',spec.buildId,626,true,new Uint8Array(32).fill(7));
+              opens++;if(typeof w.finish!=='function'||typeof w.close!=='function'||typeof w.append_chunk!=='function')throw Error('WORKER_ABI_UNCALLABLE');
+              w.close();w.free();closes++;
+            }
+            let neg=0;const deny=async(fn,k)=>{try{await fn()}catch{neg++;return}throw Error('UNSAFE_ACCEPTED_'+k)};
+            await deny(()=>compileVerifiedWorker(eye.js,eye.wasm,mOpt),'EYE_WASM_MAKEUP_PROFILE');
+            await deny(()=>compileVerifiedWorker(makeup.js,makeup.wasm,eOpt),'MAKEUP_WASM_EYE_PROFILE');
+            await deny(()=>compileVerifiedWorker(eye.js,makeup.wasm,eOpt),'CROSS_JS_EYE_MAKEUP_WASM');
+            await deny(()=>compileVerifiedWorker(makeup.js,eye.wasm,mOpt),'CROSS_JS_MAKEUP_EYE_WASM');
+            const injected=new TextEncoder().encode(new TextDecoder().decode(eye.js)+'\nWorkerWasmSource.prototype.qa_extra=function(){};');
+            await deny(()=>compileVerifiedWorker(injected,eye.wasm,eOpt),'INJECTED_EXTRA_METHOD');
+            const corrupted=makeup.wasm.slice();corrupted[0]^=255;
+            await deny(()=>compileVerifiedWorker(makeup.js,corrupted,mOpt),'CORRUPT_WASM');
+            window.__qrw1973Wasm={ok:true,actualGenerated:true,operations:2,workersOpened:opens,workersClosed:closes,
+              methodsEye:a.length,methodsMakeup:b.length,wasmEye:exportsOf(eye.wasm).length,
+              wasmMakeup:exportsOf(makeup.wasm).length,mixedOrCrossDenied:neg,sameChromeRealm:true,
+              simultaneousRustSessions:0,syntheticP1gEdited:false,privatePhysicalV2:false,publicOn:false};
+          }catch(e){window.__qrw1973Wasm={error:String(e?.stack||e)}}})()});
+          </script>
+          <p>QA-only two separate generated Rust profiles loaded into one Chrome realm</p>
+          SVELTE
+          cat >tests/.qa-qrw1973-generated-cross.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          import {spawn,spawnSync} from 'node:child_process';
+          const origin='http://127.0.0.1:4187';
+          const srv=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4187','--strictPort'],
+            {env:{...process.env,BASE_PATH:''},stdio:'inherit'});let browser;
+          try{
+            let ready=false;
+            for(let i=0;i<160;i++){try{if((await fetch(origin+'/test-qrw-appearance-union-wasm/')).ok){ready=true;break}}catch{}
+              await new Promise(r=>setTimeout(r,250))}
+            assert.ok(ready,'Vite test route started');
+            const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);
+            assert.ok(bin,'actual Chrome');
+            browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),
+              args:['--no-sandbox','--disable-dev-shm-usage']});
+            const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            await page.goto(origin+'/test-qrw-appearance-union-wasm/');
+            await page.waitForFunction(()=>!!window.__qrw1973Wasm,{},{timeout:60000});
+            const got=await page.evaluate(()=>window.__qrw1973Wasm);
+            if(got.error){console.log('QRW1973_GENERATED_UNION_RED '+got.error);throw Error(got.error)}
+            assert.equal(got.ok,true);assert.equal(got.actualGenerated,true);assert.equal(got.operations,2);
+            assert.equal(got.workersOpened,2);assert.equal(got.workersClosed,2);
+            assert.equal(got.methodsEye,13);assert.equal(got.methodsMakeup,13);
+            assert.equal(got.wasmEye,22);assert.equal(got.wasmMakeup,22);
+            assert.equal(got.mixedOrCrossDenied,6);assert.equal(got.sameChromeRealm,true);
+            assert.equal(got.simultaneousRustSessions,0);assert.equal(got.syntheticP1gEdited,false);
+            assert.equal(got.privatePhysicalV2,false);assert.equal(got.publicOn,false);assert.deepEqual(errors,[]);
+            console.log('QRW1973_FOUR_APPEARANCE_GENERATED_TWO_RUST_ABI_ISOLATION_CHROME_PASS '+JSON.stringify(got));
+          }finally{await browser?.close();srv.kill()}
+          NODE
+          node --check tests/.qa-qrw1973-generated-cross.mjs
+          node tests/.qa-qrw1973-generated-cross.mjs
+          git diff --exit-code -- src/lib tests/product-*.mjs
