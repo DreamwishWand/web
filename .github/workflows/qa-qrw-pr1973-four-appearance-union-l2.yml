@@ -1,0 +1,220 @@
+name: QA ONLY PR1973 four appearance union cross-scope actual Chrome Worker L2 (NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1973-four-appearance-union-l2.yml'
+permissions:
+  contents: read
+jobs:
+  qrw-appearance-four-union:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 077f5e613a88b8dc49772f74a473eff3b587f103
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Immutable PR1973 child Source and all four protected OFF anchors
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '077f5e613a88b8dc49772f74a473eff3b587f103'
+          test "$(git merge-base 059ddfd816d3100cd25780eb9082cf4f6bcd06c9 HEAD)" = '059ddfd816d3100cd25780eb9082cf4f6bcd06c9'
+          git diff --name-only 059ddfd816d3100cd25780eb9082cf4f6bcd06c9 HEAD | LC_ALL=C sort >/tmp/qrw1973-actual
+          cat >/tmp/qrw1973-expected <<'PATHS'
+          src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
+          src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
+          src/lib/ddv/core/save/product-scoped-makeup-color1-release-anchor.mjs
+          src/lib/ddv/core/save/product-scoped-placement-release.mjs
+          src/lib/ddv/core/save/product-scoped-switch-makeup-color1-release-anchor.mjs
+          src/lib/ddv/core/save/product-steam626-makeup-color1-transport.mjs
+          src/lib/ddv/core/save/product-wasm-read-owner.d.mts
+          src/lib/ddv/core/save/product-wasm-read-owner.mjs
+          src/lib/dev/LocalPlacementEditorDev.svelte
+          src/lib/dev/PlacementProductRoute.svelte
+          src/lib/dev/local-placement-copy.mjs
+          src/lib/dev/local-placement-workflow.mjs
+          src/lib/dev/local-scoped-edit-worker-port.mjs
+          src/lib/dev/product-makeup-color1.worker.mjs
+          src/lib/dev/product-placement-client.mjs
+          src/lib/dev/product-switch-makeup-color1.worker.mjs
+          src/routes/editor/appearance/makeup-color1/steam/+page.svelte
+          src/routes/editor/appearance/makeup-color1/switch/+page.svelte
+          tests/product-steam626-makeup-color1-route-off.test.mjs
+          tests/product-steam626-makeup-color1-transport.test.mjs
+          tests/product-switch626-eyecolor2-route-off.test.mjs
+          tests/product-switch626-makeup-color1-build-transport.test.mjs
+          tests/product-switch626-makeup-color1-route-off.test.mjs
+          tests/stage-e/chrome-smoke.mjs
+          tests/stage-f/chrome-smoke.mjs
+          tests/wasm-distribution/chrome-smoke.mjs
+          tools/owner-local-steam-v1/server.mjs
+          PATHS
+          diff -u /tmp/qrw1973-expected /tmp/qrw1973-actual
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = 'd85b2adfd4da2f0e8c6564b92bdab7ecfd8afc40'
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 'e3d5d040db6c62f69ee3184a2642d2d0b048e629'
+          for a in \
+            product-scoped-eyecolor2-release-anchor.mjs \
+            product-scoped-switch-eyecolor2-release-anchor.mjs \
+            product-scoped-makeup-color1-release-anchor.mjs \
+            product-scoped-switch-makeup-color1-release-anchor.mjs; do
+            grep -Eq 'export const PROTECTED_.*_RELEASE_ANCHOR=null;' "src/lib/ddv/core/save/$a"
+          done
+          git diff --exit-code 059ddfd816d3100cd25780eb9082cf4f6bcd06c9 HEAD -- crates .github/workflows/product-release.yml
+          echo QRW1973_IMMUTABLE_FOUR_SOURCE_AND_OFF_ANCHOR_PASS
+      - name: Install pinned Web dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual Chrome four routes plus isolated Worker dual-category and cross-build rejection
+        run: |
+          set -euo pipefail
+          mkdir -p src/routes/test-qrw-appearance-union
+          cat >src/routes/test-qrw-appearance-union/qa.worker.mjs <<'WORKER'
+          import {createProductWasmReadOwner} from '$lib/ddv/core/save/product-wasm-read-owner.mjs';
+          import {createP1gRustWorkerReadOnlyBridge} from '$lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+          const labels=['eyecolor2','eyecolor2-switch','makeup-color1','makeup-color1-switch'];
+          const extras=[
+            {allowScopedAmountSource:true},{allowScopedCollectionSource:true},{allowCollectionCandidateSource:true},
+            {allowSwitch626ChestSource:true},{allowSteam626ChestSource:true},{allowSwitch626Catalog0Source:true},
+            {placementScope:'comp03'},{backpackScope:'steam'},{wardrobeScope:'switch'}
+          ];
+          const fakeFactory=async()=>{throw Error('UNEXPECTED_WASM_FACTORY_USED')};
+          const deny=async(f,n)=>{let ok=false;try{await f()}catch{ok=true}if(!ok)throw Error('UNSAFE_CROSS_SCOPE_GRANTED_'+n);return 1};
+          self.onmessage=async({data})=>{if(data?.kind!=='RUN')return;try{
+            let positives=0,negatives=0,wrongBuild=0,cleanClosures=0;
+            for(const scope of labels){
+              const owner=createProductWasmReadOwner(fakeFactory,{appearanceScope:scope});
+              const bridge=createP1gRustWorkerReadOnlyBridge(fakeFactory,{appearanceScope:scope});
+              const methods=['openScopedEncrypted','verifyScopedOriginalBackup','previewScopedAppearance','stageScopedAppearance','toggleScopedAppearance','exportScopedEditedCopy'];
+              if(!methods.every(k=>typeof bridge[k]==='function')||
+                 ['previewScopedPlacement','stageScopedPlacement','previewScopedWardrobe','stageScopedBackpack','previewScopedAmount','stageFixedCollection'].some(k=>k in bridge))
+                throw Error('UNAUTHORIZED_SURFACE_'+scope);
+              if(owner.close().writerAuthorized!==false||bridge.close().writerAuthorized!==false)
+                throw Error('CLOSE_AUTHORIZED_'+scope);
+              cleanClosures+=2;positives+=2;
+              for(const [i,extra] of extras.entries()){
+                negatives+=await deny(()=>createProductWasmReadOwner(fakeFactory,{appearanceScope:scope,...extra}),scope+'_owner_'+i);
+                negatives+=await deny(()=>createP1gRustWorkerReadOnlyBridge(fakeFactory,{appearanceScope:scope,...extra}),scope+'_bridge_'+i);
+              }
+              const foreign=scope.endsWith('-switch')?'steam-windows':'switch';
+              const file=new File([new Uint8Array(16)],'fixture.p1g',{type:'application/octet-stream'});
+              negatives+=await deny(()=>bridge.openScopedEncrypted({
+                file,build:{platform:foreign,buildKind:foreign==='switch'?'switch-bid':'steam-full-version',
+                  buildId:foreign==='switch'?'9A239D3DB569756D':'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+                  schema:626,externallyConfirmed:true},originalSha256:'a'.repeat(64)
+              }),scope+'_foreign_build');wrongBuild++;
+              const invalid=['eyecolor2|makeup-color1','eyecolor2-switch,makeup-color1-switch','both',[],['eyecolor2','makeup-color1']];
+              for(const [i,bad] of invalid.entries())negatives+=await deny(()=>createProductWasmReadOwner(fakeFactory,{appearanceScope:bad}),scope+'_invalid_scope_'+i);
+            }
+            self.postMessage({kind:'QA_RESULT',positives,negatives,wrongBuild,cleanClosures,actualWorker:true,ownerWasmInstantiated:false,
+              fourScopes:labels,originalProductWebUnchanged:true,genuineV2:false,writerOn:false});
+          }catch(e){self.postMessage({kind:'QA_ERROR',error:String(e?.stack||e)})}};
+          WORKER
+          cat >src/routes/test-qrw-appearance-union/+page.svelte <<'SVELTE'
+          <script>
+          import {onMount} from 'svelte';
+          onMount(()=>{
+            const w=new Worker(new URL('./qa.worker.mjs',import.meta.url),{type:'module'});
+            w.onmessage=e=>{window.__qrw1973=e.data};w.onerror=e=>{window.__qrw1973={kind:'QA_ERROR',error:e.message}};
+            w.postMessage({kind:'RUN'});
+            return ()=>w.terminate();
+          });
+          </script>
+          <p>Test only, four Appearance scopes isolated in actual Worker</p>
+          SVELTE
+          cat >tests/.qa-qrw1973-union-chrome.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          import {spawn,spawnSync} from 'node:child_process';
+          const origin='http://127.0.0.1:4186';
+          const server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4186','--strictPort'],{
+            env:{...process.env,BASE_PATH:''},stdio:'inherit'
+          });
+          let browser;
+          try{
+            let ready=false;
+            for(let i=0;i<160;i++){try{if((await fetch(origin+'/editor/appearance/eyecolor2/steam/')).ok){ready=true;break}}catch{}
+              await new Promise(r=>setTimeout(r,250))}
+            assert.ok(ready,'Vite SvelteKit route started');
+            const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);
+            assert.ok(bin,'real Chrome installed');
+            browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),
+              args:['--no-sandbox','--disable-dev-shm-usage']});
+            const page=await browser.newPage({viewport:{width:390,height:844}});
+            await page.addInitScript(()=>{
+              const Native=window.Worker;window.__qrwProductWorkers=0;
+              window.Worker=new Proxy(Native,{construct(target,args,newTarget){
+                if(String(args[0]).includes('product-'))window.__qrwProductWorkers++;
+                return Reflect.construct(target,args,newTarget)
+              }});
+            });
+            const errors=[];page.on('pageerror',e=>errors.push(String(e)));
+            const specs=[
+              {op:'eyecolor2',path:'/editor/appearance/eyecolor2/steam/',key:'EYECOLOR2_RELEASE',fn:'createProductEyeColor2Port',mount:'getEyeColor2MountInfo',platform:'steam-windows'},
+              {op:'eyecolor2-switch',path:'/editor/appearance/eyecolor2/switch/',key:'SWITCH_EYECOLOR2_RELEASE',fn:'createProductSwitchEyeColor2Port',mount:'getSwitchEyeColor2MountInfo',platform:'switch'},
+              {op:'makeup-color1',path:'/editor/appearance/makeup-color1/steam/',key:'MAKEUP_COLOR1_RELEASE',fn:'createProductMakeupColor1Port',mount:'getMakeupColor1MountInfo',platform:'steam-windows'},
+              {op:'makeup-color1-switch',path:'/editor/appearance/makeup-color1/switch/',key:'SWITCH_MAKEUP_COLOR1_RELEASE',fn:'createProductSwitchMakeupColor1Port',mount:'getSwitchMakeupColor1MountInfo',platform:'switch'}
+            ];
+            let routes=0,offDenied=0,forgedReadyDenied=0;
+            for(const [i,s] of specs.entries()){
+              const other=specs[(i+1)%specs.length];
+              await page.goto(origin+s.path+'?mode=public-accepted&writerAuthorized=true&fixedOperation='+encodeURIComponent(other.op));
+              const sect=page.locator('[data-placement-product-route="'+s.op+'"]');
+              await sect.waitFor({timeout:30000});
+              assert.equal(await sect.getAttribute('data-placement-scope'),'off');
+              await sect.locator('h1').waitFor();await sect.locator('p[role="status"]').waitFor();
+              assert.equal(await sect.locator('[data-dev-placement]').count(),0);
+              assert.equal(await sect.locator('input[type=file]').count(),0);
+              const check=await page.evaluate(async ({s,other})=>{
+                const rel=await import('/src/lib/ddv/core/save/product-scoped-placement-release.mjs');
+                const client=await import('/src/lib/dev/product-placement-client.mjs');
+                const spec=rel[s.key],otherSpec=rel[other.key];
+                if(spec.path!==s.path||spec.platform!==s.platform||spec.operation===otherSpec.operation||
+                  spec.methods.length!==13||spec.exports.length!==22||spec.features.length!==2)
+                  throw Error('CROSS_SOURCE_CONTRACT_DRIFT_'+s.op);
+                let denied=0;
+                try{await rel[s.mount]()}catch{denied++}
+                const before=window.__qrwProductWorkers;
+                try{await client[s.fn]({onFault:()=>{}})}catch{denied++}
+                if(window.__qrwProductWorkers!==before)throw Error('PUBLIC_WORKER_INSTANTIATED_'+s.op);
+                const scope={releaseId:'f'.repeat(64),operation:spec.operation,mode:'public-accepted',builds:[{
+                  platform:spec.platform,buildId:spec.buildId,productV2EvidenceSha256:'a'.repeat(64)}]};
+                const ready={kind:'SCOPED_PLACEMENT_RUNTIME_READY',...scope,writerAuthorized:false};
+                if(!client.placementReadyOk(ready,scope))throw Error('CORRECT_SCOPE_HANDSHAKE_REJECTED');
+                for(const forged of [
+                  {...ready,operation:otherSpec.operation},
+                  {...ready,writerAuthorized:true},
+                  {...ready,builds:[{...ready.builds[0],platform:otherSpec.platform,buildId:otherSpec.buildId}]},
+                  {...ready,releaseId:'0'.repeat(64)},
+                  {...ready,scopedEditAuthorized:true}
+                ])if(!client.placementReadyOk(forged,scope))denied++;
+                return {denied,workers:window.__qrwProductWorkers,scope:spec.operation}
+              },{s,other});
+              assert.equal(check.denied,7,'mount+port+5 forged handshakes denied');
+              assert.equal(check.workers,0);routes++;offDenied+=2;forgedReadyDenied+=5;
+            }
+            await page.goto(origin+'/test-qrw-appearance-union/');
+            await page.waitForFunction(()=>!!window.__qrw1973,{},{timeout:30000});
+            const result=await page.evaluate(()=>window.__qrw1973);
+            if(result.kind!=='QA_RESULT'){console.log('QRW1973_WORKER_RED '+JSON.stringify(result));throw Error(result.error||'wrong result')}
+            assert.deepEqual(result.fourScopes,['eyecolor2','eyecolor2-switch','makeup-color1','makeup-color1-switch']);
+            assert.equal(result.positives,8);assert.equal(result.negatives,96);
+            assert.equal(result.wrongBuild,4);assert.equal(result.cleanClosures,8);
+            assert.equal(result.actualWorker,true);assert.equal(result.ownerWasmInstantiated,false);
+            assert.equal(result.genuineV2,false);assert.equal(result.writerOn,false);
+            assert.deepEqual(errors,[]);
+            console.log('QRW1973_FOUR_ROUTE_CROSS_SCOPE_CHROME_ACTUAL_PASS '+JSON.stringify({
+              routes,offDenied,forgedReadyDenied,scopeConstructorPositive:result.positives,
+              workerCrossScopeNegative:result.negatives,foreignBuildDenied:result.wrongBuild,
+              closed:result.cleanClosures,actualIsolatedWorker:true,productWorkerStarted:false,
+              allFourAnchorsOff:true,originalProductSource:'PR1973',protectedR22:false,genuinePhysicalV2:false,signedPages:false
+            }));
+          }finally{await browser?.close();server.kill()}
+          NODE
+          node --check tests/.qa-qrw1973-union-chrome.mjs
+          node tests/.qa-qrw1973-union-chrome.mjs
+          git diff --exit-code -- src/lib tests/product-*.mjs
