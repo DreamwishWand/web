@@ -3,7 +3,7 @@ const a=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require
 const root='/tmp/qrc2034-',sha=b=>createHash('sha256').update(b).digest('hex');
 const X=profile=>require(root+profile+'/ddv_save_core.js').WorkerWasmSource;
 const methods=profile=>Object.getOwnPropertyNames(X(profile).prototype).filter(n=>!['constructor','free','__destroy_into_raw'].includes(n)).sort();
-const wasmExports=profile=>WebAssembly.Module.wasmExports(new WebAssembly.Module(fs.readFileSync(root+profile+'/ddv_save_core_bg.wasm'))).map(x=>x.name);
+const wasmExports=profile=>WebAssembly.Module.exports(new WebAssembly.Module(fs.readFileSync(root+profile+'/ddv_save_core_bg.wasm'))).map(x=>x.name);
 const method='read_steam626_singlefence_target',wasmMethod='workerwasmsource_'+method;
 let base=methods('off'), own=methods('own'),mixed=methods('mixed');
 for(const p of ['off','own','mixed']){
