@@ -59,6 +59,13 @@ jobs:
           # New CurrentVersion ItemThumb scope is EXACTLY six fixed paths:
           # no edits to Collection/Explore/Entity routes, old R39 resolver,
           # or non-media flows. Reject accidental sibling/legacy PR mixing.
+          # An altered Steam Door contract must never bypass this gate when the
+          # corresponding exact media source has not changed (QA2033 TRUE_RED).
+          if git diff --name-only "$BASE" HEAD | grep -qxF 'tests/web-steam1253-door-primary-contract.test.mjs' &&
+             ! git diff --name-only "$BASE" HEAD | grep -qxF 'src/lib/item-media/switch1253-public-item-images.mjs'; then
+            echo WEB_STEAM1253_UNPAIRED_CONTRACT_TEST_DENIED
+            exit 1
+          fi
           if git diff --name-only "$BASE" HEAD | grep -qxF 'src/lib/item-media/switch1253-public-item-images.mjs'; then
             cat > /tmp/switch1253-approved <<'CURRENT_IMAGE_SCOPE'
           .github/workflows/web-shared-catalog-detail.yml
@@ -125,6 +132,10 @@ jobs:
               node --test tests/web-steam1253-door-primary-contract.test.mjs
               echo WEB_STEAM1253_EXACT3_EXTENSION_SCOPE_PASS
             elif diff -q /tmp/steam1253-current-two-pins-expected /tmp/switch1253-actual >/dev/null; then
+              # ACT726 is the exact two immutable original 08 WEB PR1184 postblobs.
+              # Path equality alone must not authorize altered fallback or media ON.
+              test "$(git rev-parse HEAD:src/lib/item-media/switch1253-public-item-images.mjs)" = 73f15d221cede4ce2c195a48e57321a7293ab501
+              test "$(git rev-parse HEAD:tests/web-steam1253-door-primary-contract.test.mjs)" = e34ede0c1ef9dcfd072f2511c454795406abed4e
               node --test tests/web-steam1253-door-primary-contract.test.mjs
               echo WEB_STEAM1253_CURRENT_TWO_PINS_EXACT2_SCOPE_PASS
             elif diff -q /tmp/steam1253-exact1-expected /tmp/switch1253-actual >/dev/null; then
