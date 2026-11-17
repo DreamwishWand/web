@@ -47,7 +47,7 @@ impl ProductSession{
    _=>ambient(b,w,gs,ds,&refs,&houses,o,dims),
   }).ok_or(denied("FRP01_TARGET_GEOMETRY"))?;
   need(minted==next,"FRP01_TARGET_COUNTER")?;
-  let(old_stock,old_entry)=super::fm01_product_target::catalog(b,roots.player)?;
+  let(old_stock,old_entry)=super::fixed_fence_catalog(b,roots.player)?;
   let(new_stock,new_entry)=new_catalog(b,roots.player)?;
   let mut old_rows_sha=[[0u8;32];3];for(i,id)in ids.iter().enumerate(){old_rows_sha[i]=digest(b,f(b,objects,&id.to_string())?)?;}
   Ok(Frp01Target{scope:e,grid:gid,ids,next,old_stock,new_stock,root_sha:digest(b,root)?,grid_sha:digest(b,g)?,
