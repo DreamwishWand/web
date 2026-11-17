@@ -192,6 +192,27 @@ impl MeadowGeometry{
   let halo=Rect(i64::from(x)-2,i64::from(y)-2,i64::from(x)+4,i64::from(y)+4);
   // No seed or neighbor exception. The full half-open halo also rejects
   // adjacent same-family connections; do not recompile existing topology.
-  self.clear_ambient(objects,next,&[],&[halo],&common,&mut effective)?;Some(next)
+  self.clear_bamboo_ambient(objects,next,&[],&[halo],&common,&mut effective)?;Some(next)
+ }
+}
+
+// ACT1570 Item40700007 exact installed ambient, deliberately NOT an extension
+// of the shared SR03 whitelist used by already accepted Biome2/FD01/FE01.
+impl MeadowGeometry {
+ fn clear_bamboo_ambient(&self,objects:&serde_json::Map<String,Value>,next:u32,exclude:&[u32],boxes:&[Rect],common:&impl Fn(u32)->Option<(u32,u32)>,effective:&mut impl FnMut(&Value,(u32,u32))->Option<Rect>)->Option<()> {
+  for(k,o)in objects {
+   if !exact_fields(o,&["ID","ItemID","X","Y","Orientation","State"]){return None}
+   let id=n(&o["ID"])?;if k!=&id.to_string()||id>=next{return None}
+   if exclude.contains(&id){continue}
+   let item=n(&o["ItemID"])?;
+   let dims=if item==40700007 {
+    if common(item)!=Some((1,1)){return None}
+    scaled(1,1,1)?
+   }else{self.dimensions(item,common)?};
+   let ox=i64::from(n(&o["X"])?);let oy=i64::from(n(&o["Y"])?);o["Orientation"].as_str()?;
+   let rect=effective(o,dims)?;
+   if !rect.valid()||ox<rect.0||ox>=rect.2||oy<rect.1||oy>=rect.3||boxes.iter().any(|b|b.intersects(rect)){return None}
+  }
+  Some(())
  }
 }
