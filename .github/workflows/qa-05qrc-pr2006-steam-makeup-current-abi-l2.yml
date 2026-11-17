@@ -1,0 +1,52 @@
+name: 05 QR-C Steam626 Makeup corrected physical saved-shape generated ABI L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qrc-pr2006-steam-makeup-current-abi-l2.yml'
+      - 'tests/qa/qrc2006-steam-makeup-generated.cjs'
+      - 'crates/ddv-save-core/src/product_makeup_color1.rs'
+permissions:
+  contents: read
+jobs:
+  qrc2006-generated-makeup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrc2006-cargo-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Exact fixed Source and QA-only delta
+        run: |
+          set -euo pipefail
+          git cat-file -e 8abad34033967b524e88d7be3c19ca259f081437^{commit}
+          test "$(git merge-base 8abad34033967b524e88d7be3c19ca259f081437 HEAD)" = 8abad34033967b524e88d7be3c19ca259f081437
+          git diff --name-only 8abad34033967b524e88d7be3c19ca259f081437 HEAD | LC_ALL=C sort >/tmp/qrc2006-actual
+          printf '%s\n' '.github/workflows/qa-05qrc-pr2006-steam-makeup-current-abi-l2.yml' 'crates/ddv-save-core/src/product_makeup_color1.rs' 'tests/qa/qrc2006-steam-makeup-generated.cjs' | LC_ALL=C sort >/tmp/qrc2006-expected
+          diff -u /tmp/qrc2006-expected /tmp/qrc2006-actual
+          git diff --exit-code 8abad34033967b524e88d7be3c19ca259f081437 HEAD -- crates/ddv-save-core/Cargo.toml crates/ddv-save-core/src/wasm_steam626_makeup_color1.rs crates/ddv-save-core/src/wasm_worker.rs crates/ddv-save-core/src/worker_session.rs crates/ddv-save-core/src/worker_steam626_makeup_color1.rs
+          echo QRC2006_FIXED_SOURCE_QA_ONLY_BOUNDARY_PASS
+      - name: Actual generated opt-in Steam626 Makeup ABI synthetic scoped test
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock >/tmp/qrc2006-lock.sha
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features product-steam626-makeup-color1-scoped --lib qa1953_emit_corrected_realshape_generated_fixture -- --ignored --nocapture
+          test -s /tmp/qrc2006-makeup-source.json
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrc2006-bindgen
+          for mode in off own mixed; do
+            case "$mode" in
+              off) features=worker-wasm,indexed-read ;;
+              own) features=worker-wasm,product-steam626-makeup-color1-scoped ;;
+              mixed) features=worker-wasm,product-steam626-makeup-color1-scoped,product-steam626-hair-scoped ;;
+            esac
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            /tmp/wand-qrc2006-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "/tmp/qrc2006-$mode" --target nodejs --no-typescript
+          done
+          sha256sum -c /tmp/qrc2006-lock.sha
+          node --check tests/qa/qrc2006-steam-makeup-generated.cjs
+          node tests/qa/qrc2006-steam-makeup-generated.cjs
