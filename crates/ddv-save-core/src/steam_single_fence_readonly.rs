@@ -59,6 +59,17 @@ fn object_field(bytes:&[u8], parent:Span, sought:&str)->CoreResult<Span>{
     Err(denied("SEMANTIC_TARGET_NOT_PRESENT"))
 }
 
+fn valid_id(id:u32)->CoreResult<()>{
+    if id==0{return Err(denied("SEMANTIC_ITEM_OR_INVENTORY_ID_ZERO"));}
+    Ok(())
+}
+fn positive_id_field(bytes:&[u8],parent:Span,name:&str,id:u32)->CoreResult<()>{
+    valid_id(id)?;
+    if number(bytes,object_field(bytes,parent,name)?)?!=id as u64{
+        return Err(denied("SEMANTIC_CONTAINER_ID_MISMATCH"));
+    }
+    Ok(())
+}
 fn number(bytes:&[u8],span:Span)->CoreResult<u64>{
     let token=bytes.get(span.begin..span.end)
         .ok_or(denied("SEMANTIC_NUMBER_SPAN_INVALID"))?;
