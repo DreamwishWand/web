@@ -149,10 +149,20 @@ jobs:
           for(const [label,manifest] of [
             ['missing reachable PNG',[{...rows[0],sourcePngSha256:null},...rows.slice(1)]],
             ['missing reachable WebP',[rows[0],{...rows[1],webpSha256:null},...rows.slice(2)]],
-            ['corrupt transitive derivative',[rows[0],rows[1],{...rows[2],sourcePngSha256:'bad'},...rows.slice(3)]],
-            ['duplicate item alias',[rows[0],{...rows[1],itemId:rows[0].itemId},...rows.slice(2)]]
+            ['corrupt transitive derivative',[rows[0],rows[1],{...rows[2],sourcePngSha256:'bad'},...rows.slice(3)]]
           ]){const res=prepareGameImageTakedownSuppression(manifest,seed,existing,incident);
             assert.equal(res.prepared,false,label);assert.equal('suppressionLedger' in res,false,label);neg++;}
+          const alias=[rows[0],{...rows[1],itemId:rows[0].itemId},...rows.slice(2)];
+          const duplicateItemAlias=prepareGameImageTakedownSuppression(alias,seed,existing,incident);
+          assert.equal(duplicateItemAlias.prepared,true,'two image variants for same ItemID must both be included in HIDDEN closure');
+          assert.deepEqual(duplicateItemAlias.itemIds,['40000101','40000103','40000104']);
+          for(const row of alias.slice(0,4)){
+            const review=preflightGameItemImage(row,{targetIdentity:target},duplicateItemAlias.suppressionLedger);
+            assert.equal(review.candidate,false,'duplicate ItemID variant cannot slip out '+row.webpSha256);
+            assert.ok(review.reasons.includes('ITEM_OR_SHARED_HASH_HIDDEN'));
+            neg++;
+          }
+          pos++;
           for(const sel of [{kind:'ITEM_ID',value:'99999999'},{kind:'SOURCE_SHA256',value:'bad-sha'},
             {kind:'WEBP_SHA256',value:dg('0')},null]){
             const res=prepareGameImageTakedownSuppression(rows,sel,existing,incident);
