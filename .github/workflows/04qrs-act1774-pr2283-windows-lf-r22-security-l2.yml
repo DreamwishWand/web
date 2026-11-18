@@ -115,7 +115,7 @@ jobs:
            assert.deepEqual(git('diff','--name-only',main,original),attr);
            assert.equal(git('ls-tree',original,'--',attr),'100644 blob '+fixedAttr+'\t'+attr);
            const data=git('cat-file','blob',fixedAttr);
-           assert.deepEqual(data.split('\n').filter(Boolean).sort(),[
+           assert.deepEqual(data.split('\n').filter(line=>line.trim()&&!line.startsWith('#')).sort(),[
            'steam626-amount-packaged-candidates.json -text',
            'steam626-amount-dependency-projection.json -text',
            'steam626-amount-layout-reference.jsonl -text'].sort(),'Windows only raw pack LF');
