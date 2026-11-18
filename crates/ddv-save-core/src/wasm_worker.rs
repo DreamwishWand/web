@@ -723,3 +723,8 @@ mod scoped_steam626_makeup_color1;
 #[cfg(all(feature="product-steam626-singlefence-readonly",not(feature="semantic-writer-dev")))]
 #[path="wasm_steam_single_fence_readonly.rs"]
 mod isolated_steam_single_fence_readonly;
+
+// ACT1685: generated BambooFence01 ReadDomain only; no mixed Writer export.
+#[cfg(all(feature="product-steam626-bamboo-readonly",not(feature="semantic-writer-dev")))]
+#[path="wasm_steam_bamboo_readonly.rs"]
+mod isolated_steam_bamboo_readonly;
