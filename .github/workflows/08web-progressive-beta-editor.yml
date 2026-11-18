@@ -1,0 +1,45 @@
+name: 08 WEB progressive beta Editor availability L1
+on:
+  pull_request:
+    paths:
+      - 'src/routes/editor/+page.svelte'
+      - 'src/lib/product-home/editor-beta-availability.mjs'
+      - 'tests/web-editor-progressive-beta-availability.test.mjs'
+      - 'scripts/web-editor-progressive-beta-chrome.mjs'
+      - '.github/workflows/08web-progressive-beta-editor.yml'
+permissions:
+  contents: read
+jobs:
+  progressive-beta:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Eight-locale fixed pending Save Ops and local/read-only/test route contract
+        run: node --test tests/web-editor-progressive-beta-availability.test.mjs
+      - name: Svelte TypeScript check and static Pages build
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: Actual Chrome 1366 and 320 beta editor fail-closed operations
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/08web-beta-editor-preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4298/web/editor/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4298/web/editor/ >/dev/null
+          node scripts/web-editor-progressive-beta-chrome.mjs
