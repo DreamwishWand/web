@@ -106,9 +106,23 @@ test("synthetic fully scoped operator receipt can clear only SOURCE preflight, n
     {readyForOperatorReview:true,reasons:[]},
     "synthetic source preflight only; humanReviewed false remains false, not a publish grant");
   assert.ok(IMAGE_NOTICE_LOCALES.every(code => unreviewedEight.locales[code].humanReviewed === false));
+  for(const locale of IMAGE_NOTICE_LOCALES){
+    for(const brandOnly of ["Dreamwish Wand","Disney","Gameloft","Dreamwish Wand Disney Gameloft"]){
+      const forged=preflightGameImageOperatorReceipt({...unreviewedEight,
+        locales:{...unreviewedEight.locales,
+          [locale]:{...unreviewedEight.locales[locale],text:brandOnly}}});
+      assert.equal(forged.readyForOperatorReview,false,locale+" "+brandOnly);
+      assert.ok(forged.reasons.includes("ATTRIBUTION_LOCALE_COPY_OR_RECEIPT_INVALID:"+locale));
+    }
+  }
   for (const invalid of [
     {...template.locales.ja,text:""},
     {...template.locales.ja,text:"Game image belongs to others"},
+    {...template.locales.ja,text:"Dreamwish Wand"},
+    {...template.locales.ja,text:"Disney"},
+    {...template.locales.ja,text:"Dreamwish Wand Disney Gameloft"},
+    {...template.locales.ja,text:template.locales.en.text},
+    {...template.locales.ja,text:template.locales.ja.text.replace("Gameloft","AnotherStudio")},
     {...template.locales.ja,humanReviewed:true,reviewEvidenceRef:null},
     {...template.locales.ja,humanReviewed:false,reviewEvidenceRef:"FORGED_REVIEW"},
     {...template.locales.ja,humanReviewed:"true"}
