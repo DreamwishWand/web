@@ -25,7 +25,7 @@
  $: copy=bambooReadonlyOffCopy($locale);
  $: word=labels[$locale]??labels.en;
  const inRange=n=>Number.isSafeInteger(n)&&n>=0&&n<=4294967295;
- $: canRead=ready&&!busy&&!used&&file instanceof File&&
+ $: canRead=ready&&!busy&&!used&&typeof File!=='undefined'&&file instanceof File&&
   externalSteamBuildObserved&&[gridId,x,y].every(inRange);
  onMount(()=>{
   try{
