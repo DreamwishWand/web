@@ -8,6 +8,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {resolve,join} from 'node:path';
 import {verifyAcceptedRustScope} from './r22-accepted-rust-scope.mjs';
+import {assertR22RawRustCheckout} from './r22-raw-rust-checkout.mjs';
 
 import {ACTIVE_RELEASE_TUPLE,RELEASE_REPOSITORY_ID,manifestMatchesRelease,protectedPagesContextMatches} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
 
@@ -27,6 +28,12 @@ const stage=process.argv[2];
 if(!['inputs','built'].includes(stage))fail('INVALID_STAGE');
 if(!/^[0-9a-f]{40}$/.test(expectedSource??'')||
    git('rev-parse','HEAD')!==expectedSource)fail('SOURCE_HEAD_MISMATCH');
+// Refuse uncommitted Rust build bytes even when HEAD:path remains approved.
+// Recheck in BOTH 'inputs' before cargo and 'built' before signing/Pages.
+try{assertR22RawRustCheckout(root)}catch(error){
+ console.error('R22_RAW_RUST_CHECKOUT_DENIED',error?.code??'UNKNOWN');
+ fail('RAW_RUST_CHECKOUT_NOT_HEAD');
+}
 if(!['pull_request','push','workflow_dispatch'].includes(event))fail('EVENT_NOT_ALLOWED');
 if(event!=='pull_request'&&process.env.GITHUB_REF!=='refs/heads/main')
  fail('NOT_PROTECTED_MAIN_PUSH');

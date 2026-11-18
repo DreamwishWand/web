@@ -6,6 +6,8 @@ import {createHash} from 'node:crypto';
 import {resolve,join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
+import {writeFileSync,unlinkSync,symlinkSync} from 'node:fs';
+import {assertR22RawRustCheckout} from '../scripts/wasm-distribution/r22-raw-rust-checkout.mjs';
 
 const cwd=resolve(fileURLToPath(new URL('../',import.meta.url)));
 const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',
@@ -109,4 +111,53 @@ test('Actual synthetic untrusted Cargo, Lock or Writer grant source commits are 
   assert.equal(git('rev-parse',commit+'^'),git('rev-parse','HEAD'));
   assert.equal(currentR22ContractAllowed(commit),false,commit);
  }
+});
+
+test('R22 real checkout rejects uncommitted Rust/Cargo, untracked module and source symlink',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'wand-r22-dirty-checkout-'));
+ const work=join(dir,'worktree');
+ let added=false;
+ try{
+  git('worktree','add','--detach',work,'HEAD');
+  added=true;
+  const good=assertR22RawRustCheckout(work);
+  assert.equal(good.compilationInputsMatchHead,true);
+  assert.ok(good.trackedSourceFiles>=80);
+  const paths=['crates/ddv-save-core/Cargo.toml','crates/ddv-save-core/src/wasm_worker.rs'];
+  for(const path of paths){
+   const file=join(work,path),original=readFileSync(file);
+   const blob=execFileSync('git',['rev-parse','HEAD:'+path],{cwd:work,encoding:'utf8'}).trim();
+   try{
+    writeFileSync(file,Buffer.concat([original,Buffer.from('\n// dirty input bytes\n')]));
+    assert.equal(execFileSync('git',['rev-parse','HEAD:'+path],{cwd:work,encoding:'utf8'}).trim(),blob);
+    assert.notEqual(execFileSync('git',['hash-object','--no-filters','--',path],{cwd:work,encoding:'utf8'}).trim(),blob);
+    assert.throws(()=>assertR22RawRustCheckout(work),/R22_RAW_RUST_CHECKOUT_/);
+   }finally{writeFileSync(file,original)}
+   assert.equal(assertR22RawRustCheckout(work).compilationInputsMatchHead,true);
+  }
+  const extra=join(work,'crates/ddv-save-core/src/r22_untracked_injected.rs');
+  try{
+   writeFileSync(extra,'pub fn injected()->bool{true}\n');
+   assert.throws(()=>assertR22RawRustCheckout(work),/R22_RAW_RUST_CHECKOUT_UNTRACKED_COMPILED_INPUT/);
+  }finally{unlinkSync(extra)}
+  if(process.platform!=='win32'){
+   const linked=join(work,'crates/ddv-save-core/src/r22_symlink_injected.rs');
+   try{
+    symlinkSync(join(work,'crates/ddv-save-core/Cargo.toml'),linked);
+    assert.throws(()=>assertR22RawRustCheckout(work),/R22_RAW_RUST_CHECKOUT_SYMLINK/);
+   }finally{unlinkSync(linked)}
+  }
+  assert.equal(assertR22RawRustCheckout(work).compilationInputsMatchHead,true);
+ }finally{
+  if(added)git('worktree','remove','--force',work);
+  rmSync(dir,{recursive:true,force:true});
+ }
+});
+test('R22 validator actually invokes strict real checkout before approving release inputs',()=>{
+ const source=readFileSync(resolve(cwd,'scripts/wasm-distribution/verify-protected-release.mjs'),'utf8');
+ assert.match(source,/import \{assertR22RawRustCheckout\}/);
+ assert.match(source,/try\{assertR22RawRustCheckout\(root\)\}/);
+ assert.ok(source.indexOf('assertR22RawRustCheckout(root)')<source.indexOf("if(stage==='inputs')"));
+ assert.ok(source.indexOf('assertR22RawRustCheckout(root)')<source.indexOf("if(stage==='built')")||
+           !source.includes("if(stage==='built')"));
 });
