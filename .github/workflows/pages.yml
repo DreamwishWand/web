@@ -327,9 +327,24 @@ jobs:
             git -C "$dir" show "$GITHUB_SHA:scripts/$script" > "$dir/scripts/$script"
           done
           # Reuse the exact fetched protected commit; never execute caller-supplied code.
-          mkdir -p "$RUNNER_TEMP/wand-steam-media-proof/scripts" "$RUNNER_TEMP/wand-steam-media-proof/ops"
+          # Fail closed on preexisting, symlinked or caller-supplied proof
+          # paths. A fresh private 0700 root makes scripts/ops and every
+          # redirected leaf unforgeable by previously planted symlinks.
+          umask 077
+          proof_root="$RUNNER_TEMP/wand-steam-media-proof"
+          mkdir -- "$proof_root"
+          mkdir -- "$proof_root/scripts"
+          mkdir -- "$proof_root/ops"
+          test -d "$proof_root" && test ! -L "$proof_root"
+          test -d "$proof_root/scripts" && test ! -L "$proof_root/scripts"
+          test -d "$proof_root/ops" && test ! -L "$proof_root/ops"
           git -C "$dir" show "$GITHUB_SHA:scripts/int-steam-public-media-signed-batch.mjs" > "$RUNNER_TEMP/wand-steam-media-proof/scripts/int-steam-public-media-signed-batch.mjs"
           git -C "$dir" show "$GITHUB_SHA:ops/ddv-steam-public-media-signed-batch.json" > "$RUNNER_TEMP/wand-steam-media-proof/ops/ddv-steam-public-media-signed-batch.json"
+          # Copy the genuine prior-ON proof from this SAME pinned protected
+          # commit into the disposable verifier tree. Never use caller input.
+          git -C "$dir" show "$GITHUB_SHA:ops/ddv-steam-public-media-prior-on-cache.json" > "$RUNNER_TEMP/wand-steam-media-proof/ops/ddv-steam-public-media-prior-on-cache.json"
+          test "$(git hash-object --no-filters "$RUNNER_TEMP/wand-steam-media-proof/ops/ddv-steam-public-media-prior-on-cache.json")" = "$(git -C "$dir" rev-parse "$GITHUB_SHA:ops/ddv-steam-public-media-prior-on-cache.json")"
+
           (cd "$dir" && node scripts/int-protected-ci-gate.mjs deploy)
       - name: Deploy existing Pages including only verified three read-only assets
         id: deployment
