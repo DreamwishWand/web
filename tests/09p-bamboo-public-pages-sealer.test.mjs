@@ -115,16 +115,28 @@ test('public signed3 Source pins the accepted Rust semantic closure (exact GitBl
   path,execFileSync('git',['rev-parse','HEAD:'+path],{
    cwd:new URL('../',import.meta.url),encoding:'utf8'}).trim()
  ]));
- assert.equal(bambooAcceptedRustSourceBlobsOk(observed),true);
- assert.equal(await bambooAcceptedRustCheckoutOk(),true);
+ // The approved protected release must remain a genuine positive. Adding an
+ // unrelated Rust Cargo feature on another branch must FAIL this release gate.
+ const acceptedHead='419162ef5bc3a75fac05baaee10021a0d269bc2d';
+ const approved=Object.fromEntries(Object.keys(trusted).map(path=>[
+  path,execFileSync('git',['rev-parse',acceptedHead+':'+path],{
+   cwd:new URL('../',import.meta.url),encoding:'utf8'}).trim()
+ ]));
+ assert.deepEqual(approved,trusted);
+ assert.equal(bambooAcceptedRustSourceBlobsOk(approved),true);
+ const sourceStillAccepted=bambooAcceptedRustSourceBlobsOk(observed);
+ assert.equal(await bambooAcceptedRustCheckoutOk(),sourceStillAccepted);
+ if(!sourceStillAccepted){
+  assert.ok(Object.keys(trusted).some(path=>observed[path]!==trusted[path]));
+ }
  // Same named WASM ABI does NOT authorize changed read logic or an altered
  // ProductSession mint; fail at the git-committed Source before signing.
  for(const path of Object.keys(trusted)){
-  assert.equal(bambooAcceptedRustSourceBlobsOk({...observed,[path]:'f'.repeat(40)}),false,path);
+  assert.equal(bambooAcceptedRustSourceBlobsOk({...approved,[path]:'f'.repeat(40)}),false,path);
  }
- const missing={...observed};delete missing['crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs'];
+ const missing={...approved};delete missing['crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs'];
  assert.equal(bambooAcceptedRustSourceBlobsOk(missing),false);
- assert.equal(bambooAcceptedRustSourceBlobsOk({...observed,'crates/ddv-save-core/src/semantic_writer.rs':'0'.repeat(40)}),false);
+ assert.equal(bambooAcceptedRustSourceBlobsOk({...approved,'crates/ddv-save-core/src/semantic_writer.rs':'0'.repeat(40)}),false);
  assert.equal(bambooAcceptedRustSourceBlobsOk(null),false);
 });
 
@@ -135,7 +147,10 @@ test('actual CLI preflight denies dirty Worker, minted target and transitive geo
  const git=(args,cwd=sourceRoot)=>execFileSync('git',args,{cwd,encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim();
  let attached=false;
  try{
-  const head=git(['rev-parse','HEAD']);
+  // Positive and dirty mutations execute against the approved protected
+  // signer source, not a newer Rust feature's deliberately rejected checkout.
+  const current=git(['rev-parse','HEAD']);
+  const head='419162ef5bc3a75fac05baaee10021a0d269bc2d';
   git(['worktree','add','--detach',work,head]);
   attached=true;
   await copyFile(join(work,'scripts/wasm-distribution/approved-Cargo.lock'),
@@ -149,6 +164,16 @@ test('actual CLI preflight denies dirty Worker, minted target and transitive geo
    });
   const ok=run();
   assert.equal(ok.status,0,ok.stderr);
+  if(current!==head){
+   const currentRun=spawnSync(process.execPath,
+    ['scripts/readonly-release/seal-bamboo-public-pages.mjs','preflight'],{
+     cwd:sourceRoot,encoding:'utf8',env:{...process.env,
+      GITHUB_EVENT_NAME:'pull_request',GITHUB_REPOSITORY:'DreamwishWand/web',
+      GITHUB_REPOSITORY_ID:'1371485649',WAND_SOURCE_HEAD:current}
+    });
+   assert.notEqual(currentRun.status,0,'unaccepted new Rust source reached signed gate');
+   assert.match(currentRun.stderr,/BAMBOO_PUBLIC_PAGES_SIGNER_DENIED/);
+  }
   const targets=[
    ['crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs','"stageAuthorized": false','"stageAuthorized": true'],
    ['crates/ddv-save-core/src/steam_bamboo_single_product_target.rs','self.worker_bound&&','true&&'],
