@@ -192,8 +192,13 @@ jobs:
             assert.equal(v.originalSha256SuppliedExternally,originalSha);
             assert.equal(v.originalSizeBytesSuppliedExternally,123456);
             assert.equal(r.output[3].length<8*1024*1024,true);
-            assert.equal(v.avatar.buildId,mode==='Switch'?exactSwitch:exactSteam);
-            if(mode==='Switch')assert.equal(v.avatar.fullVersion,undefined);
+            if(mode==='Switch'){
+              assert.equal(v.avatar.buildId,exactSwitch);
+              assert.equal(v.avatar.fullVersion,undefined);
+            }else{
+              assert.equal(v.avatar.fullVersion,exactSteam);
+              assert.equal(v.avatar.buildId,undefined);
+            }
             console.log('QRS_ACT1101_REPAIRED_CURRENT_WARDROBE_FD3_'+mode.toUpperCase()+'_POS_PASS');
           };
           accepted('Steam');accepted('Switch');
