@@ -1,0 +1,119 @@
+name: 04 QR-S ACT1774 PR2267 Native private amount CLI env and stdout fail-closed L2 QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2267-private-amount-cli-stdout-secret-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2267-private-cli-output-security-l2.yml'
+permissions:
+  contents: read
+jobs:
+  native-private-cli-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Exactly original fixed 01A private Bridge three source paths plus this one QA-only YAML
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor f6e789694323750d0c055a8434718116dba11fc7 HEAD
+          test "$(git diff --name-only f6e789694323750d0c055a8434718116dba11fc7 HEAD)" = ".github/workflows/04qrs-act1774-pr2267-private-cli-output-security-l2.yml"
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs)" = 9f783e64ec44fdc2d863a4634f3d334a89cf7f62
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
+          test "$(git rev-parse HEAD:.github/workflows/01a-private-product-amount-v2-bridge.yml)" = 77f8bfa29f55f28d348892086c684af9c52011bd
+          test ! -e crates/ddv-save-core/Cargo.lock
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+      - name: Compile native private CLI using exact approved Lock and only explicit native features
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: /tmp/wand-qrs-private-amount-cli
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --bin wand-local-rust-v2-noop
+          test -x "$CARGO_TARGET_DIR/debug/wand-local-rust-v2-noop"
+      - name: Actual native private mode malicious caller env and stdin cannot produce stdout or leak secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS2267_NODE'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {spawnSync} from 'node:child_process';
+          import {readFileSync} from 'node:fs';
+          const bin='/tmp/wand-qrs-private-amount-cli/debug/wand-local-rust-v2-noop';
+          const steam='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          const hash=s=>createHash('sha256').update(s).digest('hex');
+          const sentinel='SYNTHETIC_FAKE_SECRET_DO_NOT_LOG_QRS_2267';
+          const data=Buffer.from('{"synthetic":"not a genuine Save"}');
+          const full={
+           WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:steam,
+           WAND_LOCAL_ORIGINAL_SHA256:'11'.repeat(32),
+           WAND_LOCAL_ORIGINAL_SIZE_BYTES:'128',
+           WAND_LOCAL_DECODED_SHA256:hash(data),
+           WAND_LOCAL_BACKUP_SHA256:'11'.repeat(32),
+           WAND_LOCAL_BACKUP_SIZE_BYTES:'128',
+           WAND_LOCAL_PRIVATE_AMOUNT_PLAN:sentinel,
+           WAND_LOCAL_PRIVATE_AMOUNT_PLAN_SHA256:hash(sentinel)
+          };
+          const run=(flag,values={},bytes=data,extra=[])=>{
+           const e={...process.env};
+           for(const k of Object.keys(e))if(k.startsWith('WAND_LOCAL_'))delete e[k];
+           Object.assign(e,values);
+           const args=flag?[flag,...extra]:extra;
+           return spawnSync(bin,args,{env:e,input:bytes,encoding:'utf8',maxBuffer:1024*1024,timeout:20000});
+          };
+          let negatives=0;
+          const deny=(label,flag,values,bytes,matcher,extra=[])=>{
+           const r=run(flag,values,bytes,extra);
+           assert.equal(r.status,12,'unexpected status for '+label+' '+r.stderr);
+           assert.equal(r.stdout,'','no decoded bytes may leak on '+label);
+           assert.match(r.stderr,new RegExp('^PRIVATE_V2_DENIED:'+matcher+'\\n?$'));
+           for(const s of [sentinel,'{"synthetic"',full.WAND_LOCAL_ORIGINAL_SHA256,full.WAND_LOCAL_DECODED_SHA256])
+            assert.equal(r.stderr.includes(s),false,'sensitive input leaked to stderr on '+label);
+           negatives++;
+           console.log('QRS2267_PRIVATE_CLI_NO_STDOUT_NO_SECRET_DENIED_'+label);
+          };
+          const inv='--private-steam626-product-catalog0-exact1-only';
+          const chest='--private-steam626-product-chest48-exact1-only';
+          assert.equal(readFileSync('crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs','utf8').includes('io::stdout().write_all(&edited)'),true);
+          assert.equal(readFileSync('crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs','utf8').includes('--private-steam626-product-catalog0-exact1-only'),true);
+          assert.equal(readFileSync('crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs','utf8').includes('--private-steam626-product-chest48-exact1-only'),true);
+          const pages=readFileSync('.github/workflows/pages.yml','utf8');
+          assert.ok(pages.includes('--features worker-wasm,indexed-read'));
+          assert.ok(!pages.includes('private-native-v2')&&!pages.includes('product-amount-scoped'));
+          const manifest=readFileSync('crates/ddv-save-core/Cargo.toml','utf8');
+          assert.match(manifest,/name = "wand-local-rust-v2-noop"[\s\S]*?required-features = \["private-native-v2"\]/);
+          for(const mode of [inv,chest]){
+           const label=mode===inv?'INV':'CHEST';
+           deny(label+'_WRONG_STEAM_VERSION',mode,{...full,WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:'not-a-real-build'},data,'SEMANTIC_EXACT_EXTERNAL_STEAM_BUILD_REQUIRED');
+           deny(label+'_SWITCH_BID_IN_STEAM_MODE',mode,{...full,WAND_LOCAL_INSTALLED_SWITCH_BID:'9A239D3DB569756D'},data,'SEMANTIC_EXACT_EXTERNAL_STEAM_BUILD_REQUIRED');
+           const missingSha={...full};delete missingSha.WAND_LOCAL_ORIGINAL_SHA256;
+           deny(label+'_MISSING_ORIGINAL_SHA',mode,missingSha,data,'MISSING_EXTERNAL_ATTESTATION');
+           deny(label+'_MALFORMED_ORIGINAL_SHA',mode,{...full,WAND_LOCAL_ORIGINAL_SHA256:'invalid-sha'},data,'INVALID_SHA_ATTESTATION');
+           deny(label+'_ZERO_ORIGINAL_SHA',mode,{...full,WAND_LOCAL_ORIGINAL_SHA256:'00'.repeat(32)},data,'SEMANTIC_ORIGINAL_PACKAGED_SHA_OR_SIZE');
+           deny(label+'_OVERSIZED_ORIGINAL',mode,{...full,WAND_LOCAL_ORIGINAL_SIZE_BYTES:String(128*1024*1024+1)},data,'SEMANTIC_ORIGINAL_PACKAGED_SHA_OR_SIZE');
+           const withoutDecoded={...full};delete withoutDecoded.WAND_LOCAL_DECODED_SHA256;
+           deny(label+'_MISSING_DECODED_SHA',mode,withoutDecoded,data,'MISSING_EXTERNAL_ATTESTATION');
+           deny(label+'_EMPTY_DECODED_INPUT',mode,full,Buffer.alloc(0),'SEMANTIC_SOURCE_SHA_CAS');
+           deny(label+'_FORGED_DECODED_SHA',mode,{...full,WAND_LOCAL_DECODED_SHA256:'22'.repeat(32)},data,'SEMANTIC_SOURCE_SHA_CAS');
+           deny(label+'_SYNTHETIC_NON_SAVE_JSON',mode,full,data,'SEMANTIC_FULL_DOCUMENT_OR_VERSION');
+           deny(label+'_EXTRA_ARG',mode,full,data,'SEMANTIC_ONE_EXPLICIT_OPERATION_REQUIRED',['--caller-bypass']);
+          }
+          deny('MISSING_REQUIRED_EXPLICIT_MODE',null,{},Buffer.alloc(0),'EXPLICIT_PRIVATE_NOOP_OPERATION_REQUIRED');
+          deny('UNKNOWN_MODE','--private-steam626-product-any-amount-on',{},Buffer.alloc(0),'EXPLICIT_PRIVATE_NOOP_OPERATION_REQUIRED');
+          console.log('QRS2267_PRIVATE_CLI_24_DENY_NO_CIPHERTEXT_OR_DECODED_STDOUT',JSON.stringify({negatives,writerOn:0,realOwnerV2:'NOT_RUN'}));
+          assert.equal(negatives,24);
+          QRS2267_NODE
+      - name: QA-only never merge, never upload private bytes
+        run: echo QRS2267_QA_ONLY_NO_SOURCE_MERGE_NO_PAGES_NO_EDITED_COPY_ON
