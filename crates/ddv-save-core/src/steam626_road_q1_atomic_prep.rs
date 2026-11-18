@@ -467,7 +467,8 @@ fn projection_sha(b: &[u8], edits: &[RoadQ1RawDelta; 3]) -> CoreResult<[u8; 32]>
     }
     hash.update(&b[pos..]);
     let result: [u8; 32] = hash.finalize().into();
-    if result == Sha256::digest(b).into() {
+    let original_sha: [u8; 32] = Sha256::digest(b).into();
+    if result == original_sha {
         return Err(denied("ROAD_Q1_RAW_NO_CHANGE"));
     }
     Ok(result)
