@@ -90,9 +90,16 @@ const contentType=(r)=>String(r.headers?.get("content-type")??"").split(";")[0].
 // fixed strings cannot detect a stale CDN 304 after the origin is withdrawn.
 // Validation prevents header injection through later saved receipt JSON.
 const validETag=v=>typeof v==="string"&&/^(?:W\/)?"[\x21\x23-\x7e]{1,180}"$/.test(v);
-const validHttpDate=v=>typeof v==="string"&&
-  /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(v)&&
-  Number.isFinite(Date.parse(v));
+const validHttpDate=v=>{
+  if(typeof v!=="string"||
+     !/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(v))
+    return false;
+  const timestamp=Date.parse(v);
+  // Date.parse can silently normalize Nov 31 or ignore the wrong weekday.
+  // Exact UTC IMF-fixdate roundtrip rejects either before retaining a CDN
+  // validator that would later authorize a withdrawal proof.
+  return Number.isFinite(timestamp)&&new Date(timestamp).toUTCString()===v;
+};
 function cacheValidators(res){
   const etag=res.headers?.get("etag")??null;
   const lastModified=res.headers?.get("last-modified")??null;
