@@ -1,0 +1,192 @@
+name: 04 QR-S ACT1101 current Rust Wardrobe private FD3 bridge L2 QA ONLY
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1101-pr2193-wardrobe-fd3-current-bridge-l2.yml'
+permissions:
+  contents: read
+jobs:
+  private-receipt-transport-exact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      CARGO_TARGET_DIR: ${{ runner.temp }}/qrs-act1101-private-wardrobe
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Fix original product Source3 and unchanged accepted FD3 transport Blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 1f9306211fff3e051befa99ac0c371f5f1715da9 HEAD
+          test "$(git diff --name-only 1f9306211fff3e051befa99ac0c371f5f1715da9 HEAD)" = ".github/workflows/04qrs-act1101-pr2193-wardrobe-fd3-current-bridge-l2.yml"
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/appearance_observer.rs)" = 3a37de35c237f538ed469480f7432ba062e605dc
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v1.rs)" = 1ce4af7eb95e7d93f98899ddd9f70461fc6b051e
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/indexed_read.rs)" = 04300cf3f6cee88bdd998aefcd4fe771687e51a1
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-bamboo-public-pages.mjs)" = ca038f70496749df6c3280c157c109c084ccc798
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs)" = 6fc525e975de9db68544d1feaff5ec9cd0011348
+          echo QRS_ACT1101_PR2193_CURRENT_THREE_SOURCE_AND_FD3_BLOB_FROZEN
+      - name: Compile actual current ProductSession private Wardrobe CLI with accepted lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --locked --no-default-features --features private-native-v1 --bin wand-local-rust-v1
+          test -x "$CARGO_TARGET_DIR/release/wand-local-rust-v1"
+          echo QRS_ACT1101_CURRENT_RUST_PRIVATE_NATIVE_BIN_COMPILED
+      - name: Execute genuine binary synthetic Steam and Switch FD3 receipts plus fail-closed no-output attacks
+        shell: bash
+        env:
+          QRS_BIN: ${{ runner.temp }}/qrs-act1101-private-wardrobe/release/wand-local-rust-v1
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {spawnSync} from 'node:child_process';
+          import {mkdtempSync,openSync,closeSync,readFileSync,existsSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const sha=x=>createHash('sha256').update(x).digest('hex');
+          const exactSteam='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          const exactSwitch='9A239D3DB569756D';
+          const obj={
+            GameInfo:{Version:626},
+            World:{
+              MissionSlots:{'0':{Slots:[{SlotId:0,MissionId:2070000001,CurrentStepIndex:0,
+                CharacterId:10000001,State:'MissionSlotState_OnGoing',
+                MissionSteps:[{SubSteps:[{Objectives:[{TargetAmount:4,
+                  ProgressKeys:{CurrentAmount:'2'},Status:'MissionStepStatus_Ongoing',StepType:'StepGameplay'}]}]}]}]}},
+              QuestInfo:{MissionsCompleted:[]}
+            },
+            Player:{
+              AvatarIsMale:true,
+              FemaleAvatar:{HairColorIndex:0,HairHighlightColor:0,Clothes:{'0':50000001},
+                IncompatibleClothes:{},Makeup:{},ClothingCustomization:{'50000001':23}},
+              MaleAvatar:{HairColorIndex:89,HairHighlightColor:1,Clothes:{'0':50000002},
+                IncompatibleClothes:{},Makeup:{'1':{MakeupItemID:140000001,Unknown:'preserve',Opacity:0.5}},
+                ClothingCustomization:{},SprintEffectID:70100001},
+              ListInventories:{
+                '0':{ID:0,CompatibleItemType:'ItemType_Furniture',Inventory:{}},
+                '1':{ID:1,CompatibleItemType:'ItemType_Clothing',Inventory:{
+                  '50000001':{Amount:3,Marker:'ItemMarker_None'},
+                  '50000002':{Amount:1,Marker:'ItemMarker_Favorite'},
+                  '50000003':{Amount:2,Marker:'ItemMarker_None'}
+                }},
+                '3':{ID:3,CompatibleItemType:'ItemType_Makeup',Inventory:{
+                  '140000001':{Amount:2,Marker:'ItemMarker_None'}}}
+              },
+              AchievementsData:[{AchievementID:2110000001,CurAmount:2,MaxAmount:10,
+                ClaimedRewardMilestone:0,State:'AchievementState_OnGoing',TypesCollected:[],ItemsUsed:[]}],
+              EvolveStatesProfile:{EvolveProgressState:{'40000001':{ItemID:40000001,Level:1,
+                Objective:{CurAmount:2,TargetAmount:5,ItemIdsCollected:[]}}}}
+            }
+          };
+          const bin=process.env.QRS_BIN;
+          const originalSha='ab'.repeat(32);
+          const argsFor=mode=>[mode==='Switch'?'--switch626-wardrobe-same-slot-receipt-only':'--wardrobe-same-slot-receipt-only',
+            '0','50000002','50000003','--receipt-fd3'];
+          const run=(doc,mode='Steam',override={})=>{
+            const input=Buffer.from(JSON.stringify(doc));
+            const env={...process.env,WAND_LOCAL_ORIGINAL_SHA256:originalSha,
+              WAND_LOCAL_ORIGINAL_SIZE_BYTES:'123456',
+              WAND_LOCAL_DECODED_SHA256:sha(input),
+              WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:exactSteam};
+            if(mode==='Switch'){delete env.WAND_LOCAL_INSTALLED_STEAM_FULLVERSION;env.WAND_LOCAL_INSTALLED_SWITCH_BID=exactSwitch}
+            Object.assign(env,override.env||{});
+            for(const key of override.removeEnv||[])delete env[key];
+            return spawnSync(bin,override.args||argsFor(mode),{
+              input,env,encoding:'utf8',timeout:45000,maxBuffer:16*1024*1024,
+              stdio:override.stdio||['pipe','pipe','pipe','pipe']
+            });
+          };
+          const accepted=(mode)=>{
+            const r=run(obj,mode);
+            assert.equal(r.status,0,mode+' genuine synthetic Wardrobe CLI positive: '+r.stderr?.slice(0,500));
+            assert.equal(r.stdout,'','private receipt must not reach stdout');
+            assert.equal(r.stderr.trim(),'LOCAL_RUST_V1_PRIVATE_WARDROBE_RECEIPT_WRITTEN');
+            const v=JSON.parse(r.output[3]);
+            assert.equal(v.contract,mode==='Switch'?
+              'wand.native.private.switch626.wardrobe-same-slot-readset@1':
+              'wand.native.private.wardrobe-same-slot-readset@1');
+            assert.equal(v.avatar.platform,mode==='Switch'?'Switch':'SteamWindows');
+            assert.equal(v.avatar.schema,626);
+            assert.equal(v.slot,0);
+            assert.equal(v.oldItemId,50000002);
+            assert.equal(v.proposedItemId,50000003);
+            assert.equal(v.inventory.oldStock.savedAmount,1);
+            assert.equal(v.inventory.proposedStock.savedAmount,2);
+            assert.equal(v.fullDocumentRustValidated,true);
+            for(const flag of ['sameSlotDefinitionVerified','effectiveEligibilityVerified','rightsVerified',
+              'subscriberClosureVerified','productReadAccepted','writerAuthorized','editedCopyAuthorized','applyAuthorized',
+              'cloudUploadPerformed','originalModifiedByHarness']){
+              assert.equal(v[flag],false,mode+' '+flag);
+            }
+            assert.equal(v.originalSha256SuppliedExternally,originalSha);
+            assert.equal(v.originalSizeBytesSuppliedExternally,123456);
+            assert.equal(r.output[3].length<8*1024*1024,true);
+            assert.equal(v.avatar.buildId,mode==='Switch'?exactSwitch:exactSteam);
+            if(mode==='Switch')assert.equal(v.avatar.fullVersion,undefined);
+            console.log('QRS_ACT1101_REPAIRED_CURRENT_WARDROBE_FD3_'+mode.toUpperCase()+'_POS_PASS');
+          };
+          accepted('Steam');accepted('Switch');
+          let denied=0;
+          function rejects(label,doc,mode,override){
+            const r=run(doc,mode,override);
+            assert.notEqual(r.status,0,label+' incorrectly accepted');
+            assert.equal(r.stdout,'',label+' private data leaked stdout');
+            assert.equal(String(r.output[3]||''),'',label+' private data leaked FD3 on invalid request');
+            assert.match(r.stderr,/LOCAL_RUST_V1_DENIED:/,label);
+            assert.doesNotMatch(r.stderr,/5000000[123]/,label+' exposes caller selector in logs');
+            denied++;
+            console.log('QRS_ACT1101_REPAIRED_CURRENT_WARDROBE_FD3_DENIED '+label);
+          }
+          const deep=()=>structuredClone(obj);
+          const absent=deep();delete absent.Player.ListInventories['1'].Inventory['50000003'];
+          rejects('ABSENT_PROPOSED_STOCK',absent,'Steam');
+          const invalid=deep();invalid.Player.ListInventories['1'].Inventory['50000003'].Marker='ItemMarker_Unknown';
+          rejects('UNREVIEWED_MARKER',invalid,'Steam');
+          const missing=deep();missing.Player.MaleAvatar.Clothes={'0':50000003};
+          rejects('STOCK_CANNOT_AUTHORIZE_MISMATCHED_OLD',missing,'Steam');
+          rejects('LEGACY_PATH_OUT_DISALLOWED',obj,'Steam',{args:[
+            '--wardrobe-same-slot-receipt-only','0','50000002','50000003','--out','/tmp/should-not-write']});
+          rejects('SWITCH_USING_STEAM_BUILD',obj,'Switch',{env:{
+            WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:exactSteam}});
+          rejects('WRONG_EXTERNAL_BID',obj,'Switch',{env:{
+            WAND_LOCAL_INSTALLED_SWITCH_BID:'52BD625D9B4E0053'}});
+          rejects('NO_FD3',obj,'Steam',{stdio:['pipe','pipe','pipe','ignore']});
+          // A writable regular file at FD3 is never a safe replacement for the
+          // trusted parent-owned anonymous pipe, even if the caller owns it.
+          const scratch=mkdtempSync(join(tmpdir(),'qrs-act1101-native-'));
+          try{
+            const candidate=join(scratch,'NOT_RECEIPT');
+            const fd=openSync(candidate,'w',0o600);
+            try{
+              const r=run(obj,'Steam',{stdio:['pipe','pipe','pipe',fd]});
+              assert.notEqual(r.status,0,'regular file FD3 must be denied');
+              assert.equal(r.stdout,'');
+              assert.match(r.stderr,/PRIVATE_RECEIPT_ANONYMOUS_PIPE_REQUIRED/);
+            }finally{closeSync(fd)}
+            assert.equal(readFileSync(candidate).length,0,'no private receipt persisted into file FD3');
+            denied++;
+            console.log('QRS_ACT1101_REPAIRED_CURRENT_WARDROBE_FD3_DENIED FILE_AT_FD3');
+          }finally{rmSync(scratch,{recursive:true,force:true})}
+          assert.equal(denied,8);
+          console.log('QRS_ACT1101_CURRENT_RUST_WARDROBE_PRIVATE_FD3_2POS8NEG_COMPLETE');
+          NODE
+      - name: QA-only changed file constraint and no public product authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only 1f9306211fff3e051befa99ac0c371f5f1715da9 HEAD)" = ".github/workflows/04qrs-act1101-pr2193-wardrobe-fd3-current-bridge-l2.yml"
+          grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          echo QRS_ACT1101_QA_ONLY_NO_PRIVATE_SAVE_NO_WRITER_NO_PAGES_NEVER_MERGE
