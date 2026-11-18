@@ -1,0 +1,57 @@
+name: 09P Steam626 Bamboo per-Op readonly delivery CANDIDATE (OFF)
+on:
+  pull_request:
+    paths:
+      - 'src/lib/ddv/core/save/product-steam626-bamboo-readonly-release.mjs'
+      - 'src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs'
+      - 'scripts/wasm-distribution/build-bamboo40700007-readonly-candidate.mjs'
+      - 'tests/steam626-bamboo-readonly-public-delivery.test.mjs'
+      - '.github/workflows/09p-steam626-bamboo-readonly-delivery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-public-off-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      WAND_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
+      WAND_BINDGEN_CLI: /tmp/wand-bamboo-delivery-bindgen/bin/wasm-bindgen
+      CARGO_TARGET_DIR: /tmp/wand-bamboo-delivery-rust
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: New per-Op source policy and 28 scope/rights negatives
+        run: node --test tests/steam626-bamboo-readonly-public-delivery.test.mjs
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Existing approved Cargo exact Lock and real isolated Bamboo Rust WASM
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = pull_request
+          test ! -e static/worker-wasm-steam626-bamboo-readonly
+          test ! -e build/worker-wasm-steam626-bamboo-readonly
+          grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-bamboo-readonly,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-bamboo-delivery-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+      - name: Verify exact generated WASM exports, feature, SHA and manifest in private SOURCE candidate
+        run: |
+          set -euo pipefail
+          node scripts/wasm-distribution/build-bamboo40700007-readonly-candidate.mjs
+          test "$(find tests/wasm-distribution/fixtures/steam626-bamboo-public-readonly-candidate -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-steam626-bamboo-readonly
+          test ! -e build/worker-wasm-steam626-bamboo-readonly
+          grep -F 'PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          echo BAMBOO_PUBLIC_DELIVERY_SOURCE_ONLY_CANDIDATE_PASS_NO_SIGNED_ASSET_NO_ON
