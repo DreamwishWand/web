@@ -29,7 +29,9 @@ test("actual verified single support contact clears ONLY mailbox check; image pu
   assert.ok(Object.values(template.locales).every(r => r.humanReviewed === false && r.reviewEvidenceRef === null));
   const result = preflightGameImageOperatorReceipt(template);
   assert.equal(result.readyForOperatorReview, false);
-  for (const code of IMAGE_NOTICE_LOCALES) assert.ok(result.reasons.includes("ATTRIBUTION_LOCALE_NOT_REVIEWED:" + code));
+  for (const code of IMAGE_NOTICE_LOCALES)
+    assert.ok(!result.reasons.some(reason => reason.endsWith(":" + code)),
+      "existing eight complete attribution copies do not require a human-signoff gate");
   assert.deepEqual(template.rightsContact, {
     url: "mailto:support@dreamwishwand.com",
     tested: true,
@@ -97,8 +99,33 @@ test("synthetic fully scoped operator receipt can clear only SOURCE preflight, n
   assert.equal(preflightGameImageOperatorReceipt({...fake, rightsContact: {...fake.rightsContact, tested: false}}).readyForOperatorReview, false);
   assert.equal(preflightGameImageOperatorReceipt({...fake, rightsContact: {...fake.rightsContact, tested: undefined}}).readyForOperatorReview, false);
   assert.equal(preflightGameImageOperatorReceipt({...fake, rightsContact: {...fake.rightsContact, url: "mailto:invented"}}).readyForOperatorReview, false);
-  assert.ok(preflightGameImageOperatorReceipt({...fake, locales: {...fake.locales, ja:{...fake.locales.ja, humanReviewed:false}}})
-    .reasons.includes("ATTRIBUTION_LOCALE_NOT_REVIEWED:ja"));
+  // Owner-scoped game art: actual eight copy strings are required, but eight
+  // impossible human translation reviews are NOT a release prerequisite.
+  const unreviewedEight = {...fake,locales:structuredClone(template.locales)};
+  assert.deepEqual(preflightGameImageOperatorReceipt(unreviewedEight),
+    {readyForOperatorReview:true,reasons:[]},
+    "synthetic source preflight only; humanReviewed false remains false, not a publish grant");
+  assert.ok(IMAGE_NOTICE_LOCALES.every(code => unreviewedEight.locales[code].humanReviewed === false));
+  for (const invalid of [
+    {...template.locales.ja,text:""},
+    {...template.locales.ja,text:"Game image belongs to others"},
+    {...template.locales.ja,humanReviewed:true,reviewEvidenceRef:null},
+    {...template.locales.ja,humanReviewed:false,reviewEvidenceRef:"FORGED_REVIEW"},
+    {...template.locales.ja,humanReviewed:"true"}
+  ]) {
+    assert.ok(preflightGameImageOperatorReceipt({...unreviewedEight,
+      locales:{...unreviewedEight.locales,ja:invalid}})
+      .reasons.includes("ATTRIBUTION_LOCALE_COPY_OR_RECEIPT_INVALID:ja"));
+  }
+  assert.ok(preflightGameImageOperatorReceipt({...unreviewedEight,
+    locales:{...unreviewedEight.locales,ja:undefined}})
+    .reasons.includes("ATTRIBUTION_LOCALE_COPY_OR_RECEIPT_INVALID:ja"));
+  assert.ok(preflightGameImageOperatorReceipt({...unreviewedEight,
+    controls:{...unreviewedEight.controls,cdnInvalidation:{verified:false,evidenceRef:null}}})
+    .reasons.includes("OPERATOR_CONTROL_NOT_PROVED:cdnInvalidation"),
+    "real CDN invalidation proof remains mandatory");
+  assert.equal(preflightGameImageOperatorReceipt(template).readyForOperatorReview,false,
+    "actual incomplete operator packet remains fail closed and media OFF");
   assert.ok(preflightGameImageOperatorReceipt({...fake, controls: {...fake.controls, cdnInvalidation: {verified:false,evidenceRef:null}}})
     .reasons.includes("OPERATOR_CONTROL_NOT_PROVED:cdnInvalidation"));
   assert.ok(preflightGameImageOperatorReceipt({...fake, copyrightLicenceStatus:"DOCUMENTED",copyrightLicenceEvidenceRef:null})
