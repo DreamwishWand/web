@@ -42,6 +42,13 @@ jobs:
             test "$(git rev-parse HEAD:"$path")" = "$(git rev-parse "$SOURCE":"$path")"
           done
           echo QRC2095_QA_ONLY_SOURCE7_BLOB_IDENTITY_PASS_NEVER_MERGE
+      - name: Derive unchanged-dependency local Cargo.lock, never commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock > "$RUNNER_TEMP/qrc-cargo-lock.sha"
+          echo QRC2095_EPHEMERAL_CARGO_LOCK_NOT_GIT_COMMITTED
       - name: Independent changed Worker Rust receipt and negative checks
         run: |
           cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
@@ -91,3 +98,4 @@ jobs:
           ! grep -R -F 'read_steam626_bamboo_single_target' src/routes
           ! grep -R -F 'read_steam626_bamboo_single_target' src/lib
           echo QRC2095_PUBLIC_READER_CONSUMER_NOT_CONNECTED_WRITER_OFF
+          sha256sum -c "$RUNNER_TEMP/qrc-cargo-lock.sha"
