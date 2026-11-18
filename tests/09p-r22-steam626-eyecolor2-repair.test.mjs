@@ -39,6 +39,10 @@ const acceptedReleaseProfiles=Object.freeze([
  // 09INT release and independent L2 are separate from a test profile.
  {core:'36be23f81c4558eafd3557c85ac71ea56a1e3459',
   cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
+  config:'30551c7cc566614f64c8ba04748c3aef44b419bb'},
+ // Original PR2267 private-only 2Rust+1CI, no Writer entitlement.
+ {core:'10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c',
+  cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
   config:'30551c7cc566614f64c8ba04748c3aef44b419bb'}
 ]);
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';

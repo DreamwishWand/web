@@ -1318,6 +1318,20 @@ const steam626AmountOngoingBattlePassExact1Entries=Object.freeze([{
  before:{mode:'100644',blob:'e6e360f5326b9a5cf6884600a4c9ecf642aa12fa'},
  after:{mode:'100644',blob:'13d861165bea3fb37f79d7bbc4cb9ab51669fa78'}
 }]);
+// ACT1581 W-CORE-004: exact THREE original 01A PR2267 private-only
+// Rust native V2 bridge leaves, following accepted PR2263 one-leaf Core.
+// No general private writer authorization, no public browser/Op/Pages grant.
+const steam626AmountPrivateBridgeExact3Entries=Object.freeze([
+ {path:'.github/workflows/01a-private-product-amount-v2-bridge.yml',
+  before:null,
+  after:{mode:'100644',blob:'77f8bfa29f55f28d348892086c684af9c52011bd'}},
+ {path:'crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs',
+  before:{mode:'100644',blob:'052219d4d8078c1ed0ad4fc4a02843423de8ee6c'},
+  after:{mode:'100644',blob:'9f783e64ec44fdc2d863a4634f3d334a89cf7f62'}},
+ {path:'crates/ddv-save-core/src/semantic_writer.rs',
+  before:{mode:'100644',blob:'9472a792277f15e69d64118919835b12bed129f1'},
+  after:{mode:'100644',blob:'f11c68ca214853c762788ae032710fc4683dd472'}}
+]);
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1535,6 +1549,26 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    independentRustRefQAL2Required:true,independentSecurityL2Required:true,
    genuineEncryptedOriginalV2:'NOT_RUN',mergeAuthorized:false,
    writerAuthorized:false,operationOn:false}};
+ }
+ if(baseCore==='36be23f81c4558eafd3557c85ac71ea56a1e3459'){
+  if(sourceCore!=='10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c')
+   deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626AmountPrivateBridgeExact3Entries,count:3,metadata:{
+   sourcePr:2267,sourceHead:'f6e789694323750d0c055a8434718116dba11fc7',
+   originalProtectedBase:'9a5c72ebafe45987b762a8fcb6ecaa198e7a7fd9',
+   coreBefore:'36be23f81c4558eafd3557c85ac71ea56a1e3459',
+   coreAfter:'10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c',
+   fixedNativePre:'052219d4d8078c1ed0ad4fc4a02843423de8ee6c',
+   fixedNativeAfter:'9f783e64ec44fdc2d863a4634f3d334a89cf7f62',
+   fixedSemanticWriterPre:'9472a792277f15e69d64118919835b12bed129f1',
+   fixedSemanticWriterAfter:'f11c68ca214853c762788ae032710fc4683dd472',
+   fixedPrivateWorkflowAfter:'77f8bfa29f55f28d348892086c684af9c52011bd',
+   cargoUnchanged:'751a73da41d8b58f7de70643f50b97722a3c1260',
+   r22InputUnchanged:'30551c7cc566614f64c8ba04748c3aef44b419bb',
+   privateNativeOnly:true,publicConsumerEnabled:false,
+   independentRustAndSecurityL2Required:true,
+   genuineEncryptedOriginalP1gV2:'NOT_RUN',
+   mergeAuthorized:false,writerAuthorized:false,operationOn:false}};
  }
  deny('BASE_CORE_TREE');
 }
