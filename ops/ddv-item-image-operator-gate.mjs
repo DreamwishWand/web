@@ -140,6 +140,60 @@ export function planGameImageTakedown(manifestRows, selector) {
       "VERIFY_PUBLIC_GET_AND_CACHE_DENIAL", "CHECK_RESTORE_BACKUPS_AND_ROLLBACK"] };
 }
 
+// Turn an already-resolved shared-derivative closure into a COMPLETE,
+// deterministic, append-only HIDDEN ledger proposal. This is an inert packet,
+// not a storage write, CDN purge, deployment receipt or publication decision.
+// In particular, never hide only the initially selected ItemID while leaving
+// aliases of a shared PNG/WebP exposed after an old backup is restored.
+export function prepareGameImageTakedownSuppression(manifestRows, selector, existingLedger, incidentRef) {
+  const failed = reason => ({ prepared: false, reasons: [reason] });
+  if (!validateImageSuppressionLedger(existingLedger))
+    return failed("EXISTING_SUPPRESSION_LEDGER_INVALID");
+  if (!steamEvidence(incidentRef) || /^(?:NOT_VERIFIED|RESTORED)$/i.test(incidentRef))
+    return failed("TAKEDOWN_INCIDENT_EVIDENCE_INVALID");
+  const plan = planGameImageTakedown(manifestRows, selector);
+  if (!plan.resolvable)
+    return failed(plan.reasons[0] ?? "TAKEDOWN_PLAN_UNRESOLVABLE");
+  const order = { ITEM_ID: 0, SOURCE_SHA256: 1, WEBP_SHA256: 2 };
+  const normalized = (kind, value) => kind === "ITEM_ID" ? normalizeId(value) : value.toLowerCase();
+  const key = (kind, value) => kind + ":" + normalized(kind, value);
+  const seen = new Set(), prepared = new Map();
+  for (const entry of existingLedger) {
+    const k = key(entry.kind, entry.value);
+    if (seen.has(k)) return failed("EXISTING_SUPPRESSION_LEDGER_DUPLICATE");
+    seen.add(k);
+    prepared.set(k, Object.freeze({ kind: entry.kind, value: normalized(entry.kind, entry.value),
+      state: "HIDDEN", incidentRef: entry.incidentRef }));
+  }
+  const add = (kind, value) => {
+    const k = key(kind, value);
+    if (!prepared.has(k))
+      prepared.set(k, Object.freeze({ kind, value: normalized(kind, value),
+        state: "HIDDEN", incidentRef }));
+  };
+  const affected = new Set(plan.itemIds);
+  for (const item of plan.itemIds) add("ITEM_ID", item);
+  for (const row of manifestRows) {
+    if (!row || !itemId(row.itemId) || !affected.has(normalizeId(row.itemId))) continue;
+    // The resolver proved all reachable linked rows complete. Revalidate at
+    // staging rather than silently invent a cross-kind or missing digest.
+    if (!sha(row.sourcePngSha256) || !sha(row.webpSha256))
+      return failed("LINKED_IMAGE_MAPPING_INCOMPLETE");
+    add("SOURCE_SHA256", row.sourcePngSha256);
+    add("WEBP_SHA256", row.webpSha256);
+  }
+  const entries = [...prepared.values()].sort((a, b) =>
+    order[a.kind] - order[b.kind] || a.value.localeCompare(b.value));
+  if (!validateImageSuppressionLedger(entries))
+    return failed("PREPARED_SUPPRESSION_LEDGER_INVALID");
+  return {
+    prepared: true, reasons: [], itemIds: plan.itemIds, hashes: plan.hashes,
+    suppressionLedger: Object.freeze(entries),
+    additions: entries.length - existingLedger.length,
+    actionsRequired: plan.actionsRequired
+  };
+}
+
 // This can demonstrate missing operator evidence; a synthetic positive is NOT real operational QA.
 // It returns readyForOperatorReview, NEVER PRODUCT_OPERATION_ENABLED or legal approval.
 export function preflightGameImageOperatorReceipt(receipt) {
