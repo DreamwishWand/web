@@ -1049,6 +1049,59 @@ mod tests{
                 "PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP");
         }
     }
+    // Reproduce the genuine Owner false denial at the GLOBAL saved GridState
+    // scan, not just the small parser helper. The Mannequin is unrelated to
+    // both selected amounts; original decoded document is immutable.
+    #[test]fn global_mannequin_int32_map_preserves_scoped_amount_stage_both_targets(){
+        for chest in [false,true]{
+            let mut d=if chest{chest_doc()}else{doc()};
+            let (sel,new,old,item)=if chest{
+                (ExistingAmountSelection::Chest{container_id:12,slot_index:0},49,50,30200000)
+            }else{
+                (ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},2,3,40000048)
+            };
+            if !chest{
+                d["World"]["GridCollection"]["Grids"]["7"]=
+                    json!({"ID":7,"GridDefaultLayoutPath":"","Objects":{}});
+            }
+            d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["8"]=json!({
+                "ID":8,"ItemID":40009998,"State":{"Mannequin":{
+                    "BodyType":0,"Clothes":{"0":50000001},
+                    "ClothingCustomization":{"50000001":-1,"50000002":0},
+                    "HairColorIndex":0,"HairHighlightColor":0,"IsMale":true
+                }}
+            });
+            let s=open(&d);let before=s.receipt().unwrap();
+            let t=s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new).unwrap();
+            assert_eq!(t.view().old_amount,old);
+            assert_eq!(s.receipt().unwrap(),before);
+            let staged=s.stage_scoped_product_amount(
+                scope(&s,WorkerAction::Stage),sel,old,new,t.view().entry_sha256).unwrap();
+            assert_eq!(staged.exact_field_changed_count,1);
+            assert!(!staged.product_writer_authorized);
+            let output=s.take_typed_semantic_decoded_once(
+                scope(&s,WorkerAction::ExportEditedCopy)).unwrap();
+            let mut expected=d.clone();
+            if chest{
+                expected["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);
+            }else{
+                expected["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);
+            }
+            assert_eq!(output,serde_json::to_vec(&expected).unwrap());
+            for (bad,code) in [
+                (json!(["50000001"]),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP"),
+                (json!({"50000001":item}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                (json!({"30000001":0}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+            ]{
+                let mut q=d.clone();
+                q["World"]["GridCollection"]["Grids"]["7"]["Objects"]["8"]["State"]["Mannequin"]["ClothingCustomization"]=bad;
+                let denied=open(&q);let current=denied.receipt().unwrap();
+                assert_eq!(denied.preview_scoped_product_amount(
+                    scope(&denied,WorkerAction::ReadDomain),sel,new).unwrap_err().0,code);
+                assert_eq!(denied.receipt().unwrap(),current);
+            }
+        }
+    }
     #[test]fn saved_grid_state_known_literal_and_typed_dependencies(){
         let check=|v:Value,item:i32|{let b=serde_json::to_vec(&v).unwrap();saved_grid_state(&b,Span{begin:0,end:b.len()},item,&mut 0)};
         for item in [40000048,30200000]{
