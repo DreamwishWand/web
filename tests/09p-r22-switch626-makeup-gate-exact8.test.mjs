@@ -44,6 +44,20 @@ function synthetic(parent,updates){
   return raw(['commit-tree',tree,'-p',parent,'-m','Synthetic fixed R22 candidate (local Git object, NO REF)']);
  }finally{rmSync(dir,{recursive:true,force:true})}
 }
+test('ACT1581 protected release CLI pins trusted Git/on-disk Gate before importing candidate Rust policy',()=>{
+ const actual=git('show','HEAD:scripts/wasm-distribution/verify-protected-release.mjs');
+ assert.ok(!actual.includes("import {verifyAcceptedRustScope} from './r22-accepted-rust-scope.mjs'"));
+ const guarded=actual.indexOf('assertTrustedRustGateBeforeImport(prBase,expectedSource)');
+ const loaded=actual.indexOf("await import('./r22-accepted-rust-scope.mjs')");
+ assert.ok(guarded>0&&loaded>guarded,'actual candidate gate must be pinned BEFORE import');
+ for(const path of ['scripts/wasm-distribution/verify-protected-release.mjs',
+   'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'])
+  assert.ok(actual.includes("'"+path+"'"),'missing protected source '+path);
+ for(const exact of ['CANDIDATE_MUTATED_TRUSTED_GATE','CHECKED_OUT_TRUSTED_GATE_DRIFT',
+   "git('hash-object','--no-filters','--',path)",'GIT_NO_REPLACE_OBJECTS'])
+  assert.ok(actual.includes(exact),'missing literal raw-gate control '+exact);
+});
+
 test('ACT1581 exact fixed R22 source selector static immutable eight-mint contract and prior release stays off',()=>{
  assert.equal(git('rev-parse',trustedBase+':crates/ddv-save-core'),'b5416aa726caea9d311075599ac606e11285b295');
  assert.equal(git('rev-parse',trustedBase+':'+inputPath),originalInputBlob);

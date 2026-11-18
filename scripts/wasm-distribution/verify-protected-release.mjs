@@ -4,10 +4,10 @@
 // JS+WASM+manifest+static output. A release signature is checked afterwards
 // by GitHub Sigstore, not inferred from SHA equality here.
 import {readFile,stat} from 'node:fs/promises';
+import {lstatSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {resolve,join} from 'node:path';
-import {verifyAcceptedRustScope} from './r22-accepted-rust-scope.mjs';
 import {assertR22RawRustCheckout} from './r22-raw-rust-checkout.mjs';
 
 import {ACTIVE_RELEASE_TUPLE,RELEASE_REPOSITORY_ID,manifestMatchesRelease,protectedPagesContextMatches} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
@@ -15,9 +15,31 @@ import {ACTIVE_RELEASE_TUPLE,RELEASE_REPOSITORY_ID,manifestMatchesRelease,protec
 const root=resolve(import.meta.dirname,'../..');
 const fail=s=>{throw Error('R22_PROTECTED_RELEASE_'+s)};
 const sha=b=>createHash('sha256').update(b).digest('hex');
-const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
+const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8',
+ env:{...process.env,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
 const cmd=(name,args)=>execFileSync(name,args,{cwd:root,encoding:'utf8'}).trim();
 const read=async path=>readFile(join(root,path)).catch(()=>fail('MISSING_'+path));
+const trustedRustGatePaths=Object.freeze([
+ 'scripts/wasm-distribution/verify-protected-release.mjs',
+ 'scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
+ 'scripts/int-selection-preflight.mjs'
+]);
+// A product candidate may NOT load its own edited permission verifier.
+// Compare Git blobs from the *live protected PR base* before dynamic import.
+// Also pin actual on-disk bytes (not merely HEAD:path) and reject symlinks.
+// Gate-only maintenance, with zero Rust deltas, remains a separate reviewed PR.
+function assertTrustedRustGateBeforeImport(base,source){
+ for(const path of trustedRustGatePaths){
+  const trusted=git('rev-parse','--verify',base+':'+path);
+  const candidate=git('rev-parse','--verify',source+':'+path);
+  if(!/^[a-f0-9]{40}$/.test(trusted)||candidate!==trusted)
+   fail('CANDIDATE_MUTATED_TRUSTED_GATE');
+  if(!lstatSync(join(root,path)).isFile()||
+     git('hash-object','--no-filters','--',path)!==candidate)
+   fail('CHECKED_OUT_TRUSTED_GATE_DRIFT');
+ }
+}
+
 const config=JSON.parse((await read('scripts/wasm-distribution/protected-release-inputs.json')).toString('utf8'));
 const publicOnly=process.env.WAND_PUBLIC_READONLY_ASSET_GATE==='OWNER_APPROVED_THREE_FILES_20261111';
 // Owner permission applies to ONLY three inert read-only public files, never
@@ -96,6 +118,10 @@ try{
   const rustPaths=git('diff','--name-only','--no-renames','--no-ext-diff',
    '--no-textconv',prBase,expectedSource,'--','crates/ddv-save-core/');
   if(rustPaths){
+   assertTrustedRustGateBeforeImport(prBase,expectedSource);
+   // No PR candidate-controlled gate JS is executed until all three
+   // protected raw Git blobs AND real on-disk bytes match the PR base.
+   const {verifyAcceptedRustScope}=await import('./r22-accepted-rust-scope.mjs');
    const match=verifyAcceptedRustScope(root,prBase,expectedSource);
    console.log('R22_ACCEPTED_EXACT_SOURCE_SCOPE_MATCH_ONLY',match);
   }else{
