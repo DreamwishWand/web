@@ -21,7 +21,7 @@ jobs:
       - name: Pin original Source2 GitBlobs and independent QA-only2 paths
         shell: bash
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           base=a9a87c578c8bc2a9c64284b15d3ed2c5eb39f817
           source=d4c5e30878d57d3c4e136328df5e32d3881b0c07
           git merge-base --is-ancestor "$base" HEAD
