@@ -1,6 +1,10 @@
-import test from "node:test";
+import test,{after} from "node:test";
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
+import {copyFileSync,mkdtempSync,readFileSync,writeFileSync,rmSync} from "node:fs";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
+import {fileURLToPath,pathToFileURL} from "node:url";
 import {liveTargets,receiptDigest,verifySteamLiveImagePhase} from "../scripts/07dbk-steam-image-live-receipt.mjs";
 
 const digest=b=>createHash("sha256").update(b).digest("hex");
@@ -47,6 +51,32 @@ async function on(){const f=fake("ON");const result=await verifySteamLiveImagePh
 const withdrawArgs=(onResult,fetchImpl)=>({...opts,phase:"WITHDRAW",fetchImpl,
   priorOnReceipt:onResult.receipt,expectedOnReceiptSha256:onResult.sha256});
 
+// A positive HTTP withdrawal can be exercised only with a trusted ON anchor.
+// This TEST-ONLY trusted anchor lives in a separate temporary copy of the
+// verifier. The real checked-in protected anchor file remains EMPTY, and the
+// product module must always refuse a self-hashed prior ON receipt.
+const syntheticOn=(await on()).result;
+const isolatedDir=mkdtempSync(join(tmpdir(),"wand-07dbk-synthetic-"));
+const scriptSrc=fileURLToPath(new URL("../scripts/07dbk-steam-image-live-receipt.mjs",import.meta.url));
+copyFileSync(scriptSrc,join(isolatedDir,"verifier.mjs"));
+const canonical=liveTargets(opts);
+const anchoredSynthetic={schema:"wand.dbk.protected-on-origin@1",records:[{
+  scope:"STEAM_ITEM_IMAGES_LIVE_HTTP",
+  receiptSha256:syntheticOn.sha256,
+  targetSetSha256:receiptDigest(canonical.targets),
+  base:canonical.base,manifestUrl:canonical.manifestUrl,
+  releaseState:"SIGNED_PAGES_ON_OBSERVED",recordedBy:"09_INT_PROTECTED_MAIN",
+  // Deliberately synthetic inside /tmp only: NOT a real 09 INT release proof.
+  protectedReleaseCommit:"a".repeat(40),protectedPagesRunId:1,
+  liveObserverRunId:2,signedArtifactAttestationSha256:"b".repeat(64)
+}]};
+writeFileSync(join(isolatedDir,"07dbk-steam-image-trusted-on-anchors.json"),
+  JSON.stringify(anchoredSynthetic));
+const isolatedVerify=(await import(pathToFileURL(join(isolatedDir,"verifier.mjs")).href))
+  .verifySteamLiveImagePhase;
+after(()=>rmSync(isolatedDir,{recursive:true,force:true}));
+
+
 test("canonical target pins first real-style SHA URL and rejects arbitrary external hosts",()=>{
   const r=liveTargets(opts);
   assert.equal(r.manifestUrl,base+path);
@@ -92,7 +122,7 @@ test("WITHDRAW cannot be inferred from prepublication 404 without immutable pinn
 
 test("published ON proof allows scoped postwithdraw manifest absence and 4 old URL denial probes",async()=>{
   const {result:published}=await on(),f=fake("WITHDRAW");
-  const {receipt,sha256}=await verifySteamLiveImagePhase(withdrawArgs(published,f.fetchImpl));
+  const {receipt,sha256}=await isolatedVerify(withdrawArgs(published,f.fetchImpl));
   assert.equal(receipt.phase,"WITHDRAW");
   assert.equal(receipt.checks.length,5);
   assert.deepEqual(receipt.checks.map(x=>x.status),[200,404,404,404,404]);
@@ -109,7 +139,7 @@ test("withdrawal fails on retained manifest, any cached 200/304/redirect or imag
   for(const overrides of [{manifestKeepsItem:true},{deniedStatus:200},{deniedStatus:304},
     {deniedStatus:302},{deniedPayload:bytes}]){
     const f=fake("WITHDRAW",overrides);
-    await assert.rejects(verifySteamLiveImagePhase(withdrawArgs(published,f.fetchImpl)),
+    await assert.rejects(isolatedVerify(withdrawArgs(published,f.fetchImpl)),
       /WITHDRAW_MANIFEST_RETAINS_ITEM|LIVE_OLD_IMAGE_URL_STILL_SERVES|WITHDRAW_REPLY_CONTAINS_IMAGE_BYTES/);
   }
 });
@@ -151,10 +181,24 @@ test("WITHDRAW 200 manifest must retain exact release schema, variant and item m
       ? Promise.resolve(new Response(JSON.stringify(wrong),{
           status:200,headers:{"content-type":"application/json"}}))
       : f.fetchImpl(url,args);
-    await assert.rejects(verifySteamLiveImagePhase({...withdrawArgs(published,fetchImpl)}),
+    await assert.rejects(isolatedVerify({...withdrawArgs(published,fetchImpl)}),
       /WITHDRAW_MANIFEST_SCHEMA_OR_VARIANT_INVALID/);
     assert.equal(f.calls.length,0,"wrong manifest fails before asset checks");
   }
+});
+
+test("self-hashed canonical old ON JSON cannot prove past public release",async()=>{
+  const observed=await on(); // synthetic fetch, never a hosted 09 INT release
+  const forged=structuredClone(observed.result.receipt);
+  const f=fake("WITHDRAW");
+  await assert.rejects(verifySteamLiveImagePhase({...withdrawArgs(
+    {receipt:forged,sha256:receiptDigest(forged)},f.fetchImpl)}),
+    /SIGNED_ON_ORIGIN_PROVENANCE_REQUIRED/);
+  assert.equal(f.calls.length,0,"untrusted historic ON must fail before HTTP");
+  const protectedRegistry=JSON.parse(readFileSync(
+    new URL("../scripts/07dbk-steam-image-trusted-on-anchors.json",import.meta.url)));
+  assert.equal(protectedRegistry.schema,"wand.dbk.protected-on-origin@1");
+  assert.deepEqual(protectedRegistry.records,[],"real product release trust starts empty");
 });
 
 test("ON and withdrawal never treat a source-only candidate receipt as an operator deployment",async()=>{
@@ -162,7 +206,7 @@ test("ON and withdrawal never treat a source-only candidate receipt as an operat
   assert.notEqual(published.receipt.scope,"SIGNED_DEPLOYMENT_AUTHORIZATION");
   assert.equal(published.receipt.fullGlobalCdnPurge,"NOT_PROVED");
   const f=fake("WITHDRAW");
-  const result=await verifySteamLiveImagePhase(withdrawArgs(published,f.fetchImpl));
+  const result=await isolatedVerify(withdrawArgs(published,f.fetchImpl));
   assert.equal(result.receipt.providerPurgeAction,"NOT_PERFORMED");
   assert.equal(f.calls.every(c=>c.url.startsWith(base)),true);
 });
