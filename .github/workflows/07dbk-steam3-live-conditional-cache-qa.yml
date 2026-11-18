@@ -109,3 +109,42 @@ jobs:
             fullPriorOnReceiptAnchor:'NOT_CREATED',consumer:'OFF'
           }));
           NODE
+      - name: "NEGATIVE real ETag must be included in future ON to WITHDRAW cache denial (L2 counterexample)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readBatch,verifyLive} from './scripts/int-steam-public-media-signed-batch.mjs';
+          // Actual signed Pages current ON3 gave this ETag on live Item40300045.
+          // This is a real public-cache validator, not a fabricated prior ON receipt.
+          const actualPriorOnEtag='"6afd8e3c-3bce"';
+          const source=readBatch(),item=source.items.find(x=>x.itemId==='40300045');
+          assert.ok(item);
+          const withdrawn=structuredClone(source);
+          withdrawn.items=[];
+          withdrawn.withdrawn=[{itemId:item.itemId,sha256:item.sha256}];
+          const requests=[];
+          const adversarialOldCdn=async(url,{method,headers})=>{
+            requests.push({url,method,headers});
+            // After an origin remove, a stale edge may still match the *actual*
+            // prior ETag. Unrelated forged "stale" tokens get 404.
+            if(headers?.['If-None-Match']===actualPriorOnEtag)
+              return new Response(null,{status:304});
+            return new Response(null,{status:404});
+          };
+          let result,reason;
+          try{result=await verifyLive(withdrawn,'https://dreamwishwand.github.io/web/',adversarialOldCdn);}
+          catch(e){reason=String(e.message||e);}
+          const checkedRealEtag=requests.some(x=>x.headers?.['If-None-Match']===actualPriorOnEtag);
+          console.log('07DBK_REAL_PRIOR_ETAG_WITHDRAW_FALSE_PASS_COUNTEREXAMPLE '+JSON.stringify({
+            itemId:item.itemId,realPriorOnEtag:actualPriorOnEtag,
+            verifierAccepted:Boolean(result),verifierError:reason??null,
+            checkedRealEtag,
+            usedSyntheticStale:requests.some(x=>x.headers?.['If-None-Match']==='"stale"'),
+            currentLiveImageWithdrew:false,
+            requiredChange:'signed historical ON ETag pinned by 09INT, then old ETag conditional GET must be 404/410'
+          }));
+          assert.equal(checkedRealEtag,true,'TRUE_RED_WITHDRAWAL_MISSED_ACTUAL_PRIOR_ETAG');
+          assert.equal(result,undefined,'TRUE_RED_WITHDRAWAL_ACCEPTED_STALE_ORIGIN_VALIDATOR');
+          NODE
