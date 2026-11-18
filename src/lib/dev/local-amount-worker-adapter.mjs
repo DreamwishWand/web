@@ -73,10 +73,20 @@ export async function readBoundEncryptedCopy(binding,check){
  const handle=await binding.directory.getFileHandle(binding.name);check();
  const file=await handle.getFile();check();
  if(file.name!==binding.name||file.size!==binding.size)fail();
- const encryptedBytes=new Uint8Array(await file.arrayBuffer());check();
- if(encryptedBytes.length!==binding.size||await h(encryptedBytes)!==binding.sha)fail();
- check();
- return {kind:'VERIFIED_DOWNLOAD',name:binding.name,sha256:binding.sha,sizeBytes:binding.size,encryptedBytes};
+ const encryptedBytes=new Uint8Array(await file.arrayBuffer());
+ try{
+  check();
+  if(encryptedBytes.length!==binding.size||await h(encryptedBytes)!==binding.sha)fail();
+  check();
+  // Ownership transfers to the Worker reply only after both epoch checks and
+  // digest verification. Existing port cleanup owns that successful result.
+  return {kind:'VERIFIED_DOWNLOAD',name:binding.name,sha256:binding.sha,sizeBytes:binding.size,encryptedBytes};
+ }catch(e){
+  // The port never receives this local buffer on a thrown read/hash/check.
+  // Clear every allocated encrypted byte before propagating the denial.
+  encryptedBytes.fill(0);
+  throw e;
+ }
 }
 /**
  * verifyTargets is a trusted Worker-LOCAL provider of 01D/01E verified
