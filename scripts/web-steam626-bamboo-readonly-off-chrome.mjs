@@ -32,7 +32,7 @@ try{
    assert.equal(await link.count(),1);
    await link.focus();assert.equal(await link.evaluate(el=>el===document.activeElement),true,'keyboard return to Editor');
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),true,'no horizontal overflow');
-   await page.evaluate(()=>localStorage.setItem('wand:bamboo:feature',{signedScopedReaderAvailable:true,writerAuthorized:true}.toString()));
+   await page.evaluate(()=>localStorage.setItem('wand:bamboo:feature',JSON.stringify({signedScopedReaderAvailable:true,writerAuthorized:true})));
    await page.reload({waitUntil:'domcontentloaded'});
    assert.equal(await page.locator('[data-bamboo-runtime]').getAttribute('data-bamboo-runtime'),'off','localStorage/query cannot create signed Reader');
    if(width===320){
