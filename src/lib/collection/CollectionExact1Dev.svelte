@@ -45,10 +45,14 @@
  async function download(which){
   if(!consumer||pending)return;const a=consumer,t=epoch;pending=true;error=false;
   try{
-   const r=await a.downloadVerifiedCopy(which);if(consumer!==a||t!==epoch||a.snapshot().phase==='closed'){r.encryptedBytes.fill(0);return}
-   const url=URL.createObjectURL(new Blob([r.encryptedBytes],{type:'application/octet-stream'}));
+   const r=await a.downloadVerifiedCopy(which);
+   let url;
+   try{
+    if(consumer!==a||t!==epoch||a.snapshot().phase==='closed')return;
+    url=URL.createObjectURL(new Blob([r.encryptedBytes],{type:'application/octet-stream'}));
+   }finally{r.encryptedBytes.fill(0)}
    try{const link=document.createElement('a');link.href=url;link.download=r.name;document.body.append(link);try{link.click()}finally{link.remove()}}
-   finally{r.encryptedBytes.fill(0);setTimeout(()=>URL.revokeObjectURL(url),1000)}
+   finally{setTimeout(()=>URL.revokeObjectURL(url),1000)}
   }catch{if(consumer===a&&t===epoch){state=a.snapshot();error=true}}
   finally{if(consumer===a&&t===epoch)pending=false}
  }
