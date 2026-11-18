@@ -1225,6 +1225,91 @@ const steam626SingleFenceReaderMain2c9Exact9Entries=[
     }
   }
 ];
+// ACT1581 exact protected Source tree selector only. Not Writer, signing, or merge grant.
+const switch626MakeupMain107eExact8Entries=Object.freeze([
+  {
+    "path": ".github/workflows/core-product-session-boundary.yml",
+    "before": {
+      "mode": "100644",
+      "blob": "f2c23679e1c663bb244888b63a5633ab53abcc12"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "8de94431af1e6d58e216fa06bf91a1329a7f7063"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "aa6b1dd771da305bf7a21c6101fb4620a8b74b93"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "751a73da41d8b58f7de70643f50b97722a3c1260"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/product_makeup_color1.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "952fa70789192f3207df6e4fcdf49d028d62a4d0"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "749831d8c41a24585a490b5ed23640fc8d50fc3d"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_session.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "a5b7c93bf66e6d48c4b7bef392777b8b7beb615e"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "254af029304f6a357c8c0a0e7a1376b80313d038"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "bf7ef74754921b29ca1229a1519019f9105ac800"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "5fbb1f3d393df127da67f1eafe9796fbb7ce3a56"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/worker_switch626_makeup_color1.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "945d6dee10f62396d894ea631e40c3fe26e6d0f0"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "b8a24a1e288f763349355bd05bf3b7cfd51b0b4a"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/protected-release-inputs.json",
+    "before": {
+      "mode": "100644",
+      "blob": "5d2b35f6bc9f0b8544fc52f25a35614b59913d96"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "30551c7cc566614f64c8ba04748c3aef44b419bb"
+    }
+  }
+]);
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1409,6 +1494,22 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    cargoBlobAfter:'f7c3b723804f9f3e11ffcbcd0f786d23e4e540bd',
    readerOnly:true,generatedAbiL2Required:true,independentSecurityL2Required:true,
    realEncryptedOriginalP1gV2:'NOT_RUN',writerAuthorized:false,operationOn:false}};
+ }
+ if(baseCore==='b5416aa726caea9d311075599ac606e11285b295'){
+  if(sourceCore!=='42086449f9deef26ed48b21d7edab0f5685da7c2')deny('CANDIDATE_CORE_TREE');
+  return {entries:switch626MakeupMain107eExact8Entries,count:8,metadata:{
+   sourcePr:2217,sourceHead:'b2735bc63884049a5f3d16423e5970553f168766',
+   acceptedProtectedParent:'d37a774a8ce2ac08ef05389f0d14d3442063edeb',
+   coreBefore:'b5416aa726caea9d311075599ac606e11285b295',
+   coreAfter:'42086449f9deef26ed48b21d7edab0f5685da7c2',
+   cargoBefore:'aa6b1dd771da305bf7a21c6101fb4620a8b74b93',
+   cargoAfter:'751a73da41d8b58f7de70643f50b97722a3c1260',
+   r22InputBefore:'5d2b35f6bc9f0b8544fc52f25a35614b59913d96',
+   r22InputAfter:'30551c7cc566614f64c8ba04748c3aef44b419bb',
+   exactBuild:'Switch626 BID9A239D3DB569756D',exactTarget:'Male Makeup slot1 Item140100014 ColorIndex1 53to60',
+   inheritedOldSourcePr:1954,independentCurrentAbiL2Required:true,
+   independentReleaseL2Required:true,sourceOnly:true,
+   mergeAuthorized:false,writerAuthorized:false,operationOn:false}};
  }
  deny('BASE_CORE_TREE');
 }
