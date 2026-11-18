@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {
   OWNER_IMAGE_DECISION, IMAGE_NOTICE_LOCALES, validateImageSuppressionLedger,
-  preflightGameItemImage, planGameImageTakedown, preflightGameImageOperatorReceipt
+  preflightGameItemImage, planGameImageTakedown, prepareGameImageTakedownSuppression, preflightGameImageOperatorReceipt
 } from "../ops/ddv-item-image-operator-gate.mjs";
 
 const template = JSON.parse(readFileSync(new URL("../ops/ddv-item-image-operator-readiness-template.json", import.meta.url), "utf8"));
@@ -174,6 +174,73 @@ test("takedown plan propagates shared PNG through alternate WebP derivative with
   assert.equal(planGameImageTakedown([image,{...image2,itemId:null}],{kind:"ITEM_ID",value:"40000047"}).resolvable,false);
 });
 
+test("complete shared-image takedown staging preserves old HIDDEN entries and closes PNG/WebP transitive aliases", () => {
+  const rows=[
+    {...image,itemId:"40000101",sourcePngSha256:digest("a"),webpSha256:digest("b")},
+    {...image,itemId:"40000102",sourcePngSha256:digest("a"),webpSha256:digest("c")},
+    {...image,itemId:"40000103",sourcePngSha256:digest("d"),webpSha256:digest("c")},
+    {...image,itemId:"40000104",sourcePngSha256:digest("d"),webpSha256:digest("e")},
+    {...image,itemId:"40000105",sourcePngSha256:digest("f"),webpSha256:digest("1")}
+  ];
+  const existing=[{kind:"ITEM_ID",value:"77700012",state:"HIDDEN",incidentRef:"SYNTHETIC_PRIOR_INCIDENT"}];
+  const old=structuredClone(existing), original=structuredClone(rows);
+  const selector={kind:"ITEM_ID",value:"40000101"};
+  const result=prepareGameImageTakedownSuppression(rows,selector,existing,"SYNTHETIC_NEW_INCIDENT");
+  assert.equal(result.prepared,true);
+  assert.deepEqual(result.reasons,[]);
+  assert.deepEqual(result.itemIds,["40000101","40000102","40000103","40000104"]);
+  assert.deepEqual(result.hashes,["a","b","c","d","e"].map(digest));
+  assert.equal(result.additions,9);
+  assert.equal(result.suppressionLedger.length,10);
+  assert.deepEqual(result.suppressionLedger.find(e=>e.value==="77700012"),existing[0]);
+  assert.equal(Object.isFrozen(result.suppressionLedger),true);
+  assert.deepEqual(existing,old,"cannot mutate existing ledger");
+  assert.deepEqual(rows,original,"cannot mutate original manifest");
+  assert.equal(validateImageSuppressionLedger(result.suppressionLedger),true);
+  for(const row of rows.slice(0,4)){
+    const review=preflightGameItemImage(row,ctx,result.suppressionLedger);
+    assert.equal(review.candidate,false,row.itemId);
+    assert.ok(review.reasons.includes("ITEM_OR_SHARED_HASH_HIDDEN"),row.itemId);
+  }
+  assert.deepEqual(preflightGameItemImage(rows[4],ctx,result.suppressionLedger),{candidate:true,reasons:[]});
+  assert.ok(result.actionsRequired.includes("INVALIDATE_CDN_AND_OLD_URLS"));
+  // Independent entrypoint seed and row ordering cannot lose the transitive closure.
+  for(const reversed of [rows.slice().reverse(),[rows[2],rows[4],rows[0],rows[3],rows[1]]]){
+    const again=prepareGameImageTakedownSuppression(reversed,
+      {kind:"WEBP_SHA256",value:digest("c")},existing,"SYNTHETIC_NEW_INCIDENT");
+    assert.equal(again.prepared,true);
+    assert.deepEqual(again.suppressionLedger,result.suppressionLedger);
+  }
+  const idempotent=prepareGameImageTakedownSuppression(rows,selector,
+    result.suppressionLedger,"SYNTHETIC_SECOND_INCIDENT");
+  assert.equal(idempotent.prepared,true);
+  assert.equal(idempotent.additions,0);
+  assert.deepEqual(idempotent.suppressionLedger,result.suppressionLedger,
+    "a repeated complaint must not erase the original incident receipt");
+});
+
+test("fail-closed takedown ledger proposal denies partial restore, duplicate, missing linked digest and fake incident", () => {
+  const a={...image,itemId:"40000121",sourcePngSha256:digest("a"),webpSha256:digest("b")};
+  const b={...image,itemId:"40000122",sourcePngSha256:digest("a"),webpSha256:digest("c")};
+  const selected={kind:"ITEM_ID",value:a.itemId};
+  const denied=(rows,selector,old,incident,reason)=>{
+    const result=prepareGameImageTakedownSuppression(rows,selector,old,incident);
+    assert.equal(result.prepared,false,reason);
+    assert.deepEqual(result.reasons,[reason]);
+    assert.equal("suppressionLedger" in result,false,reason+" no partial ledger");
+  };
+  for(const old of [null,undefined,{},[{kind:"ITEM_ID",value:a.itemId,state:"RESTORED",incidentRef:"SYNTHETIC"}],
+    [{kind:"WEBP_SHA256",value:"invalid",state:"HIDDEN",incidentRef:"SYNTHETIC"}]])
+    denied([a,b],selected,old,"SYNTHETIC_NEW_INCIDENT","EXISTING_SUPPRESSION_LEDGER_INVALID");
+  const dupe=[{kind:"ITEM_ID",value:a.itemId,state:"HIDDEN",incidentRef:"SYNTHETIC_ONE"},
+    {kind:"ITEM_ID",value:a.itemId,state:"HIDDEN",incidentRef:"SYNTHETIC_TWO"}];
+  denied([a,b],selected,dupe,"SYNTHETIC_NEW_INCIDENT","EXISTING_SUPPRESSION_LEDGER_DUPLICATE");
+  for(const incident of [null,"","UNKNOWN","NOT_RUN","NOT_VERIFIED","RESTORED"," incident","incident ","incident\nname"])
+    denied([a,b],selected,[],incident,"TAKEDOWN_INCIDENT_EVIDENCE_INVALID");
+  denied([a,{...b,webpSha256:null}],selected,[],"SYNTHETIC_NEW_INCIDENT","LINKED_IMAGE_MAPPING_INCOMPLETE");
+  denied([a,b],{kind:"ITEM_ID",value:"999999999"},[],"SYNTHETIC_NEW_INCIDENT","MAPPING_MISSING_OR_UNVERIFIED");
+  denied([a,b],{kind:"WEBP_SHA256",value:"unverified"},[],"SYNTHETIC_NEW_INCIDENT","INVALID_SELECTOR_VALUE");
+});
 test("no release: existing Guide/CHC Rights/Seed state unaffected by this dedicated operator module", () => {
   assert.equal(typeof OWNER_IMAGE_DECISION, "string");
   assert.equal(preflightGameImageOperatorReceipt(template).readyForOperatorReview,false);
