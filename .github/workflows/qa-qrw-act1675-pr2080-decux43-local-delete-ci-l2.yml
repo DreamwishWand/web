@@ -60,22 +60,22 @@ jobs:
           let pos=0,neg=0;
           const at='2026-11-18T00:00:00.000Z';
           let doc=createEmptyMoodboardDocument(at);
-          const ids=['alpha','beta','gamma'];
-          for(const id of ids){const created=createMoodboard(doc,{title:'Owned '+id},{now:at,idFactory:()=>id});doc=created.document;}
+          const ids=['board_alpha','board_beta','board_gamma'];
+          for(const id of ids){const created=createMoodboard(doc,{title:'Owned '+id},{now:at,idFactory:()=>id.slice('board_'.length)});doc=created.document;}
           assert.deepEqual(doc.boards.map(b=>b.id),ids);pos++;
           const prev=serializeMoodboardDocument(doc);
-          let deleted=deleteMoodboard(doc,'beta',{now:at});
-          assert.deepEqual(deleted.boards.map(b=>b.id),['alpha','gamma']);
+          let deleted=deleteMoodboard(doc,'board_beta',{now:at});
+          assert.deepEqual(deleted.boards.map(b=>b.id),['board_alpha','board_gamma']);
           assert.equal(doc.boards.length,3);
           assert.deepEqual(parseMoodboardDocument(prev,at).boards.map(b=>b.id),ids);pos++;
-          const gamma=deleteMoodboard(deleted,'gamma',{now:at});
-          assert.deepEqual(gamma.boards.map(b=>b.id),['alpha']);
+          const gamma=deleteMoodboard(deleted,'board_gamma',{now:at});
+          assert.deepEqual(gamma.boards.map(b=>b.id),['board_alpha']);
           assert.equal(deleted.boards.length,2);pos++;
           for(const bad of ['foreign','',null,undefined,'ALPHA',' alpha ','gamma']){
             assert.throws(()=>deleteMoodboard(gamma,bad,{now:at}),RangeError);
             neg++;
           }
-          const x=addMoodboardReference(doc,'alpha',{type:'NOTE',label:'safe',note:'  light green \n  with  plants '},{now:at,idFactory:()=> 'reference'});
+          const x=addMoodboardReference(doc,'board_alpha',{type:'NOTE',label:'safe',note:'  light green \n  with  plants '},{now:at,idFactory:()=> 'reference'});
           const after=moodboardCoverTiles(x.document.boards[0]);
           assert.equal(after[0].text,'light green with plants');
           assert.deepEqual(after.slice(1).map(t=>t.type),['EMPTY','EMPTY','EMPTY']);
