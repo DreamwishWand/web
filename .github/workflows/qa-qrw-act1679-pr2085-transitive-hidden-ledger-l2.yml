@@ -1,0 +1,180 @@
+name: QA ONLY 04 QR-W ACT1679 PR2085 transitive HIDDEN ledger L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1679-pr2085-transitive-hidden-ledger-l2.yml'
+permissions:
+  contents: read
+jobs:
+  independent-hidden-closure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1ff810fef4383ca66827d65ac3ae795a2c5d3032
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze original two changed Git blobs and inherited operator contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 1ff810fef4383ca66827d65ac3ae795a2c5d3032
+          test "$(git merge-base HEAD 2e57c69d66494ad20a37041fd2725e82b8dd5205)" = 2e57c69d66494ad20a37041fd2725e82b8dd5205
+          cat >/tmp/qrw2085-pins <<'PINS'
+          9b74441558ee54e8d8ba6a576a4f0538e4ba3553 ops/ddv-item-image-operator-gate.mjs
+          bfab433ddfcb8e40b3b4443eafe284424b5fa3de tests/ddv-item-image-operator-gate.test.mjs
+          PINS
+          while read -r blob path; do
+            test "$(git rev-parse "HEAD:$path")" = "$blob"
+            test "$(git ls-tree HEAD "$path" | awk '{print $1}')" = 100644
+          done </tmp/qrw2085-pins
+          awk '{print $2}' /tmp/qrw2085-pins | LC_ALL=C sort >/tmp/qrw2085-expected
+          git diff --name-only 2e57c69d66494ad20a37041fd2725e82b8dd5205 HEAD | LC_ALL=C sort >/tmp/qrw2085-actual
+          diff -u /tmp/qrw2085-expected /tmp/qrw2085-actual
+          test "$(git rev-parse HEAD:ops/ddv-item-image-operator-readiness-template.json)" = 079e548e367771d9b1b8e33bff87be90ad58598e
+          echo QRW2085_ORIGINAL_EXACT_TWO_SOURCE_GIT_BLOBS_AND_MODE_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Inherit actual operator suppression/rights/takedown and solo owner tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/ddv-item-image-operator-gate.test.mjs tests/dbk-solo-owner-postpublish.test.mjs
+          echo QRW2085_ORIGINAL_OPERATOR_AND_TAKEDOWN_INHERITED_PASS
+      - name: Independent cross-kind connected derivatives, provenance, restore and fail-closed refutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {prepareGameImageTakedownSuppression,validateImageSuppressionLedger,
+            preflightGameItemImage,preflightGameImageOperatorReceipt} from './ops/ddv-item-image-operator-gate.mjs';
+          const dg=s=>s.repeat(64);
+          const source={platform:'Nintendo Switch',fullVersion:'1.24.13',bid:'R39-SYNTHETIC-BID',schema:623};
+          const target={platform:'Nintendo Switch',fullVersion:'1.25.3',bid:'9A239D3DB569756D',schema:626};
+          const base={sourceIdentity:source,sourceGuid:'SYNTHETIC_GUID',sourceEvidenceRef:'SYNTHETIC_SOURCE_EVIDENCE',
+            targetIdentity:target,targetMappingVerified:true,targetEvidenceRef:'SYNTHETIC_CURRENT_BID',
+            visibilityClass:'PLAYER_VISIBLE_VERIFIED',nativePlayerVisibleVerified:true,visibilityEvidenceRef:'SYNTHETIC_VISIBILITY',
+            unreleased:false,isPrivateSaveMedia:false,isUserCreatedMedia:false};
+          const image=(id,p,w)=>({...base,itemId:String(id),sourcePngSha256:dg(p),webpSha256:dg(w)});
+          const rows=[
+            image(40000101,'a','b'),image(40000102,'b','c'),
+            image(40000103,'d','c'),image(40000104,'d','e'),
+            image(40000105,'f','8')];
+          const existing=[
+            {kind:'ITEM_ID',value:'77700012',state:'HIDDEN',incidentRef:'SYNTHETIC_OLD_RECEIPT'},
+            {kind:'WEBP_SHA256',value:dg('9'),state:'HIDDEN',incidentRef:'SYNTHETIC_OLD_HASH'}
+          ];
+          const prior=structuredClone(existing),manifestBefore=structuredClone(rows);
+          const incident='SYNTHETIC_VERIFIED_20261118';
+          let pos=0,neg=0;
+          const first=prepareGameImageTakedownSuppression(rows,{kind:'ITEM_ID',value:'40000101'},existing,incident);
+          assert.equal(first.prepared,true);
+          assert.deepEqual(first.itemIds,['40000101','40000102','40000103','40000104']);
+          assert.deepEqual(first.hashes,['a','b','c','d','e'].map(dg));
+          assert.equal(first.additions,10,'four linked ItemIDs + six separately typed SHA keys');
+          assert.equal(first.suppressionLedger.length,12);
+          assert.ok(Object.isFrozen(first.suppressionLedger));
+          assert.ok(first.suppressionLedger.every(Object.isFrozen));
+          assert.deepEqual(existing,prior);
+          assert.deepEqual(rows,manifestBefore);
+          assert.deepEqual(first.suppressionLedger.find(x=>x.value==='77700012'),existing[0]);
+          assert.deepEqual(first.suppressionLedger.find(x=>x.value===dg('9')),existing[1]);
+          assert.equal(validateImageSuppressionLedger(first.suppressionLedger),true);
+          assert.ok(first.actionsRequired.includes('CHECK_RESTORE_BACKUPS_AND_ROLLBACK'));
+          assert.ok(first.actionsRequired.includes('INVALIDATE_CDN_AND_OLD_URLS'));
+          assert.equal('published' in first,false);
+          assert.equal('deployed' in first,false);
+          pos++;
+          for(const kind of ['SOURCE_SHA256','WEBP_SHA256']){
+            assert.ok(first.suppressionLedger.some(x=>x.kind===kind&&x.value===dg('b')),
+              'cross kind a.webp == b.png must each have a separately typed HIDDEN key');
+            pos++;
+          }
+          for(const row of rows.slice(0,4)){
+            const res=preflightGameItemImage(row,{targetIdentity:target},first.suppressionLedger);
+            assert.equal(res.candidate,false,row.itemId);
+            assert.ok(res.reasons.includes('ITEM_OR_SHARED_HASH_HIDDEN'));
+            neg++;
+          }
+          assert.deepEqual(preflightGameItemImage(rows[4],{targetIdentity:target},first.suppressionLedger),
+            {candidate:true,reasons:[]},'unlinked image remains unaffected');pos++;
+          for(const [i,order] of [
+            [0,[rows[3],rows[1],rows[4],rows[0],rows[2]]],
+            [1,rows.slice().reverse()],
+            [2,[rows[2],rows[4],rows[3],rows[0],rows[1]]]]){
+            const alternate=prepareGameImageTakedownSuppression(order,
+              {kind: i===1?'WEBP_SHA256':'SOURCE_SHA256',value:dg(i===1?'c':'d')},existing,incident);
+            assert.equal(alternate.prepared,true);
+            assert.deepEqual(alternate.suppressionLedger,first.suppressionLedger);
+            pos++;
+          }
+          const repeated=prepareGameImageTakedownSuppression(rows,{kind:'ITEM_ID',value:'40000101'},
+            first.suppressionLedger,'SYNTHETIC_SECOND_INCIDENT');
+          assert.equal(repeated.prepared,true);
+          assert.equal(repeated.additions,0);
+          assert.deepEqual(repeated.suppressionLedger,first.suppressionLedger);
+          assert.equal(repeated.suppressionLedger.find(x=>x.value==='40000101').incidentRef,incident);
+          pos++;
+          const deny=(label,manifest,selector,ledger,ref,reason)=>{
+            const result=prepareGameImageTakedownSuppression(manifest,selector,ledger,ref);
+            assert.equal(result.prepared,false,label);
+            assert.ok(result.reasons.includes(reason),label+' expected '+reason+': '+result.reasons.join(','));
+            assert.equal('suppressionLedger' in result,false,label+' no partial restorable state');
+            assert.deepEqual(rows,manifestBefore,'original verified manifest unchanged');
+            assert.deepEqual(existing,prior,'old HIDDEN ledger preserved');
+            neg++;
+          };
+          const seed={kind:'ITEM_ID',value:'40000101'};
+          for(const candidate of [
+            undefined,null,{},'[]',
+            [{kind:'ITEM_ID',value:'77700012',state:'RESTORED',incidentRef:'SYNTHETIC_OLD'}],
+            [{kind:'SOURCE_SHA256',value:'not-sha',state:'HIDDEN',incidentRef:'SYNTHETIC_OLD'}],
+            [{kind:'WEBP_SHA256',value:dg('9'),state:'HIDDEN',incidentRef:null}]
+          ])deny('invalid old restored ledger '+String(candidate),rows,seed,candidate,incident,'EXISTING_SUPPRESSION_LEDGER_INVALID');
+          for(const dupes of [
+            [{kind:'ITEM_ID',value:'77700012',state:'HIDDEN',incidentRef:'SYNTHETIC_FIRST'},
+             {kind:'ITEM_ID',value:'77700012',state:'HIDDEN',incidentRef:'SYNTHETIC_SECOND'}],
+            [{kind:'WEBP_SHA256',value:dg('9'),state:'HIDDEN',incidentRef:'SYNTHETIC_FIRST'},
+             {kind:'WEBP_SHA256',value:dg('9').toUpperCase(),state:'HIDDEN',incidentRef:'SYNTHETIC_SECOND'}]
+          ])deny('duplicate old HIDDEN canonical key',rows,seed,dupes,incident,'EXISTING_SUPPRESSION_LEDGER_DUPLICATE');
+          for(const bad of [null,undefined,'','UNKNOWN','NOT_RUN','NOT_VERIFIED','RESTORED',
+            ' SYNTHETIC','SYNTHETIC ','SYNTHETIC\nINJECT','SYNTHETIC\tRECEIPT']){
+            deny('unsupported incident provenance',rows,seed,existing,bad,'TAKEDOWN_INCIDENT_EVIDENCE_INVALID');
+          }
+          for(const [label,manifest] of [
+            ['missing reachable PNG',[{...rows[0],sourcePngSha256:null},...rows.slice(1)]],
+            ['missing reachable WebP',[rows[0],{...rows[1],webpSha256:null},...rows.slice(2)]],
+            ['corrupt transitive derivative',[rows[0],rows[1],{...rows[2],sourcePngSha256:'bad'},...rows.slice(3)]]
+          ]){const res=prepareGameImageTakedownSuppression(manifest,seed,existing,incident);
+            assert.equal(res.prepared,false,label);assert.equal('suppressionLedger' in res,false,label);neg++;}
+          const alias=[rows[0],{...rows[1],itemId:rows[0].itemId},...rows.slice(2)];
+          const duplicateItemAlias=prepareGameImageTakedownSuppression(alias,seed,existing,incident);
+          assert.equal(duplicateItemAlias.prepared,true,'two image variants for same ItemID must both be included in HIDDEN closure');
+          assert.deepEqual(duplicateItemAlias.itemIds,['40000101','40000103','40000104']);
+          for(const row of alias.slice(0,4)){
+            const review=preflightGameItemImage(row,{targetIdentity:target},duplicateItemAlias.suppressionLedger);
+            assert.equal(review.candidate,false,'duplicate ItemID variant cannot slip out '+row.webpSha256);
+            assert.ok(review.reasons.includes('ITEM_OR_SHARED_HASH_HIDDEN'));
+            neg++;
+          }
+          pos++;
+          for(const sel of [{kind:'ITEM_ID',value:'99999999'},{kind:'SOURCE_SHA256',value:'bad-sha'},
+            {kind:'WEBP_SHA256',value:dg('0')},null]){
+            const res=prepareGameImageTakedownSuppression(rows,sel,existing,incident);
+            assert.equal(res.prepared,false);assert.equal('suppressionLedger' in res,false);neg++;}
+          const template=JSON.parse(readFileSync('ops/ddv-item-image-operator-readiness-template.json','utf8'));
+          assert.equal(template.publicationState,'OFF');
+          assert.ok(Object.values(template.locales).every(x=>x.humanReviewed===false));
+          assert.ok(Object.values(template.controls).every(x=>x.verified===false));
+          assert.equal(template.assetBundleSha256,null);
+          assert.equal(template.deploymentAuthorizationRef,null);
+          assert.equal(preflightGameImageOperatorReceipt(template).readyForOperatorReview,false);
+          pos++;
+          console.log('QRW2085_TRANSITIVE_CROSS_KIND_HIDDEN_APPEND_ONLY_NO_CDN_RELEASE_PASS',
+            JSON.stringify({positive:pos,negative:neg,syntheticOnly:true,actualAssetBytes:false,cdnRollbackNotRun:true,mediaPublic:false}));
+          NODE
