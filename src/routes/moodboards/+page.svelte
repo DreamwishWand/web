@@ -153,8 +153,15 @@
   }
 
   function restoreBackup(){
-    const previous=localStorage.getItem(MOODBOARD_BACKUP_KEY);if(!previous){status=copy.noBackup;return;}
-    try{const next=parseMoodboardDocument(previous);const raw=serializeMoodboardDocument(next);
+    try{
+      // Restore is also a local write: a stale tab cannot override a newer
+      // accepted document merely by pressing its previous-backup button.
+      if(localStorage.getItem(MOODBOARD_STORAGE_KEY)!==observedRaw){
+        status=copy.portableCollision;return;
+      }
+      const previous=localStorage.getItem(MOODBOARD_BACKUP_KEY);
+      if(!previous){status=copy.noBackup;return;}
+      const next=parseMoodboardDocument(previous),raw=serializeMoodboardDocument(next);
       localStorage.setItem(MOODBOARD_STORAGE_KEY,raw);
       if(localStorage.getItem(MOODBOARD_STORAGE_KEY)!==raw)throw Error('MOODBOARD_LOCAL_RESTORE_UNVERIFIED');
       observedRaw=raw;document=next;selectedId=next.boards[0]?.id??'';status=copy.restored;
@@ -178,7 +185,7 @@
 <svelte:head><title>Moodboards | Dreamwish Wand</title><meta name="description" content="Plan decorating ideas in local-first Dreamwish Wand Moodboards." /></svelte:head>
 <section class="moodboards-page container">
   <header class="heading"><div><p class="eyebrow">{copy.eyebrow}</p><h1>{copy.title}</h1><p class="page-intro">{copy.intro}</p></div>
-    <div class="backup-actions"><button type="button" data-moodboard-export on:click={()=>exportBackup()}>{copy.export}</button><button type="button" data-moodboard-export-previous on:click={()=>exportBackup(true)}>{copy.exportPrevious}</button><button type="button" data-moodboard-import disabled={importing} on:click={()=>importInput?.click()}>{copy.import}</button><button type="button" on:click={restoreBackup}>{copy.restore}</button><input class="hidden-file" bind:this={importInput} data-moodboard-import-file type="file" accept="application/json,.json" on:change={importBackup}/></div>
+    <div class="backup-actions"><button type="button" data-moodboard-export on:click={()=>exportBackup()}>{copy.export}</button><button type="button" data-moodboard-export-previous on:click={()=>exportBackup(true)}>{copy.exportPrevious}</button><button type="button" data-moodboard-import disabled={importing} on:click={()=>importInput?.click()}>{copy.import}</button><button type="button" data-moodboard-local-restore on:click={restoreBackup}>{copy.restore}</button><input class="hidden-file" bind:this={importInput} data-moodboard-import-file type="file" accept="application/json,.json" on:change={importBackup}/></div>
   </header>
   <div class="local-note"><strong>{copy.local}</strong><span>{copy.localDetail}</span></div>
   <p class="local-note" data-moodboard-portability-note>{copy.portableNote}</p>
