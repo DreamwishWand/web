@@ -50,8 +50,12 @@
  const preview=()=>act(w=>w.preview(fe01?{gridId:grid,oldIds:[...oldIds]}:(wardrobe||appearance||eye||makeup)?undefined:backpack?{sourceSlot:x,destinationSlot:y}:operation==='comp03'?{seedId:seed}:mixedRoad?{gridId:grid,retainedId:x,movedId:y}:{gridId:grid,x,y}));
  async function download(which){
   if(!workflow||pending)return;const w=workflow,t=epoch;pending=true;error=false;
-  try{const r=await w.downloadVerifiedCopy(which);if(workflow!==w||epoch!==t){r.encryptedBytes.fill(0);return}
-   const url=URL.createObjectURL(new Blob([r.encryptedBytes],{type:'application/octet-stream'}));r.encryptedBytes.fill(0);
+  try{const r=await w.downloadVerifiedCopy(which);
+   let url;
+   try{
+    if(workflow!==w||epoch!==t)return;
+    url=URL.createObjectURL(new Blob([r.encryptedBytes],{type:'application/octet-stream'}));
+   }finally{r.encryptedBytes.fill(0)}
    try{const a=document.createElement('a');a.href=url;a.download=r.name;document.body.appendChild(a);try{a.click()}finally{a.remove()}}finally{setTimeout(()=>URL.revokeObjectURL(url),1000)}
   }catch{if(workflow===w&&epoch===t){state=w.snapshot();error=true}}finally{if(workflow===w&&epoch===t)pending=false}
  }
