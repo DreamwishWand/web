@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {join,resolve} from 'node:path';
 import {ACTIVE_RELEASE_TUPLE,manifestMatchesRelease,releaseDelivery} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
-import {BAMBOO_READONLY_OPERATION,BAMBOO_BUILD,BAMBOO_FEATURES,BAMBOO_METHODS,bambooWasmExportsOk,bambooReadManifestOk} from '../../src/lib/ddv/core/save/product-steam626-bamboo-readonly-release.mjs';
+import {BAMBOO_READONLY_OPERATION,BAMBOO_BUILD,BAMBOO_FEATURES,BAMBOO_METHODS,bambooWasmExportsOk,bambooReadJsSymbolsOk,bambooReadManifestOk} from '../../src/lib/ddv/core/save/product-steam626-bamboo-readonly-release.mjs';
 const fail=()=>{throw Error('BAMBOO_PUBLIC_DELIVERY_SOURCE_CANDIDATE_DENIED')};
 const root=resolve(import.meta.dirname,'../..');
 const sha=b=>createHash('sha256').update(b).digest('hex');
@@ -42,6 +42,7 @@ if(!toolchain.startsWith('rustc 1.99.1 ')||!bindgen||
  execFileSync(bindgen,['--version'],{encoding:'utf8'}).trim()!=='wasm-bindgen 0.2.105')fail();
 const [js,wasm]=await Promise.all(names.slice(1).map(n=>readFile(join(root,'tests/stage-e/pkg',n))));
 if(!js.length||js.length>2097152||!wasm.length||wasm.length>20971520||
+ !bambooReadJsSymbolsOk(new TextDecoder('utf8',{fatal:true}).decode(js))||
  !bambooWasmExportsOk(new WebAssembly.Module(wasm)))fail();
 const source={repository:ACTIVE_RELEASE_TUPLE.repository,commit:head,
  platform:'SteamWindows',schema:626,buildId:BAMBOO_BUILD,cargoTomlGitBlob:cargo,
