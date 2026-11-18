@@ -65,12 +65,21 @@ export function persistWandFavorite(storage,itemId,enabled){
        (previous!==null&&storage.getItem(WAND_FAVORITES_BACKUP_KEY)!==previous))
       throw Error('WAND_FAVORITES_COMMIT_UNVERIFIED');
   }catch(error){
+    // Restore the last recoverable snapshot FIRST. A partially committed
+    // primary whose own rollback is denied must not prevent an independent
+    // attempt to recover the older Previous key. No Web Storage cross-key
+    // transaction is available, so verify both exact raw values afterward.
     let restored=true;
+    for(const [key,raw] of [
+      [WAND_FAVORITES_BACKUP_KEY,previousBackup],
+      [WAND_FAVORITES_STORAGE_KEY,previous]
+    ]){
+      try{restore(key,raw);}catch{restored=false}
+    }
     try{
-      restore(WAND_FAVORITES_STORAGE_KEY,previous);
-      restore(WAND_FAVORITES_BACKUP_KEY,previousBackup);
-      restored=storage.getItem(WAND_FAVORITES_STORAGE_KEY)===previous&&
-        storage.getItem(WAND_FAVORITES_BACKUP_KEY)===previousBackup;
+      if(storage.getItem(WAND_FAVORITES_STORAGE_KEY)!==previous||
+         storage.getItem(WAND_FAVORITES_BACKUP_KEY)!==previousBackup)
+        restored=false;
     }catch{restored=false}
     if(!restored)throw Error('WAND_FAVORITES_ROLLBACK_UNVERIFIED',{cause:error});
     throw error;
