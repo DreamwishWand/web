@@ -1,0 +1,45 @@
+name: 08 WEB DEC-UX-06 Explore Family-first Universe facet L1
+on:
+  pull_request:
+    paths:
+      - 'src/routes/explore/+page.svelte'
+      - 'src/lib/explore/family-universe-facets.mjs'
+      - 'tests/web-explore-decux06-family-universes.test.mjs'
+      - 'scripts/web-explore-decux06-family-universes-chrome.mjs'
+      - '.github/workflows/08web-decux06-family-universe.yml'
+permissions:
+  contents: read
+jobs:
+  family-universe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: DEC-UX-06 pure source family-local verified Universe and stale selection
+        run: node --test tests/web-explore-decux06-family-universes.test.mjs
+      - name: Svelte TypeScript and Pages product build
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: Chrome verifies real signed decoration Family and Universe facets at 1366 and 320
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/08web-decux06-preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4298/web/explore/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4298/web/explore/ >/dev/null
+          node scripts/web-explore-decux06-family-universes-chrome.mjs
