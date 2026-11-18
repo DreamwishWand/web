@@ -1,0 +1,172 @@
+name: 04 QR-S ACT1766 R22 current Cargo signed release exact worktree L2 QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1766-r22-cargo-raw-worktree-l2'
+    paths:
+      - '.github/workflows/04qrs-act1766-r22-real-release-inputs-l2.yml'
+permissions:
+  contents: read
+jobs:
+  real-protected-verifier-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Verify original immutable R22 source, prior protected Pages and one QA-only YAML
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 70f2711c4f3b9e5d9e8c892d3e1f3ed247d873ca HEAD
+          test "$(git diff --name-only 70f2711c4f3b9e5d9e8c892d3e1f3ed247d873ca HEAD)" = ".github/workflows/04qrs-act1766-r22-real-release-inputs-l2.yml"
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 5d2b35f6bc9f0b8544fc52f25a35614b59913d96
+          test "$(git rev-parse HEAD:tests/09p-r22-steam626-eyecolor2-repair.test.mjs)" = b995d6afd7f17fc2a42b1b801fc13626d5d03848
+          test "$(git rev-parse HEAD:.github/workflows/09p-r22-steam626-eyecolor2-repair.yml)" = 0d5a28aa04001eb8360087b08026b5a0009511d3
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = 03486f17f41cb7e807c207601b27a3981fe9df6a
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = ed8aabff1dc8c8b426054c7dff0d88faa2b02da4
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-bamboo-public-pages.mjs)" = 399ada125e26cdd07809c4ff1ccb972adc6198ff
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = aa6b1dd771da305bf7a21c6101fb4620a8b74b93
+          test "$(git rev-parse refs/remotes/origin/main)" = 05e9e86da643e545b6b750611183bdf57f648798
+          echo QRS_ACT1766_FIXED_R22_APPROVED_PRODUCT_BLOBS_AND_QA_ONLY_SOURCE_PASS
+      - name: Execute genuine R22 verifier in isolated worktree for allowed and altered actual inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {mkdtempSync, readFileSync, writeFileSync, appendFileSync, copyFileSync, rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {spawnSync} from 'node:child_process';
+          const approved='70f2711c4f3b9e5d9e8c892d3e1f3ed247d873ca';
+          const protectedMain='05e9e86da643e545b6b750611183bdf57f648798';
+          const tmp=mkdtempSync(join(tmpdir(),'qrs-r22-cargo-exact-l2-'));
+          const wt=join(tmp,'source');
+          const cargo='crates/ddv-save-core/Cargo.toml';
+          const worker='crates/ddv-save-core/src/wasm_worker.rs';
+          const lock='crates/ddv-save-core/Cargo.lock';
+          const release='scripts/wasm-distribution/protected-release-inputs.json';
+          const approvedLock='scripts/wasm-distribution/approved-Cargo.lock';
+          let worktreeCreated=false;
+          const git=(...args)=>{
+            const x=spawnSync('git',['-C',wt,...args],{encoding:'utf8'});
+            assert.equal(x.status,0,'git '+args.join(' ')+' '+String(x.stderr));
+            return x.stdout.trim();
+          };
+          function checkout(){
+            git('reset','--hard',approved);
+            copyFileSync(join(wt,approvedLock),join(wt,lock));
+            assert.equal(git('rev-parse','HEAD'),approved);
+          }
+          function actualVerifier(){
+            const ref='refs/heads/04qrs/act1766-r22-cargo-raw-worktree-l2';
+            return spawnSync(process.execPath,[join(wt,'scripts/wasm-distribution/verify-protected-release.mjs'),'inputs'],{
+              cwd:wt,encoding:'utf8',timeout:60000,
+              env:{...process.env,
+                WAND_SOURCE_HEAD:git('rev-parse','HEAD'),
+                WAND_PR_BASE_SHA:protectedMain,
+                WAND_APPROVED_RELEASE_LOCK:'1',
+                WAND_PUBLIC_READONLY_ASSET_GATE:'OWNER_APPROVED_THREE_FILES_20261111',
+                WAND_RELEASE_BASE_PATH:'/web',
+                GITHUB_ACTIONS:'true',
+                GITHUB_EVENT_NAME:'pull_request',
+                GITHUB_REPOSITORY:'DreamwishWand/web',
+                GITHUB_REPOSITORY_ID:'1371485649',
+                GITHUB_REF:ref,
+                GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/01a-protected-main-signed-wasm-release-off.yml@'+ref,
+                GIT_NO_REPLACE_OBJECTS:'1'
+              }
+            });
+          }
+          const observations=[];
+          try{
+            const add=spawnSync('git',['worktree','add','--detach',wt,approved],{encoding:'utf8'});
+            assert.equal(add.status,0,'worktree creation '+String(add.stderr));
+            worktreeCreated=true;
+            checkout();
+            assert.equal(git('rev-parse','refs/remotes/origin/main'),protectedMain);
+            const clean=actualVerifier();
+            assert.equal(clean.status,0,'original genuine R22 verifier positive: '+String(clean.stderr).slice(0,600));
+            assert.match(clean.stdout,/R22_RELEASE_INPUTS_ONLY_SOURCE_PINNED/);
+            console.log('QRS_ACT1766_R22_REAL_VERIFIER_CLEAN_SOURCE_1POS_PASS');
+            // An unrelated future detached commit must not break the approved immutable inputs.
+            writeFileSync(join(wt,'.qrs-r22-qa-only-synthetic-doc'),'future unrelated documentation only\n');
+            git('add','--','.qrs-r22-qa-only-synthetic-doc');
+            const c=spawnSync('git',['-C',wt,'-c','user.name=04 QR-S isolated QA',
+              '-c','user.email=qa-only@example.invalid','commit','-m','QA-only future unrelated documentation'],{encoding:'utf8'});
+            assert.equal(c.status,0,String(c.stderr));
+            const future=actualVerifier();
+            assert.equal(future.status,0,'approved R22 inputs must permit future unrelated Git child '+String(future.stderr).slice(0,600));
+            console.log('QRS_ACT1766_R22_REAL_VERIFIER_UNRELATED_COMMIT_1POS_PASS');
+            function probe(name,mutate,expected){
+              checkout();
+              mutate();
+              const result=actualVerifier();
+              const denied=result.status!==0;
+              observations.push({name,expected,denied,code:result.status,
+                reason:String(result.stderr||'').match(/R22_PROTECTED_RELEASE_[A-Z_]+/)?.[0]||'NONE'});
+              console.log('QRS_ACT1766_R22_REAL_VERIFIER_MUTATION '+JSON.stringify(observations.at(-1)));
+            }
+            probe('DIRTY_CARGO_ACTUAL_BYTES_NOT_COMMITTED',()=>{
+              const before=git('rev-parse','HEAD:'+cargo);
+              appendFileSync(join(wt,cargo),'\n# QA-only changed actual Cargo feature boundary without commit\n');
+              assert.equal(git('rev-parse','HEAD:'+cargo),before);
+              assert.notEqual(git('hash-object','--no-filters','--',cargo),before);
+            },true);
+            probe('DIRTY_WORKER_ACTUAL_BYTES_NOT_COMMITTED',()=>{
+              const before=git('rev-parse','HEAD:'+worker);
+              appendFileSync(join(wt,worker),'\n// QA-only changed actual R22 Worker bytes without commit\n');
+              assert.equal(git('rev-parse','HEAD:'+worker),before);
+              assert.notEqual(git('hash-object','--no-filters','--',worker),before);
+            },true);
+            probe('DIRTY_LOCK_BYTES',()=>{
+              appendFileSync(join(wt,lock),'\n# QA-only altered protected lock\n');
+            },true);
+            probe('DIRTY_WRITER_ENABLE_CONFIG',()=>{
+              const path=join(wt,release);
+              const cfg=JSON.parse(readFileSync(path,'utf8'));
+              assert.equal(cfg.writerEnabled,false);
+              writeFileSync(path,JSON.stringify({...cfg,writerEnabled:true}));
+            },true);
+            // A committed Cargo blob different from the approved config must fail.
+            checkout();
+            appendFileSync(join(wt,cargo),'\n# QA-only committed new Cargo blob\n');
+            git('add','--',cargo);
+            const commit=spawnSync('git',['-C',wt,'-c','user.name=04 QR-S isolated QA',
+              '-c','user.email=qa-only@example.invalid','commit','-m','QA-only forbidden new Cargo blob'],{encoding:'utf8'});
+            assert.equal(commit.status,0,String(commit.stderr));
+            const result=actualVerifier();
+            observations.push({name:'COMMITTED_UNAPPROVED_CARGO',expected:true,denied:result.status!==0,
+              code:result.status,reason:String(result.stderr||'').match(/R22_PROTECTED_RELEASE_[A-Z_]+/)?.[0]||'NONE'});
+            console.log('QRS_ACT1766_R22_REAL_VERIFIER_MUTATION '+JSON.stringify(observations.at(-1)));
+            assert.equal(observations.length,5);
+            const bypass=observations.filter(x=>x.expected&&!x.denied);
+            console.log('QRS_ACT1766_R22_TRUST_CONFINEMENT_RESULT '+JSON.stringify({
+              positives:2,expectedNegatives:5,denied:observations.length-bypass.length,
+              bypasses:bypass.map(x=>x.name)
+            }));
+            assert.deepEqual(bypass,[],'SECURITY_TRUE_RED_R22_PRECHECK_ACCEPTED_UNCOMMITTED_REAL_RUST_INPUT_BYTES');
+            console.log('QRS_ACT1766_R22_REAL_VERIFIER_2POS5NEG_PASS');
+          }finally{
+            if(worktreeCreated)spawnSync('git',['worktree','remove','--force',wt],{encoding:'utf8'});
+            rmSync(tmp,{recursive:true,force:true});
+          }
+          NODE
+      - name: Show only QA receipt; never sign, upload, enable Reader or merge QA
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only 70f2711c4f3b9e5d9e8c892d3e1f3ed247d873ca HEAD)" = ".github/workflows/04qrs-act1766-r22-real-release-inputs-l2.yml"
+          grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          echo QRS_ACT1766_QA_ONLY_NO_SIGNATURE_NO_PAGES_NO_READ_WRITE_ON
