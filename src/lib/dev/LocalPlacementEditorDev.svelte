@@ -45,8 +45,31 @@
   try{const s=await fn(w);if(workflow===w&&epoch===t)state=s}catch{if(workflow===w&&epoch===t){state=w.snapshot();error=true}}finally{if(workflow===w&&epoch===t)pending=false}
  }
  function clear(){file=null;confirmed=false;seed='';grid='';x='';y='';oldIds=[null,null,null,null];if(input)input.value=''}
- async function select(e){const f=e.currentTarget.files?.[0]||null;e.currentTarget.value='';clear();await act(async w=>{const s=await w.close();file=f;return s})}
- const close=()=>{clear();return act(w=>w.close())};
+ async function select(e){
+  const input=e.currentTarget,f=input.files?.[0]||null;
+  input.value=''; // Reselecting the same original must remain possible.
+  if(!workflow||pending)return; // Do not clear an active session on a late input event.
+  const w=workflow,t=++epoch;pending=true;error=false;clear();
+  try{
+   // Revoke the prior selected file/preview synchronously, before the
+   // asynchronous Worker CLOSED receipt; never bind B while A is closing.
+   const closing=w.close();state=w.snapshot();
+   const s=await closing;
+   if(workflow!==w||epoch!==t)return;
+   state=s;file=f;
+  }catch{if(workflow===w&&epoch===t){state=w.snapshot();error=true}}
+  finally{if(workflow===w&&epoch===t)pending=false}
+ }
+ async function close(){
+  if(!workflow||pending)return;
+  const w=workflow,t=++epoch;pending=true;error=false;clear();
+  try{
+   const closing=w.close();state=w.snapshot();
+   const s=await closing;
+   if(workflow===w&&epoch===t)state=s;
+  }catch{if(workflow===w&&epoch===t){state=w.snapshot();error=true}}
+  finally{if(workflow===w&&epoch===t)pending=false}
+ }
  const preview=()=>act(w=>w.preview(fe01?{gridId:grid,oldIds:[...oldIds]}:(wardrobe||appearance||eye||makeup)?undefined:backpack?{sourceSlot:x,destinationSlot:y}:operation==='comp03'?{seedId:seed}:mixedRoad?{gridId:grid,retainedId:x,movedId:y}:{gridId:grid,x,y}));
  async function download(which){
   if(!workflow||pending)return;const w=workflow,t=epoch;pending=true;error=false;
