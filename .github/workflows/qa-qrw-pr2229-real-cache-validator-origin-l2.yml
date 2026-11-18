@@ -1,0 +1,55 @@
+name: QA ONLY 04 QR-W PR2229 actual ON cache ETag/date origin L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2229-real-cache-validator-origin-l2.yml'
+permissions:
+  contents: read
+jobs:
+  original-real-cache-validator-identity-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/act-pr2229-ea2-real-on-cache-validators-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin exact original two 07DBK Source blobs/modes and QA-only two paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=457d0c1e4211f7b43bbb269f9a30120236f68eee
+          original=ea2ad47f554292cfae20f5618e4c5bfb96fbcd2c
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:scripts/07dbk-steam-image-live-receipt.mjs")" = 4e97866851e86e61934bb766ad25fb272b684a81
+          test "$(git rev-parse "$base:tests/07dbk-steam-image-live-receipt.test.mjs")" = b1550ffd2875aa4baf358656077c07daae31e25d
+          test "$(git rev-parse 'HEAD:scripts/07dbk-steam-image-live-receipt.mjs')" = 7ca1074ae85d07884c38f1f90f6ae085633bfd67
+          test "$(git rev-parse 'HEAD:tests/07dbk-steam-image-live-receipt.test.mjs')" = aeb6874712c9d25f1d7fe080110f5ce4bbee07be
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2229-real-cache-validator-origin-l2.test.mjs')" = cc5056b2556281f24e18d06c8705bac07f12e7ca
+          for f in scripts/07dbk-steam-image-live-receipt.mjs tests/07dbk-steam-image-live-receipt.test.mjs tests/qa-qrw-pr2229-real-cache-validator-origin-l2.test.mjs .github/workflows/qa-qrw-pr2229-real-cache-validator-origin-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          cat >/tmp/originals <<'EOF'
+          scripts/07dbk-steam-image-live-receipt.mjs
+          tests/07dbk-steam-image-live-receipt.test.mjs
+          EOF
+          cat >/tmp/qa-only <<'EOF'
+          .github/workflows/qa-qrw-pr2229-real-cache-validator-origin-l2.yml
+          tests/qa-qrw-pr2229-real-cache-validator-origin-l2.test.mjs
+          EOF
+          git diff --name-only "$base" "$original" | LC_ALL=C sort >/tmp/actual-source
+          LC_ALL=C sort /tmp/originals | diff -u - /tmp/actual-source
+          git diff --name-only "$original" HEAD | LC_ALL=C sort >/tmp/actual-qa
+          LC_ALL=C sort /tmp/qa-only | diff -u - /tmp/actual-qa
+          git diff --quiet "$original" HEAD -- scripts/ src/ ops/ crates/ static/ package-lock.json
+          echo QRW2229_ORIGINAL_2_SOURCE_BLOBS_QAONLY_2_PASS
+      - name: Execute original HTTP verifier CDN and protected trust refutations
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/07dbk-steam-image-live-receipt.test.mjs tests/qa-qrw-pr2229-real-cache-validator-origin-l2.test.mjs
+          echo QRW2229_GENUINE_ETAG_DATE_CANONICAL_ORIGIN_L2_PASS
