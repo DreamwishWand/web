@@ -26,6 +26,16 @@ const base='05e9e86da643e545b6b750611183bdf57f648798';
 const prior='9157b04a92dfe203d71a9c3977e8f9f50d5ce9b8';
 const postCargo='aa6b1dd771da305bf7a21c6101fb4620a8b74b93';
 const beforeCargo='e4f2e2c5d4451baba2dea699fe497cb7b40668d4';
+const acceptedReleaseProfiles=Object.freeze([
+ {core:'b5416aa726caea9d311075599ac606e11285b295',
+  cargo:'aa6b1dd771da305bf7a21c6101fb4620a8b74b93',
+  config:'5d2b35f6bc9f0b8544fc52f25a35614b59913d96'},
+ // A *future* scoped profile, NOT a current public permission. Gate-first and
+ // independent Security L2 + 09INT are required before it becomes main.
+ {core:'42086449f9deef26ed48b21d7edab0f5685da7c2',
+  cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
+  config:'30551c7cc566614f64c8ba04748c3aef44b419bb'}
+]);
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
 const originalConfig=JSON.parse(git('show',base+':'+inputPath));
 const approvedSourceChanged=[
@@ -45,7 +55,12 @@ const approvedSourceChanged=[
 function currentR22ContractAllowed(ref){
  try{
   const tuple=JSON.parse(git('show',ref+':'+inputPath));
-  return tuple.cargoTomlGitBlob===postCargo&&
+  const accepted=acceptedReleaseProfiles.some(profile=>
+   git('rev-parse',ref+':crates/ddv-save-core')===profile.core&&
+   git('rev-parse',ref+':'+cargoPath)===profile.cargo&&
+   git('rev-parse',ref+':'+inputPath)===profile.config&&
+   tuple.cargoTomlGitBlob===profile.cargo);
+  return accepted&&
    tuple.cargoTomlGitBlob===git('rev-parse',ref+':'+cargoPath)&&
    JSON.stringify({...tuple,cargoTomlGitBlob:beforeCargo})===JSON.stringify(originalConfig)&&
    sha(bytes('show',ref+':'+lockPath))===lock&&
@@ -72,13 +87,16 @@ function syntheticChild(path,content){
  }
 }
 
-test('R22 EyeColor2 current integrated Cargo matches approved exact read-only release input',()=>{
+test('R22 exact protected Core/Cargo/config profiles remain read-only under Gate-first updates',()=>{
  assert.doesNotThrow(()=>git('merge-base','--is-ancestor',base,'HEAD'));
  assert.equal(git('rev-parse',base+':'+cargoPath),postCargo);
  assert.equal(git('rev-parse',prior+':'+cargoPath),beforeCargo);
  assert.equal(git('rev-parse',base+':'+inputPath),'9a382ff6b669c1a7c00f0385373f030c69502a7e');
- assert.equal(git('rev-parse','HEAD:'+cargoPath),postCargo);
- assert.equal(git('rev-parse','HEAD:'+inputPath),'5d2b35f6bc9f0b8544fc52f25a35614b59913d96');
+ assert.ok(acceptedReleaseProfiles.some(profile=>
+  git('rev-parse','HEAD:crates/ddv-save-core')===profile.core&&
+  git('rev-parse','HEAD:'+cargoPath)===profile.cargo&&
+  git('rev-parse','HEAD:'+inputPath)===profile.config));
+ assert.equal(acceptedReleaseProfiles[0].cargo,postCargo);
  assert.equal(currentR22ContractAllowed('HEAD'),true);
  assert.equal(sha(readFileSync(resolve(cwd,lockPath))),lock);
 });
