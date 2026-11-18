@@ -428,6 +428,22 @@ fn exact3_raw_delta(
     {
         return Err(denied("ROAD_Q1_RAW_EXACT3_SHAPE"));
     }
+    // Defense in depth: this preview helper is not a Writer capability, but it
+    // must never hash a caller-shaped Road object as an exact3 projection.
+    // Re-mint the SAME fixed orthogonal descriptor from its bounded XY and
+    // compare the entire object (including key set, State and orientation).
+    // This prevents a future Stage caller from reusing a hash-only helper to
+    // smuggle additional state, rights or an out-of-range coordinate.
+    let x = new_object.get("X").and_then(Value::as_u64)
+        .and_then(|v| u32::try_from(v).ok())
+        .ok_or(denied("ROAD_Q1_RAW_EXACT_OBJECT_SHAPE"))?;
+    let y = new_object.get("Y").and_then(Value::as_u64)
+        .and_then(|v| u32::try_from(v).ok())
+        .ok_or(denied("ROAD_Q1_RAW_EXACT_OBJECT_SHAPE"))?;
+    if road_mixed_shape::exact_steam626_road_single_orthogonal(next, x, y).as_ref()
+        != Some(new_object) {
+        return Err(denied("ROAD_Q1_RAW_EXACT_OBJECT_SHAPE"));
+    }
     let object_bytes = serde_json::to_vec(new_object)
         .map_err(|_| denied("ROAD_Q1_RAW_OBJECT_SERIALIZE"))?;
     if object_bytes.len() > 4096 { return Err(denied("ROAD_Q1_RAW_OBJECT_BOUND")); }
@@ -675,6 +691,43 @@ mod road_q1_prep_tests {
             preview, s.native_source_build.clone(),
         ).unwrap();
         assert_ne!(reopened.receipt().unwrap().decoded_sha256, before.decoded_sha256);
+    }
+
+    #[test]
+    fn road_q1_raw_exact3_rejects_foreign_object_fields_and_unminted_shape() {
+        let s = fixture(false);
+        let old = expected(&s);
+        let before = s.receipt().unwrap();
+        let proposal = s.prepare_steam626_road_single_q1_readonly(old).unwrap();
+        let good = proposal.proposed_object.clone();
+        let mut cases = Vec::new();
+        let mut extra = good.clone();
+        extra["Entitlement"] = json!(true); cases.push(extra);
+        let mut foreign_state = good.clone();
+        foreign_state["State"] = json!({"FenceMode": {"Diagonal": true}});
+        cases.push(foreign_state);
+        let mut rotated = good.clone();
+        rotated["Orientation"] = json!("GridOrientation_Right"); cases.push(rotated);
+        let mut out_of_range = good.clone();
+        out_of_range["X"] = json!(i32::MAX as u64 + 1); cases.push(out_of_range);
+        let mut wrong_type = good.clone();
+        wrong_type["Y"] = json!("20"); cases.push(wrong_type);
+        let mut missing = good.clone();
+        missing.as_object_mut().unwrap().remove("State"); cases.push(missing);
+        // The accepted descriptor remains a read-only three-token hash, not
+        // a Stage, Export or entitlement authorization.
+        assert!(exact3_raw_delta(&s.decoded, old.next_object_id, old.stock,
+            proposal.expected_next_after, proposal.expected_stock_after, &good).is_ok());
+        for bad in cases {
+            assert_eq!(exact3_raw_delta(&s.decoded, old.next_object_id, old.stock,
+                proposal.expected_next_after, proposal.expected_stock_after, &bad)
+                .unwrap_err().0, "ROAD_Q1_RAW_EXACT_OBJECT_SHAPE");
+        }
+        assert_eq!(s.receipt().unwrap(), before);
+        assert!(!proposal.stage_authorized && !proposal.export_authorized);
+        assert!(s.dispatch(WorkerEnvelope {
+            action: WorkerAction::Stage, ..old.envelope
+        }).is_err());
     }
 
     #[test]
