@@ -34,6 +34,9 @@ export interface WorkerWasmSource {
   append_chunk(chunk:Uint8Array):void;
   finish():string;
   read_core_version_witness(sessionId:string,revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
+  /** ACT1712 exact Steam626 Bamboo worker-private ReadDomain, OFF by default. */
+  read_steam626_bamboo_single_target?(gridId:number,x:number,y:number,sessionId:string,
+    revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
   /** Optional indexed-read WASM feature only; not the production Reader. */
   issue_typed_cursor(domain:'player'|'world',sessionId:string,revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
   read_typed_page(cursor:string,sessionId:string,revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
@@ -129,6 +132,23 @@ export type CollectionCandidateSourceOwner=ProductWasmReadOwner & Readonly<{
  writerAuthorized:false;editedCopyAuthorized:false;applyAuthorized:false;
  }>>;
 }>;
+/** Private Worker-only projection, with NO session token, source SHA or entitlement. */
+export type Steam626BambooTargetReadOnly=Readonly<{
+  itemId:40700007;gridId:number;x:number;y:number;oldStock:number;nextGridObjectId:number;
+  readOnly:true;productReadAccepted:false;writerAuthorized:false;
+  stageAuthorized:false;editedCopyAuthorized:false;operationOn:false;
+}>;
+export type Steam626BambooReadOnlyOwner=ProductWasmReadOwner&Readonly<{
+  readSteam626BambooSingleTarget(selector:Readonly<{gridId:number;x:number;y:number}>):Steam626BambooTargetReadOnly;
+}>;
+export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{
+  allowSteam626BambooReadOnlySource:true;
+  allowScopedAmountSource?:false;allowScopedCollectionSource?:false;
+  allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false;
+  allowSteam626ChestSource?:false;allowSwitch626Catalog0Source?:false;
+  placementScope?:null;backpackScope?:null;wardrobeScope?:null;appearanceScope?:null;
+}):Steam626BambooReadOnlyOwner;
+
 export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowScopedAmountSource:true;allowScopedCollectionSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;placementScope?:null;allowSwitch626Catalog0Source?:false;backpackScope?:null;wardrobeScope?:null;appearanceScope?:null}):ScopedAmountSourceOwner;
 export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowScopedCollectionSource:true;allowScopedAmountSource?:false;allowCollectionCandidateSource?:false;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;placementScope?:null;allowSwitch626Catalog0Source?:false;backpackScope?:null;wardrobeScope?:null;appearanceScope?:null}):FixedCollectionSourceOwner;
 export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFactory,options:{allowCollectionCandidateSource:true;allowScopedAmountSource?:false;allowScopedCollectionSource?:false;allowSwitch626ChestSource?:false;allowSteam626ChestSource?:false;placementScope?:null;allowSwitch626Catalog0Source?:false;backpackScope?:null;wardrobeScope?:null;appearanceScope?:null}):CollectionCandidateSourceOwner;
