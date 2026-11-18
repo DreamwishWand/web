@@ -1,0 +1,94 @@
+{
+  "schema": "wand.int.r22-protected-external-exact8@1",
+  "repositoryId": 1371485649,
+  "productPr": 2217,
+  "productSourceHead": "b2735bc63884049a5f3d16423e5970553f168766",
+  "proposedGateSourceHead": "a2b3f9417bf9e1a95e2abcfff768770bd17ee8f2",
+  "releaseRights": "OWNER_APPROVED_20261111_THREE_READONLY_PUBLIC_ASSETS_ONLY",
+  "newOperationOn": false,
+  "writerAuthorized": false,
+  "entries": [
+    {
+      "path": ".github/workflows/core-product-session-boundary.yml",
+      "before": {
+        "mode": "100644",
+        "blob": "f2c23679e1c663bb244888b63a5633ab53abcc12"
+      },
+      "after": {
+        "mode": "100644",
+        "blob": "8de94431af1e6d58e216fa06bf91a1329a7f7063"
+      }
+    },
+    {
+      "path": "crates/ddv-save-core/Cargo.toml",
+      "before": {
+        "mode": "100644",
+        "blob": "aa6b1dd771da305bf7a21c6101fb4620a8b74b93"
+      },
+      "after": {
+        "mode": "100644",
+        "blob": "751a73da41d8b58f7de70643f50b97722a3c1260"
+      }
+    },
+    {
+      "path": "crates/ddv-save-core/src/product_makeup_color1.rs",
+      "before": {
+        "mode": "100644",
+        "blob": "952fa70789192f3207df6e4fcdf49d028d62a4d0"
+      },
+      "after": {
+        "mode": "100644",
+        "blob": "749831d8c41a24585a490b5ed23640fc8d50fc3d"
+      }
+    },
+    {
+      "path": "crates/ddv-save-core/src/worker_session.rs",
+      "before": {
+        "mode": "100644",
+        "blob": "a5b7c93bf66e6d48c4b7bef392777b8b7beb615e"
+      },
+      "after": {
+        "mode": "100644",
+        "blob": "254af029304f6a357c8c0a0e7a1376b80313d038"
+      }
+    },
+    {
+      "path": "crates/ddv-save-core/src/wasm_worker.rs",
+      "before": {
+        "mode": "100644",
+        "blob": "bf7ef74754921b29ca1229a1519019f9105ac800"
+      },
+      "after": {
+        "mode": "100644",
+        "blob": "5fbb1f3d393df127da67f1eafe9796fbb7ce3a56"
+      }
+    },
+    {
+      "path": "crates/ddv-save-core/src/worker_switch626_makeup_color1.rs",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "blob": "945d6dee10f62396d894ea631e40c3fe26e6d0f0"
+      }
+    },
+    {
+      "path": "crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "blob": "b8a24a1e288f763349355bd05bf3b7cfd51b0b4a"
+      }
+    },
+    {
+      "path": "scripts/wasm-distribution/protected-release-inputs.json",
+      "before": {
+        "mode": "100644",
+        "blob": "5d2b35f6bc9f0b8544fc52f25a35614b59913d96"
+      },
+      "after": {
+        "mode": "100644",
+        "blob": "30551c7cc566614f64c8ba04748c3aef44b419bb"
+      }
+    }
+  ]
+}

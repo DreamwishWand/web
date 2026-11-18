@@ -1,0 +1,41 @@
+name: 09 INT trusted protected-main R22 exact8 source preflight (read-only)
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'crates/ddv-save-core/src/worker_switch626_makeup_color1.rs'
+      - 'crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs'
+      - 'scripts/wasm-distribution/protected-release-inputs.json'
+permissions:
+  contents: read
+jobs:
+  fixed-external-git-scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      WAND_PROTECTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      WAND_UNTRUSTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+      WAND_HEAD_REPO_ID: ${{ github.event.pull_request.head.repo.id }}
+      WAND_PR_NUMBER: ${{ github.event.number }}
+    steps:
+      - name: Protected-main checkout ONLY, never execute candidate JavaScript
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch untrusted candidate as inert Git objects, refuse fork or stale protected main
+        run: |
+          set -euo pipefail
+          test "$GITHUB_BASE_REF" = main
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$WAND_HEAD_REPO_ID" = "$GITHUB_REPOSITORY_ID"
+          git fetch --no-tags --no-recurse-submodules origin "refs/pull/$WAND_PR_NUMBER/head"
+          test "$(git rev-parse FETCH_HEAD)" = "$WAND_UNTRUSTED_SOURCE_SHA"
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$WAND_PROTECTED_BASE_SHA"
+      - name: Apply IMMUTABLE protected-main Source GitBlob/mode exact8 selector, no candidate imports
+        run: node scripts/int-r22-external-protected-selection.mjs
