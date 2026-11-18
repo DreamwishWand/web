@@ -72,7 +72,10 @@ test('ACT1581 proposed 8 exact Rust+R22 blobs accept immutable synthetic source 
  }
  // Build only Git objects in a disposable index; never modify refs/main/files.
  const gateBase=synthetic(trustedBase,[[gatePath,gateBlob]]);
- const cfg=git('show',trustedBase+':'+inputPath);
+ // Keep exact original Git Blob bytes including trailing newline; the
+ // text-trimming Git helper is appropriate for SHA output, not JSON byte pins.
+ const cfg=execFileSync('git',['show',trustedBase+':'+inputPath],{
+  cwd,env:gitEnv,encoding:'utf8'});
  const from='aa6b1dd771da305bf7a21c6101fb4620a8b74b93',
   to='751a73da41d8b58f7de70643f50b97722a3c1260';
  assert.equal(cfg.split(from).length,2);
