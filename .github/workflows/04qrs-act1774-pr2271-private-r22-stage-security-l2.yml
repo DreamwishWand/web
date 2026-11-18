@@ -136,7 +136,7 @@ jobs:
            const fetch=run('git',['fetch','--no-tags','--no-recurse-submodules','https://github.com/DreamwishWand/web.git','refs/pull/2267/head']);
            assert.equal(fetch.status,0,'ORIGINAL_PRIVATE_SOURCE_FETCH_FAILED '+fetch.stderr);
            assert.equal(g('rev-parse','FETCH_HEAD'),original);
-           assert.equal(g('rev-parse',original+'^'),originalParent);
+           assert.equal(g('merge-base',originalParent,original),originalParent);
            assert.deepEqual(g('diff','--name-only',originalParent,original).split('\n').filter(Boolean).sort(),
              originalChanged.map(x=>x[0]).sort());
            for(const [path,before,after] of originalChanged){
