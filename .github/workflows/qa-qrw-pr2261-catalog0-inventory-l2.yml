@@ -1,0 +1,47 @@
+name: QA ONLY 04 QR-W PR2261 Steam626 Catalog0 Rust-only Inventory source L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2261-catalog0-inventory-l2.yml'
+permissions:
+  contents: read
+jobs:
+  catalog0-inventory-only-untrusted-source-rust-delegation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2261-ce373-inventory-catalog0-rust-parity-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin immutable original 01D Source two GitBlobs against original protected main
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=b27819af3ea4d3d8e45a126ba5981e0dfbdc5db5
+          source=ce3738ce79474e9d9d5f57ac3101a18f2d5b22dd
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:src/lib/ddv/core/items/tier-a-edit-requests.mjs")" = 649405c637e09f3315ed476cfc45c27568cf02df
+          test "$(git rev-parse "$base:tests/ddv-core-tier-a-edit-requests.test.mjs")" = a16c129b9d7eff90c39b6b4d099c201b519a08d1
+          test "$(git rev-parse 'HEAD:src/lib/ddv/core/items/tier-a-edit-requests.mjs')" = d9d11d6e4d3083f19237ba19b22a4d0fa1ac76eb
+          test "$(git rev-parse 'HEAD:tests/ddv-core-tier-a-edit-requests.test.mjs')" = 42024f6faed68418e99d3e21fbf469bc5e3569ce
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2261-catalog0-inventory-rust-only-l2.test.mjs')" = f60f5a2d23b8290e2eab4b9763656c26efa4e663
+          for f in src/lib/ddv/core/items/tier-a-edit-requests.mjs tests/ddv-core-tier-a-edit-requests.test.mjs tests/qa-qrw-pr2261-catalog0-inventory-rust-only-l2.test.mjs .github/workflows/qa-qrw-pr2261-catalog0-inventory-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/ddv/core/items/tier-a-edit-requests.mjs tests/ddv-core-tier-a-edit-requests.test.mjs | LC_ALL=C sort >/tmp/source
+          printf '%s\n' .github/workflows/qa-qrw-pr2261-catalog0-inventory-l2.yml tests/qa-qrw-pr2261-catalog0-inventory-rust-only-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2261_CATALOG0_SOURCE2_AND_QAONLY2_GIT_BLOBS_PASS
+      - name: Actual original Tier A Source and independent Catalog0 Rust-only proposal negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qa-qrw-pr2261-catalog0-inventory-rust-only-l2.test.mjs tests/ddv-core-tier-a-edit-requests.test.mjs
+          echo QRW2261_INVENTORY_CATALOG0_FURNITURE_EXACT1_SOURCE_ONLY_L2_PASS
