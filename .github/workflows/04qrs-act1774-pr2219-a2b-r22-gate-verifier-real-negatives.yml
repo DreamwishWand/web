@@ -1,0 +1,214 @@
+name: 04 QR-S ACT1774 repaired R22 actual self-gate and self-verifier negative L2 QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2219-repaired-a2b-r22-gate-verifier-negative-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2219-a2b-r22-gate-verifier-real-negatives.yml'
+permissions:
+  contents: read
+jobs:
+  fixed-gate-authentic-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Fix repaired 5-path Gate source blobs and one QA-only change
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = a2b3f9417bf9e1a95e2abcfff768770bd17ee8f2
+          test "$(git diff --name-only a2b3f9417bf9e1a95e2abcfff768770bd17ee8f2 HEAD)" = ".github/workflows/04qrs-act1774-pr2219-a2b-r22-gate-verifier-real-negatives.yml"
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f9675e69a30abf101e78aa77369e86707abba076
+          test "$(git rev-parse HEAD:tests/09p-r22-switch626-makeup-gate-exact8.test.mjs)" = fd7dfbab3eec4b995949f77381a5481824fc846d
+          test "$(git rev-parse HEAD:.github/workflows/09p-r22-switch626-makeup-gate-exact8.yml)" = 6274ea5e7e07579e4ce28b6ea43061aa1e357004
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = aa6b1dd771da305bf7a21c6101fb4620a8b74b93
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = d4ab1f6b46413b9992301ddbad00aedf3b01b040
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-raw-rust-checkout.mjs)" = ce71e4a034822559a268a3f4d5c00d15ed233bc6
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = ed8aabff1dc8c8b426054c7dff0d88faa2b02da4
+          test "$(git rev-parse refs/remotes/origin/main)" = d37a774a8ce2ac08ef05389f0d14d3442063edeb
+          git fetch --no-tags origin refs/pull/2217/head
+          test "$(git rev-parse FETCH_HEAD)" = b2735bc63884049a5f3d16423e5970553f168766
+          git update-ref refs/qrs-test-only/pr2217-source b2735bc63884049a5f3d16423e5970553f168766
+          echo QRS_ACT1774_EXACT_PR2219_SOURCE4_AND_PR2217_PRODUCT7_BLOBS_FIXED
+      - name: Independently run real protected R22 CLI against local synthetic self-authorizing candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {mkdtempSync,rmSync,readFileSync,copyFileSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {spawnSync} from 'node:child_process';
+          import {verifyAcceptedRustScope} from './scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          const gate='a2b3f9417bf9e1a95e2abcfff768770bd17ee8f2';
+          const product='b2735bc63884049a5f3d16423e5970553f168766';
+          const productPaths=[
+            ['.github/workflows/core-product-session-boundary.yml','8de94431af1e6d58e216fa06bf91a1329a7f7063'],
+            ['crates/ddv-save-core/Cargo.toml','751a73da41d8b58f7de70643f50b97722a3c1260'],
+            ['crates/ddv-save-core/src/product_makeup_color1.rs','749831d8c41a24585a490b5ed23640fc8d50fc3d'],
+            ['crates/ddv-save-core/src/worker_session.rs','254af029304f6a357c8c0a0e7a1376b80313d038'],
+            ['crates/ddv-save-core/src/wasm_worker.rs','5fbb1f3d393df127da67f1eafe9796fbb7ce3a56'],
+            ['crates/ddv-save-core/src/worker_switch626_makeup_color1.rs','945d6dee10f62396d894ea631e40c3fe26e6d0f0'],
+            ['crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs','b8a24a1e288f763349355bd05bf3b7cfd51b0b4a']
+          ];
+          const gatePath='scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          const configPath='scripts/wasm-distribution/protected-release-inputs.json';
+          const temp=mkdtempSync(join(tmpdir(),'qrs-gate-self-auth-'));
+          const root=join(temp,'isolated-repo');
+          const gitEnv={...process.env,GIT_NO_REPLACE_OBJECTS:'1',
+            GIT_AUTHOR_NAME:'04 QR-S local QA',GIT_AUTHOR_EMAIL:'qa-only@example.invalid',
+            GIT_COMMITTER_NAME:'04 QR-S local QA',GIT_COMMITTER_EMAIL:'qa-only@example.invalid'};
+          const git=(args,opts={})=>{
+            const r=spawnSync('git',['-C',root,...args],{
+              encoding:opts.binary?null:'utf8',input:opts.input,env:{...gitEnv,...(opts.env||{})},
+              maxBuffer:16*1024*1024});
+            assert.equal(r.status,0,'git '+args.join(' ')+' '+String(r.stderr).slice(0,850));
+            return opts.binary?r.stdout:r.stdout.trim();
+          };
+          const blobFor=(content)=>git(['hash-object','-w','--stdin'],{input:content});
+          let n=0;
+          function commit(parent,changes,label){
+            const indexFile=join(temp,'index-'+(++n));
+            git(['read-tree',parent+'^{tree}'],{env:{GIT_INDEX_FILE:indexFile}});
+            for(const [path,blob,mode='100644'] of changes){
+              assert.match(blob,/^[a-f0-9]{40}$/);
+              git(['cat-file','-e',blob+'^{blob}']);
+              git(['update-index','--add','--cacheinfo',mode,blob,path],
+                {env:{GIT_INDEX_FILE:indexFile}});
+            }
+            const tree=git(['write-tree'],{env:{GIT_INDEX_FILE:indexFile}});
+            return git(['commit-tree',tree,'-p',parent,'-m',label]);
+          }
+          function checkout(head){
+            git(['checkout','--force','--detach',head]);
+            copyFileSync(join(root,'scripts/wasm-distribution/approved-Cargo.lock'),
+              join(root,'crates/ddv-save-core/Cargo.lock'));
+            assert.equal(git(['rev-parse','HEAD']),head);
+            assert.equal(git(['rev-parse','refs/remotes/origin/main']),gate);
+          }
+          function realCli(){
+            return spawnSync(process.execPath,
+              [join(root,'scripts/wasm-distribution/verify-protected-release.mjs'),'inputs'],{
+                cwd:root,encoding:'utf8',timeout:90000,maxBuffer:16*1024*1024,
+                env:{...process.env,GITHUB_ACTIONS:'true',
+                  GITHUB_REPOSITORY:'DreamwishWand/web',
+                  GITHUB_REPOSITORY_ID:'1371485649',
+                  GITHUB_EVENT_NAME:'pull_request',
+                  GITHUB_REF:'refs/heads/qrs-isolated-qa-only',
+                  GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/01a-protected-main-signed-wasm-release-off.yml@refs/heads/qrs-isolated-qa-only',
+                  WAND_SOURCE_HEAD:git(['rev-parse','HEAD']),
+                  WAND_PR_BASE_SHA:gate,
+                  WAND_APPROVED_RELEASE_LOCK:'1',
+                  WAND_PUBLIC_READONLY_ASSET_GATE:'OWNER_APPROVED_THREE_FILES_20261111',
+                  WAND_RELEASE_BASE_PATH:'/web',
+                  GIT_NO_REPLACE_OBJECTS:'1'}
+              });
+          }
+          try{
+            const clone=spawnSync('git',['clone','--no-hardlinks','--no-checkout','-q',process.cwd(),root],{
+              encoding:'utf8',timeout:90000});
+            assert.equal(clone.status,0,String(clone.stderr));
+            assert.equal(git(['cat-file','-t',gate]),'commit');
+            assert.equal(git(['cat-file','-t',product]),'commit');
+            for(const [path,sha] of productPaths){
+              assert.equal(git(['rev-parse',product+':'+path]),sha);
+            }
+            // ONLY inside this isolated local clone: simulate the prospective
+            // sole-INT protected base after a later Gate-first integration.
+            git(['update-ref','refs/remotes/origin/main',gate]);
+            assert.equal(git(['rev-parse','refs/remotes/origin/main']),gate);
+            const original=git(['show',gate+':'+configPath],{binary:true});
+            const oldPin='aa6b1dd771da305bf7a21c6101fb4620a8b74b93';
+            const newPin='751a73da41d8b58f7de70643f50b97722a3c1260';
+            const a=original.toString('utf8');
+            assert.equal(a.split(oldPin).length,2);
+            const nextConfigBlob=blobFor(Buffer.from(a.replace(oldPin,newPin)));
+            assert.equal(nextConfigBlob,'30551c7cc566614f64c8ba04748c3aef44b419bb');
+            const approved=commit(gate,[...productPaths,[configPath,nextConfigBlob]],
+              'QA only exact reviewed product plus reviewed release tuple');
+            assert.deepEqual(git(['diff','--name-only',gate,approved]).split('\n').sort(),
+              [...productPaths.map(x=>x[0]),configPath].sort());
+            const trusted=verifyAcceptedRustScope(root,gate,approved);
+            assert.equal(trusted.entryCount,8);
+            assert.equal(trusted.mergeAuthorized,false);
+            assert.equal(trusted.writerAuthorized,false);
+            checkout(approved);
+            const good=realCli();
+            assert.equal(good.status,0,'original trusted gate product positive '+good.stderr?.slice(0,700));
+            assert.match(good.stdout,/R22_RELEASE_INPUTS_ONLY_SOURCE_PINNED/);
+            console.log('QRS_ACT1774_GATE_TRUSTED_SOURCE_EXACT8_REAL_R22_1POS');
+
+            // Adversarial change ONLY to the checked-in release Gate itself.
+            // All eight legitimate product/config bytes remain identical.
+            // Trusted pre-Gate code must reject this ninth changed path.
+            const source=git(['show',gate+':'+gatePath],{binary:true}).toString('utf8');
+            const signature='export function verifyAcceptedRustScope(cwd,base,source){';
+            assert.equal(source.split(signature).length,2);
+            const forged=source.replace(signature,signature+
+              "return {status:'QA_FORGED_SELF_ACCEPT',entryCount:8,mergeAuthorized:false,writerAuthorized:false};");
+            const forgedGateBlob=blobFor(Buffer.from(forged));
+            assert.notEqual(forgedGateBlob,git(['rev-parse',gate+':'+gatePath]));
+            const bad=commit(approved,[[gatePath,forgedGateBlob]],
+              'QA only adversarial self-modifying unsigned release selector');
+            assert.deepEqual(git(['diff','--name-only',approved,bad]),gatePath);
+            assert.throws(()=>verifyAcceptedRustScope(root,gate,bad),
+              /R22_ACCEPTED_SCOPE_|SOURCE_PATH_SET_MISMATCH/);
+            console.log('QRS_ACT1774_PRE_GATE_TRUSTED_FUNCTION_DENIES_SELF_MODIFY_1NEG');
+            checkout(bad);
+            const response=realCli();
+            const denied=response.status!==0;
+            const reason=String(response.stderr||'').match(/R22_PROTECTED_RELEASE_[A-Z_]+/)?.[0]||'NONE';
+            console.log('QRS_ACT1774_POST_GATE_ACTUAL_R22_SELF_MODIFY_CHECK '+
+              JSON.stringify({candidateExtraFiles:1,candidateGateBlobChanged:true,
+                originalApprovedEightPreserved:true,denied,reason,
+                stdoutMarker:String(response.stdout).includes('R22_RELEASE_INPUTS_ONLY_SOURCE_PINNED')}));
+            assert.equal(denied,true,
+              'SECURITY_TRUE_RED_R22_SAME_CANDIDATE_AUTHORIZES_ITS_OWN_MODIFIED_GATE_FILE');
+            console.log('QRS_ACT1774_REPAIRED_SELF_GATE_NEGATIVE_PASS');
+            // Distinct L2 falsifier: a candidate can rewrite its OWN entrypoint
+            // before the in-file trust preflight has an opportunity to run.
+            // The immutable protected-base verifier must be invoked externally.
+            const verifierPath='scripts/wasm-distribution/verify-protected-release.mjs';
+            const originalVerifier=git(['show',gate+':'+verifierPath],{binary:true}).toString('utf8');
+            const entryNeedle="const root=resolve(import.meta.dirname,'../..');";
+            assert.equal(originalVerifier.split(entryNeedle).length,2);
+            const forgedVerifier=originalVerifier.replace(entryNeedle,entryNeedle+
+              "\nif(process.argv[2]==='inputs'){console.log('R22_RELEASE_INPUTS_ONLY_SOURCE_PINNED');process.exit(0);}\n");
+            const forgedVerifierBlob=blobFor(Buffer.from(forgedVerifier));
+            assert.notEqual(forgedVerifierBlob,git(['rev-parse',gate+':'+verifierPath]));
+            const badOwnVerifier=commit(approved,[[verifierPath,forgedVerifierBlob]],
+              'QA only adversarial candidate-owned R22 verifier bypass');
+            assert.deepEqual(git(['diff','--name-only',approved,badOwnVerifier]),verifierPath);
+            checkout(badOwnVerifier);
+            const ownVerifierResult=realCli();
+            const ownDenied=ownVerifierResult.status!==0;
+            console.log('QRS_ACT1774_REPAIRED_R22_VERIFIER_SELF_EDIT_CHECK '+
+              JSON.stringify({candidateExtraFiles:1,candidateVerifierBlobChanged:true,
+                originalApprovedEightPreserved:true,denied:ownDenied,
+                stdoutMarker:String(ownVerifierResult.stdout).includes('R22_RELEASE_INPUTS_ONLY_SOURCE_PINNED')}));
+            assert.equal(ownDenied,true,
+              'SECURITY_TRUE_RED_R22_CANDIDATE_CONTROLS_ITS_OWN_PRE_IMPORT_TRUST_GATE');
+            console.log('QRS_ACT1774_REPAIRED_R22_GATE_AND_VERIFIER_1POS2NEG_PASS');
+          }finally{
+            rmSync(temp,{recursive:true,force:true});
+          }
+          NODE
+      - name: QA branch cannot change Product, approved rust or public Pages
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only a2b3f9417bf9e1a95e2abcfff768770bd17ee8f2 HEAD)" = ".github/workflows/04qrs-act1774-pr2219-a2b-r22-gate-verifier-real-negatives.yml"
+          echo QRS_ACT1774_QA_ONLY_SOURCE_SAME_PRODUCT_NO_SIGNATURE_NO_PAGES_NO_ON_NEVER_MERGE
