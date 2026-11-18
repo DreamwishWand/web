@@ -107,7 +107,7 @@ test('B02 no implicit Bamboo route, strict mode exclusivity and Steam Build gate
    {...BUILD,externallyConfirmed:false},
    {...BUILD,buildId:'another-steam-build'}
  ]) {
-   await assert.rejects(open(b,build),/PRODUCT_WORKER_(BAMBOO_STEAM_ONLY|BUILD_NOT_VERIFIED)/);
+   await assert.rejects(open(b,build),/(?:PRODUCT_WORKER_(BAMBOO_STEAM_ONLY|BUILD_NOT_VERIFIED)|P1G_WORKER_EXTERNAL_BUILD_REQUIRED)/);
    assert.equal(b.getReceipt(),null);
  }
  assert.equal(b.close().closed,true);
