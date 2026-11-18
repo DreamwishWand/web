@@ -1,0 +1,180 @@
+name: 04 QR-S ACT1766 fixed R22 actual Cargo Rust raw input Security L2 QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1766-pr2209-repairdd1-r22-raw-checkout-l2'
+    paths:
+      - '.github/workflows/04qrs-act1766-r22-fixed-raw-checkout-l2.yml'
+permissions:
+  contents: read
+jobs:
+  exact-real-r22-verifier:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Freeze original repaired R22 product SHA, unchanged protected contract and QA-only one YAML
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = dd1b80a35d652b0eeb4a3f1a109c884374960aa1
+          test "$(git diff --name-only dd1b80a35d652b0eeb4a3f1a109c884374960aa1 HEAD)" = ".github/workflows/04qrs-act1766-r22-fixed-raw-checkout-l2.yml"
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-raw-rust-checkout.mjs)" = ce71e4a034822559a268a3f4d5c00d15ed233bc6
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = df3e7ca9fe42d2df95672b9e689e48352554ca7e
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 5d2b35f6bc9f0b8544fc52f25a35614b59913d96
+          test "$(git rev-parse HEAD:tests/09p-r22-steam626-eyecolor2-repair.test.mjs)" = e7900bc85cd8a22135b3a111f3e3c547401fd8dc
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = aa6b1dd771da305bf7a21c6101fb4620a8b74b93
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = ed8aabff1dc8c8b426054c7dff0d88faa2b02da4
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-bamboo-public-pages.mjs)" = 399ada125e26cdd07809c4ff1ccb972adc6198ff
+          test "$(git rev-parse refs/remotes/origin/main)" = 05e9e86da643e545b6b750611183bdf57f648798
+          echo QRS_ACT1766_FIXED_DD1_PRODUCT_SOURCE_BLobs_FROZEN
+      - name: Run original product R22 inputs verifier against true dirty Cargo Worker and symlink negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {mkdtempSync,readFileSync,writeFileSync,appendFileSync,copyFileSync,symlinkSync,rmSync,mkdirSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join,dirname} from 'node:path';
+          import {spawnSync} from 'node:child_process';
+          const head='dd1b80a35d652b0eeb4a3f1a109c884374960aa1';
+          const base='05e9e86da643e545b6b750611183bdf57f648798';
+          const cargo='crates/ddv-save-core/Cargo.toml';
+          const worker='crates/ddv-save-core/src/wasm_worker.rs';
+          const release='scripts/wasm-distribution/protected-release-inputs.json';
+          const lock='crates/ddv-save-core/Cargo.lock';
+          const tmp=mkdtempSync(join(tmpdir(),'qrs-act1766-r22-dd1-'));
+          const wt=join(tmp,'fixed-original-source');
+          let made=false, positives=0, negatives=0;
+          const git=(...args)=>{
+            const r=spawnSync('git',['-C',wt,...args],{encoding:'utf8'});
+            assert.equal(r.status,0,'git '+args.join(' ')+' '+String(r.stderr));
+            return r.stdout.trim();
+          };
+          function reset(){
+            git('reset','--hard',head);
+            copyFileSync(join(wt,'scripts/wasm-distribution/approved-Cargo.lock'),join(wt,lock));
+            assert.equal(git('rev-parse','HEAD'),head);
+          }
+          const cli=()=>{
+            return spawnSync(process.execPath,
+              [join(wt,'scripts/wasm-distribution/verify-protected-release.mjs'),'inputs'],{
+                cwd:wt,encoding:'utf8',timeout:45000,maxBuffer:8*1024*1024,
+                env:{...process.env,
+                  GITHUB_ACTIONS:'true',
+                  GITHUB_REPOSITORY:'DreamwishWand/web',
+                  GITHUB_REPOSITORY_ID:'1371485649',
+                  GITHUB_EVENT_NAME:'pull_request',
+                  GITHUB_REF:'refs/heads/04qrs/act1766-pr2209-repairdd1-r22-raw-checkout-l2',
+                  GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/01a-protected-main-signed-wasm-release-off.yml@refs/heads/04qrs/act1766-pr2209-repairdd1-r22-raw-checkout-l2',
+                  WAND_SOURCE_HEAD:git('rev-parse','HEAD'),
+                  WAND_PR_BASE_SHA:base,
+                  WAND_APPROVED_RELEASE_LOCK:'1',
+                  WAND_PUBLIC_READONLY_ASSET_GATE:'OWNER_APPROVED_THREE_FILES_20261111',
+                  WAND_RELEASE_BASE_PATH:'/web',
+                  GIT_NO_REPLACE_OBJECTS:'1'
+                }
+              });
+          };
+          const positive=(name)=>{
+            const r=cli();
+            assert.equal(r.status,0,name+' '+String(r.stderr).slice(0,650));
+            assert.match(r.stdout,/R22_RELEASE_INPUTS_ONLY_SOURCE_PINNED/);
+            positives++;
+            console.log('QRS_ACT1766_REPAIRED_REAL_CLI_POSITIVE '+name);
+          };
+          const negative=(name,mutate,expected)=>{
+            reset();
+            mutate();
+            const r=cli();
+            const denied=r.status!==0;
+            const code=String(r.stderr).match(/R22_PROTECTED_RELEASE_[A-Z_]+/)?.[0]||'UNKNOWN';
+            console.log('QRS_ACT1766_REPAIRED_REAL_CLI_NEGATIVE '+JSON.stringify({name,denied,code}));
+            assert.equal(denied,true,'SECURITY_TRUE_RED_'+name+'_ACCEPTED_BY_REPAIRED_R22');
+            if(expected)assert.match(r.stderr,expected,name+' unexpected denial type');
+            negatives++;
+          };
+          try{
+            const add=spawnSync('git',['worktree','add','--detach',wt,head],{encoding:'utf8'});
+            assert.equal(add.status,0,add.stderr); made=true;
+            assert.equal(git('rev-parse','refs/remotes/origin/main'),base);
+            reset();
+            positive('ORIGINAL_ACCEPTED_READONLY');
+            writeFileSync(join(wt,'docs/qrs-act1766-future-unrelated-proof.txt'),'unrelated future content\n');
+            git('add','--','docs/qrs-act1766-future-unrelated-proof.txt');
+            const commit=spawnSync('git',['-C',wt,'-c','user.name=04 QR-S isolated QA','-c','user.email=qa-only@example.invalid','commit','-m','unrelated future doc QA only'],{encoding:'utf8'});
+            assert.equal(commit.status,0,commit.stderr);
+            assert.notEqual(git('rev-parse','HEAD'),head);
+            positive('FUTURE_UNRELATED_COMMIT');
+            const rawExpected=/R22_PROTECTED_RELEASE_RAW_RUST_CHECKOUT_NOT_HEAD/;
+            negative('DIRTY_UNCOMMITTED_CARGO',()=>{
+              const before=git('rev-parse','HEAD:'+cargo);
+              appendFileSync(join(wt,cargo),'\n# adversarial raw Cargo source bytes\n');
+              assert.equal(git('rev-parse','HEAD:'+cargo),before);
+              assert.notEqual(git('hash-object','--no-filters','--',cargo),before);
+            },rawExpected);
+            negative('DIRTY_UNCOMMITTED_WASM_WORKER',()=>{
+              const before=git('rev-parse','HEAD:'+worker);
+              appendFileSync(join(wt,worker),'\n// adversarial raw Rust worker bytes\n');
+              assert.equal(git('rev-parse','HEAD:'+worker),before);
+              assert.notEqual(git('hash-object','--no-filters','--',worker),before);
+            },rawExpected);
+            negative('UNTRACKED_COMPILABLE_RUST_MODULE',()=>{
+              writeFileSync(join(wt,'crates/ddv-save-core/src/qrs_untracked_injected.rs'),'pub fn injected()->bool {true}\n');
+            },rawExpected);
+            rmSync(join(wt,'crates/ddv-save-core/src/qrs_untracked_injected.rs'),{force:true});
+            negative('SYMLINK_NEW_RUST_MODULE',()=>{
+              symlinkSync(join(wt,cargo),join(wt,'crates/ddv-save-core/src/qrs_linked_fake.rs'));
+            },rawExpected);
+            rmSync(join(wt,'crates/ddv-save-core/src/qrs_linked_fake.rs'),{force:true});
+            negative('SYMLINK_CARGO_LEAF_SAME_APPROVED_BYTES',()=>{
+              const approved=readFileSync(join(wt,cargo));
+              const outside=join(tmp,'approved-but-outside-cargo.toml');
+              writeFileSync(outside,approved);
+              rmSync(join(wt,cargo));
+              symlinkSync(outside,join(wt,cargo));
+            },rawExpected);
+            negative('CHANGED_APPROVED_CARGO_LOCK',()=>{
+              appendFileSync(join(wt,lock),'\n# adversarial lock drift\n');
+            },/R22_PROTECTED_RELEASE_CARGO_LOCK_SHA_DRIFT_NEEDS_NEW_REVIEW/);
+            negative('WRITER_AUTHORIZATION_IN_CONFIG',()=>{
+              const path=join(wt,release);
+              const config=JSON.parse(readFileSync(path,'utf8'));
+              assert.equal(config.writerEnabled,false);
+              writeFileSync(path,JSON.stringify({...config,writerEnabled:true}));
+            },rawExpected);
+            reset();
+            appendFileSync(join(wt,cargo),'\n# disallowed committed Cargo change\n');
+            git('add','--',cargo);
+            const bad=spawnSync('git',['-C',wt,'-c','user.name=04 QR-S isolated QA','-c','user.email=qa-only@example.invalid','commit','-m','QA-only unapproved Cargo blob'],{encoding:'utf8'});
+            assert.equal(bad.status,0,bad.stderr);
+            const final=cli();
+            assert.notEqual(final.status,0,'SECURITY_TRUE_RED_UNAPPROVED_COMMITTED_CARGO_ACCEPTED');
+            console.log('QRS_ACT1766_REPAIRED_REAL_CLI_NEGATIVE '+JSON.stringify({name:'UNAPPROVED_COMMITTED_CARGO',denied:true}));
+            negatives++;
+            assert.equal(positives,2);assert.equal(negatives,8);
+            console.log('QRS_ACT1766_DD1_REPAIRED_R22_2POS8NEG_REAL_CLI_PASS');
+          }finally{
+            if(made)spawnSync('git',['worktree','remove','--force',wt],{encoding:'utf8'});
+            rmSync(tmp,{recursive:true,force:true});
+          }
+          NODE
+      - name: Keep signing, publishing and public Writer disabled
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only dd1b80a35d652b0eeb4a3f1a109c884374960aa1 HEAD)" = ".github/workflows/04qrs-act1766-r22-fixed-raw-checkout-l2.yml"
+          grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          echo QRS_ACT1766_QA_ONLY_PRODUCT_UNMODIFIED_PUBLIC_WRITER_AND_PAGES_OFF
