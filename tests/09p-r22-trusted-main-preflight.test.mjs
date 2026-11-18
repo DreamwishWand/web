@@ -7,7 +7,15 @@ import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const sourceRepo=resolve(fileURLToPath(new URL('../',import.meta.url)));
-const baseHead=execFileSync('git',['rev-parse','HEAD'],{cwd:sourceRepo,encoding:'utf8'}).trim();
+const currentHead=execFileSync('git',['rev-parse','HEAD'],{cwd:sourceRepo,encoding:'utf8'}).trim();
+const coreAtHead=execFileSync('git',['rev-parse',currentHead+':crates/ddv-save-core'],
+ {cwd:sourceRepo,encoding:'utf8'}).trim();
+// Gate-only tests use the checked-out protected source itself. Product exact8
+// tests must instead construct their synthetic candidate from the PRE-product
+// accepted protected base: HEAD already has new Cargo and would be a no-op.
+const acceptedGateAnchor='e7a56d5ce4a717cd76191e345b79be12adef3df4';
+const baseHead=coreAtHead==='42086449f9deef26ed48b21d7edab0f5685da7c2'
+ ?acceptedGateAnchor:currentHead;
 const productPaths=[
  ['.github/workflows/core-product-session-boundary.yml','8de94431af1e6d58e216fa06bf91a1329a7f7063'],
  ['crates/ddv-save-core/Cargo.toml','751a73da41d8b58f7de70643f50b97722a3c1260'],
@@ -58,6 +66,25 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
   const clone=spawnSync('git',['clone','--no-hardlinks','--no-checkout','-q',sourceRepo,cwd],{encoding:'utf8'});
   assert.equal(clone.status,0,String(clone.stderr));
   assert.equal(git(['cat-file','-t',baseHead]),'commit');
+  const currentConfig=outerGit('rev-parse',currentHead+':'+configPath);
+  const currentStage=new Map([
+   ['b5416aa726caea9d311075599ac606e11285b295',
+    '5d2b35f6bc9f0b8544fc52f25a35614b59913d96'],
+   ['42086449f9deef26ed48b21d7edab0f5685da7c2',
+    '30551c7cc566614f64c8ba04748c3aef44b419bb']
+  ]);
+  assert.ok(currentStage.has(coreAtHead),'UNAPPROVED_CURRENT_R22_CORE_STAGE');
+  assert.equal(currentConfig,currentStage.get(coreAtHead),
+    'CURRENT_HEAD_R22_CONFIG_CORE_STAGE_MISMATCH');
+  assert.equal(git(['rev-parse',baseHead+':crates/ddv-save-core']),
+    'b5416aa726caea9d311075599ac606e11285b295');
+  assert.equal(git(['rev-parse',baseHead+':'+configPath]),
+    '5d2b35f6bc9f0b8544fc52f25a35614b59913d96');
+  assert.equal(git(['rev-parse',baseHead+':'+trustedPath]),
+    '5aefdaff6a46ae9bdf1f5a37c4f0973442308a4a');
+  if(coreAtHead==='42086449f9deef26ed48b21d7edab0f5685da7c2'){
+   assert.equal(outerGit('merge-base','--is-ancestor',baseHead,currentHead),'');
+  }
   // Explicitly seed each exact immutable public Source blob, even if clone
   // omitted unreachable fetched PR objects. No ref or remote main changes.
   for(const [,blob] of productPaths){
@@ -78,6 +105,26 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
   const futureBlob=createBlob(original.replace(oldCargo,newCargo));
   assert.equal(futureBlob,'30551c7cc566614f64c8ba04748c3aef44b419bb');
   const approved=makeCommit(baseHead,[...productPaths,[configPath,futureBlob]]);
+  // Product may be deployed after unrelated accepted Web/Media updates,
+  // or tested after Gate-only stage test Source has already landed.
+  // Never compare the WHOLE HEAD tree with the ancient accepted Gate root:
+  // pin each of the reviewed 8 source blobs/modes and all trusted Gate
+  // authorities instead; the Core subtree is already pinned to its exact
+  // accepted complete tree by currentStage above.
+  if(coreAtHead==='42086449f9deef26ed48b21d7edab0f5685da7c2'){
+   for(const [path,blob] of [...productPaths,[configPath,futureBlob]]){
+    assert.equal(outerGit('ls-tree',currentHead,'--',path),
+     '100644 blob '+blob+String.fromCharCode(9)+path,
+     'PRODUCT_CURRENT_HEAD_BLOB_MODE_MISMATCH_'+path);
+   }
+   for(const path of [trustedPath,selector,verifier,
+    'scripts/wasm-distribution/r22-raw-rust-checkout.mjs',
+    'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs']){
+    assert.equal(outerGit('rev-parse',currentHead+':'+path),
+      git(['rev-parse',baseHead+':'+path]),
+      'PRODUCT_CURRENT_HEAD_MUTATED_TRUSTED_GATE_'+path);
+   }
+  }
   const clean=run(baseHead,approved);
   assert.equal(clean.status,0,'trusted POS '+String(clean.stderr).slice(0,900));
   assert.match(clean.stdout,/R22_TRUSTED_PRE_CANDIDATE_EXACT8_SCOPE_ONLY/);
