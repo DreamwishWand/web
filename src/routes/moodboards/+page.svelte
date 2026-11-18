@@ -58,10 +58,10 @@
     status=copy.saved;
   }
 
-  async function createBoard(){
+  function createBoard(){
     const result=createMoodboard(document,{title:newTitle});
     persist(result.document);selectedId=result.board.id;newTitle='';status=copy.created;
-    await tick();workspaceHeading?.focus();
+    tick().then(()=>workspaceHeading?.focus());
   }
 
   function removeBoard(boardId:string){
