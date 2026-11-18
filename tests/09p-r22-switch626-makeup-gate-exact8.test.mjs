@@ -54,6 +54,8 @@ test('ACT1581 protected release CLI pins trusted Git/on-disk Gate before importi
    'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'])
   assert.ok(actual.includes("'"+path+"'"),'missing protected source '+path);
  for(const exact of ['CANDIDATE_MUTATED_TRUSTED_GATE','CHECKED_OUT_TRUSTED_GATE_DRIFT',
+   "const exact='100644 blob '+trusted+'\\t'+path",
+   "git('ls-tree',base,'--',path)","git('ls-tree',source,'--',path)",
    "git('hash-object','--no-filters','--',path)",'GIT_NO_REPLACE_OBJECTS'])
   assert.ok(actual.includes(exact),'missing literal raw-gate control '+exact);
 });
