@@ -136,8 +136,8 @@ jobs:
             [{...trusted,manifestUrl:'https://foreign.example/manifest.json'}]
           ]){
            const f=newHttp();
-           await isolated(invalid,verify=>assert.rejects(verify(args(f.fetchImpl)),
-            /SIGNED_ON_ORIGIN_PROVENANCE_REQUIRED|PROTECTED_ON_ANCHOR_REGISTRY_INVALID/));
+           await assert.rejects(isolated(invalid,verify=>verify(args(f.fetchImpl))),
+            /SIGNED_ON_ORIGIN_PROVENANCE_REQUIRED|PROTECTED_ON_ANCHOR_REGISTRY_INVALID/);
            assert.equal(f.calls.length,0,'foreign or incomplete trusted anchor must fail before network');
            negatives++;
           }
@@ -160,8 +160,8 @@ jobs:
           // record cannot make protected-publication history unambiguous.
           for(const second of [trusted,{...trusted,recordedBy:'CALLER_SELF_ASSERTED'}]){
            const f=newHttp();
-           await isolated([trusted,second],verify=>assert.rejects(verify(args(f.fetchImpl)),
-            /PROTECTED_ON_ANCHOR_REGISTRY_INVALID|SIGNED_ON_ORIGIN_PROVENANCE_REQUIRED|DUPLICATE/));
+           await assert.rejects(isolated([trusted,second],verify=>verify(args(f.fetchImpl))),
+            /PROTECTED_ON_ANCHOR_REGISTRY_INVALID|SIGNED_ON_ORIGIN_PROVENANCE_REQUIRED|DUPLICATE/);
            assert.equal(f.calls.length,0,'ambiguous duplicate ON anchors must be rejected BEFORE withdrawal HTTP');
            negatives++;
           }
