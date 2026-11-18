@@ -71,7 +71,7 @@ jobs:
             // descendants, not lstat(static/ddv). This must be DENIED.
             for(const kind of ['source','built']){
               const linked=join(scratch,'linked-'+kind);
-              const parent=join(linked,kind);
+              const parent=join(linked,kind==='source'?'static':'build');
               const external=join(scratch,'external-'+kind);
               mkdirSync(parent,{recursive:true});
               mkdirSync(external,{recursive:true});
@@ -79,6 +79,7 @@ jobs:
               mkdirSync(dirname(externalPath),{recursive:true});
               copyFileSync(original,externalPath);
               symlinkSync(external,join(parent,'ddv'),'dir');
+              assert.equal(existsSync(join(parent,rel)),true,'Fixture must resolve exact original WebP through symlink');
               await assert.rejects(
                 verifyLocal(plan,{kind,root:linked,pins}),
                 /MEDIA_SYMLINK|MEDIA_REALPATH|MEDIA_PARENT|MEDIA_BOUNDARY/,
