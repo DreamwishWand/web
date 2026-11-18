@@ -25,9 +25,10 @@ jobs:
         run: |
           set -euo pipefail
           git merge-base --is-ancestor baa8337c71f194b379bdd147354def9e55b0f2e8 HEAD
+          git cat-file -e 499f82851ff2d0f679d66db17f32f9051fd78759^{commit}
           test "$(git diff --name-only baa8337c71f194b379bdd147354def9e55b0f2e8 HEAD)" = ".github/workflows/04qrs-act1774-pr2256-prior-cache-staging-l2.yml"
-          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = f428f95f047a9564e2d5febd646b02461854f5ac
-          test "$(git rev-parse HEAD:ops/ddv-steam-public-media-prior-on-cache.json)" = 1adb23565fc693b3e255f7a82be1f8f9bf7fce3b
+          test "$(git rev-parse 499f82851ff2d0f679d66db17f32f9051fd78759:.github/workflows/pages.yml)" = fbe9efeb38137499ce0cda008134992da5628a40
+          test "$(git rev-parse 499f82851ff2d0f679d66db17f32f9051fd78759:ops/ddv-steam-public-media-prior-on-cache.json)" = 1adb23565fc693b3e255f7a82be1f8f9bf7fce3b
       - name: Execute exact Pages staging Shell positive and fail-closed hostile prior cache proof
         shell: bash
         run: |
@@ -39,9 +40,9 @@ jobs:
           import {tmpdir} from 'node:os';
           import {join,resolve} from 'node:path';
           const repo=process.cwd();
-          const source='baa8337c71f194b379bdd147354def9e55b0f2e8';
+          const source='499f82851ff2d0f679d66db17f32f9051fd78759';
           const original='b27819af3ea4d3d8e45a126ba5981e0dfbdc5db5';
-          const expectedNew='f428f95f047a9564e2d5febd646b02461854f5ac';
+          const expectedNew='fbe9efeb38137499ce0cda008134992da5628a40';
           const registryPath='ops/ddv-steam-public-media-prior-on-cache.json';
           const registryBlob='1adb23565fc693b3e255f7a82be1f8f9bf7fce3b';
           const git=(...args)=>execFileSync('git',args,{cwd:repo,encoding:'utf8',env:{...process.env,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
@@ -53,7 +54,7 @@ jobs:
           const changed=git('show',source+':.github/workflows/pages.yml');
           const oldLines=before.split('\n');
           const newLines=changed.split('\n');
-          const targetBegin='          mkdir -p "$RUNNER_TEMP/wand-steam-media-proof/scripts" "$RUNNER_TEMP/wand-steam-media-proof/ops"';
+          const targetBegin='          umask 077';
           const targetFinish='          test "$(git hash-object --no-filters "$RUNNER_TEMP/wand-steam-media-proof/ops/ddv-steam-public-media-prior-on-cache.json")" = "$(git -C "$dir" rev-parse "$GITHUB_SHA:ops/ddv-steam-public-media-prior-on-cache.json")"';
           const begin=newLines.indexOf(targetBegin);
           const finish=newLines.indexOf(targetFinish);
@@ -113,13 +114,17 @@ jobs:
            // A preexisting symlink in the disposable proof tree must not be
            // followed to an untrusted outside location. The core verifier uses
            // only the resulting bytes; equality by itself cannot prove path trust.
-           const scenarios=['OPS_PARENT_OUTSIDE_SYMLINK','PRIOR_REGISTRY_LEAF_OUTSIDE_SYMLINK','SCRIPTS_PARENT_OUTSIDE_SYMLINK'];
+           const scenarios=['OPS_PARENT_OUTSIDE_SYMLINK','PRIOR_REGISTRY_LEAF_OUTSIDE_SYMLINK','SCRIPTS_PARENT_OUTSIDE_SYMLINK','PROOF_ROOT_OUTSIDE_SYMLINK','PROOF_ROOT_EXISTING_DIR'];
            for(const name of scenarios){
             const tmp=fake(name);mkdirSync(tmp);
             const proof=join(tmp,'wand-steam-media-proof');
-            mkdirSync(proof);
+            if(name!=='PROOF_ROOT_OUTSIDE_SYMLINK')mkdirSync(proof);
             const outside=fake('outside-'+name);mkdirSync(outside);
-            if(name==='OPS_PARENT_OUTSIDE_SYMLINK'){
+            if(name==='PROOF_ROOT_OUTSIDE_SYMLINK'){
+             symlinkSync(outside,proof,'dir');
+            }else if(name==='PROOF_ROOT_EXISTING_DIR'){
+             writeFileSync(join(proof,'caller-marker'),'NO_NEW_TRUST_ROOT');
+            }else if(name==='OPS_PARENT_OUTSIDE_SYMLINK'){
              symlinkSync(outside,join(proof,'ops'),'dir');
             }else if(name==='SCRIPTS_PARENT_OUTSIDE_SYMLINK'){
              symlinkSync(outside,join(proof,'scripts'),'dir');
@@ -129,6 +134,14 @@ jobs:
              symlinkSync(join(outside,'registry.json'),join(proof,'ops/ddv-steam-public-media-prior-on-cache.json'));
             }
             const r=run(stage,isolate,tmp,source);
+            if(r.status!==0){
+             assert.equal(name==='PRIOR_REGISTRY_LEAF_OUTSIDE_SYMLINK'
+               ?readFileSync(join(outside,'registry.json'),'utf8')
+               :'UNTOUCHED',
+               name==='PRIOR_REGISTRY_LEAF_OUTSIDE_SYMLINK'?'UNTRUSTED_PREEXISTING_BYTES':'UNTOUCHED');
+             if(name==='PROOF_ROOT_EXISTING_DIR')
+              assert.equal(readFileSync(join(proof,'caller-marker'),'utf8'),'NO_NEW_TRUST_ROOT');
+            }
             if(r.status===0){
              red++;
              console.log('QRS2256_SECURITY_TRUE_RED_OUTSIDE_REPO_SYMLINK_FALSE_ACCEPT_'+name,{
@@ -143,7 +156,7 @@ jobs:
              console.log('QRS2256_OUTSIDE_REPO_SYMLINK_DENIED_'+name);
             }
            }
-           console.log('QRS2256_FINAL_POS_NEG_TRUE_RED',JSON.stringify({pos,neg,red}));
+           console.log('QRS2256_FIXED499F_NEW_PRIVATE_ROOT_FOCUS_RESULT',JSON.stringify({pos,neg,red}));
            assert.equal(red,0,'SECURITY_TRUE_RED_PROTECTED_PAGES_STAGING_OUTSIDE_REPO_SYMLINK_FOLLOWED');
           }finally{rmSync(t,{recursive:true,force:true})}
           QRS2256_TEST
