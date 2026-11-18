@@ -52,7 +52,7 @@ export function inspectBambooProofSubjects(bytes,source,issuer=tuple){
  if(!validateBambooProofManifest(m,bytes,source))fail();
  let exports;try{exports=WebAssembly.Module.exports(new WebAssembly.Module(bytes[2]))}catch{fail()}
  const j=new TextDecoder('utf8',{fatal:true}).decode(bytes[1]);
- const forbidden=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|semantic_writer|read_steam626_singlefence_target|(?:stage|export|write|save|apply|undo|redo|grant|debit|mutate|delete|overwrite|commit|toggle|preview|begin|take)_[a-z0-9_]+|[a-z0-9_]+_(?:stage|export|write|save|apply|undo|redo|grant|debit|mutate|delete|overwrite))/i;
+ const forbidden=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|semantic_writer|read_steam626_singlefence_target|(?:stage|export|write|save|apply|undo|redo|grant|debit|mutate|delete|overwrite|commit|toggle|preview|begin|take)_(?:steam626|switch626|scoped|fixed|inventory|chest|collection|ownership|grid)[a-z0-9_]*|(?:steam626|switch626|scoped|fixed)_(?:stage|export|write|save|apply|undo|redo|grant|debit|mutate|delete|overwrite))/i;
  const knownMethods=['append_chunk','finish','read_core_version_witness','issue_typed_cursor',
  'read_typed_page','issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page',
  'read_steam626_bamboo_single_target','close'];
