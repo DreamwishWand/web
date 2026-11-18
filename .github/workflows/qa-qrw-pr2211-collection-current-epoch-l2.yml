@@ -1,0 +1,53 @@
+name: QA ONLY 04 QR-W PR2211 fixed Collection current epoch L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2211-collection-current-epoch-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-collection-reader-current-epoch-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/act-pr2211-71eeb-collection-current-epoch-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin exactly original changed two Source blobs and QA-only two new files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 05e9e86da643e545b6b750611183bdf57f648798 HEAD
+          test "$(git rev-parse '05e9e86da643e545b6b750611183bdf57f648798:src/lib/collection/collection-candidate-read.mjs')" = 0fe5943f6dc891aa537a0b93ce36de386ee225b2
+          test "$(git rev-parse '05e9e86da643e545b6b750611183bdf57f648798:tests/web-collection-candidate-read.test.mjs')" = f1a2699d69d39d28b28ab9b7372ea831f7ceee25
+          test "$(git rev-parse 'HEAD:src/lib/collection/collection-candidate-read.mjs')" = 0f4c049a29081576f768262e782716f5ea7bc1c8
+          test "$(git rev-parse 'HEAD:tests/web-collection-candidate-read.test.mjs')" = 744f7de00475a220e6c93ba89631b27db06baba2
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2211-current-collection-epoch-l2.test.mjs')" = 44e58e59cbea81fa1c81a792f60e064f8ec98a6c
+          for f in src/lib/collection/collection-candidate-read.mjs tests/web-collection-candidate-read.test.mjs tests/qa-qrw-pr2211-current-collection-epoch-l2.test.mjs .github/workflows/qa-qrw-pr2211-collection-current-epoch-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          cat > /tmp/qrw2211-source-expected <<'EOF'
+          src/lib/collection/collection-candidate-read.mjs
+          tests/web-collection-candidate-read.test.mjs
+          EOF
+          cat > /tmp/qrw2211-qa-expected <<'EOF'
+          tests/qa-qrw-pr2211-current-collection-epoch-l2.test.mjs
+          .github/workflows/qa-qrw-pr2211-collection-current-epoch-l2.yml
+          EOF
+          git diff --name-only 05e9e86da643e545b6b750611183bdf57f648798 71eebbdd261ca498c16d2946d063fe2f8eeb23fc | LC_ALL=C sort > /tmp/qrw2211-source-actual
+          LC_ALL=C sort /tmp/qrw2211-source-expected | diff -u - /tmp/qrw2211-source-actual
+          git diff --name-only 71eebbdd261ca498c16d2946d063fe2f8eeb23fc HEAD | LC_ALL=C sort > /tmp/qrw2211-qa-actual
+          LC_ALL=C sort /tmp/qrw2211-qa-expected | diff -u - /tmp/qrw2211-qa-actual
+          git diff --quiet 71eebbdd261ca498c16d2946d063fe2f8eeb23fc HEAD -- src/ crates/ static/ ops/ scripts/ package-lock.json
+          echo QRW2211_ORIGINAL_TWO_PRODUCT_BLOBS_UNCHANGED_QAONLY_TWO_FILES_PASS
+      - name: Actual 01D JS reader plus independent current/stale/forged epoch tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/web-collection-candidate-read.test.mjs tests/qa-qrw-pr2211-current-collection-epoch-l2.test.mjs
+          echo QRW2211_CURRENT_EPOCH_JS_READER_CHANGED_ONLY_L2_PASS
