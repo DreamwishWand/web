@@ -181,7 +181,7 @@ jobs:
            deny('CHANGED_PAGES',gate,synthetic(product,[['.github/workflows/pages.yml',evil]]));
            deny('MISSING_PRIVATE_WORKFLOW',gate,synthetic(gate,[[rust,originalChanged[1][2]],[semantic,originalChanged[2][2]]]));
            deny('NO_EDIT',gate,synthetic(gate,[]));
-           deny('MIXED_OLD_GATE_TO_NEW_PRIVATE',main,synthetic(main,edit));
+           deny('MIXED_OLD_GATE_WITH_CANDIDATE_SELECTOR',main,synthetic(main,[...edit,[sel,selector]]));
            assert.equal(pos,4);assert.equal(neg,20);
            console.log('QRS2271_FINAL_4POS_20NEG_NO_UNSIGNED_ISSUER_NO_OP',JSON.stringify({pos,neg,realEncryptedV2:'NOT_RUN'}));
           }finally{rmSync(root,{recursive:true,force:true})}
