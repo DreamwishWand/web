@@ -1,0 +1,148 @@
+name: QA ONLY 04 QR-W PR2162 991D Catalog0 zero typed readset RED repair L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2162-991d-catalog0-type-red-repair-l2.yml'
+permissions:
+  contents: read
+jobs:
+  catalog0-id0-repaired-type-and-denials:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 991d8d822c0c0895eba06b869a1fc5a7392a0207
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed product Source two-mod and old RED delta Git blob pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 991d8d822c0c0895eba06b869a1fc5a7392a0207
+          test "$(git merge-base HEAD fc3a396adc73895fe7ea15e417212dd721403e9d)" = fc3a396adc73895fe7ea15e417212dd721403e9d
+          test "$(git merge-base 309b3c506fa71de6e82882a65aadfc29b9f27582 HEAD)" = 309b3c506fa71de6e82882a65aadfc29b9f27582
+          test "$(git rev-parse HEAD:src/lib/ddv/core/items/tier-a-edit-requests.mjs)" = 06ff7290d2670638dae00194be2180c972bf6c99
+          test "$(git rev-parse HEAD:tests/ddv-core-tier-a-edit-requests.test.mjs)" = 550da023fe0500f5c6b649de26b4a62d78848763
+          for file in src/lib/ddv/core/items/tier-a-edit-requests.mjs tests/ddv-core-tier-a-edit-requests.test.mjs; do
+           test "$(git ls-tree HEAD "$file" | awk '{print $1}')" = 100644
+           test "$(git diff --name-status fc3a396adc73895fe7ea15e417212dd721403e9d HEAD -- "$file" | cut -f1)" = M
+          done
+          printf '%s\n' 'src/lib/ddv/core/items/tier-a-edit-requests.mjs' 'tests/ddv-core-tier-a-edit-requests.test.mjs' | LC_ALL=C sort > /tmp/qrw2162-expected
+          git diff --name-only fc3a396adc73895fe7ea15e417212dd721403e9d HEAD | LC_ALL=C sort > /tmp/qrw2162-actual
+          diff -u /tmp/qrw2162-expected /tmp/qrw2162-actual
+          git diff --name-only 309b3c506fa71de6e82882a65aadfc29b9f27582 HEAD | LC_ALL=C sort > /tmp/qrw2162-changed
+          diff -u /tmp/qrw2162-expected /tmp/qrw2162-changed
+          git diff --quiet fc3a396adc73895fe7ea15e417212dd721403e9d HEAD -- crates/ddv-save-core/ src/lib/ddv/core/save/ .github/workflows/pages.yml static/ package-lock.json
+          echo QRW2162_FIXED_NEW_SOURCE_TWO_MODS_TYPED_BOUNDARY_SAME_RUST_PASS
+      - name: Inherit actual Source contracts without unrelated Native/ABI reQA
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          node --test tests/ddv-core-tier-a-edit-requests.test.mjs
+      - name: Independently exercise Catalog0 zero ID typed readset and forged quantity authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {
+           describeTierARequest, STEAM626, TIER_A_WRITER_ENABLED
+          } from './src/lib/ddv/core/items/tier-a-edit-requests.mjs';
+          const mk=()=>({
+           target:{...STEAM626},
+           source:{originalEncryptedSha256:'a'.repeat(64)},
+           session:{sessionId:'b'.repeat(32),revision:3,indexGeneration:7,decodedSha256:'c'.repeat(64)},
+           command:{
+            operation:'Inventory.ExistingAmountDecrease',inventoryId:0,
+            canonicalItemId:40000048,compatibleItemType:'ItemType_Furniture',
+            expectedOldAmount:3,nextAmount:2,entryPresent:true
+           }
+          });
+          let pos=0,neg=0;
+          const candidate=describeTierARequest(mk());
+          assert.equal(candidate.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
+          assert.deepEqual(candidate.candidate.readSet[0],{
+           path:'/Player/ListInventories/0/ID',expectedType:'UINT32',expectedValue:0
+          });
+          assert.equal(candidate.candidate.fieldPath,'/Player/ListInventories/0/Inventory/40000048/Amount');
+          assert.deepEqual(candidate.candidate.exactAllowedPaths,[candidate.candidate.fieldPath]);
+          assert.equal(candidate.candidate.nativeDevCommand.inventory_id,0);
+          assert.equal(candidate.candidate.nativeDevCommand.expected_old_amount,3);
+          assert.equal(candidate.candidate.nativeDevCommand.new_amount,2);
+          assert.equal(candidate.candidate.readSet[1].expectedValue,'ItemType_Furniture');
+          for(const flag of ['writerAuthorized','exportAuthorized','productOperationEnabled',
+           'sourceIdentityProvenByThisModule','sessionAuthorizedByThisModule',
+           'canonicalItemRoutingProvenByThisModule','independentQaAccepted',
+           'fullDocumentExactDiffVerified','editedCopyReopened'])assert.equal(candidate[flag],false,flag);
+          assert.equal(candidate.authoritativeCoreValidationRequired,true);
+          for(const v of Object.values(candidate.releaseFlags))assert.equal(v,false);
+          assert.equal(TIER_A_WRITER_ENABLED,false);
+          assert.equal(Object.isFrozen(candidate.candidate),true);
+          assert.equal(Object.isFrozen(candidate.candidate.readSet),true);
+          pos++;
+          // Nonzero IDs must not inherit the zero-ID-only type or amount constraints.
+          const nonzero=mk();
+          nonzero.command.inventoryId=4;
+          nonzero.command.canonicalItemId=30000001;
+          nonzero.command.compatibleItemType='ItemType_ActivityItem';
+          nonzero.command.expectedOldAmount=50;
+          nonzero.command.nextAmount=49;
+          const normal=describeTierARequest(nonzero);
+          assert.equal(normal.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
+          assert.deepEqual(normal.candidate.readSet[0],{
+           path:'/Player/ListInventories/4/ID',expectedType:'POSITIVE_UINT32',expectedValue:4
+          });
+          assert.equal(normal.writerAuthorized,false);
+          pos++;
+          // Native Catalog0 is a one-unit decrease, never arbitrary deletion.
+          const small=mk();small.command.expectedOldAmount=2;small.command.nextAmount=1;
+          const one=describeTierARequest(small);
+          assert.equal(one.candidate.expectedOldAmount,2);assert.equal(one.candidate.nextAmount,1);
+          assert.equal(one.candidate.readSet[0].expectedType,'UINT32');
+          pos++;
+          const rejects=[
+           ['zero ActivityItem',i=>{i.command.canonicalItemId=30000001;i.command.compatibleItemType='ItemType_ActivityItem'}],
+           ['zero furniture foreign item prefix',i=>{i.command.canonicalItemId=30000001}],
+           ['zero activity mismatched type',i=>{i.command.compatibleItemType='ItemType_ActivityItem'}],
+           ['zero missing entry',i=>{i.command.entryPresent=false}],
+           ['zero missing ItemID',i=>{i.command.canonicalItemId=0}],
+           ['zero string ID',i=>{i.command.inventoryId='0'}],
+           ['zero lexical noncanonical',i=>{i.command.inventoryId='00'}],
+           ['negative inventory ID',i=>{i.command.inventoryId=-1}],
+           ['float inventory ID',i=>{i.command.inventoryId=.5}],
+           ['inventory over U32',i=>{i.command.inventoryId=4294967296}],
+           ['no-op',i=>{i.command.nextAmount=3}],
+           ['increase',i=>{i.command.nextAmount=4}],
+           ['two-unit decrease',i=>{i.command.nextAmount=1}],
+           ['would erase one',i=>{i.command.expectedOldAmount=1;i.command.nextAmount=0}],
+           ['fractional quantity',i=>{i.command.nextAmount=1.5}],
+           ['unsupported old amount',i=>{i.command.expectedOldAmount=10000}],
+           ['false Steam Build',i=>{i.target.schema=624}],
+           ['false source SHA',i=>{i.source.originalEncryptedSha256='not-a-sha'}],
+           ['invalid Session generation',i=>{i.session.indexGeneration=0}],
+           ['inject premium',i=>{i.command.entitlement=true}],
+           ['extra operation authority',i=>{i.operationOn=true}],
+           ['malformed original item type',i=>{i.command.compatibleItemType='ItemType_Premium'}]
+          ];
+          for(const [label,mutate] of rejects){
+           const obj=mk();mutate(obj);
+           const result=describeTierARequest(obj);
+           assert.equal(result.status,'BLOCKED',label);
+           assert.equal(result.writerAuthorized,false,label);
+           assert.equal(result.exportAuthorized,false,label);
+           assert.equal(result.productOperationEnabled,false,label);
+           neg++;
+          }
+          assert.equal(neg,rejects.length);
+          console.log('QRW2162_991D_CATALOG0_TYPED_READSET_REPAIR',JSON.stringify({
+           positives:pos,negatives:neg,
+           historicalHead:'309b3c506fa71de6e82882a65aadfc29b9f27582',historicTrueRedPreserved:true,
+           genuineSaveV2:'NOT_RUN',writerOn:false,operationOn:false
+          }));
+          
+          NODE
