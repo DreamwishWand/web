@@ -1,0 +1,189 @@
+name: 05 QR-C W-CORE-004 Mannequin saved signed map Rust L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-wcore004-mannequin-map-realshape-native-l2.yml'
+permissions:
+  contents: read
+jobs:
+  qrc-mannequin-realshape-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrc-mannequin-cargo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05qrc-act-wcore004-pr2278-mannequin-map-native-l2
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Original single Rust semantic delta and immutable one-path QA diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=0778ed44da9b619989a34dde419c686c1934af64
+          parent=f6e789694323750d0c055a8434718116dba11fc7
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD)" = ".github/workflows/05qrc-wcore004-mannequin-map-realshape-native-l2.yml"
+          test "$(git diff --name-only "$parent" "$source")" = "crates/ddv-save-core/src/product_amount_scoped.rs"
+          test "$(git rev-parse "HEAD:crates/ddv-save-core/src/product_amount_scoped.rs")" = 522e8e8d6beec597b2e5e176cfbe8a6d8e38a124
+          test "$(git rev-parse "$parent:crates/ddv-save-core/src/product_amount_scoped.rs")" = 13d861165bea3fb37f79d7bbc4cb9ab51669fa78
+          test "$(git rev-parse "HEAD:crates/ddv-save-core/src/semantic_writer.rs")" = f11c68ca214853c762788ae032710fc4683dd472
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo QRC2278_FROZEN_ONE_RUST_BLOB_QA_ONLY_ONE_WORKFLOW_PASS
+      - name: Compile independent two-saved-Mannequin real-shape & signed i32 boundary refutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('crates/ddv-save-core/src/product_amount_scoped.rs')
+          s=p.read_text()
+          anchor='    #[test]fn saved_grid_mannequin_customization_exact_int32_map_and_negative_refs(){'
+          assert s.count(anchor)==1, 'fixed Source test seam changed'
+          assert 'qa2278_two_saved_mannequins_signed_map_scope_l2' not in s
+          test=r'''
+              #[test]fn qa2278_two_saved_mannequins_signed_map_scope_l2(){
+                  let mut positives=0usize;let mut negatives=0usize;
+                  for chest in [false,true]{
+                      let item=if chest{30200000}else{40000048};
+                      for valid in [
+                          json!({}),
+                          json!({"50000001":i32::MIN,"50000002":i32::MAX}),
+                          json!({"50000001":0,"50000002":-1}),
+                          {
+                              let mut map=serde_json::Map::new();
+                              for clothing in 50000001..50000257{
+                                  map.insert(clothing.to_string(),json!(i32::MIN));
+                              }
+                              Value::Object(map)
+                          },
+                      ]{
+                          state_mannequin_customization(&valid,item).unwrap();
+                          positives+=1;
+                      }
+                      for (bad,code) in [
+                          (Value::Null,"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP"),
+                          (json!(["50000001"]),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP"),
+                          (json!({"050000001":0}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+                          (json!({"-50000001":0}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+                          (json!({"60000001":0}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+                          (json!({"50000001":2147483648u64}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                          (json!({"50000001":-2147483649i64}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                          (json!({"50000001":true}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                          (json!({"50000001":"0"}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                          (json!({"50000001":item}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                          {
+                              let mut map=serde_json::Map::new();
+                              for clothing in 50000001..50000258{
+                                  map.insert(clothing.to_string(),json!(0));
+                              }
+                              (Value::Object(map),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP")
+                          },
+                      ]{
+                          assert_eq!(state_mannequin_customization(&bad,item).unwrap_err().0,
+                              code,"chest={chest}, input={bad}");
+                          negatives+=1;
+                      }
+                      let mut d=if chest{chest_doc()}else{doc()};
+                      if !chest{
+                          d["World"]["GridCollection"]["Grids"]["7"]=
+                              json!({"ID":7,"GridDefaultLayoutPath":"","Objects":{}});
+                      }
+                      for n in [8,9]{
+                          let map=if n==8{
+                              json!({"50000001":i32::MIN,"50000002":0})
+                          }else{
+                              json!({"50000003":i32::MAX,"50000004":-1})
+                          };
+                          d["World"]["GridCollection"]["Grids"]["7"]["Objects"][n.to_string()]=json!({
+                              "ID":n,"ItemID":40009998,"State":{"Mannequin":{
+                                  "BodyType":0,"Clothes":{"0":50000001},
+                                  "ClothingCustomization":map,
+                                  "HairColorIndex":0,"HairHighlightColor":0,"IsMale":true
+                              }}
+                          });
+                      }
+                      let (sel,new,old)=if chest{
+                          (ExistingAmountSelection::Chest{container_id:12,slot_index:0},49,50)
+                      }else{
+                          (ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},2,3)
+                      };
+                      let session=open(&d);
+                      let before=session.receipt().unwrap();
+                      let target=session.preview_scoped_product_amount(
+                          scope(&session,WorkerAction::ReadDomain),sel,new).unwrap();
+                      assert_eq!(target.view().old_amount,old);
+                      assert_eq!(session.receipt().unwrap(),before);
+                      let staged=session.stage_scoped_product_amount(
+                          scope(&session,WorkerAction::Stage),sel,old,new,target.view().entry_sha256).unwrap();
+                      assert_eq!(staged.exact_field_changed_count,1);
+                      assert!(!staged.product_writer_authorized);
+                      session.undo_typed_semantic_batch(scope(&session,WorkerAction::Stage)).unwrap();
+                      assert!(session.take_typed_semantic_decoded_once(
+                          scope(&session,WorkerAction::ExportEditedCopy)).is_err());
+                      session.redo_typed_semantic_batch(scope(&session,WorkerAction::Stage)).unwrap();
+                      let exported=session.take_typed_semantic_decoded_once(
+                          scope(&session,WorkerAction::ExportEditedCopy)).unwrap();
+                      assert!(session.take_typed_semantic_decoded_once(
+                          scope(&session,WorkerAction::ExportEditedCopy)).is_err());
+                      let mut wanted=d.clone();
+                      if chest{
+                          wanted["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);
+                      }else{
+                          wanted["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);
+                      }
+                      assert_eq!(exported,serde_json::to_vec(&wanted).unwrap());
+                      // The original decoded real-shape, including BOTH signed
+                      // mannequin maps, is immutable. Only one Amount may change.
+                      assert_eq!(serde_json::to_vec(&d).unwrap(),
+                                 serde_json::to_vec(&if chest{chest_doc()}else{doc()})
+                                     .unwrap_or_default()); // replaced below
+                      positives+=1;
+                      for (bad,code) in [
+                          (json!({"50000001":item}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                          (json!({"050000001":0}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+                          (Value::Null,"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP"),
+                          (json!({"50000001":"1"}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                          (json!({"50000001":-2147483649i64}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                      ]{
+                          let mut q=d.clone();
+                          q["World"]["GridCollection"]["Grids"]["7"]["Objects"]["9"]["State"]
+                            ["Mannequin"]["ClothingCustomization"]=bad;
+                          let denied=open(&q);let receipt=denied.receipt().unwrap();
+                          assert_eq!(denied.preview_scoped_product_amount(
+                              scope(&denied,WorkerAction::ReadDomain),sel,new).unwrap_err().0,
+                              code,"chest={chest}");
+                          assert_eq!(denied.receipt().unwrap(),receipt);
+                          negatives+=1;
+                      }
+                  }
+                  assert_eq!((positives,negatives),(10,32));
+                  println!("QRC2278_TWO_SAVED_MANNEQUINS_REALSHAPE_SIGNED_I32_GLOBAL_10POS32NEG_PASS");
+              }
+          '''
+          # Correct unchanged-source check: snapshot fixture before stage in
+          # test instead of comparing with a different fixture.
+          test=test.replace(
+              'let session=open(&d);',
+              'let original_decoded=serde_json::to_vec(&d).unwrap();\n                      let session=open(&d);',
+              1)
+          test=test.replace(
+              '''assert_eq!(serde_json::to_vec(&d).unwrap(),
+                                 serde_json::to_vec(&if chest{chest_doc()}else{doc()})
+                                     .unwrap_or_default()); // replaced below''',
+              'assert_eq!(serde_json::to_vec(&d).unwrap(),original_decoded);')
+          assert '// replaced below' not in test
+          s=s.replace(anchor,test+anchor,1)
+          p.write_text(s)
+          print('QRC2278_SYNTHETIC_OWNERSAVE_REALSHAPE_TWO_MANNEQUINS_EPHEMERAL_ONLY')
+          PY
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --lib qa2278_two_saved_mannequins_signed_map_scope_l2 -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --lib global_mannequin_int32_map_preserves_scoped_amount_stage_both_targets -- --nocapture
+          echo QRC2278_NEW_RUST_INDEPENDENT_REALSHAPE_CAS_AND_MAP_BOUNDARIES_PASS
