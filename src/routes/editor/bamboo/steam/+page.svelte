@@ -17,7 +17,9 @@
 </svelte:head>
 <section class="inside-page container bamboo-readonly" data-bamboo-reader-ui="scoped-preparation"
   data-bamboo-runtime="off" data-bamboo-writer-authorized="false"
-  data-bamboo-source-file-enabled="false" data-bamboo-operation-on="false">
+  data-bamboo-source-file-enabled="false" data-bamboo-operation-on="false"
+  data-bamboo-item-id={BAMBOO_READONLY_OFF_SCOPE.itemId} data-bamboo-schema={BAMBOO_READONLY_OFF_SCOPE.schema}
+  data-bamboo-signed-feature-available={String(BAMBOO_READONLY_OFF_SCOPE.signedScopedReaderAvailable)}>
   <p class="eyebrow">EDITOR / STEAM / READ ONLY</p>
   <h1>{copy.title}</h1>
   <p class="kicker">{copy.kicker}</p>
