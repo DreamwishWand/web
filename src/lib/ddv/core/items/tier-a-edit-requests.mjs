@@ -46,6 +46,8 @@ const obj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v)&&
 const keys=(v,names)=>obj(v)&&
   Object.keys(v).length===names.length&&names.every(k=>Object.hasOwn(v,k));
 const SHA=/^[0-9a-f]{64}$/;
+// Exact canonical JSON null bytes; NOT an 'absent' State or a forged {}.
+const STEAM626_NULL_STATE_SHA256='74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b';
 const SID=/^[0-9a-f]{32}$/;
 const u32=v=>Number.isSafeInteger(v)&&v>=0&&v<=4294967295;
 const positiveId=v=>u32(v)&&v>0;
@@ -129,9 +131,10 @@ function requestChest({target,source,session,command}){
   if(!keys(command,['operation','containerInventoryId','containerParentItemId','belongsToPlayer',
     'size','slotCount','slotIndex','slotItemId','expectedOldAmount','nextAmount',
     'itemStateReadsetSha256','activeReferenceCount'])||
-    !positiveId(command.containerInventoryId)||steam626ItemTypeOf(command.containerParentItemId)!=='ItemType_Furniture'||
-    command.belongsToPlayer!==true||!u32(command.size)||command.size<1||command.size>256||
-    !u32(command.slotCount)||command.slotCount!==command.size||
+    !positiveId(command.containerInventoryId)||command.containerInventoryId<=1||
+    steam626ItemTypeOf(command.containerParentItemId)!=='ItemType_Furniture'||
+    command.belongsToPlayer!==true||command.size!==48||
+    command.slotCount!==48||
     !u32(command.slotIndex)||command.slotIndex>=command.slotCount||
     steam626ItemTypeOf(command.slotItemId)!=='ItemType_ActivityItem'||!SHA.test(command.itemStateReadsetSha256)||
     !u32(command.activeReferenceCount)||command.activeReferenceCount>1)
@@ -145,6 +148,13 @@ function requestChest({target,source,session,command}){
   // for the supported Steam626 linked Crop Chest profile. Do not propose a
   // wider amount delta here; actual parent/stock/rights remain Core-owned.
   if(b!==a-1)return reject('CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED');
+  // Current Rust eligible_bound is narrower than the historical structural
+  // proposal: linkedCropChest48, packaged stack 50, old50->new49, State:null.
+  // Parent membership, actual link, active subscribers and rights are STILL
+  // unproven here and always require the same Rust ProductSession re-read.
+  if(stackBound!==50||a!==50||b!==49||
+     command.itemStateReadsetSha256!==STEAM626_NULL_STATE_SHA256)
+    return reject('CHEST_STEAM626_LINKED_CROP_PROFILE_NOT_ESTABLISHED');
   const container=decimal(command.containerInventoryId),slot=decimal(command.slotIndex);
   const prefix='/Player/ContainerInventories/'+container;
   const path=prefix+'/Inventory/'+slot+'/Amount';
