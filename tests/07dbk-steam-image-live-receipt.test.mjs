@@ -23,20 +23,29 @@ const fake=(state,overrides={})=>{
     calls.push({url,method,headers,redirect});
     const isManifest=url.endsWith("manifest.json");
     if(state==="ON"){
+      const cacheHeaders=overrides.missingCacheValidators?{}:{
+        etag:overrides.cacheEtag??'"synthetic-observed-on-tag"',
+        "last-modified":overrides.cacheDate??"Wed, 18 Nov 2026 11:38:36 GMT"
+      };
       if(isManifest)return new Response(JSON.stringify({schema:"wand.item-images.steam-primary-release@1",
         assetVariant:variant,publication:{gate:"MEDIA_PUBLIC_SCOPED_ON"},
         items:{[id]:{webpSha256:digest(bytes)}}}),{
         status:overrides.manifestStatus??200,headers:{"content-type":"application/json"}});
       if(method==="HEAD")return new Response(null,{
         status:overrides.imageHeadStatus??200,
-        headers:{"content-type":"image/webp","content-length":String(bytes.length)}});
+        headers:{"content-type":"image/webp","content-length":String(bytes.length),...cacheHeaders}});
       return new Response(overrides.bytes??bytes,{
         status:overrides.imageStatus??200,
-        headers:{"content-type":overrides.imageMime??"image/webp"}});
+        headers:{"content-type":overrides.imageMime??"image/webp",...cacheHeaders}});
     }
     if(isManifest)return new Response(JSON.stringify({schema:"wand.item-images.steam-primary-release@1",assetVariant:variant,items:
       overrides.manifestKeepsItem?{[id]:{webpSha256:digest(bytes)}}:{}}),{
       status:200,headers:{"content-type":"application/json"}});
+    // Old CDNs can answer 304 for the exact real previously observed ETag,
+    // but 404 for unrelated, synthetic "stale" validators. This must be RED.
+    if(overrides.retainedActualCache304 &&
+       headers?.["If-None-Match"]==='"synthetic-observed-on-tag"')
+      return new Response(null,{status:304});
     const deniedStatus=overrides.deniedStatus??404;
     // Fetch Response forbids an entity body on 304, 204 and 205. Mock the
     // actual wire semantics, so the verifier (not the test fixture) rejects
@@ -97,6 +106,11 @@ test("ON requires actual GET/HEAD MIME exact SHA/size and scoped published manif
   assert.equal(result.receipt.phase,"ON");
   assert.equal(result.receipt.checks.length,3);
   assert.deepEqual(result.receipt.checks.map(x=>x.status),[200,200,200]);
+  for(const c of result.receipt.checks.slice(1))
+    assert.deepEqual(c.cacheValidators,{
+      etag:'"synthetic-observed-on-tag"',
+      lastModified:"Wed, 18 Nov 2026 11:38:36 GMT"
+    });
   assert.deepEqual(f.calls.map(x=>x.method),["GET","GET","HEAD"]);
   assert.equal(f.calls.every(x=>x.redirect==="manual"),true);
   assert.equal(result.receipt.fullGlobalCdnPurge,"NOT_PROVED");
@@ -128,12 +142,57 @@ test("published ON proof allows scoped postwithdraw manifest absence and 4 old U
   assert.deepEqual(receipt.checks.map(x=>x.status),[200,404,404,404,404]);
   assert.deepEqual(receipt.checks.slice(1).map(x=>x.method),
     ["GET","HEAD","GET_IF_NONE_MATCH","GET_IF_MODIFIED_SINCE"]);
-  assert.equal(f.calls.some(c=>c.headers["If-None-Match"]),true);
-  assert.equal(f.calls.some(c=>c.headers["If-Modified-Since"]),true);
+  assert.equal(f.calls.some(c=>c.headers["If-None-Match"]===
+    published.receipt.checks[1].cacheValidators.etag),true);
+  assert.equal(f.calls.some(c=>c.headers["If-Modified-Since"]===
+    published.receipt.checks[1].cacheValidators.lastModified),true);
   assert.equal(receipt.priorOnReceiptSha256,published.sha256);
   assert.equal(sha256,receiptDigest(receipt));
   assert.equal(receipt.fullGlobalCdnPurge,"NOT_PROVED");
 });
+test("WITHDRAW rejects real prior ON ETag retained as 304 while unrelated token gets 404",async()=>{
+  const {result:published}=await on(),f=fake("WITHDRAW",{retainedActualCache304:true});
+  await assert.rejects(isolatedVerify(withdrawArgs(published,f.fetchImpl)),
+    /LIVE_OLD_IMAGE_URL_STILL_SERVES/);
+  assert.ok(f.calls.some(c=>c.headers["If-None-Match"]===
+    published.receipt.checks[1].cacheValidators.etag),
+    "must issue the exact prior ON validator, never an invented stale tag");
+});
+test("WITHDRAW refuses missing or mismatched real prior GET/HEAD cache validators before HTTP",async()=>{
+  const {result:published}=await on();
+  const broken=[
+    checks=>checks.map((c,i)=>i===1?{...c,cacheValidators:null}:c),
+    checks=>checks.map((c,i)=>i===2?{...c,cacheValidators:{
+      ...c.cacheValidators,etag:'"foreign-etag"'}}:c),
+    checks=>checks.map((c,i)=>i===1?{...c,cacheValidators:{
+      ...c.cacheValidators,etag:"not-quoted"}}:c),
+    checks=>checks.map((c,i)=>i===1?{...c,cacheValidators:{
+      ...c.cacheValidators,lastModified:"not-an-http-date"}}:c)
+  ];
+  for(const mutation of broken){
+    const forged={...published.receipt,checks:mutation(published.receipt.checks)};
+    const f=fake("WITHDRAW");
+    await assert.rejects(isolatedVerify({...withdrawArgs(published,f.fetchImpl),
+      priorOnReceipt:forged,expectedOnReceiptSha256:receiptDigest(forged)}),
+      /PRIOR_REAL_CACHE_VALIDATORS_REQUIRED/);
+    assert.equal(f.calls.length,0,"do not HTTP probe using unauthenticated, absent or malformed old cache values");
+  }
+  const noCache=await verifySteamLiveImagePhase({...opts,phase:"ON",
+    fetchImpl:fake("ON",{missingCacheValidators:true}).fetchImpl});
+  const f=fake("WITHDRAW");
+  await assert.rejects(isolatedVerify(withdrawArgs(noCache,f.fetchImpl)),
+    /PRIOR_REAL_CACHE_VALIDATORS_REQUIRED/);
+  assert.equal(f.calls.length,0);
+});
+test("ON rejects malformed ETag and mismatched HEAD/GET validators",async()=>{
+  for(const overrides of [{cacheEtag:"unquoted"},
+    {cacheDate:"future-date-not-HTTP"}]){
+    const f=fake("ON",overrides);
+    await assert.rejects(verifySteamLiveImagePhase({...opts,phase:"ON",fetchImpl:f.fetchImpl}),
+      /LIVE_CACHE_VALIDATOR_INVALID/);
+  }
+});
+
 test("withdrawal fails on retained manifest, any cached 200/304/redirect or image signature",async()=>{
   const {result:published}=await on();
   for(const overrides of [{manifestKeepsItem:true},{deniedStatus:200},{deniedStatus:304},
@@ -225,6 +284,22 @@ test("tampered protected ON anchor entries and duplicate digests fail before ver
         "malformed/duplicate protected origin record cannot be silently skipped");
     }finally{rmSync(dir,{recursive:true,force:true});}
   }
+});
+
+test("actual HTTP IMF-fixdate requires exact UTC weekday and calendar day; no Date.parse normalization",async()=>{
+  for(const wrong of [
+    "Mon, 18 Nov 2026 11:38:36 GMT", // incorrect weekday
+    "Wed, 31 Nov 2026 11:38:36 GMT"  // non-existent November 31
+  ]){
+    const f=fake("ON",{cacheDate:wrong});
+    await assert.rejects(
+      verifySteamLiveImagePhase({...opts,phase:"ON",fetchImpl:f.fetchImpl}),
+      /LIVE_CACHE_VALIDATOR_INVALID/,wrong);
+  }
+  const f=fake("ON",{cacheDate:"Wed, 18 Nov 2026 11:38:36 GMT"});
+  const {receipt}=await verifySteamLiveImagePhase({...opts,phase:"ON",fetchImpl:f.fetchImpl});
+  assert.equal(receipt.checks[1].cacheValidators.lastModified,
+    "Wed, 18 Nov 2026 11:38:36 GMT");
 });
 
 test("ON and withdrawal never treat a source-only candidate receipt as an operator deployment",async()=>{
