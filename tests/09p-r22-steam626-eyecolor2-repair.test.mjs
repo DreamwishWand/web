@@ -34,6 +34,11 @@ const acceptedReleaseProfiles=Object.freeze([
  // independent Security L2 + 09INT are required before it becomes main.
  {core:'42086449f9deef26ed48b21d7edab0f5685da7c2',
   cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
+  config:'30551c7cc566614f64c8ba04748c3aef44b419bb'},
+ // Pending exact one Rust leaf 01A BattlePass safety Core stage. Owner/
+ // 09INT release and independent L2 are separate from a test profile.
+ {core:'36be23f81c4558eafd3557c85ac71ea56a1e3459',
+  cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
   config:'30551c7cc566614f64c8ba04748c3aef44b419bb'}
 ]);
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';

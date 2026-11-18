@@ -78,7 +78,9 @@ test('ACT1581 exact fixed R22 source selector static immutable eight-mint contra
  const currentConfigBlob=git('rev-parse','HEAD:'+inputPath);
  const approvedStagePairs=new Map([
   ['b5416aa726caea9d311075599ac606e11285b295',originalInputBlob],
-  ['42086449f9deef26ed48b21d7edab0f5685da7c2',expectedFutureInputBlob]
+  ['42086449f9deef26ed48b21d7edab0f5685da7c2',expectedFutureInputBlob],
+  // A one-leaf ongoing BattlePass reference safety change, not generic Core.
+  ['36be23f81c4558eafd3557c85ac71ea56a1e3459',expectedFutureInputBlob]
  ]);
  assert.ok(approvedStagePairs.has(currentCore),'UNAPPROVED_R22_CORE_STAGE');
  assert.equal(currentConfigBlob,approvedStagePairs.get(currentCore),

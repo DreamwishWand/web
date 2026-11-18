@@ -14,7 +14,9 @@ const coreAtHead=execFileSync('git',['rev-parse',currentHead+':crates/ddv-save-c
 // tests must instead construct their synthetic candidate from the PRE-product
 // accepted protected base: HEAD already has new Cargo and would be a no-op.
 const acceptedGateAnchor='e7a56d5ce4a717cd76191e345b79be12adef3df4';
-const baseHead=coreAtHead==='42086449f9deef26ed48b21d7edab0f5685da7c2'
+const productCore=coreAtHead==='42086449f9deef26ed48b21d7edab0f5685da7c2';
+const ongoingBattlePassCore=coreAtHead==='36be23f81c4558eafd3557c85ac71ea56a1e3459';
+const baseHead=(productCore||ongoingBattlePassCore)
  ?acceptedGateAnchor:currentHead;
 const productPaths=[
  ['.github/workflows/core-product-session-boundary.yml','8de94431af1e6d58e216fa06bf91a1329a7f7063'],
@@ -71,6 +73,8 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
    ['b5416aa726caea9d311075599ac606e11285b295',
     '5d2b35f6bc9f0b8544fc52f25a35614b59913d96'],
    ['42086449f9deef26ed48b21d7edab0f5685da7c2',
+    '30551c7cc566614f64c8ba04748c3aef44b419bb'],
+   ['36be23f81c4558eafd3557c85ac71ea56a1e3459',
     '30551c7cc566614f64c8ba04748c3aef44b419bb']
   ]);
   assert.ok(currentStage.has(coreAtHead),'UNAPPROVED_CURRENT_R22_CORE_STAGE');
@@ -82,7 +86,7 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
     '5d2b35f6bc9f0b8544fc52f25a35614b59913d96');
   assert.equal(git(['rev-parse',baseHead+':'+trustedPath]),
     '5aefdaff6a46ae9bdf1f5a37c4f0973442308a4a');
-  if(coreAtHead==='42086449f9deef26ed48b21d7edab0f5685da7c2'){
+  if(productCore||ongoingBattlePassCore){
    assert.equal(outerGit('merge-base','--is-ancestor',baseHead,currentHead),'');
   }
   // Explicitly seed each exact immutable public Source blob, even if clone
@@ -111,18 +115,33 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
   // pin each of the reviewed 8 source blobs/modes and all trusted Gate
   // authorities instead; the Core subtree is already pinned to its exact
   // accepted complete tree by currentStage above.
-  if(coreAtHead==='42086449f9deef26ed48b21d7edab0f5685da7c2'){
+  if(productCore||ongoingBattlePassCore){
    for(const [path,blob] of [...productPaths,[configPath,futureBlob]]){
     assert.equal(outerGit('ls-tree',currentHead,'--',path),
      '100644 blob '+blob+String.fromCharCode(9)+path,
      'PRODUCT_CURRENT_HEAD_BLOB_MODE_MISMATCH_'+path);
    }
-   for(const path of [trustedPath,selector,verifier,
+   // Stage profiles may change ONLY the accepted selector GitBlob;
+   // verifier/issuer/raw external trusted closure must remain immutable.
+   for(const path of [trustedPath,verifier,
     'scripts/wasm-distribution/r22-raw-rust-checkout.mjs',
     'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs']){
     assert.equal(outerGit('rev-parse',currentHead+':'+path),
       git(['rev-parse',baseHead+':'+path]),
       'PRODUCT_CURRENT_HEAD_MUTATED_TRUSTED_GATE_'+path);
+   }
+   const allowedSelectors=productCore?
+    ['f9675e69a30abf101e78aa77369e86707abba076',
+     '8ce652c75211e9b1071f95060de294acffdeaaba']:['8ce652c75211e9b1071f95060de294acffdeaaba'];
+   const selectorBlob=outerGit('rev-parse',currentHead+':'+selector);
+   assert.ok(allowedSelectors.includes(selectorBlob),'UNREVIEWED_SELECTOR_STAGE_BLOB');
+   assert.equal(outerGit('ls-tree',currentHead,'--',selector),
+    '100644 blob '+selectorBlob+String.fromCharCode(9)+selector);
+   if(ongoingBattlePassCore){
+    const amount='crates/ddv-save-core/src/product_amount_scoped.rs';
+    assert.equal(outerGit('ls-tree',currentHead,'--',amount),
+     '100644 blob 13d861165bea3fb37f79d7bbc4cb9ab51669fa78'+
+      String.fromCharCode(9)+amount,'UNREVIEWED_BATTLEPASS_AMOUNT_LEAF');
    }
   }
   const clean=run(baseHead,approved);
