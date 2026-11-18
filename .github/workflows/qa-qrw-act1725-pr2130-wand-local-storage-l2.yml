@@ -1,0 +1,110 @@
+name: QA ONLY 04 QR-W ACT1725 PR2130 Wand Favorite local recovery L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1725-pr2130-wand-local-storage-l2.yml'
+permissions:
+  contents: read
+jobs:
+  independent-local-storage-atomicity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 53bdc3ae72a660fe72a9edc42d4bcb7ce4e05e9d
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify fixed six original Product Git blobs, modes and unchanged Save/Moodboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 53bdc3ae72a660fe72a9edc42d4bcb7ce4e05e9d
+          test "$(git merge-base HEAD 3b87b852ec827179587c9853d4560ae755d750f1)" = 3b87b852ec827179587c9853d4560ae755d750f1
+          cat >/tmp/qrw2130-original <<'PINS'
+          d3777006c54e72f7cd6cf7fb4b7a8bb18b41d615 .github/workflows/08web-wand-favorites-local.yml A
+          32e68db8c9248d34c9b248d40a423cb95ad31957 scripts/web-explore-wand-favorites-chrome.mjs A
+          174a5d0ac372989cc8200fb4fa01a4edaccda8db src/lib/explore/copy.js M
+          c70c0884508f60e61b7b72ed94804ab507be164b src/lib/explore/wand-favorites-local.mjs A
+          421776b7a63e106e33f953841cfe7204bbc08ce1 src/routes/explore/+page.svelte M
+          290416881ac0ca2197bd8e092843701252820396 tests/web-explore-wand-favorites-local.test.mjs A
+          PINS
+          while read -r blob file kind; do
+            test "$(git rev-parse "HEAD:$file")" = "$blob"
+            test "$(git ls-tree HEAD "$file" | awk '{print $1}')" = "100644"
+            test "$(git diff --name-status 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- "$file" | cut -f1)" = "$kind"
+          done </tmp/qrw2130-original
+          awk '{print $2}' /tmp/qrw2130-original | LC_ALL=C sort >/tmp/qrw2130-expected
+          git diff --name-only 3b87b852ec827179587c9853d4560ae755d750f1 HEAD | LC_ALL=C sort >/tmp/qrw2130-actual
+          diff -u /tmp/qrw2130-expected /tmp/qrw2130-actual
+          git diff --quiet 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- \
+            src/lib/moodboards/store.js src/lib/ddv/core/save/ crates/ddv-save-core/ \
+            .github/workflows/pages.yml ops/ supabase/
+          echo QRW2130_FIXED_SOURCE_EXACT6_UNCHANGED_NATIVE_MOODBOARD_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Reuse focused five accepted local-only source tests, no unrelated full QA
+        run: node --test tests/web-explore-wand-favorites-local.test.mjs
+      - name: Independent adversarial invalid, capacity, failed backup and failed primary write preservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {
+            WAND_FAVORITES_SCHEMA,WAND_FAVORITES_STORAGE_KEY as K,
+            WAND_FAVORITES_BACKUP_KEY as B,
+            parseWandFavorites,persistWandFavorite,changeWandFavorite,emptyWandFavorites
+          } from './src/lib/explore/wand-favorites-local.mjs';
+          const valid=(ids)=>JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:ids});
+          let positive=0,negative=0;
+          const original=valid([40000047,40700007]);
+          const prior=valid([40000047]);
+          const data=new Map([[K,original],[B,prior]]);
+          const s={getItem:k=>data.get(k)??null,setItem:(k,v)=>{data.set(k,String(v))}};
+          const next=persistWandFavorite(s,40006096,true);
+          assert.deepEqual(next.itemIds,[40000047,40006096,40700007]);
+          assert.equal(data.get(B),original,'successful update saves exact prior raw');
+          assert.deepEqual(parseWandFavorites(data.get(K)),next);
+          positive++;
+          for(const bad of [
+            {schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[7,7]},
+            {schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[-1]},
+            {schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:['7']},
+            {schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[4294967296]},
+            {schema:WAND_FAVORITES_SCHEMA,version:2,itemIds:[7]},
+            {schema:'game.favorite.write',version:1,itemIds:[7]}
+          ]){assert.throws(()=>parseWandFavorites(JSON.stringify(bad)));negative++}
+          assert.throws(()=>changeWandFavorite(emptyWandFavorites(),0,true));negative++;
+          assert.throws(()=>changeWandFavorite(emptyWandFavorites(),1,'true'));negative++;
+          assert.throws(()=>changeWandFavorite({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:Array.from({length:5000},(_,i)=>i+1)},5001,true),/CAPACITY/);negative++;
+          // Storage backup failure: primary must remain unchanged, no partial new Favorite.
+          const failBackup=new Map([[K,original],[B,prior]]);
+          const backupDenied={getItem:k=>failBackup.get(k)??null,setItem:(k,v)=>{if(k===B)throw Error('QUOTA_BACKUP');failBackup.set(k,String(v))}};
+          assert.throws(()=>persistWandFavorite(backupDenied,40006096,true),/QUOTA_BACKUP/);
+          assert.equal(failBackup.get(K),original);
+          assert.equal(failBackup.get(B),prior);
+          negative++;
+          // Storage primary failure: previous successfully committed snapshot must also remain
+          // byte-for-byte intact; otherwise a failed write destroys recovery history.
+          const failPrimary=new Map([[K,original],[B,prior]]);
+          const primaryDenied={
+            getItem:k=>failPrimary.get(k)??null,
+            setItem:(k,v)=>{if(k===K)throw Error('QUOTA_PRIMARY');failPrimary.set(k,String(v))}
+          };
+          assert.throws(()=>persistWandFavorite(primaryDenied,40006096,true),/QUOTA_PRIMARY/);
+          assert.equal(failPrimary.get(K),original,'failed write cannot mutate committed primary');
+          assert.equal(failPrimary.get(B),prior,'failed write cannot erase previous recovery snapshot');
+          negative++;
+          // Strict separation: project never mutates Game Favorite, Moodboard, Cloud or Save.
+          const page=readFileSync('src/routes/explore/+page.svelte','utf8');
+          assert.ok(page.includes('data-explore-wand-favorites-only'));
+          assert.ok(page.includes('data-explore-wand-favorite'));
+          assert.ok(!/writeSaveFavorite|changeGameFavorite|stage_steam626/.test(page));
+          assert.notEqual(K,'dreamwishwand:moodboards:v1');
+          console.log('QRW2130_WAND_FAVORITES_STORAGE_RECOVERY_NEGATIVE_PASS',
+            JSON.stringify({positive,negative,backupBytePreserved:true,gameSave:false,cloud:false}));
+          NODE
