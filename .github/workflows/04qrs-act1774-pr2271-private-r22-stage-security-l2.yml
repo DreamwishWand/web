@@ -1,0 +1,190 @@
+name: 04 QR-S ACT1774 PR2271 fixed fourth R22 native private exact3 security QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2271-private-r22-stage-security-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2271-private-r22-stage-security-l2.yml'
+permissions:
+  contents: read
+jobs:
+  external-protected-private-fourth-core-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Immutable new R22 source and exactly one QA-only workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 7dbf260e0f7ac5fe116bacc803fdd6a8037fa37e HEAD
+          test "$(git diff --name-only 7dbf260e0f7ac5fe116bacc803fdd6a8037fa37e HEAD)" = ".github/workflows/04qrs-act1774-pr2271-private-r22-stage-security-l2.yml"
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = e54e5f0fd94c77dba6818b3c3307fe168a9eac8d
+      - name: Real protected old issuer and new fixed selector plus hostile original PR2267 Git objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS2271_NODE'
+          import assert from 'node:assert/strict';
+          import {spawnSync} from 'node:child_process';
+          import {mkdtempSync,rmSync,renameSync,symlinkSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {verifyAcceptedRustScope} from './scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          const main='9a5c72ebafe45987b762a8fcb6ecaa198e7a7fd9';
+          const reviewed='7dbf260e0f7ac5fe116bacc803fdd6a8037fa37e';
+          const original='f6e789694323750d0c055a8434718116dba11fc7';
+          const originalParent='906606344b17604fa4eee55e8b0482a5bec40335';
+          const sel='scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          const cli='scripts/wasm-distribution/r22-trusted-before-candidate.mjs';
+          const config='scripts/wasm-distribution/protected-release-inputs.json';
+          const cargo='crates/ddv-save-core/Cargo.toml';
+          const rust='crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs';
+          const semantic='crates/ddv-save-core/src/semantic_writer.rs';
+          const privateCI='.github/workflows/01a-private-product-amount-v2-bridge.yml';
+          const selector='e54e5f0fd94c77dba6818b3c3307fe168a9eac8d';
+          const sourcePaths=[
+           ['.github/workflows/09p-r22-switch626-makeup-gate-exact8.yml','5c82defd71c403340a930ed0e65bb944cfcef889'],
+           [sel,selector],
+           ['tests/09p-r22-amount-battlepass-exact1-gate.test.mjs','7d0ef3008910f782fc8db4645d3be72c41d98b2e'],
+           ['tests/09p-r22-amount-private-bridge-exact3-gate.test.mjs','1c0bdd044f3ddadb5c43cba6abcef5c313889336'],
+           ['tests/09p-r22-steam626-eyecolor2-repair.test.mjs','4508bafaf54e7618967b5dc7bf6491b8ae5a790d'],
+           ['tests/09p-r22-switch626-makeup-gate-exact8.test.mjs','589c21f19bdf1984ca49dd94db96015eaf1c1d96'],
+           ['tests/09p-r22-trusted-main-preflight.test.mjs','73fce7c974fb36448bdd2f0f31c27bae9be74de8']];
+          const originalChanged=[
+           [privateCI,null,'77f8bfa29f55f28d348892086c684af9c52011bd'],
+           [rust,'052219d4d8078c1ed0ad4fc4a02843423de8ee6c','9f783e64ec44fdc2d863a4634f3d334a89cf7f62'],
+           [semantic,'9472a792277f15e69d64118919835b12bed129f1','f11c68ca214853c762788ae032710fc4683dd472']];
+          const root=mkdtempSync(join(tmpdir(),'wand04qrs2271-'));
+          const work=join(root,'work');
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',GIT_TERMINAL_PROMPT:'0',
+           GIT_AUTHOR_NAME:'04 QR-S',GIT_AUTHOR_EMAIL:'qa@example.invalid',
+           GIT_COMMITTER_NAME:'04 QR-S',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
+          const run=(ex,args,cwd=work,input)=>spawnSync(ex,args,{cwd,env,input,encoding:'utf8',maxBuffer:14*1024*1024,timeout:90000});
+          const g=(...args)=>{const r=run('git',args);assert.equal(r.status,0,'GIT '+args.join(' ')+' '+r.stderr.slice(-850));return r.stdout.trim()};
+          const object=s=>{const r=run('git',['hash-object','-w','--stdin'],work,s);assert.equal(r.status,0,r.stderr);return r.stdout.trim()};
+          let index=0,pos=0,neg=0;
+          function synthetic(p,changes){
+           const idx=join(root,'index-'+(++index));
+           const x=args=>{const r=spawnSync('git',args,{cwd:work,env:{...env,GIT_INDEX_FILE:idx},encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout.trim()};
+           x(['read-tree',p+'^{tree}']);
+           for(const [f,sha,mode='100644'] of changes)x(['update-index','--add','--cacheinfo',mode,sha,f]);
+           return g('commit-tree',x(['write-tree']),'-p',p,'-m','QA-only ref-free git evidence');
+          }
+          function accept(label,receipt,expectedPr,count){
+           assert.equal(receipt.sourcePr,expectedPr);assert.equal(receipt.entryCount,count);
+           assert.equal(receipt.mergeAuthorized,false);assert.equal(receipt.writerAuthorized,false);
+           pos++;console.log('QRS2271_POS_'+label);
+          }
+          function deny(label,base,candidate){
+           assert.throws(()=>verifyAcceptedRustScope(work,base,candidate),
+           /R22_ACCEPTED_SCOPE_|SOURCE_PATH_SET_MISMATCH|INT_SELECTION_/,'SECURITY_FALSE_ACCEPT_'+label);
+           neg++;console.log('QRS2271_NEG_DENIED_'+label);
+          }
+          try{
+           const cloned=run('git',['clone','--no-hardlinks','--no-checkout','-q',process.cwd(),work],process.cwd());
+           assert.equal(cloned.status,0,'CLONE '+cloned.stderr);
+           assert.equal(g('merge-base',main,reviewed),main);
+           assert.deepEqual(g('diff','--name-only',main,reviewed).split('\n').filter(Boolean).sort(),sourcePaths.map(x=>x[0]).sort());
+           for(const [p,sha] of sourcePaths)assert.equal(g('ls-tree',reviewed,'--',p),'100644 blob '+sha+'\t'+p);
+           for(const p of [cli,'scripts/wasm-distribution/verify-protected-release.mjs',
+            'scripts/wasm-distribution/r22-raw-rust-checkout.mjs',
+            'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',
+            'scripts/int-selection-preflight.mjs','.github/workflows/pages.yml',cargo,config]){
+            assert.equal(g('rev-parse',main+':'+p),g('rev-parse',reviewed+':'+p),'UNREVIEWED_RELEASE_TRUST_CHANGE_'+p);
+           }
+           assert.equal(g('rev-parse',main+':crates/ddv-save-core'),'36be23f81c4558eafd3557c85ac71ea56a1e3459');
+           assert.equal(g('rev-parse',main+':'+cargo),'751a73da41d8b58f7de70643f50b97722a3c1260');
+           assert.equal(g('rev-parse',main+':'+config),'30551c7cc566614f64c8ba04748c3aef44b419bb');
+           assert.equal(g('rev-parse',main+':'+cli),'5aefdaff6a46ae9bdf1f5a37c4f0973442308a4a');
+           const gate=synthetic(main,[[sel,selector]]);
+           g('checkout','--force','--detach',main);
+           g('update-ref','refs/remotes/origin/main',main);
+           const oldCLI=run(process.execPath,[join(work,cli),main,gate]);
+           assert.notEqual(oldCLI.status,0,'PROTECTED_PRIOR_GATE_SELF_ISSUED');
+           assert.match(oldCLI.stderr,/R22_TRUSTED_PRE_CANDIDATE_DENIED/);
+           neg++;console.log('QRS2271_NEG_DENIED_OLD_TRUSTED_CLI_NEW_GATE_SELF_SIGN');
+           const historicalMakeup='e7a56d5ce4a717cd76191e345b79be12adef3df4';
+          const trustedMakeupPaths=['.github/workflows/core-product-session-boundary.yml',cargo,
+          'crates/ddv-save-core/src/product_makeup_color1.rs','crates/ddv-save-core/src/wasm_worker.rs',
+          'crates/ddv-save-core/src/worker_session.rs','crates/ddv-save-core/src/worker_switch626_makeup_color1.rs',
+          'crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs',config];
+          const signedOldMakeup=synthetic(historicalMakeup,trustedMakeupPaths.map(p=>[p,g('rev-parse',main+':'+p)]));
+          g('checkout','--force','--detach',historicalMakeup);
+          g('update-ref','refs/remotes/origin/main',historicalMakeup);
+          const trustedPositive=run(process.execPath,[join(work,cli),historicalMakeup,signedOldMakeup]);
+          assert.equal(trustedPositive.status,0,'HISTORIC_EXACT8_TRUSTED_POSITIVE_NOT_VALID: '+trustedPositive.stderr);
+          assert.match(trustedPositive.stdout,/R22_TRUSTED_PRE_CANDIDATE_EXACT8_SCOPE_ONLY/);
+          console.log('QRS2271_HISTORIC_EXTERNAL_TRUSTED_MAKEUP_EXACT8_POS_BEFORE_SYMLINK');
+          const issuer=join(work,'src/lib/ddv/core/save');
+           const outside=join(root,'outside_issuer');
+           renameSync(issuer,outside);symlinkSync(outside,issuer,'dir');
+           const escaped=run(process.execPath,[join(work,cli),historicalMakeup,signedOldMakeup]);
+           assert.notEqual(escaped.status,0,'SYMLINK_ESCAPED_ISSUER_ACCEPTED');
+           assert.match(escaped.stderr,/R22_TRUSTED_SELECTION_TRUSTED_PATH_SYMLINK_src\/lib\/ddv\/core\/save/);
+           neg++;console.log('QRS2271_NEG_DENIED_OUTSIDE_REPO_ISSUER_PARENT_SYMLINK');
+           rmSync(issuer);renameSync(outside,issuer);
+          g('checkout','--force','--detach',main);
+          g('update-ref','refs/remotes/origin/main',main);
+           const fetch=run('git',['fetch','--no-tags','--no-recurse-submodules','https://github.com/DreamwishWand/web.git','refs/pull/2267/head']);
+           assert.equal(fetch.status,0,'ORIGINAL_PRIVATE_SOURCE_FETCH_FAILED '+fetch.stderr);
+           assert.equal(g('rev-parse','FETCH_HEAD'),original);
+           assert.equal(g('merge-base',originalParent,original),originalParent);
+           assert.deepEqual(g('diff','--name-only',originalParent,original).split('\n').filter(Boolean).sort(),
+             originalChanged.map(x=>x[0]).sort());
+           for(const [path,before,after] of originalChanged){
+            assert.equal(g('ls-tree',main,'--',path),before===null?'':'100644 blob '+before+'\t'+path);
+            assert.equal(g('ls-tree',original,'--',path),'100644 blob '+after+'\t'+path);
+           }
+           assert.equal(g('rev-parse',original+':crates/ddv-save-core'),'10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c');
+           const edit=originalChanged.map(x=>[x[0],x[2]]);
+           const product=synthetic(gate,edit);
+           assert.equal(g('rev-parse',product+':crates/ddv-save-core'),'10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c');
+           const allowed=verifyAcceptedRustScope(work,gate,product);
+           accept('ORIGINAL_PRIVATE_EXACT3_AFTER_TRUSTED_GATE_ONLY',allowed,2267,3);
+           assert.equal(allowed.privateNativeOnly,true);assert.equal(allowed.operationOn,false);
+           const beforeBattle=synthetic(gate,[['crates/ddv-save-core/src/product_amount_scoped.rs','e6e360f5326b9a5cf6884600a4c9ecf642aa12fa']]);
+           const afterBattle=synthetic(beforeBattle,[['crates/ddv-save-core/src/product_amount_scoped.rs','13d861165bea3fb37f79d7bbc4cb9ab51669fa78']]);
+           accept('OLD_BATTLEPASS_EXACT1',verifyAcceptedRustScope(work,beforeBattle,afterBattle),2263,1);
+           const historical='e7a56d5ce4a717cd76191e345b79be12adef3df4';
+           const makeupPaths=['.github/workflows/core-product-session-boundary.yml',cargo,
+            'crates/ddv-save-core/src/product_makeup_color1.rs','crates/ddv-save-core/src/wasm_worker.rs',
+            'crates/ddv-save-core/src/worker_session.rs','crates/ddv-save-core/src/worker_switch626_makeup_color1.rs',
+            'crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs',config];
+           const makeup=synthetic(historical,makeupPaths.map(p=>[p,g('rev-parse',main+':'+p)]));
+           accept('OLD_MAKEUP_EXACT8',verifyAcceptedRustScope(work,historical,makeup),2217,8);
+           assert.equal(g('rev-parse',historical+':crates/ddv-save-core'),'b5416aa726caea9d311075599ac606e11285b295');
+           assert.equal(g('rev-parse',historical+':'+config),'5d2b35f6bc9f0b8544fc52f25a35614b59913d96');
+           pos++;console.log('QRS2271_POS_OLD_GATE_ONLY_IMMUTABLE_CORE_CONFIG');
+           const evil=object('// synthetic bad Rust or source Git Blob\n');
+           deny('NATIVE_WRONG_SHA',gate,synthetic(gate,[[rust,evil],[semantic,originalChanged[2][2]],[privateCI,originalChanged[0][2]]]));
+           deny('SEMANTIC_WRONG_SHA',gate,synthetic(gate,[[rust,originalChanged[1][2]],[semantic,evil],[privateCI,originalChanged[0][2]]]));
+           deny('PRIVATE_WORKFLOW_WRONG_SHA',gate,synthetic(gate,[[rust,originalChanged[1][2]],[semantic,originalChanged[2][2]],[privateCI,evil]]));
+           deny('NATIVE_EXECUTABLE_MODE',gate,synthetic(gate,[[rust,originalChanged[1][2],'100755'],[semantic,originalChanged[2][2]],[privateCI,originalChanged[0][2]]]));
+           deny('NATIVE_SYMLINK_MODE',gate,synthetic(gate,[[rust,originalChanged[1][2],'120000'],[semantic,originalChanged[2][2]],[privateCI,originalChanged[0][2]]]));
+           deny('SEMANTIC_EXECUTABLE_MODE',gate,synthetic(gate,[[rust,originalChanged[1][2]],[semantic,originalChanged[2][2],'100755'],[privateCI,originalChanged[0][2]]]));
+           deny('EXTRA_RUST',gate,synthetic(gate,[...edit,['crates/ddv-save-core/src/unreviewed.rs',evil]]));
+           deny('CHANGED_CARGO',gate,synthetic(gate,[...edit,[cargo,evil]]));
+           deny('CHANGED_R22_INPUTS',gate,synthetic(gate,[...edit,[config,evil]]));
+           deny('CHANGED_APPROVED_CARGO_LOCK',gate,synthetic(product,[['scripts/wasm-distribution/approved-Cargo.lock',evil]]));
+           deny('CHANGED_SELECTOR',gate,synthetic(product,[[sel,evil]]));
+           deny('CHANGED_VERIFIER',gate,synthetic(product,[['scripts/wasm-distribution/verify-protected-release.mjs',evil]]));
+           deny('CHANGED_TRUSTED_CLI',gate,synthetic(product,[[cli,evil]]));
+           deny('CHANGED_ISSUER',gate,synthetic(product,[['src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',evil]]));
+           deny('CHANGED_PAGES',gate,synthetic(product,[['.github/workflows/pages.yml',evil]]));
+           deny('MISSING_PRIVATE_WORKFLOW',gate,synthetic(gate,[[rust,originalChanged[1][2]],[semantic,originalChanged[2][2]]]));
+           deny('NO_EDIT',gate,synthetic(gate,[]));
+           deny('MIXED_OLD_GATE_WITH_CANDIDATE_SELECTOR',main,synthetic(main,[...edit,[sel,selector]]));
+           assert.equal(pos,4);assert.equal(neg,20);
+           console.log('QRS2271_FINAL_4POS_20NEG_NO_UNSIGNED_ISSUER_NO_OP',JSON.stringify({pos,neg,realEncryptedV2:'NOT_RUN'}));
+          }finally{rmSync(root,{recursive:true,force:true})}
+          QRS2271_NODE
+      - name: No product merge, Pages, permissions or Owner Save in QA
+        run: echo QRS2271_QA_ONLY_NEVER_MERGE_PUBLIC_WRITER_OFF
