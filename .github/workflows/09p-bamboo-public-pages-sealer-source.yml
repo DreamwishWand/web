@@ -1,0 +1,61 @@
+name: 09P Bamboo public signed3 Pages sealer SOURCE only (OFF)
+on:
+  pull_request:
+    paths:
+      - 'scripts/readonly-release/seal-bamboo-public-pages.mjs'
+      - 'tests/09p-bamboo-public-pages-sealer.test.mjs'
+      - '.github/workflows/09p-bamboo-public-pages-sealer-source.yml'
+permissions:
+  contents: read
+jobs:
+  exact-source-no-public-asset:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      WAND_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
+      WAND_BINDGEN_CLI: /tmp/wand-bamboo-public-sealer-bindgen/bin/wasm-bindgen
+      CARGO_TARGET_DIR: /tmp/wand-bamboo-public-sealer-rust
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deny forged protected issuer and unsafe trust pins
+        run: node --test tests/09p-bamboo-public-pages-sealer.test.mjs
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Preflight existing Rust/Lock and committed public OFF anchor
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = pull_request
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test ! -e static/worker-wasm-steam626-bamboo-readonly
+          test ! -e build/worker-wasm-steam626-bamboo-readonly
+          grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/readonly-release/seal-bamboo-public-pages.mjs preflight
+      - name: Generate actual Rust1.99.1/wasm-bindgen0.2.105 Bamboo only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-bamboo-readonly,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-bamboo-public-sealer-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+      - name: Reuse existing isolated actual Bamboo candidate, check exact manifest and all exports
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/wasm-distribution/build-bamboo40700007-readonly-candidate.mjs
+          node scripts/readonly-release/seal-bamboo-public-pages.mjs candidate
+          test ! -e static/worker-wasm-steam626-bamboo-readonly
+          test ! -e build/worker-wasm-steam626-bamboo-readonly
+          grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          echo BAMBOO_PUBLIC_SIGNER_SOURCE_ONLY_NO_OIDC_NO_PUBLIC_PAGES_NO_READER_ON
