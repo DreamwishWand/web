@@ -12,10 +12,10 @@ const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',
  GIT_AUTHOR_NAME:'R22 Synthetic QA',GIT_AUTHOR_EMAIL:'r22-qa@example.invalid',
  GIT_COMMITTER_NAME:'R22 Synthetic QA',GIT_COMMITTER_EMAIL:'r22-qa@example.invalid'};
 const raw=(args,options={})=>execFileSync('git',args,{
- cwd,env:{...env,...options.env},encoding:options.encoding||'utf8',input:options.input,
+ cwd,env:{...env,...options.env},encoding:options.raw?null:'utf8',input:options.input,
  stdio:['pipe','pipe','pipe'],maxBuffer:12*1024*1024});
 const git=(...args)=>raw(args).trim();
-const bytes=(...args)=>raw(args,{encoding:'buffer'});
+const bytes=(...args)=>raw(args,{raw:true});
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const inputPath='scripts/wasm-distribution/protected-release-inputs.json';
 const cargoPath='crates/ddv-save-core/Cargo.toml';
