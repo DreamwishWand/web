@@ -12,8 +12,8 @@ const base=()=>({
   session:{sessionId:'b'.repeat(32),revision:3,indexGeneration:7,decodedSha256:hash('c')},
   command:{
     operation:'Inventory.ExistingAmountDecrease',
-    inventoryId:4,canonicalItemId:30000001,
-    compatibleItemType:'ItemType_ActivityItem',
+    inventoryId:0,canonicalItemId:40000048,
+    compatibleItemType:'ItemType_Furniture',
     expectedOldAmount:50,nextAmount:49,entryPresent:true
   }
 });
@@ -58,16 +58,16 @@ test('Inventory 50→49 is only a strictly scoped scalar candidate, not past act
   const x=plan();
   assert.equal(x.contract,TIER_A_CONTRACT);
   assert.equal(x.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
-  assert.equal(x.candidate.fieldPath,'/Player/ListInventories/4/Inventory/30000001/Amount');
+  assert.equal(x.candidate.fieldPath,'/Player/ListInventories/0/Inventory/40000048/Amount');
   assert.deepEqual(x.candidate.exactAllowedPaths,[x.candidate.fieldPath]);
   assert.equal(x.candidate.expectedOldAmount,50);
   assert.equal(x.candidate.nextAmount,49);
-  assert.equal(x.candidate.readSet[0].expectedValue,4);
-  assert.equal(x.candidate.readSet[0].expectedType,'POSITIVE_UINT32');
-  assert.equal(x.candidate.readSet[1].expectedValue,'ItemType_ActivityItem');
+  assert.equal(x.candidate.readSet[0].expectedValue,0);
+  assert.equal(x.candidate.readSet[0].expectedType,'UINT32');
+  assert.equal(x.candidate.readSet[1].expectedValue,'ItemType_Furniture');
   assert.deepEqual(x.candidate.nativeDevCommand,{variant:'InventoryExistingAmountDecrease',
-    inventory_id:4,canonical_item_id:30000001,
-    expected_compatible_item_type:'ItemType_ActivityItem',expected_old_amount:50,new_amount:49});
+    inventory_id:0,canonical_item_id:40000048,
+    expected_compatible_item_type:'ItemType_Furniture',expected_old_amount:50,new_amount:49});
   assert.equal(x.sessionSnapshot.revision,3);
   assert.equal(x.sessionSnapshot.indexGeneration,7);
   assert.equal(x.authoritativeCoreValidationRequired,true);
@@ -101,6 +101,10 @@ test('Unknown ItemID, alias type, missing entry or unverified route fail closed'
   blocked(x=>{x.command.canonicalItemId=4294967296},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.canonicalItemId='40000047'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.inventoryId='00'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(x=>{x.command.inventoryId=4},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(x=>{x.command.inventoryId=1},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(x=>{x.command.canonicalItemId=30000001;x.command.compatibleItemType='ItemType_ActivityItem'},
+    'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.inventoryId=-1},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.inventoryId=4294967296},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.inventoryId=null},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
@@ -142,8 +146,9 @@ test('Steam626 Catalog0 inventory ID 0 is a bounded ordinary Furniture candidate
   assert.equal(x.releaseFlags.MediaPublic,false);
   // Catalog0 is not a blanket zero-ID route for arbitrary ActivityItem,
   // unknown ownership, or caller-forged inventory shape.
-  blocked(p=>{p.command.inventoryId=0},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
-  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(p=>{p.command.inventoryId=4},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=30000001;
+    p.command.compatibleItemType='ItemType_ActivityItem'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
     p.command.compatibleItemType='ItemType_Furniture';p.command.entryPresent=false},
     'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
