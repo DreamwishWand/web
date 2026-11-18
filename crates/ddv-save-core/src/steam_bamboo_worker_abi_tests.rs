@@ -155,7 +155,7 @@ fn bamboo_qrc2095_exact_receipt_26_fields_and_no_authority() {
     assert_eq!(receipt["decodedSha256"],decoded_hex);
     for key in ["rootSha256","gridSha256","counterSha256","stockSha256","housesSha256"] {
         let bytes=receipt[key].as_str().unwrap();
-        assert_eq!(bytes.len(),64,key);
+        assert_eq!(bytes.len(),64,"invalid digest length: {}",key);
         assert!(bytes.bytes().all(|v|v.is_ascii_hexdigit()),"invalid digest {key}");
     }
     assert_eq!(guard.receipt().unwrap(),before);
