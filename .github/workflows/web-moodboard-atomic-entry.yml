@@ -110,6 +110,32 @@ jobs:
             for p in .github/workflows/08web-decux24-moodboard-root.yml .github/workflows/web-moodboard-atomic-entry.yml scripts/web-moodboard-decux24-root-grid-chrome.mjs src/routes/moodboards/+page.svelte tests/web-moodboard-decux24-root-grid.test.mjs; do
               test "$(git ls-tree HEAD "$p" | awk '{print $1}')" = 100644
             done
+          elif test "$(git rev-parse HEAD:src/routes/moodboards/+page.svelte)" = 19edbc9c05e8b95267a63f1fd7145945c6a78f30 && \
+               test "$(git rev-parse HEAD:src/lib/moodboards/copy.js)" = 238a09b606e3af4c533a274787933e8f0e00e2a3 && \
+               test "$(git rev-parse HEAD:tests/web-moodboard-decux49-ungroup-preserves-refs.test.mjs)" = 614a3141493e2acdf026ddf68e05836e2111f4c3 && \
+               test "$(git rev-parse HEAD:scripts/web-moodboard-decux49-ungroup-chrome.mjs)" = ba9aba3046d9a0fcc647adf4d6b438afa6330474 && \
+               test "$(git rev-parse HEAD:.github/workflows/08web-decux49-moodboard-ungroup.yml)" = 0db3277463ed582d043501507ab7fd7ca2b11510; then
+            # DEC-UX-49 precise changed-only source allowing non-destructive
+            # Group UNGROUP via existing Store; do not expand legacy allowlists.
+            cat >/tmp/atomic-entry-decux49-scope <<'SCOPE'
+          .github/workflows/web-moodboard-atomic-entry.yml
+          .github/workflows/08web-decux49-moodboard-ungroup.yml
+          scripts/web-moodboard-decux49-ungroup-chrome.mjs
+          src/lib/moodboards/copy.js
+          src/routes/moodboards/+page.svelte
+          tests/web-moodboard-decux49-ungroup-preserves-refs.test.mjs
+          SCOPE
+            LC_ALL=C sort /tmp/atomic-entry-decux49-scope >/tmp/atomic-entry-decux49-expected
+            diff -u /tmp/atomic-entry-decux49-expected /tmp/atomic-entry-actual
+            for p in .github/workflows/web-moodboard-atomic-entry.yml src/lib/moodboards/copy.js src/routes/moodboards/+page.svelte; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M
+            done
+            for p in .github/workflows/08web-decux49-moodboard-ungroup.yml scripts/web-moodboard-decux49-ungroup-chrome.mjs tests/web-moodboard-decux49-ungroup-preserves-refs.test.mjs; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+            done
+            for p in .github/workflows/web-moodboard-atomic-entry.yml .github/workflows/08web-decux49-moodboard-ungroup.yml scripts/web-moodboard-decux49-ungroup-chrome.mjs src/lib/moodboards/copy.js src/routes/moodboards/+page.svelte tests/web-moodboard-decux49-ungroup-preserves-refs.test.mjs; do
+              test "$(git ls-tree HEAD "$p" | awk '{print $1}')" = 100644
+            done
           else
             # Explicit ACT519 migration successor scope, not a general path-filter bypass.
             cat >/tmp/atomic-entry-migration-scope <<'SCOPE'

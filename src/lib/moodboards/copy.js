@@ -13,7 +13,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'Cloud sync is not bound here. Local Moodboards remain fully usable without it.',
     item:'Item', gallery:'Gallery Work', preset:'Wand Preset', link:'Link', noteType:'Note', count:'references',
     groups:"Groups", newGroup:"New Group", createGroup:"Create Group", unsorted:"Unsorted",
-    openWorldEditor:"Open in World Editor", assignGroups:"Groups", collapse:"Collapse", expand:"Expand", noRefs:"No references in this section.", atomicLink:"Open isolated local Board preview", atomicNote:"Optional: this preview saves to separate IndexedDB storage. Existing Moodboards and their localStorage backups are not migrated, merged, replaced or deleted. Changes here do not appear in the original Moodboards. The usual Collection first-board creation remains off."
+    openWorldEditor:"Open in World Editor", assignGroups:"Groups", collapse:"Collapse", expand:"Expand", ungroup:'Remove Group (keep contents)', noRefs:"No references in this section.", atomicLink:"Open isolated local Board preview", atomicNote:"Optional: this preview saves to separate IndexedDB storage. Existing Moodboards and their localStorage backups are not migrated, merged, replaced or deleted. Changes here do not appear in the original Moodboards. The usual Collection first-board creation remains off."
   },
   fr: {
     exportPrevious:"Exporter l’instantané précédent", portableNote:"Pour changer de site, exportez séparément les instantanés actuel et précédent. Importez le JSON actuel uniquement dans une destination vide. Fermez les autres onglets Moodboards avant l’importation. Les fichiers restent sur cet appareil.", portableCollision:"Importation bloquée : la destination contient des données ou a changé. Les données et la sauvegarde sont conservées.", portableInvalid:"Utilisez un export Moodboard intact au format actuel. Aucune donnée manquante, invalide, trop volumineuse ou indisponible n’a été importée.",
@@ -29,7 +29,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'La synchronisation Cloud n’est pas liée ici. Les Moodboards locaux restent pleinement utilisables.',
     item:'Objet', gallery:'Œuvre Gallery', preset:'Preset Wand', link:'Lien', noteType:'Note', count:'références',
     groups:"Groupes", newGroup:"Nouveau groupe", createGroup:"Créer le groupe", unsorted:"Non classé",
-    openWorldEditor:"Ouvrir dans World Editor", assignGroups:"Groupes", collapse:"Réduire", expand:"Développer", noRefs:"Aucune référence dans cette section.", atomicLink:"Ouvrir l’aperçu du tableau local isolé", atomicNote:"Facultatif : cet aperçu utilise un stockage IndexedDB distinct. Les Moodboards existants et leurs sauvegardes localStorage ne sont ni migrés, ni fusionnés, ni remplacés, ni supprimés. Les modifications ne se retrouvent pas dans les Moodboards d’origine. La première création dans Collection reste désactivée."
+    openWorldEditor:"Ouvrir dans World Editor", assignGroups:"Groupes", collapse:"Réduire", expand:"Développer", ungroup:'Retirer le groupe (garder le contenu)', noRefs:"Aucune référence dans cette section.", atomicLink:"Ouvrir l’aperçu du tableau local isolé", atomicNote:"Facultatif : cet aperçu utilise un stockage IndexedDB distinct. Les Moodboards existants et leurs sauvegardes localStorage ne sont ni migrés, ni fusionnés, ni remplacés, ni supprimés. Les modifications ne se retrouvent pas dans les Moodboards d’origine. La première création dans Collection reste désactivée."
   },
   it: {
     exportPrevious:"Esporta snapshot precedente", portableNote:"Per cambiare sito, esporta separatamente gli snapshot attuale e precedente. Importa il JSON attuale solo in una destinazione vuota. Chiudi le altre schede Moodboards prima dell’importazione. I file restano sul dispositivo.", portableCollision:"Importazione bloccata: la destinazione contiene dati o è cambiata. Dati e backup sono conservati.", portableInvalid:"Usa un export Moodboard integro nel formato attuale. Dati mancanti, non validi, troppo grandi o non disponibili non sono stati importati.",
@@ -45,7 +45,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'La sincronizzazione Cloud non è collegata qui. I Moodboard locali restano pienamente utilizzabili.',
     item:'Oggetto', gallery:'Opera Gallery', preset:'Preset Wand', link:'Link', noteType:'Nota', count:'riferimenti',
     groups:"Gruppi", newGroup:"Nuovo gruppo", createGroup:"Crea gruppo", unsorted:"Non ordinati",
-    openWorldEditor:"Apri in World Editor", assignGroups:"Gruppi", collapse:"Comprimi", expand:"Espandi", noRefs:"Nessun riferimento in questa sezione.", atomicLink:"Apri l’anteprima del Board locale isolato", atomicNote:"Facoltativo: questa anteprima usa uno spazio IndexedDB separato. I Moodboard esistenti e i relativi backup localStorage non vengono migrati, uniti, sostituiti o eliminati. Le modifiche non appaiono nei Moodboard originali. La creazione iniziale da Collection rimane disattivata."
+    openWorldEditor:"Apri in World Editor", assignGroups:"Gruppi", collapse:"Comprimi", expand:"Espandi", ungroup:'Rimuovi gruppo (mantieni contenuti)', noRefs:"Nessun riferimento in questa sezione.", atomicLink:"Apri l’anteprima del Board locale isolato", atomicNote:"Facoltativo: questa anteprima usa uno spazio IndexedDB separato. I Moodboard esistenti e i relativi backup localStorage non vengono migrati, uniti, sostituiti o eliminati. Le modifiche non appaiono nei Moodboard originali. La creazione iniziale da Collection rimane disattivata."
   },
   de: {
     exportPrevious:"Vorherigen Snapshot exportieren", portableNote:"Beim Site-Wechsel aktuellen und vorherigen Snapshot getrennt exportieren. Aktuelles JSON nur in ein leeres Ziel importieren. Andere Moodboard-Tabs vorher schließen. Dateien bleiben auf diesem Gerät.", portableCollision:"Import blockiert: Ziel enthält Daten oder wurde geändert. Daten und Sicherung bleiben erhalten.", portableInvalid:"Einen unveränderten Moodboard-Export im aktuellen Format verwenden. Fehlende, ungültige, zu große oder nicht verfügbare Daten wurden nicht importiert.",
@@ -61,7 +61,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'Cloud-Synchronisierung ist hier nicht angebunden. Lokale Moodboards bleiben vollständig nutzbar.',
     item:'Gegenstand', gallery:'Gallery-Werk', preset:'Wand Preset', link:'Link', noteType:'Notiz', count:'Referenzen',
     groups:"Gruppen", newGroup:"Neue Gruppe", createGroup:"Gruppe erstellen", unsorted:"Unsortiert",
-    openWorldEditor:"In World Editor öffnen", assignGroups:"Gruppen", collapse:"Einklappen", expand:"Ausklappen", noRefs:"Keine Referenzen in diesem Abschnitt.", atomicLink:"Isolierte lokale Board-Vorschau öffnen", atomicNote:"Optional: Diese Vorschau nutzt einen eigenen IndexedDB-Speicher. Bestehende Moodboards und ihre localStorage-Backups werden weder migriert noch zusammengeführt, ersetzt oder gelöscht. Änderungen erscheinen nicht in den ursprünglichen Moodboards. Die erste Erstellung in Collection bleibt deaktiviert."
+    openWorldEditor:"In World Editor öffnen", assignGroups:"Gruppen", collapse:"Einklappen", expand:"Ausklappen", ungroup:'Gruppe aufheben (Inhalte behalten)', noRefs:"Keine Referenzen in diesem Abschnitt.", atomicLink:"Isolierte lokale Board-Vorschau öffnen", atomicNote:"Optional: Diese Vorschau nutzt einen eigenen IndexedDB-Speicher. Bestehende Moodboards und ihre localStorage-Backups werden weder migriert noch zusammengeführt, ersetzt oder gelöscht. Änderungen erscheinen nicht in den ursprünglichen Moodboards. Die erste Erstellung in Collection bleibt deaktiviert."
   },
   'es-ES': {
     exportPrevious:"Exportar instantánea anterior", portableNote:"Para cambiar de sitio, exporta por separado las instantáneas actual y anterior. Importa el JSON actual solo en un destino vacío. Cierra las demás pestañas de Moodboards antes de importar. Los archivos permanecen en este dispositivo.", portableCollision:"Importación bloqueada: el destino contiene datos o ha cambiado. Se conservan los datos y la copia de seguridad.", portableInvalid:"Usa una exportación de Moodboard intacta en el formato actual. No se importaron datos ausentes, inválidos, demasiado grandes o no disponibles.",
@@ -77,7 +77,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'La sincronización Cloud no está conectada aquí. Los Moodboards locales siguen siendo plenamente utilizables.',
     item:'Objeto', gallery:'Obra de Gallery', preset:'Preset de Wand', link:'Enlace', noteType:'Nota', count:'referencias',
     groups:"Grupos", newGroup:"Nuevo grupo", createGroup:"Crear grupo", unsorted:"Sin clasificar",
-    openWorldEditor:"Abrir en World Editor", assignGroups:"Grupos", collapse:"Contraer", expand:"Expandir", noRefs:"No hay referencias en esta sección.", atomicLink:"Abrir vista previa del tablero local aislado", atomicNote:"Opcional: esta vista previa usa un almacenamiento IndexedDB separado. Los Moodboards existentes y sus copias en localStorage no se migran, combinan, reemplazan ni eliminan. Los cambios no aparecen en los Moodboards originales. La creación inicial en Collection sigue desactivada."
+    openWorldEditor:"Abrir en World Editor", assignGroups:"Grupos", collapse:"Contraer", expand:"Expandir", ungroup:'Quitar grupo (conservar contenido)', noRefs:"No hay referencias en esta sección.", atomicLink:"Abrir vista previa del tablero local aislado", atomicNote:"Opcional: esta vista previa usa un almacenamiento IndexedDB separado. Los Moodboards existentes y sus copias en localStorage no se migran, combinan, reemplazan ni eliminan. Los cambios no aparecen en los Moodboards originales. La creación inicial en Collection sigue desactivada."
   },
   ja: {
     exportPrevious:"前のスナップショットを出力", portableNote:"サイト移行時は現在と前のスナップショットを別々に出力し、現在のJSONを空の移行先にのみ入力してください。入力前に他のMoodboardタブを閉じてください。ファイルは端末内に留まります。", portableCollision:"入力を拒否しました。移行先にデータがあるか、読込中に変更されました。既存データとバックアップは保持されます。", portableInvalid:"現在の形式で出力した未変更のMoodboardファイルを使用してください。欠落・不正・容量超過・利用不可のデータは入力していません。",
@@ -93,7 +93,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'この画面にはCloud同期を接続していません。ローカルMoodboardはCloudなしで完全に利用できます。',
     item:'アイテム', gallery:'Gallery作品', preset:'Wand Preset', link:'リンク', noteType:'メモ', count:'件',
     groups:"Groups", newGroup:"新しいGroup", createGroup:"Groupを作成", unsorted:"Unsorted",
-    openWorldEditor:"World Editorで開く", assignGroups:"Groups", collapse:"折りたたむ", expand:"展開", noRefs:"このセクションに参照はありません。", atomicLink:"隔離されたローカルBoardを試す", atomicNote:"任意のプレビューです。新しいIndexedDBと従来のMoodboard用localStorageは別の保存領域です。既存Boardやバックアップを自動移行・統合・上書き・削除せず、ここでの変更は従来のMoodboardには反映されません。Collectionの通常の初回作成は引き続きOFFです。"
+    openWorldEditor:"World Editorで開く", assignGroups:"Groups", collapse:"折りたたむ", expand:"展開", ungroup:'グループを解除（内容は保持）', noRefs:"このセクションに参照はありません。", atomicLink:"隔離されたローカルBoardを試す", atomicNote:"任意のプレビューです。新しいIndexedDBと従来のMoodboard用localStorageは別の保存領域です。既存Boardやバックアップを自動移行・統合・上書き・削除せず、ここでの変更は従来のMoodboardには反映されません。Collectionの通常の初回作成は引き続きOFFです。"
   },
   'zh-CN': {
     exportPrevious:"导出上一个快照", portableNote:"迁移站点时，请分别导出当前和上一个快照。仅将当前 JSON 导入空白目标。导入前关闭其他 Moodboard 标签页。文件保留在此设备上。", portableCollision:"导入已阻止：目标已有数据或读取时发生变化。现有数据和备份已保留。", portableInvalid:"请使用未修改的当前格式 Moodboard 导出文件。缺失、无效、过大或不可用的数据未导入。",
@@ -109,7 +109,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'此界面尚未连接 Cloud 同步。本地 Moodboard 无需 Cloud 也可完整使用。',
     item:'物品', gallery:'Gallery 作品', preset:'Wand Preset', link:'链接', noteType:'笔记', count:'项',
     groups:"分组", newGroup:"新建分组", createGroup:"创建分组", unsorted:"未分类",
-    openWorldEditor:"在 World Editor 中打开", assignGroups:"分组", collapse:"折叠", expand:"展开", noRefs:"此分区没有引用。", atomicLink:"打开隔离的本地 Board 预览", atomicNote:"此功能为可选预览，使用独立的 IndexedDB 存储。现有 Moodboard 及其 localStorage 备份不会自动迁移、合并、覆盖或删除。此处的更改不会出现在原有 Moodboard 中。Collection 中的首次创建仍处于关闭状态。"
+    openWorldEditor:"在 World Editor 中打开", assignGroups:"分组", collapse:"折叠", expand:"展开", ungroup:'移除分组（保留内容）', noRefs:"此分区没有引用。", atomicLink:"打开隔离的本地 Board 预览", atomicNote:"此功能为可选预览，使用独立的 IndexedDB 存储。现有 Moodboard 及其 localStorage 备份不会自动迁移、合并、覆盖或删除。此处的更改不会出现在原有 Moodboard 中。Collection 中的首次创建仍处于关闭状态。"
   },
   'pt-BR': {
     exportPrevious:"Exportar snapshot anterior", portableNote:"Para mudar de site, exporte os snapshots atual e anterior separadamente. Importe o JSON atual apenas em um destino vazio. Feche outras abas de Moodboards antes de importar. Os arquivos ficam neste dispositivo.", portableCollision:"Importação bloqueada: o destino contém dados ou foi alterado. Dados e backup foram preservados.", portableInvalid:"Use uma exportação Moodboard intacta no formato atual. Dados ausentes, inválidos, grandes demais ou indisponíveis não foram importados.",
@@ -125,7 +125,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'A sincronização Cloud não está conectada aqui. Moodboards locais continuam totalmente utilizáveis.',
     item:'Item', gallery:'Obra da Gallery', preset:'Preset do Wand', link:'Link', noteType:'Nota', count:'referências',
     groups:"Grupos", newGroup:"Novo grupo", createGroup:"Criar grupo", unsorted:"Não classificados",
-    openWorldEditor:"Abrir no World Editor", assignGroups:"Grupos", collapse:"Recolher", expand:"Expandir", noRefs:"Nenhuma referência nesta seção.", atomicLink:"Abrir prévia do Board local isolado", atomicNote:"Opcional: esta prévia utiliza um armazenamento IndexedDB separado. Os Moodboards existentes e seus backups no localStorage não são migrados, mesclados, substituídos nem excluídos. As alterações não aparecem nos Moodboards originais. A criação inicial no Collection permanece desativada."
+    openWorldEditor:"Abrir no World Editor", assignGroups:"Grupos", collapse:"Recolher", expand:"Expandir", ungroup:'Remover grupo (manter conteúdo)', noRefs:"Nenhuma referência nesta seção.", atomicLink:"Abrir prévia do Board local isolado", atomicNote:"Opcional: esta prévia utiliza um armazenamento IndexedDB separado. Os Moodboards existentes e seus backups no localStorage não são migrados, mesclados, substituídos nem excluídos. As alterações não aparecem nos Moodboards originais. A criação inicial no Collection permanece desativada."
   }
 });
 
