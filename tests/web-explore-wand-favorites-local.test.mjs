@@ -95,3 +95,51 @@ test('Eight languages distinguish Wand Favorite from board membership and Game F
   assert.notEqual(c.wandFavoriteRemove,c.remove);
  }
 });
+
+test('Quota denial on current write preserves BOTH original document and previously committed backup bytes',()=>{
+ const raw=JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[40000047]});
+ const prior=JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[40700007]});
+ const data=new Map([[WAND_FAVORITES_STORAGE_KEY,raw],[WAND_FAVORITES_BACKUP_KEY,prior]]);
+ const s={
+  getItem:k=>data.get(k)??null,
+  setItem(k,v){if(k===WAND_FAVORITES_STORAGE_KEY)throw Error('SYNTHETIC_QUOTA_PRIMARY');data.set(k,String(v));}
+ };
+ assert.throws(()=>persistWandFavorite(s,30200001,true),/SYNTHETIC_QUOTA_PRIMARY/);
+ assert.equal(data.get(WAND_FAVORITES_STORAGE_KEY),raw);
+ assert.equal(data.get(WAND_FAVORITES_BACKUP_KEY),prior,'failed commit must not erase an older recoverable snapshot');
+});
+
+test('Failed first backup and first primary writes roll back without phantom favorites or other keys',()=>{
+ const raw=JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[40000047]});
+ const foreign='{\"gameFavorite\":[\"KEEP\"]}';
+ const data=new Map([[WAND_FAVORITES_STORAGE_KEY,raw],['dreamwishwand:game-favorite:v1',foreign]]);
+ const s={
+  getItem:k=>data.get(k)??null,
+  setItem(k,v){if(k===WAND_FAVORITES_BACKUP_KEY)throw Error('SYNTHETIC_BACKUP_QUOTA');data.set(k,String(v));},
+  removeItem:k=>data.delete(k)
+ };
+ assert.throws(()=>persistWandFavorite(s,40700007,true),/SYNTHETIC_BACKUP_QUOTA/);
+ assert.equal(data.get(WAND_FAVORITES_STORAGE_KEY),raw);
+ assert.equal(data.get(WAND_FAVORITES_BACKUP_KEY),undefined);
+ const s2={
+  getItem:k=>data.get(k)??null,
+  setItem(k,v){if(k===WAND_FAVORITES_STORAGE_KEY)throw Error('SYNTHETIC_PRIMARY_QUOTA');data.set(k,String(v));},
+  removeItem:k=>data.delete(k)
+ };
+ assert.throws(()=>persistWandFavorite(s2,40700007,true),/SYNTHETIC_PRIMARY_QUOTA/);
+ assert.equal(data.get(WAND_FAVORITES_STORAGE_KEY),raw);
+ assert.equal(data.get(WAND_FAVORITES_BACKUP_KEY),undefined,'new snapshot created before primary failure must be removed');
+ assert.equal(data.get('dreamwishwand:game-favorite:v1'),foreign,'must not modify save-backed Favorite');
+});
+
+test('Unverifiable rollback never reports a successful Favorite commit',()=>{
+ const raw=JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[40000047]});
+ const data=new Map([[WAND_FAVORITES_STORAGE_KEY,raw]]);
+ const s={
+  getItem:k=>data.get(k)??null,
+  setItem(k,v){if(k===WAND_FAVORITES_STORAGE_KEY)throw Error('SYNTHETIC_PRIMARY_QUOTA');data.set(k,String(v));},
+  removeItem(){throw Error('SYNTHETIC_ROLLBACK_DENIED')}
+ };
+ assert.throws(()=>persistWandFavorite(s,40700007,true),/WAND_FAVORITES_ROLLBACK_UNVERIFIED/);
+ assert.equal(data.get(WAND_FAVORITES_STORAGE_KEY),raw);
+});
