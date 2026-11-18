@@ -129,7 +129,9 @@ export function inspectCollectionSaveFlag({profile, identity, definitionId, grou
   if (!Array.isArray(sets) || sets.length>10000)
     return denied('COLLECTION_SETS_MISSING_OR_UNBOUNDED');
   let match=null;
-  for (const entry of sets) {
+  for (let i=0; i<sets.length; i++) {
+    // A sparse/inherited/accessor array slot is not an original JSON row.
+    const entry=rawOwn(sets,i);
     const id=rawOwn(entry,'CollectionDefinitionID');
     if (!object(entry) || !positive(id))
       return denied('COLLECTION_DEFINITION_ROW_INVALID');

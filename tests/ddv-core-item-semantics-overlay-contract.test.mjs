@@ -295,6 +295,7 @@ test('R08: own accessor properties are not decoded raw Save data and never execu
       [p=>[p,'Player'],'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED'],
       [p=>[p.GameInfo,'Version'],'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED'],
       [p=>[p.Player,'CollectionSets'],'COLLECTION_SETS_MISSING_OR_UNBOUNDED'],
+      [p=>[p.Player.CollectionSets,'0'],'COLLECTION_DEFINITION_ROW_INVALID'],
       [p=>[p.Player.CollectionSets[0],'CollectionDefinitionID'],'COLLECTION_DEFINITION_ROW_INVALID'],
       [p=>[p.Player.CollectionSets[0],'GroupData'],'COLLECTION_GROUP_DATA_UNVERIFIED'],
       [p=>[p.Player.CollectionSets[0].GroupData,'0'],'COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED'],
