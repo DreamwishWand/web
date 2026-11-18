@@ -25,7 +25,7 @@ jobs:
         run: |
           set -euo pipefail
           git merge-base --is-ancestor e7a56d5ce4a717cd76191e345b79be12adef3df4 HEAD
-          test "$(git diff --name-only e7a56d5ce4a717cd76191e345b79be12adef3df4 HEAD)" = ".github/workflows/04qrs-act1774-pr2248-exact8-product-r22-real-candidate-l2.yml"
+          test "$(git diff --name-only de7a18a098e7ade7416bd8945ca3cd8b300ff3e5 HEAD)" = ".github/workflows/04qrs-act1774-pr2248-exact8-product-r22-real-candidate-l2.yml"
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-trusted-before-candidate.mjs)" = 5aefdaff6a46ae9bdf1f5a37c4f0973442308a4a
           test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = f9675e69a30abf101e78aa77369e86707abba076
           test "$(git rev-parse HEAD:scripts/wasm-distribution/verify-protected-release.mjs)" = d4ab1f6b46413b9992301ddbad00aedf3b01b040
@@ -210,5 +210,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git diff --name-only e7a56d5ce4a717cd76191e345b79be12adef3df4 HEAD)" = ".github/workflows/04qrs-act1774-pr2248-exact8-product-r22-real-candidate-l2.yml"
+          test "$(git diff --name-only de7a18a098e7ade7416bd8945ca3cd8b300ff3e5 HEAD)" = ".github/workflows/04qrs-act1774-pr2248-exact8-product-r22-real-candidate-l2.yml"
           echo QRS_ACT1774_QAONLY_NEVER_MERGE_NO_SIGNING_NO_PAGES_NO_OP_ON
