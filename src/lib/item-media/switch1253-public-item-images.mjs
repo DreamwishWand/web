@@ -95,10 +95,17 @@ function reviewedReleaseOn(release){
     (release.rightsHolderLicense==='DOCUMENTED_SCOPE_LICENSE'&&
      typeof release.licenseEvidenceSha256==='string'&&HEX.test(release.licenseEvidenceSha256))) &&
    typeof release.operatorReceiptSha256==='string'&&HEX.test(release.operatorReceiptSha256) &&
-   release.attribution==='EIGHT_LOCALES_REVIEWED' &&
+   // The shared Disney/Gameloft attribution, non-affiliation and support
+   // notice is sufficient; eight separate human locale signatures are NOT
+   // a media publication gate. The legacy receipt marker remains readable.
+   (release.attribution==='EIGHT_LOCALES_REVIEWED'||
+    release.attribution==='COMMON_DISNEY_GAMELOFT_NONAFFILIATION_SUPPORT') &&
    release.oldUrlAndCache==='MANAGED_TESTED' &&
    release.rollback==='MANAGED_TESTED' &&
-   release.rightsReview==='OPERATOR_ACCEPTED' &&
+   // The Owner accepted residual image-rights risk (not a copyright grant).
+   // Operator review is a legacy compatible receipt, not the sole path.
+   (release.rightsReview==='OPERATOR_ACCEPTED'||
+    release.rightsReview==='OWNER_RESIDUAL_RIGHTS_RISK_ACCEPTED') &&
    release.receivingContact==='MANAGED_VERIFIED' &&
    release.takedown==='MANAGED_TESTED' &&
    release.managedHttps==='MANAGED_VERIFIED' &&
