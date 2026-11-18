@@ -111,14 +111,28 @@ jobs:
            assert.notEqual(oldCLI.status,0,'PROTECTED_PRIOR_GATE_SELF_ISSUED');
            assert.match(oldCLI.stderr,/R22_TRUSTED_PRE_CANDIDATE_DENIED/);
            neg++;console.log('QRS2271_NEG_DENIED_OLD_TRUSTED_CLI_NEW_GATE_SELF_SIGN');
-           const issuer=join(work,'src/lib/ddv/core/save');
+           const historicalMakeup='e7a56d5ce4a717cd76191e345b79be12adef3df4';
+ const trustedMakeupPaths=['.github/workflows/core-product-session-boundary.yml',cargo,
+  'crates/ddv-save-core/src/product_makeup_color1.rs','crates/ddv-save-core/src/wasm_worker.rs',
+  'crates/ddv-save-core/src/worker_session.rs','crates/ddv-save-core/src/worker_switch626_makeup_color1.rs',
+  'crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs',config];
+ const signedOldMakeup=synthetic(historicalMakeup,trustedMakeupPaths.map(p=>[p,g('rev-parse',main+':'+p)]));
+ g('checkout','--force','--detach',historicalMakeup);
+ g('update-ref','refs/remotes/origin/main',historicalMakeup);
+ const trustedPositive=run(process.execPath,[join(work,cli),historicalMakeup,signedOldMakeup]);
+ assert.equal(trustedPositive.status,0,'HISTORIC_EXACT8_TRUSTED_POSITIVE_NOT_VALID: '+trustedPositive.stderr);
+ assert.match(trustedPositive.stdout,/R22_TRUSTED_PRE_CANDIDATE_EXACT8_SCOPE_ONLY/);
+ console.log('QRS2271_HISTORIC_EXTERNAL_TRUSTED_MAKEUP_EXACT8_POS_BEFORE_SYMLINK');
+ const issuer=join(work,'src/lib/ddv/core/save');
            const outside=join(root,'outside_issuer');
            renameSync(issuer,outside);symlinkSync(outside,issuer,'dir');
-           const escaped=run(process.execPath,[join(work,cli),main,main]);
+           const escaped=run(process.execPath,[join(work,cli),historicalMakeup,signedOldMakeup]);
            assert.notEqual(escaped.status,0,'SYMLINK_ESCAPED_ISSUER_ACCEPTED');
            assert.match(escaped.stderr,/R22_TRUSTED_SELECTION_TRUSTED_PATH_SYMLINK_src\/lib\/ddv\/core\/save/);
            neg++;console.log('QRS2271_NEG_DENIED_OUTSIDE_REPO_ISSUER_PARENT_SYMLINK');
            rmSync(issuer);renameSync(outside,issuer);
+ g('checkout','--force','--detach',main);
+ g('update-ref','refs/remotes/origin/main',main);
            const fetch=run('git',['fetch','--no-tags','--no-recurse-submodules','https://github.com/DreamwishWand/web.git','refs/pull/2267/head']);
            assert.equal(fetch.status,0,'ORIGINAL_PRIVATE_SOURCE_FETCH_FAILED '+fetch.stderr);
            assert.equal(g('rev-parse','FETCH_HEAD'),original);
