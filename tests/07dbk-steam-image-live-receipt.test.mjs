@@ -33,8 +33,13 @@ const fake=(state,overrides={})=>{
     if(isManifest)return new Response(JSON.stringify({schema:"wand.item-images.steam-primary-release@1",items:
       overrides.manifestKeepsItem?{[id]:{webpSha256:digest(bytes)}}:{}}),{
       status:200,headers:{"content-type":"application/json"}});
-    return new Response(method==="HEAD"?null:(overrides.deniedPayload??"not found"),{
-      status:overrides.deniedStatus??404,headers:{"content-type":"text/plain"}});
+    const deniedStatus=overrides.deniedStatus??404;
+    // Fetch Response forbids an entity body on 304, 204 and 205. Mock the
+    // actual wire semantics, so the verifier (not the test fixture) rejects
+    // stale 304 cache responses as LIVE_OLD_IMAGE_URL_STILL_SERVES.
+    const noBody=method==="HEAD"||[204,205,304].includes(deniedStatus);
+    return new Response(noBody?null:(overrides.deniedPayload??"not found"),{
+      status:deniedStatus,headers:{"content-type":"text/plain"}});
   };
   return {fetchImpl,calls};
 };
