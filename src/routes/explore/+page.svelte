@@ -182,12 +182,13 @@
     </div>
     <div class="summary"><strong>{formatNumber(filtered.length,{},$locale)} {copy.results}</strong><span>{copy.showing} {formatNumber(visible.length,{},$locale)}</span></div>
     {#if visible.length}<div class="grid" class:compact-media={$itemImagePreferences.density==='compact'}>{#each visible as item}
+      {@const addedToBoard=Boolean(moodboards && selectedBoardId && isInMoodboard(item))}
       <article class="card">
         <button type="button" class="card-review" data-explore-card-review aria-label={copy.quickReview+': '+item.label} on:click={(event)=>openQuickReview(item,event)}>
           <ItemThumb itemId={item.itemId} label={item.label} />
           <div class="body"><span>{familyLabel(item.family)}</span><h2>{item.label}</h2><div class="facets">{#each item.universes.slice(0,2) as value}<small>{universeLabel(value)}</small>{/each}</div><code>{copy.itemId} {item.itemId}</code></div>
         </button>
-        <footer>{#if detailNavigationAvailable}<a href={sharedEntityHref(base,$locale,item.itemId)}>{sharedEntityLabels($locale).label}</a>{:else}<span data-detail-unavailable="true">{sharedEntityLabels($locale).unavailable}</span>{/if}<button type="button" data-explore-moodboard-toggle data-item-id={item.itemId} aria-label={(isInMoodboard(item)?copy.remove:copy.add)+': '+item.label} aria-pressed={isInMoodboard(item)} on:click={()=>toggleMoodboard(item)} disabled={!boards.length}>{isInMoodboard(item)?copy.remove:copy.add}</button></footer>
+        <footer>{#if detailNavigationAvailable}<a href={sharedEntityHref(base,$locale,item.itemId)}>{sharedEntityLabels($locale).label}</a>{:else}<span data-detail-unavailable="true">{sharedEntityLabels($locale).unavailable}</span>{/if}<button type="button" data-explore-moodboard-toggle data-item-id={item.itemId} aria-label={(addedToBoard?copy.remove:copy.add)+': '+item.label} aria-pressed={addedToBoard} on:click={()=>toggleMoodboard(item)} disabled={!boards.length}>{addedToBoard?copy.remove:copy.add}</button></footer>
       </article>
     {/each}</div>{#if filtered.length>LIMIT}<p class="more">{copy.more}</p>{/if}
     {:else}<div class="empty"><strong>{copy.empty}</strong></div>{/if}
