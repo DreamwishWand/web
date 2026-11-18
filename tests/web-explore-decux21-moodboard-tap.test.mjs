@@ -9,8 +9,9 @@ test('DEC-UX-21 cards preserve separate Quick Review and Moodboard action paths'
  assert.match(source,/on:click=\{\(event\)=>openQuickReview\(item,event\)\}/);
  assert.match(source,/data-explore-moodboard-toggle data-item-id=\{item\.itemId\}/);
  assert.match(source,/on:click=\{\(\)=>toggleMoodboard\(item\)\}/);
- assert.match(source,/aria-pressed=\{isInMoodboard\(item\)\}/);
- assert.match(source,/aria-label=\{\(isInMoodboard\(item\)\?copy\.remove:copy\.add\)\+': '\+item\.label\}/);
+ assert.match(source,/\{@const addedToBoard=Boolean\(moodboards && selectedBoardId && isInMoodboard\(item\)\)\}/);
+ assert.match(source,/aria-pressed=\{addedToBoard\}/);
+ assert.match(source,/aria-label=\{\(addedToBoard\?copy\.remove:copy\.add\)\+': '\+item\.label\}/);
  assert.doesNotMatch(source,/class:added=/);
  assert.match(source,/\.card footer button\{[^}]*min-width:44px;min-height:44px/);
  assert.match(source,/\.card footer button\[aria-pressed='true'\]\{border-style:double;border-width:3px/);
