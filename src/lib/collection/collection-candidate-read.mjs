@@ -5,6 +5,11 @@
 const deny=()=>{throw Error('COLLECTION_CANDIDATE_READ_DENIED')};
 const exact=(v,k)=>v!==null&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).sort().join(',')===k.split(',').sort().join(',');
 const uint=n=>Number.isSafeInteger(n)&&n>=0&&n<=0xffffffff;
+// A current ProductSession may legitimately advance after a scoped edit or
+// undo/redo. The Worker validates the *actual* revision/generation atomically;
+// the JS reader must only reject invalid or lossy JSON numeric epochs, not
+// require the initial (0,1) pair forever.
+const epoch=n=>Number.isSafeInteger(n)&&n>=0;
 const sha=s=>typeof s==='string'&&/^[a-f0-9]{64}$/.test(s);
 const sid=s=>typeof s==='string'&&/^[a-f0-9]{32}$/.test(s)&&!/^0{32}$/.test(s);
 const STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',SWITCH='9A239D3DB569756D';
@@ -16,7 +21,8 @@ export function readCollectionCandidate(owner,selector){
  const {wasm,receipt:r,identity:b}=owner;
  if(!wasm||typeof wasm.preview_scoped_collection_candidate!=='function'||!r||!b||b.schema!==626||
    r.contract!=='wand.product.single-save-session.boundary@1'||r.schema!==626||!sid(r.sessionId)||!sha(r.decodedSha256)||
-   r.revision!==0||r.indexGeneration!==1||r.productWorkerBound!==true||r.fullDocumentJsonValidated!==true||
+   !epoch(r.revision)||!epoch(r.indexGeneration)||r.indexGeneration<1||
+   r.productWorkerBound!==true||r.fullDocumentJsonValidated!==true||
    r.writerAuthorized!==false||r.editedCopyAuthorized!==false||r.applyAuthorized!==false)deny();
  const steam=b.platform==='steam-windows'&&b.buildKind==='steam-full-version'&&b.buildId===STEAM;
  const sw=b.platform==='switch'&&b.buildKind==='switch-bid'&&b.buildId===SWITCH;
