@@ -83,6 +83,11 @@ try{
  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,
   deviceScaleFactor:1,mobile:false});
  await until("return document.querySelector('[data-stage1-presets-four-cards]')&&document.querySelector('[data-tour-launch=desktop]')",25000);
+ // SSR root visibility alone is insufficient under the parallel 1900+ test
+ // suite: the route click handler can hydrate after the header's Help handler.
+ // Require the actual client onMount witness BEFORE the single My click.
+ await until("return document.querySelector('[data-stage1-presets-root]')?.getAttribute('data-presets-client-interactive')==='ready'",30000);
+ console.log('WEB_TOUR_PRESETS_ACTUAL_CLIENT_HYDRATED_READY');
  const launchLayout=await q("const a=document.querySelector('[data-tour-launch=desktop]'),b=document.querySelector('[data-tour-launch=mobile]');return {desktop:a.getClientRects().length>0,mobile:b.getClientRects().length>0,vw:innerWidth}");
  assert.equal(launchLayout.desktop,true,'desktop help must be visible for desktop phase');
  assert.equal(launchLayout.mobile,false,'mobile button must not be the desktop focus target');
@@ -100,7 +105,15 @@ try{
  assert.ok(unavailable.length>5);
  assert.equal(await q("return Boolean(document.querySelector('[data-typed-tour-open]'))"),false,'wrong view fails closed');
  await tap('[data-preset-child="my"]');
- await until("return document.querySelector('[data-my-local-scenes]')&&document.querySelector('[data-my-wand-views]')");
+ try{
+  await until("return document.querySelector('[data-my-local-scenes]')&&document.querySelector('[data-my-wand-views]')");
+ }catch(error){
+  // Captures the real failed DOM state; never retries a failed click or
+  // converts a genuine My-page regression into a false green.
+  console.log('WEB_TOUR_MY_TRANSITION_TIMEOUT_SNAPSHOT '+JSON.stringify(await q("return {path:location.pathname,root:!!document.querySelector('[data-stage1-presets-four-cards]'),clientReady:document.querySelector('[data-stage1-presets-root]')?.getAttribute('data-presets-client-interactive'),myDomains:!!document.querySelector('[data-my-domains]'),myViews:!!document.querySelector('[data-my-wand-views]'),myScenes:!!document.querySelector('[data-my-local-scenes]'),notice:document.querySelector('[data-tour-status]')?.textContent?.trim()?.slice(0,160)}")));
+  throw error;
+ }
+ console.log('WEB_TOUR_ROOT_TO_MY_ACTUAL_SINGLE_CLICK_PASS');
  await tap('[data-tour-launch="desktop"]');
  await until("return Boolean(document.querySelector('[data-tour-next]'))");
  const initial=await q("const e=document.querySelector('[data-typed-tour-dialog]');return {role:e.getAttribute('role'),modal:e.getAttribute('aria-modal'),focused:e===document.activeElement,step:e.querySelector('h2')?.textContent,rect:e.getBoundingClientRect().toJSON()}");
