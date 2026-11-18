@@ -5,6 +5,7 @@
   import { locale } from '$lib/i18n/runtime.js';
   import { moodboardCopy } from '$lib/moodboards/copy.js';
   import { moodboardCoverTiles } from '$lib/moodboards/cover-preview.mjs';
+  import { persistMoodboardLocalChange } from '$lib/moodboards/local-persist-compensated.mjs';
   import { MOODBOARD_PORTABLE_MAX_BYTES, readMoodboardMigrationSnapshot, importPortableMoodboard, exportPortableMoodboard, decodePortableMoodboardBytes } from '$lib/moodboards/origin-portability.mjs';
   import {
     MOODBOARD_BACKUP_KEY,
@@ -31,6 +32,7 @@
 
   let document:any=createEmptyMoodboardDocument();
   let selectedId='', filter='', status='', worldEditorSupported=false;
+  let observedRaw:string|null=null;
   let newTitle='', groupTitle='';
   let workspaceHeading:HTMLHeadingElement;
   let referenceType='ITEM', referenceLabel='', referenceEntity='', referenceNote='';
@@ -47,27 +49,34 @@
 
   onMount(()=>{
     worldEditorSupported=currentWorldEditorEnvironmentSupported();
-    try{const stored=localStorage.getItem(MOODBOARD_STORAGE_KEY);if(stored)document=parseMoodboardDocument(stored);}catch{status=copy.invalid;}
+    try{const stored=localStorage.getItem(MOODBOARD_STORAGE_KEY);if(stored!==null)document=parseMoodboardDocument(stored);observedRaw=stored;}catch{status=copy.invalid;}
     selectedId=document.boards[0]?.id??'';
   });
 
-  function persist(next:any){
-    const current=localStorage.getItem(MOODBOARD_STORAGE_KEY);
-    if(current)localStorage.setItem(MOODBOARD_BACKUP_KEY,current);
-    localStorage.setItem(MOODBOARD_STORAGE_KEY,serializeMoodboardDocument(next));
-    document=next;
-    status=copy.saved;
+  function persist(next:any):boolean{
+    try{
+      observedRaw=persistMoodboardLocalChange(localStorage,next,observedRaw);
+      document=next;
+      status=copy.saved;
+      return true;
+    }catch(e){
+      // Preserve in-memory state and form input on quota or concurrent-tab
+      // conflicts; never imply a saved board when either key is uncertain.
+      status=e instanceof Error&&e.message==='MOODBOARD_LOCAL_STALE'
+        ?copy.portableCollision:copy.invalid;
+      return false;
+    }
   }
 
   function createBoard(){
     const result=createMoodboard(document,{title:newTitle});
-    persist(result.document);selectedId=result.board.id;newTitle='';status=copy.created;
+    if(!persist(result.document))return;selectedId=result.board.id;newTitle='';status=copy.created;
     tick().then(()=>workspaceHeading?.focus());
   }
 
   function removeBoard(boardId:string){
     if(!document.boards.some((board:any)=>board.id===boardId))return;
-    const next=deleteMoodboard(document,boardId);persist(next);
+    const next=deleteMoodboard(document,boardId);if(!persist(next))return;
     if(selectedId===boardId)selectedId=next.boards[0]?.id??'';
     status=copy.deleted;
   }
@@ -75,7 +84,7 @@
   function addGroup(){
     if(!selected||!groupTitle.trim())return;
     const result=createMoodboardGroup(document,selected.id,groupTitle);
-    persist(result.document);groupTitle='';
+    if(!persist(result.document))return;groupTitle='';
   }
 
   function toggleGroup(group:any){
@@ -89,7 +98,7 @@
   function ungroup(groupId:string){
     if(!selected||!selected.groups.some((group:any)=>group.id===groupId))return;
     const next=deleteMoodboardGroup(document,selected.id,groupId,{deleteExclusiveContents:false});
-    persist(next);status=copy.ungrouped;
+    if(!persist(next))return;status=copy.ungrouped;
   }
 
   function addReference(){
@@ -100,19 +109,21 @@
     const result=addMoodboardReference(document,selected.id,{
       type:referenceType,label:referenceLabel,entityId:referenceEntity||null,note:referenceNote||null
     });
-    persist(result.document);referenceLabel='';referenceEntity='';referenceNote='';status=copy.added;
+    if(!persist(result.document))return;referenceLabel='';referenceEntity='';referenceNote='';status=copy.added;
   }
 
   function removeReference(referenceId:string){
     if(!selected)return;
-    persist(removeMoodboardReference(document,selected.id,referenceId));status=copy.removed;
+    if(!persist(removeMoodboardReference(document,selected.id,referenceId)))return;status=copy.removed;
   }
 
   function assignGroups(reference:any,event:Event){
     if(!selected)return;
     const select=event.currentTarget as HTMLSelectElement;
     const ids=Array.from(select.selectedOptions).map((option)=>option.value).filter(Boolean);
-    persist(assignMoodboardReferenceGroups(document,selected.id,reference.id,ids));
+    if(!persist(assignMoodboardReferenceGroups(document,selected.id,reference.id,ids))){
+      for(const option of Array.from(select.options))option.selected=reference.groupIds.includes(option.value);
+    }
   }
 
   function exportBackup(previous=false){
@@ -135,6 +146,7 @@
       const bytes=new Uint8Array(await file.arrayBuffer());
       if(bytes.byteLength!==file.size)throw Error('MOODBOARD_PORTABLE_INVALID');
       const result=importPortableMoodboard(localStorage,expected,decodePortableMoodboardBytes(bytes));
+      observedRaw=localStorage.getItem(MOODBOARD_STORAGE_KEY);
       document=result.document;selectedId=document.boards[0]?.id??'';status=copy.imported;
     }catch(e){status=e instanceof Error&&/MOODBOARD_PORTABLE_(?:COLLISION|STALE)/.test(e.message)?copy.portableCollision:copy.portableInvalid;}
     finally{input.value='';importing=false;}
@@ -142,7 +154,11 @@
 
   function restoreBackup(){
     const previous=localStorage.getItem(MOODBOARD_BACKUP_KEY);if(!previous){status=copy.noBackup;return;}
-    try{const next=parseMoodboardDocument(previous);localStorage.setItem(MOODBOARD_STORAGE_KEY,serializeMoodboardDocument(next));document=next;selectedId=next.boards[0]?.id??'';status=copy.restored;}catch{status=copy.invalid;}
+    try{const next=parseMoodboardDocument(previous);const raw=serializeMoodboardDocument(next);
+      localStorage.setItem(MOODBOARD_STORAGE_KEY,raw);
+      if(localStorage.getItem(MOODBOARD_STORAGE_KEY)!==raw)throw Error('MOODBOARD_LOCAL_RESTORE_UNVERIFIED');
+      observedRaw=raw;document=next;selectedId=next.boards[0]?.id??'';status=copy.restored;
+    }catch{status=copy.invalid;}
   }
 
   async function openInWorldEditor(){
