@@ -8,9 +8,7 @@ import {lstatSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {resolve,join} from 'node:path';
-import {assertR22RawRustCheckout} from './r22-raw-rust-checkout.mjs';
 
-import {ACTIVE_RELEASE_TUPLE,RELEASE_REPOSITORY_ID,manifestMatchesRelease,protectedPagesContextMatches} from '../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
 
 const root=resolve(import.meta.dirname,'../..');
 const fail=s=>{throw Error('R22_PROTECTED_RELEASE_'+s)};
@@ -22,7 +20,9 @@ const read=async path=>readFile(join(root,path)).catch(()=>fail('MISSING_'+path)
 const trustedRustGatePaths=Object.freeze([
  'scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
- 'scripts/int-selection-preflight.mjs'
+ 'scripts/int-selection-preflight.mjs',
+ 'scripts/wasm-distribution/r22-raw-rust-checkout.mjs',
+ 'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs'
 ]);
 // A product candidate may NOT load its own edited permission verifier.
 // Compare Git blobs from the *live protected PR base* before dynamic import.
@@ -50,15 +50,31 @@ const stage=process.argv[2];
 if(!['inputs','built'].includes(stage))fail('INVALID_STAGE');
 if(!/^[0-9a-f]{40}$/.test(expectedSource??'')||
    git('rev-parse','HEAD')!==expectedSource)fail('SOURCE_HEAD_MISMATCH');
+// Establish the real protected PR base and immutable trust closure *before*
+// evaluating any PR candidate-owned issuer, raw-checker or Rust selector JS.
+if(!['pull_request','push','workflow_dispatch'].includes(event))fail('EVENT_NOT_ALLOWED');
+if(event!=='pull_request'&&process.env.GITHUB_REF!=='refs/heads/main')
+ fail('NOT_PROTECTED_MAIN_PUSH');
+const prBase=process.env.WAND_PR_BASE_SHA;
+if(event==='pull_request'){
+ if(!/^[0-9a-f]{40}$/.test(prBase??'')||
+    git('rev-parse','refs/remotes/origin/main')!==prBase)
+  fail('PR_BASE_NOT_LIVE_PROTECTED_MAIN');
+}
+const rustPaths=event==='pull_request'?
+ git('diff','--name-only','--no-renames','--no-ext-diff',
+  '--no-textconv',prBase,expectedSource,'--','crates/ddv-save-core/'):'';
+if(rustPaths)assertTrustedRustGateBeforeImport(prBase,expectedSource);
+const {assertR22RawRustCheckout}=await import('./r22-raw-rust-checkout.mjs');
+const {ACTIVE_RELEASE_TUPLE,RELEASE_REPOSITORY_ID,
+ manifestMatchesRelease,protectedPagesContextMatches}=
+ await import('../../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs');
 // Refuse uncommitted Rust build bytes even when HEAD:path remains approved.
 // Recheck in BOTH 'inputs' before cargo and 'built' before signing/Pages.
 try{assertR22RawRustCheckout(root)}catch(error){
  console.error('R22_RAW_RUST_CHECKOUT_DENIED',error?.code??'UNKNOWN');
  fail('RAW_RUST_CHECKOUT_NOT_HEAD');
 }
-if(!['pull_request','push','workflow_dispatch'].includes(event))fail('EVENT_NOT_ALLOWED');
-if(event!=='pull_request'&&process.env.GITHUB_REF!=='refs/heads/main')
- fail('NOT_PROTECTED_MAIN_PUSH');
 const tuple=ACTIVE_RELEASE_TUPLE;
 if(process.env.GITHUB_ACTIONS!=='true'||process.env.GITHUB_REPOSITORY_ID!==RELEASE_REPOSITORY_ID||
  process.env.GITHUB_REPOSITORY!==tuple.repository)fail('REPOSITORY_IDENTITY_DENIED');
@@ -69,14 +85,6 @@ if(pages){
  if(!protectedPagesContextMatches(process.env,expectedSource,git('rev-parse','HEAD'))||
     process.env.WAND_RELEASE_BASE_PATH!==tuple.basePath)fail('PROTECTED_PAGES_TUPLE_DENIED');
 }else if(!candidate)fail('RELEASE_WORKFLOW_DENIED');
-const prBase=process.env.WAND_PR_BASE_SHA;
-if(event==='pull_request'){
- // A release maintenance PR must be based on the current protected main,
- // not a stale reviewed ancestor or a caller-selected alternate base.
- if(!/^[0-9a-f]{40}$/.test(prBase??'')||
-    git('rev-parse','refs/remotes/origin/main')!==prBase)
-  fail('PR_BASE_NOT_LIVE_PROTECTED_MAIN');
-}
 if(config.contract!=='wand.r22.protected-main-signed-wasm-release-inputs@1'||
  config.releasePermission!=='OWNER_APPROVED_20261111_THREE_READONLY_PUBLIC_ASSETS_ONLY'||
  config.publicReadonlyAssetsApproved!==true||
@@ -115,12 +123,9 @@ try{
   git('merge-base','--is-ancestor',prBase,expectedSource);
   // Normal maintenance still requires zero Rust delta. Only the fixed
   // independently accepted exact15 scope can satisfy the separate path.
-  const rustPaths=git('diff','--name-only','--no-renames','--no-ext-diff',
-   '--no-textconv',prBase,expectedSource,'--','crates/ddv-save-core/');
   if(rustPaths){
-   assertTrustedRustGateBeforeImport(prBase,expectedSource);
-   // No PR candidate-controlled gate JS is executed until all three
-   // protected raw Git blobs AND real on-disk bytes match the PR base.
+   // No candidate-controlled trusted JS was executed until all five
+   // protected Git blobs and real on-disk bytes matched live PR base.
    const {verifyAcceptedRustScope}=await import('./r22-accepted-rust-scope.mjs');
    const match=verifyAcceptedRustScope(root,prBase,expectedSource);
    console.log('R22_ACCEPTED_EXACT_SOURCE_SCOPE_MATCH_ONLY',match);
