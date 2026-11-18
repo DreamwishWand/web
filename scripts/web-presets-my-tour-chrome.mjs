@@ -100,29 +100,9 @@ try{
  assert.ok(unavailable.length>5);
  assert.equal(await q("return Boolean(document.querySelector('[data-typed-tour-open]'))"),false,'wrong view fails closed');
  await tap('[data-preset-child="my"]');
- // Under parallel CI load the SSR My card may exist before Svelte hydrates.
- // Repeat the REAL click only while the real root card remains visible;
- // never skip My view or Tour's four-anchor/manual-only assertions.
- const myReady="return document.querySelector('[data-my-local-scenes]')&&document.querySelector('[data-my-wand-views]')";
- let previousMyTap=Date.now(),myRetry=0;
- try{
-  await ready(async()=>{
-   if(await q(myReady))return true;
-   const tile=await q("return Boolean(document.querySelector('[data-stage1-presets-four-cards] [data-preset-child=my]'))");
-   if(tile&&Date.now()-previousMyTap>=600){
-    await tap('[data-preset-child="my"]');myRetry++;previousMyTap=Date.now();
-   }
-   return Boolean(await q(myReady));
-  },13000);
- }catch(error){
-  let snapshot={browserRead:'unavailable'};
-  try{
-   snapshot=await q("const root=document.querySelector('[data-stage1-presets-four-cards]');const my=document.querySelector('[data-my-domain-view=wand]');return {pathname:location.pathname,ready:document.readyState,root:!!root,myTile:!!document.querySelector('[data-preset-child=my]'),mySurface:!!my,myViews:!!document.querySelector('[data-my-wand-views]'),localScenes:!!document.querySelector('[data-my-local-scenes]'),tourStatus:!!document.querySelector('[data-tour-status]'),tourDialog:!!document.querySelector('[data-typed-tour-open]')}");
-  }catch{snapshot={browserRead:'cdp-eval-error'}}
-  console.error('WEB_TOUR_MY_REAL_NAVIGATION_TIMEOUT_DIAGNOSTIC '+JSON.stringify({snapshot,myRetry,exceptions:exceptions.length,requests:requests.length}));
-  throw error;
- }
- console.log('WEB_TOUR_MY_CARD_REAL_NAVIGATION_PASS retries='+myRetry);
+ // CDP returnByValue cannot serialize a DOM Element as a true result.
+ // Return an explicit primitive Boolean for the real two-subtree check.
+ await until("return Boolean(document.querySelector('[data-my-local-scenes]')&&document.querySelector('[data-my-wand-views]'))");
  await tap('[data-tour-launch="desktop"]');
  await until("return Boolean(document.querySelector('[data-tour-next]'))");
  const initial=await q("const e=document.querySelector('[data-typed-tour-dialog]');return {role:e.getAttribute('role'),modal:e.getAttribute('aria-modal'),focused:e===document.activeElement,step:e.querySelector('h2')?.textContent,rect:e.getBoundingClientRect().toJSON()}");
