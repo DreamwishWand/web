@@ -15,6 +15,24 @@
       "width": 160,
       "height": 160,
       "visibility": "RELEASED_PLAYER_FACING"
+    },
+    {
+      "itemId": "40006110",
+      "sha256": "4f1ed414b3f554a69dbc7b4e682507274c58ad327ace7e22808469aa1e56eff4",
+      "rgba160Sha256": "306c52a3fd70c5e12f8349bfc68b5140a890859350342c10659e385d08edd870",
+      "bytes": 28176,
+      "width": 160,
+      "height": 160,
+      "visibility": "RELEASED_PLAYER_FACING"
+    },
+    {
+      "itemId": "40005160",
+      "sha256": "461f6484256c69e5a528adc3af7054301841fc324c237d8bc0d4534830345bec",
+      "rgba160Sha256": "278d57ff8d42b3e64a9f7abe597e6db7d2938c39b19f39d95526834669d46796",
+      "bytes": 5796,
+      "width": 160,
+      "height": 160,
+      "visibility": "RELEASED_PLAYER_FACING"
     }
   ],
   "withdrawn": []
