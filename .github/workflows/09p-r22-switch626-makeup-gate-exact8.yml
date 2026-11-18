@@ -30,16 +30,19 @@ jobs:
           git fetch --no-tags origin refs/pull/2217/head
           test "$(git rev-parse FETCH_HEAD)" = b2735bc63884049a5f3d16423e5970553f168766
           git cat-file -e b2735bc63884049a5f3d16423e5970553f168766^{commit}
-      - name: Fetch original immutable private 01A bridge Source for exact three-blob source proof
+      - name: Resolve immutable original private 01A bridge historical Git commit from protected ancestry
         run: |
-          git fetch --no-tags origin refs/pull/2267/head
-          test "$(git rev-parse FETCH_HEAD)" = f6e789694323750d0c055a8434718116dba11fc7
+          # PR2267 was merged via nonforce selected commit with original f6e7
+          # as preserved parent. refs/pull/2267/head is MOVABLE after merge.
+          # Never authorize that moving ref: test only original commit blob.
           git cat-file -e f6e789694323750d0c055a8434718116dba11fc7^{commit}
+          test "$(git rev-parse f6e789694323750d0c055a8434718116dba11fc7:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
       - name: Fetch reviewed Windows LF SHA-pinned pack attribute ORIGINAL one file
         run: |
           git fetch --no-tags origin refs/pull/2276/head
-          test "$(git rev-parse FETCH_HEAD)" = ad210aa3c551615b8c35f8b2970138760a59f5b6
+          # Moving refs are discovery only. Original SHA remains immutable.
           git cat-file -e ad210aa3c551615b8c35f8b2970138760a59f5b6^{commit}
+          test "$(git rev-parse ad210aa3c551615b8c35f8b2970138760a59f5b6:crates/ddv-save-core/data/.gitattributes)" = f67de2e4316397b93f95088c379f724ea81e9399
       - name: Fixed 8-path Rust Source/core tree release gate POS, forged-bad Git commit NEG
         env:
           WAND_REQUIRE_SWITCH_MAKEUP_GATE_FOCUS: '1'
