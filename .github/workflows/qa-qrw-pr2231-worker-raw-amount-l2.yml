@@ -1,0 +1,47 @@
+name: QA ONLY 04 QR-W PR2231 exact Worker raw Amount reply lifetime L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2231-worker-raw-amount-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-worker-raw-amount-receipt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2231-8aa4-worker-raw-amount-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin original exact Source two blobs / original ancestor and QA-only two
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=9bfee9e9e899b2ff25227fc997b4da8bd7f6c189
+          source=8aa4f809f379b9c0dce0e6bdec1155022ae5d3cf
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:src/lib/dev/local-amount-workflow.mjs")" = 54a5dc90fb0b82ec51f1716089d4fd607eecceb9
+          test "$(git rev-parse "$base:tests/web-local-dev-amount-workflow.test.mjs")" = 0ea4693114f9e69d6c5343c5814e810136c5956c
+          test "$(git rev-parse 'HEAD:src/lib/dev/local-amount-workflow.mjs')" = 837c21ecc1f559f1b526b89004ae54b6c4a116b9
+          test "$(git rev-parse 'HEAD:tests/web-local-dev-amount-workflow.test.mjs')" = 7868c90284e30d57733b1d6973dd2c7ea6bced2b
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2231-worker-raw-amount-l2.test.mjs')" = 182b1669b9b0953ec7f6e215d204339012364e2c
+          for f in src/lib/dev/local-amount-workflow.mjs tests/web-local-dev-amount-workflow.test.mjs tests/qa-qrw-pr2231-worker-raw-amount-l2.test.mjs .github/workflows/qa-qrw-pr2231-worker-raw-amount-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/dev/local-amount-workflow.mjs tests/web-local-dev-amount-workflow.test.mjs | LC_ALL=C sort >/tmp/src
+          printf '%s\n' .github/workflows/qa-qrw-pr2231-worker-raw-amount-l2.yml tests/qa-qrw-pr2231-worker-raw-amount-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/src -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2231_ORIGINAL2_QAONLY2_EXACT_PINS_PASS
+      - name: Real product Amount Consumer forged Worker raw ciphertext wipe / browser Blob transition
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qa-qrw-pr2231-worker-raw-amount-l2.test.mjs tests/web-local-dev-amount-workflow.test.mjs
+          echo QRW2231_ACTUAL_WORKER_RAW_AMOUNT_L2_PASS
