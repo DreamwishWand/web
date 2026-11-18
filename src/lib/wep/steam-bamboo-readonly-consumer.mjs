@@ -24,7 +24,7 @@ export function projectBambooReadOnlyResult(result){
  return Object.freeze({
   itemId:BAMBOO_READ_TARGET_ITEM_ID,gridId:result.gridId,x:result.x,y:result.y,
   oldStock:result.oldStock,nextGridObjectId:result.nextGridObjectId,
-  readOnly:true,writerAuthorized:false,stageAuthorized:false,
+  readOnly:true,productReadAccepted:false,writerAuthorized:false,stageAuthorized:false,
   editedCopyAuthorized:false,operationOn:false
  });
 }
