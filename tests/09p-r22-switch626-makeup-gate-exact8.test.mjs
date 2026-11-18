@@ -70,7 +70,19 @@ test('ACT1581 exact fixed R22 source selector static immutable eight-mint contra
  }
  assert.ok(!gateSource.includes('mergeAuthorized:true'));
  assert.ok(gateSource.includes('mergeAuthorized:false,writerAuthorized:false,operationOn:false'));
- assert.equal(git('rev-parse','HEAD:'+inputPath),originalInputBlob);
+ // The accepted Gate-only main has the ORIGINAL cargo pin. After the exact
+ // reviewed product transition, only the immutable FUTURE pin is permitted.
+ // A mismatched Core/config pair must fail, never silently inherit a generic
+ // pin or skip this regression when product Rust becomes present.
+ const currentCore=git('rev-parse','HEAD:crates/ddv-save-core');
+ const currentConfigBlob=git('rev-parse','HEAD:'+inputPath);
+ const approvedStagePairs=new Map([
+  ['b5416aa726caea9d311075599ac606e11285b295',originalInputBlob],
+  ['42086449f9deef26ed48b21d7edab0f5685da7c2',expectedFutureInputBlob]
+ ]);
+ assert.ok(approvedStagePairs.has(currentCore),'UNAPPROVED_R22_CORE_STAGE');
+ assert.equal(currentConfigBlob,approvedStagePairs.get(currentCore),
+  'R22_CORE_CONFIG_STAGE_PIN_MISMATCH');
  const config=JSON.parse(git('show','HEAD:'+inputPath));
  assert.deepEqual(config.features,['indexed-read','worker-wasm']);
  assert.equal(config.defaultFeatures,false);
