@@ -1,0 +1,46 @@
+name: 01A Private Steam626 Product Amount V2 Bridge (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/semantic_writer.rs'
+      - 'crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs'
+      - '.github/workflows/01a-private-product-amount-v2-bridge.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-product-private-bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install exact accepted protected Rust dependency lock (workspace-local only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+      - name: Existing Rust ProductSession private amount + Chest48 fixed synthetic contract
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --lib private_product_amount_plan_bridge_catalog0_chest48_and_active_subscriber_denial -- --nocapture
+      - name: Existing private native CLI exact two opt-in modes compile
+        run: |
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --bin wand-local-rust-v2-noop
+      - name: Public Pages profile excludes all private product and semantic features
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          ! grep -F 'private-native-v2' .github/workflows/pages.yml
+          ! grep -F 'product-amount-scoped' .github/workflows/pages.yml
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,indexed-read
