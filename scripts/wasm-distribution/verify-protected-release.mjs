@@ -34,7 +34,7 @@ function assertTrustedRustGateBeforeImport(base,source){
   const candidate=git('rev-parse','--verify',source+':'+path);
   // Git blob alone does not protect mode; reject 100755, 120000 and
   // any path-namespace/mode change before interpreting candidate code.
-  const exact='100644 blob '+trusted+'\\t'+path;
+  const exact='100644 blob '+trusted+String.fromCharCode(9)+path;
   const baseEntry=git('ls-tree',base,'--',path);
   const candidateEntry=git('ls-tree',source,'--',path);
   if(!/^[a-f0-9]{40}$/.test(trusted)||candidate!==trusted||
