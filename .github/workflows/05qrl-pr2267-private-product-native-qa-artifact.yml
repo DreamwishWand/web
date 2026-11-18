@@ -77,6 +77,39 @@ jobs:
           path: /tmp/wand-05qrl-pr2267-private-product/release/wand-local-rust-v2-noop
           retention-days: 1
           if-no-files-found: error
+      - name: QA DIAGNOSTIC ONLY - expose constant Rust CoreError code, never acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The original product binary was already uploaded untouched.
+          # This never processes or fetches any Owner Save in public CI.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs')
+          raw = p.read_text()
+          old = 'let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|_|deny("SEMANTIC_TYPED_STAGE_DENIED"));'
+          new = 'let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|e|deny(e.0));'
+          assert raw.count(old) == 1, 'DENIAL_WRAPPER_SOURCE_CHANGED'
+          p.write_text(raw.replace(old, new))
+          PY
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --bin wand-local-rust-v2-noop --release
+          mkdir -p "$RUNNER_TEMP/05qrl-source-only-diagnostic"
+          cp "$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop" \
+            "$RUNNER_TEMP/05qrl-source-only-diagnostic/wand-local-rust-v2-noop-qa-code-only"
+          chmod 700 "$RUNNER_TEMP/05qrl-source-only-diagnostic/wand-local-rust-v2-noop-qa-code-only"
+          sha256sum "$RUNNER_TEMP/05qrl-source-only-diagnostic/wand-local-rust-v2-noop-qa-code-only"
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs
+          echo 'QRL_PR2267_SOURCE_F6E_QA_ONLY_CONSTANT_ERROR_CODE_DIAGNOSTIC_NOT_PRODUCT'
+      - name: Upload QA-denial-diagnostic binary ONLY, never accepted product
+        uses: actions/upload-artifact@v4
+        with:
+          name: 05qrl-pr2267-error-code-only-diagnostic-never-release
+          path: ${{ runner.temp }}/05qrl-source-only-diagnostic/wand-local-rust-v2-noop-qa-code-only
+          retention-days: 1
+          if-no-files-found: error
       - name: Final assert no Owner Save committed and no public Writer activation
         shell: bash
         run: |
