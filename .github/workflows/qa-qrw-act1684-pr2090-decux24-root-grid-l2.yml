@@ -146,7 +146,7 @@ jobs:
           assert.equal(opened.boards[0].description,'Existing detailed notes must not be lost');
           const next=createMoodboard(opened,{title:'New title only'}, {now:stamp,idFactory:()=> 'next'});
           assert.equal(next.document.boards[0].description,'Existing detailed notes must not be lost');
-          assert.equal(next.document.boards[1].description,'');
+          assert.equal(next.document.boards[1].description,null);
           assert.equal(opened.boards.length,1);positive++;
           console.log('QRW2090_LEGACY_CI_EXACT_FIVE_AND_OLD_PROFILES_NEGATIVE_PASS',
             JSON.stringify({positive,negative,sourceHeadPinned:true,actualFileModes:true}));
@@ -210,8 +210,8 @@ jobs:
                 }));
                 assert.deepEqual(snapshot.current.boards.map(x=>x.title),['Existing Garden','Quiet pond','Harvest lights']);
                 assert.equal(snapshot.current.boards[0].description,'Old details should remain after title-only new board');
-                assert.equal(snapshot.current.boards[1].description,'');
-                assert.equal(snapshot.current.boards[2].description,'');
+                assert.equal(snapshot.current.boards[1].description,null);
+                assert.equal(snapshot.current.boards[2].description,null);
                 assert.deepEqual(snapshot.previous.boards.map(x=>x.title),['Existing Garden','Quiet pond']);
                 const box=await Promise.all([entry.nth(0).boundingBox(),entry.nth(1).boundingBox()]);
                 assert.ok(box.every(Boolean));
