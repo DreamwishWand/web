@@ -1,0 +1,21 @@
+{
+  "schema": "wand.steam-public-media-signed-batch@1",
+  "ownerDecision": "OWNER_GO_FOR_DDV_GAME_IMAGES_20261105",
+  "platform": "Steam Windows",
+  "variant": "steam-1.25.3-schema626-lossless160-v1",
+  "consumer": "OFF",
+  "rightsHolderLicense": "UNKNOWN",
+  "rollback": "SCOPED_REMOVE_AND_HOSTED_404_OR_410",
+  "items": [
+    {
+      "itemId": "40300045",
+      "sha256": "be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489",
+      "rgba160Sha256": "e5eda84719c1b4010de8773692042ff7f9af6676f2dfaf34bfc0e694c6766f6c",
+      "bytes": 15310,
+      "width": 160,
+      "height": 160,
+      "visibility": "RELEASED_PLAYER_FACING"
+    }
+  ],
+  "withdrawn": []
+}
