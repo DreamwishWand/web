@@ -1,0 +1,58 @@
+name: QA ONLY 04 QR-W PR2221 encrypted Amount download zeroization L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2221-amount-download-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-svelte-amount-encrypted-buffer-refutation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2221-899b-amount-encrypted-download-zeroize-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact four original Source blobs, unchanged ancestor; only two new QA files
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=d37a774a8ce2ac08ef05389f0d14d3442063edeb
+          product=899b323f46f2953525690cbb66a2d180e86c014a
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse 'HEAD:src/lib/dev/LocalAmountEditorDev.svelte')" = a099acebd12fca50416eb762a5e648e255aba1c6
+          test "$(git rev-parse 'HEAD:src/lib/dev/consume-verified-amount-download-bytes.mjs')" = 0101eca18fd11ab661c3e8fe7fd0b11bffe2e029
+          test "$(git rev-parse 'HEAD:tests/web-amount-encrypted-download-buffer-lifetime.test.mjs')" = 746005c3487154ae8ba0c78eb2274fa6aa763a05
+          test "$(git rev-parse 'HEAD:.github/workflows/08web-amount-encrypted-download-zeroize.yml')" = e7748a7417a7290c5ce434fbfc423a56f2494858
+          test "$(git rev-parse "$base:src/lib/dev/LocalAmountEditorDev.svelte")" = da627ecd86d4435c026e611b241aa489d8259dac
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2221-amount-verified-download-lifetime-l2.test.mjs')" = 3753006d95f427c014c3923bd67e5f3378911290
+          for f in src/lib/dev/LocalAmountEditorDev.svelte src/lib/dev/consume-verified-amount-download-bytes.mjs tests/web-amount-encrypted-download-buffer-lifetime.test.mjs .github/workflows/08web-amount-encrypted-download-zeroize.yml tests/qa-qrw-pr2221-amount-verified-download-lifetime-l2.test.mjs .github/workflows/qa-qrw-pr2221-amount-download-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          cat > /tmp/source-list <<'EOF'
+          .github/workflows/08web-amount-encrypted-download-zeroize.yml
+          src/lib/dev/LocalAmountEditorDev.svelte
+          src/lib/dev/consume-verified-amount-download-bytes.mjs
+          tests/web-amount-encrypted-download-buffer-lifetime.test.mjs
+          EOF
+          cat > /tmp/qa-list <<'EOF'
+          .github/workflows/qa-qrw-pr2221-amount-download-l2.yml
+          tests/qa-qrw-pr2221-amount-verified-download-lifetime-l2.test.mjs
+          EOF
+          git diff --name-only "$base" "$product" | LC_ALL=C sort > /tmp/actual-source-list
+          LC_ALL=C sort /tmp/source-list | diff -u - /tmp/actual-source-list
+          git diff --name-only "$product" HEAD | LC_ALL=C sort > /tmp/actual-qa-list
+          LC_ALL=C sort /tmp/qa-list | diff -u - /tmp/actual-qa-list
+          git diff --quiet "$product" HEAD -- src/ crates/ ops/ static/ scripts/ package-lock.json
+          echo QRW2221_FIXED_PRODUCT4_QAONLY2_PINS_PASS
+      - name: Run actual Svelte amount UI handler and real one-shot helper with fault injection
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qa-qrw-pr2221-amount-verified-download-lifetime-l2.test.mjs tests/web-amount-encrypted-download-buffer-lifetime.test.mjs
+          echo QRW2221_ACTUAL_AMOUNT_HANDLER_ENCRYPTED_ZEROIZE_L2_PASS
