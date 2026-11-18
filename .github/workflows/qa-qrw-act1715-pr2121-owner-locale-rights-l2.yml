@@ -1,0 +1,138 @@
+name: QA ONLY 04 QR-W ACT1715 PR2121 eight-language attribution without mandatory human8 L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1715-pr2121-owner-locale-rights-l2.yml'
+permissions:
+  contents: read
+jobs:
+  independent-owner-image-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 4bb735f2c5f4c34232454ee5cd36ad8e38e0b687
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin exactly original 3 changed product Git blobs and unchanged operator packet
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 4bb735f2c5f4c34232454ee5cd36ad8e38e0b687
+          test "$(git merge-base HEAD 3b87b852ec827179587c9853d4560ae755d750f1)" = 3b87b852ec827179587c9853d4560ae755d750f1
+          cat >/tmp/qrw2121-postblobs <<'PINS'
+          c3454e78063dc97741a42a02f3ab35c472d776a8 docs/rights/ddv-item-image-release-operator-20261105.md
+          d9bc35b7747779cd8ac7ce02da14da22775bd235 ops/ddv-item-image-operator-gate.mjs
+          2c509b562d21419185935280e0cada74116450f7 tests/ddv-item-image-operator-gate.test.mjs
+          PINS
+          while read -r blob path; do
+            test "$(git rev-parse "HEAD:$path")" = "$blob"
+            test "$(git ls-tree HEAD "$path" | awk '{print $1}')" = 100644
+            test "$(git diff --name-status 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- "$path" | cut -f1)" = M
+          done </tmp/qrw2121-postblobs
+          awk '{print $2}' /tmp/qrw2121-postblobs | LC_ALL=C sort >/tmp/qrw2121-expected
+          git diff --name-only 3b87b852ec827179587c9853d4560ae755d750f1 HEAD | LC_ALL=C sort >/tmp/qrw2121-actual
+          diff -u /tmp/qrw2121-expected /tmp/qrw2121-actual
+          test "$(git rev-parse HEAD:ops/ddv-item-image-operator-readiness-template.json)" = 079e548e367771d9b1b8e33bff87be90ad58598e
+          test "$(git rev-parse HEAD:tests/dbk-solo-owner-postpublish.test.mjs)" = 9c9f40532b8fac14af67a594f37a70c3d3c561be
+          echo QRW2121_ORIGINAL_THREE_CHANGED_BLOBS_MODES_RIGHTS_PACKET_PRESERVED_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Actual operator and existing postpublish contract tests reused
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/ddv-item-image-operator-gate.test.mjs tests/dbk-solo-owner-postpublish.test.mjs
+          echo QRW2121_INHERITED_OPERATOR_AND_SOLOOWNER_TESTS_PASS
+      - name: Independent 8 actual copy / no human8 gate, forged review and missing operation rights negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {IMAGE_NOTICE_LOCALES,preflightGameImageOperatorReceipt,
+            validateImageSuppressionLedger} from './ops/ddv-item-image-operator-gate.mjs';
+          const original=JSON.parse(readFileSync('ops/ddv-item-image-operator-readiness-template.json','utf8'));
+          const initial=structuredClone(original);
+          const d=s=>s.repeat(64);
+          assert.equal(IMAGE_NOTICE_LOCALES.length,8);
+          assert.deepEqual(Object.keys(original.locales),IMAGE_NOTICE_LOCALES);
+          assert.ok(IMAGE_NOTICE_LOCALES.every(x=>{
+            const y=original.locales[x];
+            return y.text?.includes('Dreamwish Wand')&&y.humanReviewed===false&&y.reviewEvidenceRef===null;
+          }));
+          let positive=0,negative=0;
+          const synthetic=structuredClone(original);
+          synthetic.rightsContact={url:'mailto:operator@example.org',tested:true,verificationEvidenceRef:'SYNTHETIC_CONTACT_VERIFIED'};
+          for(const v of Object.values(synthetic.controls)){v.verified=true;v.evidenceRef='SYNTHETIC_OPERATION_VERIFIED';}
+          synthetic.assetBundleSha256=d('c');
+          synthetic.assetManifestEvidenceRef='SYNTHETIC_MANIFEST';
+          synthetic.deploymentAuthorizationRef='SYNTHETIC_DEPLOYMENT';
+          synthetic.suppressionLedger=[];
+          synthetic.suppressionLedgerProvenance='SYNTHETIC_VERIFIED_CURRENT_LEDGER';
+          assert.deepEqual(preflightGameImageOperatorReceipt(synthetic),
+            {readyForOperatorReview:true,reasons:[]});
+          assert.ok(Object.values(synthetic.locales).every(x=>x.humanReviewed===false));
+          assert.equal(original.publicationState,'OFF');
+          positive++;
+          const deny=(candidate,code)=>{
+            const result=preflightGameImageOperatorReceipt(candidate);
+            assert.equal(result.readyForOperatorReview,false,'must remain fail-closed for '+code);
+            assert.ok(result.reasons.includes(code),JSON.stringify(result.reasons));
+            negative++;
+          };
+          for(const loc of IMAGE_NOTICE_LOCALES){
+            const make=v=>({...synthetic,locales:{...synthetic.locales,[loc]:v}});
+            const source=synthetic.locales[loc];
+            for(const forged of [
+              undefined,null,{}, { ...source,text:''},
+              {...source,text:'Missing attribution'}, {...source,text:'Dreamwish Wand'},
+              {...source,text:'Dreamwish Wand Disney'},
+              {...source,humanReviewed:true,reviewEvidenceRef:null},
+              {...source,humanReviewed:true,reviewEvidenceRef:'UNKNOWN'},
+              {...source,humanReviewed:true,reviewEvidenceRef:'NOT_RUN'},
+              {...source,humanReviewed:false,reviewEvidenceRef:'FAKE_HUMAN_APPROVAL'},
+              {...source,humanReviewed:'false',reviewEvidenceRef:null},
+              {...source,humanReviewed:undefined}
+            ]) {
+              // A brand-only replacement, or omission of Gameloft, is not an actual attribution copy.
+              // Human review is optional; Disney/Gameloft credit and non-affiliation remain required.
+              deny(make(forged),'ATTRIBUTION_LOCALE_COPY_OR_RECEIPT_INVALID:'+loc);
+            }
+            const approved=make({...source,humanReviewed:true,reviewEvidenceRef:'SYNTHETIC_HUMAN_EVIDENCE'});
+            assert.deepEqual(preflightGameImageOperatorReceipt(approved),{readyForOperatorReview:true,reasons:[]});
+            assert.deepEqual(preflightGameImageOperatorReceipt(synthetic),{readyForOperatorReview:true,reasons:[]});
+            positive++;
+          }
+          for(const code of Object.keys(synthetic.controls)){
+            const without={...synthetic,controls:{...synthetic.controls,[code]:{verified:false,evidenceRef:null}}};
+            deny(without,'OPERATOR_CONTROL_NOT_PROVED:'+code);
+          }
+          for(const wrong of [
+            {...synthetic,rightsContact:{...synthetic.rightsContact,tested:false}},
+            {...synthetic,rightsContact:{...synthetic.rightsContact,url:'mailto:support@dreamwishwand.com?bcc=bad@example.org'}},
+            {...synthetic,rightsContact:{url:'mailto:support@dreamwishwand.com',tested:true,verificationEvidenceRef:'FOREIGN_PROOF'}}
+          ])deny(wrong,'WORKING_RIGHTS_CONTACT_NOT_PROVED');
+          for(const [field,code] of [
+            ['assetBundleSha256','ASSET_RELEASE_BUNDLE_NOT_PINNED'],
+            ['assetManifestEvidenceRef','ASSET_RELEASE_BUNDLE_NOT_PINNED'],
+            ['deploymentAuthorizationRef','EXPLICIT_OPERATOR_DEPLOYMENT_NOT_AUTHORIZED'],
+            ['suppressionLedgerProvenance','SUPPRESSION_LEDGER_OR_PROVENANCE_NOT_VERIFIED']
+          ])deny({...synthetic,[field]:null},code);
+          deny({...synthetic,suppressionLedger:[
+            {kind:'ITEM_ID',value:'40000101',state:'HIDDEN',incidentRef:'SYNTHETIC'},
+            {kind:'ITEM_ID',value:40000101,state:'HIDDEN',incidentRef:'SYNTHETIC_FROZEN'}]},
+            'SUPPRESSION_LEDGER_OR_PROVENANCE_NOT_VERIFIED');
+          assert.equal(validateImageSuppressionLedger([]),true);
+          assert.equal(preflightGameImageOperatorReceipt(original).readyForOperatorReview,false);
+          assert.deepEqual(original,initial,'real operator packet left byte-for-byte logically unchanged');
+          const rights=readFileSync('docs/rights/ddv-item-image-release-operator-20261105.md','utf8');
+          assert.match(rights,/human|人手|8言語/i);
+          console.log('QRW2121_NO_HUMAN8_GATE_EIGHT_REAL_ATTRIBUTIONS_AND_OTHER_INVARIANTS_PASS',
+            JSON.stringify({positive,negative,realOperatorControlsUnverified:true,
+              actualGameImage:false,liveCDNNotRun:true,mediaOn:false,ownerApprovedScopeOnly:true}));
+          NODE
