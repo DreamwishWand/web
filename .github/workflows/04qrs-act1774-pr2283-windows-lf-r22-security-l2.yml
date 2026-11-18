@@ -1,0 +1,164 @@
+name: 04 QR-S ACT1774 PR2283 Windows LF exact1 R22 Gate5 independent Security QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2283-windows-lf-exact1-r22-security-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2283-windows-lf-r22-security-l2.yml'
+permissions:
+  contents: read
+jobs:
+  protected-external-gate5-data-attribute-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze original Source exact8 GitBlobs plus QA-only own one file
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 1e840d505a2ba4bb0b4be503290f9d2211f6b7c3 HEAD
+          test "$(git diff --name-only 1e840d505a2ba4bb0b4be503290f9d2211f6b7c3 HEAD)" = ".github/workflows/04qrs-act1774-pr2283-windows-lf-r22-security-l2.yml"
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9
+          test "$(git rev-parse HEAD:tests/09p-r22-windows-lf-pack-exact1-gate.test.mjs)" = e5557297de345f23d7c4ee506ae106c2831162bd
+      - name: Execute real protected external Gate before candidate and hostile Windows immutable pack exact1 GitTrees
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS2283_NODE'
+          import assert from 'node:assert/strict';
+          import {spawnSync} from 'node:child_process';
+          import {mkdtempSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {verifyAcceptedRustScope} from './scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          const main='a9a87c578c8bc2a9c64284b15d3ed2c5eb39f817';
+          const source='1e840d505a2ba4bb0b4be503290f9d2211f6b7c3';
+          const original='ad210aa3c551615b8c35f8b2970138760a59f5b6';
+          const selector='scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          const trust='scripts/wasm-distribution/r22-trusted-before-candidate.mjs';
+          const attr='crates/ddv-save-core/data/.gitattributes';
+          const fixedAttr='f67de2e4316397b93f95088c379f724ea81e9399';
+          const fixedSel='fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9';
+          const cargo='crates/ddv-save-core/Cargo.toml';
+          const cfg='scripts/wasm-distribution/protected-release-inputs.json';
+          const fixed=[
+           ['.github/workflows/09p-r22-switch626-makeup-gate-exact8.yml','ceb393a8637ce019c6ae4a80533dfa5b2dc860e4'],
+           [selector,fixedSel],
+           ['tests/09p-r22-amount-battlepass-exact1-gate.test.mjs','796a87eec2cdb5adc78b05f884f84f41b27bfe89'],
+           ['tests/09p-r22-amount-private-bridge-exact3-gate.test.mjs','a138d619cfc3a2315a83204f2ff081e788992e4d'],
+           ['tests/09p-r22-steam626-eyecolor2-repair.test.mjs','792ed3859318c4e5e816caee8dc6253627dcb10f'],
+           ['tests/09p-r22-switch626-makeup-gate-exact8.test.mjs','80ea5091a2f9e3c1007acaeab09b19d9b7b93de0'],
+           ['tests/09p-r22-trusted-main-preflight.test.mjs','3cbc6054fc148beb9e3c584f0bfa8bdee23da7f8'],
+           ['tests/09p-r22-windows-lf-pack-exact1-gate.test.mjs','e5557297de345f23d7c4ee506ae106c2831162bd']];
+          const temp=mkdtempSync(join(tmpdir(),'qrs2283-'));
+          const cwd=join(temp,'trust');
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',GIT_TERMINAL_PROMPT:'0',
+           GIT_AUTHOR_NAME:'04QR-S independent QA',GIT_AUTHOR_EMAIL:'qa@example.invalid',
+           GIT_COMMITTER_NAME:'04QR-S independent QA',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
+          const child=(cmd,args,here=cwd,input)=>spawnSync(cmd,args,{cwd:here,env,input,encoding:'utf8',timeout:90000,maxBuffer:12*1024*1024});
+          const git=(...args)=>{const p=child('git',args);assert.equal(p.status,0,'git '+args.join(' ')+' '+p.stderr.slice(-700));return p.stdout.trim()};
+          const blob=s=>{const p=child('git',['hash-object','-w','--stdin'],cwd,s);assert.equal(p.status,0,p.stderr);return p.stdout.trim()};
+          let serial=0,pos=0,neg=0;
+          function commit(parent,edits){
+           const idx=join(temp,'index'+(++serial));
+           const cmd=args=>{const p=spawnSync('git',args,{cwd,env:{...env,GIT_INDEX_FILE:idx},encoding:'utf8'});assert.equal(p.status,0,p.stderr);return p.stdout.trim()};
+           cmd(['read-tree',parent+'^{tree}']);
+           for(const [path,sha,mode='100644'] of edits)cmd(['update-index','--add','--cacheinfo',mode,sha,path]);
+           const tree=cmd(['write-tree']);
+           return git('commit-tree',tree,'-p',parent,'-m','04QR-S QA ephemeral negative Git object');
+          }
+          function allow(label,receipt,pr,n){
+           assert.equal(receipt.sourcePr,pr,label+' wrong sourcePr');
+           assert.equal(receipt.entryCount,n,label+' wrong entryCount');
+           assert.equal(receipt.mergeAuthorized,false);assert.equal(receipt.writerAuthorized,false);assert.equal(receipt.operationOn,false);
+           pos++;console.log('QRS2283_POS_'+label);
+          }
+          function deny(label,base,candidate){
+           assert.throws(()=>verifyAcceptedRustScope(cwd,base,candidate),/R22_ACCEPTED_SCOPE_|SOURCE_PATH_SET_MISMATCH|INT_SELECTION_/,'FALSE_SECURITY_ACCEPT_'+label);
+           neg++;console.log('QRS2283_NEG_DENIED_'+label);
+          }
+          try{
+           const c=child('git',['clone','--no-hardlinks','--no-checkout','-q',process.cwd(),cwd],process.cwd());assert.equal(c.status,0,'clone '+c.stderr);
+           assert.equal(git('merge-base',main,source),main);
+           assert.deepEqual(git('diff','--name-only',main,source).split('\n').filter(Boolean).sort(),fixed.map(x=>x[0]).sort());
+           for(const [path,sha] of fixed)assert.equal(git('ls-tree',source,'--',path),'100644 blob '+sha+'\t'+path,'Source blob/mode '+path);
+           for(const path of [trust,'scripts/wasm-distribution/verify-protected-release.mjs','scripts/wasm-distribution/r22-raw-rust-checkout.mjs',
+             'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs','scripts/int-selection-preflight.mjs','.github/workflows/pages.yml',cargo,cfg,
+             'scripts/wasm-distribution/approved-Cargo.lock']){
+            assert.equal(git('rev-parse',main+':'+path),git('rev-parse',source+':'+path),'unreviewed trusted path '+path);
+           }
+           assert.equal(git('rev-parse',main+':crates/ddv-save-core'),'10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c');
+           assert.equal(git('rev-parse',main+':'+cargo),'751a73da41d8b58f7de70643f50b97722a3c1260');
+           assert.equal(git('rev-parse',main+':'+cfg),'30551c7cc566614f64c8ba04748c3aef44b419bb');
+           assert.equal(git('ls-tree',main,'--',attr),'');
+           const sourceGate=commit(main,fixed.map(([p,sha])=>[p,sha]));
+           assert.equal(git('rev-parse',sourceGate+'^{tree}'),git('rev-parse',source+'^{tree}'));
+           git('checkout','--force','--detach',main);
+           git('update-ref','refs/remotes/origin/main',main);
+           const old=child(process.execPath,[join(cwd,trust),main,sourceGate]);
+           assert.notEqual(old.status,0,'new Gate self-signed by old trusted CLI');
+           assert.match(old.stderr,/R22_TRUSTED_PRE_CANDIDATE_DENIED/);
+           assert.match(old.stderr,/R22_TRUSTED_SELECTION_TRUSTED_PATH_CHANGED_scripts\/wasm-distribution\/r22-accepted-rust-scope.mjs/);
+           neg++;console.log('QRS2283_NEG_DENIED_OLD_PROTECTED_TRUST_NEW_GATE_SELF_AUTH');
+           const fetched=child('git',['fetch','--no-tags','--no-recurse-submodules','https://github.com/DreamwishWand/web.git','refs/pull/2276/head']);
+           assert.equal(fetched.status,0,'original candidate fetch '+fetched.stderr);
+           assert.equal(git('rev-parse','FETCH_HEAD'),original,'original Windows attr source moved; fail closed');
+           assert.equal(git('rev-parse',original+'^'),main);
+           assert.deepEqual(git('diff','--name-only',main,original),attr);
+           assert.equal(git('ls-tree',original,'--',attr),'100644 blob '+fixedAttr+'\t'+attr);
+           const data=git('cat-file','blob',fixedAttr);
+           assert.deepEqual(data.split('\n').filter(Boolean).sort(),[
+           'steam626-amount-packaged-candidates.json -text',
+           'steam626-amount-dependency-projection.json -text',
+           'steam626-amount-layout-reference.jsonl -text'].sort(),'Windows only raw pack LF');
+           const win=commit(sourceGate,[[attr,fixedAttr]]);
+           assert.equal(git('rev-parse',win+':crates/ddv-save-core'),'623034400b71179b790ae8eca7b152cd892c898f');
+           const now=verifyAcceptedRustScope(cwd,sourceGate,win);
+           allow('WINDOWS_EXACT_ONE_DATA_ATTRIBUTE_AFTER_TRUSTED_GATE_ONLY',now,2276,1);
+           assert.equal(now.windowsByteStableOnly,true);
+           const oldPrivate='83eb60cc4b77040bfa1fa492b19dc6c709037a71';
+           allow('PRESERVED_PRIVATE_NATIVE_EXACT3',verifyAcceptedRustScope(cwd,oldPrivate,main),2267,3);
+           const oldAmount='e6e360f5326b9a5cf6884600a4c9ecf642aa12fa';
+           const oldBattle='14a088e70011fe4c8b8966515ead4415f47563e3';
+           allow('PRESERVED_BATTLEPASS_EXACT1',verifyAcceptedRustScope(cwd,oldBattle,'9a5c72ebafe45987b762a8fcb6ecaa198e7a7fd9'),2263,1);
+           const oldMakeup='e7a56d5ce4a717cd76191e345b79be12adef3df4';
+           const mk=['.github/workflows/core-product-session-boundary.yml',cargo,'crates/ddv-save-core/src/product_makeup_color1.rs',
+            'crates/ddv-save-core/src/wasm_worker.rs','crates/ddv-save-core/src/worker_session.rs',
+            'crates/ddv-save-core/src/worker_switch626_makeup_color1.rs',
+            'crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs',cfg];
+           const mkCandidate=commit(oldMakeup,mk.map(path=>[path,git('rev-parse',main+':'+path)]));
+           allow('PRESERVED_MAKEUP_EXACT8',verifyAcceptedRustScope(cwd,oldMakeup,mkCandidate),2217,8);
+           assert.equal(git('rev-parse',oldMakeup+':crates/ddv-save-core'),'b5416aa726caea9d311075599ac606e11285b295');
+           const poison=blob('# adversarial invalid LF attribute bytes\n');
+           deny('WRONG_ATTRIBUTE_BYTES',sourceGate,commit(sourceGate,[[attr,poison]]));
+           deny('EXECUTABLE_ATTRIBUTE',sourceGate,commit(sourceGate,[[attr,fixedAttr,'100755']]));
+           deny('SYMLINK_ATTRIBUTE',sourceGate,commit(sourceGate,[[attr,fixedAttr,'120000']]));
+           deny('MISSING_ATTRIBUTE',sourceGate,commit(sourceGate,[]));
+           deny('MUTATED_SIGNED_PACK_BYTES',sourceGate,commit(win,[['crates/ddv-save-core/data/steam626-amount-packaged-candidates.json',poison]]));
+           deny('MUTATED_DEPENDENCY_PACK_BYTES',sourceGate,commit(win,[['crates/ddv-save-core/data/steam626-amount-dependency-projection.json',poison]]));
+           deny('MUTATED_LAYOUT_PACK_BYTES',sourceGate,commit(win,[['crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl',poison]]));
+           deny('EXTRA_RUST_LEAF',sourceGate,commit(win,[['crates/ddv-save-core/src/unreviewed.rs',poison]]));
+           deny('CHANGED_CARGO',sourceGate,commit(win,[[cargo,poison]]));
+           deny('CHANGED_RELEASE_CONFIG',sourceGate,commit(win,[[cfg,poison]]));
+           deny('CHANGED_APPROVED_LOCK',sourceGate,commit(win,[['scripts/wasm-distribution/approved-Cargo.lock',poison]]));
+           deny('CHANGED_SELECTOR',sourceGate,commit(win,[[selector,poison]]));
+           deny('CHANGED_VERIFIER',sourceGate,commit(win,[['scripts/wasm-distribution/verify-protected-release.mjs',poison]]));
+           deny('CHANGED_TRUSTED_BEFORE_CANDIDATE',sourceGate,commit(win,[[trust,poison]]));
+           deny('CHANGED_SIGNED_ISSUER',sourceGate,commit(win,[['src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',poison]]));
+           deny('CHANGED_PAGES_RELEASE',sourceGate,commit(win,[['.github/workflows/pages.yml',poison]]));
+           deny('UNREVIEWED_EXTRA_FILE',sourceGate,commit(win,[['src/lib/unreviewed.mjs',poison]]));
+           deny('OLD_PROTECTED_GATE_WITH_CANDIDATE_SELECTOR',main,commit(main,[[attr,fixedAttr],[selector,fixedSel]]));
+           assert.equal(pos,4);assert.equal(neg,19);
+           console.log('QRS2283_FINAL_4POS_19NEG_ZERO_UNTRUSTED_RELEASE',JSON.stringify({pos,neg,actualOwnerV2:'NOT_RUN'}));
+          }finally{rmSync(temp,{recursive:true,force:true})}
+          QRS2283_NODE
+      - name: QA-only no merge Pages Writer or Owner data
+        run: echo QRS2283_QA_ONLY_NEVER_MERGE_NO_USER_SAVE_NO_OP_ON
