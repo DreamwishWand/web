@@ -1,0 +1,230 @@
+name: QA ONLY 04 QR-W ACT1684 PR2090 exact5 Moodboard root CI guard L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1684-pr2090-decux24-root-grid-l2.yml'
+permissions:
+  contents: read
+jobs:
+  root-grid-and-allowlist:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 785ea32a2b1ce9960dc3b4e2664eabc86674fbbc
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin exact 5 original product blobs modes and untouched Store/previous profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 785ea32a2b1ce9960dc3b4e2664eabc86674fbbc
+          test "$(git merge-base HEAD 2e57c69d66494ad20a37041fd2725e82b8dd5205)" = 2e57c69d66494ad20a37041fd2725e82b8dd5205
+          cat >/tmp/qrw2090-postblobs <<'PINS'
+          79cf3bc96288b116613a0806f638b25767968dbf .github/workflows/08web-decux24-moodboard-root.yml A
+          0c24b7bd473aad332211777c40d73a8129b109b7 .github/workflows/web-moodboard-atomic-entry.yml M
+          c051a58972fa76d1ccb44e49efb010d3e1d5e4fb scripts/web-moodboard-decux24-root-grid-chrome.mjs A
+          8372377fbbd07a0f6ef2ab6e2c127d5260ccc24d src/routes/moodboards/+page.svelte M
+          11debb8682f76467026cd1e49baf9cc825184425 tests/web-moodboard-decux24-root-grid.test.mjs A
+          PINS
+          while read -r blob path status; do
+            test "$(git rev-parse "HEAD:$path")" = "$blob"
+            test "$(git ls-tree HEAD "$path" | awk '{print $1}')" = 100644
+            test "$(git diff --name-status 2e57c69d66494ad20a37041fd2725e82b8dd5205 HEAD -- "$path" | cut -f1)" = "$status"
+          done </tmp/qrw2090-postblobs
+          awk '{print $2}' /tmp/qrw2090-postblobs | LC_ALL=C sort >/tmp/qrw2090-expected
+          git diff --name-only 2e57c69d66494ad20a37041fd2725e82b8dd5205 HEAD | LC_ALL=C sort >/tmp/qrw2090-actual
+          diff -u /tmp/qrw2090-expected /tmp/qrw2090-actual
+          test "$(git rev-parse HEAD:src/lib/moodboards/store.js)" = 530d5b8baae94fb69d037a5bea565a31668f64d0
+          test "$(git rev-parse HEAD:src/lib/moodboards/copy.js)" = 9c20f3a06d580af6d290e6b8498b6a1bf6f9d831
+          test "$(git rev-parse HEAD:src/lib/moodboards/cover-preview.mjs)" = 0ef6b9515d79dc252823643f80cf0bd84c3b9b14
+          git diff --quiet 2e57c69d66494ad20a37041fd2725e82b8dd5205 HEAD -- \
+            src/lib/moodboards/store.js src/lib/moodboards/origin-portability.mjs \
+            src/lib/moodboards/cover-preview.mjs src/lib/moodboards/copy.js \
+            src/lib/moodboards/atomic-first-board.mjs src/routes/moodboards/atomic \
+            src/lib/collection/ src/lib/community/ .github/workflows/pages.yml supabase/
+          # No deletion or rewrite of previous CI profiles: exactly 26 additions / zero deletions
+          test "$(git diff --numstat 2e57c69d66494ad20a37041fd2725e82b8dd5205 HEAD -- .github/workflows/web-moodboard-atomic-entry.yml | awk '{print $1":"$2}')" = "26:0"
+          echo QRW2090_ORIGINAL_FIVE_GIT_BLOBS_OLD_CI_PROFILES_PRESERVED_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Inherited affected local Moodboard Node and origin safety tests
+        run: node --test tests/web-moodboard-decux24-root-grid.test.mjs tests/web-moodboard-cover-preview.test.mjs tests/web-moodboard-atomic-entry.test.mjs tests/web-moodboard-origin-portability.test.mjs
+      - name: Independently refute CI fake blob, deleted/extra file, wrong mode and old profile loss
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          import {MOODBOARD_COPY} from './src/lib/moodboards/copy.js';
+          import {createEmptyMoodboardDocument,createMoodboard,parseMoodboardDocument,serializeMoodboardDocument} from './src/lib/moodboards/store.js';
+          const code=readFileSync('.github/workflows/web-moodboard-atomic-entry.yml','utf8');
+          const source=readFileSync('src/routes/moodboards/+page.svelte','utf8');
+          let positive=0,negative=0;
+          const block=name=>{
+            const token='cat >/tmp/'+name+" <<'SCOPE'";
+            const index=code.indexOf(token);
+            assert.ok(index>=0,'missing exact profile '+name);
+            const tail=code.slice(index+token.length);
+            const body=tail.slice(0,tail.indexOf('\n          SCOPE'));
+            return body.trim().split('\n').map(x=>x.trim()).sort();
+          };
+          const legacy=block('atomic-entry-scope');
+          const decux43=block('atomic-entry-decux43-scope');
+          const migration=block('atomic-entry-migration-scope');
+          const current=block('atomic-entry-decux24-scope');
+          const expected=[
+            '.github/workflows/08web-decux24-moodboard-root.yml',
+            '.github/workflows/web-moodboard-atomic-entry.yml',
+            'scripts/web-moodboard-decux24-root-grid-chrome.mjs',
+            'src/routes/moodboards/+page.svelte',
+            'tests/web-moodboard-decux24-root-grid.test.mjs'
+          ].sort();
+          assert.deepEqual(current,expected);positive++;
+          assert.equal(legacy.length,5);
+          assert.equal(decux43.length,7);
+          assert.equal(migration.length,7);
+          assert.ok(decux43.includes('src/lib/moodboards/cover-preview.mjs'));
+          assert.ok(migration.includes('src/lib/moodboards/origin-portability.mjs'));positive++;
+          const scopeOk=(rows,expect)=>rows.length===expect.length &&
+            rows.slice().sort().every((x,i)=>x===expect[i]);
+          for(const extra of [
+            '.github/workflows/pages.yml','src/lib/moodboards/store.js','src/lib/community/secrets.ts',
+            'supabase/migrations/new.sql','src/routes/+layout.svelte',
+            'scripts/extra-chrome.mjs','tests/web-moodboard-decux24-root-grid.test.mjs.backup',
+            '.github/workflows/08web-decux24-moodboard-root.yml/'
+          ]){assert.equal(scopeOk([...current,extra],current),false,extra);negative++;}
+          for(const missing of current){assert.equal(scopeOk(current.filter(x=>x!==missing),current),false,missing);negative++;}
+          for(const swapped of [
+            ['src/routes/moodboards/+page.svelte','src/lib/moodboards/store.js'],
+            ['tests/web-moodboard-decux24-root-grid.test.mjs','tests/web-moodboard-cover-preview.test.mjs']
+          ]){assert.equal(scopeOk(current.map(x=>x===swapped[0]?swapped[1]:x),current),false,swapped[0]);negative++;}
+          for(const [path,blob] of [
+            ['src/routes/moodboards/+page.svelte','8372377fbbd07a0f6ef2ab6e2c127d5260ccc24d'],
+            ['tests/web-moodboard-decux24-root-grid.test.mjs','11debb8682f76467026cd1e49baf9cc825184425'],
+            ['scripts/web-moodboard-decux24-root-grid-chrome.mjs','c051a58972fa76d1ccb44e49efb010d3e1d5e4fb'],
+            ['.github/workflows/08web-decux24-moodboard-root.yml','79cf3bc96288b116613a0806f638b25767968dbf']
+          ]){
+            assert.ok(code.includes('test "$(git rev-parse HEAD:'+path+')" = '+blob));
+            const real=execFileSync('git',['rev-parse','HEAD:'+path],{encoding:'utf8'}).trim();
+            assert.equal(real,blob);
+            const changed=execFileSync('git',['hash-object','--stdin'],{input:readFileSync(path,'utf8')+'\n# ALTERED BY QA NEGATIVE\n',encoding:'utf8'}).trim();
+            assert.notEqual(changed,blob);
+            negative++;
+            positive++;
+          }
+          for(const path of current){
+            assert.ok(code.includes(path));
+            const mode=execFileSync('git',['ls-tree','HEAD',path],{encoding:'utf8'}).split(' ')[0];
+            assert.equal(mode,'100644');
+            assert.notEqual(mode,'120000','reject symlink mode');
+            negative++;
+          }
+          assert.ok(code.includes('diff -u /tmp/atomic-entry-decux24-expected /tmp/atomic-entry-actual'));
+          assert.ok(code.includes("test \"$(git ls-tree HEAD \"$p\" | awk '{print $1}')\" = 100644"));
+          assert.ok(code.includes('src/lib/moodboards/store.js'));positive++;
+          const form=source.match(/<form class="create-board new-board"[\s\S]*?<\/form>/)?.[0]??'';
+          assert.ok(form.includes('data-moodboard-quick-create'));
+          assert.ok(form.includes('bind:value={newTitle}'));
+          assert.doesNotMatch(form,/<textarea|newDescription/);
+          assert.match(source,/tick\(\)\.then\(\(\)=>workspaceHeading\?\.focus\(\)\)/);
+          assert.match(source,/data-moodboard-workspace-title/);
+          assert.match(source,/on:click=\{\(\)=>removeBoard\(board\.id\)\}/);
+          assert.match(source,/on:click=\{\(\)=>removeBoard\(selected\.id\)\}/);
+          assert.match(source,/MOODBOARD_BACKUP_KEY/);
+          assert.equal(Object.keys(MOODBOARD_COPY).length,8);positive++;
+          const stamp='2026-11-18T00:00:00.000Z';
+          const old=createMoodboard(createEmptyMoodboardDocument(stamp),{
+            title:'Original',description:'Existing detailed notes must not be lost'
+          },{now:stamp,idFactory:()=> 'original'});
+          const opened=parseMoodboardDocument(serializeMoodboardDocument(old.document),stamp);
+          assert.equal(opened.boards[0].description,'Existing detailed notes must not be lost');
+          const next=createMoodboard(opened,{title:'New title only'}, {now:stamp,idFactory:()=> 'next'});
+          assert.equal(next.document.boards[0].description,'Existing detailed notes must not be lost');
+          assert.equal(next.document.boards[1].description,'');
+          assert.equal(opened.boards.length,1);positive++;
+          console.log('QRW2090_LEGACY_CI_EXACT_FIVE_AND_OLD_PROFILES_NEGATIVE_PASS',
+            JSON.stringify({positive,negative,sourceHeadPinned:true,actualFileModes:true}));
+          NODE
+      - name: Actual Svelte build, original 2 viewport Chrome and independent legacy description plus three-board backup
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm run check && npm run build
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/qrw2090-preview.log 2>&1 &
+          for i in $(seq 1 60); do if curl -fsS http://127.0.0.1:4298/web/moodboards/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4298/web/moodboards/ >/dev/null
+          node scripts/web-moodboard-decux24-root-grid-chrome.mjs
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          import {createEmptyMoodboardDocument,createMoodboard,serializeMoodboardDocument} from './src/lib/moodboards/store.js';
+          const stamp='2026-11-18T00:00:00.000Z';
+          const legacy=createMoodboard(createEmptyMoodboardDocument(stamp),{title:'Existing Garden',
+            description:'Old details should remain after title-only new board'},{
+            now:stamp,idFactory:()=> 'old-board'
+          });
+          const content=serializeMoodboardDocument(legacy.document);
+          const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          let views=0;
+          try {
+            for(const width of [1366,320]){
+              const ctx=await browser.newContext({viewport:{width,height:880},serviceWorkers:'block'});
+              const page=await ctx.newPage();const errors=[],external=[];
+              page.on('pageerror',e=>errors.push(String(e)));
+              ctx.on('request',r=>{
+                const u=new URL(r.url());
+                if(u.origin!=='http://127.0.0.1:4298'||!['GET','HEAD'].includes(r.method()))external.push(r.method()+' '+u.href);
+              });
+              try {
+                await page.goto('http://127.0.0.1:4298/web/moodboards/',{waitUntil:'domcontentloaded'});
+                await page.evaluate(bytes=>localStorage.setItem('dreamwishwand:moodboards:v1',bytes),content);
+                await page.reload({waitUntil:'domcontentloaded'});
+                const entry=page.locator('[data-moodboard-root-card]'),form=page.locator('[data-moodboard-quick-create]');
+                assert.equal(await entry.count(),1);
+                assert.ok((await page.locator('.workspace-heading').innerText()).includes('Old details should remain'));
+                assert.equal(await form.locator('input').count(),1);
+                assert.equal(await form.locator('textarea').count(),0);
+                for(const title of ['Quiet pond','Harvest lights']){
+                  await form.locator('input').fill(title);
+                  const button=form.locator('button[type=submit]');
+                  assert.ok((await button.boundingBox()).height>=44);
+                  await button.click();
+                  await page.waitForFunction(t=>document.querySelector('[data-moodboard-workspace-title]')?.textContent?.trim()===t,title);
+                  assert.equal(await page.locator('[data-moodboard-workspace-title]').evaluate(x=>x===document.activeElement),true);
+                }
+                assert.equal(await entry.count(),3);
+                const snapshot=await page.evaluate(()=>({
+                  current:JSON.parse(localStorage.getItem('dreamwishwand:moodboards:v1')),
+                  previous:JSON.parse(localStorage.getItem('dreamwishwand:moodboards:v1:backup'))
+                }));
+                assert.deepEqual(snapshot.current.boards.map(x=>x.title),['Existing Garden','Quiet pond','Harvest lights']);
+                assert.equal(snapshot.current.boards[0].description,'Old details should remain after title-only new board');
+                assert.equal(snapshot.current.boards[1].description,'');
+                assert.equal(snapshot.current.boards[2].description,'');
+                assert.deepEqual(snapshot.previous.boards.map(x=>x.title),['Existing Garden','Quiet pond']);
+                const box=await Promise.all([entry.nth(0).boundingBox(),entry.nth(1).boundingBox()]);
+                assert.ok(box.every(Boolean));
+                if(width===1366)assert.ok(Math.abs(box[0].y-box[1].y)<=1);
+                else assert.ok(box[1].y>box[0].y+20);
+                assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),true);
+                assert.equal(await page.locator('input[data-moodboard-import-file]').count(),1);
+                assert.deepEqual(errors,[]);
+                assert.deepEqual(external,[]);
+                views++;
+              } finally {await page.close();await ctx.close();}
+            }
+            console.log('QRW2090_REAL_CHROME_PREEXISTING_DESCRIPTION_STABLE_3BOARD_TITLES_BACKUP_FOCUS_PASS',
+              JSON.stringify({viewports:views,cloud:false,gameSave:false}));
+          } finally {await browser.close();}
+          NODE
