@@ -1,0 +1,171 @@
+name: "04 QR-S ACT1699 R22 Cargo-trust one-key Security L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qrs-act1699-pr2106-r22-cargo-trust-l2.yml"
+permissions:
+  contents: read
+jobs:
+  independent-cargo-trust-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d37b174481d599ee99613ea8e116a6e780b697a7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.99.1"
+      - name: Real immutable Git one-key pin, candidate preflight, adversarial Cargo/Writer/issuer/OFF refusals
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cat > qrs-act1699-r22-trust.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {spawnSync,execFileSync} from 'node:child_process';
+          import {readFileSync,writeFileSync} from 'node:fs';
+          const main='2f84a135232848eb2306323bd2ccbc6198ea9494';
+          const candidate='d37b174481d599ee99613ea8e116a6e780b697a7';
+          const cfgPath='scripts/wasm-distribution/protected-release-inputs.json';
+          const validator='scripts/wasm-distribution/verify-protected-release.mjs';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8',
+            env:{...process.env,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
+          const obj=(s)=>JSON.parse(s);
+          const b=(ref,path)=>{
+            const m=/^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/.exec(
+              git('ls-tree',ref,'--',path));
+            assert.ok(m&&m[3]===path,'actual pinned blob '+path);
+            return {mode:m[1],sha:m[2]};
+          };
+          let positive=0,negative=0;
+          assert.equal(git('rev-parse','HEAD'),candidate);
+          assert.deepEqual(git('rev-list','--parents','-n','1',candidate).split(/\s+/),
+            [candidate,main]);
+          assert.deepEqual(git('diff','--name-only','--no-renames',main,candidate).split('\n'),
+            [cfgPath]);
+          assert.deepEqual(b(main,cfgPath),{mode:'100644',
+            sha:'53db0a9f23c3345056d87d2fcc98f8e7097501ea'});
+          assert.deepEqual(b(candidate,cfgPath),{mode:'100644',
+            sha:'9a382ff6b669c1a7c00f0385373f030c69502a7e'});
+          const cargo='crates/ddv-save-core/Cargo.toml';
+          assert.deepEqual(b(main,cargo),b(candidate,cargo));
+          assert.deepEqual(b(candidate,cargo),{mode:'100644',
+            sha:'e4f2e2c5d4451baba2dea699fe497cb7b40668d4'});
+          for(const p of [
+            'scripts/wasm-distribution/verify-protected-release.mjs',
+            'scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
+            '.github/workflows/pages.yml',
+            '.github/workflows/01a-protected-main-signed-wasm-release-off.yml',
+            'scripts/wasm-distribution/approved-Cargo.lock',
+            'scripts/readonly-release/seal.mjs',
+            'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',
+            '.github/workflows/ci.yml'
+          ])assert.deepEqual(b(main,p),b(candidate,p),'unchanged trust boundary '+p);
+          positive++;
+
+          const original=readFileSync(cfgPath);
+          const old=obj(git('show',main+':'+cfgPath));
+          const current=obj(original.toString('utf8'));
+          const pin=git('rev-parse','HEAD:'+cargo);
+          assert.equal(pin,current.cargoTomlGitBlob);
+          assert.equal(pin,'e4f2e2c5d4451baba2dea699fe497cb7b40668d4');
+          assert.equal(old.cargoTomlGitBlob,'f7c3b723804f9f3e11ffcbcd0f786d23e4e540bd');
+          assert.deepEqual({...current,cargoTomlGitBlob:old.cargoTomlGitBlob},old,
+            'sole one-key signed trust change');
+          assert.deepEqual(current.features,['indexed-read','worker-wasm']);
+          assert.equal(current.defaultFeatures,false);
+          assert.equal(current.writerEnabled,false);
+          assert.equal(current.productConsumerEnabled,false);
+          assert.equal(current.publicReadonlyAssetsApproved,true);
+          assert.equal(current.releasePermission,'OWNER_APPROVED_20261111_THREE_READONLY_PUBLIC_ASSETS_ONLY');
+          assert.equal(current.approvedCargoLockSha256,
+            'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c');
+          positive++;
+
+          const rustc=execFileSync('rustc',['--version'],{encoding:'utf8'}).trim();
+          assert.match(rustc,/^rustc 1\.99\.1 /);
+          const env={...process.env,
+            GITHUB_ACTIONS:'true',
+            GITHUB_REPOSITORY:'DreamwishWand/web',
+            GITHUB_REPOSITORY_ID:'1371485649',
+            GITHUB_EVENT_NAME:'workflow_dispatch',
+            GITHUB_REF:'refs/heads/main',
+            GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/01a-protected-main-signed-wasm-release-off.yml@refs/heads/main',
+            WAND_SOURCE_HEAD:candidate,
+            WAND_APPROVED_RELEASE_LOCK:'1',
+            WAND_PUBLIC_READONLY_ASSET_GATE:'OWNER_APPROVED_THREE_FILES_20261111',
+            WAND_RELEASE_BASE_PATH:'/web'
+          };
+          const run=(e=env)=>spawnSync('node',[validator,'inputs'],{env:e,
+            encoding:'utf8',timeout:45000});
+          const p=run();
+          assert.equal(p.status,0,'actual approved Source R22 inputs: '+p.stderr);
+          assert.match(p.stdout,/R22_RELEASE_INPUTS_ONLY_SOURCE_PINNED/);
+          positive++;
+
+          const deny=(patch,want,label)=>{
+            writeFileSync(cfgPath,JSON.stringify({...current,...patch},null,2)+'\n');
+            const r=run();
+            assert.notEqual(r.status,0,label+' must be rejected');
+            assert.match(r.stderr,new RegExp(want),label);
+            negative++;
+          };
+          try {
+            deny({cargoTomlGitBlob:old.cargoTomlGitBlob},
+              'R22_PROTECTED_RELEASE_CARGO_TOML_CHANGE_NEEDS_SCOPE_QA','historical stale Cargo pin');
+            deny({cargoTomlGitBlob:'f'.repeat(40)},
+              'R22_PROTECTED_RELEASE_CARGO_TOML_CHANGE_NEEDS_SCOPE_QA','foreign 40hex Cargo pin');
+            deny({cargoTomlGitBlob:'not-a-git-sha'},
+              'R22_PROTECTED_RELEASE_CARGO_TOML_CHANGE_NEEDS_SCOPE_QA','malformed Cargo pin');
+            deny({writerEnabled:true},
+              'R22_PROTECTED_RELEASE_INVALID_APPROVED_INPUTS','unauthorized Writer enable');
+            deny({productConsumerEnabled:true},
+              'R22_PROTECTED_RELEASE_INVALID_APPROVED_INPUTS','unauthorized Consumer enable');
+            deny({publicReadonlyAssetsApproved:false},
+              'R22_PROTECTED_RELEASE_INVALID_APPROVED_INPUTS','withdraw owner public 3 approval');
+            deny({releasePermission:'UNRESTRICTED'},
+              'R22_PROTECTED_RELEASE_INVALID_APPROVED_INPUTS','alter owner permission scope');
+            deny({features:['indexed-read','worker-wasm','product-steam626-bamboo-readonly']},
+              'R22_PROTECTED_RELEASE_INVALID_APPROVED_INPUTS','mixed Bamboo product WASM in public');
+            deny({defaultFeatures:true},
+              'R22_PROTECTED_RELEASE_INVALID_APPROVED_INPUTS','enable default features');
+            deny({wasmBindgenCliVersion:'0.2.106'},
+              'R22_PROTECTED_RELEASE_INVALID_APPROVED_INPUTS','unapproved bindgen version');
+            deny({approvedCargoLockSha256:'0'.repeat(64)},
+              'R22_PROTECTED_RELEASE_CARGO_LOCK_SHA_DRIFT_NEEDS_NEW_REVIEW','wrong trusted lock SHA');
+          } finally {writeFileSync(cfgPath,original);}
+          assert.deepEqual(readFileSync(cfgPath),original,'restore exact immutable input bytes');
+          positive++;
+
+          const wrongRepo=run({...env,GITHUB_REPOSITORY_ID:'0'});
+          assert.notEqual(wrongRepo.status,0);
+          assert.match(wrongRepo.stderr,/R22_PROTECTED_RELEASE_REPOSITORY_IDENTITY_DENIED/);
+          negative++;
+          const foreignWorkflow=run({...env,
+            GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/publish-unreviewed.yml@refs/heads/main'});
+          assert.notEqual(foreignWorkflow.status,0);
+          assert.match(foreignWorkflow.stderr,/R22_PROTECTED_RELEASE_RELEASE_WORKFLOW_DENIED/);
+          negative++;
+          const foreignRef=run({...env,GITHUB_REF:'refs/heads/evil'});
+          assert.notEqual(foreignRef.status,0);
+          assert.match(foreignRef.stderr,/R22_PROTECTED_RELEASE_NOT_PROTECTED_MAIN_PUSH/);
+          negative++;
+          positive++;
+
+          console.log('QRS_ACT1699_R22_BAMBOO_CARGO_PIN_SECURITY_L2_PASS',JSON.stringify({
+            positive,negative,sourceHead:candidate,protectedMain:main,
+            exactOneKeyOneGitBlob:true,realMergedCargoSha:true,
+            realValidatorPreflight:true,oldAndForeignPinDenied:true,
+            currentReleasePolicyFrozen:true,lockAndToolchainFrozen:true,
+            repoAndIssuerNegative:true,publicReadFeatureOnly:true,
+            realSignedPagesDeployment:false,writerAuthorized:false,
+            readerConsumerOn:false,operationOn:false
+          }));
+          NODE
+          node qrs-act1699-r22-trust.mjs
