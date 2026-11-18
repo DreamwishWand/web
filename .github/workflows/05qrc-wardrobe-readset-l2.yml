@@ -1,0 +1,33 @@
+name: 05 QR-C Wardrobe Rust Readset L2 QA Only
+on:
+  pull_request:
+    paths:
+      - "crates/ddv-save-core/tests/05qrc_wardrobe_readset_l2.rs"
+      - ".github/workflows/05qrc-wardrobe-readset-l2.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fixed-source-private-rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enforce exact immutable 01A product ancestor and QA-only changed paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=1f9306211fff3e051befa99ac0c371f5f1715da9
+          git cat-file -e "$base^{commit}"
+          git merge-base --is-ancestor "$base" HEAD
+          git diff --name-only "$base" HEAD | sort > /tmp/qrc-actual-paths
+          printf '%s\n' '.github/workflows/05qrc-wardrobe-readset-l2.yml' 'crates/ddv-save-core/tests/05qrc_wardrobe_readset_l2.rs' | sort > /tmp/qrc-expected-paths
+          diff -u /tmp/qrc-expected-paths /tmp/qrc-actual-paths
+          for f in crates/ddv-save-core/src/appearance_observer.rs crates/ddv-save-core/src/indexed_read.rs crates/ddv-save-core/src/bin/wand-local-rust-v1.rs; do
+            test "$(git rev-parse "HEAD:$f")" = "$(git rev-parse "$base:$f")"
+          done
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Execute real Rust synthetic independent Build/stock/CAS negatives
+        run: cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1 --test 05qrc_wardrobe_readset_l2 -- --nocapture
