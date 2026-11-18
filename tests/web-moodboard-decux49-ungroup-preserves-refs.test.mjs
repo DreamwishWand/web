@@ -59,8 +59,14 @@ test('DEC-UX-49: current UI is explicitly non-destructive, 44px accessible, and 
  assert.match(source,/section\.kind==='GROUP'/);
  assert.doesNotMatch(source,/deleteExclusiveContents:true/);
  assert.match(source,/\.group-actions button\{[^}]*min-height:44px/);
- assert.match(source,/localStorage\.setItem\(MOODBOARD_BACKUP_KEY,current\)/);
- assert.match(source,/localStorage\.setItem\(MOODBOARD_STORAGE_KEY,serializeMoodboardDocument\(next\)\)/);
+  // The old literal two-key write order was unsafe on quota denial.
+  // Pin the actual prior snapshot contract to the compensated writer.
+  const compensated=readFileSync(new URL('../src/lib/moodboards/local-persist-compensated.mjs',import.meta.url),'utf8');
+  assert.ok(source.includes('persistMoodboardLocalChange(localStorage,next,observedRaw)'));
+  assert.ok(compensated.includes('storage.setItem(MOODBOARD_BACKUP_KEY,currentRaw)'));
+  assert.ok(compensated.includes('storage.setItem(MOODBOARD_STORAGE_KEY,nextRaw)'));
+  assert.ok(compensated.includes('MOODBOARD_LOCAL_ROLLBACK_UNVERIFIED'));
+  assert.ok(compensated.includes("if(currentRaw!==expectedRaw)fail('STALE')"));
  assert.match(source,/exportPortableMoodboard/);
  assert.match(source,/importPortableMoodboard/);
  assert.match(source,/createMoodboardHandoff/);
