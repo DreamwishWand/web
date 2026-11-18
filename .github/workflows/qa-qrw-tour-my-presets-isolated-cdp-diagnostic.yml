@@ -1,0 +1,73 @@
+name: QA ONLY 04 QR-W Tour My Presets transition isolated browser diagnostic NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-tour-my-presets-isolated-cdp-diagnostic.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-tour-not-full-suite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 38920d0a331162c97c484abc96c6c37ea2ce58e0
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin exact failing Integration candidate and unmodified Tour code and route
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 38920d0a331162c97c484abc96c6c37ea2ce58e0
+          test "$(git merge-base HEAD bb5b0363b322f106218c3e42da97da0d91fc38ae)" = bb5b0363b322f106218c3e42da97da0d91fc38ae
+          test "$(git rev-parse HEAD:scripts/web-presets-my-tour-chrome.mjs)" = dd877c419ea85be7c7ccc231a2130632ca5ad8a6
+          test "$(git rev-parse HEAD:tests/web-presets-my-tour-contract.test.mjs)" = cf36c34beb91e28ef8f0130cdc9dbf864030fdfd
+          test "$(git rev-parse HEAD:src/routes/presets/+page.svelte)" = 3a180b6a1ada704159f302a7eeec20a408d0810c
+          cat > /tmp/qrw-my-presets-allowed <<'FILE'
+          src/lib/ddv/core/items/tier-a-edit-requests.mjs
+          tests/ddv-core-tier-a-edit-requests.test.mjs
+          FILE
+          LC_ALL=C sort /tmp/qrw-my-presets-allowed > /tmp/qrw-my-presets-expected
+          git diff --name-only bb5b0363b322f106218c3e42da97da0d91fc38ae HEAD | LC_ALL=C sort > /tmp/qrw-my-presets-actual
+          diff -u /tmp/qrw-my-presets-expected /tmp/qrw-my-presets-actual
+          echo QRW_TOUR_PRODUCT_SOURCE_UNRELATED_CHROME_FILES_AND_ROUTE_UNCHANGED_PASS
+      - name: Install existing dependencies and patch ONLY temporary runner diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/web-presets-my-tour-chrome.mjs')
+          txt=p.read_text()
+          needle=""" await tap('[data-preset-child="my"]');
+           await until("return document.querySelector('[data-my-local-scenes]')&&document.querySelector('[data-my-wand-views]')");"""
+          assert txt.count(needle)==1,'exact original My Presets click then anchor wait required'
+          replacement=""" await tap('[data-preset-child="my"]');
+           console.log('QRW_TOUR_AFTER_MY_CLICK '+JSON.stringify(await q("return {path:location.pathname,root:!!document.querySelector('[data-stage1-presets-four-cards]'),mySurface:!!document.querySelector('[data-my-domains]'),myViews:!!document.querySelector('[data-my-wand-views]'),localScenes:!!document.querySelector('[data-my-local-scenes]'),myClickButton:!!document.querySelector('[data-preset-child=my]'),notice:document.querySelector('[data-tour-status]')?.textContent?.trim()?.slice(0,160),bodyLength:document.body.textContent?.length}")));
+           try{
+            await until("return document.querySelector('[data-my-local-scenes]')&&document.querySelector('[data-my-wand-views]')");
+           }catch(error){
+            console.log('QRW_TOUR_TRANSITION_TIMEOUT_SNAPSHOT '+JSON.stringify(await q("return {path:location.pathname,root:!!document.querySelector('[data-stage1-presets-four-cards]'),mySurface:!!document.querySelector('[data-my-domains]'),myViews:!!document.querySelector('[data-my-wand-views]'),localScenes:!!document.querySelector('[data-my-local-scenes]'),myClickButton:!!document.querySelector('[data-preset-child=my]'),notice:document.querySelector('[data-tour-status]')?.textContent?.trim()?.slice(0,160),bodyLength:document.body.textContent?.length}")));
+            console.log('QRW_TOUR_TRANSITION_TIMEOUT_KIND '+String(error?.message||error).slice(0,140));
+            throw error;
+           }
+           console.log('QRW_TOUR_CLICK_MY_CONTRACT_PASS');"""
+          p.write_text(txt.replace(needle,replacement))
+          print('QRW_TOUR_PINNED_EXISTING_CHROME_SCRIPT_RUNTIME_DIAGNOSTICS_ONLY')
+          
+          PY
+          git diff --name-only | grep -Fx 'scripts/web-presets-my-tour-chrome.mjs'
+          echo QRW_TOUR_ONLY_RUNTIME_DIAGNOSTICS_NO_SOURCE_COMMIT
+      - name: Isolate actual installed Chrome coldstart and Root to My Presets real DOM transition
+        shell: bash
+        env:
+          CI: 'true'
+          WEB_TOUR_CHROME: '1'
+        run: |
+          set -euo pipefail
+          node scripts/web-presets-my-tour-chrome.mjs
