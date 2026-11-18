@@ -21,7 +21,7 @@ test('DEC-UX-28 Moodboard control uses controlled icon assets (board+plus/check)
 test('Icon state shares exactly the existing reactive per-item Moodboard membership and separate Quick Review action',()=>{
  assert.match(page,/\{@const addedToBoard=Boolean\(moodboards && selectedBoardId && isInMoodboard\(item\)\)\}/);
  assert.match(page,/aria-pressed=\{addedToBoard\}/);
- assert.match(page,/aria-label=\(addedToBoard\?copy\.remove:copy\.add\)/);
+ assert.match(page,/aria-label=\{\(addedToBoard\?copy\.remove:copy\.add\)\+': '\+item\.label\}/);
  assert.match(page,/on:click=\{\(\)=>toggleMoodboard\(item\)\}/);
  assert.match(page,/data-explore-card-review/);
  assert.match(page,/on:click=\{\(event\)=>openQuickReview\(item,event\)\}/);
