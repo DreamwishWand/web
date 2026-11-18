@@ -1,0 +1,132 @@
+name: 04 QR-S ACT1744 PR2157 Bamboo protected Pages signer L2 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1744-pr2157-bamboo-signed3-pages-l2.yml'
+permissions:
+  contents: read
+jobs:
+  changed-security-negative-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      WAND_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze original source HEAD and exact three unchanged Git blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = b312193c8182c4148b21c0269952eabeadf63aa8
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/04qrs-act1744-pr2157-bamboo-signed3-pages-l2.yml"
+          test "$(git rev-parse HEAD:.github/workflows/09p-bamboo-public-pages-sealer-source.yml)" = 8f1732abdc41d4540089da0fa75a84f235ca51a0
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-bamboo-public-pages.mjs)" = ca038f70496749df6c3280c157c109c084ccc798
+          test "$(git rev-parse HEAD:tests/09p-bamboo-public-pages-sealer.test.mjs)" = 66eb7c6cb69fe9f9376d9281b07256414cedc0ca
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs)" = 6fc525e975de9db68544d1feaff5ec9cd0011348
+          test ! -e static/worker-wasm-steam626-bamboo-readonly
+          test ! -e build/worker-wasm-steam626-bamboo-readonly
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/readonly-release/seal-bamboo-public-pages.mjs preflight
+      - name: Execute original signer CLI with poisoned candidate paths and forged PR Pages phases
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {spawnSync} from 'node:child_process';
+          import {mkdtemp,mkdir,writeFile,symlink,rm,readFile,lstat} from 'node:fs/promises';
+          import {tmpdir} from 'node:os';
+          import {join,resolve} from 'node:path';
+          import {ACTIVE_RELEASE_TUPLE} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {bambooProtectedPagesAllowed} from './scripts/readonly-release/seal-bamboo-public-pages.mjs';
+          const head=process.env.WAND_SOURCE_HEAD;
+          const allowed={
+            GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'DreamwishWand/web',
+            GITHUB_REPOSITORY_ID:'1371485649',GITHUB_EVENT_NAME:'push',
+            GITHUB_REF:'refs/heads/main',GITHUB_SHA:head,GITHUB_WORKFLOW_SHA:head,
+            GITHUB_WORKFLOW_REF:ACTIVE_RELEASE_TUPLE.signerWorkflow+'@'+ACTIVE_RELEASE_TUPLE.sourceRef,
+            WAND_SOURCE_HEAD:head,WAND_RELEASE_BASE_PATH:ACTIVE_RELEASE_TUPLE.basePath,
+            WAND_PUBLIC_READONLY_ASSET_GATE:'OWNER_APPROVED_THREE_FILES_20261111',
+            WAND_BAMBOO_PUBLIC_RELEASE_GATE:'09INT_ACCEPTED_BAMBOO_READONLY_SIGNED3_PAGES'
+          };
+          assert.equal(bambooProtectedPagesAllowed(allowed,head),true);
+          // Different event, bogus provenance, missing CI and different host must
+          // not reuse the successful protected context simply because hashes exist.
+          for (const [key,value] of [
+            ['GITHUB_WORKFLOW_REF',ACTIVE_RELEASE_TUPLE.signerWorkflow+'@refs/heads/dev'],
+            ['GITHUB_WORKFLOW_SHA','0'.repeat(40)],
+            ['GITHUB_REPOSITORY_ID','999'],
+            ['WAND_SOURCE_HEAD','f'.repeat(40)],
+            ['WAND_RELEASE_BASE_PATH',''],
+            ['GITHUB_EVENT_NAME','pull_request'],
+            ['WAND_BAMBOO_PUBLIC_RELEASE_GATE','PR_CANDIDATE_ONLY']
+          ]) assert.equal(bambooProtectedPagesAllowed({...allowed,[key]:value},head),false,key);
+          const candidate=resolve('tests/wasm-distribution/fixtures/steam626-bamboo-public-readonly-candidate');
+          const parent=resolve('tests/wasm-distribution/fixtures');
+          const anchor=resolve('src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs');
+          const original=await readFile(anchor,'utf8');
+          await mkdir(parent,{recursive:true});
+          const tmp=await mkdtemp(join(tmpdir(),'04qrs-bamboo-poison-'));
+          const invoke=(phase)=>spawnSync(process.execPath,
+            ['scripts/readonly-release/seal-bamboo-public-pages.mjs',phase],
+            {encoding:'utf8',timeout:30000,env:{...process.env,
+              WAND_SOURCE_HEAD:head,
+              GITHUB_EVENT_NAME:'pull_request',
+              WAND_BAMBOO_PUBLIC_RELEASE_GATE:'09INT_ACCEPTED_BAMBOO_READONLY_SIGNED3_PAGES',
+              WAND_PUBLIC_READONLY_ASSET_GATE:'OWNER_APPROVED_THREE_FILES_20261111',
+              WAND_RELEASE_BASE_PATH:ACTIVE_RELEASE_TUPLE.basePath,
+              WAND_GATE_READ_TOKEN:'',
+              WAND_BAMBOO_SIGSTORE_BUNDLE:''}});
+          const denied=(phase)=>{
+            const x=invoke(phase);
+            assert.equal(x.status,1,phase+' must fail closed');
+            assert.match(x.stderr,/BAMBOO_PUBLIC_PAGES_SIGNER_DENIED/,phase);
+          };
+          try {
+            // These execute the real command and its lstat/realpath/exact-file
+            // checker, not a copied or mocked inspector.
+            await symlink(tmp,candidate,'dir');
+            denied('candidate');
+            await rm(candidate,{force:true});
+            await mkdir(candidate);
+            await writeFile(join(candidate,'manifest.json'),'{}');
+            await symlink(join(tmp,'stale-js'),join(candidate,'ddv_save_core.js'));
+            await writeFile(join(candidate,'ddv_save_core_bg.wasm'),'invalid');
+            denied('candidate');
+            await rm(candidate,{recursive:true,force:true});
+            await mkdir(candidate);
+            for(const n of ['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm','extra.bin'])
+              await writeFile(join(candidate,n),'invalid');
+            denied('candidate');
+            await rm(candidate,{recursive:true,force:true});
+            // A PR cannot stage, sign or check a public Pages release with
+            // self-supplied "approved" env markers and no real CI/signature.
+            for(const phase of ['pages-stage','pages-seal','pages-check'])denied(phase);
+            assert.equal(await readFile(anchor,'utf8'),original);
+            for (const path of [
+              'static/worker-wasm-steam626-bamboo-readonly',
+              'build/worker-wasm-steam626-bamboo-readonly']) {
+              await assert.rejects(lstat(path),{code:'ENOENT'});
+            }
+            console.log('QRS_ACT1744_BAMBOO_PAGES_SIGNER_L2_CHANGED_NEGATIVE_PASS 1 preflight 7 issuer 3 poisoned path 3 PR Pages gate; no sign/deploy');
+          } finally {
+            await rm(candidate,{recursive:true,force:true});
+            await rm(tmp,{recursive:true,force:true});
+          }
+          NODE
+      - name: Record no private, signing, public or Writer side effect
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          git diff --exit-code -- src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          test ! -e static/worker-wasm-steam626-bamboo-readonly
+          test ! -e build/worker-wasm-steam626-bamboo-readonly
+          echo QRS_QA_ONLY_NEVER_MERGE_BAMBOO_PUBLIC_READER_WRITER_OFF
