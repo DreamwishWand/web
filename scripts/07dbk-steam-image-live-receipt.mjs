@@ -70,9 +70,18 @@ function pinnedOnReceipt(prior,expectedSha,urls){
       p.url!==urls.targets[i].url||p.webpSha256!==urls.targets[i].webpSha256||
       p.bytes!==urls.targets[i].bytes))
     fail("PRIOR_PUBLIC_URL_SET_MISMATCH");
+  // Hash-pinning alone cannot attest the history: the prior ON proof must
+  // name the exact manifest/asset URLs and the actual GET and HEAD methods.
+  // A forged receipt with all status=200 is not a publication observation.
+  const expectedChecks=[
+    {url:urls.manifestUrl,method:"GET"},
+    ...urls.targets.flatMap(t=>[
+      {url:t.url,method:"GET"},{url:t.url,method:"HEAD"}])
+  ];
   if(prior.manifestUrl!==urls.manifestUrl||
-     prior.checks?.length!==1+urls.targets.length*2||
-     prior.checks.some(c=>c.status!==200))
+     !Array.isArray(prior.checks)||prior.checks.length!==expectedChecks.length||
+     prior.checks.some((c,i)=>!c||c.url!==expectedChecks[i].url||
+       c.method!==expectedChecks[i].method||c.status!==200))
     fail("PRIOR_ON_EVIDENCE_NOT_COMPLETE");
 }
 export async function verifySteamLiveImagePhase({
@@ -100,8 +109,15 @@ export async function verifySteamLiveImagePhase({
   }else if(manifest.status===200){
     if(contentType(manifest)!=="application/json")fail("WITHDRAW_MANIFEST_MIME_INVALID");
     const m=await manifest.json();
+    // Only the same typed, version-bound manifest can attest that the
+    // previously published ItemIDs were removed. A 200 empty/foreign JSON
+    // object is not valid withdrawal evidence.
+    if(m?.schema!=="wand.item-images.steam-primary-release@1"||
+       m.assetVariant!==variant||!m.items||typeof m.items!=="object"||
+       Array.isArray(m.items))
+      fail("WITHDRAW_MANIFEST_SCHEMA_OR_VARIANT_INVALID");
     for(const target of urls.targets)
-      if(Object.hasOwn(m?.items??{},target.id))
+      if(Object.hasOwn(m.items,target.id))
         fail("WITHDRAW_MANIFEST_RETAINS_ITEM:"+target.id);
   }else if(manifest.status!==404&&manifest.status!==410){
     fail("WITHDRAW_MANIFEST_NOT_REMOVED_OR_REWRITTEN:"+manifest.status);
