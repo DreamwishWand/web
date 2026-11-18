@@ -1,0 +1,130 @@
+name: "04 QR-S ACT1721 Bamboo exact public-readonly delivery trust L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qrs-act1721-pr2120-bamboo-public-readonly-l2.yml"
+permissions:
+  contents: read
+jobs:
+  readonly-delivery-security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2cd3a40e51c97bd2a7cf5ca972af2e63bac27fad
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Source regression and independent cross-build writer-Stage refutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/steam626-bamboo-readonly-public-delivery.test.mjs
+          cat > qrs-act1721-bamboo-delivery.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync} from 'node:fs';
+          import {
+            BAMBOO_FEATURES,BAMBOO_METHODS,
+            bambooReadJsSymbolsOk,bambooReadPinsOk,bambooReadAnchorOk,
+            validateBambooReadAnchor,loadProtectedBambooReadonlyWorker,
+            bambooReadDeliveryOk,bambooWasmExportsOk
+          } from './src/lib/ddv/core/save/product-steam626-bamboo-readonly-release.mjs';
+          import {PROTECTED_BAMBOO40700007_READONLY_ANCHOR as anchor}
+            from './src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs';
+          const source='2cd3a40e51c97bd2a7cf5ca972af2e63bac27fad';
+          const main='3b87b852ec827179587c9853d4560ae755d750f1';
+          const paths=[
+            '.github/workflows/09p-steam626-bamboo-readonly-delivery.yml',
+            'scripts/wasm-distribution/build-bamboo40700007-readonly-candidate.mjs',
+            'src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs',
+            'src/lib/ddv/core/save/product-steam626-bamboo-readonly-release.mjs',
+            'tests/steam626-bamboo-readonly-public-delivery.test.mjs'
+          ];
+          const shas=[
+            '9fc484f2bf4b5e0a3bec073397c23d56aa932d75',
+            'eb408244f30ad699005a765f7d247d722e3b8652',
+            '6fc525e975de9db68544d1feaff5ec9cd0011348',
+            'cdd760bf9875c24c1fa00d4bff8d766cf5df2675',
+            '21361f084aa8e0c286bcb941098c44fa08b031f7'
+          ];
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8',
+            env:{...process.env,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
+          const blob=(ref,p)=>{
+            const m=/^(100644) blob ([0-9a-f]{40})\t(.+)$/.exec(git('ls-tree',ref,'--',p));
+            assert.ok(m&&m[3]===p,'actual Git object: '+p);
+            return m[2];
+          };
+          let pos=0,neg=0;
+          assert.equal(git('rev-parse','HEAD'),source);
+          assert.equal(git('merge-base',main,source),main);
+          assert.deepEqual(git('diff','--name-only',main,source).split('\n').sort(),paths.slice().sort());
+          paths.forEach((p,i)=>assert.equal(blob(source,p),shas[i]));
+          for(const p of [
+            '.github/workflows/pages.yml','.github/workflows/ci.yml',
+            'scripts/readonly-release/seal.mjs',
+            'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',
+            'scripts/wasm-distribution/protected-release-inputs.json',
+            'scripts/wasm-distribution/approved-Cargo.lock',
+            'crates/ddv-save-core/Cargo.toml',
+            'crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs',
+            'crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs'
+          ])assert.equal(blob(source,p),blob(main,p),'must preserve protected existing signing scope '+p);
+          pos++;
+          assert.equal(anchor,null,'committed public release anchor stays OFF');
+          assert.equal(bambooReadAnchorOk(anchor),false);
+          await assert.rejects(validateBambooReadAnchor(anchor),/BAMBOO40700007_READONLY_DELIVERY_DENIED/);
+          await assert.rejects(loadProtectedBambooReadonlyWorker(),/BAMBOO40700007_READONLY_DELIVERY_DENIED/);
+          assert.deepEqual(BAMBOO_FEATURES,['product-steam626-bamboo-readonly','worker-wasm']);
+          assert.equal(BAMBOO_METHODS.includes('read_steam626_bamboo_single_target'),true);
+          assert.equal(BAMBOO_METHODS.some(x=>/stage|export|write|undo/.test(x)),false);
+          const reader='export function read_steam626_bamboo_single_target(){return 0;}\\n';
+          assert.equal(bambooReadJsSymbolsOk(reader),true);
+          pos++;
+          function denied(name){
+            const bad=reader+'export function '+name+'(){}\\n';
+            if(bambooReadJsSymbolsOk(bad)!==false)
+              throw Error('TRUE_RED_BAMBOO_DELIVERY_FOREIGN_MUTATION_JS_EXPORT_ACCEPTED:'+name);
+            neg++;
+          }
+          for(const name of ['dev_stage','stage_steam626_bamboo',
+            'export_steam626_bamboo','stage_steam626_chest',
+            'export_steam626_chest','write_steam626_inventory',
+            'undo_steam626_chest','preview_steam626_chest'])denied(name);
+          // Cross-Build Switch624 is already an actual separately-scoped
+          // Operation in this product: reader-only Steam626 must not
+          // accept its Stage/Export method in signed JavaScript either.
+          denied('stage_switch624_frp01');
+          denied('export_switch624_frp01');
+          pos++;
+          const release=readFileSync(paths[3],'utf8');
+          const builder=readFileSync(paths[1],'utf8');
+          const workflow=readFileSync(paths[0],'utf8');
+          const anchorSource=readFileSync(paths[2],'utf8');
+          assert.match(anchorSource,/PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null/);
+          assert.match(release,/compileVerifiedWorker\(js,wasm/);
+          assert.match(release,/exactPrototype:true,exactWasmExports:BAMBOO_WASM_EXPORTS/);
+          assert.match(release,/where\.protocol!=='https:'/);
+          assert.match(release,/bambooReadManifestOk\(manifest,pins,t\)/);
+          assert.match(release,/checkedFetch\(url\('manifest\.json'\)/);
+          assert.match(release,/productConsumerEnabled:false/);
+          assert.match(builder,/writeFile\(join\(out,names\[i\]\),\[raw,js,wasm\]\[i\],\{flag:'wx',mode:0o600\}\)/);
+          assert.match(builder,/realpath\(parent\)!==parent/);
+          assert.doesNotMatch(builder,/static\/worker-wasm-steam626-bamboo-readonly\/ddv_save_core_bg.wasm/);
+          assert.match(workflow,/if.*github\.event\.pull_request\.head\.sha/);
+          assert.doesNotMatch(workflow,/deploy-pages@|upload-pages-artifact@|actions\/attest-build-provenance@/);
+          assert.doesNotMatch(workflow,/id-token: write|pages: write/);
+          pos++;
+          console.log('QRS_ACT1721_BAMBOO_PUBLIC_READONLY_DELIVERY_SECURITY_L2_PASS',JSON.stringify({
+            positive:pos,negative:neg,sourceHead:source,protectedMain:main,
+            exact5SourceBlobs:true,anchorNull:true,
+            protectedSignerAndLockUnchanged:true,
+            sourceWasmGeneratedRealCIInherited:true,
+            realProtectedSignaturesNotRun:true,
+            publicReaderConsumer:false,publicWriter:false,operationOn:false
+          }));
+          NODE
+          node qrs-act1721-bamboo-delivery.mjs
