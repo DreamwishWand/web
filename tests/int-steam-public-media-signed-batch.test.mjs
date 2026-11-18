@@ -91,11 +91,59 @@ test('live image proof requires exact HTTPS host, unredirected GET/HEAD MIME and
     await assert.rejects(verifyLive(plan,u,async (_url,{method})=>new Response(method==='GET'?b:null,
       {status:200,headers:{'content-type':'image/webp'}})),/LIVE_IMAGE_BYTES|LIVE_IMAGE_SHA256/);
 });
-test('withdrawn image fails closed on still-cached old 200/304 and accepts verified 404 GET HEAD conditional',async()=>{
+test('WITHDRAW fails before network without protected signed prior ON ETag/Last-Modified',async()=>{
   const p=structuredClone(plan);p.items=[];p.withdrawn=[{itemId:item.itemId,sha256:item.sha256}];
-  const u='https://dreamwishwand.github.io/web/';
-  const denied=async()=>new Response(null,{status:404});
-  assert.deepEqual(await verifyLive(p,u,denied),{publicItems:0,withdrawn:1});
-  await assert.rejects(verifyLive(p,u,async()=>new Response(null,{status:200})),/WITHDRAWAL_PUBLIC_CACHE_NOT_DENIED/);
-  await assert.rejects(verifyLive(p,u,async()=>new Response(null,{status:304})),/WITHDRAWAL_PUBLIC_CACHE_NOT_DENIED/);
+  let calls=0;
+  await assert.rejects(verifyLive(p,'https://dreamwishwand.github.io/web/',async()=>{
+    calls++;return new Response(null,{status:404});
+  }),/WITHDRAWAL_PRIOR_REAL_ON_VALIDATORS_REQUIRED/);
+  assert.equal(calls,0,'no fake 404-based acceptance when ON provenance absent');
+});
+test('actual trusted earlier ETag and Last-Modified deny old CDN 304, allow all proven 404',async()=>{
+  // Isolated module and a synthetic protected registry: no production source,
+  // actual media file, reference or private data is modified by the test.
+  const {pathToFileURL}=await import('node:url');
+  const dir=mkdtempSync(join(tmpdir(),'wand-int-prior-on-cache-'));
+  try{
+    mkdirSync(join(dir,'scripts'),{recursive:true});
+    mkdirSync(join(dir,'ops'),{recursive:true});
+    const moduleFile=join(dir,'scripts','int-steam-public-media-signed-batch.mjs');
+    const priorFile=join(dir,'ops','ddv-steam-public-media-prior-on-cache.json');
+    writeFileSync(moduleFile,readFileSync(new URL('../scripts/int-steam-public-media-signed-batch.mjs',import.meta.url)));
+    const etag='"real-observed-previous-etag"',lastModified='Wed, 18 Nov 2026 11:38:36 GMT';
+    const record={itemId:item.itemId,sha256:item.sha256,etag,lastModified,
+      protectedCommit:'d37a774a8ce2ac08ef05389f0d14d3442063edeb',
+      pagesRunId:44295999572,observerRunId:44307835397,
+      signedBundleSha256:'a'.repeat(64),releaseState:'SIGNED_PAGES_ON_OBSERVED',
+      recordedBy:'09_INT_PROTECTED_MAIN'};
+    const writePrior=records=>writeFileSync(priorFile,JSON.stringify({
+      schema:'wand.int.steam-public-signed-prior-on-cache@1',records}));
+    writePrior([record]);
+    const fixture=await import(pathToFileURL(moduleFile).href+'?valid=1');
+    const p=structuredClone(plan);p.items=[];p.withdrawn=[{itemId:item.itemId,sha256:item.sha256}];
+    const url='https://dreamwishwand.github.io/web/';
+    const calls=[];
+    const denied=async(_target,{method,headers})=>{
+      calls.push({method,headers});return new Response(null,{status:404});
+    };
+    assert.deepEqual(await fixture.verifyLive(p,url,denied),{publicItems:0,withdrawn:1});
+    assert.equal(calls.length,4);
+    assert.ok(calls.some(c=>c.headers['If-None-Match']===etag));
+    assert.ok(calls.some(c=>c.headers['If-Modified-Since']===lastModified));
+    assert.equal(calls.some(c=>c.headers['If-None-Match']==='"stale"'),false);
+    await assert.rejects(fixture.verifyLive(p,url,async(_target,{headers})=>
+      new Response(null,{status:headers['If-None-Match']===etag?304:404})),
+      /WITHDRAWAL_PUBLIC_CACHE_NOT_DENIED_304/);
+    await assert.rejects(fixture.verifyLive(p,url,async(_target,{headers})=>
+      new Response(null,{status:headers['If-Modified-Since']===lastModified?304:404})),
+      /WITHDRAWAL_PUBLIC_CACHE_NOT_DENIED_304/);
+    writePrior([{...record,etag:'"invalid\nnewline"'}]);
+    await assert.rejects(import(pathToFileURL(moduleFile).href+'?invalid=2'),/PRIOR_ON_ETAG_INVALID/);
+    writePrior([{...record,lastModified:'not-a-prior-http-date'}]);
+    await assert.rejects(import(pathToFileURL(moduleFile).href+'?invalid=3'),/PRIOR_ON_DATE_INVALID/);
+    writePrior([{...record,releaseState:'NOT_PROVED'}]);
+    await assert.rejects(import(pathToFileURL(moduleFile).href+'?invalid=4'),/PRIOR_ON_STATE_INVALID/);
+    writePrior([record,record]);
+    await assert.rejects(import(pathToFileURL(moduleFile).href+'?invalid=5'),/PRIOR_ON_DUPLICATE_VALIDATOR/);
+  }finally{rmSync(dir,{recursive:true,force:true});}
 });
