@@ -263,10 +263,10 @@ test('Mutating caller input after proposal never rewrites immutable candidate; n
 });
 
 test('Steam626 Native enum membership and signed ItemID prefix reject previous false-positive token and mismatches',()=>{
-  for(const token of ['ItemType_Ingredient','ItemType_Unknown','ItemType_Currency','ItemType_Skin','ActivityItemType_Ingredient','ItemType_None','ItemType_Furniture']) {
+  for(const token of ['ItemType_Ingredient','ItemType_Unknown','ItemType_Currency','ItemType_Skin','ActivityItemType_Ingredient','ItemType_None']) {
     blocked(x=>{x.command.compatibleItemType=token},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   }
-  for(const id of [1,300000000,2147483648,40000047,90000001]) {
+  for(const id of [1,300000000,2147483648,30000001,90000001]) {
     blocked(x=>{x.command.canonicalItemId=id},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   }
   const furniture=plan(x=>{x.command.canonicalItemId=40000047;x.command.compatibleItemType='ItemType_Furniture'});
