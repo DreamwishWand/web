@@ -19,13 +19,20 @@ test('Bamboo UI receives only exact sanitized Rust Item40700007 ReadDomain, not 
  const d=projectBambooReadOnlyResult(genuine());
  assert.deepEqual(Object.keys(d).sort(),[
   'itemId','gridId','x','y','oldStock','nextGridObjectId','readOnly',
-  'writerAuthorized','stageAuthorized','editedCopyAuthorized','operationOn'
+  'productReadAccepted','writerAuthorized','stageAuthorized','editedCopyAuthorized','operationOn'
  ].sort());
  assert.deepEqual([d.oldStock,d.nextGridObjectId],[9140,15949]);
  assert.equal(Object.isFrozen(d),true);
  assert.equal(BAMBOO_READ_TARGET_ITEM_ID,40700007);
  assert.equal(exactBambooUiResult({contract:BAMBOO_CONSUMER_CONTRACT,
   kind:BAMBOO_RESULT_KIND,requestId:1,ok:true,result:genuine()}),true);
+ const fromWorker=projectBambooReadOnlyResult(genuine());
+ assert.equal(fromWorker.productReadAccepted,false,'fail-closed denial must survive Worker projection');
+ assert.deepEqual(projectBambooReadOnlyResult(fromWorker),fromWorker,
+  'exact Worker payload must be accepted unchanged on UI validation');
+ assert.equal(exactBambooUiResult({contract:BAMBOO_CONSUMER_CONTRACT,
+  kind:BAMBOO_RESULT_KIND,requestId:1,ok:true,result:fromWorker}),true,
+  'independently emitted Worker result must not fail UI schema validation');
 });
 test('Forged source, CAS, capability or wrong target fails closed at Worker-to-UI DTO boundary',()=>{
  const bad=[
