@@ -1,0 +1,86 @@
+name: 05 QR-C Windows composed Rust Mannequin map and LF data proof (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-wcore004-composed-windows-mannequin-lf-l2.yml'
+permissions:
+  contents: read
+jobs:
+  composed-rust-windows-msvc:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05qrc-wcore004-pr2278-composed-windows-map-lf-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Original Mannequin Rust Source and exact QA-only changed path
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=0778ed44da9b619989a34dde419c686c1934af64
+          parent=f6e789694323750d0c055a8434718116dba11fc7
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD)" = ".github/workflows/05qrc-wcore004-composed-windows-mannequin-lf-l2.yml"
+          test "$(git diff --name-only "$parent" "$source")" = "crates/ddv-save-core/src/product_amount_scoped.rs"
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 522e8e8d6beec597b2e5e176cfbe8a6d8e38a124
+          test "$(git rev-parse "$parent:crates/ddv-save-core/src/product_amount_scoped.rs")" = 13d861165bea3fb37f79d7bbc4cb9ab51669fa78
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs)" = 9f783e64ec44fdc2d863a4634f3d334a89cf7f62
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test ! -e crates/ddv-save-core/data/.gitattributes
+          echo QRC_COMPOSED_WINDOWS_FIXED_RUST_SOURCE_ONE_QA_WORKFLOW_PASS
+      - name: Apply signed original Windows LF data attribute ONLY in QA runner worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          original_windows=ad210aa3c551615b8c35f8b2970138760a59f5b6
+          attribute='crates/ddv-save-core/data/.gitattributes'
+          git fetch --no-tags origin "$original_windows"
+          test "$(git rev-parse FETCH_HEAD)" = "$original_windows"
+          test "$(git rev-parse "FETCH_HEAD:$attribute")" = f67de2e4316397b93f95088c379f724ea81e9399
+          git show "FETCH_HEAD:$attribute" > "$attribute"
+          test "$(git hash-object "$attribute")" = f67de2e4316397b93f95088c379f724ea81e9399
+          check_pack(){
+            local p="$1" blob="$2" hash="$3"
+            test "$(git rev-parse "HEAD:$p")" = "$blob"
+            git check-attr text -- "$p" | grep -Fq 'text: unset'
+            rm -f "$p"
+            git -c core.autocrlf=true restore --source=HEAD --worktree -- "$p"
+            test "$(git hash-object "$p")" = "$blob"
+            test "$(sha256sum "$p" | awk '{print $1}')" = "$hash"
+          }
+          check_pack 'crates/ddv-save-core/data/steam626-amount-packaged-candidates.json' \
+            5ed37e479b1c797bbe86df5857e8469e30978b0e \
+            05a6bea5582232b27569dbb71f8666d7d60c11a35515d844d2f21b2ae557b23d
+          check_pack 'crates/ddv-save-core/data/steam626-amount-dependency-projection.json' \
+            81571df377231f06496165530bb3b079897da769 \
+            78a1ba539b2e6f43182cea2c2ea35c9d10e51f27d4adbb8d4dbc6cce7f7dcd65
+          check_pack 'crates/ddv-save-core/data/steam626-amount-layout-reference.jsonl' \
+            82b9e1c3f53ffce85f2277a81d0cab195be1aff8 \
+            501ba50d0a6f02ff09080357424f3ae5b3f17644ed64d7830566586baf6fce6f
+          git status --porcelain --untracked-files=all | grep -Fq "$attribute"
+          git diff --exit-code -- crates/ddv-save-core/src/product_amount_scoped.rs
+          echo QRC_COMPOSED_WINDOWS_THREE_PACKS_UNTRANSFORMED_SHA_MATCH_PASS
+      - name: Real Windows MSVC Rust ProductSession both reviewed scopes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --lib saved_grid_mannequin_customization_exact_int32_map_and_negative_refs -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --lib global_mannequin_int32_map_preserves_scoped_amount_stage_both_targets -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --lib private_product_amount_plan_bridge_catalog0_chest48_and_active_subscriber_denial -- --nocapture
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --bin wand-local-rust-v2-noop
+          echo QRC_COMPOSED_WINDOWS_NATIVE_MANNEQUIN_MAP_PRIVATE_BRIDGE_PASS
