@@ -151,7 +151,8 @@ jobs:
            accept('ORIGINAL_PRIVATE_EXACT3_AFTER_TRUSTED_GATE_ONLY',allowed,2267,3);
            assert.equal(allowed.privateNativeOnly,true);assert.equal(allowed.operationOn,false);
            const beforeBattle=synthetic(gate,[['crates/ddv-save-core/src/product_amount_scoped.rs','e6e360f5326b9a5cf6884600a4c9ecf642aa12fa']]);
-           accept('OLD_BATTLEPASS_EXACT1',verifyAcceptedRustScope(work,beforeBattle,gate),2263,1);
+           const afterBattle=synthetic(beforeBattle,[['crates/ddv-save-core/src/product_amount_scoped.rs','13d861165bea3fb37f79d7bbc4cb9ab51669fa78']]);
+           accept('OLD_BATTLEPASS_EXACT1',verifyAcceptedRustScope(work,beforeBattle,afterBattle),2263,1);
            const historical='e7a56d5ce4a717cd76191e345b79be12adef3df4';
            const makeupPaths=['.github/workflows/core-product-session-boundary.yml',cargo,
             'crates/ddv-save-core/src/product_makeup_color1.rs','crates/ddv-save-core/src/wasm_worker.rs',
