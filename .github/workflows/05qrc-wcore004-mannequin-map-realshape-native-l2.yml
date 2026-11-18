@@ -125,10 +125,11 @@ jobs:
                       assert!(session.take_typed_semantic_decoded_once(
                           scope(&session,WorkerAction::ExportEditedCopy)).is_err());
                       session.redo_typed_semantic_batch(scope(&session,WorkerAction::Stage)).unwrap();
-                      let exported=session.take_typed_semantic_decoded_once(
-                          scope(&session,WorkerAction::ExportEditedCopy)).unwrap();
-                      assert!(session.take_typed_semantic_decoded_once(
-                          scope(&session,WorkerAction::ExportEditedCopy)).is_err());
+                      let once=scope(&session,WorkerAction::ExportEditedCopy);
+                      let exported=session.take_typed_semantic_decoded_once(once).unwrap();
+                      // The Session is intentionally CLOSED after the once-only
+                      // export: retry with the previously minted Envelope.
+                      assert!(session.take_typed_semantic_decoded_once(once).is_err());
                       let mut wanted=d.clone();
                       if chest{
                           wanted["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);
