@@ -6,6 +6,7 @@ on:
       - 'src/lib/explore/copy.js'
       - 'src/routes/explore/+page.svelte'
       - 'tests/web-explore-wand-favorites-local.test.mjs'
+      - 'tests/web-wand-favorite-independent-rollback.test.mjs'
       - 'scripts/web-explore-wand-favorites-chrome.mjs'
       - '.github/workflows/08web-wand-favorites-local.yml'
 permissions:
@@ -23,7 +24,7 @@ jobs:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
       - name: Pure local favorite item ID, fail-closed storage and eight locale source contracts
-        run: node --test tests/web-explore-wand-favorites-local.test.mjs
+        run: node --test tests/web-explore-wand-favorites-local.test.mjs tests/web-wand-favorite-independent-rollback.test.mjs
       - name: Svelte TypeScript and production Pages static bundle
         env:
           BASE_PATH: /web
