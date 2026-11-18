@@ -241,11 +241,19 @@ export function preflightGameImageOperatorReceipt(receipt) {
   if (!validContact || !ownerPairBound ||
       !evidence(contact.verificationEvidenceRef) || contact.tested !== true)
     reasons.push("WORKING_RIGHTS_CONTACT_NOT_PROVED");
+  // Latest Owner decision: DDV player-visible game images need all eight
+  // actual attribution copies, but NOT eight human translation sign-offs.
+  // Preserve honest optional review metadata: false/null is unreviewed, never
+  // pretend that machine text checks are a human approval. Other per-image
+  // rights, provenance, HIDDEN, contact and live delivery controls are unchanged.
   for (const locale of IMAGE_NOTICE_LOCALES) {
     const notice = receipt.locales?.[locale];
-    if (!notice || !hasText(notice.text) || notice.humanReviewed !== true ||
-        !evidence(notice.reviewEvidenceRef) || !notice.text.includes("Dreamwish Wand"))
-      reasons.push("ATTRIBUTION_LOCALE_NOT_REVIEWED:" + locale);
+    const reviewMetadataValid = notice?.humanReviewed === false
+      ? notice.reviewEvidenceRef == null
+      : notice?.humanReviewed === true && evidence(notice.reviewEvidenceRef);
+    if (!notice || !hasText(notice.text) || !notice.text.includes("Dreamwish Wand") ||
+        !reviewMetadataValid)
+      reasons.push("ATTRIBUTION_LOCALE_COPY_OR_RECEIPT_INVALID:" + locale);
   }
   for (const key of ["noticeIntake", "itemAndHashHide", "originRemoval", "cdnInvalidation",
     "oldUrlAndCacheDenial", "backupRestoreReconciliation", "rollbackRehearsal", "provenanceAudit"]) {
