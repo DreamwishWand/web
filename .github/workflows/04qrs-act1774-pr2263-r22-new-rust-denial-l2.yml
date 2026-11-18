@@ -1,0 +1,102 @@
+name: 04 QR-S ACT1774 PR2263 unaccepted Rust BattlePass R22 trusted external deny QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2263-r22-new-rust-denial-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2263-r22-new-rust-denial-l2.yml'
+permissions:
+  contents: read
+jobs:
+  external-protected-r22-denial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin original exact new Rust Source and only own QA YAML
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 906606344b17604fa4eee55e8b0482a5bec40335 HEAD
+          test "$(git diff --name-only 906606344b17604fa4eee55e8b0482a5bec40335 HEAD)" = ".github/workflows/04qrs-act1774-pr2263-r22-new-rust-denial-l2.yml"
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 13d861165bea3fb37f79d7bbc4cb9ab51669fa78
+      - name: Run trusted external R22 helper from accepted protected main against actual and hostile candidate Git objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS2263_NODE'
+          import assert from 'node:assert/strict';
+          import {execFileSync,spawnSync} from 'node:child_process';
+          import {mkdtempSync,rmSync,writeFileSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const main='f62d591006c6244123283e0d2b100dd0ce68af8c';
+          const actual='906606344b17604fa4eee55e8b0482a5bec40335';
+          const path='crates/ddv-save-core/src/product_amount_scoped.rs';
+          const trust='scripts/wasm-distribution/r22-trusted-before-candidate.mjs';
+          const expected='13d861165bea3fb37f79d7bbc4cb9ab51669fa78';
+          const root=mkdtempSync(join(tmpdir(),'qrs2263-'));
+          const repo=join(root,'protected');
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',
+           GIT_AUTHOR_NAME:'QRS security isolated',GIT_AUTHOR_EMAIL:'qa@example.invalid',
+           GIT_COMMITTER_NAME:'QRS security isolated',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
+          const raw=(args,more={})=>{
+           const r=spawnSync('git',args,{cwd:repo,env:{...env,...more},encoding:'utf8',timeout:40000,maxBuffer:12*1024*1024});
+           assert.equal(r.status,0,'git '+args.join(' ')+' '+r.stderr.slice(-1400));return r.stdout.trim();
+          };
+          const git=(...args)=>raw(args);
+          let counter=0;
+          function object(text){return raw(['hash-object','-w','--stdin'],{GIT_TRACE:'0'});}
+          function synthetic(parent,updates){
+           const idx=join(root,'idx'+(++counter));
+           raw(['read-tree',parent+'^{tree}'],{GIT_INDEX_FILE:idx});
+           for(const [path,sha,mode='100644'] of updates)
+            raw(['update-index','--add','--cacheinfo',mode,sha,path],{GIT_INDEX_FILE:idx});
+           const tree=raw(['write-tree'],{GIT_INDEX_FILE:idx});
+           return git('commit-tree',tree,'-p',parent,'-m','QA-only hostile R22 Rust scope');
+          }
+          function actualCli(candidate,label){
+           const r=spawnSync(process.execPath,[join(repo,trust),main,candidate],{
+            cwd:repo,env,encoding:'utf8',timeout:45000,maxBuffer:5*1024*1024});
+           assert.notEqual(r.status,0,'TRUE_RED_EXTERNAL_TRUST_SELF_ACCEPT_'+label);
+           assert.match(r.stderr,/R22_TRUSTED_PRE_CANDIDATE_DENIED/,'not trusted external denial '+label);
+           assert.match(r.stderr,/SOURCE_PATH_SET_MISMATCH|R22_ACCEPTED_SCOPE_|TRUSTED_PATH_CHANGED_|UNREVIEWED_R22_PRODUCT_SCOPE/,'unexpected failure not strict R22 scope '+label+': '+r.stderr);
+           assert.doesNotMatch(r.stdout,/R22_TRUSTED_PRE_CANDIDATE_EXACT8_SCOPE_ONLY/,'forged authorization '+label);
+           console.log('QRS_ACT1774_PR2263_R22_PROTECTED_EXTERNAL_DENIED_'+label);
+          }
+          try{
+           const p=spawnSync('git',['clone','--no-hardlinks','-q',process.cwd(),repo],{env,encoding:'utf8'});
+           assert.equal(p.status,0,'clone '+p.stderr);
+           assert.equal(git('rev-parse',main+':'+trust),'5aefdaff6a46ae9bdf1f5a37c4f0973442308a4a');
+           assert.equal(git('rev-parse',actual+'^'),main);
+           assert.equal(git('rev-parse',actual+':'+path),expected);
+           assert.equal(git('ls-tree',actual,'--',path),'100644 blob '+expected+'\t'+path);
+           assert.equal(git('diff','--name-only',main,actual),path);
+           for(const p of [trust,'scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
+            'scripts/wasm-distribution/verify-protected-release.mjs',
+            'scripts/wasm-distribution/protected-release-inputs.json',
+            '.github/workflows/pages.yml'])
+            assert.equal(git('rev-parse',main+':'+p),git('rev-parse',actual+':'+p),'unapproved gate/issuer drift '+p);
+           git('checkout','--force','--detach',main);
+           git('update-ref','refs/remotes/origin/main',main);
+           assert.equal(git('rev-parse','HEAD'),main);
+           actualCli(actual,'REAL_01A_ONE_RUST_BATTLEPASS');
+           const execMode=synthetic(main,[[path,expected,'100755']]);
+           actualCli(execMode,'FORGED_EXECUTABLE_RUST_MODE');
+           const helperPath='scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+           const fakeCode=execFileSync('git',['hash-object','-w','--stdin'],{cwd:repo,env,encoding:'utf8',input:'// adversarial attacker-owned R22 selector\n'}).trim();
+           const malicious=synthetic(actual,[[helperPath,fakeCode]]);
+           actualCli(malicious,'CANDIDATE_SELF_CHANGING_R22_SELECTOR');
+           console.log('QRS_ACT1774_PR2263_PROTECTED_MAIN_UNAPPROVED_RUST_3NEG_ZERO_RELEASE_AUTH_PASS');
+          }finally{rmSync(root,{recursive:true,force:true})}
+          QRS2263_NODE
+      - name: QA-only deny any Merge or Pages operation
+        shell: bash
+        run: echo QRS2263_QA_ONLY_UNAUTHORIZED_NEW_RUST_OFF
