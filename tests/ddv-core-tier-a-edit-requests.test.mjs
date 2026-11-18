@@ -232,7 +232,7 @@ test('Existing Chest refusal covers foreign, duplicate, invalid slot, overflow, 
   ch(c=>{c.inventoryCreation=true});
 });
 test('Existing Chest only decrement and fixed numeric bounds; cannot transfer items or mutate ownership',()=>{
-  blocked(x=>{x.command=chestCommand();x.command.nextAmount=51},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
+  blocked(x=>{x.command=chestCommand();x.command.nextAmount=51},'CHEST_PACKAGED_STACK_BOUND_UNSUPPORTED');
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=50},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
   // A structural source-only request must not present a 2+ unit reduction
   // that the existing single ProductSession eligible_bound always rejects.
