@@ -1,0 +1,6 @@
+# 01A W-CORE-004: these packaged Steam626 witnesses are SHA256-pinned
+# byte-for-byte inside Rust include_str!. No Git EOL or content conversion.
+# Preserve the original GitBlob LF bytes on Windows/macOS/Linux equally.
+steam626-amount-packaged-candidates.json -text
+steam626-amount-dependency-projection.json -text
+steam626-amount-layout-reference.jsonl -text
