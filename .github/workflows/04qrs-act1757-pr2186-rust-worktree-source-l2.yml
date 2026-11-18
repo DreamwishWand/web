@@ -22,15 +22,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = 507130c88133467745edef102a13327669908251
-          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/04qrs-act1757-pr2186-rust-worktree-source-l2.yml"
+          git merge-base --is-ancestor 507130c88133467745edef102a13327669908251 HEAD
+          test "$(git diff --name-only 507130c88133467745edef102a13327669908251 HEAD)" = ".github/workflows/04qrs-act1757-pr2186-rust-worktree-source-l2.yml"
           test "$(git rev-parse HEAD:scripts/readonly-release/seal-bamboo-public-pages.mjs)" = b82e778a8480d26856e411e1d8e95d54549dea13
           test "$(git rev-parse HEAD:tests/09p-bamboo-public-pages-sealer.test.mjs)" = 41628167b943deffeecf95263d228ebe742e105d
           test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = e4f2e2c5d4451baba2dea699fe497cb7b40668d4
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs)" = 26414572b41211076f1f83a3f8752eea2ab65142
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs)" = b3aa885d7668e6f8d3df9a20be4962d609ab6762
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/steam_bamboo_single_product_target.rs)" = a5aef59173ee99454f7f108af58fa7c46dac6f19
-          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 20cc43fae5886249647f12df8cbffead45071445 || true
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = ed8aabff1dc8c8b426054c7dff0d88faa2b02da4
           grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
           echo QRS_ACT1757_2186_FIXED_PRODUCT_AND_RUST_BLOBS_PASS
       - name: Execute original CLI in isolated worktree against same-ABI changed Rust source
@@ -126,6 +126,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -z "$(git diff --name-only HEAD^ HEAD -- ':!'.github/workflows/04qrs-act1757-pr2186-rust-worktree-source-l2.yml)"
+          test "$(git diff --name-only 507130c88133467745edef102a13327669908251 HEAD)" = ".github/workflows/04qrs-act1757-pr2186-rust-worktree-source-l2.yml"
           grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
           echo QRS_ACT1757_QA_ONLY_PUBLIC_READER_WRITER_SIGNER_OFF
