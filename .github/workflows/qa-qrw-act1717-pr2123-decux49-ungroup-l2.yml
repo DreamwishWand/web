@@ -1,0 +1,203 @@
+name: QA ONLY 04 QR-W ACT1717 PR2123 local non-destructive Moodboard Ungroup L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1717-pr2123-decux49-ungroup-l2.yml'
+permissions:
+  contents: read
+jobs:
+  independent-ungroup-atomic-scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 30909ab30d9fbec2f01840138124c036d402e432
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact 6 original Git blobs/status/modes, unchanged Store/portable backup and previous CI contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 30909ab30d9fbec2f01840138124c036d402e432
+          test "$(git merge-base HEAD 3b87b852ec827179587c9853d4560ae755d750f1)" = 3b87b852ec827179587c9853d4560ae755d750f1
+          cat >/tmp/qrw2123-postblobs <<'PINS'
+          0db3277463ed582d043501507ab7fd7ca2b11510 .github/workflows/08web-decux49-moodboard-ungroup.yml A
+          da11df57887283266cbcf0bdf13efb17c5d917df .github/workflows/web-moodboard-atomic-entry.yml M
+          ba9aba3046d9a0fcc647adf4d6b438afa6330474 scripts/web-moodboard-decux49-ungroup-chrome.mjs A
+          238a09b606e3af4c533a274787933e8f0e00e2a3 src/lib/moodboards/copy.js M
+          19edbc9c05e8b95267a63f1fd7145945c6a78f30 src/routes/moodboards/+page.svelte M
+          614a3141493e2acdf026ddf68e05836e2111f4c3 tests/web-moodboard-decux49-ungroup-preserves-refs.test.mjs A
+          PINS
+          while read -r blob file change; do
+            test "$(git rev-parse "HEAD:$file")" = "$blob"
+            test "$(git ls-tree HEAD "$file" | awk '{print $1}')" = 100644
+            test "$(git diff --name-status 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- "$file" | cut -f1)" = "$change"
+          done </tmp/qrw2123-postblobs
+          awk '{print $2}' /tmp/qrw2123-postblobs | LC_ALL=C sort >/tmp/qrw2123-expected
+          git diff --name-only 3b87b852ec827179587c9853d4560ae755d750f1 HEAD | LC_ALL=C sort >/tmp/qrw2123-actual
+          diff -u /tmp/qrw2123-expected /tmp/qrw2123-actual
+          test "$(git rev-parse HEAD:src/lib/moodboards/store.js)" = 530d5b8baae94fb69d037a5bea565a31668f64d0
+          test "$(git rev-parse HEAD:src/lib/moodboards/cover-preview.mjs)" = 0ef6b9515d79dc252823643f80cf0bd84c3b9b14
+          git diff --quiet 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- \
+            src/lib/moodboards/store.js src/lib/moodboards/origin-portability.mjs \
+            src/lib/moodboards/cover-preview.mjs src/routes/moodboards/atomic \
+            crates/ddv-save-core/ .github/workflows/pages.yml supabase/
+          test "$(git diff --numstat 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- .github/workflows/web-moodboard-atomic-entry.yml | awk '{print $1":"$2}')" = "26:0"
+          echo QRW2123_ORIGINAL_EXACT6_BLOBS_UNCHANGED_LOCAL_STORE_OLD_PROFILES_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Inherit only affected Moodboard Store/cover/portable and changed new local Ungroup tests
+        run: node --test tests/web-moodboard-decux49-ungroup-preserves-refs.test.mjs tests/web-moodboard-decux24-root-grid.test.mjs tests/web-moodboard-cover-preview.test.mjs tests/web-moodboard-origin-portability.test.mjs
+      - name: Independent wrong Board/group/stale refs, 4 old CI scopes and forged seventh source path
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          import {MOODBOARD_COPY} from './src/lib/moodboards/copy.js';
+          import {createEmptyMoodboardDocument,createMoodboard,createMoodboardGroup,
+            addMoodboardReference,deleteMoodboardGroup,serializeMoodboardDocument,
+            parseMoodboardDocument,moodboardSections} from './src/lib/moodboards/store.js';
+          const stamp='2026-11-18T00:00:00.000Z',id=s=>()=>s;
+          let doc=createEmptyMoodboardDocument(stamp);
+          const first=createMoodboard(doc,{title:'A Garden'}, {now:stamp,idFactory:id('a')});
+          doc=first.document;const A=first.board.id;
+          const second=createMoodboard(doc,{title:'B Studio'}, {now:stamp,idFactory:id('b')});
+          doc=second.document;const B=second.board.id;
+          const garden=createMoodboardGroup(doc,A,'Garden',{now:stamp,idFactory:id('garden')});
+          doc=garden.document;const G=garden.group.id;
+          const kitchen=createMoodboardGroup(doc,A,'Kitchen',{now:stamp,idFactory:id('kitchen')});
+          doc=kitchen.document;const K=kitchen.group.id;
+          const brew=createMoodboardGroup(doc,B,'Notes',{now:stamp,idFactory:id('notes')});
+          doc=brew.document;const N=brew.group.id;
+          const source=[
+            {type:'ITEM',label:'Flower pot',entityId:'40000047',groupIds:[G]},
+            {type:'WAND_PRESET',label:'Shared scene',entityId:'preset_one',groupIds:[G,K]},
+            {type:'NOTE',label:'Green shade',note:'do not erase this Note',groupIds:[G]},
+            {type:'NOTE',label:'Kitchen notes',note:'unrelated group',groupIds:[K]}
+          ];
+          for(let i=0;i<source.length;i++){
+            doc=addMoodboardReference(doc,A,source[i],{now:stamp,idFactory:id('ref'+i)}).document;
+          }
+          doc=addMoodboardReference(doc,B,{type:'NOTE',label:'B private',note:'other Moodboard',groupIds:[N]},
+            {now:stamp,idFactory:id('other')}).document;
+          const original=serializeMoodboardDocument(doc),deepOriginal=structuredClone(doc);
+          let positive=0,negative=0;
+          const next=deleteMoodboardGroup(doc,A,G,{deleteExclusiveContents:false,now:stamp});
+          assert.equal(next.boards.length,2);
+          assert.deepEqual(next.boards[0].groups.map(g=>g.id),[K]);
+          assert.deepEqual(next.boards[1],doc.boards[1],'foreign Board preserved exactly');
+          assert.equal(next.boards[0].references.length,4);
+          const refs=Object.fromEntries(next.boards[0].references.map(r=>[r.label,r]));
+          assert.deepEqual(refs['Flower pot'].groupIds,[]);
+          assert.deepEqual(refs['Green shade'].groupIds,[]);
+          assert.deepEqual(refs['Shared scene'].groupIds,[K]);
+          assert.equal(refs['Green shade'].note,'do not erase this Note');
+          assert.deepEqual(refs['Kitchen notes'].groupIds,[K]);
+          assert.equal(moodboardSections(next.boards[0]).find(x=>x.kind==='UNSORTED').references.length,2);
+          assert.deepEqual(doc,deepOriginal);
+          assert.equal(serializeMoodboardDocument(doc),original);
+          positive++;
+          const now=serializeMoodboardDocument(next);
+          assert.deepEqual(parseMoodboardDocument(original,stamp),doc,'independent prior snapshot reopen');
+          assert.deepEqual(parseMoodboardDocument(now,stamp),next,'independent new document reopen');
+          const restored=parseMoodboardDocument(original,stamp);
+          assert.equal(restored.boards[0].groups.length,2);
+          assert.deepEqual(restored.boards[0].references.map(r=>r.groupIds),
+            doc.boards[0].references.map(r=>r.groupIds));
+          positive++;
+          for(const [board,group] of [
+            [A,G], [B,G], [A,N], [B,K],
+            [A,'group_absent'],[B,'group_absent'],['board_absent',K]
+          ]){
+            assert.throws(()=>deleteMoodboardGroup(board===A&&group===G?next:doc,board,group,
+              {deleteExclusiveContents:false,now:stamp}),/Unknown Moodboard Group/);
+            negative++;
+          }
+          const remaining=deleteMoodboardGroup(next,A,K,{deleteExclusiveContents:false,now:stamp});
+          assert.equal(remaining.boards[0].groups.length,0);
+          assert.equal(remaining.boards[0].references.length,4);
+          assert.deepEqual(remaining.boards[1],doc.boards[1]);
+          positive++;
+          const root=readFileSync('src/routes/moodboards/+page.svelte','utf8');
+          assert.ok(root.includes('deleteMoodboardGroup(document,selected.id,groupId,{deleteExclusiveContents:false})'));
+          assert.ok(!root.includes('deleteExclusiveContents:true'));
+          assert.match(root,/data-moodboard-ungroup=\{section\.id\}/);
+          assert.match(root,/section\.kind==='GROUP'/);
+          assert.match(root,/localStorage\.setItem\(MOODBOARD_BACKUP_KEY,current\)/);
+          assert.equal(Object.keys(MOODBOARD_COPY).length,8);
+          for(const locale of Object.keys(MOODBOARD_COPY)){
+            const x=MOODBOARD_COPY[locale];
+            assert.ok(x.ungroup.includes('(')||x.ungroup.includes('（'));
+            assert.notEqual(x.ungroup,x.delete);
+            assert.notEqual(x.ungroup,x.remove);
+            positive++;
+          }
+          const code=readFileSync('.github/workflows/web-moodboard-atomic-entry.yml','utf8');
+          const scope=name=>{
+            const token="cat >/tmp/"+name+" <<'SCOPE'";
+            const i=code.indexOf(token);
+            assert.ok(i>=0,'previous exact CI profile '+name);
+            const rest=code.slice(i+token.length);
+            const part=rest.slice(0,rest.indexOf('\n          SCOPE'));
+            return part.trim().split('\n').map(s=>s.trim()).sort();
+          };
+          const old=[['atomic-entry-scope',5],['atomic-entry-decux43-scope',7],
+            ['atomic-entry-decux24-scope',5],['atomic-entry-migration-scope',7]];
+          for(const [name,len] of old){assert.equal(scope(name).length,len,name);positive++;}
+          const chosen=scope('atomic-entry-decux49-scope');
+          const exact=[
+            '.github/workflows/08web-decux49-moodboard-ungroup.yml',
+            '.github/workflows/web-moodboard-atomic-entry.yml',
+            'scripts/web-moodboard-decux49-ungroup-chrome.mjs',
+            'src/lib/moodboards/copy.js','src/routes/moodboards/+page.svelte',
+            'tests/web-moodboard-decux49-ungroup-preserves-refs.test.mjs'
+          ].sort();
+          assert.deepEqual(chosen,exact);positive++;
+          const scopeOk=rows=>rows.length===exact.length&&rows.slice().sort().every((s,i)=>s===exact[i]);
+          for(const extra of [
+            'src/lib/moodboards/store.js','src/lib/moodboards/origin-portability.mjs',
+            'src/routes/moodboards/atomic/+page.svelte',
+            'src/lib/ddv/core/save/product-wasm-read-owner.mjs',
+            '.github/workflows/pages.yml','supabase/migrations/overwrite.sql'
+          ]){assert.equal(scopeOk([...chosen,extra]),false,extra);negative++;}
+          for(const removed of chosen){assert.equal(scopeOk(chosen.filter(x=>x!==removed)),false);negative++;}
+          const names=[
+            ['src/routes/moodboards/+page.svelte','19edbc9c05e8b95267a63f1fd7145945c6a78f30'],
+            ['src/lib/moodboards/copy.js','238a09b606e3af4c533a274787933e8f0e00e2a3'],
+            ['tests/web-moodboard-decux49-ungroup-preserves-refs.test.mjs','614a3141493e2acdf026ddf68e05836e2111f4c3'],
+            ['scripts/web-moodboard-decux49-ungroup-chrome.mjs','ba9aba3046d9a0fcc647adf4d6b438afa6330474'],
+            ['.github/workflows/08web-decux49-moodboard-ungroup.yml','0db3277463ed582d043501507ab7fd7ca2b11510']
+          ];
+          for(const [path,blob] of names){
+            assert.ok(code.includes('test "$(git rev-parse HEAD:'+path+')" = '+blob));
+            assert.equal(execFileSync('git',['rev-parse','HEAD:'+path],{encoding:'utf8'}).trim(),blob);
+            assert.equal(execFileSync('git',['ls-tree','HEAD',path],{encoding:'utf8'}).split(' ')[0],'100644');
+            const fake=execFileSync('git',['hash-object','--stdin'],{input:readFileSync(path,'utf8')+'\nCHANGED_FAKE_BLOB\n',encoding:'utf8'}).trim();
+            assert.notEqual(blob,fake);
+            negative+=2;
+          }
+          assert.ok(code.includes('diff -u /tmp/atomic-entry-decux49-expected /tmp/atomic-entry-actual'));
+          assert.ok(!code.includes('exit 0 # bypass'));
+          console.log('QRW2123_NONDESTRUCTIVE_UNGROUP_WRONG_BOARD_REOPEN_CI_ALLOWLIST_PASS',
+            JSON.stringify({positive,negative,originalStoreUnchanged:true,backupPreserved:true,gameSave:false}));
+          NODE
+      - name: Actual Svelte build and Chromium desktop/mobile local ungroup and restore
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm run check && npm run build
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/qrw2123-preview.log 2>&1 &
+          for i in $(seq 1 60); do if curl -fsS http://127.0.0.1:4298/web/moodboards/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4298/web/moodboards/ >/dev/null
+          node scripts/web-moodboard-decux49-ungroup-chrome.mjs
