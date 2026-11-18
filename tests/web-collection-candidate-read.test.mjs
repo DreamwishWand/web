@@ -54,8 +54,10 @@ test('untrusted selector, stale epoch and unsupported ABI cannot read or grant',
  for(const s of [{...selector,sessionId:S},{...selector,itemId:1},{...selector,groupIndex:-1}]){
   const f=fixture();assert.throws(()=>readCollectionCandidate(f.owner,s),denial);assert.equal(f.counts().calls,0);
  }
+ // A stale scope rejected by Core is not malformed parser output: the
+ // underlying Rust read is denied without revoking an otherwise live reader.
  const f=fixture();f.r.revision=1;assert.throws(()=>readCollectionCandidate(f.owner,selector),denial);
- assert.deepEqual(f.counts(),{calls:1,revokes:1});
+ assert.deepEqual(f.counts(),{calls:1,revokes:0});
  const g=fixture();delete g.owner.wasm.preview_scoped_collection_candidate;assert.throws(()=>readCollectionCandidate(g.owner,selector),denial);
  const h=fixture();h.invalidate();assert.throws(()=>readCollectionCandidate(h.owner,selector),denial);assert.equal(h.counts().calls,0);
  const j=fixture();const orig=j.owner.wasm.preview_scoped_collection_candidate;j.owner.wasm.preview_scoped_collection_candidate=(...a)=>{const raw=orig(...a);j.invalidate();return raw};assert.throws(()=>readCollectionCandidate(j.owner,selector),denial);assert.equal(j.counts().revokes,0);
