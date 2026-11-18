@@ -39,8 +39,20 @@ try{
    await page.reload({waitUntil:'domcontentloaded'});
    assert.equal(await page.locator('[data-beta-save-operations] [data-beta-operation][data-beta-state=pending]').count(),8,'query and localStorage cannot forge release');
    assert.equal(await page.locator('[data-beta-save-operations] a,[data-beta-save-operations] button').count(),0);
-   assert.ok(await page.locator('[data-editor-moodboards][href$="/moodboards/"]').isVisible());
-   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),true,'no mobile horizontal overflow');
+   const localMoodboards=page.locator('[data-editor-moodboards][href$="/moodboards/"]');
+   assert.ok(await localMoodboards.isVisible());
+   await localMoodboards.focus();
+   assert.equal(await localMoodboards.evaluate(el=>el===document.activeElement),true,'usable local route is keyboard focusable');
+   await page.keyboard.press('Tab');
+   assert.notEqual(await localMoodboards.evaluate(el=>el===document.activeElement),true,'keyboard navigation must advance');
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),true,'no horizontal overflow');
+   if(width===320){
+    await page.setViewportSize({width:640,height:900});
+    await page.evaluate(()=>{document.documentElement.style.zoom='2'});
+    assert.equal(await page.locator('[data-beta-operation][aria-disabled="true"]').count(),8,'zoom cannot reveal a Writer CTA');
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),true,'200% CSS zoom at 640 viewport must not overflow');
+    console.log('08WEB_PROGRESSIVE_BETA_200PERCENT_ZOOM_KEYBOARD_DISABLED_PASS');
+   }
    console.log('08WEB_PROGRESSIVE_BETA_EDITOR_FAILCLOSED_TILES_8_LOCAL_READ_TEST_PASS_'+width);
   }finally{await page.close();await ctx.close()}
  }
