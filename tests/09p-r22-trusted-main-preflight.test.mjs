@@ -7,7 +7,7 @@ import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const sourceRepo=resolve(fileURLToPath(new URL('../',import.meta.url)));
-const baseHead='a2b3f9417bf9e1a95e2abcfff768770bd17ee8f2';
+const baseHead=execFileSync('git',['rev-parse','HEAD'],{cwd:sourceRepo,encoding:'utf8'}).trim();
 const productPaths=[
  ['.github/workflows/core-product-session-boundary.yml','8de94431af1e6d58e216fa06bf91a1329a7f7063'],
  ['crates/ddv-save-core/Cargo.toml','751a73da41d8b58f7de70643f50b97722a3c1260'],
