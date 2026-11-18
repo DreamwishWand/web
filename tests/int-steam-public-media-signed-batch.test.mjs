@@ -11,10 +11,11 @@ test('single first Steam public game image is truly on-disk pinned in source',as
   assert.equal((await verifyLocal(plan,{kind:'source',pins:pinned})).count,1);
   assert.equal(digest(readFileSync(join(ROOT,'static',rel))),item.sha256);
 });
-test('signed media batch rejects unknown rights/hidden/duplicates/extra fields',()=>{
+test('signed media batch rejects unknown rights/hidden/duplicates/extra fields',async()=>{
   const bad=fn=>{const copy=structuredClone(plan);fn(copy);assert.throws(()=>validateBatch(copy));};
   bad(p=>p.items[0].visibility='HIDDEN');
-  bad(p=>p.items[0].sha256='0'.repeat(64));
+  const foreign=structuredClone(plan);foreign.items[0].sha256='0'.repeat(64);
+  await assert.rejects(verifyLocal(foreign,{kind:'source',pins:pinned}),/MEDIA_EXACT_BATCH_ONLY/);
   bad(p=>p.items.push({...p.items[0]}));
   bad(p=>p.withdrawn.push({itemId:item.itemId,sha256:'0'.repeat(64)}));
   bad(p=>p.items[0].bytes=200001);
