@@ -1,0 +1,47 @@
+name: QA ONLY 04 QR-W PR2247 Steam626 Chest source contract L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2247-chest-candidate-l2.yml'
+permissions:
+  contents: read
+jobs:
+  changed-source-chest-contract-fail-closed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2247-71218-steam626-chest-source-candidate-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin original immutable Source two GitBlobs and QA-only two
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=e7a56d5ce4a717cd76191e345b79be12adef3df4
+          source=71218fc8d5a33482cf59b69de2142d31faf07f4e
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:src/lib/ddv/core/items/tier-a-edit-requests.mjs")" = 649405c637e09f3315ed476cfc45c27568cf02df
+          test "$(git rev-parse "$base:tests/ddv-core-tier-a-edit-requests.test.mjs")" = a16c129b9d7eff90c39b6b4d099c201b519a08d1
+          test "$(git rev-parse 'HEAD:src/lib/ddv/core/items/tier-a-edit-requests.mjs')" = f5032af38146c6ab499c7ba5b13fbe456bbcdd27
+          test "$(git rev-parse 'HEAD:tests/ddv-core-tier-a-edit-requests.test.mjs')" = f49bb192f38e5fbd356a1f2089559d3b86e54e7d
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2247-steam626-chest-source-browser-contract-l2.test.mjs')" = 021a0af32b7c7202234f9e427ea864eaa7c159f6
+          for f in src/lib/ddv/core/items/tier-a-edit-requests.mjs tests/ddv-core-tier-a-edit-requests.test.mjs tests/qa-qrw-pr2247-steam626-chest-source-browser-contract-l2.test.mjs .github/workflows/qa-qrw-pr2247-chest-candidate-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/ddv/core/items/tier-a-edit-requests.mjs tests/ddv-core-tier-a-edit-requests.test.mjs | LC_ALL=C sort >/tmp/original
+          printf '%s\n' .github/workflows/qa-qrw-pr2247-chest-candidate-l2.yml tests/qa-qrw-pr2247-steam626-chest-source-browser-contract-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/original -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2247_EXACT_ORIGINAL2_QAONLY2_BLOBS_PASS
+      - name: Actual independent Chrome candidate JS source-only Rust delegation negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qa-qrw-pr2247-steam626-chest-source-browser-contract-l2.test.mjs tests/ddv-core-tier-a-edit-requests.test.mjs
+          echo QRW2247_STEAM626_CHEST48_EXACT50_TO49_SOURCE_ONLY_NO_WRITER_L2_PASS
