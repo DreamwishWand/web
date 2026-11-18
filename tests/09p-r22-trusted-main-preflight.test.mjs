@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync,execFileSync} from 'node:child_process';
-import {mkdtempSync,rmSync,readFileSync,writeFileSync} from 'node:fs';
+import {mkdtempSync,rmSync,readFileSync,writeFileSync,renameSync,symlinkSync,unlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -105,9 +105,39 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
    assert.notEqual(dirty.status,0,'raw protected worktree drift must fail closed');
    assert.match(dirty.stderr,/TRUSTED_WORKTREE_DRIFT/);
   }finally{writeFileSync(altered,originalSelector)}
+  // The issuer leaf has the EXACT approved Git bytes, but a parent folder
+  // is now a symlink into an untrusted outside-repo location. This previously
+  // false-accepted; no candidate file or Git blob is changed by this test.
+  const issuerParent=join(cwd,'src/lib/ddv/core/save');
+  const outsideIssuerParent=join(dir,'outside-repository-issuer-save');
+  renameSync(issuerParent,outsideIssuerParent);
+  try{
+   symlinkSync(outsideIssuerParent,issuerParent,'dir');
+   const escaped=run(baseHead,approved);
+   assert.notEqual(escaped.status,0,
+    'trusted external CLI must reject outside-repo symlinked issuer parent');
+   assert.match(escaped.stderr,/R22_TRUSTED_SELECTION_TRUSTED_PATH_SYMLINK_src\\/lib\\/ddv\\/core\\/save/);
+  }finally{
+   unlinkSync(issuerParent);
+   renameSync(outsideIssuerParent,issuerParent);
+  }
+  // Repeat for a different protected module parent: normal in-tree files
+  // with original content must never bypass the parent-component guard.
+  const scriptsParent=join(cwd,'scripts');
+  const outsideScripts=join(dir,'outside-repository-scripts');
+  renameSync(scriptsParent,outsideScripts);
+  try{
+   symlinkSync(outsideScripts,scriptsParent,'dir');
+   const escaped=run(baseHead,approved);
+   assert.notEqual(escaped.status,0,
+    'trusted external CLI must reject outside-repo symlinked script parent');
+  }finally{
+   unlinkSync(scriptsParent);
+   renameSync(outsideScripts,scriptsParent);
+  }
   // Incorrect protected base is rejected before reading candidate JS.
   const forgedBase=run('d37a774a8ce2ac08ef05389f0d14d3442063edeb',approved);
   assert.notEqual(forgedBase.status,0);
-  console.log('R22_TRUSTED_EXTERNAL_BASE_1POS_7SOURCE_MODE_WORKTREE_NEG_NO_PAGES_NO_ON');
+  console.log('R22_TRUSTED_EXTERNAL_BASE_1POS_9SOURCE_MODE_WORKTREE_PARENT_SYMLINK_NEG_NO_PAGES_NO_ON');
  }finally{rmSync(dir,{recursive:true,force:true})}
 });
