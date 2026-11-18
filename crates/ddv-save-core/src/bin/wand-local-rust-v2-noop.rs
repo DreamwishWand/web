@@ -54,7 +54,9 @@ fn main(){
           "--semantic-inventory-and-chest-decrease-only"|
           "--private-steam626-bound-chest-decrease-only"|
           "--private-switch626-bound-chest-decrease-only"|
-          "--private-steam626-bound-catalog0-decrease-only")) {
+          "--private-steam626-bound-catalog0-decrease-only"|
+          "--private-steam626-product-catalog0-exact1-only"|
+          "--private-steam626-product-chest48-exact1-only")) {
    run_semantic_existing_decrease();
    return;
  }
@@ -154,8 +156,13 @@ fn run_semantic_existing_decrease(){
  const MAX_DECODED:u64=256*1024*1024;
  let args=env::args().collect::<Vec<_>>();
  if args.len()!=2{deny("SEMANTIC_ONE_EXPLICIT_OPERATION_REQUIRED");}
- let bound_chest=args[1]=="--private-steam626-bound-chest-decrease-only";
- let bound_furniture=args[1]=="--private-steam626-bound-catalog0-decrease-only";
+ // Product-scoped native modes preserve exact immutable original/Backup
+ // plan and private pipe; only current Rust product validation is new.
+ let product_chest=args[1]=="--private-steam626-product-chest48-exact1-only";
+ let product_furniture=args[1]=="--private-steam626-product-catalog0-exact1-only";
+ let product=product_chest||product_furniture;
+ let bound_chest=product_chest||args[1]=="--private-steam626-bound-chest-decrease-only";
+ let bound_furniture=product_furniture||args[1]=="--private-steam626-bound-catalog0-decrease-only";
  let switch_chest=args[1]=="--private-switch626-bound-chest-decrease-only";
  let bound=bound_chest||bound_furniture||switch_chest;
  let inventory=matches!(args[1].as_str(),
@@ -250,9 +257,15 @@ fn run_semantic_existing_decrease(){
        original_sha,source_size,backup,backup_size)}else{session.mint_private_bound_amount_candidate(e,plan.as_bytes(),
        original_sha,source_size,backup,backup_size,bound_chest)}).unwrap_or_else(|_|deny("PRIVATE_AMOUNT_WITNESS_DENIED")))
  }else{None};
- let stage=|e|if let Some(c)=&candidate{if switch_chest{session.stage_private_switch626_bound_chest_candidate(e,c)}
-      else{session.stage_private_bound_amount_candidate(e,c)}}
-      else{session.stage_typed_semantic_batch(e,&cmds)};
+ let stage=|e|if let Some(c)=&candidate{
+      if product{
+        #[cfg(feature="product-amount-scoped")]
+        {session.stage_private_product_scoped_bound_amount_candidate(e,c)}
+        #[cfg(not(feature="product-amount-scoped"))]
+        {deny("PRIVATE_PRODUCT_AMOUNT_FEATURE_MISSING")}
+      }else if switch_chest{session.stage_private_switch626_bound_chest_candidate(e,c)}
+      else{session.stage_private_bound_amount_candidate(e,c)}
+    }else{session.stage_typed_semantic_batch(e,&cmds)};
  let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|_|deny("SEMANTIC_TYPED_STAGE_DENIED"));
  let expected_count=if bound{1}else{cmds.len()};
  if staged.revision!=1||staged.index_generation!=2||
@@ -289,7 +302,8 @@ fn run_semantic_existing_decrease(){
  // Private pipe ONLY. No plaintext, key, IDs, SHA or path in CI/logs.
  io::stdout().write_all(&edited).unwrap_or_else(|_|deny("SEMANTIC_PIPE_WRITE"));
  io::stdout().flush().unwrap_or_else(|_|deny("SEMANTIC_PIPE_FLUSH"));
- if switch_chest{eprintln!("PRIVATE_SWITCH626_CORE_BOUND_CHEST_EXACT1_PIPE_PASS");}
+ if product{eprintln!("PRIVATE_STEAM626_CURRENT_PRODUCT_AMOUNT_EXACT1_PIPE_PASS");}
+ else if switch_chest{eprintln!("PRIVATE_SWITCH626_CORE_BOUND_CHEST_EXACT1_PIPE_PASS");}
  else if bound{eprintln!("PRIVATE_STEAM626_CORE_BOUND_AMOUNT_EXACT1_PIPE_PASS");}
  else{eprintln!("PRIVATE_V2_RUST_REAL_AMOUNT_SEMANTIC_CHANGE_CAS_ATOMIC_UNDO_REDO_ONE_TIME_PIPE_PASS");}
 }
