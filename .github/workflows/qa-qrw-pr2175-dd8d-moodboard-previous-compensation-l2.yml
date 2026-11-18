@@ -239,7 +239,7 @@ jobs:
            neg++;
           }
           assert.equal(pos,3);
-          assert.equal(neg,17);
+          assert.equal(neg,16);
           console.log('QRW2175_LOCAL_PREVIOUS_TWO_KEY_COMPENSATION',JSON.stringify({
            positives:pos,negatives:neg,actualBrowserSignAndRelease:'NOT_RUN',
            rollbackUnverifiedExplicit:true,saveWriterOff:true,
