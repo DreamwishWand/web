@@ -64,7 +64,7 @@ jobs:
           const rows=[
             image(40000101,'a','b'),image(40000102,'b','c'),
             image(40000103,'d','c'),image(40000104,'d','e'),
-            image(40000105,'f','g')];
+            image(40000105,'f','8')];
           const existing=[
             {kind:'ITEM_ID',value:'77700012',state:'HIDDEN',incidentRef:'SYNTHETIC_OLD_RECEIPT'},
             {kind:'WEBP_SHA256',value:dg('9'),state:'HIDDEN',incidentRef:'SYNTHETIC_OLD_HASH'}
