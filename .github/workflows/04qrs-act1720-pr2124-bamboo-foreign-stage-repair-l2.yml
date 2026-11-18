@@ -38,7 +38,7 @@ jobs:
           import {inspectBambooProofSubjects,validateBambooProofManifest}
             from './scripts/readonly-release/steam-bamboo-perop-signed.mjs';
           const head='9e4d91a45d64175b21ebf7be857e0dd58ca9c594';
-          const base='d395fb18223aec2c2979a3c5ed2a8e8c9606d1b2';
+          const base='3b87b852ec827179587c9853d4560ae755d750f1';
           const cli='scripts/readonly-release/steam-bamboo-perop-signed.mjs';
           const paths=['.github/workflows/09p-steam626-bamboo-perop-proof.yml',
             cli,'tests/steam-bamboo-perop-proof.test.mjs'];
