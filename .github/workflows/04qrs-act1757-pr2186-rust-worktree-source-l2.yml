@@ -122,6 +122,85 @@ jobs:
             rmSync(tmp,{recursive:true,force:true});
           }
           NODE
+      - name: Independently refute transitive Geometry trust closure using real CLI on committed Rust bytes
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {mkdtempSync,readFileSync,writeFileSync,copyFileSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {spawnSync} from 'node:child_process';
+          const source='507130c88133467745edef102a13327669908251';
+          const originalGeometryBlob='4ff82faf19cc9883259cea36da5f90faa5bea698';
+          const dir=mkdtempSync(join(tmpdir(),'wand-qrs-geometry-'));
+          const wt=join(dir,'fixed-source');
+          const geometry='crates/ddv-save-core/src/sr03_installed_geometry.rs';
+          const approved=[
+            'crates/ddv-save-core/Cargo.toml',
+            'crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs',
+            'crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs',
+            'crates/ddv-save-core/src/steam_bamboo_single_product_target.rs'
+          ];
+          const runGit=(...args)=>{
+            const r=spawnSync('git',['-C',wt,...args],{encoding:'utf8'});
+            assert.equal(r.status,0,'git '+args.join(' ')+' '+r.stderr);
+            return r.stdout.trim();
+          };
+          let made=false;
+          try{
+            const create=spawnSync('git',['worktree','add','--detach',wt,source],{encoding:'utf8'});
+            assert.equal(create.status,0,create.stderr);made=true;
+            assert.equal(runGit('rev-parse','HEAD'),source);
+            assert.equal(runGit('rev-parse','HEAD:'+geometry),originalGeometryBlob);
+            const originalPins=approved.map(p=>runGit('rev-parse','HEAD:'+p));
+            const lock=()=>copyFileSync(join(wt,'scripts/wasm-distribution/approved-Cargo.lock'),join(wt,'crates/ddv-save-core/Cargo.lock'));
+            const preflight=()=>{
+              lock();
+              return spawnSync(process.execPath,[join(wt,'scripts/readonly-release/seal-bamboo-public-pages.mjs'),'preflight'],{
+                cwd:wt,encoding:'utf8',timeout:60000,
+                env:{...process.env,GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'DreamwishWand/web',
+                  GITHUB_REPOSITORY_ID:'1371485649',GITHUB_EVENT_NAME:'pull_request',
+                  WAND_SOURCE_HEAD:runGit('rev-parse','HEAD'),GIT_NO_REPLACE_OBJECTS:'1'}
+              });
+            };
+            const ok=preflight();
+            assert.equal(ok.status,0,'original genuine baseline must be accepted '+ok.stderr);
+            assert.match(ok.stdout,/BAMBOO_PUBLIC_PAGES_SOURCE_PREFLIGHT_OFF/);
+            console.log('QRS_ACT1757_GEOMETRY_ORIGINAL_SEALER_1POS');
+            const abs=join(wt,geometry);
+            const old=readFileSync(abs,'utf8');
+            const guard='if common(40700007)!=Some((1,1))||scaled(1,1,1)?!=(2,2)||x%2!=0||y%2!=0';
+            assert.equal(old.split(guard).length,2,'exact single native Bamboo geometry parity guard');
+            const changed=old.replace(guard,guard.replace('x%2!=0','x%2==3'));
+            assert.notEqual(changed,old);
+            writeFileSync(abs,changed);
+            runGit('add','--',geometry);
+            const c=spawnSync('git',['-C',wt,'-c','user.name=04 QR-S isolated QA',
+              '-c','user.email=qa-only@example.invalid','commit','-m','QA only changed compiled Bamboo Geometry floor predicate'],{encoding:'utf8'});
+            assert.equal(c.status,0,c.stderr);
+            const mutant=runGit('rev-parse','HEAD');
+            assert.notEqual(mutant,source);
+            assert.notEqual(runGit('rev-parse','HEAD:'+geometry),originalGeometryBlob);
+            assert.deepEqual(approved.map(p=>runGit('rev-parse','HEAD:'+p)),originalPins,
+              'all four signer accepted Rust Git Blobs must remain unchanged');
+            assert.equal(runGit('status','--porcelain','--',geometry),'');
+            const observed=preflight();
+            const accepted=observed.status===0;
+            console.log('QRS_ACT1757_GEOMETRY_COMMITTED_UNPINNED_REAL_CLI '+JSON.stringify({
+              approvedFourBlobsUnchanged:true,sourceChanged:true,actualOnDiskBytesCommitted:true,
+              semanticChange:'Steam626 Bamboo x parity removed',accepted
+            }));
+            assert.equal(accepted,false,
+              'TRUE_RED: public Bamboo signed Source preflight accepts committed unpinned direct compiled SR03 geometry behavior');
+            console.log('QRS_ACT1757_GEOMETRY_DIRECT_TRANSITIVE_CLOSURE_1POS1NEG_PASS');
+          }finally{
+            if(made)spawnSync('git',['worktree','remove','--force',wt],{encoding:'utf8'});
+            rmSync(dir,{recursive:true,force:true});
+          }
+          NODE
       - name: Verify QA never signs or uploads real public Bamboo Reader
         shell: bash
         run: |
