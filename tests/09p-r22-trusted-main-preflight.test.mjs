@@ -116,7 +116,7 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
    const escaped=run(baseHead,approved);
    assert.notEqual(escaped.status,0,
     'trusted external CLI must reject outside-repo symlinked issuer parent');
-   assert.match(escaped.stderr,/R22_TRUSTED_SELECTION_TRUSTED_PATH_SYMLINK_src\\/lib\\/ddv\\/core\\/save/);
+   assert.ok(escaped.stderr.includes('R22_TRUSTED_SELECTION_TRUSTED_PATH_SYMLINK_src/lib/ddv/core/save'), 'external parent symlink denial marker required');
   }finally{
    unlinkSync(issuerParent);
    renameSync(outsideIssuerParent,issuerParent);
