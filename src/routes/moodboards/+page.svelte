@@ -16,6 +16,7 @@
     createMoodboard,
     createMoodboardGroup,
     deleteMoodboard,
+    deleteMoodboardGroup,
     moodboardSections,
     parseMoodboardDocument,
     removeMoodboardReference,
@@ -80,6 +81,15 @@
   function toggleGroup(group:any){
     if(!selected)return;
     persist(updateMoodboardGroup(document,selected.id,group.id,{collapsed:!group.collapsed}));
+  }
+
+  // DEC-UX-49: remove a Group container only, never its Item/Preset/Note.
+  // This uses the accepted local Store's non-destructive ungroup operation;
+  // persist() keeps the previous full document as the immediate rollback.
+  function ungroup(groupId:string){
+    if(!selected||!selected.groups.some((group:any)=>group.id===groupId))return;
+    const next=deleteMoodboardGroup(document,selected.id,groupId,{deleteExclusiveContents:false});
+    persist(next);status=copy.ungrouped;
   }
 
   function addReference(){
@@ -204,7 +214,7 @@
         <div class="sections" aria-label={copy.groups}>
           {#each visibleSections as section}
             <section class="group-section" data-group-id={section.id??'unsorted'}>
-              <header><h3>{section.title}</h3>{#if section.kind==='GROUP'}<button type="button" aria-expanded={!section.collapsed} on:click={()=>toggleGroup(selected.groups.find((group:any)=>group.id===section.id))}>{section.collapsed?copy.expand:copy.collapse}</button>{/if}</header>
+              <header><h3>{section.title}</h3>{#if section.kind==='GROUP'}<div class="group-actions"><button type="button" aria-expanded={!section.collapsed} on:click={()=>toggleGroup(selected.groups.find((group:any)=>group.id===section.id))}>{section.collapsed?copy.expand:copy.collapse}</button><button type="button" data-moodboard-ungroup={section.id} aria-label={copy.ungroup+': '+section.title} on:click={()=>ungroup(section.id)}>{copy.ungroup}</button></div>{/if}</header>
               {#if section.kind==='UNSORTED' || !selected.groups.find((group:any)=>group.id===section.id)?.collapsed}
                 {#if section.references.length}<div class="reference-grid">{#each section.references as reference}
                   <article class="reference-card">
