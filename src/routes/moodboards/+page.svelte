@@ -21,7 +21,6 @@
     moodboardSections,
     parseMoodboardDocument,
     removeMoodboardReference,
-    serializeMoodboardDocument,
     updateMoodboardGroup
   } from '$lib/moodboards/store.js';
   import { currentWorldEditorEnvironmentSupported } from '$lib/wep/world-editor-environment';
@@ -161,10 +160,13 @@
       }
       const previous=localStorage.getItem(MOODBOARD_BACKUP_KEY);
       if(!previous){status=copy.noBackup;return;}
-      const next=parseMoodboardDocument(previous),raw=serializeMoodboardDocument(next);
-      localStorage.setItem(MOODBOARD_STORAGE_KEY,raw);
-      if(localStorage.getItem(MOODBOARD_STORAGE_KEY)!==raw)throw Error('MOODBOARD_LOCAL_RESTORE_UNVERIFIED');
-      observedRaw=raw;document=next;selectedId=next.boards[0]?.id??'';status=copy.restored;
+      const next=parseMoodboardDocument(previous);
+      // Restore is a real change to Main. Use the SAME scoped CAS and
+      // two-key verified compensation as Create/Edit/Delete, so failed or
+      // partial primary writes cannot discard the last recoverable snapshot.
+      // On success, Previous becomes the old Main: the restore is reversible.
+      const committed=persistMoodboardLocalChange(localStorage,next,observedRaw);
+      observedRaw=committed;document=next;selectedId=next.boards[0]?.id??'';status=copy.restored;
     }catch{status=copy.invalid;}
   }
 
