@@ -1,0 +1,57 @@
+name: QA ONLY 04 QR-W PR2223 Placement Collection encrypted Blob fault L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2223-blob-fault-wipe-l2.yml'
+permissions:
+  contents: read
+jobs:
+  original-svelte-private-encrypted-byte-zeroization:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2223-b71f-placement-collection-url-fault-wipe-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Original exact three Source and independent two QA-only paths, no product mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=d37a774a8ce2ac08ef05389f0d14d3442063edeb
+          product=b71f46e38e32eef606d1d64df1cebb87019c20fb
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse 'HEAD:src/lib/collection/CollectionExact1Dev.svelte')" = 1ae16849857f479c95e168b07e1ad847f5bc7c5f
+          test "$(git rev-parse 'HEAD:src/lib/dev/LocalPlacementEditorDev.svelte')" = 34d087c11e6bc30d36ac8f6d3f841c9ad57cd5a2
+          test "$(git rev-parse 'HEAD:tests/web-encrypted-download-url-failure-wipe.test.mjs')" = 6a0d35c3eb26a111658b52df36f248de3e5f036b
+          test "$(git rev-parse "$base:src/lib/collection/CollectionExact1Dev.svelte")" = 59ab5f644b64c0db3bb27d5b84499b3f19e1fcfe
+          test "$(git rev-parse "$base:src/lib/dev/LocalPlacementEditorDev.svelte")" = 8a68955bea6d9048b44349e37f30f1f9e6178fc2
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2223-encrypted-download-blob-fault-l2.test.mjs')" = c76ed48579881033a59315d05b5904316246b188
+          for f in src/lib/collection/CollectionExact1Dev.svelte src/lib/dev/LocalPlacementEditorDev.svelte tests/web-encrypted-download-url-failure-wipe.test.mjs tests/qa-qrw-pr2223-encrypted-download-blob-fault-l2.test.mjs .github/workflows/qa-qrw-pr2223-blob-fault-wipe-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          cat >/tmp/qrw2223-source <<'EOF'
+          src/lib/collection/CollectionExact1Dev.svelte
+          src/lib/dev/LocalPlacementEditorDev.svelte
+          tests/web-encrypted-download-url-failure-wipe.test.mjs
+          EOF
+          cat >/tmp/qrw2223-qa <<'EOF'
+          .github/workflows/qa-qrw-pr2223-blob-fault-wipe-l2.yml
+          tests/qa-qrw-pr2223-encrypted-download-blob-fault-l2.test.mjs
+          EOF
+          git diff --name-only "$base" "$product" | LC_ALL=C sort >/tmp/qrw2223-actual-source
+          LC_ALL=C sort /tmp/qrw2223-source | diff -u - /tmp/qrw2223-actual-source
+          git diff --name-only "$product" HEAD | LC_ALL=C sort >/tmp/qrw2223-actual-qa
+          LC_ALL=C sort /tmp/qrw2223-qa | diff -u - /tmp/qrw2223-actual-qa
+          git diff --quiet "$product" HEAD -- src/ crates/ ops/ static/ scripts/ package-lock.json
+          echo QRW2223_EXACT3_ORIGINAL_SOURCE_QAONLY2_PASS
+      - name: Execute real source Svelte consumer handlers under independent Blob and UI faults
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/web-encrypted-download-url-failure-wipe.test.mjs tests/qa-qrw-pr2223-encrypted-download-blob-fault-l2.test.mjs
+          echo QRW2223_PLACEMENT_COLLECTION_ACTUAL_SVELTE_BLOB_FAULT_WIPE_L2_PASS
