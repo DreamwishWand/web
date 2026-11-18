@@ -84,7 +84,9 @@ test('ACT1581 exact fixed R22 source selector static immutable eight-mint contra
   // Original PR2267 private Rust bridge exact third transition.
   ['10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c',expectedFutureInputBlob],
   // Steam626 SHA-pinned Windows data/.gitattributes exact one leaf only.
-  ['623034400b71179b790ae8eca7b152cd892c898f',expectedFutureInputBlob]
+  ['623034400b71179b790ae8eca7b152cd892c898f',expectedFutureInputBlob],
+  ['f67531cef7c812757b246a9aef08febb66782200',expectedFutureInputBlob],
+  ['2f712d047e99bc024672e4d7a488baa6276e06f4',expectedFutureInputBlob]
  ]);
  assert.ok(approvedStagePairs.has(currentCore),'UNAPPROVED_R22_CORE_STAGE');
  assert.equal(currentConfigBlob,approvedStagePairs.get(currentCore),

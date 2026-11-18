@@ -18,7 +18,9 @@ const productCore=coreAtHead==='42086449f9deef26ed48b21d7edab0f5685da7c2';
 const ongoingBattlePassCore=coreAtHead==='36be23f81c4558eafd3557c85ac71ea56a1e3459';
 const privateAmountCore=coreAtHead==='10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c';
 const windowsLfCore=coreAtHead==='623034400b71179b790ae8eca7b152cd892c898f';
-const baseHead=(productCore||ongoingBattlePassCore||privateAmountCore||windowsLfCore)
+const mannequinCore=coreAtHead==='f67531cef7c812757b246a9aef08febb66782200';
+const bothCore=coreAtHead==='2f712d047e99bc024672e4d7a488baa6276e06f4';
+const baseHead=(productCore||ongoingBattlePassCore||privateAmountCore||windowsLfCore||mannequinCore||bothCore)
  ?acceptedGateAnchor:currentHead;
 const productPaths=[
  ['.github/workflows/core-product-session-boundary.yml','8de94431af1e6d58e216fa06bf91a1329a7f7063'],
@@ -81,6 +83,10 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
    ['10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c',
     '30551c7cc566614f64c8ba04748c3aef44b419bb'],
    ['623034400b71179b790ae8eca7b152cd892c898f',
+    '30551c7cc566614f64c8ba04748c3aef44b419bb'],
+   ['f67531cef7c812757b246a9aef08febb66782200',
+    '30551c7cc566614f64c8ba04748c3aef44b419bb'],
+   ['2f712d047e99bc024672e4d7a488baa6276e06f4',
     '30551c7cc566614f64c8ba04748c3aef44b419bb']
   ]);
   assert.ok(currentStage.has(coreAtHead),'UNAPPROVED_CURRENT_R22_CORE_STAGE');
@@ -92,7 +98,7 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
     '5d2b35f6bc9f0b8544fc52f25a35614b59913d96');
   assert.equal(git(['rev-parse',baseHead+':'+trustedPath]),
     '5aefdaff6a46ae9bdf1f5a37c4f0973442308a4a');
-  if(productCore||ongoingBattlePassCore||privateAmountCore||windowsLfCore){
+  if(productCore||ongoingBattlePassCore||privateAmountCore||windowsLfCore||mannequinCore||bothCore){
    assert.equal(outerGit('merge-base','--is-ancestor',baseHead,currentHead),'');
   }
   // Explicitly seed each exact immutable public Source blob, even if clone
@@ -121,7 +127,7 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
   // pin each of the reviewed 8 source blobs/modes and all trusted Gate
   // authorities instead; the Core subtree is already pinned to its exact
   // accepted complete tree by currentStage above.
-  if(productCore||ongoingBattlePassCore||privateAmountCore||windowsLfCore){
+  if(productCore||ongoingBattlePassCore||privateAmountCore||windowsLfCore||mannequinCore||bothCore){
    for(const [path,blob] of [...productPaths,[configPath,futureBlob]]){
     assert.equal(outerGit('ls-tree',currentHead,'--',path),
      '100644 blob '+blob+String.fromCharCode(9)+path,
@@ -139,23 +145,30 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
    const allowedSelectors=productCore?
     ['f9675e69a30abf101e78aa77369e86707abba076',
      '8ce652c75211e9b1071f95060de294acffdeaaba',
-     'e54e5f0fd94c77dba6818b3c3307fe168a9eac8d','fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9']:
+     'e54e5f0fd94c77dba6818b3c3307fe168a9eac8d',
+     'fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323']:
     ongoingBattlePassCore?
     ['8ce652c75211e9b1071f95060de294acffdeaaba',
-     'e54e5f0fd94c77dba6818b3c3307fe168a9eac8d','fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9']:
-    windowsLfCore?['fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9']:
-    ['e54e5f0fd94c77dba6818b3c3307fe168a9eac8d','fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9'];
+     'e54e5f0fd94c77dba6818b3c3307fe168a9eac8d',
+     'fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323']:
+    (mannequinCore||bothCore)?['949eda609e5ea91b1d7482d7f5c0324197f95323']:
+    windowsLfCore?['fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323']:
+    ['e54e5f0fd94c77dba6818b3c3307fe168a9eac8d',
+     'fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323'];
    const selectorBlob=outerGit('rev-parse',currentHead+':'+selector);
    assert.ok(allowedSelectors.includes(selectorBlob),'UNREVIEWED_SELECTOR_STAGE_BLOB');
    assert.equal(outerGit('ls-tree',currentHead,'--',selector),
     '100644 blob '+selectorBlob+String.fromCharCode(9)+selector);
-   if(ongoingBattlePassCore||privateAmountCore||windowsLfCore){
+   if(ongoingBattlePassCore||privateAmountCore||windowsLfCore||mannequinCore||bothCore){
     const amount='crates/ddv-save-core/src/product_amount_scoped.rs';
+    const expected=(mannequinCore||bothCore)?
+     '522e8e8d6beec597b2e5e176cfbe8a6d8e38a124':
+     '13d861165bea3fb37f79d7bbc4cb9ab51669fa78';
     assert.equal(outerGit('ls-tree',currentHead,'--',amount),
-     '100644 blob 13d861165bea3fb37f79d7bbc4cb9ab51669fa78'+
-      String.fromCharCode(9)+amount,'UNREVIEWED_BATTLEPASS_AMOUNT_LEAF');
+     '100644 blob '+expected+String.fromCharCode(9)+amount,
+     'UNREVIEWED_MANNEQUIN_AMOUNT_RUST_BLOB_MODE');
    }
-   if(privateAmountCore||windowsLfCore){
+   if(privateAmountCore||windowsLfCore||mannequinCore||bothCore){
     for(const [path,blob] of [
      ['crates/ddv-save-core/src/semantic_writer.rs',
       'f11c68ca214853c762788ae032710fc4683dd472'],
@@ -168,7 +181,7 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
       'UNREVIEWED_PRIVATE_BRIDGE_BLOB_MODE_'+path);
    }
   }
-  if(windowsLfCore){
+  if(windowsLfCore||bothCore){
    const attr='crates/ddv-save-core/data/.gitattributes';
    assert.equal(outerGit('ls-tree',currentHead,'--',attr),
     '100644 blob f67de2e4316397b93f95088c379f724ea81e9399'+

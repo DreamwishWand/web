@@ -1340,6 +1340,14 @@ const steam626WindowsLfPackExact1Entries=Object.freeze([{
  before:null,
  after:{mode:'100644',blob:'f67de2e4316397b93f95088c379f724ea81e9399'}
 }]);
+// ACT1581 / original 01A PR2278 signed real saved Mannequin map:
+// exact ONE semantic Rust leaf, QRC changed semantic QA2281 10POS32NEG.
+// This selector alone is NOT permission to edit/export any Owner P1G.
+const steam626MannequinRealMapExact1Entries=Object.freeze([{
+ path:'crates/ddv-save-core/src/product_amount_scoped.rs',
+ before:{mode:'100644',blob:'13d861165bea3fb37f79d7bbc4cb9ab51669fa78'},
+ after:{mode:'100644',blob:'522e8e8d6beec597b2e5e176cfbe8a6d8e38a124'}
+}]);
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1578,21 +1586,39 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    genuineEncryptedOriginalP1gV2:'NOT_RUN',
    mergeAuthorized:false,writerAuthorized:false,operationOn:false}};
  }
- if(baseCore==='10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c'){
-  if(sourceCore!=='623034400b71179b790ae8eca7b152cd892c898f')
-   deny('CANDIDATE_CORE_TREE');
-  return {entries:steam626WindowsLfPackExact1Entries,count:1,metadata:{
-   sourcePr:2276,sourceHead:'ad210aa3c551615b8c35f8b2970138760a59f5b6',
-   originalSourcePr:2276,exactWindowsDataBlob:'f67de2e4316397b93f95088c379f724ea81e9399',
-   originalProtectedBase:'a9a87c578c8bc2a9c64284b15d3ed2c5eb39f817',
-   coreBefore:'10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c',
-   coreAfter:'623034400b71179b790ae8eca7b152cd892c898f',
-   cargoUnchanged:'751a73da41d8b58f7de70643f50b97722a3c1260',
-   r22InputUnchanged:'30551c7cc566614f64c8ba04748c3aef44b419bb',
-   windowsByteStableOnly:true,sourcePaths:1,
-   independentSecurityL2Required:true,
-   genuineEncryptedOriginalP1gV2:'NOT_RUN',
-   mergeAuthorized:false,writerAuthorized:false,operationOn:false}};
+ const first='10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c';
+ const windows='623034400b71179b790ae8eca7b152cd892c898f';
+ const mannequin='f67531cef7c812757b246a9aef08febb66782200';
+ const both='2f712d047e99bc024672e4d7a488baa6276e06f4';
+ const cargo='751a73da41d8b58f7de70643f50b97722a3c1260';
+ const json='30551c7cc566614f64c8ba04748c3aef44b419bb';
+ const off={independentSecurityL2Required:true,genuineEncryptedOriginalP1gV2:'NOT_RUN',
+  mergeAuthorized:false,writerAuthorized:false,operationOn:false};
+ const win={sourcePr:2276,sourceHead:'ad210aa3c551615b8c35f8b2970138760a59f5b6',
+  exactWindowsDataBlob:'f67de2e4316397b93f95088c379f724ea81e9399',
+  windowsByteStableOnly:true,sourcePaths:1,cargoUnchanged:cargo,r22InputUnchanged:json,...off};
+ const man={sourcePr:2278,sourceHead:'0778ed44da9b619989a34dde419c686c1934af64',
+  exactRustBlob:'522e8e8d6beec597b2e5e176cfbe8a6d8e38a124',
+  fixedIndependentQrcPr:2281,independentQrcChangedSemantics:'10POS32NEG',
+  realOwnerScopedLinkedChest1:'QA_SCOPED_1POS4NEG_NOT_PUBLIC_V2',
+  originalProtectedBase:'a9a87c578c8bc2a9c64284b15d3ed2c5eb39f817',
+  sourcePaths:1,cargoUnchanged:cargo,r22InputUnchanged:json,...off};
+ if(baseCore===first){
+  if(sourceCore===windows)return {entries:steam626WindowsLfPackExact1Entries,count:1,
+   metadata:{...win,coreBefore:first,coreAfter:windows}};
+  if(sourceCore===mannequin)return {entries:steam626MannequinRealMapExact1Entries,count:1,
+   metadata:{...man,coreBefore:first,coreAfter:mannequin}};
+  deny('CANDIDATE_CORE_TREE');
+ }
+ if(baseCore===windows){
+  if(sourceCore!==both)deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626MannequinRealMapExact1Entries,count:1,
+   metadata:{...man,coreBefore:windows,coreAfter:both}};
+ }
+ if(baseCore===mannequin){
+  if(sourceCore!==both)deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626WindowsLfPackExact1Entries,count:1,
+   metadata:{...win,coreBefore:mannequin,coreAfter:both}};
  }
  deny('BASE_CORE_TREE');
 }
