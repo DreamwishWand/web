@@ -1,8 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
 import {
  bambooProtectedPagesAllowed,inspectBambooPublicPagesSubjects,
+ BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS,bambooAcceptedRustSourceBlobsOk,
  bambooPublicAnchorFromVerifiedPins
 } from '../scripts/readonly-release/seal-bamboo-public-pages.mjs';
 import {ACTIVE_RELEASE_TUPLE} from '../src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
@@ -86,4 +88,28 @@ test('committed Bamboo anchor stays null and old generic Pages release is untouc
  assert.match(source,/verifySignedReleaseSubjects/);
  assert.match(source,/revalidateProtectedCi/);
  assert.doesNotMatch(source,/upload-pages-artifact|deploy-pages@/);
+});
+
+test('public signed3 Source pins the accepted Rust Worker and core-minted target (exact GitBlobs)',()=>{
+ const trusted={
+  'crates/ddv-save-core/Cargo.toml':'e4f2e2c5d4451baba2dea699fe497cb7b40668d4',
+  'crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs':'26414572b41211076f1f83a3f8752eea2ab65142',
+  'crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs':'b3aa885d7668e6f8d3df9a20be4962d609ab6762',
+  'crates/ddv-save-core/src/steam_bamboo_single_product_target.rs':'a5aef59173ee99454f7f108af58fa7c46dac6f19'
+ };
+ assert.deepEqual(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS,trusted);
+ const observed=Object.fromEntries(Object.keys(trusted).map(path=>[
+  path,execFileSync('git',['rev-parse','HEAD:'+path],{
+   cwd:new URL('../',import.meta.url),encoding:'utf8'}).trim()
+ ]));
+ assert.equal(bambooAcceptedRustSourceBlobsOk(observed),true);
+ // Same named WASM ABI does NOT authorize changed read logic or an altered
+ // ProductSession mint; fail at the git-committed Source before signing.
+ for(const path of Object.keys(trusted)){
+  assert.equal(bambooAcceptedRustSourceBlobsOk({...observed,[path]:'f'.repeat(40)}),false,path);
+ }
+ const missing={...observed};delete missing['crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs'];
+ assert.equal(bambooAcceptedRustSourceBlobsOk(missing),false);
+ assert.equal(bambooAcceptedRustSourceBlobsOk({...observed,'crates/ddv-save-core/src/semantic_writer.rs':'0'.repeat(40)}),false);
+ assert.equal(bambooAcceptedRustSourceBlobsOk(null),false);
 });
