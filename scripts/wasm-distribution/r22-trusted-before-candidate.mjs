@@ -45,8 +45,13 @@ export async function verifyTrustedR22BeforeCandidate(base,source){
   const blob=git('rev-parse','--verify',base+':'+path);
   if(!SHA.test(blob))deny('BASE_BLOB_'+path);
   const exact='100644 blob '+blob+String.fromCharCode(9)+path;
+  const candidateEntry=git('ls-tree',source,'--',path);
+  // The R22 Cargo-pin JSON is the eighth specifically reviewed product
+  // change. Its EXACT before/after Git blobs are independently checked by
+  // the trusted Rust selector; never treat it as an unchanged gate script.
+  const approvedConfig='scripts/wasm-distribution/protected-release-inputs.json';
   if(git('ls-tree',base,'--',path)!==exact ||
-     git('ls-tree',source,'--',path)!==exact)
+     (path!==approvedConfig&&candidateEntry!==exact))
    deny('TRUSTED_PATH_CHANGED_'+path);
   if(!lstatSync(join(root,path)).isFile()||
       git('hash-object','--no-filters','--',path)!==blob)
