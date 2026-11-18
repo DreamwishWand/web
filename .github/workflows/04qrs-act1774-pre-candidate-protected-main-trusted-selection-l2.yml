@@ -1,0 +1,201 @@
+name: 04 QR-S ACT1774 protected-main external pre-candidate exact source selection QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2219-repaired-a2b-r22-gate-verifier-negative-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pre-candidate-protected-main-trusted-selection-l2.yml'
+permissions:
+  contents: read
+jobs:
+  trusted-source-before-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze original QA-only parent and trusted protected-main source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = c42d78a970751b24b960a724947c8351ba6f06c3
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/04qrs-act1774-pre-candidate-protected-main-trusted-selection-l2.yml"
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          git fetch --no-tags origin +refs/pull/2219/head:refs/qrs-test-only/2219
+          git fetch --no-tags origin +refs/pull/2217/head:refs/qrs-test-only/2217
+          test "$(git rev-parse refs/qrs-test-only/2219)" = a2b3f9417bf9e1a95e2abcfff768770bd17ee8f2
+          test "$(git rev-parse refs/qrs-test-only/2217)" = b2735bc63884049a5f3d16423e5970553f168766
+          git merge-base --is-ancestor 9bfee9e9e899b2ff25227fc997b4da8bd7f6c189 refs/remotes/origin/main
+          test "$(git rev-parse 9bfee9e9e899b2ff25227fc997b4da8bd7f6c189:scripts/int-selection-preflight.mjs)" = e13337fe51b9ce11d14957565b166b000328a62c
+          test "$(git rev-parse a2b3f9417bf9e1a95e2abcfff768770bd17ee8f2:scripts/wasm-distribution/verify-protected-release.mjs)" = d4ab1f6b46413b9992301ddbad00aedf3b01b040
+          echo QRS_ACT1774_TRUSTED_MAIN_PIN_AND_IMMUTABLE_SOURCE_PAIR_PASS
+      - name: Execute trusted protected-main preflight externally before ANY candidate module
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {mkdtempSync,rmSync,lstatSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {pathToFileURL} from 'node:url';
+          import {spawnSync} from 'node:child_process';
+          const trustedMain='9bfee9e9e899b2ff25227fc997b4da8bd7f6c189';
+          const parentMain='d37a774a8ce2ac08ef05389f0d14d3442063edeb';
+          const gateSource='a2b3f9417bf9e1a95e2abcfff768770bd17ee8f2';
+          const futureProduct='b2735bc63884049a5f3d16423e5970553f168766';
+          const expectedFive=[
+            ['.github/workflows/09p-r22-switch626-makeup-gate-exact8.yml',null,'6274ea5e7e07579e4ce28b6ea43061aa1e357004'],
+            ['scripts/wasm-distribution/r22-accepted-rust-scope.mjs','8357c23027abbfa8e6ea137265af035a00cd90fe','f9675e69a30abf101e78aa77369e86707abba076'],
+            ['scripts/wasm-distribution/verify-protected-release.mjs','df3e7ca9fe42d2df95672b9e689e48352554ca7e','d4ab1f6b46413b9992301ddbad00aedf3b01b040'],
+            ['tests/09p-r22-steam626-eyecolor2-repair.test.mjs','e7900bc85cd8a22135b3a111f3e3c547401fd8dc','f4f4e3150db377c1c380f6c65be2d27958a51d9d'],
+            ['tests/09p-r22-switch626-makeup-gate-exact8.test.mjs',null,'fd7dfbab3eec4b995949f77381a5481824fc846d']
+          ];
+          const productSeven=[
+            ['.github/workflows/core-product-session-boundary.yml','8de94431af1e6d58e216fa06bf91a1329a7f7063'],
+            ['crates/ddv-save-core/Cargo.toml','751a73da41d8b58f7de70643f50b97722a3c1260'],
+            ['crates/ddv-save-core/src/product_makeup_color1.rs','749831d8c41a24585a490b5ed23640fc8d50fc3d'],
+            ['crates/ddv-save-core/src/worker_session.rs','254af029304f6a357c8c0a0e7a1376b80313d038'],
+            ['crates/ddv-save-core/src/wasm_worker.rs','5fbb1f3d393df127da67f1eafe9796fbb7ce3a56'],
+            ['crates/ddv-save-core/src/worker_switch626_makeup_color1.rs','945d6dee10f62396d894ea631e40c3fe26e6d0f0'],
+            ['crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs','b8a24a1e288f763349355bd05bf3b7cfd51b0b4a']
+          ];
+          const configPath='scripts/wasm-distribution/protected-release-inputs.json';
+          const trustedConfig='30551c7cc566614f64c8ba04748c3aef44b419bb';
+          const eight=[...productSeven,[configPath,trustedConfig]].sort((a,b)=>a[0].localeCompare(b[0],'en'));
+          const dir=mkdtempSync(join(tmpdir(),'qrs-int-trusted-external-'));
+          const trusted=join(dir,'checked-out-protected-main');
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',
+            GIT_AUTHOR_NAME:'QA only isolated',GIT_COMMITTER_NAME:'QA only isolated',
+            GIT_AUTHOR_EMAIL:'qa-only@example.invalid',GIT_COMMITTER_EMAIL:'qa-only@example.invalid'};
+          let created=false, positives=0, negatives=0;
+          const git=(...args)=>{
+            const x=spawnSync('git',['-C',trusted,...args],{encoding:'utf8',env,maxBuffer:16*1024*1024});
+            assert.equal(x.status,0,'git '+args.join(' ')+' '+String(x.stderr).slice(0,500));
+            return x.stdout.trim();
+          };
+          const bytes=(...args)=>{
+            const x=spawnSync('git',['-C',trusted,...args],{env,maxBuffer:16*1024*1024});
+            assert.equal(x.status,0,'git '+args.join(' ')+' '+String(x.stderr).slice(0,500));
+            return x.stdout;
+          };
+          const object=(buf)=> {
+            const x=spawnSync('git',['-C',trusted,'hash-object','-w','--stdin'],{env,input:buf,encoding:'utf8'});
+            assert.equal(x.status,0,String(x.stderr));return x.stdout.trim();
+          };
+          let index=0;
+          function synth(parent,updates){
+            const localIndex=join(dir,'index-'+(++index));
+            const e={...env,GIT_INDEX_FILE:localIndex};
+            const run=(...args)=>{
+              const x=spawnSync('git',['-C',trusted,...args],{encoding:'utf8',env:e,maxBuffer:16*1024*1024});
+              assert.equal(x.status,0,String(x.stderr).slice(0,600));return x.stdout.trim();
+            };
+            run('read-tree',parent+'^{tree}');
+            for(const [path,blob,mode='100644'] of updates){
+              assert.match(blob,/^[0-9a-f]{40}$/);
+              git('cat-file','-e',blob+'^{blob}');
+              run('update-index','--add','--cacheinfo',mode,blob,path);
+            }
+            const tree=run('write-tree');
+            return git('commit-tree',tree,'-p',parent,'-m','QA only immutable synthetic candidate');
+          }
+          const mustDeny=(name,fn,regex)=>{
+            assert.throws(fn,regex||/SOURCE_PATH_SET_MISMATCH|MAIN_PREIMAGE_MISMATCH|NON_REGULAR_OR_AMBIGUOUS_PATH|EXTERNAL_TRUSTED_AFTER_BLOB_MISMATCH/);
+            negatives++;
+            console.log('QRS_ACT1774_EXTERNAL_TRUST_DENIED '+name);
+          };
+          try{
+            const add=spawnSync('git',['worktree','add','--detach',trusted,trustedMain],{encoding:'utf8',env});
+            assert.equal(add.status,0,add.stderr);created=true;
+            assert.equal(git('rev-parse','HEAD'),trustedMain);
+            const js='scripts/int-selection-preflight.mjs';
+            assert.equal(git('rev-parse','HEAD:'+js),'e13337fe51b9ce11d14957565b166b000328a62c');
+            assert.equal(git('hash-object','--no-filters','--',js),git('rev-parse','HEAD:'+js));
+            assert.ok(lstatSync(join(trusted,js)).isFile());
+            // This module is physically loaded from protected-main worktree,
+            // NEVER imported from PR2219 or any future candidate.
+            const {inspectSelection}=await import(pathToFileURL(join(trusted,js)).href);
+            function pinned(base,source,main,entries){
+              const paths=entries.map(x=>x[0]).sort();
+              const actual=inspectSelection(trusted,{base,source,main,paths});
+              assert.equal(actual.entries.length,entries.length);
+              const approved=new Map(entries.map(([path,before,after])=>[path,{before,after}]));
+              for(const e of actual.entries){
+                const pin=approved.get(e.path);
+                if(!pin || (e.before?.blob??null)!==pin.before ||
+                   (e.after?.blob??null)!==pin.after ||
+                   (e.before!==null&&e.before.mode!=='100644') ||
+                   (e.after!==null&&e.after.mode!=='100644'))
+                   throw Error('EXTERNAL_TRUSTED_AFTER_BLOB_MISMATCH:'+e.path);
+              }
+              return actual;
+            }
+            for(const [path,sha] of productSeven){
+              assert.equal(git('rev-parse',futureProduct+':'+path),sha);
+            }
+            const gateOk=pinned(parentMain,gateSource,trustedMain,expectedFive);
+            positives++;
+            console.log('QRS_ACT1774_PROTECTED_MAIN_EXTERNAL_GATE5_POS '+JSON.stringify({changed:gateOk.entries.length,source:gateSource,main:trustedMain}));
+            const original=bytes('show',gateSource+':'+configPath).toString('utf8');
+            const oldCargo='aa6b1dd771da305bf7a21c6101fb4620a8b74b93';
+            const newCargo='751a73da41d8b58f7de70643f50b97722a3c1260';
+            assert.equal(original.split(oldCargo).length,2);
+            const newCfg=object(Buffer.from(original.replace(oldCargo,newCargo)));
+            assert.equal(newCfg,trustedConfig);
+            const candidate=synth(gateSource,eight);
+            const now=eight.map(([path,after])=>[path,git('rev-parse',gateSource+':'+path),after]);
+            const selected=pinned(gateSource,candidate,gateSource,now);
+            positives++;
+            console.log('QRS_ACT1774_PROTECTED_MAIN_EXTERNAL_FUTURE8_POS '+JSON.stringify({count:selected.entries.length}));
+            const newBlob=(s)=>object(Buffer.from(s));
+            const signedGate='scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+            const signedVerifier='scripts/wasm-distribution/verify-protected-release.mjs';
+            const gateText=bytes('show',gateSource+':'+signedGate).toString('utf8');
+            const s='export function verifyAcceptedRustScope(cwd,base,source){';
+            assert.equal(gateText.split(s).length,2);
+            const alteredGate=synth(candidate,[[signedGate,newBlob(gateText.replace(s,s+"return {entryCount:8,mergeAuthorized:false,writerAuthorized:false};"))]]);
+            mustDeny('NINTH_SELF_APPROVING_GATE',()=>pinned(gateSource,alteredGate,gateSource,now));
+            const verifierText=bytes('show',gateSource+':'+signedVerifier).toString('utf8');
+            const v="const root=resolve(import.meta.dirname,'../..');";
+            assert.equal(verifierText.split(v).length,2);
+            const alteredVerifier=synth(candidate,[[signedVerifier,newBlob(verifierText.replace(v,v+
+              "\nif(process.argv[2]==='inputs'){console.log('R22_RELEASE_INPUTS_ONLY_SOURCE_PINNED');process.exit(0)}\n"))]]);
+            mustDeny('NINTH_SELF_APPROVING_VERIFIER',()=>pinned(gateSource,alteredVerifier,gateSource,now));
+            const unauthorizedCargo=synth(candidate,[['crates/ddv-save-core/Cargo.toml',newBlob('# QA invalid Cargo\n')]]);
+            mustDeny('EIGHT_SAME_PATH_WRONG_CARGO_BLOB',()=>pinned(gateSource,unauthorizedCargo,gateSource,now));
+            const unauthorizedCfg=synth(candidate,[[configPath,newBlob('{"writerEnabled":true}\n')]]);
+            mustDeny('EIGHT_SAME_PATH_WRONG_SIGNING_CONFIG',()=>pinned(gateSource,unauthorizedCfg,gateSource,now));
+            const missingWorker=synth(gateSource,eight.filter(([p])=>p!=='crates/ddv-save-core/src/worker_switch626_makeup_color1.rs'));
+            mustDeny('MISSING_APPROVED_WORKER',()=>pinned(gateSource,missingWorker,gateSource,now));
+            const symlinkSource=synth(candidate,[['crates/ddv-save-core/src/wasm_worker.rs',newBlob('../Cargo.toml'),'120000']]);
+            mustDeny('SIGNED_CANDIDATE_SYMLINK_SOURCE',()=>pinned(gateSource,symlinkSource,gateSource,now));
+            // Demonstrate that a candidate-chosen ninth path is NOT trusted.
+            const wrongManifest=[...now,[signedVerifier,git('rev-parse',gateSource+':'+signedVerifier),git('rev-parse',alteredVerifier+':'+signedVerifier)]];
+            assert.equal(inspectSelection(trusted,{base:gateSource,source:alteredVerifier,main:gateSource,
+              paths:wrongManifest.map(x=>x[0])}).entries.length,9);
+            console.log('QRS_ACT1774_UNTRUSTED_NINTH_MANIFEST_IS_NOT_AUTHORIZATION');
+            mustDeny('CANDIDATE_SUPPLIED_NINTH_MANIFEST_NOT_TRUSTED',()=>{
+              if(wrongManifest.length!==now.length)throw Error('SOURCE_PATH_SET_MISMATCH');
+              pinned(gateSource,alteredVerifier,gateSource,wrongManifest);
+            });
+            assert.equal(positives,2);assert.equal(negatives,7);
+            console.log('QRS_ACT1774_TRUSTED_PROTECTED_MAIN_BEFORE_CANDIDATE_2POS7NEG_PASS');
+          }finally{
+            if(created)spawnSync('git',['worktree','remove','--force',trusted],{env,encoding:'utf8'});
+            rmSync(dir,{recursive:true,force:true});
+          }
+          NODE
+      - name: Keep QA branch and protected main immutable
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only c42d78a970751b24b960a724947c8351ba6f06c3 HEAD)" = ".github/workflows/04qrs-act1774-pre-candidate-protected-main-trusted-selection-l2.yml"
+          echo QRS_ACT1774_QA_ONLY_EXTERNAL_PRESELECT_NO_SOURCE_WRITE_NO_RELEASE_NO_ON_NEVER_MERGE
