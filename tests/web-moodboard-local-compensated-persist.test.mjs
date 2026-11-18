@@ -101,5 +101,8 @@ test('Real Moodboard route uses compensated storage and keeps UI fields after re
  assert.match(route,/if\(!persist\(next\)\)return;status=copy\.ungrouped/);
  assert.match(route,/if\(!persist\(removeMoodboardReference/);
  assert.match(route,/observedRaw=localStorage\.getItem\(MOODBOARD_STORAGE_KEY\)/);
+ assert.match(route,/data-moodboard-local-restore/);
+ assert.match(route,/if\\(localStorage\\.getItem\\(MOODBOARD_STORAGE_KEY\\)!==observedRaw\\)/,
+  'explicit Restore must also deny stale other-tab writes');
  assert.doesNotMatch(route,/if\(current\)localStorage\.setItem\(MOODBOARD_BACKUP_KEY,current\)/);
 });
