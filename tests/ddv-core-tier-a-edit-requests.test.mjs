@@ -63,6 +63,7 @@ test('Inventory 50→49 is only a strictly scoped scalar candidate, not past act
   assert.equal(x.candidate.expectedOldAmount,50);
   assert.equal(x.candidate.nextAmount,49);
   assert.equal(x.candidate.readSet[0].expectedValue,4);
+  assert.equal(x.candidate.readSet[0].expectedType,'POSITIVE_UINT32');
   assert.equal(x.candidate.readSet[1].expectedValue,'ItemType_ActivityItem');
   assert.deepEqual(x.candidate.nativeDevCommand,{variant:'InventoryExistingAmountDecrease',
     inventory_id:4,canonical_item_id:30000001,
@@ -100,7 +101,9 @@ test('Unknown ItemID, alias type, missing entry or unverified route fail closed'
   blocked(x=>{x.command.canonicalItemId=4294967296},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.canonicalItemId='40000047'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.inventoryId='00'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
-  blocked(x=>{x.command.inventoryId=0},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(x=>{x.command.inventoryId=-1},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(x=>{x.command.inventoryId=4294967296},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(x=>{x.command.inventoryId=null},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.compatibleItemType='ItemType_Premium'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.inventoryId=Number.MAX_SAFE_INTEGER},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.compatibleItemType='untrusted'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
@@ -108,6 +111,65 @@ test('Unknown ItemID, alias type, missing entry or unverified route fail closed'
   blocked(x=>{x.command.entryPresent=false},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{delete x.command.entryPresent},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
 });
+test('Steam626 Catalog0 inventory ID 0 is a bounded ordinary Furniture candidate, never an authorization',()=>{
+  // Existing Rust ProductSession catalog0-furniture selection uses
+  // ExistingAmountSelection::Inventory{inventory_id:0,...}; previously the
+  // separate JS source proposal rejected this valid core-owned route.
+  const x=plan(p=>{
+    p.command.inventoryId=0;
+    p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';
+    p.command.expectedOldAmount=3;
+    p.command.nextAmount=2;
+  });
+  assert.equal(x.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
+  assert.equal(x.candidate.fieldPath,'/Player/ListInventories/0/Inventory/40000048/Amount');
+  assert.deepEqual(x.candidate.exactAllowedPaths,[x.candidate.fieldPath]);
+  assert.equal(x.candidate.readSet[0].expectedValue,0);
+  assert.equal(x.candidate.readSet[0].expectedType,'UINT32');
+  assert.equal(x.candidate.readSet[1].expectedValue,'ItemType_Furniture');
+  assert.deepEqual(x.candidate.nativeDevCommand,{
+    variant:'InventoryExistingAmountDecrease',
+    inventory_id:0,canonical_item_id:40000048,
+    expected_compatible_item_type:'ItemType_Furniture',expected_old_amount:3,new_amount:2
+  });
+  assert.equal(x.canonicalItemRoutingProvenByThisModule,false);
+  assert.equal(x.sourceIdentityProvenByThisModule,false);
+  assert.equal(x.writerAuthorized,false);
+  assert.equal(x.exportAuthorized,false);
+  assert.equal(x.productOperationEnabled,false);
+  assert.equal(x.releaseFlags.Writer,false);
+  assert.equal(x.releaseFlags.MediaPublic,false);
+  // Catalog0 is not a blanket zero-ID route for arbitrary ActivityItem,
+  // unknown ownership, or caller-forged inventory shape.
+  blocked(p=>{p.command.inventoryId=0},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';p.command.entryPresent=false},
+    'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';p.command.nextAmount=50},
+    'INVENTORY_ONLY_EXISTING_QUANTITY_DECREASE_CANDIDATE');
+  // Rust eligible_bound on the accepted Catalog0 profile is a one-unit
+  // decrease, not arbitrary quantity deletion or a 1->0 removal.
+  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';
+    p.command.expectedOldAmount=3;p.command.nextAmount=1},
+    'INVENTORY_CATALOG0_EXACT_ONE_UNIT_DECREASE_REQUIRED');
+  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';
+    p.command.expectedOldAmount=1;p.command.nextAmount=0},
+    'INVENTORY_AMOUNT_BOUNDS');
+  const low=plan(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';
+    p.command.expectedOldAmount=2;p.command.nextAmount=1});
+  assert.equal(low.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
+  assert.equal(low.candidate.readSet[0].expectedType,'UINT32');
+  assert.equal(low.candidate.readSet[0].expectedValue,0);
+  assert.equal(low.candidate.nativeDevCommand.new_amount,1);
+  assert.equal(low.writerAuthorized,false);
+});
+
 test('Caller-injected media, ownership, skin or premium flags cannot enter request',()=>{
   blocked(x=>{x.premium=true},'REQUEST_SHAPE_INVALID');
   blocked(x=>{x.command.entitlement=true},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
@@ -170,6 +232,15 @@ test('Existing Chest refusal covers foreign, duplicate, invalid slot, overflow, 
 test('Existing Chest only decrement and fixed numeric bounds; cannot transfer items or mutate ownership',()=>{
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=13},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=12},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
+  // A structural source-only request must not present a 2+ unit reduction
+  // that the existing single ProductSession eligible_bound always rejects.
+  blocked(x=>{x.command=chestCommand();x.command.nextAmount=10},'CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED');
+  blocked(x=>{x.command=chestCommand();x.command.nextAmount=1},'CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED');
+  const low=plan(x=>{x.command=chestCommand();x.command.expectedOldAmount=2;x.command.nextAmount=1});
+  assert.equal(low.status,'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE');
+  assert.equal(low.candidate.nativeDevCommand.expected_old_amount,2);
+  assert.equal(low.candidate.nativeDevCommand.new_amount,1);
+  assert.equal(low.writerAuthorized,false);
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=-1},'CHEST_SLOT_AMOUNT_BOUNDS');
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=0},'CHEST_SLOT_AMOUNT_BOUNDS');
   blocked(x=>{x.command=chestCommand();x.command.expectedOldAmount=2147483648},'CHEST_SLOT_AMOUNT_BOUNDS');
