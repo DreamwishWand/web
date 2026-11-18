@@ -7,6 +7,7 @@ on:
       - 'tests/09p-r22-trusted-main-preflight.test.mjs'
       - 'scripts/wasm-distribution/r22-trusted-before-candidate.mjs'
       - 'tests/09p-r22-steam626-eyecolor2-repair.test.mjs'
+      - 'tests/09p-r22-amount-battlepass-exact1-gate.test.mjs'
       - '.github/workflows/09p-r22-switch626-makeup-gate-exact8.yml'
 permissions:
   contents: read
@@ -34,9 +35,31 @@ jobs:
           node --test tests/09p-r22-switch626-makeup-gate-exact8.test.mjs
           node --test tests/09p-r22-trusted-main-preflight.test.mjs
           node --test tests/09p-r22-steam626-eyecolor2-repair.test.mjs
-      - name: No current Cargo revision, Writer or signed public operator grant
+          node --test tests/09p-r22-amount-battlepass-exact1-gate.test.mjs
+      - name: Exactly reviewed Core/Cargo/R22 tuple, no Writer, Consumer or release grant
+        shell: bash
         run: |
-          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = aa6b1dd771da305bf7a21c6101fb4620a8b74b93
-          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 5d2b35f6bc9f0b8544fc52f25a35614b59913d96
+          set -euo pipefail
+          core="$(git rev-parse HEAD:crates/ddv-save-core)"
+          cargo="$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)"
+          config="$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)"
+          if [[ "$core" == b5416aa726caea9d311075599ac606e11285b295 &&
+                "$cargo" == aa6b1dd771da305bf7a21c6101fb4620a8b74b93 &&
+                "$config" == 5d2b35f6bc9f0b8544fc52f25a35614b59913d96 ]]; then
+            echo R22_EXACT_STAGE_GATE_ONLY
+          elif [[ "$core" == 42086449f9deef26ed48b21d7edab0f5685da7c2 &&
+                  "$cargo" == 751a73da41d8b58f7de70643f50b97722a3c1260 &&
+                  "$config" == 30551c7cc566614f64c8ba04748c3aef44b419bb ]]; then
+            echo R22_EXACT_STAGE_PRODUCT_MAKEUP_ACCEPTED
+          elif [[ "$core" == 36be23f81c4558eafd3557c85ac71ea56a1e3459 &&
+                  "$cargo" == 751a73da41d8b58f7de70643f50b97722a3c1260 &&
+                  "$config" == 30551c7cc566614f64c8ba04748c3aef44b419bb ]]; then
+            echo R22_EXACT_STAGE_BATTLEPASS_ONE_LEAF_QA_REQUIRED
+          else
+            echo R22_UNAPPROVED_CORE_CARGO_CONFIG_STAGE >&2
+            exit 1
+          fi
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-trusted-before-candidate.mjs)" = 5aefdaff6a46ae9bdf1f5a37c4f0973442308a4a
+          node --input-type=module -e "import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';const c=JSON.parse(readFileSync('scripts/wasm-distribution/protected-release-inputs.json','utf8'));assert.equal(c.writerEnabled,false);assert.equal(c.productConsumerEnabled,false);assert.equal(c.approvedCargoLockSha256,'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c');"
           test ! -e build/worker-wasm-switch626-makeup-color1
-          echo R22_SWITCH626_MAKEUP_GATED_FUTURE_CORE_EXACT8_NO_RELEASE_NO_WRITER_ON
+          echo R22_EXACT_SCOPED_SOURCE_NO_RELEASE_NO_WRITER_ON
