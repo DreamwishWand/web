@@ -4,6 +4,7 @@
   import { base } from '$app/paths';
   import { locale, formatNumber } from '$lib/i18n/runtime.js';
   import { exploreCopy } from '$lib/explore/copy.js';
+  import { decorationFamilyUniverses, reconcileDecorationUniverse } from '$lib/explore/family-universe-facets.mjs';
   import { sharedEntityHref, sharedEntityLabels, PUBLIC_DETAIL_ACCEPTED } from '$lib/entity/shared-catalog-detail.mjs';
   import ItemThumb from '$lib/ui/ItemThumb.svelte';
   import Icon from '$lib/ui/Icon.svelte';
@@ -50,7 +51,9 @@
   $: decorationRecords=allRecords.filter((record)=>DECORATION_FAMILIES.includes(record.family));
   $: filtered=filterCollectionRecords(decorationRecords,{query,family,universe}).sort((a:any,b:any)=>a.label.localeCompare(b.label,$locale));
   $: visible=filtered.slice(0,LIMIT);
-  $: universes=runtimeIndex?.u ?? [];
+  // Family first. Universe choices reflect only the verified records in that family.
+  $: universes=decorationFamilyUniverses(decorationRecords,family).sort((a:string,b:string)=>universeLabel(a).localeCompare(universeLabel(b),$locale));
+  $: if(universe && reconcileDecorationUniverse(universe,universes)!==universe) universe='';
   $: boards=moodboards.boards ?? [];
   $: selectedPlacement=selectedItem ? placementFor(selectedItem) : null;
 
@@ -178,7 +181,7 @@
         </div>
       </div>
       <label><span>{copy.family}</span><select bind:value={family}><option value="">{copy.all}</option>{#each DECORATION_FAMILIES as value}<option value={value}>{familyLabel(value)}</option>{/each}</select></label>
-      <label><span>{copy.universe}</span><select bind:value={universe}><option value="">{copy.all}</option>{#each universes as value}<option value={value}>{universeLabel(value)}</option>{/each}</select></label>
+      <label data-explore-family-universe-filter><span>{copy.universe}</span><select data-explore-universe-select bind:value={universe}><option value="">{copy.all}</option>{#each universes as value}<option value={value}>{universeLabel(value)}</option>{/each}</select></label>
       <label><span>{copy.moodboard}</span><select bind:value={selectedBoardId} disabled={!boards.length}><option value="">{boards.length?copy.chooseBoard:copy.noBoards}</option>{#each boards as board}<option value={board.id}>{board.title}</option>{/each}</select></label>
     </div>
     <div class="summary"><strong>{formatNumber(filtered.length,{},$locale)} {copy.results}</strong><span>{copy.showing} {formatNumber(visible.length,{},$locale)}</span></div>
