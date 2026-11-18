@@ -286,6 +286,22 @@ test("tampered protected ON anchor entries and duplicate digests fail before ver
   }
 });
 
+test("actual HTTP IMF-fixdate requires exact UTC weekday and calendar day; no Date.parse normalization",async()=>{
+  for(const wrong of [
+    "Mon, 18 Nov 2026 11:38:36 GMT", // incorrect weekday
+    "Wed, 31 Nov 2026 11:38:36 GMT"  // non-existent November 31
+  ]){
+    const f=fake("ON",{cacheDate:wrong});
+    await assert.rejects(
+      verifySteamLiveImagePhase({...opts,phase:"ON",fetchImpl:f.fetchImpl}),
+      /LIVE_CACHE_VALIDATOR_INVALID/,wrong);
+  }
+  const f=fake("ON",{cacheDate:"Wed, 18 Nov 2026 11:38:36 GMT"});
+  const {receipt}=await verifySteamLiveImagePhase({...opts,phase:"ON",fetchImpl:f.fetchImpl});
+  assert.equal(receipt.checks[1].cacheValidators.lastModified,
+    "Wed, 18 Nov 2026 11:38:36 GMT");
+});
+
 test("ON and withdrawal never treat a source-only candidate receipt as an operator deployment",async()=>{
   const {result:published}=await on();
   assert.notEqual(published.receipt.scope,"SIGNED_DEPLOYMENT_AUTHORIZATION");
