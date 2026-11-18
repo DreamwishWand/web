@@ -1009,6 +1009,46 @@ mod tests{
         assert!(s.discover_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),"linked-crop-chest48",0).is_err());
     }
 
+    // Genuine Steam626 Owner Save has persisted Mannequin customization
+    // as clothing-item-key -> signed design scalar, NOT a string array.
+    // This only resolves known saved shape; it grants no native layout,
+    // rights, user-facing Writer or product operation acceptance.
+    #[test]fn saved_grid_mannequin_customization_exact_int32_map_and_negative_refs(){
+        let check=|v:Value,item:i32|{
+            let b=serde_json::to_vec(&v).unwrap();
+            saved_grid_state(&b,Span{begin:0,end:b.len()},item,&mut 0)
+        };
+        let mannequin=|custom:Value|json!({"Mannequin":{
+            "BodyType":0,"Clothes":{"0":50000001},
+            "ClothingCustomization":custom,"HairColorIndex":0,
+            "HairHighlightColor":0,"IsMale":true
+        }});
+        for item in [40000048,30200000]{
+            for valid in [
+                json!({}),json!({"50000001":0}),
+                json!({"50000001":-1,"50000002":42})
+            ]{
+                assert!(check(mannequin(valid),item).is_ok());
+            }
+            for (bad,code) in [
+                (json!(["50000001"]),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP"),
+                (Value::Null,"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP"),
+                (json!({"050000001":2}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+                (json!({"40000048":2}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+                (json!({"notId":2}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+                (json!({"50000001":"1"}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                (json!({"50000001":2147483648_i64}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                (json!({"50000001":null}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                (json!({"50000001":item}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+            ]{
+                assert_eq!(check(mannequin(bad),item).unwrap_err().0,code);
+            }
+            let mut many=serde_json::Map::new();
+            for id in 50000001..50000258{many.insert(id.to_string(),json!(0));}
+            assert_eq!(check(mannequin(Value::Object(many)),item).unwrap_err().0,
+                "PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP");
+        }
+    }
     #[test]fn saved_grid_state_known_literal_and_typed_dependencies(){
         let check=|v:Value,item:i32|{let b=serde_json::to_vec(&v).unwrap();saved_grid_state(&b,Span{begin:0,end:b.len()},item,&mut 0)};
         for item in [40000048,30200000]{
