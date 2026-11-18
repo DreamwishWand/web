@@ -180,7 +180,7 @@
             bind:value={query} disabled={!searchExpanded} on:keydown={handleExploreSearchKeydown} /></label>
         </div>
       </div>
-      <label><span>{copy.family}</span><select bind:value={family}><option value="">{copy.all}</option>{#each DECORATION_FAMILIES as value}<option value={value}>{familyLabel(value)}</option>{/each}</select></label>
+      <label><span>{copy.family}</span><select bind:value={family} data-explore-family-select><option value="">{copy.all}</option>{#each DECORATION_FAMILIES as value}<option value={value}>{familyLabel(value)}</option>{/each}</select></label>
       <label data-explore-family-universe-filter><span>{copy.universe}</span><select data-explore-universe-select bind:value={universe}><option value="">{copy.all}</option>{#each universes as value}<option value={value}>{universeLabel(value)}</option>{/each}</select></label>
       <label><span>{copy.moodboard}</span><select bind:value={selectedBoardId} disabled={!boards.length}><option value="">{boards.length?copy.chooseBoard:copy.noBoards}</option>{#each boards as board}<option value={board.id}>{board.title}</option>{/each}</select></label>
     </div>
