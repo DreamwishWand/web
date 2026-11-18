@@ -26,6 +26,8 @@ product-collection-scoped = ["indexed-read"]
 product-amount-scoped = ["semantic-writer-dev"]
 # 09P current one-Session Steam626 Makeup slot1 exact1 generated ABI; no Pages/Writer grant.
 product-steam626-makeup-color1-scoped = ["semantic-writer-dev"]
+# ACT1555: dedicated Steam626 Eyeball ColorIndex2 exact1, OFF unless per-Op release Gate.
+product-steam626-eyecolor2-scoped = ["semantic-writer-dev"]
 # ACT1630: one exact Steam626 Fence Reader. No generic semantic Writer or Stage.
 product-steam626-singlefence-readonly = ["indexed-read"]
 # ACT1685: exact Steam626 Item40700007 read-only target; no Writer/Pages grant.
