@@ -17,7 +17,7 @@ permissions:
 jobs:
   exact-bamboo-readonly:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -31,6 +31,24 @@ jobs:
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-bamboo-readonly
       - name: Mixed semantic Writer build has no Bamboo method export
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-bamboo-readonly,semantic-writer-dev
+      - name: Generate actual isolated WASM ABI and refuse mixed Writer export
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CARGO_TARGET_DIR="$RUNNER_TEMP/steam-bamboo-target"
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-bamboo-readonly
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root "$RUNNER_TEMP/bamboo-bindgen"
+          mkdir -p "$RUNNER_TEMP/bamboo-readonly"
+          "$RUNNER_TEMP/bamboo-bindgen/bin/wasm-bindgen" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --target web --out-dir "$RUNNER_TEMP/bamboo-readonly" --no-typescript
+          test -s "$RUNNER_TEMP/bamboo-readonly/ddv_save_core_bg.wasm"
+          grep -Fq 'read_steam626_bamboo_single_target' "$RUNNER_TEMP/bamboo-readonly/ddv_save_core.js"
+          ! grep -Fq 'stage_steam626_bamboo' "$RUNNER_TEMP/bamboo-readonly/ddv_save_core.js"
+          ! grep -Fq 'read_steam626_singlefence_target' "$RUNNER_TEMP/bamboo-readonly/ddv_save_core.js"
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-bamboo-readonly,semantic-writer-dev
+          mkdir -p "$RUNNER_TEMP/bamboo-mixed-writer"
+          "$RUNNER_TEMP/bamboo-bindgen/bin/wasm-bindgen" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --target web --out-dir "$RUNNER_TEMP/bamboo-mixed-writer" --no-typescript
+          ! grep -Fq 'read_steam626_bamboo_single_target' "$RUNNER_TEMP/bamboo-mixed-writer/ddv_save_core.js"
+          echo 'BAMBOO_ABI_READONLY_REAL_WASM_EXPORT_PASS_MIXED_WRITER_DENIED'
       - name: Public Pages remains Reader-only without Bamboo opt-in
         shell: bash
         run: |
