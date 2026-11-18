@@ -25,12 +25,12 @@ jobs:
           test "$(git rev-parse HEAD)" = af4d223e71ce9beb8fe817358cdcc2db07bb5106
           test "$(git merge-base HEAD 3b87b852ec827179587c9853d4560ae755d750f1)" = 3b87b852ec827179587c9853d4560ae755d750f1
           cat > /tmp/qrw2130-six <<'PINS'
-d3777006c54e72f7cd6cf7fb4b7a8bb18b41d615 .github/workflows/08web-wand-favorites-local.yml
-32e68db8c9248d34c9b248d40a423cb95ad31957 scripts/web-explore-wand-favorites-chrome.mjs
-174a5d0ac372989cc8200fb4fa01a4edaccda8db src/lib/explore/copy.js
-d85178b90fd4cff3badae3168f029663b10fe039 src/lib/explore/wand-favorites-local.mjs
-421776b7a63e106e33f953841cfe7204bbc08ce1 src/routes/explore/+page.svelte
-88bc7c2306a9c59e6670632acc965976f1deb031 tests/web-explore-wand-favorites-local.test.mjs
+          d3777006c54e72f7cd6cf7fb4b7a8bb18b41d615 .github/workflows/08web-wand-favorites-local.yml
+          32e68db8c9248d34c9b248d40a423cb95ad31957 scripts/web-explore-wand-favorites-chrome.mjs
+          174a5d0ac372989cc8200fb4fa01a4edaccda8db src/lib/explore/copy.js
+          d85178b90fd4cff3badae3168f029663b10fe039 src/lib/explore/wand-favorites-local.mjs
+          421776b7a63e106e33f953841cfe7204bbc08ce1 src/routes/explore/+page.svelte
+          88bc7c2306a9c59e6670632acc965976f1deb031 tests/web-explore-wand-favorites-local.test.mjs
           PINS
           while read -r blob path; do
             test "$(git rev-parse "HEAD:$path")" = "$blob"
