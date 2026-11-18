@@ -1,0 +1,151 @@
+name: 04 QR-S ACT1774 PR2253 stage-aware Gate/Product L2 QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2253-stage-aware-real-gate-product-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2253-stage-aware-real-gate-product-l2.yml'
+permissions:
+  contents: read
+jobs:
+  stage-aware-security-differential:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Strict fixed Source and QA-only one-file check
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 0345c67d7a139fb339e4cfb79bdf1275f4b96507 HEAD
+          test "$(git diff --name-only 0345c67d7a139fb339e4cfb79bdf1275f4b96507 HEAD)" = ".github/workflows/04qrs-act1774-pr2253-stage-aware-real-gate-product-l2.yml"
+          test "$(git rev-parse HEAD:tests/09p-r22-switch626-makeup-gate-exact8.test.mjs)" = 3114f2a9e2776ea7cd82de0393d7581394f9e9e8
+          test "$(git rev-parse HEAD:tests/09p-r22-trusted-main-preflight.test.mjs)" = 4b3b59a7f92577ebdd4764718b589bc501d48f0d
+      - name: Independent actual new Gate-only and reviewed product stage positives and strict negative pairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS_STAGE_JS'
+          import assert from 'node:assert/strict';
+          import {execFileSync,spawnSync} from 'node:child_process';
+          import {mkdtempSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const source='0345c67d7a139fb339e4cfb79bdf1275f4b96507';
+          const product='de7a18a098e7ade7416bd8945ca3cd8b300ff3e5';
+          const gate='e7a56d5ce4a717cd76191e345b79be12adef3df4';
+          const sourceBase='560140e8a71f61e61f0bef6a6929ad7f94f8c8c6';
+          const paths=[
+           '.github/workflows/core-product-session-boundary.yml',
+           'crates/ddv-save-core/Cargo.toml',
+           'crates/ddv-save-core/src/product_makeup_color1.rs',
+           'crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs',
+           'crates/ddv-save-core/src/wasm_worker.rs',
+           'crates/ddv-save-core/src/worker_session.rs',
+           'crates/ddv-save-core/src/worker_switch626_makeup_color1.rs',
+           'scripts/wasm-distribution/protected-release-inputs.json'
+          ];
+          const oldConfig='5d2b35f6bc9f0b8544fc52f25a35614b59913d96';
+          const newConfig='30551c7cc566614f64c8ba04748c3aef44b419bb';
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_AUTHOR_NAME:'04 QRS isolated reviewer',GIT_AUTHOR_EMAIL:'reviewer@example.invalid',GIT_COMMITTER_NAME:'04 QRS isolated reviewer',GIT_COMMITTER_EMAIL:'reviewer@example.invalid'};
+          const root=mkdtempSync(join(tmpdir(),'04qrs-stage2-'));
+          const dest=join(root,'repository');
+          const run=(command,args,config={})=>{
+           const r=spawnSync(command,args,{cwd:config.cwd??dest,env:{...env,...config.env},input:config.input,encoding:'utf8',timeout:120000,maxBuffer:10*1024*1024});
+           if(r.status!==0)throw Error('COMMAND_FAILED '+command+' '+args.join(' ')+' STATUS='+r.status+' ERR='+r.stderr.slice(-2500));
+           return r.stdout.trim();
+          };
+          const git=(...args)=>run('git',args);
+          let counter=0;
+          function synthetic(parent,changes){
+           const index=join(root,'index'+(++counter));
+           git('read-tree',parent+'^{tree}'); // Verify base tree exists before isolated index use.
+           run('git',['read-tree',parent+'^{tree}'],{env:{GIT_INDEX_FILE:index}});
+           for(const [path,sha,mode='100644'] of changes)
+            run('git',['update-index','--add','--cacheinfo',mode,sha,path],{env:{GIT_INDEX_FILE:index}});
+           const tree=run('git',['write-tree'],{env:{GIT_INDEX_FILE:index}});
+           return git('commit-tree',tree,'-p',parent,'-m','04QRS isolated synthetic stage candidate');
+          }
+          function check(stage,head,shouldPass,pattern){
+           git('checkout','--force','--detach',head);
+           const r=spawnSync(process.execPath,['--test',
+             ...(pattern?['--test-name-pattern='+pattern]:[]),
+             'tests/09p-r22-switch626-makeup-gate-exact8.test.mjs',
+             'tests/09p-r22-trusted-main-preflight.test.mjs'],{
+            cwd:dest,env:{...env,WAND_REQUIRE_SWITCH_MAKEUP_GATE_FOCUS:'1'},
+            encoding:'utf8',timeout:180000,maxBuffer:12*1024*1024});
+           if(shouldPass){
+            assert.equal(r.status,0,'POSITIVE_'+stage+' '+r.stdout.slice(-4000)+' '+r.stderr.slice(-2000));
+            assert.match(r.stdout,/# pass [1-9]/,'no actual test passed');
+           }else{
+            assert.notEqual(r.status,0,'NEGATIVE_FALSE_ACCEPT_'+stage);
+            assert.match(r.stdout+r.stderr,/R22_CORE_CONFIG_STAGE_PIN_MISMATCH|UNAPPROVED_R22_CORE_STAGE|CURRENT_HEAD_R22_CONFIG_CORE_STAGE_MISMATCH|UNAPPROVED_CURRENT_R22_CORE_STAGE|PRODUCT_CURRENT_HEAD_MUTATED_TRUSTED_GATE|PRODUCT_CURRENT_HEAD_BLOB_MODE_MISMATCH/,'negative failed for unrelated reason: '+stage+' '+r.stdout.slice(-2200));
+           }
+           console.log('QRS_PR2253_STAGE_'+stage+'_'+(shouldPass?'POS_PASS':'NEG_REJECT'),{exit:r.status});
+          }
+          try{
+           run('git',['clone','--no-hardlinks','-q',process.cwd(),dest],{cwd:root});
+           run('git',['fetch','-q','--no-tags','https://github.com/DreamwishWand/web.git',
+            '+refs/pull/2217/head:refs/qrs/pr2217',
+            '+refs/pull/2248/head:refs/qrs/pr2248']);
+           // Fetch via GitHub when checkout origin is local clone without PR pseudo refs:
+           // GitHub Actions checkout retains origin URL for this explicit remote fetch.
+           assert.equal(git('rev-parse','refs/qrs/pr2217'),'b2735bc63884049a5f3d16423e5970553f168766');
+           assert.equal(git('rev-parse','refs/qrs/pr2248'),product);
+           assert.equal(git('rev-parse',source+'^'),sourceBase);
+           assert.equal(git('rev-parse',source+':tests/09p-r22-switch626-makeup-gate-exact8.test.mjs'),'3114f2a9e2776ea7cd82de0393d7581394f9e9e8');
+           assert.equal(git('rev-parse',source+':tests/09p-r22-trusted-main-preflight.test.mjs'),'4b3b59a7f92577ebdd4764718b589bc501d48f0d');
+           assert.equal(git('rev-parse',source+':crates/ddv-save-core'),'b5416aa726caea9d311075599ac606e11285b295');
+           assert.equal(git('rev-parse',source+':scripts/wasm-distribution/protected-release-inputs.json'),oldConfig);
+           assert.equal(git('rev-parse',product+':crates/ddv-save-core'),'42086449f9deef26ed48b21d7edab0f5685da7c2');
+           assert.equal(git('rev-parse',product+':scripts/wasm-distribution/protected-release-inputs.json'),newConfig);
+           assert.equal(git('merge-base','--is-ancestor',gate,source),'');
+           const before=git('diff','--name-only',sourceBase,source).split('\n').sort();
+           assert.deepEqual(before,[
+            'tests/09p-r22-switch626-makeup-gate-exact8.test.mjs',
+            'tests/09p-r22-trusted-main-preflight.test.mjs'
+           ]);
+           const originals=paths.map(path=>{
+            const ls=git('ls-tree',product,'--',path);
+            const matched=/^100644 blob ([a-f0-9]{40})\t/.exec(ls);
+            assert.ok(matched,'original product path not 100644 '+path);
+            const original=git('ls-tree',source,'--',path);
+            if(original) assert.notEqual(original,ls,'reviewed product path unexpectedly unchanged: '+path);
+            return [path,matched[1]];
+           });
+           check('GATE_ONLY',source,true);
+           const productStage=synthetic(source,originals);
+           assert.deepEqual(git('diff','--name-only',source,productStage).split('\n').sort(),paths.slice().sort());
+           assert.equal(git('rev-parse',productStage+':crates/ddv-save-core'),'42086449f9deef26ed48b21d7edab0f5685da7c2');
+           check('REVIEWED_PRODUCT_EXACT8',productStage,true);
+           // No magic fallback stage: approved old/new Core must pair with exactly
+           // old/new R22 JSON bytes. These negative inputs physically mutate Git Trees.
+           const wrongGate=synthetic(source,[[paths[7],newConfig]]);
+           check('GATE_OLD_CORE_NEW_CONFIG',wrongGate,false,'static immutable eight-mint contract');
+           const wrongProduct=synthetic(productStage,[[paths[7],oldConfig]]);
+           check('PRODUCT_NEW_CORE_OLD_CONFIG',wrongProduct,false,'static immutable eight-mint contract');
+          
+           const badBytes=run('git',['hash-object','-w','--stdin'],{input:'{"R22":"unknown-config"}\n'});
+           const unknownProduct=synthetic(productStage,[[paths[7],badBytes]]);
+           check('PRODUCT_UNKNOWN_CONFIG',unknownProduct,false,'static immutable eight-mint contract');
+           const rustExtra=run('git',['hash-object','-w','--stdin'],{input:'// unknown scope\n'});
+           const extra=synthetic(productStage,[['crates/ddv-save-core/src/qrs_unapproved.rs',rustExtra]]);
+           check('PRODUCT_UNAPPROVED_CORE_EXTRA_RUST',extra,false,'static immutable eight-mint contract');
+           const signer='scripts/wasm-distribution/r22-trusted-before-candidate.mjs';
+           const altered=synthetic(productStage,[[signer,rustExtra]]);
+           check('PRODUCT_MUTATED_TRUSTED_HELPER',altered,false,'independent PRE-candidate trusted-main executable');
+           console.log('QRS_ACT1774_PR2253_STAGE_AWARE_2POS_5NEG_CHANGESCOPE_PASS');
+          
+          }finally{rmSync(root,{recursive:true,force:true})}
+          QRS_STAGE_JS
+      - name: QA-only fixed Source never merge or publish
+        shell: bash
+        run: |
+          echo QRS_ACT1774_QAONLY_NO_MERGE_NO_SIGN_NO_PAGES_NO_OP
