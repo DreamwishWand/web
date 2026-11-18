@@ -100,9 +100,10 @@ function requestInventory({target,source,session,command}){
   if(!keys(command,['operation','inventoryId','canonicalItemId','compatibleItemType','expectedOldAmount','nextAmount','entryPresent'])||
     !u32(command.inventoryId)||!positiveId(command.canonicalItemId)||
     !typeToken(command.compatibleItemType,command.canonicalItemId)||
-    // Rust ProductSession's exact Steam626 Catalog0 route is inventory 0 and
-    // Furniture ONLY. Zero is a valid map ID, not an unverified new item.
-    (command.inventoryId===0&&command.compatibleItemType!=='ItemType_Furniture')||
+    // This 01D proposal must not advertise unstageable general Inventory rows:
+    // the current product Rust eligible_bound accepts ONLY Catalog0 Furniture.
+    // Actual catalog membership, old CAS and rights remain Core-owned.
+    (command.inventoryId!==0||command.compatibleItemType!=='ItemType_Furniture')||
     command.entryPresent!==true)
     return reject('EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   const a=command.expectedOldAmount,b=command.nextAmount;
@@ -110,13 +111,13 @@ function requestInventory({target,source,session,command}){
   if(b>=a)return reject('INVENTORY_ONLY_EXISTING_QUANTITY_DECREASE_CANDIDATE');
   // Existing Rust ProductSession catalog0-furniture eligible_bound permits
   // exactly old-1 with new>0; a proposal must not claim a wider delta.
-  if(command.inventoryId===0&&b!==a-1)
+  if(b!==a-1)
     return reject('INVENTORY_CATALOG0_EXACT_ONE_UNIT_DECREASE_REQUIRED');
   const id=decimal(command.inventoryId),item=decimal(command.canonicalItemId);
   const path='/Player/ListInventories/'+id+'/Inventory/'+item+'/Amount';
   return proposed(command.operation,target,source,session,path,a,b,
     [{path:'/Player/ListInventories/'+id+'/ID',
-      expectedType:command.inventoryId===0?'UINT32':'POSITIVE_UINT32',
+      expectedType:'UINT32',
       expectedValue:command.inventoryId},
      {path:'/Player/ListInventories/'+id+'/CompatibleItemType',expectedType:'EXACT_NATIVE_ENUM',expectedValue:command.compatibleItemType},
      {path,expectedType:'SIGNED_NONNEGATIVE_INTEGER',expectedValue:a},
