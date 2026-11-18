@@ -1,0 +1,83 @@
+name: QA ONLY 04 QR-W PR2162 309B Catalog0 zero typed readset L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2162-309b-catalog0-zero-readset-l2.yml'
+permissions:
+  contents: read
+jobs:
+  catalog0-zero-typed-readset:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 309b3c506fa71de6e82882a65aadfc29b9f27582
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin EXACT TWO original Source MOD Git blobs and protected parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 309b3c506fa71de6e82882a65aadfc29b9f27582
+          test "$(git merge-base HEAD fc3a396adc73895fe7ea15e417212dd721403e9d)" = fc3a396adc73895fe7ea15e417212dd721403e9d
+          test "$(git rev-parse HEAD:src/lib/ddv/core/items/tier-a-edit-requests.mjs)" = 0495c0ef0552e6161089ce825ca11b8b79b43d40
+          test "$(git rev-parse HEAD:tests/ddv-core-tier-a-edit-requests.test.mjs)" = f23f78e393858b09dd3f018305a4c36f09e076e1
+          test "$(git ls-tree HEAD src/lib/ddv/core/items/tier-a-edit-requests.mjs | awk '{print $1}')" = 100644
+          test "$(git ls-tree HEAD tests/ddv-core-tier-a-edit-requests.test.mjs | awk '{print $1}')" = 100644
+          cat > /tmp/qrw2162-expected <<'FILES'
+          src/lib/ddv/core/items/tier-a-edit-requests.mjs
+          tests/ddv-core-tier-a-edit-requests.test.mjs
+          FILES
+          LC_ALL=C sort /tmp/qrw2162-expected > /tmp/qrw2162-expected-sorted
+          git diff --name-only fc3a396adc73895fe7ea15e417212dd721403e9d HEAD | LC_ALL=C sort > /tmp/qrw2162-actual
+          diff -u /tmp/qrw2162-expected-sorted /tmp/qrw2162-actual
+          test "$(git diff --name-status fc3a396adc73895fe7ea15e417212dd721403e9d HEAD | cut -f1 | sort -u)" = M
+          git diff --quiet fc3a396adc73895fe7ea15e417212dd721403e9d HEAD -- crates/ddv-save-core/ src/lib/ddv/core/save/ .github/workflows/pages.yml static/
+          echo QRW2162_EXACT2_SOURCE_AND_CORE_UNCHANGED_PASS
+      - name: Inherit existing request tests no new broad QA
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          node --test tests/ddv-core-tier-a-edit-requests.test.mjs
+      - name: Independently refute Catalog0 inventory0 POSITIVE_UINT32 contradictory readSet
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {describeTierARequest,STEAM626,TIER_A_WRITER_ENABLED} from './src/lib/ddv/core/items/tier-a-edit-requests.mjs';
+          const req=(inventoryId,compatibleItemType,canonicalItemId)=>({
+            target:{...STEAM626},
+            source:{originalEncryptedSha256:'a'.repeat(64)},
+            session:{sessionId:'b'.repeat(32),revision:3,indexGeneration:7,decodedSha256:'c'.repeat(64)},
+            command:{operation:'Inventory.ExistingAmountDecrease',inventoryId,
+              canonicalItemId,compatibleItemType,entryPresent:true,
+              expectedOldAmount:3,nextAmount:2}
+          });
+          const normal=describeTierARequest(req(4,'ItemType_ActivityItem',30000001));
+          assert.equal(normal.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
+          assert.equal(normal.candidate.readSet[0].expectedValue,4);
+          assert.equal(normal.candidate.readSet[0].expectedType,'POSITIVE_UINT32');
+          assert.equal(normal.writerAuthorized,false);
+          const bad=describeTierARequest(req(0,'ItemType_ActivityItem',30000001));
+          assert.equal(bad.status,'BLOCKED');
+          const zero=describeTierARequest(req(0,'ItemType_Furniture',40000048));
+          assert.equal(zero.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
+          assert.equal(zero.candidate.nativeDevCommand.inventory_id,0);
+          assert.equal(zero.candidate.readSet[0].expectedValue,0);
+          assert.equal(zero.candidate.fieldPath,'/Player/ListInventories/0/Inventory/40000048/Amount');
+          assert.equal(TIER_A_WRITER_ENABLED,false);
+          assert.equal(zero.writerAuthorized,false);
+          assert.equal(zero.exportAuthorized,false);
+          // A readSet asserting POSITIVE_UINT32 for the typed 0 inventory ID
+          // contradicts the successful Catalog0 route. This MUST be checked;
+          // existing Source regression only asserts expectedValue:0.
+          const typed=zero.candidate.readSet[0];
+          assert.ok(!(typed.expectedType==='POSITIVE_UINT32'&&typed.expectedValue===0),
+            'TRUE_RED: Catalog0 inventoryId=0 cannot satisfy readSet expectedType POSITIVE_UINT32');
+          console.log('QRW2162_ZERO_ID_READSET_TYPE_SELF_CONSISTENCY_PASS');
+          NODE

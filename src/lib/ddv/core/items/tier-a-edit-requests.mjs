@@ -96,8 +96,12 @@ const proposed=(operation,target,source,session,fieldPath,oldAmount,nextAmount,r
 });
 function requestInventory({target,source,session,command}){
   if(!keys(command,['operation','inventoryId','canonicalItemId','compatibleItemType','expectedOldAmount','nextAmount','entryPresent'])||
-    !positiveId(command.inventoryId)||!positiveId(command.canonicalItemId)||
-    !typeToken(command.compatibleItemType,command.canonicalItemId)||command.entryPresent!==true)
+    !u32(command.inventoryId)||!positiveId(command.canonicalItemId)||
+    !typeToken(command.compatibleItemType,command.canonicalItemId)||
+    // Rust ProductSession's exact Steam626 Catalog0 route is inventory 0 and
+    // Furniture ONLY. Zero is a valid map ID, not an unverified new item.
+    (command.inventoryId===0&&command.compatibleItemType!=='ItemType_Furniture')||
+    command.entryPresent!==true)
     return reject('EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   const a=command.expectedOldAmount,b=command.nextAmount;
   if(!amount(a)||!amount(b))return reject('INVENTORY_AMOUNT_BOUNDS');

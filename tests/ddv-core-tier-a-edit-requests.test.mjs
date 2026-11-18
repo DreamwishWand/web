@@ -100,7 +100,9 @@ test('Unknown ItemID, alias type, missing entry or unverified route fail closed'
   blocked(x=>{x.command.canonicalItemId=4294967296},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.canonicalItemId='40000047'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.inventoryId='00'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
-  blocked(x=>{x.command.inventoryId=0},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(x=>{x.command.inventoryId=-1},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(x=>{x.command.inventoryId=4294967296},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(x=>{x.command.inventoryId=null},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.compatibleItemType='ItemType_Premium'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.inventoryId=Number.MAX_SAFE_INTEGER},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{x.command.compatibleItemType='untrusted'},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
@@ -108,6 +110,46 @@ test('Unknown ItemID, alias type, missing entry or unverified route fail closed'
   blocked(x=>{x.command.entryPresent=false},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
   blocked(x=>{delete x.command.entryPresent},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
 });
+test('Steam626 Catalog0 inventory ID 0 is a bounded ordinary Furniture candidate, never an authorization',()=>{
+  // Existing Rust ProductSession catalog0-furniture selection uses
+  // ExistingAmountSelection::Inventory{inventory_id:0,...}; previously the
+  // separate JS source proposal rejected this valid core-owned route.
+  const x=plan(p=>{
+    p.command.inventoryId=0;
+    p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';
+    p.command.expectedOldAmount=3;
+    p.command.nextAmount=2;
+  });
+  assert.equal(x.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
+  assert.equal(x.candidate.fieldPath,'/Player/ListInventories/0/Inventory/40000048/Amount');
+  assert.deepEqual(x.candidate.exactAllowedPaths,[x.candidate.fieldPath]);
+  assert.equal(x.candidate.readSet[0].expectedValue,0);
+  assert.equal(x.candidate.readSet[1].expectedValue,'ItemType_Furniture');
+  assert.deepEqual(x.candidate.nativeDevCommand,{
+    variant:'InventoryExistingAmountDecrease',
+    inventory_id:0,canonical_item_id:40000048,
+    expected_compatible_item_type:'ItemType_Furniture',expected_old_amount:3,new_amount:2
+  });
+  assert.equal(x.canonicalItemRoutingProvenByThisModule,false);
+  assert.equal(x.sourceIdentityProvenByThisModule,false);
+  assert.equal(x.writerAuthorized,false);
+  assert.equal(x.exportAuthorized,false);
+  assert.equal(x.productOperationEnabled,false);
+  assert.equal(x.releaseFlags.Writer,false);
+  assert.equal(x.releaseFlags.MediaPublic,false);
+  // Catalog0 is not a blanket zero-ID route for arbitrary ActivityItem,
+  // unknown ownership, or caller-forged inventory shape.
+  blocked(p=>{p.command.inventoryId=0},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';p.command.entryPresent=false},
+    'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
+  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';p.command.nextAmount=50},
+    'INVENTORY_ONLY_EXISTING_QUANTITY_DECREASE_CANDIDATE');
+});
+
 test('Caller-injected media, ownership, skin or premium flags cannot enter request',()=>{
   blocked(x=>{x.premium=true},'REQUEST_SHAPE_INVALID');
   blocked(x=>{x.command.entitlement=true},'EXISTING_CANONICAL_INVENTORY_ENTRY_REQUIRED');
