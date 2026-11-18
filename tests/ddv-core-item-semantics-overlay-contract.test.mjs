@@ -281,3 +281,55 @@ test('R08: inherited profile/identity/Collection/Inventory fields are never orig
   assert.equal(blocked.writerAuthorized,false);
  }
 });
+
+test('R08: own accessor properties are not decoded raw Save data and never execute',()=>{
+  const access=(holder,field)=> {
+    let reads=0;
+    Object.defineProperty(holder,field,{configurable:true,enumerable:true,
+      get(){reads++;throw new Error('accessor must not execute');}});
+    return ()=>reads;
+  };
+  for(const [identity,version] of [[id1250,624],[id1253,626]]) {
+    const collectionCases=[
+      [p=>[p,'GameInfo'],'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED'],
+      [p=>[p,'Player'],'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED'],
+      [p=>[p.GameInfo,'Version'],'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED'],
+      [p=>[p.Player,'CollectionSets'],'COLLECTION_SETS_MISSING_OR_UNBOUNDED'],
+      [p=>[p.Player.CollectionSets[0],'CollectionDefinitionID'],'COLLECTION_DEFINITION_ROW_INVALID'],
+      [p=>[p.Player.CollectionSets[0],'GroupData'],'COLLECTION_GROUP_DATA_UNVERIFIED'],
+      [p=>[p.Player.CollectionSets[0].GroupData,'0'],'COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED'],
+      [p=>[p.Player.CollectionSets[0].GroupData[0],'GroupIndex'],'COLLECTION_GROUP_INDEX_CONFLICT'],
+      [p=>[p.Player.CollectionSets[0].GroupData[0],'GroupsCollectionItems'],'COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED'],
+      [p=>[p.Player.CollectionSets[0].GroupData[0].GroupsCollectionItems,'40700050'],'COLLECTION_BOOLEAN_FIELD_INVALID']
+    ];
+    for(const [selector,code] of collectionCases) {
+      const p=makeProfile(version),[holder,field]=selector(p),reads=access(holder,field);
+      const result=col({profile:p,identity});
+      assert.equal(result.code,code,'Collection '+String(field));
+      assert.equal(result.writerAuthorized,false);
+      assert.equal(reads(),0,'Collection getter '+String(field));
+    }
+    const ownIdentity={...identity},readsIdentity=access(ownIdentity,'buildId');
+    assert.equal(col({profile:makeProfile(version),identity:ownIdentity}).code,
+      'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED');
+    assert.equal(readsIdentity(),0);
+    const inventoryCases=[
+      [p=>[p.Player,'ListInventories'],'LIST_INVENTORIES_MISSING'],
+      [p=>[p.Player.ListInventories,'0'],'INVENTORY_RECORD_OR_ITEMS_MALFORMED'],
+      [p=>[p.Player.ListInventories['0'],'Inventory'],'INVENTORY_RECORD_OR_ITEMS_MALFORMED'],
+      [p=>[p.Player.ListInventories['0'],'CompatibleItemType'],'INVENTORY_RECORD_OR_ITEMS_MALFORMED'],
+      [p=>[p.Player.ListInventories['0'].Inventory,'40700050'],'INVENTORY_AMOUNT_FIELD_INVALID'],
+      [p=>[p.Player.ListInventories['0'].Inventory['40700050'],'Amount'],'INVENTORY_AMOUNT_FIELD_INVALID']
+    ];
+    for(const [selector,code] of inventoryCases) {
+      const p=makeProfile(version),[holder,field]=selector(p),reads=access(holder,field);
+      const result=inv({profile:p,identity});
+      assert.equal(result.code,code,'Inventory '+String(field));
+      assert.equal(result.writerAuthorized,false);
+      assert.equal(reads(),0,'Inventory getter '+String(field));
+    }
+    // A valid own JSON-data shape remains readable in both supported builds.
+    assert.equal(col({profile:makeProfile(version),identity}).rawFlag,'SAVE_BOOL_TRUE');
+    assert.equal(inv({profile:makeProfile(version),identity}).rawAmount,0);
+  }
+});
