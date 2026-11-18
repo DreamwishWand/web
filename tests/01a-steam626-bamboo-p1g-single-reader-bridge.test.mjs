@@ -10,7 +10,11 @@ const BUILD=Object.freeze({platform:'steam-windows',buildKind:'steam-full-versio
 const TARGET=Object.freeze({gridId:7,x:294,y:0});
 const SHA='b'.repeat(64);
 let id=0,instances=0;
-const fixture=()=>makeSyntheticP1gProfile(syntheticProfile('DeviceType_Windows'));
+const fixture=()=>{
+ const profile=syntheticProfile('DeviceType_Windows');
+ profile.GameInfo.Version=626;
+ return makeSyntheticP1gProfile(profile);
+};
 class MockRust {
  constructor(platform,kind,build,schema,confirmed,entropy){
   assert.equal(platform,BUILD.platform);
