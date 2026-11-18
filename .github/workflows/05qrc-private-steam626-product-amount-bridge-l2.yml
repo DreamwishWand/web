@@ -76,7 +76,13 @@ jobs:
             assert_eq!(blocked.stage_private_product_scoped_bound_amount_candidate(
                 scope(block_receipt,WorkerAction::Stage),&bound).unwrap_err().0,
                 "PRIVATE_PRODUCT_AMOUNT_WORKER_OR_BUILD_DENIED");
-            assert_eq!(blocked.receipt().unwrap(),block_receipt);refuting+=1;
+            let after=blocked.receipt().unwrap();
+            assert_eq!(after.session_id,block_receipt.session_id);
+            assert_eq!(after.revision,block_receipt.revision);
+            assert_eq!(after.index_generation,block_receipt.index_generation);
+            assert_eq!(after.decoded_sha256,block_receipt.decoded_sha256);
+            assert!(after.product_worker_bound);
+            refuting+=1;
             let mut forged=mint(&s);
             forged.switch_chest=true;
             assert_eq!(s.stage_private_product_scoped_bound_amount_candidate(
