@@ -86,6 +86,21 @@ async function request(fetchImpl,url,method,headers={}){
   return res;
 }
 const contentType=(r)=>String(r.headers?.get("content-type")??"").split(";")[0].trim().toLowerCase();
+// Keep exact validators observed on the REAL prior ON GET and HEAD; synthetic
+// fixed strings cannot detect a stale CDN 304 after the origin is withdrawn.
+// Validation prevents header injection through later saved receipt JSON.
+const validETag=v=>typeof v==="string"&&/^(?:W\/)?"[\x21\x23-\x7e]{1,180}"$/.test(v);
+const validHttpDate=v=>typeof v==="string"&&
+  /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(v)&&
+  Number.isFinite(Date.parse(v));
+function cacheValidators(res){
+  const etag=res.headers?.get("etag")??null;
+  const lastModified=res.headers?.get("last-modified")??null;
+  if((etag!==null&&!validETag(etag))||
+     (lastModified!==null&&!validHttpDate(lastModified)))
+    fail("LIVE_CACHE_VALIDATOR_INVALID");
+  return Object.freeze({etag,lastModified});
+}
 const ensureStatus=(r,n,code)=>{if(r.status!==n)fail(code+":"+r.status);};
 function ensureImage(bytes,target){
   if(bytes.byteLength!==target.bytes||digest(bytes)!==target.webpSha256)
@@ -104,6 +119,17 @@ function pinnedOnReceipt(prior,expectedSha,urls){
       p.url!==urls.targets[i].url||p.webpSha256!==urls.targets[i].webpSha256||
       p.bytes!==urls.targets[i].bytes))
     fail("PRIOR_PUBLIC_URL_SET_MISMATCH");
+  // These are the precise browser/CDN validators the previously hosted ON
+  // image emitted, not a source-authored "stale" or unrelated synthetic value.
+  // Fail CLOSED if previous ON did not capture both real GET and HEAD fields.
+  const trustedCache=urls.targets.map((_,i)=>{
+    const get=prior.checks[1+i*2]?.cacheValidators;
+    const head=prior.checks[2+i*2]?.cacheValidators;
+    if(!get||!head||!validETag(get.etag)||!validHttpDate(get.lastModified)||
+       get.etag!==head.etag||get.lastModified!==head.lastModified)
+      fail("PRIOR_REAL_CACHE_VALIDATORS_REQUIRED");
+    return Object.freeze({etag:get.etag,lastModified:get.lastModified});
+  });
   // Hash-pinning alone cannot attest the history: the prior ON proof must
   // name the exact manifest/asset URLs and the actual GET and HEAD methods.
   // A forged receipt with all status=200 is not a publication observation.
@@ -135,6 +161,7 @@ function pinnedOnReceipt(prior,expectedSha,urls){
     Number.isSafeInteger(a.liveObserverRunId)&&a.liveObserverRunId>0&&
     hex.test(a.signedArtifactAttestationSha256??""));
   if(!anchored)fail("SIGNED_ON_ORIGIN_PROVENANCE_REQUIRED");
+  return Object.freeze(trustedCache);
 }
 export async function verifySteamLiveImagePhase({
   phase,baseUrl,ids,pins,variant,manifestPath,priorOnReceipt=null,
@@ -142,9 +169,11 @@ export async function verifySteamLiveImagePhase({
 }){
   if(phase!=="ON"&&phase!=="WITHDRAW")fail("UNKNOWN_PHASE");
   const urls=liveTargets({baseUrl,ids,pins,variant,manifestPath});
-  if(phase==="WITHDRAW")pinnedOnReceipt(priorOnReceipt,expectedOnReceiptSha256,urls);
+  const priorCache=phase==="WITHDRAW"
+    ?pinnedOnReceipt(priorOnReceipt,expectedOnReceiptSha256,urls):null;
   const checks=[];
-  const check=(url,method,status)=>checks.push({url,method,status});
+  const check=(url,method,status,cache=null)=>checks.push(cache===null
+    ?{url,method,status}:{url,method,status,cacheValidators:cache});
   // The immutable manifest URL remains a mutable authorization index. On
   // withdrawal a 200 is permissible ONLY if it excludes ALL withdrawn IDs.
   const manifest=await request(fetchImpl,urls.manifestUrl,"GET");
@@ -175,26 +204,31 @@ export async function verifySteamLiveImagePhase({
     fail("WITHDRAW_MANIFEST_NOT_REMOVED_OR_REWRITTEN:"+manifest.status);
   }
   check(urls.manifestUrl,"GET",manifest.status);
-  for(const target of urls.targets){
+  for(const [index,target] of urls.targets.entries()){
     if(phase==="ON"){
       const r=await request(fetchImpl,target.url,"GET");
       ensureStatus(r,200,"LIVE_IMAGE_NOT_200:"+target.id);
       if(contentType(r)!=="image/webp")fail("LIVE_IMAGE_MIME_INVALID:"+target.id);
       const b=Buffer.from(await r.arrayBuffer());
       ensureImage(b,target);
-      check(target.url,"GET",200);
+      const getCache=cacheValidators(r);
+      check(target.url,"GET",200,getCache);
       const head=await request(fetchImpl,target.url,"HEAD");
       ensureStatus(head,200,"LIVE_IMAGE_HEAD_NOT_200:"+target.id);
       if(contentType(head)!=="image/webp")fail("LIVE_HEAD_MIME_INVALID:"+target.id);
       const len=head.headers.get("content-length");
       if(len!==null&&Number(len)!==target.bytes)fail("LIVE_HEAD_LENGTH_INVALID:"+target.id);
-      check(target.url,"HEAD",200);
+      const headCache=cacheValidators(head);
+      if(getCache.etag!==headCache.etag||
+         getCache.lastModified!==headCache.lastModified)
+        fail("LIVE_GET_HEAD_CACHE_VALIDATORS_MISMATCH:"+target.id);
+      check(target.url,"HEAD",200,headCache);
     }else{
       const variants=[
         ["GET",{},"GET"],
         ["HEAD",{},"HEAD"],
-        ["GET",{"If-None-Match":'"prior-visible-image"'},"GET_IF_NONE_MATCH"],
-        ["GET",{"If-Modified-Since":"Wed, 01 Jan 2025 00:00:00 GMT"},"GET_IF_MODIFIED_SINCE"]
+        ["GET",{"If-None-Match":priorCache[index].etag},"GET_IF_NONE_MATCH"],
+        ["GET",{"If-Modified-Since":priorCache[index].lastModified},"GET_IF_MODIFIED_SINCE"]
       ];
       for(const [method,headers,label] of variants){
         const r=await request(fetchImpl,target.url,method,headers);
