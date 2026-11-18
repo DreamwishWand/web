@@ -356,7 +356,7 @@ fn physical_totals(b:&[u8],player:Span,item:i32,chest:Option<(u32,usize)>,old:u3
 }
 
 #[path="placement_saved_refs.rs"]
-mod placement_saved_refs;
+pub(super) mod placement_saved_refs;
 use placement_saved_refs::Incoming;
 
 // Same Steam-only Build predicate as the accepted one-fence Target.
