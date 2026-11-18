@@ -7,7 +7,20 @@ import {readFileSync,writeFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 
 const hex=/^[0-9a-f]{64}$/i;
+const gitSha=/^[0-9a-f]{40}$/i;
 const digest=b=>createHash("sha256").update(b).digest("hex");
+// Trust root is an immutable FILE from the protected product build, not a
+// JSON hash supplied by the HTTP verifier's caller. 09 INT may fill an
+// entry ONLY after the signed Pages artifact and independent real hosted
+// ON observer have been verified. Source repository default is EMPTY/OFF.
+// Local QA may exercise the positive HTTP path in an isolated temp copy
+// with synthetic anchors; the committed product file must never include one.
+const protectedOnAnchors=JSON.parse(readFileSync(
+  new URL("./07dbk-steam-image-trusted-on-anchors.json",import.meta.url),"utf8"));
+if(protectedOnAnchors?.schema!=="wand.dbk.protected-on-origin@1"||
+   !Array.isArray(protectedOnAnchors?.records)||
+   protectedOnAnchors.records.length>25)
+  throw Error("PROTECTED_ON_ANCHOR_REGISTRY_INVALID");
 const fail=(code)=>{throw Error(code);};
 const allowedHost=h=>h==="dreamwishwand.github.io"||h==="dreamwishwand.com"||
   h.endsWith(".dreamwishwand.com");
@@ -83,6 +96,24 @@ function pinnedOnReceipt(prior,expectedSha,urls){
      prior.checks.some((c,i)=>!c||c.url!==expectedChecks[i].url||
        c.method!==expectedChecks[i].method||c.status!==200))
     fail("PRIOR_ON_EVIDENCE_NOT_COMPLETE");
+  // Integrity of caller-supplied JSON is NOT provenance. A self-calculated
+  // SHA cannot establish that any prior ON HTTP observation actually ran.
+  // The recorded SHA is a trust anchor only when 09 INT independently
+  // fixes it in the protected release source after signed Pages + live ON.
+  // Never accept a caller-injected record, path, digest list or trust callback.
+  const targetSetSha256=receiptDigest(urls.targets);
+  const anchored=protectedOnAnchors.records.some(a=>a &&
+    a.receiptSha256===expectedSha.toLowerCase()&&
+    a.targetSetSha256===targetSetSha256&&
+    a.base===urls.base&&a.manifestUrl===urls.manifestUrl&&
+    a.scope==="STEAM_ITEM_IMAGES_LIVE_HTTP"&&
+    a.releaseState==="SIGNED_PAGES_ON_OBSERVED"&&
+    a.recordedBy==="09_INT_PROTECTED_MAIN"&&
+    gitSha.test(a.protectedReleaseCommit??"")&&
+    Number.isSafeInteger(a.protectedPagesRunId)&&a.protectedPagesRunId>0&&
+    Number.isSafeInteger(a.liveObserverRunId)&&a.liveObserverRunId>0&&
+    hex.test(a.signedArtifactAttestationSha256??""));
+  if(!anchored)fail("SIGNED_ON_ORIGIN_PROVENANCE_REQUIRED");
 }
 export async function verifySteamLiveImagePhase({
   phase,baseUrl,ids,pins,variant,manifestPath,priorOnReceipt=null,
@@ -177,6 +208,8 @@ async function cli(){
   if(phase==="ON"&&(!STEAM1253_REVIEWED_RELEASE.mediaPublic||
     ids.some(id=>!Object.hasOwn(STEAM1253_REVIEWED_RELEASE.items,id))))
     fail("COMPILED_OPERATOR_MEDIA_PUBLIC_OFF");
+  // The external SHA is integrity only. WITHDRAW additionally needs a
+  // separately recorded 09 INT protected real ON anchor or it fails closed.
   const priorPath=readFlag("--prior-json"),priorSha=readFlag("--prior-sha");
   const prior=priorPath?JSON.parse(readFileSync(priorPath,"utf8")).receipt:null;
   const result=await verifySteamLiveImagePhase({phase,baseUrl,ids,pins:STEAM1253_NATIVE_PINS,
