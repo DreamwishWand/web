@@ -1,0 +1,108 @@
+name: QA ONLY 04 QR-W PR2156 DCB first REAL Steam game WebP L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2156-dcb-first1-webp-l2.yml'
+permissions:
+  contents: read
+jobs:
+  first-real-game-webp-pixel-public-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dcb830a3f99c6cbfeefdf107c3391a9aed2d68a2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact TWO new product files and original immutable WebP binary pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = dcb830a3f99c6cbfeefdf107c3391a9aed2d68a2
+          test "$(git merge-base HEAD fc3a396adc73895fe7ea15e417212dd721403e9d)" = fc3a396adc73895fe7ea15e417212dd721403e9d
+          test "$(git rev-parse HEAD:static/ddv/item-images/steam-1.25.3-schema626-lossless160-v1/be/be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489.webp)" = a93fa34da62bc56bf379d5b0d78e820aeb5d9148
+          test "$(git rev-parse HEAD:tests/07dbk-steam-first1-real-webp-stage-off.test.mjs)" = 36363def3c8127cce52ce859557946f5c6547a3c
+          test "$(git ls-tree HEAD 'static/ddv/item-images/steam-1.25.3-schema626-lossless160-v1/be/be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489.webp' | awk '{print $1}')" = 100644
+          test "$(git ls-tree HEAD 'tests/07dbk-steam-first1-real-webp-stage-off.test.mjs' | awk '{print $1}')" = 100644
+          test "$(git cat-file -s HEAD:static/ddv/item-images/steam-1.25.3-schema626-lossless160-v1/be/be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489.webp)" = 15310
+          test "$(git diff --name-status fc3a396adc73895fe7ea15e417212dd721403e9d HEAD -- 'static/ddv/item-images/steam-1.25.3-schema626-lossless160-v1/be/be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489.webp' | cut -f1)" = A
+          test "$(git diff --name-status fc3a396adc73895fe7ea15e417212dd721403e9d HEAD -- 'tests/07dbk-steam-first1-real-webp-stage-off.test.mjs' | cut -f1)" = A
+          printf '%s\n' 'static/ddv/item-images/steam-1.25.3-schema626-lossless160-v1/be/be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489.webp' 'tests/07dbk-steam-first1-real-webp-stage-off.test.mjs' | LC_ALL=C sort > /tmp/qrw-first1-expected
+          git diff --name-only fc3a396adc73895fe7ea15e417212dd721403e9d HEAD | LC_ALL=C sort > /tmp/qrw-first1-actual
+          diff -u /tmp/qrw-first1-expected /tmp/qrw-first1-actual
+          test "$(sha256sum 'static/ddv/item-images/steam-1.25.3-schema626-lossless160-v1/be/be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489.webp' | cut -d' ' -f1)" = be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489
+          test ! -e 'static/ddv/item-images/steam-1.25.3-schema626-lossless160-v1/manifest.json'
+          echo QRW2156_EXACT2_SOURCE_BINARY_NO_PRIVATE_ZIP_NO_MANIFEST_PASS
+      - name: Independent real lossless WebP decoded RGBA and corruption refutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/qrw-webp-venv
+          /tmp/qrw-webp-venv/bin/python -m pip -q install --disable-pip-version-check 'Pillow==11.3.0'
+          /tmp/qrw-webp-venv/bin/python - <<'PY'
+          from pathlib import Path
+          from io import BytesIO
+          import hashlib, struct
+          from PIL import Image
+          p=Path('static/ddv/item-images/steam-1.25.3-schema626-lossless160-v1/be/be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489.webp')
+          payload=p.read_bytes()
+          sha=lambda b:hashlib.sha256(b).hexdigest()
+          EXPECTED='be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489'
+          PIXELS='e5eda84719c1b4010de8773692042ff7f9af6676f2dfaf34bfc0e694c6766f6c'
+          def valid(b,kind='webp',id='40300045'):
+           if id!='40300045' or len(b)!=15310 or sha(b)!=EXPECTED:return False
+           if b[:4]!=b'RIFF' or b[8:12]!=b'WEBP' or b[12:16]!=b'VP8L':return False
+           if struct.unpack_from('<I',b,4)[0]+8!=len(b):return False
+           if b[20]!=0x2f:return False
+           try:
+            with Image.open(BytesIO(b)) as im:
+             if im.format!='WEBP' or im.size!=(160,160):return False
+             pixels=im.convert('RGBA').tobytes()
+             return len(pixels)==160*160*4 and sha(pixels)==PIXELS
+           except Exception:return False
+          assert valid(payload), 'real WebP pixel+SHA metadata must match independent decoder'
+          positives=1
+          negatives=0
+          bad=[
+           (payload[:-1],'truncated'),
+           (payload[:-1]+bytes([payload[-1]^1]),'tampered'),
+           (b'X'+payload[1:],'not RIFF'),
+           (payload[:12]+b'VP8 '+payload[16:],'lossy codec instead of VP8L'),
+           (payload[:20]+b'\\x00'+payload[21:],'lossless header wrong')
+          ]
+          for data,label in bad:
+           assert not valid(data),label
+           negatives+=1
+          assert not valid(payload,id='40002422'), 'hidden foreign ItemID denied'
+          negatives+=1
+          assert not valid(payload,id='40006110'), 'other Steam ItemID denied'
+          negatives+=1
+          assert p.name==EXPECTED+'.webp' and p.parent.name=='be'
+          assert len([f for f in p.parent.glob('*.webp')])==1
+          print('QRW2156_FIRST1_WEBP_PIXEL_EXACT_1POS_7NEG',{'positives':positives,'negatives':negatives,'mediaPublic':False,'hostedHTTP':'NOT_RUN'})
+          PY
+      - name: Confirm product media gate remains OFF and inherited source regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          set -euo pipefail
+          node --test 'tests/07dbk-steam-first1-real-webp-stage-off.test.mjs'
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {existsSync} from 'node:fs';
+          import {STEAM1253_REVIEWED_RELEASE,STEAM1253_NATIVE_PINS,STEAM1253_ITEM_IMAGE_VARIANT} from './src/lib/item-media/switch1253-public-item-images.mjs';
+          const pin=STEAM1253_NATIVE_PINS['40300045'];
+          assert.equal(pin.visibility,'RELEASED_PLAYER_FACING');
+          assert.equal(pin.webpSha256,'be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489');
+          assert.equal(pin.rgba160Sha256,'e5eda84719c1b4010de8773692042ff7f9af6676f2dfaf34bfc0e694c6766f6c');
+          assert.equal(STEAM1253_ITEM_IMAGE_VARIANT,'steam-1.25.3-schema626-lossless160-v1');
+          assert.equal(STEAM1253_REVIEWED_RELEASE.mediaPublic,false);
+          assert.deepEqual(Object.keys(STEAM1253_REVIEWED_RELEASE.items),[]);
+          assert.equal(existsSync('static/ddv/item-images/'+STEAM1253_ITEM_IMAGE_VARIANT+'/manifest.json'),false);
+          console.log('QRW2156_NO_MANIFEST_NO_CONSUMER_ON_PASS');
+          NODE
