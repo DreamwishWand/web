@@ -69,7 +69,9 @@ try{
  await rendered('SHARED_DETAIL','[data-shared-entity-detail] ');
  await page.goto(root+'/explore/',{waitUntil:'domcontentloaded'});
  await page.locator('.grid .card').first().waitFor({timeout:35000});
- await page.locator('.controls input[type="search"]').fill(ID);
+ // DEC-UX-07 accepted UX: Explore search stays disabled until user opens it.
+ await page.locator('[data-explore-search-toggle]').click();
+ await page.locator('[data-explore-search-panel] input[type="search"]').fill(ID);
  await rendered('EXPLORE');
  await page.goto(root+'/collection/',{waitUntil:'domcontentloaded'});
  await page.locator('[data-stage1-category-grid] .category-card').first().waitFor({timeout:35000});
