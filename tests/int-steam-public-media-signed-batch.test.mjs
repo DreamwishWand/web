@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,rmSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,rmSync,symlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,dirname} from 'node:path';
 import {ROOT,readBatch,validateBatch,verifyLocal,verifyLive,pathFor,digest} from '../scripts/int-steam-public-media-signed-batch.mjs';
@@ -35,6 +35,26 @@ test('signed media batch refuses corruption and extra static media; rollback can
     writeFileSync(path,b);writeFileSync(join(dirname(path),'second.webp'),'foreign');
     await assert.rejects(verifyLocal(plan,{root:dir,kind:'source',pins:pinned}),/MEDIA_EXACT_BATCH_ONLY/);
   }finally{rmSync(dir,{recursive:true,force:true});}
+});
+test('real source and built media paths reject symlinked ddv ancestor, even with authentic pixels',async()=>{
+  const fixture=mkdtempSync(join(tmpdir(),'wand-media-ancestor-'));
+  const bytes=readFileSync(join(ROOT,'static',rel));
+  try{
+    for(const kind of ['source','built']){
+      const checkout=join(fixture,kind),base=join(checkout,kind==='source'?'static':'build');
+      const external=join(fixture,kind+'-external');
+      const target=join(external,'item-images',rel.slice('ddv/item-images/'.length));
+      mkdirSync(base,{recursive:true});
+      mkdirSync(dirname(target),{recursive:true});
+      writeFileSync(target,bytes);
+      symlinkSync(external,join(base,'ddv'),'dir');
+      await assert.rejects(verifyLocal(plan,{kind,root:checkout,pins:pinned}),/MEDIA_SYMLINK_ANCESTOR/);
+      rmSync(join(base,'ddv'));
+      const good=join(base,rel);
+      mkdirSync(dirname(good),{recursive:true});writeFileSync(good,bytes);
+      assert.equal((await verifyLocal(plan,{kind,root:checkout,pins:pinned})).count,1);
+    }
+  }finally{rmSync(fixture,{recursive:true,force:true});}
 });
 test('live image proof requires exact HTTPS host, unredirected GET/HEAD MIME and real bytes',async()=>{
   const b=readFileSync(join(ROOT,'static',rel));const u='https://dreamwishwand.github.io/web/';
