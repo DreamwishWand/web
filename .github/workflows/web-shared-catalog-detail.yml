@@ -181,12 +181,55 @@ jobs:
           tests/web-item-detail-static-link-gate.test.mjs
           DETAIL_ROUTE_APPROVED_PATHS
             LC_ALL=C sort /tmp/item-detail-static-approved-paths > /tmp/item-detail-static-approved-sorted
+            # 09 INT: exactly both accepted independent local Moodboard consumers
+            # plus this gate; original 12 source postblobs pinned below.
+            cat > /tmp/09int-explore-detail-exact13 <<'ITEM_09INT_EXACT13_PATHS'
+          .github/workflows/08web-explore-shared-moodboard-compensated.yml
+          .github/workflows/08web-shared-entity-moodboard-compensated.yml
+          .github/workflows/web-shared-catalog-detail.yml
+          scripts/web-explore-shared-moodboard-compensation-chrome.mjs
+          src/lib/entity/SharedEntityDetail.svelte
+          src/lib/explore/copy.js
+          src/routes/explore/+page.svelte
+          tests/shared-catalog-directory-foundation.test.mjs
+          tests/web-explore-decux21-moodboard-tap.test.mjs
+          tests/web-explore-decux28-moodboard-icons.test.mjs
+          tests/web-explore-moodboard-shared-compensation.test.mjs
+          tests/web-explore-wand-favorites-local.test.mjs
+          tests/web-shared-entity-moodboard-compensated.test.mjs
+          ITEM_09INT_EXACT13_PATHS
+            LC_ALL=C sort /tmp/09int-explore-detail-exact13 > /tmp/09int-explore-detail-exact13-sorted
             if diff -q /tmp/item-image-approved-sorted /tmp/item-image-actual-paths > /dev/null; then
               node --test tests/web-stage1-public-item-thumb-contract.test.mjs
               echo WEB_ITEM_IMAGE_EXACT9_SCOPED_REGRESSION_PASS
             elif diff -q /tmp/item-detail-static-approved-sorted /tmp/item-image-actual-paths > /dev/null; then
               node --test tests/web-item-detail-static-link-gate.test.mjs tests/web-stage1-collection-root.test.mjs
               echo WEB_ITEM_DETAIL_STATIC_HTTP404_LINK_EXACT5_SCOPED_PASS
+            elif diff -q /tmp/09int-explore-detail-exact13-sorted /tmp/item-image-actual-paths >/dev/null; then
+              # New accepted PR2183 Explore + PR2184 Shared Item changes are
+              # disjoint and independently L2 QA-pinned. Do not widen globs.
+              # Verify original full postblob identity, not just path names.
+              while read -r approved_blob approved_path; do
+                test "$(git rev-parse "HEAD:$approved_path")" = "$approved_blob" || {
+                  echo WEB_ITEM_EXACT13_POSTBLOB_MISMATCH
+                  exit 1
+                }
+              done <<'ITEM_APPROVED_09INT_BLOBS'
+          339e396228678727c07711dbd5435ff961edb8ec .github/workflows/08web-explore-shared-moodboard-compensated.yml
+          c9e12fea13f018123fb79b1bf940c25a7333fb43 .github/workflows/08web-shared-entity-moodboard-compensated.yml
+          cfb2e6d86b5271a9bc09481f8b3aa6ce3f0f48b2 scripts/web-explore-shared-moodboard-compensation-chrome.mjs
+          bb4ea4ac4e54ff1fe3b77ffffe7df15cc7dad77b src/lib/entity/SharedEntityDetail.svelte
+          22457b22c977354c26dc9807033692b022729e45 src/lib/explore/copy.js
+          0afa72f76f16e7910289a7c8c2e3798ee0929cf5 src/routes/explore/+page.svelte
+          b2497e3413868a54996d308a28d1df08a404b49e tests/shared-catalog-directory-foundation.test.mjs
+          478eb242cdea036ae9dc21fac6f5e4e68d465963 tests/web-explore-decux21-moodboard-tap.test.mjs
+          c2deb4587c74f94b4fb861afafd9e7db258de572 tests/web-explore-decux28-moodboard-icons.test.mjs
+          0c3939f8ebc21535091afbba7400d063c8728e77 tests/web-explore-moodboard-shared-compensation.test.mjs
+          f6b691b43082d494732ead8c89c3473b70534fb1 tests/web-explore-wand-favorites-local.test.mjs
+          93f3971dd8dffca1cc7d7d95e5cc077e544df8e8 tests/web-shared-entity-moodboard-compensated.test.mjs
+          ITEM_APPROVED_09INT_BLOBS
+              node --test tests/web-moodboard-local-compensated-persist.test.mjs tests/web-explore-moodboard-shared-compensation.test.mjs tests/web-shared-entity-moodboard-compensated.test.mjs tests/web-stage1-collection-root.test.mjs tests/web-item-detail-static-link-gate.test.mjs
+              echo WEB_ITEM_EXPLORE_ENTITY_MOODBOARD_EXACT13_PINNED_REGRESSION_PASS
             else
               echo WEB_ITEM_ROUTE_UNAUTHORIZED_SCOPE
               diff -u /tmp/item-detail-static-approved-sorted /tmp/item-image-actual-paths || true

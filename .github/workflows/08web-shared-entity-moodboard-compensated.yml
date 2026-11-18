@@ -1,0 +1,29 @@
+name: 08 WEB Shared Item detail common Moodboard local rollback
+on:
+  pull_request:
+    paths:
+      - 'src/lib/entity/SharedEntityDetail.svelte'
+      - 'tests/shared-catalog-directory-foundation.test.mjs'
+      - 'tests/web-shared-entity-moodboard-compensated.test.mjs'
+      - '.github/workflows/08web-shared-entity-moodboard-compensated.yml'
+permissions:
+  contents: read
+jobs:
+  entity-moodboard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Real accepted local Entity typed Item source and prior snapshot negatives
+        run: |
+          node --test tests/web-shared-entity-moodboard-compensated.test.mjs tests/shared-catalog-directory-foundation.test.mjs tests/web-moodboard-local-compensated-persist.test.mjs
+      - name: Svelte and static Pages candidate build only
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
