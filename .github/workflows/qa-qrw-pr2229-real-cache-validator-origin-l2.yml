@@ -22,7 +22,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base=9bfee9e9e899b2ff25227fc997b4da8bd7f6c189
+          base=457d0c1e4211f7b43bbb269f9a30120236f68eee
           original=ea2ad47f554292cfae20f5618e4c5bfb96fbcd2c
           git merge-base --is-ancestor "$base" HEAD
           test "$(git rev-parse "$base:scripts/07dbk-steam-image-live-receipt.mjs")" = 4e97866851e86e61934bb766ad25fb272b684a81
