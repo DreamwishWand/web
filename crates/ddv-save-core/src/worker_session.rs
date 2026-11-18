@@ -449,3 +449,8 @@ mod scoped_frp01;
 #[cfg(feature="product-steam626-makeup-color1-scoped")]
 #[path="worker_steam626_makeup_color1.rs"]
 mod makeup_color1_worker;
+
+// ACT1685: separate read-only Bamboo bridge, no new Session or Writer.
+#[cfg(all(feature="product-steam626-bamboo-readonly",not(feature="semantic-writer-dev")))]
+#[path="worker_steam_bamboo_readonly.rs"]
+mod isolated_bamboo_readonly;
