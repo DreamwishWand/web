@@ -111,9 +111,12 @@ jobs:
            const onlyMan=make(gate,[[rust,manBlob]]),onlyWin=make(gate,[[attr,attrBlob]]);
            const winThenMan=make(onlyWin,[[rust,manBlob]]),manThenWin=make(onlyMan,[[attr,attrBlob]]);
            for(const [commit,sha] of [[onlyWin,core.win],[onlyMan,core.man],[winThenMan,core.both],[manThenWin,core.both]])assert.equal(g('rev-parse',commit+':crates/ddv-save-core'),sha);
-           assert.equal(g('rev-parse',onlyMan+'^{tree}'),'33923b77bfa3d9224db08164a2b21baebb3c3b3b');
-           assert.equal(g('rev-parse',onlyWin+'^{tree}'),'d2fe8b7635202c1ae1857795c51eb6a08c83e67c');
-           assert.equal(g('rev-parse',winThenMan+'^{tree}'),'5c818402af2ae91984412db6987e1f0febb45b33');
+           // Raw original ProductSource trees exclude separately staged R22 Gate6 changes.
+           const rawMan=make(main,[[rust,manBlob]]),rawWin=make(main,[[attr,attrBlob]]);
+           const rawBoth=make(main,[[rust,manBlob],[attr,attrBlob]]);
+           assert.equal(g('rev-parse',rawMan+'^{tree}'),'33923b77bfa3d9224db08164a2b21baebb3c3b3b');
+           assert.equal(g('rev-parse',rawWin+'^{tree}'),'d2fe8b7635202c1ae1857795c51eb6a08c83e67c');
+           assert.equal(g('rev-parse',rawBoth+'^{tree}'),'5c818402af2ae91984412db6987e1f0febb45b33');
            accept('MANNEQUIN_FIRST',gate,onlyMan,2278,core.start,core.man);
            accept('WINDOWS_FIRST',gate,onlyWin,2276,core.start,core.win);
            accept('WINDOWS_THEN_MANNEQUIN',onlyWin,winThenMan,2278,core.win,core.both);
