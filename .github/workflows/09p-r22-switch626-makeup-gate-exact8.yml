@@ -1,0 +1,39 @@
+name: 09P ACT1581 fixed Switch626 Makeup R22 eight-blob Gate source proof only
+on:
+  pull_request:
+    paths:
+      - 'scripts/wasm-distribution/r22-accepted-rust-scope.mjs'
+      - 'tests/09p-r22-switch626-makeup-gate-exact8.test.mjs'
+      - 'tests/09p-r22-steam626-eyecolor2-repair.test.mjs'
+      - '.github/workflows/09p-r22-switch626-makeup-gate-exact8.yml'
+permissions:
+  contents: read
+jobs:
+  exact-reviewed-core-pair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch exact accepted historical Makeup ABI Source Git objects, NEVER merge
+        run: |
+          git fetch --no-tags origin refs/pull/2217/head
+          test "$(git rev-parse FETCH_HEAD)" = b2735bc63884049a5f3d16423e5970553f168766
+          git cat-file -e b2735bc63884049a5f3d16423e5970553f168766^{commit}
+      - name: Fixed 8-path Rust Source/core tree release gate POS, forged-bad Git commit NEG
+        env:
+          WAND_REQUIRE_SWITCH_MAKEUP_GATE_FOCUS: '1'
+        run: |
+          node --test tests/09p-r22-switch626-makeup-gate-exact8.test.mjs
+          node --test tests/09p-r22-steam626-eyecolor2-repair.test.mjs
+      - name: No current Cargo revision, Writer or signed public operator grant
+        run: |
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = aa6b1dd771da305bf7a21c6101fb4620a8b74b93
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 5d2b35f6bc9f0b8544fc52f25a35614b59913d96
+          test ! -e build/worker-wasm-switch626-makeup-color1
+          echo R22_SWITCH626_MAKEUP_GATED_FUTURE_CORE_EXACT8_NO_RELEASE_NO_WRITER_ON
