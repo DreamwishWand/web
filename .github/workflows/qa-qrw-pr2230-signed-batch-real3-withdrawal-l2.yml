@@ -1,0 +1,49 @@
+name: QA ONLY 04 QR-W PR2230 real CDN Steam3 ETag/date signed withdrawal L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2230-signed-batch-real3-withdrawal-l2.yml'
+permissions:
+  contents: read
+jobs:
+  signed-batch-real-three-prior-etag-withdrawal-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2230-b187-real3-etag-cache-rollback-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin immutable original 3 Source files and exact 2 independent QA-only add paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=9bfee9e9e899b2ff25227fc997b4da8bd7f6c189
+          source=b1871a3060b36b40ebbb88b35cba4b85c1ff4c96
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:scripts/int-steam-public-media-signed-batch.mjs")" = e5323b1ee8f6a46d55e69b7fcc9ae2858e7147d1
+          test "$(git rev-parse "$base:tests/int-steam-public-media-signed-batch.test.mjs")" = 5f8fce56878f2b7556c027b963225e8d18f31085
+          if git cat-file -e "$base:ops/ddv-steam-public-media-prior-on-cache.json" 2>/dev/null; then exit 1; fi
+          test "$(git rev-parse 'HEAD:scripts/int-steam-public-media-signed-batch.mjs')" = 461bb49270650c85cedc34cef647445473ad53eb
+          test "$(git rev-parse 'HEAD:tests/int-steam-public-media-signed-batch.test.mjs')" = 72b114e72baf96b126860a8ef7f0b2e59a666d0f
+          test "$(git rev-parse 'HEAD:ops/ddv-steam-public-media-prior-on-cache.json')" = 1adb23565fc693b3e255f7a82be1f8f9bf7fce3b
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2230-real3-signed-withdrawal-prior-etag-l2.test.mjs')" = d5989e7465699d7a9ed5c4c852dc493046cc5fea
+          for f in scripts/int-steam-public-media-signed-batch.mjs tests/int-steam-public-media-signed-batch.test.mjs ops/ddv-steam-public-media-prior-on-cache.json tests/qa-qrw-pr2230-real3-signed-withdrawal-prior-etag-l2.test.mjs .github/workflows/qa-qrw-pr2230-signed-batch-real3-withdrawal-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' ops/ddv-steam-public-media-prior-on-cache.json scripts/int-steam-public-media-signed-batch.mjs tests/int-steam-public-media-signed-batch.test.mjs | LC_ALL=C sort >/tmp/original
+          printf '%s\n' .github/workflows/qa-qrw-pr2230-signed-batch-real3-withdrawal-l2.yml tests/qa-qrw-pr2230-real3-signed-withdrawal-prior-etag-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/original -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2230_ORIGINAL3_QAONLY2_IMMUTABLE_SOURCE_BLOBS_PASS
+      - name: Execute real Source signed media batch all original + independent historical ETag denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qa-qrw-pr2230-real3-signed-withdrawal-prior-etag-l2.test.mjs tests/int-steam-public-media-signed-batch.test.mjs
+          echo QRW2230_REAL3_OBSERVED_ETAG_DATE_WITHDRAW_CACHE_FAIL_CLOSED_L2_PASS
