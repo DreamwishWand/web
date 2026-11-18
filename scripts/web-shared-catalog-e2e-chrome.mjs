@@ -32,7 +32,8 @@ try {
  // Svelte handlers are installed after hydration; selecting the SSR form too early loses submit.
  await page.locator('form.create-board input').first().fill('Offline E2E Board');
  await page.locator('form.create-board button[type="submit"]').click();
- await page.locator('.board-list>button').filter({hasText:'Offline E2E Board'}).waitFor({timeout:20000});
+ // Accepted DEC-UX-24 uses full-width Moodboard root cards, not flat board-list buttons.
+ await page.locator('[data-moodboard-root-card] button').filter({hasText:'Offline E2E Board'}).waitFor({state:'visible',timeout:20000});
  pass('LOCAL_MOODBOARD_CREATED_WITHOUT_ACCOUNT');
 
  await page.goto(root+'/collection/',{waitUntil:'domcontentloaded'});
@@ -83,7 +84,9 @@ try {
 
  await page.goto(root+'/explore/',{waitUntil:'domcontentloaded'});
  await page.locator('.grid .card').first().waitFor({timeout:35000});
- await page.locator('.controls input[type="search"]').fill(ITEM);
+ // Accepted DEC-UX-07 search is collapsed and disabled until the user opens it.
+ await page.locator('[data-explore-search-toggle]').click();
+ await page.locator('[data-explore-search-panel] input[type="search"]').fill(ITEM);
  await page.waitForFunction(()=>document.querySelectorAll('.grid .card').length===1,{timeout:15000});
  await page.locator('.card footer a').first().click();
  await page.locator('[data-entity-identity]').waitFor({timeout:25000});
