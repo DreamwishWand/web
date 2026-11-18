@@ -117,10 +117,14 @@ export function createCollectionExact1Consumer(adapter,{trustedLocalHarness=fals
  });
  const downloadVerifiedCopy=which=>run(['ready','previewed','staged','undone','exported'],async check=>{
   const b=which==='backup'?backup:which==='edited'&&state.phase==='exported'?edited:null;if(!b)fail();
-  const r=await adapter.downloadVerifiedCopy(source.selection,which);check();
-  if(!keys(r,'kind,name,sha256,sizeBytes,encryptedBytes')||r.kind!=='VERIFIED_DOWNLOAD'||r.name!==b.name||r.sha256!==b.sha||r.sizeBytes!==b.size||
-   !(r.encryptedBytes instanceof Uint8Array)||r.encryptedBytes.length!==b.size)fail();
-  const bytes=new Uint8Array(r.encryptedBytes);
+  const r=await adapter.downloadVerifiedCopy(source.selection,which),transient=r?.encryptedBytes;
+  let bytes;
+  try{
+   check();
+   if(!keys(r,'kind,name,sha256,sizeBytes,encryptedBytes')||r.kind!=='VERIFIED_DOWNLOAD'||r.name!==b.name||r.sha256!==b.sha||r.sizeBytes!==b.size||
+    !(transient instanceof Uint8Array)||transient.length!==b.size)fail();
+   bytes=new Uint8Array(transient);
+  }finally{if(transient instanceof Uint8Array)Uint8Array.prototype.fill.call(transient,0)}
   try{if(await hash(bytes)!==b.sha)fail();check();return {name:b.name,encryptedBytes:bytes}}catch(e){bytes.fill(0);throw e}
  });
  return Object.freeze({snapshot,load,openFile,backupOriginal,preview,stage,undo,redo,exportEditedCopy,downloadVerifiedCopy,close});

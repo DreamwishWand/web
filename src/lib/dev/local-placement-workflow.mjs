@@ -149,9 +149,14 @@ export function createLocalPlacementDevWorkflow(adapter,{trustedLocalHarness=fal
  });
  const downloadVerifiedCopy=which=>run(['ready','previewed','staged','undone','exported'],async check=>{
   const bound=which==='backup'?backup:which==='edited'&&state.phase==='exported'?edited:null;if(!bound)fail();
-  const r=await adapter.downloadVerifiedCopy(which);check();
-  if(!exact(r,'kind,name,sha256,sizeBytes,encryptedBytes')||r.kind!=='VERIFIED_DOWNLOAD'||r.name!==bound.name||r.sha256!==bound.sha||r.sizeBytes!==bound.size||!(r.encryptedBytes instanceof Uint8Array)||r.encryptedBytes.length!==bound.size)fail();
-  const b=new Uint8Array(r.encryptedBytes);try{if(await hash(b)!==bound.sha)fail();check();return {name:bound.name,encryptedBytes:b}}catch(e){b.fill(0);throw e}
+  const r=await adapter.downloadVerifiedCopy(which),transient=r?.encryptedBytes;
+  let b;
+  try{
+   check();
+   if(!exact(r,'kind,name,sha256,sizeBytes,encryptedBytes')||r.kind!=='VERIFIED_DOWNLOAD'||r.name!==bound.name||r.sha256!==bound.sha||r.sizeBytes!==bound.size||!(transient instanceof Uint8Array)||transient.length!==bound.size)fail();
+   b=new Uint8Array(transient);
+  }finally{if(transient instanceof Uint8Array)Uint8Array.prototype.fill.call(transient,0)}
+  try{if(await hash(b)!==bound.sha)fail();check();return {name:bound.name,encryptedBytes:b}}catch(e){b.fill(0);throw e}
  });
  return Object.freeze({snapshot,openFile,backupOriginal,preview,stage,undo,redo,exportEditedCopy,downloadVerifiedCopy,close});
 }

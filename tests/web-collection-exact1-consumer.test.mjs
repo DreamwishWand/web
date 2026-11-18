@@ -20,7 +20,7 @@ const adapter=()=>({
  stageCollectionTarget:async(s,i)=>{assert.equal(s,1);assert.equal(i,0);return mutation('STAGED')},
  undo:async()=>mutation('UNDONE'),redo:async()=>mutation('REDONE'),
  exportEditedCopy:async()=>({kind:'EXPORTED',selection:1,editedCopyName:'edited.p1g',editedSha256:eSha,editedSizeBytes:16,backupName:'backup.p1g',editedCiphertextVerified:true,freshWorkerReopenVerified:true,independentProcessReopenVerified:false,originalUnchanged:true,...safety}),
- downloadVerifiedCopy:async(s,w)=>({kind:'VERIFIED_DOWNLOAD',name:w+'.p1g',sha256:w==='backup'?sha:eSha,sizeBytes:16,encryptedBytes:w==='backup'?original:edited}),
+ downloadVerifiedCopy:async(s,w)=>({kind:'VERIFIED_DOWNLOAD',name:w+'.p1g',sha256:w==='backup'?sha:eSha,sizeBytes:16,encryptedBytes:new Uint8Array(w==='backup'?original:edited)}),
  close:async()=>closedAck()
 });
 const make=a=>createCollectionExact1Consumer(a,{trustedLocalHarness:true});
