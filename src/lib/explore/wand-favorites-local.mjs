@@ -38,17 +38,42 @@ export function changeWandFavorite(document,itemId,enabled){
   }else values.delete(itemId);
   return {schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[...values].sort((a,b)=>a-b)};
 }
-// Read current storage each time to avoid overwriting another tab's newer state.
-// Backup always precedes commit, so an unsuccessful current write never
-// silently changes the accepted primary document in memory.
+// Always read the current document; never overwrite a newer tab's state from
+// an old UI snapshot. Both localStorage keys are part of one logical update.
+// Web Storage has atomic setItem per key, but no cross-key transaction: when
+// either write fails, compensate BOTH keys and verify the exact old raw bytes.
+// A failed rollback is explicitly unsafe, never a successful Favorite update.
 export function persistWandFavorite(storage,itemId,enabled){
   if(!storage||typeof storage.getItem!=='function'||typeof storage.setItem!=='function')throw Error('WAND_FAVORITES_STORAGE_UNAVAILABLE');
   const previous=storage.getItem(WAND_FAVORITES_STORAGE_KEY);
+  const previousBackup=storage.getItem(WAND_FAVORITES_BACKUP_KEY);
   const current=previous===null?emptyWandFavorites():parseWandFavorites(previous);
   const next=changeWandFavorite(current,itemId,enabled);
   if(JSON.stringify(current.itemIds)===JSON.stringify(next.itemIds))return current;
   const serialized=JSON.stringify(next);
-  if(previous!==null)storage.setItem(WAND_FAVORITES_BACKUP_KEY,previous);
-  storage.setItem(WAND_FAVORITES_STORAGE_KEY,serialized);
+  const restore=(key,raw)=>{
+    if(storage.getItem(key)===raw)return;
+    if(raw===null){
+      if(typeof storage.removeItem!=='function')throw Error('WAND_FAVORITES_REMOVE_UNAVAILABLE');
+      storage.removeItem(key);
+    }else storage.setItem(key,raw);
+  };
+  try{
+    if(previous!==null)storage.setItem(WAND_FAVORITES_BACKUP_KEY,previous);
+    storage.setItem(WAND_FAVORITES_STORAGE_KEY,serialized);
+    if(storage.getItem(WAND_FAVORITES_STORAGE_KEY)!==serialized||
+       (previous!==null&&storage.getItem(WAND_FAVORITES_BACKUP_KEY)!==previous))
+      throw Error('WAND_FAVORITES_COMMIT_UNVERIFIED');
+  }catch(error){
+    let restored=true;
+    try{
+      restore(WAND_FAVORITES_STORAGE_KEY,previous);
+      restore(WAND_FAVORITES_BACKUP_KEY,previousBackup);
+      restored=storage.getItem(WAND_FAVORITES_STORAGE_KEY)===previous&&
+        storage.getItem(WAND_FAVORITES_BACKUP_KEY)===previousBackup;
+    }catch{restored=false}
+    if(!restored)throw Error('WAND_FAVORITES_ROLLBACK_UNVERIFIED',{cause:error});
+    throw error;
+  }
   return next;
 }
