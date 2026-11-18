@@ -1,0 +1,38 @@
+name: 09P R22 current Steam626 EyeColor2 signed input scope (OFF)
+on:
+  pull_request:
+    paths:
+      - 'scripts/wasm-distribution/protected-release-inputs.json'
+      - 'tests/09p-r22-steam626-eyecolor2-repair.test.mjs'
+      - '.github/workflows/09p-r22-steam626-eyecolor2-repair.yml'
+permissions:
+  contents: read
+jobs:
+  r22-exact-steam626-eye2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact protected R22 input, 9-source provenance, issuer and negative policy test
+        run: node --test tests/09p-r22-steam626-eyecolor2-repair.test.mjs
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Prove genuine R22 read-only feature-combination WASM compiles without signing or publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          test -s crates/ddv-save-core/target/wasm32-unknown-unknown/release/ddv_save_core.wasm
+          test ! -e static/worker-wasm-steam626-eyecolor2
+          test ! -e static/worker-wasm-steam626-bamboo-readonly
+          test ! -e build/worker-wasm-steam626-eyecolor2
+          echo R22_CARGO_CURRENT_EYE2_INPUT_SCOPE_SOURCE_ONLY_NO_PUBLIC_ASSETS_NO_WRITER_ON
