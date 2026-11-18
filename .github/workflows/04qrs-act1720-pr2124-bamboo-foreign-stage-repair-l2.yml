@@ -2,7 +2,7 @@ name: "04 QR-S ACT1720 Steam626 Bamboo per-Op proof signer Security L2 (QA ONLY)
 on:
   pull_request:
     paths:
-      - ".github/workflows/04qrs-act1720-pr2124-bamboo-perop-proof-l2.yml"
+      - ".github/workflows/04qrs-act1720-pr2124-bamboo-foreign-stage-repair-l2.yml"
 permissions:
   contents: read
 jobs:
@@ -204,7 +204,7 @@ jobs:
           assert.equal(existsSync('static/worker-wasm-steam626-bamboo-perop'),false);
           assert.equal(existsSync('build/worker-wasm-steam626-bamboo-perop'),false);
           pos++;
-          console.log('QRS_ACT1720_BAMBOO_PEROP_SIGNER_SECURITY_L2_PASS',JSON.stringify({
+          console.log('QRS_ACT1720_BAMBOO_REPAIRED_SIGNER_SECURITY_L2_PASS',JSON.stringify({
             positive:pos,negative:neg,sourceHead:head,base,
             exactThreeAdd:true,protectedMainIssuerDenied:true,
             syntheticProofOnly:true,actualRustGeneratedHere:false,
