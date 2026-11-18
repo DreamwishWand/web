@@ -1,0 +1,88 @@
+name: 01A QA ONLY Windows Steam626 private Product amount native proof
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/01a-windows-private-bridge-qa-only.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-native-private-product:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 10 # only the immutable original QA parent ancestry is required
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Immutable original PR2267 source and protected Cargo lock
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pins = @{
+            'crates/ddv-save-core/src/product_amount_scoped.rs' = '13d861165bea3fb37f79d7bbc4cb9ab51669fa78'
+            'crates/ddv-save-core/src/semantic_writer.rs' = 'f11c68ca214853c762788ae032710fc4683dd472'
+            'crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs' = '9f783e64ec44fdc2d863a4634f3d334a89cf7f62'
+            '.github/workflows/01a-private-product-amount-v2-bridge.yml' = '77f8bfa29f55f28d348892086c684af9c52011bd'
+            'scripts/wasm-distribution/approved-Cargo.lock' = 'b667b42cfef2032c2925be7b2aa9b7142bff4b52'
+            'crates/ddv-save-core/data/.gitattributes' = 'f67de2e4316397b93f95088c379f724ea81e9399'
+          }
+          foreach ($p in $pins.Keys) {
+            $actual = (git rev-parse "HEAD:$p").Trim()
+            if ($actual -ne $pins[$p]) { throw "FIXED_SOURCE_GITBLOB_MISMATCH $p" }
+          }
+          $base = '07a0d6268e82ee00e21ca1683f7e64a45097e9ed'
+          $paths = @((git diff --name-only $base HEAD))
+          if ($paths.Count -ne 1 -or $paths[0] -ne '.github/workflows/01a-windows-private-bridge-qa-only.yml') {
+            throw 'QA_ONLY_ONE_WORKFLOW_REQUIRED'
+          }
+          foreach ($name in @('steam626-amount-packaged-candidates.json',
+                                 'steam626-amount-dependency-projection.json',
+                                 'steam626-amount-layout-reference.jsonl')) {
+            $p = "crates/ddv-save-core/data/$name"
+            $attribute = @(git check-attr text -- $p)
+            if ($attribute.Count -ne 1 -or -not $attribute[0].EndsWith('text: unset')) {
+              throw "SHA_PINNED_DATA_NOT_RAW_GIT_CHECKOUT $name"
+            }
+          }
+          if (Test-Path 'crates/ddv-save-core/Cargo.lock') { throw 'UNEXPECTED_WORKSPACE_LOCK' }
+          Copy-Item 'scripts/wasm-distribution/approved-Cargo.lock' 'crates/ddv-save-core/Cargo.lock'
+          if (-not (Get-Content '.github/workflows/pages.yml' -Raw).Contains('--features worker-wasm,indexed-read')) {
+            throw 'PUBLIC_PROFILE_CHANGED'
+          }
+          Write-Output '01A_WINDOWS_FIXED_SOURCE_PRIVATE_ONLY_SNAPSHOT_PASS'
+      - name: Actual native Rust ProductSession Catalog0 and Chest48 synthetic test on Windows
+        shell: pwsh
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v2,product-amount-scoped --lib private_product_amount_plan_bridge_catalog0_chest48_and_active_subscriber_denial
+          if ($LASTEXITCODE -ne 0) { throw 'WINDOWS_RUST_PRODUCT_BRIDGE_TEST_FAILED' }
+      - name: Compile real private Steam Windows Rust executable
+        shell: pwsh
+        run: |
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v2,product-amount-scoped --bin wand-local-rust-v2-noop
+          if ($LASTEXITCODE -ne 0) { throw 'WINDOWS_PRIVATE_NATIVE_BINARY_BUILD_FAILED' }
+      - name: Windows real process rejects both private modes without attested Build and exposes no stdout
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = (Resolve-Path 'crates/ddv-save-core/target/debug/wand-local-rust-v2-noop.exe').Path
+          foreach ($mode in @('--private-steam626-product-catalog0-exact1-only', '--private-steam626-product-chest48-exact1-only')) {
+            $psi = [System.Diagnostics.ProcessStartInfo]::new()
+            $psi.FileName = $exe
+            $psi.ArgumentList.Add($mode)
+            $psi.UseShellExecute = $false
+            $psi.CreateNoWindow = $true
+            $psi.RedirectStandardOutput = $true
+            $psi.RedirectStandardError = $true
+            $psi.Environment['WAND_LOCAL_INSTALLED_STEAM_FULLVERSION'] = 'forged-Windows-Build'
+            [void]$psi.Environment.Remove('WAND_LOCAL_INSTALLED_SWITCH_BID')
+            $process = [System.Diagnostics.Process]::Start($psi)
+            $stdout = $process.StandardOutput.ReadToEnd()
+            $stderr = $process.StandardError.ReadToEnd()
+            $process.WaitForExit()
+            if ($process.ExitCode -ne 12 -or $stdout.Length -ne 0 -or
+                -not $stderr.Contains('PRIVATE_V2_DENIED:SEMANTIC_EXACT_EXTERNAL_STEAM_BUILD_REQUIRED')) {
+              throw "WINDOWS_PRIVATE_REJECT_OR_STDOUT_INVARIANT_FAILED $mode"
+            }
+          }
+          Write-Output '01A_WINDOWS_PRIVATE_PRODUCT_2MODES_NO_BUILD_NO_STDOUT_DENIED_PASS'
