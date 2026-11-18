@@ -1,0 +1,101 @@
+name: 05 QR-C PR2095 Bamboo Rust WASM ABI independent changed L2 QA ONLY
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/steam_bamboo_worker_abi_tests.rs'
+      - '.github/workflows/05qrc-pr2095-bamboo-wasm-changed-l2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bamboo-changed-abi-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Verify QA-only direct original Source9 and no product modifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=8e0007282a98ed3b5dbc1d5d7accb24d470dcf9f
+          git cat-file -e "$SOURCE^{commit}"
+          git diff --name-only "$SOURCE" HEAD | sort > "$RUNNER_TEMP/changed.txt"
+          printf '%s\n' \
+            '.github/workflows/05qrc-pr2095-bamboo-wasm-changed-l2.yml' \
+            'crates/ddv-save-core/src/steam_bamboo_worker_abi_tests.rs' | sort > "$RUNNER_TEMP/allow.txt"
+          diff -u "$RUNNER_TEMP/allow.txt" "$RUNNER_TEMP/changed.txt"
+          for path in \
+            crates/ddv-save-core/Cargo.toml \
+            crates/ddv-save-core/src/product_session.rs \
+            crates/ddv-save-core/src/steam_single_fence_readonly.rs \
+            crates/ddv-save-core/src/worker_session.rs \
+            crates/ddv-save-core/src/wasm_worker.rs \
+            crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs \
+            crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs
+          do
+            test "$(git rev-parse HEAD:"$path")" = "$(git rev-parse "$SOURCE":"$path")"
+          done
+          echo QRC2095_QA_ONLY_SOURCE7_BLOB_IDENTITY_PASS_NEVER_MERGE
+      - name: Derive unchanged-dependency local Cargo.lock, never commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          sha256sum crates/ddv-save-core/Cargo.lock > "$RUNNER_TEMP/qrc-cargo-lock.sha"
+          echo QRC2095_EPHEMERAL_CARGO_LOCK_NOT_GIT_COMMITTED
+      - name: Independent changed Worker Rust receipt and negative checks
+        run: |
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features product-steam626-bamboo-readonly \
+            --lib bamboo_qrc2095_ -- --nocapture
+      - name: Build exact generated JS/WASM in four isolated feature profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CARGO_TARGET_DIR="$RUNNER_TEMP/qrc-bamboo-target"
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root "$RUNNER_TEMP/qrc-bindgen"
+          function profile() {
+            local label="$1"
+            local features="$2"
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+              --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            local out="$RUNNER_TEMP/qrc-bamboo-$label"
+            mkdir -p "$out"
+            "$RUNNER_TEMP/qrc-bindgen/bin/wasm-bindgen" \
+              "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+              --target web --out-dir "$out" --no-typescript
+            test -s "$out/ddv_save_core_bg.wasm"
+            node - "$out/ddv_save_core.js" "$label" <<'NODE'
+          const fs = require('node:fs');
+          const [file,label] = process.argv.slice(2);
+          const js = fs.readFileSync(file, 'utf8');
+          const bamboo = js.includes('read_steam626_bamboo_single_target');
+          const singleFence = js.includes('read_steam626_singlefence_target');
+          if (label === 'own' && (!bamboo || singleFence)) throw Error('Bamboo own export mismatch');
+          if (label === 'foreign' && (bamboo || !singleFence)) throw Error('Foreign Reader export leak');
+          if ((label === 'off' || label === 'mixed') && bamboo) throw Error('Bamboo forbidden profile export');
+          if (js.includes('stage_steam626_bamboo') || js.includes('export_steam626_bamboo')) throw Error('Bamboo authority exposed');
+          console.log('QRC2095_GENERATED_JS_WASM_PROFILE_PASS',label,JSON.stringify({bamboo,singleFence,bytes:js.length}));
+          NODE
+            sha256sum "$out/ddv_save_core.js" "$out/ddv_save_core_bg.wasm"
+          }
+          profile own 'worker-wasm,product-steam626-bamboo-readonly'
+          profile off 'worker-wasm,indexed-read'
+          profile foreign 'worker-wasm,product-steam626-singlefence-readonly'
+          profile mixed 'worker-wasm,product-steam626-bamboo-readonly,semantic-writer-dev'
+          echo QRC2095_FOUR_GENERATED_WASM_PROFILES_L2_PASS__NO_WRITER_OR_STAGE
+      - name: Static public Pages and Worker authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          ! grep -R -F 'read_steam626_bamboo_single_target' src/routes
+          ! grep -R -F 'read_steam626_bamboo_single_target' src/lib
+          echo QRC2095_PUBLIC_READER_CONSUMER_NOT_CONNECTED_WRITER_OFF
+          sha256sum -c "$RUNNER_TEMP/qrc-cargo-lock.sha"
