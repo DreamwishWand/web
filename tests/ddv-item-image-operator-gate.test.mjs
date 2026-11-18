@@ -148,6 +148,40 @@ test("asset can only be a technical pack candidate with exact version/visibility
   }
 });
 
+test("duplicate restored HIDDEN keys are rejected across candidate, operator, and preparation without changing typed hash semantics", () => {
+  const old = (kind,value,incidentRef="SYNTHETIC_ORIGINAL") =>
+    ({kind,value,state:"HIDDEN",incidentRef});
+  const duplicateSets = [
+    [old("ITEM_ID","70000001"),old("ITEM_ID","70000001","SYNTHETIC_SECOND")],
+    [old("ITEM_ID",70000001),old("ITEM_ID","70000001","SYNTHETIC_SECOND")],
+    [old("SOURCE_SHA256",digest("c")),old("SOURCE_SHA256",digest("C"),"SYNTHETIC_SECOND")],
+    [old("WEBP_SHA256",digest("d")),old("WEBP_SHA256",digest("D"),"SYNTHETIC_SECOND")]
+  ];
+  for (const dup of duplicateSets) {
+    assert.equal(validateImageSuppressionLedger(dup),false,JSON.stringify(dup));
+    assert.deepEqual(preflightGameItemImage(image,ctx,dup).reasons,
+      ["SUPPRESSION_LEDGER_MISSING_OR_INVALID"],"a forged duplicate cannot make an unrelated item eligible");
+    const review=preflightGameImageOperatorReceipt({
+      ...template,suppressionLedger:dup,
+      suppressionLedgerProvenance:"SYNTHETIC_SCOPED_LEDGER_VERIFIED"
+    });
+    assert.equal(review.readyForOperatorReview,false);
+    assert.ok(review.reasons.includes("SUPPRESSION_LEDGER_OR_PROVENANCE_NOT_VERIFIED"));
+    const prepared=prepareGameImageTakedownSuppression([image],
+      {kind:"ITEM_ID",value:image.itemId},dup,"SYNTHETIC_NEW_INCIDENT");
+    assert.deepEqual(prepared,{prepared:false,reasons:["EXISTING_SUPPRESSION_LEDGER_DUPLICATE"]},
+      "preserve existing actionable duplicate error and never return a partial proposal");
+  }
+  const typedDistinct=[old("SOURCE_SHA256",digest("c")),old("WEBP_SHA256",digest("C"))];
+  assert.equal(validateImageSuppressionLedger(typedDistinct),true,
+    "an identical digest across two explicitly typed media kinds is not a duplicate");
+  assert.deepEqual(preflightGameItemImage(image,ctx,typedDistinct),{candidate:true,reasons:[]});
+  assert.equal(preflightGameImageOperatorReceipt({
+    ...template,suppressionLedger:typedDistinct,
+    suppressionLedgerProvenance:"SYNTHETIC_SCOPED_LEDGER_VERIFIED"
+  }).reasons.includes("SUPPRESSION_LEDGER_OR_PROVENANCE_NOT_VERIFIED"),false);
+});
+
 test("per-item or shared-source/WebP hash HIDE overrides all technical positive metadata", () => {
   const blocked = (kind,value) => [{kind,value,state:"HIDDEN",incidentRef:"SYNTHETIC_TAKEDOWN"}];
   for(const [kind,value] of [["ITEM_ID",40000047],["ITEM_ID","40000047"],
