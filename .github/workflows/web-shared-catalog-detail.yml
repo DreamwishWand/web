@@ -9,6 +9,7 @@ on:
       - 'src/lib/ui/ItemImagePreferences.svelte'
       - 'tests/web-switch1253-item-thumb-contract.test.mjs'
       - 'tests/web-steam1253-door-primary-contract.test.mjs'
+      - 'tests/web-shared-item-image-owner-policy-gate.test.mjs'
       - 'scripts/web-steam1253-door-collection-chrome.mjs'
       - 'scripts/web-switch1253-private-preview-build.mjs'
       - 'src/lib/entity/shared-catalog-directory.mjs'
@@ -82,6 +83,13 @@ jobs:
           src/lib/item-media/switch1253-public-item-images.mjs
           tests/web-switch1253-item-thumb-contract.test.mjs
           CURRENT_IMAGE_POLICY_SCOPE
+            # Explicit Owner common-notice + residual-risk source policy,
+            # never a broad image consumer or image-ON path wildcard.
+            cat > /tmp/switch1253-owner-policy-expected <<'OWNER_COMMON_IMAGE_SCOPE'
+          .github/workflows/web-shared-catalog-detail.yml
+          src/lib/item-media/switch1253-public-item-images.mjs
+          tests/web-shared-item-image-owner-policy-gate.test.mjs
+          OWNER_COMMON_IMAGE_SCOPE
             cat > /tmp/switch1253-prep-expected <<'CURRENT_IMAGE_PREP_SCOPE'
           .github/workflows/web-shared-catalog-detail.yml
           scripts/web-switch1253-private-preview-build.mjs
@@ -145,6 +153,11 @@ jobs:
               echo WEB_CURRENT_SWITCH1253_ITEM_IMAGE_EXACT6_OFF_SCOPE_PASS
             elif diff -q /tmp/switch1253-policy-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ISSUE604_POLICY_EXACT3_SCOPE_PASS
+            elif diff -q /tmp/switch1253-owner-policy-expected /tmp/switch1253-actual >/dev/null; then
+              # Keep inherited Switch and Steam scope tests AND new Owner
+              # synthetic denial cases; no accepted SHA or imagery bypass.
+              node --test tests/web-shared-item-image-owner-policy-gate.test.mjs tests/web-steam1253-door-primary-contract.test.mjs
+              echo WEB_SHARED_IMAGE_OWNER_POLICY_EXACT3_NEGATIVE_GATE_PASS
             elif diff -q /tmp/switch1253-prep-expected /tmp/switch1253-actual >/dev/null; then
               echo WEB_CURRENT_SWITCH1253_ELIGIBLE2_PREP_EXACT5_SCOPE_PASS
               node scripts/web-switch1253-private-preview-build.mjs
