@@ -34,13 +34,13 @@ try{
    assert.equal(await page.getByRole('dialog').count(),0,'independent add must not open Quick Review');
    assert.equal(await action.getAttribute('aria-pressed'),'true');
    assert.equal(await action.getAttribute('data-item-id'),itemId);
-   assert.equal(await action.evaluate(el=>el.classList.contains('added')),true);
+   assert.equal(await action.evaluate(el=>getComputedStyle(el).borderTopStyle),'double','pressed styling must be visibly distinct without color');
    const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('dreamwishwand:moodboards:v1')??'{}').boards?.[0]?.references?.length??-1);
    assert.equal(after,1,'add exactly once');
    await action.focus();
    await page.keyboard.press('Enter');
    assert.equal(await action.getAttribute('aria-pressed'),'false');
-   assert.equal(await action.evaluate(el=>el.classList.contains('added')),false);
+   assert.notEqual(await action.evaluate(el=>getComputedStyle(el).borderTopStyle),'double','removed state restores ordinary border');
    assert.equal(await page.getByRole('dialog').count(),0,'independent removal must not open Quick Review');
    const removed=await page.evaluate(()=>JSON.parse(localStorage.getItem('dreamwishwand:moodboards:v1')??'{}').boards?.[0]?.references?.length??-1);
    assert.equal(removed,0);
