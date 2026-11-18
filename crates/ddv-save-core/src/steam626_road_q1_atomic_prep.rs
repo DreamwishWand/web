@@ -694,7 +694,7 @@ mod road_q1_prep_tests {
     }
 
     #[test]
-    fn road_q1_raw_exact3_rejects_foreign_object_fields_and_unminted_shape() {
+    fn road_q1_prep_raw_exact3_rejects_foreign_object_fields_and_unminted_shape() {
         let s = fixture(false);
         let old = expected(&s);
         let before = s.receipt().unwrap();
