@@ -12,6 +12,46 @@ const ID=/^[1-9][0-9]{0,15}$/;
 const OWNER='OWNER_GO_FOR_DDV_GAME_IMAGES_20261105';
 const exactly=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&
   Object.keys(v).length===keys.length&&keys.every(k=>Object.prototype.hasOwnProperty.call(v,k));
+
+export const PRIOR_ON_CACHE=new URL('../ops/ddv-steam-public-media-prior-on-cache.json',import.meta.url);
+// Protected signed-ON provenance only. Empty registry deliberately denies ALL
+// withdrawal certifications. A caller-provided ETag or a self-hashed JSON
+// receipt is NOT historical evidence; 09INT must separately accept the
+// immutably pinned Source after real signed Pages plus an independent observer.
+const PRIOR_ETAG=/^(?:W\/)?"[\x21\x23-\x7e]{1,128}"$/;
+const PRIOR_HTTP_DATE=/^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/;
+function validatePriorOnCache(raw){
+  assert.ok(exactly(raw,['schema','records'])&&
+    raw.schema==='wand.int.steam-public-signed-prior-on-cache@1'&&
+    Array.isArray(raw.records)&&raw.records.length<=256,'PRIOR_ON_CACHE_SCHEMA');
+  const seen=new Set();
+  for(const r of raw.records){
+    assert.ok(exactly(r,['itemId','sha256','etag','lastModified',
+      'protectedCommit','pagesRunId','observerRunId','signedBundleSha256',
+      'releaseState','recordedBy']),'PRIOR_ON_CACHE_ENTRY_FIELDS');
+    assert.match(r.itemId,ID);assert.match(r.sha256,HEX);
+    assert.match(r.etag,PRIOR_ETAG,'PRIOR_ON_ETAG_INVALID');
+    assert.match(r.lastModified,PRIOR_HTTP_DATE,'PRIOR_ON_DATE_INVALID');
+    assert.equal(new Date(r.lastModified).toUTCString(),r.lastModified,'PRIOR_ON_DATE_INVALID');
+    assert.match(r.protectedCommit,/^[0-9a-f]{40}$/,'PRIOR_ON_PROTECTED_COMMIT_INVALID');
+    assert.ok(Number.isSafeInteger(r.pagesRunId)&&r.pagesRunId>0,'PRIOR_ON_PAGES_RUN_INVALID');
+    assert.ok(Number.isSafeInteger(r.observerRunId)&&r.observerRunId>0,'PRIOR_ON_OBSERVER_RUN_INVALID');
+    assert.match(r.signedBundleSha256,HEX,'PRIOR_ON_SIGNED_BUNDLE_INVALID');
+    assert.equal(r.releaseState,'SIGNED_PAGES_ON_OBSERVED','PRIOR_ON_STATE_INVALID');
+    assert.equal(r.recordedBy,'09_INT_PROTECTED_MAIN','PRIOR_ON_ISSUER_INVALID');
+    const key=[r.itemId,r.sha256,r.etag,r.lastModified].join('\u0000');
+    assert.ok(!seen.has(key),'PRIOR_ON_DUPLICATE_VALIDATOR');
+    seen.add(key);
+  }
+  return raw.records;
+}
+const trustedPriorOn=validatePriorOnCache(JSON.parse(readFileSync(PRIOR_ON_CACHE,'utf8')));
+function priorValidators(item){
+  const matched=trustedPriorOn.filter(r=>r.itemId===item.itemId&&r.sha256===item.sha256);
+  assert.ok(matched.length>0,'WITHDRAWAL_PRIOR_REAL_ON_VALIDATORS_REQUIRED:'+item.itemId);
+  return matched;
+}
+
 export const digest=b=>createHash('sha256').update(b).digest('hex');
 export function pathFor(sha){assert.match(sha,HEX);return 'ddv/item-images/'+VARIANT+'/'+sha.slice(0,2)+'/'+sha+'.webp';}
 export function readBatch(){return validateBatch(JSON.parse(readFileSync(BATCH,'utf8')));}
@@ -115,6 +155,9 @@ async function response(fetcher,url,method,extra={}){
 }
 export async function verifyLive(raw,root,fetcher=fetch){
   const batch=validateBatch(raw);
+  // Resolve every withdrawn subject from previously signed, independently
+  // observed real ON validators BEFORE contacting a public CDN endpoint.
+  const priorBySha=new Map(batch.withdrawn.map(item=>[item.sha256,priorValidators(item)]));
   const url=new URL(root);
   assert.equal(url.protocol,'https:');assert.equal(url.host,'dreamwishwand.github.io');
   assert.equal(url.pathname,'/web/');assert.equal(url.search,'');assert.equal(url.hash,'');
@@ -129,7 +172,12 @@ export async function verifyLive(raw,root,fetcher=fetch){
   }
   for(const item of batch.withdrawn){
     const target=new URL(pathFor(item.sha256),url).href;
-    for(const [method,headers] of [['GET',{}],['HEAD',{}],['GET',{'If-None-Match':'"stale"'}],['GET',{'If-Modified-Since':'Wed, 18 Nov 2026 00:00:00 GMT'}]]){
+    const checks=[['GET',{}],['HEAD',{}]];
+    for(const prior of priorBySha.get(item.sha256)){
+      checks.push(['GET',{'If-None-Match':prior.etag}]);
+      checks.push(['GET',{'If-Modified-Since':prior.lastModified}]);
+    }
+    for(const [method,headers] of checks){
       const res=await fetcher(target,{method,redirect:'manual',headers,signal:AbortSignal.timeout(20000)});
       assert.ok([404,410].includes(res.status),'WITHDRAWAL_PUBLIC_CACHE_NOT_DENIED_'+res.status);
     }
