@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - '.github/workflows/04qrs-act1101-pr2193-wardrobe-fd3-current-bridge-l2.yml'
+  push:
+    branches:
+      - '04qrs/act1101-pr2193-current-private-wardrobe-fd3-bridge'
+    paths:
+      - '.github/workflows/04qrs-act1101-pr2193-wardrobe-fd3-current-bridge-l2.yml'
 permissions:
   contents: read
 jobs:
@@ -14,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
