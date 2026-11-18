@@ -89,6 +89,11 @@ test('read-only signed delivery rejects foreign Chest Stage/Export in JS glue in
  assert.equal(bambooReadJsSymbolsOk(baseline),true);
  for(const name of ['dev_stage','stage_steam626_bamboo','export_steam626_bamboo',
   'stage_steam626_chest','export_steam626_chest','undo_steam626_chest',
+  'stage_switch624_frp01','export_switch624_frp01','write_switch624_frp01',
+  'apply_switch624_frp01','undo_switch624_frp01','redo_switch624_frp01',
+  'stage_switch626_hair','export_switch626_hair',
+  'stage_steam625_foreign','export_steam625_foreign',
+  'switch624_stage','switch624_export',
   'write_steam626_inventory','preview_steam626_chest']){
   assert.equal(bambooReadJsSymbolsOk(baseline+'export function '+name+'() {}\n'),false,name);
  }
