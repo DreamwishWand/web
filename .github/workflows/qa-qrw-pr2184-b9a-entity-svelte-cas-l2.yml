@@ -1,0 +1,177 @@
+name: QA ONLY 04 QR-W PR2184 B9A Shared Item actual Svelte CAS L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2184-b9a-entity-svelte-cas-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-detail-svelte-local-moodboard-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b9a0bc196b963624eaa7cdb2d7c65595d0dc1fbb
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exactly 4 child Source GitBlobs and unchanged accepted helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = b9a0bc196b963624eaa7cdb2d7c65595d0dc1fbb
+          test "$(git merge-base dd8d7f2fbb9a0df743cf9a6204381633fe01fc63 HEAD)" = dd8d7f2fbb9a0df743cf9a6204381633fe01fc63
+          test "$(git rev-parse HEAD:src/lib/moodboards/local-persist-compensated.mjs)" = 2a43a5d83ffcad4880c0c3b3cb62e7d0443b0c0c
+          test "$(git rev-parse HEAD:.github/workflows/08web-shared-entity-moodboard-compensated.yml)" = c9e12fea13f018123fb79b1bf940c25a7333fb43
+          test "$(git ls-tree HEAD '.github/workflows/08web-shared-entity-moodboard-compensated.yml' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:src/lib/entity/SharedEntityDetail.svelte)" = bb4ea4ac4e54ff1fe3b77ffffe7df15cc7dad77b
+          test "$(git ls-tree HEAD 'src/lib/entity/SharedEntityDetail.svelte' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:tests/shared-catalog-directory-foundation.test.mjs)" = b2497e3413868a54996d308a28d1df08a404b49e
+          test "$(git ls-tree HEAD 'tests/shared-catalog-directory-foundation.test.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:tests/web-shared-entity-moodboard-compensated.test.mjs)" = 93f3971dd8dffca1cc7d7d95e5cc077e544df8e8
+          test "$(git ls-tree HEAD 'tests/web-shared-entity-moodboard-compensated.test.mjs' | awk '{print $1}')" = 100644
+          cat >/tmp/qrw2184-exact <<'EOF'
+          .github/workflows/08web-shared-entity-moodboard-compensated.yml
+          src/lib/entity/SharedEntityDetail.svelte
+          tests/shared-catalog-directory-foundation.test.mjs
+          tests/web-shared-entity-moodboard-compensated.test.mjs
+          EOF
+          LC_ALL=C sort /tmp/qrw2184-exact >/tmp/qrw2184-e
+          git diff --name-only dd8d7f2fbb9a0df743cf9a6204381633fe01fc63 HEAD | LC_ALL=C sort >/tmp/qrw2184-a
+          diff -u /tmp/qrw2184-e /tmp/qrw2184-a
+          git diff --quiet dd8d7f2fbb9a0df743cf9a6204381633fe01fc63 HEAD -- src/lib/moodboards/local-persist-compensated.mjs src/lib/moodboards/store.js crates/ddv-save-core/ .github/workflows/pages.yml static/ ops/ package-lock.json
+          echo QRW2184_4_CHILD_PATHS_SAME_ACCEPTED_PARENT_HELPER_AND_NO_SAVE_SOURCE_PASS
+      - name: Original changed child focused tests only
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          node --test tests/web-shared-entity-moodboard-compensated.test.mjs tests/shared-catalog-directory-foundation.test.mjs
+      - name: Independently execute real Svelte detail click action and typed local CAS negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import vm from 'node:vm';
+          import {readFileSync} from 'node:fs';
+          import {MOODBOARD_STORAGE_KEY as MAIN,MOODBOARD_BACKUP_KEY as BACKUP,createEmptyMoodboardDocument,createMoodboard,serializeMoodboardDocument,parseMoodboardDocument,addMoodboardReference} from './src/lib/moodboards/store.js';
+          import {addCatalogEntityToMoodboard} from './src/lib/entity/entity-moodboard-action.mjs';
+          import {persistMoodboardLocalChange} from './src/lib/moodboards/local-persist-compensated.mjs';
+          const source=readFileSync('src/lib/entity/SharedEntityDetail.svelte','utf8');
+          const start='function saveToMoodboard() {',end='\n  onMount(';
+          const i=source.indexOf(start),j=source.indexOf(end,i+start.length);
+          assert.ok(i>=0&&j>i,'Actual Svelte saveToMoodboard handler must be present');
+          const handler=source.slice(i,j);
+          assert.match(handler,/persistMoodboardLocalChange\(localStorage, result\.document, current\)/);
+          assert.ok(handler.indexOf('persistMoodboardLocalChange(localStorage')<handler.indexOf('moodboardDocument = result.document'));
+          assert.doesNotMatch(handler,/localStorage\.setItem\(/);
+          assert.match(source,/data-writer="off"/);
+          assert.match(source,/data-public-indexable="false"/);
+          assert.match(source,/noindex,follow/);
+          const stamp='2026-11-18T00:00:00.000Z';
+          const sample={status:'FOUND',canExplore:true,source:{platform:'Nintendo Switch',gameVersion:'1.25.0',buildID:'52BD625D9B4E0053'},item:{itemId:40000047,label:'Verified original furniture',family:'Furniture'}};
+          function make(){
+           const a=createMoodboard(createEmptyMoodboardDocument(stamp),{title:'Detail L2 Original'},{now:stamp,idFactory:()=>1});
+           const raw=serializeMoodboardDocument(a.document),map=new Map([[MAIN,raw],[BACKUP,'prior-opaque-previous-bytes']]),writes=[];
+           const storage={
+            getItem(k){return map.has(k)?map.get(k):null},
+            setItem(k,v){writes.push('set:'+k);map.set(k,String(v))},
+            removeItem(k){writes.push('remove:'+k);map.delete(k)}
+           };
+           const env={__doc:a.document,__id:a.board.id,__outcome:sample,localStorage:storage,
+            MOODBOARD_STORAGE_KEY:MAIN,createEmptyMoodboardDocument,parseMoodboardDocument,
+            addCatalogEntityToMoodboard:(...p)=>addCatalogEntityToMoodboard(...p,{now:stamp,idFactory:()=>2}),
+            persistMoodboardLocalChange};
+           const vmSrc=[
+            "let outcome=globalThis.__outcome;let selectedBoardId=globalThis.__id;let moodboardDocument=globalThis.__doc;let moodboardStatus='';",
+            "const moodCopy={saved:'SAVED',invalid:'INVALID'};",
+            handler,
+            "globalThis.act=()=>saveToMoodboard();",
+            "globalThis.state=()=>({status:moodboardStatus,document:moodboardDocument,selectedBoardId});",
+            "globalThis.inject=(outcomeValue,selected)=>{outcome=outcomeValue;selectedBoardId=selected;};"
+           ].join('\n');
+           vm.runInNewContext(vmSrc,env);
+           return {a,raw,map,storage,writes,act:()=>env.act(),state:()=>env.state(),inject:(o,id)=>env.inject(o,id)};
+          }
+          let pos=0,neg=0;
+          {
+           const x=make();x.act();
+           assert.equal(x.state().status,'SAVED');
+           assert.equal(x.map.get(BACKUP),x.raw);
+           assert.equal(parseMoodboardDocument(x.map.get(MAIN)).boards[0].references[0].entityId,'40000047');
+           assert.equal(x.state().document.boards[0].references.length,1);
+           pos++;
+          }
+          for(const target of ['MAIN','BACKUP']){
+           const x=make(),set=x.storage.setItem.bind(x.storage);
+           x.storage.setItem=(k,v)=>{if(k===(target==='MAIN'?MAIN:BACKUP))throw Error('QUOTA_'+target);set(k,v)};
+           x.act();
+           assert.equal(x.state().status,'INVALID');
+           assert.equal(x.state().document.boards[0].references.length,0);
+           assert.equal(x.map.get(MAIN),x.raw);
+           assert.equal(x.map.get(BACKUP),'prior-opaque-previous-bytes');
+           neg++;
+          }
+          {
+           const x=make(),set=x.storage.setItem.bind(x.storage),seen=new Set();
+           x.storage.setItem=(k,v)=>{if(k===MAIN&&!seen.has(k)){seen.add(k);return;}set(k,v)};
+           x.act();
+           assert.equal(x.state().status,'INVALID');
+           assert.equal(x.state().document.boards[0].references.length,0);
+           assert.equal(x.map.get(MAIN),x.raw);
+           assert.equal(x.map.get(BACKUP),'prior-opaque-previous-bytes');
+           neg++;
+          }
+          {
+           const x=make(),set=x.storage.setItem.bind(x.storage),seen=new Set();
+           x.storage.setItem=(k,v)=>{if(k===MAIN&&!seen.has(k)){seen.add(k);set(k,v);throw Error('PARTIAL_MAIN');}set(k,v)};
+           x.act();
+           assert.equal(x.state().status,'INVALID');
+           assert.equal(x.state().document.boards[0].references.length,0);
+           assert.equal(x.map.get(MAIN),x.raw);
+           assert.equal(x.map.get(BACKUP),'prior-opaque-previous-bytes');
+           neg++;
+          }
+          {
+           const x=make(),get=x.storage.getItem.bind(x.storage),newer=serializeMoodboardDocument(addMoodboardReference(x.a.document,x.a.board.id,{type:'ITEM',label:'Other tab',entityId:'40000048'},{now:stamp,idFactory:()=>3}).document);
+           let first=true;
+           x.storage.getItem=k=>{const value=get(k);if(k===MAIN&&first){first=false;x.map.set(MAIN,newer);}return value};
+           x.act();
+           assert.equal(x.state().status,'INVALID');
+           assert.equal(x.state().document.boards[0].references.length,0);
+           assert.equal(x.map.get(MAIN),newer);
+           assert.equal(x.map.get(BACKUP),'prior-opaque-previous-bytes');
+           neg++;
+          }
+          for(const invalid of [
+           {...sample,canExplore:false},
+           {...sample,status:'BLOCKED'},
+           {...sample,item:{...sample.item,itemId:0}},
+           {...sample,source:{...sample.source,buildID:'UNKNOWN'}},
+           {...sample,source:{...sample.source,platform:'Steam Windows'}}
+          ]){
+           const x=make();x.inject(invalid,x.a.board.id);x.act();
+           assert.notEqual(x.state().status,'SAVED');
+           assert.equal(x.state().document.boards[0].references.length,0);
+           assert.equal(x.map.get(MAIN),x.raw);
+           assert.equal(x.map.get(BACKUP),'prior-opaque-previous-bytes');
+           neg++;
+          }
+          {
+           const x=make();x.inject(sample,'nonexistent-board');x.act();
+           assert.equal(x.state().status,'INVALID');assert.equal(x.map.get(MAIN),x.raw);
+           assert.equal(x.map.get(BACKUP),'prior-opaque-previous-bytes');neg++;
+          }
+          {
+           const x=make();x.inject(sample,'');x.act();
+           assert.notEqual(x.state().status,'SAVED');assert.equal(x.map.get(MAIN),x.raw);
+           assert.equal(x.writes.length,0);neg++;
+          }
+          assert.equal(pos,1);assert.equal(neg,12);
+          console.log('QRW2184_ACTUAL_SVELTE_DETAIL_TYPED_ITEM_PREVIEW_CAS',JSON.stringify({positives:pos,negatives:neg,previewNoindex:true,publicDetailBrowser:'NOT_RUN',writerOn:false,mediaOnByThisScope:false}));
+          
+          NODE
