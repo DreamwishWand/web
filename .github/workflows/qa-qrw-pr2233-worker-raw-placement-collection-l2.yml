@@ -1,0 +1,50 @@
+name: QA ONLY 04 QR-W PR2233 raw Worker reply Placement Collection L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2233-worker-raw-placement-collection-l2.yml'
+permissions:
+  contents: read
+jobs:
+  original-worker-raw-placement-collection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2233-81d7-worker-raw-placement-collection-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin original exact four Source blobs/modes and only two QA-only paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=9bfee9e9e899b2ff25227fc997b4da8bd7f6c189
+          source=81d7e5174fc279c59a8087d28cbc1e885a23a15d
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:src/lib/collection/collection-exact1-consumer.mjs")" = e5a169a29588f735f4fcffde40078a3a6e9e3a82
+          test "$(git rev-parse "$base:src/lib/dev/local-placement-workflow.mjs")" = b391cac5ce961a40692e65755be4d289a7a1eb7d
+          test "$(git rev-parse "$base:tests/web-collection-exact1-consumer.test.mjs")" = 086a71ac436732841cf1396f07f38a22a2bef9fa
+          test "$(git rev-parse 'HEAD:src/lib/collection/collection-exact1-consumer.mjs')" = 77f2a7ed3652588716f8b2897cfa56c6481146db
+          test "$(git rev-parse 'HEAD:src/lib/dev/local-placement-workflow.mjs')" = fec3911ceb050f78832c839217b649be58985dba
+          test "$(git rev-parse 'HEAD:tests/web-collection-exact1-consumer.test.mjs')" = 6084c3692a5f775767a000e8981e3c4eac4bc3d5
+          test "$(git rev-parse 'HEAD:tests/web-placement-collection-worker-receipt-wipe.test.mjs')" = 6a3aea905de75be45fbc1fd267076220f5ddc79a
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2233-worker-raw-placement-collection-l2.test.mjs')" = c6d1f17227070576b979725015ee380e2d882eaf
+          for f in src/lib/collection/collection-exact1-consumer.mjs src/lib/dev/local-placement-workflow.mjs tests/web-collection-exact1-consumer.test.mjs tests/web-placement-collection-worker-receipt-wipe.test.mjs tests/qa-qrw-pr2233-worker-raw-placement-collection-l2.test.mjs .github/workflows/qa-qrw-pr2233-worker-raw-placement-collection-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/collection/collection-exact1-consumer.mjs src/lib/dev/local-placement-workflow.mjs tests/web-collection-exact1-consumer.test.mjs tests/web-placement-collection-worker-receipt-wipe.test.mjs | LC_ALL=C sort >/tmp/original
+          printf '%s\n' .github/workflows/qa-qrw-pr2233-worker-raw-placement-collection-l2.yml tests/qa-qrw-pr2233-worker-raw-placement-collection-l2.test.mjs | LC_ALL=C sort >/tmp/qapins
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/original -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qapins -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2233_SOURCE4_QAONLY2_EXACT_BLOBS_PASS
+      - name: Execute actual Placement Collection workers against independent raw reply buffer faults
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qa-qrw-pr2233-worker-raw-placement-collection-l2.test.mjs tests/web-placement-collection-worker-receipt-wipe.test.mjs
+          echo QRW2233_ACTUAL_WORKER_RAW_BORROWED_BUFFER_L2_PASS
