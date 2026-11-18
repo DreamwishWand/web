@@ -1310,6 +1310,14 @@ const switch626MakeupMain107eExact8Entries=Object.freeze([
     }
   }
 ]);
+// ACT1581 / W-CORE-004: pending 01A exact ONE leaf BattlePass reference
+// safety repair, never a generic Core/Security/Writer/Op authorization.
+// Protected-main Gate-first Security L2 and sole 09INT are prerequisites.
+const steam626AmountOngoingBattlePassExact1Entries=Object.freeze([{
+ path:'crates/ddv-save-core/src/product_amount_scoped.rs',
+ before:{mode:'100644',blob:'e6e360f5326b9a5cf6884600a4c9ecf642aa12fa'},
+ after:{mode:'100644',blob:'13d861165bea3fb37f79d7bbc4cb9ab51669fa78'}
+}]);
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1510,6 +1518,23 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    inheritedOldSourcePr:1954,independentCurrentAbiL2Required:true,
    independentReleaseL2Required:true,sourceOnly:true,
    mergeAuthorized:false,writerAuthorized:false,operationOn:false}};
+ }
+ if(baseCore==='42086449f9deef26ed48b21d7edab0f5685da7c2'){
+  if(sourceCore!=='36be23f81c4558eafd3557c85ac71ea56a1e3459')
+   deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626AmountOngoingBattlePassExact1Entries,count:1,metadata:{
+   sourcePr:2263,sourceHead:'906606344b17604fa4eee55e8b0482a5bec40335',
+   originalProtectedBase:'f62d591006c6244123283e0d2b100dd0ce68af8c',
+   coreBefore:'42086449f9deef26ed48b21d7edab0f5685da7c2',
+   coreAfter:'36be23f81c4558eafd3557c85ac71ea56a1e3459',
+   exactChangedPath:'crates/ddv-save-core/src/product_amount_scoped.rs',
+   exactOldBlob:'e6e360f5326b9a5cf6884600a4c9ecf642aa12fa',
+   exactNewBlob:'13d861165bea3fb37f79d7bbc4cb9ab51669fa78',
+   cargoUnchanged:'751a73da41d8b58f7de70643f50b97722a3c1260',
+   r22InputUnchanged:'30551c7cc566614f64c8ba04748c3aef44b419bb',
+   independentRustRefQAL2Required:true,independentSecurityL2Required:true,
+   genuineEncryptedOriginalV2:'NOT_RUN',mergeAuthorized:false,
+   writerAuthorized:false,operationOn:false}};
  }
  deny('BASE_CORE_TREE');
 }
