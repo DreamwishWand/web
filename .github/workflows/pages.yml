@@ -242,6 +242,42 @@ jobs:
           test -f build/community-lab/recovery/index.html
           test -f build/community-ops/index.html
           test -f build/404.html
+      # 09 INT scoped Steam player-visible artwork is a separate signed batch.
+      # The three existing R22 JS/WASM/manifest attestations above stay untouched.
+      - name: Verify protected Steam game-art batch matches actual static and built bytes
+        id: steam_media_batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node scripts/int-steam-public-media-signed-batch.mjs source
+          node scripts/int-steam-public-media-signed-batch.mjs built
+          if [ "$(node scripts/int-steam-public-media-signed-batch.mjs count)" = "0" ]; then
+            echo 'has_media=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'has_media=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: GitHub Pages issuer signs only the exact accepted Steam image batch
+        if: steps.steam_media_batch.outputs.has_media == 'true'
+        id: steam_media_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: build/ddv/item-images/**/*.webp
+      - name: Verify every Steam WebP subject signature and bytes before Pages upload
+        if: steps.steam_media_batch.outputs.has_media == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_STEAM_MEDIA_BUNDLE: ${{ steps.steam_media_sigstore.outputs.bundle-path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$WAND_STEAM_MEDIA_BUNDLE"
+          while IFS= read -r -d '' item; do
+            gh attestation verify "$item" --repo "$GITHUB_REPOSITORY" --bundle "$WAND_STEAM_MEDIA_BUNDLE"
+          done < <(find build/ddv/item-images -type f -name '*.webp' -print0)
+          node scripts/int-steam-public-media-signed-batch.mjs built
+          echo '09INT_STEAM_MEDIA_SIGNED_BATCH_SCOPED_SOURCE_BYTES_PASS'
       - name: Require successful exact protected-main CI before Pages upload
         id: protected_ci
         env:
@@ -290,6 +326,10 @@ jobs:
           for script in int-protected-ci-gate.mjs int-ci-evidence-preflight.mjs; do
             git -C "$dir" show "$GITHUB_SHA:scripts/$script" > "$dir/scripts/$script"
           done
+          # Reuse the exact fetched protected commit; never execute caller-supplied code.
+          mkdir -p "$RUNNER_TEMP/wand-steam-media-proof/scripts" "$RUNNER_TEMP/wand-steam-media-proof/ops"
+          git -C "$dir" show "$GITHUB_SHA:scripts/int-steam-public-media-signed-batch.mjs" > "$RUNNER_TEMP/wand-steam-media-proof/scripts/int-steam-public-media-signed-batch.mjs"
+          git -C "$dir" show "$GITHUB_SHA:ops/ddv-steam-public-media-signed-batch.json" > "$RUNNER_TEMP/wand-steam-media-proof/ops/ddv-steam-public-media-signed-batch.json"
           (cd "$dir" && node scripts/int-protected-ci-gate.mjs deploy)
       - name: Deploy existing Pages including only verified three read-only assets
         id: deployment
@@ -332,6 +372,23 @@ jobs:
             echo "R22_PUBLIC_HTTPS_SIGNED_ASSET_VERIFIED $file"
           done
           echo 'R22_PUBLIC_READONLY_THREE_ASSETS_REAL_HTTPS_DEPLOY_PASS_PRODUCT_UI_OFF'
+      - name: Prove every signed Steam image real HTTPS GET HEAD MIME SHA and withdrawal denies stale URLs
+        env:
+          WAND_DEPLOYED_BASE_URL: ${{ steps.deployment.outputs.page_url }}
+          WAND_EXPECTED_BASE_URL: ${{ needs.build.outputs.expected_root }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6 7 8; do
+            if node "$RUNNER_TEMP/wand-steam-media-proof/scripts/int-steam-public-media-signed-batch.mjs" live; then
+              echo '09INT_STEAM_MEDIA_SIGNED_PAGES_LIVE_BATCH_PASS'
+              exit 0
+            fi
+            sleep 6
+          done
+          echo '09INT_STEAM_MEDIA_LIVE_DELIVERY_OR_WITHDRAWAL_TRUE_RED'
+          exit 1
+
 
   # Explicit protected proof-only dispatch. No normal Pages build/deploy, no
   # public scoped files, no generated anchor, no executable artifact upload.
