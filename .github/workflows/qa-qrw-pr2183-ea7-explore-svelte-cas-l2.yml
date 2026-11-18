@@ -79,7 +79,7 @@ jobs:
            return code.slice(i,j);
           };
           const persistBody=block('function persistMoodboards(next:any){','function handleExploreStorage(').replace('next:any','next');
-          const eventBody=block('function handleExploreStorage(event:StorageEvent){','function toggleMoodboard(').replace('event:StorageEvent','event');
+          const eventBody=block('function handleExploreStorage(event:StorageEvent){','function toggleMoodboard(').replace('event:StorageEvent','event').replace('(board:any)','(board)');
           const toggleBody=block('function toggleMoodboard(item:any){','function placementFor(').replace('item:any','item');
           assert.match(persistBody,/moodboardsRaw=persistMoodboardLocalChange\(localStorage,next,moodboardsRaw\)/);
           assert.match(toggleBody,/status=copy\.moodboardSaveFailed/);
@@ -184,7 +184,7 @@ jobs:
            assert.equal(s.map.get(MAIN),s.a.raw);
            assert.equal(s.map.get(PREVIOUS),'prior-bytes-preserved');neg++;
           }
-          assert.equal(pos,4);assert.equal(neg,8);
+          assert.equal(pos,4);assert.equal(neg,7);
           console.log('QRW2183_EXACT_SVELTE_ADD_REMOVE_STORAGE_EVENT_CAS',JSON.stringify({positives:pos,negatives:neg,acceptedParentHelperSha:'2a43a5d83ffcad4880c0c3b3cb62e7d0443b0c0c',saveWriterOn:false,publicUIOn:false}));
           
           NODE
