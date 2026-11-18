@@ -28,6 +28,8 @@ product-amount-scoped = ["semantic-writer-dev"]
 product-steam626-makeup-color1-scoped = ["semantic-writer-dev"]
 # ACT1630: one exact Steam626 Fence Reader. No generic semantic Writer or Stage.
 product-steam626-singlefence-readonly = ["indexed-read"]
+# ACT1685: exact Steam626 Item40700007 read-only target; no Writer/Pages grant.
+product-steam626-bamboo-readonly = ["indexed-read"]
 # Exact Switch626 Chest-only WASM delivery surface; reuse existing Core.
 # Exact Steam626 linked crop Chest release surface, no public grant.
 product-steam626-chest-scoped = ["product-amount-scoped"]

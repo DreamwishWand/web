@@ -1,0 +1,40 @@
+name: 09P Steam626 Bamboo40700007 exact ReadDomain ABI (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/Cargo.toml'
+      - 'crates/ddv-save-core/src/product_session.rs'
+      - 'crates/ddv-save-core/src/steam_single_fence_readonly.rs'
+      - 'crates/ddv-save-core/src/worker_session.rs'
+      - 'crates/ddv-save-core/src/wasm_worker.rs'
+      - 'crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs'
+      - 'crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs'
+      - 'crates/ddv-save-core/src/steam_bamboo_worker_abi_tests.rs'
+      - '.github/workflows/09p-steam626-bamboo-readonly.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exact-bamboo-readonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Exact Bamboo Worker guard positive and stale/rights negative
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features product-steam626-bamboo-readonly --lib bamboo_worker_ --verbose
+      - name: Existing Bamboo Native mint positive/negative unchanged
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features product-steam626-bamboo-readonly --lib steam626_bamboo_single_target
+      - name: Exact generated Rust WASM Worker typecheck
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-bamboo-readonly
+      - name: Mixed semantic Writer build has no Bamboo method export
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-bamboo-readonly,semantic-writer-dev
+      - name: Public Pages remains Reader-only without Bamboo opt-in
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          grep -F -- 'product-steam626-bamboo-readonly = ["indexed-read"]' crates/ddv-save-core/Cargo.toml
+          ! grep -R -F 'read_steam626_bamboo_single_target' src/routes

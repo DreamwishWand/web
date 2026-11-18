@@ -106,7 +106,7 @@ pub use semantic_writer::{
     SemanticStageReceipt,TYPED_OPERATION_REGISTRY,
     ExistingAmountSelection,ExistingAmountItemType,ExistingChestFacts,ExistingAmountTargetView,CoreExistingAmountTarget,AuthorizedExistingAmountTarget,
 };
-#[cfg(all(feature="product-steam626-singlefence-readonly",not(feature="semantic-writer-dev")))]
+#[cfg(all(any(feature="product-steam626-singlefence-readonly",feature="product-steam626-bamboo-readonly"),not(feature="semantic-writer-dev")))]
 #[path="steam_single_fence_readonly.rs"]
 mod steam_single_fence_readonly;
 #[cfg(feature = "indexed-read")]
