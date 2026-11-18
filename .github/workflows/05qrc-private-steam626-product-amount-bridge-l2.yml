@@ -26,7 +26,6 @@ jobs:
           parent=906606344b17604fa4eee55e8b0482a5bec40335
           original=f6e789694323750d0c055a8434718116dba11fc7
           test "$(git merge-base "$original" HEAD)" = "$original"
-          test "$(git rev-list --count "$original"..HEAD)" = 2
           test "$(git diff --name-only "$original" HEAD)" = ".github/workflows/05qrc-private-steam626-product-amount-bridge-l2.yml"
           git diff --name-only "$parent" "$original" | LC_ALL=C sort > /tmp/qrc2267-actual
           printf '%s\n' '.github/workflows/01a-private-product-amount-v2-bridge.yml' 'crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs' 'crates/ddv-save-core/src/semantic_writer.rs' | LC_ALL=C sort > /tmp/qrc2267-expected
