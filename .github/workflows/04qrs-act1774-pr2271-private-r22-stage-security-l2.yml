@@ -114,7 +114,7 @@ jobs:
            const issuer=join(work,'src/lib/ddv/core/save');
            const outside=join(root,'outside_issuer');
            renameSync(issuer,outside);symlinkSync(outside,issuer,'dir');
-           const escaped=run(process.execPath,[join(work,cli),main,gate]);
+           const escaped=run(process.execPath,[join(work,cli),main,main]);
            assert.notEqual(escaped.status,0,'SYMLINK_ESCAPED_ISSUER_ACCEPTED');
            assert.match(escaped.stderr,/R22_TRUSTED_SELECTION_TRUSTED_PATH_SYMLINK_src\/lib\/ddv\/core\/save/);
            neg++;console.log('QRS2271_NEG_DENIED_OUTSIDE_REPO_ISSUER_PARENT_SYMLINK');
