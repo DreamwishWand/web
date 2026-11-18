@@ -376,6 +376,25 @@ fn state_item(v:&Value,item:i32)->CoreResult<()>{
 fn state_array(v:&Value)->CoreResult<&Vec<Value>>{
     v.as_array().filter(|a|a.len()<=4096).ok_or(denied("PRODUCT_AMOUNT_STATE_ARRAY"))
 }
+// The persisted Mannequin customization is the same map<int32,int32>
+// already read by the immutable Avatar reference observer. Its keys are
+// existing clothing ItemIDs (prefix 5); values are signed design scalars,
+// including valid negative/zero values. Never infer design ownership here.
+// All literal matches still deny the selected Inventory/Chest item.
+fn state_mannequin_customization(v:&Value,item:i32)->CoreResult<()>{
+    let map=v.as_object().filter(|m|m.len()<=256)
+        .ok_or(denied("PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP"))?;
+    for (key,value) in map {
+        let clothing=key.parse::<i32>()
+            .map_err(|_|denied("PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"))?;
+        need(clothing>0&&clothing/10_000_000==5&&clothing.to_string()==*key,
+            "PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY")?;
+        let design=value.as_i64().and_then(|x|i32::try_from(x).ok())
+            .ok_or(denied("PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"))?;
+        need(clothing!=item&&design!=item,"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE")?;
+    }
+    Ok(())
+}
 fn state_literals(v:&Value,item:i32,budget:&mut usize,depth:usize)->CoreResult<()>{
     *budget+=1;need(*budget<=1_000_000&&depth<=32,"PRODUCT_AMOUNT_STATE_BOUND")?;
     match v{
@@ -427,10 +446,7 @@ fn saved_grid_state(b:&[u8],s:Span,item:i32,budget:&mut usize)->CoreResult<()>{
         "Mannequin"=>{
             let clothes=p["Clothes"].as_object().ok_or(denied("PRODUCT_AMOUNT_STATE_CLOTHES"))?;
             for q in clothes.values(){state_item(q,item)?;}
-            for q in state_array(&p["ClothingCustomization"])?{
-                let x=q.as_str().and_then(|x|x.parse::<u32>().ok()).ok_or(denied("PRODUCT_AMOUNT_STATE_CUSTOMIZATION"))?;
-                need(x!=item as u32,"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE")?;
-            }
+            state_mannequin_customization(&p["ClothingCustomization"],item)?;
         },
         "BlockerData"=>{
             let t=&p["Treasure"];state_fields(t,&["ItemID","State"])?;state_item(&t["ItemID"],item)?;
