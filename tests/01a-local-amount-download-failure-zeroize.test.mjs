@@ -35,7 +35,7 @@ test('01A worker-local encrypted Amount bytes wipe on rejected size and digest',
 });
 
 test('01A worker-local encrypted Amount bytes wipe on generation failure before and after digest',async()=>{
- for(const staleAt of [1,2]){
+ for(const staleAt of [4,5]){
   const {raw,binding}=originalFixture();
   let n=0;
   await assert.rejects(
@@ -52,7 +52,7 @@ test('01A verified Amount reply retains owned encrypted bytes until Worker port 
  const {raw,binding}=originalFixture();
  let calls=0;
  const r=await readBoundEncryptedCopy(binding,()=>{calls++});
- assert.equal(calls,2);
+ assert.equal(calls,5); // three pre-allocation, two post-allocation checks
  assert.deepEqual(Object.keys(r).sort(),
   ['kind','name','sha256','sizeBytes','encryptedBytes'].sort());
  assert.equal(r.kind,'VERIFIED_DOWNLOAD');
