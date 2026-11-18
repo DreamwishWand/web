@@ -4,14 +4,14 @@ import {readCollectionCandidate} from '../src/lib/collection/collection-candidat
 const H='a'.repeat(64),S='b'.repeat(32),STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',SWITCH='9A239D3DB569756D';
 const selector={definitionId:2120000001,groupIndex:0,itemId:40000001};
 const denial=/COLLECTION_CANDIDATE_READ_DENIED/;
-function fixture(steam=true){
+function fixture(steam=true,{revision=0,indexGeneration=1}={}){
  const b={platform:steam?'steam-windows':'switch',buildKind:steam?'steam-full-version':'switch-bid',buildId:steam?STEAM:SWITCH,schema:626};
- const r={contract:'wand.product.single-save-session.boundary@1',sessionId:S,revision:0,indexGeneration:1,decodedSha256:H,schema:626,productWorkerBound:true,fullDocumentJsonValidated:true,writerAuthorized:false,editedCopyAuthorized:false,applyAuthorized:false};
- const x={contract:'wand.worker.collection-scoped-candidate@1',platform:steam?'SteamWindows':'Switch',buildKind:steam?'SteamFullVersion':'SwitchBid',buildId:b.buildId,sessionId:S,revision:0,indexGeneration:1,decodedSha256:H,...selector,old:false,new:true,falseCount:steam?3:2,positiveStock:1,
+ const r={contract:'wand.product.single-save-session.boundary@1',sessionId:S,revision,indexGeneration,decodedSha256:H,schema:626,productWorkerBound:true,fullDocumentJsonValidated:true,writerAuthorized:false,editedCopyAuthorized:false,applyAuthorized:false};
+ const x={contract:'wand.worker.collection-scoped-candidate@1',platform:steam?'SteamWindows':'Switch',buildKind:steam?'SteamFullVersion':'SwitchBid',buildId:b.buildId,sessionId:S,revision,indexGeneration,decodedSha256:H,...selector,old:false,new:true,falseCount:steam?3:2,positiveStock:1,
  itemDefinitionSha256:H,collectionDefinitionSha256:H,groupDefinitionSha256:H,entrySha256:H,groupSha256:H,mapSha256:H,stockEntrySha256:H,packagedCandidateVerified:true,sourcePhysicalVerified:true,effectiveEligibilityVerified:false,writerAuthorized:false,editedCopyAuthorized:false,applyAuthorized:false};
  let active=true,calls=0,revokes=0;
  const owner={identity:b,receipt:r,current:()=>active,revoke:()=>{active=false;revokes++},parse:JSON.parse,
- wasm:{preview_scoped_collection_candidate(...args){calls++;assert.deepEqual(args,[selector.definitionId,0,selector.itemId,S,0n,1n,H]);return JSON.stringify(x)}}};
+ wasm:{preview_scoped_collection_candidate(...args){calls++;assert.deepEqual(args,[selector.definitionId,0,selector.itemId,S,BigInt(revision),BigInt(indexGeneration),H]);return JSON.stringify(x)}}};
  return {owner,x,r,b,counts:()=>({calls,revokes}),invalidate:()=>{active=false}};
 }
 test('dual Build read-only candidate projection; no grant, scope token or raw hashes',()=>{
@@ -27,11 +27,35 @@ test('malformed, substituted or authority-bearing receipt revokes exact session'
  }
  const f=fixture(false);f.x.falseCount=1;assert.throws(()=>readCollectionCandidate(f.owner,selector),denial);
 });
+test('genuine current noninitial epoch is read-only, while stale or non-exact scope fails closed',()=>{
+ for(const [revision,indexGeneration] of [[1,2],[4,7],[17,30]]){
+  const f=fixture(true,{revision,indexGeneration});
+  const p=readCollectionCandidate(f.owner,selector);
+  assert.equal(p.kind,'COLLECTION_CANDIDATE_READ_ONLY');
+  assert.equal(p.writerAuthorized,false);
+  assert.deepEqual(f.counts(),{calls:1,revokes:0});
+ }
+ // A forwarded, stale receipt cannot authorize a different current Rust epoch.
+ const f=fixture(true,{revision:4,indexGeneration:7});
+ f.x.revision=3;
+ assert.throws(()=>readCollectionCandidate(f.owner,selector),denial);
+ assert.deepEqual(f.counts(),{calls:1,revokes:1});
+ const g=fixture(true,{revision:4,indexGeneration:7});g.x.indexGeneration=6;
+ assert.throws(()=>readCollectionCandidate(g.owner,selector),denial);
+ assert.deepEqual(g.counts(),{calls:1,revokes:1});
+ for(const [field,value] of [['revision',-1],['revision',0.5],['revision',Number.MAX_SAFE_INTEGER+1],
+   ['indexGeneration',0],['indexGeneration',-1],['indexGeneration',1.5],['indexGeneration',Number.MAX_SAFE_INTEGER+1]]){
+  const f=fixture();f.r[field]=value;
+  assert.throws(()=>readCollectionCandidate(f.owner,selector),denial);
+  assert.equal(f.counts().calls,0);
+ }
+});
 test('untrusted selector, stale epoch and unsupported ABI cannot read or grant',()=>{
  for(const s of [{...selector,sessionId:S},{...selector,itemId:1},{...selector,groupIndex:-1}]){
   const f=fixture();assert.throws(()=>readCollectionCandidate(f.owner,s),denial);assert.equal(f.counts().calls,0);
  }
- const f=fixture();f.r.revision=1;assert.throws(()=>readCollectionCandidate(f.owner,selector),denial);assert.equal(f.counts().calls,0);
+ const f=fixture();f.r.revision=1;assert.throws(()=>readCollectionCandidate(f.owner,selector),denial);
+ assert.deepEqual(f.counts(),{calls:1,revokes:1});
  const g=fixture();delete g.owner.wasm.preview_scoped_collection_candidate;assert.throws(()=>readCollectionCandidate(g.owner,selector),denial);
  const h=fixture();h.invalidate();assert.throws(()=>readCollectionCandidate(h.owner,selector),denial);assert.equal(h.counts().calls,0);
  const j=fixture();const orig=j.owner.wasm.preview_scoped_collection_candidate;j.owner.wasm.preview_scoped_collection_candidate=(...a)=>{const raw=orig(...a);j.invalidate();return raw};assert.throws(()=>readCollectionCandidate(j.owner,selector),denial);assert.equal(j.counts().revokes,0);
