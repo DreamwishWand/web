@@ -117,3 +117,77 @@ fn bamboo_worker_rejects_forged_cas_wrong_build_geometry_stock_and_stage() {
     assert_eq!(guard.receipt().unwrap(),receipt);
     assert!(guard.dispatch(WorkerEnvelope{action:WorkerAction::ExportEditedCopy,..e}).is_err());
 }
+
+
+// 05 QR-C ACT1690 independent changed-ABI tests. QA-only child of PR2095.
+// The immutable accepted target and private original are NOT reimplemented.
+#[test]
+fn bamboo_qrc2095_exact_receipt_26_fields_and_no_authority() {
+    use std::collections::BTreeSet;
+    let (doc,x,y) = fixture();
+    let guard = open(&doc,false);
+    let before = guard.receipt().unwrap();
+    let e = env(&guard);
+    let receipt = guard.read_steam626_bamboo_single_target(e,90001,x,y).unwrap();
+    let expected: BTreeSet<&str> = [
+        "contract","sessionId","revision","indexGeneration","decodedSha256",
+        "platform","schema","itemId","gridId","x","y","nextGridObjectId",
+        "oldStock","rootSha256","gridSha256","counterSha256","stockSha256",
+        "housesSha256","referencePairs","stockDelta","readOnly",
+        "productReadAccepted","writerAuthorized","stageAuthorized",
+        "editedCopyAuthorized","operationOn"
+    ].into_iter().collect();
+    let actual: BTreeSet<&str> = receipt.as_object().unwrap().keys().map(String::as_str).collect();
+    assert_eq!(actual,expected,"unexpected Worker ABI field or missing denial flag");
+    assert_eq!(receipt["sessionId"].as_str().unwrap().len(),32);
+    assert_eq!(receipt["revision"].as_u64(),Some(before.revision));
+    assert_eq!(receipt["indexGeneration"].as_u64(),Some(before.index_generation));
+    assert_eq!(receipt["gridId"].as_u64(),Some(90001));
+    assert_eq!(receipt["x"].as_u64(),Some(x as u64));
+    assert_eq!(receipt["y"].as_u64(),Some(y as u64));
+    assert_eq!(receipt["stockDelta"].as_u64(),Some(0));
+    assert_eq!(receipt["platform"],"SteamWindows");
+    assert_eq!(receipt["schema"],626);
+    for k in ["productReadAccepted","writerAuthorized","stageAuthorized","editedCopyAuthorized","operationOn"] {
+        assert_eq!(receipt[k],false,"unexpected authority: {k}");
+    }
+    let decoded_hex:String=before.decoded_sha256.iter().map(|v|format!("{v:02x}")).collect();
+    assert_eq!(receipt["decodedSha256"],decoded_hex);
+    for key in ["rootSha256","gridSha256","counterSha256","stockSha256","housesSha256"] {
+        let bytes=receipt[key].as_str().unwrap();
+        assert_eq!(bytes.len(),64,key);
+        assert!(bytes.bytes().all(|v|v.is_ascii_hexdigit()),"invalid digest {key}");
+    }
+    assert_eq!(guard.receipt().unwrap(),before);
+    let again=guard.read_steam626_bamboo_single_target(e,90001,x,y).unwrap();
+    assert_eq!(again["stockDelta"],0);
+    assert_eq!(guard.receipt().unwrap(),before);
+}
+
+#[test]
+fn bamboo_qrc2095_rejects_rogue_refs_marker_counter_and_bad_cas_without_mutation() {
+    let (doc,x,y)=fixture();
+    let guard=open(&doc,false);
+    let e=env(&guard);
+    let before=guard.receipt().unwrap();
+    for variant in 0..3 {
+        let mut altered=doc.clone();
+        match variant {
+            0 => altered["Unknown"]=json!({"GridID":90001,"ObjectID":50}),
+            1 => altered["World"]["GridCollection"]["Grids"]["90001"]["NextGridObjectID"]=json!(i32::MAX),
+            _ => altered["Player"]["ListInventories"]["0"]["Inventory"]["40700007"]["Marker"]=json!("ItemMarker_Favorite"),
+        }
+        let other=open(&altered,false);
+        assert!(other.read_steam626_bamboo_single_target(env(&other),90001,x,y).is_err(),
+            "rogue reference, counter or stock marker accepted: {variant}");
+    }
+    let mut old=e;
+    old.expected_revision=old.expected_revision.saturating_add(1);
+    assert!(guard.read_steam626_bamboo_single_target(old,90001,x,y).is_err());
+    old=e;old.expected_index_generation=old.expected_index_generation.saturating_add(1);
+    assert!(guard.read_steam626_bamboo_single_target(old,90001,x,y).is_err());
+    old=e;old.expected_decoded_sha256=[0u8;32];
+    assert!(guard.read_steam626_bamboo_single_target(old,90001,x,y).is_err());
+    assert!(guard.read_steam626_bamboo_single_target(e,90001,392,y).is_err());
+    assert_eq!(guard.receipt().unwrap(),before,"negative test mutated read session");
+}
