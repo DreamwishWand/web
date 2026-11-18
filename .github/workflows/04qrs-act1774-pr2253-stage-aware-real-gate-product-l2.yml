@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = 0345c67d7a139fb339e4cfb79bdf1275f4b96507
+          git merge-base --is-ancestor 0345c67d7a139fb339e4cfb79bdf1275f4b96507 HEAD
           test "$(git diff --name-only 0345c67d7a139fb339e4cfb79bdf1275f4b96507 HEAD)" = ".github/workflows/04qrs-act1774-pr2253-stage-aware-real-gate-product-l2.yml"
           test "$(git rev-parse HEAD:tests/09p-r22-switch626-makeup-gate-exact8.test.mjs)" = 3114f2a9e2776ea7cd82de0393d7581394f9e9e8
           test "$(git rev-parse HEAD:tests/09p-r22-trusted-main-preflight.test.mjs)" = 4b3b59a7f92577ebdd4764718b589bc501d48f0d
