@@ -9,6 +9,7 @@ on:
       - 'tests/09p-r22-steam626-eyecolor2-repair.test.mjs'
       - 'tests/09p-r22-amount-battlepass-exact1-gate.test.mjs'
       - 'tests/09p-r22-amount-private-bridge-exact3-gate.test.mjs'
+      - 'tests/09p-r22-windows-lf-pack-exact1-gate.test.mjs'
       - '.github/workflows/09p-r22-switch626-makeup-gate-exact8.yml'
 permissions:
   contents: read
@@ -29,21 +30,31 @@ jobs:
           git fetch --no-tags origin refs/pull/2217/head
           test "$(git rev-parse FETCH_HEAD)" = b2735bc63884049a5f3d16423e5970553f168766
           git cat-file -e b2735bc63884049a5f3d16423e5970553f168766^{commit}
-      - name: Fetch original immutable private 01A bridge Source for exact three-blob source proof
+      - name: Resolve immutable original private 01A bridge historical Git commit from protected ancestry
         run: |
-          git fetch --no-tags origin refs/pull/2267/head
-          test "$(git rev-parse FETCH_HEAD)" = f6e789694323750d0c055a8434718116dba11fc7
+          # PR2267 was merged via nonforce selected commit with original f6e7
+          # as preserved parent. refs/pull/2267/head is MOVABLE after merge.
+          # Never authorize that moving ref: test only original commit blob.
           git cat-file -e f6e789694323750d0c055a8434718116dba11fc7^{commit}
+          test "$(git rev-parse f6e789694323750d0c055a8434718116dba11fc7:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
+      - name: Fetch reviewed Windows LF SHA-pinned pack attribute ORIGINAL one file
+        run: |
+          git fetch --no-tags origin refs/pull/2276/head
+          # Moving refs are discovery only. Original SHA remains immutable.
+          git cat-file -e ad210aa3c551615b8c35f8b2970138760a59f5b6^{commit}
+          test "$(git rev-parse ad210aa3c551615b8c35f8b2970138760a59f5b6:crates/ddv-save-core/data/.gitattributes)" = f67de2e4316397b93f95088c379f724ea81e9399
       - name: Fixed 8-path Rust Source/core tree release gate POS, forged-bad Git commit NEG
         env:
           WAND_REQUIRE_SWITCH_MAKEUP_GATE_FOCUS: '1'
           WAND_REQUIRE_PRIVATE_AMOUNT_GATE_FOCUS: '1'
+          WAND_REQUIRE_WINDOWS_LF_GATE_FOCUS: '1'
         run: |
           node --test tests/09p-r22-switch626-makeup-gate-exact8.test.mjs
           node --test tests/09p-r22-trusted-main-preflight.test.mjs
           node --test tests/09p-r22-steam626-eyecolor2-repair.test.mjs
           node --test tests/09p-r22-amount-battlepass-exact1-gate.test.mjs
           node --test tests/09p-r22-amount-private-bridge-exact3-gate.test.mjs
+          node --test tests/09p-r22-windows-lf-pack-exact1-gate.test.mjs
       - name: Exactly reviewed Core/Cargo/R22 tuple, no Writer, Consumer or release grant
         shell: bash
         run: |
@@ -67,6 +78,10 @@ jobs:
                   "$cargo" == 751a73da41d8b58f7de70643f50b97722a3c1260 &&
                   "$config" == 30551c7cc566614f64c8ba04748c3aef44b419bb ]]; then
             echo R22_EXACT_STAGE_PRIVATE_NATIVE_BRIDGE_GATED
+          elif [[ "$core" == 623034400b71179b790ae8eca7b152cd892c898f &&
+                  "$cargo" == 751a73da41d8b58f7de70643f50b97722a3c1260 &&
+                  "$config" == 30551c7cc566614f64c8ba04748c3aef44b419bb ]]; then
+            echo R22_EXACT_STAGE_WINDOWS_LF_ONE_PACK_BLOB_GATED
           else
             echo R22_UNAPPROVED_CORE_CARGO_CONFIG_STAGE >&2
             exit 1
