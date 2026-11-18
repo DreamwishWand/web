@@ -33,7 +33,7 @@ jobs:
           test "$(git ls-tree HEAD 'tests/web-moodboard-restore-compensated.test.mjs' | awk '{print $1}')" = 100644
           test "$(git rev-parse 'HEAD:src/lib/moodboards/local-persist-compensated.mjs')" = '2a43a5d83ffcad4880c0c3b3cb62e7d0443b0c0c'
           test "$(git ls-tree HEAD 'src/lib/moodboards/local-persist-compensated.mjs' | awk '{print $1}')" = 100644
-          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2207-actual-moodboard-restore-l2.test.mjs')" = '8e7ed48b626874935e2e5b8f01f51efd13140dd0'
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2207-actual-moodboard-restore-l2.test.mjs')" = 'ae7313bee4041e8ff5766bf6b8a35256e30613f8'
           test "$(git ls-tree HEAD 'tests/qa-qrw-pr2207-actual-moodboard-restore-l2.test.mjs' | awk '{print $1}')" = 100644
           cat >/tmp/qrw2207-expected <<'EOF'
           .github/workflows/08web-decux25-moodboard-local-compensated-persist.yml
