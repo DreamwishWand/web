@@ -6,6 +6,7 @@ import {
 } from '../src/lib/ddv/core/items/tier-a-edit-requests.mjs';
 
 const hash=letter=>letter.repeat(64);
+const NULL_SHA='74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b';
 const base=()=>({
   target:{...STEAM626},
   source:{originalEncryptedSha256:hash('a')},
@@ -27,9 +28,9 @@ const blocked=(mutator,code)=>{
 };
 const chestCommand=()=>({
   operation:'Chest.ExistingSlotAmountDecrease',containerInventoryId:12,
-  containerParentItemId:40000047,belongsToPlayer:true,size:2,
-  slotCount:2,slotIndex:0,slotItemId:30000002,
-  expectedOldAmount:12,nextAmount:11,itemStateReadsetSha256:hash('d'),
+  containerParentItemId:40000047,belongsToPlayer:true,size:48,
+  slotCount:48,slotIndex:0,slotItemId:30000002,
+  expectedOldAmount:50,nextAmount:49,itemStateReadsetSha256:NULL_SHA,
   activeReferenceCount:1
 });
 
@@ -206,11 +207,11 @@ test('Synthetic existing Chest slot maps only one Amount leaf, retaining ItemSta
   const x=plan(r=>{r.command=chestCommand()});
   assert.equal(x.status,'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE');
   assert.equal(x.candidate.fieldPath,'/Player/ContainerInventories/12/Inventory/0/Amount');
-  assert.equal(x.candidate.readSet.find(z=>z.path.endsWith('/State')).expectedContentSha256,hash('d'));
+  assert.equal(x.candidate.readSet.find(z=>z.path.endsWith('/State')).expectedContentSha256,NULL_SHA);
   assert.equal(x.candidate.readSet.find(z=>z.path.endsWith('/BelongsToPlayer')).expectedValue,true);
   assert.deepEqual(x.candidate.nativeDevCommand,{variant:'ChestExistingSlotAmountDecrease',
     container_id:12,slot_index:0,expected_item_id:30000002,
-    expected_old_amount:12,new_amount:11});
+    expected_old_amount:50,new_amount:49});
   assert.deepEqual(x.candidate.exactAllowedPaths,[x.candidate.fieldPath]);
   assert.equal(x.writerAuthorized,false);
   assert.equal(x.nativeCrossDomainRecalculationProven,false);
@@ -221,7 +222,8 @@ test('Existing Chest refusal covers foreign, duplicate, invalid slot, overflow, 
   ch(c=>{c.containerParentItemId=0});
   ch(c=>{c.size=0});
   ch(c=>{c.slotCount=49});
-  ch(c=>{c.slotIndex=2});
+  ch(c=>{c.slotIndex=48});
+  ch(c=>{c.containerInventoryId=1});
   ch(c=>{c.slotItemId=0});
   ch(c=>{c.itemStateReadsetSha256=null});
   ch(c=>{c.activeReferenceCount=2});
@@ -230,17 +232,18 @@ test('Existing Chest refusal covers foreign, duplicate, invalid slot, overflow, 
   ch(c=>{c.inventoryCreation=true});
 });
 test('Existing Chest only decrement and fixed numeric bounds; cannot transfer items or mutate ownership',()=>{
-  blocked(x=>{x.command=chestCommand();x.command.nextAmount=13},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
-  blocked(x=>{x.command=chestCommand();x.command.nextAmount=12},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
+  blocked(x=>{x.command=chestCommand();x.command.nextAmount=51},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
+  blocked(x=>{x.command=chestCommand();x.command.nextAmount=50},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
   // A structural source-only request must not present a 2+ unit reduction
   // that the existing single ProductSession eligible_bound always rejects.
-  blocked(x=>{x.command=chestCommand();x.command.nextAmount=10},'CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED');
+  blocked(x=>{x.command=chestCommand();x.command.nextAmount=48},'CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED');
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=1},'CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED');
-  const low=plan(x=>{x.command=chestCommand();x.command.expectedOldAmount=2;x.command.nextAmount=1});
-  assert.equal(low.status,'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE');
-  assert.equal(low.candidate.nativeDevCommand.expected_old_amount,2);
-  assert.equal(low.candidate.nativeDevCommand.new_amount,1);
-  assert.equal(low.writerAuthorized,false);
+  blocked(x=>{x.command=chestCommand();x.command.expectedOldAmount=2;x.command.nextAmount=1},
+    'CHEST_STEAM626_LINKED_CROP_PROFILE_NOT_ESTABLISHED');
+  blocked(x=>{x.command=chestCommand();x.command.itemStateReadsetSha256=hash('d')},
+    'CHEST_STEAM626_LINKED_CROP_PROFILE_NOT_ESTABLISHED');
+  blocked(x=>{x.command=chestCommand();x.command.size=2;x.command.slotCount=2},
+    'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID');
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=-1},'CHEST_SLOT_AMOUNT_BOUNDS');
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=0},'CHEST_SLOT_AMOUNT_BOUNDS');
   blocked(x=>{x.command=chestCommand();x.command.expectedOldAmount=2147483648},'CHEST_SLOT_AMOUNT_BOUNDS');
@@ -287,7 +290,9 @@ test('Chest packaged bounds fail closed for over-cap and absent subtype; no righ
   ch(c=>{c.expectedOldAmount=51;c.nextAmount=50});
   ch(c=>{c.slotItemId=31300001});
   ch(c=>{c.slotItemId=31400001;c.expectedOldAmount=2;c.nextAmount=1});
-  const p=plan(x=>{x.command=chestCommand();x.command.slotItemId=31700001;x.command.expectedOldAmount=99;x.command.nextAmount=98});
+  blocked(x=>{x.command=chestCommand();x.command.slotItemId=31700001;x.command.expectedOldAmount=99;x.command.nextAmount=98},
+    'CHEST_STEAM626_LINKED_CROP_PROFILE_NOT_ESTABLISHED');
+  const p=plan(x=>{x.command=chestCommand()});
   assert.equal(p.status,'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE');
   assert.equal(p.writerAuthorized,false);
 });
