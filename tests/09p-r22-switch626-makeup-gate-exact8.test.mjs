@@ -97,15 +97,17 @@ test('ACT1581 proposed 8 exact Rust+R22 blobs accept immutable synthetic source 
  const docsSha=execFileSync('git',['hash-object','-w','--stdin'],{
   cwd,env:gitEnv,encoding:'utf8',input:'unrelated safe markdown only\n'}).trim();
  const later=synthetic(accepted,[['docs/gate-unrelated-later-ci-only.md',docsSha]]);
- assert.equal(verifyAcceptedRustScope(cwd,gateBase,later).entryCount,8);
+ // This verifier is an EXACT candidate selector; extra later paths must be
+  // excluded by a new selection, not silently accepted here.
+  assert.throws(()=>verifyAcceptedRustScope(cwd,gateBase,later),/SOURCE_PATH_SET_MISMATCH/);
  const badCargo=synthetic(gateBase,[...products.map(([p,s])=>[p,p.endsWith('Cargo.toml')?
   'aa6b1dd771da305bf7a21c6101fb4620a8b74b93':s]),[inputPath,configBlob]]);
  const badConfig=synthetic(gateBase,[...products,[inputPath,originalInputBlob]]);
  const badMissing=synthetic(gateBase,[...products.filter(([p])=>!p.endsWith('worker_switch626_makeup_color1.rs')),[inputPath,configBlob]]);
  const badGate=synthetic(accepted,[[gatePath,git('rev-parse',trustedBase+':'+gatePath)]]);
  for(const bad of [badCargo,badConfig,badMissing,badGate]){
-  assert.throws(()=>verifyAcceptedRustScope(cwd,gateBase,bad),/R22_ACCEPTED_SCOPE_/);
+  assert.throws(()=>verifyAcceptedRustScope(cwd,gateBase,bad),/R22_ACCEPTED_SCOPE_|SOURCE_PATH_SET_MISMATCH/);
  }
  const badExtraSource=synthetic(accepted,[['crates/ddv-save-core/src/zzz_unapproved_makeup.rs',docsSha]]);
- assert.throws(()=>verifyAcceptedRustScope(cwd,gateBase,badExtraSource),/R22_ACCEPTED_SCOPE_/);
+ assert.throws(()=>verifyAcceptedRustScope(cwd,gateBase,badExtraSource),/R22_ACCEPTED_SCOPE_|SOURCE_PATH_SET_MISMATCH/);
 });
