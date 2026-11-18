@@ -1,0 +1,28 @@
+name: 08 WEB amount encrypted download one-shot buffer lifetime
+on:
+  pull_request:
+    paths:
+      - 'src/lib/dev/LocalAmountEditorDev.svelte'
+      - 'src/lib/dev/consume-verified-amount-download-bytes.mjs'
+      - 'tests/web-amount-encrypted-download-buffer-lifetime.test.mjs'
+      - '.github/workflows/08web-amount-encrypted-download-zeroize.yml'
+permissions:
+  contents: read
+jobs:
+  amount-download-buffer-lifetime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Scoped P1G encrypted buffer positive and fault-path zeroization, no real Save
+        run: node --test tests/web-amount-encrypted-download-buffer-lifetime.test.mjs tests/web-local-dev-amount-workflow.test.mjs tests/product-scoped-steam-chest-release.test.mjs tests/product-scoped-switch-chest-release.test.mjs
+      - name: Svelte TypeScript check and Pages build, Writer remains OFF
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build

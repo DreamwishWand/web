@@ -6,6 +6,7 @@
   import {onMount,tick} from 'svelte';
   import {locale} from '$lib/i18n/runtime.js';
   import {localAmountCopy,localAmountTargetLabel} from './local-amount-copy.mjs';
+  import {consumeVerifiedAmountDownloadBytes} from './consume-verified-amount-download-bytes.mjs';
   import {productSwitchChestPortScope} from './product-switch-chest-client.mjs';
   import {productSteamChestPortScope} from './product-steam-chest-client.mjs';
   import {productSwitchCatalog0PortScope} from './product-switch-catalog0-client.mjs';
@@ -106,13 +107,18 @@
     pending=true;error=false;
     try{
       const result=await active.downloadVerifiedCopy(which);
-      if(workflow!==active||active.snapshot().phase==='closed')return;
-      const url=URL.createObjectURL(new Blob([result.encryptedBytes],{type:'application/octet-stream'}));
-      try{
-        const a=document.createElement('a');a.href=url;a.download=result.name;
-        document.body.appendChild(a);
-        try{a.click()}finally{a.remove()}
-      }finally{setTimeout(()=>URL.revokeObjectURL(url),1000)}
+      // Even when a different File/Session wins the race or DOM/URL creation
+      // fails, never retain the original verified-download Uint8Array.
+      // The Blob constructor copies the encrypted bytes before zeroization.
+      consumeVerifiedAmountDownloadBytes(result.encryptedBytes,bytes=>{
+        if(workflow!==active||active.snapshot().phase==='closed')return;
+        const url=URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));
+        try{
+          const a=document.createElement('a');a.href=url;a.download=result.name;
+          document.body.appendChild(a);
+          try{a.click()}finally{a.remove()}
+        }finally{setTimeout(()=>URL.revokeObjectURL(url),1000)}
+      });
     }catch{
       if(workflow===active){error=true;state=active.snapshot()}
     }finally{if(workflow===active)pending=false}
