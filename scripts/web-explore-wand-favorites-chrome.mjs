@@ -63,6 +63,50 @@ try{
    const reopened=page.locator('article.card [data-explore-wand-favorite]').first();
    await reopened.waitFor({state:'visible'});
    assert.equal(await reopened.getAttribute('aria-pressed'),'false','independent reopen after removal');
+
+   // A real browser may throw after a primary setItem took effect, then deny
+   // compensating the primary. Even then the old Previous raw bytes must
+   // survive independently; the UI must not assert successful Favorite add.
+   const beforePartial=await page.evaluate(([main,prior])=>({
+    main:localStorage.getItem(main),prior:localStorage.getItem(prior)
+   }),[storageKey,backupKey]);
+   await page.evaluate(main=>{
+    window.__wandOriginalSetItem=Storage.prototype.setItem;
+    window.__wandPrimaryAttempts=0;
+    Storage.prototype.setItem=function(key,value){
+     if(key===main){
+      if(++window.__wandPrimaryAttempts===1){
+       window.__wandOriginalSetItem.call(this,key,value);
+       throw new DOMException('partial quota','QuotaExceededError');
+      }
+      throw new DOMException('rollback denied','QuotaExceededError');
+     }
+     return window.__wandOriginalSetItem.call(this,key,value);
+    };
+   },storageKey);
+   try{
+    await reopened.click();
+    assert.equal(await reopened.getAttribute('aria-pressed'),'false',
+      'a denied commit cannot switch displayed Wand Favorite to saved');
+    const status=await page.locator('.status[role="status"]').innerText();
+    assert.ok(status.length>12,'storage failure must be visible without internal exception');
+    const afterPartial=await page.evaluate(([main,prior])=>({
+     main:localStorage.getItem(main),prior:localStorage.getItem(prior)
+    }),[storageKey,backupKey]);
+    assert.equal(afterPartial.prior,beforePartial.prior,
+      'older previous bytes are recoverable despite blocked primary compensation');
+    assert.notEqual(afterPartial.main,beforePartial.main,
+      'partial mutation cannot be called a confirmed save');
+   }finally{
+    await page.evaluate(()=>{Storage.prototype.setItem=window.__wandOriginalSetItem});
+   }
+   await page.reload({waitUntil:'domcontentloaded'});
+   const recovered=page.locator('article.card [data-explore-wand-favorite]').first();
+   await recovered.waitFor({state:'visible'});
+   assert.equal(await recovered.getAttribute('aria-pressed'),'true',
+     'independent reload reflects actual partial current, not optimistic failed UI');
+   console.log('08WEB_WAND_FAVORITE_PARTIAL_PRIMARY_ROLLBACK_DENIED_PRIOR_RECOVERABLE_'+width+'_PASS');
+
    if(width===320){
     await page.setViewportSize({width:640,height:900});
     await page.evaluate(()=>{document.documentElement.style.zoom='2'});
