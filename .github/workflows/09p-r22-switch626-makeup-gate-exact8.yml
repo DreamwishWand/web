@@ -4,6 +4,8 @@ on:
     paths:
       - 'scripts/wasm-distribution/r22-accepted-rust-scope.mjs'
       - 'tests/09p-r22-switch626-makeup-gate-exact8.test.mjs'
+      - 'tests/09p-r22-trusted-main-preflight.test.mjs'
+      - 'scripts/wasm-distribution/r22-trusted-before-candidate.mjs'
       - 'tests/09p-r22-steam626-eyecolor2-repair.test.mjs'
       - '.github/workflows/09p-r22-switch626-makeup-gate-exact8.yml'
 permissions:
@@ -30,6 +32,7 @@ jobs:
           WAND_REQUIRE_SWITCH_MAKEUP_GATE_FOCUS: '1'
         run: |
           node --test tests/09p-r22-switch626-makeup-gate-exact8.test.mjs
+          node --test tests/09p-r22-trusted-main-preflight.test.mjs
           node --test tests/09p-r22-steam626-eyecolor2-repair.test.mjs
       - name: No current Cargo revision, Writer or signed public operator grant
         run: |
