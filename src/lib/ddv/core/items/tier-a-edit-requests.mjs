@@ -131,6 +131,10 @@ function requestChest({target,source,session,command}){
   const stackBound=steam626PackagedChestStackBound(command.slotItemId);
   if(stackBound===null||a>stackBound||b>stackBound)return reject('CHEST_PACKAGED_STACK_BOUND_UNSUPPORTED');
   if(b>=a)return reject('CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
+  // Existing Rust ProductSession::eligible_bound requires old - 1 == new
+  // for the supported Steam626 linked Crop Chest profile. Do not propose a
+  // wider amount delta here; actual parent/stock/rights remain Core-owned.
+  if(b!==a-1)return reject('CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED');
   const container=decimal(command.containerInventoryId),slot=decimal(command.slotIndex);
   const prefix='/Player/ContainerInventories/'+container;
   const path=prefix+'/Inventory/'+slot+'/Amount';

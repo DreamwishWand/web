@@ -170,6 +170,15 @@ test('Existing Chest refusal covers foreign, duplicate, invalid slot, overflow, 
 test('Existing Chest only decrement and fixed numeric bounds; cannot transfer items or mutate ownership',()=>{
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=13},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=12},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE');
+  // A structural source-only request must not present a 2+ unit reduction
+  // that the existing single ProductSession eligible_bound always rejects.
+  blocked(x=>{x.command=chestCommand();x.command.nextAmount=10},'CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED');
+  blocked(x=>{x.command=chestCommand();x.command.nextAmount=1},'CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED');
+  const low=plan(x=>{x.command=chestCommand();x.command.expectedOldAmount=2;x.command.nextAmount=1});
+  assert.equal(low.status,'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE');
+  assert.equal(low.candidate.nativeDevCommand.expected_old_amount,2);
+  assert.equal(low.candidate.nativeDevCommand.new_amount,1);
+  assert.equal(low.writerAuthorized,false);
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=-1},'CHEST_SLOT_AMOUNT_BOUNDS');
   blocked(x=>{x.command=chestCommand();x.command.nextAmount=0},'CHEST_SLOT_AMOUNT_BOUNDS');
   blocked(x=>{x.command=chestCommand();x.command.expectedOldAmount=2147483648},'CHEST_SLOT_AMOUNT_BOUNDS');
