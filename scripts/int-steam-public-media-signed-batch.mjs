@@ -1,5 +1,5 @@
 // 09 INT: shared signed Pages game-art batch technical gate. No keys, private media or Save bytes.
-import {readFileSync, readdirSync, lstatSync, existsSync} from 'node:fs';
+import {readFileSync, readdirSync, lstatSync, existsSync, realpathSync} from 'node:fs';
 import {resolve, relative, join, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
@@ -42,6 +42,23 @@ export function validateBatch(raw){
   }
   return raw;
 }
+// Verify EVERY filesystem ancestor before enumerating or reading subjects. A
+// symlinked static/ddv or build/ddv must never escape the trusted checkout
+// even when the target image happens to have the correct byte-for-byte SHA.
+function assertImagePathAncestors(checkoutRoot, base, imageRoot, requireImage) {
+  const root=resolve(checkoutRoot);
+  for (const p of [root,base,join(base,'ddv'),imageRoot,join(imageRoot,VARIANT)]) {
+    if (!existsSync(p)) {
+      // Empty withdrawal batches may legitimately have no image directory.
+      assert.ok(!requireImage,'MEDIA_EXPECTED_DIRECTORY_MISSING');
+      break;
+    }
+    const st=lstatSync(p);
+    assert.equal(st.isSymbolicLink(),false,'MEDIA_SYMLINK_ANCESTOR');
+    assert.equal(st.isDirectory(),true,'MEDIA_NON_DIRECTORY_ANCESTOR');
+    assert.equal(realpathSync(p),p,'MEDIA_REALPATH_ESCAPE');
+  }
+}
 function filesIn(root){
   if(!existsSync(root))return [];
   const all=[];const visit=(dir)=>{
@@ -60,6 +77,7 @@ export async function verifyLocal(raw,{kind='source',root=ROOT,pins}={}){
   assert.ok(['source','built'].includes(kind),'MEDIA_MODE');
   const base=resolve(root,kind==='source'?'static':'build');
   const imageRoot=join(base,'ddv','item-images');
+  assertImagePathAncestors(root,base,imageRoot,batch.items.length!==0);
   const expected=batch.items.map(item=>pathFor(item.sha256)).sort();
   const actual=filesIn(imageRoot).map(p=>relative(base,p).split(sep).join('/')).sort();
   assert.deepEqual(actual,expected,'MEDIA_EXACT_BATCH_ONLY');
@@ -76,7 +94,10 @@ export async function verifyLocal(raw,{kind='source',root=ROOT,pins}={}){
     for(const [a,b] of [['webpSha256','sha256'],['rgba160Sha256','rgba160Sha256'],['bytes','bytes'],['width','width'],['height','height']])
       assert.equal(pin[a],item[b],'MEDIA_NATIVE_PIN_'+a);
     assert.equal(pin.visibility,'RELEASED_PLAYER_FACING','MEDIA_NATIVE_VISIBILITY');
-    const buf=readFileSync(join(base,pathFor(item.sha256)));
+    const target=join(base,pathFor(item.sha256));
+    assert.equal(lstatSync(target).isSymbolicLink(),false,'MEDIA_SYMLINK_SUBJECT');
+    assert.equal(realpathSync(target),target,'MEDIA_SUBJECT_REALPATH_ESCAPE');
+    const buf=readFileSync(target);
     assert.equal(buf.length,item.bytes,'MEDIA_REAL_LENGTH');
     assert.equal(buf.toString('ascii',0,4),'RIFF');assert.equal(buf.toString('ascii',8,12),'WEBP');
     assert.equal(buf.toString('ascii',12,16),'VP8L');
