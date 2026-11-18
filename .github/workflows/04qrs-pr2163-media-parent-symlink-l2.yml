@@ -1,0 +1,98 @@
+name: 04 QR-S PR2163 signed Steam image Pages path containment L2 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr2163-media-parent-symlink-l2.yml'
+permissions:
+  contents: read
+jobs:
+  real-source-path-containment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze six original Source postblobs and one QA file only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = 78ed8141a0fdafd5fde827d5de48aa94966c062e
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/04qrs-pr2163-media-parent-symlink-l2.yml"
+          test "$(git rev-parse HEAD:scripts/int-steam-public-media-signed-batch.mjs)" = d79bcb810a7337c0eb4ed7916761a1ca9345f0ab
+          test "$(git rev-parse HEAD:ops/ddv-steam-public-media-signed-batch.json)" = 2bea495c05e378c3cc2300e23a4a35be1fb94e72
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs)" = 6fc525e975de9db68544d1feaff5ec9cd0011348
+          test "$(git rev-parse HEAD^:.github/workflows/pages.yml)" = ed8aabff1dc8c8b426054c7dff0d88faa2b02da4
+          echo QRS_PR2163_ORIGINAL_MEDIA_SOURCE_FIXED
+      - name: Execute original real asset inspector against symlinked ancestor
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {mkdtempSync,mkdirSync,symlinkSync,copyFileSync,rmSync,existsSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {dirname,join} from 'node:path';
+          import {
+            ROOT,readBatch,pathFor,verifyLocal
+          } from './scripts/int-steam-public-media-signed-batch.mjs';
+          const plan=readBatch();
+          assert.equal(plan.items.length,1);
+          const item=plan.items[0], rel=pathFor(item.sha256);
+          const pins={
+            [item.itemId]:{
+              webpSha256:item.sha256,rgba160Sha256:item.rgba160Sha256,
+              bytes:item.bytes,width:item.width,height:item.height,visibility:item.visibility
+            }
+          };
+          const original=join(ROOT,'static',rel);
+          assert.equal(existsSync(original),true);
+          const scratch=mkdtempSync(join(tmpdir(),'04qrs-pr2163-real-'));
+          const write=(kind,dest)=>{
+            const path=join(dest,kind,rel);
+            mkdirSync(dirname(path),{recursive:true});
+            copyFileSync(original,path);
+          };
+          try{
+            // Control with exact genuine approved WebP and full original validator.
+            const clean=join(scratch,'clean');
+            write('static',clean);
+            assert.deepEqual(await verifyLocal(plan,{kind:'source',root:clean,pins}),
+              {count:1,hashes:[item.sha256]});
+            console.log('MEDIA_BOUNDARY_GENUINE_CONTROL_ACCEPTED');
+            // The first ancestor of imageRoot is a symlink. The apparent
+            // static/ddv/item-images/... path points outside static/.
+            // The real signer currently checks lstat(imageRoot) and its
+            // descendants, not lstat(static/ddv). This must be DENIED.
+            for(const kind of ['source','built']){
+              const linked=join(scratch,'linked-'+kind);
+              const parent=join(linked,kind);
+              const external=join(scratch,'external-'+kind);
+              mkdirSync(parent,{recursive:true});
+              mkdirSync(external,{recursive:true});
+              const externalPath=join(external,rel.slice('ddv/'.length));
+              mkdirSync(dirname(externalPath),{recursive:true});
+              copyFileSync(original,externalPath);
+              symlinkSync(external,join(parent,'ddv'),'dir');
+              await assert.rejects(
+                verifyLocal(plan,{kind,root:linked,pins}),
+                /MEDIA_SYMLINK|MEDIA_REALPATH|MEDIA_PARENT|MEDIA_BOUNDARY/,
+                'Original protected media signer must reject symlink ancestor in '+kind
+              );
+            }
+            console.log('MEDIA_BOUNDARY_SYMLINK_ANCESTOR_DENIED_IN_BOTH_MODES');
+          }finally{
+            rmSync(scratch,{recursive:true,force:true});
+          }
+          NODE
+      - name: Never sign or publish from independent QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git diff --name-only -- src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs)"
+          echo QRS_QA_ONLY_NO_MERGE_NO_PAGES_NO_PUBLIC_ASSET_GRANT
