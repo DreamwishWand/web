@@ -55,6 +55,8 @@ pub(super) struct RoadQ1ReadOnlyPreparation {
     pub(super) expected_next_after: u32,
     pub(super) expected_stock_after: u32,
     pub(super) proposed_changed_targets: usize,
+    /// SHA256 of three proposed lexical replacements, not an exportable Save.
+    pub(super) projected_decoded_sha256: [u8; 32],
     pub(super) stage_authorized: bool,
     pub(super) export_authorized: bool,
 }
@@ -162,6 +164,8 @@ struct ActualRoadQ1Readset {
     next: u32, stock: u32,
     area_sha: [u8; 32], grid_sha: [u8; 32], stock_sha: [u8; 32],
     refs_sha: [u8; 32],
+    /// Hash of persisted Grid1 Objects map, NOT proof of effective ambient geometry.
+    saved_objects_sha: [u8; 32],
 }
 /// Authenticate a deliberately limited subset of old values from the SAME
 /// immutable Rust-owned decoded document. Geometry/halo/rights/ref subscriber
@@ -379,7 +383,101 @@ fn read_actual_old(b: &[u8]) -> CoreResult<ActualRoadQ1Readset> {
         grid_sha: digest(b, grid)?,
         stock_sha: digest(b, entry)?,
         refs_sha: digest(b, roots.world)?,
+        saved_objects_sha: digest(b, objects)?,
     })
+}
+
+
+#[derive(Clone, Debug)]
+struct RoadQ1RawDelta {
+    span: Span,
+    new: Vec<u8>,
+}
+/// A three-token *hash-only* projection. No second SaveSession, stage ledger,
+/// Writer dispatch, user output, or entitlement grant can be obtained from it.
+/// Existing semantic_writer is still the sole actual Stage executor after
+/// independent lawful current-target evidence and changed Save L2 admission.
+fn exact3_raw_delta(
+    b: &[u8], next: u32, old_stock: u32,
+    new_counter: u32, new_stock: u32, new_object: &Value,
+) -> CoreResult<[RoadQ1RawDelta; 3]> {
+    let roots = indexed_read::roots(b)?;
+    let gc = field(b, roots.world, "GridCollection")?;
+    let grid = field(b, field(b, gc, "Grids")?, "1")?;
+    let objects = field(b, grid, "Objects")?;
+    let old_count = verify_existing_object_ids(b, objects, next)?;
+    if old_count > 250_000 || objects.end < 2 || objects.end > b.len()
+        || b[objects.end - 1] != b'}' {
+        return Err(denied("ROAD_Q1_RAW_OBJECT_MAP_BOUNDS"));
+    }
+    let counter = field(b, grid, "NextGridObjectID")?;
+    if integer(b, counter)? != next {
+        return Err(denied("ROAD_Q1_RAW_COUNTER_CAS"));
+    }
+    let (observed_stock, entry) = verify_catalog0_road_source(b, roots.player)?;
+    if observed_stock != old_stock {
+        return Err(denied("ROAD_Q1_RAW_STOCK_CAS"));
+    }
+    let amount = field(b, entry, "Amount")?;
+    if integer(b, amount)? != old_stock {
+        return Err(denied("ROAD_Q1_RAW_STOCK_TOKEN_CAS"));
+    }
+    if new_counter != next.checked_add(1).ok_or(denied("ROAD_Q1_RAW_COUNTER_OVERFLOW"))?
+        || new_stock != old_stock.checked_sub(1).ok_or(denied("ROAD_Q1_RAW_STOCK_UNDERFLOW"))?
+        || new_stock == 0 || new_object["ID"] != next || new_object["ItemID"] != ITEM_ID
+    {
+        return Err(denied("ROAD_Q1_RAW_EXACT3_SHAPE"));
+    }
+    let object_bytes = serde_json::to_vec(new_object)
+        .map_err(|_| denied("ROAD_Q1_RAW_OBJECT_SERIALIZE"))?;
+    if object_bytes.len() > 4096 { return Err(denied("ROAD_Q1_RAW_OBJECT_BOUND")); }
+    let mut inserted = Vec::with_capacity(object_bytes.len() + 24);
+    if old_count != 0 { inserted.push(b','); }
+    inserted.extend_from_slice(format!("\"{next}\":").as_bytes());
+    inserted.extend_from_slice(&object_bytes);
+    let mut edits = [
+        RoadQ1RawDelta {
+            span: Span { begin: objects.end - 1, end: objects.end - 1 },
+            new: inserted,
+        },
+        RoadQ1RawDelta {
+            span: counter, new: new_counter.to_string().into_bytes(),
+        },
+        RoadQ1RawDelta {
+            span: amount, new: new_stock.to_string().into_bytes(),
+        },
+    ];
+    edits.sort_by_key(|e| e.span.begin);
+    if edits.windows(2).any(|p| p[0].span.end > p[1].span.begin) {
+        return Err(denied("ROAD_Q1_RAW_OVERLAPPING_TARGETS"));
+    }
+    Ok(edits)
+}
+fn projection_sha(b: &[u8], edits: &[RoadQ1RawDelta; 3]) -> CoreResult<[u8; 32]> {
+    let mut hash = Sha256::new();
+    let mut pos = 0;
+    for edit in edits {
+        if edit.span.begin < pos || edit.span.end < edit.span.begin
+            || edit.span.end > b.len() || edit.new.is_empty() {
+            return Err(denied("ROAD_Q1_RAW_PROJECTION_BOUNDS"));
+        }
+        hash.update(&b[pos..edit.span.begin]);
+        hash.update(&edit.new);
+        pos = edit.span.end;
+    }
+    hash.update(&b[pos..]);
+    let result: [u8; 32] = hash.finalize().into();
+    if result == Sha256::digest(b).into() {
+        return Err(denied("ROAD_Q1_RAW_NO_CHANGE"));
+    }
+    Ok(result)
+}
+fn project_road_q1_exact3_sha(
+    b: &[u8], next: u32, old_stock: u32,
+    new_counter: u32, new_stock: u32, new_object: &Value,
+) -> CoreResult<[u8; 32]> {
+    let edits = exact3_raw_delta(b, next, old_stock, new_counter, new_stock, new_object)?;
+    projection_sha(b, &edits)
 }
 
 impl ProductSession {
@@ -435,7 +533,8 @@ impl ProductSession {
         let actual = read_actual_old(&self.decoded)?;
         if old.next_object_id != actual.next || old.stock != actual.stock ||
            old.root_sha != actual.area_sha || old.grid_sha != actual.grid_sha ||
-           old.stock_sha != actual.stock_sha || old.refs_sha != actual.refs_sha {
+           old.stock_sha != actual.stock_sha || old.refs_sha != actual.refs_sha ||
+           old.ambient_sha != actual.saved_objects_sha {
             return Err(denied("ROAD_Q1_ACTUAL_OLD_VALUES_CAS"));
         }
         let proposed_object =
@@ -452,12 +551,18 @@ impl ProductSession {
             .ok_or(denied("ROAD_Q1_COUNTER_OVERFLOW"))?;
         let expected_stock_after = old.stock.checked_sub(1)
             .ok_or(denied("ROAD_Q1_STOCK_UNDERFLOW"))?;
+        // No modified Save bytes are retained, exported or staged. Hash only
+        // the three exact future raw lexical replacements from one source.
+        let projected_decoded_sha256 = project_road_q1_exact3_sha(
+            &self.decoded, old.next_object_id, old.stock,
+            expected_next_after, expected_stock_after, &proposed_object)?;
         Ok(RoadQ1ReadOnlyPreparation {
             proposed_object,
             expected_new_id: old.next_object_id,
             expected_next_after,
             expected_stock_after,
             proposed_changed_targets: 3,
+            projected_decoded_sha256,
             stage_authorized: false,
             export_authorized: false,
         })
@@ -517,8 +622,58 @@ mod road_q1_prep_tests {
             area: AREA, grid: GRID, next_object_id: 15949,
             stock: 9, x: 40, y: 20,
             root_sha: actual.area_sha, grid_sha: actual.grid_sha,
-            stock_sha: actual.stock_sha, refs_sha: actual.refs_sha, ambient_sha: [5; 32],
+            stock_sha: actual.stock_sha, refs_sha: actual.refs_sha,
+            ambient_sha: actual.saved_objects_sha,
         }
+    }
+
+    #[test]
+    fn road_q1_prep_exact3_raw_sha_matches_only_three_lexical_changes() {
+        let s = fixture(false);
+        let old = expected(&s);
+        let before = s.receipt().unwrap();
+        let proposal = s.prepare_steam626_road_single_q1_readonly(old).unwrap();
+        let edits = exact3_raw_delta(
+            &s.decoded, old.next_object_id, old.stock,
+            proposal.expected_next_after, proposal.expected_stock_after,
+            &proposal.proposed_object,
+        ).unwrap();
+        assert_eq!(edits.len(), 3);
+        assert_eq!(projection_sha(&s.decoded, &edits).unwrap(),
+                   proposal.projected_decoded_sha256);
+        // Test-only reconstruction: no product Stage/Export or external P1G.
+        let mut preview = s.decoded.to_vec();
+        for edit in edits.iter().rev() {
+            preview.splice(edit.span.begin..edit.span.end, edit.new.iter().copied());
+        }
+        crate::strict_document::validate_entire_document(&preview, 626).unwrap();
+        assert_eq!(Sha256::digest(&preview).as_slice(),
+                   proposal.projected_decoded_sha256.as_slice());
+        let original: Value = serde_json::from_slice(&s.decoded).unwrap();
+        let mut expected = original.clone();
+        expected["World"]["GridCollection"]["Grids"]["1"]["Objects"]["15949"] =
+            proposal.proposed_object.clone();
+        expected["World"]["GridCollection"]["Grids"]["1"]["NextGridObjectID"] =
+            json!(15950);
+        expected["Player"]["ListInventories"]["0"]["Inventory"]["40100068"]["Amount"] =
+            json!(8);
+        let decoded: Value = serde_json::from_slice(&preview).unwrap();
+        assert_eq!(decoded, expected, "only exact three paths may differ");
+        assert_eq!(decoded["Unknown"], original["Unknown"]);
+        assert_eq!(s.receipt().unwrap(), before);
+        assert!(!proposal.stage_authorized && !proposal.export_authorized);
+        assert!(s.dispatch(WorkerEnvelope {
+            action: WorkerAction::Stage, ..old.envelope
+        }).is_err());
+        assert!(s.dispatch(WorkerEnvelope {
+            action: WorkerAction::ExportEditedCopy, ..old.envelope
+        }).is_err());
+        // A new decoded source read-only session can parse the synthetic
+        // preview, but that does not prove true encrypted independent V2.
+        let reopened = ProductSession::open_decoded_readonly(
+            preview, s.native_source_build.clone(),
+        ).unwrap();
+        assert_ne!(reopened.receipt().unwrap().decoded_sha256, before.decoded_sha256);
     }
 
     #[test]
@@ -573,6 +728,9 @@ mod road_q1_prep_tests {
         // caller-created nonzero token. Tampering it is always denied.
         let mut wrong = old;
         wrong.refs_sha = [93; 32];
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        wrong = old;
+        wrong.ambient_sha = [94; 32];
         assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
         assert_eq!(s.receipt().unwrap().revision, 0);
     }
