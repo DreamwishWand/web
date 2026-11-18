@@ -22,7 +22,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          base=a9a87c578c8bc2a9c64284b15d3ed2c5eb39f817
+          base=83eb60cc4b77040bfa1fa492b19dc6c709037a71
           source=d4c5e30878d57d3c4e136328df5e32d3881b0c07
           git merge-base --is-ancestor "$base" HEAD
           test "$(git rev-parse "$base:src/lib/dev/local-amount-worker-adapter.mjs")" = 7e2a6fc8250cd5d6ca5cceb0f95e83e06d2d4bd6
