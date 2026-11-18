@@ -30,4 +30,9 @@ jobs:
           done
       - uses: dtolnay/rust-toolchain@stable
       - name: Execute real Rust synthetic independent Build/stock/CAS negatives
-        run: cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1 --test 05qrc_wardrobe_readset_l2 -- --nocapture
+        run: |
+          set -euo pipefail
+          # Reuse immutable accepted Cargo lock; never resolve dependencies ad hoc.
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1 --test 05qrc_wardrobe_readset_l2 -- --nocapture
