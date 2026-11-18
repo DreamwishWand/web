@@ -25,6 +25,19 @@ const eq=(x,y)=>JSON.stringify(x)===JSON.stringify(y);
 const fail=()=>{throw Error('BAMBOO_PUBLIC_PAGES_SIGNER_DENIED')};
 const git=(...a)=>execFileSync('git',a,{cwd:root,encoding:'utf8',stdio:['ignore','pipe','ignore'],env:{...process.env,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
 const is40=x=>typeof x==='string'&&/^[a-f0-9]{40}$/.test(x);
+// Exact accepted Bamboo Rust semantics; Cargo and the WASM wrapper alone do
+// not pin the Worker ReadDomain body or core-minted one-item target.
+export const BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS=Object.freeze({
+ 'crates/ddv-save-core/Cargo.toml':'e4f2e2c5d4451baba2dea699fe497cb7b40668d4',
+ 'crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs':'26414572b41211076f1f83a3f8752eea2ab65142',
+ 'crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs':'b3aa885d7668e6f8d3df9a20be4962d609ab6762',
+ 'crates/ddv-save-core/src/steam_bamboo_single_product_target.rs':'a5aef59173ee99454f7f108af58fa7c46dac6f19'
+});
+export function bambooAcceptedRustSourceBlobsOk(observed){
+ return observed!==null&&typeof observed==='object'&&!Array.isArray(observed)&&
+  eq(Object.keys(observed).sort(),Object.keys(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS).sort())&&
+  Object.entries(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS).every(([path,blob])=>observed[path]===blob);
+}
 
 export function bambooProtectedPagesAllowed(env,head){
  return is40(head)&&env?.WAND_SOURCE_HEAD===head&&
@@ -77,8 +90,8 @@ async function source(head){
  if(!is40(head)||git('rev-parse','HEAD')!==head||
   process.env.GITHUB_REPOSITORY!==ACTIVE_RELEASE_TUPLE.repository||
   process.env.GITHUB_REPOSITORY_ID!==RELEASE_REPOSITORY_ID||
-  git('rev-parse','HEAD:crates/ddv-save-core/Cargo.toml')!=='e4f2e2c5d4451baba2dea699fe497cb7b40668d4'||
-  git('rev-parse','HEAD:crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs')!=='26414572b41211076f1f83a3f8752eea2ab65142'||
+  !bambooAcceptedRustSourceBlobsOk(Object.fromEntries(
+   Object.keys(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS).map(path=>[path,git('rev-parse','HEAD:'+path)])))||
   git('rev-parse','HEAD:src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs')!=='6fc525e975de9db68544d1feaff5ec9cd0011348'||
   git('ls-files','--',BAMBOO_READONLY_ASSET_DIR,'static/'+BAMBOO_READONLY_ASSET_DIR,'build/'+BAMBOO_READONLY_ASSET_DIR)!=='')fail();
  const approved=await readFile(join(root,'scripts/wasm-distribution/approved-Cargo.lock'));
