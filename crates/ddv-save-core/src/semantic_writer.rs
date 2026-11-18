@@ -1091,6 +1091,36 @@ impl ProductSession{
         let edit=target(&self.decoded,player,&cmd)?;
         self.commit_semantic_replacements(e,vec![edit],1,None)
     }
+
+    /// Native-private bridge into the CURRENT product-scoped Rust eligibility
+    /// predicate. The sealed candidate was minted only after exact original
+    /// and immutable encrypted Backup SHA/size, full decoded SHA and target
+    /// plan/entry witness CAS. This is not a public Writer or a rights grant.
+    /// No new Session, Worker method, Registry or Codec is created here.
+    #[cfg(feature="product-amount-scoped")]
+    pub fn stage_private_product_scoped_bound_amount_candidate(
+        &self,e:WorkerEnvelope,c:&PrivateBoundAmountCandidate
+    )->CoreResult<SemanticStageReceipt>{
+        if self.worker_bound||c.switch_chest{
+            return Err(denied("PRIVATE_PRODUCT_AMOUNT_WORKER_OR_BUILD_DENIED"));
+        }
+        // The trusted local plan cannot skip current product dependency,
+        // BattlePass, Grid, physical parent or active subscriber checks.
+        // The private mint and product preview must independently resolve
+        // the SAME Core-derived immutable target in the SAME session.
+        let mut read=e;read.action=WorkerAction::ReadDomain;
+        let old=c.target.view();
+        let current=self.preview_scoped_product_amount(read,old.selection,c.new_amount)?;
+        if current!=c.target{
+            return Err(denied("PRIVATE_PRODUCT_AMOUNT_CURRENT_TARGET_CAS"));
+        }
+        // This stages through the same existing atomic semantic ledger.
+        // It rechecks the old fields/epoch under lock and never authorizes
+        // product Writer, plaintext output paths or original overwrite.
+        self.stage_core_minted_amount_batch(e,&[
+            AuthorizedExistingAmountTarget{target:current,new_amount:c.new_amount}
+        ])
+    }
 }
 
 #[cfg(test)]
