@@ -1,0 +1,46 @@
+name: 08 WEB DEC-UX-31 34 private Wand Favorite and sparkle
+on:
+  pull_request:
+    paths:
+      - 'src/lib/explore/wand-favorites-local.mjs'
+      - 'src/lib/explore/copy.js'
+      - 'src/routes/explore/+page.svelte'
+      - 'tests/web-explore-wand-favorites-local.test.mjs'
+      - 'scripts/web-explore-wand-favorites-chrome.mjs'
+      - '.github/workflows/08web-wand-favorites-local.yml'
+permissions:
+  contents: read
+jobs:
+  local-wand-favorite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Pure local favorite item ID, fail-closed storage and eight locale source contracts
+        run: node --test tests/web-explore-wand-favorites-local.test.mjs
+      - name: Svelte TypeScript and production Pages static bundle
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: Real Chrome 1366 and 320 local sparkle add remove, filter, second tab, backup and 200 percent
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/08web-wand-favorite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4298/web/explore/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4298/web/explore/ >/dev/null
+          node scripts/web-explore-wand-favorites-chrome.mjs
