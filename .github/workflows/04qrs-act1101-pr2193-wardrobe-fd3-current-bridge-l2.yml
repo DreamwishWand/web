@@ -100,21 +100,74 @@ jobs:
           const originalSha='ab'.repeat(32);
           const argsFor=mode=>[mode==='Switch'?'--switch626-wardrobe-same-slot-receipt-only':'--wardrobe-same-slot-receipt-only',
             '0','50000002','50000003','--receipt-fd3'];
+          const pyBridge=[
+            "import os,sys,json,subprocess,threading,tempfile",
+            "binary,transport,*args=sys.argv[1:]",
+            "data=sys.stdin.buffer.read()",
+            "readfd=None",
+            "holder=None",
+            "if transport=='pipe':",
+            "    readfd,writefd=os.pipe()",
+            "    if readfd==3:",
+            "        replacement=os.dup(readfd)",
+            "        os.close(readfd)",
+            "        readfd=replacement",
+            "    os.dup2(writefd,3)",
+            "    os.set_inheritable(3,True)",
+            "elif transport=='file':",
+            "    file=tempfile.TemporaryFile()",
+            "    holder=os.dup(file.fileno())",
+            "    os.dup2(file.fileno(),3)",
+            "    os.set_inheritable(3,True)",
+            "elif transport!='missing':",
+            "    raise RuntimeError('unsupported synthetic FD3 transport')",
+            "p=subprocess.Popen([binary,*args],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,pass_fds=(3,) if transport!='missing' else (),close_fds=True)",
+            "if transport!='missing':",
+            "    os.close(3)",
+            "if transport=='pipe':",
+            "    if writefd!=3: os.close(writefd)",
+            "    captured=[]",
+            "    def drain():",
+            "        while True:",
+            "            chunk=os.read(readfd,65536)",
+            "            if not chunk: break",
+            "            captured.append(chunk)",
+            "        os.close(readfd)",
+            "    reader=threading.Thread(target=drain)",
+            "    reader.start()",
+            "stdout,stderr=p.communicate(data,timeout=45)",
+            "if transport=='pipe':",
+            "    reader.join(timeout=10)",
+            "    assert not reader.is_alive()",
+            "    fd3=b''.join(captured)",
+            "elif transport=='file':",
+            "    os.lseek(holder,0,os.SEEK_SET)",
+            "    fd3=os.read(holder,16*1024*1024)",
+            "    os.close(holder)",
+            "else:",
+            "    fd3=b''",
+            "print(json.dumps({'status':p.returncode,'stdout':stdout.decode('utf-8','replace'),'stderr':stderr.decode('utf-8','replace'),'fd3':fd3.decode('utf-8','replace')}))",
+          ].join('\n');
           const run=(doc,mode='Steam',override={})=>{
-            const input=Buffer.from(JSON.stringify(doc));
-            const env={...process.env,WAND_LOCAL_ORIGINAL_SHA256:originalSha,
-              WAND_LOCAL_ORIGINAL_SIZE_BYTES:'123456',
-              WAND_LOCAL_DECODED_SHA256:sha(input),
-              WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:exactSteam};
-            if(mode==='Switch'){delete env.WAND_LOCAL_INSTALLED_STEAM_FULLVERSION;env.WAND_LOCAL_INSTALLED_SWITCH_BID=exactSwitch}
-            Object.assign(env,override.env||{});
-            for(const key of override.removeEnv||[])delete env[key];
-            return spawnSync(bin,override.args||argsFor(mode),{
-              input,env,encoding:'utf8',timeout:45000,maxBuffer:16*1024*1024,
-              stdio:override.stdio||['pipe','pipe','pipe','pipe']
-            });
+          const input=Buffer.from(JSON.stringify(doc));
+          const env={...process.env,WAND_LOCAL_ORIGINAL_SHA256:originalSha,
+          WAND_LOCAL_ORIGINAL_SIZE_BYTES:'123456',
+          WAND_LOCAL_DECODED_SHA256:sha(input),
+          WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:exactSteam};
+          if(mode==='Switch'){delete env.WAND_LOCAL_INSTALLED_STEAM_FULLVERSION;env.WAND_LOCAL_INSTALLED_SWITCH_BID=exactSwitch}
+          Object.assign(env,override.env||{});
+          for(const key of override.removeEnv||[])delete env[key];
+          const args=override.args||argsFor(mode);
+          const transport=override.transport||'pipe';
+          const p=spawnSync('python3',['-c',pyBridge,bin,transport,...args],{
+          input,env,encoding:'utf8',timeout:65000,maxBuffer:16*1024*1024
+          });
+          assert.equal(p.status,0,'Python fixture harness failed '+String(p.stderr).slice(0,250));
+          const out=JSON.parse(p.stdout);
+          return {status:out.status,stdout:out.stdout,stderr:out.stderr,
+          output:[null,out.stdout,out.stderr,out.fd3]};
           };
-          const accepted=(mode)=>{
+                    const accepted=(mode)=>{
             const r=run(obj,mode);
             assert.equal(r.status,0,mode+' genuine synthetic Wardrobe CLI positive: '+r.stderr?.slice(0,500));
             assert.equal(r.stdout,'','private receipt must not reach stdout');
@@ -168,23 +221,8 @@ jobs:
             WAND_LOCAL_INSTALLED_STEAM_FULLVERSION:exactSteam}});
           rejects('WRONG_EXTERNAL_BID',obj,'Switch',{env:{
             WAND_LOCAL_INSTALLED_SWITCH_BID:'52BD625D9B4E0053'}});
-          rejects('NO_FD3',obj,'Steam',{stdio:['pipe','pipe','pipe','ignore']});
-          // A writable regular file at FD3 is never a safe replacement for the
-          // trusted parent-owned anonymous pipe, even if the caller owns it.
-          const scratch=mkdtempSync(join(tmpdir(),'qrs-act1101-native-'));
-          try{
-            const candidate=join(scratch,'NOT_RECEIPT');
-            const fd=openSync(candidate,'w',0o600);
-            try{
-              const r=run(obj,'Steam',{stdio:['pipe','pipe','pipe',fd]});
-              assert.notEqual(r.status,0,'regular file FD3 must be denied');
-              assert.equal(r.stdout,'');
-              assert.match(r.stderr,/PRIVATE_RECEIPT_ANONYMOUS_PIPE_REQUIRED/);
-            }finally{closeSync(fd)}
-            assert.equal(readFileSync(candidate).length,0,'no private receipt persisted into file FD3');
-            denied++;
-            console.log('QRS_ACT1101_REPAIRED_CURRENT_WARDROBE_FD3_DENIED FILE_AT_FD3');
-          }finally{rmSync(scratch,{recursive:true,force:true})}
+          rejects('NO_FD3',obj,'Steam',{transport:'missing'});
+          rejects('FILE_AT_FD3',obj,'Steam',{transport:'file'});
           assert.equal(denied,8);
           console.log('QRS_ACT1101_CURRENT_RUST_WARDROBE_PRIVATE_FD3_2POS8NEG_COMPLETE');
           NODE
