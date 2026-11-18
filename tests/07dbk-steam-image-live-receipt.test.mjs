@@ -30,7 +30,7 @@ const fake=(state,overrides={})=>{
         status:overrides.imageStatus??200,
         headers:{"content-type":overrides.imageMime??"image/webp"}});
     }
-    if(isManifest)return new Response(JSON.stringify({schema:"wand.item-images.steam-primary-release@1",items:
+    if(isManifest)return new Response(JSON.stringify({schema:"wand.item-images.steam-primary-release@1",assetVariant:variant,items:
       overrides.manifestKeepsItem?{[id]:{webpSha256:digest(bytes)}}:{}}),{
       status:200,headers:{"content-type":"application/json"}});
     const deniedStatus=overrides.deniedStatus??404;
@@ -121,6 +121,42 @@ test("ON fails if public bytes, status, content type or manifest are not the pin
       /LIVE_/);
   }
 });
+
+test("WITHDRAW rejects hashed-but-forged prior ON checks before any HTTP",async()=>{
+  const {result:published}=await on();
+  for(const mutate of [
+    checks=>checks.map((c,i)=>i===1?{...c,url:"https://foreign.example/forged.webp"}:c),
+    checks=>checks.map((c,i)=>i===2?{...c,method:"GET"}:c),
+    checks=>checks.map((c,i)=>i===0?{...c,url:liveTargets(opts).targets[0].url}:c),
+    checks=>checks.map((c,i)=>i===1?{...c,status:304}:c)
+  ]){
+    const forged={...published.receipt,checks:mutate(published.receipt.checks)};
+    const f=fake("WITHDRAW");
+    await assert.rejects(verifySteamLiveImagePhase({...withdrawArgs(published,f.fetchImpl),
+      priorOnReceipt:forged,expectedOnReceiptSha256:receiptDigest(forged)}),
+      /PRIOR_ON_EVIDENCE_NOT_COMPLETE/);
+    assert.equal(f.calls.length,0,"unverified prior ON must fail before network");
+  }
+});
+
+test("WITHDRAW 200 manifest must retain exact release schema, variant and item map",async()=>{
+  const {result:published}=await on();
+  const good={schema:"wand.item-images.steam-primary-release@1",
+    assetVariant:variant,publication:{gate:"MEDIA_PUBLIC_SCOPED_ON"},items:{}};
+  for(const wrong of [{},{items:{}},
+    {...good,schema:"foreign.release.manifest"},{...good,assetVariant:"wrong-variant"},
+    {...good,items:null},{...good,items:[]}]) {
+    const f=fake("WITHDRAW");
+    const fetchImpl=(url,args)=>url.endsWith("manifest.json")
+      ? Promise.resolve(new Response(JSON.stringify(wrong),{
+          status:200,headers:{"content-type":"application/json"}}))
+      : f.fetchImpl(url,args);
+    await assert.rejects(verifySteamLiveImagePhase({...withdrawArgs(published,fetchImpl)}),
+      /WITHDRAW_MANIFEST_SCHEMA_OR_VARIANT_INVALID/);
+    assert.equal(f.calls.length,0,"wrong manifest fails before asset checks");
+  }
+});
+
 test("ON and withdrawal never treat a source-only candidate receipt as an operator deployment",async()=>{
   const {result:published}=await on();
   assert.notEqual(published.receipt.scope,"SIGNED_DEPLOYMENT_AUTHORIZATION");
