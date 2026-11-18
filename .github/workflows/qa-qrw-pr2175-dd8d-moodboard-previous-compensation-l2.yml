@@ -1,0 +1,249 @@
+name: QA ONLY 04 QR-W PR2175 DD8D Moodboard previous snapshot compensation L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2175-dd8d-moodboard-previous-compensation-l2.yml'
+permissions:
+  contents: read
+jobs:
+  moodboard-local-current-previous-fault-injection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dd8d7f2fbb9a0df743cf9a6204381633fe01fc63
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source exact6 original GitBlob paths and Rust/Pages unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = dd8d7f2fbb9a0df743cf9a6204381633fe01fc63
+          test "$(git merge-base HEAD bb5b0363b322f106218c3e42da97da0d91fc38ae)" = bb5b0363b322f106218c3e42da97da0d91fc38ae
+          test "$(git rev-parse HEAD:.github/workflows/08web-decux25-moodboard-local-compensated-persist.yml)" = baec1892e4cf78e8843c80b2d65a64b4ad172d9b
+          test "$(git ls-tree HEAD '.github/workflows/08web-decux25-moodboard-local-compensated-persist.yml' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:scripts/web-moodboard-local-compensated-persist-chrome.mjs)" = 85aa8931b21c7110f4351efb9125eea3e1e8c91e
+          test "$(git ls-tree HEAD 'scripts/web-moodboard-local-compensated-persist-chrome.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:src/lib/moodboards/local-persist-compensated.mjs)" = 2a43a5d83ffcad4880c0c3b3cb62e7d0443b0c0c
+          test "$(git ls-tree HEAD 'src/lib/moodboards/local-persist-compensated.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:src/routes/moodboards/+page.svelte)" = 212554dc9b8caa81f5bb8bace3a83f67eef9ae2b
+          test "$(git ls-tree HEAD 'src/routes/moodboards/+page.svelte' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:tests/web-moodboard-decux49-ungroup-preserves-refs.test.mjs)" = 753dca969c5737a6678c28932cd9d0d12ce2ea95
+          test "$(git ls-tree HEAD 'tests/web-moodboard-decux49-ungroup-preserves-refs.test.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:tests/web-moodboard-local-compensated-persist.test.mjs)" = 022baed4ba70e1c660bf614f6bd23cf93ab70c6c
+          test "$(git ls-tree HEAD 'tests/web-moodboard-local-compensated-persist.test.mjs' | awk '{print $1}')" = 100644
+          cat >/tmp/qrw2175-source <<'FILE'
+          .github/workflows/08web-decux25-moodboard-local-compensated-persist.yml
+          scripts/web-moodboard-local-compensated-persist-chrome.mjs
+          src/lib/moodboards/local-persist-compensated.mjs
+          src/routes/moodboards/+page.svelte
+          tests/web-moodboard-decux49-ungroup-preserves-refs.test.mjs
+          tests/web-moodboard-local-compensated-persist.test.mjs
+          FILE
+          LC_ALL=C sort /tmp/qrw2175-source > /tmp/qrw2175-expected
+          git diff --name-only bb5b0363b322f106218c3e42da97da0d91fc38ae HEAD | LC_ALL=C sort > /tmp/qrw2175-actual
+          diff -u /tmp/qrw2175-expected /tmp/qrw2175-actual
+          git diff --quiet bb5b0363b322f106218c3e42da97da0d91fc38ae HEAD -- crates/ddv-save-core/ src/lib/ddv/core/ src/lib/wep/ .github/workflows/pages.yml static/ package-lock.json
+          echo QRW2175_MOODBOARD_EXACT6_GIT_SOURCE_NO_SAVE_OR_RELEASE_PASS
+      - name: Inherit only changed Moodboard source tests not new broad CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          node --test tests/web-moodboard-local-compensated-persist.test.mjs
+      - name: Independently fault inject primary backup silent, partial, rollback, stale CAS
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createEmptyMoodboardDocument,createMoodboard,serializeMoodboardDocument,
+           MOODBOARD_STORAGE_KEY as MAIN,MOODBOARD_BACKUP_KEY as BACKUP}
+           from './src/lib/moodboards/store.js';
+          import {persistMoodboardLocalChange as persist}
+           from './src/lib/moodboards/local-persist-compensated.mjs';
+          const docA=createMoodboard(createEmptyMoodboardDocument('2026-11-18T00:00:00.000Z'),
+           {title:'Safe A'},{now:'2026-11-18T00:00:01.000Z',idFactory:()=>1}).document;
+          const docB=createMoodboard(docA,{title:'Safe B'},
+           {now:'2026-11-18T00:00:02.000Z',idFactory:()=>2}).document;
+          const rawA=serializeMoodboardDocument(docA),rawB=serializeMoodboardDocument(docB);
+          const prior='opaque-previous-snapshot-original-bytes';
+          let pos=0,neg=0;
+          function rig(initial=[[MAIN,rawA],[BACKUP,prior]]){
+           const map=new Map(initial),ops=[];
+           const storage={
+            getItem(key){return map.has(key)?map.get(key):null},
+            setItem(key,value){ops.push('set:'+key);map.set(key,String(value))},
+            removeItem(key){ops.push('remove:'+key);map.delete(key)}
+           };
+           return {map,ops,storage};
+          }
+          const original=()=>[rawA,prior];
+          function unchanged(state,label){
+           assert.equal(state.storage.getItem(MAIN),rawA,label+':current');
+           assert.equal(state.storage.getItem(BACKUP),prior,label+':previous');
+          }
+          function deny(label,mutate,pattern=/./){
+           const state=rig();mutate(state);
+           assert.throws(()=>persist(state.storage,docB,rawA),pattern,label);
+           unchanged(state,label);
+           neg++;
+          }
+          {
+           const s=rig(),saved=persist(s.storage,docB,rawA);
+           assert.equal(saved,rawB);
+           assert.equal(s.storage.getItem(MAIN),rawB);
+           assert.equal(s.storage.getItem(BACKUP),rawA);
+           assert.deepEqual(s.ops,['set:'+BACKUP,'set:'+MAIN]);
+           pos++;
+          }
+          {
+           const s=rig(),saved=persist(s.storage,docA,rawA);
+           assert.equal(saved,rawA);
+           assert.equal(s.storage.getItem(BACKUP),prior);
+           assert.deepEqual(s.ops,[]);
+           pos++;
+          }
+          {
+           const s=rig([[BACKUP,prior]]);
+           const empty=createEmptyMoodboardDocument('2026-11-18T00:00:00.000Z');
+           const saved=persist(s.storage,empty,null);
+           assert.equal(s.storage.getItem(MAIN),saved);
+           assert.equal(s.storage.getItem(BACKUP),prior);
+           assert.deepEqual(s.ops,['set:'+MAIN]);
+           pos++;
+          }
+          deny('backup write throws',s=>{
+           const set=s.storage.setItem.bind(s.storage);
+           s.storage.setItem=(k,v)=>{if(k===BACKUP)throw Error('BACKUP_QUOTA');set(k,v)};
+          },/BACKUP_QUOTA/);
+          deny('main write throws prewrite',s=>{
+           const set=s.storage.setItem.bind(s.storage);
+           s.storage.setItem=(k,v)=>{if(k===MAIN)throw Error('MAIN_QUOTA');set(k,v)};
+          },/MAIN_QUOTA/);
+          deny('silent backup write ignored before main',s=>{
+           const set=s.storage.setItem.bind(s.storage);
+           let ignored=false;
+           s.storage.setItem=(k,v)=>{if(k===BACKUP&&!ignored){ignored=true;return}set(k,v)};
+          },/MOODBOARD_LOCAL_COMMIT_UNVERIFIED/);
+          deny('silent main write ignored',s=>{
+           const set=s.storage.setItem.bind(s.storage);
+           let ignored=false;
+           s.storage.setItem=(k,v)=>{if(k===MAIN&&!ignored){ignored=true;return}set(k,v)};
+          },/MOODBOARD_LOCAL_COMMIT_UNVERIFIED/);
+          deny('backup altered by storage shim',s=>{
+           const set=s.storage.setItem.bind(s.storage);
+           let altered=false;
+           s.storage.setItem=(k,v)=>{if(k===BACKUP&&!altered){altered=true;return set(k,'TAMPER_BACKUP')}set(k,v)};
+          },/MOODBOARD_LOCAL_COMMIT_UNVERIFIED/);
+          deny('primary altered by storage shim',s=>{
+           const set=s.storage.setItem.bind(s.storage);
+           let altered=false;
+           s.storage.setItem=(k,v)=>{if(k===MAIN&&!altered){altered=true;return set(k,'TAMPER_MAIN')}set(k,v)};
+          },/MOODBOARD_LOCAL_COMMIT_UNVERIFIED/);
+          deny('main write throws after partial commit',s=>{
+           const set=s.storage.setItem.bind(s.storage);
+           let failed=false;
+           s.storage.setItem=(k,v)=>{set(k,v);if(k===MAIN&&!failed){failed=true;throw Error('AFTER_MAIN_COMMIT')}};
+          },/AFTER_MAIN_COMMIT/);
+          deny('backup write throws after partial commit',s=>{
+           const set=s.storage.setItem.bind(s.storage);
+           let failed=false;
+           s.storage.setItem=(k,v)=>{set(k,v);if(k===BACKUP&&!failed){failed=true;throw Error('AFTER_BACKUP_COMMIT')}};
+          },/AFTER_BACKUP_COMMIT/);
+          {
+           const s=rig(),newer='raw-other-tab-newer';
+           s.map.set(MAIN,newer);
+           assert.throws(()=>persist(s.storage,docB,rawA),/MOODBOARD_LOCAL_STALE/);
+           assert.equal(s.storage.getItem(MAIN),newer);
+           assert.equal(s.storage.getItem(BACKUP),prior);
+           assert.deepEqual(s.ops,[]);
+           neg++;
+          }
+          {
+           const s=rig();
+           assert.throws(()=>persist(s.storage,docB,null),/MOODBOARD_LOCAL_STALE/);
+           unchanged(s,'wrong expected snapshot');
+           assert.deepEqual(s.ops,[]);
+           neg++;
+          }
+          {
+           const s=rig();
+           assert.throws(()=>persist(s.storage,docB,undefined),/MOODBOARD_LOCAL_STORAGE_UNAVAILABLE/);
+           unchanged(s,'undefined CAS');
+           assert.deepEqual(s.ops,[]);
+           neg++;
+          }
+          {
+           const s=rig();
+           assert.throws(()=>persist(s.storage,{schema:'BAD'},rawA));
+           unchanged(s,'invalid doc');
+           assert.deepEqual(s.ops,[]);
+           neg++;
+          }
+          {
+           const s=rig();
+           const set=s.storage.setItem.bind(s.storage);
+           let backupWrites=0;
+           s.storage.setItem=(k,v)=>{
+            if(k===BACKUP){
+             backupWrites++;
+             if(backupWrites>=2)throw Error('RESTORE_PREVIOUS_BLOCKED');
+            }
+            if(k===MAIN)throw Error('QUOTA_MAIN');
+            set(k,v);
+           };
+           assert.throws(()=>persist(s.storage,docB,rawA),/MOODBOARD_LOCAL_ROLLBACK_UNVERIFIED/);
+           assert.equal(s.storage.getItem(MAIN),rawA);
+           assert.notEqual(s.storage.getItem(BACKUP),prior);
+           neg++;
+          }
+          {
+           const s=rig();
+           const set=s.storage.setItem.bind(s.storage);
+           let mainWrites=0;
+           s.storage.setItem=(k,v)=>{
+            if(k===MAIN){
+             mainWrites++;
+             if(mainWrites===1){set(k,v);throw Error('POSTWRITE_FAIL')}
+             throw Error('ROLLBACK_MAIN_BLOCKED');
+            }
+            set(k,v);
+           };
+           assert.throws(()=>persist(s.storage,docB,rawA),/MOODBOARD_LOCAL_ROLLBACK_UNVERIFIED/);
+           assert.equal(s.storage.getItem(BACKUP),prior);
+           assert.equal(s.storage.getItem(MAIN),rawB);
+           neg++;
+          }
+          {
+           const s=rig([[BACKUP,prior]]),empty=createEmptyMoodboardDocument('2026-11-18T00:00:00.000Z');
+           const set=s.storage.setItem.bind(s.storage);
+           s.storage.setItem=(k,v)=>{set(k,v);if(k===MAIN)throw Error('POSTWRITE_FIRST')};
+           assert.throws(()=>persist(s.storage,empty,null),/POSTWRITE_FIRST/);
+           assert.equal(s.storage.getItem(MAIN),null);
+           assert.equal(s.storage.getItem(BACKUP),prior);
+           neg++;
+          }
+          {
+           const s=rig([[BACKUP,prior]]),empty=createEmptyMoodboardDocument('2026-11-18T00:00:00.000Z');
+           const set=s.storage.setItem.bind(s.storage);
+           s.storage.setItem=(k,v)=>{set(k,v);if(k===MAIN)throw Error('POSTWRITE_FIRST')};
+           s.storage.removeItem=undefined;
+           assert.throws(()=>persist(s.storage,empty,null),/MOODBOARD_LOCAL_ROLLBACK_UNVERIFIED/);
+           assert.notEqual(s.storage.getItem(MAIN),null);
+           assert.equal(s.storage.getItem(BACKUP),prior);
+           neg++;
+          }
+          assert.equal(pos,3);
+          assert.equal(neg,16);
+          console.log('QRW2175_LOCAL_PREVIOUS_TWO_KEY_COMPENSATION',JSON.stringify({
+           positives:pos,negatives:neg,actualBrowserSignAndRelease:'NOT_RUN',
+           rollbackUnverifiedExplicit:true,saveWriterOff:true,
+           atomicTwoKeyTransactionClaim:false
+          }));
+          
+          NODE
