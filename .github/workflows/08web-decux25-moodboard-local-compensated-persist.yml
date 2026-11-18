@@ -1,0 +1,45 @@
+name: 08 WEB Moodboard local current and previous recoverability
+on:
+  pull_request:
+    paths:
+      - 'src/lib/moodboards/local-persist-compensated.mjs'
+      - 'src/routes/moodboards/+page.svelte'
+      - 'tests/web-moodboard-local-compensated-persist.test.mjs'
+      - 'scripts/web-moodboard-local-compensated-persist-chrome.mjs'
+      - '.github/workflows/08web-decux25-moodboard-local-compensated-persist.yml'
+permissions:
+  contents: read
+jobs:
+  moodboard-local-persist:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact local quota, stale CAS and backup recovery negatives
+        run: node --test tests/web-moodboard-local-compensated-persist.test.mjs tests/web-moodboard-decux24-root-grid.test.mjs
+      - name: Svelte and signed Pages candidate build only
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: Installed Chrome quota rollback, previous snapshot and second tab 1366/320
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/08web-moodboard-local.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4298/web/moodboards/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4298/web/moodboards/ >/dev/null
+          node scripts/web-moodboard-local-compensated-persist-chrome.mjs
