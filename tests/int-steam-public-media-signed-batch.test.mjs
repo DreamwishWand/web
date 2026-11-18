@@ -56,8 +56,8 @@ test('real source and built media paths reject symlinked ddv ancestor, even with
       const checkout=join(fixture,kind),base=join(checkout,kind==='source'?'static':'build');
       const external=join(fixture,kind+'-external');
       mkdirSync(base,{recursive:true});
-      copyAllMediaInto(join(external,'item-images'));
-      symlinkSync(external,join(base,'ddv'),'dir');
+      copyAllMediaInto(external);
+      symlinkSync(join(external,'ddv'),join(base,'ddv'),'dir');
       await assert.rejects(verifyLocal(plan,{kind,root:checkout,pins:pinned}),/MEDIA_SYMLINK_ANCESTOR/);
       rmSync(join(base,'ddv'));
       copyAllMediaInto(base);
