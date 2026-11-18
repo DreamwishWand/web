@@ -100,7 +100,9 @@ try{
  assert.ok(unavailable.length>5);
  assert.equal(await q("return Boolean(document.querySelector('[data-typed-tour-open]'))"),false,'wrong view fails closed');
  await tap('[data-preset-child="my"]');
- await until("return document.querySelector('[data-my-local-scenes]')&&document.querySelector('[data-my-wand-views]')");
+ // CDP returnByValue cannot serialize a DOM Element as a true result.
+ // Return an explicit primitive Boolean for the real two-subtree check.
+ await until("return Boolean(document.querySelector('[data-my-local-scenes]')&&document.querySelector('[data-my-wand-views]'))");
  await tap('[data-tour-launch="desktop"]');
  await until("return Boolean(document.querySelector('[data-tour-next]'))");
  const initial=await q("const e=document.querySelector('[data-typed-tour-dialog]');return {role:e.getAttribute('role'),modal:e.getAttribute('aria-modal'),focused:e===document.activeElement,step:e.querySelector('h2')?.textContent,rect:e.getBoundingClientRect().toJSON()}");
