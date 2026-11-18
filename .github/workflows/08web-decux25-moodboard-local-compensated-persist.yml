@@ -5,7 +5,9 @@ on:
       - 'src/lib/moodboards/local-persist-compensated.mjs'
       - 'src/routes/moodboards/+page.svelte'
       - 'tests/web-moodboard-local-compensated-persist.test.mjs'
+      - 'tests/web-moodboard-restore-compensated.test.mjs'
       - 'scripts/web-moodboard-local-compensated-persist-chrome.mjs'
+      - 'scripts/web-moodboard-restore-compensated-chrome.mjs'
       - '.github/workflows/08web-decux25-moodboard-local-compensated-persist.yml'
 permissions:
   contents: read
@@ -22,7 +24,7 @@ jobs:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
       - name: Exact local quota, stale CAS and backup recovery negatives
-        run: node --test tests/web-moodboard-local-compensated-persist.test.mjs tests/web-moodboard-decux24-root-grid.test.mjs
+        run: node --test tests/web-moodboard-local-compensated-persist.test.mjs tests/web-moodboard-decux24-root-grid.test.mjs tests/web-moodboard-restore-compensated.test.mjs
       - name: Svelte and signed Pages candidate build only
         env:
           BASE_PATH: /web
@@ -43,3 +45,4 @@ jobs:
           done
           curl -fsS http://127.0.0.1:4298/web/moodboards/ >/dev/null
           node scripts/web-moodboard-local-compensated-persist-chrome.mjs
+          node scripts/web-moodboard-restore-compensated-chrome.mjs
