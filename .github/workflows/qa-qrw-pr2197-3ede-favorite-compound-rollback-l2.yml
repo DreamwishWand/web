@@ -1,0 +1,205 @@
+name: QA ONLY 04 QR-W PR2197 3EDE Wand Favorite independent compensation L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2197-3ede-favorite-compound-rollback-l2.yml'
+permissions:
+  contents: read
+jobs:
+  previous-and-primary-independent-compensation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3ededa8b76571826c8ae67b5b452aaed00e70370
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact original Source four paths, blobs, modes and boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 3ededa8b76571826c8ae67b5b452aaed00e70370
+          test "$(git merge-base c5da09cd00dc7d705ac4c1ab4a512b04d3648495 HEAD)" = c5da09cd00dc7d705ac4c1ab4a512b04d3648495
+          test "$(git rev-parse 'HEAD:.github/workflows/08web-wand-favorites-local.yml')" = 95178bb51edd1cadb6ed2801e602adb18e7ccace
+          test "$(git ls-tree HEAD '.github/workflows/08web-wand-favorites-local.yml' | awk '{print $1}')" = 100644
+          test "$(git rev-parse 'HEAD:scripts/web-explore-wand-favorites-chrome.mjs')" = 1f24f065271f1ff9af184ca20dcc96667668764a
+          test "$(git ls-tree HEAD 'scripts/web-explore-wand-favorites-chrome.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse 'HEAD:src/lib/explore/wand-favorites-local.mjs')" = 59716c714140000d4245ea6e818507b290d81795
+          test "$(git ls-tree HEAD 'src/lib/explore/wand-favorites-local.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse 'HEAD:tests/web-wand-favorite-independent-rollback.test.mjs')" = 267aef690997b2559a86c4228389ad4f88bf6956
+          test "$(git ls-tree HEAD 'tests/web-wand-favorite-independent-rollback.test.mjs' | awk '{print $1}')" = 100644
+          cat > /tmp/qrw2197-source-paths <<'EOF'
+          .github/workflows/08web-wand-favorites-local.yml
+          scripts/web-explore-wand-favorites-chrome.mjs
+          src/lib/explore/wand-favorites-local.mjs
+          tests/web-wand-favorite-independent-rollback.test.mjs
+          EOF
+          LC_ALL=C sort /tmp/qrw2197-source-paths >/tmp/qrw2197-expected
+          git diff --name-only c5da09cd00dc7d705ac4c1ab4a512b04d3648495 HEAD | LC_ALL=C sort > /tmp/qrw2197-actual
+          diff -u /tmp/qrw2197-expected /tmp/qrw2197-actual
+          git diff --quiet c5da09cd00dc7d705ac4c1ab4a512b04d3648495 HEAD -- src/lib/moodboards/ src/lib/ddv/core/ crates/ddv-save-core/ src/routes/ static/ ops/ .github/workflows/pages.yml package-lock.json
+          echo QRW2197_EXACT4_FIXED_PRODUCT_SOURCE_NO_GAME_WRITER_OR_PAGES_PASS
+      - name: Inherited original corrected Source new independent-fault tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          node --test tests/web-wand-favorite-independent-rollback.test.mjs
+      - name: Independent 4 valid + 13 failed/partial/denied exact raw restoration fault cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {WAND_FAVORITES_SCHEMA, WAND_FAVORITES_STORAGE_KEY as MAIN,
+           WAND_FAVORITES_BACKUP_KEY as BACKUP,persistWandFavorite,
+           parseWandFavorites} from './src/lib/explore/wand-favorites-local.mjs';
+          const oldMain=' \t'+JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[40000047]})+' \n';
+          const oldPrevious='\n'+JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[40700007]})+'\t';
+          const target=30200001;
+          const fresh=()=>{
+           const map=new Map([[MAIN,oldMain],[BACKUP,oldPrevious]]),ops=[];
+           const storage={
+            getItem(k){ops.push('get:'+k);return map.has(k)?map.get(k):null},
+            setItem(k,v){ops.push('set:'+k);map.set(k,String(v))},
+            removeItem(k){ops.push('remove:'+k);map.delete(k)}
+           };
+           return {map,ops,storage};
+          };
+          function unchanged(s,label){
+           assert.equal(s.map.get(MAIN),oldMain,label+': exact original main raw');
+           assert.equal(s.map.get(BACKUP),oldPrevious,label+': exact previous raw');
+          }
+          let pos=0,neg=0;
+          {
+           const s=fresh(),result=persistWandFavorite(s.storage,target,true);
+           assert.deepEqual(result.itemIds,[target,40000047].sort((a,b)=>a-b));
+           assert.equal(s.map.get(BACKUP),oldMain);
+           assert.equal(parseWandFavorites(s.map.get(MAIN)).itemIds.length,2);
+           pos++;
+          }
+          {
+           const s=fresh(),result=persistWandFavorite(s.storage,40000047,false);
+           assert.deepEqual(result.itemIds,[]);
+           assert.equal(s.map.get(BACKUP),oldMain);
+           pos++;
+          }
+          {
+           const s=fresh(),before=s.ops.length;
+           const result=persistWandFavorite(s.storage,40000047,true);
+           assert.deepEqual(result.itemIds,[40000047]);
+           unchanged(s,'noop');
+           assert.equal(s.ops.filter(x=>x.startsWith('set:')||x.startsWith('remove:')).length,0);
+           pos++;
+          }
+          {
+           const s=fresh();s.map.delete(MAIN);
+           const result=persistWandFavorite(s.storage,target,true);
+           assert.deepEqual(result.itemIds,[target]);
+           assert.equal(s.map.get(BACKUP),oldPrevious);
+           assert.equal(parseWandFavorites(s.map.get(MAIN)).itemIds[0],target);
+           pos++;
+          }
+          function rejected(label,alter,pattern,verify){
+           const s=fresh();alter(s);
+           let failure=null;
+           try{persistWandFavorite(s.storage,target,true);}catch(e){failure=e;}
+           assert.ok(failure,label+': must throw');
+           assert.match(String(failure.message),pattern,label+': expected refusal');
+           verify(s);
+           neg++;
+          }
+          rejected('backup prewrite quota',s=>{
+           const set=s.storage.setItem.bind(s.storage);
+           s.storage.setItem=(k,v)=>{if(k===BACKUP)throw Error('INJECTED_BACKUP_PREWRITE');set(k,v)};
+          },/INJECTED_BACKUP_PREWRITE/,s=>unchanged(s,'backup prewrite'));
+          rejected('main prewrite quota',s=>{
+           const set=s.storage.setItem.bind(s.storage);
+           s.storage.setItem=(k,v)=>{if(k===MAIN)throw Error('INJECTED_MAIN_PREWRITE');set(k,v)};
+          },/INJECTED_MAIN_PREWRITE/,s=>unchanged(s,'main prewrite'));
+          rejected('backup partial postwrite failure',s=>{
+           const set=s.storage.setItem.bind(s.storage);let calls=0;
+           s.storage.setItem=(k,v)=>{set(k,v);if(k===BACKUP&&++calls===1)throw Error('INJECTED_BACKUP_POSTWRITE')};
+          },/INJECTED_BACKUP_POSTWRITE/,s=>unchanged(s,'backup partial postwrite'));
+          rejected('main partial postwrite failure',s=>{
+           const set=s.storage.setItem.bind(s.storage);let calls=0;
+           s.storage.setItem=(k,v)=>{set(k,v);if(k===MAIN&&++calls===1)throw Error('INJECTED_MAIN_POSTWRITE')};
+          },/INJECTED_MAIN_POSTWRITE/,s=>unchanged(s,'main partial postwrite'));
+          rejected('primary rollback denied but backup independent recovery',s=>{
+           const set=s.storage.setItem.bind(s.storage);let calls=0;
+           s.storage.setItem=(k,v)=>{if(k===MAIN&&++calls===1){set(k,v);throw Error('FIRST_POSTWRITE_FAIL')}if(k===MAIN)throw Error('ROLLBACK_MAIN_DENIED');set(k,v)};
+          },/WAND_FAVORITES_ROLLBACK_UNVERIFIED/,s=>{
+           assert.notEqual(s.map.get(MAIN),oldMain);
+           assert.equal(s.map.get(BACKUP),oldPrevious,'backup original whitespace and bytes remain recoverable');
+           assert.ok(s.ops.filter(x=>x==='set:'+BACKUP).length>=2,'backup must be independently restored');
+          });
+          rejected('backup rollback denied must still restore primary',s=>{
+           const set=s.storage.setItem.bind(s.storage),calls={main:0,backup:0};
+           s.storage.setItem=(k,v)=>{
+            if(k===BACKUP&&++calls.backup>1)throw Error('ROLLBACK_BACKUP_DENIED');
+            if(k===MAIN&&++calls.main===1){set(k,v);throw Error('FIRST_POSTWRITE_FAIL')}
+            set(k,v)
+           };
+          },/WAND_FAVORITES_ROLLBACK_UNVERIFIED/,s=>{
+           assert.equal(s.map.get(MAIN),oldMain,'primary separately recovered');
+           assert.notEqual(s.map.get(BACKUP),oldPrevious,'backup denied recovery');
+           assert.ok(s.ops.filter(x=>x==='set:'+MAIN).length>=2,'primary independently attempted');
+          });
+          rejected('both rollback writes denied must not falsely claim success',s=>{
+           const set=s.storage.setItem.bind(s.storage),calls={main:0,backup:0};
+           s.storage.setItem=(k,v)=>{
+            if(k===BACKUP&&++calls.backup>1)throw Error('BACKUP_ROLLBACK_DENIED');
+            if(k===MAIN&&++calls.main===1){set(k,v);throw Error('MAIN_PARTIAL')}
+            if(k===MAIN)throw Error('MAIN_ROLLBACK_DENIED');
+            set(k,v)
+           };
+          },/WAND_FAVORITES_ROLLBACK_UNVERIFIED/,s=>{
+           assert.notEqual(s.map.get(MAIN),oldMain);
+           assert.notEqual(s.map.get(BACKUP),oldPrevious);
+           assert.ok(s.ops.filter(x=>x==='set:'+MAIN).length>=1);
+           assert.ok(s.ops.filter(x=>x==='set:'+BACKUP).length>=1);
+          });
+          rejected('silent initial backup no-op',s=>{
+           const set=s.storage.setItem.bind(s.storage);let calls=0;
+           s.storage.setItem=(k,v)=>{if(k===BACKUP&&++calls===1)return;set(k,v)};
+          },/WAND_FAVORITES_COMMIT_UNVERIFIED/,s=>unchanged(s,'backup no-op'));
+          rejected('silent initial primary no-op',s=>{
+           const set=s.storage.setItem.bind(s.storage);let calls=0;
+           s.storage.setItem=(k,v)=>{if(k===MAIN&&++calls===1)return;set(k,v)};
+          },/WAND_FAVORITES_COMMIT_UNVERIFIED/,s=>unchanged(s,'primary no-op'));
+          rejected('corrupt initial backup content',s=>{
+           const set=s.storage.setItem.bind(s.storage);let calls=0;
+           s.storage.setItem=(k,v)=>{if(k===BACKUP&&++calls===1)return set(k,'CORRUPTED_BACKUP');set(k,v)};
+          },/WAND_FAVORITES_COMMIT_UNVERIFIED/,s=>unchanged(s,'backup corruption'));
+          rejected('corrupt initial primary content',s=>{
+           const set=s.storage.setItem.bind(s.storage);let calls=0;
+           s.storage.setItem=(k,v)=>{if(k===MAIN&&++calls===1)return set(k,'CORRUPTED_MAIN');set(k,v)};
+          },/WAND_FAVORITES_COMMIT_UNVERIFIED/,s=>unchanged(s,'primary corruption'));
+          rejected('prior backup absent, primary rollback denied: explicit unrestored and backup absent',s=>{
+           s.map.delete(BACKUP);
+           const set=s.storage.setItem.bind(s.storage);let calls=0;
+           s.storage.setItem=(k,v)=>{if(k===MAIN&&++calls===1){set(k,v);throw Error('MAIN_POSTWRITE')}if(k===MAIN)throw Error('ROLLBACK_DENIED');set(k,v)};
+          },/WAND_FAVORITES_ROLLBACK_UNVERIFIED/,s=>{
+           assert.notEqual(s.map.get(MAIN),oldMain);
+           assert.equal(s.map.has(BACKUP),false,'new previous written then removed to restore absence');
+          });
+          rejected('initial no main, remove rollback denied: old previous untouched',s=>{
+           s.map.delete(MAIN);const set=s.storage.setItem.bind(s.storage);
+           s.storage.setItem=(k,v)=>{set(k,v);if(k===MAIN)throw Error('FIRST_NEW_MAIN_WRITE')};
+           s.storage.removeItem=()=>{throw Error('REMOVE_DENIED')};
+          },/WAND_FAVORITES_ROLLBACK_UNVERIFIED/,s=>{
+           assert.notEqual(s.map.get(MAIN),null,'partial new primary must not be claimed safe');
+           assert.equal(s.map.get(BACKUP),oldPrevious,'prior original opaque content preserved');
+          });
+          assert.equal(pos,4);
+          assert.equal(neg,13);
+          console.log('QRW2197_WAND_FAVORITE_INDEPENDENT_KEY_ROLLBACK_L2',JSON.stringify({
+           positives:pos,negatives:neg,originalSourceGitBlob:'59716c714140000d4245ea6e818507b290d81795',
+           trueCrossKeyAtomicity:false,gameFavorite:false,encryptedSaveWriter:false,hostedUIOn:'NOT_RUN'
+          }));
+          
+          NODE
