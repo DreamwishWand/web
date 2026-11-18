@@ -26,7 +26,7 @@ export const BAMBOO_WASM_EXPORTS=Object.freeze([
  '__wbindgen_externrefs','__wbindgen_malloc','__externref_table_dealloc',
  '__wbindgen_realloc','__wbindgen_free','__wbindgen_start'
 ].sort());
-const denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|semantic_writer|read_steam626_singlefence_target|(?:stage|export|write|save|apply|undo|redo|grant|debit|mutate|delete|overwrite|commit|toggle|preview|begin|take)_(?:steam626|switch626|scoped|fixed|inventory|chest|collection|ownership|grid)[a-z0-9_]*|(?:steam626|switch626|scoped|fixed)_(?:stage|export|write|save|apply|undo|redo|grant|debit|mutate|delete|overwrite))/i;
+const denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|semantic_writer|read_steam626_singlefence_target|(?:stage|export|write|save|apply|undo|redo|grant|debit|mutate|delete|overwrite|commit|toggle|preview|begin|take)_(?:(?:steam|switch)[0-9]{3,4}|scoped|fixed|inventory|chest|collection|ownership|grid)[a-z0-9_]*|(?:(?:steam|switch)[0-9]{3,4}|scoped|fixed)_(?:stage|export|write|save|apply|undo|redo|grant|debit|mutate|delete|overwrite))/i;
 // The manifest's readOnly bit does not make arbitrary verified JavaScript read-only.
 // Deny foreign Operation mutations even when not methods of WorkerWasmSource.
 export function bambooReadJsSymbolsOk(js){
