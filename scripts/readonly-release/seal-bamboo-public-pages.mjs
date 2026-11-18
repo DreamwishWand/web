@@ -162,7 +162,10 @@ async function run(){
  }else{
   await mainCi('recheck',head);
   const pins=inspectBambooPublicPagesSubjects(await exactFiles(staged),head);
-  if(!eq(pins,inspectBambooPublicPagesSubjects(await exactFiles(built),head)))fail();
+  const bundle=process.env.WAND_BAMBOO_SIGSTORE_BUNDLE;
+  if(typeof bundle!=='string'||!bundle||!(await readFile(bundle)).length)fail();
+  const signed=await verifySignedReleaseSubjects(staged,head,bundle,ACTIVE_RELEASE_TUPLE,inspectBambooPublicPagesSubjects);
+  if(!eq(signed,pins)||!eq(pins,inspectBambooPublicPagesSubjects(await exactFiles(built),head)))fail();
   const mod=await import(pathToFileURL(anchorFile).href);
   const a=bambooPublicAnchorFromVerifiedPins(pins);
   if(!eq(mod.PROTECTED_BAMBOO40700007_READONLY_ANCHOR,a))fail();
