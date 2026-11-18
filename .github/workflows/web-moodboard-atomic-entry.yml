@@ -84,6 +84,32 @@ jobs:
             for p in .github/workflows/web-moodboard-atomic-entry.yml .github/workflows/08web-decux43-moodboard-cover.yml scripts/web-moodboard-cover-preview-chrome.mjs src/lib/moodboards/copy.js src/lib/moodboards/cover-preview.mjs src/routes/moodboards/+page.svelte tests/web-moodboard-cover-preview.test.mjs; do
               test "$(git ls-tree HEAD "$p" | awk '{print $1}')" = 100644
             done
+          elif test "$(git rev-parse HEAD:src/routes/moodboards/+page.svelte)" = 8372377fbbd07a0f6ef2ab6e2c127d5260ccc24d && \
+               test "$(git rev-parse HEAD:tests/web-moodboard-decux24-root-grid.test.mjs)" = 11debb8682f76467026cd1e49baf9cc825184425 && \
+               test "$(git rev-parse HEAD:scripts/web-moodboard-decux24-root-grid-chrome.mjs)" = c051a58972fa76d1ccb44e49efb010d3e1d5e4fb && \
+               test "$(git rev-parse HEAD:.github/workflows/08web-decux24-moodboard-root.yml)" = 79cf3bc96288b116613a0806f638b25767968dbf && \
+               test "$(git rev-parse HEAD:src/lib/moodboards/copy.js)" = 9c20f3a06d580af6d290e6b8498b6a1bf6f9d831 && \
+               test "$(git rev-parse HEAD:src/lib/moodboards/cover-preview.mjs)" = 0ef6b9515d79dc252823643f80cf0bd84c3b9b14; then
+            # DEC-UX-24: exact five-file responsive root presentation, no Store changes.
+            # Original atomic, migration and DEC-UX-43 scopes remain identical.
+            cat >/tmp/atomic-entry-decux24-scope <<'SCOPE'
+          .github/workflows/08web-decux24-moodboard-root.yml
+          .github/workflows/web-moodboard-atomic-entry.yml
+          scripts/web-moodboard-decux24-root-grid-chrome.mjs
+          src/routes/moodboards/+page.svelte
+          tests/web-moodboard-decux24-root-grid.test.mjs
+          SCOPE
+            LC_ALL=C sort /tmp/atomic-entry-decux24-scope >/tmp/atomic-entry-decux24-expected
+            diff -u /tmp/atomic-entry-decux24-expected /tmp/atomic-entry-actual
+            for p in .github/workflows/web-moodboard-atomic-entry.yml src/routes/moodboards/+page.svelte; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M
+            done
+            for p in .github/workflows/08web-decux24-moodboard-root.yml scripts/web-moodboard-decux24-root-grid-chrome.mjs tests/web-moodboard-decux24-root-grid.test.mjs; do
+              test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+            done
+            for p in .github/workflows/08web-decux24-moodboard-root.yml .github/workflows/web-moodboard-atomic-entry.yml scripts/web-moodboard-decux24-root-grid-chrome.mjs src/routes/moodboards/+page.svelte tests/web-moodboard-decux24-root-grid.test.mjs; do
+              test "$(git ls-tree HEAD "$p" | awk '{print $1}')" = 100644
+            done
           else
             # Explicit ACT519 migration successor scope, not a general path-filter bypass.
             cat >/tmp/atomic-entry-migration-scope <<'SCOPE'
