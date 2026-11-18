@@ -1,0 +1,45 @@
+name: 08 WEB DEC-UX-24 Moodboard visual root grid and direct creation L1
+on:
+  pull_request:
+    paths:
+      - 'src/routes/moodboards/+page.svelte'
+      - 'tests/web-moodboard-decux24-root-grid.test.mjs'
+      - 'scripts/web-moodboard-decux24-root-grid-chrome.mjs'
+      - '.github/workflows/08web-decux24-moodboard-root.yml'
+      - '.github/workflows/web-moodboard-atomic-entry.yml'
+permissions:
+  contents: read
+jobs:
+  moodboard-root:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Scoped DEC-UX-24 card grid and local title-only contract
+        run: node --test tests/web-moodboard-decux24-root-grid.test.mjs
+      - name: Svelte type check and static site
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: Actual 1366 and 320 Chrome title-only create and three-card layout
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/08web-decux24-preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4298/web/moodboards/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4298/web/moodboards/ >/dev/null
+          node scripts/web-moodboard-decux24-root-grid-chrome.mjs
