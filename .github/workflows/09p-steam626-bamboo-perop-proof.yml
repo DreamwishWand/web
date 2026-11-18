@@ -1,0 +1,137 @@
+name: 09P Steam626 Bamboo40700007 exact signed proof only (no Pages)
+on:
+  pull_request:
+    paths:
+      - 'scripts/readonly-release/steam-bamboo-perop-signed.mjs'
+      - 'tests/steam-bamboo-perop-proof.test.mjs'
+      - '.github/workflows/09p-steam626-bamboo-perop-proof.yml'
+  workflow_dispatch:
+    inputs:
+      scoped_bamboo_proof_source:
+        description: 'Exact protected main SHA, only 09 INT after independent Security L2'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: wand-bamboo-proof-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+jobs:
+  candidate_source_only:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      WAND_PROOF_EXPECTED_SOURCE: ${{ github.event.pull_request.head.sha }}
+      CARGO_TARGET_DIR: /tmp/wand-bamboo-pr-rust
+      WAND_BINDGEN_CLI: /tmp/wand-bamboo-pr-bindgen/bin/wasm-bindgen
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - run: node --test tests/steam-bamboo-perop-proof.test.mjs
+      - run: node scripts/readonly-release/steam-bamboo-perop-signed.mjs preflight
+      - name: Exact accepted Rust/WASM own feature, generate real private candidate only
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-bamboo-readonly,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-bamboo-pr-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/steam-bamboo-perop-signed.mjs candidate
+          test "$(find tests/wasm-distribution/fixtures/steam626-bamboo-perop-proof -maxdepth 1 -type f | wc -l)" -eq 3
+          test ! -e static/worker-wasm-steam626-bamboo-perop
+          test ! -e build/worker-wasm-steam626-bamboo-perop
+          echo BAMBOO_PROOF_ONLY_CANDIDATE_OFF_NOT_SIGNED
+  protected_signed_proof_only:
+    if: github.event_name == 'workflow_dispatch' && inputs.scoped_bamboo_proof_source != '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+    env:
+      WAND_PROOF_EXPECTED_SOURCE: ${{ inputs.scoped_bamboo_proof_source }}
+      CARGO_TARGET_DIR: /tmp/wand-bamboo-protected-rust
+      WAND_BINDGEN_CLI: /tmp/wand-bamboo-protected-bindgen/bin/wasm-bindgen
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact protected main/issuer/source pin/three public R22 assets unchanged
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$WAND_PROOF_EXPECTED_SOURCE"
+          node scripts/readonly-release/steam-bamboo-perop-signed.mjs preflight
+      - name: Require successful protected cumulative CI
+        id: guarded_ci
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
+        run: node scripts/readonly-release/steam-bamboo-perop-signed.mjs ci-build
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact three private proof subjects, no public distribution
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-bamboo-readonly,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-bamboo-protected-bindgen
+          mkdir -p tests/stage-e/pkg
+          "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/readonly-release/steam-bamboo-perop-signed.mjs candidate
+          test ! -e static/worker-wasm-steam626-bamboo-perop
+          test ! -e build/worker-wasm-steam626-bamboo-perop
+      - name: Recheck protected main and CI before OIDC signing
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
+          WAND_CI_RECEIPT: ${{ steps.guarded_ci.outputs.ci_receipt }}
+        run: node scripts/readonly-release/steam-bamboo-perop-signed.mjs ci-recheck
+      - name: OIDC attestation of exact three proof subjects
+        id: scoped_attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            tests/wasm-distribution/fixtures/steam626-bamboo-perop-proof/ddv_save_core.js
+            tests/wasm-distribution/fixtures/steam626-bamboo-perop-proof/ddv_save_core_bg.wasm
+            tests/wasm-distribution/fixtures/steam626-bamboo-perop-proof/manifest.json
+      - name: Verify exact issuer and all three signatures, preserve public OFF
+        env:
+          WAND_GATE_READ_TOKEN: ${{ github.token }}
+          WAND_CI_RECEIPT: ${{ steps.guarded_ci.outputs.ci_receipt }}
+          WAND_PROOF_BUNDLE: ${{ steps.scoped_attestation.outputs.bundle-path }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/readonly-release/steam-bamboo-perop-signed.mjs ci-recheck
+          test -s "$WAND_PROOF_BUNDLE"
+          node scripts/readonly-release/steam-bamboo-perop-signed.mjs verify-signed > "$RUNNER_TEMP/bamboo-verified.log"
+          grep -F BAMBOO_PROOF_THREE_SIGNED_SUBJECTS_VERIFIED_PROOF_ONLY "$RUNNER_TEMP/bamboo-verified.log"
+          mkdir "$RUNNER_TEMP/bamboo-proof"
+          cp "$WAND_PROOF_BUNDLE" "$RUNNER_TEMP/bamboo-proof/bundle.jsonl"
+          node --input-type=module -e 'import fs from "node:fs";const p="BAMBOO_PROOF_THREE_SIGNED_SUBJECTS_VERIFIED_PROOF_ONLY ";const t=fs.readFileSync(process.env.RUNNER_TEMP+"/bamboo-verified.log","utf8").split("\n").filter(s=>s.startsWith(p));if(t.length!==1)throw Error("SIGNATURE_RECEIPT");const r=JSON.parse(t[0].slice(p.length));if(r.sourceHead!==process.env.GITHUB_SHA||r.publicAssets!==false||r.operationOn!==false)throw Error("GRANT_DENIED");fs.writeFileSync(process.env.RUNNER_TEMP+"/bamboo-proof/pins.json",JSON.stringify(r)+"\n",{flag:"wx"});'
+          test "$(find "$RUNNER_TEMP/bamboo-proof" -maxdepth 1 -type f | wc -l)" -eq 2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bamboo-perop-signed-proof-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/bamboo-proof/pins.json
+            ${{ runner.temp }}/bamboo-proof/bundle.jsonl
+          if-no-files-found: error
