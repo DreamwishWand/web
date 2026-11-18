@@ -1,0 +1,190 @@
+name: QA ONLY 04 QR-W PR2183 EA7 Explore actual Svelte CAS L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2183-ea7-explore-svelte-cas-l2.yml'
+permissions:
+  contents: read
+jobs:
+  source-actual-explore-add-remove-and-events:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ea7aecffaa48fc3c91b527effa3ffb801e426ea8
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate exactly original child 8 GitBlob paths and inherited parent helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = ea7aecffaa48fc3c91b527effa3ffb801e426ea8
+          test "$(git merge-base dd8d7f2fbb9a0df743cf9a6204381633fe01fc63 HEAD)" = dd8d7f2fbb9a0df743cf9a6204381633fe01fc63
+          test "$(git rev-parse HEAD:src/lib/moodboards/local-persist-compensated.mjs)" = 2a43a5d83ffcad4880c0c3b3cb62e7d0443b0c0c
+          test "$(git rev-parse HEAD:.github/workflows/08web-explore-shared-moodboard-compensated.yml)" = 339e396228678727c07711dbd5435ff961edb8ec
+          test "$(git ls-tree HEAD '.github/workflows/08web-explore-shared-moodboard-compensated.yml' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:scripts/web-explore-shared-moodboard-compensation-chrome.mjs)" = cfb2e6d86b5271a9bc09481f8b3aa6ce3f0f48b2
+          test "$(git ls-tree HEAD 'scripts/web-explore-shared-moodboard-compensation-chrome.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:src/lib/explore/copy.js)" = 22457b22c977354c26dc9807033692b022729e45
+          test "$(git ls-tree HEAD 'src/lib/explore/copy.js' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:src/routes/explore/+page.svelte)" = 0afa72f76f16e7910289a7c8c2e3798ee0929cf5
+          test "$(git ls-tree HEAD 'src/routes/explore/+page.svelte' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:tests/web-explore-decux21-moodboard-tap.test.mjs)" = 478eb242cdea036ae9dc21fac6f5e4e68d465963
+          test "$(git ls-tree HEAD 'tests/web-explore-decux21-moodboard-tap.test.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:tests/web-explore-decux28-moodboard-icons.test.mjs)" = c2deb4587c74f94b4fb861afafd9e7db258de572
+          test "$(git ls-tree HEAD 'tests/web-explore-decux28-moodboard-icons.test.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:tests/web-explore-moodboard-shared-compensation.test.mjs)" = 0c3939f8ebc21535091afbba7400d063c8728e77
+          test "$(git ls-tree HEAD 'tests/web-explore-moodboard-shared-compensation.test.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:tests/web-explore-wand-favorites-local.test.mjs)" = f6b691b43082d494732ead8c89c3473b70534fb1
+          test "$(git ls-tree HEAD 'tests/web-explore-wand-favorites-local.test.mjs' | awk '{print $1}')" = 100644
+          cat >/tmp/qrw2183-exact <<'EOF'
+          .github/workflows/08web-explore-shared-moodboard-compensated.yml
+          scripts/web-explore-shared-moodboard-compensation-chrome.mjs
+          src/lib/explore/copy.js
+          src/routes/explore/+page.svelte
+          tests/web-explore-decux21-moodboard-tap.test.mjs
+          tests/web-explore-decux28-moodboard-icons.test.mjs
+          tests/web-explore-moodboard-shared-compensation.test.mjs
+          tests/web-explore-wand-favorites-local.test.mjs
+          EOF
+          LC_ALL=C sort /tmp/qrw2183-exact > /tmp/qrw2183-e
+          git diff --name-only dd8d7f2fbb9a0df743cf9a6204381633fe01fc63 HEAD | LC_ALL=C sort > /tmp/qrw2183-a
+          diff -u /tmp/qrw2183-e /tmp/qrw2183-a
+          git diff --quiet dd8d7f2fbb9a0df743cf9a6204381633fe01fc63 HEAD -- src/lib/moodboards/local-persist-compensated.mjs src/lib/moodboards/store.js crates/ddv-save-core/ .github/workflows/pages.yml static/ ops/ package-lock.json
+          echo QRW2183_ORIGINAL_8_CHILD_PATHS_AND_ACCEPTED_PARENT_HELPER_EXACT_PASS
+      - name: Original changed Source focused tests only
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          node --test tests/web-explore-moodboard-shared-compensation.test.mjs
+      - name: Independently execute literal Explore Svelte action and StorageEvent functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import vm from 'node:vm';
+          import {createEmptyMoodboardDocument,createMoodboard,addMoodboardReference,removeMoodboardReference,serializeMoodboardDocument,parseMoodboardDocument,MOODBOARD_STORAGE_KEY as MAIN,MOODBOARD_BACKUP_KEY as PREVIOUS} from './src/lib/moodboards/store.js';
+          import {persistMoodboardLocalChange} from './src/lib/moodboards/local-persist-compensated.mjs';
+          const code=readFileSync('src/routes/explore/+page.svelte','utf8');
+          const block=(start,end)=>{
+           const i=code.indexOf(start),j=code.indexOf(end,i+start.length);
+           assert.ok(i>=0&&j>i,'literal Svelte route function must be present '+start);
+           return code.slice(i,j);
+          };
+          const persistBody=block('function persistMoodboards(next:any){','function handleExploreStorage(').replace('next:any','next');
+          const eventBody=block('function handleExploreStorage(event:StorageEvent){','function toggleMoodboard(').replace('event:StorageEvent','event');
+          const toggleBody=block('function toggleMoodboard(item:any){','function placementFor(').replace('item:any','item');
+          assert.match(persistBody,/moodboardsRaw=persistMoodboardLocalChange\(localStorage,next,moodboardsRaw\)/);
+          assert.match(toggleBody,/status=copy\.moodboardSaveFailed/);
+          assert.match(eventBody,/handleWandFavoriteStorage\(event\)/);
+          assert.match(code,/on:storage=\{handleExploreStorage\}/);
+          assert.doesNotMatch(code,/localStorage\.setItem\(MOODBOARD_BACKUP_KEY,current\)/);
+          const stamp='2026-11-18T00:00:00.000Z';
+          const make=()=>{
+           const x=createMoodboard(createEmptyMoodboardDocument(stamp),{title:'Explore L2 Original'}, {now:stamp,idFactory:()=>1});
+           return {doc:x.document,board:x.board.id,raw:serializeMoodboardDocument(x.document)};
+          };
+          const item={itemId:40000047,label:'Genuine listed furniture',family:'Furniture'};
+          function rig(){
+           const a=make(),map=new Map([[MAIN,a.raw],[PREVIOUS,'prior-bytes-preserved']]),writes=[];
+           const storage={getItem(k){return map.has(k)?map.get(k):null},setItem(k,v){writes.push('set:'+k);map.set(k,String(v))},removeItem(k){writes.push('remove:'+k);map.delete(k)}};
+           const env={localStorage:storage,persistMoodboardLocalChange,addMoodboardReference:(...p)=>addMoodboardReference(...p,{now:stamp,idFactory:()=>2}),
+           removeMoodboardReference,parseMoodboardDocument,createEmptyMoodboardDocument,MOODBOARD_STORAGE_KEY:MAIN,console};
+           vm.runInNewContext(String.raw\`let moodboards=globalThis.__initial;let moodboardsRaw=globalThis.__raw;let selectedBoardId=globalThis.__selected;let status='';
+           const copy={noBoards:'NO_BOARD',removed:'REMOVED',added:'ADDED',moodboardSaveFailed:'SAVE_FAILED'};
+           let favoriteEvents=0;
+           function handleWandFavoriteStorage(event){favoriteEvents++;}
+           function itemReference(item){return moodboards.boards.find(b=>b.id===selectedBoardId)?.references.find(r=>r.type==='ITEM'&&r.entityId===String(item.itemId))??null;}
+           function familyLabel(){return 'Furniture';}
+           \${persistBody}
+           \${eventBody}
+           \${toggleBody}
+           globalThis.action=item=>toggleMoodboard(item);
+           globalThis.storageEvent=event=>handleExploreStorage(event);
+           globalThis.snapshot=()=>({status,moodboardsRaw,selectedBoardId,moodboards,contains:moodboards.boards.some(b=>b.references.some(r=>r.entityId==='40000047')),favoriteEvents});
+           globalThis.selectBoard=id=>{selectedBoardId=id;};
+           \`,{...env,__initial:a.doc,__raw:a.raw,__selected:a.board});
+           return {a,map,writes,storage,act:x=>env.action(x),event:x=>env.storageEvent(x),snap:()=>env.snapshot(),select:x=>env.selectBoard(x)};
+          }
+          let pos=0,neg=0;
+          {
+           const s=rig();s.act(item);
+           assert.equal(s.snap().status,'ADDED');assert.equal(s.snap().contains,true);
+           const added=s.map.get(MAIN);assert.ok(added!==s.a.raw);
+           assert.equal(s.map.get(PREVIOUS),s.a.raw);
+           s.act(item);
+           assert.equal(s.snap().status,'REMOVED');assert.equal(s.snap().contains,false);
+           assert.equal(s.map.get(PREVIOUS),added);
+           assert.equal(parseMoodboardDocument(s.map.get(MAIN)).boards[0].references.length,0);
+           pos+=2;
+          }
+          {
+           const s=rig();s.select('');s.act(item);
+           assert.equal(s.snap().status,'NO_BOARD');assert.equal(s.map.get(MAIN),s.a.raw);
+           assert.equal(s.map.get(PREVIOUS),'prior-bytes-preserved');
+           assert.equal(s.writes.length,0);neg++;
+          }
+          for(const which of ['BACKUP','MAIN']){
+           const s=rig(),set=s.storage.setItem.bind(s.storage),target=which==='MAIN'?MAIN:PREVIOUS;
+           s.storage.setItem=(k,v)=>{if(k===target)throw Error('QUOTA_DENIED_'+which);set(k,v)};
+           s.act(item);
+           assert.equal(s.snap().status,'SAVE_FAILED');assert.equal(s.snap().contains,false);
+           assert.equal(s.map.get(MAIN),s.a.raw);assert.equal(s.map.get(PREVIOUS),'prior-bytes-preserved');neg++;
+          }
+          {
+           const s=rig(),set=s.storage.setItem.bind(s.storage),old=s.a.raw;
+           s.storage.setItem=(k,v)=>{set(k,v);if(k===MAIN)throw Error('PARTIAL_COMMIT')};
+           s.act(item);
+           assert.equal(s.snap().status,'SAVE_FAILED');assert.equal(s.snap().contains,false);
+           assert.equal(s.map.get(MAIN),old);assert.equal(s.map.get(PREVIOUS),'prior-bytes-preserved');neg++;
+          }
+          {
+           const s=rig();
+           s.map.set(MAIN,serializeMoodboardDocument(addMoodboardReference(s.a.doc,s.a.board,{type:'ITEM',entityId:'40000048',label:'Other tab'},{now:stamp,idFactory:()=>3}).document));
+           const prior=s.map.get(PREVIOUS);
+           s.act(item);
+           assert.equal(s.snap().status,'SAVE_FAILED');assert.equal(s.snap().contains,false);
+           assert.equal(s.map.get(PREVIOUS),prior);
+           assert.notEqual(s.map.get(MAIN),s.a.raw);neg++;
+          }
+          {
+           const s=rig(),newer=serializeMoodboardDocument(addMoodboardReference(s.a.doc,s.a.board,{type:'ITEM',entityId:'40000048',label:'Other tab'},{now:stamp,idFactory:()=>3}).document);
+           s.map.set(MAIN,newer);s.event({key:MAIN,newValue:newer});
+           assert.equal(s.snap().moodboardsRaw,newer);
+           assert.equal(s.snap().favoriteEvents,1);
+           s.act(item);
+           assert.equal(s.snap().status,'ADDED');
+           assert.equal(s.map.get(PREVIOUS),newer);
+           pos++;
+          }
+          {
+           const s=rig();s.event({key:MAIN,newValue:'BAD JSON'});
+           assert.equal(s.snap().status,'SAVE_FAILED');
+           assert.equal(s.snap().moodboardsRaw,s.a.raw);
+           assert.equal(s.snap().favoriteEvents,1);
+           assert.equal(s.map.get(PREVIOUS),'prior-bytes-preserved');neg++;
+          }
+          {
+           const s=rig();s.event({key:'wand-favorites-local',newValue:'any'});
+           assert.equal(s.snap().favoriteEvents,1);assert.equal(s.snap().moodboardsRaw,s.a.raw);
+           assert.equal(s.map.get(PREVIOUS),'prior-bytes-preserved');pos++;
+          }
+          {
+           const s=rig();const forged=serializeMoodboardDocument(addMoodboardReference(s.a.doc,s.a.board,{type:'ITEM',entityId:'40000048',label:'Forged event'},{now:stamp,idFactory:()=>3}).document);
+           s.event({key:MAIN,newValue:forged});
+           s.act(item);
+           assert.equal(s.snap().status,'SAVE_FAILED');
+           assert.equal(s.map.get(MAIN),s.a.raw);
+           assert.equal(s.map.get(PREVIOUS),'prior-bytes-preserved');neg++;
+          }
+          assert.equal(pos,4);assert.equal(neg,8);
+          console.log('QRW2183_EXACT_SVELTE_ADD_REMOVE_STORAGE_EVENT_CAS',JSON.stringify({positives:pos,negatives:neg,acceptedParentHelperSha:'2a43a5d83ffcad4880c0c3b3cb62e7d0443b0c0c',saveWriterOn:false,publicUIOn:false}));
+          
+          NODE
