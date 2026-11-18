@@ -173,7 +173,16 @@ test('R22 real checkout rejects uncommitted Rust/Cargo, untracked module and sou
 });
 test('R22 validator actually invokes strict real checkout before approving release inputs',()=>{
  const source=readFileSync(resolve(cwd,'scripts/wasm-distribution/verify-protected-release.mjs'),'utf8');
- assert.match(source,/import \{assertR22RawRustCheckout\}/);
+ assert.match(source,/const \\{assertR22RawRustCheckout\\}=await import\\('\\.\\/r22-raw-rust-checkout\\.mjs'\\)/);
+ const beforeImport=source.indexOf('assertTrustedRustGateBeforeImport(prBase,expectedSource)');
+ const imported=source.indexOf("await import('./r22-raw-rust-checkout.mjs')");
+ assert.ok(beforeImport>=0&&imported>beforeImport,'trusted gate must be pinned before loading raw Rust checker');
+ for(const path of ['scripts/wasm-distribution/verify-protected-release.mjs',
+   'scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
+   'scripts/int-selection-preflight.mjs',
+   'scripts/wasm-distribution/r22-raw-rust-checkout.mjs',
+   'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs'])
+  assert.ok(source.includes("'"+path+"'"),'missing release trust pin '+path);
  assert.match(source,/try\{assertR22RawRustCheckout\(root\)\}/);
  assert.ok(source.indexOf('assertR22RawRustCheckout(root)')<source.indexOf("if(stage==='inputs')"));
  assert.ok(source.indexOf('assertR22RawRustCheckout(root)')<source.indexOf("if(stage==='built')")||
