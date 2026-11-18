@@ -1,0 +1,142 @@
+name: 04 QR-S ACT1757 repaired Rust signed Source semantic closure L2 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1757-pr2186-repaired-rust-source-l2.yml'
+permissions:
+  contents: read
+jobs:
+  real-product-cli-repaired-rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fix immutable original product Source and QA-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 85896fcf72a4f23b6b4a1bc9059c5c51188dd816 HEAD
+          test "$(git diff --name-only 85896fcf72a4f23b6b4a1bc9059c5c51188dd816 HEAD)" = ".github/workflows/04qrs-act1757-pr2186-repaired-rust-source-l2.yml"
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-bamboo-public-pages.mjs)" = 399ada125e26cdd07809c4ff1ccb972adc6198ff
+          test "$(git rev-parse HEAD:tests/09p-bamboo-public-pages-sealer.test.mjs)" = ef27af4ea2133e74b495845977ef7169e57edede
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = ed8aabff1dc8c8b426054c7dff0d88faa2b02da4
+          grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          echo QRS_ACT1757_REPAIRED_SOURCE_85896_EXACT_BLOBS_AND_QA_ONLY_SCOPE_PASS
+      - name: Run real CLI on clean, dirty and committed Worker, minted target and transitive Geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {mkdtempSync,readFileSync,writeFileSync,copyFileSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {spawnSync} from 'node:child_process';
+          import {
+            BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS,
+            bambooAcceptedRustSourceBlobsOk
+          } from './scripts/readonly-release/seal-bamboo-public-pages.mjs';
+          const source='85896fcf72a4f23b6b4a1bc9059c5c51188dd816';
+          const originalKeys=Object.keys(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS);
+          assert.equal(originalKeys.length,15,'changed trust closure must have exactly fifteen direct pinned Rust files');
+          assert.ok(originalKeys.includes('crates/ddv-save-core/src/sr03_installed_geometry.rs'));
+          assert.ok(originalKeys.includes('crates/ddv-save-core/src/comp03_installed_geometry.rs'));
+          assert.ok(originalKeys.includes('crates/ddv-save-core/src/placement_saved_refs.rs'));
+          assert.ok(originalKeys.includes('crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs'));
+          assert.ok(originalKeys.includes('crates/ddv-save-core/src/steam_bamboo_single_product_target.rs'));
+          const temp=mkdtempSync(join(tmpdir(),'qrs-act1757-repaired-source-'));
+          const wt=join(temp,'isolated-accepted-original');
+          const fixtures=[
+            {name:'worker_authority',path:'crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs',
+             before:'"stageAuthorized": false',after:'"stageAuthorized": true'},
+            {name:'core_minted_target',path:'crates/ddv-save-core/src/steam_bamboo_single_product_target.rs',
+             before:'self.worker_bound&&',after:'true&&'},
+            {name:'transitive_sr03_geometry',path:'crates/ddv-save-core/src/sr03_installed_geometry.rs',
+             before:'if common(40700007)!=Some((1,1))||scaled(1,1,1)?!=(2,2)||x%2!=0||y%2!=0',
+             after:'if common(40700007)!=Some((1,1))||scaled(1,1,1)?!=(2,2)||x%2==3||y%2!=0'}
+          ];
+          let made=false;
+          const git=(...args)=>{
+            const p=spawnSync('git',['-C',wt,...args],{encoding:'utf8'});
+            assert.equal(p.status,0,'isolated git '+args.join(' ')+' '+p.stderr);
+            return p.stdout.trim();
+          };
+          const lock=()=>copyFileSync(join(wt,'scripts/wasm-distribution/approved-Cargo.lock'),
+                                      join(wt,'crates/ddv-save-core/Cargo.lock'));
+          const actualCli=()=>{
+            lock();
+            const head=git('rev-parse','HEAD');
+            return spawnSync(process.execPath,
+              [join(wt,'scripts/readonly-release/seal-bamboo-public-pages.mjs'),'preflight'],
+              {cwd:wt,encoding:'utf8',timeout:60000,
+               env:{...process.env,GITHUB_ACTIONS:'true',
+                GITHUB_REPOSITORY:'DreamwishWand/web',
+                GITHUB_REPOSITORY_ID:'1371485649',
+                GITHUB_EVENT_NAME:'pull_request',
+                WAND_SOURCE_HEAD:head,GIT_NO_REPLACE_OBJECTS:'1'}});
+          };
+          const mustDeny=(out,label)=>{
+            assert.notEqual(out.status,0,'SECURITY_TRUE_RED '+label+' accepted by original signer');
+            assert.match(out.stderr,/BAMBOO_PUBLIC_PAGES_SIGNER_DENIED/,label);
+          };
+          try{
+            const add=spawnSync('git',['worktree','add','--detach',wt,source],{encoding:'utf8'});
+            assert.equal(add.status,0,add.stderr);
+            made=true;
+            assert.equal(git('rev-parse','HEAD'),source);
+            const accepted=Object.fromEntries(originalKeys.map(path=>[path,git('rev-parse','HEAD:'+path)]));
+            assert.equal(bambooAcceptedRustSourceBlobsOk(accepted),true);
+            const clean=actualCli();
+            assert.equal(clean.status,0,'genuine accepted product preflight '+clean.stderr);
+            assert.match(clean.stdout,/BAMBOO_PUBLIC_PAGES_SOURCE_PREFLIGHT_OFF/);
+            console.log('QRS_ACT1757_REPAIRED_REAL_PRODUCT_CLI_1POS');
+            let deniedDirty=0,deniedCommitted=0;
+            for(const fixture of fixtures){
+              git('reset','--hard',source);
+              assert.equal(git('rev-parse','HEAD'),source);
+              const file=join(wt,fixture.path);
+              const raw=readFileSync(file,'utf8');
+              assert.equal(raw.split(fixture.before).length,2,'one exact original semantic predicate '+fixture.name);
+              writeFileSync(file,raw.replace(fixture.before,fixture.after));
+              assert.equal(git('rev-parse','HEAD:'+fixture.path),accepted[fixture.path]);
+              assert.notEqual(git('hash-object','--no-filters','--',fixture.path),accepted[fixture.path]);
+              const dirty=actualCli();
+              mustDeny(dirty,fixture.name+' DIRTY');
+              deniedDirty++;
+              console.log('QRS_ACT1757_REPAIRED_DIRTY_MUTATION_DENIED '+fixture.name);
+              git('add','--',fixture.path);
+              const commit=spawnSync('git',['-C',wt,'-c','user.name=04 QR-S isolated QA',
+                '-c','user.email=qa-only@example.invalid','commit','-m','QA only semantic trust mutation'],{encoding:'utf8'});
+              assert.equal(commit.status,0,commit.stderr);
+              const mutated=git('rev-parse','HEAD');
+              assert.notEqual(mutated,source);
+              assert.notEqual(git('rev-parse','HEAD:'+fixture.path),accepted[fixture.path]);
+              for(const key of originalKeys.filter(x=>x!==fixture.path)){
+                assert.equal(git('rev-parse','HEAD:'+key),accepted[key],'other approved Rust pins unchanged '+key);
+              }
+              const committed=actualCli();
+              mustDeny(committed,fixture.name+' COMMITTED');
+              deniedCommitted++;
+              console.log('QRS_ACT1757_REPAIRED_COMMITTED_MUTATION_DENIED '+fixture.name);
+            }
+            assert.equal(deniedDirty,3);assert.equal(deniedCommitted,3);
+            console.log('QRS_ACT1757_FIXED_REAL_RUST_SOURCE_1POS6NEG_ALL_DENIED');
+          }finally{
+            if(made)spawnSync('git',['worktree','remove','--force',wt],{encoding:'utf8'});
+            rmSync(temp,{recursive:true,force:true});
+          }
+          NODE
+      - name: Independent QA has no source, Pages, token or public asset mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only 85896fcf72a4f23b6b4a1bc9059c5c51188dd816 HEAD)" = ".github/workflows/04qrs-act1757-pr2186-repaired-rust-source-l2.yml"
+          grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          echo QRS_ACT1757_QA_ONLY_NEVER_MERGE_BAMBOO_PUBLIC_ON_OFF
