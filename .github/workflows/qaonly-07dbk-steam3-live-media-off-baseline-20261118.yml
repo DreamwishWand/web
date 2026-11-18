@@ -24,6 +24,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = d395fb18223aec2c2979a3c5ed2a8e8c9606d1b2
           test "$(git rev-parse HEAD:src/lib/item-media/switch1253-public-item-images.mjs)" = 73f15d221cede4ce2c195a48e57321a7293ab501
+          npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import {
