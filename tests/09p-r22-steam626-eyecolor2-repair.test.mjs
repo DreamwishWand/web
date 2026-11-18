@@ -173,7 +173,7 @@ test('R22 real checkout rejects uncommitted Rust/Cargo, untracked module and sou
 });
 test('R22 validator actually invokes strict real checkout before approving release inputs',()=>{
  const source=readFileSync(resolve(cwd,'scripts/wasm-distribution/verify-protected-release.mjs'),'utf8');
- assert.match(source,/const \\{assertR22RawRustCheckout\\}=await import\\('\\.\\/r22-raw-rust-checkout\\.mjs'\\)/);
+ assert.ok(source.includes("const {assertR22RawRustCheckout}=await import('./r22-raw-rust-checkout.mjs')"));
  const beforeImport=source.indexOf('assertTrustedRustGateBeforeImport(prBase,expectedSource)');
  const imported=source.indexOf("await import('./r22-raw-rust-checkout.mjs')");
  assert.ok(beforeImport>=0&&imported>beforeImport,'trusted gate must be pinned before loading raw Rust checker');
