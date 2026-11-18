@@ -1,0 +1,134 @@
+name: QA ONLY 04 QR-W ACT1732 PR2130 local Wand Favorite storage and backup L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1732-pr2130-local-wand-favorites-l2.yml'
+permissions:
+  contents: read
+jobs:
+  independent-wand-favorite-storage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 53bdc3ae72a660fe72a9edc42d4bcb7ce4e05e9d
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact six original source blobs, modes and isolation from Game Save and Owner release flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 53bdc3ae72a660fe72a9edc42d4bcb7ce4e05e9d
+          test "$(git merge-base HEAD 3b87b852ec827179587c9853d4560ae755d750f1)" = 3b87b852ec827179587c9853d4560ae755d750f1
+          cat >/tmp/qrw2130-postblobs <<'PINS'
+          d3777006c54e72f7cd6cf7fb4b7a8bb18b41d615 .github/workflows/08web-wand-favorites-local.yml A
+          32e68db8c9248d34c9b248d40a423cb95ad31957 scripts/web-explore-wand-favorites-chrome.mjs A
+          174a5d0ac372989cc8200fb4fa01a4edaccda8db src/lib/explore/copy.js M
+          c70c0884508f60e61b7b72ed94804ab507be164b src/lib/explore/wand-favorites-local.mjs A
+          421776b7a63e106e33f953841cfe7204bbc08ce1 src/routes/explore/+page.svelte M
+          290416881ac0ca2197bd8e092843701252820396 tests/web-explore-wand-favorites-local.test.mjs A
+          PINS
+          while read -r blob path change; do
+            test "$(git rev-parse "HEAD:$path")" = "$blob"
+            test "$(git ls-tree HEAD "$path" | awk '{print $1}')" = 100644
+            test "$(git diff --name-status 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- "$path" | cut -f1)" = "$change"
+          done </tmp/qrw2130-postblobs
+          awk '{print $2}' /tmp/qrw2130-postblobs | LC_ALL=C sort >/tmp/qrw2130-expected
+          git diff --name-only 3b87b852ec827179587c9853d4560ae755d750f1 HEAD | LC_ALL=C sort >/tmp/qrw2130-actual
+          diff -u /tmp/qrw2130-expected /tmp/qrw2130-actual
+          git diff --quiet 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- \
+            src/lib/moodboards/ src/lib/collection/ src/lib/ddv/core/save/ \
+            crates/ddv-save-core/ supabase/ .github/workflows/pages.yml
+          grep -Fx 'const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
+          echo QRW2130_ORIGINAL_SIX_SOURCE_GIT_BLOBS_ISOLATED_NO_GAME_FAVORITES_OR_WRITER_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Inherit affected local favorite source and type checks
+        run: node --test tests/web-explore-wand-favorites-local.test.mjs tests/web-explore-decux28-moodboard-icons.test.mjs
+      - name: Independent storage quota rollback, other-key isolation, capacity and tab-current read
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {WAND_FAVORITES_STORAGE_KEY as KEY,WAND_FAVORITES_BACKUP_KEY as BACK,
+            WAND_FAVORITES_SCHEMA,WAND_FAVORITES_MAX_ITEMS,emptyWandFavorites,
+            parseWandFavorites,changeWandFavorite,persistWandFavorite}
+            from './src/lib/explore/wand-favorites-local.mjs';
+          let positive=0,negative=0;
+          const first=JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[40000047]});
+          const savedBackup=JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[40700007]});
+          const sentinelSave='{"gameFavorite":["KEEP"],"owned":false}',moodboard='{"boards":["DO_NOT_TOUCH"]}';
+          const map=new Map([[KEY,first],[BACK,savedBackup],['dreamwishwand:game-favorite:v1',sentinelSave],
+            ['dreamwishwand:moodboards:v1',moodboard]]);
+          const storage={getItem:k=>map.get(k)??null,setItem(k,value){map.set(k,String(value));}};
+          const changed=persistWandFavorite(storage,30200001,true);
+          assert.deepEqual(changed.itemIds,[30200001,40000047]);
+          assert.equal(map.get(BACK),first);
+          assert.equal(map.get('dreamwishwand:game-favorite:v1'),sentinelSave);
+          assert.equal(map.get('dreamwishwand:moodboards:v1'),moodboard);
+          positive++;
+          const unchanged=map.get(KEY),prior=map.get(BACK);
+          assert.deepEqual(persistWandFavorite(storage,30200001,true),changed);
+          assert.equal(map.get(KEY),unchanged);assert.equal(map.get(BACK),prior);
+          positive++;
+          const normal=JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[40000047]});
+          const oldPrevious=JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[40700007]});
+          const quota=new Map([[KEY,normal],[BACK,oldPrevious]]);
+          const failCurrent={
+            getItem:k=>quota.get(k)??null,
+            setItem(k,value){
+              if(k===KEY)throw Error('SYNTHETIC_QUOTA_EXCEEDED_CURRENT');
+              quota.set(k,String(value));
+            }
+          };
+          assert.throws(()=>persistWandFavorite(failCurrent,30200001,true),
+            /SYNTHETIC_QUOTA_EXCEEDED_CURRENT/);
+          assert.equal(quota.get(KEY),normal,'current primary must remain byte exact on quota failure');
+          assert.equal(quota.get(BACK),oldPrevious,
+            'preexisting previous snapshot must not be silently overwritten by a failed current write');
+          negative++;
+          const blocked=new Map([[KEY,normal],[BACK,oldPrevious]]);
+          const failBackup={
+            getItem:k=>blocked.get(k)??null,
+            setItem(k,value){if(k===BACK)throw Error('BACKUP_QUOTA');blocked.set(k,String(value));}
+          };
+          assert.throws(()=>persistWandFavorite(failBackup,30200001,true),/BACKUP_QUOTA/);
+          assert.equal(blocked.get(KEY),normal);
+          assert.equal(blocked.get(BACK),oldPrevious);
+          negative++;
+          for(const bad of [null,undefined,'','{malformed',JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[7,7]}),
+            JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[-1]}),
+            JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[4294967296]}),
+            JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:9,itemIds:[]})]){
+            assert.throws(()=>parseWandFavorites(bad));negative++;
+          }
+          const cap={schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:Array.from({length:WAND_FAVORITES_MAX_ITEMS},(_,i)=>i+1)};
+          assert.deepEqual(changeWandFavorite(cap,1,true).itemIds,cap.itemIds);
+          assert.throws(()=>changeWandFavorite(cap,5001,true),/CAPACITY_EXCEEDED/);
+          negative++;
+          const fresh={getItem:k=>map.get(k)??null,setItem(k,v){map.set(k,String(v));}};
+          map.set(KEY,JSON.stringify({schema:WAND_FAVORITES_SCHEMA,version:1,itemIds:[40000047,40700007]}));
+          const next=persistWandFavorite(fresh,30200001,true);
+          assert.deepEqual(next.itemIds,[30200001,40000047,40700007]);
+          positive++;
+          console.log('QRW2130_WAND_FAVORITE_LOCAL_PERSIST_BOTH_BACKUPS_STRICTLY_ATOMIC_PASS',
+            JSON.stringify({positive,negative,simulatedQuotaOnly:true,realCloud:false,gameSave:false}));
+          NODE
+      - name: Actual browser local Wand Favorite two viewport, other Moodboard and game-save isolated
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm run check && npm run build
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/qrw2130-preview.log 2>&1 &
+          for i in $(seq 1 60); do if curl -fsS http://127.0.0.1:4298/web/explore/ >/dev/null; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4298/web/explore/ >/dev/null
+          node scripts/web-explore-wand-favorites-chrome.mjs
