@@ -88,9 +88,19 @@ export function createLocalEncryptedCopyStore({getDirectory=()=>navigator.storag
  }
  async function download(which){
   const t=epoch,s=source;const r=await read(which);current(t,s);
-  const encryptedBytes=await bytesOf(r.file);current(t,s);
-  if(encryptedBytes.length!==r.sizeBytes||await digest(encryptedBytes)!==r.sha256){encryptedBytes.fill(0);fail()}
-  current(t,s);return {kind:'VERIFIED_DOWNLOAD',name:r.name,sha256:r.sha256,sizeBytes:r.sizeBytes,encryptedBytes};
+  const encryptedBytes=await bytesOf(r.file);
+  try{
+   current(t,s);
+   if(encryptedBytes.length!==r.sizeBytes||await digest(encryptedBytes)!==r.sha256)fail();
+   current(t,s);
+   // Ownership transfers only after final generation/receipt verification.
+   return {kind:'VERIFIED_DOWNLOAD',name:r.name,sha256:r.sha256,sizeBytes:r.sizeBytes,encryptedBytes};
+  }catch(e){
+   // Late stale epoch, digest error, or size/SHA mismatch never returns
+   // this Worker-private allocation to the caller's existing cleanup.
+   encryptedBytes.fill(0);
+   throw e;
+  }
  }
  return Object.freeze({open,close,backupOriginal,durable,writeEdited:(bytes,sha)=>write('edited',bytes,sha),download});
 }
