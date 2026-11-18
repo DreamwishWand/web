@@ -13,6 +13,10 @@ use super::indexed_read::{self, Span};
 
 #[path = "road_mixed_shape.rs"]
 mod road_mixed_shape;
+// Reuse the existing typed World/Room/Preset saved-reference walker verbatim.
+// Only thin lexer adapters below; never mint a second Session/Engine.
+#[path = "placement_saved_refs.rs"]
+mod road_saved_refs;
 
 const EXACT_STEAM: &str =
     "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22";
@@ -157,6 +161,7 @@ fn verify_existing_object_ids(b: &[u8], objects: Span, next: u32) -> CoreResult<
 struct ActualRoadQ1Readset {
     next: u32, stock: u32,
     area_sha: [u8; 32], grid_sha: [u8; 32], stock_sha: [u8; 32],
+    refs_sha: [u8; 32],
 }
 /// Authenticate a deliberately limited subset of old values from the SAME
 /// immutable Rust-owned decoded document. Geometry/halo/rights/ref subscriber
@@ -219,6 +224,101 @@ fn verify_catalog0_road_source(b: &[u8], player: Span) -> CoreResult<(u32, Span)
     Ok((stock, entry))
 }
 
+// Thin adapters for the already accepted placement_saved_refs Rust walker.
+// Never skip root namespaces, unknown JSON, or preset-local aliases.
+fn reject<T>(code: &'static str) -> CoreResult<T> { Err(denied(code)) }
+fn need(ok: bool, code: &'static str) -> CoreResult<()> {
+    if ok { Ok(()) } else { reject(code) }
+}
+fn next_object_member(b: &[u8], parent: Span, pos: &mut usize)
+    -> CoreResult<Option<(String, Span)>> {
+    if b.get(parent.begin) != Some(&b'{') ||
+       b.get(parent.end.saturating_sub(1)) != Some(&b'}') ||
+       parent.begin >= parent.end || parent.end > b.len() ||
+       *pos <= parent.begin || *pos >= parent.end {
+        return reject("ROAD_Q1_REF_MAP_PARENT");
+    }
+    let i = indexed_read::skip_ws(b, *pos);
+    if i == parent.end - 1 { return Ok(None); }
+    if i >= parent.end - 1 { return reject("ROAD_Q1_REF_MAP_BOUNDS"); }
+    let key_end = indexed_read::string_end(b, i)?;
+    if key_end - i > 4096 { return reject("ROAD_Q1_REF_KEY_BOUNDS"); }
+    let key: String = serde_json::from_slice(raw(b, Span { begin: i, end: key_end })?)
+        .map_err(|_| denied("ROAD_Q1_REF_KEY_INVALID"))?;
+    let colon = indexed_read::skip_ws(b, key_end);
+    if b.get(colon) != Some(&b':') { return reject("ROAD_Q1_REF_KEY_COLON"); }
+    let begin = indexed_read::skip_ws(b, colon + 1);
+    let end = indexed_read::value_end(b, begin)?;
+    if end > parent.end - 1 { return reject("ROAD_Q1_REF_VALUE_BOUND"); }
+    let after = indexed_read::skip_ws(b, end);
+    *pos = match b.get(after) {
+        Some(b',') if after < parent.end - 1 => after + 1,
+        Some(b'}') if after == parent.end - 1 => after,
+        _ => return reject("ROAD_Q1_REF_MAP_SEPARATOR"),
+    };
+    Ok(Some((key, Span { begin, end })))
+}
+fn members(b: &[u8], parent: Span, limit: usize)
+    -> CoreResult<Vec<(String, Span)>> {
+    let mut p = parent.begin + 1;
+    let mut out = Vec::new();
+    while let Some(pair) = next_object_member(b, parent, &mut p)? {
+        if out.len() >= limit { return reject("ROAD_Q1_REF_MEMBERS_BOUND"); }
+        out.push(pair);
+    }
+    Ok(out)
+}
+fn array(b: &[u8], span: Span, limit: usize) -> CoreResult<Vec<Span>> {
+    if b.get(span.begin) != Some(&b'[') ||
+       b.get(span.end.saturating_sub(1)) != Some(&b']') {
+        return reject("ROAD_Q1_REF_ARRAY");
+    }
+    let mut pos = indexed_read::skip_ws(b, span.begin + 1);
+    let mut out = Vec::new();
+    while pos < span.end - 1 {
+        if out.len() >= limit { return reject("ROAD_Q1_REF_ARRAY_BOUND"); }
+        let end = indexed_read::value_end(b, pos)?;
+        if end >= span.end { return reject("ROAD_Q1_REF_ARRAY_SPAN"); }
+        out.push(Span { begin: pos, end });
+        pos = indexed_read::skip_ws(b, end);
+        if pos == span.end - 1 { break; }
+        if b.get(pos) != Some(&b',') { return reject("ROAD_Q1_REF_ARRAY_SEPARATOR"); }
+        pos = indexed_read::skip_ws(b, pos + 1);
+    }
+    Ok(out)
+}
+fn f(b: &[u8], span: Span, name: &str) -> CoreResult<Span> {
+    field(b, span, name)
+}
+fn opt(b: &[u8], span: Span, name: &str) -> CoreResult<Option<Span>> {
+    field_opt(b, span, name)
+}
+fn number(b: &[u8], span: Span) -> CoreResult<i64> {
+    let bytes = raw(b, span)?;
+    if bytes.is_empty() || bytes.len() > 20 {
+        return reject("ROAD_Q1_REF_INT_BOUND");
+    }
+    let val: i64 = serde_json::from_slice(bytes)
+        .map_err(|_| denied("ROAD_Q1_REF_INT_TYPE"))?;
+    if val.to_string().as_bytes() != bytes { return reject("ROAD_Q1_REF_INT_CANONICAL"); }
+    Ok(val)
+}
+fn n(b: &[u8], span: Span, name: &str) -> CoreResult<u32> {
+    u32::try_from(number(b, f(b, span, name)?)?)
+        .map_err(|_| denied("ROAD_Q1_REF_UINT"))
+}
+fn strv(b: &[u8], span: Span, name: &str) -> CoreResult<String> {
+    let field = f(b, span, name)?;
+    if field.end - field.begin > 4096 { return reject("ROAD_Q1_REF_STR_BOUND"); }
+    serde_json::from_slice(raw(b, field)?)
+        .map_err(|_| denied("ROAD_Q1_REF_STR_TYPE"))
+}
+fn key(name: &str) -> CoreResult<u32> {
+    let id: u32 = name.parse().map_err(|_| denied("ROAD_Q1_REF_KEY_UINT"))?;
+    if name != id.to_string() { return reject("ROAD_Q1_REF_KEY_CANONICAL"); }
+    Ok(id)
+}
+
 fn read_actual_old(b: &[u8]) -> CoreResult<ActualRoadQ1Readset> {
     let roots = indexed_read::roots(b)?;
     let villages = field(b, roots.world, "Villages")?;
@@ -257,6 +357,17 @@ fn read_actual_old(b: &[u8]) -> CoreResult<ActualRoadQ1Readset> {
     if next == 0 || next.checked_add(1).is_none_or(|v| v > i32::MAX as u32) {
         return Err(denied("ROAD_Q1_ACTUAL_COUNTER_BOUND"));
     }
+    // Validate all known typed saved references in the original full document,
+    // including World roots/parents, Room, Puzzle and preset-local namespace.
+    // Existing accepted walker; candidate new Road ID MUST have zero inbound
+    // World aliases. This proves neither physical footprint nor game rights.
+    let start = indexed_read::skip_ws(b, 0);
+    let top = Span { begin: start, end: indexed_read::value_end(b, start)? };
+    let next_end = next.checked_add(1).ok_or(denied("ROAD_Q1_REF_RANGE"))?;
+    let incoming = road_saved_refs::scan(b, top, GRID, None, next, next_end)?;
+    if incoming.root(GRID) != 1 || incoming.parent(GRID) != 0 {
+        return Err(denied("ROAD_Q1_TYPED_REF_CLOSURE"));
+    }
     let objects = field(b, grid, "Objects")?;
     // A single stale/noncanonical saved Object ID makes a prospective
     // NextObjectID unsafe even when the literal "next" key is absent.
@@ -267,6 +378,7 @@ fn read_actual_old(b: &[u8]) -> CoreResult<ActualRoadQ1Readset> {
         area_sha: digest(b, area)?,
         grid_sha: digest(b, grid)?,
         stock_sha: digest(b, entry)?,
+        refs_sha: digest(b, roots.world)?,
     })
 }
 
@@ -323,7 +435,7 @@ impl ProductSession {
         let actual = read_actual_old(&self.decoded)?;
         if old.next_object_id != actual.next || old.stock != actual.stock ||
            old.root_sha != actual.area_sha || old.grid_sha != actual.grid_sha ||
-           old.stock_sha != actual.stock_sha {
+           old.stock_sha != actual.stock_sha || old.refs_sha != actual.refs_sha {
             return Err(denied("ROAD_Q1_ACTUAL_OLD_VALUES_CAS"));
         }
         let proposed_object =
@@ -405,7 +517,7 @@ mod road_q1_prep_tests {
             area: AREA, grid: GRID, next_object_id: 15949,
             stock: 9, x: 40, y: 20,
             root_sha: actual.area_sha, grid_sha: actual.grid_sha,
-            stock_sha: actual.stock_sha, refs_sha: [4; 32], ambient_sha: [5; 32],
+            stock_sha: actual.stock_sha, refs_sha: actual.refs_sha, ambient_sha: [5; 32],
         }
     }
 
@@ -429,6 +541,40 @@ mod road_q1_prep_tests {
         assert!(s.dispatch(WorkerEnvelope {
             action: WorkerAction::ExportEditedCopy, ..old.envelope
         }).is_err());
+    }
+
+    #[test]
+    fn road_q1_prep_reuses_existing_full_typed_reference_walker() {
+        let s = fixture(false);
+        let original: Value = serde_json::from_slice(&s.decoded).unwrap();
+        let old = expected(&s);
+        assert!(s.prepare_steam626_road_single_q1_readonly(old).is_ok());
+        let deny = |path: &dyn Fn(&mut Value)| {
+            let mut doc = original.clone();
+            path(&mut doc);
+            let bytes = serde_json::to_vec(&doc).unwrap();
+            assert!(read_actual_old(&bytes).is_err());
+        };
+        // Stored World root aliases must not produce >1 Grid1 owner.
+        deny(&|v| { v["World"]["OtherRoots"] = json!({"GridIDs":[1]}); });
+        // A known SubGrid edge makes Grid1 a child; this is a conflict.
+        deny(&|v| { v["World"]["OtherParent"] = json!({"SubGrid":{"GridID":1}}); });
+        // A typed incoming object pair may not already name the fresh ID.
+        deny(&|v| {
+            v["World"]["OtherReferences"] =
+                json!({"GridID":1,"ObjectID":15949});
+        });
+        // Matching a foreign GridID does not create an alias for Grid1.
+        let mut foreign = original.clone();
+        foreign["World"]["OtherReferences"] =
+            json!({"GridID":2,"ObjectID":15949});
+        assert!(read_actual_old(&serde_json::to_vec(&foreign).unwrap()).is_ok());
+        // The old complete World digest is a real CAS candidate, not a
+        // caller-created nonzero token. Tampering it is always denied.
+        let mut wrong = old;
+        wrong.refs_sha = [93; 32];
+        assert!(s.prepare_steam626_road_single_q1_readonly(wrong).is_err());
+        assert_eq!(s.receipt().unwrap().revision, 0);
     }
 
     #[test]
