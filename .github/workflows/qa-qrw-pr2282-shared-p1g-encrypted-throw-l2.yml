@@ -1,0 +1,47 @@
+name: QA ONLY 04 QR-W PR2282 shared encrypted P1G worker throw-path L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2282-shared-p1g-encrypted-throw-l2.yml'
+permissions:
+  contents: read
+jobs:
+  shared-p1g-worker-encrypted-memory-failure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2282-b292-shared-p1g-encrypted-buffer-throw-path-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Immutable original Source one changed encrypted store and independent QA-only2
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=a9a87c578c8bc2a9c64284b15d3ed2c5eb39f817
+          source=b292f6578bd5f26b3992f2d5fe6fe90354a3d90a
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:src/lib/ddv/core/save/local-encrypted-copy-store.mjs")" = 67f6579622e5d8903d3798d5921d2ea525980eda
+          test "$(git rev-parse 'HEAD:src/lib/ddv/core/save/local-encrypted-copy-store.mjs')" = f724110108d3244487cfc0336410c96085a893d2
+          if git cat-file -e "$base:tests/01a-shared-encrypted-copy-store-download-zeroize.test.mjs" 2>/dev/null; then exit 1; fi
+          test "$(git rev-parse 'HEAD:tests/01a-shared-encrypted-copy-store-download-zeroize.test.mjs')" = fe1bfbc9d68802f34395d774d4880cc2591ef4fe
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2282-shared-p1g-encrypted-digest-throw-l2.test.mjs')" = 4d449252a88ebaf0771ad511c8252ce5c1ce8ef5
+          for f in src/lib/ddv/core/save/local-encrypted-copy-store.mjs tests/01a-shared-encrypted-copy-store-download-zeroize.test.mjs tests/qa-qrw-pr2282-shared-p1g-encrypted-digest-throw-l2.test.mjs .github/workflows/qa-qrw-pr2282-shared-p1g-encrypted-throw-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/ddv/core/save/local-encrypted-copy-store.mjs tests/01a-shared-encrypted-copy-store-download-zeroize.test.mjs | LC_ALL=C sort >/tmp/original
+          printf '%s\n' .github/workflows/qa-qrw-pr2282-shared-p1g-encrypted-throw-l2.yml tests/qa-qrw-pr2282-shared-p1g-encrypted-digest-throw-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/original -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2282_ORIGINAL2_AND_QAONLY2_EXACT_GIT_BLOBS_PASS
+      - name: Exercise actual shared store source + independent crypto rejection and stale cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/01a-shared-encrypted-copy-store-download-zeroize.test.mjs tests/qa-qrw-pr2282-shared-p1g-encrypted-digest-throw-l2.test.mjs
+          echo QRW2282_PRODUCTSCOPED_SHARED_P1G_ENCRYPTED_ALLOC_THROW_ZEROIZE_L2_PASS
