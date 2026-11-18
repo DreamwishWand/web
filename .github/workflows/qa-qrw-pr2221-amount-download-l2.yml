@@ -50,6 +50,8 @@ jobs:
           LC_ALL=C sort /tmp/qa-list | diff -u - /tmp/actual-qa-list
           git diff --quiet "$product" HEAD -- src/ crates/ ops/ static/ scripts/ package-lock.json
           echo QRW2221_FIXED_PRODUCT4_QAONLY2_PINS_PASS
+      - name: Install original app dependencies required by unchanged source Svelte compiler test
+        run: npm ci --no-audit --no-fund
       - name: Run actual Svelte amount UI handler and real one-shot helper with fault injection
         shell: bash
         run: |
