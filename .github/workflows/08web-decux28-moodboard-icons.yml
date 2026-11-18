@@ -1,0 +1,43 @@
+name: 08 WEB DEC-UX-28 controlled Moodboard Add/Check icons L1
+on:
+  pull_request:
+    paths:
+      - 'src/routes/explore/+page.svelte'
+      - 'tests/web-explore-decux28-moodboard-icons.test.mjs'
+      - 'scripts/web-explore-decux28-moodboard-icons-chrome.mjs'
+      - '.github/workflows/08web-decux28-moodboard-icons.yml'
+permissions:
+  contents: read
+jobs:
+  controlled-icon:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: DEC-UX-28 exact scoped icon assets and eight-locale action contract
+        run: node --test tests/web-explore-decux28-moodboard-icons.test.mjs
+      - name: Svelte type and production bundle
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: Actual Chrome 1366 and 320 Board plus/check and Quick Review independence
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/08web-decux28-preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4298/web/explore/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/web-explore-decux28-moodboard-icons-chrome.mjs
