@@ -63,6 +63,7 @@ test('Inventory 50→49 is only a strictly scoped scalar candidate, not past act
   assert.equal(x.candidate.expectedOldAmount,50);
   assert.equal(x.candidate.nextAmount,49);
   assert.equal(x.candidate.readSet[0].expectedValue,4);
+  assert.equal(x.candidate.readSet[0].expectedType,'POSITIVE_UINT32');
   assert.equal(x.candidate.readSet[1].expectedValue,'ItemType_ActivityItem');
   assert.deepEqual(x.candidate.nativeDevCommand,{variant:'InventoryExistingAmountDecrease',
     inventory_id:4,canonical_item_id:30000001,
@@ -125,6 +126,7 @@ test('Steam626 Catalog0 inventory ID 0 is a bounded ordinary Furniture candidate
   assert.equal(x.candidate.fieldPath,'/Player/ListInventories/0/Inventory/40000048/Amount');
   assert.deepEqual(x.candidate.exactAllowedPaths,[x.candidate.fieldPath]);
   assert.equal(x.candidate.readSet[0].expectedValue,0);
+  assert.equal(x.candidate.readSet[0].expectedType,'UINT32');
   assert.equal(x.candidate.readSet[1].expectedValue,'ItemType_Furniture');
   assert.deepEqual(x.candidate.nativeDevCommand,{
     variant:'InventoryExistingAmountDecrease',
@@ -148,6 +150,24 @@ test('Steam626 Catalog0 inventory ID 0 is a bounded ordinary Furniture candidate
   blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
     p.command.compatibleItemType='ItemType_Furniture';p.command.nextAmount=50},
     'INVENTORY_ONLY_EXISTING_QUANTITY_DECREASE_CANDIDATE');
+  // Rust eligible_bound on the accepted Catalog0 profile is a one-unit
+  // decrease, not arbitrary quantity deletion or a 1->0 removal.
+  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';
+    p.command.expectedOldAmount=3;p.command.nextAmount=1},
+    'INVENTORY_CATALOG0_EXACT_ONE_UNIT_DECREASE_REQUIRED');
+  blocked(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';
+    p.command.expectedOldAmount=1;p.command.nextAmount=0},
+    'INVENTORY_AMOUNT_BOUNDS');
+  const low=plan(p=>{p.command.inventoryId=0;p.command.canonicalItemId=40000048;
+    p.command.compatibleItemType='ItemType_Furniture';
+    p.command.expectedOldAmount=2;p.command.nextAmount=1});
+  assert.equal(low.status,'INVENTORY_CAS_TYPED_PREVIEW_RUST_NATIVE_ITEM_RULES_PENDING');
+  assert.equal(low.candidate.readSet[0].expectedType,'UINT32');
+  assert.equal(low.candidate.readSet[0].expectedValue,0);
+  assert.equal(low.candidate.nativeDevCommand.new_amount,1);
+  assert.equal(low.writerAuthorized,false);
 });
 
 test('Caller-injected media, ownership, skin or premium flags cannot enter request',()=>{

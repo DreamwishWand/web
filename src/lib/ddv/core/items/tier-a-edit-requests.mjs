@@ -106,10 +106,16 @@ function requestInventory({target,source,session,command}){
   const a=command.expectedOldAmount,b=command.nextAmount;
   if(!amount(a)||!amount(b))return reject('INVENTORY_AMOUNT_BOUNDS');
   if(b>=a)return reject('INVENTORY_ONLY_EXISTING_QUANTITY_DECREASE_CANDIDATE');
+  // Existing Rust ProductSession catalog0-furniture eligible_bound permits
+  // exactly old-1 with new>0; a proposal must not claim a wider delta.
+  if(command.inventoryId===0&&b!==a-1)
+    return reject('INVENTORY_CATALOG0_EXACT_ONE_UNIT_DECREASE_REQUIRED');
   const id=decimal(command.inventoryId),item=decimal(command.canonicalItemId);
   const path='/Player/ListInventories/'+id+'/Inventory/'+item+'/Amount';
   return proposed(command.operation,target,source,session,path,a,b,
-    [{path:'/Player/ListInventories/'+id+'/ID',expectedType:'POSITIVE_UINT32',expectedValue:command.inventoryId},
+    [{path:'/Player/ListInventories/'+id+'/ID',
+      expectedType:command.inventoryId===0?'UINT32':'POSITIVE_UINT32',
+      expectedValue:command.inventoryId},
      {path:'/Player/ListInventories/'+id+'/CompatibleItemType',expectedType:'EXACT_NATIVE_ENUM',expectedValue:command.compatibleItemType},
      {path,expectedType:'SIGNED_NONNEGATIVE_INTEGER',expectedValue:a},
      {path:'/Player/ListInventories/'+id+'/Inventory/'+item,expectedType:'EXISTING_ITEM_ENTRY'}],
