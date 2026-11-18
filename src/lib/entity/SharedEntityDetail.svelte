@@ -10,7 +10,8 @@
   import { resolveSharedCatalogEntity, sharedEntityLabels } from '$lib/entity/shared-catalog-detail.mjs';
   import { addCatalogEntityToMoodboard } from '$lib/entity/entity-moodboard-action.mjs';
   import { moodboardCopy } from '$lib/moodboards/copy.js';
-  import { MOODBOARD_STORAGE_KEY, MOODBOARD_BACKUP_KEY, createEmptyMoodboardDocument, parseMoodboardDocument, serializeMoodboardDocument } from '$lib/moodboards/store.js';
+  import { MOODBOARD_STORAGE_KEY, createEmptyMoodboardDocument, parseMoodboardDocument } from '$lib/moodboards/store.js';
+  import { persistMoodboardLocalChange } from '$lib/moodboards/local-persist-compensated.mjs';
 
   export let primaryId: string;
   export let localeCode: string;
@@ -35,10 +36,12 @@
     try {
       // Always reload the latest local state before writing, including changes made on another Wand tab.
       const current = localStorage.getItem(MOODBOARD_STORAGE_KEY);
-      const document = current ? parseMoodboardDocument(current) : createEmptyMoodboardDocument();
+      const document = current === null ? createEmptyMoodboardDocument() : parseMoodboardDocument(current);
       const result = addCatalogEntityToMoodboard(document, selectedBoardId, outcome);
-      if (current) localStorage.setItem(MOODBOARD_BACKUP_KEY, current);
-      localStorage.setItem(MOODBOARD_STORAGE_KEY, serializeMoodboardDocument(result.document));
+      // Cross-surface Main+Previous CAS and verified compensation are owned
+      // by the existing Moodboard writer, never this entity preview UI.
+      // Do not update the visible state until both raw writes are verified.
+      persistMoodboardLocalChange(localStorage, result.document, current);
       moodboardDocument = result.document;
       moodboardStatus = moodCopy.saved;
     } catch {
