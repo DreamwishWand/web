@@ -91,6 +91,7 @@ jobs:
             for(const forged of [
               undefined,null,{}, { ...source,text:''},
               {...source,text:'Missing attribution'}, {...source,text:'Dreamwish Wand'},
+              {...source,text:'Dreamwish Wand Disney'},
               {...source,humanReviewed:true,reviewEvidenceRef:null},
               {...source,humanReviewed:true,reviewEvidenceRef:'UNKNOWN'},
               {...source,humanReviewed:true,reviewEvidenceRef:'NOT_RUN'},
@@ -98,9 +99,8 @@ jobs:
               {...source,humanReviewed:'false',reviewEvidenceRef:null},
               {...source,humanReviewed:undefined}
             ]) {
-              // 'Dreamwish Wand' by itself is technically a nonempty attribution string under this exact scope:
-              // acceptance cannot be a translation/content review; do not conflate it with human signoff.
-              if(forged?.text==='Dreamwish Wand')continue;
+              // A brand-only replacement, or omission of Gameloft, is not an actual attribution copy.
+              // Human review is optional; Disney/Gameloft credit and non-affiliation remain required.
               deny(make(forged),'ATTRIBUTION_LOCALE_COPY_OR_RECEIPT_INVALID:'+loc);
             }
             const approved=make({...source,humanReviewed:true,reviewEvidenceRef:'SYNTHETIC_HUMAN_EVIDENCE'});
