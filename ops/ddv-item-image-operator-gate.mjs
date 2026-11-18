@@ -34,13 +34,32 @@ const sameIdentity = (a, b) => identity(a) && identity(b) &&
     ? a.bid === b.bid
     : a.fullVersionSha256.toLowerCase() === b.fullVersionSha256.toLowerCase());
 
-// A suppression ledger is authoritative only if valid. Never treat corrupt/absent ledger as empty.
+// A restored ledger with duplicate aliases is ambiguous even when every
+// individual row is well-formed. ItemID numbers/strings, SHA letter case, and
+// identical values within one kind must not bypass the accepted HIDDEN record.
+// Different hash kinds remain independent typed keys (PNG versus WebP).
+function duplicateImageSuppressionKey(ledger) {
+  if (!Array.isArray(ledger)) return false;
+  const seen = new Set();
+  for (const entry of ledger) {
+    if (!entry || !["ITEM_ID","SOURCE_SHA256","WEBP_SHA256"].includes(entry.kind) ||
+        !(entry.kind === "ITEM_ID" ? itemId(entry.value) : sha(entry.value))) continue;
+    const key = entry.kind + ":" + (entry.kind === "ITEM_ID"
+      ? normalizeId(entry.value) : entry.value.toLowerCase());
+    if (seen.has(key)) return true;
+    seen.add(key);
+  }
+  return false;
+}
+// A suppression ledger is authoritative only if valid and unambiguous.
+// Never treat corrupt/absent/duplicate ledger entries as empty.
 export function validateImageSuppressionLedger(ledger) {
   return Array.isArray(ledger) && ledger.every(entry =>
     entry && entry.state === "HIDDEN" && evidence(entry.incidentRef) &&
     ((entry.kind === "ITEM_ID" && itemId(entry.value)) ||
      (entry.kind === "SOURCE_SHA256" && sha(entry.value)) ||
-     (entry.kind === "WEBP_SHA256" && sha(entry.value))));
+     (entry.kind === "WEBP_SHA256" && sha(entry.value)))) &&
+    !duplicateImageSuppressionKey(ledger);
 }
 
 // The result is a technical asset-manifest candidate only, never an IP licence or publishing approval.
@@ -148,7 +167,8 @@ export function planGameImageTakedown(manifestRows, selector) {
 export function prepareGameImageTakedownSuppression(manifestRows, selector, existingLedger, incidentRef) {
   const failed = reason => ({ prepared: false, reasons: [reason] });
   if (!validateImageSuppressionLedger(existingLedger))
-    return failed("EXISTING_SUPPRESSION_LEDGER_INVALID");
+    return failed(duplicateImageSuppressionKey(existingLedger)
+      ? "EXISTING_SUPPRESSION_LEDGER_DUPLICATE" : "EXISTING_SUPPRESSION_LEDGER_INVALID");
   if (!steamEvidence(incidentRef) || /^(?:NOT_VERIFIED|RESTORED)$/i.test(incidentRef))
     return failed("TAKEDOWN_INCIDENT_EVIDENCE_INVALID");
   const plan = planGameImageTakedown(manifestRows, selector);
