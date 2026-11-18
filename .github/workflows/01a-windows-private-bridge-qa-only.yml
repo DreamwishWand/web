@@ -12,6 +12,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 10 # only the immutable original QA parent ancestry is required
       - uses: dtolnay/rust-toolchain@stable
       - name: Immutable original PR2267 source and protected Cargo lock
         shell: pwsh
