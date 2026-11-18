@@ -97,8 +97,15 @@ export async function verifyTrustedR22BeforeCandidate(base,source){
   protectedMainCASBy09INTRequired:true};
 }
 
-if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+// Node resolves symlinked entrypoint ancestors before establishing
+// import.meta.url. An alias MUST NOT silently skip the direct-CLI guard
+// and exit 0: that would falsely appear to authorize a candidate.
+const launchedPath=process.argv[1] ? resolve(process.argv[1]) : null;
+const loadedPath=fileURLToPath(import.meta.url);
+if(launchedPath && (launchedPath===loadedPath||
+   realpathSync(launchedPath)===loadedPath)){
  try{
+  if(launchedPath!==loadedPath)deny('ENTRYPOINT_PARENT_SYMLINK');
   if(process.argv.length!==4)deny('USAGE_BASE_AND_SOURCE');
   console.log(JSON.stringify(await verifyTrustedR22BeforeCandidate(process.argv[2],process.argv[3])));
  }catch(error){
