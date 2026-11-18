@@ -251,7 +251,7 @@ test('download is an explicit read-only encrypted output bound to backup and edi
  const aSha='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b',bSha='16abab341fb7f370e27e4dadcf81766dd0dfd0ae64469477bb2cf6614938b2af';
  const args2={...args,file:{name:'steam-original.p1g',size:64},originalSha256:aSha};
  const receipt=(which)=>({kind:'VERIFIED_DOWNLOAD',name:which==='backup'?'original-backup.p1g':'edited-copy-different.p1g',
-  sha256:which==='backup'?aSha:bSha,sizeBytes:64,encryptedBytes:which==='backup'?source:edited});
+  sha256:which==='backup'?aSha:bSha,sizeBytes:64,encryptedBytes:new Uint8Array(which==='backup'?source:edited)});
  const baseline=fake().adapter,calls=[];
  const f=fake({
   exportEditedCopy:async()=>({...await baseline.exportEditedCopy(),editedSha256:bSha,editedSizeBytes:64}),
@@ -270,6 +270,46 @@ test('download is an explicit read-only encrypted output bound to backup and edi
  assert.deepEqual(calls,['backup','edited','edited']);
  assert.equal(JSON.stringify(w.snapshot()).includes('encryptedBytes'),false);
  await assert.rejects(w.exportEditedCopy());await w.close();await assert.rejects(w.downloadVerifiedCopy('edited'));closed(w);
+});
+test('download wipes original nonzero Worker receipt but preserves separately verified caller bytes',async()=>{
+ const raw=Uint8Array.from([1,...new Uint8Array(63)]),original=Uint8Array.from(raw);
+ const digest='16abab341fb7f370e27e4dadcf81766dd0dfd0ae64469477bb2cf6614938b2af';
+ const input={...args,file:{name:'source.p1g',size:64},originalSha256:digest};
+ const f=fake({downloadVerifiedCopy:async()=>({
+  kind:'VERIFIED_DOWNLOAD',name:'original-backup.p1g',sha256:digest,sizeBytes:64,encryptedBytes:raw
+ })});
+ const w=createLocalAmountDevWorkflow(f.adapter,{trustedLocalHarness:true});
+ await w.open(input);await w.backupAndRead();
+ const r=await w.downloadVerifiedCopy('backup');
+ assert.deepEqual(r.encryptedBytes,original);
+ assert.equal(raw.every(byte=>byte===0),true,'raw Worker return must be wiped before the UI sees the copy');
+ assert.notStrictEqual(r.encryptedBytes,raw);
+ r.encryptedBytes.fill(0);await w.close();
+});
+test('malformed, mismatched digest and stale Amount download wipe the raw Worker receipt',async()=>{
+ const digest='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b';
+ const input={...args,file:{name:'source.p1g',size:64},originalSha256:digest};
+ const receipt=raw=>({kind:'VERIFIED_DOWNLOAD',name:'original-backup.p1g',sha256:digest,sizeBytes:64,encryptedBytes:raw});
+ for(const mode of ['unknown-field','wrong-name','wrong-digest']){
+  const raw=Uint8Array.from([1,...new Uint8Array(63)]);
+  const malformed=receipt(raw);
+  if(mode==='unknown-field')malformed.rawJson='forbidden';
+  if(mode==='wrong-name')malformed.name='wrong.p1g';
+  const w=createLocalAmountDevWorkflow(fake({downloadVerifiedCopy:async()=>malformed}).adapter,{trustedLocalHarness:true});
+  await w.open(input);await w.backupAndRead();
+  await assert.rejects(w.downloadVerifiedCopy('backup'));
+  assert.equal(raw.every(byte=>byte===0),true,mode+' must wipe even on validation failure');
+  assert.equal(w.snapshot().phase,'closed');
+ }
+ const entered=deferred(),release=deferred();
+ const raw=Uint8Array.from([1,...new Uint8Array(63)]);
+ const w=createLocalAmountDevWorkflow(fake({
+  downloadVerifiedCopy:async()=>{entered.resolve();await release.promise;return receipt(raw)}
+ }).adapter,{trustedLocalHarness:true});
+ await w.open(input);await w.backupAndRead();
+ const pending=w.downloadVerifiedCopy('backup'),denied=assert.rejects(pending,/STALE_FILE_OR_CLOSE/);
+ await entered.promise;await w.close();release.resolve();await denied;
+ assert.equal(raw.every(byte=>byte===0),true,'stale Worker return must be wiped');
 });
 test('download rejects altered name, size, digest, bytes, extra payload and late completion after Close',async()=>{
  const bytes=new Uint8Array(64),aSha='f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b';

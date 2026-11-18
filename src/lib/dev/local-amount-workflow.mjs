@@ -209,17 +209,29 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
     const bound=which==='backup'?{name:backup.name,sha:selected.sha,size:selected.size}:editedBinding;
     if(!bound)fail('DOWNLOAD_SCOPE_DENIED');
     return execute(async(check)=>{
-      const r=await adapter.downloadVerifiedCopy(which);check();
-      if(!only(r,'kind,name,sha256,sizeBytes,encryptedBytes')||r.kind!=='VERIFIED_DOWNLOAD'||
-         r.name!==bound.name||!copyName(r.name)||r.sha256!==bound.sha||r.sizeBytes!==bound.size||
-         !validSize(r.sizeBytes)||!(r.encryptedBytes instanceof Uint8Array)||r.encryptedBytes.length!==bound.size)
-        fail('DOWNLOAD_RECEIPT_DENIED');
-      // The only output permitted to leave the Worker is the verified encrypted
-      // P1G copy. Never retain its bytes in snapshot/UI state.
-      const bytes=new Uint8Array(r.encryptedBytes);
-      const digest=await encryptedDigest(bytes);check();
-      if(digest!==bound.sha)fail('DOWNLOAD_DIGEST_DENIED');
-      return Object.freeze({name:bound.name,encryptedBytes:bytes});
+      const r=await adapter.downloadVerifiedCopy(which);
+      // The Worker result is a *second* encrypted Uint8Array, distinct from
+      // the browser's final download copy. Erase it even when a receipt is
+      // malformed or a stale selection rejects the result.
+      const transient=r?.encryptedBytes;
+      let bytes;
+      try{
+        check();
+        if(!only(r,'kind,name,sha256,sizeBytes,encryptedBytes')||r.kind!=='VERIFIED_DOWNLOAD'||
+           r.name!==bound.name||!copyName(r.name)||r.sha256!==bound.sha||r.sizeBytes!==bound.size||
+           !validSize(r.sizeBytes)||!(transient instanceof Uint8Array)||transient.length!==bound.size)
+          fail('DOWNLOAD_RECEIPT_DENIED');
+        bytes=new Uint8Array(transient);
+      }finally{
+        if(transient instanceof Uint8Array)Uint8Array.prototype.fill.call(transient,0);
+      }
+      // The caller receives only the independently verified encrypted copy;
+      // it owns its final synchronous Blob handoff and zeroization.
+      try{
+        const digest=await encryptedDigest(bytes);check();
+        if(digest!==bound.sha)fail('DOWNLOAD_DIGEST_DENIED');
+        return Object.freeze({name:bound.name,encryptedBytes:bytes});
+      }catch(e){bytes.fill(0);throw e}
     });
   };
   return Object.freeze({snapshot,open,backupAndRead,stage,undo,redo,
