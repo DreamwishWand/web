@@ -201,6 +201,32 @@ test("self-hashed canonical old ON JSON cannot prove past public release",async(
   assert.deepEqual(protectedRegistry.records,[],"real product release trust starts empty");
 });
 
+
+test("tampered protected ON anchor entries and duplicate digests fail before verifier import",async()=>{
+  const good=anchoredSynthetic.records[0];
+  const variants=[
+    {schema:"wand.dbk.protected-on-origin@1",records:[good,good]},
+    {schema:"wand.dbk.protected-on-origin@1",records:[{...good,releaseState:"UNVERIFIED"}]},
+    {schema:"wand.dbk.protected-on-origin@1",records:[{...good,recordedBy:"FAKE_OPERATOR"}]},
+    {schema:"wand.dbk.protected-on-origin@1",records:[{...good,signedArtifactAttestationSha256:null}]},
+    {schema:"wand.dbk.protected-on-origin@1",records:[{...good,receiptSha256:good.receiptSha256.toUpperCase()}]},
+    {schema:"wand.dbk.protected-on-origin@1",records:[{...good,liveObserverRunId:0}]},
+    {schema:"wand.dbk.protected-on-origin@1",records:[{...good,targetSetSha256:"not-a-hash"}]},
+    {schema:"wrong-schema",records:[good]}
+  ];
+  for(let i=0;i<variants.length;i++){
+    const dir=mkdtempSync(join(tmpdir(),"wand-07dbk-bad-anchor-"));
+    try{
+      copyFileSync(scriptSrc,join(dir,"verifier.mjs"));
+      writeFileSync(join(dir,"07dbk-steam-image-trusted-on-anchors.json"),
+        JSON.stringify(variants[i]));
+      await assert.rejects(import(pathToFileURL(join(dir,"verifier.mjs")).href),
+        /PROTECTED_ON_ANCHOR_REGISTRY_INVALID|PROTECTED_ON_ANCHOR_DUPLICATE/,
+        "malformed/duplicate protected origin record cannot be silently skipped");
+    }finally{rmSync(dir,{recursive:true,force:true});}
+  }
+});
+
 test("ON and withdrawal never treat a source-only candidate receipt as an operator deployment",async()=>{
   const {result:published}=await on();
   assert.notEqual(published.receipt.scope,"SIGNED_DEPLOYMENT_AUTHORIZATION");
