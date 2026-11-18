@@ -26,7 +26,8 @@ test('Icon state shares exactly the existing reactive per-item Moodboard members
  assert.match(page,/data-explore-card-review/);
  assert.match(page,/on:click=\{\(event\)=>openQuickReview\(item,event\)\}/);
  assert.match(page,/\.card footer button\{[^}]*min-width:44px;min-height:44px/);
- assert.match(page,/localStorage\.setItem\(MOODBOARD_BACKUP_KEY,current\)/);
+ assert.match(page,/persistMoodboardLocalChange\(localStorage,next,moodboardsRaw\)/);
+ assert.doesNotMatch(page,/localStorage\.setItem\(MOODBOARD_BACKUP_KEY,current\)/);
  assert.match(page,/disabled=\{!boards\.length\}/);
 });
 
