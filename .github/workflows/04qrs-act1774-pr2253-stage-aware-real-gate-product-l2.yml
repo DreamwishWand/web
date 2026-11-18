@@ -92,9 +92,9 @@ jobs:
           }
           try{
            run('git',['clone','--no-hardlinks','-q',process.cwd(),dest],{cwd:root});
-           git('fetch','-q','--no-tags','origin',
+           run('git',['fetch','-q','--no-tags','https://github.com/DreamwishWand/web.git',
             '+refs/pull/2217/head:refs/qrs/pr2217',
-            '+refs/pull/2248/head:refs/qrs/pr2248');
+            '+refs/pull/2248/head:refs/qrs/pr2248']);
            // Fetch via GitHub when checkout origin is local clone without PR pseudo refs:
            // GitHub Actions checkout retains origin URL for this explicit remote fetch.
            assert.equal(git('rev-parse','refs/qrs/pr2217'),'b2735bc63884049a5f3d16423e5970553f168766');
