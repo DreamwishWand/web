@@ -1,3 +1,10 @@
+import {readFileSync} from "node:fs";
+// Accepted eight attribution copies are the versioned operator template,
+// not a generic brand mention or free-text claim of rights attribution.
+// This Source-only module runs in Node, not in the browser/asset consumer.
+const CANONICAL_GAME_ART_COPIES=Object.freeze(JSON.parse(readFileSync(
+  new URL("./ddv-item-image-operator-readiness-template.json",import.meta.url),"utf8")).locales);
+
 // 07 DBK / W-07DBK-ITEM-IMG-031 — pure SOURCE_ONLY release-operator preflight.
 // This module never publishes assets, grants rights, invalidates a CDN or flips product flags.
 // The Owner's 2026-11-05 game-image business decision is NOT a copyright licence.
@@ -251,7 +258,8 @@ export function preflightGameImageOperatorReceipt(receipt) {
     const reviewMetadataValid = notice?.humanReviewed === false
       ? notice.reviewEvidenceRef == null
       : notice?.humanReviewed === true && evidence(notice.reviewEvidenceRef);
-    if (!notice || !hasText(notice.text) || !notice.text.includes("Dreamwish Wand") ||
+    if (!notice || !hasText(notice.text) ||
+        notice.text!==CANONICAL_GAME_ART_COPIES[locale]?.text ||
         !reviewMetadataValid)
       reasons.push("ATTRIBUTION_LOCALE_COPY_OR_RECEIPT_INVALID:" + locale);
   }
