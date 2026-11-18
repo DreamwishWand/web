@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
-          import {mkdtempSync,rmSync,readFileSync,writeFileSync} from 'node:fs';
+          import {mkdtempSync,rmSync,readFileSync,writeFileSync,renameSync,symlinkSync} from 'node:fs';
           import {tmpdir} from 'node:os';
           import {join} from 'node:path';
           import {spawnSync,execFileSync} from 'node:child_process';
@@ -154,9 +154,22 @@ jobs:
             deny('SAME_PATH_UNAPPROVED_R22_CONFIG',configInvalid);
             const extraRust=synthetic(allowed,[['crates/ddv-save-core/src/qrs_extra_unapproved.rs',blobFor('// extra rust\n')]]);
             deny('EXTRA_RUST_NINTH_PATH',extraRust);
+            // The leaf is still a regular file with identical bytes, but
+            // an untrusted ancestor directory points outside this checkout.
+            // A trusted issuer path should reject this physical escape.
+            const liveParent=join(work,'src/lib/ddv/core/save');
+            const externalParent=join(temp,'redirected-issuer-tree');
+            renameSync(liveParent,externalParent);
+            symlinkSync(externalParent,liveParent,'dir');
+            try{
+              deny('OUTSIDE_REPO_SYMLINK_ISSUER_PARENT',allowed);
+            }finally{
+              rmSync(liveParent,{force:true});
+              renameSync(externalParent,liveParent);
+            }
             assert.equal(pos,1);
-            assert.equal(neg,12);
-            console.log('QRS_ACT1774_FIXED02FF_REAL_TRUSTED_EXTERNAL_CLI_1POS12NEG_PASS');
+            assert.equal(neg,13);
+            console.log('QRS_ACT1774_FIXED02FF_REAL_TRUSTED_EXTERNAL_CLI_1POS13NEG_PASS');
           }finally{
             rmSync(temp,{recursive:true,force:true});
           }
