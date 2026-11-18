@@ -1,0 +1,133 @@
+name: 04 QR-S ACT1757 PR2203 Bamboo unapproved EyeColor2 source gate L2 QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1757-pr2203-bamboo-unapproved-eyecolor-gate'
+    paths:
+      - '.github/workflows/04qrs-act1757-pr2203-bamboo-unapproved-eyecolor-source-l2.yml'
+permissions:
+  contents: read
+jobs:
+  independent-bamboo-trust-denial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fix new Source9, unchanged protected signer and QA-only one file
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor c7544e7fa826a52e9a813f53de4d9294b6ef36ec HEAD
+          test "$(git diff --name-only c7544e7fa826a52e9a813f53de4d9294b6ef36ec HEAD)" = ".github/workflows/04qrs-act1757-pr2203-bamboo-unapproved-eyecolor-source-l2.yml"
+          test "$(git rev-parse HEAD:.github/workflows/09p-bamboo-public-pages-sealer-source.yml)" = 82173a2a6bb9b1623ff200d0f441090111bd5ff4
+          test "$(git rev-parse HEAD:tests/09p-bamboo-public-pages-sealer.test.mjs)" = dc5e889945cac6336cb7fabe51ac951e6ce327d8
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-bamboo-public-pages.mjs)" = 399ada125e26cdd07809c4ff1ccb972adc6198ff
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = aa6b1dd771da305bf7a21c6101fb4620a8b74b93
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/worker_session.rs)" = a5b7c93bf66e6d48c4b7bef392777b8b7beb615e
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = bf7ef74754921b29ca1229a1519019f9105ac800
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs)" = 6fc525e975de9db68544d1feaff5ec9cd0011348
+          echo QRS_ACT1757_PR2203_EXACT_SOURCE9_SIGNER_AND_QA_SCOPE_FROZEN
+      - name: Execute real public signer approved parent positive and changed EyeColor2 candidate negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {mkdtempSync,copyFileSync,readFileSync,existsSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {spawnSync} from 'node:child_process';
+          import {BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS,bambooAcceptedRustSourceBlobsOk}
+            from './scripts/readonly-release/seal-bamboo-public-pages.mjs';
+          const approved='419162ef5bc3a75fac05baaee10021a0d269bc2d';
+          const changed='c7544e7fa826a52e9a813f53de4d9294b6ef36ec';
+          const keys=Object.keys(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS);
+          assert.equal(keys.length,15);
+          const tmp=mkdtempSync(join(tmpdir(),'qrs2203-bamboo-source-'));
+          const accepted=join(tmp,'approved-git-source');
+          const candidate=join(tmp,'eyecolor-candidate-git-source');
+          const git=(dir,...args)=>{
+            const p=spawnSync('git',['-C',dir,...args],{encoding:'utf8'});
+            assert.equal(p.status,0,'git failed '+args.join(' ')+':'+p.stderr);
+            return p.stdout.trim();
+          };
+          const create=(dest,head)=>{
+            const p=spawnSync('git',['worktree','add','--detach',dest,head],{encoding:'utf8'});
+            assert.equal(p.status,0,p.stderr);
+            assert.equal(git(dest,'rev-parse','HEAD'),head);
+            copyFileSync(join(dest,'scripts/wasm-distribution/approved-Cargo.lock'),
+                         join(dest,'crates/ddv-save-core/Cargo.lock'));
+          };
+          const preflight=(root,head,mode='preflight',more={})=>
+            spawnSync(process.execPath,[join(root,'scripts/readonly-release/seal-bamboo-public-pages.mjs'),mode],{
+              cwd:root,encoding:'utf8',timeout:45000,
+              env:{...process.env,GITHUB_REPOSITORY:'DreamwishWand/web',
+                GITHUB_REPOSITORY_ID:'1371485649',GITHUB_EVENT_NAME:'pull_request',
+                WAND_SOURCE_HEAD:head,...more}
+            });
+          let a=false,c=false;
+          try{
+            create(accepted,approved);a=true;
+            create(candidate,changed);c=true;
+            const approvedBlobs=Object.fromEntries(keys.map(p=>[p,git(accepted,'rev-parse','HEAD:'+p)]));
+            assert.equal(bambooAcceptedRustSourceBlobsOk(approvedBlobs),true);
+            const baseline=preflight(accepted,approved);
+            assert.equal(baseline.status,0,'actual approved protected Bamboo source must remain allowed '+baseline.stderr);
+            assert.match(baseline.stdout,/BAMBOO_PUBLIC_PAGES_SOURCE_PREFLIGHT_OFF/);
+            console.log('QRS_ACT1757_PR2203_ACCEPTED_PROTECTED_BAMBOO_REAL_SOURCE_1POS');
+            const changedBlobs=Object.fromEntries(keys.map(p=>[p,git(candidate,'rev-parse','HEAD:'+p)]));
+            assert.equal(bambooAcceptedRustSourceBlobsOk(changedBlobs),false);
+            const drifts=keys.filter(p=>approvedBlobs[p]!==changedBlobs[p]).sort();
+            assert.deepEqual(drifts,[
+              'crates/ddv-save-core/Cargo.toml',
+              'crates/ddv-save-core/src/wasm_worker.rs',
+              'crates/ddv-save-core/src/worker_session.rs'
+            ].sort(),'EyeColor2 must change exactly three protected Bamboo semantic trust pins');
+            const denials=[
+              {name:'PLAIN_CURRENT_PR2203_PRE_FLIGHT',mode:'preflight',env:{}},
+              {name:'FORGED_WORKFLOW_ACCEPTED_TRUE',mode:'preflight',env:{
+                BAMBOO_PUBLIC_SOURCE_ACCEPTED:'true',
+                WAND_BAMBOO_PUBLIC_RELEASE_GATE:'09INT_ACCEPTED_BAMBOO_READONLY_SIGNED3_PAGES'
+              }},
+              {name:'FORGED_ACCEPTED_CANDIDATE_STAGE',mode:'candidate',env:{
+                BAMBOO_PUBLIC_SOURCE_ACCEPTED:'true',
+                WAND_BAMBOO_PUBLIC_RELEASE_GATE:'09INT_ACCEPTED_BAMBOO_READONLY_SIGNED3_PAGES'
+              }}
+            ];
+            for(const trial of denials){
+              const result=preflight(candidate,changed,trial.mode,trial.env);
+              assert.notEqual(result.status,0,'UNAPPROVED_BAMBOO_SOURCE_ACCEPTED '+trial.name);
+              assert.match(result.stderr,/BAMBOO_PUBLIC_PAGES_SIGNER_DENIED/,trial.name);
+              assert.doesNotMatch(result.stdout,/BAMBOO_PUBLIC_PAGES_SOURCE_CANDIDATE_VALID_UNSIGNED_OFF/,trial.name);
+              console.log('QRS_ACT1757_PR2203_UNAPPROVED_EYECOLOR_RUST_DENIED '+trial.name);
+            }
+            assert.equal(existsSync(join(candidate,'static/worker-wasm-steam626-bamboo-readonly')),false);
+            assert.equal(existsSync(join(candidate,'build/worker-wasm-steam626-bamboo-readonly')),false);
+            const flow=readFileSync(join(candidate,'.github/workflows/09p-bamboo-public-pages-sealer-source.yml'),'utf8');
+            assert.equal((flow.match(/if: env\.BAMBOO_PUBLIC_SOURCE_ACCEPTED == 'true'/g)||[]).length,2,
+              'exactly two candidate compilation/manifest stages must require true accepted source');
+            assert.match(flow,/BAMBOO_UNAPPROVED_RUST_SOURCE_DENIED_NO_CANDIDATE_NO_PAGES/);
+            assert.match(flow,/BAMBOO_PUBLIC_SOURCE_ACCEPTED=false/);
+            assert.match(flow,/BAMBOO_PUBLIC_PAGES_SIGNER_DENIED/);
+            assert.doesNotMatch(flow,/actions\/deploy-pages|actions\/attest-build-provenance/);
+            console.log('QRS_ACT1757_PR2203_UNAPPROVED_RUST_SOURCE_1POS3NEG_NO_CANDIDATE_NO_SIGNING_PASS');
+          }finally{
+            if(c)spawnSync('git',['worktree','remove','--force',candidate],{encoding:'utf8'});
+            if(a)spawnSync('git',['worktree','remove','--force',accepted],{encoding:'utf8'});
+            rmSync(tmp,{recursive:true,force:true});
+          }
+          NODE
+      - name: Preserve Source-only QRS no auth or public deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only c7544e7fa826a52e9a813f53de4d9294b6ef36ec HEAD)" = ".github/workflows/04qrs-act1757-pr2203-bamboo-unapproved-eyecolor-source-l2.yml"
+          grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+          echo QRS_ACT1757_QA_ONLY_NEVER_MERGE_UNAPPROVED_BAMBOO_PUBLIC_OFF
