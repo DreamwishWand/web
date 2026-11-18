@@ -196,6 +196,18 @@ test('Only the pinned external Steam v1.25.3 FullVersion/schema626 shape is even
   blocked(x=>{x.target.buildId+='-unverified'},'STEAM626_FULLVERSION_SOURCE_REQUIRED');
   blocked(x=>{x.target.isVerified=true},'STEAM626_FULLVERSION_SOURCE_REQUIRED');
 });
+test('Switch 1.26ex FullVersion and genuine schema643 cannot reuse the Steam626 source candidate',()=>{
+  // Owner-provided Switch RomFS FullVersion.txt is not a Switch BID or Steam
+  // 626 accepted Build. Schema643 is an independent target, NOT a migration.
+  const next='releases_1.26ex-v1.26.1-633-g45e7ee77d30a-incremental-18';
+  blocked(x=>{x.target={platform:'Switch',gameVersion:'1.26.1',buildKind:'SwitchFullVersion',
+    buildId:next,schema:643}},'STEAM626_FULLVERSION_SOURCE_REQUIRED');
+  blocked(x=>{x.target.buildId=next;x.target.schema=643;x.target.gameVersion='1.26.1'},
+    'STEAM626_FULLVERSION_SOURCE_REQUIRED');
+  blocked(x=>{x.target.schema=643},'STEAM626_FULLVERSION_SOURCE_REQUIRED');
+  blocked(x=>{x.command=chestCommand();x.target.schema=643},
+    'STEAM626_FULLVERSION_SOURCE_REQUIRED');
+});
 test('Source SHA, single Rust session receipt, revision and index-generation are mandatory',()=>{
   blocked(x=>{x.source.originalEncryptedSha256='A'.repeat(64)},'ORIGINAL_ENCRYPTED_SHA_REQUIRED');
   blocked(x=>{x.source.originalEncryptedSha256=hash('x')},'ORIGINAL_ENCRYPTED_SHA_REQUIRED');
