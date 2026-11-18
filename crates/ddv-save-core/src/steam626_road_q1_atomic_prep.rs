@@ -161,6 +161,64 @@ struct ActualRoadQ1Readset {
 /// Authenticate a deliberately limited subset of old values from the SAME
 /// immutable Rust-owned decoded document. Geometry/halo/rights/ref subscriber
 /// closure are still unknown. No edit, new SaveSession or second Engine.
+/// Check *all* saved inventory route IDs and reject any second copy of
+/// this Road item in a different inventory. This is not a provider/rights
+/// attestation or an aggregate all-storage quantity receipt.
+fn verify_catalog0_road_source(b: &[u8], player: Span) -> CoreResult<(u32, Span)> {
+    let lists = field(b, player, "ListInventories")?;
+    if b.get(lists.begin) != Some(&b'{') ||
+       b.get(lists.end.saturating_sub(1)) != Some(&b'}') {
+        return Err(denied("ROAD_Q1_INVENTORY_ROUTES_MAP"));
+    }
+    let mut pos = lists.begin + 1;
+    let mut count = 0usize;
+    let mut source = None;
+    loop {
+        pos = indexed_read::skip_ws(b, pos);
+        if pos == lists.end - 1 { break; }
+        count += 1;
+        if count > 4096 || pos >= lists.end - 1 {
+            return Err(denied("ROAD_Q1_INVENTORY_ROUTE_BOUND"));
+        }
+        let key_end = indexed_read::string_end(b, pos)?;
+        if key_end - pos > 16 { return Err(denied("ROAD_Q1_ROUTE_KEY_BOUNDS")); }
+        let key: String = serde_json::from_slice(raw(b, Span { begin: pos, end: key_end })?)
+            .map_err(|_| denied("ROAD_Q1_ROUTE_KEY_PARSE"))?;
+        let id: u32 = key.parse().map_err(|_| denied("ROAD_Q1_ROUTE_KEY_UINT"))?;
+        if key != id.to_string() { return Err(denied("ROAD_Q1_ROUTE_KEY_CANONICAL")); }
+        let colon = indexed_read::skip_ws(b, key_end);
+        if b.get(colon) != Some(&b':') { return Err(denied("ROAD_Q1_ROUTE_COLON")); }
+        let begin = indexed_read::skip_ws(b, colon + 1);
+        let end = indexed_read::value_end(b, begin)?;
+        if end > lists.end - 1 { return Err(denied("ROAD_Q1_ROUTE_SPAN")); }
+        let route = Span { begin, end };
+        if integer(b, field(b, route, "ID")?)? != id {
+            return Err(denied("ROAD_Q1_ROUTE_ID_MISMATCH"));
+        }
+        let inventory = field(b, route, "Inventory")?;
+        if let Some(entry) = field_opt(b, inventory, "40100068")? {
+            if id != 0 || source.replace(entry).is_some() {
+                return Err(denied("ROAD_Q1_CROSS_ROUTE_STOCK_ALIAS"));
+            }
+            if raw(b, field(b, route, "CompatibleItemType")?)? != b"\"ItemType_Furniture\"" {
+                return Err(denied("ROAD_Q1_CATALOG0_ITEM_TYPE"));
+            }
+        }
+        let after = indexed_read::skip_ws(b, end);
+        match b.get(after) {
+            Some(b',') if after < lists.end - 1 => pos = after + 1,
+            Some(b'}') if after == lists.end - 1 => break,
+            _ => return Err(denied("ROAD_Q1_ROUTE_DELIMITER")),
+        }
+    }
+    let entry = source.ok_or(denied("ROAD_Q1_CATALOG0_STOCK_MISSING"))?;
+    let stock = integer(b, field(b, entry, "Amount")?)?;
+    if stock < 2 || stock > STOCK_MAX {
+        return Err(denied("ROAD_Q1_ACTUAL_STOCK_BOUNDS"));
+    }
+    Ok((stock, entry))
+}
+
 fn read_actual_old(b: &[u8]) -> CoreResult<ActualRoadQ1Readset> {
     let roots = indexed_read::roots(b)?;
     let villages = field(b, roots.world, "Villages")?;
@@ -203,15 +261,7 @@ fn read_actual_old(b: &[u8]) -> CoreResult<ActualRoadQ1Readset> {
     // A single stale/noncanonical saved Object ID makes a prospective
     // NextObjectID unsafe even when the literal "next" key is absent.
     verify_existing_object_ids(b, objects, next)?;
-    let route = field(b, field(b, roots.player, "ListInventories")?, "0")?;
-    if integer(b, field(b, route, "ID")?)? != 0 {
-        return Err(denied("ROAD_Q1_CATALOG0_MISMATCH"));
-    }
-    let entry = field(b, field(b, route, "Inventory")?, "40100068")?;
-    let stock = integer(b, field(b, entry, "Amount")?)?;
-    if stock < 2 || stock > STOCK_MAX {
-        return Err(denied("ROAD_Q1_ACTUAL_STOCK_BOUNDS"));
-    }
+    let (stock, entry) = verify_catalog0_road_source(b, roots.player)?;
     Ok(ActualRoadQ1Readset {
         next, stock,
         area_sha: digest(b, area)?,
@@ -379,6 +429,48 @@ mod road_q1_prep_tests {
         assert!(s.dispatch(WorkerEnvelope {
             action: WorkerAction::ExportEditedCopy, ..old.envelope
         }).is_err());
+    }
+
+    #[test]
+    fn road_q1_prep_catalog0_source_unique_and_route_identity_fail_closed() {
+        let s = fixture(false);
+        let original: Value = serde_json::from_slice(&s.decoded).unwrap();
+        let edit = |f: &dyn Fn(&mut Value)| {
+            let mut doc = original.clone();
+            f(&mut doc);
+            assert!(read_actual_old(&serde_json::to_vec(&doc).unwrap()).is_err());
+        };
+        // The second route must not silently provide the same Road stock.
+        edit(&|doc| {
+            doc["Player"]["ListInventories"]["3"] = json!({
+                "ID":3,"CompatibleItemType":"ItemType_Furniture",
+                "Inventory":{"40100068":{"Amount":3,"Marker":"ItemMarker_None"}}
+            });
+        });
+        // Every owner route ID must equal its canonical map key.
+        edit(&|doc| {doc["Player"]["ListInventories"]["0"]["ID"] = json!(1);});
+        edit(&|doc| {
+            doc["Player"]["ListInventories"]["03"] =
+                json!({"ID":3,"Inventory":{}});
+        });
+        edit(&|doc| {
+            doc["Player"]["ListInventories"]["3"] =
+                json!({"ID":4,"Inventory":{}});
+        });
+        edit(&|doc| {
+            doc["Player"]["ListInventories"]["0"]["CompatibleItemType"] =
+                json!("ItemType_Crop");
+        });
+        edit(&|doc| {
+            doc["Player"]["ListInventories"]["0"]["Inventory"]
+                .as_object_mut().unwrap().remove("40100068");
+        });
+        // An unrelated second inventory is supported, never an extra Road.
+        let mut extra = original.clone();
+        extra["Player"]["ListInventories"]["3"] =
+            json!({"ID":3,"Inventory":{"40400001":{"Amount":7}}});
+        assert!(read_actual_old(&serde_json::to_vec(&extra).unwrap()).is_ok());
+        assert!(read_actual_old(&s.decoded).is_ok());
     }
 
     #[test]
