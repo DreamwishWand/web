@@ -99,7 +99,7 @@ test('B02 no implicit Bamboo route, strict mode exclusivity and Steam Build gate
  await open(defaultBridge);assert.equal(defaultBridge.readSteam626BambooSingleTarget,undefined);
  defaultBridge.close();
  assert.throws(()=>make(MockRust,{allowSteam626BambooReadOnlySource:true,
-   allowSteam626Catalog0Source:true}),/PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT/);
+   allowSwitch626Catalog0Source:true}),/PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT/);
  const b=make();
  for(const build of [
    {...BUILD,platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D'},
