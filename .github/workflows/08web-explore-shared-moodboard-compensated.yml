@@ -1,0 +1,49 @@
+name: 08 WEB Explore shared Moodboard previous snapshot compensation
+on:
+  pull_request:
+    paths:
+      - 'src/routes/explore/+page.svelte'
+      - 'src/lib/explore/copy.js'
+      - 'tests/web-explore-moodboard-shared-compensation.test.mjs'
+      - 'tests/web-explore-wand-favorites-local.test.mjs'
+      - 'tests/web-explore-decux21-moodboard-tap.test.mjs'
+      - 'tests/web-explore-decux28-moodboard-icons.test.mjs'
+      - 'scripts/web-explore-shared-moodboard-compensation-chrome.mjs'
+      - '.github/workflows/08web-explore-shared-moodboard-compensated.yml'
+permissions:
+  contents: read
+jobs:
+  explore-shared-moodboard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Focus exact cross-surface parent helper and inherited Explore UI contracts
+        run: |
+          node --test             tests/web-explore-moodboard-shared-compensation.test.mjs             tests/web-moodboard-local-compensated-persist.test.mjs             tests/web-explore-wand-favorites-local.test.mjs             tests/web-explore-decux21-moodboard-tap.test.mjs             tests/web-explore-decux28-moodboard-icons.test.mjs
+      - name: Svelte type checks and static Pages candidate build (not deployment)
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: Installed Chrome Explore to Moodboard fail-closed quota and stale-tab roundtrip
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/08web-explore-moodboard.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4298/web/explore/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4298/web/explore/ >/dev/null
+          node scripts/web-explore-shared-moodboard-compensation-chrome.mjs

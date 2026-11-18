@@ -22,8 +22,11 @@ test('DEC-UX-21 preserves original local Moodboard persistence, backup and no-Bo
  assert.match(source,/if\(!selectedBoardId\)\{status=copy\.noBoards;return;\}/);
  assert.match(source,/addMoodboardReference\(moodboards,selectedBoardId/);
  assert.match(source,/removeMoodboardReference\(moodboards,selectedBoardId/);
- assert.match(source,/localStorage\.setItem\(MOODBOARD_BACKUP_KEY,current\)/);
- assert.match(source,/localStorage\.setItem\(MOODBOARD_STORAGE_KEY,serializeMoodboardDocument\(next\)\)/);
+ assert.match(source,/persistMoodboardLocalChange\(localStorage,next,moodboardsRaw\)/);
+ assert.match(source,/moodboardsRaw=persistMoodboardLocalChange/);
+ assert.match(source,/moodboards=next/);
+ assert.doesNotMatch(source,/localStorage\.setItem\(MOODBOARD_BACKUP_KEY,current\)/);
+ assert.match(source,/on:storage=\{handleExploreStorage\}/);
  assert.match(source,/disabled=\{!boards\.length\}/);
  assert.match(source,/quickReviewCloseButton\?\.focus\(\)/);
  assert.match(source,/tick\(\)\.then\(\(\)=>opener\?\.focus\(\)\)/);

@@ -79,7 +79,9 @@ test('Explore uses first-party four-point sparkle and independent local controls
  assert.match(page,/<Icon name="sparkle" size=\{18\} decorative=\{true\}\/>/);
  assert.match(page,/filteredFavorites=wandFavoritesOnly\?filtered\.filter/);
  assert.match(page,/WAND_FAVORITES_STORAGE_KEY/);
- assert.match(page,/on:storage=\{handleWandFavoriteStorage\}/);
+ assert.match(page,/on:storage=\{handleExploreStorage\}/);
+ assert.match(page,/handleWandFavoriteStorage\(event\)/,'shared listener preserves cross-tab Wand Favorites');
+ assert.match(page,/event\.key!==MOODBOARD_STORAGE_KEY/,'same listener handles Moodboard changes separately');
  assert.match(page,/data-explore-moodboard-toggle/);
  assert.match(page,/data-explore-card-review/);
  assert.doesNotMatch(page,/stage_steam626|changeGameFavorite|writeSaveFavorite|GameFavoriteMarker/);
