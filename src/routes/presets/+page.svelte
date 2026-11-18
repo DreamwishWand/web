@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { presetPageCopy } from '$lib/presets/page-copy.js';
@@ -38,11 +37,6 @@
   };
 
 
-  // A server-rendered root card is not proof that its click handler is bound.
-  // Expose an inert hydration witness for real browser acceptance only; no
-  // Save, auth, community or Writer permission is implied by this state.
-  let clientInteractive=false;
-  onMount(()=>{clientInteractive=true});
   let tab: Tab = 'discover';
   type Surface = 'root'|'wand'|'touchOfMagic'|'inGame'|'my';
   let surface:Surface='root';
@@ -339,7 +333,7 @@
   />
 </svelte:head>
 
-<section class="presets-page container" data-stage1-presets-root data-presets-client-interactive={clientInteractive?"ready":"loading"}
+<section class="presets-page container" data-stage1-presets-root
   data-native-writer="off" data-provider-gate="off" data-tom-writer="off">
   {#if surface==='root'}
     <h1 class="root-title">{copy.title}</h1>
