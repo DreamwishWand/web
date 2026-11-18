@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {
  BAMBOO_FEATURES,BAMBOO_METHODS,BAMBOO_BUILD,BAMBOO_READONLY_OPERATION,
- BAMBOO_READONLY_ASSET_DIR,bambooReadPinsOk,bambooReadManifestOk,
+ BAMBOO_READONLY_ASSET_DIR,bambooReadPinsOk,bambooReadManifestOk,bambooReadJsSymbolsOk,
  bambooReadAnchorOk,validateBambooReadAnchor,bambooReadDeliveryOk,loadProtectedBambooReadonlyWorker
 } from '../src/lib/ddv/core/save/product-steam626-bamboo-readonly-release.mjs';
 import {PROTECTED_BAMBOO40700007_READONLY_ANCHOR} from '../src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs';
@@ -82,4 +82,16 @@ test('anchor fields, issuer, mode, source, and protocol must all match',async()=
  for(const [key,val] of [['mode','proof-only'],['readOnlyOperationAuthorized',false],['attestationVerifiedAtBuild',false],['buildId','Switch626'],['sourceRef','refs/heads/dev'],['signerWorkflow','foreign/workflow']]){
   assert.equal(bambooReadAnchorOk({...fake,[key]:val}),false,key);
  }
+});
+
+test('read-only signed delivery rejects foreign Chest Stage/Export in JS glue independently of wasm method',()=>{
+ const baseline='export function read_steam626_bamboo_single_target() { return 0; }\n';
+ assert.equal(bambooReadJsSymbolsOk(baseline),true);
+ for(const name of ['dev_stage','stage_steam626_bamboo','export_steam626_bamboo',
+  'stage_steam626_chest','export_steam626_chest','undo_steam626_chest',
+  'write_steam626_inventory','preview_steam626_chest']){
+  assert.equal(bambooReadJsSymbolsOk(baseline+'export function '+name+'() {}\n'),false,name);
+ }
+ assert.equal(bambooReadJsSymbolsOk(baseline+'semantic_writer'),false);
+ assert.equal(bambooReadJsSymbolsOk(baseline+'read_steam626_singlefence_target'),false);
 });
