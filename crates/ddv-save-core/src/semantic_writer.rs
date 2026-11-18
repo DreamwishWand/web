@@ -1266,6 +1266,115 @@ mod minted_amount_target_tests {
             assert_eq!(bytes,serde_json::to_vec(&want).unwrap());
         }
     }
+    // Product-scoped DEV-only bridge: one private minted candidate must still
+    // pass the CURRENT single Rust ProductSession's dependency eligibility.
+    // Synthetic decoded tests are not Owner P1G encrypted V2 or independent
+    // external Codec reopen evidence.
+    #[cfg(all(feature="private-native-v2",feature="product-amount-scoped",not(target_arch="wasm32")))]
+    #[test]
+    fn private_product_amount_plan_bridge_catalog0_chest48_and_active_subscriber_denial(){
+        let mut d=doc();
+        d["ConditionalEventHistory"]=json!({"ActiveEvents":{}});
+        d["World"]=json!({"GridCollection":{"Grids":{"7":{"ID":7,"GridDefaultLayoutPath":"","Objects":{
+            "4":{"ID":4,"ItemID":40001680,"State":{"Storage":{
+                "ContainerInventoryID":12,"DefaultContainerInventoryData":"",
+                "UnlockKeyItemID":0,"UnlockLocId":"","DesignID":null
+            }}}}}},"DiffGrids":{}},"MissionSlots":{},
+            "Villages":[{"Areas":{"2":{"GridIDs":[7],"Unlocked":true}}}]});
+        d["Player"]["ListInventories"]=json!({
+            "0":{"ID":0,"CompatibleItemType":"ItemType_Furniture",
+                "CompatibleFurnitureTypes":{"List":["FurnitureItemType_Default"]},
+                "Inventory":{"40000048":{"Amount":3,"Marker":"ItemMarker_None"}}},
+            "2":{"ID":2,"CompatibleItemType":"ItemType_ActivityItem",
+                "Inventory":{"30200000":{"Amount":2}}}
+        });
+        let empty=json!({"ItemID":0,"Amount":0,"State":null});
+        let mut slots=vec![empty.clone();48];
+        slots[0]=json!({"ItemID":30200000,"Amount":50,"State":null,"Unknown":7});
+        d["Player"]["ContainerInventories"]=json!({
+            "0":{"ID":0,"BelongsToPlayer":true,"Size":1,"ExtraSize":0,
+                "Inventory":[{"ItemID":30200000,"Amount":5,"State":{}}]},
+            "1":{"ID":1,"BelongsToPlayer":true,"Size":1,"ExtraSize":0,
+                "Inventory":[empty]},
+            "12":{"ID":12,"ParentItemID":40001680,"BelongsToPlayer":true,
+                "BlockMoveTo":false,"Size":48,"ExtraSize":0,"Inventory":slots}
+        });
+        d["Player"]["BackpackOverflow"]=json!({"Items":[]});
+        d["Player"]["AchievementsData"]=json!([]);
+        d["Player"]["EvolveStatesProfile"]=json!({"EvolveProgressState":{}});
+        d["Player"]["DutySlots"]=json!({});
+        d["Player"]["BattlePassStates"]=json!({"Progress":{},"FtueProgress":{
+            "TasksProgress":[],"WeeklyTasksProgress":[]}});
+        let original=[7u8;32];
+        for chest in [false,true]{
+            let item=if chest{30200000}else{40000048};
+            let selection=if chest{ExistingAmountSelection::Chest{container_id:12,slot_index:0}}
+                else{ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048}};
+            let mint=|s:&ProductSession|->PrivateBoundAmountCandidate{
+                let r=s.receipt().unwrap();
+                let e=scope(r,WorkerAction::ReadDomain);
+                let target=s.read_existing_amount_target(e,selection).unwrap();
+                let v=target.view();
+                let f=v.chest.as_ref().map(|f|json!({
+                    "parentItemId":f.parent_item_id,"belongsToPlayer":true,
+                    "blockMoveTo":false,"size":48,"extraSize":0,
+                    "physicalSlotCount":48,"stateSha256":private_amount_hex(&f.state_sha256),
+                    "packagedStackBound":50})).unwrap_or(Value::Null);
+                let plan=json!({
+                    "contract":if chest{"wand.private.steam626.chest-crop-existing-50-to-49@1"}
+                        else{"wand.private.steam626.catalog0-ordinary-existing-decrease-one@1"},
+                    "fullVersion":EXACT_STEAM,
+                    "sourceDecodedSha256":private_amount_hex(&r.decoded_sha256),
+                    "originalSha256":private_amount_hex(&original),
+                    "backupSha256":private_amount_hex(&original),
+                    "originalSizeBytes":123,"backupSizeBytes":123,
+                    "revision":0,"indexGeneration":1,
+                    "selector":if chest{json!({"containerId":12,"slotIndex":0})}
+                        else{json!({"inventoryId":0,"itemId":item})},
+                    "target":{"itemId":item,"oldAmount":v.old_amount,
+                        "newAmount":v.old_amount-1,"entrySha256":private_amount_hex(&v.entry_sha256),
+                        "compatibleItemType":native_type_token(v.compatible_item_type),"chest":f}
+                });
+                s.mint_private_bound_amount_candidate(
+                    e,&serde_json::to_vec(&plan).unwrap(),original,123,original,123,chest
+                ).unwrap()
+            };
+            let s=open(&d);let original_receipt=s.receipt().unwrap();
+            let candidate=mint(&s);
+            let st=scope(original_receipt,WorkerAction::Stage);
+            let a=s.stage_private_product_scoped_bound_amount_candidate(st,&candidate).unwrap();
+            assert_eq!(a.exact_field_changed_count,1);
+            assert!(!a.product_writer_authorized);
+            assert!(s.stage_private_product_scoped_bound_amount_candidate(st,&candidate).is_err());
+            let undo=s.undo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+            assert!(!undo.applied);
+            assert!(s.take_typed_semantic_decoded_once(scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy)).is_err());
+            s.redo_typed_semantic_batch(scope(s.receipt().unwrap(),WorkerAction::Stage)).unwrap();
+            let exp=scope(s.receipt().unwrap(),WorkerAction::ExportEditedCopy);
+            let out=s.take_typed_semantic_decoded_once(exp).unwrap();
+            assert!(s.take_typed_semantic_decoded_once(exp).is_err());
+            let mut wanted=d.clone();
+            if chest{wanted["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);}
+            else{wanted["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);}
+            assert_eq!(out,serde_json::to_vec(&wanted).unwrap());
+            let reopened=open(&wanted);
+            assert_ne!(reopened.receipt().unwrap().decoded_sha256,original_receipt.decoded_sha256);
+            // Legacy private plan accepts the same typed target, but the new
+            // product bridge must deny a live BattlePass subscriber.
+            let mut conflicting=d.clone();
+            conflicting["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"]=
+                json!([{"TaskState":"BattlePassTaskState_OnGoing","Objective":{
+                    "CurAmount":0,"TargetAmount":1,"ItemIdsCollected":[],
+                    "ItemFilter":{"Data":{"Item":item,"ItemList":[],"AnyActivityItem":false}}
+                }}]);
+            let bad=open(&conflicting);let old=bad.receipt().unwrap();
+            let minted=mint(&bad);
+            let denied=bad.stage_private_product_scoped_bound_amount_candidate(scope(old,WorkerAction::Stage),&minted).unwrap_err();
+            assert_eq!(denied.0,"PRODUCT_AMOUNT_BATTLEPASS_FILTER");
+            assert_eq!(bad.receipt().unwrap(),old);
+        }
+    }
+
     #[test]
     fn minted_real_saved_values_not_caller_authority(){
         let s=open(&doc());
