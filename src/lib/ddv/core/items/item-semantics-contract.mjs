@@ -74,33 +74,35 @@ const object = value => value !== null && typeof value === 'object' && !Array.is
 const positive = value => Number.isSafeInteger(value) && value > 0;
 const unsigned = value => Number.isSafeInteger(value) && value >= 0;
 const key = value => String(value);
+// A parsed JSON field is an own DATA property. Own accessors are not raw Save
+// bytes: invoking them can fabricate values, throw, or mutate caller state.
+const NO_RAW_FIELD=Symbol('not an own raw JSON data property');
+const rawOwn=(holder,name)=>{
+  if(!object(holder)&&!Array.isArray(holder))return NO_RAW_FIELD;
+  const d=Object.getOwnPropertyDescriptor(holder,name);
+  return d&&Object.hasOwn(d,'value')?d.value:NO_RAW_FIELD;
+};
 const denied = (code, extra={}) => Object.freeze({
   schema:ITEM_SEMANTIC_CONTRACT, status:'BLOCKED', code,
   owned:'UNKNOWN', discovered:'UNKNOWN', missing:'UNKNOWN',
   denominator:null, numerator:null, writerAuthorized:false, ...extra
 });
 function sourceIdentity(profile, identity) {
-  if (!object(profile) || !object(identity) ||
-      !Object.hasOwn(profile,'GameInfo') || !Object.hasOwn(profile,'Player') ||
-      !Object.hasOwn(identity,'sourcePlatform') || !Object.hasOwn(identity,'platform') ||
-      !Object.hasOwn(identity,'gameVersion') || !Object.hasOwn(identity,'buildId') ||
-      !Object.hasOwn(identity,'profileSchema') ||
-      !object(profile.GameInfo) || !Object.hasOwn(profile.GameInfo,'Version') ||
-      !object(profile.Player))
-    return null;
-  if (identity.sourcePlatform !== 'switch' || identity.platform !== 'switch')
-    return null;
-  const target = Object.values(ITEM_SOURCE_TARGETS).find(v =>
-    identity.gameVersion === v.gameVersion &&
-    identity.buildId === v.buildId &&
-    identity.profileSchema === v.profileSchema
+  if (!object(profile)||!object(identity))return null;
+  const game=rawOwn(profile,'GameInfo'),player=rawOwn(profile,'Player');
+  if (!object(game)||!object(player))return null;
+  const version=rawOwn(game,'Version');
+  const source=rawOwn(identity,'sourcePlatform'),platform=rawOwn(identity,'platform');
+  const gameVersion=rawOwn(identity,'gameVersion'),buildId=rawOwn(identity,'buildId');
+  const profileSchema=rawOwn(identity,'profileSchema');
+  if (source!=='switch'||platform!=='switch')return null;
+  const target=Object.values(ITEM_SOURCE_TARGETS).find(v=>
+    gameVersion===v.gameVersion&&buildId===v.buildId&&profileSchema===v.profileSchema
   );
-  if (!target || profile.GameInfo.Version !== target.profileSchema) return null;
-  // The BID is *external information*; neither this profile nor this function
-  // proves an installed game's BID or the original package source.
+  if (!target||version!==target.profileSchema)return null;
+  // External source identity remains a declaration, not an attestation.
   return target;
 }
-
 function base(target, saveObserved) {
   return {
     schema:ITEM_SEMANTIC_CONTRACT, status:'RAW_SAVE_STRUCTURE_ONLY',
@@ -122,15 +124,18 @@ export function inspectCollectionSaveFlag({profile, identity, definitionId, grou
   if (!target) return denied('EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED');
   if (!positive(definitionId) || !unsigned(groupIndex) || groupIndex>256 || !positive(itemId))
     return denied('COLLECTION_KEY_INVALID');
-  if (!Object.hasOwn(profile.Player,'CollectionSets'))
+  const player=rawOwn(profile,'Player');
+  const sets=rawOwn(player,'CollectionSets');
+  if (!Array.isArray(sets) || sets.length>10000)
     return denied('COLLECTION_SETS_MISSING_OR_UNBOUNDED');
-  const sets=profile.Player.CollectionSets;
-  if (!Array.isArray(sets) || sets.length>10000) return denied('COLLECTION_SETS_MISSING_OR_UNBOUNDED');
   let match=null;
-  for (const entry of sets) {
-    if (!object(entry) || !Object.hasOwn(entry,'CollectionDefinitionID') ||
-        !positive(entry.CollectionDefinitionID)) return denied('COLLECTION_DEFINITION_ROW_INVALID');
-    if (entry.CollectionDefinitionID!==definitionId) continue;
+  for (let i=0; i<sets.length; i++) {
+    // A sparse/inherited/accessor array slot is not an original JSON row.
+    const entry=rawOwn(sets,i);
+    const id=rawOwn(entry,'CollectionDefinitionID');
+    if (!object(entry) || !positive(id))
+      return denied('COLLECTION_DEFINITION_ROW_INVALID');
+    if (id!==definitionId) continue;
     if (match!==null) return denied('COLLECTION_DUPLICATE_DEFINITION');
     match=entry;
   }
@@ -138,25 +143,27 @@ export function inspectCollectionSaveFlag({profile, identity, definitionId, grou
     ...base(target,false), collectionDefinitionId:definitionId, groupIndex,
     itemId, rawFlag:'ABSENT_DEFINITION'
   });
-  if (!Object.hasOwn(match,'GroupData') || !Array.isArray(match.GroupData) || match.GroupData.length>257)
+  const groups=rawOwn(match,'GroupData');
+  if (!Array.isArray(groups) || groups.length>257)
     return denied('COLLECTION_GROUP_DATA_UNVERIFIED');
-  // Own-index presence must be checked BEFORE reading: a sparse array can
-  // inherit a prototype group and otherwise counterfeit raw Collection data.
-  if (!Object.hasOwn(match.GroupData,groupIndex))
+  // An absent array index is different from an own accessor/invalid group.
+  if (!Object.hasOwn(groups,groupIndex))
     return Object.freeze({...base(target,false),collectionDefinitionId:definitionId,
       groupIndex,itemId,rawFlag:'ABSENT_GROUP'});
-  const group=match.GroupData[groupIndex];
-  // A present but malformed group is not a missing group.
-  if (!object(group) || !Object.hasOwn(group,'GroupsCollectionItems') ||
-      !object(group.GroupsCollectionItems))
+  const group=rawOwn(groups,groupIndex);
+  const items=rawOwn(group,'GroupsCollectionItems');
+  if (!object(group) || !object(items))
     return denied('COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED');
-  if (group.GroupIndex !== undefined && group.GroupIndex !== groupIndex)
+  // GroupIndex is optional; inherited values are not original Save fields.
+  // An own accessor must never run even when it would return a valid index.
+  const storedIndex=Object.getOwnPropertyDescriptor(group,'GroupIndex');
+  if (storedIndex && (!Object.hasOwn(storedIndex,'value') ||
+      (storedIndex.value!==undefined && storedIndex.value!==groupIndex)))
     return denied('COLLECTION_GROUP_INDEX_CONFLICT');
-  const items=group.GroupsCollectionItems;
   if (!Object.hasOwn(items,key(itemId)))
     return Object.freeze({...base(target,false),collectionDefinitionId:definitionId,
       groupIndex,itemId,rawFlag:'ABSENT_ITEM_ENTRY'});
-  const flag=items[key(itemId)];
+  const flag=rawOwn(items,key(itemId));
   if (typeof flag!=='boolean') return denied('COLLECTION_BOOLEAN_FIELD_INVALID');
   return Object.freeze({...base(target,true),collectionDefinitionId:definitionId,
     groupIndex,itemId,rawFlag:flag?'SAVE_BOOL_TRUE':'SAVE_BOOL_FALSE'});
@@ -169,28 +176,28 @@ export function inspectInventoryAmount({profile, identity, inventoryId, canonica
   if (!unsigned(inventoryId) || !positive(canonicalItemId) ||
       !unsigned(compatibleItemType))
     return denied('CANONICAL_INVENTORY_ROUTE_NOT_SPECIFIED');
-  if (!Object.hasOwn(profile.Player,'ListInventories')) return denied('LIST_INVENTORIES_MISSING');
-  const all=profile.Player.ListInventories;
+  const player=rawOwn(profile,'Player');
+  const all=rawOwn(player,'ListInventories');
   if (!object(all)) return denied('LIST_INVENTORIES_MISSING');
-  // Absent inventory is not a corrupted PRESENT inventory with missing
-  // Inventory map. No coercion of malformed source shape into empty stock.
   if (!Object.hasOwn(all,key(inventoryId)))
     return Object.freeze({...base(target,false),inventoryId,canonicalItemId,
       rawAmount:null, rawEntry:'ABSENT_INVENTORY'});
-  const inv=all[key(inventoryId)];
-  if (!object(inv) || !Object.hasOwn(inv,'Inventory') ||
-      !Object.hasOwn(inv,'CompatibleItemType') || !object(inv.Inventory))
+  const inv=rawOwn(all,key(inventoryId));
+  const items=rawOwn(inv,'Inventory');
+  const type=rawOwn(inv,'CompatibleItemType');
+  if (!object(inv) || !object(items) || type===NO_RAW_FIELD)
     return denied('INVENTORY_RECORD_OR_ITEMS_MALFORMED');
-  if (inv.CompatibleItemType!==compatibleItemType)
+  if (type!==compatibleItemType)
     return denied('INVENTORY_COMPATIBLE_ITEM_TYPE_MISMATCH');
-  if (!Object.hasOwn(inv.Inventory,key(canonicalItemId)))
+  if (!Object.hasOwn(items,key(canonicalItemId)))
     return Object.freeze({...base(target,false),inventoryId,canonicalItemId,
       rawAmount:null,rawEntry:'ABSENT_ITEM_ENTRY'});
-  const stock=inv.Inventory[key(canonicalItemId)];
-  if (!object(stock) || !Object.hasOwn(stock,'Amount') || !unsigned(stock.Amount))
+  const stock=rawOwn(items,key(canonicalItemId));
+  const amount=rawOwn(stock,'Amount');
+  if (!object(stock) || !unsigned(amount))
     return denied('INVENTORY_AMOUNT_FIELD_INVALID');
   return Object.freeze({...base(target,true),inventoryId,canonicalItemId,
-    compatibleItemType,rawAmount:stock.Amount,rawEntry:'PRESENT'});
+    compatibleItemType,rawAmount:amount,rawEntry:'PRESENT'});
 }
 
 /** An inert operation candidate: this function cannot mutate a save or authorize export. */
