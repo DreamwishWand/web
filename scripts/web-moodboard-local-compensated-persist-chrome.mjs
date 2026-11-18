@@ -69,6 +69,12 @@ try{
     backup:localStorage.getItem(b)}),[MAIN,BACKUP]);
    assert.deepEqual(still,newer,'stale tab cannot replace newer main or previous');
    assert.equal(await other.locator('[data-moodboard-root-card]').count(),2);
+   // A manual Restore must respect the same stale-tab CAS; otherwise a
+   // second tab could discard the new main via the previous snapshot.
+   await other.locator('[data-moodboard-local-restore]').click();
+   const afterRestore=await page.evaluate(([m,b])=>({main:localStorage.getItem(m),
+    backup:localStorage.getItem(b)}),[MAIN,BACKUP]);
+   assert.deepEqual(afterRestore,newer,'stale tab cannot overwrite by Restore');
    await other.close();
    if(width===320){
     await page.setViewportSize({width:640,height:900});
