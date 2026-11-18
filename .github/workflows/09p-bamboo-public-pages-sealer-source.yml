@@ -30,7 +30,7 @@ jobs:
         with:
           toolchain: '1.99.1'
           targets: wasm32-unknown-unknown
-      - name: Preflight existing Rust/Lock and committed public OFF anchor
+      - name: Gate protected Bamboo accepted source or prove unrelated Rust drift is denied
         shell: bash
         run: |
           set -euo pipefail
@@ -40,8 +40,34 @@ jobs:
           test ! -e build/worker-wasm-steam626-bamboo-readonly
           grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
           cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
-          node scripts/readonly-release/seal-bamboo-public-pages.mjs preflight
+          result=$(node --input-type=module <<'NODE'
+          import {execFileSync} from 'node:child_process';
+          import {BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS,bambooAcceptedRustCheckoutOk} from './scripts/readonly-release/seal-bamboo-public-pages.mjs';
+          const git=(...args)=>execFileSync('git',args,{encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim();
+          const drift=Object.entries(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS).filter(([path,blob])=>git('rev-parse','HEAD:'+path)!==blob);
+          const clean=git('status','--porcelain=v1','--untracked-files=all','--','crates/ddv-save-core/src')===''&&
+           git('status','--porcelain=v1','--','crates/ddv-save-core/Cargo.toml')==='';
+          const accepted=await bambooAcceptedRustCheckoutOk();
+          if(!clean || accepted!==(drift.length===0))process.exit(2);
+          process.stdout.write(accepted?'accepted':'drift');
+          NODE
+          )
+          if [ "$result" = accepted ]; then
+            node scripts/readonly-release/seal-bamboo-public-pages.mjs preflight
+            echo "BAMBOO_PUBLIC_SOURCE_ACCEPTED=true" >> "$GITHUB_ENV"
+          elif [ "$result" = drift ]; then
+            if node scripts/readonly-release/seal-bamboo-public-pages.mjs preflight > "$RUNNER_TEMP/bamboo-drift-denial.log" 2>&1; then
+              echo 'UNAPPROVED_RUST_SOURCE_INCORRECTLY_ACCEPTED' >&2
+              exit 1
+            fi
+            grep -Fq 'BAMBOO_PUBLIC_PAGES_SIGNER_DENIED' "$RUNNER_TEMP/bamboo-drift-denial.log"
+            echo "BAMBOO_PUBLIC_SOURCE_ACCEPTED=false" >> "$GITHUB_ENV"
+            echo BAMBOO_UNAPPROVED_RUST_SOURCE_DENIED_NO_CANDIDATE_NO_PAGES
+          else
+            exit 1
+          fi
       - name: Generate actual Rust1.99.1/wasm-bindgen0.2.105 Bamboo only
+        if: env.BAMBOO_PUBLIC_SOURCE_ACCEPTED == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -50,6 +76,7 @@ jobs:
           mkdir -p tests/stage-e/pkg
           "$WAND_BINDGEN_CLI" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
       - name: Reuse existing isolated actual Bamboo candidate, check exact manifest and all exports
+        if: env.BAMBOO_PUBLIC_SOURCE_ACCEPTED == 'true'
         shell: bash
         run: |
           set -euo pipefail
