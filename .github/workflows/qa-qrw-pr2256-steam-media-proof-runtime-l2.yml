@@ -1,0 +1,48 @@
+name: QA ONLY 04 QR-W PR2256 real Steam3 Pages proof runtime L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2256-steam-media-proof-runtime-l2.yml'
+permissions:
+  contents: read
+jobs:
+  fixed-pages-staged-steam3-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2256-499f-fresh-steam-media-proof-runtime-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin original exact Pages Source one change and QA-only two paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=b27819af3ea4d3d8e45a126ba5981e0dfbdc5db5
+          source=499f82851ff2d0f679d66db17f32f9051fd78759
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:.github/workflows/pages.yml")" = ed8aabff1dc8c8b426054c7dff0d88faa2b02da4
+          test "$(git rev-parse 'HEAD:.github/workflows/pages.yml')" = fbe9efeb38137499ce0cda008134992da5628a40
+          test "$(git rev-parse "$base:ops/ddv-steam-public-media-prior-on-cache.json")" = 1adb23565fc693b3e255f7a82be1f8f9bf7fce3b
+          test "$(git rev-parse 'HEAD:ops/ddv-steam-public-media-prior-on-cache.json')" = 1adb23565fc693b3e255f7a82be1f8f9bf7fce3b
+          test "$(git rev-parse "$base:scripts/int-steam-public-media-signed-batch.mjs")" = 461bb49270650c85cedc34cef647445473ad53eb
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2256-real-pages-steam3-runtime-l2.test.mjs')" = 7190ae14ece3e640e33d55d76d47537bdf4a17e8
+          for f in .github/workflows/pages.yml tests/qa-qrw-pr2256-real-pages-steam3-runtime-l2.test.mjs .github/workflows/qa-qrw-pr2256-steam-media-proof-runtime-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' .github/workflows/pages.yml >/tmp/changed-source
+          printf '%s\n' .github/workflows/qa-qrw-pr2256-steam-media-proof-runtime-l2.yml tests/qa-qrw-pr2256-real-pages-steam3-runtime-l2.test.mjs | LC_ALL=C sort >/tmp/changed-qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/changed-source -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/changed-qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2256_PAGES_ORIGINAL1_QAONLY2_IMMUTABLE_BLOBS_PASS
+      - name: Real Pages shell staging and signed Steam3 verifier runtime negative/positive
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qa-qrw-pr2256-real-pages-steam3-runtime-l2.test.mjs
+          echo QRW2256_ORIGINAL_STEAM3_RUNTIME_PROOF_STAGING_L2_PASS
