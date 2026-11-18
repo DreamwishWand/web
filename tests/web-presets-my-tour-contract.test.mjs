@@ -118,6 +118,16 @@ test('global header SVG ? visible in desktop/mobile/immersive; overlay never act
  assert.match(overlay,/@media\(prefers-reduced-motion:reduce\)/);
  assert.match(overlay,/background:var\(--surface-raised\)/);
  assert.match(overlay,/color:var\(--ink\)/);
+ // The route can SSR cards before Svelte attaches their click handlers.
+ // A real Chrome journey must await the route's onMount-ready witness; then
+ // it clicks the user-visible My card once, not retry clicks to hide failure.
+ const tourChrome=source('../scripts/web-presets-my-tour-chrome.mjs');
+ assert.match(route,/data-presets-client-interactive=\{clientInteractive\?"ready":"loading"\}/);
+ assert.match(route,/onMount\(\(\)=>\{clientInteractive=true\}\)/);
+ assert.match(tourChrome,/WEB_TOUR_PRESETS_ACTUAL_CLIENT_HYDRATED_READY/);
+ assert.match(tourChrome,/WEB_TOUR_ROOT_TO_MY_ACTUAL_SINGLE_CLICK_PASS/);
+ assert.equal((tourChrome.match(/await tap\('\[data-preset-child="my"\]'\)/g)||[]).length,1);
+ assert.match(tourChrome,/WEB_TOUR_MY_TRANSITION_TIMEOUT_SNAPSHOT/);
  const tourMethods=header.split('function startTour(origin:TourEntry):void{')[1].split('  afterNavigate(')[0];
  assert.doesNotMatch(tourMethods+overlay,/saveLocalScene\(|stageLocalSceneRouteIntent\(|indexedDB\.|fetch\(|localStorage\.(?:setItem|removeItem)|sessionStorage\.(?:setItem|removeItem)/);
 });
