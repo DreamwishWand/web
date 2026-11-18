@@ -5,6 +5,7 @@
   import { locale, formatNumber } from '$lib/i18n/runtime.js';
   import { exploreCopy } from '$lib/explore/copy.js';
   import { decorationFamilyUniverses, reconcileDecorationUniverse } from '$lib/explore/family-universe-facets.mjs';
+  import { persistMoodboardLocalChange } from '$lib/moodboards/local-persist-compensated.mjs';
   import { WAND_FAVORITES_STORAGE_KEY, emptyWandFavorites, isWandFavorite, parseWandFavorites, persistWandFavorite } from '$lib/explore/wand-favorites-local.mjs';
   import { sharedEntityHref, sharedEntityLabels, PUBLIC_DETAIL_ACCEPTED } from '$lib/entity/shared-catalog-detail.mjs';
   import ItemThumb from '$lib/ui/ItemThumb.svelte';
@@ -14,13 +15,11 @@
   import { collectionFamilyLabel } from '$lib/collection/copy.js';
   import { collectionFacetLabel, decodeCollectionRecord, filterCollectionRecords, loadCollectionRuntime } from '$lib/collection/runtime.js';
   import {
-    MOODBOARD_BACKUP_KEY,
     MOODBOARD_STORAGE_KEY,
     addMoodboardReference,
     createEmptyMoodboardDocument,
     parseMoodboardDocument,
-    removeMoodboardReference,
-    serializeMoodboardDocument
+    removeMoodboardReference
   } from '$lib/moodboards/store.js';
   import { createSwitchWorldReadAdapter } from '$lib/wep/world-browser-adapter';
   import { currentWorldEditorEnvironmentSupported } from '$lib/wep/world-editor-environment';
@@ -37,6 +36,9 @@
   let searchToggle:HTMLButtonElement;
   let searchInput:HTMLInputElement;
   let moodboards:any=createEmptyMoodboardDocument();
+  // Exact last accepted encrypted-Save-independent Moodboard raw document.
+  // Match the shared local CAS before any new board/reference write.
+  let moodboardsRaw:string|null=null;
   let wandFavorites:any=emptyWandFavorites(), wandFavoritesOnly=false;
   let placementBinding:any=null;
   let worldEditorSupported=false;
@@ -69,7 +71,10 @@
         createSwitchWorldReadAdapter({basePath:base}).catch(()=>null)
       ]);
       runtimeIndex=loaded.index; rawRows=loaded.rows; placementBinding=binding;
-      try{const stored=localStorage.getItem(MOODBOARD_STORAGE_KEY);if(stored)moodboards=parseMoodboardDocument(stored);}catch{/* keep empty valid document */}
+      try{const stored=localStorage.getItem(MOODBOARD_STORAGE_KEY);
+        if(stored!==null)moodboards=parseMoodboardDocument(stored);
+        moodboardsRaw=stored;
+      }catch{/* keep empty document and deny unsafe overwrite by raw CAS */}
       selectedBoardId=moodboards.boards[0]?.id ?? '';
     }catch(cause){error=cause instanceof Error?cause.message:String(cause);}finally{loading=false;}
   });
@@ -95,10 +100,23 @@
   }
 
   function persistMoodboards(next:any){
-    const current=localStorage.getItem(MOODBOARD_STORAGE_KEY);
-    if(current)localStorage.setItem(MOODBOARD_BACKUP_KEY,current);
-    localStorage.setItem(MOODBOARD_STORAGE_KEY,serializeMoodboardDocument(next));
+    // The same raw Main/Previous snapshots and stale CAS as Moodboards.
+    // A failed write never flips an Item control or reports a saved state.
+    moodboardsRaw=persistMoodboardLocalChange(localStorage,next,moodboardsRaw);
     moodboards=next;
+  }
+  
+  function handleExploreStorage(event:StorageEvent){
+    handleWandFavoriteStorage(event);
+    if(event.key!==MOODBOARD_STORAGE_KEY)return;
+    try{
+      const next=event.newValue===null
+        ?createEmptyMoodboardDocument():parseMoodboardDocument(event.newValue);
+      moodboardsRaw=event.newValue;
+      moodboards=next;
+      if(!next.boards.some((board:any)=>board.id===selectedBoardId))
+        selectedBoardId=next.boards[0]?.id??'';
+    }catch{status=copy.moodboardSaveFailed;}
   }
 
   function toggleMoodboard(item:any){
@@ -117,7 +135,7 @@
         }).document);
         status=copy.added;
       }
-    }catch(cause){status=cause instanceof Error?cause.message:String(cause);}
+    }catch{status=copy.moodboardSaveFailed;}
   }
 
   function placementFor(item:any){
@@ -175,7 +193,7 @@
   }
 </script>
 
-<svelte:window on:keydown={handleWindowKeydown} on:storage={handleWandFavoriteStorage} />
+<svelte:window on:keydown={handleWindowKeydown} on:storage={handleExploreStorage} />
 <svelte:head><title>Explore | Dreamwish Wand</title><meta name="description" content="Explore verified decorating items and save inspiration to Dreamwish Wand Moodboards." /></svelte:head>
 
 <section class="explore-page container">
