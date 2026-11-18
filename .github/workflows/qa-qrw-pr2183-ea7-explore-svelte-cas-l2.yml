@@ -97,20 +97,20 @@ jobs:
            const storage={getItem(k){return map.has(k)?map.get(k):null},setItem(k,v){writes.push('set:'+k);map.set(k,String(v))},removeItem(k){writes.push('remove:'+k);map.delete(k)}};
            const env={localStorage:storage,persistMoodboardLocalChange,addMoodboardReference:(...p)=>addMoodboardReference(...p,{now:stamp,idFactory:()=>2}),
            removeMoodboardReference,parseMoodboardDocument,createEmptyMoodboardDocument,MOODBOARD_STORAGE_KEY:MAIN,console};
-           vm.runInNewContext(String.raw\`let moodboards=globalThis.__initial;let moodboardsRaw=globalThis.__raw;let selectedBoardId=globalThis.__selected;let status='';
+           vm.runInNewContext(String.raw`let moodboards=globalThis.__initial;let moodboardsRaw=globalThis.__raw;let selectedBoardId=globalThis.__selected;let status='';
            const copy={noBoards:'NO_BOARD',removed:'REMOVED',added:'ADDED',moodboardSaveFailed:'SAVE_FAILED'};
            let favoriteEvents=0;
            function handleWandFavoriteStorage(event){favoriteEvents++;}
            function itemReference(item){return moodboards.boards.find(b=>b.id===selectedBoardId)?.references.find(r=>r.type==='ITEM'&&r.entityId===String(item.itemId))??null;}
            function familyLabel(){return 'Furniture';}
-           \${persistBody}
-           \${eventBody}
-           \${toggleBody}
+           ${persistBody}
+           ${eventBody}
+           ${toggleBody}
            globalThis.action=item=>toggleMoodboard(item);
            globalThis.storageEvent=event=>handleExploreStorage(event);
            globalThis.snapshot=()=>({status,moodboardsRaw,selectedBoardId,moodboards,contains:moodboards.boards.some(b=>b.references.some(r=>r.entityId==='40000047')),favoriteEvents});
            globalThis.selectBoard=id=>{selectedBoardId=id;};
-           \`,{...env,__initial:a.doc,__raw:a.raw,__selected:a.board});
+           `,Object.assign(env,{__initial:a.doc,__raw:a.raw,__selected:a.board}));
            return {a,map,writes,storage,act:x=>env.action(x),event:x=>env.storageEvent(x),snap:()=>env.snapshot(),select:x=>env.selectBoard(x)};
           }
           let pos=0,neg=0;
