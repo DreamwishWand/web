@@ -1,0 +1,44 @@
+name: 08 WEB DEC-UX-21 Explore card action accessibility L1
+on:
+  pull_request:
+    paths:
+      - 'src/routes/explore/+page.svelte'
+      - 'tests/web-explore-decux21-moodboard-tap.test.mjs'
+      - 'scripts/web-explore-decux21-card-actions-chrome.mjs'
+      - '.github/workflows/08web-decux21-card-actions.yml'
+permissions:
+  contents: read
+jobs:
+  decux21-card-actions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Scoped L1 DEC-UX-21 dual actions, 44px, previous backup and 8 locale labels
+        run: node --test tests/web-explore-decux21-moodboard-tap.test.mjs
+      - name: Svelte TypeScript and static product build
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: Actual browser local Moodboard Add/Remove vs Quick Review, 1366 and 320
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4298 --strictPort >/tmp/08web-decux21-preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4298/web/explore/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4298/web/moodboards/ >/dev/null
+          node scripts/web-explore-decux21-card-actions-chrome.mjs
