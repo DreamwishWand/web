@@ -67,7 +67,7 @@ test('ACT1581 exact Mannequin saved-int32 Rust and Windows pack LF both orders: 
  const rawWin=candidate(main,[[attr,attrBlob]]);
  const rawBoth=candidate(main,[[attr,attrBlob],[rust,newRust]]);
  assert.equal(git(['rev-parse',rawMan+'^{tree}']),
-  '33923b77bfa3d9224db08164a2b21baebb3c3b3');
+  '33923b77bfa3d9224db08164a2b21baebb3c3b3b');
  assert.equal(git(['rev-parse',rawWin+'^{tree}']),
   'd2fe8b7635202c1ae1857795c51eb6a08c83e67c');
  assert.equal(git(['rev-parse',rawBoth+'^{tree}']),
