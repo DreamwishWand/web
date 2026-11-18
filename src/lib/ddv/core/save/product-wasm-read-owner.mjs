@@ -43,15 +43,15 @@ function strictReceipt(r){
  * wasmFactory is a trusted static Worker import, not a message field. The
  * worker-side decode source owns the async decoded-chunk iterable.
  */
-export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null}={}){
- if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source].every(v=>typeof v==='boolean')||
+export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null,allowSteam626BambooReadOnlySource=false}={}){
+ if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,allowSteam626BambooReadOnlySource].every(v=>typeof v==='boolean')||
     (![null,'comp03','comp03-spatial','vase','sr03','rm01','fd01','fd02','fd03','ortho-l','diagonal90','ortho-t','fe01'].includes(placementScope))||(![null,'steam','switch'].includes(backpackScope))||(![null,'steam','switch'].includes(wardrobeScope))||(![null,'hair','skin','eyecolor2','eyecolor2-switch','makeup-color1','makeup-color1-switch'].includes(appearanceScope))||
-    [allowScopedAmountSource,allowScopedCollectionSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,placementScope!==null,backpackScope!==null,wardrobeScope!==null,appearanceScope!==null].filter(Boolean).length>1||
-    ((allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||placementScope!==null||backpackScope!==null||wardrobeScope!==null||appearanceScope!==null)&&allowCollectionCandidateSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
+    [allowScopedAmountSource,allowScopedCollectionSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,placementScope!==null,backpackScope!==null,wardrobeScope!==null,appearanceScope!==null,allowSteam626BambooReadOnlySource].filter(Boolean).length>1||
+    ((allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||placementScope!==null||backpackScope!==null||wardrobeScope!==null||appearanceScope!==null||allowSteam626BambooReadOnlySource)&&allowCollectionCandidateSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
  if(typeof document!=='undefined')fail('PRODUCT_WORKER_NOT_ISOLATED');
  const amountEnabled=allowScopedAmountSource||allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source;
- const placementEnabled=placementScope!==null,backpackEnabled=backpackScope!==null,wardrobeEnabled=wardrobeScope!==null,appearanceEnabled=appearanceScope!==null,verifiedClose=allowScopedCollectionSource||allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||placementEnabled||backpackEnabled||wardrobeEnabled||appearanceEnabled;
+ const placementEnabled=placementScope!==null,backpackEnabled=backpackScope!==null,wardrobeEnabled=wardrobeScope!==null,appearanceEnabled=appearanceScope!==null,verifiedClose=allowScopedCollectionSource||allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||placementEnabled||backpackEnabled||wardrobeEnabled||appearanceEnabled||allowSteam626BambooReadOnlySource;
  let epoch=0,active=null,collectionOpening=false,blockedClose=null;
  // Collection must not issue a CLOSED receipt or open B while cleanup of A
  // remains unverified. Keep the old instance only for an explicit Close retry.
@@ -83,6 +83,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
    const {build,decodedChunks}=args;
    const identity=exactBuild(build);
    if(((allowSwitch626ChestSource||allowSwitch626Catalog0Source)&&identity.platform!=='switch')||(allowSteam626ChestSource&&identity.platform!=='steam-windows'))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
+   if(allowSteam626BambooReadOnlySource&&identity.platform!=='steam-windows')fail('PRODUCT_WORKER_BAMBOO_STEAM_ONLY');
    if((placementEnabled&&identity.platform!==(['rm01','fd01','fd02','fd03','ortho-l','diagonal90','ortho-t','fe01'].includes(placementScope)?'switch':'steam-windows'))||(backpackEnabled&&identity.platform!==(backpackScope==='switch'?'switch':'steam-windows'))||(appearanceEnabled&&identity.platform!==((appearanceScope==='eyecolor2-switch'||appearanceScope==='makeup-color1-switch')?'switch':'steam-windows'))||(wardrobeEnabled&&identity.platform!==(wardrobeScope==='switch'?'switch':'steam-windows')))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
    if(!decodedChunks||typeof decodedChunks[Symbol.asyncIterator]!=='function')
      fail('PRODUCT_WORKER_CHUNK_SOURCE_REQUIRED');
@@ -114,7 +115,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
      if(bytes===0)fail('PRODUCT_WORKER_EMPTY_DOCUMENT');
      const receipt=strictReceipt(JSON.parse(wasm.finish()));
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
-     const a={wasm,receipt,identity,cursors:new Map(),scoped:null};
+     const a={wasm,receipt,identity,cursors:new Map(),scoped:null,bambooReadConsumed:false};
      // Existing read-only Worker never instantiates the opt-in transport.
      if(amountEnabled){
        if(identity.platform!==((allowSwitch626ChestSource||allowSwitch626Catalog0Source)?'switch':'steam-windows'))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
@@ -404,6 +405,64 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
       writerAuthorized:false
    });
  };
+ // ACT1712: one-shot, per-op Bamboo40700007 Rust ReadDomain via the
+ // SAME Worker-owned ProductSession. The UI never receives scope, tokens,
+ // cryptographic witnesses, raw profile bytes, or any edit capability.
+ const readSteam626BambooSingleTarget=selector=>{
+   const a=active;
+   if(allowSteam626BambooReadOnlySource!==true||!a||
+      a.identity.platform!=='steam-windows'||a.bambooReadConsumed||a.scoped)
+      fail('PRODUCT_WORKER_BAMBOO_READ_OFF');
+   if(!exactKeys(selector,'gridId,x,y')||
+      !['gridId','x','y'].every(k=>Number.isSafeInteger(selector[k])&&
+        selector[k]>=0&&selector[k]<=0xffffffff))
+      fail('PRODUCT_WORKER_BAMBOO_SELECTOR_DENIED');
+   // Consume before dispatch. No replay after Rust/response denial.
+   a.bambooReadConsumed=true;
+   const receipt=a.receipt;
+   const invalid=()=>{
+     if(active===a)revoke();
+     fail('PRODUCT_WORKER_BAMBOO_READ_DENIED');
+   };
+   let response;
+   try{
+     if(typeof a.wasm.read_steam626_bamboo_single_target!=='function')
+       invalid();
+     response=strictTypedJson(a.wasm.read_steam626_bamboo_single_target(
+       selector.gridId,selector.x,selector.y,receipt.sessionId,
+       BigInt(receipt.revision),BigInt(receipt.indexGeneration),
+       receipt.decodedSha256),4096);
+   }catch{invalid()}
+   if(active!==a||!exactKeys(response,
+      'contract,sessionId,revision,indexGeneration,decodedSha256,platform,schema,itemId,gridId,x,y,nextGridObjectId,oldStock,rootSha256,gridSha256,counterSha256,stockSha256,housesSha256,referencePairs,stockDelta,readOnly,productReadAccepted,writerAuthorized,stageAuthorized,editedCopyAuthorized,operationOn')||
+      response.contract!=='wand.worker.steam626.bamboo.readonly-target@1'||
+      response.sessionId!==receipt.sessionId||
+      response.revision!==receipt.revision||
+      response.indexGeneration!==receipt.indexGeneration||
+      response.decodedSha256!==receipt.decodedSha256||
+      response.platform!=='SteamWindows'||response.schema!==626||
+      response.itemId!==40700007||
+      response.gridId!==selector.gridId||response.x!==selector.x||response.y!==selector.y||
+      !Number.isSafeInteger(response.nextGridObjectId)||
+      response.nextGridObjectId<1||response.nextGridObjectId>0xffffffff||
+      !Number.isSafeInteger(response.oldStock)||
+      response.oldStock<0||response.oldStock>0xffffffff||
+      !Number.isSafeInteger(response.referencePairs)||
+      response.referencePairs<0||response.referencePairs>1000000||
+      !['rootSha256','gridSha256','counterSha256','stockSha256','housesSha256']
+         .every(k=>shaHex.test(response[k]))||
+      response.stockDelta!==0||response.readOnly!==true||
+      response.productReadAccepted!==false||response.writerAuthorized!==false||
+      response.stageAuthorized!==false||response.editedCopyAuthorized!==false||
+      response.operationOn!==false)invalid();
+   return Object.freeze({
+     itemId:40700007,gridId:response.gridId,x:response.x,y:response.y,
+     oldStock:response.oldStock,nextGridObjectId:response.nextGridObjectId,
+     readOnly:true,productReadAccepted:false,writerAuthorized:false,
+     stageAuthorized:false,editedCopyAuthorized:false,operationOn:false
+   });
+ };
+
  // ACT916 opt-in, Worker-private only. One existing wasm instance.
  const scoped=()=>{
    const a=active;
@@ -455,6 +514,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
      stageScopedAmount:()=>scoped().stage(),toggleScopedAmount:redo=>scoped().toggle(redo),
      takeScopedAmountOutput:()=>scoped().takeOutput()}: {}),
    ...(allowCollectionCandidateSource===true?{readCollectionCandidate:readCollectionCandidateSource}:{}),
+   ...(allowSteam626BambooReadOnlySource===true?{readSteam626BambooSingleTarget}:{}),
    ...(appearanceEnabled?{previewScopedAppearance:(...args)=>appearance().previewTarget(...args),stageScopedAppearance:(...args)=>{if(args.length)fail('PRODUCT_WORKER_SCOPED_APPEARANCE_ARGS');return appearance().stage()},toggleScopedAppearance:redo=>appearance().toggle(redo),takeScopedAppearanceOutput:()=>appearance().takeOutput()}:{}),
    ...(wardrobeEnabled?{previewScopedWardrobe:(...args)=>wardrobe().previewTarget(...args),stageScopedWardrobe:(...args)=>{if(args.length)fail('PRODUCT_WORKER_SCOPED_WARDROBE_ARGS');return wardrobe().stage()},toggleScopedWardrobe:redo=>wardrobe().toggle(redo),takeScopedWardrobeOutput:()=>wardrobe().takeOutput()}:{}),
    ...(backpackEnabled?{previewScopedBackpack:selector=>backpack().previewTarget(selector),stageScopedBackpack:()=>backpack().stage(),toggleScopedBackpack:redo=>backpack().toggle(redo),takeScopedBackpackOutput:()=>backpack().takeOutput()}:{}),
