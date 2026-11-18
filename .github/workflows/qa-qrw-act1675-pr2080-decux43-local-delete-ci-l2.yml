@@ -207,6 +207,8 @@ jobs:
                 assert.equal(await entries.count(),3);
                 const restored=await page.evaluate(()=>JSON.parse(localStorage.getItem('dreamwishwand:moodboards:v1')));
                 assert.deepEqual(restored.boards.map(b=>b.title),['A garden','B flowers','C lanterns']);
+                await entries.nth(2).locator('button').first().click();
+                assert.equal(await entries.nth(2).locator('button').first().getAttribute('aria-pressed'),'true');
                 const selected=page.locator('[data-moodboard-workspace-menu]');
                 await selected.locator('summary').click();
                 await selected.locator('button').click();
