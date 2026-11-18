@@ -21,6 +21,27 @@ if(protectedOnAnchors?.schema!=="wand.dbk.protected-on-origin@1"||
    !Array.isArray(protectedOnAnchors?.records)||
    protectedOnAnchors.records.length>25)
   throw Error("PROTECTED_ON_ANCHOR_REGISTRY_INVALID");
+const seenProtectedOnDigests=new Set();
+for(const a of protectedOnAnchors.records){
+  // Fail closed on corrupt/ambiguous protected source, rather than skipping
+  // bad rows and silently accepting another row for the same digest.
+  if(!a||!hex.test(a.receiptSha256??"")||
+     a.receiptSha256!==a.receiptSha256.toLowerCase()||
+     !hex.test(a.targetSetSha256??"")||
+     a.targetSetSha256!==a.targetSetSha256.toLowerCase()||
+     typeof a.base!=="string"||typeof a.manifestUrl!=="string"||
+     a.scope!=="STEAM_ITEM_IMAGES_LIVE_HTTP"||
+     a.releaseState!=="SIGNED_PAGES_ON_OBSERVED"||
+     a.recordedBy!=="09_INT_PROTECTED_MAIN"||
+     !gitSha.test(a.protectedReleaseCommit??"")||
+     !Number.isSafeInteger(a.protectedPagesRunId)||a.protectedPagesRunId<=0||
+     !Number.isSafeInteger(a.liveObserverRunId)||a.liveObserverRunId<=0||
+     !hex.test(a.signedArtifactAttestationSha256??""))
+    throw Error("PROTECTED_ON_ANCHOR_REGISTRY_INVALID");
+  if(seenProtectedOnDigests.has(a.receiptSha256))
+    throw Error("PROTECTED_ON_ANCHOR_DUPLICATE");
+  seenProtectedOnDigests.add(a.receiptSha256);
+}
 const fail=(code)=>{throw Error(code);};
 const allowedHost=h=>h==="dreamwishwand.github.io"||h==="dreamwishwand.com"||
   h.endsWith(".dreamwishwand.com");
