@@ -1,0 +1,125 @@
+name: 05 QR-L PR2278 Mannequin map fixed Native QA (NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrl-pr2278-private-product-native-qa-artifact.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-source-product-feature-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-05qrl-pr2278-private-product
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Deny every changed product Source or fixture before using native artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs)" = 9f783e64ec44fdc2d863a4634f3d334a89cf7f62
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 75139ced9a223331d9f641b18bca067e919fd6ce
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test "$(git rev-parse HEAD:.github/workflows/01a-private-product-amount-v2-bridge.yml)" = 77f8bfa29f55f28d348892086c684af9c52011bd
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 30551c7cc566614f64c8ba04748c3aef44b419bb
+          grep -Fx 'product-amount-scoped = ["semantic-writer-dev"]' crates/ddv-save-core/Cargo.toml
+          grep -F -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          ! grep -F 'product-amount-scoped' .github/workflows/pages.yml
+          if git ls-files | grep -Ei 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g$|\.sav$'; then
+            echo 'PRIVATE_FIXTURE_TRACKED_DENIED'; exit 1
+          fi
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+      - name: Prove the original ProductSession Stage/CAS test (synthetic only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --lib private_product_amount_plan_bridge_catalog0_chest48_and_active_subscriber_denial
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --lib saved_grid_mannequin_customization_exact_int32_map_and_negative_refs
+      - name: Compile exact PRODUCT-SCOPED native executor, not generic semantic-only executor
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --bin wand-local-rust-v2-noop --release
+          test -x "$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop"
+          grep -aFq -- '--private-steam626-product-catalog0-exact1-only' "$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop"
+          grep -aFq -- '--private-steam626-product-chest48-exact1-only' "$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop"
+          sha256sum "$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop"
+      - name: No-attestation product flags must fail with zero stdout and no Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe="$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop"
+          for flag in --private-steam626-product-catalog0-exact1-only --private-steam626-product-chest48-exact1-only; do
+            stdout="$(mktemp)"; stderr="$(mktemp)"
+            set +e
+            env -u WAND_LOCAL_INSTALLED_STEAM_FULLVERSION \
+              "$exe" "$flag" </dev/null >"$stdout" 2>"$stderr"
+            status=$?
+            set -e
+            test "$status" -eq 12
+            test ! -s "$stdout"
+            grep -Fq 'MISSING_EXTERNAL_ATTESTATION' "$stderr"
+            rm -f "$stdout" "$stderr"
+          done
+          echo 'QRL_PR2278_PRODUCT_SCOPED_BINARY_NO_ATTESTATION_2NEG_ZERO_STDOUT'
+      - name: Upload ONLY source-pinned native binary for private Owner-P1G local QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: 05qrl-pr2278-product-scoped-native-linux-x86_64-synthetic-proven-no-save
+          path: /tmp/wand-05qrl-pr2278-private-product/release/wand-local-rust-v2-noop
+          retention-days: 1
+          if-no-files-found: error
+      - name: QA DIAGNOSTIC ONLY - expose constant Rust CoreError code, never acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The original product binary was already uploaded untouched.
+          # This never processes or fetches any Owner Save in public CI.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs')
+          raw = p.read_text()
+          old = 'let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|_|deny("SEMANTIC_TYPED_STAGE_DENIED"));'
+          new = 'let staged=stage(scope(0,1,WorkerAction::Stage)).unwrap_or_else(|e|deny(e.0));'
+          assert raw.count(old) == 1, 'DENIAL_WRAPPER_SOURCE_CHANGED'
+          p.write_text(raw.replace(old, new))
+          PY
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --bin wand-local-rust-v2-noop --release
+          mkdir -p "$RUNNER_TEMP/05qrl-source-only-diagnostic"
+          cp "$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop" \
+            "$RUNNER_TEMP/05qrl-source-only-diagnostic/wand-local-rust-v2-noop-qa-code-only"
+          chmod 700 "$RUNNER_TEMP/05qrl-source-only-diagnostic/wand-local-rust-v2-noop-qa-code-only"
+          sha256sum "$RUNNER_TEMP/05qrl-source-only-diagnostic/wand-local-rust-v2-noop-qa-code-only"
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs
+          echo 'QRL_PR2278_SOURCE_F6E_QA_ONLY_CONSTANT_ERROR_CODE_DIAGNOSTIC_NOT_PRODUCT'
+      - name: Upload QA-denial-diagnostic binary ONLY, never accepted product
+        uses: actions/upload-artifact@v4
+        with:
+          name: 05qrl-pr2278-error-code-only-diagnostic-never-release
+          path: ${{ runner.temp }}/05qrl-source-only-diagnostic/wand-local-rust-v2-noop-qa-code-only
+          retention-days: 1
+          if-no-files-found: error
+      - name: Final assert no Owner Save committed and no public Writer activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -Ei 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g$|\.sav$'; then
+            echo 'PRIVATE_FIXTURE_TRACKED_DENIED'; exit 1
+          fi
+          grep -F -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          ! grep -F 'product-amount-scoped' .github/workflows/pages.yml
+          echo 'QRL_PR2278_CORRECT_NATIVE_PRODUCT_FEATURE_SYNTHETIC_ONLY_WRITER_OFF'
