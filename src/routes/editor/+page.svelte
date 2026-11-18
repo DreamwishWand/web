@@ -24,7 +24,7 @@
     <p>{beta.intro}</p>
   </div>
 
-  <a class="feature-tile reader-entry" data-steam-reader-entry data-beta-capability="test-steam-reader" data-beta-state="test" data-beta-save-authorized="false" data-sveltekit-reload href={base + '/editor/steam-reader/'}>
+  <a class="feature-tile reader-entry" data-steam-reader-entry data-sveltekit-reload href={base + '/editor/steam-reader/'} data-beta-capability="test-steam-reader" data-beta-state="test" data-beta-save-authorized="false">
     <span class="tile-emoji" aria-hidden="true">◇</span>
     <h2>{reader.preformal}</h2>
     <p>{reader.title} · {reader.subtitle}</p>
@@ -39,24 +39,24 @@
       <p class="beta-state-note"><strong>{beta.local}</strong></p>
     </a>
     {#if collectionReady}
-      <a class="feature-tile" data-editor-collection data-beta-capability="test-collection" data-beta-state="test" data-beta-save-authorized="false" data-sveltekit-reload href={base + '/editor/collection/'}>
+      <a class="feature-tile" data-editor-collection data-sveltekit-reload href={base + '/editor/collection/'} data-beta-capability="test-collection" data-beta-state="test" data-beta-save-authorized="false">
         <span class="tile-emoji" aria-hidden="true">◇</span><h2>{collection.title}</h2><p>{collection.intro}</p><p class="beta-state-note"><strong>{beta.test}</strong> · {beta.collectionDetail}</p>
       </a>
     {/if}
-    <a class="feature-tile" data-editor-catalog data-beta-capability="catalog-read" data-beta-state="read" data-beta-save-authorized="false" href={`${base}/editor/items/`}>
+    <a class="feature-tile" data-editor-catalog href={`${base}/editor/items/`} data-beta-capability="catalog-read" data-beta-state="read" data-beta-save-authorized="false">
       <span class="tile-emoji" aria-hidden="true">✧</span>
       <h2>{copy.catalogTitle}</h2>
       <p>{copy.catalogDetail}</p><p class="beta-state-note"><strong>{beta.read}</strong> · {beta.catalogDetail}</p>
       <span>{copy.catalogAction} →</span>
     </a>
 
-    <a class="feature-tile" data-editor-world data-beta-capability="local-world" data-beta-state="local" data-beta-save-authorized="false" href={`${base}/editor/world/`}>
+    <a class="feature-tile" data-editor-world href={`${base}/editor/world/`} data-beta-capability="local-world" data-beta-state="local" data-beta-save-authorized="false">
       <span class="tile-emoji" aria-hidden="true">◇</span>
       <h2>{copy.worldTitle}</h2>
       <p>{copy.worldDetail}</p><p class="beta-state-note"><strong>{beta.local}</strong> · {beta.worldDetail}</p>
       <span>{copy.worldAction} →</span>
     </a>
-    <a class="feature-tile" data-editor-timing data-beta-capability="timing-read" data-beta-state="read" data-beta-save-authorized="false" href={base + '/editor/timing/'}>
+    <a class="feature-tile" data-editor-timing href={base + '/editor/timing/'} data-beta-capability="timing-read" data-beta-state="read" data-beta-save-authorized="false">
       <span class="tile-emoji" aria-hidden="true">◷</span>
       <h2>{copy.timingTitle}</h2>
       <p>{copy.timingDetail}</p><p class="beta-state-note"><strong>{beta.read}</strong> · {beta.timingDetail}</p>
