@@ -1,0 +1,132 @@
+name: QA ONLY 04 QR-W PR2132 corrected prior ON proof and withdrawal integrity L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1736-pr2132-repair-prior-on-auth-l2.yml'
+permissions:
+  contents: read
+jobs:
+  independent-on-withdraw-provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ea01eafd5ea28d816c66a4866fa11d569297a40a
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin new corrected original source exact2 Git blobs and no media/public mutations
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = ea01eafd5ea28d816c66a4866fa11d569297a40a
+          test "$(git merge-base HEAD 3b87b852ec827179587c9853d4560ae755d750f1)" = 3b87b852ec827179587c9853d4560ae755d750f1
+          cat >/tmp/qrw2132-corrected <<'PINS'
+          e4a3f5f0da034411d2c61531acc3c7dcd3facb82 scripts/07dbk-steam-image-live-receipt.mjs
+          7bc2063e8f9054d5cf4fbaa8f5e47fe6d5a2a451 tests/07dbk-steam-image-live-receipt.test.mjs
+          PINS
+          while read -r blob file; do
+            test "$(git rev-parse "HEAD:$file")" = "$blob"
+            test "$(git ls-tree HEAD "$file" | awk '{print $1}')" = 100644
+            test "$(git diff --name-status 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- "$file" | cut -f1)" = A
+          done </tmp/qrw2132-corrected
+          awk '{print $2}' /tmp/qrw2132-corrected | LC_ALL=C sort >/tmp/qrw2132-expected
+          git diff --name-only 3b87b852ec827179587c9853d4560ae755d750f1 HEAD | LC_ALL=C sort >/tmp/qrw2132-actual
+          diff -u /tmp/qrw2132-expected /tmp/qrw2132-actual
+          git diff --quiet 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- \
+            ops/ddv-item-image-operator-gate.mjs src/lib/item-media/ src/routes/ \
+            .github/workflows/pages.yml scripts/wasm-distribution/
+          echo QRW2132_REPAIRED_EXACT2_BLOBS_NO_MEDIA_PUBLIC_PASS
+      - name: Inherit new corrected actual live HTTP source tests, no redundant full QA
+        run: node --test tests/07dbk-steam-image-live-receipt.test.mjs
+      - name: Independently test canonical URL/method, typed manifest and require authentic prior ON
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {liveTargets,receiptDigest,verifySteamLiveImagePhase}
+             from './scripts/07dbk-steam-image-live-receipt.mjs';
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          const bytes=Buffer.concat([Buffer.from('RIFF'),Buffer.alloc(4),Buffer.from('WEBPVP8L'),Buffer.alloc(14,0x4a)]);
+          const id='40300045',variant='steam-1.25.3-schema626-lossless160-v1',
+            base='https://dreamwishwand.github.io/web/',
+            manifestPath='ddv/item-images/'+variant+'/manifest.json';
+          const pins={[id]:{webpSha256:sha(bytes),rgba160Sha256:'a'.repeat(64),
+            bytes:bytes.length,width:160,height:160,codec:'WEBP_LOSSLESS_RGBA_EXACT',
+            visibility:'RELEASED_PLAYER_FACING'}};
+          const cfg={baseUrl:base,ids:[id],pins,variant,manifestPath,
+            clock:()=> '2026-11-18T00:00:00.000Z'};
+          const urls=liveTargets(cfg),seen=[];
+          let positive=0,negative=0;
+          const realObservedOn=async(url,{method,redirect})=>{
+            seen.push({url,method,redirect});
+            if(url===urls.manifestUrl)return new Response(JSON.stringify({
+              schema:'wand.item-images.steam-primary-release@1',assetVariant:variant,
+              publication:{gate:'MEDIA_PUBLIC_SCOPED_ON'},
+              items:{[id]:{webpSha256:sha(bytes)}}}),{
+              status:200,headers:{'content-type':'application/json'}});
+            if(method==='HEAD')return new Response(null,{
+              status:200,headers:{'content-type':'image/webp','content-length':String(bytes.length)}});
+            return new Response(bytes,{status:200,headers:{'content-type':'image/webp'}});
+          };
+          const observed=await verifySteamLiveImagePhase({...cfg,phase:'ON',fetchImpl:realObservedOn});
+          assert.deepEqual(seen.map(x=>x.method),['GET','GET','HEAD']);
+          assert.deepEqual(observed.receipt.checks.map(x=>x.url),
+            [urls.manifestUrl,urls.targets[0].url,urls.targets[0].url]);
+          positive++;
+          let deniedCalls=0;
+          const withdrawn=async (url,{method})=>{
+            deniedCalls++;
+            return new Response(method==='HEAD'?null:'not found',{status:404,headers:{'content-type':'text/plain'}});
+          };
+          const args=(prior)=>({...cfg,phase:'WITHDRAW',fetchImpl:withdrawn,
+            priorOnReceipt:prior,expectedOnReceiptSha256:receiptDigest(prior)});
+          const withdrawnResult=await verifySteamLiveImagePhase(args(observed.receipt));
+          assert.equal(withdrawnResult.receipt.result,'SCOPED_PASS');
+          assert.equal(withdrawnResult.receipt.fullGlobalCdnPurge,'NOT_PROVED');
+          assert.equal(deniedCalls,5);positive++;
+          for(const forged of [
+            {...observed.receipt,checks:observed.receipt.checks.map((c,i)=>
+              i===1?{...c,url:'https://foreign.example/forged.webp'}:c)},
+            {...observed.receipt,checks:observed.receipt.checks.map((c,i)=>
+              i===2?{...c,method:'GET'}:c)},
+            {...observed.receipt,checks:observed.receipt.checks.map((c,i)=>
+              i===0?{...c,status:304}:c)}
+          ]){
+            deniedCalls=0;
+            await assert.rejects(verifySteamLiveImagePhase(args(forged)),
+              /PRIOR_ON_EVIDENCE_NOT_COMPLETE|PRIOR_PUBLIC_URL_SET_MISMATCH|PINNED_PRIOR_REAL_ON_RECEIPT_REQUIRED/);
+            assert.equal(deniedCalls,0,'invalid historic ON must reject BEFORE new network');
+            negative++;
+          }
+          // Prior from *no actual ON network observation*: entirely hand-constructed, self-SHA'd
+          // in this untrusted caller. Its canonical fields/status=200 mimic a real ON receipt,
+          // but are NOT an attestation of an actual public deployment or signed protected run.
+          // Source must not classify current prepublication 404 as WITHDRAW on that alone.
+          const fabricated={
+            scope:'STEAM_ITEM_IMAGES_LIVE_HTTP',phase:'ON',result:'SCOPED_PASS',
+            checkedAt:'2026-11-18T00:00:00.000Z',base:urls.base,
+            manifestUrl:urls.manifestUrl,targets:urls.targets,
+            checks:[
+              {url:urls.manifestUrl,method:'GET',status:200},
+              {url:urls.targets[0].url,method:'GET',status:200},
+              {url:urls.targets[0].url,method:'HEAD',status:200}
+            ],
+            priorOnReceiptSha256:null,fullGlobalCdnPurge:'NOT_PROVED',
+            providerPurgeAction:'NOT_PERFORMED'
+          };
+          deniedCalls=0;
+          await assert.rejects(verifySteamLiveImagePhase(args(fabricated)),
+            /PINNED_PRIOR_REAL_ON_RECEIPT_REQUIRED|PRIOR_ON_EVIDENCE_NOT_COMPLETE|SIGNED_ON_ORIGIN_PROVENANCE_REQUIRED/,
+            'A self-calculated digest of a fabricated complete ON JSON is not proof of a previous public ON');
+          assert.equal(deniedCalls,0,
+            'no withdrawal HTTP until external signer/protected origin attests prior real ON');
+          negative++;
+          console.log('QRW2132_REPAIRED_CANONICAL_PRIOR_ON_AUTHENTICITY_AND_WITHDRAW_L2_PASS',
+            JSON.stringify({positive,negative,realHostedNotRun:true,syntheticFetch:true,mediaOff:true}));
+          NODE
