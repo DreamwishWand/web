@@ -77,7 +77,9 @@ test('shared detail composition retains one Moodboard API and source proof',()=>
  assert.match(detail,/52BD625D9B4E0053/);
  assert.match(detail,/addCatalogEntityToMoodboard/);
  assert.match(detail,/parseMoodboardDocument/);
- assert.match(detail,/MOODBOARD_BACKUP_KEY/);
+ assert.match(detail,/persistMoodboardLocalChange\(localStorage, result\.document, current\)/);
+ assert.doesNotMatch(detail,/localStorage\.setItem\(MOODBOARD_BACKUP_KEY/);
+ assert.match(detail,/current === null \? createEmptyMoodboardDocument\(\) : parseMoodboardDocument\(current\)/);
  assert.match(detail,/data-shared-detail-moodboard-action="local-only"/);
  assert.ok(!detail.includes('setOwned('));
  assert.ok(!detail.includes('publishWork('));
