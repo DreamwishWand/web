@@ -1,0 +1,126 @@
+name: QA ONLY 04 QR-W PR2130 AF4D changed local recovery L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2130-af4d-local-recovery-l2.yml'
+permissions:
+  contents: read
+jobs:
+  local-recovery-changed-risk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: af4d223e71ce9beb8fe817358cdcc2db07bb5106
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin repaired original SIX Source paths SHA modes and unchanged unrelated stores
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = af4d223e71ce9beb8fe817358cdcc2db07bb5106
+          test "$(git merge-base HEAD 3b87b852ec827179587c9853d4560ae755d750f1)" = 3b87b852ec827179587c9853d4560ae755d750f1
+          cat > /tmp/qrw2130-six <<'PINS'
+          d3777006c54e72f7cd6cf7fb4b7a8bb18b41d615 .github/workflows/08web-wand-favorites-local.yml
+          32e68db8c9248d34c9b248d40a423cb95ad31957 scripts/web-explore-wand-favorites-chrome.mjs
+          174a5d0ac372989cc8200fb4fa01a4edaccda8db src/lib/explore/copy.js
+          d85178b90fd4cff3badae3168f029663b10fe039 src/lib/explore/wand-favorites-local.mjs
+          421776b7a63e106e33f953841cfe7204bbc08ce1 src/routes/explore/+page.svelte
+          88bc7c2306a9c59e6670632acc965976f1deb031 tests/web-explore-wand-favorites-local.test.mjs
+          PINS
+          while read -r blob path; do
+            test "$(git rev-parse "HEAD:$path")" = "$blob"
+            test "$(git ls-tree HEAD "$path" | awk '{print $1}')" = 100644
+          done < /tmp/qrw2130-six
+          awk '{print $2}' /tmp/qrw2130-six | LC_ALL=C sort > /tmp/qrw2130-expected
+          git diff --name-only 3b87b852ec827179587c9853d4560ae755d750f1 HEAD | LC_ALL=C sort > /tmp/qrw2130-actual
+          diff -u /tmp/qrw2130-expected /tmp/qrw2130-actual
+          git diff --quiet 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- src/lib/ddv/ src/lib/moodboards/ supabase/ .github/workflows/pages.yml
+          echo QRW_PR2130_ORIGINAL_EXACT6_SOURCE_BLOBS_AND_NO_SAVE_OR_CLOUD_PASS
+      - name: Inherit exact source eight local tests on repaired fixed HEAD
+        run: node --test tests/web-explore-wand-favorites-local.test.mjs
+      - name: Independent affected-only localStorage snapshot repair refutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {
+            WAND_FAVORITES_STORAGE_KEY as KEY,
+            WAND_FAVORITES_BACKUP_KEY as BK,
+            WAND_FAVORITES_SCHEMA as SCHEMA,
+            persistWandFavorite,
+            parseWandFavorites
+          } from './src/lib/explore/wand-favorites-local.mjs';
+          const raw=JSON.stringify({schema:SCHEMA,version:1,itemIds:[40000047]});
+          const older=JSON.stringify({schema:SCHEMA,version:1,itemIds:[40700007]});
+          const foreign='{"gameFavorite":["KEEP"]}';
+          const game='dreamwishwand:game-favorite:v1', board='dreamwishwand:moodboards:v1';
+          const fresh=()=>new Map([[KEY,raw],[BK,older],[game,foreign],[board,'{"board":"KEEP"}']]);
+          const get=m=>k=>m.has(k)?m.get(k):null;
+          const unaffected=m=>{
+            assert.equal(m.get(game),foreign,'DDV Game Favorite is not a local Wand Favorite');
+            assert.equal(m.get(board),'{"board":"KEEP"}','Moodboard remains isolated');
+          };
+          let positive=0,negative=0;
+          {
+            const m=fresh(), s={getItem:get(m),setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k)};
+            const doc=persistWandFavorite(s,30200001,true);
+            assert.deepEqual(doc.itemIds,[30200001,40000047]);
+            assert.equal(m.get(BK),raw);
+            assert.deepEqual(parseWandFavorites(m.get(KEY)),doc);
+            unaffected(m);positive++;
+          }
+          {
+            const m=fresh(),s={getItem:get(m),
+              setItem(k,v){if(k===KEY)throw Error('QRW_PRIMARY_QUOTA');m.set(k,String(v))},
+              removeItem:k=>m.delete(k)};
+            assert.throws(()=>persistWandFavorite(s,30200001,true),/QRW_PRIMARY_QUOTA/);
+            assert.equal(m.get(KEY),raw);assert.equal(m.get(BK),older);unaffected(m);negative++;
+          }
+          {
+            const m=fresh();m.delete(BK);
+            const s={getItem:get(m),setItem(k,v){if(k===KEY)throw Error('QRW_FIRST_PRIMARY_QUOTA');m.set(k,String(v))},removeItem:k=>m.delete(k)};
+            assert.throws(()=>persistWandFavorite(s,30200001,true),/QRW_FIRST_PRIMARY_QUOTA/);
+            assert.equal(m.get(KEY),raw);assert.equal(m.has(BK),false);unaffected(m);negative++;
+          }
+          {
+            const m=fresh(),s={getItem:get(m),
+              setItem(k,v){if(k===BK)throw Error('QRW_BACKUP_QUOTA');m.set(k,String(v))},
+              removeItem:k=>m.delete(k)};
+            assert.throws(()=>persistWandFavorite(s,30200001,true),/QRW_BACKUP_QUOTA/);
+            assert.equal(m.get(KEY),raw);assert.equal(m.get(BK),older);unaffected(m);negative++;
+          }
+          {
+            const m=fresh(),s={getItem:get(m),
+              setItem(k,v){if(k===KEY)return; m.set(k,String(v))},
+              removeItem:k=>m.delete(k)};
+            assert.throws(()=>persistWandFavorite(s,30200001,true),/WAND_FAVORITES_COMMIT_UNVERIFIED/);
+            assert.equal(m.get(KEY),raw);assert.equal(m.get(BK),older);unaffected(m);negative++;
+          }
+          {
+            const m=fresh();let backupWrites=0;
+            const s={getItem:get(m),setItem(k,v){
+              if(k===KEY)throw Error('QRW_PRIMARY_QUOTA');
+              if(k===BK&&++backupWrites===2)return;
+              m.set(k,String(v));
+            },removeItem:k=>m.delete(k)};
+            assert.throws(()=>persistWandFavorite(s,30200001,true),/WAND_FAVORITES_ROLLBACK_UNVERIFIED/);
+            assert.equal(m.get(KEY),raw);
+            assert.notEqual(m.get(BK),older,'negative deliberately leaves backup corrupted');
+            unaffected(m);negative++;
+          }
+          {
+            const m=fresh(),s={getItem:get(m),setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k)};
+            persistWandFavorite(s,40000047,true);
+            assert.equal(m.get(KEY),raw);assert.equal(m.get(BK),older);
+            unaffected(m);positive++;
+          }
+          console.log('QRW_PR2130_AF4D_CHANGED_LOCAL_RECOVERY_L2',JSON.stringify({positive,negative,
+            actualBrowserInheritedFromSource:true,gameFavorite:false,saveWriter:false,mediaPublic:false}));
+          
+          NODE
