@@ -2,7 +2,7 @@ name: QA ONLY 04 QR-W ACT1715 PR2121 repaired eight canonical attribution copies
 on:
   pull_request:
     paths:
-      - '.github/workflows/qa-qrw-act1715-pr2121-owner-locale-rights-l2.yml'
+      - '.github/workflows/qa-qrw-act1715-pr2121-owner-locale-rights-repair-l2.yml'
 permissions:
   contents: read
 jobs:
