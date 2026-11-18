@@ -1,0 +1,109 @@
+name: 05 QR-C W-CORE-004 ongoing BattlePass amount native L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - .github/workflows/05qrc-wcore004-battlepass-native-current-scoped-l2.yml
+permissions:
+  contents: read
+jobs:
+  qrc-battlepass:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrc-bp-cargo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05qrc-wcore004-battlepass-native-mainf62-906-l2
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Pin original accepted parent and exactly one QA-only file
+        shell: bash
+        run: |
+          set -euo pipefail
+          original=906606344b17604fa4eee55e8b0482a5bec40335
+          main=f62d591006c6244123283e0d2b100dd0ce68af8c
+          test "$(git merge-base "$original" HEAD)" = "$original"
+          test "$(git rev-list --count "$original"..HEAD)" = 1
+          test "$(git diff --name-only "$original" HEAD)" = ".github/workflows/05qrc-wcore004-battlepass-native-current-scoped-l2.yml"
+          test "$(git diff --name-only "$main" "$original")" = "crates/ddv-save-core/src/product_amount_scoped.rs"
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 13d861165bea3fb37f79d7bbc4cb9ab51669fa78
+          test "$(git rev-parse "$main:crates/ddv-save-core/src/product_amount_scoped.rs")" = e6e360f5326b9a5cf6884600a4c9ecf642aa12fa
+          echo QRC2263_EXACT_FIXED_RUST_SINGLE_BLOB_QA_ONLY_WORKFLOW_PASS
+      - name: Actual Rust ProductSession differential active and inactive BattlePass ref negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('crates/ddv-save-core/src/product_amount_scoped.rs')
+          s=p.read_text()
+          assert 'qa2263_battlepass_subscriber_contract_independent' not in s
+          assert s.rstrip().endswith('}')
+          snippet = r'''
+            #[test] fn qa2263_battlepass_subscriber_contract_independent(){
+             let mut positives=0usize;let mut negatives=0usize;
+             for chest in [false,true]{
+              let mut doc=if chest{chest_doc()}else{doc()};
+              let (sel,new,item,foreign,old)=if chest{
+               (ExistingAmountSelection::Chest{container_id:12,slot_index:0},49,30200000,30200001,50)
+              }else{
+               (ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},2,40000048,40000049,3)
+              };
+              let mk=|q:&Value|->CoreResult<u32>{
+               let session=open(q);
+               let before=session.receipt().unwrap();
+               let result=session.preview_scoped_product_amount(
+                scope(&session,WorkerAction::ReadDomain),sel,new).map(|x|x.view().old_amount);
+               let after=session.receipt().unwrap();
+               assert_eq!(before.session_id,after.session_id);
+               assert_eq!(before.revision,after.revision);
+               assert_eq!(before.index_generation,after.index_generation);
+               assert_eq!(before.decoded_sha256,after.decoded_sha256);
+               result
+              };
+              let path=&mut doc["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"];
+              *path=json!([{"TaskState":"BattlePassTaskState_OnGoing","Objective":{
+               "CurAmount":0,"TargetAmount":1,"ItemIdsCollected":[],
+               "ItemFilter":{"Data":{"Item":foreign,"ItemList":[],"AnyActivityItem":false}}
+              }}]);
+              assert_eq!(mk(&doc).unwrap(),old,"known-disjoint in ongoing BattlePass");positives+=1;
+              let mut list=doc.clone();
+              list["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]["Objective"]["ItemFilter"]["Data"]["Item"]=json!(0);
+              list["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]["Objective"]["ItemFilter"]["Data"]["ItemList"]=json!([foreign]);
+              assert_eq!(mk(&list).unwrap(),old,"known-disjoint list target");positives+=1;
+              let mut inactive=doc.clone();
+              inactive["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]["TaskState"]=json!("BattlePassTaskState_Completed");
+              inactive["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]["Objective"]["ItemFilter"]["Data"]["Item"]=json!(item);
+              inactive["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]["Objective"]["ItemIdsCollected"]=json!([item]);
+              assert_eq!(mk(&inactive).unwrap(),old,"historical completed is not active subscriber");positives+=1;
+              for case in 0..9{
+               let mut bad=doc.clone();
+               let objective=&mut bad["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]["Objective"];
+               let expected=if case==1{"PRODUCT_AMOUNT_REFERENCE_TARGET"}else{"PRODUCT_AMOUNT_BATTLEPASS_FILTER"};
+               match case{
+                0=>objective["ItemFilter"]["Data"]["Item"]=json!(item),
+                1=>objective["ItemIdsCollected"]=json!([item]),
+                2=>{objective["ItemFilter"]["Data"]["Item"]=json!(0);objective["ItemFilter"]["Data"]["ItemList"]=json!([item]);},
+                3=>objective["ItemFilter"]=Value::Null,
+                4=>objective["ItemFilter"]["Data"]["ItemList"]=json!([true]),
+                5=>{objective["ItemFilter"]["Data"]["Item"]=json!(0);},
+                6=>objective["ItemFilter"]["Data"]["AnyActivityItem"]=json!("unknown"),
+                7=>{objective["ItemFilter"]["Data"]["Item"]=json!(0);objective["ItemFilter"]["Data"]["ItemList"]=json!([foreign,item]);},
+                _=>objective["ItemFilter"]["Data"]["ItemList"]=json!([foreign]),
+               }
+               let err=mk(&bad).unwrap_err();
+               assert_eq!(err.0,expected,"chest={} case={}",chest,case);
+               negatives+=1;
+              }
+             }
+             assert_eq!((positives,negatives),(6,18));
+             println!("QRC2263_CURRENT_BATTLEPASS_RUST_PRODUCTSESSION_SCOPED_PASS {}POS {}NEG INVENTORY_CHEST_ACTIVE_FILTER_IDS_HISTORY_AND_SOURCE_REV_UNCHANGED",positives,negatives);
+            }
+          ''';
+          p.write_text(s[:s.rfind('}')]+snippet+s[s.rfind('}'):])
+          PY
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --lib --features product-amount-scoped qa2263_battlepass_subscriber_contract_independent -- --nocapture
+          echo QRC2263_NATIVE_BATTLEPASS_ACTUAL_POS_NEG_PASS
+          git diff --name-only 906606344b17604fa4eee55e8b0482a5bec40335 HEAD | grep -qx '.github/workflows/05qrc-wcore004-battlepass-native-current-scoped-l2.yml'
