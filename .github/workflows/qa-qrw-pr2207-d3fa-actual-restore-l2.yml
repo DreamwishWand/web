@@ -1,0 +1,56 @@
+name: QA ONLY 04 QR-W PR2207 D3FA manual Moodboard Restore Svelte CAS L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2207-d3fa-actual-restore-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-manual-restore-compensating-userlocal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/04-qrw-pr2207-d3fa-moodboard-actual-restore-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Original Source four GitBlobs plus unchanged accepted helper; QA-only exactly two
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git merge-base 9157b04a92dfe203d71a9c3977e8f9f50d5ce9b8 HEAD)" = "9157b04a92dfe203d71a9c3977e8f9f50d5ce9b8"
+          test "$(git rev-parse 'HEAD:.github/workflows/08web-decux25-moodboard-local-compensated-persist.yml')" = '5c09ab9de331a13ddce6bf54b010d7da1c14a86c'
+          test "$(git ls-tree HEAD '.github/workflows/08web-decux25-moodboard-local-compensated-persist.yml' | awk '{print $1}')" = 100644
+          test "$(git rev-parse 'HEAD:scripts/web-moodboard-restore-compensated-chrome.mjs')" = '2e1fdec47578fd44d32fcff836c5a87302e684a1'
+          test "$(git ls-tree HEAD 'scripts/web-moodboard-restore-compensated-chrome.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse 'HEAD:src/routes/moodboards/+page.svelte')" = '7dd6d9c1f7e5b395531e4095ad8b0cd67455165d'
+          test "$(git ls-tree HEAD 'src/routes/moodboards/+page.svelte' | awk '{print $1}')" = 100644
+          test "$(git rev-parse 'HEAD:tests/web-moodboard-restore-compensated.test.mjs')" = '56072e646408d279b63c7432e65534a10072ddcb'
+          test "$(git ls-tree HEAD 'tests/web-moodboard-restore-compensated.test.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse 'HEAD:src/lib/moodboards/local-persist-compensated.mjs')" = '2a43a5d83ffcad4880c0c3b3cb62e7d0443b0c0c'
+          test "$(git ls-tree HEAD 'src/lib/moodboards/local-persist-compensated.mjs' | awk '{print $1}')" = 100644
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2207-actual-moodboard-restore-l2.test.mjs')" = '8e7ed48b626874935e2e5b8f01f51efd13140dd0'
+          test "$(git ls-tree HEAD 'tests/qa-qrw-pr2207-actual-moodboard-restore-l2.test.mjs' | awk '{print $1}')" = 100644
+          cat >/tmp/qrw2207-expected <<'EOF'
+          .github/workflows/08web-decux25-moodboard-local-compensated-persist.yml
+          scripts/web-moodboard-restore-compensated-chrome.mjs
+          src/routes/moodboards/+page.svelte
+          tests/web-moodboard-restore-compensated.test.mjs
+          tests/qa-qrw-pr2207-actual-moodboard-restore-l2.test.mjs
+          .github/workflows/qa-qrw-pr2207-d3fa-actual-restore-l2.yml
+          EOF
+          LC_ALL=C sort /tmp/qrw2207-expected >/tmp/qrw2207-expectedsort
+          git diff --name-only 9157b04a92dfe203d71a9c3977e8f9f50d5ce9b8 HEAD | LC_ALL=C sort >/tmp/qrw2207-actualsort
+          diff -u /tmp/qrw2207-expectedsort /tmp/qrw2207-actualsort
+          git diff --quiet 9157b04a92dfe203d71a9c3977e8f9f50d5ce9b8 HEAD -- src/lib/moodboards/local-persist-compensated.mjs src/lib/moodboards/store.js src/lib/explore/ crates/ddv-save-core/ .github/workflows/pages.yml ops/ static/ package-lock.json
+          echo QRW2207_FIXED_ORIGINAL_SOURCE4_PREIMAGE_HELPER_AND_QAONLY2_PASS
+      - name: Changed original Source manual Restore tests plus independent Svelte handler fault injections
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          node --test tests/web-moodboard-restore-compensated.test.mjs tests/qa-qrw-pr2207-actual-moodboard-restore-l2.test.mjs
