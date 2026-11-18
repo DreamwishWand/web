@@ -1,0 +1,157 @@
+name: QA ONLY 04 QR-W PR2173 7A46 Chest TierA exact-one source typed L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2173-7a46-chest-exact1-l2.yml'
+permissions:
+  contents: read
+jobs:
+  chest-exact-one-denial-and-cross-sibling:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7a46b998d19a2aafea0a98722de38e3cf2ece8cc
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify original Source exact2 MOD, no Rust or Writer, selected fixed GitBlob
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 7a46b998d19a2aafea0a98722de38e3cf2ece8cc
+          test "$(git merge-base HEAD bb5b0363b322f106218c3e42da97da0d91fc38ae)" = bb5b0363b322f106218c3e42da97da0d91fc38ae
+          test "$(git rev-parse HEAD:src/lib/ddv/core/items/tier-a-edit-requests.mjs)" = 26b7f316b361ee1540521a3a4f42c86fe98220e1
+          test "$(git rev-parse HEAD:tests/ddv-core-tier-a-edit-requests.test.mjs)" = 59310611a6d5e07800aaefaae4dbcbef9d4fd465
+          cat >/tmp/qrw2173-expected <<'FILES'
+          src/lib/ddv/core/items/tier-a-edit-requests.mjs
+          tests/ddv-core-tier-a-edit-requests.test.mjs
+          FILES
+          LC_ALL=C sort /tmp/qrw2173-expected > /tmp/qrw2173-expected-sorted
+          git diff --name-only bb5b0363b322f106218c3e42da97da0d91fc38ae HEAD | LC_ALL=C sort > /tmp/qrw2173-actual
+          diff -u /tmp/qrw2173-expected-sorted /tmp/qrw2173-actual
+          while read -r f; do
+           test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+           test "$(git diff --name-status bb5b0363b322f106218c3e42da97da0d91fc38ae HEAD -- "$f" | cut -f1)" = M
+          done < /tmp/qrw2173-expected
+          git diff --quiet bb5b0363b322f106218c3e42da97da0d91fc38ae HEAD -- crates/ddv-save-core/ src/routes/ src/lib/wep/ .github/workflows/pages.yml static/ package-lock.json
+          echo QRW2173_CHEST_EXACT2_SOURCE_ONLY_GIT_BLOB_AND_MODE_PASS
+      - name: Inherit original 01D Tier A specific Node source test only
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          node --test tests/ddv-core-tier-a-edit-requests.test.mjs
+      - name: Independent fresh product request exact-one old value, readset and caller authority refusals
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {describeTierARequest,STEAM626,TIER_A_WRITER_ENABLED} from './src/lib/ddv/core/items/tier-a-edit-requests.mjs';
+          const mk=()=>({
+           target:{...STEAM626},
+           source:{originalEncryptedSha256:'a'.repeat(64)},
+           session:{sessionId:'b'.repeat(32),revision:3,indexGeneration:7,decodedSha256:'c'.repeat(64)},
+           command:{
+            operation:'Chest.ExistingSlotAmountDecrease',
+            containerInventoryId:12,containerParentItemId:40000047,belongsToPlayer:true,
+            size:2,slotCount:2,slotIndex:0,slotItemId:30000002,
+            expectedOldAmount:12,nextAmount:11,itemStateReadsetSha256:'d'.repeat(64),
+            activeReferenceCount:1
+           }
+          });
+          let pos=0,neg=0;
+          const positive=(old,next)=>{
+           const o=mk();o.command.expectedOldAmount=old;o.command.nextAmount=next;
+           const v=describeTierARequest(o);
+           assert.equal(v.status,'WAIT_STEAM626_GENUINE_CHEST_SLOT_AND_NATIVE_CONSUMER_EVIDENCE',old+'>'+next);
+           assert.equal(v.candidate.fieldPath,'/Player/ContainerInventories/12/Inventory/0/Amount');
+           assert.deepEqual(v.candidate.exactAllowedPaths,[v.candidate.fieldPath]);
+           assert.equal(v.candidate.expectedOldAmount,old);
+           assert.equal(v.candidate.nextAmount,next);
+           assert.deepEqual(v.candidate.nativeDevCommand,{
+            variant:'ChestExistingSlotAmountDecrease',container_id:12,slot_index:0,
+            expected_item_id:30000002,expected_old_amount:old,new_amount:next
+           });
+           const readSet=v.candidate.readSet;
+           assert.equal(readSet.find(x=>x.path.endsWith('/BelongsToPlayer')).expectedValue,true);
+           assert.equal(readSet.find(x=>x.path.endsWith('/ParentItemID')).expectedValue,40000047);
+           assert.equal(readSet.find(x=>x.path.endsWith('/Inventory/0/State')).expectedContentSha256,'d'.repeat(64));
+           assert.equal(readSet.find(x=>x.path==='/World/GridCollection').required,'CORE_COMPLETE_EFFECTIVE_ACTIVE_CONTAINER_REFERENCES_ALL_ROOTS');
+           assert.equal(readSet.filter(x=>x.path.endsWith('/Amount')).length,1);
+           assert.equal(v.candidate.kind,'EXISTING_LEAF_NUMBER_ONLY');
+           assert.equal(v.sourceIdentityProvenByThisModule,false);
+           assert.equal(v.sessionAuthorizedByThisModule,false);
+           assert.equal(v.nativeCrossDomainRecalculationProven,false);
+           assert.equal(v.fullDocumentExactDiffVerified,false);
+           assert.equal(v.editedCopyReopened,false);
+           assert.equal(v.authoritativeCoreValidationRequired,true);
+           for(const k of ['writerAuthorized','exportAuthorized','productOperationEnabled','independentQaAccepted'])
+            assert.equal(v[k],false,k);
+           for(const k of Object.keys(v.releaseFlags))assert.equal(v.releaseFlags[k],false,k);
+           assert.equal(Object.isFrozen(v),true);
+           assert.equal(Object.isFrozen(v.candidate.readSet),true);
+           assert.equal(TIER_A_WRITER_ENABLED,false);
+           pos++;
+          };
+          positive(12,11);
+          positive(2,1);
+          const cases=[
+           ['12->10 is multiunit',x=>{x.command.nextAmount=10},'CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED'],
+           ['12->1 is multiunit',x=>{x.command.nextAmount=1},'CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED'],
+           ['9->7 is multiunit',x=>{x.command.expectedOldAmount=9;x.command.nextAmount=7},'CHEST_EXACT_ONE_UNIT_DECREASE_REQUIRED'],
+           ['noop',x=>{x.command.nextAmount=12},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE'],
+           ['increment',x=>{x.command.nextAmount=13},'CHEST_ONLY_EXISTING_SLOT_DECREASE_CANDIDATE'],
+           ['zero amount',x=>{x.command.nextAmount=0},'CHEST_SLOT_AMOUNT_BOUNDS'],
+           ['negative amount',x=>{x.command.nextAmount=-1},'CHEST_SLOT_AMOUNT_BOUNDS'],
+           ['non-integer amount',x=>{x.command.nextAmount=10.5},'CHEST_SLOT_AMOUNT_BOUNDS'],
+           ['old0',x=>{x.command.expectedOldAmount=0},'CHEST_SLOT_AMOUNT_BOUNDS'],
+           ['old10000',x=>{x.command.expectedOldAmount=10000},'CHEST_SLOT_AMOUNT_BOUNDS'],
+           ['foreign parent zero',x=>{x.command.containerParentItemId=0},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['foreign parent activity',x=>{x.command.containerParentItemId=30000001},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['foreign slot furniture',x=>{x.command.slotItemId=40000047},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['slot0 item nil',x=>{x.command.slotItemId=0},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['parent not player',x=>{x.command.belongsToPlayer=false},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['capacity missing',x=>{x.command.size=0},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['capacity mismatch',x=>{x.command.slotCount=1},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['slot beyond capacity',x=>{x.command.slotIndex=2},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['negative container',x=>{x.command.containerInventoryId=-1},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['string container id',x=>{x.command.containerInventoryId='12'},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['state SHA invalid',x=>{x.command.itemStateReadsetSha256='d'},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['duplicate alias refs',x=>{x.command.activeReferenceCount=2},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['fake ownership',x=>{x.command.owned=true},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['fake entitlement',x=>{x.command.entitlement=true},'CHEST_EXISTING_PLAYER_SLOT_IDENTITY_OR_CAPACITY_INVALID'],
+           ['foreign Switch schema',x=>{x.target.schema=624},'STEAM626_FULLVERSION_SOURCE_REQUIRED'],
+           ['foreign Build id',x=>{x.target.buildId+='evil'},'STEAM626_FULLVERSION_SOURCE_REQUIRED'],
+           ['invalid encrypted SHA',x=>{x.source.originalEncryptedSha256='no'},'ORIGINAL_ENCRYPTED_SHA_REQUIRED'],
+           ['invalid Session revision',x=>{x.session.revision=-1},'RUST_SESSION_SNAPSHOT_FIELDS_REQUIRED'],
+           ['unknown Stage privilege',x=>{x.operationOn=true},'REQUEST_SHAPE_INVALID']
+          ];
+          for(const [name,mut,code] of cases){
+           const input=mk();mut(input);
+           const result=describeTierARequest(input);
+           assert.equal(result.status,'BLOCKED',name);
+           assert.equal(result.code,code,name);
+           for(const k of ['writerAuthorized','exportAuthorized','productOperationEnabled'])assert.equal(result[k],false,name+':'+k);
+           neg++;
+          }
+          // Source sibling proof: this PR is based on main before accepted Catalog0
+          // InventoryID0 addition; never blindly overwrite PR2172's disjoint hunks.
+          const inv=mk();
+          inv.command={operation:'Inventory.ExistingAmountDecrease',inventoryId:0,
+           canonicalItemId:40000048,compatibleItemType:'ItemType_Furniture',
+           expectedOldAmount:3,nextAmount:2,entryPresent:true};
+          const sibling=describeTierARequest(inv);
+          assert.equal(sibling.status,'BLOCKED');
+          assert.equal(sibling.writerAuthorized,false);
+          console.log('QRW2173_CHEST_EXACT_ONE_RUST_PARITY',JSON.stringify({
+           positives:pos,negatives:neg,
+           siblingInventoryCatalog0OnlyOnPR2172:true,
+           genuineP1GProductV2:'NOT_RUN',writerOn:false,operationOn:false
+          }));
+          
+          NODE
