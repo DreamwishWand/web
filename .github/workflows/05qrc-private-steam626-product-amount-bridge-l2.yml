@@ -1,0 +1,124 @@
+name: 05 QR-C Private Steam626 Current Product Amount Bridge L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-private-steam626-product-amount-bridge-l2.yml'
+permissions:
+  contents: read
+jobs:
+  current-native-product-bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrc-2267-native-cargo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05qrc-wcore004-private-amount-bridge-2267-l2
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Verify parent Source exactly three files and QA-only single added workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=906606344b17604fa4eee55e8b0482a5bec40335
+          original=f6e789694323750d0c055a8434718116dba11fc7
+          test "$(git merge-base "$original" HEAD)" = "$original"
+          test "$(git diff --name-only "$original" HEAD)" = ".github/workflows/05qrc-private-steam626-product-amount-bridge-l2.yml"
+          git diff --name-only "$parent" "$original" | LC_ALL=C sort > /tmp/qrc2267-actual
+          printf '%s\n' '.github/workflows/01a-private-product-amount-v2-bridge.yml' 'crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs' 'crates/ddv-save-core/src/semantic_writer.rs' | LC_ALL=C sort > /tmp/qrc2267-expected
+          diff -u /tmp/qrc2267-expected /tmp/qrc2267-actual
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
+          test "$(git rev-parse HEAD:.github/workflows/01a-private-product-amount-v2-bridge.yml)" = 77f8bfa29f55f28d348892086c684af9c52011bd
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 13d861165bea3fb37f79d7bbc4cb9ab51669fa78
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo QRC2267_FIXED_PARENT_THREE_SOURCE_FILES_QA_ONLY_ONE_WORKFLOW_PASS
+      - name: Independent current ProductSession boundary negatives only; ephemeral test never committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('crates/ddv-save-core/src/semantic_writer.rs')
+          s=p.read_text()
+          needle='''            let candidate=mint(&s);
+                      let st=scope(original_receipt,WorkerAction::Stage);'''.replace('                      let','            let')
+          assert s.count(needle)==1, 'Original fixed Source test fixture placement changed'
+          additional=r'''
+            // Independent 05 QR-C adversarial boundary: no external private
+            // candidate may bypass the SAME minted Rust ProductSession scope.
+            let mut refuting=0usize;
+            let foreign=open(&d);
+            let foreign_before=foreign.receipt().unwrap();
+            assert!(foreign.stage_private_product_scoped_bound_amount_candidate(
+                scope(foreign_before,WorkerAction::Stage),&candidate).is_err());
+            assert_eq!(foreign.receipt().unwrap(),foreign_before);refuting+=1;
+            for case in 0..4{
+                let mut env=scope(original_receipt,WorkerAction::Stage);
+                match case{
+                    0=>env.expected_revision+=1,
+                    1=>env.expected_index_generation+=1,
+                    2=>env.expected_decoded_sha256=[0u8;32],
+                    _=>env.action=WorkerAction::ExportEditedCopy,
+                }
+                assert!(s.stage_private_product_scoped_bound_amount_candidate(env,&candidate).is_err());
+                assert_eq!(s.receipt().unwrap(),original_receipt);refuting+=1;
+            }
+            let mut blocked=open(&d);
+            let bound=mint(&blocked);
+            let block_receipt=blocked.receipt().unwrap();
+            blocked.worker_bound=true;
+            assert_eq!(blocked.stage_private_product_scoped_bound_amount_candidate(
+                scope(block_receipt,WorkerAction::Stage),&bound).unwrap_err().0,
+                "PRIVATE_PRODUCT_AMOUNT_WORKER_OR_BUILD_DENIED");
+            let after=blocked.receipt().unwrap();
+            assert_eq!(after.session_id,block_receipt.session_id);
+            assert_eq!(after.revision,block_receipt.revision);
+            assert_eq!(after.index_generation,block_receipt.index_generation);
+            assert_eq!(after.decoded_sha256,block_receipt.decoded_sha256);
+            assert!(after.product_worker_bound);
+            refuting+=1;
+            let mut forged=mint(&s);
+            forged.switch_chest=true;
+            assert_eq!(s.stage_private_product_scoped_bound_amount_candidate(
+                scope(original_receipt,WorkerAction::Stage),&forged).unwrap_err().0,
+                "PRIVATE_PRODUCT_AMOUNT_WORKER_OR_BUILD_DENIED");
+            assert_eq!(s.receipt().unwrap(),original_receipt);refuting+=1;
+            assert_eq!(refuting,7);
+            println!("QRC2267_NEW_PRIVATE_STAGE_BOUNDARY_7NEG_PER_PROFILE_PASS");
+          '''
+          s=s.replace(needle,'            let candidate=mint(&s);\n'+additional+'            let st=scope(original_receipt,WorkerAction::Stage);',1)
+          needle2='''            assert_eq!(denied.0,"PRODUCT_AMOUNT_BATTLEPASS_FILTER");
+                      assert_eq!(bad.receipt().unwrap(),old);'''.replace('                      assert','            assert')
+          assert s.count(needle2)==1, 'Original BattlePass source test fixture moved'
+          addition2=r'''
+            // Historical sealed plan is insufficient: current active target
+            // in collected IDs must also deny before any stage/epoch change.
+            let mut collected=conflicting.clone();
+            collected["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]
+                ["Objective"]["ItemFilter"]["Data"]["Item"]=json!(if chest{30200001}else{40000049});
+            collected["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]
+                ["Objective"]["ItemIdsCollected"]=json!([item]);
+            let active=open(&collected);let active_before=active.receipt().unwrap();
+            let witness=mint(&active);
+            assert_eq!(active.stage_private_product_scoped_bound_amount_candidate(
+                scope(active_before,WorkerAction::Stage),&witness).unwrap_err().0,
+                "PRODUCT_AMOUNT_REFERENCE_TARGET");
+            assert_eq!(active.receipt().unwrap(),active_before);
+            println!("QRC2267_ACTIVE_SUBSCRIBER_ITEM_IDS_COLLECTED_TARGET_DENY_PASS");
+          '''
+          s=s.replace(needle2,needle2+'\n'+addition2,1)
+          p.write_text(s)
+          print('QRC2267_EPHEMERAL_REFACTOR_FREE_ASSERTIONS_PREPARED')
+          PY
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --lib private_product_amount_plan_bridge_catalog0_chest48_and_active_subscriber_denial -- --nocapture
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features private-native-v2,product-amount-scoped \
+            --bin wand-local-rust-v2-noop
+          echo QRC2267_NEW_PRIVATE_PRODUCT_BRIDGE_CURRENT_RUST_CAS_NEGATIVES_ACTUAL_PASS
