@@ -65,7 +65,7 @@ jobs:
           assert.equal(scopedSteamChestWasmExportsOk(new WebAssembly.Module(raw)),true);
           assert.deepEqual(exports,SCOPED_STEAM_CHEST_WASM_EXPORTS);
           assert.deepEqual(Object.getOwnPropertyNames(WorkerWasmSource.prototype).sort(),
-            ['constructor',...SCOPED_STEAM_CHEST_METHODS].sort());
+            ['constructor','__destroy_into_raw','free',...SCOPED_STEAM_CHEST_METHODS].sort());
           const sha=b=>createHash('sha256').update(b).digest('hex');
           const empty=()=>({ItemID:0,Amount:0,State:null});
           const d={GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},
