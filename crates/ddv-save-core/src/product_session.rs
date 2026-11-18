@@ -74,6 +74,10 @@ struct State { id: [u8;16], revision: u64, generation: u64, closed: bool,
     #[cfg(feature = "synthetic-stage-b")] lab: Option<synthetic_stage_b::SyntheticLedger>,
     #[cfg(feature = "private-native-v2")] private_offline: Option<private_native_v2::PrivateOfflineLedger>,
     #[cfg(feature = "semantic-writer-dev")] semantic: Option<semantic_writer::SemanticLedger>,
+    // Read-only Bamboo target inherited a semantic.is_none() fail-closed test.
+    // With Writer feature excluded this inert sentinel is always None.
+    #[cfg(all(feature="product-steam626-bamboo-readonly",not(feature="semantic-writer-dev")))]
+    semantic: Option<()>,
     #[cfg(feature = "indexed-read")] indexed: Option<indexed_read::IndexedCache>,
 }
 #[cfg(feature = "synthetic-stage-b")]
@@ -106,9 +110,12 @@ pub use semantic_writer::{
     SemanticStageReceipt,TYPED_OPERATION_REGISTRY,
     ExistingAmountSelection,ExistingAmountItemType,ExistingChestFacts,ExistingAmountTargetView,CoreExistingAmountTarget,AuthorizedExistingAmountTarget,
 };
-#[cfg(all(feature="product-steam626-singlefence-readonly",not(feature="semantic-writer-dev")))]
+#[cfg(all(any(feature="product-steam626-singlefence-readonly",feature="product-steam626-bamboo-readonly"),not(feature="semantic-writer-dev")))]
 #[path="steam_single_fence_readonly.rs"]
 mod steam_single_fence_readonly;
+// Preserve the accepted Bamboo original relative reference path; one scanner.
+#[cfg(all(feature="product-steam626-bamboo-readonly",not(feature="semantic-writer-dev")))]
+use steam_single_fence_readonly::placement_saved_refs;
 #[cfg(feature = "indexed-read")]
 #[path = "indexed_read.rs"]
 mod indexed_read;
@@ -185,6 +192,7 @@ impl ProductSession {
                 #[cfg(feature = "synthetic-stage-b")] lab:None,
                 #[cfg(feature = "private-native-v2")] private_offline:None,
                 #[cfg(feature = "semantic-writer-dev")] semantic:None,
+                #[cfg(all(feature="product-steam626-bamboo-readonly",not(feature="semantic-writer-dev")))] semantic:None,
                 #[cfg(feature = "indexed-read")] indexed:None }),
             decoded:Arc::from(decoded), sha, schema:build.schema, worker_bound:false,
             #[cfg(feature = "indexed-read")]
@@ -245,6 +253,7 @@ impl ProductSession {
             #[cfg(feature = "synthetic-stage-b")] lab:None,
                 #[cfg(feature = "private-native-v2")] private_offline:None,
                 #[cfg(feature = "semantic-writer-dev")] semantic:None,
+                #[cfg(all(feature="product-steam626-bamboo-readonly",not(feature="semantic-writer-dev")))] semantic:None,
             #[cfg(feature = "indexed-read")] indexed:None};
         Ok(Self {
             state:Mutex::new(state),decoded:Arc::from(decoded),

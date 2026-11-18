@@ -356,7 +356,7 @@ fn physical_totals(b:&[u8],player:Span,item:i32,chest:Option<(u32,usize)>,old:u3
 }
 
 #[path="placement_saved_refs.rs"]
-mod placement_saved_refs;
+pub(super) mod placement_saved_refs;
 use placement_saved_refs::Incoming;
 
 // Same Steam-only Build predicate as the accepted one-fence Target.
@@ -500,3 +500,13 @@ fn ambient(b:&[u8],world:Span,gs:Span,ds:Span,refs:&Incoming,houses:&Value,o:&Va
 // This original file owns the complete target + positive/negative fixtures.
 #[path="steam_single_fence_product_target.rs"]
 mod steam_single_fence_product_target;
+
+// ACT1685: accepted 01B Bamboo target, compiled only with the isolated
+// read-only feature. This imports its exact original source, not a copy.
+#[cfg(feature="product-steam626-bamboo-readonly")]
+#[path="steam_bamboo_single_product_target.rs"]
+mod steam_bamboo_single_product_target;
+
+#[cfg(all(test,feature="product-steam626-bamboo-readonly"))]
+#[path="steam_bamboo_worker_abi_tests.rs"]
+mod bamboo_worker_abi_tests;
