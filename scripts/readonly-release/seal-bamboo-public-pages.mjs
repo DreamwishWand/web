@@ -29,14 +29,44 @@ const is40=x=>typeof x==='string'&&/^[a-f0-9]{40}$/.test(x);
 // not pin the Worker ReadDomain body or core-minted one-item target.
 export const BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS=Object.freeze({
  'crates/ddv-save-core/Cargo.toml':'e4f2e2c5d4451baba2dea699fe497cb7b40668d4',
+ 'crates/ddv-save-core/src/lib.rs':'9cc0dfdde15399d2797f30c861684f530635c4ef',
  'crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs':'26414572b41211076f1f83a3f8752eea2ab65142',
+ 'crates/ddv-save-core/src/wasm_worker.rs':'4287cb5184331ba5c4c5681166a1bda0dd0c6106',
  'crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs':'b3aa885d7668e6f8d3df9a20be4962d609ab6762',
- 'crates/ddv-save-core/src/steam_bamboo_single_product_target.rs':'a5aef59173ee99454f7f108af58fa7c46dac6f19'
+ 'crates/ddv-save-core/src/worker_session.rs':'c2fd0115c3850c963a9994ea1f8e4feac859557f',
+ 'crates/ddv-save-core/src/steam_bamboo_single_product_target.rs':'a5aef59173ee99454f7f108af58fa7c46dac6f19',
+ 'crates/ddv-save-core/src/steam_single_fence_readonly.rs':'c64c460917d2d3730e9ffe8807112f724f10a723',
+ 'crates/ddv-save-core/src/sr03_installed_geometry.rs':'4ff82faf19cc9883259cea36da5f90faa5bea698',
+ 'crates/ddv-save-core/src/comp03_installed_geometry.rs':'645e6e6a64664088997df46954cd1d8bb4a2995a',
+ 'crates/ddv-save-core/src/placement_saved_refs.rs':'2ad0d925cebfcb19bb39b2afe5ff6404966ad849',
+ 'crates/ddv-save-core/src/product_session.rs':'08a854a949fbd115cc656a1d4bbdc4d867515a39',
+ 'crates/ddv-save-core/src/indexed_read.rs':'47b8b07e013f357fceee51cbc0ce676b271fb207',
+ 'crates/ddv-save-core/src/strict_document.rs':'e49ea87eb18227c68e049e3de7278af02550fdbd',
+ 'crates/ddv-save-core/src/saved_diffgrids_index.rs':'b8980ee01cd8edea46400dc6fcccdafcdc4cb6c2'
 });
 export function bambooAcceptedRustSourceBlobsOk(observed){
  return observed!==null&&typeof observed==='object'&&!Array.isArray(observed)&&
   eq(Object.keys(observed).sort(),Object.keys(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS).sort())&&
   Object.entries(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS).every(([path,blob])=>observed[path]===blob);
+}
+
+// Git HEAD predicates alone can be bypassed by dirty tracked files. The
+// signed executable is compiled from checked-out bytes, not from a Git tree.
+// This check is repeated at each protected Pages phase, including seal/check.
+export async function bambooAcceptedRustCheckoutOk(){
+ try{
+  if(await realpath(root)!==root||
+   git('status','--porcelain=v1','--untracked-files=all','--','crates/ddv-save-core/src')!=='')return false;
+  const observed={};
+  for(const [path,blob] of Object.entries(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS)){
+   const file=join(root,path),st=await lstat(file);
+   if(st.isSymbolicLink()||!st.isFile()||await realpath(file)!==file||
+      git('rev-parse','HEAD:'+path)!==blob||
+      git('hash-object','--no-filters','--',path)!==blob)return false;
+   observed[path]=blob;
+  }
+  return bambooAcceptedRustSourceBlobsOk(observed);
+ }catch{return false}
 }
 
 export function bambooProtectedPagesAllowed(env,head){
@@ -90,8 +120,7 @@ async function source(head){
  if(!is40(head)||git('rev-parse','HEAD')!==head||
   process.env.GITHUB_REPOSITORY!==ACTIVE_RELEASE_TUPLE.repository||
   process.env.GITHUB_REPOSITORY_ID!==RELEASE_REPOSITORY_ID||
-  !bambooAcceptedRustSourceBlobsOk(Object.fromEntries(
-   Object.keys(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS).map(path=>[path,git('rev-parse','HEAD:'+path)])))||
+  !(await bambooAcceptedRustCheckoutOk())||
   git('rev-parse','HEAD:src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs')!=='6fc525e975de9db68544d1feaff5ec9cd0011348'||
   git('ls-files','--',BAMBOO_READONLY_ASSET_DIR,'static/'+BAMBOO_READONLY_ASSET_DIR,'build/'+BAMBOO_READONLY_ASSET_DIR)!=='')fail();
  const approved=await readFile(join(root,'scripts/wasm-distribution/approved-Cargo.lock'));
