@@ -48,6 +48,8 @@ product-steam626-hair-scoped = ["product-amount-scoped"]
 product-steam626-skin-scoped = ["product-amount-scoped"]
 # 01A accepted isolated Switch626 Makeup Color1 Source only.
 product-switch626-makeup-color1-internal = ["semantic-writer-dev"]
+# Existing ACT1581 exact Switch626 Makeup slot1 ColorIndex1 Worker opt-in, OFF.
+product-switch626-makeup-color1-scoped = ["product-switch626-makeup-color1-internal"]
 # 01A accepted isolated Switch626 Eyeball Color2 Source only.
 product-switch626-eyecolor2-internal = ["semantic-writer-dev"]
 
