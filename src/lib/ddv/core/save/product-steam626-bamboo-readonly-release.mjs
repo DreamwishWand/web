@@ -26,7 +26,12 @@ export const BAMBOO_WASM_EXPORTS=Object.freeze([
  '__wbindgen_externrefs','__wbindgen_malloc','__externref_table_dealloc',
  '__wbindgen_realloc','__wbindgen_free','__wbindgen_start'
 ].sort());
-const denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|semantic_writer|(?:preview|stage|export)_steam626_bamboo|read_steam626_singlefence_target)/i;
+const denied=/(?:dev_(?:stage|undo|redo|begin|take)|private_native|semantic_writer|read_steam626_singlefence_target|(?:stage|export|write|save|apply|undo|redo|grant|debit|mutate|delete|overwrite|commit|toggle|preview|begin|take)_[a-z0-9_]+|[a-z0-9_]+_(?:stage|export|write|save|apply|undo|redo|grant|debit|mutate|delete|overwrite))/i;
+// The manifest's readOnly bit does not make arbitrary verified JavaScript read-only.
+// Deny foreign Operation mutations even when not methods of WorkerWasmSource.
+export function bambooReadJsSymbolsOk(js){
+ return typeof js==='string'&&!denied.test(js);
+}
 const LOCK='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
 const CARGO='e4f2e2c5d4451baba2dea699fe497cb7b40668d4';
 const file=(a,n,m)=>exact(a,'path,sizeBytes,sha256')&&a.path===n&&size(a.sizeBytes,m)&&hex64(a.sha256);
@@ -112,7 +117,8 @@ export async function loadPinnedBambooReadonlyBytes({basePath,pins,releaseTuple=
   checkedFetch(url('ddv_save_core.js'),pins.jsSizeBytes,pins.jsSha256,'text/javascript',fetcher),
   checkedFetch(url('ddv_save_core_bg.wasm'),pins.wasmSizeBytes,pins.wasmSha256,'application/wasm',fetcher)
  ]);
- if(!bambooWasmExportsOk(new WebAssembly.Module(wasm)))fail();
+ if(!bambooReadJsSymbolsOk(new TextDecoder('utf8',{fatal:true}).decode(js))||
+ !bambooWasmExportsOk(new WebAssembly.Module(wasm)))fail();
  const WorkerWasmSource=await compileVerifiedWorker(js,wasm,{
   deniedSymbol:denied,requiredMethods:BAMBOO_METHODS,exactPrototype:true,exactWasmExports:BAMBOO_WASM_EXPORTS
  });
