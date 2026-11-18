@@ -1,0 +1,196 @@
+name: QA ONLY 04 QR-W ACT1718 PR2122 Bamboo exact single P1G Rust Worker boundary L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1718-pr2122-bamboo-p1g-single-worker-l2.yml'
+permissions:
+  contents: read
+jobs:
+  independent-bamboo-worker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e326b1384cf5a01ec2362ac3fc29881f5eb286b1
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin original exact five Source blobs and immutable legacy Rust/Codec/flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = e326b1384cf5a01ec2362ac3fc29881f5eb286b1
+          test "$(git merge-base HEAD 3b87b852ec827179587c9853d4560ae755d750f1)" = 3b87b852ec827179587c9853d4560ae755d750f1
+          cat >/tmp/qrw2122-postblobs <<'PINS'
+          f11cd32d3487c6b1cb92c66f34615b3f4b0abd58 .github/workflows/01a-steam626-bamboo-p1g-bridge.yml A
+          3893195fe0b675a80cab36ec788be4ac756a3ac5 src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs M
+          30a1331d153ccf9402f22219146e8708860eb968 src/lib/ddv/core/save/product-wasm-read-owner.d.mts M
+          17c3daf6eaa529745c9c48775d677e1289955872 src/lib/ddv/core/save/product-wasm-read-owner.mjs M
+          4ba4197e398675830cb6e7938fa4df4dd6f47a64 tests/01a-steam626-bamboo-p1g-single-reader-bridge.test.mjs A
+          PINS
+          while read -r blob path change; do
+            test "$(git rev-parse "HEAD:$path")" = "$blob"
+            test "$(git ls-tree HEAD "$path" | awk '{print $1}')" = 100644
+            test "$(git diff --name-status 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- "$path" | cut -f1)" = "$change"
+          done </tmp/qrw2122-postblobs
+          awk '{print $2}' /tmp/qrw2122-postblobs | LC_ALL=C sort >/tmp/qrw2122-expected
+          git diff --name-only 3b87b852ec827179587c9853d4560ae755d750f1 HEAD | LC_ALL=C sort >/tmp/qrw2122-actual
+          diff -u /tmp/qrw2122-expected /tmp/qrw2122-actual
+          git diff --quiet 3b87b852ec827179587c9853d4560ae755d750f1 HEAD -- \
+            crates/ddv-save-core/Cargo.toml crates/ddv-save-core/Cargo.lock \
+            crates/ddv-save-core/src/wasm_worker.rs \
+            src/lib/ddv/core/save/p1g-packaged-profile-codec.js \
+            src/routes/editor .github/workflows/pages.yml scripts/wasm-distribution
+          grep -Fx 'const PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=false;' src/lib/wep/steam-saved-diffgrids.consumer.worker.ts
+          echo QRW2122_ORIGINAL_5_BLOBS_AND_UNCHANGED_NATIVE_CONSUMER_FLAGS_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Inherit existing P1G and exact Bamboo Source tests, not original Rust re-QA
+        run: node --test tests/01a-steam626-bamboo-p1g-single-reader-bridge.test.mjs tests/p1g-rust-worker-readonly-bridge.test.mjs tests/product-wasm-read-owner.test.mjs
+      - name: Independent real opt-in, forged typed Rust reply, one-shot/epoch and no leaked private session
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {makeSyntheticP1gProfile,syntheticProfile} from './tests/helpers/p1g-fixture.mjs';
+          import {createP1gRustWorkerReadOnlyBridge} from './src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+          const build=Object.freeze({platform:'steam-windows',buildKind:'steam-full-version',
+            buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+            schema:626,externallyConfirmed:true});
+          const selector=Object.freeze({gridId:7,x:294,y:0});
+          const sha='b'.repeat(64);
+          const fixture=()=>{const profile=syntheticProfile('DeviceType_Windows');profile.GameInfo.Version=626;return makeSyntheticP1gProfile(profile)};
+          let seq=0,alloc=0,readCount=0;
+          class FakeCore{
+            constructor(platform,kind,id,schema,confirmed,entropy){
+              assert.equal(platform,build.platform);assert.equal(kind,build.buildKind);assert.equal(id,build.buildId);
+              assert.equal(schema,626);assert.equal(confirmed,true);
+              assert.ok(entropy instanceof Uint8Array&&entropy.some(x=>x!==0));
+              this.id=(++seq).toString(16).padStart(32,'0');alloc++;this.chunks=[];this.closed=false;
+            }
+            append_chunk(c){this.chunks.push(Buffer.from(c))}
+            finish(){
+              assert.equal(this.closed,false);
+              const bytes=Buffer.concat(this.chunks);
+              assert.equal(JSON.parse(bytes.toString('utf8')).GameInfo.Version,626);
+              this.digest=createHash('sha256').update(bytes).digest('hex');
+              return JSON.stringify({contract:'wand.product.single-save-session.boundary@1',
+                sessionId:this.id,decodedSha256:this.digest,revision:0,indexGeneration:1,
+                schema:626,fullDocumentJsonValidated:true,productWorkerBound:true,
+                allDomainReferencesVerified:false,productReadAccepted:false,writerAuthorized:false,
+                editedCopyAuthorized:false,applyAuthorized:false});
+            }
+            read_steam626_bamboo_single_target(grid,x,y,session,rev,gen,digest){
+              readCount++;
+              if(this.closed||grid!==7||x!==294||y!==0||session!==this.id||
+                rev!==0n||gen!==1n||digest!==this.digest)throw Error('RUST_CAS_FAIL');
+              return JSON.stringify(this.makeResponse(grid,x,y));
+            }
+            makeResponse(grid,x,y){
+              return {contract:'wand.worker.steam626.bamboo.readonly-target@1',sessionId:this.id,
+                revision:0,indexGeneration:1,decodedSha256:this.digest,platform:'SteamWindows',
+                schema:626,itemId:40700007,gridId:grid,x,y,nextGridObjectId:15949,
+                oldStock:9140,rootSha256:sha,gridSha256:sha,counterSha256:sha,
+                stockSha256:sha,housesSha256:sha,referencePairs:1749,stockDelta:0,
+                readOnly:true,productReadAccepted:false,writerAuthorized:false,
+                stageAuthorized:false,editedCopyAuthorized:false,operationOn:false};
+            }
+            close(){this.closed=true;this.chunks=[]}
+          }
+          const make=(Core=FakeCore,options={allowSteam626BambooReadOnlySource:true})=>
+            createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource:Core}),options);
+          const open=async(b,bytes=fixture(),bld=build)=>b.openEncrypted({build:bld,encryptedBytes:bytes});
+          let pos=0,neg=0;
+          const unavailable=make(FakeCore,{});
+          await open(unavailable);
+          assert.equal('readSteam626BambooSingleTarget' in unavailable,false);
+          assert.equal(unavailable.getCapabilities().canExportEditedCopy,false);
+          unavailable.close();pos++;
+          for(const options of [
+            {allowSteam626BambooReadOnlySource:true,allowScopedAmountSource:true},
+            {allowSteam626BambooReadOnlySource:true,backpackScope:'steam'},
+            {allowSteam626BambooReadOnlySource:true,allowScopedCollectionSource:true},
+            {allowSteam626BambooReadOnlySource:true,placementScope:'comp03'},
+            {allowSteam626BambooReadOnlySource:true,appearanceScope:'hair'}
+          ]){assert.throws(()=>make(FakeCore,options),/PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT/);neg++;}
+          const b=make(),bytes=fixture(),original=bytes.slice(),before=alloc;
+          const opened=await open(b,bytes);
+          assert.equal(alloc,before+1,'single Rust session per P1G open');
+          const r=b.readSteam626BambooSingleTarget(selector);
+          assert.deepEqual(Object.keys(r).sort(),[
+            'itemId','gridId','x','y','oldStock','nextGridObjectId','readOnly',
+            'productReadAccepted','writerAuthorized','stageAuthorized',
+            'editedCopyAuthorized','operationOn'].sort());
+          assert.equal(r.itemId,40700007);assert.equal(r.gridId,selector.gridId);
+          assert.equal(r.readOnly,true);
+          for(const flag of ['productReadAccepted','writerAuthorized','stageAuthorized','editedCopyAuthorized','operationOn'])assert.equal(r[flag],false);
+          for(const privateKey of ['sessionId','decodedSha256','rootSha256','gridSha256','counterSha256','stockSha256','housesSha256','referencePairs','token','originalBytes','sourcePath','jsonText'])assert.equal(privateKey in r,false);
+          assert.ok(Object.isFrozen(r));assert.deepEqual(bytes,original);
+          assert.equal(readCount>0,true);
+          assert.throws(()=>b.readSteam626BambooSingleTarget(selector),/BAMBOO_READ_OFF/);
+          b.close();assert.equal(b.getReceipt(),null);pos++;
+          const fresh=await open(b),target=b.readSteam626BambooSingleTarget(selector);
+          assert.notEqual(fresh.sessionId,opened.sessionId);
+          assert.equal(target.itemId,40700007);b.close();pos++;
+          const deny=(Core,why)=>{
+            return async()=>{
+              const bridge=make(Core);await open(bridge);
+              assert.throws(()=>bridge.readSteam626BambooSingleTarget(selector),/PRODUCT_WORKER_BAMBOO_READ_DENIED/,why);
+              assert.equal(bridge.getReceipt(),null,why+' revoked source session');
+              assert.throws(()=>bridge.readSteam626BambooSingleTarget(selector),/BAMBOO_READ_OFF/);
+              neg++;
+            };
+          };
+          for(const mutate of [
+            r=>({...r,referencePairs:1000001}),r=>({...r,nextGridObjectId:2**32}),
+            r=>({...r,oldStock:-1}),r=>({...r,oldStock:2**32}),
+            r=>({...r,rootSha256:'not-a-sha'}),
+            r=>({...r,stageAuthorized:true}),r=>({...r,operationOn:true}),
+            r=>({...r,productReadAccepted:true}),
+            r=>({...r,sessionId:'f'.repeat(32)}),
+            r=>({...r,decodedSha256:'f'.repeat(64)}),
+            r=>({...r,itemId:123}),
+            r=>({...r,wrongExtra:'secret'})
+          ]){
+            class Tampered extends FakeCore{makeResponse(...args){return mutate(super.makeResponse(...args))}}
+            await deny(Tampered,'tampered Rust typed receipt')();
+          }
+          class Duplicated extends FakeCore{
+            read_steam626_bamboo_single_target(...args){
+              const s=super.read_steam626_bamboo_single_target(...args);
+              return s.slice(0,-1)+',"writerAuthorized":false}';
+            }
+          }
+          await deny(Duplicated,'duplicate typed JSON keys')();
+          class Missing extends FakeCore{}
+          Missing.prototype.read_steam626_bamboo_single_target=undefined;
+          await deny(Missing,'missing exact Rust ABI')();
+          const wrong=make();await open(wrong);
+          for(const sel of [
+            null,{},[],{...selector,sessionId:'secret'},
+            {...selector,x:-1},{...selector,x:2**32},
+            {...selector,y:0.1},{...selector,gridId:NaN}
+          ]){
+            assert.throws(()=>wrong.readSteam626BambooSingleTarget(sel),/PRODUCT_WORKER_BAMBOO_SELECTOR_DENIED/);
+            neg++;
+          }
+          assert.throws(()=>wrong.readSteam626BambooSingleTarget({...selector,x:295}),/PRODUCT_WORKER_BAMBOO_READ_DENIED/);
+          assert.equal(wrong.getReceipt(),null);neg++;
+          for(const bld of [
+            {...build,platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D'},
+            {...build,externallyConfirmed:false},{...build,schema:624},
+            {...build,buildId:'foreign-steam-version'}
+          ]){
+            const testBridge=make();
+            await assert.rejects(open(testBridge,fixture(),bld),/(?:P1G_WORKER_EXTERNAL_BUILD_REQUIRED|PRODUCT_WORKER_BAMBOO_STEAM_ONLY|PRODUCT_WORKER_BUILD_NOT_VERIFIED)/);
+            assert.equal(testBridge.getReceipt(),null);
+            neg++;
+          }
+          console.log('QRW2122_ONE_RUST_WORKER_SANITIZED_BAMBOO_BOUNDARY_PASS',
+            JSON.stringify({positive:pos,negative:neg,singleRust:true,syntheticP1gOnly:true,
+              realOwnerSaveNotRun:true,realBambooPerOpSignerNotRun:true,writerOn:false}));
+          NODE
