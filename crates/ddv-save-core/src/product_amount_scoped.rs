@@ -346,8 +346,17 @@ fn subscribers_bound(b:&[u8],player:Span,world:Span,top:Span,d:&Value,item:i32,f
             let o=f(b,t,"Objective")?;let fields=members(b,o,4)?;
             need(fields.len()==4&&["CurAmount","ItemFilter","ItemIdsCollected","TargetAmount"].iter().all(|k|fields.iter().any(|(x,_)|x==k)),"PRODUCT_AMOUNT_BATTLEPASS_OBJECTIVE")?;
             need(n(b,o,"CurAmount")?<=i32::MAX as u32&&n(b,o,"TargetAmount")?<=i32::MAX as u32,"PRODUCT_AMOUNT_BATTLEPASS_OBJECTIVE")?;
-            // Event-only task progress is not replayed by this local edit.
-            item_refs(b,f(b,o,"ItemIdsCollected")?,0,&mut refs)?;
+            // An ongoing Battle Pass objective is a live item subscriber.
+            // Never treat its historical ItemIdsCollected or broad/unknown
+            // ItemFilter as proof of independence from this amount target.
+            if st=="BattlePassTaskState_OnGoing"{
+                let filter=leaf(b,f(b,o,"ItemFilter")?)?;
+                need(filter_disjoint(&filter,item,furniture),"PRODUCT_AMOUNT_BATTLEPASS_FILTER")?;
+                item_refs(b,f(b,o,"ItemIdsCollected")?,item,&mut refs)?;
+            }else{
+                // Inactive history is not replayed by a local amount edit.
+                item_refs(b,f(b,o,"ItemIdsCollected")?,0,&mut refs)?;
+            }
         }}
     }
     Ok(())
@@ -844,6 +853,38 @@ mod tests{
         let mut d=doc();d["Player"]["DutySlots"]["0"]=json!({"Slots":[{"State":"DutySlotState_OnGoing","DutyId":2119999999,"DifficultyLayer":0}]});
         let s=open(&d);let sel=ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048};
         assert!(s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,2).is_err());
+    }
+
+    #[test]fn ongoing_battlepass_target_filter_and_collected_id_fail_closed(){
+        for chest in [false,true]{
+            let mut d=if chest{chest_doc()}else{doc()};
+            let (sel,new,item,foreign)=if chest{
+                (ExistingAmountSelection::Chest{container_id:12,slot_index:0},49,30200000,30200001)
+            }else{
+                (ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},2,40000048,40000049)
+            };
+            let tasks=&mut d["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"];
+            *tasks=json!([{"TaskState":"BattlePassTaskState_OnGoing","Objective":{
+                "CurAmount":0,"TargetAmount":1,"ItemIdsCollected":[],
+                "ItemFilter":{"Data":{"Item":foreign,"ItemList":[],"AnyActivityItem":false}}
+            }}]);
+            let check=|v:&Value|->CoreResult<CoreExistingAmountTarget>{
+                let s=open(v);s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new)
+            };
+            assert!(check(&d).is_ok(),"known disjoint ongoing item filter must remain eligible");
+
+            let mut q=d.clone();
+            q["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]["Objective"]["ItemFilter"]["Data"]["Item"]=json!(item);
+            assert_eq!(check(&q).unwrap_err().0,"PRODUCT_AMOUNT_BATTLEPASS_FILTER");
+
+            let mut q=d.clone();
+            q["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]["Objective"]["ItemIdsCollected"]=json!([item]);
+            assert_eq!(check(&q).unwrap_err().0,"PRODUCT_AMOUNT_REFERENCE_TARGET");
+
+            let mut q=d.clone();
+            q["Player"]["BattlePassStates"]["FtueProgress"]["TasksProgress"][0]["Objective"]["ItemFilter"]=Value::Null;
+            assert_eq!(check(&q).unwrap_err().0,"PRODUCT_AMOUNT_BATTLEPASS_FILTER");
+        }
     }
 
     #[test]fn static_layout_reference_bound_no_native_authority(){
