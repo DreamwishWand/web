@@ -4,7 +4,7 @@
 // The sole 09 INT lane must independently CAS the newest protected main SHA.
 // This intentionally cannot make an untrusted candidate's own verifier safe.
 import {execFileSync} from 'node:child_process';
-import {lstatSync} from 'node:fs';
+import {lstatSync,realpathSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -20,6 +20,30 @@ const git=(...args)=>execFileSync('git',args,{cwd:root,env:cleanEnv,
 
 // The source checkout is the trusted PRE-candidate authority; no candidate
 // checkout or candidate JS may participate in deciding these path identities.
+// A leaf with matching bytes is not trustworthy when any parent directory
+// is a symlink/junction into another tree (including outside the repository).
+// Validate every directory component BEFORE hashing or importing the module.
+function assertTrustedCheckoutPath(path,blob){
+ const components=path.split('/');
+ const canonicalRoot=realpathSync(root);
+ const rootStat=lstatSync(root);
+ if(rootStat.isSymbolicLink()||!rootStat.isDirectory())
+  deny('TRUSTED_ROOT_NOT_DIRECTORY');
+ let current=root;
+ for(let i=0;i<components.length;i++){
+  current=join(current,components[i]);
+  const info=lstatSync(current);
+  if(info.isSymbolicLink())
+   deny('TRUSTED_PATH_SYMLINK_'+components.slice(0,i+1).join('/'));
+  if(i<components.length-1 ? !info.isDirectory() : !info.isFile())
+   deny('TRUSTED_PATH_TYPE_'+path);
+  if(realpathSync(current)!==join(canonicalRoot,...components.slice(0,i+1)))
+   deny('TRUSTED_PATH_REALPATH_ESCAPE_'+path);
+ }
+ if(git('hash-object','--no-filters','--',path)!==blob)
+  deny('TRUSTED_WORKTREE_DRIFT_'+path);
+}
+
 const trustedInputs=Object.freeze([
  'scripts/wasm-distribution/r22-trusted-before-candidate.mjs',
  'scripts/wasm-distribution/verify-protected-release.mjs',
@@ -53,9 +77,7 @@ export async function verifyTrustedR22BeforeCandidate(base,source){
   if(git('ls-tree',base,'--',path)!==exact ||
      (path!==approvedConfig&&candidateEntry!==exact))
    deny('TRUSTED_PATH_CHANGED_'+path);
-  if(!lstatSync(join(root,path)).isFile()||
-      git('hash-object','--no-filters','--',path)!==blob)
-   deny('TRUSTED_WORKTREE_DRIFT_'+path);
+  assertTrustedCheckoutPath(path,blob);
  }
  // All imported policy modules are from the immutable protected-base tree.
  // inspectSelection and pinned source entries reject ANY ninth changed path.
@@ -75,8 +97,15 @@ export async function verifyTrustedR22BeforeCandidate(base,source){
   protectedMainCASBy09INTRequired:true};
 }
 
-if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+// Node resolves symlinked entrypoint ancestors before establishing
+// import.meta.url. An alias MUST NOT silently skip the direct-CLI guard
+// and exit 0: that would falsely appear to authorize a candidate.
+const launchedPath=process.argv[1] ? resolve(process.argv[1]) : null;
+const loadedPath=fileURLToPath(import.meta.url);
+if(launchedPath && (launchedPath===loadedPath||
+   realpathSync(launchedPath)===loadedPath)){
  try{
+  if(launchedPath!==loadedPath)deny('ENTRYPOINT_PARENT_SYMLINK');
   if(process.argv.length!==4)deny('USAGE_BASE_AND_SOURCE');
   console.log(JSON.stringify(await verifyTrustedR22BeforeCandidate(process.argv[2],process.argv[3])));
  }catch(error){
