@@ -118,8 +118,8 @@ jobs:
             }
             git(['checkout','--force','--detach',base]);
             git(['update-ref','refs/remotes/origin/main',base]);
-            assert.equal(git(['rev-parse','HEAD'),base);
-            assert.equal(git(['rev-parse','refs/remotes/origin/main'),base);
+            assert.equal(git(['rev-parse','HEAD']),base);
+            assert.equal(git(['rev-parse','refs/remotes/origin/main']),base);
             assert.equal(git(['rev-parse','HEAD:'+trusted]),'836a1705ca608305456f4cfb6687b0c5a81f2639');
             const original=git(['show',base+':'+configPath]);
             const cargoOld='aa6b1dd771da305bf7a21c6101fb4620a8b74b93';
