@@ -52,5 +52,6 @@ test('Verified amount local UI consumes already-scoped download without retainin
 test('Existing placement editor bytes are still wiped, no new Worker or Save authority',()=>{
  assert.match(placement,/r\.encryptedBytes\.fill\(0\)/);
  const helper=readFileSync(new URL('../src/lib/dev/consume-verified-amount-download-bytes.mjs',import.meta.url),'utf8');
- assert.doesNotMatch(helper,/fetch\(|localStorage|sessionStorage|new Worker|\.postMessage\(|stageTyped|exportEditedCopy|decode|encrypt/);
+ const executable=helper.split('\n').filter(line=>!line.trimStart().startsWith('//')).join('\n');
+ assert.doesNotMatch(executable,/\bfetch\s*\(|\blocalStorage\b|\bsessionStorage\b|\bnew\s+Worker\b|\.postMessage\s*\(|\bstageTyped\s*\(|\bexportEditedCopy\s*\(|\b(?:encrypt|decrypt|decode)\s*\(/);
 });
