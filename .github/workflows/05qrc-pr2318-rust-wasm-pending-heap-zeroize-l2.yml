@@ -1,0 +1,149 @@
+name: 05 QR-C PR2318 real Rust pending decoded memory scrub L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - .github/workflows/05qrc-pr2318-rust-wasm-pending-heap-zeroize-l2.yml
+permissions:
+  contents: read
+jobs:
+  qrc-heap-scrub-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/qrc2318-heap-scrub-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05qrc-pr2318-wasm-heap-zeroize-native-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify exact original Rust Worker source, fixed HEAD and one QA-only workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          main=5ac76e59f67b3f14e1dbfe0ef0fe0745ac428468
+          source=040e1eabfab0251b214514399a53517102c03c6b
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD)" = ".github/workflows/05qrc-pr2318-rust-wasm-pending-heap-zeroize-l2.yml"
+          printf '%s\n' 'crates/ddv-save-core/src/wasm_worker.rs' 'tests/01a-wasm-pending-decoded-buffer-wipe.test.mjs' > /tmp/expected-diff
+          git diff --name-only "$main" "$source" | LC_ALL=C sort > /tmp/actual-diff
+          diff -u /tmp/expected-diff /tmp/actual-diff
+          test "$(git rev-parse "HEAD:crates/ddv-save-core/src/wasm_worker.rs")" = 6432275d2909e6bc6d39265ae70cc7176fc37106
+          test "$(git rev-parse "$main:crates/ddv-save-core/src/wasm_worker.rs")" = 5fbb1f3d393df127da67f1eafe9796fbb7ce3a56
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo QRC2318_FROZEN_SOURCE_EXACT2_QAONLY_WORKFLOW1_PASS
+      - name: Run actual Rust heap inspection of reject, explicit Close, helper capacity lifetime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          lib=Path('crates/ddv-save-core/src/lib.rs')
+          text=lib.read_text()
+          old='#[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]\nmod wasm_worker;'
+          assert text.count(old)==1, 'original native-only module seam changed'
+          lib.write_text(text.replace(old,'#[cfg(feature = "worker-wasm")]\nmod wasm_worker;',1))
+          # Host-only QA compilation surface for the original WASM Worker
+          # constructor dependency; actual production cfg remains unchanged
+          # in Git and on the released wasm32 build.
+          core=Path('crates/ddv-save-core/src/product_session.rs')
+          core_source=core.read_text()
+          gate1='#[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]\n    pub(crate) fn open_decoded_in_worker('
+          gate2='#[cfg(any(all(feature="worker-wasm",target_arch="wasm32"),all(test,feature="product-switch624-frp01-readonly")))]\n    fn open_worker_validated('
+          assert core_source.count(gate1)==1, 'fixed Worker factory seam changed'
+          assert core_source.count(gate2)==1, 'fixed validated factory seam changed'
+          core_source=core_source.replace(gate1,'#[cfg(any(all(feature = "worker-wasm", target_arch = "wasm32"),all(feature = "worker-wasm",test)))]\n    pub(crate) fn open_decoded_in_worker(',1)
+          core_source=core_source.replace(gate2,'#[cfg(any(all(feature="worker-wasm",target_arch="wasm32"),all(test,feature="product-switch624-frp01-readonly"),all(feature="worker-wasm",test)))]\n    fn open_worker_validated(',1)
+          core.write_text(core_source)
+          p=Path('crates/ddv-save-core/src/wasm_worker.rs')
+          s=p.read_text()
+          needle="fn err(s:&'static str)->JsValue {JsValue::from_str(s)}"
+          assert s.count(needle)==1
+          # Only in ephemeral native test cfg, avoid invoking wasm-bindgen
+          # JS import on host; production wasm error construction unchanged.
+          s=s.replace(needle,'''#[cfg(test)]
+          fn err(_s:&'static str)->JsValue {JsValue::NULL}
+          #[cfg(not(test))]
+          fn err(s:&'static str)->JsValue {JsValue::from_str(s)}''',1)
+          assert 'qrc2318_native_pending_heap_scrub' not in s
+          s+=r'''
+          #[cfg(test)]
+          mod qrc2318_native_pending_heap_scrub {
+              use super::*;
+              fn check_initialized_old_allocation_is_zero(p:*const u8,n:usize) {
+                  assert!(n>0);
+                  for i in 0..n {
+                      // SAFETY: the originating Vec is still allocated in
+                      // the caller at its original capacity and the bytes
+                      // were initialized before the scrub; no reallocation.
+                      let byte=unsafe{core::ptr::read_volatile(p.add(i))};
+                      assert_eq!(byte,0,"decoded plaintext retained at index {i}");
+                  }
+              }
+              fn make()->WorkerWasmSource {
+                  WorkerWasmSource::new("steam-windows","steam-full-version",
+                    "1.25.3".to_string(),626,true,&[0x31_u8;32]).unwrap()
+              }
+              #[test] fn actual_volatile_wipe_preserves_capacity_and_erases_old_bytes() {
+                  let mut plain=Vec::<u8>::with_capacity(512);
+                  plain.extend_from_slice(&[0x79_u8;287]);
+                  let p=plain.as_ptr();
+                  let c=plain.capacity();
+                  wipe_pending_decoded_buffer(&mut plain);
+                  assert_eq!(plain.len(),0);
+                  assert_eq!(plain.capacity(),c);
+                  check_initialized_old_allocation_is_zero(p,287);
+                  println!("QRC2318_RAW_VEC_CAPACITY_SCRUB_ACTUAL_1POS");
+              }
+              #[test] fn actual_worker_close_erases_two_accepted_plaintext_chunks() {
+                  let mut worker=make();
+                  worker.append_chunk(&vec![0x41_u8;3300]).unwrap();
+                  worker.append_chunk(&vec![0x42_u8;2100]).unwrap();
+                  assert_eq!(worker.buffer.len(),5400);
+                  assert!(worker.buffer.iter().all(|x|*x!=0));
+                  let ptr=worker.buffer.as_ptr();
+                  let cap=worker.buffer.capacity();
+                  worker.close().unwrap();
+                  assert!(worker.closed);
+                  assert!(worker.buffer.is_empty());
+                  assert_eq!(worker.buffer.capacity(),cap);
+                  assert_eq!(worker.entropy,[0_u8;32]);
+                  assert!(worker.session.is_none());
+                  check_initialized_old_allocation_is_zero(ptr,5400);
+                  worker.close().unwrap();
+                  assert_eq!(worker.buffer.capacity(),cap);
+                  println!("QRC2318_REAL_WORKER_CLOSE_SCRUB_ACTUAL_1POS");
+              }
+              #[test] fn actual_worker_append_empty_or_oversize_error_scrubs_previous_data() {
+                  for oversized in [false,true] {
+                      let mut worker=make();
+                      worker.append_chunk(&vec![0x52_u8;4401]).unwrap();
+                      worker.append_chunk(&vec![0x53_u8;2203]).unwrap();
+                      let p=worker.buffer.as_ptr();
+                      let len=worker.buffer.len();
+                      let cap=worker.buffer.capacity();
+                      assert_eq!(len,6604);
+                      let invalid=if oversized{vec![0x99;MAX_CHUNK+1]}else{Vec::new()};
+                      assert!(worker.append_chunk(&invalid).is_err());
+                      assert!(worker.closed);
+                      assert!(worker.buffer.is_empty());
+                      assert_eq!(worker.buffer.capacity(),cap);
+                      assert_eq!(worker.entropy,[0_u8;32]);
+                      check_initialized_old_allocation_is_zero(p,len);
+                  }
+                  println!("QRC2318_REAL_WORKER_INVALID_CHUNK_2NEG_ALL_PREVIOUS_BYTES_ERASED");
+              }
+          }
+          '''
+          p.write_text(s)
+          print('QRC2318_EPHEMERAL_NATIVE_TEST_MODULE_ONLY_NO_COMMITTED_RUST_CHANGE')
+          PY
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --no-default-features --features worker-wasm \
+            --lib qrc2318_native_pending_heap_scrub -- --nocapture
+          echo QRC2318_ACTUAL_RUST_WORKER_HEAP_WIPE_2POS2NEG_PASS
+          git diff --name-only 040e1eabfab0251b214514399a53517102c03c6b HEAD | grep -qx '.github/workflows/05qrc-pr2318-rust-wasm-pending-heap-zeroize-l2.yml'
