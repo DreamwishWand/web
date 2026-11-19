@@ -194,7 +194,7 @@ test('01A mid-stream Rust failure closes iterator and erases in-flight decoded c
   }
  }
  const bridge=createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource:RejectSecondChunkRust}));
- await assert.rejects(bridge.openEncrypted({build:BUILD,encryptedBytes:source}),/P1G_WORKER_CODEC_OR_RUST_REJECTED/);
+ await assert.rejects(bridge.openEncrypted({build:BUILD,encryptedBytes:source}),/PRODUCT_WORKER_RUST_FAILURE/);
  assert.equal(RejectSecondChunkRust.borrowed.length,2);
  for(const chunk of RejectSecondChunkRust.borrowed)
   assert.ok(chunk.every(n=>n===0),'even a Rust-rejected decoded view must be cleared');
