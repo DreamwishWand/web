@@ -1,0 +1,313 @@
+name: 01A QA ONLY Steam626 dedicated Chest generated WASM exact ABI and P1G
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/01a-qa-only-steam626-chest-dedicated-generated-wasm.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  generated-steam-chest-wasm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-01a-steam-chest-qa-target
+      WAND_GENERATED_MODULE: /tmp/wand-01a-steam-chest-qa-pkg/ddv_save_core.js
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Frozen original reviewed ProductScoped Rust and three QA-only test files
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 522e8e8d6beec597b2e5e176cfbe8a6d8e38a124
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs)" = 9f783e64ec44fdc2d863a4634f3d334a89cf7f62
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 5fbb1f3d393df127da67f1eafe9796fbb7ce3a56
+          files="$(git diff --name-only 0778ed44da9b619989a34dde419c686c1934af64 HEAD)"
+          test "$(printf '%s\n' "$files" | wc -l)" -eq 3
+          for path in .github/workflows/01a-qa-only-steam626-chest-dedicated-generated-wasm.yml scripts/01a-dedicated-steam626-chest-chrome-opfs-qa.mjs tests/01a-dedicated-steam626-chest-real-opfs.worker.mjs; do
+            printf '%s\n' "$files" | grep -Fxq "$path"
+          done
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          test -z "$(git ls-files '*.p1g')"
+          echo 01A_STEAM_CHEST_WASM_FIXED_SOURCE_AND_PUBLIC_WRITER_OFF
+      - name: Fail fast on inline QA fixture script syntax before expensive Rust build
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text=Path('.github/workflows/01a-qa-only-steam626-chest-dedicated-generated-wasm.yml').read_text()
+          matches=re.findall(r"          node --input-type=module <<'NODE'\n(.*?)\n          NODE",text,re.S)
+          if len(matches)!=1: raise SystemExit('QA_INLINE_SCRIPT_SCOPE_NOT_EXACT')
+          Path('/tmp/01a-steam626-chest-qa-script.mjs').write_text(
+              '\n'.join(line[10:] for line in matches[0].splitlines())+'\n')
+          PY
+          node --check /tmp/01a-steam626-chest-qa-script.mjs
+      - name: Compile actual dedicated Steam Chest-only Rust WASM and bindgen ABI
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-chest-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-01a-steam-chest-qa-bin
+          mkdir -p /tmp/wand-01a-steam-chest-qa-pkg
+          /tmp/wand-01a-steam-chest-qa-bin/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-01a-steam-chest-qa-pkg --target nodejs --no-typescript
+      - name: Real generated dedicated WASM ABI and synthetic encrypted original backup to Rust exact1
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          import {createRequire} from 'node:module';
+          import {spawnSync} from 'node:child_process';
+          import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {makeSyntheticP1gProfile} from './tests/helpers/p1g-fixture.mjs';
+          import {p1gPackagedProfileCodec} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
+          import {createP1gRustWorkerReadOnlyBridge} from './src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+          import {createProductSteam626ChestLocalAdapter} from './src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          import {SCOPED_STEAM_CHEST_WASM_EXPORTS,SCOPED_STEAM_CHEST_METHODS,scopedSteamChestWasmExportsOk} from './src/lib/ddv/core/save/product-scoped-steam-chest-release.mjs';
+          const req=createRequire(import.meta.url);
+          const {WorkerWasmSource}=req(process.env.WAND_GENERATED_MODULE);
+          const raw=await readFile('/tmp/wand-01a-steam-chest-qa-pkg/ddv_save_core_bg.wasm');
+          const exports=WebAssembly.Module.exports(new WebAssembly.Module(raw)).map(x=>x.name).sort();
+          assert.equal(scopedSteamChestWasmExportsOk(new WebAssembly.Module(raw)),true);
+          assert.deepEqual(exports,SCOPED_STEAM_CHEST_WASM_EXPORTS);
+          assert.deepEqual(Object.getOwnPropertyNames(WorkerWasmSource.prototype).sort(),
+            ['constructor','__destroy_into_raw','free',...SCOPED_STEAM_CHEST_METHODS].sort());
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          const empty=()=>({ItemID:0,Amount:0,State:null});
+          const d={GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},
+            World:{GridCollection:{Grids:{'7':{ID:7,GridDefaultLayoutPath:'',Objects:{
+              '4':{ID:4,ItemID:40001680,State:{Storage:{
+                ContainerInventoryID:12,DefaultContainerInventoryData:'',UnlockKeyItemID:0,UnlockLocId:'',DesignID:null}}},
+              '8':{ID:8,ItemID:40009998,State:{Mannequin:{
+                BodyType:0,Clothes:{'0':50000001},ClothingCustomization:{'50000001':-1,'50000002':0},
+                HairColorIndex:0,HairHighlightColor:0,IsMale:true}}}
+            }}},DiffGrids:{}},MissionSlots:{},Villages:[{Areas:{'2':{GridIDs:[7],Unlocked:true}}}]},
+            Player:{ListInventories:{
+              '0':{ID:0,CompatibleItemType:'ItemType_Furniture',
+                CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},
+                Inventory:{'40000048':{Amount:3,Marker:'ItemMarker_None'}}},
+              '2':{ID:2,CompatibleItemType:'ItemType_ActivityItem',
+                Inventory:{'30200000':{Amount:2}}}},
+              ContainerInventories:{
+                '0':{ID:0,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[{ItemID:30200000,Amount:5,State:{}}]},
+                '1':{ID:1,BelongsToPlayer:true,Size:1,ExtraSize:0,Inventory:[empty()]},
+                '12':{ID:12,ParentItemID:40001680,BelongsToPlayer:true,BlockMoveTo:false,Size:48,ExtraSize:0,
+                  Inventory:[{ItemID:30200000,Amount:50,State:null,Unknown:7},...Array.from({length:47},empty)]}
+              },BackpackOverflow:{Items:[]},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},
+              DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},
+            Unknown:{neverOverwrite:true}};
+          const original=makeSyntheticP1gProfile(d),originalSha=sha(original);
+          const source=new File([original],'original-synthetic.p1g');
+          const backup=new File([original],'verified-durable-original.p1g');
+          const build={platform:'steam-windows',buildKind:'steam-full-version',
+            buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+            schema:626,externallyConfirmed:true};
+          const worker=createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource}),
+            {allowSteam626ChestSource:true,
+              readDurableOriginalBackup:async()=>backup});
+          assert.equal((await worker.openScopedEncrypted({file:source,build,originalSha256:originalSha})).writerAuthorized,false);
+          await worker.verifyScopedOriginalBackup(backup);
+          const rows=worker.discoverScopedTargets('linked-crop-chest48');
+          assert.ok(rows.some(r=>r.id===12&&r.selector===0&&r.itemId===30200000&&r.oldAmount===50));
+          const selection={profile:'linked-crop-chest48',id:12,selector:0,newAmount:49};
+          const preview=worker.previewScopedAmount(selection);
+          assert.equal(preview.oldAmount,50);
+          assert.equal(preview.writerAuthorized,false);
+          const staged=await worker.stageScopedAmount();
+          assert.equal(staged.exactFieldChangedCount,1);
+          assert.equal(staged.writerAuthorized,false);
+          assert.equal(worker.toggleScopedAmount(false).applied,false);
+          assert.equal(worker.toggleScopedAmount(true).applied,true);
+          const out=await worker.exportScopedEditedCopy();
+          assert.equal(out.independentProcessReopenVerified,false);
+          assert.equal(out.codecReopenVerified,true);
+          const decoded=await p1gPackagedProfileCodec.loadProfile(out.encryptedBytes);
+          const wanted=structuredClone(d);
+          wanted.Player.ContainerInventories['12'].Inventory[0].Amount=49;
+          assert.equal(decoded.jsonText,JSON.stringify(wanted));
+          assert.equal(sha(new Uint8Array(await source.arrayBuffer())),originalSha);
+          assert.equal(sha(new Uint8Array(await backup.arrayBuffer())),originalSha);
+          // This is the additional distinct invariant: the encoded bytes
+          // emitted by the actual generated product Rust WASM survive a true
+          // NEW OS PROCESS, with immutable original/backup and separate alias.
+          // No saved state, codec keys, or ciphertext are printed to CI logs.
+          const privateDir=await mkdtemp(join(tmpdir(),'wand-steam-chest-v2-'));
+          const originalPath=join(privateDir,'original.p1g');
+          const backupPath=join(privateDir,'original.original-backup.p1g');
+          const editedPath=join(privateDir,'original.edited-copy.p1g');
+          const damagedPath=join(privateDir,'corrupt.edited-copy.p1g');
+          const reader=[
+            "import{readFile}from'node:fs/promises';",
+            "import{createHash}from'node:crypto';",
+            "import{p1gPackagedProfileCodec as codec}from'./src/lib/ddv/core/save/p1g-packaged-profile-codec.js';",
+            "const blob=new Uint8Array(await readFile(process.env.WAND_TEST_COPY_PATH));",
+            "const decoded=await codec.loadProfile(blob);",
+            "const digest=createHash('sha256').update(decoded.jsonText,'utf8').digest('hex');",
+            "process.stdout.write(JSON.stringify({pid:process.pid,sha256:digest}));"
+          ].join('');
+          const processReopen=fp=>spawnSync(process.execPath,['--input-type=module','-e',reader],{
+            cwd:process.cwd(),encoding:'utf8',timeout:20000,
+            env:{...process.env,WAND_TEST_COPY_PATH:fp}
+          });
+          try{
+            await writeFile(originalPath,original,{flag:'wx',mode:0o600});
+            await writeFile(backupPath,original,{flag:'wx',mode:0o600});
+            await writeFile(editedPath,out.encryptedBytes,{flag:'wx',mode:0o600});
+            assert.equal(sha(new Uint8Array(await readFile(originalPath))),originalSha);
+            assert.equal(sha(new Uint8Array(await readFile(backupPath))),originalSha);
+            assert.notEqual(sha(new Uint8Array(await readFile(editedPath))),originalSha);
+            const independent=processReopen(editedPath);
+            assert.equal(independent.status,0,'official codec must reopen edited alias in a fresh OS process');
+            const witness=JSON.parse(independent.stdout);
+            assert.ok(Number.isSafeInteger(witness.pid));
+            assert.notEqual(witness.pid,process.pid);
+            assert.equal(witness.sha256,sha(new TextEncoder().encode(JSON.stringify(wanted))));
+            // For a corrupted edited copy, independent fresh decoder must
+            // terminate nonzero and expose no success witness.
+            const corrupt=Uint8Array.from(out.encryptedBytes);
+            corrupt[0]^=0x80;
+            await writeFile(damagedPath,corrupt,{flag:'wx',mode:0o600});
+            const invalid=processReopen(damagedPath);
+            assert.notEqual(invalid.status,0);
+            assert.equal(invalid.stdout,'');
+            corrupt.fill(0);
+            console.log('01A_GENERATED_CHEST_WASM_EDITED_COPY_FRESH_OS_PROCESS_REOPEN_AND_TAMPER_DENY_PASS');
+          }finally{
+            out.encryptedBytes.fill(0);
+            await rm(privateDir,{recursive:true,force:true});
+          }
+          // Next product path, not the already-tested direct bridge: execute
+          // ACTUAL generated product Rust through accepted Worker-only adapter
+          // and the common encrypted OPFS Backup / Edited-copy store.
+          const originalNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+          Object.defineProperty(globalThis,'navigator',{configurable:true,value:{
+            locks:{request:async(_name,fn)=>fn()}
+          }});
+          const files=new Map();
+          const opfs={
+            async getFileHandle(name,options={}){
+              if(!files.has(name)){
+                if(options.create!==true){
+                  const e=new Error('MISSING');e.name='NotFoundError';throw e;
+                }
+                files.set(name,{stored:null});
+              }
+              const state=files.get(name);
+              return {
+                async getFile(){
+                  if(!(state.stored instanceof Uint8Array))throw Error('NO_FILE');
+                  return new File([state.stored],name);
+                },
+                async createWritable(){
+                  let pending=null;
+                  return {
+                    async write(bytes){pending=Uint8Array.from(bytes)},
+                    async close(){
+                      if(!(pending instanceof Uint8Array))throw Error('NO_WRITE');
+                      state.stored=pending;pending=null;
+                    },
+                    async abort(){if(pending)pending.fill(0);pending=null}
+                  };
+                }
+              };
+            },
+            async removeEntry(name){const state=files.get(name);if(state?.stored)state.stored.fill(0);files.delete(name)}
+          };
+          const adapter=createProductSteam626ChestLocalAdapter({
+            wasmFactory:async()=>({WorkerWasmSource}),
+            getDirectory:async()=>opfs,
+            freshCodecReopen:async(bytes,expectedDecodedSha)=>{
+              const dir=await mkdtemp(join(tmpdir(),'wand-chest-adapter-reopen-'));
+              const file=join(dir,'encoded-edited-copy.p1g');
+              try{
+                await writeFile(file,bytes,{flag:'wx',mode:0o600});
+                const v=processReopen(file);
+                if(v.status!==0||!v.stdout)return false;
+                const witness=JSON.parse(v.stdout);
+                return witness.pid!==process.pid&&witness.sha256===expectedDecodedSha;
+              }finally{await rm(dir,{recursive:true,force:true})}
+            }
+          });
+          try{
+            assert.equal((await adapter.open({file:source,build,originalSha256:originalSha})).writerAuthorized,false);
+            const back=await adapter.backupOriginal();
+            assert.equal(back.originalUnchanged,true);
+            assert.equal(back.backupReadbackVerified,true);
+            const found=await adapter.listVerifiedTargets();
+            assert.equal(found.rawDocumentExposed,false);
+            const target=found.targets.find(x=>x.kind==='ChestExistingSlotAmountDecrease'&&
+              x.targetId===12&&x.slotIndex===0&&x.oldAmount===50);
+            assert.ok(target,'true generated Rust must mint linked Chest48 target via product adapter');
+            assert.equal(target.itemId,30200000);
+            const stage=await adapter.stageTyped([{kind:target.kind,containerId:target.targetId,
+              slotIndex:target.slotIndex,expectedItemId:target.itemId,
+              expectedOldAmount:50,newAmount:49}]);
+            assert.equal(stage.kind,'STAGED');
+            assert.equal((await adapter.undo()).kind,'UNDONE');
+            assert.equal((await adapter.redo()).kind,'REDONE');
+            const result=await adapter.exportEditedCopy();
+            assert.equal(result.originalUnchanged,true);
+            assert.equal(result.editedCiphertextVerified,true);
+            assert.equal(result.freshWorkerReopenVerified,true);
+            assert.equal(result.independentProcessReopenVerified,false);
+            assert.notEqual(result.backupName,result.editedCopyName);
+            assert.notEqual(result.originalName,result.editedCopyName);
+            const edited=await adapter.downloadVerifiedCopy('edited');
+            const savedBackup=await adapter.downloadVerifiedCopy('backup');
+            try{
+              assert.equal(edited.name,result.editedCopyName);
+              assert.equal(sha(edited.encryptedBytes),result.editedSha256);
+              assert.equal(sha(savedBackup.encryptedBytes),originalSha);
+              assert.equal(edited.sizeBytes,edited.encryptedBytes.length);
+              const reopened=await p1gPackagedProfileCodec.loadProfile(edited.encryptedBytes);
+              assert.equal(reopened.jsonText,JSON.stringify(wanted));
+            }finally{edited.encryptedBytes.fill(0);savedBackup.encryptedBytes.fill(0)}
+            assert.equal(sha(new Uint8Array(await source.arrayBuffer())),originalSha);
+            assert.equal(files.has(source.name),false,'OPFS must never overwrite input original');
+            assert.equal(files.size,2,'only immutable Backup and distinct Edited-copy');
+            assert.equal((await adapter.close()).kind,'CLOSED');
+            console.log('01A_ACTUAL_GENERATED_CHEST_PRODUCT_ADAPTER_OPFS_BACKUP_TARGET_STAGE_EXPORT_REOPEN_PASS');
+          }finally{
+            await adapter.close();
+            if(originalNavigator)Object.defineProperty(globalThis,'navigator',originalNavigator);
+            else delete globalThis.navigator;
+            for(const state of files.values())if(state.stored)state.stored.fill(0);
+            files.clear();
+          }
+          const forbidden=createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource}),
+            {allowSteam626ChestSource:true,readDurableOriginalBackup:async()=>backup});
+          await forbidden.openScopedEncrypted({file:source,build,originalSha256:originalSha});
+          await forbidden.verifyScopedOriginalBackup(backup);
+          assert.throws(()=>forbidden.previewScopedAmount({profile:'catalog0-furniture',id:0,selector:40000048,newAmount:2}));
+          console.log('01A_ACTUAL_GENERATED_DEDICATED_STEAM626_CHEST_WASM_EXACT_ABI_ONEFIELD_P1G_PASS');
+          NODE
+      - name: Actual Chrome isolated Worker dedicated Chest Rust WASM and native browser OPFS
+        run: |
+          set -euo pipefail
+          node --check scripts/01a-dedicated-steam626-chest-chrome-opfs-qa.mjs
+          node --check tests/01a-dedicated-steam626-chest-real-opfs.worker.mjs
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-01a-steam-chest-qa-bin/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/01a-dedicated-steam626-chest-chrome-opfs-qa.mjs
+      - name: Strict no product public route, no Owner keys and no artifact
+        run: |
+          set -euo pipefail
+          grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          test -z "$(git ls-files '*.p1g')"
+          echo '01A_PRODUCT_CHEST_GENERATED_WASM_QA_ONLY_WRITER_OP_OFF'
