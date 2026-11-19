@@ -73,6 +73,7 @@ jobs:
           import {makeSyntheticP1gProfile} from './tests/helpers/p1g-fixture.mjs';
           import {p1gPackagedProfileCodec} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
           import {createP1gRustWorkerReadOnlyBridge} from './src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+          import {createProductSteam626ChestLocalAdapter} from './src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
           import {SCOPED_STEAM_CHEST_WASM_EXPORTS,SCOPED_STEAM_CHEST_METHODS,scopedSteamChestWasmExportsOk} from './src/lib/ddv/core/save/product-scoped-steam-chest-release.mjs';
           const req=createRequire(import.meta.url);
           const {WorkerWasmSource}=req(process.env.WAND_GENERATED_MODULE);
@@ -185,6 +186,104 @@ jobs:
           }finally{
             out.encryptedBytes.fill(0);
             await rm(privateDir,{recursive:true,force:true});
+          }
+          // Next product path, not the already-tested direct bridge: execute
+          // ACTUAL generated product Rust through accepted Worker-only adapter
+          // and the common encrypted OPFS Backup / Edited-copy store.
+          const originalNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+          Object.defineProperty(globalThis,'navigator',{configurable:true,value:{
+            locks:{request:async(_name,fn)=>fn()}
+          }});
+          const files=new Map();
+          const opfs={
+            async getFileHandle(name,options={}){
+              if(!files.has(name)){
+                if(options.create!==true){
+                  const e=new Error('MISSING');e.name='NotFoundError';throw e;
+                }
+                files.set(name,{stored:null});
+              }
+              const state=files.get(name);
+              return {
+                async getFile(){
+                  if(!(state.stored instanceof Uint8Array))throw Error('NO_FILE');
+                  return new File([state.stored],name);
+                },
+                async createWritable(){
+                  let pending=null;
+                  return {
+                    async write(bytes){pending=Uint8Array.from(bytes)},
+                    async close(){
+                      if(!(pending instanceof Uint8Array))throw Error('NO_WRITE');
+                      state.stored=pending;pending=null;
+                    },
+                    async abort(){if(pending)pending.fill(0);pending=null}
+                  };
+                }
+              };
+            },
+            async removeEntry(name){const state=files.get(name);if(state?.stored)state.stored.fill(0);files.delete(name)}
+          };
+          const adapter=createProductSteam626ChestLocalAdapter({
+            wasmFactory:async()=>({WorkerWasmSource}),
+            getDirectory:async()=>opfs,
+            freshCodecReopen:async(bytes,expectedDecodedSha)=>{
+              const dir=await mkdtemp(join(tmpdir(),'wand-chest-adapter-reopen-'));
+              const file=join(dir,'encoded-edited-copy.p1g');
+              try{
+                await writeFile(file,bytes,{flag:'wx',mode:0o600});
+                const v=processReopen(file);
+                if(v.status!==0||!v.stdout)return false;
+                const witness=JSON.parse(v.stdout);
+                return witness.pid!==process.pid&&witness.sha256===expectedDecodedSha;
+              }finally{await rm(dir,{recursive:true,force:true})}
+            }
+          });
+          try{
+            assert.equal((await adapter.open({file:source,build,originalSha256:originalSha})).writerAuthorized,false);
+            const back=await adapter.backupOriginal();
+            assert.equal(back.originalUnchanged,true);
+            assert.equal(back.backupReadbackVerified,true);
+            const found=await adapter.listVerifiedTargets();
+            assert.equal(found.rawDocumentExposed,false);
+            const target=found.targets.find(x=>x.kind==='ChestExistingSlotAmountDecrease'&&
+              x.targetId===12&&x.slotIndex===0&&x.oldAmount===50);
+            assert.ok(target,'true generated Rust must mint linked Chest48 target via product adapter');
+            assert.equal(target.itemId,30200000);
+            const stage=await adapter.stageTyped([{kind:target.kind,containerId:target.targetId,
+              slotIndex:target.slotIndex,expectedItemId:target.itemId,
+              expectedOldAmount:50,newAmount:49}]);
+            assert.equal(stage.kind,'STAGED');
+            assert.equal((await adapter.undo()).kind,'UNDONE');
+            assert.equal((await adapter.redo()).kind,'REDONE');
+            const result=await adapter.exportEditedCopy();
+            assert.equal(result.originalUnchanged,true);
+            assert.equal(result.editedCiphertextVerified,true);
+            assert.equal(result.freshWorkerReopenVerified,true);
+            assert.equal(result.independentProcessReopenVerified,false);
+            assert.notEqual(result.backupName,result.editedCopyName);
+            assert.notEqual(result.originalName,result.editedCopyName);
+            const edited=await adapter.downloadVerifiedCopy('edited');
+            const savedBackup=await adapter.downloadVerifiedCopy('backup');
+            try{
+              assert.equal(edited.name,result.editedCopyName);
+              assert.equal(sha(edited.encryptedBytes),result.editedSha256);
+              assert.equal(sha(savedBackup.encryptedBytes),originalSha);
+              assert.equal(edited.sizeBytes,edited.encryptedBytes.length);
+              const reopened=await p1gPackagedProfileCodec.loadProfile(edited.encryptedBytes);
+              assert.equal(reopened.jsonText,JSON.stringify(wanted));
+            }finally{edited.encryptedBytes.fill(0);savedBackup.encryptedBytes.fill(0)}
+            assert.equal(sha(new Uint8Array(await source.arrayBuffer())),originalSha);
+            assert.equal(files.has(source.name),false,'OPFS must never overwrite input original');
+            assert.equal(files.size,2,'only immutable Backup and distinct Edited-copy');
+            assert.equal((await adapter.close()).kind,'CLOSED');
+            console.log('01A_ACTUAL_GENERATED_CHEST_PRODUCT_ADAPTER_OPFS_BACKUP_TARGET_STAGE_EXPORT_REOPEN_PASS');
+          }finally{
+            await adapter.close();
+            if(originalNavigator)Object.defineProperty(globalThis,'navigator',originalNavigator);
+            else delete globalThis.navigator;
+            for(const state of files.values())if(state.stored)state.stored.fill(0);
+            files.clear();
           }
           const forbidden=createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource}),
             {allowSteam626ChestSource:true,readDurableOriginalBackup:async()=>backup});
