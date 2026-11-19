@@ -46,10 +46,10 @@ jobs:
           from pathlib import Path
           import re
           text=Path('.github/workflows/01a-qa-only-steam626-chest-dedicated-generated-wasm.yml').read_text()
-          matches=re.findall(r"          node --input-type=module <<'NODE'\\n(.*?)\\n          NODE",text,re.S)
+          matches=re.findall(r"          node --input-type=module <<'NODE'\n(.*?)\n          NODE",text,re.S)
           if len(matches)!=1: raise SystemExit('QA_INLINE_SCRIPT_SCOPE_NOT_EXACT')
           Path('/tmp/01a-steam626-chest-qa-script.mjs').write_text(
-              '\\n'.join(line[10:] for line in matches[0].splitlines())+'\\n')
+              '\n'.join(line[10:] for line in matches[0].splitlines())+'\n')
           PY
           node --check /tmp/01a-steam626-chest-qa-script.mjs
       - name: Compile actual dedicated Steam Chest-only Rust WASM and bindgen ABI
