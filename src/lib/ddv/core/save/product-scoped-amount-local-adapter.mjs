@@ -17,7 +17,14 @@ function freshReopen(ciphertext,expectedDecodedSha256){
   const finish=(ok)=>{clearTimeout(timer);w.terminate();resolve(ok)};
   w.onerror=()=>finish(false);
   w.onmessage=e=>finish(e.data?.freshWorkerReopenVerified===true&&e.data?.privatePayloadPosted===false);
-  try{w.postMessage({ciphertext:new Uint8Array(ciphertext),expectedDecodedSha256})}catch{finish(false)}
+  let transient;
+  try{
+   // postMessage makes its own structured clone; the caller still owns the
+   // immutable encoded bytes. Wipe only our temporary send-side allocation.
+   transient=new Uint8Array(ciphertext);
+   w.postMessage({ciphertext:transient,expectedDecodedSha256});
+  }catch{finish(false)}
+  finally{if(transient)Uint8Array.prototype.fill.call(transient,0)}
  });
 }
 const STEAM='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
