@@ -78,7 +78,8 @@ test('Switch626 requires own numeric exact map-record ID; never execute own/inhe
   [{valueOf(){throw Error('coercion not allowed')}},'INVENTORY_MAP_KEY_ID_CONFLICT']
  ];
  for(const [id,expected] of failures){
-  const profile=make({storedId:id});
+  const profile=make();
+  profile.Player.ListInventories['0'].ID=id; // undefined must remain an actual own field, not a defaulted fixture argument
   const r=inspect(profile);
   if(expected==='VALID'){assert.equal(r.rawEntry,'PRESENT');safe(r)}
   else{assert.equal(r.code,expected);safe(r)}
