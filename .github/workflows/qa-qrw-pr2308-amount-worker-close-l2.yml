@@ -1,0 +1,47 @@
+name: QA ONLY 04 QR-W PR2308 Amount Close exact receipt poison/ABA L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2308-amount-worker-close-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-amount-worker-close-ack-poison-retry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2308-fb86-amount-worker-close-retry-failclosed-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin original immutable 01A Source2 and independent QA-only2 GitBlobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=9ca61bd33fd1c1daacc88b6e8a1b145b817eb8f4
+          source=fb86db3ec63ede96525603916be281e0f8c9e40d
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:src/lib/dev/local-scoped-edit-worker-port.mjs")" = f86b066f76d1093b3f677b706dc18868bb238e1c
+          test "$(git rev-parse 'HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs')" = 0bb5fe0e47d9af2814720a6138895cd0ea9f4b12
+          test "$(git rev-parse "$base:tests/local-scoped-edit-worker-port.test.mjs")" = dcf22be5d1e45ca5473d03db3969feec869db5a4
+          test "$(git rev-parse 'HEAD:tests/local-scoped-edit-worker-port.test.mjs')" = ba80cfe428af019c45f3cdfd96db76434097cbe2
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2308-amount-worker-close-ack-monotonic-retry-l2.test.mjs')" = 55caef93ef250a2a89d1dedfa700577a34529289
+          for f in src/lib/dev/local-scoped-edit-worker-port.mjs tests/local-scoped-edit-worker-port.test.mjs tests/qa-qrw-pr2308-amount-worker-close-ack-monotonic-retry-l2.test.mjs .github/workflows/qa-qrw-pr2308-amount-worker-close-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/dev/local-scoped-edit-worker-port.mjs tests/local-scoped-edit-worker-port.test.mjs | LC_ALL=C sort >/tmp/source
+          printf '%s\n' .github/workflows/qa-qrw-pr2308-amount-worker-close-l2.yml tests/qa-qrw-pr2308-amount-worker-close-ack-monotonic-retry-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2308_SOURCE2_QAONLY2_EXACT_GITBLOBS_PASS
+      - name: Actual Amount Worker forged CLOSE, monotonic replay, stale ciphertext and retry
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/local-scoped-edit-worker-port.test.mjs tests/qa-qrw-pr2308-amount-worker-close-ack-monotonic-retry-l2.test.mjs
+          echo QRW2308_AMOUNT_CLOSE_RECEIPT_STALE_CIPHER_RETRY_FAILCLOSED_L2_PASS
