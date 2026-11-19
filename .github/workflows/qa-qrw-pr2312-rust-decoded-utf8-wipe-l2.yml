@@ -1,0 +1,49 @@
+name: QA ONLY 04 QR-W PR2312 P1G Rust decoded UTF8 borrowed lifetime L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2312-rust-decoded-utf8-wipe-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-p1g-decoded-utf8-borrow-wipe-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2312-f5c5-decoded-utf8-bounds-borrowed-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install exact package lock
+        run: npm ci --no-audit --no-fund
+      - name: Pin exact fixed corrected Source2 pre/post and independent QA-only2 GitBlobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=5e0315356626b9742bcd80f4b99a19143884a9df
+          source=f5c5d7df61f7b30b3734aa149c59b7c475df6385
+          test "$(git merge-base "$base" "$source")" = 9ca61bd33fd1c1daacc88b6e8a1b145b817eb8f4
+          test "$(git rev-parse "$base:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs")" = 3893195fe0b675a80cab36ec788be4ac756a3ac5
+          test "$(git rev-parse 'HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs')" = f76418235f302c2cdcc52de7f4b771e4c6f193f6
+          test "$(git rev-parse "$base:tests/p1g-rust-worker-readonly-bridge.test.mjs")" = f36439abd3828bca6dd25dd54f93534e62096e61
+          test "$(git rev-parse 'HEAD:tests/p1g-rust-worker-readonly-bridge.test.mjs')" = ccdb43bfd1fc4cbd52af7fd677aba2048215519d
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2312-utf8-borrow-wipe-epoch-after-rust-l2.test.mjs')" = 94cce9c1b95b9f1d094089ba3ac7674f3f766746
+          for f in src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs tests/p1g-rust-worker-readonly-bridge.test.mjs tests/qa-qrw-pr2312-utf8-borrow-wipe-epoch-after-rust-l2.test.mjs .github/workflows/qa-qrw-pr2312-rust-decoded-utf8-wipe-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs tests/p1g-rust-worker-readonly-bridge.test.mjs | LC_ALL=C sort >/tmp/source
+          printf '%s\n' .github/workflows/qa-qrw-pr2312-rust-decoded-utf8-wipe-l2.yml tests/qa-qrw-pr2312-utf8-borrow-wipe-epoch-after-rust-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$(git merge-base "$base" "$source")" "$source" | LC_ALL=C sort | diff -u /tmp/source -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2312_FIXED_SOURCE2_QAONLY2_EXACT_GITBLOBS_PASS
+      - name: Run original corrected bridge and independent actual Rust borrow UTF8 adversarial cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/p1g-rust-worker-readonly-bridge.test.mjs tests/qa-qrw-pr2312-utf8-borrow-wipe-epoch-after-rust-l2.test.mjs
+          echo QRW2312_P1G_RUST_SYNCHRONOUS_BORROW_UTF8_ZEROIZE_L2_PASS
