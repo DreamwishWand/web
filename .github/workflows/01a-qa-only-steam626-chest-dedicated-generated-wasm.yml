@@ -25,7 +25,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Frozen original reviewed ProductScoped Rust and one added QA workflow
+      - name: Frozen original reviewed ProductScoped Rust and three QA-only test files
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 522e8e8d6beec597b2e5e176cfbe8a6d8e38a124
@@ -33,7 +33,11 @@ jobs:
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/bin/wand-local-rust-v2-noop.rs)" = 9f783e64ec44fdc2d863a4634f3d334a89cf7f62
           test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 5fbb1f3d393df127da67f1eafe9796fbb7ce3a56
-          test "$(git diff --name-only 0778ed44da9b619989a34dde419c686c1934af64 HEAD)" = '.github/workflows/01a-qa-only-steam626-chest-dedicated-generated-wasm.yml'
+          files="$(git diff --name-only 0778ed44da9b619989a34dde419c686c1934af64 HEAD)"
+          test "$(printf '%s\\n' "$files" | wc -l)" -eq 3
+          for path in .github/workflows/01a-qa-only-steam626-chest-dedicated-generated-wasm.yml scripts/01a-dedicated-steam626-chest-chrome-opfs-qa.mjs tests/01a-dedicated-steam626-chest-real-opfs.worker.mjs; do
+            printf '%s\\n' "$files" | grep -Fxq "$path"
+          done
           test ! -e crates/ddv-save-core/Cargo.lock
           cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
           echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
@@ -292,6 +296,14 @@ jobs:
           assert.throws(()=>forbidden.previewScopedAmount({profile:'catalog0-furniture',id:0,selector:40000048,newAmount:2}));
           console.log('01A_ACTUAL_GENERATED_DEDICATED_STEAM626_CHEST_WASM_EXACT_ABI_ONEFIELD_P1G_PASS');
           NODE
+      - name: Actual Chrome isolated Worker dedicated Chest Rust WASM and native browser OPFS
+        run: |
+          set -euo pipefail
+          node --check scripts/01a-dedicated-steam626-chest-chrome-opfs-qa.mjs
+          node --check tests/01a-dedicated-steam626-chest-real-opfs.worker.mjs
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-01a-steam-chest-qa-bin/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          node scripts/01a-dedicated-steam626-chest-chrome-opfs-qa.mjs
       - name: Strict no product public route, no Owner keys and no artifact
         run: |
           set -euo pipefail
