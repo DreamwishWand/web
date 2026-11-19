@@ -47,6 +47,18 @@ jobs:
           old='#[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]\nmod wasm_worker;'
           assert text.count(old)==1, 'original native-only module seam changed'
           lib.write_text(text.replace(old,'#[cfg(feature = "worker-wasm")]\nmod wasm_worker;',1))
+          # Host-only QA compilation surface for the original WASM Worker
+          # constructor dependency; actual production cfg remains unchanged
+          # in Git and on the released wasm32 build.
+          core=Path('crates/ddv-save-core/src/product_session.rs')
+          core_source=core.read_text()
+          gate1='#[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]\\n    pub(crate) fn open_decoded_in_worker('
+          gate2='#[cfg(any(all(feature="worker-wasm",target_arch="wasm32"),all(test,feature="product-switch624-frp01-readonly")))]\\n    fn open_worker_validated('
+          assert core_source.count(gate1)==1, 'fixed Worker factory seam changed'
+          assert core_source.count(gate2)==1, 'fixed validated factory seam changed'
+          core_source=core_source.replace(gate1,'#[cfg(any(all(feature = "worker-wasm", target_arch = "wasm32"),all(feature = "worker-wasm",test)))]\\n    pub(crate) fn open_decoded_in_worker(',1)
+          core_source=core_source.replace(gate2,'#[cfg(any(all(feature="worker-wasm",target_arch="wasm32"),all(test,feature="product-switch624-frp01-readonly"),all(feature="worker-wasm",test)))]\\n    fn open_worker_validated(',1)
+          core.write_text(core_source)
           p=Path('crates/ddv-save-core/src/wasm_worker.rs')
           s=p.read_text()
           needle="fn err(s:&'static str)->JsValue {JsValue::from_str(s)}"
