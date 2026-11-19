@@ -679,6 +679,8 @@ jobs:
           test "$(git rev-parse HEAD:src/lib/dev/product-steam-chest.worker.mjs)" = d801ded148ad1ce00bc02861da4088636e5ebe86
           test "$(git rev-parse HEAD:src/routes/editor/chest/steam/+page.svelte)" = 927d2776e6091d50b54e7e7e92c3e173b64b4ec7
           test "$(git rev-parse HEAD:src/lib/dev/LocalAmountEditorDev.svelte)" = fbecfa8ad6f43db305ca5d552b8bd96261ecfbda
+          test "$(git rev-parse HEAD:src/lib/dev/product-amount-release-v2-evidence.mjs)" = e6b0776ed0598508ac95be55b19439746f55be86
+          test "$(git ls-tree HEAD -- src/lib/dev/product-amount-release-v2-evidence.mjs | awk '{print $1}')" = 100644
           test "$(git rev-parse HEAD:src/lib/dev/local-amount-copy.mjs)" = 9631b4ee40f47432a2a26a6df386b0db9353b09d
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 334a8dc69485981598773923c265e97f16296fb1
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 16cfcda06614be2536b877872b15f7ff85bc0f2b

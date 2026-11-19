@@ -18,6 +18,7 @@ test('Steam Chest proof dispatch is exclusive, exact source, metadata only',()=>
  assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-steam-chest|static\/|build\//);
  assert.match(proof,/test ! -e static\/worker-wasm-scoped-steam-chest/);
  assert.match(proof,/SCOPED_STEAM_CHEST_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY/);
+ assert.ok(proof.includes(`test "$(git ls-tree HEAD -- src/lib/dev/product-amount-release-v2-evidence.mjs | awk '{print $1}')" = 100644`));
 });
 test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale or extra path',()=>{
  const pins=[...proof.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(x=>[x[1],x[2]]);
@@ -65,6 +66,10 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   [
     "src/lib/dev/LocalAmountEditorDev.svelte",
     "fbecfa8ad6f43db305ca5d552b8bd96261ecfbda"
+  ],
+  [
+    "src/lib/dev/product-amount-release-v2-evidence.mjs",
+    "e6b0776ed0598508ac95be55b19439746f55be86"
   ],
   [
     "src/lib/dev/local-amount-copy.mjs",
