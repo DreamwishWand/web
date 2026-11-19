@@ -2,16 +2,26 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { itemImagePreferences } from '$lib/item-media/public-item-images.mjs';
+  import { createVerifiedItemThumbFailureGate } from '$lib/item-media/item-thumb-verified-image-failure.mjs';
   import { switch1253PublicItemImageSource,
     retainSwitch1253PublicItemImageSource, scopedSwitch1253ItemImageHref } from '$lib/item-media/switch1253-public-item-images.mjs';
 
   export let itemId: number | string;
   export let label = '';
   export let compact = false;
-  let failedUrl = '';
+  // Only the currently validated manifest catalog may retry a failed immutable
+  // WebP. A stale <img> error must not poison a newer signed/withdrawn catalog.
+  const failureGate = createVerifiedItemThumbFailureGate();
+  let imageFailureEpoch = 0;
   $: imageHref = $switch1253PublicItemImageSource.status === 'VERIFIED'
     ? scopedSwitch1253ItemImageHref(base,itemId,$switch1253PublicItemImageSource.catalog) : null;
-  $: renderHref = imageHref && imageHref!==failedUrl ? imageHref : null;
+  $: renderHref = failureGate.visibleHref($switch1253PublicItemImageSource.status,
+    $switch1253PublicItemImageSource.catalog,imageHref,imageFailureEpoch);
+  function failedImage(event: Event): void {
+    const failedSrc = (event.currentTarget as HTMLImageElement | null)?.getAttribute('src') ?? null;
+    if(failureGate.rejectFailed($switch1253PublicItemImageSource.catalog,failedSrc,renderHref))
+      imageFailureEpoch++;
+  }
   onMount(() => retainSwitch1253PublicItemImageSource(base));
 </script>
 
@@ -19,10 +29,11 @@
   data-media-status={renderHref?'verified-public-image':'unavailable'}
   style:--image-size={$itemImagePreferences.size+'px'}>
   {#if renderHref}
-    <img src={renderHref} alt={label} loading="lazy" decoding="async" draggable="false"
-      style:object-fit={$itemImagePreferences.fit}
-      width="160" height="160"
-      on:error={() => { failedUrl = renderHref || ''; }} />
+    {#key renderHref}
+      <img src={renderHref} alt={label} loading="lazy" decoding="async" draggable="false"
+        style:object-fit={$itemImagePreferences.fit}
+        width="160" height="160" on:error={failedImage} />
+    {/key}
   {:else}
     <span class="image-unavailable" aria-hidden="true">—</span>
   {/if}
