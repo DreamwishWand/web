@@ -18,6 +18,7 @@ test('Steam Chest proof dispatch is exclusive, exact source, metadata only',()=>
  assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-steam-chest|static\/|build\//);
  assert.match(proof,/test ! -e static\/worker-wasm-scoped-steam-chest/);
  assert.match(proof,/SCOPED_STEAM_CHEST_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY/);
+ assert.ok(proof.includes(`test "$(git ls-tree HEAD -- src/lib/dev/product-amount-release-v2-evidence.mjs | awk '{print $1}')" = 100644`));
 });
 test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale or extra path',()=>{
  const pins=[...proof.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(x=>[x[1],x[2]]);
@@ -64,7 +65,11 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/dev/LocalAmountEditorDev.svelte",
-    "d58f2a29f248810068205638ccf1d1f68ecafdd9"
+    "bc01afed142a95d67fb78c565c13b1091a762d43"
+  ],
+  [
+    "src/lib/dev/product-amount-release-v2-evidence.mjs",
+    "6fb10799fbb4eea54def1712c7eed42c6bef321f"
   ],
   [
     "src/lib/dev/local-amount-copy.mjs",
@@ -72,7 +77,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-    "107a44cfdcfdaf8cd1769bba3e90c0056fb59cc0"
+    "334a8dc69485981598773923c265e97f16296fb1"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
@@ -88,15 +93,15 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/dev/local-scoped-edit-worker-port.mjs",
-    "f86b066f76d1093b3f677b706dc18868bb238e1c"
+    "0bb5fe0e47d9af2814720a6138895cd0ea9f4b12"
   ],
   [
     "src/lib/dev/local-amount-workflow.mjs",
-    "8d05fb604ac38b1ab2224fcce2474199ba9f7fee"
+    "2327d1dfeb0fc9be3d398e89cbf23d054676c9c1"
   ],
   [
     "src/lib/dev/local-amount-worker-adapter.mjs",
-    "3469316b24acc09a8565b8ee57d031315e524e84"
+    "15d510895a1bba4913dc6d13f46ea1f303ba6ff0"
   ],
   [
     "src/lib/ddv/core/save/local-encrypted-copy-store.mjs",
@@ -104,7 +109,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/dev/local-amount-codec-reopen.worker.mjs",
-    "955d95056d4c115b24b77db2ec2f31ef90992882"
+    "43ac5c02a6b4ff47d6b9a2d7c419fa690285907f"
   ],
   [
     "src/lib/ddv/core/save/local-original-backup.mjs",
