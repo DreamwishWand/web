@@ -5,7 +5,8 @@ import {loadCollectionRuntime} from '../src/lib/collection/runtime.js';
 import {buildSharedCatalogDirectory} from '../src/lib/entity/shared-catalog-directory.mjs';
 import {createSwitchWorldReadAdapter} from '../src/lib/wep/world-browser-adapter.ts';
 import {buildSaveFreeTwoFurnitureScene,
-  WEP_SAVEFREE_TWO_FURNITURE_LOCAL_SCENE_OPERATION
+  WEP_SAVEFREE_TWO_FURNITURE_LOCAL_SCENE_OPERATION,
+  saveFreeSceneCopy,SAVEFREE_SCENE_LOCALES
 } from '../src/lib/wep/savefree-first-scene.ts';
 import {buildReadonlyLocalSceneReuseDraft} from '../src/lib/wep/local-scene-reuse-readonly.ts';
 import {validatePublishablePreset,preflightScene} from '../src/lib/wep/scene-preset-runtime.ts';
@@ -77,4 +78,11 @@ test('source-signed geometry remains unchanged, portable payload has no Save/loc
  assert.equal(first.artifact.requirements.roadTopology,false);
  assert.equal(first.artifact.requirements.fenceTopology,false);
  assert.equal(first.artifact.objects.every(o=>o.portableState===null),true);
+});
+
+test('two-furniture controls retain explicit OFF defaults and eight localized labels',()=>{
+ assert.deepEqual(SAVEFREE_SCENE_LOCALES,['en','ja','fr','it','de','es-ES','zh-CN','pt-BR']);
+ for(const locale of SAVEFREE_SCENE_LOCALES)
+  for(const field of ['secondChoose','secondX','secondY','removeSecond','layoutPreview'])
+   assert.ok(saveFreeSceneCopy(locale)[field]?.length>=3,locale+' '+field);
 });
