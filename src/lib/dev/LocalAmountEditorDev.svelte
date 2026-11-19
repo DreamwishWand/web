@@ -150,6 +150,12 @@
         <label for="dev-amount-p1g">{words.file}</label>
         <input id="dev-amount-p1g" type="file" accept=".p1g,application/octet-stream"
           bind:this={fileInput} on:change={chooseFile} disabled={pending}/>
+        {#if file&&(switchChest||steamChest||switchCatalog0)&&/^[0-9a-f]{64}$/.test(sourceSha)}
+          <!-- The native input is cleared for same-file reselection. The
+               verified original stays visible locally until File/Session close. -->
+          <p role="status" data-dev-selected-original><strong>{words.file}:</strong>
+            <code>{file.name}</code> ({file.size} B)</p>
+        {/if}
         <label for="dev-amount-sha">{words.sha}</label>
         <input id="dev-amount-sha" type="text" maxlength="64" pattern="[a-f0-9]{64}"
           spellcheck="false" autocapitalize="off" autocomplete="off"
