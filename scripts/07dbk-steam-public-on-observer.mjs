@@ -34,7 +34,7 @@ function mediaHeaders(headers,item){
     assert.equal(Number(headers.contentLength),item.bytes,'LIVE_OBSERVER_CONTENT_LENGTH_MISMATCH');
   }
 }
-async function conditional(url,header,value,item,fetcher){
+async function conditional(url,header,value,item,fetcher,observed){
   const response=await fetcher(url,{
     method:'GET',redirect:'manual',
     headers:{'Cache-Control':'no-cache, max-age=0',Pragma:'no-cache',[header]:value},
@@ -43,10 +43,19 @@ async function conditional(url,header,value,item,fetcher){
   if(response.status===304){
     const body=Buffer.from(await response.arrayBuffer());
     assert.equal(body.length,0,'LIVE_OBSERVER_304_WITH_BODY');
+    // A 304 may omit validators, but any validator it returns must refer to
+    // the SAME 200 GET/HEAD generation. A stale CDN edge is not a receipt.
+    const tag=response.headers.get('etag');
+    const date=response.headers.get('last-modified');
+    if(tag!==null)assert.equal(tag,observed.etag,'LIVE_OBSERVER_304_ETAG_GENERATION_MISMATCH');
+    if(date!==null)assert.equal(date,observed.lastModified,'LIVE_OBSERVER_304_DATE_GENERATION_MISMATCH');
     return '304_WHILE_ON';
   }
   assert.equal(response.status,200,'LIVE_OBSERVER_CONDITIONAL_NOT_200_OR_304');
-  assert.match(response.headers.get('content-type')||'',/^image\/webp(?:\s*;|$)/i);
+  const headers=httpHeaders(response);
+  mediaHeaders(headers,item);
+  assert.equal(headers.etag,observed.etag,'LIVE_OBSERVER_200_ETAG_GENERATION_MISMATCH');
+  assert.equal(headers.lastModified,observed.lastModified,'LIVE_OBSERVER_200_DATE_GENERATION_MISMATCH');
   const bytes=Buffer.from(await response.arrayBuffer());
   assert.equal(bytes.length,item.bytes,'LIVE_OBSERVER_CONDITIONAL_LENGTH_MISMATCH');
   assert.equal(sha(bytes),item.sha256,'LIVE_OBSERVER_CONDITIONAL_SHA_MISMATCH');
@@ -98,9 +107,9 @@ export async function observeSteamPublicOn({
     assert.equal(get.etag,head.etag,'LIVE_OBSERVER_GET_HEAD_ETAG_MISMATCH');
     assert.equal(get.lastModified,head.lastModified,'LIVE_OBSERVER_GET_HEAD_DATE_MISMATCH');
     mediaHeaders(get,item);mediaHeaders(head,item);
-    const etagStatus=await conditional(url,'If-None-Match',get.etag,item,fetcher);
-    const dateStatus=await conditional(url,'If-Modified-Since',get.lastModified,item,fetcher);
-    const foreignStatus=await conditional(url,'If-None-Match','"07dbk-not-a-real-etag"',item,fetcher);
+    const etagStatus=await conditional(url,'If-None-Match',get.etag,item,fetcher,get);
+    const dateStatus=await conditional(url,'If-Modified-Since',get.lastModified,item,fetcher,get);
+    const foreignStatus=await conditional(url,'If-None-Match','"07dbk-not-a-real-etag"',item,fetcher,get);
     assert.equal(foreignStatus,'200_SHA_PINNED_WHILE_ON','LIVE_OBSERVER_FOREIGN_ETAG_FALSE_304');
     observations.push(Object.freeze({
       itemId:item.itemId,sha256:item.sha256,bytes:item.bytes,url,
