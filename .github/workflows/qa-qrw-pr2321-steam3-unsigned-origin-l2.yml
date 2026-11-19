@@ -1,0 +1,48 @@
+name: QA ONLY 04 QR-W PR2321 unsigned Steam3 public origin observer L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2321-steam3-unsigned-origin-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-steam3-observer-untrusted-origin-failclosed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2321-0a994-unsigned-steam3-origin-boundary-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed signed Source/Observer GitBlobs and exact original Source2 / QA-only2 paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=5ac76e59f67b3f14e1dbfe0ef0fe0745ac428468
+          source=0a994fa0df34f8592ac5077dfd3d18865765e2a1
+          git merge-base --is-ancestor "$base" HEAD
+          if git cat-file -e "$base:scripts/07dbk-steam-public-on-observer.mjs" 2>/dev/null; then exit 1; fi
+          if git cat-file -e "$base:tests/07dbk-steam-public-on-observer.test.mjs" 2>/dev/null; then exit 1; fi
+          test "$(git rev-parse 'HEAD:scripts/07dbk-steam-public-on-observer.mjs')" = c94fdb504894120afb65ddef832da0c83871654f
+          test "$(git rev-parse 'HEAD:tests/07dbk-steam-public-on-observer.test.mjs')" = 24349fa1f8e9985151db3d0a85737e63ce26ddf0
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2321-steam3-unsigned-observer-origin-denial-l2.test.mjs')" = 991e38cf7e7b0950a739f77253e44192e9bffdcb
+          test "$(git rev-parse 'HEAD:scripts/int-steam-public-media-signed-batch.mjs')" = 461bb49270650c85cedc34cef647445473ad53eb
+          for f in scripts/07dbk-steam-public-on-observer.mjs tests/07dbk-steam-public-on-observer.test.mjs tests/qa-qrw-pr2321-steam3-unsigned-observer-origin-denial-l2.test.mjs .github/workflows/qa-qrw-pr2321-steam3-unsigned-origin-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' scripts/07dbk-steam-public-on-observer.mjs tests/07dbk-steam-public-on-observer.test.mjs | LC_ALL=C sort >/tmp/source
+          printf '%s\n' .github/workflows/qa-qrw-pr2321-steam3-unsigned-origin-l2.yml tests/qa-qrw-pr2321-steam3-unsigned-observer-origin-denial-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2321_SOURCE2_QAONLY2_SIGNED_BATCH_BLOB_MODE_PASS
+      - name: Actual signed Steam3 bytes + new unsigned read-only observer hostile conditional CDN and provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/07dbk-steam-public-on-observer.test.mjs tests/qa-qrw-pr2321-steam3-unsigned-observer-origin-denial-l2.test.mjs
+          echo QRW2321_UNSIGNED_STEAM3_OBSERVER_NO_SIGNED_ON_ISSUER_L2_PASS
