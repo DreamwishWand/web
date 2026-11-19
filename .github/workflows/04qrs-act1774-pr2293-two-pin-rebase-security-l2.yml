@@ -1,0 +1,157 @@
+name: 04 QR-S ACT1774 PR2293 current-main two OS-process safety pins Security QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2293-two-independent-reopen-pins-security-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2293-two-pin-rebase-security-l2.yml'
+permissions:
+  contents: read
+jobs:
+  current-main-two-pin-exact-delta:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze original Source two paths and new QA only one
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 13e1ff0eaf8aef91cbce1c4378950eb3e0d03046 HEAD
+          test "$(git diff --name-only 13e1ff0eaf8aef91cbce1c4378950eb3e0d03046 HEAD)" = ".github/workflows/04qrs-act1774-pr2293-two-pin-rebase-security-l2.yml"
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 9bb774c9b9d7ddb4a44c2c2bce022dbb0176df2f
+          test "$(git rev-parse HEAD:tests/scoped-steam-chest-proof-workflow.test.mjs)" = 3cefc871bca07cb68a0efa125cb9062b402ff54c
+      - name: Independent fresh-current-main real GitTree 24 pin exact2 hostile data and signed proof guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS2293REPIN_NODE'
+          import assert from 'node:assert/strict';
+          import {spawnSync} from 'node:child_process';
+          import {mkdtempSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const main='ef30de7a3eb5cb3560f14b5d50443fe7689747ff';
+          const old='1c2b2216f7d69c39117ffbeb1f8b5bdebed2f042';
+          const source='13e1ff0eaf8aef91cbce1c4378950eb3e0d03046';
+          const workflow='.github/workflows/pages.yml',test='tests/scoped-steam-chest-proof-workflow.test.mjs';
+          const oldWorkflow='74a2260f37baca41b2e84807af1c1f571b805015';
+          const newWorkflow='9bb774c9b9d7ddb4a44c2c2bce022dbb0176df2f';
+          const oldTest='cb170257dfc3a1595eb770a152d44e09119160b6';
+          const newTest='3cefc871bca07cb68a0efa125cb9062b402ff54c';
+          const two=[
+           {path:'src/lib/dev/LocalAmountEditorDev.svelte',before:'2ebfdab6ae9f60cf9dd28d5a79299e2d6333ce8e',after:'d58f2a29f248810068205638ccf1d1f68ecafdd9'},
+           {path:'src/lib/dev/local-amount-workflow.mjs',before:'837c21ecc1f559f1b526b89004ae54b6c4a116b9',after:'8d05fb604ac38b1ab2224fcce2474199ba9f7fee'}
+          ];
+          const tmp=mkdtempSync(join(tmpdir(),'qrs2293current-')),dir=join(tmp,'repo');
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',GIT_TERMINAL_PROMPT:'0',
+          GIT_AUTHOR_NAME:'04QR-S scoped QA',GIT_AUTHOR_EMAIL:'qrs@example.invalid',GIT_COMMITTER_NAME:'04QR-S scoped QA',GIT_COMMITTER_EMAIL:'qrs@example.invalid'};
+          const run=(name,args,cwd=dir,input)=>spawnSync(name,args,{cwd,env,input,encoding:'utf8',timeout:90000,maxBuffer:8*1024*1024});
+          const g=(...args)=>{const r=run('git',args);assert.equal(r.status,0,'GIT '+args.join(' ')+' '+r.stderr.slice(-550));return r.stdout.trim()};
+          const show=(c,p)=>{const r=run('git',['show',c+':'+p]);assert.equal(r.status,0,r.stderr);return r.stdout};
+          const blob=s=>{const r=run('git',['hash-object','-w','--stdin'],dir,s);assert.equal(r.status,0,r.stderr);return r.stdout.trim()};
+          let i=0,pos=0,neg=0;
+          const make=(parent,edits)=>{
+           const idx=join(tmp,'index'+(++i));
+           const command=args=>{const r=spawnSync('git',args,{cwd:dir,env:{...env,GIT_INDEX_FILE:idx},encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout.trim()};
+           command(['read-tree',parent+'^{tree}']);
+           for(const [path,sha,mode='100644'] of edits){if(sha===null)command(['update-index','--force-remove','--',path]);else command(['update-index','--add','--cacheinfo',mode,sha,path])}
+           return g('commit-tree',command(['write-tree']),'-p',parent,'-m','04QRS unreferenced synthetic adversarial tree');
+          };
+          const split=s=>{
+           const a=s.indexOf('  scoped_steam_chest_proof:\n'),b=s.indexOf('  scoped_sr03_proof:\n');
+           assert.ok(a>0&&b>a,'EXCLUSIVE_PROOF_BOUNDS');return [s.slice(0,a),s.slice(a,b),s.slice(b)];
+          };
+          const pins=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(x=>({path:x[1],sha:x[2]}));
+          const verify24=(revision,ps)=>{
+           assert.equal(ps.length,24,'exact 24');assert.equal(new Set(ps.map(x=>x.path)).size,24,'unique');
+           for(const p of ps){
+           const line=g('ls-tree',revision,'--',p.path);
+           assert.equal(line,(p.path==='crates/ddv-save-core'?'040000 tree ':'100644 blob ')+p.sha+'\t'+p.path,'PIN_SHA_MODE_'+p.path);
+           }
+          };
+          const verifyCandidate=c=>{
+           assert.equal(g('rev-parse',c+'^1'),main,'PROTECTED_FIRST_PARENT');
+           assert.deepEqual(g('diff','--name-only',main,c).split('\n').filter(Boolean).sort(),[workflow,test].sort(),'EXACT_TWO_SOURCE_FILES');
+           for(const [p,sha] of [[workflow,newWorkflow],[test,newTest]])assert.equal(g('ls-tree',c,'--',p),'100644 blob '+sha+'\t'+p);
+          };
+          const accept=(name,fn)=>{fn();pos++;console.log('QRS2293REPIN_POS_'+name)};
+          const deny=(name,fn)=>{assert.throws(fn,undefined,'FALSE_AUTH_'+name);neg++;console.log('QRS2293REPIN_NEG_DENIED_'+name)};
+          try{
+           const c=run('git',['clone','--no-hardlinks','--no-checkout','-q',process.cwd(),dir],process.cwd());assert.equal(c.status,0,c.stderr);
+           accept('EXACT_CURRENT_MAIN_FIRST_PARENT_AND_TWO_BLOBS',()=>{
+            assert.equal(g('rev-parse',source+'^1'),main);
+            assert.equal(g('rev-parse',source+'^2'),old);
+            verifyCandidate(source);
+            assert.equal(g('rev-parse',old+':'+workflow),oldWorkflow);
+            assert.equal(g('rev-parse',old+':'+test),oldTest);
+           });
+           const o=show(old,workflow),n=show(source,workflow),[a,oo,c0]=split(o),[b,nn,c1]=split(n);
+           const oldPins=pins(oo),newPins=pins(nn);
+           accept('ONLY_TWO_LITERAL_SHA_CHANGES_IN_CHEST_PROOF_AND_TEST',()=>{
+            assert.equal(a,b);assert.equal(c0,c1);
+            assert.equal(oldPins.length,24);assert.equal(newPins.length,24);
+            assert.deepEqual(oldPins.map(x=>x.path),newPins.map(x=>x.path));
+            const changed=oldPins.map((x,i)=>({path:x.path,pre:x.sha,post:newPins[i].sha})).filter(x=>x.pre!==x.post);
+            assert.deepEqual(changed,two.map(x=>({path:x.path,pre:x.before,post:x.after})));
+            let rep=oo, t=show(old,test);
+            for(const p of two){
+             const from='test "$(git rev-parse HEAD:'+p.path+')" = '+p.before;
+             assert.ok(rep.includes(from),'original proof witness');rep=rep.replace(from,'test "$(git rev-parse HEAD:'+p.path+')" = '+p.after);
+             assert.equal(t.split(p.before).length,2,'original test witness once');t=t.replace(p.before,p.after);
+            }
+            assert.equal(rep,nn,'no sibling proof, trust, issuer or executable policy changed');
+            assert.equal(t,show(source,test),'test changed only two SHA strings');
+           });
+           accept('REAL_CURRENT_MAIN_TWENTY_FOUR_OF_TWENTY_FOUR_SHA_MODE',()=>{
+            verify24(main,newPins);
+            assert.equal(g('rev-parse',main+':crates/ddv-save-core'),'2f712d047e99bc024672e4d7a488baa6276e06f4');
+            for(const p of two)assert.equal(g('ls-tree',main,'--',p.path),'100644 blob '+p.after+'\t'+p.path);
+           });
+           accept('ONLY_TWO_OLD_SHA_PINS_STALE_AND_TWENTY_TWO_INHERIT',()=>{
+            const diff=oldPins.filter((p,i)=>p.sha!==newPins[i].sha);
+            assert.equal(diff.length,2);
+            for(const p of oldPins.filter((p,i)=>p.sha===newPins[i].sha)){
+              assert.equal(g('rev-parse',main+':'+p.path),p.sha,'original fixed22 PIN changed '+p.path);
+            }
+            assert.equal(nn.includes("test \"$WAND_PROOF_EXPECTED_SOURCE\" = \"$GITHUB_SHA\""),true);
+            assert.equal(nn.includes("test \"$GITHUB_WORKFLOW_SHA\" = \"$GITHUB_SHA\""),true);
+            assert.equal(nn.includes('github.ref == \'refs/heads/main\''),true);
+            assert.equal(nn.includes('actions/attest-build-provenance@v2'),true);
+            assert.equal(nn.includes('node scripts/int-protected-ci-gate.mjs build'),true);
+            assert.equal(nn.includes('node scripts/int-protected-ci-gate.mjs deploy'),true);
+            assert.equal(nn.includes('actions/upload-artifact@v4'),true);
+            assert.equal(/actions\/(?:deploy-pages|upload-pages-artifact)@/.test(nn),false);
+           });
+           const poison=blob('// synthetic malicious witness; not Owner private Save\n');
+           for(const p of two){
+            deny('EDITED_CURRENT_MAIN_'+p.path.replaceAll('/','_'),()=>verify24(make(main,[[p.path,poison]]),newPins));
+            deny('SYMLINK_CURRENT_MAIN_'+p.path.replaceAll('/','_'),()=>verify24(make(main,[[p.path,p.after,'120000']]),newPins));
+            deny('EXECUTABLE_CURRENT_MAIN_'+p.path.replaceAll('/','_'),()=>verify24(make(main,[[p.path,p.after,'100755']]),newPins));
+            deny('REMOVED_CURRENT_MAIN_'+p.path.replaceAll('/','_'),()=>verify24(make(main,[[p.path,null]]),newPins));
+           }
+           deny('OLD_22_OF_24_PINS_NOT_CURRENT_SIGNING_AUTH',()=>verify24(main,oldPins));
+           const forgedPin=n.replace('test "$(git rev-parse HEAD:'+two[0].path+')" = '+two[0].after,'test "$(git rev-parse HEAD:'+two[0].path+')" = '+two[0].before);
+           deny('CANDIDATE_SELF_CHANGE_PIN_AND_CODE',()=>verifyCandidate(make(main,[[workflow,blob(forgedPin)],[test,newTest],[two[0].path,poison]])));
+           deny('UNAPPROVED_EXTRA_SOURCE',()=>verifyCandidate(make(source,[['src/lib/dev/extra-release-authority.mjs',poison]])));
+           deny('CANDIDATE_SELF_WRITES_ISSUER',()=>verifyCandidate(make(source,[['src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',poison]])));
+           deny('CANDIDATE_SELF_WRITES_PROOF_ISSUER',()=>verifyCandidate(make(main,[[workflow,poison],[test,newTest]])));
+           const newPermission=n.replace("  scoped_steam_chest_proof:\n", "  scoped_steam_chest_proof:\n    permissions:\n      contents: write\n");
+           deny('FORGED_PROOF_PERMISSION',()=>verifyCandidate(make(main,[[workflow,blob(newPermission)],[test,newTest]])));
+           const siblingTamper=n.replace("  scoped_sr03_proof:\n","  scoped_sr03_proof:\n    permissions:\n      contents: write\n");
+           deny('FORGED_SIBLING_PERMISSION',()=>verifyCandidate(make(main,[[workflow,blob(siblingTamper)],[test,newTest]])));
+           const wasmUpload=n.replace("wand-steam-chest-proof/attestation-bundle.jsonl","wand-steam-chest-proof/attestation-bundle.jsonl\n             tests/wasm-distribution/fixtures/scoped-steam-chest/ddv_save_core_bg.wasm");
+           deny('EXECUTABLE_LEAK_IN_PROOF_ARTIFACT',()=>verifyCandidate(make(main,[[workflow,blob(wasmUpload)],[test,newTest]])));
+           assert.equal(pos,4);assert.equal(neg,16);
+           console.log('QRS2293REPIN_FINAL_4POS_16NEG_EXACT2_FRESH_CURRENT_MAIN24',JSON.stringify({pos,neg,currentPins:24,unchangedAcceptedPins:22,changedPins:2,writerAuthorized:false,operationOn:false,originalOwnerV2:'NOT_RUN'}));
+          }finally{rmSync(tmp,{recursive:true,force:true})}
+          QRS2293REPIN_NODE
+      - name: QA-only never Merge or dispatch proof or publish Ops
+        run: echo QRS2293REPIN_QA_ONLY_NEVER_MERGE_OR_PROOF_DISPATCH
