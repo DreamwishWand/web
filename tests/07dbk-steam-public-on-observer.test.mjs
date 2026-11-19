@@ -115,11 +115,14 @@ test('conditionally returned 200 must carry original signed SHA, not just MIME o
     /LIVE_OBSERVER_CONDITIONAL_SHA_MISMATCH/);
 });
 test('original signed product image SHA, host and MIME gate cannot be bypassed',async()=>{
-  for(const mode of [{originalWrongBytes:true},{mimeError:true},{redirect:true}]){
+  for(const [mode,error] of [
+    [{originalWrongBytes:true},/LIVE_IMAGE_SHA256/],
+    [{mimeError:true},/MEDIA_PUBLIC_WRONG_MIME/],
+    [{redirect:true},/LIVE_OBSERVER_PRIOR_ON_MUST_BE_200/]
+  ]){
     const f=setup(mode);
     await assert.rejects(observeSteamPublicOn({...opts,fetcher:f.fetcher}),
-      /LIVE_IMAGE_SHA256|MEDIA_PUBLIC_WRONG_MIME|MEDIA_PUBLIC_NOT_OK_302/,
-      JSON.stringify(mode));
+      error,JSON.stringify(mode));
   }
 });
 
