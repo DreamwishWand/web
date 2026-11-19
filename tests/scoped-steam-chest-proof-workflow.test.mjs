@@ -24,7 +24,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
  assert.deepEqual(pins,[
   [
     "crates/ddv-save-core",
-    "681177d588b7bfba04f2497dff81e36163a3350e"
+    "2f712d047e99bc024672e4d7a488baa6276e06f4"
   ],
   [
     "scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs",
@@ -64,7 +64,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/dev/LocalAmountEditorDev.svelte",
-    "da627ecd86d4435c026e611b241aa489d8259dac"
+    "2ebfdab6ae9f60cf9dd28d5a79299e2d6333ce8e"
   ],
   [
     "src/lib/dev/local-amount-copy.mjs",
@@ -72,35 +72,35 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-    "eef37e2a1b027134439e686ea5e47501339bbace"
+    "107a44cfdcfdaf8cd1769bba3e90c0056fb59cc0"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
-    "d4643ccf023b6784c80fa5b2a377afe7936113ce"
+    "16cfcda06614be2536b877872b15f7ff85bc0f2b"
   ],
   [
     "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
-    "ee5929266406bb9a17e1e0a3fc9bce3cb15607f6"
+    "3893195fe0b675a80cab36ec788be4ac756a3ac5"
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
-    "ae89e25ad3cdc48d8b4e23e7eabc6ba92998b553"
+    "17c3daf6eaa529745c9c48775d677e1289955872"
   ],
   [
     "src/lib/dev/local-scoped-edit-worker-port.mjs",
-    "1d5eacaabfb27a244a68c6a07cd22feba7eb57c2"
+    "f86b066f76d1093b3f677b706dc18868bb238e1c"
   ],
   [
     "src/lib/dev/local-amount-workflow.mjs",
-    "54a5dc90fb0b82ec51f1716089d4fd607eecceb9"
+    "837c21ecc1f559f1b526b89004ae54b6c4a116b9"
   ],
   [
     "src/lib/dev/local-amount-worker-adapter.mjs",
-    "7e2a6fc8250cd5d6ca5cceb0f95e83e06d2d4bd6"
+    "3469316b24acc09a8565b8ee57d031315e524e84"
   ],
   [
     "src/lib/ddv/core/save/local-encrypted-copy-store.mjs",
-    "67f6579622e5d8903d3798d5921d2ea525980eda"
+    "f724110108d3244487cfc0336410c96085a893d2"
   ],
   [
     "src/lib/dev/local-amount-codec-reopen.worker.mjs",
@@ -116,7 +116,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/ddv/core/save/product-wasm-read-owner.d.mts",
-    "f20fc6081da2bf67db72e668a11a888966cbbd86"
+    "30a1331d153ccf9402f22219146e8708860eb968"
   ]
 ]);
 });
