@@ -161,8 +161,10 @@ function readIndex(storage: StorageLike) {
 }
 
 // Checkpoint must never replace an unreadable index with a fresh empty index.
-function readCheckpointIndex(storage: StorageLike) {
-  const raw = storage.getItem(WORLD_EDITOR_RECOVERY_INDEX_KEY);
+function readCheckpointIndex(
+  storage: StorageLike,
+  raw = storage.getItem(WORLD_EDITOR_RECOVERY_INDEX_KEY)
+) {
   if (raw === null) return [];
   let parsed: unknown;
   try {
@@ -251,9 +253,12 @@ export function saveRecoveryRoute(
   }
 ) {
   const fingerprint = normalizeFingerprint(sourceFingerprint);
+  const recordKey = keyFor(fingerprint);
   let existing: WorldEditorRecoveryRecord | null = null;
-  const raw = storage.getItem(keyFor(fingerprint));
-  const index = readCheckpointIndex(storage);
+  const raw = storage.getItem(recordKey);
+  // Snapshot both raw keys before the two non-atomic localStorage writes.
+  const indexRaw = storage.getItem(WORLD_EDITOR_RECOVERY_INDEX_KEY);
+  const index = readCheckpointIndex(storage, indexRaw);
   if (raw !== null) {
     try {
       existing = normalizeRecoveryRecord(JSON.parse(raw));
@@ -278,8 +283,36 @@ export function saveRecoveryRoute(
     existing,
     now
   });
-  storage.setItem(keyFor(fingerprint), JSON.stringify(record));
-  writeIndex(storage, [...index, fingerprint]);
+  try {
+    storage.setItem(recordKey, JSON.stringify(record));
+    writeIndex(storage, [...index, fingerprint]);
+  } catch (error) {
+    // A quota/permission failure can occur before OR after either write.
+    // Restore raw values, not normalized records, and preserve unrelated keys.
+    // localStorage is not transactional: failed compensation is explicit, never
+    // an apparent successful checkpoint or an authority for Save mutation.
+    let rollbackUnverified = false;
+    for (const [key, previous] of [
+      [WORLD_EDITOR_RECOVERY_INDEX_KEY, indexRaw],
+      [recordKey, raw]
+    ] as const) {
+      try {
+        if (storage.getItem(key) !== previous) {
+          if (previous === null) storage.removeItem(key);
+          else storage.setItem(key, previous);
+        }
+        if (storage.getItem(key) !== previous) rollbackUnverified = true;
+      } catch {
+        rollbackUnverified = true;
+      }
+    }
+    if (rollbackUnverified) {
+      const failure = new Error('WEP_RECOVERY_ROLLBACK_UNVERIFIED');
+      (failure as Error & { cause?: unknown }).cause = error;
+      throw failure;
+    }
+    throw error;
+  }
   return record;
 }
 
