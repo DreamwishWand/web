@@ -43,7 +43,10 @@
       steamChest=!!steamScope;switchCatalog0=!!catalogScope;
       switchChest=!!switchScope||(!steamChest&&!switchCatalog0&&scopedSwitch626Chest===true);
       exactOne=switchChest||steamChest||switchCatalog0||scopedExactOne===true;
-      workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,exactOneDecrease:exactOne,switch626Chest:switchChest,steam626Chest:steamChest,switch626Catalog0:switchCatalog0});
+      workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,exactOneDecrease:exactOne,switch626Chest:switchChest,steam626Chest:steamChest,switch626Catalog0:switchCatalog0,
+         // Trusted branded product Ports require genuine independent-process
+         // evidence. DEV/OFF retains the existing codec-Worker-only receipt.
+         requireIndependentProcessReopen:!!productScope});
       available=true;state=workflow.snapshot();
     }catch{available=false}
     return ()=>{++uiEpoch;const active=workflow;workflow=null;available=false;
