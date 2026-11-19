@@ -39,6 +39,14 @@ const setup=(mode={})=>{
     const ifDate=opts?.headers?.['If-Modified-Since'];
     if(mode.redirect)return new Response(null,{status:302,headers:{location:'https://elsewhere.invalid/'}});
     if(ifTag||ifDate){
+      if(ifTag&&ifTag===statusHeaders.etag&&mode.mismatched304Etag)
+        return new Response(null,{status:304,headers:{etag:'"other-generation"'}});
+      if(ifDate&&ifDate===statusHeaders['last-modified']&&mode.mismatched304Date)
+        return new Response(null,{status:304,headers:{'last-modified':'Wed, 18 Nov 2026 11:38:36 GMT'}});
+      if(ifTag&&ifTag===statusHeaders.etag&&mode.mismatched200Etag)
+        return new Response(img.bytes,{status:200,headers:{...headers,etag:'"other-generation"'}});
+      if(ifDate&&ifDate===statusHeaders['last-modified']&&mode.mismatched200Date)
+        return new Response(img.bytes,{status:200,headers:{...headers,'last-modified':'Wed, 18 Nov 2026 11:38:36 GMT'}});
       if(ifTag==='"07dbk-not-a-real-etag"'&&mode.foreign304)
         return new Response(null,{status:304});
       if((ifTag&&ifTag===statusHeaders.etag)||
@@ -107,6 +115,19 @@ test('current CDN must reject forged unrelated ETag; 304 on foreign validator is
   const f=setup({foreign304:true});
   await assert.rejects(observeSteamPublicOn({...opts,fetcher:f.fetcher}),
     /LIVE_OBSERVER_FOREIGN_ETAG_FALSE_304/);
+});
+
+test('304/200 conditional responses cannot silently mix CDN ETag or Last-Modified generations',async()=>{
+  for(const [mode,error] of [
+    [{mismatched304Etag:true},/LIVE_OBSERVER_304_ETAG_GENERATION_MISMATCH/],
+    [{mismatched304Date:true},/LIVE_OBSERVER_304_DATE_GENERATION_MISMATCH/],
+    [{mismatched200Etag:true},/LIVE_OBSERVER_200_ETAG_GENERATION_MISMATCH/],
+    [{mismatched200Date:true},/LIVE_OBSERVER_200_DATE_GENERATION_MISMATCH/]
+  ]){
+    const f=setup(mode);
+    await assert.rejects(observeSteamPublicOn({...opts,fetcher:f.fetcher}),
+      error,JSON.stringify(mode));
+  }
 });
 
 test('conditionally returned 200 must carry original signed SHA, not just MIME or size',async()=>{
