@@ -1,0 +1,58 @@
+name: QA ONLY 04 QR-W PR2329 SaveFree two source-verified furniture L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2329-savefree-two-furniture-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-wep-savefree-two-furniture-source-negatives:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2329-8c4e-savefree-two-furniture-verified-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Pin 02 WEP original Source six actual pre/post blobs, protected original preimage and QA-only2
+        shell: bash
+        run: |
+          set -euo pipefail
+          protected=a7a293100b3f36634f4c41e67c1435316249ec88
+          base=54e6addb51dcfc2c8f9f64b00d61e4d175271e20
+          source=8c4eb883bb92a675c7f96534b26ed363a7d3d9d5
+          test "$(git merge-base "$protected" "$source")" = "$base"
+          test "$(git rev-parse "$protected:src/lib/wep/savefree-first-scene.ts")" = d81f39dd9cfc50bf4360b058f8f605d9056c3845
+          test "$(git rev-parse "$base:src/lib/wep/savefree-first-scene.ts")" = d81f39dd9cfc50bf4360b058f8f605d9056c3845
+          test "$(git rev-parse 'HEAD:src/lib/wep/savefree-first-scene.ts')" = 5b333f2e08fccc56ae755691724d1384ffed3919
+          test "$(git rev-parse "$protected:src/lib/wep/SaveFreeFirstScene.svelte")" = ba09f189e76dafde45e7f9502003ba8704212d77
+          test "$(git rev-parse 'HEAD:src/lib/wep/SaveFreeFirstScene.svelte')" = 565f44c905759e84107721687abe7e611b0d2818
+          test "$(git rev-parse "$protected:scripts/wep-savefree-first-scene-chrome.mjs")" = 482dd67a67621335c529241da444fb22d115f132
+          test "$(git rev-parse 'HEAD:scripts/wep-savefree-first-scene-chrome.mjs')" = b61a58de956623b56e393c771846565def855dfe
+          test "$(git rev-parse "$protected:.github/workflows/wep-savefree-first-scene.yml")" = d0f53d37099d288a1adf802513fd4b8a808277bf
+          test "$(git rev-parse 'HEAD:.github/workflows/wep-savefree-first-scene.yml')" = df4e1b6baf4ec2759d40cffbb7623fef99b561f9
+          test "$(git rev-parse "$protected:docs/wep/world-editor-localization-inventory-20261002.json")" = 3032474056eec1e2d9e113a024946095c9bbf1b0
+          test "$(git rev-parse 'HEAD:docs/wep/world-editor-localization-inventory-20261002.json')" = 8436a9fd7008d08ccb26420502fad6de31c43578
+          if git cat-file -e "$base:tests/wep-savefree-two-furniture-local.test.mjs" 2>/dev/null; then exit 1; fi
+          test "$(git rev-parse 'HEAD:tests/wep-savefree-two-furniture-local.test.mjs')" = 3eee4050c8c5b74ac5635d52f934e1688f57a837
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2329-two-furniture-source-recheck-l2.test.mjs')" = 8ed1d9f96dd4898447f84ee1d6c997a99a2a84de
+          for f in src/lib/wep/savefree-first-scene.ts src/lib/wep/SaveFreeFirstScene.svelte tests/wep-savefree-two-furniture-local.test.mjs scripts/wep-savefree-first-scene-chrome.mjs .github/workflows/wep-savefree-first-scene.yml docs/wep/world-editor-localization-inventory-20261002.json tests/qa-qrw-pr2329-two-furniture-source-recheck-l2.test.mjs .github/workflows/qa-qrw-pr2329-savefree-two-furniture-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/wep/savefree-first-scene.ts src/lib/wep/SaveFreeFirstScene.svelte tests/wep-savefree-two-furniture-local.test.mjs scripts/wep-savefree-first-scene-chrome.mjs .github/workflows/wep-savefree-first-scene.yml docs/wep/world-editor-localization-inventory-20261002.json | LC_ALL=C sort >/tmp/source
+          printf '%s\n' tests/qa-qrw-pr2329-two-furniture-source-recheck-l2.test.mjs .github/workflows/qa-qrw-pr2329-savefree-two-furniture-l2.yml | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2329_SOURCE6_QAONLY2_EXACT_GITBLOBS_AND_PROTECTED_CAS_PASS
+      - name: Run actual static verified Catalog/Geometry WEP plus independent adversarial two furniture local Scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/wep-savefree-first-scene.test.mjs tests/wep-savefree-two-furniture-local.test.mjs tests/qa-qrw-pr2329-two-furniture-source-recheck-l2.test.mjs
+          echo QRW2329_TWO_VERIFIED_LOCAL_FURNITURE_OCCUPANCY_SOURCE_RECHECK_NO_WRITER_L2_PASS
