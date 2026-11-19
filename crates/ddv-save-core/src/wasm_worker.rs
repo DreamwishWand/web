@@ -3,6 +3,17 @@
 use crate::{worker_session::WorkerSessionGuard,BuildIdentity,BuildKind,Platform,
             ProductSession,WorkerAction,WorkerEnvelope,PRODUCT_WORKER_CONTRACT};
 use wasm_bindgen::prelude::*;
+// Decoded P1G JSON can remain in Vec capacity after clear(). Volatile writes
+// keep the scrub observable to the optimizer; the fence orders the writes
+// before releasing the logical buffer length. No new allocation or Session.
+fn wipe_pending_decoded_buffer(bytes:&mut Vec<u8>){
+    for byte in bytes.iter_mut() {
+        // SAFETY: each byte is a uniquely borrowed initialized u8 in this Vec.
+        unsafe { core::ptr::write_volatile(byte as *mut u8,0); }
+    }
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    bytes.clear();
+}
 const MAX_CHUNK:usize=1024*1024;
 const MAX_WORKER_DOCUMENT:usize=128*1024*1024;
 fn err(s:&'static str)->JsValue {JsValue::from_str(s)}
@@ -72,7 +83,7 @@ impl WorkerWasmSource {
         if self.closed || self.session.is_some() {return Err(err("WORKER_ALREADY_FINALIZED"));}
         if chunk.is_empty() || chunk.len()>MAX_CHUNK ||
            self.buffer.len().checked_add(chunk.len()).ok_or(err("WORKER_DOCUMENT_BOUNDS"))?>MAX_WORKER_DOCUMENT {
-            self.closed=true;self.buffer.fill(0);self.buffer.clear();self.entropy.fill(0);
+            self.closed=true;wipe_pending_decoded_buffer(&mut self.buffer);self.entropy.fill(0);
             return Err(err("WORKER_DOCUMENT_BOUNDS"));
         }
         self.buffer.extend_from_slice(chunk);
@@ -601,7 +612,7 @@ impl WorkerWasmSource {
         self.next_scoped_edit_output_chunk_inner()
     }
     pub fn close(&mut self)->Result<(),JsValue>{
-        self.closed=true;self.buffer.fill(0);self.buffer.clear();self.entropy.fill(0);
+        self.closed=true;wipe_pending_decoded_buffer(&mut self.buffer);self.entropy.fill(0);
         #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",feature="product-steam626-eyecolor2-scoped",feature="product-switch626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
         {if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);} self.scoped_domain.set(None);}
         if let Some(mut session)=self.session.take(){
@@ -618,8 +629,7 @@ impl WorkerWasmSource {
 impl Drop for WorkerWasmSource {
     fn drop(&mut self) {
         self.closed=true;
-        self.buffer.fill(0);
-        self.buffer.clear();
+        wipe_pending_decoded_buffer(&mut self.buffer);
         self.entropy.fill(0);
         #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",feature="product-steam626-eyecolor2-scoped",feature="product-switch626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
         {if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);} self.scoped_domain.set(None);}
