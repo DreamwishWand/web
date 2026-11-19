@@ -1,0 +1,53 @@
+name: QA ONLY 04 QR-W PR2298 release V2/OS Worker proof L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2298-perbuild-v2-browser-proof-l2.yml'
+permissions:
+  contents: read
+jobs:
+  signed-release-perbuild-vs-runtime-worker-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2298-415-perbuild-signed-v2-runtime-scope-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned Svelte compiler
+        run: npm ci --no-audit --no-fund
+      - name: Pin exact original 08WEB Source4 and independent QA-only2 GitBlobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=ef30de7a3eb5cb3560f14b5d50443fe7689747ff
+          source=41509e655676fd26e6ef64b8adc69b36f623965e
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:src/lib/dev/local-amount-workflow.mjs")" = 8d05fb604ac38b1ab2224fcce2474199ba9f7fee
+          test "$(git rev-parse 'HEAD:src/lib/dev/local-amount-workflow.mjs')" = d448fb1d036b722872b741e15aebf060ffd94294
+          test "$(git rev-parse "$base:src/lib/dev/LocalAmountEditorDev.svelte")" = d58f2a29f248810068205638ccf1d1f68ecafdd9
+          test "$(git rev-parse 'HEAD:src/lib/dev/LocalAmountEditorDev.svelte')" = fbecfa8ad6f43db305ca5d552b8bd96261ecfbda
+          if git cat-file -e "$base:src/lib/dev/product-amount-release-v2-evidence.mjs" 2>/dev/null; then exit 1; fi
+          if git cat-file -e "$base:tests/web-product-amount-release-reopen-boundary.test.mjs" 2>/dev/null; then exit 1; fi
+          test "$(git rev-parse 'HEAD:src/lib/dev/product-amount-release-v2-evidence.mjs')" = e6b0776ed0598508ac95be55b19439746f55be86
+          test "$(git rev-parse 'HEAD:tests/web-product-amount-release-reopen-boundary.test.mjs')" = 7abfd97aa2d5c5641c6380ab5558628aa859e762
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2298-signed-v2-browser-vs-osproof-l2.test.mjs')" = 309021bd0c4dcfa39aa829cda23480ede3d17c99
+          for f in src/lib/dev/local-amount-workflow.mjs src/lib/dev/LocalAmountEditorDev.svelte src/lib/dev/product-amount-release-v2-evidence.mjs tests/web-product-amount-release-reopen-boundary.test.mjs tests/qa-qrw-pr2298-signed-v2-browser-vs-osproof-l2.test.mjs .github/workflows/qa-qrw-pr2298-perbuild-v2-browser-proof-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/dev/local-amount-workflow.mjs src/lib/dev/LocalAmountEditorDev.svelte src/lib/dev/product-amount-release-v2-evidence.mjs tests/web-product-amount-release-reopen-boundary.test.mjs | LC_ALL=C sort >/tmp/source
+          printf '%s\n' .github/workflows/qa-qrw-pr2298-perbuild-v2-browser-proof-l2.yml tests/qa-qrw-pr2298-signed-v2-browser-vs-osproof-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2298_SOURCE4_QAONLY2_EXACT_GITBLOBS_PASS
+      - name: Original source + independent signed release lexical scope and ABA negative
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/web-product-amount-release-reopen-boundary.test.mjs tests/qa-qrw-pr2298-signed-v2-browser-vs-osproof-l2.test.mjs
+          echo QRW2298_PRODUCT_SIGNED_PERBUILD_FALSE_BROWSER_OS_PROOF_L2_PASS
