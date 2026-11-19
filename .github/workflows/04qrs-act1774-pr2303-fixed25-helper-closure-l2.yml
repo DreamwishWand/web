@@ -101,7 +101,7 @@ jobs:
             assert.ok(test.includes("test \"$(git ls-tree HEAD -- src/lib/dev/product-amount-release-v2-evidence.mjs | awk '{print $1}')\" = 100644"),'test source mode guard');
             const oldPages=show(old,'.github/workflows/pages.yml');
             const oldProof=oldPages.slice(oldPages.indexOf('  scoped_steam_chest_proof:\n'),oldPages.indexOf('  scoped_sr03_proof:\n'));
-            const oldPins=[...oldProof.matchAll(/test "\\$\\(git rev-parse HEAD:([^)]*)\\)" = ([a-f0-9]{40})/g)].map(x=>[x[1],x[2]]);
+            const oldPins=[...oldProof.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)].map(x=>[x[1],x[2]]);
             assert.equal(oldPins.length,24);
             assert.deepEqual(pins.filter(p=>p[0]!==helper),oldPins,'24 original reviewed pins retained');
             assert.deepEqual(proof.split('\n').filter(x=>!x.includes('HEAD:'+helper)&&!x.includes('ls-tree HEAD -- '+helper)),oldProof.split('\n'),'no unrelated scoped signer contract change');
