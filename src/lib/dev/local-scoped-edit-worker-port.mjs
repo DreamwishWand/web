@@ -39,9 +39,9 @@ function install(port,adapter,mode){
    const token=++epoch;closing=v.id;
    try{
     const data=await adapter.close();
-    if(token!==epoch||closing!==v.id||(mode!=='amount'&&!closedAck(data)))fail();
+    if(token!==epoch||closing!==v.id||!closedAck(data))fail();
     closeFailed=false;port.postMessage({id:v.id,ok:true,data});
-   }catch{if(mode!=='amount')closeFailed=true;deny()}
+   }catch{closeFailed=true;deny()}
    finally{if(closing===v.id)closing=null}
    return;
   }

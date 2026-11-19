@@ -55,3 +55,51 @@ test('raw Worker rejects replay, extra fields, cross-domain and invalid selectio
  await send(2,'stageTyped',[[{}]]);await send(3,'stageCollectionTarget',[1,0],{mode:'collection'});await send(4,'stageCollectionTarget',[0,0]);await send(5,'stageCollectionTarget',[1,0]);
  assert.equal(staged,2);assert.deepEqual(replies.map(r=>r.ok),[true,false,false,false,false,true]);
 });
+
+test('Amount Worker CLOSE must be an exact safe receipt; unsafe ack poisons subsequent operations until retry',async()=>{
+ let closes=0,opens=0,stages=0;
+ const {port}=pair(installLocalDevAmountWorker,createLocalAmountDevPort,{
+  open:async()=>{opens++;return {kind:'OPEN'}},
+  stageTyped:async()=>{stages++;return {kind:'STAGED'}},
+  close:async()=>++closes===1?{...ack(),writerAuthorized:true}:ack()
+ });
+ try{
+  await port.open({});
+  await assert.rejects(port.close(),/DEV_WORKER_DENIED/);
+  await assert.rejects(port.open({}),/DEV_WORKER_DENIED/);
+  await assert.rejects(port.stageTyped([]),/DEV_WORKER_DENIED/);
+  assert.equal(opens,1);
+  assert.equal(stages,0);
+  assert.deepEqual(await port.close(),ack());
+  await port.open({});
+  assert.equal(opens,2);
+  assert.equal(closes,2);
+ }finally{port.dispose()}
+});
+
+test('Amount Worker rejected close revokes in-flight ciphertext and blocks reopen until proven safe retry',async()=>{
+ let entered,release,opens=0,closes=0;
+ const firstDownload=new Promise(r=>entered=r);
+ const held=new Promise(r=>release=r);
+ const workerPrivate=new Uint8Array([7,9,13,29]);
+ const {port}=pair(installLocalDevAmountWorker,createLocalAmountDevPort,{
+  downloadVerifiedCopy:async()=>{entered();await held;return {encryptedBytes:workerPrivate}},
+  open:async()=>{opens++;return {kind:'OPEN'}},
+  close:async()=>{closes++;if(closes===1)throw Error('RUST_CLOSE_UNVERIFIED');return ack()}
+ });
+ try{
+  await port.open({});
+  const pending=assert.rejects(port.downloadVerifiedCopy('backup'),/DEV_WORKER_DENIED/);
+  await firstDownload;
+  await assert.rejects(port.close(),/DEV_WORKER_DENIED/);
+  await assert.rejects(port.open({}),/DEV_WORKER_DENIED/);
+  assert.equal(opens,1);
+  release();
+  await pending;
+  assert.deepEqual(workerPrivate,new Uint8Array(4));
+  await assert.rejects(port.listVerifiedTargets(),/DEV_WORKER_DENIED/);
+  assert.deepEqual(await port.close(),ack());
+  await port.open({});
+  assert.equal(opens,2);
+ }finally{release?.();port.dispose()}
+});

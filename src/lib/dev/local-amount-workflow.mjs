@@ -53,13 +53,13 @@ const cleanState=()=>({
   phase:'closed',fileName:'',backupVerified:false,targets:[],
   choice:-1,newAmount:'',preview:null,editedCopy:null,error:''
 });
-export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false,switch626Chest=false,steam626Chest=false,switch626Catalog0=false,requireIndependentProcessReopen=false,publicSignedV2Evidence=null}={}){
+export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false,switch626Chest=false,steam626Chest=false,switch626Catalog0=false,requireIndependentProcessReopen=false,publicSignedV2Evidence=null,privateSignedV2Scope=null}={}){
   if(trustedLocalHarness!==true||typeof exactOneDecrease!=='boolean'||typeof switch626Chest!=='boolean'||typeof steam626Chest!=='boolean'||typeof switch626Catalog0!=='boolean'||typeof requireIndependentProcessReopen!=='boolean'||[switch626Chest,steam626Chest,switch626Catalog0].filter(Boolean).length>1||((switch626Chest||steam626Chest||switch626Catalog0)&&!exactOneDecrease)||!adapter||typeof adapter!=='object')
     fail('LOCAL_HARNESS_GATE_OFF');
   // Release QA may independently reopen the actual encrypted Save in another
   // OS process. A browser's fresh Codec Worker cannot attest that per action.
   // The caller is the existing WeakMap-branded signed ProductPort UI only.
-  const releaseProof=publicSignedV2Evidence;
+  const releaseProof=publicSignedV2Evidence,privateScope=privateSignedV2Scope;
   const expectedOp=steam626Chest?'steam626.chest.exact1':
     switch626Chest?'switch626.chest.exact1':
     switch626Catalog0?'switch626.catalog0.exact1':null;
@@ -71,7 +71,19 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
     releaseProof.platform!==(steam626Chest?'steam-windows':'switch')||
     !sha(releaseProof.releaseId)||!sha(releaseProof.productV2EvidenceSha256)))
     fail('RELEASE_V2_EVIDENCE_DENIED');
-  const expectedRuntimeProcessReopen=releaseProof===null?requireIndependentProcessReopen:false;
+  if(privateScope!==null&&(!requireIndependentProcessReopen||!exactOneDecrease||
+    releaseProof!==null||!expectedOp||
+    !only(privateScope,'contract,releaseId,operation,platform,buildId,productV2EvidenceSha256')||
+    privateScope.contract!=='wand.product.amount.private-v2-scope@1'||
+    privateScope.operation!==expectedOp||privateScope.buildId!==expectedBuild||
+    privateScope.platform!==(steam626Chest?'steam-windows':'switch')||
+    !sha(privateScope.releaseId)||privateScope.productV2EvidenceSha256!==null))
+    fail('PRIVATE_V2_SCOPE_DENIED');
+  // A private signed loopback session is for producing/reviewing external
+  // OS-process V2 evidence. Browser runtime can truthfully attest ONLY its
+  // fresh Codec Worker, not a separate OS process for each local user edit.
+  const expectedRuntimeProcessReopen=(releaseProof===null&&privateScope===null)?
+    requireIndependentProcessReopen:false;
   for(const method of ['open','backupOriginal','listVerifiedTargets','stageTyped',
     'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])
     if(typeof adapter[method]!=='function')fail('TRUSTED_WORKER_API_MISSING');
