@@ -11,7 +11,7 @@
   import {productSteamChestPortScope} from './product-steam-chest-client.mjs';
   import {productSwitchCatalog0PortScope} from './product-switch-catalog0-client.mjs';
   import {createLocalAmountDevWorkflow,STEAM626_FULL_VERSION,SWITCH626_CHEST_BID} from './local-amount-workflow.mjs';
-  import {acceptedProductAmountReleaseV2Evidence} from './product-amount-release-v2-evidence.mjs';
+  import {acceptedProductAmountReleaseV2Evidence,acceptedProductAmountPrivateV2Scope} from './product-amount-release-v2-evidence.mjs';
 
   export let trustedWorkerAdapter=null;
   export let verifiedLocalDevGate=false;
@@ -41,9 +41,13 @@
     if(!productScope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
     // Scope is taken only from the protected loader's WeakMap-branded Port,
     // never a caller's release claim. Browser Worker != independent OS process.
-    const signedEvidence=productScope?acceptedProductAmountReleaseV2Evidence(productScope,
-      steamScope?'steam-chest':catalogScope?'switch-catalog0':'switch-chest'):null;
+    const profile=steamScope?'steam-chest':catalogScope?'switch-catalog0':'switch-chest';
+    const signedEvidence=productScope?acceptedProductAmountReleaseV2Evidence(productScope,profile):null;
+    const privateV2Scope=productScope?acceptedProductAmountPrivateV2Scope(productScope,profile):null;
+    // Private V2 is accepted ONLY by the signed loopback ProductPort issuer,
+    // before independent OS-process release evidence is available.
     if(productScope?.mode==='public-accepted'&&!signedEvidence)return;
+    if(productScope?.mode==='private-product-v2'&&!privateV2Scope)return;
     try{
       productMode=productScope?.mode||'';
       steamChest=!!steamScope;switchCatalog0=!!catalogScope;
@@ -54,7 +58,7 @@
          // Public release evidence is independently OS-reopened at QA; the
          // browser receipt remains a truthful fresh-Worker-only result.
          requireIndependentProcessReopen:!!productScope,
-         publicSignedV2Evidence:signedEvidence});
+         publicSignedV2Evidence:signedEvidence,privateSignedV2Scope:privateV2Scope});
       available=true;state=workflow.snapshot();
     }catch{available=false}
     return ()=>{++uiEpoch;const active=workflow;workflow=null;available=false;

@@ -25,3 +25,20 @@ export function acceptedProductAmountReleaseV2Evidence(scope,profile){
     platform:build.platform,buildId:build.buildId,
     productV2EvidenceSha256:build.productV2EvidenceSha256});
 }
+
+// Loopback/private Product V2 uses the SAME signed ProductPort/Build but has
+// deliberately NO accepted OS-process evidence yet: it is the scope for
+// obtaining that evidence on the official product route. It cannot be public.
+export function acceptedProductAmountPrivateV2Scope(scope,profile){
+  const expected=Object.hasOwn(profiles,profile)?profiles[profile]:null;
+  if(!expected||!exact(scope,'releaseId,operation,mode,builds')||!Object.isFrozen(scope)||
+    scope.mode!=='private-product-v2'||scope.operation!==expected.operation||!sha(scope.releaseId)||
+    !Array.isArray(scope.builds)||!Object.isFrozen(scope.builds)||scope.builds.length!==1)return null;
+  const build=scope.builds[0];
+  if(!exact(build,'platform,buildId,productV2EvidenceSha256')||!Object.isFrozen(build)||
+    build.platform!==expected.platform||build.buildId!==expected.buildId||
+    build.productV2EvidenceSha256!==null)return null;
+  return Object.freeze({contract:'wand.product.amount.private-v2-scope@1',
+    releaseId:scope.releaseId,operation:scope.operation,
+    platform:build.platform,buildId:build.buildId,productV2EvidenceSha256:null});
+}
