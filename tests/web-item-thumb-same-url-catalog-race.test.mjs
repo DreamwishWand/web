@@ -29,13 +29,16 @@ test('actual Svelte captures catalog for each img request and remounts on same-U
  const src=readFileSync(new URL('../src/lib/ui/ItemThumb.svelte',import.meta.url),'utf8');
  const compiled=compile(src,{filename:'ItemThumb.svelte',generate:'client'});
  assert.ok(compiled.js.code.length>0);
- assert.match(src,/const requestCatalog = \\$switch1253PublicItemImageSource\\.catalog;/);
- assert.match(src,/rejectFailed\\(requestCatalog,failedSrc,renderHref\\)/);
- assert.match(src,/node\\.addEventListener\\('error',onError\\)/);
- assert.match(src,/node\\.removeEventListener\\('error',onError\\)/);
- assert.match(src,/\\{#key \\$switch1253PublicItemImageSource\\.catalog\\}[\\s\\S]*\\{#key renderHref\\}[\\s\\S]*use:bindVerifiedImageFailure/);
- assert.doesNotMatch(src,/on:error=\\{failedImage\\}/);
+ assert.ok(src.includes('const requestCatalog = $switch1253PublicItemImageSource.catalog;'));
+ assert.ok(src.includes('rejectFailed(requestCatalog,failedSrc,renderHref)'));
+ assert.ok(src.includes("node.addEventListener('error',onError)"));
+ assert.ok(src.includes("node.removeEventListener('error',onError)"));
+ const catalogKey=src.indexOf('{#key $switch1253PublicItemImageSource.catalog}');
+ const hrefKey=src.indexOf('{#key renderHref}',catalogKey);
+ const action=src.indexOf('use:bindVerifiedImageFailure',hrefKey);
+ assert.ok(catalogKey>=0&&hrefKey>catalogKey&&action>hrefKey);
+ assert.ok(!src.includes('on:error={failedImage}'));
  // Exact signed URL authority remains upstream of rendering; no policy ON.
- assert.match(src,/scopedSwitch1253ItemImageHref\\(base,itemId,\\$switch1253PublicItemImageSource\\.catalog\\)/);
- assert.match(src,/\\$switch1253PublicItemImageSource\\.status === 'VERIFIED'/);
+ assert.ok(src.includes('scopedSwitch1253ItemImageHref(base,itemId,$switch1253PublicItemImageSource.catalog)'));
+ assert.ok(src.includes("$switch1253PublicItemImageSource.status === 'VERIFIED'"));
 });
