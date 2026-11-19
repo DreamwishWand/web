@@ -1,0 +1,48 @@
+name: QA ONLY 04 QR-W PR2320 Switch626 Native token+own Inventory ID L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2320-native-item-route-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-switch626-native-inventory-raw-route-l2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2320-7d00-switch626-native-route-id-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin original 01D Source2 and QA-only2 exact GitBlobs and modes
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=5ac76e59f67b3f14e1dbfe0ef0fe0745ac428468
+          source=7d00a782f5794db801680e4dd2b9501d18e0bd19
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:src/lib/ddv/core/items/item-semantics-contract.mjs")" = b943444119b8df92c5ed61159b368e36f333f38b
+          test "$(git rev-parse 'HEAD:src/lib/ddv/core/items/item-semantics-contract.mjs')" = 2b4f220ba4d37864b86b0ca89905d9fe061e9f5e
+          test "$(git rev-parse "$base:tests/ddv-core-item-semantics-overlay-contract.test.mjs")" = 7828eee781a2163a139824b783e6823ea45a7808
+          test "$(git rev-parse 'HEAD:tests/ddv-core-item-semantics-overlay-contract.test.mjs')" = 365d38f4cfdc9caaafe3096ef21c55ae7184cb06
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2320-switch626-native-inventory-route-l2.test.mjs')" = 19f56388d980d4135f8557d3fe3ea2d12aaad0dd
+          test "$(git rev-parse 'HEAD:src/lib/ddv/core/items/steam626-native-fields.mjs')" = 9b6306faa7420ab83001c65d02b6e1c5390b1e0f
+          for f in src/lib/ddv/core/items/item-semantics-contract.mjs tests/ddv-core-item-semantics-overlay-contract.test.mjs tests/qa-qrw-pr2320-switch626-native-inventory-route-l2.test.mjs .github/workflows/qa-qrw-pr2320-native-item-route-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/ddv/core/items/item-semantics-contract.mjs tests/ddv-core-item-semantics-overlay-contract.test.mjs | LC_ALL=C sort >/tmp/source
+          printf '%s\n' .github/workflows/qa-qrw-pr2320-native-item-route-l2.yml tests/qa-qrw-pr2320-switch626-native-inventory-route-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2320_SOURCE2_QAONLY2_GITBLOB_MODE_PASS
+      - name: Execute actual accepted structural inspector with independent hostile Native route corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/ddv-core-item-semantics-overlay-contract.test.mjs tests/qa-qrw-pr2320-switch626-native-inventory-route-l2.test.mjs
+          echo QRW2320_SWITCH626_NATIVE_ITEM_TOKEN_ID_ROUTE_L2_PASS
