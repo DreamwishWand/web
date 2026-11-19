@@ -1,0 +1,137 @@
+name: 04 QR-S ACT1774 PR2303 fixed25 V2 helper SHA-mode closure L2 QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2303-fixed25-helper-closure-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2303-fixed25-helper-closure-l2.yml'
+permissions:
+  contents: read
+jobs:
+  fixed25-helper-sha-mode-closure-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze fixed PR2303 Source e499 and only one QA workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse e4996be3774621a240170f5b4032ddcc381ceb47^1)" = af58f263ba54e6014a6a3606a44d738a6d8812a3
+          test "$(git rev-parse af58f263ba54e6014a6a3606a44d738a6d8812a3^1)" = 9ca61bd33fd1c1daacc88b6e8a1b145b817eb8f4
+          git merge-base --is-ancestor e4996be3774621a240170f5b4032ddcc381ceb47 HEAD
+          test "$(git diff --name-only e4996be3774621a240170f5b4032ddcc381ceb47 HEAD)" = ".github/workflows/04qrs-act1774-pr2303-fixed25-helper-closure-l2.yml"
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 6f0b774a0190d6ff950a925fe81aadd0767353e0
+          test "$(git rev-parse HEAD:tests/scoped-steam-chest-proof-workflow.test.mjs)" = ce96495fdedea647444c7bd942659df1b0eea8f5
+      - name: Real Git object adversarial helper mutations now rejected by 25 SHA-mode signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS2303_NODE'
+          import assert from 'node:assert/strict';
+          import {spawnSync} from 'node:child_process';
+          import {mkdtempSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const main='9ca61bd33fd1c1daacc88b6e8a1b145b817eb8f4';
+          const source='e4996be3774621a240170f5b4032ddcc381ceb47';
+          const old='af58f263ba54e6014a6a3606a44d738a6d8812a3';
+          const helper='src/lib/dev/product-amount-release-v2-evidence.mjs';
+          const ui='src/lib/dev/LocalAmountEditorDev.svelte';
+          const helperSha='e6b0776ed0598508ac95be55b19439746f55be86';
+          const uiSha='fbecfa8ad6f43db305ca5d552b8bd96261ecfbda';
+          const tmp=mkdtempSync(join(tmpdir(),'qrs2303-helper-')),repo=join(tmp,'repo');
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_CONFIG_GLOBAL:'/dev/null',
+            GIT_CONFIG_NOSYSTEM:'1',GIT_TERMINAL_PROMPT:'0',
+            GIT_AUTHOR_NAME:'04 QR-S synthetic',GIT_AUTHOR_EMAIL:'qrs@example.invalid',
+            GIT_COMMITTER_NAME:'04 QR-S synthetic',GIT_COMMITTER_EMAIL:'qrs@example.invalid'};
+          const call=(args,extra={})=>spawnSync('git',args,{cwd:repo,env:{...env,...extra.env},
+            input:extra.input,encoding:'utf8',maxBuffer:12*1024*1024,timeout:90000});
+          const git=(...args)=>{const r=call(args);assert.equal(r.status,0,
+            args.join(' ')+' '+String(r.stderr).slice(-500));return r.stdout.trim()};
+          const show=(sha,path)=>git('show',sha+':'+path);
+          const entry=(tree,path)=>git('ls-tree',tree,'--',path);
+          const persist=s=>{const r=call(['hash-object','-w','--stdin'],{input:s});
+            assert.equal(r.status,0,r.stderr);return r.stdout.trim()};
+          let idx=0;
+          const alteredTree=(mode,sha)=>{const index=join(tmp,'index'+(++idx));
+            const x=(args)=>{const r=call(args,{env:{GIT_INDEX_FILE:index}});
+              assert.equal(r.status,0,r.stderr);return r.stdout.trim()};
+            x(['read-tree',main+'^{tree}']);
+            if(sha===null)x(['update-index','--force-remove','--',helper]);
+            else x(['update-index','--add','--cacheinfo',mode,sha,helper]);
+            return x(['write-tree'])};
+          const check24=(tree,pins)=>{for(const [path,sha] of pins){
+            const expected=(path==='crates/ddv-save-core'?'040000 tree ':'100644 blob ')+sha+'\t'+path;
+            assert.equal(entry(tree,path),expected,'PIN_'+path)}};
+          try{
+            const clone=spawnSync('git',['clone','--no-hardlinks','--no-checkout','-q',
+              process.cwd(),repo],{cwd:process.cwd(),env,encoding:'utf8',timeout:90000});
+            assert.equal(clone.status,0,clone.stderr);
+            assert.equal(git('rev-parse',source+'^1'),old);
+            assert.equal(git('rev-parse',old+'^1'),main);
+            assert.deepEqual(git('diff','--name-only',main,source).split('\n'),[
+              '.github/workflows/pages.yml','tests/scoped-steam-chest-proof-workflow.test.mjs']);
+            assert.equal(entry(main,helper),'100644 blob '+helperSha+'\t'+helper);
+            assert.equal(entry(main,ui),'100644 blob '+uiSha+'\t'+ui);
+            const productUi=show(main,ui),originalHelper=show(main,helper);
+            assert.ok(productUi.includes("import {acceptedProductAmountReleaseV2Evidence} from './product-amount-release-v2-evidence.mjs'"));
+            assert.ok(productUi.includes('acceptedProductAmountReleaseV2Evidence(productScope,'));
+            assert.ok(originalHelper.includes('!sha(build.productV2EvidenceSha256)'));
+            const pages=show(source,'.github/workflows/pages.yml');
+            const test=show(source,'tests/scoped-steam-chest-proof-workflow.test.mjs');
+            const a=pages.indexOf('  scoped_steam_chest_proof:\n');
+            const b=pages.indexOf('  scoped_sr03_proof:\n');
+            assert.ok(a>0&&b>a,'exclusive proof job bounds');
+            const proof=pages.slice(a,b);
+            const pins=[...proof.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)]
+              .map(x=>[x[1],x[2]]);
+            assert.equal(pins.length,25);
+            assert.equal(new Set(pins.map(p=>p[0])).size,25);
+            assert.ok(pins.some(p=>p[0]===ui&&p[1]===uiSha));
+            assert.ok(pins.some(p=>p[0]===helper&&p[1]===helperSha),'25th helper SHA fixed');
+            assert.ok(test.includes(helper),'proof test also pins helper');
+            assert.ok(proof.includes("test \"$(git ls-tree HEAD -- src/lib/dev/product-amount-release-v2-evidence.mjs | awk '{print $1}')\" = 100644"),'mode guard required');
+            assert.ok(test.includes("test \"$(git ls-tree HEAD -- src/lib/dev/product-amount-release-v2-evidence.mjs | awk '{print $1}')\" = 100644"),'test source mode guard');
+            const oldPages=show(old,'.github/workflows/pages.yml');
+            const oldProof=oldPages.slice(oldPages.indexOf('  scoped_steam_chest_proof:\n'),oldPages.indexOf('  scoped_sr03_proof:\n'));
+            const oldPins=[...oldProof.matchAll(/test "\\$\\(git rev-parse HEAD:([^)]*)\\)" = ([a-f0-9]{40})/g)].map(x=>[x[1],x[2]]);
+            assert.equal(oldPins.length,24);
+            assert.deepEqual(pins.filter(p=>p[0]!==helper),oldPins,'24 original reviewed pins retained');
+            assert.deepEqual(proof.split('\n').filter(x=>!x.includes('HEAD:'+helper)&&!x.includes('ls-tree HEAD -- '+helper)),oldProof.split('\n'),'no unrelated scoped signer contract change');
+            check24(main,pins);
+            assert.ok(proof.includes('test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"'));
+            assert.ok(proof.includes('test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"'));
+            assert.ok(proof.includes('actions/attest-build-provenance@v2'));
+            assert.ok(!/actions\/(?:deploy-pages|upload-pages-artifact)@/.test(proof));
+            const mutated=originalHelper.replace('!sha(build.productV2EvidenceSha256)','false');
+            assert.notEqual(mutated,originalHelper);
+            const mutations=[
+              ['UNVERIFIED_EVIDENCE_SHA_ACCEPTED','100644',persist(mutated)],
+              ['UNREVIEWED_EXECUTABLE_MODE','100755',helperSha],
+              ['UNREVIEWED_SYMLINK','120000',persist('./other-helper.mjs')],
+              ['UNREVIEWED_MISSING_HELPER',null,null]
+            ];
+            for(const [name,mode,sha] of mutations){
+              const tree=alteredTree(mode,sha);
+              assert.notEqual(entry(tree,helper),entry(main,helper));
+              assert.throws(()=>check24(tree,pins),/PIN_/,'fixed25 must reject '+name);
+              assert.equal(entry(tree,ui),entry(main,ui));
+              console.log('QRS_ACT1774_PR2303_FIXED25_REJECT_'+name);
+            }
+            console.log('QRS_ACT1774_PR2303_FIXED25_IMPORT_CLOSURE_SCOPED_PASS',JSON.stringify({
+              source,protectedMain:main,pinnedSourceObjects:25,helperSha,helperMode:'100644',
+              rejectionCases:mutations.length,fullSignerOrProductRelease:'NOT_RUN',
+              codeChanges:'NONE_QA_ONLY',releaseAuthorized:false,writerAuthorized:false}));
+          }finally{rmSync(tmp,{recursive:true,force:true})}
+          QRS2303_NODE
+      - name: Preserve historical TRUE RED and QA-only result without release
+        run: |
+          echo 'QRS_ACT1774_PR2303_FIXED25_CHANGED_ONLY_SECURITY_FOCUS_PASS__OLD_AF58_TRUE_RED_PRESERVED'
+          echo 'QA ONLY NEVER MERGE. No proof dispatch, Pages deploy, Owner Save or Writer/Op ON.'
