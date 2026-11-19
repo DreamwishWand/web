@@ -65,8 +65,10 @@ async function run(){
     exported.originalUnchanged===true,'BROWSER_WORKER_REOPEN_BUT_NOT_OS_PROCESS');
   need(exported.editedCopyName!==backup.backupName&&
     exported.editedCopyName!==original.name,'ALIAS_DISTINCT');
-  const [edited,old]=await Promise.all([
-    approved.downloadVerifiedCopy('edited'),approved.downloadVerifiedCopy('backup')]);
+  // The accepted Adapter/Worker API is deliberately single-flight:
+  // downloading two encrypted copies simultaneously must not bypass its epoch.
+  const edited=await approved.downloadVerifiedCopy('edited');
+  const old=await approved.downloadVerifiedCopy('backup');
   try{
    need(edited.name===exported.editedCopyName&&
      await hash(edited.encryptedBytes)===exported.editedSha256,'EDITED_SHA');
