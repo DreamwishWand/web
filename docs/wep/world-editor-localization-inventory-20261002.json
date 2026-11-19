@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-11-10",
+  "generatedAt": "2026-11-19",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -31,8 +31,8 @@
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
     "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832",
     "src/lib/wep/local-scene-route-handoff.mjs": "9114d537d5afee718db5240d538b4203546a591f",
-    "src/lib/wep/SaveFreeFirstScene.svelte": "ba09f189e76dafde45e7f9502003ba8704212d77",
-    "src/lib/wep/savefree-first-scene.ts": "d81f39dd9cfc50bf4360b058f8f605d9056c3845"
+    "src/lib/wep/SaveFreeFirstScene.svelte": "565f44c905759e84107721687abe7e611b0d2818",
+    "src/lib/wep/savefree-first-scene.ts": "5b333f2e08fccc56ae755691724d1384ffed3919"
   },
   "ownership": {
     "wepOwned": [
@@ -99,7 +99,7 @@
       "Explicit local Scene Preset capture, IndexedDB CAS/Backup, independent reopen, read-only use, eight-locale UI and failure feedback.",
       "F-P04 detached read-only local Scene reuse Draft: explicit opt-in, fresh revision match, local coordinates, eight-locale status and refusal; never Native Apply or Editor mutation.",
       "My Presets selected local Scene same-tab navigation: passive one-shot hint, explicit reread button, eight-locale confirmation/ready/denial. No auto Apply or native identity.",
-      "Save-independent first NONEMPTY local Scene: explicit SHA-verified Switch v1.25.0 Catalog Item choose, SHA-pinned Geometry/Scope Footprint, one-object canonical WEP Capture, same existing IDB CAS+Backup/independent Reopen, eight-locale UI and fail-closed consent; no initial empty Preset or inferred personal inventory.",
+      "Save-independent local NONEMPTY Scene: explicit SHA-verified Switch v1.25.0 Catalog furniture Item choices, SHA-pinned Geometry/Scope Footprints, one or two source-verified furniture objects with bounded 0..63 local X/Y, non-overlap and read-only SVG layout. Existing one-object capture remains. Both use canonical WEP Capture, same IndexedDB CAS+Backup/independent Reopen, eight-locale UI; inventory or personal rights never inferred; Native Writer/Apply/Cloud remain OFF.",
       "Shared SiteHeader '?' accessible help label and unavailable role=status live message use 08 WEB presets-my-tour-copy.mjs in eight launch locales; the four-step Presets Tour is not a World Editor Tour."
     ],
     "neverTranslate": [
@@ -1460,7 +1460,12 @@
           "Save nonempty Scene on this device",
           "Saved and independently reopened. Local readonly Scene; DDV writer and Apply remain OFF.",
           "Scene could not be verified or saved. Existing library was not overwritten.",
-          "Writer / Apply / Cloud OFF"
+          "Writer / Apply / Cloud OFF",
+          "Add as second furniture",
+          "Second furniture X",
+          "Second furniture Y",
+          "Remove second furniture",
+          "Readonly local Scene layout"
         ]
       }
     ],
