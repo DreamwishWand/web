@@ -34,9 +34,9 @@ jobs:
           test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 5fbb1f3d393df127da67f1eafe9796fbb7ce3a56
           files="$(git diff --name-only 0778ed44da9b619989a34dde419c686c1934af64 HEAD)"
-          test "$(printf '%s\\n' "$files" | wc -l)" -eq 3
+          test "$(printf '%s\n' "$files" | wc -l)" -eq 3
           for path in .github/workflows/01a-qa-only-steam626-chest-dedicated-generated-wasm.yml scripts/01a-dedicated-steam626-chest-chrome-opfs-qa.mjs tests/01a-dedicated-steam626-chest-real-opfs.worker.mjs; do
-            printf '%s\\n' "$files" | grep -Fxq "$path"
+            printf '%s\n' "$files" | grep -Fxq "$path"
           done
           test ! -e crates/ddv-save-core/Cargo.lock
           cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
