@@ -1,0 +1,50 @@
+name: QA ONLY 04 QR-W PR2326 WEP local recovery compensating rollback L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2326-local-recovery-compensate-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-wep-world-recovery-index-snapshot-failure-compensation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2326-67a9-wep-recovery-index-compensation-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Pin original WEP Source2 protected preimage, fixed postimage, QA-only2 mode/path
+        shell: bash
+        run: |
+          set -euo pipefail
+          main=a7a293100b3f36634f4c41e67c1435316249ec88
+          source=67a957b288cd0dfb58ae1fda40006341ef208596
+          base="$(git merge-base "$main" "$source")"
+          test "$(git rev-parse "$main:src/lib/wep/world-editor-recovery.ts")" = 30c6efb5e9c5cc19b6d69828b3b77570c33a093f
+          test "$(git rev-parse "$base:src/lib/wep/world-editor-recovery.ts")" = 30c6efb5e9c5cc19b6d69828b3b77570c33a093f
+          test "$(git rev-parse 'HEAD:src/lib/wep/world-editor-recovery.ts')" = 22d420f8d243a9b088c27f989f11b0aa76e734fe
+          if git cat-file -e "$main:tests/wep-recovery-index-failure-compensation.test.mjs" 2>/dev/null; then exit 1; fi
+          if git cat-file -e "$base:tests/wep-recovery-index-failure-compensation.test.mjs" 2>/dev/null; then exit 1; fi
+          test "$(git rev-parse 'HEAD:tests/wep-recovery-index-failure-compensation.test.mjs')" = 8d84fc6881a9226081fda7b81ab537878557fc84
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2326-local-recovery-compensation-epoch-l2.test.mjs')" = d2520c51501d8c4861337986e8a794a8ccf36801
+          for f in src/lib/wep/world-editor-recovery.ts tests/wep-recovery-index-failure-compensation.test.mjs tests/qa-qrw-pr2326-local-recovery-compensation-epoch-l2.test.mjs .github/workflows/qa-qrw-pr2326-local-recovery-compensate-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/wep/world-editor-recovery.ts tests/wep-recovery-index-failure-compensation.test.mjs | LC_ALL=C sort >/tmp/source
+          printf '%s\n' .github/workflows/qa-qrw-pr2326-local-recovery-compensate-l2.yml tests/qa-qrw-pr2326-local-recovery-compensation-epoch-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2326_SOURCE2_QAONLY2_ORIGINAL_RAW_RECORD_INDEX_CAS_PASS
+      - name: Actual WEP recovery thrown index/record writes, hostile rollback readback and unchanged rights
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/wep-recovery-index-failure-compensation.test.mjs tests/qa-qrw-pr2326-local-recovery-compensation-epoch-l2.test.mjs
+          echo QRW2326_WEP_ROLLBACK_EXACT_RAW_BYTES_FAILCLOSED_L2_PASS
