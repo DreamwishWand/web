@@ -33,9 +33,10 @@ function adapter(independentProcessReopenVerified,other={}){
  };
 }
 async function staged(flag,opts={}){
- const w=createLocalAmountDevWorkflow(adapter(flag,opts),{
+ const {requireIndependentProcessReopen=false,...receiptOverrides}=opts;
+ const w=createLocalAmountDevWorkflow(adapter(flag,receiptOverrides),{
   trustedLocalHarness:true,exactOneDecrease:true,steam626Chest:true,
-  requireIndependentProcessReopen:opts.requireIndependentProcessReopen??false
+  requireIndependentProcessReopen
  });
  await w.open(build);
  await w.backupAndRead();
