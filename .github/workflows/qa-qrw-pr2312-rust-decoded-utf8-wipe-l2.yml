@@ -37,7 +37,7 @@ jobs:
           done
           printf '%s\n' src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs tests/p1g-rust-worker-readonly-bridge.test.mjs | LC_ALL=C sort >/tmp/source
           printf '%s\n' .github/workflows/qa-qrw-pr2312-rust-decoded-utf8-wipe-l2.yml tests/qa-qrw-pr2312-utf8-borrow-wipe-epoch-after-rust-l2.test.mjs | LC_ALL=C sort >/tmp/qa
-          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source -
+          git diff --name-only "$(git merge-base "$base" "$source")" "$source" | LC_ALL=C sort | diff -u /tmp/source -
           git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
           git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
           echo QRW2312_FIXED_SOURCE2_QAONLY2_EXACT_GITBLOBS_PASS
