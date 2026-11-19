@@ -1,0 +1,142 @@
+name: "07 DBK Steam3 real hosted prior-ON cache observation (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/07dbk-steam3-live-on-validators-observer-qa.yml"
+permissions:
+  contents: read
+jobs:
+  observe-current-public-3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only original signed-batch live verifier and real CDN validator observation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {writeFileSync} from 'node:fs';
+          import {readBatch,verifyLive,pathFor} from './scripts/int-steam-public-media-signed-batch.mjs';
+
+          const batch=readBatch();
+          const BASE='https://dreamwishwand.github.io/web/';
+          assert.equal(batch.consumer,'OFF');
+          assert.equal(batch.rightsHolderLicense,'UNKNOWN');
+          assert.deepEqual(batch.withdrawn,[]);
+          assert.equal(batch.items.length,3);
+          assert.deepEqual(batch.items.map(i=>i.itemId),['40300045','40006110','40005160']);
+          const expected=new Map(batch.items.map(item=>
+            [new URL(pathFor(item.sha256),BASE).href,item]));
+          const evidence=new Map();
+
+          // Wrap, do not replace, original product verifier. It performs exact
+          // byte SHA/MIME/GET/HEAD checks; recording response headers cannot
+          // turn a failing original verification into success.
+          const observedFetch=async(url,args)=>{
+            assert.ok(expected.has(url),'UNEXPECTED_HOSTED_SUBJECT');
+            assert.ok(['GET','HEAD'].includes(args.method));
+            const res=await fetch(url,args);
+            assert.equal(res.status,200,'LIVE_ON_STATUS_NOT_200');
+            let item=evidence.get(url);
+            if(!item){item={};evidence.set(url,item);}
+            assert.ok(!Object.hasOwn(item,args.method),'DUPLICATE_REAL_HTTP_OBSERVATION');
+            item[args.method]={
+              status:res.status,
+              etag:res.headers.get('etag'),
+              lastModified:res.headers.get('last-modified'),
+              contentType:res.headers.get('content-type'),
+              contentLength:res.headers.get('content-length')
+            };
+            return res;
+          };
+          const verified=await verifyLive(batch,BASE,observedFetch);
+          assert.deepEqual(verified,{publicItems:3,withdrawn:0});
+          const realETag=/^(?:W\/)?"[\x21\x23-\x7e]{1,128}"$/;
+          const realDate=/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d{2}:\d{2}:\d{2} GMT$/;
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          const conditional=async(url,header,value,original)=>{
+            const response=await fetch(url,{method:'GET',redirect:'manual',
+              headers:{'Cache-Control':'no-cache, max-age=0',Pragma:'no-cache',[header]:value},
+              signal:AbortSignal.timeout(20000)});
+            if(response.status===304)return '304_WHILE_ON';
+            assert.equal(response.status,200,'CONDITIONAL_REAL_ON_UNEXPECTED_STATUS');
+            assert.match(response.headers.get('content-type')||'',/^image\/webp(?:\s*;|$)/i);
+            const bytes=Buffer.from(await response.arrayBuffer());
+            assert.equal(bytes.length,original.bytes);
+            assert.equal(sha(bytes),original.sha256,'CONDITIONAL_REAL_ON_SHA_MISMATCH');
+            return '200_SHA_PINNED_WHILE_ON';
+          };
+          const items=[];
+          for(const [url,item] of expected){
+            const recorded=evidence.get(url);
+            assert.ok(recorded?.GET&&recorded?.HEAD,'GET_AND_HEAD_REQUIRED');
+            const g=recorded.GET,h=recorded.HEAD;
+            assert.match(g.etag||'',realETag,'REAL_ETAG_REQUIRED');
+            assert.match(g.lastModified||'',realDate,'REAL_LAST_MODIFIED_REQUIRED');
+            assert.ok(Number.isFinite(Date.parse(g.lastModified))&&
+              new Date(Date.parse(g.lastModified)).toUTCString()===g.lastModified,
+              'REAL_IMF_WEEKDAY_CALENDAR_DATE_REQUIRED');
+            assert.equal(h.etag,g.etag,'GET_HEAD_ETAG_MISMATCH');
+            assert.equal(h.lastModified,g.lastModified,'GET_HEAD_DATE_MISMATCH');
+            for(const headers of [g,h]){
+              assert.match(headers.contentType||'',/^image\/webp(?:\s*;|$)/i);
+              if(headers.contentLength!==null)
+                assert.equal(Number(headers.contentLength),item.bytes);
+            }
+            const conditionalEtag=await conditional(url,'If-None-Match',g.etag,item);
+            const conditionalDate=await conditional(url,'If-Modified-Since',g.lastModified,item);
+            items.push({
+              itemId:item.itemId,sha256:item.sha256,bytes:item.bytes,url,
+              etag:g.etag,lastModified:g.lastModified,
+              GET:200,HEAD:200,conditionalEtag,conditionalDate
+            });
+          }
+          // Do not construct the separately protected prior-ON release
+          // registry: only 09 INT can attest immutable Pages run+issuer and
+          // independent observer run after fixed protected-main CAS.
+          const observation={
+            schema:'wand.dbk.unsigned-live-on-observation@1',
+            kind:'UNTRUSTED_OBSERVER_NOT_SIGNED_ORIGIN',
+            sourceProtectedBase:process.env.WAND_OBSERVER_PROTECTED_BASE,
+            observerWorkflowRunId:process.env.GITHUB_RUN_ID,
+            observedAt:new Date().toISOString(),
+            signedPagesRunId:'NOT_VERIFIED',
+            releaseState:'NOT_ATTESTED',
+            signedBundleSha256:'NOT_VERIFIED',
+            recordedBy:'NOT_09_INT_PROTECTED_MAIN',
+            consumer:'OFF',
+            withdrawal:'NOT_PERFORMED',
+            cdnPurge:'NOT_PERFORMED',
+            items
+          };
+          assert.equal(observation.items.length,3);
+          const raw=JSON.stringify(observation);
+          const receiptSha=sha(Buffer.from(raw));
+          // Runtime directory is ephemeral; artifact is evidence only, not
+          // a trusted 09 INT registry or a site asset.
+          writeFileSync('wand-07dbk-real-on-observation-UNSIGNED.json',raw+'\n',{flag:'wx',mode:0o600});
+          console.log('07DBK_REAL_STEAM3_UNSIGNED_ON_OBSERVATION_PASS '+JSON.stringify({
+            protectedBase:observation.sourceProtectedBase,
+            observerWorkflowRunId:observation.observerWorkflowRunId,
+            count:items.length,items,receiptSha256:receiptSha,
+            cannotEstablishSignedPriorON:true,withdrawalNotPerformed:true
+          }));
+          NODE
+        env:
+          WAND_OBSERVER_PROTECTED_BASE: ${{ github.event.pull_request.base.sha }}
+      - name: Preserve unsigned real hosted observation as nonrelease evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: 07dbk-steam3-live-on-observation-UNSIGNED
+          path: wand-07dbk-real-on-observation-UNSIGNED.json
+          if-no-files-found: error
+          retention-days: 14
