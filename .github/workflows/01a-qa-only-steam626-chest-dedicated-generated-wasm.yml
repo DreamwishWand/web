@@ -40,6 +40,18 @@ jobs:
           grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
           test -z "$(git ls-files '*.p1g')"
           echo 01A_STEAM_CHEST_WASM_FIXED_SOURCE_AND_PUBLIC_WRITER_OFF
+      - name: Fail fast on inline QA fixture script syntax before expensive Rust build
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text=Path('.github/workflows/01a-qa-only-steam626-chest-dedicated-generated-wasm.yml').read_text()
+          matches=re.findall(r"          node --input-type=module <<'NODE'\\n(.*?)\\n          NODE",text,re.S)
+          if len(matches)!=1: raise SystemExit('QA_INLINE_SCRIPT_SCOPE_NOT_EXACT')
+          Path('/tmp/01a-steam626-chest-qa-script.mjs').write_text(
+              '\\n'.join(line[10:] for line in matches[0].splitlines())+'\\n')
+          PY
+          node --check /tmp/01a-steam626-chest-qa-script.mjs
       - name: Compile actual dedicated Steam Chest-only Rust WASM and bindgen ABI
         run: |
           set -euo pipefail
@@ -55,7 +67,7 @@ jobs:
           import {createHash} from 'node:crypto';
           import {createRequire} from 'node:module';
           import {spawnSync} from 'node:child_process';
-          import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
+          import {mkdtemp,writeFile,rm} from 'node:fs/promises';
           import {tmpdir} from 'node:os';
           import {join} from 'node:path';
           import {makeSyntheticP1gProfile} from './tests/helpers/p1g-fixture.mjs';
