@@ -27,7 +27,12 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REPOSITORY_ID" = 1371485649
           test "$GITHUB_EVENT_NAME" = pull_request
-          test "$(git rev-parse HEAD^)" = "$BAMBOO_CURRENT_HEAD"
+          git merge-base --is-ancestor "$BAMBOO_CURRENT_HEAD" HEAD
+          test "$(git merge-base "$BAMBOO_CURRENT_HEAD" HEAD)" = "$BAMBOO_CURRENT_HEAD"
+          # Multiple nonforce history commits are allowed only if cumulative
+          # source delta is exactly this one QA workflow, not a new signer.
+          test "$(git diff --name-only "$BAMBOO_CURRENT_HEAD" HEAD)" = '.github/workflows/09p-bamboo-accepted-current-wasm-delta-neg.yml'
+          test "$(git ls-tree HEAD -- .github/workflows/09p-bamboo-accepted-current-wasm-delta-neg.yml | awk '{print $1}')" = 100644
           git cat-file -e "$BAMBOO_OLD_HEAD^{commit}"
           git cat-file -e "$BAMBOO_CURRENT_HEAD^{commit}"
           test "$(git rev-parse "$BAMBOO_OLD_HEAD:crates/ddv-save-core")" = 972261d9e60e66df67209583a356ad812e29b37c
