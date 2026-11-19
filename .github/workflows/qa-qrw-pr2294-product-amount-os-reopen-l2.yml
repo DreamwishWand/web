@@ -1,0 +1,51 @@
+name: QA ONLY 04 QR-W PR2294 Amount product official OS reopen proof L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2294-product-amount-os-reopen-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-product-amount-os-reopen-receipt-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2294-a3f3-product-amount-os-reopen-cas-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install fixed Svelte compile dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Pin exact immutable Source3 GitBlobs and independent QA-only2 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=509dbaf9cb50aaa32ded7d15296faae15d6daf96
+          source=a3f3a6e43e38baac7b2926a0a78cf71220989c6c
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:src/lib/dev/local-amount-workflow.mjs")" = 837c21ecc1f559f1b526b89004ae54b6c4a116b9
+          test "$(git rev-parse 'HEAD:src/lib/dev/local-amount-workflow.mjs')" = 8d05fb604ac38b1ab2224fcce2474199ba9f7fee
+          test "$(git rev-parse "$base:src/lib/dev/LocalAmountEditorDev.svelte")" = 2ebfdab6ae9f60cf9dd28d5a79299e2d6333ce8e
+          test "$(git rev-parse 'HEAD:src/lib/dev/LocalAmountEditorDev.svelte')" = d58f2a29f248810068205638ccf1d1f68ecafdd9
+          if git cat-file -e "$base:tests/web-product-amount-independent-process-gate.test.mjs" 2>/dev/null; then exit 1; fi
+          test "$(git rev-parse 'HEAD:tests/web-product-amount-independent-process-gate.test.mjs')" = 5805554882981fa5ecef3c53f3afd2028e07a471
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2294-product-amount-reopen-epoch-proof-l2.test.mjs')" = 730fae16809870e1f23d1bf61b717b65c923d2c1
+          for f in src/lib/dev/local-amount-workflow.mjs src/lib/dev/LocalAmountEditorDev.svelte tests/web-product-amount-independent-process-gate.test.mjs tests/qa-qrw-pr2294-product-amount-reopen-epoch-proof-l2.test.mjs .github/workflows/qa-qrw-pr2294-product-amount-os-reopen-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/dev/local-amount-workflow.mjs src/lib/dev/LocalAmountEditorDev.svelte tests/web-product-amount-independent-process-gate.test.mjs | LC_ALL=C sort >/tmp/source
+          printf '%s\n' .github/workflows/qa-qrw-pr2294-product-amount-os-reopen-l2.yml tests/qa-qrw-pr2294-product-amount-reopen-epoch-proof-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2294_ORIGINAL_SOURCE3_QAONLY2_IMMUTABLE_PIN_PASS
+      - name: Run original and independent actual Amount Port proof negative/epoch tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/web-product-amount-independent-process-gate.test.mjs tests/qa-qrw-pr2294-product-amount-reopen-epoch-proof-l2.test.mjs
+          echo QRW2294_AMOUNT_PRODUCT_REOPEN_PROOF_OS_EPOCH_FAIL_CLOSED_L2_PASS
