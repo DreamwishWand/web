@@ -1348,6 +1348,15 @@ const steam626MannequinRealMapExact1Entries=Object.freeze([{
  before:{mode:'100644',blob:'13d861165bea3fb37f79d7bbc4cb9ab51669fa78'},
  after:{mode:'100644',blob:'522e8e8d6beec597b2e5e176cfbe8a6d8e38a124'}
 }]);
+// DRAFT 09P ACT1581: the ONLY candidate Source2 is 01A PR2318.
+// 05QR-C PR2324 actual Rust heap QA is not product V2 or Writer permission.
+const steam626PendingRustHeapScrubExact2Entries=Object.freeze([
+ {path:'crates/ddv-save-core/src/wasm_worker.rs',
+  before:{mode:'100644',blob:'5fbb1f3d393df127da67f1eafe9796fbb7ce3a56'},
+  after:{mode:'100644',blob:'6432275d2909e6bc6d39265ae70cc7176fc37106'}},
+ {path:'tests/01a-wasm-pending-decoded-buffer-wipe.test.mjs',
+  before:null,after:{mode:'100644',blob:'8fb7d761d145a4f64ea1b97470c57cf16db5bb79'}}
+]);
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1584,6 +1593,19 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    privateNativeOnly:true,publicConsumerEnabled:false,
    independentRustAndSecurityL2Required:true,
    genuineEncryptedOriginalP1gV2:'NOT_RUN',
+   mergeAuthorized:false,writerAuthorized:false,operationOn:false}};
+ }
+ if(baseCore==='2f712d047e99bc024672e4d7a488baa6276e06f4'){
+  if(sourceCore!=='7ce60a4e95988cc9d8f33ed54453882e4198e7c5')deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626PendingRustHeapScrubExact2Entries,count:2,metadata:{
+   sourcePr:2318,sourceHead:'040e1eabfab0251b214514399a53517102c03c6b',
+   coreBefore:'2f712d047e99bc024672e4d7a488baa6276e06f4',coreAfter:'7ce60a4e95988cc9d8f33ed54453882e4198e7c5',
+   exactRustWorkerBefore:'5fbb1f3d393df127da67f1eafe9796fbb7ce3a56',exactRustWorkerAfter:'6432275d2909e6bc6d39265ae70cc7176fc37106',
+   exactAddedRustGuardTest:'8fb7d761d145a4f64ea1b97470c57cf16db5bb79',
+   cargoUnchanged:'751a73da41d8b58f7de70643f50b97722a3c1260',
+   r22InputUnchanged:'30551c7cc566614f64c8ba04748c3aef44b419bb',
+   independentRustHeapQaPr:2324,independentSecurityL2Required:true,
+   protectedGateOnlyAcceptanceRequired:true,productOfficialV2:'NOT_RUN',
    mergeAuthorized:false,writerAuthorized:false,operationOn:false}};
  }
  const first='10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c';
