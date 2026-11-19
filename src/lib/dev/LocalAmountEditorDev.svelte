@@ -11,6 +11,7 @@
   import {productSteamChestPortScope} from './product-steam-chest-client.mjs';
   import {productSwitchCatalog0PortScope} from './product-switch-catalog0-client.mjs';
   import {createLocalAmountDevWorkflow,STEAM626_FULL_VERSION,SWITCH626_CHEST_BID} from './local-amount-workflow.mjs';
+  import {acceptedProductAmountReleaseV2Evidence} from './product-amount-release-v2-evidence.mjs';
 
   export let trustedWorkerAdapter=null;
   export let verifiedLocalDevGate=false;
@@ -38,15 +39,22 @@
     const catalogScope=productSwitchCatalog0PortScope(trustedWorkerAdapter);
     const productScope=switchScope||steamScope||catalogScope;
     if(!productScope&&(!import.meta.env.DEV||verifiedLocalDevGate!==true||!trustedWorkerAdapter))return;
+    // Scope is taken only from the protected loader's WeakMap-branded Port,
+    // never a caller's release claim. Browser Worker != independent OS process.
+    const signedEvidence=productScope?acceptedProductAmountReleaseV2Evidence(productScope,
+      steamScope?'steam-chest':catalogScope?'switch-catalog0':'switch-chest'):null;
+    if(productScope?.mode==='public-accepted'&&!signedEvidence)return;
     try{
       productMode=productScope?.mode||'';
       steamChest=!!steamScope;switchCatalog0=!!catalogScope;
       switchChest=!!switchScope||(!steamChest&&!switchCatalog0&&scopedSwitch626Chest===true);
       exactOne=switchChest||steamChest||switchCatalog0||scopedExactOne===true;
       workflow=createLocalAmountDevWorkflow(trustedWorkerAdapter,{trustedLocalHarness:true,exactOneDecrease:exactOne,switch626Chest:switchChest,steam626Chest:steamChest,switch626Catalog0:switchCatalog0,
-         // Trusted branded product Ports require genuine independent-process
-         // evidence. DEV/OFF retains the existing codec-Worker-only receipt.
-         requireIndependentProcessReopen:!!productScope});
+         // Private/product scope without a signed accepted Build stays denied.
+         // Public release evidence is independently OS-reopened at QA; the
+         // browser receipt remains a truthful fresh-Worker-only result.
+         requireIndependentProcessReopen:!!productScope,
+         publicSignedV2Evidence:signedEvidence});
       available=true;state=workflow.snapshot();
     }catch{available=false}
     return ()=>{++uiEpoch;const active=workflow;workflow=null;available=false;
