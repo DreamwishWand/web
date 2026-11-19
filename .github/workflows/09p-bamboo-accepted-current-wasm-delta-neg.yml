@@ -1,0 +1,131 @@
+name: 09P Bamboo accepted-current real generated WASM delta NEG proof ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/09p-bamboo-accepted-current-wasm-delta-neg.yml'
+permissions:
+  contents: read
+jobs:
+  fixed-toolchain-bamboo-only-delta:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      BAMBOO_OLD_HEAD: '419162ef5bc3a75fac05baaee10021a0d269bc2d'
+      BAMBOO_CURRENT_HEAD: 'ac7e95f638592a77da908f340b650692ffc7f47c'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify accepted 15 exact Source pins and current 3 mismatches; no self-pinning
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$GITHUB_EVENT_NAME" = pull_request
+          git merge-base --is-ancestor "$BAMBOO_CURRENT_HEAD" HEAD
+          test "$(git merge-base "$BAMBOO_CURRENT_HEAD" HEAD)" = "$BAMBOO_CURRENT_HEAD"
+          # Multiple nonforce history commits are allowed only if cumulative
+          # source delta is exactly this one QA workflow, not a new signer.
+          test "$(git diff --name-only "$BAMBOO_CURRENT_HEAD" HEAD)" = '.github/workflows/09p-bamboo-accepted-current-wasm-delta-neg.yml'
+          test "$(git ls-tree HEAD -- .github/workflows/09p-bamboo-accepted-current-wasm-delta-neg.yml | awk '{print $1}')" = 100644
+          git cat-file -e "$BAMBOO_OLD_HEAD^{commit}"
+          git cat-file -e "$BAMBOO_CURRENT_HEAD^{commit}"
+          test "$(git rev-parse "$BAMBOO_OLD_HEAD:crates/ddv-save-core")" = 972261d9e60e66df67209583a356ad812e29b37c
+          test "$(git rev-parse "$BAMBOO_CURRENT_HEAD:crates/ddv-save-core")" = 7ce60a4e95988cc9d8f33ed54453882e4198e7c5
+
+          # The only new post-old-current semantic Rust delta is the live accepted
+          # WorkerWasmSource pending Vec volatile wipe, not an entitlement/ABI grant.
+          test "$(git rev-parse "$BAMBOO_CURRENT_HEAD:crates/ddv-save-core/src/wasm_worker.rs")" = 6432275d2909e6bc6d39265ae70cc7176fc37106
+          test "$(git rev-parse "$BAMBOO_CURRENT_HEAD:crates/ddv-save-core/src/worker_session.rs")" = 254af029304f6a357c8c0a0e7a1376b80313d038
+          test "$(git rev-parse "$BAMBOO_CURRENT_HEAD:crates/ddv-save-core/Cargo.toml")" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS,bambooAcceptedRustSourceBlobsOk} from './scripts/readonly-release/seal-bamboo-public-pages.mjs';
+          const old=process.env.BAMBOO_OLD_HEAD, now=process.env.BAMBOO_CURRENT_HEAD;
+          const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
+          const oldBlobs={},newBlobs={};
+          for(const [path,digest] of Object.entries(BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS)){
+           oldBlobs[path]=git('rev-parse',old+':'+path);
+           newBlobs[path]=git('rev-parse',now+':'+path);
+           assert.equal(oldBlobs[path],digest,'accepted baseline '+path);
+           assert.equal(git('ls-tree',old,'--',path),`100644 blob ${oldBlobs[path]}\t${path}`,'accepted regular-file mode '+path);
+           assert.equal(git('ls-tree',now,'--',path),`100644 blob ${newBlobs[path]}\t${path}`,'current regular-file mode '+path);
+          }
+          assert.equal(bambooAcceptedRustSourceBlobsOk(oldBlobs),true);
+          assert.equal(bambooAcceptedRustSourceBlobsOk(newBlobs),false,'current 3 drift must remain denied before signer re-pin');
+          const delta=Object.keys(oldBlobs).filter(path=>oldBlobs[path]!==newBlobs[path]).sort();
+          assert.deepEqual(delta,[
+           'crates/ddv-save-core/Cargo.toml',
+           'crates/ddv-save-core/src/wasm_worker.rs',
+           'crates/ddv-save-core/src/worker_session.rs'
+          ].sort());
+          for(const path of delta)console.log('BAMBOO_SOURCE_DRIFT',path,oldBlobs[path],newBlobs[path]);
+          console.log('09P_BAMBOO_15PIN_CURRENT_RUST3_DRIFT_SIGNER_DENY_NOT_PUBLIC');
+          NODE
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Actually build both original and current isolated Bamboo-only Rust/WASM
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version)" = 'rustc 1.99.1 (b9c7e49a0 2026-04-20)' || { rustc --version; test "$(rustc --version | cut -d' ' -f2)" = '1.99.1'; }
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root "$RUNNER_TEMP/wand-bamboo-bindgen"
+          test "$("$RUNNER_TEMP/wand-bamboo-bindgen/bin/wasm-bindgen" --version)" = 'wasm-bindgen 0.2.105'
+          for name in accepted current; do
+            if [ "$name" = accepted ]; then head="$BAMBOO_OLD_HEAD"; else head="$BAMBOO_CURRENT_HEAD"; fi
+            path="$RUNNER_TEMP/wand-bamboo-$name-src"
+            git worktree add --detach "$path" "$head"
+            test "$(git -C "$path" rev-parse HEAD)" = "$head"
+            cp "$path/scripts/wasm-distribution/approved-Cargo.lock" "$path/crates/ddv-save-core/Cargo.lock"
+            cmp "$path/scripts/wasm-distribution/approved-Cargo.lock" "$path/crates/ddv-save-core/Cargo.lock"
+            echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  '"$path"'/crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+            export CARGO_TARGET_DIR="$RUNNER_TEMP/wand-bamboo-$name-target"
+            cargo build --locked --manifest-path "$path/crates/ddv-save-core/Cargo.toml" --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-bamboo-readonly,worker-wasm
+            "$RUNNER_TEMP/wand-bamboo-bindgen/bin/wasm-bindgen" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir "$RUNNER_TEMP/wand-bamboo-$name-pkg" --target web --no-typescript
+            test -s "$RUNNER_TEMP/wand-bamboo-$name-pkg/ddv_save_core_bg.wasm"
+            test -s "$RUNNER_TEMP/wand-bamboo-$name-pkg/ddv_save_core.js"
+          done
+      - name: Compare real generated SHA256, actual WASM imports/exports and strict read-only surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          import {join} from 'node:path';
+          import {bambooReadJsSymbolsOk,bambooWasmExportsOk} from './src/lib/ddv/core/save/product-steam626-bamboo-readonly-release.mjs';
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          const base=process.env.RUNNER_TEMP;
+          const outputs=[];
+          for(const name of ['accepted','current']){
+           const dir=join(base,'wand-bamboo-'+name+'-pkg');
+           const js=await readFile(join(dir,'ddv_save_core.js'));
+           const wasm=await readFile(join(dir,'ddv_save_core_bg.wasm'));
+           assert.ok(js.length>0&&wasm.length>0);
+           const module=new WebAssembly.Module(wasm);
+           assert.equal(bambooReadJsSymbolsOk(js.toString('utf8')),true,name+' JS read-only symbol guard');
+           assert.equal(bambooWasmExportsOk(module),true,name+' WASM read-only exports guard');
+           const exports=WebAssembly.Module.exports(module).map(x=>x.kind+':'+x.name).sort();
+           const imports=WebAssembly.Module.imports(module).map(x=>x.kind+':'+x.module+':'+x.name).sort();
+           outputs.push({name,js,wasm,exports,imports,jsSha:sha(js),wasmSha:sha(wasm)});
+           console.log('01A_BAMBOO_REAL_BUILD',name,'JS_SHA256',sha(js),'WASM_SHA256',sha(wasm),'METHODS',exports.length);
+          }
+          const [old,now]=outputs;
+          assert.deepEqual(now.exports,old.exports,'changed compiled WASM exports need distinct ABI proof');
+          assert.deepEqual(now.imports,old.imports,'changed compiled WASM imports need distinct security proof');
+          if(now.jsSha!==old.jsSha||now.wasmSha!==old.wasmSha){
+           console.error('09P_BAMBOO_NEW_CORE_BINARY_DIFF_TRUE_NEG_REPIN_UNSAFE; scoped semantic/foreign-build negative QA required');
+           process.exitCode=2;
+          }else{
+           console.log('09P_BAMBOO_NEW_CORE_BYTE_IDENTICAL_NEG_REFUTATION_NOT_FOUND; signer still rejects current3 until 04QR-S and 09INT acceptance; NO OIDC/SIGSTORE/PAGES/READER/WRITER_ON');
+          }
+          NODE
