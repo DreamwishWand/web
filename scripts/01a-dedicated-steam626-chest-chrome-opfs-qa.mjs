@@ -133,7 +133,12 @@ try{
  let result;
  try{
   result=await Promise.race([
-   rpc('Runtime.evaluate',{expression:'window.__done',awaitPromise:true,returnByValue:true}),
+   rpc('Runtime.evaluate',{expression:`new Promise((resolve,reject)=>{
+      const tick=()=>{
+        if(window.__done)window.__done.then(resolve,reject);
+        else setTimeout(tick,30);
+      };tick();
+    })`,awaitPromise:true,returnByValue:true}),
    delay(150000,undefined,{signal:watchdog.signal}).then(()=>{throw Error('CHROME_OPFS_TIMEOUT')})
   ]);
  }finally{watchdog.abort()}
