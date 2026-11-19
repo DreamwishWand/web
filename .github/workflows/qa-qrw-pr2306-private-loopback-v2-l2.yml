@@ -1,0 +1,53 @@
+name: QA ONLY 04 QR-W PR2306 genuine private V2 loopback browser receipt L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2306-private-loopback-v2-l2.yml'
+permissions:
+  contents: read
+jobs:
+  private-signed-v2-exact-loopback-reopen-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2306-9b95-private-loopback-honest-worker-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned Svelte dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Original immutable Source4 and QA-only2 path and GitBlob pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=9ca61bd33fd1c1daacc88b6e8a1b145b817eb8f4
+          source=9b953c6d84225ba36e68988891c1649fcc08a091
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:src/lib/dev/LocalAmountEditorDev.svelte")" = fbecfa8ad6f43db305ca5d552b8bd96261ecfbda
+          test "$(git rev-parse 'HEAD:src/lib/dev/LocalAmountEditorDev.svelte')" = bc01afed142a95d67fb78c565c13b1091a762d43
+          test "$(git rev-parse "$base:src/lib/dev/local-amount-workflow.mjs")" = d448fb1d036b722872b741e15aebf060ffd94294
+          test "$(git rev-parse 'HEAD:src/lib/dev/local-amount-workflow.mjs')" = 2327d1dfeb0fc9be3d398e89cbf23d054676c9c1
+          test "$(git rev-parse "$base:src/lib/dev/product-amount-release-v2-evidence.mjs")" = e6b0776ed0598508ac95be55b19439746f55be86
+          test "$(git rev-parse 'HEAD:src/lib/dev/product-amount-release-v2-evidence.mjs')" = 6fb10799fbb4eea54def1712c7eed42c6bef321f
+          if git cat-file -e "$base:tests/web-private-product-v2-honest-browser-reopen.test.mjs" 2>/dev/null; then exit 1; fi
+          test "$(git rev-parse 'HEAD:tests/web-private-product-v2-honest-browser-reopen.test.mjs')" = 5c77962d87daaebf05dfc36e9e89a648015d0394
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2306-private-v2-branded-loopback-browser-proof-l2.test.mjs')" = ccfce8ba02d886ad23ca8ad6c16f77a5c58466f5
+          for f in src/lib/dev/LocalAmountEditorDev.svelte src/lib/dev/local-amount-workflow.mjs src/lib/dev/product-amount-release-v2-evidence.mjs tests/web-private-product-v2-honest-browser-reopen.test.mjs tests/qa-qrw-pr2306-private-v2-branded-loopback-browser-proof-l2.test.mjs .github/workflows/qa-qrw-pr2306-private-loopback-v2-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' src/lib/dev/LocalAmountEditorDev.svelte src/lib/dev/local-amount-workflow.mjs src/lib/dev/product-amount-release-v2-evidence.mjs tests/web-private-product-v2-honest-browser-reopen.test.mjs | LC_ALL=C sort >/tmp/source
+          printf '%s\n' .github/workflows/qa-qrw-pr2306-private-loopback-v2-l2.yml tests/qa-qrw-pr2306-private-v2-branded-loopback-browser-proof-l2.test.mjs | LC_ALL=C sort >/tmp/qa
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2306_PRIVATE_PRODUCT_SOURCE4_QAONLY2_IMMUTABLE_PIN_PASS
+      - name: Real private signed scoped workflow actual exact false-only browser proof negative matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/web-private-product-v2-honest-browser-reopen.test.mjs tests/qa-qrw-pr2306-private-v2-branded-loopback-browser-proof-l2.test.mjs
+          echo QRW2306_PRIVATE_V2_SIGNED_PORT_BROWSER_HONEST_REOPEN_L2_PASS
