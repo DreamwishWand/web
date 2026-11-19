@@ -5,6 +5,8 @@
  * Only a Core-owned SaveSession may turn an accepted read capability into a UI
  * projection after additional per-operation Native and independent QA gates.
  */
+import {steam626ItemTypeOf} from './steam626-native-fields.mjs';
+
 export const ITEM_SEMANTIC_CONTRACT = 'wand.01d.item-semantic-inspection@1';
 export const ITEM_PERSONAL_OVERLAY_ENABLED = false;
 export const ITEM_WRITER_ENABLED = false;
@@ -173,8 +175,14 @@ export function inspectCollectionSaveFlag({profile, identity, definitionId, grou
 export function inspectInventoryAmount({profile, identity, inventoryId, canonicalItemId, compatibleItemType}={}) {
   const target=sourceIdentity(profile,identity);
   if (!target) return denied('EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED');
+  // Switch626 stores CompatibleItemType as a native enum *token*, unlike
+  // the older 624 structural numeric fixture. A prefix match is necessary,
+  // not canonical ItemDB membership or owned-state proof.
   if (!unsigned(inventoryId) || !positive(canonicalItemId) ||
-      !unsigned(compatibleItemType))
+      !(target.profileSchema===626
+        ? typeof compatibleItemType==='string'&&
+          steam626ItemTypeOf(canonicalItemId)===compatibleItemType
+        : unsigned(compatibleItemType)))
     return denied('CANONICAL_INVENTORY_ROUTE_NOT_SPECIFIED');
   const player=rawOwn(profile,'Player');
   const all=rawOwn(player,'ListInventories');
@@ -187,6 +195,14 @@ export function inspectInventoryAmount({profile, identity, inventoryId, canonica
   const type=rawOwn(inv,'CompatibleItemType');
   if (!object(inv) || !object(items) || type===NO_RAW_FIELD)
     return denied('INVENTORY_RECORD_OR_ITEMS_MALFORMED');
+  // A JSON map key is not proof of the record's own ID. Never evaluate a
+  // user-supplied getter. Native Switch626 requires exact key/ID parity;
+  // legacy 624 missing-ID structural reads remain untrusted (not Writer).
+  const storedId=Object.getOwnPropertyDescriptor(inv,'ID');
+  if (storedId && (!Object.hasOwn(storedId,'value') || storedId.value!==inventoryId))
+    return denied('INVENTORY_MAP_KEY_ID_CONFLICT');
+  if (target.profileSchema===626 && !storedId)
+    return denied('INVENTORY_MAP_KEY_ID_UNVERIFIED');
   if (type!==compatibleItemType)
     return denied('INVENTORY_COMPATIBLE_ITEM_TYPE_MISMATCH');
   if (!Object.hasOwn(items,key(canonicalItemId)))

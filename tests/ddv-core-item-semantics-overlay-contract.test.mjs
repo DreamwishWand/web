@@ -17,7 +17,7 @@ const makeProfile=(version=624)=>({
     CollectionSets:[{CollectionDefinitionID:2120000121,GroupData:[
       {GroupIndex:0,GroupsCollectionItems:{'40700050':true,'40700051':false}}
     ]}],
-    ListInventories:{'0':{CompatibleItemType:4,Inventory:{
+    ListInventories:{'0':{ID:0,CompatibleItemType:version===626?'ItemType_Furniture':4,Inventory:{
       '40700050':{Amount:0,UnknownCustomField:'preserve'},
       '40700051':{Amount:8}
     }}}
@@ -29,7 +29,9 @@ const col=(overrides={})=>inspectCollectionSaveFlag({
 });
 const inv=(overrides={})=>inspectInventoryAmount({
   profile:makeProfile(),identity:id1250,inventoryId:0,
-  canonicalItemId:40700050,compatibleItemType:4,...overrides
+  canonicalItemId:40700050,
+  compatibleItemType:overrides.identity?.profileSchema===626?'ItemType_Furniture':4,
+  ...overrides
 });
 test('01D matrix exposes only source/raw inspection, never a writer, even for apparent simple item counts',()=>{
   assert.equal(ITEM_PERSONAL_OVERLAY_ENABLED,false);
@@ -98,6 +100,47 @@ test('Inventory canonical route, compatible item type and amount bounds fail clo
   assert.equal(inv({profile:missing}).rawEntry,'ABSENT_ITEM_ENTRY');
 });
 
+test('Switch626 native Inventory token, map-key ID and ItemID prefix must agree before structural read',()=>{
+  const profile=makeProfile(626);
+  const original=structuredClone(profile);
+  const good=inv({profile,identity:id1253});
+  assert.equal(good.status,'RAW_SAVE_STRUCTURE_ONLY');
+  assert.equal(good.rawAmount,0);
+  assert.equal(good.owned,'UNKNOWN');
+  assert.equal(good.writerAuthorized,false);
+  assert.deepEqual(profile,original);
+  assert.equal(inv({profile,identity:id1253,compatibleItemType:4}).code,
+    'CANONICAL_INVENTORY_ROUTE_NOT_SPECIFIED');
+  assert.equal(inv({profile,identity:id1253,compatibleItemType:'ItemType_ActivityItem'}).code,
+    'CANONICAL_INVENTORY_ROUTE_NOT_SPECIFIED');
+  assert.equal(inv({profile,identity:id1253,canonicalItemId:30700050}).code,
+    'CANONICAL_INVENTORY_ROUTE_NOT_SPECIFIED');
+  const mismatched=makeProfile(626);
+  mismatched.Player.ListInventories['0'].ID=1;
+  assert.equal(inv({profile:mismatched,identity:id1253}).code,
+    'INVENTORY_MAP_KEY_ID_CONFLICT');
+  const missing=makeProfile(626);
+  delete missing.Player.ListInventories['0'].ID;
+  assert.equal(inv({profile:missing,identity:id1253}).code,
+    'INVENTORY_MAP_KEY_ID_UNVERIFIED');
+  // Schema624 stays a source-only legacy raw inspection, not a new native
+  // route/membership authorization. But explicit wrong IDs are always denied.
+  const oldMissing=makeProfile(624);
+  delete oldMissing.Player.ListInventories['0'].ID;
+  assert.equal(inv({profile:oldMissing,identity:id1250}).rawAmount,0);
+  const oldMismatch=makeProfile(624);
+  oldMismatch.Player.ListInventories['0'].ID=3;
+  assert.equal(inv({profile:oldMismatch,identity:id1250}).code,
+    'INVENTORY_MAP_KEY_ID_CONFLICT');
+  for(const [identity,version] of [[id1250,624],[id1253,626]]){
+    const getter=makeProfile(version);
+    let called=0;
+    Object.defineProperty(getter.Player.ListInventories['0'],'ID',{configurable:true,
+      get(){called++;throw Error('untrusted getter executed');}});
+    assert.equal(inv({profile:getter,identity}).code,'INVENTORY_MAP_KEY_ID_CONFLICT');
+    assert.equal(called,0);
+  }
+});
 test('R08: present corrupted Collection group must not be reported as ABSENT_GROUP',()=>{
   assert.equal(col({groupIndex:1}).rawFlag,'ABSENT_GROUP');
   const malformed=[null,0,'bad',[],{}, {GroupIndex:0,GroupsCollectionItems:[]},
@@ -318,6 +361,7 @@ test('R08: own accessor properties are not decoded raw Save data and never execu
       [p=>[p.Player,'ListInventories'],'LIST_INVENTORIES_MISSING'],
       [p=>[p.Player.ListInventories,'0'],'INVENTORY_RECORD_OR_ITEMS_MALFORMED'],
       [p=>[p.Player.ListInventories['0'],'Inventory'],'INVENTORY_RECORD_OR_ITEMS_MALFORMED'],
+      [p=>[p.Player.ListInventories['0'],'ID'],'INVENTORY_MAP_KEY_ID_CONFLICT'],
       [p=>[p.Player.ListInventories['0'],'CompatibleItemType'],'INVENTORY_RECORD_OR_ITEMS_MALFORMED'],
       [p=>[p.Player.ListInventories['0'].Inventory,'40700050'],'INVENTORY_AMOUNT_FIELD_INVALID'],
       [p=>[p.Player.ListInventories['0'].Inventory['40700050'],'Amount'],'INVENTORY_AMOUNT_FIELD_INVALID']
