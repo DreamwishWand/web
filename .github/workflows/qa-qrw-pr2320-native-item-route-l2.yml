@@ -29,7 +29,7 @@ jobs:
           test "$(git rev-parse 'HEAD:src/lib/ddv/core/items/item-semantics-contract.mjs')" = 2b4f220ba4d37864b86b0ca89905d9fe061e9f5e
           test "$(git rev-parse "$base:tests/ddv-core-item-semantics-overlay-contract.test.mjs")" = 7828eee781a2163a139824b783e6823ea45a7808
           test "$(git rev-parse 'HEAD:tests/ddv-core-item-semantics-overlay-contract.test.mjs')" = 365d38f4cfdc9caaafe3096ef21c55ae7184cb06
-          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2320-switch626-native-inventory-route-l2.test.mjs')" = 19f56388d980d4135f8557d3fe3ea2d12aaad0dd
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2320-switch626-native-inventory-route-l2.test.mjs')" = 999e3b0a68019c5e8f5e5e877392e68e14eebdde
           test "$(git rev-parse 'HEAD:src/lib/ddv/core/items/steam626-native-fields.mjs')" = 9b6306faa7420ab83001c65d02b6e1c5390b1e0f
           for f in src/lib/ddv/core/items/item-semantics-contract.mjs tests/ddv-core-item-semantics-overlay-contract.test.mjs tests/qa-qrw-pr2320-switch626-native-inventory-route-l2.test.mjs .github/workflows/qa-qrw-pr2320-native-item-route-l2.yml; do
             test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
