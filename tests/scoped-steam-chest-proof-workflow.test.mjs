@@ -64,7 +64,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/dev/LocalAmountEditorDev.svelte",
-    "d58f2a29f248810068205638ccf1d1f68ecafdd9"
+    "fbecfa8ad6f43db305ca5d552b8bd96261ecfbda"
   ],
   [
     "src/lib/dev/local-amount-copy.mjs",
@@ -72,7 +72,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
-    "107a44cfdcfdaf8cd1769bba3e90c0056fb59cc0"
+    "334a8dc69485981598773923c265e97f16296fb1"
   ],
   [
     "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
@@ -92,11 +92,11 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/dev/local-amount-workflow.mjs",
-    "8d05fb604ac38b1ab2224fcce2474199ba9f7fee"
+    "d448fb1d036b722872b741e15aebf060ffd94294"
   ],
   [
     "src/lib/dev/local-amount-worker-adapter.mjs",
-    "3469316b24acc09a8565b8ee57d031315e524e84"
+    "15d510895a1bba4913dc6d13f46ea1f303ba6ff0"
   ],
   [
     "src/lib/ddv/core/save/local-encrypted-copy-store.mjs",
@@ -104,7 +104,7 @@ test('Steam Chest exact cumulative Core and accepted Web/adapter pins; no stale 
   ],
   [
     "src/lib/dev/local-amount-codec-reopen.worker.mjs",
-    "955d95056d4c115b24b77db2ec2f31ef90992882"
+    "43ac5c02a6b4ff47d6b9a2d7c419fa690285907f"
   ],
   [
     "src/lib/ddv/core/save/local-original-backup.mjs",
