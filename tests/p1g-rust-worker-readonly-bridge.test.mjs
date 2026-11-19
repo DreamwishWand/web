@@ -160,3 +160,44 @@ test('P1G bridge Collection candidate opt-in uses decoded same Session; no defau
  assert.equal(bridge.getCapabilities().canExportEditedCopy,false);
  const stale=bridge.readCollectionCandidate(selector);bridge.close();await assert.rejects(stale,/CANDIDATE_OFF/);
 });
+
+test('01A decoded UTF-8 chunks are erased after Rust WASM append, including Unicode boundary',async()=>{
+ const {source,root}=fixture(),original=source.slice();
+ class BorrowedChunkRust extends MockRust {
+  static borrowed=[];
+  append_chunk(chunk){
+   BorrowedChunkRust.borrowed.push(chunk);
+   super.append_chunk(chunk); // Real WASM binding copies synchronously.
+  }
+ }
+ const bridge=createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource:BorrowedChunkRust}));
+ const receipt=await bridge.openEncrypted({build:BUILD,encryptedBytes:source});
+ assert.equal(receipt.decodedSha256,createHash('sha256').update(JSON.stringify(root),'utf8').digest('hex'));
+ assert.ok(BorrowedChunkRust.borrowed.length>=2,'large Unicode fixture must cross chunks');
+ for(const chunk of BorrowedChunkRust.borrowed){
+  assert.ok(chunk instanceof Uint8Array&&chunk.length>0);
+  assert.ok(chunk.every(n=>n===0),'generator-owned decoded chunk must be wiped before open resolves');
+ }
+ assert.deepEqual(source,original,'never zero the caller-owned original encrypted input');
+ assert.equal(receipt.writerAuthorized,false);
+ bridge.close();
+});
+
+test('01A mid-stream Rust failure closes iterator and erases in-flight decoded chunks',async()=>{
+ const {source}=fixture(),original=source.slice();
+ class RejectSecondChunkRust extends MockRust {
+  static borrowed=[];
+  append_chunk(chunk){
+   RejectSecondChunkRust.borrowed.push(chunk);
+   if(RejectSecondChunkRust.borrowed.length===2)throw Error('INJECTED_RUST_APPEND_FAILURE');
+   super.append_chunk(chunk);
+  }
+ }
+ const bridge=createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource:RejectSecondChunkRust}));
+ await assert.rejects(bridge.openEncrypted({build:BUILD,encryptedBytes:source}),/P1G_WORKER_CODEC_OR_RUST_REJECTED/);
+ assert.equal(RejectSecondChunkRust.borrowed.length,2);
+ for(const chunk of RejectSecondChunkRust.borrowed)
+  assert.ok(chunk.every(n=>n===0),'even a Rust-rejected decoded view must be cleared');
+ assert.deepEqual(source,original,'original encrypted input belongs to caller');
+ assert.equal(bridge.getReceipt(),null);
+});
