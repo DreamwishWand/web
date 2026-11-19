@@ -72,7 +72,7 @@ impl WorkerWasmSource {
         if self.closed || self.session.is_some() {return Err(err("WORKER_ALREADY_FINALIZED"));}
         if chunk.is_empty() || chunk.len()>MAX_CHUNK ||
            self.buffer.len().checked_add(chunk.len()).ok_or(err("WORKER_DOCUMENT_BOUNDS"))?>MAX_WORKER_DOCUMENT {
-            self.closed=true;self.buffer.clear();self.entropy.fill(0);
+            self.closed=true;self.buffer.fill(0);self.buffer.clear();self.entropy.fill(0);
             return Err(err("WORKER_DOCUMENT_BOUNDS"));
         }
         self.buffer.extend_from_slice(chunk);
@@ -601,7 +601,7 @@ impl WorkerWasmSource {
         self.next_scoped_edit_output_chunk_inner()
     }
     pub fn close(&mut self)->Result<(),JsValue>{
-        self.closed=true;self.buffer.clear();self.entropy.fill(0);
+        self.closed=true;self.buffer.fill(0);self.buffer.clear();self.entropy.fill(0);
         #[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",feature="product-steam626-eyecolor2-scoped",feature="product-switch626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
         {if let Some((mut out,_))=self.scoped_output.take(){out.fill(0);} self.scoped_domain.set(None);}
         if let Some(mut session)=self.session.take(){
