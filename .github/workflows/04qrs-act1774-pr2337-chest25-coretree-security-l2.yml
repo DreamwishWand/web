@@ -109,7 +109,7 @@ jobs:
             assert.equal(pins[0][0],'crates/ddv-save-core');
             assert.equal(pins[0][1],CORE);
             assert.equal(pins.filter(([p])=>p==='crates/ddv-save-core').length,1);
-            const accepted=()=>pins.every(([p,sha])=>at('HEAD',p)===sha);
+            const accepted=()=>pins.every(([p,sha])=>at('HEAD',p)===sha)&&mode('HEAD','src/lib/dev/product-amount-release-v2-evidence.mjs')==='100644';
             const coreLine=part.split('\n').find(s=>s.trim()==='test "$(git rev-parse HEAD:crates/ddv-save-core)" = '+CORE).trim();
             function actualCoreCommand(){
               return spawnSync('bash',['-euo','pipefail','-c',coreLine],{cwd:repo,env,encoding:'utf8',timeout:90000}).status===0;
@@ -181,7 +181,11 @@ jobs:
           test "$(git rev-parse HEAD:crates/ddv-save-core)" = 7ce60a4e95988cc9d8f33ed54453882e4198e7c5
           test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
           cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
-          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          # Protected-main R22 issuer must reject this QA branch; do not call it here.
+          # Independently validate the exact approved inputs without issuing release authority.
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 30551c7cc566614f64c8ba04748c3aef44b419bb
+          test "$(sha256sum crates/ddv-save-core/Cargo.lock | cut -d' ' -f1)" = e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c
+          test "$(git hash-object --no-filters crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
           cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-chest-scoped,worker-wasm
           test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
           node --input-type=module <<'QRS_WASM'
