@@ -103,6 +103,67 @@ export function buildSaveFreeFirstNonemptyScene({
     nativePlacementAuthorized:false,writeReady:false,applyReady:false});
 }
 
+
+/** Two authenticated Catalog footprints in a LOCAL composition only.
+ * This never mints a game Grid object, ownership, or Save Writer authority.
+ */
+export const WEP_SAVEFREE_TWO_FURNITURE_LOCAL_SCENE_OPERATION =
+  'WEP_SAVEFREE_TWO_VERIFIED_FURNITURE_LOCAL_SCENE@1';
+
+export function buildSaveFreeTwoFurnitureScene({
+  directory,binding,firstItemId,secondItemId,secondX,secondY,title
+}: {
+  directory:any;binding:any;firstItemId:number;secondItemId:number;
+  secondX:number;secondY:number;title:string
+}) {
+  if(typeof title!=='string'||!title.trim()||title.trim().length>120)
+    fail('TITLE_INVALID');
+  if(!safeInt(secondX)||!safeInt(secondY)||secondX<0||secondY<0||
+     secondX>63||secondY>63)
+    fail('LOCAL_OFFSET_INVALID');
+  const first=resolveVerifiedSaveFreeSceneItem(directory,binding,firstItemId);
+  const second=resolveVerifiedSaveFreeSceneItem(directory,binding,secondItemId);
+  const width=Math.max(first.bounds.w,secondX+second.bounds.w);
+  const height=Math.max(first.bounds.h,secondY+second.bounds.h);
+  if(width>64||height>64||width*height>4096)fail('LOCAL_BOUNDS_INVALID');
+  const primaryCells=new Set(first.footprint.map((p:{x:number;y:number})=>p.x+','+p.y));
+  if(second.footprint.some((p:{x:number;y:number})=>
+    primaryCells.has((secondX+p.x)+','+(secondY+p.y))))
+    fail('LOCAL_FOOTPRINT_OVERLAP');
+  const document:Parameters<typeof captureScenePreset>[0]={
+    schema:'dreamwish-wand-wep-editor-document',version:1,
+    target:{platform:'synthetic',gameVersion:null,areaKey:null},
+    networks:{roads:null,fences:null},capabilities:{},metadata:{},
+    objects:[first,second].map((item,i)=>({
+      editorId:i===0?'savefree-local-first':'savefree-local-second',
+      itemId:item.itemId,layer:'furniture',
+      x:i===0?0:secondX,y:i===0?0:secondY,orientation:0,
+      footprint:item.footprint.map((p:{x:number;y:number})=>({...p})),
+      portableState:null,dependencyIds:[],editability:'editable',source:null
+    }))
+  };
+  const capture=captureScenePreset(document,{
+    selectionIds:['savefree-local-first','savefree-local-second'],
+    title:title.trim(),includeRoads:false,includeFences:false
+  },validatePublishablePreset);
+  if(capture.publicationReady!==true||capture.artifact.objects.length!==2)
+    fail('NONEMPTY_CAPTURE_DENIED');
+  const preflight=preflightScene(capture.artifact);
+  if(preflight.ok!==true||preflight.writeReady!==false||
+     capture.artifact.bounds.w!==width||
+     capture.artifact.bounds.h!==height||
+     capture.artifact.objects.filter((o:any)=>o.itemId===firstItemId).length<1||
+     capture.artifact.objects.filter((o:any)=>o.itemId===secondItemId).length<1)
+    fail('SCENE_PREFLIGHT_DENIED');
+  return Object.freeze({
+    operation:WEP_SAVEFREE_TWO_FURNITURE_LOCAL_SCENE_OPERATION,
+    title:title.trim(),item:first,secondItem:second,secondX,secondY,
+    artifact:capture.artifact,localOnly:true,editorSessionCreated:false,
+    inventoryVerified:false,nativePlacementAuthorized:false,
+    writeReady:false,applyReady:false
+  });
+}
+
 const COPY={
  en:{title:'Create a first local Scene without a game Save',notice:'Choose a verified furniture Item and its source-pinned footprint. Local design only: no ownership, Editor placement or DDV Apply.',load:'Load verified furniture Catalog',search:'Search Item name or ID',choose:'Select this verified Item',unavailable:'Unsupported footprint or policy',name:'Scene title',save:'Save nonempty Scene on this device',waiting:'Loading verified sources…',empty:'No matching furniture Items',prepare:'Preview verified nonempty Scene',ready:'Verified local Scene preview · ready for explicit save',saved:'Saved and independently reopened. Local readonly Scene; DDV writer and Apply remain OFF.',blocked:'Scene could not be verified or saved. Existing library was not overwritten.',footprint:'Verified footprint',off:'Writer / Apply / Cloud OFF',next:'View device-only Scenes in My Presets'},
  ja:{title:'ゲームSaveなしで最初のローカルSceneを作成',notice:'検証済み家具Itemと正規Footprintを選択します。端末内の設計のみで所持・Editor配置・DDV Applyは認めません。',load:'検証済み家具Catalogを読み込む',search:'Item名またはIDで検索',choose:'この検証済みItemを選択',unavailable:'Footprintまたは利用条件が未検証',name:'Sceneタイトル',save:'非空Sceneをこの端末に保存',waiting:'検証済みデータを読込中…',empty:'一致する家具Itemがありません',prepare:'非空Sceneを検証・プレビュー',ready:'非空ローカルSceneを検証しました。明示的な保存を選択できます。',saved:'保存後に独立再Openで検証しました。読み取り専用、DDV Writer・ApplyはOFFです。',blocked:'Scene検証・保存を拒否しました。既存ライブラリは上書きしていません。',footprint:'検証済みFootprint',off:'Writer／Apply／Cloud OFF',next:'My Presetsで端末内Sceneを見る'},
