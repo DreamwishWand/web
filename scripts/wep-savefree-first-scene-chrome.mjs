@@ -268,6 +268,53 @@ try{
   oldValues,'legacy Moodboard primary/backup unchanged');
  assert.ok(mediaRequests.every(url=>url===fixtureUrl),'no real game image or manifest requests');
  console.log('WEP_SAVEFREE_SHARED_ITEMTHUMB_CANONICAL_ID_OFF_FALLBACK_PREFERENCES_PASS');
+ // W-DEC-018 independent READY: two verified pieces in a local Scene, no Save.
+ await page.goto(origin+'/editor/world/',{waitUntil:'networkidle',timeout:60000});
+ await page.locator('[data-wep-savefree-load]').click();
+ await page.locator('[data-wep-savefree-search]').waitFor({timeout:30000});
+ await page.locator('[data-wep-savefree-search]').fill('40000047');
+ await page.locator('[data-wep-savefree-choose="40000047"]').click();
+ await page.locator('[data-wep-savefree-choose-second="40000047"]').click();
+ await page.locator('[data-wep-savefree-second-selection]').waitFor();
+ await page.locator('[data-wep-savefree-title]').fill('Two pinned local furniture');
+ await page.locator('[data-wep-savefree-second-x]').fill('0');
+ await page.locator('[data-wep-savefree-second-y]').fill('0');
+ await page.locator('[data-wep-savefree-preview]').click();
+ assert.equal(await page.locator('[data-wep-savefree-layout-preview]').count(),0,
+  'overlapping footprints cannot preview');
+ assert.equal(await page.locator('[data-wep-savefree-save]:not([disabled])').count(),0,
+  'overlap cannot Save');
+ await page.locator('[data-wep-savefree-second-x]').fill('3');
+ await page.locator('[data-wep-savefree-preview]').click();
+ const layout=page.locator('[data-wep-savefree-layout-preview]');
+ await layout.waitFor();
+ assert.equal(await layout.locator('rect').count(),12,'real 3x2 footprints: two verified six-cell tiles');
+ assert.match(await page.locator('[data-wep-savefree-artifact]').innerText(),/2 objects/);
+ assert.match(await page.locator('[data-wep-savefree-artifact]').innerText(),/6 × 2/);
+ assert.equal(await page.locator('[data-wep-savefree-save]:not([disabled])').count(),1);
+ assert.equal(await page.locator('[data-editor-object-id]').count(),0);
+ await page.locator('[data-wep-savefree-save]').click();
+ await page.locator('[data-wep-savefree-saved]').waitFor({timeout:15000});
+ const two=await page.evaluate(async()=>{
+  const {reopenLocalScenes}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  const row=await reopenLocalScenes();
+  return {revision:row.revision,backupRevision:row.backupRevision,backup:row.backup,entries:row.document.entries};
+ });
+ assert.equal(two.revision,2);
+ assert.equal(two.backupRevision,1);
+ assert.equal(two.backup,current.primary,'previous verified Scene kept as exact backup');
+ assert.equal(two.entries.length,2);
+ const latest=two.entries[1].artifact;
+ assert.equal(latest.objects.length,2);
+ assert.deepEqual(latest.bounds,{w:6,h:2});
+ assert.equal(latest.requirements.itemQuantities['40000047'],2);
+ assert.equal(latest.source.platform,'synthetic');
+ assert.equal(latest.networks.roads,null);
+ assert.equal(latest.networks.fences,null);
+ assert.equal(await page.locator('[data-editor-object-id]').count(),0);
+ assert.deepEqual(await page.evaluate(keys=>keys.map(k=>localStorage.getItem(k)),oldKeys),
+  oldValues,'local composition must not write Moodboard');
+ console.log('WEP_SAVEFREE_TWO_VERIFIED_FURNITURE_REAL_CHROME_OFF_IDB_CAS_BACKUP_REOPEN_PASS');
  assert.deepEqual(unsafe,[],'unexpected external request or mutating HTTP');
  assert.deepEqual(errors,[],'browser JS exception');
  console.log(JSON.stringify({operation:'WEP_SAVEFREE_FIRST_NONEMPTY_VERIFIED_CATALOG_SCENE@1',
