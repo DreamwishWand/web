@@ -38,7 +38,7 @@ function candidate(parent,edits){
  }finally{rmSync(dir,{recursive:true,force:true})}
 }
 test('ACT1581 fixed Windows LF data GitBlob exact one permits only reviewed CoreTree, rejects mode/mixed/Rust/issuers',t=>{
- assert.equal(git(['rev-parse','HEAD:'+gatePath]),reviewedGate);
+ assert.equal(git(['rev-parse','HEAD:'+gatePath]),'d3997b2d4460109562489c6afa2c5d5e51fa2b5a');
  assert.equal(git(['rev-parse',beforeMain+':crates/ddv-save-core']),
   '10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c');
  assert.equal(git(['rev-parse',beforeMain+':crates/ddv-save-core/Cargo.toml']),

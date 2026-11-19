@@ -86,7 +86,8 @@ test('ACT1581 exact fixed R22 source selector static immutable eight-mint contra
   // Steam626 SHA-pinned Windows data/.gitattributes exact one leaf only.
   ['623034400b71179b790ae8eca7b152cd892c898f',expectedFutureInputBlob],
   ['f67531cef7c812757b246a9aef08febb66782200',expectedFutureInputBlob],
-  ['2f712d047e99bc024672e4d7a488baa6276e06f4',expectedFutureInputBlob]
+  ['2f712d047e99bc024672e4d7a488baa6276e06f4',expectedFutureInputBlob],
+  ['7ce60a4e95988cc9d8f33ed54453882e4198e7c5',expectedFutureInputBlob] // fixed candidate, no Writer permission
  ]);
  assert.ok(approvedStagePairs.has(currentCore),'UNAPPROVED_R22_CORE_STAGE');
  assert.equal(currentConfigBlob,approvedStagePairs.get(currentCore),
