@@ -109,7 +109,7 @@ test('HTTP 200 while replaying old IMF-Date is fine ONLY with original SHA; obse
 test('malformed or impossible origin ETag/LastModified and inconsistent GET/HEAD deny without emitting signed output',async()=>{
  const invalid=[
   [{tag:'not-quoted'},/LIVE_OBSERVER_REAL_ETAG_REQUIRED/],
-  [{tag:'"newline\\n"'},/LIVE_OBSERVER_REAL_ETAG_REQUIRED/],
+  [{tag:'"bad"trailer'},/LIVE_OBSERVER_REAL_ETAG_REQUIRED/],
   [{date:'Mon, 19 Nov 2026 10:02:33 GMT'},/LIVE_OBSERVER_REAL_IMF_DATE_REQUIRED/],
   [{date:'Thu, 31 Nov 2026 10:02:33 GMT'},/LIVE_OBSERVER_REAL_IMF_DATE_REQUIRED/],
   [{date:'Thu, 19 Nov 2026 25:02:33 GMT'},/LIVE_OBSERVER_REAL_IMF_DATE_REQUIRED/],
