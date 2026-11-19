@@ -31,17 +31,17 @@ async function* decodedUtf8Chunks(text){
     }
     if(end<=offset)fail('P1G_WORKER_UTF8_BOUNDARY');
     const chunk=utf8.encode(text.slice(offset,end));
-    if(chunk.length===0||chunk.length>PRODUCT_WASM_CHUNK_MAX_BYTES)
-      fail('P1G_WORKER_UTF8_CHUNK_BOUNDS');
-    total+=chunk.length;
-    if(total>PRODUCT_WASM_WORKER_MAX_BYTES)
-      fail('P1G_WORKER_DECODED_SIZE_DENIED');
-    // The generator owns this temporary decoded UTF-8 allocation; the
-    // single Rust append_chunk consumer copies it synchronously into WASM.
-    // Erase after consumption AND if Rust rejects/Close aborts iteration.
-    // Caller-owned encrypted input and immutable JS JSON text are untouched.
-    try{yield chunk}
-    finally{Uint8Array.prototype.fill.call(chunk,0)}
+    // Only this generator owns the transient decoded allocation. Keep
+    // bounds rejection, Rust append rejection and iterator Close inside
+    // the same finally; never leave a plaintext chunk in the JS heap.
+    try{
+      if(chunk.length===0||chunk.length>PRODUCT_WASM_CHUNK_MAX_BYTES)
+        fail('P1G_WORKER_UTF8_CHUNK_BOUNDS');
+      total+=chunk.length;
+      if(total>PRODUCT_WASM_WORKER_MAX_BYTES)
+        fail('P1G_WORKER_DECODED_SIZE_DENIED');
+      yield chunk; // existing single Rust append_chunk copies synchronously
+    }finally{Uint8Array.prototype.fill.call(chunk,0)}
     offset=end;
   }
 }
