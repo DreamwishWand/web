@@ -56,6 +56,10 @@ const acceptedReleaseProfiles=Object.freeze([
   config:'30551c7cc566614f64c8ba04748c3aef44b419bb'},
  {core:'2f712d047e99bc024672e4d7a488baa6276e06f4',
   cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
+  config:'30551c7cc566614f64c8ba04748c3aef44b419bb'},
+ // Candidate-only exact one Rust leaf; protected acceptance is separate.
+ {core:'7ce60a4e95988cc9d8f33ed54453882e4198e7c5',
+  cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
   config:'30551c7cc566614f64c8ba04748c3aef44b419bb'}
 ]);
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';

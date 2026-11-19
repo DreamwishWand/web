@@ -45,7 +45,7 @@ function candidate(parent,edits){
  }finally{rmSync(dir,{recursive:true,force:true})}
 }
 test('ACT1581 exact Mannequin saved-int32 Rust and Windows pack LF both orders: 3 POS / 13+ NEG, no writer',t=>{
- assert.equal(git(['rev-parse','HEAD:'+gatePath]),newGate);
+ assert.equal(git(['rev-parse','HEAD:'+gatePath]),'d3997b2d4460109562489c6afa2c5d5e51fa2b5a');
  assert.equal(git(['rev-parse',main+':crates/ddv-save-core']),C.before);
  assert.equal(git(['rev-parse',main+':'+rust]),oldRust);
  assert.equal(git(['ls-tree',main,'--',attr]),'');

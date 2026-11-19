@@ -20,7 +20,8 @@ const privateAmountCore=coreAtHead==='10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c';
 const windowsLfCore=coreAtHead==='623034400b71179b790ae8eca7b152cd892c898f';
 const mannequinCore=coreAtHead==='f67531cef7c812757b246a9aef08febb66782200';
 const bothCore=coreAtHead==='2f712d047e99bc024672e4d7a488baa6276e06f4';
-const baseHead=(productCore||ongoingBattlePassCore||privateAmountCore||windowsLfCore||mannequinCore||bothCore)
+const rustHeapScrubCore=coreAtHead==='7ce60a4e95988cc9d8f33ed54453882e4198e7c5';
+const baseHead=(productCore||ongoingBattlePassCore||privateAmountCore||windowsLfCore||mannequinCore||bothCore||rustHeapScrubCore)
  ?acceptedGateAnchor:currentHead;
 const productPaths=[
  ['.github/workflows/core-product-session-boundary.yml','8de94431af1e6d58e216fa06bf91a1329a7f7063'],
@@ -87,6 +88,8 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
    ['f67531cef7c812757b246a9aef08febb66782200',
     '30551c7cc566614f64c8ba04748c3aef44b419bb'],
    ['2f712d047e99bc024672e4d7a488baa6276e06f4',
+    '30551c7cc566614f64c8ba04748c3aef44b419bb'],
+   ['7ce60a4e95988cc9d8f33ed54453882e4198e7c5',
     '30551c7cc566614f64c8ba04748c3aef44b419bb']
   ]);
   assert.ok(currentStage.has(coreAtHead),'UNAPPROVED_CURRENT_R22_CORE_STAGE');
@@ -127,8 +130,11 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
   // pin each of the reviewed 8 source blobs/modes and all trusted Gate
   // authorities instead; the Core subtree is already pinned to its exact
   // accepted complete tree by currentStage above.
-  if(productCore||ongoingBattlePassCore||privateAmountCore||windowsLfCore||mannequinCore||bothCore){
-   for(const [path,blob] of [...productPaths,[configPath,futureBlob]]){
+  if(productCore||ongoingBattlePassCore||privateAmountCore||windowsLfCore||mannequinCore||bothCore||rustHeapScrubCore){
+   const currentProductPaths=rustHeapScrubCore?productPaths.map(([path,blob])=>[
+    path,path==='crates/ddv-save-core/src/wasm_worker.rs'?'6432275d2909e6bc6d39265ae70cc7176fc37106':blob
+   ]):productPaths;
+   for(const [path,blob] of [...currentProductPaths,[configPath,futureBlob]]){
     assert.equal(outerGit('ls-tree',currentHead,'--',path),
      '100644 blob '+blob+String.fromCharCode(9)+path,
      'PRODUCT_CURRENT_HEAD_BLOB_MODE_MISMATCH_'+path);
@@ -151,7 +157,8 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
     ['8ce652c75211e9b1071f95060de294acffdeaaba',
      'e54e5f0fd94c77dba6818b3c3307fe168a9eac8d',
      'fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323']:
-    (mannequinCore||bothCore)?['949eda609e5ea91b1d7482d7f5c0324197f95323']:
+    (mannequinCore||bothCore)?['949eda609e5ea91b1d7482d7f5c0324197f95323','d3997b2d4460109562489c6afa2c5d5e51fa2b5a']:
+    rustHeapScrubCore?['d3997b2d4460109562489c6afa2c5d5e51fa2b5a']:
     windowsLfCore?['fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323']:
     ['e54e5f0fd94c77dba6818b3c3307fe168a9eac8d',
      'fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323'];
@@ -159,16 +166,16 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
    assert.ok(allowedSelectors.includes(selectorBlob),'UNREVIEWED_SELECTOR_STAGE_BLOB');
    assert.equal(outerGit('ls-tree',currentHead,'--',selector),
     '100644 blob '+selectorBlob+String.fromCharCode(9)+selector);
-   if(ongoingBattlePassCore||privateAmountCore||windowsLfCore||mannequinCore||bothCore){
+   if(ongoingBattlePassCore||privateAmountCore||windowsLfCore||mannequinCore||bothCore||rustHeapScrubCore){
     const amount='crates/ddv-save-core/src/product_amount_scoped.rs';
-    const expected=(mannequinCore||bothCore)?
+    const expected=(mannequinCore||bothCore||rustHeapScrubCore)?
      '522e8e8d6beec597b2e5e176cfbe8a6d8e38a124':
      '13d861165bea3fb37f79d7bbc4cb9ab51669fa78';
     assert.equal(outerGit('ls-tree',currentHead,'--',amount),
      '100644 blob '+expected+String.fromCharCode(9)+amount,
      'UNREVIEWED_MANNEQUIN_AMOUNT_RUST_BLOB_MODE');
    }
-   if(privateAmountCore||windowsLfCore||mannequinCore||bothCore){
+   if(privateAmountCore||windowsLfCore||mannequinCore||bothCore||rustHeapScrubCore){
     for(const [path,blob] of [
      ['crates/ddv-save-core/src/semantic_writer.rs',
       'f11c68ca214853c762788ae032710fc4683dd472'],
@@ -181,7 +188,7 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
       'UNREVIEWED_PRIVATE_BRIDGE_BLOB_MODE_'+path);
    }
   }
-  if(windowsLfCore||bothCore){
+  if(windowsLfCore||bothCore||rustHeapScrubCore){
    const attr='crates/ddv-save-core/data/.gitattributes';
    assert.equal(outerGit('ls-tree',currentHead,'--',attr),
     '100644 blob f67de2e4316397b93f95088c379f724ea81e9399'+
