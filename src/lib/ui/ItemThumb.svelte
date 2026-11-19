@@ -17,10 +17,18 @@
     ? scopedSwitch1253ItemImageHref(base,itemId,$switch1253PublicItemImageSource.catalog) : null;
   $: renderHref = failureGate.visibleHref($switch1253PublicItemImageSource.status,
     $switch1253PublicItemImageSource.catalog,imageHref,imageFailureEpoch);
-  function failedImage(event: Event): void {
-    const failedSrc = (event.currentTarget as HTMLImageElement | null)?.getAttribute('src') ?? null;
-    if(failureGate.rejectFailed($switch1253PublicItemImageSource.catalog,failedSrc,renderHref))
-      imageFailureEpoch++;
+  // Bind the identity of the catalog that actually created this <img>.
+  // A late error from the previous same-URL request must never mutate the
+  // verified new catalog's failure state after an asynchronous revalidation.
+  function bindVerifiedImageFailure(node: HTMLImageElement) {
+    const requestCatalog = $switch1253PublicItemImageSource.catalog;
+    const onError = () => {
+      const failedSrc = node.getAttribute('src');
+      if (failureGate.rejectFailed(requestCatalog,failedSrc,renderHref))
+        imageFailureEpoch++;
+    };
+    node.addEventListener('error',onError);
+    return {destroy(){node.removeEventListener('error',onError)}};
   }
   onMount(() => retainSwitch1253PublicItemImageSource(base));
 </script>
@@ -29,10 +37,12 @@
   data-media-status={renderHref?'verified-public-image':'unavailable'}
   style:--image-size={$itemImagePreferences.size+'px'}>
   {#if renderHref}
-    {#key renderHref}
-      <img src={renderHref} alt={label} loading="lazy" decoding="async" draggable="false"
-        style:object-fit={$itemImagePreferences.fit}
-        width="160" height="160" on:error={failedImage} />
+    {#key $switch1253PublicItemImageSource.catalog}
+      {#key renderHref}
+        <img src={renderHref} alt={label} loading="lazy" decoding="async" draggable="false"
+          style:object-fit={$itemImagePreferences.fit}
+          width="160" height="160" use:bindVerifiedImageFailure />
+      {/key}
     {/key}
   {:else}
     <span class="image-unavailable" aria-hidden="true">—</span>
