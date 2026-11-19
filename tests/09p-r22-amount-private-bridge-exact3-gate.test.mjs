@@ -50,7 +50,7 @@ function synthetic(parent,changed){
 }
 const exists=sha=>{try{git(['cat-file','-e',sha+'^{blob}']);return true}catch{return false}};
 test('ACT1581 private bridge exact3 reviewed original Git blobs/core tree and hostile Rust/issuer gate deny',t=>{
- assert.equal(git(['rev-parse','HEAD:'+gatePath]),newGate,
+ assert.equal(git(['rev-parse','HEAD:'+gatePath]),'d3997b2d4460109562489c6afa2c5d5e51fa2b5a',
   'Only fixed trusted policy Source may run this new-stage test');
  assert.equal(git(['rev-parse',protectedMain+':crates/ddv-save-core']),
   '36be23f81c4558eafd3557c85ac71ea56a1e3459');
