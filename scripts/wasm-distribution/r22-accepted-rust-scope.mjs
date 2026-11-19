@@ -1332,6 +1332,14 @@ const steam626AmountPrivateBridgeExact3Entries=Object.freeze([
   before:{mode:'100644',blob:'9472a792277f15e69d64118919835b12bed129f1'},
   after:{mode:'100644',blob:'f11c68ca214853c762788ae032710fc4683dd472'}}
 ]);
+// ACT1581 W-CORE-004: exact one Windows SHA-stable Steam626 pack
+// DATA/.gitattributes GitBlob. Its path is inside crate and changes Core
+// Tree, without editing actual Rust bytes/codec/public rights/flags.
+const steam626WindowsLfPackExact1Entries=Object.freeze([{
+ path:'crates/ddv-save-core/data/.gitattributes',
+ before:null,
+ after:{mode:'100644',blob:'f67de2e4316397b93f95088c379f724ea81e9399'}
+}]);
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1567,6 +1575,22 @@ function selectAcceptedCorePair(baseCore,sourceCore){
    r22InputUnchanged:'30551c7cc566614f64c8ba04748c3aef44b419bb',
    privateNativeOnly:true,publicConsumerEnabled:false,
    independentRustAndSecurityL2Required:true,
+   genuineEncryptedOriginalP1gV2:'NOT_RUN',
+   mergeAuthorized:false,writerAuthorized:false,operationOn:false}};
+ }
+ if(baseCore==='10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c'){
+  if(sourceCore!=='623034400b71179b790ae8eca7b152cd892c898f')
+   deny('CANDIDATE_CORE_TREE');
+  return {entries:steam626WindowsLfPackExact1Entries,count:1,metadata:{
+   sourcePr:2276,sourceHead:'ad210aa3c551615b8c35f8b2970138760a59f5b6',
+   originalSourcePr:2276,exactWindowsDataBlob:'f67de2e4316397b93f95088c379f724ea81e9399',
+   originalProtectedBase:'a9a87c578c8bc2a9c64284b15d3ed2c5eb39f817',
+   coreBefore:'10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c',
+   coreAfter:'623034400b71179b790ae8eca7b152cd892c898f',
+   cargoUnchanged:'751a73da41d8b58f7de70643f50b97722a3c1260',
+   r22InputUnchanged:'30551c7cc566614f64c8ba04748c3aef44b419bb',
+   windowsByteStableOnly:true,sourcePaths:1,
+   independentSecurityL2Required:true,
    genuineEncryptedOriginalP1gV2:'NOT_RUN',
    mergeAuthorized:false,writerAuthorized:false,operationOn:false}};
  }
