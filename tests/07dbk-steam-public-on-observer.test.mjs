@@ -118,7 +118,7 @@ test('original signed product image SHA, host and MIME gate cannot be bypassed',
   for(const mode of [{originalWrongBytes:true},{mimeError:true},{redirect:true}]){
     const f=setup(mode);
     await assert.rejects(observeSteamPublicOn({...opts,fetcher:f.fetcher}),
-      /MEDIA_(PUBLIC_NOT_200|PUBLIC_WRONG_MIME|LIVE_IMAGE_SHA256)/,
+      /LIVE_IMAGE_SHA256|MEDIA_PUBLIC_WRONG_MIME|MEDIA_PUBLIC_NOT_OK_302/,
       JSON.stringify(mode));
   }
 });
