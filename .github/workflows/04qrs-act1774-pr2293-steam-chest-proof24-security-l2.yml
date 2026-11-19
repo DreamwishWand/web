@@ -1,0 +1,213 @@
+name: 04 QR-S ACT1774 PR2293 protected Steam626 Chest proof24 SHA signer Security L2 QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2293-steam-chest-proof24-release-trust-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2293-steam-chest-proof24-security-l2.yml'
+permissions:
+  contents: read
+jobs:
+  independent-protected-origin-steam-chest-proof24:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify original fixed source vs QA-only one path
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 1c2b2216f7d69c39117ffbeb1f8b5bdebed2f042 HEAD
+          test "$(git diff --name-only 1c2b2216f7d69c39117ffbeb1f8b5bdebed2f042 HEAD)" = ".github/workflows/04qrs-act1774-pr2293-steam-chest-proof24-security-l2.yml"
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 74a2260f37baca41b2e84807af1c1f571b805015
+          test "$(git rev-parse HEAD:tests/scoped-steam-chest-proof-workflow.test.mjs)" = cb170257dfc3a1595eb770a152d44e09119160b6
+      - name: Real protected-parent 24/24 Git SHA modes anti-self-authorization and metadata-only signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS2293_NODE'
+          import assert from 'node:assert/strict';
+          import {spawnSync} from 'node:child_process';
+          import {mkdtempSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const main='509dbaf9cb50aaa32ded7d15296faae15d6daf96';
+          const approved='1c2b2216f7d69c39117ffbeb1f8b5bdebed2f042';
+          const file='.github/workflows/pages.yml';
+          const test='tests/scoped-steam-chest-proof-workflow.test.mjs';
+          const oldW='fbe9efeb38137499ce0cda008134992da5628a40';
+          const newW='74a2260f37baca41b2e84807af1c1f571b805015';
+          const oldT='115d0301aea69e7af8c9513c9aee0257b62d0db7';
+          const newT='cb170257dfc3a1595eb770a152d44e09119160b6';
+          const root=mkdtempSync(join(tmpdir(),'qrs2293-')),dir=join(root,'repo');
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',GIT_TERMINAL_PROMPT:'0',
+           GIT_AUTHOR_NAME:'04 QR-S independent',GIT_AUTHOR_EMAIL:'qrs@example.invalid',
+           GIT_COMMITTER_NAME:'04 QR-S independent',GIT_COMMITTER_EMAIL:'qrs@example.invalid'};
+          const run=(name,args,cwd=dir,input)=>spawnSync(name,args,{cwd,env,input,encoding:'utf8',timeout:90000,maxBuffer:12*1024*1024});
+          const g=(...args)=>{const r=run('git',args);assert.equal(r.status,0,'GIT '+args.join(' ')+' '+r.stderr.slice(-600));return r.stdout.trim()};
+          const show=(rev,path)=>{const r=run('git',['show',rev+':'+path]);assert.equal(r.status,0,r.stderr);return r.stdout};
+          const blob=s=>{const r=run('git',['hash-object','-w','--stdin'],dir,s);assert.equal(r.status,0,r.stderr);return r.stdout.trim()};
+          let n=0,pos=0,neg=0;
+          function synthetic(base,changes){
+           const ixfile=join(root,'index-'+(++n));
+           const ix=args=>{const r=spawnSync('git',args,{cwd:dir,env:{...env,GIT_INDEX_FILE:ixfile},encoding:'utf8'});assert.equal(r.status,0,'INDEX '+r.stderr);return r.stdout.trim()};
+           ix(['read-tree',base+'^{tree}']);
+           for(const [p,sha,mode='100644'] of changes){
+            if(sha===null)ix(['update-index','--force-remove','--',p]);
+            else ix(['update-index','--add','--cacheinfo',mode,sha,p]);
+           }
+           return g('commit-tree',ix(['write-tree']),'-p',base,'-m','04QR-S unreferenced negative GitTree');
+          }
+          function split(s){
+           const a=s.indexOf('  scoped_steam_chest_proof:\n'),b=s.indexOf('  scoped_sr03_proof:\n');
+           assert.ok(a>0&&b>a,'scoped Chest proof boundaries');
+           return [s.slice(0,a),s.slice(a,b),s.slice(b)];
+          }
+          function pins(s){
+           const found=[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([a-f0-9]{40})/g)]
+            .map(x=>({path:x[1],sha:x[2]}));
+           assert.equal(found.length,24,'PIN_COUNT_EXACT24');
+           assert.equal(new Set(found.map(x=>x.path)).size,24,'PIN_PATHS_DISTINCT');
+           return found;
+          }
+          function leaves(commit,pinlist){
+           for(const p of pinlist){
+            const line=g('ls-tree',commit,'--',p.path);
+            const m=p.path==='crates/ddv-save-core'?'040000 tree ':'100644 blob ';
+            assert.equal(line,m+p.sha+'\t'+p.path,'PROTECTED_PIN_SHA_OR_MODE_'+p.path);
+           }
+          }
+          function assertSignedProofOnly(s){
+           const p=split(s)[1];
+           const markers=[
+            "github.event_name == 'workflow_dispatch'","github.ref == 'refs/heads/main'",
+            "inputs.scoped_steam_chest_proof_source != ''",
+            "inputs.scoped_collection_proof_source == ''",
+            "inputs.scoped_switch_chest_proof_source == ''",
+            "inputs.scoped_sr03_proof_source == ''",
+            "inputs.scoped_comp03_spatial_proof_source == ''",
+            "inputs.scoped_rm01_proof_source == ''",
+            "inputs.scoped_hair_proof_source == ''",
+            "inputs.scoped_skin_proof_source == ''",
+            "inputs.scoped_comp03_proof_source == ''",
+            'test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"',
+            'test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"',
+            'test "$GITHUB_REF" = refs/heads/main',
+            'test "$GITHUB_REPOSITORY_ID" = 1371485649',
+            'node scripts/int-protected-ci-gate.mjs build',
+            'node scripts/wasm-distribution/verify-protected-release.mjs inputs',
+            '--no-default-features --features product-steam626-chest-scoped,worker-wasm',
+            'node scripts/int-protected-ci-gate.mjs deploy',
+            'actions/attest-build-provenance@v2',
+            'seal-scoped-steam-chest-private.mjs verify-protected-candidate',
+            'SCOPED_STEAM_CHEST_PROTECTED_CANDIDATE_SIGNED_PROOF_ONLY',
+            'actions/upload-artifact@v4',
+            'wand-steam-chest-proof/pins.json',
+            'wand-steam-chest-proof/attestation-bundle.jsonl',
+            'test ! -e static/worker-wasm-scoped-steam-chest',
+            'test ! -e build/worker-wasm-scoped-steam-chest'];
+           for(const m of markers)assert.ok(p.includes(m),'MISSING_SCOPED_PROOF_GATE_'+m);
+           assert.equal((p.match(/actions\/attest-build-provenance@v2/g)||[]).length,1);
+           assert.equal((p.match(/actions\/upload-artifact@v4/g)||[]).length,1);
+           assert.equal((p.match(/actions\/deploy-pages@|actions\/upload-pages-artifact@/g)||[]).length,0);
+           assert.equal((p.match(/permissions:/g)||[]).length,0);
+           const subject=p.split('subject-path: |')[1]?.split('      - name:')[0];
+           assert.ok(subject,'missing subject set');
+           assert.deepEqual(subject.trim().split('\n').map(x=>x.trim()),[
+            'tests/wasm-distribution/fixtures/scoped-steam-chest/ddv_save_core.js',
+            'tests/wasm-distribution/fixtures/scoped-steam-chest/ddv_save_core_bg.wasm',
+            'tests/wasm-distribution/fixtures/scoped-steam-chest/manifest.json']);
+           const upload=p.split('actions/upload-artifact@v4')[1];
+           assert.ok(upload&&!/ddv_save_core|worker-wasm-scoped-steam-chest.*\/.*\.(?:wasm|js)|upload-pages-artifact|deploy-pages/.test(upload),
+            'PROOF_ARTIFACT_CONTAINS_EXECUTABLE_OR_PAGES');
+           return p;
+          }
+          function deny(label,fn){
+           assert.throws(fn,undefined,'QRS2293_FALSE_ACCEPT_'+label);
+           neg++;console.log('QRS2293_NEG_DENIED_'+label);
+          }
+          function allow(label,fn){fn();pos++;console.log('QRS2293_POS_'+label)}
+          try{
+           const c=run('git',['clone','--no-hardlinks','--no-checkout','-q',process.cwd(),dir],process.cwd());
+           assert.equal(c.status,0,'clone '+c.stderr);
+           allow('ORIGINAL_PROTECTED_PARENT_AND_TWO_SOURCE_PATHS',()=>{
+            assert.equal(g('merge-base',main,approved),main);
+            assert.deepEqual(g('diff','--name-only',main,approved).split('\n').filter(Boolean).sort(),[file,test].sort());
+            for(const [path,pre,post] of [[file,oldW,newW],[test,oldT,newT]]){
+             assert.equal(g('ls-tree',main,'--',path),'100644 blob '+pre+'\t'+path);
+             assert.equal(g('ls-tree',approved,'--',path),'100644 blob '+post+'\t'+path);
+            }
+           });
+           const rawOld=show(main,file),rawNew=show(approved,file);
+           const [prefix,proofOld,suffix]=split(rawOld),[p2,proofNew,s2]=split(rawNew);
+           const old=pins(proofOld),now=pins(proofNew);
+           const changed=old.map((p,i)=>({...p,newSha:now[i].sha})).filter(p=>p.sha!==p.newSha);
+           allow('EXACT_ELEVEN_SHA_LITERALS_ONLY_INSIDE_CHEST_JOB',()=>{
+            assert.equal(prefix,p2);assert.equal(suffix,s2);
+            assert.deepEqual(old.map(x=>x.path),now.map(x=>x.path));
+            assert.equal(changed.length,11);
+            let substituted=proofOld;
+            for(const c of changed){
+             const from='test "$(git rev-parse HEAD:'+c.path+')" = '+c.sha;
+             const to='test "$(git rev-parse HEAD:'+c.path+')" = '+c.newSha;
+             assert.ok(substituted.includes(from));substituted=substituted.replace(from,to);
+            }
+            assert.equal(substituted,proofNew,'NON_SHA_SOURCE_SCOPE_CHANGE');
+           });
+           allow('PROTECTED_MAIN_24_OF_24_SHA_MODE_PIN_CLOSURE',()=>{
+            leaves(main,now);
+            assert.equal(g('rev-parse',main+':crates/ddv-save-core'),'2f712d047e99bc024672e4d7a488baa6276e06f4');
+            const r=JSON.parse(show(main,'scripts/wasm-distribution/protected-release-inputs.json'));
+            assert.equal(r.writerEnabled,false);assert.equal(r.productConsumerEnabled,false);
+           });
+           allow('EXCLUSIVE_SIGNED_PROOF_METADATA_ONLY',()=>{assertSignedProofOnly(rawNew);assert.equal(assertSignedProofOnly(rawOld),proofOld)});
+           allow('QA_ONLY_NO_PUBLIC_EXECUTABLE_OR_OWNER_DATA',()=>{
+            assert.equal(g('ls-tree',approved,'--','static/worker-wasm-scoped-steam-chest'),'');
+            assert.equal(g('ls-tree',approved,'--','src/lib/ddv/core/save/product-scoped-steam-chest-release-anchor.mjs'),
+             g('ls-tree',main,'--','src/lib/ddv/core/save/product-scoped-steam-chest-release-anchor.mjs'));
+           });
+           const poison=blob('// adversarial generated synthetic bytes, no user Save\n');
+           for(const p of now){
+            const edit=p.path==='crates/ddv-save-core'?'crates/ddv-save-core/src/product_amount_scoped.rs':p.path;
+            const bad=synthetic(main,[[edit,poison]]);
+            deny('MODIFIED_PIN_'+p.path.replaceAll('/','_'),()=>leaves(bad,now));
+           }
+           const sample=now.find(p=>p.path==='src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs');
+           deny('ISSUER_MODE_EXECUTABLE',()=>leaves(synthetic(main,[[sample.path,sample.sha,'100755']]),now));
+           deny('ISSUER_SYMLINK_INSTEAD_OF_APPROVED_BLOB',()=>leaves(synthetic(main,[[sample.path,sample.sha,'120000']]),now));
+           deny('ISSUER_PATH_REMOVED',()=>leaves(synthetic(main,[[sample.path,null]]),now));
+           deny('STALE_ORIGINAL_24_SOURCE_PINNINGS',()=>leaves(main,old));
+           const tamperedProof=rawNew.replace('test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"','echo owner_can_override_source');
+           deny('FORGED_SOURCE_SHA_HANDSHAKE',()=>assertSignedProofOnly(tamperedProof));
+           const tamperedCI=rawNew.replace('node scripts/int-protected-ci-gate.mjs build','echo allowed_without_protected_ci');
+           deny('FORGED_CI_PRIOR_TO_SIGNING',()=>assertSignedProofOnly(tamperedCI));
+           const execUpload=rawNew.replace('wand-steam-chest-proof/attestation-bundle.jsonl',
+             'wand-steam-chest-proof/attestation-bundle.jsonl\n             tests/wasm-distribution/fixtures/scoped-steam-chest/ddv_save_core_bg.wasm');
+           deny('EXECUTABLE_SUBJECT_IN_ARTIFACT',()=>{
+            const j=split(execUpload)[1];
+            assert.equal(j,proofNew,'EXECUTABLE_SUBJECT_IN_ARTIFACT');
+           });
+           const otherJob=rawNew.replace('scoped_sr03_proof:','scoped_sr03_proof:\n    if: always()\n    permissions:\n      contents: write');
+           deny('OTHER_JOBS_GOT_PERMISSIONS',()=>assert.equal(split(otherJob)[2],suffix));
+           const forged=blob(proofNew.replace('test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"','echo candidate_self_signed'));
+           const forgedCommit=synthetic(main,[[file,forged],[test,newT]]);
+           deny('CANDIDATE_ISSUER_SELF_AUTHORIZED',()=>assert.equal(g('ls-tree',forgedCommit,'--',file),'100644 blob '+newW+'\t'+file));
+           const forgedMatchingPin=proofNew.replace('test "$(git rev-parse HEAD:'+sample.path+')" = '+sample.sha,
+            'test "$(git rev-parse HEAD:'+sample.path+')" = '+poison);
+           const forgedSelf=synthetic(main,[[sample.path,poison],[file,blob(prefix+forgedMatchingPin+suffix)],[test,newT]]);
+           deny('SELF_AMENDED_PIN_AND_CORRESPONDING_CODE',()=>assert.deepEqual(g('diff','--name-only',main,forgedSelf).split('\n').sort(),[file,test].sort()));
+           deny('MISSING_ONE_PIN',()=>pins(proofNew.replace('test "$(git rev-parse HEAD:'+sample.path+')" = '+sample.sha,'')));
+           deny('DUPLICATE_PIN',()=>pins(proofNew+'\n          test "$(git rev-parse HEAD:'+sample.path+')" = '+sample.sha+'\n'));
+           assert.equal(pos,5);assert.ok(neg>=34);
+           console.log('QRS2293_FINAL_5POS_'+neg+'NEG_ZERO_SELF_AUTH_PROOF_ONLY',JSON.stringify({pos,neg,shaPins:now.length,changedTrustedPins:changed.length,writer:false,productConsumer:false,ownerGenuineV2:'NOT_RUN'}));
+          }finally{rmSync(root,{recursive:true,force:true})}
+          QRS2293_NODE
+      - name: Keep QA-only no signer execution no Page deploy no Writer
+        run: echo QRS2293_QA_ONLY_NEVER_MERGE_NO_DISPATCH_NO_OWNER_PRIVATE_BYTES
