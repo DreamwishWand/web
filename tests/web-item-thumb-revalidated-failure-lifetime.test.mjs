@@ -48,14 +48,18 @@ test('manifest refresh pending, withdrawal and unknown image all fail closed and
  assert.equal(gate.visibleHref('NOT_CONFIGURED',null,door,0),null);
  assert.equal(gate.visibleHref('VERIFIED',revalidated,replacement,0),replacement);
 });
-test('actual Svelte ItemThumb compiles, keys image by URL and binds onerror to actual old node src',()=>{
+test('actual Svelte ItemThumb compiles, keys image by signed catalog and URL, binds the originating request before onerror',()=>{
  const src=readFileSync(new URL('../src/lib/ui/ItemThumb.svelte',import.meta.url),'utf8');
  const result=compile(src,{filename:'ItemThumb.svelte',generate:'client'});
  assert.ok(result.js.code.length>0);
- assert.match(src,/createVerifiedItemThumbFailureGate/);
- assert.match(src,/\{#key renderHref\}/);
- assert.match(src,/getAttribute\('src'\)/);
- assert.match(src,/rejectFailed\(\$switch1253PublicItemImageSource\.catalog,failedSrc,renderHref\)/);
- assert.match(src,/onMount\(\(\) => retainSwitch1253PublicItemImageSource\(base\)\)/);
- assert.match(src,/\$switch1253PublicItemImageSource\.status === 'VERIFIED'/);
+ assert.ok(src.includes('createVerifiedItemThumbFailureGate'));
+ assert.ok(src.includes('{#key $switch1253PublicItemImageSource.catalog}'));
+ assert.ok(src.includes('{#key renderHref}'));
+ assert.ok(src.includes("node.getAttribute('src')"));
+ assert.ok(src.includes('const requestCatalog = $switch1253PublicItemImageSource.catalog;'));
+ assert.ok(src.includes('rejectFailed(requestCatalog,failedSrc,renderHref)'));
+ assert.ok(src.includes("node.addEventListener('error',onError)"));
+ assert.ok(src.includes("node.removeEventListener('error',onError)"));
+ assert.ok(src.includes('onMount(() => retainSwitch1253PublicItemImageSource(base))'));
+ assert.ok(src.includes("$switch1253PublicItemImageSource.status === 'VERIFIED'"));
 });
