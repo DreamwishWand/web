@@ -31,7 +31,13 @@ async function freshReopen(ciphertext,expectedDecodedSha256){
   w.onerror=()=>{destroy();reject(Error('REOPEN_DENIED'))};
   w.onmessage=e=>{const r=e.data;destroy();
    resolve(r?.freshWorkerReopenVerified===true&&r?.privatePayloadPosted===false)};
-  w.postMessage({ciphertext:new Uint8Array(ciphertext),expectedDecodedSha256});
+  let transient;
+  try{
+   transient=new Uint8Array(ciphertext);
+   w.postMessage({ciphertext:transient,expectedDecodedSha256});
+  }catch{
+   destroy();reject(Error('REOPEN_DENIED'));
+  }finally{if(transient)Uint8Array.prototype.fill.call(transient,0)}
  });
 }
 async function getNewFile(root,tag,excluded,check){

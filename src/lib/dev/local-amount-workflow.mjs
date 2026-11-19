@@ -53,9 +53,25 @@ const cleanState=()=>({
   phase:'closed',fileName:'',backupVerified:false,targets:[],
   choice:-1,newAmount:'',preview:null,editedCopy:null,error:''
 });
-export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false,switch626Chest=false,steam626Chest=false,switch626Catalog0=false,requireIndependentProcessReopen=false}={}){
+export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false,switch626Chest=false,steam626Chest=false,switch626Catalog0=false,requireIndependentProcessReopen=false,publicSignedV2Evidence=null}={}){
   if(trustedLocalHarness!==true||typeof exactOneDecrease!=='boolean'||typeof switch626Chest!=='boolean'||typeof steam626Chest!=='boolean'||typeof switch626Catalog0!=='boolean'||typeof requireIndependentProcessReopen!=='boolean'||[switch626Chest,steam626Chest,switch626Catalog0].filter(Boolean).length>1||((switch626Chest||steam626Chest||switch626Catalog0)&&!exactOneDecrease)||!adapter||typeof adapter!=='object')
     fail('LOCAL_HARNESS_GATE_OFF');
+  // Release QA may independently reopen the actual encrypted Save in another
+  // OS process. A browser's fresh Codec Worker cannot attest that per action.
+  // The caller is the existing WeakMap-branded signed ProductPort UI only.
+  const releaseProof=publicSignedV2Evidence;
+  const expectedOp=steam626Chest?'steam626.chest.exact1':
+    switch626Chest?'switch626.chest.exact1':
+    switch626Catalog0?'switch626.catalog0.exact1':null;
+  const expectedBuild=steam626Chest?STEAM626_FULL_VERSION:SWITCH626_CHEST_BID;
+  if(releaseProof!==null&&(!requireIndependentProcessReopen||!exactOneDecrease||!expectedOp||
+    !only(releaseProof,'contract,releaseId,operation,platform,buildId,productV2EvidenceSha256')||
+    releaseProof.contract!=='wand.product.amount.release-v2-evidence@1'||
+    releaseProof.operation!==expectedOp||releaseProof.buildId!==expectedBuild||
+    releaseProof.platform!==(steam626Chest?'steam-windows':'switch')||
+    !sha(releaseProof.releaseId)||!sha(releaseProof.productV2EvidenceSha256)))
+    fail('RELEASE_V2_EVIDENCE_DENIED');
+  const expectedRuntimeProcessReopen=releaseProof===null?requireIndependentProcessReopen:false;
   for(const method of ['open','backupOriginal','listVerifiedTargets','stageTyped',
     'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])
     if(typeof adapter[method]!=='function')fail('TRUSTED_WORKER_API_MISSING');
@@ -185,7 +201,7 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
       check();
       if(!only(r,'kind,ok,editedCopyName,editedSha256,editedSizeBytes,backupName,editedCiphertextVerified,freshWorkerReopenVerified,independentProcessReopenVerified,originalUnchanged,writerAuthorized,nativeV3Verified,originalOverwriteAuthorized')||
         r.kind!=='EXPORTED'||r.ok!==true||r.editedCiphertextVerified!==true||
-        r.freshWorkerReopenVerified!==true||r.independentProcessReopenVerified!==requireIndependentProcessReopen||r.originalUnchanged!==true||
+        r.freshWorkerReopenVerified!==true||r.independentProcessReopenVerified!==expectedRuntimeProcessReopen||r.originalUnchanged!==true||
         r.writerAuthorized!==false||r.nativeV3Verified!==false||
         r.originalOverwriteAuthorized!==false||!sha(r.editedSha256)||r.editedSha256===selected.sha||!validSize(r.editedSizeBytes)||
         typeof r.backupName!=='string'||typeof r.editedCopyName!=='string'||
@@ -195,7 +211,7 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
         same(r.backupName,r.editedCopyName)||same(r.editedCopyName,selected.name))
         fail('EDITED_COPY_REOPEN_AND_NAME_DENIED');
       return commit({phase:'exported',editedCopy:{name:r.editedCopyName,
-        backupName:r.backupName,freshWorkerReopenVerified:true,independentProcessReopenVerified:requireIndependentProcessReopen}},()=>{
+        backupName:r.backupName,freshWorkerReopenVerified:true,independentProcessReopenVerified:expectedRuntimeProcessReopen}},()=>{
           editedBinding=Object.freeze({name:r.editedCopyName,sha:r.editedSha256,size:r.editedSizeBytes});
         });
     });
