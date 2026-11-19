@@ -376,6 +376,25 @@ fn state_item(v:&Value,item:i32)->CoreResult<()>{
 fn state_array(v:&Value)->CoreResult<&Vec<Value>>{
     v.as_array().filter(|a|a.len()<=4096).ok_or(denied("PRODUCT_AMOUNT_STATE_ARRAY"))
 }
+// The persisted Mannequin customization is the same map<int32,int32>
+// already read by the immutable Avatar reference observer. Its keys are
+// existing clothing ItemIDs (prefix 5); values are signed design scalars,
+// including valid negative/zero values. Never infer design ownership here.
+// All literal matches still deny the selected Inventory/Chest item.
+fn state_mannequin_customization(v:&Value,item:i32)->CoreResult<()>{
+    let map=v.as_object().filter(|m|m.len()<=256)
+        .ok_or(denied("PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP"))?;
+    for (key,value) in map {
+        let clothing=key.parse::<i32>()
+            .map_err(|_|denied("PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"))?;
+        need(clothing>0&&clothing/10_000_000==5&&clothing.to_string()==*key,
+            "PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY")?;
+        let design=value.as_i64().and_then(|x|i32::try_from(x).ok())
+            .ok_or(denied("PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"))?;
+        need(clothing!=item&&design!=item,"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE")?;
+    }
+    Ok(())
+}
 fn state_literals(v:&Value,item:i32,budget:&mut usize,depth:usize)->CoreResult<()>{
     *budget+=1;need(*budget<=1_000_000&&depth<=32,"PRODUCT_AMOUNT_STATE_BOUND")?;
     match v{
@@ -427,10 +446,7 @@ fn saved_grid_state(b:&[u8],s:Span,item:i32,budget:&mut usize)->CoreResult<()>{
         "Mannequin"=>{
             let clothes=p["Clothes"].as_object().ok_or(denied("PRODUCT_AMOUNT_STATE_CLOTHES"))?;
             for q in clothes.values(){state_item(q,item)?;}
-            for q in state_array(&p["ClothingCustomization"])?{
-                let x=q.as_str().and_then(|x|x.parse::<u32>().ok()).ok_or(denied("PRODUCT_AMOUNT_STATE_CUSTOMIZATION"))?;
-                need(x!=item as u32,"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE")?;
-            }
+            state_mannequin_customization(&p["ClothingCustomization"],item)?;
         },
         "BlockerData"=>{
             let t=&p["Treasure"];state_fields(t,&["ItemID","State"])?;state_item(&t["ItemID"],item)?;
@@ -993,6 +1009,99 @@ mod tests{
         assert!(s.discover_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),"linked-crop-chest48",0).is_err());
     }
 
+    // Genuine Steam626 Owner Save has persisted Mannequin customization
+    // as clothing-item-key -> signed design scalar, NOT a string array.
+    // This only resolves known saved shape; it grants no native layout,
+    // rights, user-facing Writer or product operation acceptance.
+    #[test]fn saved_grid_mannequin_customization_exact_int32_map_and_negative_refs(){
+        let check=|v:Value,item:i32|{
+            let b=serde_json::to_vec(&v).unwrap();
+            saved_grid_state(&b,Span{begin:0,end:b.len()},item,&mut 0)
+        };
+        let mannequin=|custom:Value|json!({"Mannequin":{
+            "BodyType":0,"Clothes":{"0":50000001},
+            "ClothingCustomization":custom,"HairColorIndex":0,
+            "HairHighlightColor":0,"IsMale":true
+        }});
+        for item in [40000048,30200000]{
+            for valid in [
+                json!({}),json!({"50000001":0}),
+                json!({"50000001":-1,"50000002":42})
+            ]{
+                assert!(check(mannequin(valid),item).is_ok());
+            }
+            for (bad,code) in [
+                (json!(["50000001"]),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP"),
+                (Value::Null,"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP"),
+                (json!({"050000001":2}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+                (json!({"40000048":2}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+                (json!({"notId":2}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+                (json!({"50000001":"1"}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                (json!({"50000001":2147483648_i64}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                (json!({"50000001":null}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_DESIGN"),
+                (json!({"50000001":item}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+            ]{
+                assert_eq!(check(mannequin(bad),item).unwrap_err().0,code);
+            }
+            let mut many=serde_json::Map::new();
+            for id in 50000001..50000258{many.insert(id.to_string(),json!(0));}
+            assert_eq!(check(mannequin(Value::Object(many)),item).unwrap_err().0,
+                "PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP");
+        }
+    }
+    // Reproduce the genuine Owner false denial at the GLOBAL saved GridState
+    // scan, not just the small parser helper. The Mannequin is unrelated to
+    // both selected amounts; original decoded document is immutable.
+    #[test]fn global_mannequin_int32_map_preserves_scoped_amount_stage_both_targets(){
+        for chest in [false,true]{
+            let mut d=if chest{chest_doc()}else{doc()};
+            let (sel,new,old,item)=if chest{
+                (ExistingAmountSelection::Chest{container_id:12,slot_index:0},49,50,30200000)
+            }else{
+                (ExistingAmountSelection::Inventory{inventory_id:0,item_id:40000048},2,3,40000048)
+            };
+            if !chest{
+                d["World"]["GridCollection"]["Grids"]["7"]=
+                    json!({"ID":7,"GridDefaultLayoutPath":"","Objects":{}});
+            }
+            d["World"]["GridCollection"]["Grids"]["7"]["Objects"]["8"]=json!({
+                "ID":8,"ItemID":40009998,"State":{"Mannequin":{
+                    "BodyType":0,"Clothes":{"0":50000001},
+                    "ClothingCustomization":{"50000001":-1,"50000002":0},
+                    "HairColorIndex":0,"HairHighlightColor":0,"IsMale":true
+                }}
+            });
+            let s=open(&d);let before=s.receipt().unwrap();
+            let t=s.preview_scoped_product_amount(scope(&s,WorkerAction::ReadDomain),sel,new).unwrap();
+            assert_eq!(t.view().old_amount,old);
+            assert_eq!(s.receipt().unwrap(),before);
+            let staged=s.stage_scoped_product_amount(
+                scope(&s,WorkerAction::Stage),sel,old,new,t.view().entry_sha256).unwrap();
+            assert_eq!(staged.exact_field_changed_count,1);
+            assert!(!staged.product_writer_authorized);
+            let output=s.take_typed_semantic_decoded_once(
+                scope(&s,WorkerAction::ExportEditedCopy)).unwrap();
+            let mut expected=d.clone();
+            if chest{
+                expected["Player"]["ContainerInventories"]["12"]["Inventory"][0]["Amount"]=json!(49);
+            }else{
+                expected["Player"]["ListInventories"]["0"]["Inventory"]["40000048"]["Amount"]=json!(2);
+            }
+            assert_eq!(output,serde_json::to_vec(&expected).unwrap());
+            for (bad,code) in [
+                (json!(["50000001"]),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_MAP"),
+                (json!({"50000001":item}),"PRODUCT_AMOUNT_STATE_ITEM_REFERENCE"),
+                (json!({"30000001":0}),"PRODUCT_AMOUNT_STATE_CUSTOMIZATION_KEY"),
+            ]{
+                let mut q=d.clone();
+                q["World"]["GridCollection"]["Grids"]["7"]["Objects"]["8"]["State"]["Mannequin"]["ClothingCustomization"]=bad;
+                let denied=open(&q);let current=denied.receipt().unwrap();
+                assert_eq!(denied.preview_scoped_product_amount(
+                    scope(&denied,WorkerAction::ReadDomain),sel,new).unwrap_err().0,code);
+                assert_eq!(denied.receipt().unwrap(),current);
+            }
+        }
+    }
     #[test]fn saved_grid_state_known_literal_and_typed_dependencies(){
         let check=|v:Value,item:i32|{let b=serde_json::to_vec(&v).unwrap();saved_grid_state(&b,Span{begin:0,end:b.len()},item,&mut 0)};
         for item in [40000048,30200000]{
