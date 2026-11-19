@@ -1,0 +1,198 @@
+name: 04 QR-S ACT1774 PR2337 Chest CoreTree Security L2 QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2337-chest25-coretree-security-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2337-chest25-coretree-security-l2.yml'
+permissions:
+  contents: read
+jobs:
+  original-source-git-tree-adversary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed Source two-leaf review and actual GitTree denial
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS_CHEST'
+          import assert from 'node:assert/strict';
+          import {spawnSync} from 'node:child_process';
+          import {mkdtempSync,rmSync,readFileSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const SOURCE='e18d9c140b103c3bba5fe6e84ceb8f8fd90a48b3';
+          const BASE='ac7e95f638592a77da908f340b650692ffc7f47c';
+          const CORE='7ce60a4e95988cc9d8f33ed54453882e4198e7c5';
+          const BEFORE='2f712d047e99bc024672e4d7a488baa6276e06f4';
+          const PAGES='.github/workflows/pages.yml';
+          const TEST='tests/scoped-steam-chest-proof-workflow.test.mjs';
+          const QA='.github/workflows/04qrs-act1774-pr2337-chest25-coretree-security-l2.yml';
+          const rust='crates/ddv-save-core/src/wasm_worker.rs';
+          const t=mkdtempSync(join(tmpdir(),'qrs2337-chest-')),repo=join(t,'repo');
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_CONFIG_GLOBAL:'/dev/null',
+            GIT_CONFIG_NOSYSTEM:'1',GIT_TERMINAL_PROMPT:'0',
+            GIT_AUTHOR_NAME:'Independent QRS',GIT_AUTHOR_EMAIL:'qrs@example.invalid',
+            GIT_COMMITTER_NAME:'Independent QRS',GIT_COMMITTER_EMAIL:'qrs@example.invalid'};
+          function call(args,options={}){
+            return spawnSync('git',args,{cwd:repo,encoding:'utf8',maxBuffer:12*1024*1024,
+              timeout:90000,input:options.input,env:{...env,...(options.extraEnv||{})}});
+          }
+          function git(...args){const r=call(args);assert.equal(r.status,0,args.join(' ')+' '+String(r.stderr));return r.stdout.trim();}
+          function gEnv(args,extraEnv){const r=call(args,{extraEnv});assert.equal(r.status,0,args.join(' ')+' '+String(r.stderr));return r.stdout.trim();}
+          function blob(data){const r=call(['hash-object','-w','--stdin'],{input:data});assert.equal(r.status,0,r.stderr);return r.stdout.trim();}
+          let seq=0;
+          function candidate(changes){
+            const index=join(t,'idx'+(++seq));
+            const g=args=>gEnv(args,{GIT_INDEX_FILE:index});
+            g(['read-tree',SOURCE+'^{tree}']);
+            for(const [p,sha,mode='100644'] of changes){
+              if(sha===null)g(['update-index','--force-remove','--',p]);
+              else g(['update-index','--add','--cacheinfo',mode,sha,p]);
+            }
+            const tree=g(['write-tree']);
+            return g(['commit-tree',tree,'-p',SOURCE,'-m','QRS disposable negative tree']);
+          }
+          const setHead=sha=>git('update-ref','HEAD',sha);
+          const at=(head,path)=>{const r=call(['rev-parse',head+':'+path]);return r.status===0?r.stdout.trim():null;};
+          const mode=(head,path)=>git('ls-tree',head,'--',path).split(' ')[0];
+          try{
+            const c=spawnSync('git',['clone','--no-hardlinks','--no-checkout','-q',process.cwd(),repo],
+              {cwd:process.cwd(),env,encoding:'utf8',timeout:90000});
+            assert.equal(c.status,0,c.stderr);
+            assert.equal(git('rev-parse','HEAD^'),SOURCE);
+            assert.equal(git('rev-parse',SOURCE+'^'),BASE);
+            assert.deepEqual(git('diff','--name-only',SOURCE,'HEAD').split('\n'),[QA]);
+            assert.deepEqual(git('diff','--name-only',BASE,SOURCE).split('\n'),[PAGES,TEST]);
+            assert.equal(at(SOURCE,PAGES),'b9f8f1dfcffc1b9667fc5854fc959e952b3d9e5d');
+            assert.equal(at(SOURCE,TEST),'5055db921811277ee17af53806f052d10aed1a6e');
+            assert.equal(at(BASE,PAGES),'7dfb41f48cdc2156c01479048caf6365b6854cac');
+            assert.equal(at(BASE,TEST),'67a1d82155467ebf10f6876b7078e0d420221399');
+            assert.equal(at(SOURCE,'crates/ddv-save-core'),CORE);
+            assert.equal(at(BASE,'crates/ddv-save-core'),CORE);
+            assert.equal(mode(SOURCE,'crates/ddv-save-core'),'040000');
+            assert.equal(at(SOURCE,rust),'6432275d2909e6bc6d39265ae70cc7176fc37106');
+            assert.equal(at(SOURCE,rust),at(BASE,rust));
+            assert.equal(mode(SOURCE,rust),'100644');
+            const sourceText=git('show',SOURCE+':'+PAGES);
+            const parentText=git('show',BASE+':'+PAGES);
+            const scoped=x=>x.slice(x.indexOf('  scoped_steam_chest_proof:\n'),x.indexOf('  scoped_sr03_proof:\n'));
+            const part=scoped(sourceText),old=scoped(parentText);
+            assert.ok(part.includes('test "$(git rev-parse HEAD:crates/ddv-save-core)" = '+CORE));
+            assert.ok(old.includes('test "$(git rev-parse HEAD:crates/ddv-save-core)" = '+BEFORE));
+            assert.equal(part.replace(CORE,BEFORE),old,'only one allowed signer CoreTree change');
+            const oldTest=git('show',BASE+':'+TEST),newTest=git('show',SOURCE+':'+TEST);
+            assert.equal(newTest.replaceAll(CORE,BEFORE),oldTest,'only matching test CoreTree change');
+            assert.match(part,/if: github.event_name == 'workflow_dispatch'/);
+            assert.match(part,/github.ref == 'refs\/heads\/main'/);
+            assert.match(part,/test "\$GITHUB_WORKFLOW_SHA" = "\$GITHUB_SHA"/);
+            assert.match(part,/test "\$GITHUB_REPOSITORY_ID" = 1371485649/);
+            assert.match(part,/test "\$WAND_PROOF_EXPECTED_SOURCE" = "\$GITHUB_SHA"/);
+            assert.match(part,/--no-default-features --features product-steam626-chest-scoped,worker-wasm/);
+            assert.match(part,/node scripts\/int-protected-ci-gate.mjs build/);
+            assert.match(part,/node scripts\/int-protected-ci-gate.mjs deploy/);
+            assert.match(part,/actions\/attest-build-provenance@v2/);
+            assert.doesNotMatch(part,/actions\/(deploy-pages|upload-pages-artifact)@|permissions:|writerAuthorized: true/);
+            const upload=part.slice(part.lastIndexOf('actions/upload-artifact@v4'));
+            assert.match(upload,/wand-steam-chest-proof\/pins.json/);
+            assert.match(upload,/wand-steam-chest-proof\/attestation-bundle.jsonl/);
+            assert.doesNotMatch(upload,/ddv_save_core|static\/|build\//);
+            const pins=[...part.matchAll(/test "\$\(git rev-parse HEAD:([^)]+)\)" = ([a-f0-9]{40})/g)].map(v=>[v[1],v[2]]);
+            assert.equal(pins.length,25);
+            assert.equal(pins[0][0],'crates/ddv-save-core');
+            assert.equal(pins[0][1],CORE);
+            assert.equal(pins.filter(([p])=>p==='crates/ddv-save-core').length,1);
+            const accepted=()=>pins.every(([p,sha])=>at('HEAD',p)===sha);
+            const coreLine=part.split('\n').find(s=>s.trim()==='test "$(git rev-parse HEAD:crates/ddv-save-core)" = '+CORE).trim();
+            function actualCoreCommand(){
+              return spawnSync('bash',['-euo','pipefail','-c',coreLine],{cwd:repo,env,encoding:'utf8',timeout:90000}).status===0;
+            }
+            setHead(SOURCE);
+            assert.equal(actualCoreCommand(),true);
+            assert.equal(accepted(),true);
+            console.log('QRS2337_GENUINE_CORETREE25_PIN_POS_PASS');
+            const baseRust=at(BASE,rust);
+            let neg=0;
+            const mutations=[
+              ['RUST_BYTES',[[rust,blob(git('show',SOURCE+':'+rust)+'\n// mutated Rust\n')]]],
+              ['RUST_EXECUTABLE',[[rust,at(SOURCE,rust),'100755']]],
+              ['RUST_SYMLINK',[[rust,blob('other.rs'),'120000']]],
+              ['RUST_MISSING',[[rust,null]]],
+              ['OLD_WORKER',[[rust,'5fbb1f3d393df127da67f1eafe9796fbb7ce3a56']]],
+              ['EXTRA_CORE_LEAF',[['crates/ddv-save-core/src/unreviewed_gate.rs',blob('unreviewed')]]],
+              ['CARGO_CHANGED',[['crates/ddv-save-core/Cargo.toml',blob('unreviewed cargo')]]],
+              ['WORKER_SESSION_CHANGED',[['crates/ddv-save-core/src/worker_session.rs',blob('unreviewed session')]]],
+              ['CORE_MANIFEST_MISSING',[['crates/ddv-save-core/Cargo.toml',null]]],
+              ['TRUSTED_PROOF_HELPER_CHANGED',[['scripts/readonly-release/seal-scoped-steam-chest-private.mjs',blob('tampered proof verifier')]]],
+              ['RECEIPT_HELPER_MODE',[['src/lib/dev/product-amount-release-v2-evidence.mjs',at(SOURCE,'src/lib/dev/product-amount-release-v2-evidence.mjs'),'100755']]],
+              ['WEB_BRIDGE_CHANGED',[['src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs',blob('unreviewed bridge')]]]
+            ];
+            for(const [label,changes] of mutations){
+              const c=candidate(changes);
+              setHead(c);
+              assert.equal(accepted(),false,'unexpected accept '+label);
+              if(changes[0][0].startsWith('crates/ddv-save-core/'))assert.equal(actualCoreCommand(),false,label);
+              neg++;
+              console.log('QRS2337_REJECT_'+label);
+            }
+            assert.equal(baseRust,at(SOURCE,rust));
+            const tamperedPages=candidate([[PAGES,blob(sourceText.replace(CORE,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'))]]);
+            const tamperedTest=candidate([[TEST,blob(newTest+'\n// tamper\n')]]);
+            assert.notEqual(at(tamperedPages,PAGES),'b9f8f1dfcffc1b9667fc5854fc959e952b3d9e5d');
+            assert.notEqual(at(tamperedTest,TEST),'5055db921811277ee17af53806f052d10aed1a6e');
+            neg+=2;
+            console.log('QRS2337_REVIEW_REJECT_SELF_PIN_OR_TEST_TAMPER');
+            console.log('QRS2337_SCOPED_PASS',JSON.stringify({
+              originalSource:SOURCE,base:BASE,sourceFiles:2,independentQaFiles:1,
+              pinnedSubjects:25,positive:1,negative:neg,
+              actualGitTreeDenials:true,sourceSignerUnchangedExceptCore:true,
+              rustProductFeatureCompiled:'SEE_SEPARATE_JOB',
+              proofIssued:false,ownerEncryptedV2:'NOT_RUN',writerOpOn:false,qaOnlyNeverMerge:true}));
+          }finally{rmSync(t,{recursive:true,force:true})}
+          QRS_CHEST
+  chest-same-feature-wasm-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual same Chest opt-in Rust WASM compilation on frozen reviewed Source
+        env:
+          CARGO_TARGET_DIR: /tmp/qrs2337-steamchest-rust
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = e18d9c140b103c3bba5fe6e84ceb8f8fd90a48b3
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 7ce60a4e95988cc9d8f33ed54453882e4198e7c5
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features product-steam626-chest-scoped,worker-wasm
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          node --input-type=module <<'QRS_WASM'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const file='/tmp/qrs2337-steamchest-rust/wasm32-unknown-unknown/release/ddv_save_core.wasm';
+          const b=readFileSync(file);
+          assert.ok(b.length>1024);
+          assert.deepEqual([...b.subarray(0,8)],[0,97,115,109,1,0,0,0]);
+          console.log('QRS2337_ACTUAL_SAME_FEATURE_WASM_COMPILED',b.length);
+          QRS_WASM
+          test ! -e static/worker-wasm-scoped-steam-chest
+          test ! -e build/worker-wasm-scoped-steam-chest
+          echo QRS2337_FEATURE_COMPILED_ONLY_NO_SIGN_NO_ISSUE_NO_ON
