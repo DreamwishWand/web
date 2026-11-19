@@ -48,6 +48,14 @@ const acceptedReleaseProfiles=Object.freeze([
  // whole CoreTree. No generic different attribute content is permitted.
  {core:'623034400b71179b790ae8eca7b152cd892c898f',
   cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
+  config:'30551c7cc566614f64c8ba04748c3aef44b419bb'},
+ // Original PR2278 exact Mannequin map one Rust leaf and both singleton
+ // accepted leaves composed, without authorizing direct two-file edit.
+ {core:'f67531cef7c812757b246a9aef08febb66782200',
+  cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
+  config:'30551c7cc566614f64c8ba04748c3aef44b419bb'},
+ {core:'2f712d047e99bc024672e4d7a488baa6276e06f4',
+  cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
   config:'30551c7cc566614f64c8ba04748c3aef44b419bb'}
 ]);
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
