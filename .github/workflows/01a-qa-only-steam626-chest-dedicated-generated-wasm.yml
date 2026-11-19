@@ -24,6 +24,7 @@ jobs:
           node-version: '22'
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: '1.99.1'
           targets: wasm32-unknown-unknown
       - name: Frozen original reviewed ProductScoped Rust and three QA-only test files
         run: |
