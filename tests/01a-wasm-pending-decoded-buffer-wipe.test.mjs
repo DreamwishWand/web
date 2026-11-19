@@ -12,7 +12,7 @@ const method=(begin,end)=>{
   assert.ok(a>=0&&b>a,'missing WorkerWasmSource method boundary');
   return source.slice(a,b);
 };
-const wipe='self.buffer.fill(0);self.buffer.clear();self.entropy.fill(0);';
+const wipe='self.closed=true;wipe_pending_decoded_buffer(&mut self.buffer);self.entropy.fill(0);';
 
 test('01A Rust append_chunk bounds rejection wipes already accepted decoded plaintext before clear',()=>{
   const body=method('pub fn append_chunk(&mut self,chunk:&[u8])','pub fn finish(&mut self)');
@@ -31,8 +31,17 @@ test('01A Rust explicit close wipes pending decoded chunks before revoking sessi
 
 test('01A Rust Drop preserves existing zeroization fallback and open retains one session',()=>{
   const drop=method('impl Drop for WorkerWasmSource','fn scoped_edit_envelope');
-  assert.match(drop,/self\.buffer\.fill\(0\);\s*self\.buffer\.clear\(\);/);
+  assert.match(drop,/wipe_pending_decoded_buffer\(&mut self\.buffer\);/);
   const finish=method('pub fn finish(&mut self)','pub fn read_core_version_witness');
   assert.match(finish,/ProductSession::open_decoded_in_worker\(bytes,self\.build\.clone\(\),seed\)/);
   assert.match(finish,/self\.session=Some\(guard\);/);
+});
+
+test('01A Rust cleanup uses actual volatile memory writes, not optimizable fill-before-clear',()=>{
+  const helper=method('fn wipe_pending_decoded_buffer(bytes:&mut Vec<u8>)','const MAX_CHUNK:usize');
+  assert.match(helper,/core::ptr::write_volatile\(byte as \*mut u8,0\)/);
+  assert.match(helper,/compiler_fence\(core::sync::atomic::Ordering::SeqCst\)/);
+  assert.match(helper,/bytes\.clear\(\)/);
+  assert.ok(helper.indexOf('write_volatile')<helper.indexOf('compiler_fence'));
+  assert.ok(helper.indexOf('compiler_fence')<helper.indexOf('bytes.clear()'));
 });
