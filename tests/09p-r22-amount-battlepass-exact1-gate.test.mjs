@@ -15,7 +15,7 @@ const gatePath='scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
 const rustPath='crates/ddv-save-core/src/product_amount_scoped.rs';
 const oldRust='e6e360f5326b9a5cf6884600a4c9ecf642aa12fa';
 const newRust='13d861165bea3fb37f79d7bbc4cb9ab51669fa78';
-const futureGate='fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9';
+const futureGate='949eda609e5ea91b1d7482d7f5c0324197f95323';
 const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',
  GIT_AUTHOR_NAME:'R22 candidate synthetic exact1',GIT_AUTHOR_EMAIL:'synthetic@example.invalid',
  GIT_COMMITTER_NAME:'R22 candidate synthetic exact1',GIT_COMMITTER_EMAIL:'synthetic@example.invalid'};
