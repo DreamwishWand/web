@@ -1,0 +1,150 @@
+name: "07 DBK REAL Steam3 Live Conditional Cache Baseline (QA ONLY NEVER MERGE)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/07dbk-steam3-live-conditional-cache-qa.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-on-conditional-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: "Original protected plan vs real-hosted ON3 conditional validators; never mutate media"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+
+          const protectedPlan=JSON.parse(readFileSync('ops/ddv-steam-public-media-signed-batch.json','utf8'));
+          assert.equal(protectedPlan.schema,'wand.steam-public-media-signed-batch@1');
+          assert.equal(protectedPlan.ownerDecision,'OWNER_GO_FOR_DDV_GAME_IMAGES_20261105');
+          assert.equal(protectedPlan.platform,'Steam Windows');
+          assert.equal(protectedPlan.variant,'steam-1.25.3-schema626-lossless160-v1');
+          assert.equal(protectedPlan.consumer,'OFF');
+          assert.equal(protectedPlan.rightsHolderLicense,'UNKNOWN');
+          assert.deepEqual(protectedPlan.withdrawn,[]);
+          const expected=[
+            ['40300045','be04cf5698b094a1597bac8ceafa9c43d696c4bf75c8be8db2504ce764b58489',15310],
+            ['40006110','4f1ed414b3f554a69dbc7b4e682507274c58ad327ace7e22808469aa1e56eff4',28176],
+            ['40005160','461f6484256c69e5a528adc3af7054301841fc324c237d8bc0d4534830345bec',5796]
+          ];
+          assert.deepEqual(protectedPlan.items.map(x=>[x.itemId,x.sha256,x.bytes]),expected);
+          const base='https://dreamwishwand.github.io/web/';
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          const safeValidator=(value)=> {
+            if(value===null)return null;
+            assert.ok(value.length>0 && value.length<256 && !/[\r\n]/.test(value));
+            return value;
+          };
+          const request=async(url,method,headers={})=>{
+            const response=await fetch(url,{
+              method,redirect:'manual',headers:{'Cache-Control':'no-cache, max-age=0',Pragma:'no-cache',...headers},
+              signal:AbortSignal.timeout(20000)
+            });
+            assert.ok(![301,302,303,307,308].includes(response.status),'REDIRECT_DENIED');
+            return response;
+          };
+          const image=async(response,sha256,bytes,allow304=false)=>{
+            if(allow304 && response.status===304)return '304_VALID_WHILE_ON';
+            assert.equal(response.status,200,'CURRENT_ON_MUST_BE_200_OR_VALIDATOR_304');
+            assert.match(response.headers.get('content-type')||'',/^image\/webp(?:\s*;|$)/i);
+            if(response.headers.has('content-length'))
+              assert.equal(Number(response.headers.get('content-length')),bytes,'CONTENT_LENGTH_MISMATCH');
+            const body=Buffer.from(await response.arrayBuffer());
+            assert.equal(body.length,bytes,'BODY_LENGTH_MISMATCH');
+            assert.equal(body.toString('ascii',0,4),'RIFF');
+            assert.equal(body.toString('ascii',8,12),'WEBP');
+            assert.equal(body.toString('ascii',12,16),'VP8L');
+            assert.equal(sha(body),sha256,'BYTES_SHA_MISMATCH');
+            return '200_REAL_BYTES_PINNED';
+          };
+          const results=[];
+          for(const [itemId,sha256,bytes] of expected) {
+            const url=base+'ddv/item-images/'+protectedPlan.variant+'/'+sha256.slice(0,2)+'/'+sha256+'.webp';
+            const regular=await request(url,'GET');
+            assert.equal(await image(regular,sha256,bytes),'200_REAL_BYTES_PINNED');
+            const head=await request(url,'HEAD');
+            assert.equal(head.status,200);
+            assert.match(head.headers.get('content-type')||'',/^image\/webp(?:\s*;|$)/i);
+            if(head.headers.has('content-length'))
+              assert.equal(Number(head.headers.get('content-length')),bytes);
+            const etag=safeValidator(regular.headers.get('etag'));
+            const modified=safeValidator(regular.headers.get('last-modified'));
+            if(etag && head.headers.has('etag'))
+              assert.equal(head.headers.get('etag'),etag,'HEAD_GET_ETAG_MISMATCH');
+            const badTag=await request(url,'GET',{'If-None-Match':'"07dbk-forged-cache-token-must-miss"'});
+            assert.equal(await image(badTag,sha256,bytes),'200_REAL_BYTES_PINNED','FORGED_ETAG_NOT_200');
+            const ancient=await request(url,'GET',{'If-Modified-Since':'Wed, 01 Jan 2020 00:00:00 GMT'});
+            assert.equal(await image(ancient,sha256,bytes),'200_REAL_BYTES_PINNED','ANCIENT_DATE_NOT_200');
+            const tagStatus=etag
+              ? await image(await request(url,'GET',{'If-None-Match':etag}),sha256,bytes,true)
+              : 'NO_ETAG_NOT_RUN';
+            const modStatus=modified
+              ? await image(await request(url,'GET',{'If-Modified-Since':modified}),sha256,bytes,true)
+              : 'NO_LAST_MODIFIED_NOT_RUN';
+            results.push({itemId,sha256,bytes,url,etag:etag??'NOT_PRESENT',
+              lastModified:modified??'NOT_PRESENT',
+              conditionalMatchEtag:tagStatus,conditionalMatchModified:modStatus,
+              forgedEtag:'200_SHA_PINNED',ancientModified:'200_SHA_PINNED',
+              withdraw:'NOT_RUN',rollback:'NOT_RUN',cdnPurge:'NOT_RUN'});
+            console.log('07DBK_SIGNED_STEAM_ON3_CACHE_CONDITIONAL_ITEM '+JSON.stringify(results.at(-1)));
+          }
+          assert.equal(results.length,3);
+          console.log('07DBK_SIGNED_STEAM_ON3_CACHE_VALIDATOR_BASELINE_PASS '+JSON.stringify({
+            protectedMainProcess:process.env.GITHUB_SHA,
+            publicItems:3,checkedConditional:'GET_IF_NONE_MATCH_AND_IF_MODIFIED_SINCE',
+            doesNotProveWithdrawal:true,doesNotProveCdnPurge:true,
+            fullPriorOnReceiptAnchor:'NOT_CREATED',consumer:'OFF'
+          }));
+          NODE
+      - name: "NEGATIVE real ETag must be included in future ON to WITHDRAW cache denial (L2 counterexample)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readBatch,verifyLive} from './scripts/int-steam-public-media-signed-batch.mjs';
+          // Actual signed Pages current ON3 gave this ETag on live Item40300045.
+          // This is a real public-cache validator, not a fabricated prior ON receipt.
+          const actualPriorOnEtag='"6afd8e3c-3bce"';
+          const source=readBatch(),item=source.items.find(x=>x.itemId==='40300045');
+          assert.ok(item);
+          const withdrawn=structuredClone(source);
+          withdrawn.items=[];
+          withdrawn.withdrawn=[{itemId:item.itemId,sha256:item.sha256}];
+          const requests=[];
+          const adversarialOldCdn=async(url,{method,headers})=>{
+            requests.push({url,method,headers});
+            // After an origin remove, a stale edge may still match the *actual*
+            // prior ETag. Unrelated forged "stale" tokens get 404.
+            if(headers?.['If-None-Match']===actualPriorOnEtag)
+              return new Response(null,{status:304});
+            return new Response(null,{status:404});
+          };
+          let result,reason;
+          try{result=await verifyLive(withdrawn,'https://dreamwishwand.github.io/web/',adversarialOldCdn);}
+          catch(e){reason=String(e.message||e);}
+          const checkedRealEtag=requests.some(x=>x.headers?.['If-None-Match']===actualPriorOnEtag);
+          console.log('07DBK_REAL_PRIOR_ETAG_WITHDRAW_FALSE_PASS_COUNTEREXAMPLE '+JSON.stringify({
+            itemId:item.itemId,realPriorOnEtag:actualPriorOnEtag,
+            verifierAccepted:Boolean(result),verifierError:reason??null,
+            checkedRealEtag,
+            usedSyntheticStale:requests.some(x=>x.headers?.['If-None-Match']==='"stale"'),
+            currentLiveImageWithdrew:false,
+            requiredChange:'signed historical ON ETag pinned by 09INT, then old ETag conditional GET must be 404/410'
+          }));
+          assert.equal(checkedRealEtag,true,'TRUE_RED_WITHDRAWAL_MISSED_ACTUAL_PRIOR_ETAG');
+          assert.equal(result,undefined,'TRUE_RED_WITHDRAWAL_ACCEPTED_STALE_ORIGIN_VALIDATOR');
+          NODE
