@@ -54,6 +54,10 @@ jobs:
           import {readFile} from 'node:fs/promises';
           import {createHash} from 'node:crypto';
           import {createRequire} from 'node:module';
+          import {spawnSync} from 'node:child_process';
+          import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
           import {makeSyntheticP1gProfile} from './tests/helpers/p1g-fixture.mjs';
           import {p1gPackagedProfileCodec} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
           import {createP1gRustWorkerReadOnlyBridge} from './src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
@@ -121,6 +125,55 @@ jobs:
           assert.equal(decoded.jsonText,JSON.stringify(wanted));
           assert.equal(sha(new Uint8Array(await source.arrayBuffer())),originalSha);
           assert.equal(sha(new Uint8Array(await backup.arrayBuffer())),originalSha);
+          // This is the additional distinct invariant: the encoded bytes
+          // emitted by the actual generated product Rust WASM survive a true
+          // NEW OS PROCESS, with immutable original/backup and separate alias.
+          // No saved state, codec keys, or ciphertext are printed to CI logs.
+          const privateDir=await mkdtemp(join(tmpdir(),'wand-steam-chest-v2-'));
+          const originalPath=join(privateDir,'original.p1g');
+          const backupPath=join(privateDir,'original.original-backup.p1g');
+          const editedPath=join(privateDir,'original.edited-copy.p1g');
+          const damagedPath=join(privateDir,'corrupt.edited-copy.p1g');
+          const reader=[
+            "import{readFile}from'node:fs/promises';",
+            "import{createHash}from'node:crypto';",
+            "import{p1gPackagedProfileCodec as codec}from'./src/lib/ddv/core/save/p1g-packaged-profile-codec.js';",
+            "const blob=new Uint8Array(await readFile(process.env.WAND_TEST_COPY_PATH));",
+            "const decoded=await codec.loadProfile(blob);",
+            "const digest=createHash('sha256').update(decoded.jsonText,'utf8').digest('hex');",
+            "process.stdout.write(JSON.stringify({pid:process.pid,sha256:digest}));"
+          ].join('');
+          const processReopen=fp=>spawnSync(process.execPath,['--input-type=module','-e',reader],{
+            cwd:process.cwd(),encoding:'utf8',timeout:20000,
+            env:{...process.env,WAND_TEST_COPY_PATH:fp}
+          });
+          try{
+            await writeFile(originalPath,original,{flag:'wx',mode:0o600});
+            await writeFile(backupPath,original,{flag:'wx',mode:0o600});
+            await writeFile(editedPath,out.encryptedBytes,{flag:'wx',mode:0o600});
+            assert.equal(sha(new Uint8Array(await readFile(originalPath))),originalSha);
+            assert.equal(sha(new Uint8Array(await readFile(backupPath))),originalSha);
+            assert.notEqual(sha(new Uint8Array(await readFile(editedPath))),originalSha);
+            const independent=processReopen(editedPath);
+            assert.equal(independent.status,0,'official codec must reopen edited alias in a fresh OS process');
+            const witness=JSON.parse(independent.stdout);
+            assert.ok(Number.isSafeInteger(witness.pid));
+            assert.notEqual(witness.pid,process.pid);
+            assert.equal(witness.sha256,sha(new TextEncoder().encode(JSON.stringify(wanted))));
+            // For a corrupted edited copy, independent fresh decoder must
+            // terminate nonzero and expose no success witness.
+            const corrupt=Uint8Array.from(out.encryptedBytes);
+            corrupt[0]^=0x80;
+            await writeFile(damagedPath,corrupt,{flag:'wx',mode:0o600});
+            const invalid=processReopen(damagedPath);
+            assert.notEqual(invalid.status,0);
+            assert.equal(invalid.stdout,'');
+            corrupt.fill(0);
+            console.log('01A_GENERATED_CHEST_WASM_EDITED_COPY_FRESH_OS_PROCESS_REOPEN_AND_TAMPER_DENY_PASS');
+          }finally{
+            out.encryptedBytes.fill(0);
+            await rm(privateDir,{recursive:true,force:true});
+          }
           const forbidden=createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource}),
             {allowSteam626ChestSource:true,readDurableOriginalBackup:async()=>backup});
           await forbidden.openScopedEncrypted({file:source,build,originalSha256:originalSha});
