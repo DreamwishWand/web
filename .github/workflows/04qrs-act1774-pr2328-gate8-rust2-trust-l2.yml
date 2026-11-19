@@ -78,7 +78,7 @@ jobs:
            assert.equal(c.status,0,c.stderr);
            assert.equal(git('rev-parse',gate+'^'),'d58be02005a0b7413885413ce2061ea1cef049d0');
           assert.equal(git('rev-parse','d58be02005a0b7413885413ce2061ea1cef049d0^'),main);
-           assert.equal(git('rev-parse','HEAD^'),gate);
+           assert.equal(git('merge-base','--is-ancestor',gate,'HEAD'),'');
            assert.equal(git('rev-parse',gate+':scripts/wasm-distribution/r22-accepted-rust-scope.mjs'),
             'd3997b2d4460109562489c6afa2c5d5e51fa2b5a');
            assert.deepEqual(git('diff','--name-only',gate,'HEAD').split('\n'),[
