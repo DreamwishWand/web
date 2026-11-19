@@ -147,5 +147,5 @@ test('actual compiled Svelte uses immutable branded productPort scope rather tha
  assert.match(originalSource,/data-product-writer="off"/);
  assert.match(originalSource,/data-cloud="off"/);
  assert.match(originalSource,/data-original-overwrite="off"/);
- assert.match(originalSource,/if\(phase==='exported' && state\.editedCopy\)/);
+ assert.match(originalSource,/\{#if phase==='exported' && state\.editedCopy\}/);
 });
