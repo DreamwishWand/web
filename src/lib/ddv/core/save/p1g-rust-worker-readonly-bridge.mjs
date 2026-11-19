@@ -36,7 +36,12 @@ async function* decodedUtf8Chunks(text){
     total+=chunk.length;
     if(total>PRODUCT_WASM_WORKER_MAX_BYTES)
       fail('P1G_WORKER_DECODED_SIZE_DENIED');
-    yield chunk;
+    // The generator owns this temporary decoded UTF-8 allocation; the
+    // single Rust append_chunk consumer copies it synchronously into WASM.
+    // Erase after consumption AND if Rust rejects/Close aborts iteration.
+    // Caller-owned encrypted input and immutable JS JSON text are untouched.
+    try{yield chunk}
+    finally{Uint8Array.prototype.fill.call(chunk,0)}
     offset=end;
   }
 }
