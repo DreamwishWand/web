@@ -184,11 +184,16 @@ jobs:
            deny('ISSUER_SYMLINK_INSTEAD_OF_APPROVED_BLOB',()=>leaves(synthetic(main,[[sample.path,sample.sha,'120000']]),now));
            deny('ISSUER_PATH_REMOVED',()=>leaves(synthetic(main,[[sample.path,null]]),now));
            deny('STALE_ORIGINAL_24_SOURCE_PINNINGS',()=>leaves(main,old));
-           const tamperedProof=rawNew.replace('test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"','echo owner_can_override_source');
+           const modifyOnlyChest=(raw,needle,value)=>{
+           const [before,job,after]=split(raw);
+           assert.ok(job.includes(needle),'EXPECTED_CHEST_PROOF_MARKER_'+needle);
+           return before+job.replace(needle,value)+after;
+          };
+          const tamperedProof=modifyOnlyChest(rawNew,'test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"','echo owner_can_override_source');
            deny('FORGED_SOURCE_SHA_HANDSHAKE',()=>assertSignedProofOnly(tamperedProof));
-           const tamperedCI=rawNew.replace('node scripts/int-protected-ci-gate.mjs build','echo allowed_without_protected_ci');
+           const tamperedCI=modifyOnlyChest(rawNew,'node scripts/int-protected-ci-gate.mjs build','echo allowed_without_protected_ci');
            deny('FORGED_CI_PRIOR_TO_SIGNING',()=>assertSignedProofOnly(tamperedCI));
-           const execUpload=rawNew.replace('wand-steam-chest-proof/attestation-bundle.jsonl',
+           const execUpload=modifyOnlyChest(rawNew,'wand-steam-chest-proof/attestation-bundle.jsonl',
              'wand-steam-chest-proof/attestation-bundle.jsonl\n             tests/wasm-distribution/fixtures/scoped-steam-chest/ddv_save_core_bg.wasm');
            deny('EXECUTABLE_SUBJECT_IN_ARTIFACT',()=>{
             const j=split(execUpload)[1];
