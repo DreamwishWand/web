@@ -25,7 +25,7 @@ jobs:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
       - name: New source-bound real pinned Switch1250 Catalog and geometry Node negatives
-        run: node --test tests/wep-savefree-first-scene.test.mjs
+        run: node --test tests/wep-savefree-first-scene.test.mjs tests/wep-savefree-two-furniture-local.test.mjs
       - name: Svelte check and static /web build
         env:
           BASE_PATH: /web

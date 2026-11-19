@@ -6,7 +6,8 @@
   import { buildSharedCatalogDirectory } from '$lib/entity/shared-catalog-directory.mjs';
   import { createSwitchWorldReadAdapter } from '$lib/wep/world-browser-adapter';
   import {
-    buildSaveFreeFirstNonemptyScene, resolveVerifiedSaveFreeSceneItem,
+    buildSaveFreeFirstNonemptyScene, buildSaveFreeTwoFurnitureScene,
+    resolveVerifiedSaveFreeSceneItem,
     saveFreeSceneCopy
   } from '$lib/wep/savefree-first-scene';
   import {
@@ -21,6 +22,9 @@
   let loading = false;
   let saving = false;
   let selected: any = null;
+  let secondary: any = null;
+  let secondX = 0;
+  let secondY = 0;
   let prepared: any = null;
   let saved: any = null;
   let status = '';
@@ -35,6 +39,8 @@
     : [];
   $: canSave = Boolean(prepared && selected &&
       prepared.item.itemId === selected.itemId &&
+      (prepared.secondItem?.itemId ?? null) === (secondary?.itemId ?? null) &&
+      (!secondary || (prepared.secondX === secondX && prepared.secondY === secondY)) &&
       prepared.title === title.trim() && !saving && !loading);
 
   async function loadVerifiedCatalog() {
@@ -43,6 +49,7 @@
     status = '';
     denied = false;
     selected = null;
+    secondary = null;
     prepared = null;
     saved = null;
     try {
@@ -69,6 +76,7 @@
     prepared = null;
     saved = null;
     selected = null;
+    secondary = null;
     status = '';
     denied = false;
     try {
@@ -79,6 +87,35 @@
     }
   }
 
+  function invalidatePrepared() {
+    prepared = null;
+    saved = null;
+    status = '';
+  }
+
+  function selectVerifiedSecondItem(itemId: number) {
+    if (loading || saving || !selected || !directory || !binding) return;
+    invalidatePrepared();
+    secondary = null;
+    denied = false;
+    try {
+      secondary = resolveVerifiedSaveFreeSceneItem(directory, binding, itemId);
+      secondX = selected.bounds.w;
+      secondY = 0;
+    } catch {
+      denied = true;
+      status = copy.unavailable;
+    }
+  }
+
+  function removeSecondItem() {
+    if (saving) return;
+    secondary = null;
+    secondX = 0;
+    secondY = 0;
+    invalidatePrepared();
+  }
+
   function previewVerifiedNonemptyScene() {
     prepared = null;
     saved = null;
@@ -86,9 +123,14 @@
     denied = false;
     if (!selected || !directory || !binding || saving) return;
     try {
-      prepared = buildSaveFreeFirstNonemptyScene({
-        directory, binding, itemId: selected.itemId, title
-      });
+      prepared = secondary
+        ? buildSaveFreeTwoFurnitureScene({
+            directory, binding, firstItemId: selected.itemId,
+            secondItemId: secondary.itemId, secondX, secondY, title
+          })
+        : buildSaveFreeFirstNonemptyScene({
+            directory, binding, itemId: selected.itemId, title
+          });
       status = copy.ready;
     } catch {
       denied = true;
@@ -105,9 +147,14 @@
     try {
       // A preview is not a write receipt. Reconstruct from authenticated
       // Catalog+Geometry on this user click, and compare exact approved payload.
-      const current = buildSaveFreeFirstNonemptyScene({
-        directory, binding, itemId: selected.itemId, title
-      });
+      const current = secondary
+        ? buildSaveFreeTwoFurnitureScene({
+            directory, binding, firstItemId: selected.itemId,
+            secondItemId: secondary.itemId, secondX, secondY, title
+          })
+        : buildSaveFreeFirstNonemptyScene({
+            directory, binding, itemId: selected.itemId, title
+          });
       if (JSON.stringify(current.artifact) !== JSON.stringify(prepared.artifact) ||
           current.item.itemId !== prepared.item.itemId)
         throw Error('WEP_SAVEFREE_SCENE_STALE_PREVIEW');
@@ -134,7 +181,7 @@
       if (draft.writeReady !== false || draft.applyReady !== false ||
           draft.editorMutationAuthorized !== false ||
           draft.nativePlacementAuthorized !== false ||
-          draft.objects.length !== 1)
+          draft.objects.length !== current.artifact.objects.length)
         throw Error('WEP_SAVEFREE_SCENE_REOPEN_UNVERIFIED');
       saved = { id: checked.entry.id, revision: checked.revision,
         itemId: current.item.itemId, count: draft.objects.length,
@@ -176,6 +223,11 @@
           <button type="button" data-wep-savefree-choose={item.itemId}
             on:click={() => selectVerifiedItem(item.itemId)}
             disabled={saving}>{copy.choose}</button>
+          {#if selected}
+            <button type="button" data-wep-savefree-choose-second={item.itemId}
+              on:click={() => selectVerifiedSecondItem(item.itemId)}
+              disabled={saving}>{copy.secondChoose}</button>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -193,6 +245,26 @@
       </div>
       <span>{copy.footprint}: {selected.bounds.w} × {selected.bounds.h}</span>
       <code>{selected.layer} · {selected.source}</code>
+      {#if secondary}
+        <div data-wep-savefree-second-selection class="second-selection">
+          <div class="item-identity">
+            <ItemThumb itemId={secondary.itemId} label={secondary.label} compact />
+            <strong>{secondary.label} · #{secondary.itemId}</strong>
+          </div>
+          <div class="second-coordinates">
+            <label>{copy.secondX}
+              <input data-wep-savefree-second-x type="number" min="0" max="63" step="1"
+                bind:value={secondX} on:input={invalidatePrepared} disabled={saving}/>
+            </label>
+            <label>{copy.secondY}
+              <input data-wep-savefree-second-y type="number" min="0" max="63" step="1"
+                bind:value={secondY} on:input={invalidatePrepared} disabled={saving}/>
+            </label>
+          </div>
+          <button type="button" data-wep-savefree-second-remove
+            on:click={removeSecondItem} disabled={saving}>{copy.removeSecond}</button>
+        </div>
+      {/if}
       <label class="search">
         <span>{copy.name}</span>
         <input data-wep-savefree-title type="text" bind:value={title}
@@ -215,6 +287,17 @@
       {prepared.artifact.bounds.w} × {prepared.artifact.bounds.h} ·
       <code>writeReady=false / applyReady=false</code>
     </p>
+    <svg data-wep-savefree-layout-preview role="img" aria-label={copy.layoutPreview}
+      viewBox={`0 0 ${prepared.artifact.bounds.w*12} ${prepared.artifact.bounds.h*12}`}
+      width={prepared.artifact.bounds.w*12} height={prepared.artifact.bounds.h*12}
+      class="layout-preview">
+      {#each prepared.artifact.objects as item, i (item.artifactObjectId)}
+        {#each item.footprint as cell (`${cell.x},${cell.y}`)}
+          <rect x={(item.localX+cell.x)*12} y={(item.localY+cell.y)*12}
+            width="12" height="12" class:i-second={i===1} class="layout-tile"/>
+        {/each}
+      {/each}
+    </svg>
   {/if}
   {#if status}
     <p role={denied ? 'alert' : 'status'} aria-live="polite"
@@ -260,4 +343,11 @@
     border:1px solid var(--border);margin-top:14px}
   [data-wep-savefree-saved] a{display:inline-block;margin-top:8px}
   @media(max-width:420px){.choices li button,.actions button{width:100%}}
+  .second-selection{border:1px solid var(--border);padding:10px;display:grid;gap:8px;min-width:0}
+  .second-coordinates{display:flex;flex-wrap:wrap;gap:10px}
+  .second-coordinates label{display:grid;gap:4px;min-width:0}
+  .second-coordinates input{width:100%;max-width:120px}
+  .layout-preview{display:block;max-width:100%;height:auto;min-height:24px;border:1px solid var(--border);background:var(--surface)}
+  .layout-tile{fill:#89a4ba;stroke:#1e3a54;stroke-width:.7}
+  .layout-tile.i-second{fill:#c2b386}
 </style>
