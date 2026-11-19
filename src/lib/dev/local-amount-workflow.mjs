@@ -53,8 +53,8 @@ const cleanState=()=>({
   phase:'closed',fileName:'',backupVerified:false,targets:[],
   choice:-1,newAmount:'',preview:null,editedCopy:null,error:''
 });
-export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false,switch626Chest=false,steam626Chest=false,switch626Catalog0=false}={}){
-  if(trustedLocalHarness!==true||typeof exactOneDecrease!=='boolean'||typeof switch626Chest!=='boolean'||typeof steam626Chest!=='boolean'||typeof switch626Catalog0!=='boolean'||[switch626Chest,steam626Chest,switch626Catalog0].filter(Boolean).length>1||((switch626Chest||steam626Chest||switch626Catalog0)&&!exactOneDecrease)||!adapter||typeof adapter!=='object')
+export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,exactOneDecrease=false,switch626Chest=false,steam626Chest=false,switch626Catalog0=false,requireIndependentProcessReopen=false}={}){
+  if(trustedLocalHarness!==true||typeof exactOneDecrease!=='boolean'||typeof switch626Chest!=='boolean'||typeof steam626Chest!=='boolean'||typeof switch626Catalog0!=='boolean'||typeof requireIndependentProcessReopen!=='boolean'||[switch626Chest,steam626Chest,switch626Catalog0].filter(Boolean).length>1||((switch626Chest||steam626Chest||switch626Catalog0)&&!exactOneDecrease)||!adapter||typeof adapter!=='object')
     fail('LOCAL_HARNESS_GATE_OFF');
   for(const method of ['open','backupOriginal','listVerifiedTargets','stageTyped',
     'undo','redo','exportEditedCopy','downloadVerifiedCopy','close'])
@@ -185,7 +185,7 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
       check();
       if(!only(r,'kind,ok,editedCopyName,editedSha256,editedSizeBytes,backupName,editedCiphertextVerified,freshWorkerReopenVerified,independentProcessReopenVerified,originalUnchanged,writerAuthorized,nativeV3Verified,originalOverwriteAuthorized')||
         r.kind!=='EXPORTED'||r.ok!==true||r.editedCiphertextVerified!==true||
-        r.freshWorkerReopenVerified!==true||r.independentProcessReopenVerified!==false||r.originalUnchanged!==true||
+        r.freshWorkerReopenVerified!==true||r.independentProcessReopenVerified!==requireIndependentProcessReopen||r.originalUnchanged!==true||
         r.writerAuthorized!==false||r.nativeV3Verified!==false||
         r.originalOverwriteAuthorized!==false||!sha(r.editedSha256)||r.editedSha256===selected.sha||!validSize(r.editedSizeBytes)||
         typeof r.backupName!=='string'||typeof r.editedCopyName!=='string'||
@@ -195,7 +195,7 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false,
         same(r.backupName,r.editedCopyName)||same(r.editedCopyName,selected.name))
         fail('EDITED_COPY_REOPEN_AND_NAME_DENIED');
       return commit({phase:'exported',editedCopy:{name:r.editedCopyName,
-        backupName:r.backupName,freshWorkerReopenVerified:true,independentProcessReopenVerified:false}},()=>{
+        backupName:r.backupName,freshWorkerReopenVerified:true,independentProcessReopenVerified:requireIndependentProcessReopen}},()=>{
           editedBinding=Object.freeze({name:r.editedCopyName,sha:r.editedSha256,size:r.editedSizeBytes});
         });
     });
