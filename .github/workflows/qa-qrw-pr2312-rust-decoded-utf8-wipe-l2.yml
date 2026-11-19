@@ -26,7 +26,7 @@ jobs:
           set -euo pipefail
           base=5e0315356626b9742bcd80f4b99a19143884a9df
           source=f5c5d7df61f7b30b3734aa149c59b7c475df6385
-          git merge-base --is-ancestor "$base" HEAD
+          test "$(git merge-base "$base" "$source")" = 9ca61bd33fd1c1daacc88b6e8a1b145b817eb8f4
           test "$(git rev-parse "$base:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs")" = 3893195fe0b675a80cab36ec788be4ac756a3ac5
           test "$(git rev-parse 'HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs')" = f76418235f302c2cdcc52de7f4b771e4c6f193f6
           test "$(git rev-parse "$base:tests/p1g-rust-worker-readonly-bridge.test.mjs")" = f36439abd3828bca6dd25dd54f93534e62096e61
