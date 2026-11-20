@@ -1,0 +1,33 @@
+name: 09P ACT1581 Inventory0 exact R22 product source candidate only (no release)
+on:
+  pull_request:
+    paths:
+      - 'scripts/wasm-distribution/r22-inventory0-product-source.mjs'
+      - 'tests/09p-r22-inventory0-product-source.test.mjs'
+      - '.github/workflows/09p-r22-inventory0-product-source.yml'
+permissions:
+  contents: read
+jobs:
+  immutable-product-source-no-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source11 Rust Core/Cargo/Worker/Arc exact fingerprint and adversarial Git objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 6750ed91920f33be9f2acf180ca1326340d969ed
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 775a2766f237d44ae77fa5347e9adf430c8580d2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
+          node --test 'tests/09p-r22-inventory0-product-source.test.mjs'
+          echo R22_INVENTORY0_SOURCE_CANDIDATE_ONLY_NOT_SIGNED_NOT_WRITER_NOT_OPERATION_ON
