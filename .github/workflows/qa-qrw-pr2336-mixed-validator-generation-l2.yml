@@ -1,0 +1,49 @@
+name: QA ONLY 04 QR-W PR2336 Steam3 mixed 304 200 validator generation L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2336-mixed-validator-generation-l2.yml'
+permissions:
+  contents: read
+jobs:
+  exact-original-steam3-source2-and-independent-mixed-generation-negatives:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2336-f017-mixed-cdn-generation-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify frozen original Source2 and exact QA-only2 GitBlob SHA/mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=ac7e95f638592a77da908f340b650692ffc7f47c
+          source=f0179a1ec942f5d0773ea8193cc9eb4a7cc8158f
+          git merge-base --is-ancestor "$base" "$source"
+          git merge-base --is-ancestor "$source" HEAD
+          test "$(git rev-parse "$base:scripts/07dbk-steam-public-on-observer.mjs")" = c94fdb504894120afb65ddef832da0c83871654f
+          test "$(git rev-parse "$base:tests/07dbk-steam-public-on-observer.test.mjs")" = 24349fa1f8e9985151db3d0a85737e63ce26ddf0
+          test "$(git rev-parse 'HEAD:scripts/07dbk-steam-public-on-observer.mjs')" = 880aee7941cc744fe8110301830cd60f39b9d0df
+          test "$(git rev-parse 'HEAD:tests/07dbk-steam-public-on-observer.test.mjs')" = 28508a072148f2a320b10f3b6a1425959a8a1579
+          test "$(git rev-parse 'HEAD:tests/qa-qrw-pr2336-mixed-validator-generation-l2.test.mjs')" = b169dfa621a75eefe69a494665e069c019ea27df
+          test "$(git rev-parse 'HEAD:scripts/int-steam-public-media-signed-batch.mjs')" = 461bb49270650c85cedc34cef647445473ad53eb
+          for f in scripts/07dbk-steam-public-on-observer.mjs tests/07dbk-steam-public-on-observer.test.mjs tests/qa-qrw-pr2336-mixed-validator-generation-l2.test.mjs .github/workflows/qa-qrw-pr2336-mixed-validator-generation-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' scripts/07dbk-steam-public-on-observer.mjs tests/07dbk-steam-public-on-observer.test.mjs | LC_ALL=C sort >/tmp/source2
+          printf '%s\n' .github/workflows/qa-qrw-pr2336-mixed-validator-generation-l2.yml tests/qa-qrw-pr2336-mixed-validator-generation-l2.test.mjs | LC_ALL=C sort >/tmp/qa2
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source2 -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa2 -
+          git diff --quiet "$source" HEAD -- src/ scripts/ ops/ crates/ static/ package-lock.json
+          echo QRW2336_FROZEN_ORIGINAL_SOURCE2_QAONLY2_BLOBS_AND_MODES_PASS
+      - name: Real SHA pinned Steam WebP3 plus independent no-mixed-generation adversarial tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/07dbk-steam-public-on-observer.test.mjs tests/qa-qrw-pr2336-mixed-validator-generation-l2.test.mjs
+          echo QRW2336_304_200_GENERATION_FAILCLOSED_AND_UNSIGNED_L2_PASS
