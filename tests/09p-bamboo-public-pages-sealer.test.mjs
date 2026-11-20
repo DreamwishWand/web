@@ -106,7 +106,7 @@ test('public signed3 Source pins the accepted Rust semantic closure (exact GitBl
   'crates/ddv-save-core/src/sr03_installed_geometry.rs':'4ff82faf19cc9883259cea36da5f90faa5bea698',
   'crates/ddv-save-core/src/comp03_installed_geometry.rs':'645e6e6a64664088997df46954cd1d8bb4a2995a',
   'crates/ddv-save-core/src/placement_saved_refs.rs':'2ad0d925cebfcb19bb39b2afe5ff6404966ad849',
-  'crates/ddv-save-core/src/product_session.rs':'08a854a949fbd115cc656a1d4bbdc4d867515a39',
+  'crates/ddv-save-core/src/product_session.rs':'34286a10bc726d9195d806b15273792614c99fa6',
   'crates/ddv-save-core/src/indexed_read.rs':'47b8b07e013f357fceee51cbc0ce676b271fb207',
   'crates/ddv-save-core/src/strict_document.rs':'e49ea87eb18227c68e049e3de7278af02550fdbd',
   'crates/ddv-save-core/src/saved_diffgrids_index.rs':'b8980ee01cd8edea46400dc6fcccdafcdc4cb6c2'
@@ -123,14 +123,15 @@ test('public signed3 Source pins the accepted Rust semantic closure (exact GitBl
   path,execFileSync('git',['rev-parse',acceptedHead+':'+path],{
    cwd:new URL('../',import.meta.url),encoding:'utf8'}).trim()
  ]));
- assert.deepEqual(approved,trusted);
- assert.equal(bambooAcceptedRustSourceBlobsOk(approved),true);
+ assert.notDeepEqual(approved,trusted,'historical signer no longer trusted');
+ assert.equal(bambooAcceptedRustSourceBlobsOk(approved),false);
  // The archived 419 signer is not the new reviewed CURRENT trust predicate.
  const historical=Object.fromEntries(Object.keys(trusted).map(path=>[
   path,execFileSync('git',['rev-parse','419162ef5bc3a75fac05baaee10021a0d269bc2d:'+path],{
    cwd:new URL('../',import.meta.url),encoding:'utf8'}).trim()
  ]));
  assert.equal(bambooAcceptedRustSourceBlobsOk(historical),false);
+ assert.deepEqual(observed,trusted,'fixed new Rust Source15 required');
  const sourceStillAccepted=bambooAcceptedRustSourceBlobsOk(observed);
  assert.equal(await bambooAcceptedRustCheckoutOk(),sourceStillAccepted);
  if(!sourceStillAccepted){
@@ -139,11 +140,11 @@ test('public signed3 Source pins the accepted Rust semantic closure (exact GitBl
  // Same named WASM ABI does NOT authorize changed read logic or an altered
  // ProductSession mint; fail at the git-committed Source before signing.
  for(const path of Object.keys(trusted)){
-  assert.equal(bambooAcceptedRustSourceBlobsOk({...approved,[path]:'f'.repeat(40)}),false,path);
+  assert.equal(bambooAcceptedRustSourceBlobsOk({...observed,[path]:'f'.repeat(40)}),false,path);
  }
- const missing={...approved};delete missing['crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs'];
+ const missing={...observed};delete missing['crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs'];
  assert.equal(bambooAcceptedRustSourceBlobsOk(missing),false);
- assert.equal(bambooAcceptedRustSourceBlobsOk({...approved,'crates/ddv-save-core/src/semantic_writer.rs':'0'.repeat(40)}),false);
+ assert.equal(bambooAcceptedRustSourceBlobsOk({...observed,'crates/ddv-save-core/src/semantic_writer.rs':'0'.repeat(40)}),false);
  assert.equal(bambooAcceptedRustSourceBlobsOk(null),false);
 });
 
