@@ -13,6 +13,7 @@ GAME_VERSIONS = {
   "v12413":"releases_1.24-v1.24.13-2-ga6fe50c4da68-incremental-33",
   "v1250":"releases_1.25-v1.25.0-8687-gdd3d3a5ae738-incremental-14",
   "v1253":"releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22",
+  "v1261":"releases_1.26ex-v1.26.1-633-g45e7ee77d30a-incremental-18",
 }
 # Full original raw protobuf SHA/byte pins; no copyrighted game data in GitHub.
 SOURCE_PINS = {
@@ -30,7 +31,12 @@ SOURCE_PINS = {
     "ActivityItem":("20e4f190fc4481325cb4311a4a3f3e6fc57d3f1ca7a67acffd9c9008394ba5d4",1229360),
     "Furniture":("823316081efe513c3920ff5a870fae03b68fa5f6ff6be2de0de5c5eb87aaa674",2458197),
     "Clothing":("e1cdd6e4566a7fe0f3e586876f0dd6b2ffcd1f86846f54e043b5883c23a68cbc",650175),
-    "Trimming":("6b8aa170ccbe3431fb508256b2efab697e1f80a1fc97e4f3ce6352c1cb285ed7",77793)}
+    "Trimming":("6b8aa170ccbe3431fb508256b2efab697e1f80a1fc97e4f3ce6352c1cb285ed7",77793)},
+  "v1261":{
+    "ActivityItem":("4f4d3393887aececfcef16569cebc8dd7df08d03ba7b7c89083fe15bb7309dc2",1339476),
+    "Furniture":("cde1b6e4dd37085e829c2e4548b89091bbf8d543cee92e6031b2f5bddc794196",2823488),
+    "Clothing":("a327869947785d3bbe0455b6132873b63878cb6cbb8dbd4cd00f76b294d1e946",698960),
+    "Trimming":("a330a5b44860faece7eecb9c07acf3064b15010c97837d9d450f54a7b2ff966c",78930)}
 }
 GUID_RE = re.compile(r"guid:[0-9a-f]{32}\Z")
 
@@ -128,11 +134,15 @@ def diff(before, after, v1, v2):
       "imagePublicEligibleRows":0,"deployAllowed":False
     }
 
-def analyze(root,synthetic=False):
+def analyze(root,synthetic=False,include_v1261=False):
     root=root.resolve()
     version_rows={}
     sources={}
     for version,full in GAME_VERSIONS.items():
+        # Backward compatible: default original three-version report unchanged.
+        # New release requires deliberate opt-in plus exact raw byte pins.
+        if version=='v1261' and not include_v1261:
+            continue
         combined={}
         sources[version]={"fullVersion":full,"raw":{},"categoryCounts":{}}
         for category in CATEGORIES:
@@ -150,7 +160,7 @@ def analyze(root,synthetic=False):
             sources[version]["raw"][category]={"sha256":sha,"bytes":len(data)}
             sources[version]["categoryCounts"][category]=len(rows)
         version_rows[version]=combined
-    return {
+    result = {
       "schema":SCHEMA,"evidence":"SYNTHETIC_FIXTURE_ONLY" if synthetic else "SOURCE_ONLY_ORIGINAL_STEAM_NATIVE_DEFINITIONS",
       "sourcePlatform":"Steam/Windows","source":sources,
       "releaseEligibility":"NO_VERSION_VERIFIED_IMAGE_ROWS",
@@ -162,25 +172,35 @@ def analyze(root,synthetic=False):
       "v1250_to_v1253":diff(version_rows["v1250"],version_rows["v1253"],"v1250","v1253"),
       "v12413_to_v1253":diff(version_rows["v12413"],version_rows["v1253"],"v12413","v1253")
     }
+    if include_v1261:
+        result["switch1261BID"]="UNKNOWN_NOT_READ_FROM_STEAM"
+        result["v1253_to_v1261"]=diff(version_rows["v1253"],version_rows["v1261"],"v1253","v1261")
+    return result
 
 def main():
     p=argparse.ArgumentParser(description="Offline native Steam icon GUID delta; NOT Switch image proof")
     p.add_argument("--source-root",type=pathlib.Path,required=True)
     p.add_argument("--report",type=pathlib.Path,required=True)
     p.add_argument("--synthetic-fixture",action="store_true")
+    p.add_argument("--include-v1261",action="store_true",
+                   help="require pinned Steam v1.26.1 originals; never infer Switch BID or public eligibility")
     a=p.parse_args()
     root=a.source_root.resolve()
     if a.report.is_symlink() or a.report.exists() or a.report.resolve()==root or root in a.report.resolve().parents:
         raise ValueError("REPORT_MUST_BE_NEW_OUTSIDE_SOURCE_ROOT")
-    result=analyze(root,a.synthetic_fixture)
+    result=analyze(root,a.synthetic_fixture,include_v1261=a.include_v1261)
     a.report.parent.mkdir(parents=True,exist_ok=True)
     with a.report.open("x",encoding="utf-8") as fp:
         json.dump(result,fp,ensure_ascii=False,indent=2)
         fp.write("\n")
-    print(json.dumps({"schema":SCHEMA,"evidence":result["evidence"],
+    summary={"schema":SCHEMA,"evidence":result["evidence"],
       "v12413_to_v1250":{k:result["v12413_to_v1250"][k] for k in ("sourceCount","targetCount","iconGuidChangedCount","addedCount","removedCount")},
       "v1250_to_v1253":{k:result["v1250_to_v1253"][k] for k in ("sourceCount","targetCount","iconGuidChangedCount","addedCount","removedCount")},
-      "publishAllowed":False}))
+      "publishAllowed":False}
+    if a.include_v1261:
+        summary["v1253_to_v1261"]={k:result["v1253_to_v1261"][k] for k in
+            ("sourceCount","targetCount","iconGuidChangedCount","addedCount","removedCount")}
+    print(json.dumps(summary))
 
 if __name__=="__main__":
     main()
