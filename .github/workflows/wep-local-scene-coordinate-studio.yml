@@ -1,0 +1,65 @@
+name: WEP P0 local Scene coordinate Studio local-only
+on:
+  pull_request:
+    paths:
+      - 'src/lib/wep/local-scene-coordinate-review.ts'
+      - 'src/lib/wep/local-scene-coordinate-copy.js'
+      - 'src/lib/wep/LocalSceneCoordinateStudio.svelte'
+      - 'src/routes/editor/world/+page.svelte'
+      - 'tests/wep-local-scene-coordinate-review.test.mjs'
+      - 'scripts/wep-local-scene-coordinate-studio-chrome.mjs'
+      - 'docs/wep/world-editor-localization-inventory-20261002.json'
+      - '.github/workflows/wep-local-scene-coordinate-studio.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: New-only static actual Catalog and local coordinate negatives
+        run: node --test tests/wep-local-scene-coordinate-review.test.mjs
+      - name: Static route, Svelte and baseline build
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run check
+          npm run build
+          test -f build/editor/world/index.html
+  browser:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real Chrome two-furniture Scene local-only Review Save-as
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          export CHROME_BIN="$BIN"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4366 >/tmp/wep-coordinate-studio.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4366/editor/world/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/wep-local-scene-coordinate-studio-chrome.mjs
