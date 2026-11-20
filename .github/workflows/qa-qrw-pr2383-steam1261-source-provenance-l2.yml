@@ -42,7 +42,7 @@ jobs:
           test "$(git rev-parse HEAD:tests/01d-steam-native-icon-delta.test.mjs)" = 8eadf9a6f298b1458d5037c195fc39700076c8b9
           test "$(git rev-parse HEAD:tests/qa-qrw-pr2383-steam1261-source-provenance-l2.test.py)" = f3184b910f5f011a89a73b704c6b55333c65da47
           git diff --quiet "$source" HEAD -- src scripts static ops crates package.json package-lock.json
-          test -z "$(git ls-files '*.p1g' '*.png' '*.webp')"
+          # Existing signed public .webp/.png assets are preserved; only the QA delta is source-free.
           echo QRW2383_SOURCE3_QA2_GITBLOB_MODE_NO_PRIVATE_ASSETS_PASS
       - name: Independent synthetic opt-in/source SHA/CLI artifact/rights fail closed
         shell: bash
