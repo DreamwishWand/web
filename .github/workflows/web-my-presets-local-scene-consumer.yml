@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'src/routes/presets/+page.svelte'
+      - 'src/lib/presets/local-scene-title-filter.mjs'
       - 'tests/web-my-presets-local-scene-consumer.test.mjs'
       - 'scripts/web-my-presets-local-scene-chrome.mjs'
       - '.github/workflows/web-my-presets-local-scene-consumer.yml'
@@ -25,6 +26,31 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Keep the accepted original four-file Source scope intact.
+          # A second exact five-file CURRENT-base UI-only scope is allowed.
+          # This UI filter cannot modify WEP/DB/Community or mint Writer.
+          SOURCE="$(git rev-parse HEAD^2)"
+          BASE_PR="$(git rev-parse HEAD^1)"
+          test "$SOURCE" = "${{ github.event.pull_request.head.sha }}"
+          git merge-base --is-ancestor "${{ github.event.pull_request.base.sha }}" "$BASE_PR"
+          printf '%s\n' \
+            .github/workflows/web-my-presets-local-scene-consumer.yml \
+            scripts/web-my-presets-local-scene-chrome.mjs \
+            src/lib/presets/local-scene-title-filter.mjs \
+            src/routes/presets/+page.svelte \
+            tests/web-my-presets-local-scene-consumer.test.mjs | LC_ALL=C sort >/tmp/local-scene-filter-expected
+          git diff --name-only "$BASE_PR" HEAD | LC_ALL=C sort >/tmp/local-scene-filter-actual
+          if diff -q /tmp/local-scene-filter-expected /tmp/local-scene-filter-actual >/dev/null; then
+            for p in .github/workflows/web-my-presets-local-scene-consumer.yml scripts/web-my-presets-local-scene-chrome.mjs src/routes/presets/+page.svelte tests/web-my-presets-local-scene-consumer.test.mjs; do
+              test "$(git diff --name-status "$BASE_PR" HEAD -- "$p" | cut -f1)" = M
+            done
+            test "$(git diff --name-status "$BASE_PR" HEAD -- src/lib/presets/local-scene-title-filter.mjs | cut -f1)" = A
+            for p in .github/workflows/web-my-presets-local-scene-consumer.yml scripts/web-my-presets-local-scene-chrome.mjs src/lib/presets/local-scene-title-filter.mjs src/routes/presets/+page.svelte tests/web-my-presets-local-scene-consumer.test.mjs; do
+              test "$(git ls-tree HEAD "$p" | awk '{print $1}')" = 100644
+            done
+            git diff --exit-code "$BASE_PR" HEAD -- src/lib/wep/ src/routes/editor/ src/routes/moodboards/ src/routes/collection/ src/lib/community/ crates/ supabase/ static/ .github/workflows/pages.yml
+            echo WEB_LOCAL_SCENE_FILTER_EXACT5_NO_STORE_OR_SIGNER_CHANGE_PASS
+          else
           BASE="574f30d554939bf674ad90a16f45b86e775118a1"
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           printf '%s\n' \
@@ -41,6 +67,7 @@ jobs:
           done
           git diff --exit-code "$BASE" HEAD -- src/lib/wep/ src/lib/presets/ src/routes/editor/ src/routes/moodboards/ src/routes/collection/ src/lib/community/ crates/ supabase/ static/ .github/workflows/pages.yml
           echo WEB_LOCAL_SCENE_FOUR_FILE_SCOPE_ACCEPTED_WEP_STORE_UNMODIFIED_PASS
+          fi
       - name: Local-only Node contract, Svelte typecheck, static /web build
         env:
           BASE_PATH: /web
