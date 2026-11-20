@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { presetPageCopy } from '$lib/presets/page-copy.js';
@@ -72,6 +73,18 @@
   $: deviceSceneCopy=localScenePresetCopy($locale);
   $: portableCopy=localScenePortableCopy($locale);
   $: deviceSceneRouteCopy=localSceneRouteCopy($locale);
+
+  // Svelte root action: only explicit exact-fragment navigation changes
+  // which existing panel is visible. No DB, file, Worker, or Cloud access.
+  // Ordinary /presets/ still renders the original four-card root.
+  function revealLocalScenesOnRoute(node: HTMLElement):void {
+    if(window.location.hash!=='#device-local-scenes')return;
+    surface='my';myDomain='wand';myView='created';
+    void tick().then(()=>{
+      if(node.isConnected&&window.location.hash==='#device-local-scenes')
+        document.getElementById('device-local-scene-panel')?.focus();
+    });
+  }
 
   function preflightBlockCodes(value: any): string[] {
     return Array.from(
@@ -334,7 +347,10 @@
 </svelte:head>
 
 <section class="presets-page container" data-stage1-presets-root
-  data-native-writer="off" data-provider-gate="off" data-tom-writer="off">
+  data-native-writer="off" data-provider-gate="off" data-tom-writer="off" use:revealLocalScenesOnRoute>
+  <!-- Required even in prerendered root HTML: the conditional My/Wand panel
+       only appears after the explicit fragment is interpreted on hydration. -->
+  <span id="device-local-scenes" data-device-scenes-fragment-anchor hidden aria-hidden="true"></span>
   {#if surface==='root'}
     <h1 class="root-title">{copy.title}</h1>
     <nav class="preset-stage1-root-grid" data-stage1-presets-four-cards aria-label={copy.title}>
@@ -379,7 +395,7 @@
           <p>{myCopy.wandBoundary}</p>
         </section>
 
-        <section class="panel device-local-scenes" data-my-local-scenes
+        <section class="panel device-local-scenes" id="device-local-scene-panel" tabindex="-1" data-my-local-scenes
           data-device-scene-authority="local-only" data-account-created="unverified"
           data-account-saved="unverified" data-local-scene-writer="off"
           data-auto-cloud="off" aria-labelledby="my-device-scenes-title">
