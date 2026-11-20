@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-11-19",
+  "generatedAt": "2026-11-20",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "31eea7cd801b5962e100b1fb4f870a523ce7ac7d",
+    "src/routes/editor/world/+page.svelte": "c38a474b2787c8adef59702110c9c5eae03f9b31",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "7898fe66999d01fff70c2b19ca104dbf438f3013",
@@ -32,7 +32,10 @@
     "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832",
     "src/lib/wep/local-scene-route-handoff.mjs": "9114d537d5afee718db5240d538b4203546a591f",
     "src/lib/wep/SaveFreeFirstScene.svelte": "565f44c905759e84107721687abe7e611b0d2818",
-    "src/lib/wep/savefree-first-scene.ts": "5b333f2e08fccc56ae755691724d1384ffed3919"
+    "src/lib/wep/savefree-first-scene.ts": "5b333f2e08fccc56ae755691724d1384ffed3919",
+    "src/lib/wep/local-scene-coordinate-review.ts": "5370d534f7bbeadf6021981f65666a980f4461cb",
+    "src/lib/wep/local-scene-coordinate-copy.js": "a8746f6948842c7b8cccd70b432d08174b4366d8",
+    "src/lib/wep/LocalSceneCoordinateStudio.svelte": "f3932e0cabfc51efb70a1a77d71774de6b16dccb"
   },
   "ownership": {
     "wepOwned": [
@@ -100,7 +103,8 @@
       "F-P04 detached read-only local Scene reuse Draft: explicit opt-in, fresh revision match, local coordinates, eight-locale status and refusal; never Native Apply or Editor mutation.",
       "My Presets selected local Scene same-tab navigation: passive one-shot hint, explicit reread button, eight-locale confirmation/ready/denial. No auto Apply or native identity.",
       "Save-independent local NONEMPTY Scene: explicit SHA-verified Switch v1.25.0 Catalog furniture Item choices, SHA-pinned Geometry/Scope Footprints, one or two source-verified furniture objects with bounded 0..63 local X/Y, non-overlap and read-only SVG layout. Existing one-object capture remains. Both use canonical WEP Capture, same IndexedDB CAS+Backup/independent Reopen, eight-locale UI; inventory or personal rights never inferred; Native Writer/Apply/Cloud remain OFF.",
-      "Shared SiteHeader '?' accessible help label and unavailable role=status live message use 08 WEB presets-my-tour-copy.mjs in eight launch locales; the four-step Presets Tour is not a World Editor Tour."
+      "Shared SiteHeader '?' accessible help label and unavailable role=status live message use 08 WEB presets-my-tour-copy.mjs in eight launch locales; the four-step Presets Tour is not a World Editor Tour.",
+      "Opt-in no-Save two-furniture local Scene coordinate Studio with strict preserved original Source/Revision CAS, local Move/Undo/Redo/Review, separate new Scene Save-as, previous complete raw IDB Backup, independently reopened read-only artifact. Eight launch locale copy; no native Save/ownership/Cloud/Apply or second EditorSession."
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -1466,6 +1470,32 @@
           "Second furniture Y",
           "Remove second furniture",
           "Readonly local Scene layout"
+        ]
+      },
+      {
+        "surface": "Detached local Scene coordinate Move/Undo/Redo/Review + non-destructive Save-as",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/wep/LocalSceneCoordinateStudio.svelte",
+          "src/lib/wep/local-scene-coordinate-copy.js"
+        ],
+        "strings": [
+          "Edit a saved local Scene layout",
+          "Local relative coordinates only. Original Scene, DDV Save, ownership and Apply stay unchanged.",
+          "Load device-only Scenes",
+          "Choose a two-furniture Scene",
+          "Move furniture",
+          "Local X",
+          "Local Y",
+          "Preview local move",
+          "Undo",
+          "Redo",
+          "Reviewed local change",
+          "Save a separate Scene",
+          "New Scene name",
+          "New Scene saved and independently reopened; original preserved.",
+          "Cannot confirm edit. Reopen local Scene before retrying.",
+          "No saved Scenes on this device."
         ]
       }
     ],
