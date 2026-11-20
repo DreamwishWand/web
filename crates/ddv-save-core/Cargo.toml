@@ -35,6 +35,9 @@ product-steam626-bamboo-readonly = ["indexed-read"]
 # Exact Switch626 Chest-only WASM delivery surface; reuse existing Core.
 # Exact Steam626 linked crop Chest release surface, no public grant.
 product-steam626-chest-scoped = ["product-amount-scoped"]
+# P0 Steam626 catalog InventoryID=0 existing Furniture amount decrease only.
+# Shares Rust ProductSession/typed Amount; no independent engine or authority.
+product-steam626-catalog0-scoped = ["product-amount-scoped"]
 product-switch626-chest-scoped = ["product-amount-scoped"]
 
 # Exact Steam626 COMP03 product release and optional read-only spatial companion.

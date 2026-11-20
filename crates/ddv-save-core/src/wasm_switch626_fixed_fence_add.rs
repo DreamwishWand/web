@@ -20,7 +20,7 @@ macro_rules! fixed_abi{
   pub fn $begin(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
    if self.scoped_domain.get()!=Some(ScopedEditDomain::$domain){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}self.begin_scoped_edit_output_inner(session_id,revision,index_generation,decoded_sha256,$output)
   }
-  pub fn $chunk(&mut self)->Result<Vec<u8>,JsValue>{
+  pub fn $chunk(&mut self)->Result<JsValue,JsValue>{
    if self.scoped_domain.get()!=Some(ScopedEditDomain::$domain){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}self.next_scoped_edit_output_chunk_inner()
   }
  }

@@ -1,4 +1,4 @@
-import {createScopedAmountTransport,createSwitch626ChestTransport,createSteam626ChestTransport,createSwitch626Catalog0Transport} from './product-scoped-amount-transport.mjs';
+import {createScopedAmountTransport,createSwitch626ChestTransport,createSteam626ChestTransport,createSwitch626Catalog0Transport,createSteam626Catalog0Transport} from './product-scoped-amount-transport.mjs';
 import {createSteam626Comp03Transport,createSteam626Comp03SpatialTransport,createSteam626VaseAddTransport,createSteam626Sr03Transport,createSwitch626Rm01Transport,createSwitch626Fd01Transport,createSwitch626Fd02Transport,createSwitch626Fd03Transport,createSwitch626OrthoLTransport,createSwitch626Diagonal90Transport,createSwitch626OrthoTTransport,createSwitch626Fe01Transport} from './product-scoped-placement-transport.mjs';
 import {createSteam626BackpackTransport,createSwitch626BackpackTransport} from './product-scoped-backpack-transport.mjs';
 import {createSteam626AppearanceTransport} from './product-scoped-appearance-transport.mjs';
@@ -43,15 +43,15 @@ function strictReceipt(r){
  * wasmFactory is a trusted static Worker import, not a message field. The
  * worker-side decode source owns the async decoded-chunk iterable.
  */
-export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null,allowSteam626BambooReadOnlySource=false}={}){
- if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,allowSteam626BambooReadOnlySource].every(v=>typeof v==='boolean')||
+export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,allowSteam626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null,allowSteam626BambooReadOnlySource=false}={}){
+ if(![allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,allowSteam626Catalog0Source,allowSteam626BambooReadOnlySource].every(v=>typeof v==='boolean')||
     (![null,'comp03','comp03-spatial','vase','sr03','rm01','fd01','fd02','fd03','ortho-l','diagonal90','ortho-t','fe01'].includes(placementScope))||(![null,'steam','switch'].includes(backpackScope))||(![null,'steam','switch'].includes(wardrobeScope))||(![null,'hair','skin','eyecolor2','eyecolor2-switch','makeup-color1','makeup-color1-switch'].includes(appearanceScope))||
-    [allowScopedAmountSource,allowScopedCollectionSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,placementScope!==null,backpackScope!==null,wardrobeScope!==null,appearanceScope!==null,allowSteam626BambooReadOnlySource].filter(Boolean).length>1||
-    ((allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||placementScope!==null||backpackScope!==null||wardrobeScope!==null||appearanceScope!==null||allowSteam626BambooReadOnlySource)&&allowCollectionCandidateSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
+    [allowScopedAmountSource,allowScopedCollectionSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,allowSteam626Catalog0Source,placementScope!==null,backpackScope!==null,wardrobeScope!==null,appearanceScope!==null,allowSteam626BambooReadOnlySource].filter(Boolean).length>1||
+    ((allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||allowSteam626Catalog0Source||placementScope!==null||backpackScope!==null||wardrobeScope!==null||appearanceScope!==null||allowSteam626BambooReadOnlySource)&&allowCollectionCandidateSource))fail('PRODUCT_WORKER_SCOPED_SOURCE_CONFLICT');
  if(typeof wasmFactory!=='function')fail('PRODUCT_WORKER_WASM_FACTORY_REQUIRED');
  if(typeof document!=='undefined')fail('PRODUCT_WORKER_NOT_ISOLATED');
- const amountEnabled=allowScopedAmountSource||allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source;
- const placementEnabled=placementScope!==null,backpackEnabled=backpackScope!==null,wardrobeEnabled=wardrobeScope!==null,appearanceEnabled=appearanceScope!==null,verifiedClose=allowScopedCollectionSource||allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||placementEnabled||backpackEnabled||wardrobeEnabled||appearanceEnabled||allowSteam626BambooReadOnlySource;
+ const amountEnabled=allowScopedAmountSource||allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||allowSteam626Catalog0Source;
+ const placementEnabled=placementScope!==null,backpackEnabled=backpackScope!==null,wardrobeEnabled=wardrobeScope!==null,appearanceEnabled=appearanceScope!==null,verifiedClose=allowScopedCollectionSource||allowSwitch626ChestSource||allowSteam626ChestSource||allowSwitch626Catalog0Source||allowSteam626Catalog0Source||placementEnabled||backpackEnabled||wardrobeEnabled||appearanceEnabled||allowSteam626BambooReadOnlySource;
  let epoch=0,active=null,collectionOpening=false,blockedClose=null;
  // Collection must not issue a CLOSED receipt or open B while cleanup of A
  // remains unverified. Keep the old instance only for an explicit Close retry.
@@ -82,7 +82,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
        fail('PRODUCT_WORKER_UNTRUSTED_OPEN_ARGS');
    const {build,decodedChunks}=args;
    const identity=exactBuild(build);
-   if(((allowSwitch626ChestSource||allowSwitch626Catalog0Source)&&identity.platform!=='switch')||(allowSteam626ChestSource&&identity.platform!=='steam-windows'))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
+   if(((allowSwitch626ChestSource||allowSwitch626Catalog0Source)&&identity.platform!=='switch')||((allowSteam626ChestSource||allowSteam626Catalog0Source)&&identity.platform!=='steam-windows'))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
    if(allowSteam626BambooReadOnlySource&&identity.platform!=='steam-windows')fail('PRODUCT_WORKER_BAMBOO_STEAM_ONLY');
    if((placementEnabled&&identity.platform!==(['rm01','fd01','fd02','fd03','ortho-l','diagonal90','ortho-t','fe01'].includes(placementScope)?'switch':'steam-windows'))||(backpackEnabled&&identity.platform!==(backpackScope==='switch'?'switch':'steam-windows'))||(appearanceEnabled&&identity.platform!==((appearanceScope==='eyecolor2-switch'||appearanceScope==='makeup-color1-switch')?'switch':'steam-windows'))||(wardrobeEnabled&&identity.platform!==(wardrobeScope==='switch'?'switch':'steam-windows')))fail('PRODUCT_WORKER_SCOPED_SOURCE_OFF');
    if(!decodedChunks||typeof decodedChunks[Symbol.asyncIterator]!=='function')
@@ -125,6 +125,7 @@ export function createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource=
        a.scoped=allowSwitch626ChestSource?createSwitch626ChestTransport(wasm,receipt,identity,options):
           allowSteam626ChestSource?createSteam626ChestTransport(wasm,receipt,identity,options):
           allowSwitch626Catalog0Source?createSwitch626Catalog0Transport(wasm,receipt,identity,options):
+          allowSteam626Catalog0Source?createSteam626Catalog0Transport(wasm,receipt,identity,options):
          createScopedAmountTransport(wasm,receipt,options);
      }
      if(allowScopedCollectionSource){

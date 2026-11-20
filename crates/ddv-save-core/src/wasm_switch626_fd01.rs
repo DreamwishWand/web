@@ -14,6 +14,6 @@ impl WorkerWasmSource{
  }
  pub fn toggle_switch626_fd01(&self,redo:bool,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{self.require_fd01_domain()?;self.toggle_scoped_edit_inner(redo,session_id,revision,index_generation,decoded_sha256,CONTRACT)}
  pub fn begin_switch626_fd01_output(&mut self,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{self.require_fd01_domain()?;self.begin_scoped_edit_output_inner(session_id,revision,index_generation,decoded_sha256,OUTPUT)}
- pub fn next_switch626_fd01_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{self.require_fd01_domain()?;self.next_scoped_edit_output_chunk_inner()}
+ pub fn next_switch626_fd01_output_chunk(&mut self)->Result<JsValue,JsValue>{self.require_fd01_domain()?;self.next_scoped_edit_output_chunk_inner()}
 }
 impl WorkerWasmSource{fn require_fd01_domain(&self)->Result<(),JsValue>{if self.scoped_domain.get()!=Some(ScopedEditDomain::SwitchFd01){return Err(err("WORKER_SCOPED_DOMAIN_MISMATCH"));}Ok(())}}

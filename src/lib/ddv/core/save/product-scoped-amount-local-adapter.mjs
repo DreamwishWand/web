@@ -39,6 +39,12 @@ export function createProductSteam626ChestLocalAdapter(options={}){
  if(options.allowCoreDiscoverySource===false||(options.coreDiscoveryProfile!==undefined&&options.coreDiscoveryProfile!=='linked-crop-chest48')||options.discoverScopedTargets!==undefined)fail();
  return createScopedLocalAdapter({...options,allowCoreDiscoverySource:true,coreDiscoveryProfile:'linked-crop-chest48'},false,false,true);
 }
+// Steam626 only: Core-minted existing Catalog0 InventoryID0, NOT the
+// Switch626 fixed ItemID40000076 patch. Product release remains OFF.
+export function createProductSteam626Catalog0LocalAdapter(options={}){
+ if(options.allowCoreDiscoverySource===false||(options.coreDiscoveryProfile!==undefined&&options.coreDiscoveryProfile!=='catalog0-furniture')||options.discoverScopedTargets!==undefined)fail();
+ return createScopedLocalAdapter({...options,allowCoreDiscoverySource:true,coreDiscoveryProfile:'catalog0-furniture'},false,false,false,false,null,null,null,null,true);
+}
 export function createProductSwitch626Catalog0LocalAdapter(options={}){
  if(options.allowCoreDiscoverySource===false||(options.coreDiscoveryProfile!==undefined&&options.coreDiscoveryProfile!=='catalog0-furniture')||options.discoverScopedTargets!==undefined)fail();
  return createScopedLocalAdapter({...options,allowCoreDiscoverySource:true,coreDiscoveryProfile:'catalog0-furniture'},false,false,false,true);
@@ -68,7 +74,7 @@ export function createProductSwitch626OrthoLLocalAdapter(options={}){return crea
 export function createProductSwitch626Diagonal90LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'diagonal90')}
 export function createProductSwitch626OrthoTLocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'ortho-t')}
 export function createProductSwitch626Fe01LocalAdapter(options={}){return createScopedLocalAdapter(options,false,false,false,false,'fe01')}
-function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null){
+function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDiscoverySource=false,coreDiscoveryProfile='linked-crop-chest48',freshCodecReopen=freshReopen,getDirectory}={},collection,switchChest=false,steamChest=false,catalog=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null,steamCatalog=false){
  const placement=placementScope!==null,backpack=backpackScope!==null,wardrobe=wardrobeScope!==null,appearance=appearanceScope!==null,previewEdit=placement||backpack||wardrobe||appearance,placementCount=(wardrobe||appearance)?1:(placementScope==='comp03'||placementScope==='comp03-spatial')?9:['fd01','fd02','fd03'].includes(placementScope)?4:['ortho-l','diagonal90'].includes(placementScope)?6:placementScope==='ortho-t'?8:placementScope==='fe01'?7:(placementScope==='sr03'||placementScope==='rm01')?8:3;
  if(typeof document!=='undefined'||typeof wasmFactory!=='function'||typeof allowCoreDiscoverySource!=='boolean'||
   (discoverScopedTargets!==undefined&&typeof discoverScopedTargets!=='function')||
@@ -76,7 +82,7 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   ((collection||previewEdit)&&(allowCoreDiscoverySource||discoverScopedTargets!==undefined))||
   !['linked-crop-chest48','catalog0-furniture'].includes(coreDiscoveryProfile))fail();
  const store=createLocalEncryptedCopyStore(getDirectory?{getDirectory}:{});
- const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:!collection&&!switchChest&&!steamChest&&!catalog&&!previewEdit,allowSwitch626Catalog0Source:catalog,allowSwitch626ChestSource:switchChest,allowSteam626ChestSource:steamChest,allowScopedCollectionSource:collection,placementScope,backpackScope,wardrobeScope,appearanceScope,readDurableOriginalBackup:b=>store.durable(b)});
+ const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource:!collection&&!switchChest&&!steamChest&&!catalog&&!steamCatalog&&!previewEdit,allowSwitch626Catalog0Source:catalog,allowSteam626Catalog0Source:steamCatalog,allowSwitch626ChestSource:switchChest,allowSteam626ChestSource:steamChest,allowScopedCollectionSource:collection,placementScope,backpackScope,wardrobeScope,appearanceScope,readDurableOriginalBackup:b=>store.durable(b)});
  let epoch=0,source=null,backup=null,targets=[],phase='closed',busy=false,closeUnverified=false;
  const revoke=()=>{
   epoch++;store.close();source=null;backup=null;targets=[];phase='closed';busy=false;
@@ -97,6 +103,7 @@ function createScopedLocalAdapter({wasmFactory,discoverScopedTargets,allowCoreDi
   if(!keys(r,'profile,id,selector,itemId,oldAmount')||!uint(r.id)||!uint(r.selector)||!uint(r.itemId)||!r.itemId||
    !uint(r.oldAmount)||r.oldAmount<2||r.oldAmount>9999||((switchChest||steamChest)&&(r.profile!=='linked-crop-chest48'||r.oldAmount!==50))||
    (catalog&&(r.profile!=='catalog0-furniture'||r.id!==0||r.itemId!==40000076||r.selector!==40000076))||
+   (steamCatalog&&(r.profile!=='catalog0-furniture'||r.id!==0||r.selector!==r.itemId))||
    !((r.profile==='linked-crop-chest48'&&r.id>1&&r.selector<48)||(r.profile==='catalog0-furniture'&&r.id===0&&r.selector===r.itemId)))fail();
   const chest=r.profile==='linked-crop-chest48';
   return {kind:chest?'ChestExistingSlotAmountDecrease':'InventoryExistingAmountDecrease',targetId:r.id,itemId:r.itemId,

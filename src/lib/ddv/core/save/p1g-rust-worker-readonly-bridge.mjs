@@ -45,18 +45,18 @@ async function* decodedUtf8Chunks(text){
     offset=end;
   }
 }
-export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null,allowSteam626BambooReadOnlySource=false,readDurableOriginalBackup=null}={}){
-  const amountEnabled=allowScopedAmountSource===true||allowSwitch626ChestSource===true||allowSteam626ChestSource===true||allowSwitch626Catalog0Source===true;
+export function createP1gRustWorkerReadOnlyBridge(wasmFactory,{allowScopedAmountSource=false,allowScopedCollectionSource=false,allowCollectionCandidateSource=false,allowSwitch626ChestSource=false,allowSteam626ChestSource=false,allowSwitch626Catalog0Source=false,allowSteam626Catalog0Source=false,placementScope=null,backpackScope=null,wardrobeScope=null,appearanceScope=null,allowSteam626BambooReadOnlySource=false,readDurableOriginalBackup=null}={}){
+  const amountEnabled=allowScopedAmountSource===true||allowSwitch626ChestSource===true||allowSteam626ChestSource===true||allowSwitch626Catalog0Source===true||allowSteam626Catalog0Source===true;
   const placementEnabled=placementScope!==null,backpackEnabled=backpackScope!==null,wardrobeEnabled=wardrobeScope!==null,appearanceEnabled=appearanceScope!==null;
   const scopedEnabled=amountEnabled||allowScopedCollectionSource===true||placementEnabled||backpackEnabled||wardrobeEnabled||appearanceEnabled;
   // Constructor itself enforces Worker-only (document must be absent).
-  const rust=createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,placementScope,backpackScope,wardrobeScope,appearanceScope,allowSteam626BambooReadOnlySource});
+  const rust=createProductWasmReadOwner(wasmFactory,{allowScopedAmountSource,allowScopedCollectionSource,allowCollectionCandidateSource,allowSwitch626ChestSource,allowSteam626ChestSource,allowSwitch626Catalog0Source,allowSteam626Catalog0Source,placementScope,backpackScope,wardrobeScope,appearanceScope,allowSteam626BambooReadOnlySource});
   let epoch=0,scopedSource=null,scopedMetadata=null,backupMatched=false,scopedBusy=false,durableName=null,collectionCloseUnverified=false;
   const resetScoped=()=>{scopedSource=null;scopedMetadata=null;backupMatched=false;scopedBusy=false;durableName=null};
   const hash=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
   const closeRust=()=>{
     try{const ack=rust.close();collectionCloseUnverified=false;return ack}
-    catch(e){if(allowScopedCollectionSource===true||allowSwitch626ChestSource===true||allowSteam626ChestSource===true||allowSwitch626Catalog0Source===true||placementEnabled||backpackEnabled||wardrobeEnabled||appearanceEnabled||allowSteam626BambooReadOnlySource)collectionCloseUnverified=true;throw e}
+    catch(e){if(allowScopedCollectionSource===true||allowSwitch626ChestSource===true||allowSteam626ChestSource===true||allowSwitch626Catalog0Source===true||allowSteam626Catalog0Source===true||placementEnabled||backpackEnabled||wardrobeEnabled||appearanceEnabled||allowSteam626BambooReadOnlySource)collectionCloseUnverified=true;throw e}
   };
   const close=()=>{
     epoch++;resetScoped();

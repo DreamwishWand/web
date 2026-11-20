@@ -100,8 +100,19 @@ export function createSteam626ChestTransport(wasm,initial,identity,options){
   initial.writerAuthorized!==false||initial.editedCopyAuthorized!==false||initial.applyAuthorized!==false)fail();
  return createAmountTransport(wasm,initial,options,false,true);
 }
-function createAmountTransport(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes},sw,steamChest=false,catalog=false){
- const chest=(sw&&!catalog)||steamChest;
+// Steam626 Inventory0 dedicated Rust Feature reuses generic Steam Amount
+// ABI and ledger, not the fixed Switch626 Catalog0 ItemID40000076 ABI.
+// A signed Feature/Build selection is still required before product activation.
+export function createSteam626Catalog0Transport(wasm,initial,identity,options){
+ if(!identity||identity.platform!=='steam-windows'||identity.buildKind!=='steam-full-version'||identity.buildId!=='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22'||identity.schema!==626||
+  !initial||initial.contract!=='wand.product.single-save-session.boundary@1'||initial.schema!==626||
+  initial.revision!==0||initial.indexGeneration!==1||typeof initial.sessionId!=='string'||!(/^[a-f0-9]{32}$/).test(initial.sessionId)||/^0+$/.test(initial.sessionId)||
+  !sha(initial.decodedSha256)||initial.productWorkerBound!==true||initial.fullDocumentJsonValidated!==true||
+  initial.writerAuthorized!==false||initial.editedCopyAuthorized!==false||initial.applyAuthorized!==false)fail();
+ return createAmountTransport(wasm,initial,options,false,false,false,true);
+}
+function createAmountTransport(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes},sw,steamChest=false,catalog=false,steamCatalog=false){
+ const chest=(sw&&!catalog)||steamChest,onlyCatalog=catalog||steamCatalog;
  const fixedCatalogId=40000076;
  const candidateContract=catalog?'wand.worker.switch626.scoped-catalog0@1':sw?SWITCH_CONTRACT:CONTRACT;
  const discoveryContract=catalog?'wand.worker.switch626.scoped-catalog0-discovery@1':sw?SWITCH_DISCOVERY:'wand.worker.steam626.scoped-amount-discovery@1';
@@ -112,7 +123,7 @@ function createAmountTransport(wasm,initial,{parse,current,revoke,maxBytes,chunk
  const beginMethod=sw?'begin_scoped_edit_output':'begin_scoped_amount_output';
  const nextMethod=sw?'next_scoped_edit_output_chunk':'next_scoped_amount_output_chunk';
  if(typeof document!=='undefined'||!wasm||typeof parse!=='function'||typeof current!=='function'||typeof revoke!=='function')fail();
- for(const k of [previewMethod,stageMethod,toggleMethod,beginMethod,nextMethod,...((chest||catalog)?[discoverMethod]:[])])
+ for(const k of [previewMethod,stageMethod,toggleMethod,beginMethod,nextMethod,...((chest||onlyCatalog)?[discoverMethod]:[])])
   if(typeof wasm[k]!=='function')fail();
  let preview=null;
  const life=createScopedEditLifecycle(wasm,initial,{parse,current,revoke,maxBytes,chunkBytes,
@@ -126,7 +137,7 @@ function createAmountTransport(wasm,initial,{parse,current,revoke,maxBytes,chunk
  function discoverTargets(profile){
   return checked(()=>{
    if(life.hasMutation()||life.scope().revision!==0||life.scope().indexGeneration!==1||typeof wasm[discoverMethod]!=='function'||
-    !(catalog?profile==='catalog0-furniture':chest?profile==='linked-crop-chest48':['linked-crop-chest48','catalog0-furniture'].includes(profile)))fail();
+    !(onlyCatalog?profile==='catalog0-furniture':chest?profile==='linked-crop-chest48':['linked-crop-chest48','catalog0-furniture'].includes(profile)))fail();
    const targets=[],seen=new Set();
    // One independent profile per discovery: an unrelated inventory failure
    // must not stop an otherwise valid Chest route (and vice versa).
@@ -161,12 +172,13 @@ function createAmountTransport(wasm,initial,{parse,current,revoke,maxBytes,chunk
   return checked(()=>{
    if(life.hasMutation()||!only(s,'profile,id,selector,newAmount')||!uint(s.id)||!uint(s.selector)||!uint(s.newAmount)||s.newAmount<1||(chest&&(s.profile!=='linked-crop-chest48'||s.newAmount!==49))||
     (catalog&&(s.profile!=='catalog0-furniture'||s.id!==0||s.selector!==fixedCatalogId||s.newAmount>=9999))||
+    (steamCatalog&&(s.profile!=='catalog0-furniture'||s.id!==0||s.selector===0||s.newAmount>=9999))||
     !((s.profile==='catalog0-furniture'&&s.id===0&&s.selector>0)||(s.profile==='linked-crop-chest48'&&s.id>1&&s.selector<48)))fail();
    const r=parse(wasm[previewMethod](...(sw?[]:[s.profile]),s.id,s.selector,s.newAmount,...args()),4096);
    if(!only(r,'contract,profile,id,selector,itemId,oldAmount,newAmount,entrySha256,sessionId,revision,indexGeneration,decodedSha256,scopedCandidate,writerAuthorized,editedCopyAuthorized')||
     r.contract!==candidateContract||r.profile!==s.profile||r.id!==s.id||r.selector!==s.selector||r.newAmount!==s.newAmount||
     !uint(r.itemId)||r.itemId===0||(r.profile==='catalog0-furniture'&&r.itemId!==s.selector)||
-    !uint(r.oldAmount)||r.oldAmount!==s.newAmount+1||(catalog&&(r.itemId!==fixedCatalogId||r.oldAmount>9999))||!sha(r.entrySha256)||!scopeMatches(r)||
+    !uint(r.oldAmount)||r.oldAmount!==s.newAmount+1||(catalog&&(r.itemId!==fixedCatalogId||r.oldAmount>9999))||(steamCatalog&&(r.profile!=='catalog0-furniture'||r.id!==0||r.oldAmount>9999))||!sha(r.entrySha256)||!scopeMatches(r)||
     r.revision!==life.scope().revision||r.indexGeneration!==life.scope().indexGeneration||
     r.scopedCandidate!==true||r.writerAuthorized!==false||r.editedCopyAuthorized!==false)fail();
    preview=Object.freeze(r);return summary();

@@ -47,7 +47,7 @@ impl WorkerWasmSource {
         }
         self.begin_scoped_edit_output_inner(session_id,revision,index_generation,decoded_sha256,OUTPUT)
     }
-    pub fn next_steam626_eyecolor2_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+    pub fn next_steam626_eyecolor2_output_chunk(&mut self)->Result<JsValue,JsValue>{
         if self.scoped_domain.get()!=Some(ScopedEditDomain::EyeColor2){
             return Err(err("EYECOLOR2_ABI_DOMAIN_MISMATCH"));
         }

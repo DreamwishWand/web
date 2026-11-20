@@ -3,6 +3,42 @@
 use crate::{worker_session::WorkerSessionGuard,BuildIdentity,BuildKind,Platform,
             ProductSession,WorkerAction,WorkerEnvelope,PRODUCT_WORKER_CONTRACT};
 use wasm_bindgen::prelude::*;
+// P0 dedicated Inventory0 product WASM: Cargo feature alone grants no operation/Writer.
+// Mixed feature binaries are denied rather than accidentally exposing Chest/rights ABI.
+#[cfg(all(feature="product-steam626-catalog0-scoped",any(
+    feature="private-native-v1",
+    feature="private-native-v2",
+    feature="synthetic-stage-b",
+    feature="product-collection-scoped",
+    feature="product-steam626-chest-scoped",
+    feature="product-switch626-chest-scoped",
+    feature="product-steam626-comp03-scoped",
+    feature="product-steam626-comp03-spatial-preview",
+    feature="product-steam626-sr03-scoped",
+    feature="product-switch626-rm01-scoped",
+    feature="product-steam626-hair-scoped",
+    feature="product-steam626-skin-scoped",
+    feature="product-steam626-makeup-color1-scoped",
+    feature="product-steam626-eyecolor2-scoped",
+    feature="product-steam626-bamboo-readonly",
+    feature="product-steam626-singlefence-readonly",
+    feature="product-switch626-makeup-color1-internal",
+    feature="product-switch626-makeup-color1-scoped",
+    feature="product-switch626-eyecolor2-internal",
+    feature="product-switch626-fd01-scoped",
+    feature="product-switch626-fe01-scoped",
+    feature="product-switch626-fence-add-stage-internal",
+    feature="product-switch626-fd02-scoped",
+    feature="product-switch626-fd03-scoped",
+    feature="product-switch626-ortho-l-scoped",
+    feature="product-switch626-diagonal90-scoped",
+    feature="product-switch626-ortho-t-scoped",
+    feature="product-switch626-rm01-scoped",
+    feature="product-switch624-frp01-readonly",
+    feature="product-switch624-frp01-stage-internal",
+    feature="product-switch624-frp01-scoped"
+)))]
+compile_error!("STEAM626_CATALOG0_PRODUCT_FEATURE_CONFLICT");
 // Decoded P1G JSON can remain in Vec capacity after clear(). Volatile writes
 // keep the scrub observable to the optimizer; the fence orders the writes
 // before releasing the logical buffer length. No new allocation or Session.
@@ -13,6 +49,23 @@ fn wipe_pending_decoded_buffer(bytes:&mut Vec<u8>){
     }
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
     bytes.clear();
+}
+// Copy a borrowed WASM slice directly to an independently owned JavaScript
+// Uint8Array. Returning Vec<u8> from wasm-bindgen left an additional plaintext
+// heap allocation unzeroed when the generated JS glue freed the Rust Vec.
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",feature="product-steam626-eyecolor2-scoped",feature="product-switch626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+#[wasm_bindgen(inline_js = "export function wand_copy_scoped_chunk(view) { if (!(view instanceof Uint8Array)) throw new TypeError('WAND_SCOPED_CHUNK_VIEW'); return new Uint8Array(view); }")]
+extern "C" {
+    #[wasm_bindgen(catch)]
+    fn wand_copy_scoped_chunk(view: &[u8]) -> Result<JsValue,JsValue>;
+}
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",feature="product-steam626-eyecolor2-scoped",feature="product-switch626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+fn wipe_scoped_output_slice(bytes:&mut [u8]){
+    for byte in bytes.iter_mut(){
+        // SAFETY: each byte is exclusively borrowed from the session-owned Vec.
+        unsafe {core::ptr::write_volatile(byte as *mut u8,0);}
+    }
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
 const MAX_CHUNK:usize=1024*1024;
 const MAX_WORKER_DOCUMENT:usize=128*1024*1024;
@@ -435,7 +488,7 @@ impl WorkerWasmSource {
         self.scoped_domain.set(Some(ScopedEditDomain::SwitchRm01));
         Ok(scoped_edit_receipt(r,"wand.worker.switch626.scoped-rm01-mixed-q5@1"))
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-catalog0-scoped"))))]
     #[cfg(not(any(feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped")))]
     #[cfg(not(any(feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped")))]
     pub fn preview_steam626_comp03(&self,seed:u32,session_id:&str,revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
@@ -451,7 +504,7 @@ impl WorkerWasmSource {
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         Ok(guard.preview_comp03_spatial(e,seed,from_hex(projected_sha)?).map_err(|e|err(e.0))?.to_string())
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-catalog0-scoped"))))]
     #[cfg(not(any(feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped")))]
     #[cfg(not(any(feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped")))]
     pub fn stage_steam626_comp03(&self,seed:u32,grid:u32,next:u32,old:u32,grid_sha:&str,seed_sha:&str,stock_sha:&str,projected:&str,
@@ -470,6 +523,8 @@ impl WorkerWasmSource {
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         #[cfg(feature="product-steam626-chest-scoped")]
         if profile!="linked-crop-chest48"{return Err(err("WORKER_STEAM626_CHEST_RELEASE_PROFILE"));}
+        #[cfg(feature="product-steam626-catalog0-scoped")]
+        if profile!="catalog0-furniture"{return Err(err("WORKER_STEAM626_CATALOG0_RELEASE_PROFILE"));}
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
         let (targets,next,scanned)=guard.discover_scoped_amount(e,profile,offset).map_err(|e|err(e.0))?;
@@ -493,6 +548,8 @@ impl WorkerWasmSource {
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         #[cfg(feature="product-steam626-chest-scoped")]
         if profile!="linked-crop-chest48"||new!=49{return Err(err("WORKER_STEAM626_CHEST_RELEASE_SCOPE"));}
+        #[cfg(feature="product-steam626-catalog0-scoped")]
+        if profile!="catalog0-furniture"||id!=0||new==0{return Err(err("WORKER_STEAM626_CATALOG0_RELEASE_SCOPE"));}
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let selection=scoped_selection(profile,id,selector)?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::ReadDomain)?;
@@ -511,6 +568,8 @@ impl WorkerWasmSource {
             revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
         #[cfg(feature="product-steam626-chest-scoped")]
         if profile!="linked-crop-chest48"||old!=50||new!=49{return Err(err("WORKER_STEAM626_CHEST_RELEASE_SCOPE"));}
+        #[cfg(feature="product-steam626-catalog0-scoped")]
+        if profile!="catalog0-furniture"||id!=0||old<2||old.checked_sub(1)!=Some(new){return Err(err("WORKER_STEAM626_CATALOG0_RELEASE_SCOPE"));}
         let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
         let selection=scoped_selection(profile,id,selector)?;
         let e=scoped_edit_envelope(session_id,revision,index_generation,decoded_sha256,WorkerAction::Stage)?;
@@ -519,7 +578,7 @@ impl WorkerWasmSource {
         Ok(scoped_edit_receipt(r,"wand.worker.steam626.scoped-amount@1"))
     }
     /// Switch626 explicit ABI; the Steam aliases retain their original scope.
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-catalog0-scoped"))))]
     #[cfg(not(any(feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped")))]
     #[cfg(not(any(feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped")))]
     pub fn discover_switch626_chest(&self,offset:u32,session_id:&str,
@@ -540,7 +599,7 @@ impl WorkerWasmSource {
             "offset":offset,"nextOffset":next,"scanned":scanned,"rows":rows,
             "writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-catalog0-scoped"))))]
     #[cfg(not(any(feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped")))]
     #[cfg(not(any(feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped")))]
     pub fn preview_switch626_chest(&self,id:u32,slot:u32,new:u32,session_id:&str,
@@ -557,7 +616,7 @@ impl WorkerWasmSource {
             "decodedSha256":hex(&v.decoded_sha256),"scopedCandidate":true,
             "writerAuthorized":false,"editedCopyAuthorized":false}).to_string())
     }
-    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
+    #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-steam626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-catalog0-scoped"))))]
     #[cfg(not(any(feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped")))]
     #[cfg(not(any(feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped")))]
     pub fn stage_switch626_chest(&self,id:u32,slot:u32,old:u32,new:u32,entry_sha256:&str,session_id:&str,
@@ -587,7 +646,7 @@ impl WorkerWasmSource {
     #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(any(all(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped"),all(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped"),any(feature="product-switch626-rm01-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped")),all(feature="product-switch626-chest-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"),feature="product-steam626-chest-scoped",all(feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"),all(feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped")))))]
     #[cfg(not(any(feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped")))]
     #[cfg(not(any(feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped")))]
-    pub fn next_scoped_edit_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+    pub fn next_scoped_edit_output_chunk(&mut self)->Result<JsValue,JsValue>{
         self.next_scoped_edit_output_chunk_inner()
     }
     #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
@@ -607,7 +666,7 @@ impl WorkerWasmSource {
     #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     #[cfg(not(any(feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped")))]
     #[cfg(not(any(feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped")))]
-    pub fn next_scoped_amount_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+    pub fn next_scoped_amount_output_chunk(&mut self)->Result<JsValue,JsValue>{
         self.require_amount_domain()?;
         self.next_scoped_edit_output_chunk_inner()
     }
@@ -660,6 +719,7 @@ fn scoped_selection(profile:&str,id:u32,selector:u32)->Result<crate::ExistingAmo
     match profile{
         #[cfg(not(feature="product-steam626-chest-scoped"))]
         "catalog0-furniture" if id==0=>Ok(crate::ExistingAmountSelection::Inventory{inventory_id:0,item_id:selector}),
+        #[cfg(not(feature="product-steam626-catalog0-scoped"))]
         "linked-crop-chest48" if id>1&&selector<48=>Ok(crate::ExistingAmountSelection::Chest{container_id:id,slot_index:selector as usize}),
         _=>Err(err("WORKER_SCOPED_PROFILE")),
     }
@@ -688,12 +748,24 @@ impl WorkerWasmSource {
         Ok(serde_json::json!({"contract":contract,"decodedBytes":size,"decodedSha256":sha,
             "writerAuthorized":false,"originalOverwriteAuthorized":false}).to_string())
     }
-    fn next_scoped_edit_output_chunk_inner(&mut self)->Result<Vec<u8>,JsValue>{
+    fn next_scoped_edit_output_chunk_inner(&mut self)->Result<JsValue,JsValue>{
         let (out,pos)=self.scoped_output.as_mut().ok_or(err("WORKER_SCOPED_OUTPUT_CONSUMED"))?;
-        let end=pos.saturating_add(MAX_CHUNK).min(out.len());
-        let chunk=out[*pos..end].to_vec();out[*pos..end].fill(0);*pos=end;
+        let start=*pos;
+        let end=start.saturating_add(MAX_CHUNK).min(out.len());
+        // JS must own its own bytes before Rust scrubs the original source.
+        // Do not allocate and return another Rust plaintext Vec to wasm-bindgen.
+        let copied=wand_copy_scoped_chunk(&out[start..end]);
+        wipe_scoped_output_slice(&mut out[start..end]);
+        if copied.is_err(){
+            // JS copy failure consumes the entire one-time export: no retry
+            // after partial output, and no plaintext pending on Rust drop.
+            wipe_scoped_output_slice(out.as_mut_slice());
+            self.scoped_output=None;
+            return Err(err("WORKER_SCOPED_CHUNK_COPY_FAILED"));
+        }
+        *pos=end;
         if end==out.len(){self.scoped_output=None;}
-        Ok(chunk)
+        copied
     }
 }
 
