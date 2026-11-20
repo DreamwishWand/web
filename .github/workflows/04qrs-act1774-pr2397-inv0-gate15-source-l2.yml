@@ -1,0 +1,126 @@
+name: 04 QR-S ACT1774 PR2397 Inventory0 Gate15 trusted-base boundary L2 QA ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2397-inv0-gate15-source-l2.yml'
+permissions:
+  contents: read
+jobs:
+  frozen-gate15-adversarial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen Gate-first Source eight original paths and protected signer no change
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          src=3c9bdeba01a824f84e57c28cde503b1cc760ee1a
+          base=39a4335ee3b5e9ef303685f9a3342e18f5dcc16a
+          test "$(git merge-base "$src" HEAD)" = "$src"
+          test "$(git diff --name-only "$src" HEAD)" = .github/workflows/04qrs-act1774-pr2397-inv0-gate15-source-l2.yml
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = 02d8d757fc9dfe7bf85a306fda87e8fd1d76d0ed
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 42bebc4aa5a451abc4a9df29f0bc298df92df6a3
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/protected-release-inputs.json)" = 30551c7cc566614f64c8ba04748c3aef44b419bb
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-bamboo-public-pages.mjs)" = e6290e890ac205f6486a76567e7ccac90f8d9aba
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs)" = 6fc525e975de9db68544d1feaff5ec9cd0011348
+          printf '%s\n' .github/workflows/09p-r22-inventory0-gate-first15.yml scripts/wasm-distribution/r22-accepted-rust-scope.mjs tests/09p-r22-amount-battlepass-exact1-gate.test.mjs tests/09p-r22-amount-private-bridge-exact3-gate.test.mjs tests/09p-r22-inventory0-gate-first15.test.mjs tests/09p-r22-mannequin-windows-dual-one-leaf-gate.test.mjs tests/09p-r22-trusted-main-preflight.test.mjs tests/09p-r22-windows-lf-pack-exact1-gate.test.mjs | LC_ALL=C sort > /tmp/qrs2397-expected
+          git diff --name-only "$base" "$src" | LC_ALL=C sort > /tmp/qrs2397-actual
+          diff -u /tmp/qrs2397-expected /tmp/qrs2397-actual
+      - name: Actual isolated Git exact15 and forged protected issuer-base counterexamples
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS_JS'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {mkdtempSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {verifyAcceptedRustScope} from './scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          const HEAD='3c9bdeba01a824f84e57c28cde503b1cc760ee1a';
+          const PRODUCT='08e49250e43108c55180315e5a900a6df21e0502';
+          const exact=[
+          ['.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml','19d7f0c532badecc86f8d36ff89eed1ba0e28bf2'],
+          ['crates/ddv-save-core/Cargo.toml','b3455c36d9d60b4a0e415026a095e47fe577644d'],
+          ['crates/ddv-save-core/src/wasm_worker.rs','775a2766f237d44ae77fa5347e9adf430c8580d2'],
+          ['src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs','3b61beb6288826c57ab9d029b214cee614dfafc5'],
+          ['src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs','5a9ae08833f11d03fe1986bd679438591842b76e'],
+          ['src/lib/ddv/core/save/product-scoped-amount-transport.mjs','0312afdd91cb07d377a233f454ff07894de6eec5'],
+          ['src/lib/ddv/core/save/product-wasm-read-owner.mjs','81cd04b906f6cab7b1ea1749fb7fc981003a3b03'],
+          ['tests/01a-steam626-catalog0-product-worker-port.test.mjs','0b3c1a8d8a75ac2cbe1a87555d08e75f0deddc6b'],
+          ['tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs','0594a05690faf4902e761831887b6a31ae39d89a'],
+          ['tests/product-steam626-catalog0-local-adapter.test.mjs','4e7f7afe825d7cabb9469385b33322e98ad7aa2b'],
+          ['.github/workflows/09p-r22-inventory0-product-source.yml','0b6c58d29ab40dbc017ed8492d06758832575e0d'],
+          ['scripts/wasm-distribution/r22-inventory0-product-source.mjs','36aedda6b8bdb67a7c34e8581ff7d2d58761b14e'],
+          ['tests/09p-r22-inventory0-product-source.test.mjs','258fda117459de485867b4a49a34e22033676195'],
+          ['scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs','221ad641af096b28544e781c663be2379aa67897'],
+          ['tests/09p-r22-inventory0-unsigned-pair.test.mjs','e54438b84ced80fc5f12f50bb709074e16c152c1']
+          ];
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_AUTHOR_NAME:'QRS ephemeral',GIT_AUTHOR_EMAIL:'qrs@example.invalid',GIT_COMMITTER_NAME:'QRS ephemeral',GIT_COMMITTER_EMAIL:'qrs@example.invalid'};
+          const git=(args,input,extra={})=>execFileSync('git',args,{encoding:'utf8',env:{...env,...extra},input,stdio:['pipe','pipe','pipe'],maxBuffer:16*1024*1024}).trim();
+          const qa=git(['rev-parse','HEAD']);
+          assert.notEqual(qa,HEAD);
+          assert.equal(exact.length,15);
+          for(const [p,blob] of exact)assert.equal(git(['ls-tree',PRODUCT,'--',p]),'100644 blob '+blob+'\t'+p,p);
+          const cwd=process.cwd();
+          const tmp=mkdtempSync(join(tmpdir(),'qrs2397-gate-'));
+          let counter=0;
+          const blob=s=>git(['hash-object','-w','--stdin'],s);
+          function commit(base,items,other=[]){
+           const idx={GIT_INDEX_FILE:join(tmp,'index-'+(++counter))};
+           git(['read-tree',base+'^{tree}'],undefined,idx);
+           for(const [p,b,mode='100644'] of items)git(['update-index','--add','--cacheinfo',mode,b,p],undefined,idx);
+           const tree=git(['write-tree'],undefined,idx);
+           const args=['commit-tree',tree,'-p',base];
+           for(const x of other)args.push('-p',x);
+           return git([...args,'-m','04 QRS unreferenced synthetic no Git ref change'],undefined,idx);
+          }
+          const denied=(base,cand)=>assert.throws(()=>verifyAcceptedRustScope(cwd,base,cand),
+           /R22_ACCEPTED_SCOPE_|SOURCE_PATH_SET_MISMATCH|MAIN_PREIMAGE_MISMATCH|NON_REGULAR_OR_AMBIGUOUS_PATH/);
+          let valid=0,shaNeg=0,modeNeg=0,baseIssuerGap=0;
+          try{
+           const ok=verifyAcceptedRustScope(cwd,HEAD,commit(HEAD,exact));
+           assert.equal(ok.entryCount,15);
+           assert.equal(ok.inventory0GateFirstSourceOnly,true);
+           for(const p of ['mergeAuthorized','writerAuthorized','operationOn','signerAuthorized','productSignedBuild'])assert.equal(ok[p],false,p);
+           valid++;
+           for(const [p,h] of exact){
+            const wrong=commit(HEAD,exact.map(([q,b])=>[q,q===p?blob('// unapproved '+q+'\n'):b]));
+            denied(HEAD,wrong);shaNeg++;
+            const wrongMode=commit(HEAD,exact.map(([q,b])=>[q,b,q===p?'100755':'100644']));
+            denied(HEAD,wrongMode);modeNeg++;
+           }
+           denied(HEAD,commit(HEAD,exact,[PRODUCT]));
+           denied(HEAD,commit(HEAD,[...exact,['scripts/wasm-distribution/protected-release-inputs.json',blob('{"writerEnabled":true}\n')]]));
+           for(const p of [
+           'scripts/wasm-distribution/protected-release-inputs.json',
+           'scripts/readonly-release/seal-bamboo-public-pages.mjs',
+           'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs'
+           ]){
+            const forgedBase=commit(HEAD,[[p,blob('// unreviewed forged authority '+p+'\n')]]);
+            const forgedSource=commit(forgedBase,exact);
+            const observed=verifyAcceptedRustScope(cwd,forgedBase,forgedSource);
+            assert.equal(observed.entryCount,15);
+            assert.equal(observed.status,'R22_EXACT_ACCEPTED_SOURCE_SCOPE_MATCH_ONLY');
+            for(const k of ['mergeAuthorized','writerAuthorized','signerAuthorized','operationOn'])assert.equal(observed[k],false,k);
+            baseIssuerGap++;
+           }
+           assert.deepEqual([valid,shaNeg,modeNeg,baseIssuerGap],[1,15,15,3]);
+           assert.equal(git(['rev-parse','HEAD']),qa);
+           console.log('QRS2397_GATE15_EXACT_ORIGINAL_1POS_32NEG_MODE_SHA_EXTRA_PARENT_AND_CONFIG');
+           console.log('QRS2397_GATE15_3_FORGED_UNTRUSTED_BASE_ISSUER_CONFIG_SOURCE_MATCH_ONLY_NO_AUTHORITY');
+           console.log(JSON.stringify({source:HEAD,valid,shaDenied:shaNeg,modeDenied:modeNeg,
+           foreignParentDenied:1,extraSourceDenied:1,forgedBaseAccepted:baseIssuerGap,
+           signerAuthorized:false,writerAuthorized:false,operationOn:false,qaOnly:true}));
+          }finally{rmSync(tmp,{recursive:true,force:true})}
+          QRS_JS
+          echo QRS2397_QA_ONLY_NO_SIGNER_WRITER_RELEASE_OR_ON
