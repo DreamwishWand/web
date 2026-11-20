@@ -18,7 +18,7 @@ async function localized(loc,path){
  if(path==='editor'){
   const hub=editorHubCopy(loc);
   await page.waitForFunction(title=>document.querySelector('[data-editor-hub] h1')?.textContent?.trim()===title,hub.title);
-  for(const [selector,title,detail,href] of [['[data-editor-catalog]',hub.catalogTitle,hub.catalogDetail,'/editor/items/'],['[data-editor-world]',hub.worldTitle,hub.worldDetail,'/editor/world/'],['[data-editor-local-scenes]',hub.sceneTitle,hub.sceneDetail,'/presets/'],['[data-editor-timing]',hub.timingTitle,hub.timingDetail,'/editor/timing/']]){
+  for(const [selector,title,detail,href] of [['[data-editor-catalog]',hub.catalogTitle,hub.catalogDetail,'/editor/items/'],['[data-editor-world]',hub.worldTitle,hub.worldDetail,'/editor/world/'],['[data-editor-local-scenes]',hub.sceneTitle,hub.sceneDetail,'/presets/#device-local-scenes'],['[data-editor-timing]',hub.timingTitle,hub.timingDetail,'/editor/timing/']]){
    const tile=page.locator(selector);assert.equal(await tile.count(),1);assert.equal(await tile.locator('h2').textContent(),title);assert.equal(await tile.locator('p').first().textContent(),detail);assert.equal(await tile.getAttribute('href'),base+href);
   }
   assert.equal(await page.locator('[data-editor-writer-boundary]').textContent(),hub.boundary);
@@ -66,8 +66,19 @@ try{
  assert.equal(await sceneLink.getAttribute('data-native-apply'),'off');
  assert.equal(await sceneLink.getAttribute('data-cloud'),'off');
  await sceneLink.focus();await page.keyboard.press('Enter');
- await page.waitForURL(origin+base+'/presets/');
- assert.equal(page.url(),origin+base+'/presets/');
+ await page.waitForURL(origin+base+'/presets/#device-local-scenes');
+ const devicePanel=page.locator('[data-my-local-scenes]');
+ await devicePanel.waitFor({state:'visible'});
+ assert.equal(page.url(),origin+base+'/presets/#device-local-scenes');
+ assert.equal(await devicePanel.getAttribute('data-local-scene-writer'),'off');
+ assert.equal(await devicePanel.getAttribute('data-auto-cloud'),'off');
+ assert.equal(await devicePanel.getAttribute('data-device-scene-authority'),'local-only');
+ assert.equal(await page.locator('[data-stage1-presets-four-cards]').count(),0);
+ assert.equal(await page.locator('[data-device-scenes-reopen]').isEnabled(),true);
+ // The link reveals local Scenes but must never open the local DB implicitly.
+ assert.equal(await page.locator('[data-device-scenes-status],[data-device-scenes-list]').count(),0);
+ assert.equal(await devicePanel.evaluate(el=>document.activeElement===el),true);
+ console.log('EDITOR_DEVICE_LOCAL_SCENES_DEEPLINK_NO_AUTO_STORAGE_PASS');
  console.log('EDITOR_DEVICE_LOCAL_SCENES_KEYBOARD_PRESETS_ROUTE_PASS');
  console.log('EDITOR_HUB_LOCALIZED_SCOPE_8_LOCALE_320_200_PASS');
  assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);
