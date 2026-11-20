@@ -20,14 +20,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Fixed Inventory0 Source plus independently scoped shared Rust security leaf
+      - name: Fixed Inventory0 Rust plus one Worker product port and independent shared Security source leaf
         shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY_ID" = 1371485649
           test "$(git merge-base 0e57c6b8585002b1baff91e6de573a835bed6577 HEAD)" = 0e57c6b8585002b1baff91e6de573a835bed6577
           git diff --name-only 0e57c6b8585002b1baff91e6de573a835bed6577 HEAD | sort > /tmp/01a-inv0-actual-paths
-          printf '%s\n' '.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml' 'crates/ddv-save-core/Cargo.toml' 'crates/ddv-save-core/src/wasm_worker.rs' 'crates/ddv-save-core/src/product_session.rs' 'tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs' | sort > /tmp/01a-inv0-expected-paths
+          printf '%s\n' '.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml' 'crates/ddv-save-core/Cargo.toml' 'crates/ddv-save-core/src/wasm_worker.rs' 'crates/ddv-save-core/src/product_session.rs' 'tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs' 'tests/01a-steam626-catalog0-product-worker-port.test.mjs' 'src/lib/ddv/core/save/product-scoped-amount-transport.mjs' 'src/lib/ddv/core/save/product-wasm-read-owner.mjs' 'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs' 'src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs' | sort > /tmp/01a-inv0-expected-paths
           diff -u /tmp/01a-inv0-expected-paths /tmp/01a-inv0-actual-paths
           for f in $(cat /tmp/01a-inv0-actual-paths); do test "$(git ls-tree HEAD -- "$f" | awk '{print $1}')" = 100644; done
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 522e8e8d6beec597b2e5e176cfbe8a6d8e38a124
@@ -36,11 +36,15 @@ jobs:
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 775a2766f237d44ae77fa5347e9adf430c8580d2
           # Exact independent 01A security PR2360 Source, no synthetic copy.
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = 34286a10bc726d9195d806b15273792614c99fa6
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 0312afdd91cb07d377a233f454ff07894de6eec5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 81cd04b906f6cab7b1ea1749fb7fc981003a3b03
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 3b61beb6288826c57ab9d029b214cee614dfafc5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 5a9ae08833f11d03fe1986bd679438591842b76e
           test "$(git rev-parse 4fd4ac5e9ab1e6324423626ccc291b7d7e4747f0:crates/ddv-save-core/src/product_session.rs)" = 34286a10bc726d9195d806b15273792614c99fa6
           test -z "$(git ls-files '*.p1g')"
           cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
           echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
-          node --test tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs
+          node --test tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs tests/01a-steam626-catalog0-product-worker-port.test.mjs
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: '1.99.1'
@@ -138,6 +142,28 @@ jobs:
           foreign.append_chunk(encoded);const fr=JSON.parse(foreign.finish());
           assert.throws(()=>foreign.discover_scoped_amount('catalog0-furniture',0,fr.sessionId,BigInt(fr.revision),BigInt(fr.indexGeneration),fr.decodedSha256));
           foreign.close();
+          // Exercise the actual generated Rust WASM through the product Worker
+          // owner, not a mock or JS edit. No file/storage/rights granted.
+          const {createProductWasmReadOwner}=await import('./src/lib/ddv/core/save/product-wasm-read-owner.mjs');
+          const owner=createProductWasmReadOwner(async()=>({WorkerWasmSource}),{allowSteam626Catalog0Source:true});
+          const opened=await owner.openDecoded({
+            build:{platform:'steam-windows',buildKind:'steam-full-version',buildId:BUILD,schema:626,externallyConfirmed:true},
+            decodedChunks:(async function*(){yield encoded})()
+          });
+          assert.equal(opened.writerAuthorized,false);
+          const ownerRows=owner.discoverScopedTargets('catalog0-furniture');
+          assert.ok(ownerRows.some(t=>t.id===0&&t.selector===40000048&&t.itemId===40000048&&t.oldAmount===3));
+          const candidate=owner.previewScopedAmount({profile:'catalog0-furniture',id:0,selector:40000048,newAmount:2});
+          assert.equal(candidate.itemId,40000048);
+          assert.equal(candidate.oldAmount,3);
+          assert.equal(candidate.newAmount,2);
+          assert.equal(candidate.writerAuthorized,false);
+          assert.equal(owner.close().writerAuthorized,false);
+          await assert.rejects(()=>owner.openDecoded({
+            build:{platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626,externallyConfirmed:true},
+            decodedChunks:(async function*(){yield encoded})()
+          }),/PRODUCT_WORKER_SCOPED_SOURCE_OFF/);
+          console.log('01A_STEAM626_CATALOG0_REAL_GENERATED_RUST_WORKER_PORT_AND_SWITCH_DENIAL_PASS');
           console.log('01A_STEAM626_CATALOG0_CURRENT_RUST_REAL_WASM_ONE_FIELD_POS_AND_FOREIGN_SCOPE_NEG_PASS');
           console.log('01A_STEAM626_CATALOG0_WASM_SHA256',hash(wasmRaw));
           NODE
