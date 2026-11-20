@@ -168,7 +168,9 @@ def read_private_save(raw:bytes,expected_sha:str,source_definition_ids:set[int])
     if visited!=source_definition_ids:deny('PRIVATE_SOURCE_DEFINITION_SET_MISMATCH')
     return dict(observedSavedDefinitions=len(sets),observedGroupRecords=groups,
                 observedSavedBooleanFlags=total,observedTrueTokens=trues,observedFalseTokens=falses,
-                privateSaveShaVerified=True,sourceDefinitionSetEqual=True)
+                privateSaveShaVerified=True,privateSaveDigestSource='CALLER_SUPPLIED',
+                privateSaveOriginalProvenanceAttested=False,
+                sourceDefinitionSetEqual=True)
 
 def make_report(steam_raw,switch_raw,private_profile=None,expected_private_sha=None):
     ids=attest_pair(steam_raw,switch_raw)
@@ -178,6 +180,7 @@ def make_report(steam_raw,switch_raw,private_profile=None,expected_private_sha=N
       'collectionDefinitionSourceSha256':COLLECTION_SHA,
       'sourceBytesIdentical':True,
       'profileExamined':private_profile is not None,
+      'privateSaveOriginalProvenanceAttested':False,
       'savedVsStaticItemMembershipVerified':False,
       'nativeDynamicGroupVerified':False,
       'displayedCollectedMeaning':'UNKNOWN',
