@@ -1,0 +1,53 @@
+name: 04 QR-W PR2410 caller-SHA false Owner provenance Collection643 L2 QA ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - .github/workflows/qa-qrw-pr2410-caller-sha-private-l2.yml
+permissions:
+  contents: read
+jobs:
+  exact-source-caller-attestation-negatives:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2410-8d139-private-save-provenance-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Strict original 3 Source ADD, QA 2 ADD GitBlobs and safe output path
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          base=b2c28e8a095f07ba7e6b2c5a1dfa985eca2ca90d
+          source=8d1397e37864e5d5d4bef8c0edcb66a800a72405
+          test "$(git merge-base "$base" "$source")" = "$base"
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          printf '%s\n' \
+            scripts/asset-research/01d-collection1261-private-structure-read.py \
+            tests/01d-collection1261-private-structure-read.test.mjs \
+            tests/01d-collection1261-private-structure-read.test.py | LC_ALL=C sort >/tmp/qrw2410-src3
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/qrw2410-src3 -
+          printf '%s\n' \
+            .github/workflows/qa-qrw-pr2410-caller-sha-private-l2.yml \
+            tests/qa-qrw-pr2410-caller-sha-provenance-private-l2.test.py | LC_ALL=C sort >/tmp/qrw2410-qa2
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qrw2410-qa2 -
+          for f in $(cat /tmp/qrw2410-src3) $(cat /tmp/qrw2410-qa2); do
+            test "$(git ls-tree HEAD -- "$f" | awk '{print $1}')" = 100644
+          done
+          test "$(git rev-parse HEAD:scripts/asset-research/01d-collection1261-private-structure-read.py)" = 1cc1a84b6a96e3b5e3d6d41a0764617b055bb9c7
+          test "$(git rev-parse HEAD:tests/01d-collection1261-private-structure-read.test.py)" = f57d887dc7231d789bd8f4b62d3d29fc5fc4dbfd
+          test "$(git rev-parse HEAD:tests/01d-collection1261-private-structure-read.test.mjs)" = 6e09237f528d760e5213b433df6c9941731cc34b
+          test "$(git rev-parse HEAD:tests/qa-qrw-pr2410-caller-sha-provenance-private-l2.test.py)" = bc8e5bf79ddf27185801c96edf5d5fa09389edba
+          git diff --quiet "$source" HEAD -- src scripts static ops crates package.json package-lock.json
+          echo QRW2410_SOURCE3_QA2_HASH_MODE_NO_PRODUCT_OR_PRIVATE_RAW_PASS
+      - name: Forged synthetic Owner digest matches only caller input, no original provenance or Save rights
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qa-qrw-pr2410-caller-sha-provenance-private-l2.test.py
+          echo QRW2410_CALLER_SHA_NOT_GENUINE_ORIGINAL_ATTESTATION_4L2_PASS
