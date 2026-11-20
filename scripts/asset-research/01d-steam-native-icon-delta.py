@@ -134,14 +134,18 @@ def diff(before, after, v1, v2):
       "imagePublicEligibleRows":0,"deployAllowed":False
     }
 
-def analyze(root,synthetic=False,include_v1261=False):
+def analyze(root,synthetic=False,include_v1261=False,only_v1261=False):
+    if include_v1261 and only_v1261:
+        raise ValueError('VERSION_MODE_CONFLICT')
     root=root.resolve()
     version_rows={}
     sources={}
     for version,full in GAME_VERSIONS.items():
-        # Backward compatible: default original three-version report unchanged.
-        # New release requires deliberate opt-in plus exact raw byte pins.
-        if version=='v1261' and not include_v1261:
+        # Default is byte-for-byte backwards-compatible; new release requires
+        # explicit permission. Snapshot mode needs v1261 ONLY (no historic raw).
+        if only_v1261 and version!='v1261':
+            continue
+        if version=='v1261' and not (include_v1261 or only_v1261):
             continue
         combined={}
         sources[version]={"fullVersion":full,"raw":{},"categoryCounts":{}}
@@ -160,6 +164,21 @@ def analyze(root,synthetic=False,include_v1261=False):
             sources[version]["raw"][category]={"sha256":sha,"bytes":len(data)}
             sources[version]["categoryCounts"][category]=len(rows)
         version_rows[version]=combined
+    if only_v1261:
+        # Read-only isolated snapshot: ItemID/Name/IconGUID source only. Do not
+        # invent a historical delta if the old private originals are absent.
+        return {
+          "schema":"wand.01d.steam1261-native-items-source-only@1",
+          "evidence":"SYNTHETIC_FIXTURE_ONLY" if synthetic else "SOURCE_ONLY_ORIGINAL_STEAM_NATIVE_DEFINITIONS",
+          "sourcePlatform":"Steam/Windows","source":sources,
+          "sourceItemCount":len(version_rows["v1261"]),
+          "comparisonAvailable":False,
+          "switch1261BID":"UNKNOWN_NOT_READ_FROM_STEAM",
+          "releaseEligibility":"NO_VERSION_VERIFIED_IMAGE_ROWS",
+          "targetSwitchOriginalPngShaVerified":0,"originalImageBytesCompared":False,
+          "itemVisibilityVerified":False,"rightsVerified":False,
+          "publishAllowed":False,"nativeSaveWriterAllowed":False
+        }
     result = {
       "schema":SCHEMA,"evidence":"SYNTHETIC_FIXTURE_ONLY" if synthetic else "SOURCE_ONLY_ORIGINAL_STEAM_NATIVE_DEFINITIONS",
       "sourcePlatform":"Steam/Windows","source":sources,
@@ -183,23 +202,30 @@ def main():
     p.add_argument("--report",type=pathlib.Path,required=True)
     p.add_argument("--synthetic-fixture",action="store_true")
     p.add_argument("--include-v1261",action="store_true",
-                   help="require pinned Steam v1.26.1 originals; never infer Switch BID or public eligibility")
+                   help="require pinned Steam v1.26.1 originals AND old historical originals for true delta")
+    p.add_argument("--only-v1261",action="store_true",
+                   help="read only pinned v1.26.1 originals without historic input; NO diff or publication")
     a=p.parse_args()
     root=a.source_root.resolve()
     if a.report.is_symlink() or a.report.exists() or a.report.resolve()==root or root in a.report.resolve().parents:
         raise ValueError("REPORT_MUST_BE_NEW_OUTSIDE_SOURCE_ROOT")
-    result=analyze(root,a.synthetic_fixture,include_v1261=a.include_v1261)
+    result=analyze(root,a.synthetic_fixture,include_v1261=a.include_v1261,only_v1261=a.only_v1261)
     a.report.parent.mkdir(parents=True,exist_ok=True)
     with a.report.open("x",encoding="utf-8") as fp:
         json.dump(result,fp,ensure_ascii=False,indent=2)
         fp.write("\n")
-    summary={"schema":SCHEMA,"evidence":result["evidence"],
-      "v12413_to_v1250":{k:result["v12413_to_v1250"][k] for k in ("sourceCount","targetCount","iconGuidChangedCount","addedCount","removedCount")},
-      "v1250_to_v1253":{k:result["v1250_to_v1253"][k] for k in ("sourceCount","targetCount","iconGuidChangedCount","addedCount","removedCount")},
-      "publishAllowed":False}
-    if a.include_v1261:
-        summary["v1253_to_v1261"]={k:result["v1253_to_v1261"][k] for k in
-            ("sourceCount","targetCount","iconGuidChangedCount","addedCount","removedCount")}
+    if a.only_v1261:
+        summary={"schema":result["schema"],"evidence":result["evidence"],
+                 "sourceItemCount":result["sourceItemCount"],
+                 "comparisonAvailable":False,"publishAllowed":False}
+    else:
+        summary={"schema":SCHEMA,"evidence":result["evidence"],
+          "v12413_to_v1250":{k:result["v12413_to_v1250"][k] for k in ("sourceCount","targetCount","iconGuidChangedCount","addedCount","removedCount")},
+          "v1250_to_v1253":{k:result["v1250_to_v1253"][k] for k in ("sourceCount","targetCount","iconGuidChangedCount","addedCount","removedCount")},
+          "publishAllowed":False}
+        if a.include_v1261:
+            summary["v1253_to_v1261"]={k:result["v1253_to_v1261"][k] for k in
+                ("sourceCount","targetCount","iconGuidChangedCount","addedCount","removedCount")}
     print(json.dumps(summary))
 
 if __name__=="__main__":
