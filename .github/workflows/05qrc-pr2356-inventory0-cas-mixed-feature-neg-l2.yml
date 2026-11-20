@@ -114,6 +114,7 @@ jobs:
           assert.equal(p.oldAmount,3);assert.equal(p.newAmount,2);positives++;
           checked(()=>w.stage_scoped_amount('catalog0-furniture',0,40000048,3,2,'0'.repeat(64),...a));
           checked(()=>w.stage_scoped_amount('catalog0-furniture',0,40000048,4,3,p.entrySha256,...a));
+          checked(()=>w.stage_scoped_amount('catalog0-furniture',1,40000048,3,2,p.entrySha256,...a));
           checked(()=>w.stage_scoped_amount('catalog0-furniture',0,40000048,3,2,p.entrySha256,
                   a[0],a[1]+1n,a[2],a[3]));
           checked(()=>w.stage_scoped_amount('catalog0-furniture',0,40000048,3,2,p.entrySha256,
