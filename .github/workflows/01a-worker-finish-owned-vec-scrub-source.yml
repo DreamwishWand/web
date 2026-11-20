@@ -1,0 +1,360 @@
+name: 01A HIGH source finish moved decoded Vec zeroize (OFF)
+on:
+  pull_request:
+    paths:
+      - .github/workflows/01a-worker-finish-owned-vec-scrub-source.yml
+permissions:
+  contents: read
+jobs:
+  actual-wasm32-finish-error:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 42
+    env:
+      CARGO_TARGET_DIR: /tmp/05qrc-wasm-finish-error-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Fixed current protected Rust and two direct Source files
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=9883686ad1be3d04ff0f2aa08d908c7a3d72a7db
+          path=.github/workflows/01a-worker-finish-owned-vec-scrub-source.yml
+          test "$(git merge-base "$base" HEAD)" = "$base"
+          # Source-focused immutable Git tree gate: original 01A Source2 OR
+          # the exact 09 INT reviewed main-first Scenes6 + 09P6 + 01A2.
+          # No wildcard may authorize unrelated Rust/Core/rights/files.
+          actual="$(git diff --name-only "$base" HEAD | LC_ALL=C sort)"
+          standalone="$(printf '%s\n' "$path" 'crates/ddv-save-core/src/product_session.rs' | LC_ALL=C sort)"
+          accepted_composite="$(printf '%s\n' '.github/workflows/01a-worker-finish-owned-vec-scrub-source.yml' '.github/workflows/09p-r22-switch626-makeup-gate-exact8.yml' '.github/workflows/web-steam-reader-entry.yml' 'crates/ddv-save-core/src/product_session.rs' 'scripts/readonly-release/seal-bamboo-public-pages.mjs' 'scripts/web-steam-reader-entry-chrome.mjs' 'src/routes/editor/+page.svelte' 'src/routes/presets/+page.svelte' 'tests/09p-bamboo-public-pages-sealer.test.mjs' 'tests/09p-r22-steam626-eyecolor2-repair.test.mjs' 'tests/09p-r22-switch626-makeup-gate-exact8.test.mjs' 'tests/09p-r22-trusted-main-preflight.test.mjs' 'tests/web-editor-progressive-beta-availability.test.mjs' 'tests/web-steam-reader-entry.test.mjs' | LC_ALL=C sort)"
+          test "$actual" = "$standalone" || test "$actual" = "$accepted_composite"
+          test "$(git ls-tree HEAD -- "$path" | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 6432275d2909e6bc6d39265ae70cc7176fc37106
+          test "$(git ls-tree HEAD -- crates/ddv-save-core/src/product_session.rs | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          echo 01A_FINISH_SOURCE_CORE_ONLY_PROTECTED_R22_UNCHANGED
+      - name: Inject read-only WASM deallocation witness ONLY into ephemeral QA checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('crates/ddv-save-core/src/wasm_worker.rs')
+          s=p.read_text()
+          anchor='const MAX_CHUNK:usize=1024*1024;'
+          assert s.count(anchor)==1
+          tracker=r'''
+          // Source focus: record decoded Vec while still allocated at the
+          // moment Rust deallocates it. No freed-pointer dereference or logs
+          // containing sensitive memory. This GlobalAlloc is ephemeral only.
+          use std::alloc::{GlobalAlloc, Layout, System};
+          use core::sync::atomic::{AtomicUsize,Ordering as QrcOrdering};
+          static QRC_WATCH_PTR:AtomicUsize=AtomicUsize::new(0);
+          static QRC_WATCH_LEN:AtomicUsize=AtomicUsize::new(0);
+          static QRC_DEALLOC_RESULT:AtomicUsize=AtomicUsize::new(0);
+          struct QrcTrackingAllocator;
+          unsafe impl GlobalAlloc for QrcTrackingAllocator {
+              unsafe fn alloc(&self,l:Layout)->*mut u8 { System.alloc(l) }
+              unsafe fn dealloc(&self,p:*mut u8,l:Layout) {
+                  if p as usize==QRC_WATCH_PTR.load(QrcOrdering::SeqCst) {
+                      let n=QRC_WATCH_LEN.load(QrcOrdering::SeqCst);
+                      let mut was_nonzero=false;
+                      if n>0 && n<=l.size() {
+                          for i in 0..n {
+                              if core::ptr::read_volatile(p.add(i))!=0 {
+                                  was_nonzero=true;break;
+                              }
+                          }
+                          QRC_DEALLOC_RESULT.store(
+                            if was_nonzero{1}else{2},QrcOrdering::SeqCst);
+                      } else {
+                          QRC_DEALLOC_RESULT.store(3,QrcOrdering::SeqCst);
+                      }
+                      QRC_WATCH_PTR.store(0,QrcOrdering::SeqCst);
+                  }
+                  System.dealloc(p,l);
+              }
+          }
+          #[global_allocator]
+          static QRC_ALLOC:QrcTrackingAllocator=QrcTrackingAllocator;
+          '''
+          s=s.replace(anchor,tracker+anchor,1)
+          begin='    pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{'
+          assert s.count(begin)==1
+          qa=r'''
+              // Source-only wasm-bindgen observer: never reveal plaintext or ptr.
+              pub fn qa_arm_invalid_finish_heap_witness(&self)->bool {
+                  if self.closed || self.buffer.is_empty() || self.session.is_some(){
+                      return false;
+                  }
+                  QRC_DEALLOC_RESULT.store(0,QrcOrdering::SeqCst);
+                  QRC_WATCH_LEN.store(self.buffer.len(),QrcOrdering::SeqCst);
+                  QRC_WATCH_PTR.store(self.buffer.as_ptr() as usize,QrcOrdering::SeqCst);
+                  true
+              }
+              pub fn qa_take_invalid_finish_heap_witness(&self)->u32 {
+                  QRC_DEALLOC_RESULT.swap(0,QrcOrdering::SeqCst) as u32
+              }
+          '''
+          s=s.replace(begin,qa+begin,1)
+          p.write_text(s)
+          print("QRC_FINISH_GLOBAL_ALLOC_DEALLOC_SPY_EPHEMERAL_ONLY")
+          PY
+      - name: Run actual release Rust WASM Worker invalid fullDoc and bad registry Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = 1.99.1
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrc-wasm-finish-bindgen
+          mkdir -p /tmp/qrc-wasm-finish-pkg
+          /tmp/qrc-wasm-finish-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --target nodejs --no-typescript --out-dir /tmp/qrc-wasm-finish-pkg
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          const {WorkerWasmSource}=createRequire(import.meta.url)(
+            '/tmp/qrc-wasm-finish-pkg/ddv_save_core.js');
+          const BUILD='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          let wasWiped=0,tests=0;
+          for (const badSchema of [false,true]){
+            const worker=new WorkerWasmSource('steam-windows','steam-full-version',
+              BUILD,badSchema?0:626,true,new Uint8Array(32).fill(0x32));
+            const prefix=new TextEncoder().encode('{"GameInfo":{"Version":626},"Secret":"');
+            const payload=new Uint8Array(6604).fill(0x41);
+            worker.append_chunk(prefix);
+            worker.append_chunk(payload);
+            assert.equal(worker.qa_arm_invalid_finish_heap_witness(),true);
+            assert.throws(()=>worker.finish(), 'invalid source/Build must be denied');
+            const result=worker.qa_take_invalid_finish_heap_witness();
+            // 1 = real Vec allocation deallocated with its former
+            // initialized nonzero plaintext, 2 = scrubbed, 0 = no observed
+            // dealloc, 3 = invalid allocation bound: NEVER treat as PASS.
+            assert.equal(result,2, 'moved decoded Vec plaintext must be zero before every rejection dealloc');
+            assert.throws(()=>worker.append_chunk(new Uint8Array([1])));
+            worker.close();
+            worker.free();
+            wasWiped++;tests++;
+          }
+          assert.equal(tests,2);
+          assert.equal(wasWiped,2);
+          // Positive control: successful ProductSession still owns intact
+          // validated JSON while the *moved original Vec* was wiped.
+          const good=new WorkerWasmSource('steam-windows','steam-full-version',
+            BUILD,626,true,new Uint8Array(32).fill(0x33));
+          good.append_chunk(new TextEncoder().encode(
+            JSON.stringify({GameInfo:{Version:626},Player:{},World:{}})));
+          assert.equal(good.qa_arm_invalid_finish_heap_witness(),true);
+          const live=JSON.parse(good.finish());
+          assert.equal(good.qa_take_invalid_finish_heap_witness(),2);
+          assert.equal(live.fullDocumentJsonValidated,true);
+          assert.equal(live.writerAuthorized,false);
+          const witness=JSON.parse(good.read_core_version_witness(live.sessionId,
+            BigInt(live.revision),BigInt(live.indexGeneration),live.decodedSha256));
+          assert.equal(witness.coreOwnedReadset,'/GameInfo/Version');
+          assert.equal(witness.writerAuthorized,false);
+          good.close();
+          good.free();
+          console.log('01A_FINISH_VALID_SESSION_STILL_INTACT_OLD_VEC_WIPED_POS_WASM32');
+          console.log('01A_FINISH_INVALID_P1G_DEALLOC_PLAINTEXT_ZERO_2_POS_WASM32');
+          NODE
+      - name: Actual optimized Switch624 FRP01 owned Vec wipe on invalid Build/fullDoc and valid open
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,product-switch624-frp01-readonly
+          mkdir -p /tmp/qrc-wasm-frp01-finish-pkg
+          /tmp/qrc-wasm-finish-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --target nodejs --no-typescript --out-dir /tmp/qrc-wasm-frp01-finish-pkg
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          const {WorkerWasmSource}=createRequire(import.meta.url)(
+            '/tmp/qrc-wasm-frp01-finish-pkg/ddv_save_core.js');
+          for(const wrongBuild of [false,true]){
+            const worker=new WorkerWasmSource(wrongBuild?'steam-windows':'switch',
+              wrongBuild?'steam-full-version':'switch-bid',
+              wrongBuild?'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22':'52BD625D9B4E0053',
+              wrongBuild?626:624,true,new Uint8Array(32).fill(0x37));
+            worker.append_chunk(new TextEncoder().encode('{"Secret":"'));
+            worker.append_chunk(new Uint8Array(4100).fill(0x52));
+            assert.equal(worker.qa_arm_invalid_finish_heap_witness(),true);
+            assert.throws(()=>worker.finish_switch624_frp01_readonly());
+            assert.equal(worker.qa_take_invalid_finish_heap_witness(),2,
+              'FRP01 invalid Build or fullDoc must erase original decoded Vec');
+            worker.close();worker.free();
+          }
+          const ok=new WorkerWasmSource('switch','switch-bid','52BD625D9B4E0053',
+            624,true,new Uint8Array(32).fill(0x38));
+          ok.append_chunk(new TextEncoder().encode(
+            JSON.stringify({GameInfo:{Version:624},Player:{},World:{}})));
+          assert.equal(ok.qa_arm_invalid_finish_heap_witness(),true);
+          const result=JSON.parse(ok.finish_switch624_frp01_readonly());
+          assert.equal(ok.qa_take_invalid_finish_heap_witness(),2);
+          assert.equal(result.fullDocumentJsonValidated,true);
+          assert.equal(result.writerAuthorized,false);
+          ok.close();ok.free();
+          console.log('01A_FRP01_FINISH_2_INVALID_1_VALID_ORIGINAL_VEC_DEALLOC_ZERO_ACTUAL_WASM32_PASS');
+          NODE
+      - name: Inject exact data-span deallocation witness only in ephemeral runner worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          # The previous input-Vec test has ephemeral global allocator code.
+          # Restore the unchanged Product Worker before injecting the *single*
+          # independent Arc dealloc observer; never commit instrumentation.
+          import subprocess
+          original=subprocess.check_output(['git','show','HEAD:crates/ddv-save-core/src/wasm_worker.rs'])
+          Path('crates/ddv-save-core/src/wasm_worker.rs').write_bytes(original)
+          p=Path('crates/ddv-save-core/src/product_session.rs')
+          s=p.read_text()
+          anchor='    fn lock(&self) -> CoreResult<MutexGuard<'
+          assert s.count(anchor)==1
+          p.write_text(s.replace(anchor,'''    // QA ONLY expose the owned session Arc slice span, no bytes or pointer
+              // cross the JS boundary; consumed only in a wasm32 observer.
+              pub(crate) fn qa_session_decoded_span(&self)->(usize,usize) {
+                  (self.decoded.as_ptr() as usize,self.decoded.len())
+              }
+          '''+anchor,1))
+          p=Path('crates/ddv-save-core/src/worker_session.rs')
+          s=p.read_text()
+          anchor='impl WorkerSessionGuard {'
+          assert s.count(anchor)==1
+          p.write_text(s.replace(anchor,'''impl WorkerSessionGuard {
+              // CI ephemeral test-only access to same single Rust Session Arc.
+              pub(crate) fn qa_owned_decoded_span(&self)->(usize,usize){
+                  self.session.qa_session_decoded_span()
+              }
+          ''',1))
+          p=Path('crates/ddv-save-core/src/wasm_worker.rs')
+          s=p.read_text()
+          anchor='const MAX_CHUNK:usize=1024*1024;'
+          assert s.count(anchor)==1
+          tracker=r'''
+          // CI ephemeral only. The exact data pointer is inside Arc's
+          // allocated Layout; record original initialized bytes at dealloc
+          // (before free), not after. No secrets or pointer values logged.
+          use std::alloc::{GlobalAlloc,Layout,System};
+          use core::sync::atomic::{AtomicUsize,Ordering as QrcOrdering};
+          static QRC_ARC_DATA:AtomicUsize=AtomicUsize::new(0);
+          static QRC_ARC_LEN:AtomicUsize=AtomicUsize::new(0);
+          static QRC_ARC_DEALLOC:AtomicUsize=AtomicUsize::new(0);
+          struct QrcArcAlloc;
+          unsafe impl GlobalAlloc for QrcArcAlloc {
+              unsafe fn alloc(&self,l:Layout)->*mut u8 {System.alloc(l)}
+              unsafe fn dealloc(&self,p:*mut u8,l:Layout){
+                  let data=QRC_ARC_DATA.load(QrcOrdering::SeqCst);
+                  let len=QRC_ARC_LEN.load(QrcOrdering::SeqCst);
+                  let start=p as usize;
+                  if data!=0 && len>0 && start<=data &&
+                     data.checked_add(len).is_some_and(|end|
+                       start.checked_add(l.size()).is_some_and(|limit|end<=limit)){
+                      let mut present=false;
+                      for i in 0..len {
+                          if core::ptr::read_volatile((data as *const u8).add(i))!=0{
+                             present=true;break;
+                          }
+                      }
+                      QRC_ARC_DEALLOC.store(if present{1}else{2},QrcOrdering::SeqCst);
+                      QRC_ARC_DATA.store(0,QrcOrdering::SeqCst);
+                  }
+                  System.dealloc(p,l);
+              }
+          }
+          #[global_allocator]
+          static QRC_ARC_ALLOC:QrcArcAlloc=QrcArcAlloc;
+          '''
+          s=s.replace(anchor,tracker+anchor,1)
+          anchor='    pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{'
+          assert s.count(anchor)==1
+          witness=r'''
+              // CI-only arm an exact decoded Arc from the existing Worker
+              // Session, without giving JS access to any pointer or bytes.
+              pub fn qa_arm_session_arc_deallocation(&self)->bool {
+                  if let Some(ref guard)=self.session {
+                      let (p,n)=guard.qa_owned_decoded_span();
+                      if p==0 || n==0{return false;}
+                      QRC_ARC_DEALLOC.store(0,QrcOrdering::SeqCst);
+                      QRC_ARC_LEN.store(n,QrcOrdering::SeqCst);
+                      QRC_ARC_DATA.store(p,QrcOrdering::SeqCst);
+                      true
+                  } else {false}
+              }
+              pub fn qa_take_session_arc_deallocation(&self)->u32 {
+                  QRC_ARC_DEALLOC.swap(0,QrcOrdering::SeqCst) as u32
+              }
+          '''
+          p.write_text(s.replace(anchor,witness+anchor,1))
+          print('QRC2360_ARC_WITNESS_CI_EPHEMERAL_NO_PRODUCT_CHANGES')
+          PY
+      - name: Compile optimized actual Rust1.99.1 wasm32 and instrumented existing Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = 1.99.1
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrc2360-arc-bindgen
+          mkdir -p /tmp/qrc2360-arc-pkg
+          /tmp/qrc2360-arc-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir /tmp/qrc2360-arc-pkg --target nodejs --no-typescript
+      - name: Observe real immutable decoded Arc raw bytes BEFORE Rust dealloc at Worker Close
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          const {WorkerWasmSource}=createRequire(import.meta.url)(
+            '/tmp/qrc2360-arc-pkg/ddv_save_core.js');
+          const BUILD='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          const decoded=new TextEncoder().encode(JSON.stringify({
+            GameInfo:{Version:626},Player:{},World:{},
+            UnknownSensitivePayload:'S'.repeat(7001)
+          }));
+          const worker=new WorkerWasmSource('steam-windows','steam-full-version',
+            BUILD,626,true,new Uint8Array(32).fill(0x47));
+          worker.append_chunk(decoded);
+          const receipt=JSON.parse(worker.finish());
+          assert.equal(receipt.fullDocumentJsonValidated,true);
+          assert.equal(receipt.writerAuthorized,false);
+          assert.equal(worker.qa_arm_session_arc_deallocation(),true);
+          worker.close();
+          const result=worker.qa_take_session_arc_deallocation();
+          // 1 = the real Arc owned immutable decoded Save was deallocated
+          // with NONZERO secrets present; 2 = zeroized; 0 = not observed.
+          assert.equal(result,2,'decoded Arc must be volatile-zeroed before actual final deallocation');
+          assert.throws(()=>worker.append_chunk(new Uint8Array([0x66])));
+          worker.free();
+          console.log('01A_PRODUCT_SESSION_LAST_ARC_DEALLOC_ZERO_ACTUAL_WASM32_POS');
+          NODE
+          echo 01A_PRODUCT_SESSION_OWNED_ARC_LAST_RELEASE_SCOPE_FOCUS_PASS
+
+      - name: Preserve exact reviewed source-only or main-first combined scope after ephemeral instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 6432275d2909e6bc6d39265ae70cc7176fc37106
+          echo 01A_SOURCE_MOVED_VEC_AND_LAST_ARC_DEALLOC_ZERO_TEST_PROVED
