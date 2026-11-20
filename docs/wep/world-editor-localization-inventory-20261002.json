@@ -35,7 +35,7 @@
     "src/lib/wep/savefree-first-scene.ts": "5b333f2e08fccc56ae755691724d1384ffed3919",
     "src/lib/wep/LocalSceneAliasManager.svelte": "29d124913579a423ec3aac0283e1f3b821325ac2",
     "src/lib/wep/local-scene-preset-copy.js": "7d9a4555910f7e9c60b3c46630c869e0da39dfc6",
-    "src/lib/wep/local-scene-preset-store.mjs": "b7dadf887a5fdbca04ac85fcce42266f924937c0"
+    "src/lib/wep/local-scene-preset-store.mjs": "23af02ab65a3fd5e5a273877be8d0d316fd0fb8a"
   },
   "ownership": {
     "wepOwned": [
