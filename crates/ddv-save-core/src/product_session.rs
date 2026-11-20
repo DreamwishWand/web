@@ -126,6 +126,23 @@ mod saved_diffgrids_index;
 pub use saved_diffgrids_index::{ExternalLayoutStatus,SavedDiffGridMetadata,SavedDiffGridsCursorReceipt,SavedDiffGridsPage,StoredRemovedShape};
 #[cfg(feature = "indexed-read")]
 pub use indexed_read::{IndexedCursorReceipt,IndexedDomain,IndexedFieldWitness,IndexedKind,IndexedPage,INDEX_PAGE_ENTRIES_MAX};
+// The Worker transfers ownership of decoded plaintext at finish(). A failed
+// Build/full-document admission must not drop its moved Vec with live bytes.
+// This guard owns that *same* allocation until a validated Arc has been made;
+// success and error both zeroize original initialized bytes before dealloc.
+#[cfg(any(all(feature="worker-wasm",target_arch="wasm32"),all(test,feature="product-switch624-frp01-readonly")))]
+struct WorkerDecodedInput(Vec<u8>);
+#[cfg(any(all(feature="worker-wasm",target_arch="wasm32"),all(test,feature="product-switch624-frp01-readonly")))]
+impl Drop for WorkerDecodedInput {
+    fn drop(&mut self) {
+        for byte in self.0.iter_mut() {
+            // SAFETY: each byte is an initialized u8 exclusively borrowed
+            // from this still-owned Vec, not from a freed allocation.
+            unsafe { core::ptr::write_volatile(byte as *mut u8, 0); }
+        }
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    }
+}
 /// Same synchronized State for all dispatch/close paths; research Stage session
 /// cannot mint or rebind another product ID. No product Writer entrypoint.
 pub struct ProductSession {
@@ -208,6 +225,7 @@ impl ProductSession {
     pub(crate) fn open_decoded_in_worker(
         decoded: Vec<u8>, build: BuildIdentity, entropy: [u8;32]
     ) -> CoreResult<Self> {
+        let decoded=WorkerDecodedInput(decoded);
         build.validate_registry_candidate()?;
         Self::open_worker_validated(decoded,build,entropy,b"wand.product.worker.session.v1")
     }
@@ -215,6 +233,7 @@ impl ProductSession {
     /// generic 626 registry and historical native archive entry remain unchanged.
     #[cfg(all(feature="product-switch624-frp01-readonly",any(all(feature="worker-wasm",target_arch="wasm32"),test)))]
     pub(crate) fn open_switch624_frp01_in_worker(decoded:Vec<u8>,build:BuildIdentity,entropy:[u8;32])->CoreResult<Self>{
+        let decoded=WorkerDecodedInput(decoded);
         if build.platform!=Platform::Switch||build.build_kind!=BuildKind::SwitchBid||
            build.build_id!="52BD625D9B4E0053"||build.schema!=624||!build.externally_attested{
             return Err(CoreError("FRP01_EXACT_SWITCH624_REQUIRED"));
@@ -222,15 +241,15 @@ impl ProductSession {
         Self::open_worker_validated(decoded,build,entropy,b"wand.product.worker.frp01.readonly.v1")
     }
     #[cfg(any(all(feature="worker-wasm",target_arch="wasm32"),all(test,feature="product-switch624-frp01-readonly")))]
-    fn open_worker_validated(decoded:Vec<u8>,build:BuildIdentity,entropy:[u8;32],session_domain:&[u8])->CoreResult<Self>{
-        if decoded.is_empty() || decoded.len() > MAX_DECODED_BYTES {
+    fn open_worker_validated(decoded:WorkerDecodedInput,build:BuildIdentity,entropy:[u8;32],session_domain:&[u8])->CoreResult<Self>{
+        if decoded.0.is_empty() || decoded.0.len() > MAX_DECODED_BYTES {
             return Err(CoreError("DECODED_SOURCE_BOUNDS"));
         }
         if entropy.iter().all(|byte| *byte == 0) {
             return Err(CoreError("WORKER_ENTROPY_INVALID"));
         }
-        validate_entire_document(&decoded,build.schema)?;
-        let sha: [u8;32] = Sha256::digest(&decoded).into();
+        validate_entire_document(&decoded.0,build.schema)?;
+        let sha: [u8;32] = Sha256::digest(&decoded.0).into();
         // This key never crosses the Rust/Worker boundary. The Worker must
         // use its own WebCrypto CSPRNG on open and may not accept UI seed.
         #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
@@ -256,7 +275,10 @@ impl ProductSession {
                 #[cfg(all(feature="product-steam626-bamboo-readonly",not(feature="semantic-writer-dev")))] semantic:None,
             #[cfg(feature = "indexed-read")] indexed:None};
         Ok(Self {
-            state:Mutex::new(state),decoded:Arc::from(decoded),
+            // Arc copies the validated bytes into its one owned immutable
+            // session allocation. WorkerDecodedInput's Drop then scrubs the
+            // original moved Vec on *success*, too; no unzeroized Vec free.
+            state:Mutex::new(state),decoded:Arc::from(decoded.0.as_slice()),
             sha,schema:build.schema,worker_bound:true,
             #[cfg(feature = "indexed-read")]
             native_source_build:build,
