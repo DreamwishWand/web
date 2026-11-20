@@ -668,7 +668,7 @@ jobs:
           test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 2f712d047e99bc024672e4d7a488baa6276e06f4
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 7ce60a4e95988cc9d8f33ed54453882e4198e7c5
           test "$(git rev-parse HEAD:scripts/wasm-distribution/build-scoped-steam-chest-candidate.mjs)" = fa2f389989bc76d58e6b941867201d3ececa433a
           test "$(git rev-parse HEAD:scripts/readonly-release/seal-scoped-steam-chest-private.mjs)" = bf3ab5129e072f64d18ede2ce2b3055e61aef485
           test "$(git rev-parse HEAD:scripts/readonly-release/seal.mjs)" = 5b86ff1cf2dc009ba1733bf213e4cb979bf500ec
