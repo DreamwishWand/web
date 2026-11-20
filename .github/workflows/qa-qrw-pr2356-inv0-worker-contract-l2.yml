@@ -1,0 +1,51 @@
+name: 04 QR-W fixed PR2356 Inventory0 Web Worker contract L2 QA ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2356-inv0-worker-contract-l2.yml'
+permissions:
+  contents: read
+jobs:
+  exact-source-and-web-worker-falsification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2356-9f9e-steam-inv0-worker-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact original 11 Source files, zero production mutation, only QA 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=0e57c6b8585002b1baff91e6de573a835bed6577
+          source=9f9eee1fba2700399b7405e522546e532386111d
+          git merge-base --is-ancestor "$base" "$source"
+          git merge-base --is-ancestor "$source" HEAD
+          printf '%s\n' '.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml' 'crates/ddv-save-core/Cargo.toml' 'crates/ddv-save-core/src/product_session.rs' 'crates/ddv-save-core/src/wasm_worker.rs' 'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs' 'src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs' 'src/lib/ddv/core/save/product-scoped-amount-transport.mjs' 'src/lib/ddv/core/save/product-wasm-read-owner.mjs' 'tests/01a-steam626-catalog0-product-worker-port.test.mjs' 'tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs' 'tests/product-steam626-catalog0-local-adapter.test.mjs' | LC_ALL=C sort >/tmp/qrw2356-source11
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/qrw2356-source11 -
+          printf '%s\n' \
+            '.github/workflows/qa-qrw-pr2356-inv0-worker-contract-l2.yml' \
+            'tests/qa-qrw-pr2356-steam-inv0-worker-contract-l2.test.mjs' | LC_ALL=C sort >/tmp/qrw2356-qa2
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qrw2356-qa2 -
+          for f in $(cat /tmp/qrw2356-source11) $(cat /tmp/qrw2356-qa2); do
+            test "$(git ls-tree HEAD -- "$f" | awk '{print $1}')" = 100644
+          done
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 0312afdd91cb07d377a233f454ff07894de6eec5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 81cd04b906f6cab7b1ea1749fb7fc981003a3b03
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 3b61beb6288826c57ab9d029b214cee614dfafc5
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 5a9ae08833f11d03fe1986bd679438591842b76e
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = 34286a10bc726d9195d806b15273792614c99fa6
+          test "$(git rev-parse HEAD:tests/qa-qrw-pr2356-steam-inv0-worker-contract-l2.test.mjs)" = 8249dea2c2435c32ce4d7fc4a871a73de387b0a2
+          git diff --quiet "$source" HEAD -- src scripts crates static ops package.json package-lock.json
+          echo QRW2356_FIXED_SOURCE11_QAONLY2_EXACT_GITBLOB_MODE_PASS
+      - name: Independent JS Worker untrusted receipts and one-time export fail closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qa-qrw-pr2356-steam-inv0-worker-contract-l2.test.mjs
+          echo QRW2356_STEAM626_INVENTORY0_WORKER_CAS_CROSSDOMAIN_OUTPUT_WIPE_PASS
