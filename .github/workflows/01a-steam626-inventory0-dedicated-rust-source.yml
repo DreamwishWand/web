@@ -172,7 +172,7 @@ jobs:
           const {p1gPackagedProfileCodec}=await import('./src/lib/ddv/core/save/p1g-packaged-profile-codec.js');
           const {createProductSteam626Catalog0LocalAdapter}=await import('./src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs');
           const {spawnSync}=await import('node:child_process');
-          const {mkdtemp,writeFile,readFile,rm}=await import('node:fs/promises');
+          const {mkdtemp,writeFile,readFile:readPhysicalFile,rm}=await import('node:fs/promises');
           const {tmpdir}=await import('node:os');
           const {join}=await import('node:path');
           const originalEncrypted=makeSyntheticP1gProfile(source);
@@ -251,10 +251,10 @@ jobs:
             await writeFile(originalPath,originalEncrypted,{flag:'wx',mode:0o600});
             await writeFile(backupPath,backed.encryptedBytes,{flag:'wx',mode:0o600});
             await writeFile(editedPath,edited.encryptedBytes,{flag:'wx',mode:0o600});
-            assert.equal(hash(new Uint8Array(await readFile(originalPath))),originalEncryptedSha);
-            assert.equal(hash(new Uint8Array(await readFile(backupPath))),originalEncryptedSha);
-            assert.equal(hash(new Uint8Array(await readFile(editedPath))),hash(edited.encryptedBytes));
-            assert.notEqual(hash(new Uint8Array(await readFile(editedPath))),originalEncryptedSha);
+            assert.equal(hash(new Uint8Array(await readPhysicalFile(originalPath))),originalEncryptedSha);
+            assert.equal(hash(new Uint8Array(await readPhysicalFile(backupPath))),originalEncryptedSha);
+            assert.equal(hash(new Uint8Array(await readPhysicalFile(editedPath))),hash(edited.encryptedBytes));
+            assert.notEqual(hash(new Uint8Array(await readPhysicalFile(editedPath))),originalEncryptedSha);
             await assert.rejects(writeFile(originalPath,new Uint8Array([0]),{flag:'wx',mode:0o600}),
               {code:'EEXIST'},'encrypted original must never be overwritten');
             // Synthetic-only physical file reopen is stronger than stdin
@@ -280,8 +280,8 @@ jobs:
               {cwd:process.cwd(),encoding:'utf8',timeout:30000,maxBuffer:16384});
             assert.equal(separate.status,0,'synthetic encrypted file child Codec reopen failed: '+separate.stderr);
             assert.equal(separate.stdout,'01A_SYNTHETIC_FRESH_OS_PROCESS_ENCRYPTED_FILE_CODEC_REOPEN_PASS');
-            assert.equal(hash(new Uint8Array(await readFile(originalPath))),originalEncryptedSha);
-            assert.equal(hash(new Uint8Array(await readFile(backupPath))),originalEncryptedSha);
+            assert.equal(hash(new Uint8Array(await readPhysicalFile(originalPath))),originalEncryptedSha);
+            assert.equal(hash(new Uint8Array(await readPhysicalFile(backupPath))),originalEncryptedSha);
             console.log('01A_STEAM626_CATALOG0_SYNTHETIC_PHYSICAL_ENCRYPTED_FILE_CHILD_REOPEN_PASS');
             await synthetic.close();
             assert.equal(hash(new Uint8Array(await originalFile.arrayBuffer())),originalEncryptedSha);
