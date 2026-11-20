@@ -12,7 +12,7 @@ const sha=b=>createHash('sha256').update(b).digest('hex');
 const git=(...a)=>execFileSync('git',a,{cwd:root,encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim();
 const head=process.env.WAND_SOURCE_HEAD;
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
-const cargo='e4f2e2c5d4451baba2dea699fe497cb7b40668d4';
+const cargo='751a73da41d8b58f7de70643f50b97722a3c1260';
 const names=['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm'];
 async function privateDir(){
  if(await realpath(root)!==root)fail();
