@@ -99,6 +99,11 @@ jobs:
                   "$cargo" == 751a73da41d8b58f7de70643f50b97722a3c1260 &&
                   "$config" == 30551c7cc566614f64c8ba04748c3aef44b419bb ]]; then
             echo R22_EXACT_STAGE_WINDOWS_MANNEQUIN_BOTH_IN_ORDER_GATED
+          elif [[ "$core" == f8ca1bfe087258376a9cfbc0bfe18385f7d20828 &&
+                  "$cargo" == 751a73da41d8b58f7de70643f50b97722a3c1260 &&
+                  "$config" == 30551c7cc566614f64c8ba04748c3aef44b419bb &&
+                  "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" == 34286a10bc726d9195d806b15273792614c99fa6 ]]; then
+            echo R22_EXACT_STAGE_FINISH_DECODED_VEC_SCRUB_CORE_ONLY_WRITER_OFF
           else
             echo R22_UNAPPROVED_CORE_CARGO_CONFIG_STAGE >&2
             exit 1
