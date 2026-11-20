@@ -34,13 +34,14 @@ jobs:
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
           test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 775a2766f237d44ae77fa5347e9adf430c8580d2
-          # Exact independent 01A security PR2360 Source, no synthetic copy.
-          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = 34286a10bc726d9195d806b15273792614c99fa6
+          # Exact latest independently refutable 01A security Source includes both
+          # moved-input Vec and last-owned decoded Arc zeroize; Worker source remains unchanged.
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 0312afdd91cb07d377a233f454ff07894de6eec5
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 81cd04b906f6cab7b1ea1749fb7fc981003a3b03
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 3b61beb6288826c57ab9d029b214cee614dfafc5
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = 5a9ae08833f11d03fe1986bd679438591842b76e
-          test "$(git rev-parse 4fd4ac5e9ab1e6324423626ccc291b7d7e4747f0:crates/ddv-save-core/src/product_session.rs)" = 34286a10bc726d9195d806b15273792614c99fa6
+          test "$(git rev-parse f7e5ef6d70cdd2d297d0c8f0ed6fec6b6633d236:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
           test -z "$(git ls-files '*.p1g')"
           cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
           echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
