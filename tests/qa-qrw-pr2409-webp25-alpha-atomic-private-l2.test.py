@@ -112,14 +112,6 @@ class PrivatePixelBatchL2(unittest.TestCase):
             output=outdir/"must-not-exist.json"
             qmod=m.read_queue_module()
             stdout=io.StringIO()
-            with patch.object(m,"read_queue_module",return_value=SimpleNamespace(
-                secure_private_path=qmod.secure_private_path,run=lambda root:private_queue()
-            )),patch.object(sys,"argv",["stage",
-                  "--native-root",str(source),"--stage-root",str(stage),
-                  "--private-output",str(output),"--guid",*sum([
-                    [guid(i)] for i in range(1,N+1)],[])]):
-                # Argparse expects each --guid immediately before its value.
-                pass
             args=["stage","--native-root",str(source),"--stage-root",str(stage),
                   "--private-output",str(output)]
             for i in range(1,N+1):args.extend(["--guid",guid(i)])
