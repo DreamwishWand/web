@@ -89,17 +89,18 @@ test('committed Bamboo anchor stays null and old generic Pages release is untouc
  const source=await readFile(new URL('../scripts/readonly-release/seal-bamboo-public-pages.mjs',import.meta.url),'utf8');
  assert.match(source,/verifySignedReleaseSubjects/);
  assert.match(source,/revalidateProtectedCi/);
+ assert.match(source,/git\('ls-tree','HEAD','--',path\)/);
  assert.doesNotMatch(source,/upload-pages-artifact|deploy-pages@/);
 });
 
 test('public signed3 Source pins the accepted Rust semantic closure (exact GitBlobs)',async()=>{
  const trusted={
-  'crates/ddv-save-core/Cargo.toml':'e4f2e2c5d4451baba2dea699fe497cb7b40668d4',
+  'crates/ddv-save-core/Cargo.toml':'751a73da41d8b58f7de70643f50b97722a3c1260',
   'crates/ddv-save-core/src/lib.rs':'9cc0dfdde15399d2797f30c861684f530635c4ef',
   'crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs':'26414572b41211076f1f83a3f8752eea2ab65142',
-  'crates/ddv-save-core/src/wasm_worker.rs':'4287cb5184331ba5c4c5681166a1bda0dd0c6106',
+  'crates/ddv-save-core/src/wasm_worker.rs':'6432275d2909e6bc6d39265ae70cc7176fc37106',
   'crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs':'b3aa885d7668e6f8d3df9a20be4962d609ab6762',
-  'crates/ddv-save-core/src/worker_session.rs':'c2fd0115c3850c963a9994ea1f8e4feac859557f',
+  'crates/ddv-save-core/src/worker_session.rs':'254af029304f6a357c8c0a0e7a1376b80313d038',
   'crates/ddv-save-core/src/steam_bamboo_single_product_target.rs':'a5aef59173ee99454f7f108af58fa7c46dac6f19',
   'crates/ddv-save-core/src/steam_single_fence_readonly.rs':'c64c460917d2d3730e9ffe8807112f724f10a723',
   'crates/ddv-save-core/src/sr03_installed_geometry.rs':'4ff82faf19cc9883259cea36da5f90faa5bea698',
@@ -117,13 +118,19 @@ test('public signed3 Source pins the accepted Rust semantic closure (exact GitBl
  ]));
  // The approved protected release must remain a genuine positive. Adding an
  // unrelated Rust Cargo feature on another branch must FAIL this release gate.
- const acceptedHead='419162ef5bc3a75fac05baaee10021a0d269bc2d';
+ const acceptedHead='ac7e95f638592a77da908f340b650692ffc7f47c';
  const approved=Object.fromEntries(Object.keys(trusted).map(path=>[
   path,execFileSync('git',['rev-parse',acceptedHead+':'+path],{
    cwd:new URL('../',import.meta.url),encoding:'utf8'}).trim()
  ]));
  assert.deepEqual(approved,trusted);
  assert.equal(bambooAcceptedRustSourceBlobsOk(approved),true);
+ // The archived 419 signer is not the new reviewed CURRENT trust predicate.
+ const historical=Object.fromEntries(Object.keys(trusted).map(path=>[
+  path,execFileSync('git',['rev-parse','419162ef5bc3a75fac05baaee10021a0d269bc2d:'+path],{
+   cwd:new URL('../',import.meta.url),encoding:'utf8'}).trim()
+ ]));
+ assert.equal(bambooAcceptedRustSourceBlobsOk(historical),false);
  const sourceStillAccepted=bambooAcceptedRustSourceBlobsOk(observed);
  assert.equal(await bambooAcceptedRustCheckoutOk(),sourceStillAccepted);
  if(!sourceStillAccepted){
@@ -147,8 +154,8 @@ test('actual CLI preflight denies dirty Worker, minted target and transitive geo
  const git=(args,cwd=sourceRoot)=>execFileSync('git',args,{cwd,encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim();
  let attached=false;
  try{
-  // Positive and dirty mutations execute against the approved protected
-  // signer source, not a newer Rust feature's deliberately rejected checkout.
+  // Keep historical 419 original signer positive and dirty negatives.
+  // The CURRENT signer has a different fixed reviewed Rust closure.
   const current=git(['rev-parse','HEAD']);
   const head='419162ef5bc3a75fac05baaee10021a0d269bc2d';
   git(['worktree','add','--detach',work,head]);
@@ -169,9 +176,9 @@ test('actual CLI preflight denies dirty Worker, minted target and transitive geo
     ['scripts/readonly-release/seal-bamboo-public-pages.mjs','preflight'],{
      cwd:sourceRoot,encoding:'utf8',env:{...process.env,
       GITHUB_EVENT_NAME:'pull_request',GITHUB_REPOSITORY:'DreamwishWand/web',
-      GITHUB_REPOSITORY_ID:'1371485649',WAND_SOURCE_HEAD:current}
+      GITHUB_REPOSITORY_ID:'0',WAND_SOURCE_HEAD:current}
     });
-   assert.notEqual(currentRun.status,0,'unaccepted new Rust source reached signed gate');
+   assert.notEqual(currentRun.status,0,'untrusted repository ID reached a signed gate');
    assert.match(currentRun.stderr,/BAMBOO_PUBLIC_PAGES_SIGNER_DENIED/);
   }
   const targets=[
