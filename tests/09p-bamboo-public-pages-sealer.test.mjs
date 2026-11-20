@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile,writeFile,copyFile,mkdtemp,rm} from 'node:fs/promises';
+import {readFile,writeFile,copyFile,mkdtemp,rm,chmod} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFileSync,spawnSync} from 'node:child_process';
@@ -199,6 +199,51 @@ test('actual CLI preflight denies dirty Worker, minted target and transitive geo
    await writeFile(file,original);
    assert.equal(run().status,0,'restore '+path);
   }
+ }finally{
+  if(attached)try{git(['worktree','remove','--force',work])}catch{}
+  await rm(temp,{recursive:true,force:true});
+ }
+});
+
+test('current accepted Bamboo signer rejects committed mode100755 with IDENTICAL GitBlob and clean checked-out bytes',async()=>{
+ const sourceRoot=new URL('../',import.meta.url);
+ const temp=await mkdtemp(join(tmpdir(),'wand-bamboo-current-mode-'));
+ const work=join(temp,'checkout');
+ const git=(args,cwd=sourceRoot)=>execFileSync('git',args,{
+  cwd,encoding:'utf8',stdio:['ignore','pipe','ignore']
+ }).trim();
+ let attached=false;
+ try{
+  const good=git(['rev-parse','HEAD']);
+  git(['worktree','add','--detach',work,good]);
+  attached=true;
+  await copyFile(join(work,'scripts/wasm-distribution/approved-Cargo.lock'),
+   join(work,'crates/ddv-save-core/Cargo.lock'));
+  const run=(expectedHead)=>spawnSync(process.execPath,
+   ['scripts/readonly-release/seal-bamboo-public-pages.mjs','preflight'],{
+    cwd:work,encoding:'utf8',env:{...process.env,
+     GITHUB_EVENT_NAME:'pull_request',GITHUB_REPOSITORY:'DreamwishWand/web',
+     GITHUB_REPOSITORY_ID:'1371485649',WAND_SOURCE_HEAD:expectedHead}
+   });
+  const positive=run(good);
+  assert.equal(positive.status,0,positive.stderr);
+  const target='crates/ddv-save-core/src/wasm_worker.rs';
+  const before=git(['rev-parse','HEAD:'+target],work);
+  assert.match(git(['ls-tree','HEAD','--',target]),/^100644 blob [a-f0-9]{40}\t/);
+  git(['update-index','--chmod=+x','--',target],work);
+  git(['-c','user.name=Wand Review','-c','user.email=qa@example.invalid',
+   'commit','--quiet','--no-verify','-m','mode-only scope rejection'],work);
+  // A real mode-only commit, not changed Rust source bytes or dirty checkout.
+  await chmod(join(work,target),0o755);
+  const tampered=git(['rev-parse','HEAD'],work);
+  assert.notEqual(tampered,good);
+  assert.equal(git(['rev-parse','HEAD:'+target],work),before);
+  assert.equal(git(['ls-tree','HEAD','--',target]),'100755 blob '+before+'\t'+target);
+  assert.equal(git(['status','--porcelain=v1','--untracked-files=all','--',
+    'crates/ddv-save-core/src']), '');
+  const negative=run(tampered);
+  assert.notEqual(negative.status,0,'committed-mode-only change was accepted');
+  assert.match(negative.stderr,/BAMBOO_PUBLIC_PAGES_SIGNER_DENIED/);
  }finally{
   if(attached)try{git(['worktree','remove','--force',work])}catch{}
   await rm(temp,{recursive:true,force:true});
