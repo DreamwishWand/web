@@ -1,0 +1,54 @@
+name: 04 QR-W PR2409 actual 25-image private VP8L RGBA L2 QA ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - .github/workflows/qa-qrw-pr2409-private-webp25-l2.yml
+permissions:
+  contents: read
+jobs:
+  exact-original-25pixel-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2409-5a7e-webp25-private-pixel-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Exact original four Source and two QA only GitBlob/mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          base=b2c28e8a095f07ba7e6b2c5a1dfa985eca2ca90d
+          source=5a7e36b0746d2f996e5a7623b243b62e4a68a2eb
+          test "$(git merge-base "$base" "$source")" = "$base"
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          printf '%s\n' \
+            .github/workflows/07dbk-steam1261-native-webp-pixel-proof.yml \
+            scripts/asset-research/07dbk-steam1261-private-native-webp-pixels.py \
+            tests/07dbk-steam1261-private-native-webp-pixels.test.mjs \
+            tests/07dbk-steam1261-private-native-webp-pixels.test.py | LC_ALL=C sort >/tmp/qrw2409-source4
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/qrw2409-source4 -
+          printf '%s\n' \
+            .github/workflows/qa-qrw-pr2409-private-webp25-l2.yml \
+            tests/qa-qrw-pr2409-webp25-alpha-atomic-private-l2.test.py | LC_ALL=C sort >/tmp/qrw2409-qa2
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qrw2409-qa2 -
+          for p in $(cat /tmp/qrw2409-source4) $(cat /tmp/qrw2409-qa2); do
+            test "$(git ls-tree HEAD -- "$p" | awk '{print $1}')" = 100644
+          done
+          test "$(git rev-parse HEAD:scripts/asset-research/07dbk-steam1261-private-native-webp-pixels.py)" = 00e7e81cc204893a199fbab1fcd356bf373a0841
+          test "$(git rev-parse HEAD:tests/07dbk-steam1261-private-native-webp-pixels.test.py)" = 60211d92ac1e920f3537b5cfb9878929890a7fa6
+          test "$(git rev-parse HEAD:tests/qa-qrw-pr2409-webp25-alpha-atomic-private-l2.test.py)" = 199aa81625c270f32ea0c925d6eb7924e70e841c
+          git diff --quiet "$source" HEAD -- src scripts static ops crates package.json package-lock.json
+          echo QRW2409_EXACT_SOURCE4_QA2_GITBLOB_MODE_NO_MEDIA_ON_PASS
+      - name: Install verified Pillow/libwebp for synthetic PNG WebP image decode
+        run: python3 -m pip install --disable-pip-version-check 'Pillow==11.3.0'
+      - name: Real PNG/VP8L RGBA alpha, full25 late corruption, private metadata 0600
+        run: |
+          set -euo pipefail
+          python3 tests/qa-qrw-pr2409-webp25-alpha-atomic-private-l2.test.py
+          echo QRW2409_PRIVATE_PIXEL25_RGBA_ALPHA_FULL_BATCH_NO_PARTIAL_OR_PUBLICATION_PASS
