@@ -25,15 +25,18 @@ const eq=(x,y)=>JSON.stringify(x)===JSON.stringify(y);
 const fail=()=>{throw Error('BAMBOO_PUBLIC_PAGES_SIGNER_DENIED')};
 const git=(...a)=>execFileSync('git',a,{cwd:root,encoding:'utf8',stdio:['ignore','pipe','ignore'],env:{...process.env,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
 const is40=x=>typeof x==='string'&&/^[a-f0-9]{40}$/.test(x);
-// Exact accepted Bamboo Rust semantics; Cargo and the WASM wrapper alone do
-// not pin the Worker ReadDomain body or core-minted one-item target.
+// Exact current Rust semantics, including reviewed volatile pending buffer wipe.
+// Old Bamboo-only JS and public import/export ABI match, but generated WASM
+// BYTES DIFFER (QA-only PR2340). Never inherit prior binary-byte equality.
+// Scope only: independent Security L2/09INT required; Reader/Writer/Op OFF.
+// Cargo and WASM alone do not pin the Worker ReadDomain or minted one-item target.
 export const BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS=Object.freeze({
- 'crates/ddv-save-core/Cargo.toml':'e4f2e2c5d4451baba2dea699fe497cb7b40668d4',
+ 'crates/ddv-save-core/Cargo.toml':'751a73da41d8b58f7de70643f50b97722a3c1260',
  'crates/ddv-save-core/src/lib.rs':'9cc0dfdde15399d2797f30c861684f530635c4ef',
  'crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs':'26414572b41211076f1f83a3f8752eea2ab65142',
- 'crates/ddv-save-core/src/wasm_worker.rs':'4287cb5184331ba5c4c5681166a1bda0dd0c6106',
+ 'crates/ddv-save-core/src/wasm_worker.rs':'6432275d2909e6bc6d39265ae70cc7176fc37106',
  'crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs':'b3aa885d7668e6f8d3df9a20be4962d609ab6762',
- 'crates/ddv-save-core/src/worker_session.rs':'c2fd0115c3850c963a9994ea1f8e4feac859557f',
+ 'crates/ddv-save-core/src/worker_session.rs':'254af029304f6a357c8c0a0e7a1376b80313d038',
  'crates/ddv-save-core/src/steam_bamboo_single_product_target.rs':'a5aef59173ee99454f7f108af58fa7c46dac6f19',
  'crates/ddv-save-core/src/steam_single_fence_readonly.rs':'c64c460917d2d3730e9ffe8807112f724f10a723',
  'crates/ddv-save-core/src/sr03_installed_geometry.rs':'4ff82faf19cc9883259cea36da5f90faa5bea698',
@@ -62,6 +65,7 @@ export async function bambooAcceptedRustCheckoutOk(){
    const file=join(root,path),st=await lstat(file);
    if(st.isSymbolicLink()||!st.isFile()||await realpath(file)!==file||
       git('rev-parse','HEAD:'+path)!==blob||
+      git('ls-tree','HEAD','--',path)!==`100644 blob ${blob}\t${path}`||
       git('hash-object','--no-filters','--',path)!==blob)return false;
    observed[path]=blob;
   }

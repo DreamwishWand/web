@@ -33,7 +33,7 @@ export function bambooReadJsSymbolsOk(js){
  return typeof js==='string'&&!denied.test(js);
 }
 const LOCK='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';
-const CARGO='e4f2e2c5d4451baba2dea699fe497cb7b40668d4';
+const CARGO='751a73da41d8b58f7de70643f50b97722a3c1260';
 const file=(a,n,m)=>exact(a,'path,sizeBytes,sha256')&&a.path===n&&size(a.sizeBytes,m)&&hex64(a.sha256);
 export function bambooReadPinsOk(p){
  return exact(p,'contract,sourceHead,manifestSha256,manifestSizeBytes,jsSha256,jsSizeBytes,wasmSha256,wasmSizeBytes')&&
