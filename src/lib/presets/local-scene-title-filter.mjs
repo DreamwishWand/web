@@ -15,7 +15,7 @@ const rows=Object.freeze({
  it:['Cerca scene locali','Cancella ricerca','Nessuna scena locale corrispondente. Le scene salvate non sono cambiate.'],
  de:['Lokale Szenen suchen','Suche löschen','Keine passenden lokalen Szenen. Gespeicherte Szenen bleiben unverändert.'],
  'es-ES':['Buscar escenas locales','Borrar búsqueda','No hay escenas locales coincidentes. Las escenas guardadas no se han modificado.'],
- 'zh-CN':['搜索本地场景','清除搜索','没有匹配的本地场景。已保存的场景未更改。'],
+ 'zh-CN':['搜索本地场景','清除搜索条件','没有匹配的本地场景。已保存的场景未更改。'],
  'pt-BR':['Pesquisar cenas locais','Limpar pesquisa','Nenhuma cena local correspondente. As cenas salvas não foram alteradas.']
 });
 const keys=['label','clear','noMatches'];
