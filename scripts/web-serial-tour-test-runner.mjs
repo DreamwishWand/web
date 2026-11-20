@@ -19,10 +19,15 @@ const browser='tests/web-presets-my-tour-contract.test.mjs';
 if(!all.includes(browser)||all.length<2)throw Error('WEB_TEST_DISCOVERY_MISSING');
 const ordinary=all.filter(path=>path!==browser);
 if(ordinary.length+1!==all.length)throw Error('WEB_TEST_DISCOVERY_INCOMPLETE');
+// A parent node:test process sets NODE_TEST_CONTEXT. If inherited by a nested
+// node --test child, Node silently skips all test files and can exit with zero.
+// Remove only this internal marker; preserve CI, Chrome and other settings.
+const testEnv={...process.env};
+delete testEnv.NODE_TEST_CONTEXT;
 for(const [phase,paths] of [['ordinary',ordinary],['real-chrome-isolated',[browser]]]){
  process.stdout.write('WEB_TEST_PHASE '+phase+' files='+paths.length+'\n');
  const run=spawnSync(process.execPath,['--test',...paths],{
-  cwd:repo,env:process.env,stdio:'inherit'
+  cwd:repo,env:testEnv,stdio:'inherit'
  });
  if(run.error)throw run.error;
  if(run.status!==0)process.exit(run.status??1);
