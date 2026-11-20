@@ -88,7 +88,8 @@ test('ACT1581 exact fixed R22 source selector static immutable eight-mint contra
   ['f67531cef7c812757b246a9aef08febb66782200',expectedFutureInputBlob],
   ['2f712d047e99bc024672e4d7a488baa6276e06f4',expectedFutureInputBlob],
   ['7ce60a4e95988cc9d8f33ed54453882e4198e7c5',expectedFutureInputBlob], // historical stage, NOT new Bamboo signer permission
-  ['f8ca1bfe087258376a9cfbc0bfe18385f7d20828',expectedFutureInputBlob] // fixed ProductSession, Writer OFF
+  ['f8ca1bfe087258376a9cfbc0bfe18385f7d20828',expectedFutureInputBlob], // historical intermediate Arc TRUE_RED, signer still denies
+  ['42bebc4aa5a451abc4a9df29f0bc298df92df6a3',expectedFutureInputBlob] // exact final Arc wipe Core, Writer OFF
  ]);
  assert.ok(approvedStagePairs.has(currentCore),'UNAPPROVED_R22_CORE_STAGE');
  assert.equal(currentConfigBlob,approvedStagePairs.get(currentCore),

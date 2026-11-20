@@ -104,6 +104,11 @@ jobs:
                   "$config" == 30551c7cc566614f64c8ba04748c3aef44b419bb &&
                   "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" == 34286a10bc726d9195d806b15273792614c99fa6 ]]; then
             echo R22_EXACT_STAGE_FINISH_DECODED_VEC_SCRUB_CORE_ONLY_WRITER_OFF
+          elif [[ "$core" == 42bebc4aa5a451abc4a9df29f0bc298df92df6a3 &&
+                  "$cargo" == 751a73da41d8b58f7de70643f50b97722a3c1260 &&
+                  "$config" == 30551c7cc566614f64c8ba04748c3aef44b419bb &&
+                  "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" == e53c4930a84f729ea245f38a1b301c7178146ced ]]; then
+            echo R22_EXACT_STAGE_FINISH_DECODED_ARC_FINAL_DROP_WIPE_WRITER_OFF
           else
             echo R22_UNAPPROVED_CORE_CARGO_CONFIG_STAGE >&2
             exit 1

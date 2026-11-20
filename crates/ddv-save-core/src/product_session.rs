@@ -158,6 +158,24 @@ pub struct ProductSession {
     #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
     worker_cursor_key:[u8;32],
 }
+// The one Session keeps decoded JSON in a private Arc<[u8]>. Closing a
+// Worker revokes its scope, but a borrowed Arc<ProductSession> may still
+// outlive close for an in-flight read. Only its *last* owner may erase bytes.
+// The inner decoded Arc is private, never cloned or exposed by this API;
+// Arc::get_mut asserts that storage-ownership invariant before deallocation.
+// This complements WorkerDecodedInput's earlier moved-Vec scrub.
+impl Drop for ProductSession {
+    fn drop(&mut self) {
+        let decoded=Arc::get_mut(&mut self.decoded)
+            .expect("PRODUCT_SESSION_DECODED_ARC_MUST_BE_UNIQUE_ON_FINAL_DROP");
+        for byte in decoded.iter_mut() {
+            // SAFETY: ProductSession is dropping its sole decoded Arc owner.
+            // This byte is exclusively mutable and not yet deallocated.
+            unsafe { core::ptr::write_volatile(byte as *mut u8, 0); }
+        }
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    }
+}
 impl ProductSession {
     /// R02 native-only decoded JSON prototype. NOT a P1G decrypt, Worker
     /// product binding, physical external Build verification or V2 acceptance.

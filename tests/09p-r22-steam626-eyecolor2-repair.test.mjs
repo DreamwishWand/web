@@ -64,6 +64,10 @@ const acceptedReleaseProfiles=Object.freeze([
  // Fixed WorkerDecodedInput Drop: ONLY this reviewed CoreTree.
  {core:'f8ca1bfe087258376a9cfbc0bfe18385f7d20828',
   cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
+  config:'30551c7cc566614f64c8ba04748c3aef44b419bb'},
+ // 01A fixed owned Arc final Drop: same approved worker/cargo and read-only mode.
+ {core:'42bebc4aa5a451abc4a9df29f0bc298df92df6a3',
+  cargo:'751a73da41d8b58f7de70643f50b97722a3c1260',
   config:'30551c7cc566614f64c8ba04748c3aef44b419bb'}
 ]);
 const lock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c';

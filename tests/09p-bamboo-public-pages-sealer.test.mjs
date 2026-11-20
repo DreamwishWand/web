@@ -106,7 +106,7 @@ test('public signed3 Source pins the accepted Rust semantic closure (exact GitBl
   'crates/ddv-save-core/src/sr03_installed_geometry.rs':'4ff82faf19cc9883259cea36da5f90faa5bea698',
   'crates/ddv-save-core/src/comp03_installed_geometry.rs':'645e6e6a64664088997df46954cd1d8bb4a2995a',
   'crates/ddv-save-core/src/placement_saved_refs.rs':'2ad0d925cebfcb19bb39b2afe5ff6404966ad849',
-  'crates/ddv-save-core/src/product_session.rs':'34286a10bc726d9195d806b15273792614c99fa6',
+  'crates/ddv-save-core/src/product_session.rs':'e53c4930a84f729ea245f38a1b301c7178146ced',
   'crates/ddv-save-core/src/indexed_read.rs':'47b8b07e013f357fceee51cbc0ce676b271fb207',
   'crates/ddv-save-core/src/strict_document.rs':'e49ea87eb18227c68e049e3de7278af02550fdbd',
   'crates/ddv-save-core/src/saved_diffgrids_index.rs':'b8980ee01cd8edea46400dc6fcccdafcdc4cb6c2'
@@ -142,6 +142,12 @@ test('public signed3 Source pins the accepted Rust semantic closure (exact GitBl
  for(const path of Object.keys(trusted)){
   assert.equal(bambooAcceptedRustSourceBlobsOk({...observed,[path]:'f'.repeat(40)}),false,path);
  }
+ // Former intermediate moved-Vec-only repaired Rust still leaked the
+ // owned Arc at Worker Close. It must never be valid under this signer.
+ const previouslyVulnerable={...observed,
+  'crates/ddv-save-core/src/product_session.rs':'34286a10bc726d9195d806b15273792614c99fa6'};
+ assert.equal(bambooAcceptedRustSourceBlobsOk(previouslyVulnerable),false,
+  'previous intermediate Arc plaintext retention must be denied');
  const missing={...observed};delete missing['crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs'];
  assert.equal(bambooAcceptedRustSourceBlobsOk(missing),false);
  assert.equal(bambooAcceptedRustSourceBlobsOk({...observed,'crates/ddv-save-core/src/semantic_writer.rs':'0'.repeat(40)}),false);
