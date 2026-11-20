@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """07 DBK: authenticated private Steam v1.26.1 ItemID/Name/IconGUID image queue.
 
-Consumes 01D's pinned original Steam v1.25.3 + v1.26.1 itemlists, never
+Consumes 01D's eight pinned original Steam v1.25.3 + v1.26.1 itemlists, never
 extracts media, uploads original bytes, mints a release or changes a public
 manifest. Worklist contains private text metadata and is never printed to CI.
 """
@@ -159,33 +159,31 @@ def build_image_queue(delta, old_guids, *, expected=None):
 def run(source_root: Path):
     source_root = secure_private_path(source_root, is_dir=True)
     module = load_01d()
-    report = module.analyze(source_root, synthetic=False, include_v1261=True)
-    if report.get("schema") != module.SCHEMA or \
-       report.get("evidence") != "SOURCE_ONLY_ORIGINAL_STEAM_NATIVE_DEFINITIONS" or \
-       set(report.get("source", {})) != {"v12413", "v1250", "v1253", "v1261"}:
-        denied("SOURCE_PROVENANCE_INVALID")
+    if set(module.CATEGORIES) != CATEGORIES or not all(
+        version in module.SOURCE_PINS for version in ("v1253", "v1261")
+    ):
+        denied("SOURCE_CONTRACT_CHANGED")
+    old, newer = {}, {}
     old_guids = set()
-    # Independently re-open the old 4 original files, not an untrusted list
-    # or aggregate report field; pin SHA+size again before computing reuse.
-    for cat in module.CATEGORIES:
-        p = source_root / "v1253" / (cat + ".json")
-        if p.is_symlink() or not p.is_file() or source_root not in p.resolve().parents:
-            denied("OLD_ITEMLIST_ALIAS")
-        b = p.read_bytes()
-        if (hashlib.sha256(b).hexdigest(), len(b)) != module.SOURCE_PINS["v1253"][cat]:
-            denied("OLD_ITEMLIST_SHA_RACE")
-        old_guids.update(row["iconGuid"] for row in module.read_category(b, cat).values())
-    # Do not silently trust current version rows after earlier analysis: all
-    # 8 required raw source bytes are rechecked against 01D original pins.
-    for version in ("v1253", "v1261"):
+    # Only two Build releases and eight real pinned original category files
+    # are needed. Historical v1.24.13/v1.25.0 originals are NOT a dependency.
+    # No name/GUID/ItemID leaves the private output.
+    for version, items in (("v1253", old), ("v1261", newer)):
         for cat in module.CATEGORIES:
             p = source_root / version / (cat + ".json")
             if p.is_symlink() or not p.is_file() or source_root not in p.resolve().parents:
-                denied("SOURCE_FILE_CHANGED_DURING_RECHECK")
+                denied("SOURCE_FILE_MISSING_OR_ALIAS")
             b = p.read_bytes()
             if (hashlib.sha256(b).hexdigest(), len(b)) != module.SOURCE_PINS[version][cat]:
-                denied("SOURCE_FILE_CHANGED_DURING_RECHECK")
-    delta = report["v1253_to_v1261"]
+                denied("SOURCE_FILE_SHA_OR_BYTES_MISMATCH")
+            rows = module.read_category(b, cat)
+            for item_id, row in rows.items():
+                if item_id in items:
+                    denied("DUPLICATE_CROSS_CATEGORY_ITEM_ID")
+                items[item_id] = row
+                if version == "v1253":
+                    old_guids.add(row["iconGuid"])
+    delta = module.diff(old, newer, "v1253", "v1261")
     return build_image_queue(delta, old_guids, expected={
         "newItemIds": 993,
         "newUniqueIconGuids": 647,
