@@ -105,7 +105,7 @@ jobs:
               }
           '''
           methods=methods.replace(
-              '              pub fn qa_take_abandoned_output_dealloc',
+              'pub fn qa_take_abandoned_output_dealloc',
               r'''              pub fn qa_consumed_prefix_zero(&self)->u32 {
                   if let Some((ref out,pos))=self.scoped_output {
                       if *pos==0 || *pos>out.len(){return 0;}
@@ -114,6 +114,7 @@ jobs:
                   0
               }
               pub fn qa_take_abandoned_output_dealloc''',1)
+          assert methods.count('pub fn qa_consumed_prefix_zero')==1
           js_anchor="return new Uint8Array(view);"
           assert src.count(js_anchor)==1
           src=src.replace(js_anchor,
