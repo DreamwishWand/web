@@ -64,6 +64,9 @@ const required=new Map([
 ]);
 const expectedSourcePaths=[...required.keys()].sort();
 const addPaths=['.github/workflows/09p-inventory0-r22-trust-source-deny.yml','tests/09p-inventory0-r22-trust-source-deny.test.mjs'].sort();
+const ownerCiPath='.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml';
+// Current 01A CI-only hunk is SHA-locked, not a wildcard Rust/ABI change.
+const exactLaterOwnerCi='19d7f0c532badecc86f8d36ff89eed1ba0e28bf2';
 const core='6750ed91920f33be9f2acf180ca1326340d969ed';
 const productSession='e53c4930a84f729ea245f38a1b301c7178146ced';
 const cargo='b3455c36d9d60b4a0e415026a095e47fe577644d';
@@ -87,15 +90,21 @@ const stateFor=ref=>{
 };
 
 test('ACT1581 exact source candidate is immutable Inventory0 OFF profile only',()=>{
- assert.equal(git('rev-parse','HEAD^'),immutableInventorySource);
- assert.deepEqual(sourceDiff('HEAD^','HEAD'),addPaths);
+ assert.equal(git('merge-base',immutableInventorySource,'HEAD'),immutableInventorySource);
+ const delta=sourceDiff(immutableInventorySource,'HEAD');
+ // GitHub normal CI checks out a synthetic merge commit against a newer 01A
+ // target. The only permitted extra difference is an individually pinned
+ // Owner CI workflow leaf; NEVER accept a changed Rust/Cargo/Worker/JS leaf.
+ const ownerCiOnly=delta.includes(ownerCiPath);
+ assert.deepEqual(delta,ownerCiOnly?[...addPaths,ownerCiPath].sort():addPaths);
  assert.deepEqual(sourceDiff(reviewedBase,immutableInventorySource),expectedSourcePaths);
  assert.equal(git('merge-base',reviewedBase,'HEAD^'),reviewedBase);
  assert.equal(blob(immutableInventorySource,'crates/ddv-save-core'),core);
  for(const [path,hash] of required){
   assert.equal(entry(immutableInventorySource,path),'100644 blob '+hash+'\t'+path,
    'ORIGINAL_SOURCE_SHA_MODE_DENIED_'+path);
-  assert.equal(entry('HEAD',path),'100644 blob '+hash+'\t'+path,
+  const currentSha=path===ownerCiPath&&ownerCiOnly?exactLaterOwnerCi:hash;
+  assert.equal(entry('HEAD',path),'100644 blob '+currentSha+'\t'+path,
    'SCOPED_TEST_COMMIT_MUST_NOT_CHANGE_ORIGINAL_'+path);
  }
  const profile=stateFor('HEAD');
