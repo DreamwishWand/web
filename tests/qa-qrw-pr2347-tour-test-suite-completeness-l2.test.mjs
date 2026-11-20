@@ -25,7 +25,9 @@ function fixture(){
     writeFileSync(join(root,folder,name),code);
   };
   const run=()=>spawnSync(process.execPath,[join(root,'scripts','web-serial-tour-test-runner.mjs')],{
-    cwd:root,encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024
+    cwd:root,encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024,
+    // Nested node --test would skip all child test files if this inherited.
+    env:{...process.env,NODE_TEST_CONTEXT:undefined}
   });
   const seen=()=>existsSync(join(root,'marker.txt'))?
     readFileSync(join(root,'marker.txt'),'utf8').trim().split('\n'):[];
