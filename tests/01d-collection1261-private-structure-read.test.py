@@ -41,6 +41,7 @@ class SourceContract(unittest.TestCase):
         self.assertEqual(d['sourceDefinitionCount'],305)
         self.assertTrue(d['sourceBytesIdentical'])
         self.assertFalse(d['profileExamined'])
+        self.assertFalse(d['privateSaveOriginalProvenanceAttested'])
         self.assertFalse(d['writerAuthorized'])
         self.assertFalse(d['nativeDynamicGroupVerified'])
         self.assertFalse(d['savedVsStaticItemMembershipVerified'])
@@ -75,6 +76,9 @@ class SourceContract(unittest.TestCase):
         self.assertEqual(d['observedTrueTokens']+d['observedFalseTokens'],610)
         self.assertFalse(d['writerAuthorized'])
         self.assertFalse(d['ownedEntitlementVerified'])
+        self.assertTrue(d['privateSaveShaVerified'])
+        self.assertEqual(d['privateSaveDigestSource'],'CALLER_SUPPLIED')
+        self.assertFalse(d['privateSaveOriginalProvenanceAttested'])
         self.assertNotIn('privateSaveSha256',d)
         self.assertNotIn('itemIds',d)
 
