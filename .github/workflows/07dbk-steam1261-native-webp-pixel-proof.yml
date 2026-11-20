@@ -1,0 +1,24 @@
+name: 07DBK Steam1261 Native Private WebP Pixel Proof
+on:
+  pull_request:
+    paths:
+      - 'scripts/asset-research/07dbk-steam1261-private-native-webp-pixels.py'
+      - 'tests/07dbk-steam1261-private-native-webp-pixels.test.py'
+      - 'tests/07dbk-steam1261-private-native-webp-pixels.test.mjs'
+      - '.github/workflows/07dbk-steam1261-native-webp-pixel-proof.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  private-pixel-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned Pillow/libwebp for real pixel decode (synthetic art only)
+        run: python3 -m pip install --disable-pip-version-check 'Pillow==11.3.0'
+      - name: Decode real synthetic PNG/WebP, compare 160 RGBA and reject all forged gates
+        run: python3 tests/07dbk-steam1261-private-native-webp-pixels.test.py
