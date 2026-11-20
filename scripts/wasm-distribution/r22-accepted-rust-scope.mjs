@@ -1357,6 +1357,229 @@ const steam626PendingRustHeapScrubExact2Entries=Object.freeze([
  {path:'tests/01a-wasm-pending-decoded-buffer-wipe.test.mjs',
   before:null,after:{mode:'100644',blob:'8fb7d761d145a4f64ea1b97470c57cf16db5bb79'}}
 ]);
+// 09P-CODE ACT1581 GATE-FIRST: exact Steam626 Inventory0 Source15 only.
+// This gate must be merged to protected main by sole 09INT BEFORE a product
+// candidate. It does not enroll a signer, update Cargo pin, grant Writer,
+// publish Pages or accept the five candidate-owned file SHAs by self-claim.
+// Original Owner encrypted Product V2 + independent 04 QR-S remain separate.
+const steam626Inventory0SafeChunkGateFirstExact22Entries=Object.freeze([
+  {
+    "path": ".github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "aa407c444f434e444fb459d6c122405369bf220b"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/Cargo.toml",
+    "before": {
+      "mode": "100644",
+      "blob": "751a73da41d8b58f7de70643f50b97722a3c1260"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "b3455c36d9d60b4a0e415026a095e47fe577644d"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_worker.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "6432275d2909e6bc6d39265ae70cc7176fc37106"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "f4cf9d66f857a2e20b597de9f697a458b6ab550c"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_steam626_eyecolor2.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "1b68343ef3093352dceb00af6dfd67bf1bdde24d"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "1f31facb11f54d0e52f5b2188393a9d488c1fb35"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_steam626_makeup_color1.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "e9b98a46b18b099e6ab0601a2a3171e52c4ca0c2"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "afc6290a286adc8ad68b6cc9c8f0267c64a27106"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_switch624_frp01.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "b60f40a3c87d97f21332fc6d8f005e100c4fd7fa"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "fdd5e85bff63fe0d147c604586e38654cb49d8ed"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_switch626_fd01.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "5a5f6fe40c88d5a7f81c6a9d912f8b4e42b580b8"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "478c950cecbeb89387a555ce1ac56a10f53f30ac"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_switch626_fe01.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "26384cd66a7aa513dda15a4b00e3d6c1a2ee4abe"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "242641a0cabb49029df40f1ea27dc4985ffb40db"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_switch626_fixed_fence_add.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "887b076f1593fb0337e3b817d464369b4dfea367"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "ee9fbf6af12ca9ceb6cd9eae1e4814259e770d36"
+    }
+  },
+  {
+    "path": "crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs",
+    "before": {
+      "mode": "100644",
+      "blob": "b8a24a1e288f763349355bd05bf3b7cfd51b0b4a"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "1dae83f8c56c6ab6ecb9d6dc8e00c8965d646dc2"
+    }
+  },
+  {
+    "path": "src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs",
+    "before": {
+      "mode": "100644",
+      "blob": "f76418235f302c2cdcc52de7f4b771e4c6f193f6"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "3b61beb6288826c57ab9d029b214cee614dfafc5"
+    }
+  },
+  {
+    "path": "src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs",
+    "before": {
+      "mode": "100644",
+      "blob": "334a8dc69485981598773923c265e97f16296fb1"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "5a9ae08833f11d03fe1986bd679438591842b76e"
+    }
+  },
+  {
+    "path": "src/lib/ddv/core/save/product-scoped-amount-transport.mjs",
+    "before": {
+      "mode": "100644",
+      "blob": "16cfcda06614be2536b877872b15f7ff85bc0f2b"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "0312afdd91cb07d377a233f454ff07894de6eec5"
+    }
+  },
+  {
+    "path": "src/lib/ddv/core/save/product-wasm-read-owner.mjs",
+    "before": {
+      "mode": "100644",
+      "blob": "17c3daf6eaa529745c9c48775d677e1289955872"
+    },
+    "after": {
+      "mode": "100644",
+      "blob": "81cd04b906f6cab7b1ea1749fb7fc981003a3b03"
+    }
+  },
+  {
+    "path": "tests/01a-steam626-catalog0-product-worker-port.test.mjs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "0b3c1a8d8a75ac2cbe1a87555d08e75f0deddc6b"
+    }
+  },
+  {
+    "path": "tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "0594a05690faf4902e761831887b6a31ae39d89a"
+    }
+  },
+  {
+    "path": "tests/product-steam626-catalog0-local-adapter.test.mjs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "4e7f7afe825d7cabb9469385b33322e98ad7aa2b"
+    }
+  },
+  {
+    "path": ".github/workflows/09p-r22-inventory0-product-source.yml",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "1d5ec9520ee994903a5a44dcca87e7506d735cd5"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/r22-inventory0-product-source.mjs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "487173537da1611d6e15392ddb76d1cd74940c0e"
+    }
+  },
+  {
+    "path": "tests/09p-r22-inventory0-product-source.test.mjs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "3d78946f8afa426d6aa210467f8d37f540efec20"
+    }
+  },
+  {
+    "path": "scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "3cc7f2b2954e5146e3d9129db125a6cb9ffd7ea7"
+    }
+  },
+  {
+    "path": "tests/09p-r22-inventory0-unsigned-pair.test.mjs",
+    "before": null,
+    "after": {
+      "mode": "100644",
+      "blob": "7e04eb17090b075e72a82c5efb5050762e30a670"
+    }
+  }
+]);
+
 const gatePaths=['scripts/wasm-distribution/verify-protected-release.mjs',
  'scripts/wasm-distribution/r22-accepted-rust-scope.mjs','scripts/int-selection-preflight.mjs'];
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8',maxBuffer:16*1024*1024,
@@ -1396,6 +1619,24 @@ export function verifyAcceptedRustScope(cwd,base,source){
  const baseCore=git(cwd,'rev-parse','--verify',base+':'+corePath);
  const sourceCore=git(cwd,'rev-parse','--verify',source+':'+corePath);
  const profile=selectAcceptedCorePair(baseCore,sourceCore);
+ // New Inventory0 source is accepted only as ONE direct child of the
+ // already-reviewed protected Gate; no second parent, old-base stack or
+ // candidate-supplied self-accepting verifier. Historical profiles unchanged.
+ if(profile.metadata.inventory0GateFirstSourceOnly===true){
+  // The protected base itself is not an attacker-supplied authorization:
+  // old Bamboo signer/issuer/Lock/readonly R22 inputs must match known
+  // protected GitBlobs, not merely be identical between forged base/source.
+  // A future legitimate protected authority change needs new scoped review.
+  const protectedAuthority=[["scripts/wasm-distribution/protected-release-inputs.json","30551c7cc566614f64c8ba04748c3aef44b419bb"],["scripts/readonly-release/seal-bamboo-public-pages.mjs","e6290e890ac205f6486a76567e7ccac90f8d9aba"],["src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs","d5b167f35b10ecc5b16d40e84e9d9bb324288539"],["scripts/wasm-distribution/approved-Cargo.lock","b667b42cfef2032c2925be7b2aa9b7142bff4b52"],["scripts/wasm-distribution/verify-protected-release.mjs","d4ab1f6b46413b9992301ddbad00aedf3b01b040"],["scripts/wasm-distribution/r22-trusted-before-candidate.mjs","5aefdaff6a46ae9bdf1f5a37c4f0973442308a4a"]];
+  for(const [path,blob] of protectedAuthority){
+   const got=git(cwd,'ls-tree',base,'--',path);
+   if(got!=='100644 blob '+blob+'\t'+path)
+    deny('INVENTORY0_UNTRUSTED_PROTECTED_BASE_AUTHORITY_'+path);
+  }
+  const parents=git(cwd,'rev-list','--parents','-n','1',source).split(/\s+/);
+  if(parents.length!==2||parents[1]!==base)
+   deny('INVENTORY0_EXACT_ONE_PROTECTED_PARENT_REQUIRED');
+ }
  const result=verifyExactScopeEntries(cwd,base,source,profile.entries);
  if(result.entries.length!==profile.count)deny('FIXED_SCOPE_COUNT');
  // The pre-Gate projection has a different root from the Gate+product commit.
@@ -1419,6 +1660,27 @@ export function verifyAcceptedRustScope(cwd,base,source){
 // nor a candidate can supply the allowed paths/trees or change protected gate
 // identity. Unknown Core pairs and mixed old/new pairs fail closed.
 function selectAcceptedCorePair(baseCore,sourceCore){
+ // Product-specific exact GitBlob/Tree selection, NOT an approved public
+ // writer nor the current read-only Bamboo Sigstore profile. The old release
+ // config still explicitly denies new Cargo b345, Worker775 and any Writer.
+ if(baseCore==='42bebc4aa5a451abc4a9df29f0bc298df92df6a3'){
+  if(sourceCore!=='66eeda64ddfa60835b446f94f7b98df715f59e14')
+   deny('INVENTORY0_RUST_CORE_TREE_DENIED');
+  return {entries:steam626Inventory0SafeChunkGateFirstExact22Entries,count:22,metadata:{
+   sourcePr:2356,sourceContractPr:2405,
+   inventory0GateFirstSourceOnly:true,inventory0SafeChunkOnly:true,originalSourceCount:17,
+   originalExternalProofCount:5,
+   sourceParentRequiresProtectedMain:true,
+   oldReaderCargoGitBlob:'751a73da41d8b58f7de70643f50b97722a3c1260',
+   newInventory0CargoGitBlob:'b3455c36d9d60b4a0e415026a095e47fe577644d',
+   newInventory0WorkerGitBlob:'f4cf9d66f857a2e20b597de9f697a458b6ab550c',
+   originalEncryptedSaveV2:'NOT_RUN',
+   independentProductSignerSecurityL2:'NOT_RUN',
+   sourceQaNotProductAuthorization:true,
+   signerAuthorized:false,writerAuthorized:false,operationOn:false,
+   productSignedBuild:false,mergeAuthorized:false}};
+ }
+
  if(baseCore==='7de35a07df55bdf7f439caac6e4d734dd91fe9ba'){
   if(sourceCore!=='ca1ef1772b53ff535618fc8263cd647f757f3dad')deny('CANDIDATE_CORE_TREE');
   return {entries,count:15,metadata:{
