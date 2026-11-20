@@ -8,7 +8,8 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
- verifyR22Inventory0SourceCandidate,r22Inventory0CandidateBytesExact,
+ verifyR22Inventory0SourceCandidate,verifyR22Inventory0MainFirstSynthetic,
+ r22Inventory0CandidateBytesExact,
  INVENTORY0_EXPECTED_SOURCE,INVENTORY0_EXPECTED_CORE,INVENTORY0_EXPECTED_CARGO,
  INVENTORY0_EXPECTED_WORKER,INVENTORY0_EXPECTED_ARC
 } from '../scripts/wasm-distribution/r22-inventory0-product-source.mjs';
@@ -98,4 +99,62 @@ test('Actual unreferenced forged Git trees reject Rust, Cargo, ABI, mode, truste
  const same=makeChild([]);
  assert.equal(verifyR22Inventory0SourceCandidate(same).writerAuthorized,false);
  console.log('09P_INVENTORY0_R22_SCOPED_SOURCE_1POS_AND_NEGATIVE_GIT_OBJECTS_NO_SIGN_NO_ON');
+});
+
+test('01A Inventory0 + 09P Source compose as 13 exact files on protected SECURITY main without changing signer',()=>{
+ const protectedBase='f420bbe72fbc3374f0a3867403c660873ce5f06a';
+ const dir=mkdtempSync(join(tmpdir(),'9p-inv0-main-first-local-'));
+ try{
+  const idx={GIT_INDEX_FILE:join(dir,'index')};
+  git(['read-tree',protectedBase+'^{tree}'],undefined,idx);
+  const staged=[...Object.keys(INVENTORY0_EXPECTED_SOURCE),
+   '.github/workflows/09p-r22-inventory0-product-source.yml',
+   'scripts/wasm-distribution/r22-inventory0-product-source.mjs',
+   'tests/09p-r22-inventory0-product-source.test.mjs'];
+  for(const path of staged){
+   const blob=git(['rev-parse',sourceHead+':'+path]);
+   git(['update-index','--add','--cacheinfo','100644',blob,path],undefined,idx);
+  }
+  const tree=git(['write-tree'],undefined,idx);
+  const synthetic=git(['commit-tree',tree,'-p',protectedBase,
+   '-m','09P fixed synthetic main-first candidate NO REF']);
+  const a=verifyR22Inventory0MainFirstSynthetic(synthetic);
+  assert.equal(a.changedPaths,13);
+  assert.equal(a.oldSignerGrantsInventory0,false);
+  assert.equal(a.mergeAuthorized,false);
+  assert.equal(a.signerAuthorized,false);
+  assert.equal(a.writerAuthorized,false);
+  assert.equal(a.operationOn,false);
+  assert.equal(a.latestProtectedCASVerified,false);
+  assert.equal(a.genuineEncryptedProductV2Verified,false);
+  assert.equal(a.requiresIndependentSecurityL2,true);
+  // Protected release authority and this Source are NOT merged or changed by
+  // synthetic commit-tree; no branch or public Pages pointer is created.
+  assert.equal(git(['rev-parse','HEAD']),sourceHead);
+  const sourceChanged=git(['diff','--name-only',protectedBase,synthetic]).split('\n').filter(Boolean);
+  assert.equal(sourceChanged.includes('crates/ddv-save-core/src/product_session.rs'),false,
+   '01A last Arc security Blob must exactly reuse protected main, not rewrite it');
+  const tamper=(path,body)=>{
+   const sub=mkdtempSync(join(tmpdir(),'9p-inv0-main-first-negative-'));
+   try{
+    const index={GIT_INDEX_FILE:join(sub,'index')};
+    git(['read-tree',synthetic+'^{tree}'],undefined,index);
+    const b=git(['hash-object','-w','--stdin'],body);
+    git(['update-index','--add','--cacheinfo','100644',b,path],undefined,index);
+    const t=git(['write-tree'],undefined,index);
+    return git(['commit-tree',t,'-p',protectedBase,
+     '-m','09P synthetic tampered main-first NO REF']);
+   }finally{rmSync(sub,{recursive:true,force:true})}
+  };
+  assert.throws(()=>verifyR22Inventory0MainFirstSynthetic(
+   tamper('crates/ddv-save-core/Cargo.toml','# UNTRUSTED CARGO\n')),
+   /R22_INVENTORY0_SOURCE_DENIED_/);
+  assert.throws(()=>verifyR22Inventory0MainFirstSynthetic(
+   tamper('scripts/readonly-release/seal-bamboo-public-pages.mjs','// UNTRUSTED SIGNER\n')),
+   /R22_INVENTORY0_SOURCE_DENIED_/);
+  assert.throws(()=>verifyR22Inventory0MainFirstSynthetic(
+   tamper('scripts/wasm-distribution/protected-release-inputs.json','{"writerEnabled":true}')),
+   /R22_INVENTORY0_SOURCE_DENIED_/);
+  console.log('09P_INVENTORY0_PROTECTED_MAIN_FIRST_SYNTHETIC13_SOURCE_POS_TAMPERS_DENIED_NO_SIGN_NO_ON');
+ }finally{rmSync(dir,{recursive:true,force:true})}
 });

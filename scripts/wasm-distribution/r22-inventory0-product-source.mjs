@@ -160,3 +160,66 @@ export function verifyR22Inventory0SourceCandidate(sourceHead){
   deny('GIT_OR_JSON_FAILURE');
  }
 }
+
+const protectedSecurityBase='f420bbe72fbc3374f0a3867403c660873ce5f06a';
+const lastSourcePaths=[...Object.keys(INVENTORY0_EXPECTED_SOURCE),...ownPaths]
+ .filter(path=>path!=='crates/ddv-save-core/src/product_session.rs').sort();
+
+// This is an offline synthetic read-only composition of the SOURCE GitBlobs
+// with the exact protected SECURITY main; it cannot merge refs or sign Pages.
+// Current-live protected-main CAS remains 09INT's exclusive responsibility.
+export function verifyR22Inventory0MainFirstSynthetic(candidateHead){
+ if(!shaOk(candidateHead))deny('MAIN_FIRST_NONCOMMIT_SHA');
+ try{
+  if(git('cat-file','-t',candidateHead)!=='commit')deny('MAIN_FIRST_NOT_COMMIT');
+  if(git('rev-parse',candidateHead+'^')!==protectedSecurityBase)
+   deny('MAIN_FIRST_WRONG_PROTECTED_PARENT');
+  const delta=git('diff','--name-only','--no-renames',
+   protectedSecurityBase,candidateHead).split('\n').filter(Boolean).sort();
+  if(!equal(delta,lastSourcePaths))deny('MAIN_FIRST_UNREVIEWED_PATHS');
+  for(const [path,blob] of productFilePairs){
+   const entry=git('ls-tree',candidateHead,'--',path);
+   if(entry!=='100644 blob '+blob+'\t'+path)
+    deny('MAIN_FIRST_SOURCE_BLOB_MODE_'+path);
+  }
+  for(const path of ownPaths){
+   const entry=git('ls-tree',candidateHead,'--',path);
+   if(!/^100644 blob [0-9a-f]{40}\t/.test(entry)||
+      !entry.endsWith('\t'+path))deny('MAIN_FIRST_09P_PATH_MODE_'+path);
+  }
+  for(const path of [
+    'scripts/wasm-distribution/protected-release-inputs.json',
+    'scripts/wasm-distribution/r22-accepted-rust-scope.mjs',
+    'scripts/wasm-distribution/r22-trusted-before-candidate.mjs',
+    'scripts/wasm-distribution/verify-protected-release.mjs',
+    'scripts/readonly-release/seal-bamboo-public-pages.mjs',
+    'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',
+    '.github/workflows/pages.yml',
+    'scripts/wasm-distribution/approved-Cargo.lock'
+  ]){
+   const accepted=git('ls-tree',protectedSecurityBase,'--',path);
+   if(git('ls-tree',candidateHead,'--',path)!==accepted)
+    deny('MAIN_FIRST_PROTECTED_AUTHORITY_DRIFT_'+path);
+  }
+  const config=JSON.parse(git('show',
+   candidateHead+':scripts/wasm-distribution/protected-release-inputs.json'));
+  if(config.cargoTomlGitBlob!==acceptedReaderCargo||
+     config.approvedCargoLockSha256!==approvedLock||
+     !equal(config.features,['indexed-read','worker-wasm'])||
+     config.writerEnabled!==false||config.productConsumerEnabled!==false||
+     config.defaultFeatures!==false)
+   deny('MAIN_FIRST_OLD_SIGNER_MUST_DENY_NEW_CARGO');
+  if(git('rev-parse',candidateHead+':crates/ddv-save-core')!==fullCore)
+   deny('MAIN_FIRST_FULL_RUST_CORE');
+  // No Source stage grants protected rights, even if GitBlob composition fits.
+  return Object.freeze({contract:'wand.r22.steam626.inventory0.synthetic-main-first@1',
+   fixedProtectedBase:protectedSecurityBase,candidateHead,
+   changedPaths:lastSourcePaths.length,sourceBytesPinned:true,
+   oldSignerGrantsInventory0:false,mergeAuthorized:false,signerAuthorized:false,
+   writerAuthorized:false,operationOn:false,latestProtectedCASVerified:false,
+   genuineEncryptedProductV2Verified:false,requiresIndependentSecurityL2:true});
+ }catch(err){
+  if(String(err).includes('R22_INVENTORY0_SOURCE_DENIED_'))throw err;
+  deny('MAIN_FIRST_GIT_OR_JSON_FAILURE');
+ }
+}
