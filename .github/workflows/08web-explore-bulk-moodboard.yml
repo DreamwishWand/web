@@ -1,0 +1,90 @@
+name: 08 WEB Explore verified 24-item local Moodboard batch (L2 OFF Save)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/08web-explore-bulk-moodboard.yml'
+      - 'src/lib/explore/verified-moodboard-batch.mjs'
+      - 'src/routes/explore/+page.svelte'
+      - 'tests/web-explore-bulk-verified-moodboard.test.mjs'
+      - 'scripts/web-explore-bulk-moodboard-chrome.mjs'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact 5 source files, old Moodboard storage and signer untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='b2c28e8a095f07ba7e6b2c5a1dfa985eca2ca90d'
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          printf '%s\n' \
+            .github/workflows/08web-explore-bulk-moodboard.yml \
+            scripts/web-explore-bulk-moodboard-chrome.mjs \
+            src/lib/explore/verified-moodboard-batch.mjs \
+            src/routes/explore/+page.svelte \
+            tests/web-explore-bulk-verified-moodboard.test.mjs | LC_ALL=C sort > /tmp/bulk-expected
+          git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/bulk-actual
+          diff -u /tmp/bulk-expected /tmp/bulk-actual
+          test "$(git diff --name-status "$BASE" HEAD -- src/routes/explore/+page.svelte | cut -f1)" = M
+          for p in .github/workflows/08web-explore-bulk-moodboard.yml \
+            scripts/web-explore-bulk-moodboard-chrome.mjs \
+            src/lib/explore/verified-moodboard-batch.mjs \
+            tests/web-explore-bulk-verified-moodboard.test.mjs; do
+            test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+          done
+          for p in $(cat /tmp/bulk-expected); do
+            test "$(git ls-tree HEAD "$p" | awk '{print $1}')" = 100644
+          done
+          git diff --exit-code "$BASE" HEAD -- src/lib/moodboards/ src/lib/collection/ src/lib/item-media/ src/lib/ddv/ src/lib/dev/ src/lib/wep/ crates/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_EXPLORE_BULK_EXACT5_MOODBOARD_CAS_CORE_AND_SIGNER_UNMODIFIED_PASS
+      - name: Source identity, capacity, rollback and eight locale Node tests
+        run: |
+          node --test tests/web-explore-bulk-verified-moodboard.test.mjs tests/web-explore-decux21-moodboard-tap.test.mjs
+          npm run check
+          BASE_PATH=/web npm run build
+          test -f build/explore/index.html
+          test -f build/moodboards/index.html
+          echo WEB_EXPLORE_BULK_SOURCE_SVELTE_STATIC_BUILD_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Local product static /web production build
+        env:
+          BASE_PATH: /web
+        run: npm run build
+      - name: Installed Chrome verifies 24 at once, stale CAS, zero cloud and responsive
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          npm run preview -- --host 127.0.0.1 --port 4362 --strictPort >/tmp/08web-bulk-preview.log 2>&1 &
+          for i in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:4362/web/explore/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4362/web/moodboards/ >/dev/null
+          node scripts/web-explore-bulk-moodboard-chrome.mjs
