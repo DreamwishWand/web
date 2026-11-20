@@ -5,6 +5,7 @@
   import { locale, formatNumber } from '$lib/i18n/runtime.js';
   import { exploreCopy } from '$lib/explore/copy.js';
   import { decorationFamilyUniverses, reconcileDecorationUniverse } from '$lib/explore/family-universe-facets.mjs';
+  import { planVerifiedExploreMoodboardBatch, verifiedMoodboardBatchCopy } from '$lib/explore/verified-moodboard-batch.mjs';
   import { persistMoodboardLocalChange } from '$lib/moodboards/local-persist-compensated.mjs';
   import { WAND_FAVORITES_STORAGE_KEY, emptyWandFavorites, isWandFavorite, parseWandFavorites, persistWandFavorite } from '$lib/explore/wand-favorites-local.mjs';
   import { sharedEntityHref, sharedEntityLabels, PUBLIC_DETAIL_ACCEPTED } from '$lib/entity/shared-catalog-detail.mjs';
@@ -51,6 +52,7 @@
   let quickReviewOpener:HTMLElement|null=null;
 
   $: copy=exploreCopy($locale);
+  $: batchCopy=verifiedMoodboardBatchCopy($locale);
   $: allRecords=runtimeIndex ? rawRows.map((row)=>decodeCollectionRecord(runtimeIndex,row,$locale)) : [];
   $: decorationRecords=allRecords.filter((record)=>DECORATION_FAMILIES.includes(record.family));
   $: filtered=filterCollectionRecords(decorationRecords,{query,family,universe}).sort((a:any,b:any)=>a.label.localeCompare(b.label,$locale));
@@ -138,6 +140,18 @@
     }catch{status=copy.moodboardSaveFailed;}
   }
 
+  function addVisibleToMoodboard(){
+    if(!selectedBoardId||!runtimeIndex||loading||error||!visible.length)return;
+    try{
+      // Uses only this render's already SHA-verified public catalog rows.
+      // Compose the entire local draft before the ONE compensated raw CAS.
+      const planned=planVerifiedExploreMoodboardBatch(moodboards,selectedBoardId,visible,decorationRecords);
+      if(planned.added===0){status=batchCopy.already;return}
+      persistMoodboards(planned.document);
+      status=batchCopy.added+' '+planned.added;
+    }catch{status=batchCopy.blocked}
+  }
+
   function placementFor(item:any){
     if(!placementBinding?.resolveDraftPlacementSource)return null;
     try{return placementBinding.resolveDraftPlacementSource(Number(item.itemId),1);}
@@ -221,6 +235,14 @@
       <label><span>{copy.moodboard}</span><select bind:value={selectedBoardId} disabled={!boards.length}><option value="">{boards.length?copy.chooseBoard:copy.noBoards}</option>{#each boards as board}<option value={board.id}>{board.title}</option>{/each}</select></label>
     </div>
     <div class="summary"><strong>{formatNumber(filteredFavorites.length,{},$locale)} {copy.results}</strong><span>{copy.showing} {formatNumber(visible.length,{},$locale)}</span><button type="button" class="favorites-only" data-explore-wand-favorites-only aria-pressed={wandFavoritesOnly} on:click={()=>wandFavoritesOnly=!wandFavoritesOnly}><Icon name="sparkle" size={16} decorative={true}/>{copy.wandFavoriteOnly}</button></div>
+    {#if selectedBoardId && visible.length}
+      <div class="batch-actions" data-explore-bulk-moodboard data-auto-cloud="off"
+        data-game-save-writer="off" data-catalog-personal-owned="unknown">
+        <button type="button" data-explore-bulk-moodboard-add
+          disabled={!visible.some((item:any)=>!isInMoodboard(item))}
+          on:click={addVisibleToMoodboard}>{batchCopy.action}</button>
+      </div>
+    {/if}
     {#if visible.length}<div class="grid" class:compact-media={$itemImagePreferences.density==='compact'}>{#each visible as item}
       {@const addedToBoard=Boolean(moodboards && selectedBoardId && isInMoodboard(item))}
       <article class="card">
@@ -261,6 +283,7 @@
 
 <style>
 .explore-page{padding-block:64px 96px;min-height:72vh}.heading{display:flex;justify-content:space-between;align-items:end;gap:28px}.heading h1{font-family:Georgia,serif;font-size:clamp(42px,6vw,68px);font-weight:500;letter-spacing:-.055em;margin:12px 0}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions a{border:1px solid var(--border);border-radius:999px;padding:10px 14px;color:var(--gold);font-size:10px;font-weight:800}.boundaries{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:26px 0 14px}.boundaries div,.status{border:1px solid var(--border);border-radius:13px;background:var(--surface);padding:12px 14px;color:var(--ink-muted);font-size:10px;line-height:1.65}.status.error{color:var(--decor-accent)}.status code{display:block;margin-top:6px;color:var(--ink-muted)}.controls{display:grid;grid-template-columns:2fr repeat(3,minmax(150px,1fr));gap:10px;border:1px solid var(--border);border-radius:17px;background:var(--surface);padding:13px}.search-disclosure,.search-field{min-width:0}.search-disclosure{display:grid;align-content:start;gap:6px}.search-field.collapsed{display:none}.search-disclosure>button{box-sizing:border-box;width:100%;min-height:42px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface-raised);color:var(--ink);text-align:left;font-size:12px;font-weight:700;cursor:pointer}.search-disclosure>button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}.controls label{display:grid;gap:6px;font-size:9px;font-weight:800;color:var(--ink-muted)}.controls input,.controls select{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--surface-raised);color:var(--ink)}.summary{display:flex;justify-content:space-between;margin:16px 2px 9px;font-size:10px;color:var(--ink-muted)}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.card{min-width:0;border:1px solid var(--border);border-radius:15px;background:var(--surface);padding:10px}.card-review{display:flex;gap:11px;width:100%;min-width:0;padding:3px;border:0;background:transparent;color:var(--ink);text-align:left;border-radius:11px}.card-review:focus-visible,.card footer button:focus-visible,.quick-review button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}.icon{width:42px;height:42px;flex:none;display:grid;place-items:center;border-radius:12px;background:var(--surface-raised);color:var(--gold);font-family:Georgia,serif}.body{min-width:0;flex:1}.body>span{font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted)}.body h2{font-family:Georgia,serif;font-size:16px;font-weight:500;margin:5px 0 8px;overflow-wrap:anywhere}.facets{display:flex;gap:4px;flex-wrap:wrap;min-height:18px}.facets small{border:1px solid var(--border);border-radius:999px;padding:3px 6px;color:var(--ink-muted);font-size:7px}.body code{display:block;margin-top:8px;font-size:7px;color:var(--ink-muted)}.card footer{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}.card footer a{color:var(--gold);font-size:11px;font-weight:700}.card footer a:focus-visible{outline:3px solid var(--gold);outline-offset:3px}.card footer button,.quick-review button{border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);color:var(--ink);font-size:8px;font-weight:800;padding:7px 9px}.card footer button{box-sizing:border-box;min-width:44px;min-height:44px;max-width:100%;padding:10px 12px;overflow-wrap:anywhere;white-space:normal;font-size:11px;line-height:1.25}.card footer button[aria-pressed='true']{border-style:double;border-width:3px;font-weight:900}.card footer button[data-explore-moodboard-toggle]{display:inline-flex;align-items:center;justify-content:center;gap:6px}.moodboard-action-icons{display:inline-flex;align-items:center;flex:none;gap:1px}.moodboard-action-label{overflow-wrap:anywhere}.card footer button:disabled{opacity:.45}.more,.empty{text-align:center;color:var(--ink-muted);font-size:10px;margin:18px}.empty{min-height:280px;display:grid;place-items:center}.modal-backdrop{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:20px}.quick-review{width:min(560px,100%);max-height:min(760px,90vh);overflow:auto;border:1px solid var(--border);border-radius:22px;background:var(--surface);padding:22px;box-shadow:var(--shadow)}.quick-review header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}.quick-review h2{font-family:Georgia,serif;font-size:28px;font-weight:500;margin:5px 0}.quick-review dl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.quick-review dl>div{background:var(--surface-raised);border-radius:10px;padding:10px}.quick-review dt{font-size:8px;color:var(--ink-muted)}.quick-review dd{margin:5px 0 0;font-size:11px}.footprint{display:grid;grid-template-columns:repeat(var(--fp-w),18px);gap:2px;margin:16px 0}.footprint span{width:18px;height:18px;border:1px solid var(--gold);background:var(--surface-raised);box-sizing:border-box}.place{margin-top:12px}.unavailable{font-size:11px;line-height:1.6;color:var(--ink-muted)}@media(max-width:1050px){.controls{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:760px){.heading{align-items:flex-start;flex-direction:column}.boundaries,.controls{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:480px){.explore-page{padding-block:44px 70px}.grid{grid-template-columns:1fr}.quick-review dl{grid-template-columns:1fr}}
+.batch-actions{display:flex;align-items:center;flex-wrap:wrap;min-width:0;margin:12px 0}.batch-actions button{box-sizing:border-box;max-width:100%;min-height:44px;border:1px solid var(--border);border-radius:11px;background:var(--surface-raised);padding:10px 14px;color:var(--ink);font-size:12px;font-weight:800;text-align:left;overflow-wrap:anywhere;cursor:pointer}.batch-actions button:disabled{opacity:.45;cursor:not-allowed}.batch-actions button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .grid.compact-media{gap:6px}.grid.compact-media .card{padding:6px}
 .summary .favorites-only{display:inline-flex;gap:6px;align-items:center;justify-content:center;min-height:44px;max-width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);border-radius:9px;font-size:11px;font-weight:750;cursor:pointer;overflow-wrap:anywhere}.summary .favorites-only[aria-pressed='true']{border:2px double var(--gold);color:var(--gold)}.summary .favorites-only:focus-visible{outline:3px solid var(--gold);outline-offset:2px}.card footer button[data-explore-wand-favorite]{display:inline-flex;gap:6px;align-items:center;justify-content:center}.card footer button[data-explore-wand-favorite][aria-pressed='true']{color:var(--gold)}@media(max-width:480px){.summary{align-items:start;gap:8px;flex-wrap:wrap}.summary .favorites-only{width:100%}}
 
