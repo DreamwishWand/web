@@ -31,8 +31,9 @@ def fixtures(root):
         for category,base in delta.CATEGORIES.items():
             content=record(category,base+1)
             if category=="ActivityItem":
-                content+=record(category,base+2,GUID_A if version=="v12413" else GUID_B)
+                content+=record(category,base+2,GUID_A if version in ("v12413","v1261") else GUID_B)
                 if version!="v12413":content+=record(category,base+3)
+                if version=="v1261":content+=record(category,base+4)
             (d/(category+".json")).write_bytes(content)
 
 class IconGuidDeltaSafety(unittest.TestCase):
@@ -49,6 +50,27 @@ class IconGuidDeltaSafety(unittest.TestCase):
             self.assertEqual(result["v12413_to_v1250"]["addedCount"],1)
             self.assertEqual(result["v1250_to_v1253"]["iconGuidChangedCount"],0)
             self.assertEqual(result["v1250_to_v1253"]["addedCount"],0)
+
+    def test_new_v1261_opt_in_preserves_legacy_and_denies_missing_original(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp)
+            fixtures(root)
+            old=delta.analyze(root,synthetic=True)
+            self.assertNotIn("v1261",old["source"])
+            self.assertNotIn("v1253_to_v1261",old)
+            new=delta.analyze(root,synthetic=True,include_v1261=True)
+            self.assertEqual(new["source"]["v1261"]["fullVersion"],
+                "releases_1.26ex-v1.26.1-633-g45e7ee77d30a-incremental-18")
+            self.assertEqual(new["v1253_to_v1261"]["addedCount"],1)
+            self.assertEqual(new["v1253_to_v1261"]["iconGuidChangedCount"],1)
+            self.assertEqual(new["switch1261BID"],"UNKNOWN_NOT_READ_FROM_STEAM")
+            self.assertFalse(new["publishAllowed"])
+            self.assertFalse(new["nativeSaveWriterAllowed"])
+            # v1.26.1 cannot be reported without all four originals.
+            (root/"v1261"/"Furniture.json").unlink()
+            self.assertNotIn("v1261",delta.analyze(root,synthetic=True)["source"])
+            with self.assertRaisesRegex(ValueError,"MISSING_OR_SYMLINK_NATIVE_SOURCE"):
+                delta.analyze(root,synthetic=True,include_v1261=True)
 
     def test_original_mode_rejects_fake_raw_protobuf(self):
         with tempfile.TemporaryDirectory() as tmp:
