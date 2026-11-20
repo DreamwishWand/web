@@ -1,0 +1,140 @@
+name: 01A Steam626 Inventory0 isolated product Rust/WASM source validation (OFF)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml'
+permissions:
+  contents: read
+jobs:
+  inventory0-actual-rust-wasm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/01a-inv0-only-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed protected Source and bounded original Rust paths only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git merge-base 0e57c6b8585002b1baff91e6de573a835bed6577 HEAD)" = 0e57c6b8585002b1baff91e6de573a835bed6577
+          git diff --name-only 0e57c6b8585002b1baff91e6de573a835bed6577 HEAD | sort > /tmp/01a-inv0-actual-paths
+          printf '%s\n' '.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml' 'crates/ddv-save-core/Cargo.toml' 'crates/ddv-save-core/src/wasm_worker.rs' 'tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs' | sort > /tmp/01a-inv0-expected-paths
+          diff -u /tmp/01a-inv0-expected-paths /tmp/01a-inv0-actual-paths
+          for f in $(cat /tmp/01a-inv0-actual-paths); do test "$(git ls-tree HEAD -- "$f" | awk '{print $1}')" = 100644; done
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 522e8e8d6beec597b2e5e176cfbe8a6d8e38a124
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 775a2766f237d44ae77fa5347e9adf430c8580d2
+          test -z "$(git ls-files '*.p1g')"
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          node --test tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Compile new exact Steam626 Inventory0-only Rust WASM
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = 1.99.1
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-catalog0-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/01a-inv0-only-bindgen
+          mkdir -p /tmp/01a-inv0-only-wasm
+          /tmp/01a-inv0-only-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/01a-inv0-only-wasm --target nodejs --no-typescript
+          test -s /tmp/01a-inv0-only-wasm/ddv_save_core_bg.wasm
+      - name: Actual generated Rust-WASM Steam Inventory0 single-amount and denied domains
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFile} from 'node:fs/promises';
+          import {createRequire} from 'node:module';
+          import {createHash} from 'node:crypto';
+          const {WorkerWasmSource}=createRequire(import.meta.url)('/tmp/01a-inv0-only-wasm/ddv_save_core.js');
+          const wasmRaw=await readFile('/tmp/01a-inv0-only-wasm/ddv_save_core_bg.wasm');
+          const ex=Object.getOwnPropertyNames(WorkerWasmSource.prototype);
+          const methods=[
+            'append_chunk','finish','read_core_version_witness','issue_typed_cursor','read_typed_page',
+            'issue_saved_diffgrids_typed_cursor','read_saved_diffgrids_typed_page',
+            'discover_scoped_amount','preview_scoped_amount','stage_scoped_amount',
+            'toggle_scoped_edit','begin_scoped_edit_output','next_scoped_edit_output_chunk',
+            'toggle_scoped_amount','begin_scoped_amount_output','next_scoped_amount_output_chunk','close'
+          ];
+          for(const n of methods)assert.equal(typeof WorkerWasmSource.prototype[n],'function','missing required ABI '+n);
+          for(const n of ['discover_switch626_chest','preview_switch626_chest','stage_switch626_chest',
+            'preview_steam626_comp03','stage_steam626_comp03','read_steam626_bamboo_single_target',
+            'stage_steam626_skin','stage_steam626_hair','stage_switch626_rm01'])
+            assert.equal(typeof WorkerWasmSource.prototype[n],'undefined','foreign Rust ABI '+n);
+          assert.deepEqual(ex.sort(),['constructor','__destroy_into_raw','free',...methods].sort());
+          const empty=()=>({ItemID:0,Amount:0,State:null});
+          const source={GameInfo:{Version:626},ConditionalEventHistory:{ActiveEvents:{}},
+            World:{GridCollection:{Grids:{'7':{ID:7,GridDefaultLayoutPath:'',
+              Objects:{'4':{ID:4,ItemID:40001680,State:{Storage:{
+                ContainerInventoryID:12,DefaultContainerInventoryData:'',
+                UnlockKeyItemID:0,UnlockLocId:'',DesignID:null}}}}}},DiffGrids:{}},
+              MissionSlots:{},Villages:[{Areas:{'2':{GridIDs:[7],Unlocked:true}}}]},
+            Player:{ListInventories:{
+              '0':{ID:0,CompatibleItemType:'ItemType_Furniture',
+                CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},
+                Inventory:{'40000048':{Amount:3,Marker:'ItemMarker_None'}}},
+              '2':{ID:2,CompatibleItemType:'ItemType_ActivityItem',
+                Inventory:{'30200000':{Amount:2}}}},
+              ContainerInventories:{'12':{ID:12,ParentItemID:40001680,BelongsToPlayer:true,
+                BlockMoveTo:false,Size:48,ExtraSize:0,
+                Inventory:[{ItemID:30200000,Amount:50,State:null,Unknown:7},...Array.from({length:47},empty)]}},
+              BackpackOverflow:{Items:[]},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},
+              DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},
+            Unknown:{neverOverwrite:true}};
+          const encoded=new TextEncoder().encode(JSON.stringify(source));
+          const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+          const inputSha=hash(encoded);
+          const BUILD='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          const w=new WorkerWasmSource('steam-windows','steam-full-version',BUILD,626,true,new Uint8Array(32).fill(19));
+          for(let i=0;i<encoded.length;i+=1024*1024)w.append_chunk(encoded.slice(i,i+1024*1024));
+          const session=JSON.parse(w.finish());
+          assert.equal(session.fullDocumentJsonValidated,true);
+          assert.equal(session.writerAuthorized,false);
+          const a=[session.sessionId,BigInt(session.revision),BigInt(session.indexGeneration),session.decodedSha256];
+          const d=JSON.parse(w.discover_scoped_amount('catalog0-furniture',0,...a));
+          assert.equal(d.writerAuthorized,false);assert.equal(d.editedCopyAuthorized,false);
+          const inv=d.rows.find(r=>r.profile==='catalog0-furniture'&&r.id===0&&r.selector===40000048&&r.oldAmount===3);
+          assert.ok(inv,'real Rust must mint eligible existing 40000048 amount3');
+          assert.throws(()=>w.discover_scoped_amount('linked-crop-chest48',0,...a));
+          assert.throws(()=>w.preview_scoped_amount('linked-crop-chest48',12,0,49,...a));
+          assert.throws(()=>w.preview_scoped_amount('catalog0-furniture',12,40000048,2,...a));
+          assert.throws(()=>w.stage_scoped_amount('linked-crop-chest48',12,0,50,49,'b'.repeat(64),...a));
+          assert.throws(()=>w.stage_scoped_amount('catalog0-furniture',0,40000048,3,3,'b'.repeat(64),...a));
+          const preview=JSON.parse(w.preview_scoped_amount('catalog0-furniture',0,40000048,2,...a));
+          assert.equal(preview.itemId,40000048);assert.equal(preview.oldAmount,3);assert.equal(preview.newAmount,2);
+          assert.equal(preview.writerAuthorized,false);
+          const staged=JSON.parse(w.stage_scoped_amount('catalog0-furniture',0,40000048,3,2,preview.entrySha256,...a));
+          assert.equal(staged.exactFieldChangedCount,1);
+          assert.equal(staged.applied,true);assert.equal(staged.writerAuthorized,false);
+          const next=[staged.sessionId,BigInt(staged.revision),BigInt(staged.indexGeneration),staged.decodedSha256];
+          const out=JSON.parse(w.begin_scoped_edit_output(...next));
+          assert.equal(out.writerAuthorized,false);assert.equal(out.originalOverwriteAuthorized,false);
+          const chunks=[];let consumed=0;
+          do{const c=w.next_scoped_edit_output_chunk();chunks.push(c);consumed+=c.length;if(consumed>32*1024*1024)throw Error('output too large');}while(consumed<out.decodedBytes);
+          const merged=new Uint8Array(consumed);let pos=0;for(const c of chunks){merged.set(c,pos);pos+=c.length;}
+          const wanted=structuredClone(source);wanted.Player.ListInventories['0'].Inventory['40000048'].Amount=2;
+          assert.equal(new TextDecoder().decode(merged),JSON.stringify(wanted),'exact one lexical field; unknowns unchanged');
+          assert.equal(hash(encoded),inputSha);
+          assert.throws(()=>w.begin_scoped_edit_output(...next),'no double Export');
+          w.close();
+          const foreign=new WorkerWasmSource('switch','switch-bid','9A239D3DB569756D',626,true,new Uint8Array(32).fill(8));
+          foreign.append_chunk(encoded);const fr=JSON.parse(foreign.finish());
+          assert.throws(()=>foreign.discover_scoped_amount('catalog0-furniture',0,fr.sessionId,BigInt(fr.revision),BigInt(fr.indexGeneration),fr.decodedSha256));
+          foreign.close();
+          console.log('01A_STEAM626_CATALOG0_CURRENT_RUST_REAL_WASM_ONE_FIELD_POS_AND_FOREIGN_SCOPE_NEG_PASS');
+          console.log('01A_STEAM626_CATALOG0_WASM_SHA256',hash(wasmRaw));
+          NODE
