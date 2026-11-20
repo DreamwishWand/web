@@ -44,7 +44,7 @@ jobs:
           test "$(git rev-parse HEAD:src/lib/explore/verified-moodboard-batch.mjs)" = 70bf60a2cae238564baeedd336ceaaf735d7fd14
           test "$(git rev-parse HEAD:src/routes/explore/+page.svelte)" = 1b250beb01499a76ab047dbac93dde698ba7e93d
           test "$(git rev-parse HEAD:tests/web-explore-bulk-verified-moodboard.test.mjs)" = a1b22b66633f7ff41445d0641a0f5b6e2f624af3
-          test "$(git rev-parse HEAD:scripts/qa-qrw-pr2408-bulk-moodboard-multitab-chrome.mjs)" = 6c75c23a81904e1dd3751c3ea1f01a9df2d60889
+          test "$(git rev-parse HEAD:scripts/qa-qrw-pr2408-bulk-moodboard-multitab-chrome.mjs)" = 35d8419267591b9ac2187fa268b39aa8cc216340
           git diff --quiet "$source" HEAD -- src tests docs crates static ops package.json package-lock.json
           echo QRW2408_EXACT_SOURCE5_QA2_BLOB_MODE_NO_LOCAL_STORE_CHANGE_PASS
       - run: npm ci --no-audit --no-fund
