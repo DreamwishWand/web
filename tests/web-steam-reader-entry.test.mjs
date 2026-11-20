@@ -10,7 +10,11 @@ test('accepted Steam reader is reachable from Editor and the Home-linked RC stat
   assert.match(src,/data-steam-reader-entry data-sveltekit-reload href=\{base \+ '\/editor\/steam-reader\/'\}/);
   assert.match(src,/savedDiffGridsCopy\(\$locale\)/);
   assert.match(src,/reader\.preformal/);
-  assert.doesNotMatch(src,/new Worker\(|type=["']file|<SteamSavedDiffGridsReadonly|createSavedDiffGridsUiClient/);
+  const presets=read('src/routes/presets/+page.svelte');
+ assert.match(presets,/if\(window\.location\.hash!==\x27#device-local-scenes\x27\)return/);
+ assert.match(presets,/surface=\x27my\x27;myDomain=\x27wand\x27/);
+ assert.match(presets,/id=\x22device-local-scenes\x22 tabindex=\x22-1\x22 data-my-local-scenes/);
+ assert.doesNotMatch(src,/new Worker\(|type=["']file|<SteamSavedDiffGridsReadonly|createSavedDiffGridsUiClient/);
  }
  assert.match(read('src/routes/+page.svelte'),/base \+ '\/rc-status\/'/);
  const route=read('src/routes/editor/steam-reader/+page.svelte');
@@ -35,7 +39,7 @@ test('editor entry distinguishes reference catalog, local scene and Switch timin
  const src=read('src/routes/editor/+page.svelte');
  assert.match(src,/editorHubCopy\(\$locale\)/);
  assert.match(src,/data-editor-catalog href=/);assert.match(src,/data-editor-world href=/);assert.match(src,/data-editor-timing href=/);
- assert.match(src,/data-editor-local-scenes href=\{base \+ '\/presets\/'\}/);
+ assert.match(src,/data-editor-local-scenes href=\{base \+ '\/presets\/#device-local-scenes'\}/);
  assert.match(src,/data-beta-capability="local-scene-library" data-beta-state="local"/);
  assert.match(src,/data-beta-save-authorized="false" data-native-apply="off" data-cloud="off"/);
  for(const locale of EDITOR_HUB_LOCALES){const c=editorHubCopy(locale);assert.equal(Object.keys(c).length,15);for(const v of Object.values(c))assert.ok(v.trim());assert.match(c.catalogDetail,/Switch v1\.25\.0/);assert.match(c.timingDetail,/Nintendo Switch v1\.25\.3/);assert.ok(c.sceneTitle&&c.sceneDetail&&c.sceneAction);assert.ok(Object.isFrozen(c));}
