@@ -148,7 +148,69 @@ jobs:
           }
           assert.equal(tests,2);
           assert.equal(wasWiped,2);
+          // Positive control: successful ProductSession still owns intact
+          // validated JSON while the *moved original Vec* was wiped.
+          const good=new WorkerWasmSource('steam-windows','steam-full-version',
+            BUILD,626,true,new Uint8Array(32).fill(0x33));
+          good.append_chunk(new TextEncoder().encode(
+            JSON.stringify({GameInfo:{Version:626},Player:{},World:{}})));
+          assert.equal(good.qa_arm_invalid_finish_heap_witness(),true);
+          const live=JSON.parse(good.finish());
+          assert.equal(good.qa_take_invalid_finish_heap_witness(),2);
+          assert.equal(live.fullDocumentJsonValidated,true);
+          assert.equal(live.writerAuthorized,false);
+          const witness=JSON.parse(good.read_core_version_witness(live.sessionId,
+            BigInt(live.revision),BigInt(live.indexGeneration),live.decodedSha256));
+          assert.equal(witness.coreOwnedReadset,'/GameInfo/Version');
+          assert.equal(witness.writerAuthorized,false);
+          good.close();
+          good.free();
+          console.log('01A_FINISH_VALID_SESSION_STILL_INTACT_OLD_VEC_WIPED_POS_WASM32');
           console.log('01A_FINISH_INVALID_P1G_DEALLOC_PLAINTEXT_ZERO_2_POS_WASM32');
           NODE
+      - name: Actual optimized Switch624 FRP01 owned Vec wipe on invalid Build/fullDoc and valid open
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,product-switch624-frp01-readonly
+          mkdir -p /tmp/qrc-wasm-frp01-finish-pkg
+          /tmp/qrc-wasm-finish-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --target nodejs --no-typescript --out-dir /tmp/qrc-wasm-frp01-finish-pkg
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          const {WorkerWasmSource}=createRequire(import.meta.url)(
+            '/tmp/qrc-wasm-frp01-finish-pkg/ddv_save_core.js');
+          for(const wrongBuild of [false,true]){
+            const worker=new WorkerWasmSource(wrongBuild?'steam-windows':'switch',
+              wrongBuild?'steam-full-version':'switch-bid',
+              wrongBuild?'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22':'52BD625D9B4E0053',
+              wrongBuild?626:624,true,new Uint8Array(32).fill(0x37));
+            worker.append_chunk(new TextEncoder().encode('{"Secret":"'));
+            worker.append_chunk(new Uint8Array(4100).fill(0x52));
+            assert.equal(worker.qa_arm_invalid_finish_heap_witness(),true);
+            assert.throws(()=>worker.finish_switch624_frp01_readonly());
+            assert.equal(worker.qa_take_invalid_finish_heap_witness(),2,
+              'FRP01 invalid Build or fullDoc must erase original decoded Vec');
+            worker.close();worker.free();
+          }
+          const ok=new WorkerWasmSource('switch','switch-bid','52BD625D9B4E0053',
+            624,true,new Uint8Array(32).fill(0x38));
+          ok.append_chunk(new TextEncoder().encode(
+            JSON.stringify({GameInfo:{Version:624},Player:{},World:{}})));
+          assert.equal(ok.qa_arm_invalid_finish_heap_witness(),true);
+          const result=JSON.parse(ok.finish_switch624_frp01_readonly());
+          assert.equal(ok.qa_take_invalid_finish_heap_witness(),2);
+          assert.equal(result.fullDocumentJsonValidated,true);
+          assert.equal(result.writerAuthorized,false);
+          ok.close();ok.free();
+          console.log('01A_FRP01_FINISH_2_INVALID_1_VALID_ORIGINAL_VEC_DEALLOC_ZERO_ACTUAL_WASM32_PASS');
+          NODE
+      - name: Preserve exact two unmerged Source paths after test-only instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
           test "$(git diff --name-only 9883686ad1be3d04ff0f2aa08d908c7a3d72a7db HEAD | sort)" = "$(printf '%s\n' '.github/workflows/01a-worker-finish-owned-vec-scrub-source.yml' 'crates/ddv-save-core/src/product_session.rs' | sort)"
           echo 01A_FINISH_INVALID_WASM32_DEALLOC_PLAINTEXT_ZERO2_SOURCE_FOCUS_PASS
