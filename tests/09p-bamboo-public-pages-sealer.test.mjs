@@ -229,13 +229,13 @@ test('current accepted Bamboo signer rejects committed mode100755 with IDENTICAL
   assert.equal(positive.status,0,positive.stderr);
   const target='crates/ddv-save-core/src/wasm_worker.rs';
   const before=git(['rev-parse','HEAD:'+target],work);
-  assert.match(git(['ls-tree','HEAD','--',target]),/^100644 blob [a-f0-9]{40}\t/);
+  assert.match(git(['ls-tree','HEAD','--',target],work),/^100644 blob [a-f0-9]{40}\t/);
   git(['update-index','--chmod=+x','--',target],work);
-  assert.match(git(['ls-files','--stage','--',target]),/^100755 [a-f0-9]{40} 0\t/);
+  assert.match(git(['ls-files','--stage','--',target],work),/^100755 [a-f0-9]{40} 0\t/);
   // Use immutable Git Tree/commit objects: normal git commit may restage the
   // working-tree file mode back to 100644 during the index refresh.
   const modeTree=git(['write-tree'],work);
-  assert.equal(git(['ls-tree',modeTree,'--',target]),
+  assert.equal(git(['ls-tree',modeTree,'--',target],work),
    '100755 blob '+before+'\t'+target);
   const tampered=git(['-c','user.name=Wand Review','-c',
    'user.email=qa@example.invalid','commit-tree',modeTree,'-p',good],work);
@@ -244,7 +244,7 @@ test('current accepted Bamboo signer rejects committed mode100755 with IDENTICAL
   await chmod(join(work,target),0o755);
   assert.notEqual(tampered,good);
   assert.equal(git(['rev-parse','HEAD:'+target],work),before);
-  assert.equal(git(['ls-tree','HEAD','--',target]),'100755 blob '+before+'\t'+target);
+  assert.equal(git(['ls-tree','HEAD','--',target],work),'100755 blob '+before+'\t'+target);
   assert.equal(git(['status','--porcelain=v1','--untracked-files=all','--',
     'crates/ddv-save-core/src']), '');
   const negative=run(tampered);
