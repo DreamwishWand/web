@@ -6,6 +6,8 @@
   import { presetsStage1Copy, PRESETS_STAGE1_ROOT, PRESETS_STAGE1_IN_GAME } from '$lib/presets/stage1-root.mjs';
   import { MY_DOMAINS, MY_WAND_VIEWS, myPresetsCopy } from '$lib/presets/my-presets-router.mjs';
   import { filterReopenedLocalScenes, localSceneTitleFilterCopy } from '$lib/presets/local-scene-title-filter.mjs';
+  import { localSceneReadonlyMapFromDraft, localSceneReadonlyMapCopy } from '$lib/presets/local-scene-readonly-map.mjs';
+  import { buildReadonlyLocalSceneReuseDraft } from '$lib/wep/local-scene-reuse-readonly';
   import { CommunityLabClient } from '$lib/community/staging-http-client';
   import { readCommunityBrowserConfig } from '$lib/community/runtime-config';
   import { createPresetCommunityBridge } from '$lib/wep/preset-community-bridge';
@@ -55,6 +57,7 @@
   let deviceScenes:LocalSceneSummary[]=[];
   let sceneFilterQuery='';
   let deviceSceneSelected:LocalSceneSummary|null=null;
+  let deviceSceneMap: ReturnType<typeof localSceneReadonlyMapFromDraft> = null;
   let deviceScenesMessage='';
   let deviceScenesReadable=false;
   let portableInput:HTMLInputElement;
@@ -74,6 +77,7 @@
   $: myCopy=myPresetsCopy($locale);
   $: deviceSceneCopy=localScenePresetCopy($locale);
   $: sceneFilterCopy=localSceneTitleFilterCopy($locale);
+  $: sceneMapCopy=localSceneReadonlyMapCopy($locale);
   $: filteredDeviceScenes=filterReopenedLocalScenes(deviceScenes,sceneFilterQuery,$locale);
   $: portableCopy=localScenePortableCopy($locale);
   $: deviceSceneRouteCopy=localSceneRouteCopy($locale);
@@ -225,6 +229,7 @@
        !deviceScenes.some((entry)=>entry.id===id))return;
     deviceScenesBusy=true;
     deviceSceneSelected=null;
+    deviceSceneMap=null;
     deviceScenesMessage='';
     try{
       const current=await readLocalSceneById(id);
@@ -238,6 +243,16 @@
       }
       const readiness=preflightScene(current.entry.artifact);
       if(readiness.writeReady!==false)throw Error('DEVICE_SCENE_WRITE_READY_FORBIDDEN');
+      // 02 WEP validates a detached local-coordinate draft; it grants NO
+      // Editor, Native placement, ownership, DDV Writer or Save permission.
+      // Unsupported topology/portableState merely omits the picture.
+      try{
+        const draft=buildReadonlyLocalSceneReuseDraft({
+          sceneId:current.entry.id,sourceRevision:current.revision,
+          artifact:current.entry.artifact
+        });
+        deviceSceneMap=localSceneReadonlyMapFromDraft(draft);
+      }catch{deviceSceneMap=null}
       deviceSceneSelected={...expected};
       deviceScenesMessage=deviceSceneCopy.opened;
     }catch{
@@ -464,6 +479,25 @@
               <h3>{deviceSceneCopy.preview}: {deviceSceneSelected.title}</h3>
               <p>{copy.objects}: {deviceSceneSelected.objectCount}</p>
               <code>writeReady=false</code>
+              {#if deviceSceneMap}
+                <figure class="device-scene-map" data-device-scene-readonly-map
+                  data-device-scene-map-apply="off" data-device-scene-map-ownership="unknown">
+                  <figcaption>{sceneMapCopy.title}</figcaption>
+                  <svg role="img" aria-label={sceneMapCopy.title}
+                    viewBox={`0 0 ${deviceSceneMap.width} ${deviceSceneMap.height}`}
+                    preserveAspectRatio="xMidYMid meet" data-device-scene-map-svg>
+                    <title>{sceneMapCopy.title}</title>
+                    {#each deviceSceneMap.cells as cell,i (i)}
+                      <rect x={cell.x+0.025} y={cell.y+0.025} width={0.95} height={0.95}
+                        data-device-scene-map-cell data-item-id={cell.itemId}>
+                        <title>{sceneMapCopy.itemId}: {cell.itemId}</title>
+                      </rect>
+                    {/each}
+                  </svg>
+                  <p data-device-scene-map-cells>{sceneMapCopy.cells}: {deviceSceneMap.cells.length}</p>
+                  <p class="map-boundary">{sceneMapCopy.notice}</p>
+                </figure>
+              {/if}
               <button type="button" data-device-scene-world-editor-selected
                 on:click={openSelectedDeviceSceneInWorldEditor}
                 disabled={deviceScenesBusy} aria-label={deviceSceneRouteCopy.action}>
@@ -639,6 +673,12 @@
 
 .my-domains,.my-views{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 22px}.my-domains button,.my-views button,.my-ingame-statuses button{min-height:44px;padding:10px 14px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--ink)}.my-domains button[aria-pressed=true],.my-views button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}.my-domains button:focus-visible,.my-views button:focus-visible,.my-ingame-statuses button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}.my-panel{display:grid;gap:12px}.my-panel h2{font-size:24px;margin:0}.my-panel p{font-size:12px;line-height:1.7;color:var(--ink-soft);margin:0}.my-ingame-statuses{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.my-ingame-statuses>div{min-width:0;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--page-2)}.my-ingame-statuses h3{font-size:14px;margin:0 0 10px}.my-ingame-statuses button{margin-top:12px}.my-panel[hidden],section[data-my-pc-local][hidden]{display:none!important}@media(max-width:760px){.my-ingame-statuses{grid-template-columns:1fr}}
 .root-title{font-family:Georgia,serif;font-weight:500;font-size:clamp(40px,6vw,65px);letter-spacing:-.045em;margin:0 0 22px}.preset-stage1-root-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.preset-ingame-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.preset-root-card{display:flex;flex-direction:column;align-items:stretch;gap:14px;text-align:left;min-width:0;min-height:265px;padding:17px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--ink);cursor:pointer}.preset-root-card strong{font-family:Georgia,serif;font-weight:500;font-size:clamp(18px,2vw,24px);line-height:1.25;overflow-wrap:anywhere}.preset-root-card:hover{border-color:var(--gold)}.preset-root-art{height:155px;display:grid;place-items:center;background:var(--surface-raised);color:var(--gold);border-radius:15px;font:44px Georgia,serif}.preset-root-card:focus-visible,.preset-back:focus-visible{outline:3px solid var(--gold);outline-offset:3px}.preset-back{border:1px solid var(--border);border-radius:12px;padding:12px 15px;min-height:44px;background:var(--surface);color:var(--ink)}@media(max-width:950px){.preset-stage1-root-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:530px){.preset-stage1-root-grid,.preset-ingame-grid{grid-template-columns:1fr}.preset-root-card{min-height:160px;flex-direction:row;align-items:center}.preset-root-art{width:76px;height:76px;flex:none;font-size:31px}.preset-root-card strong{font-size:21px}}
+  .device-scene-map{box-sizing:border-box;min-width:0;max-width:100%;margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:12px;overflow-wrap:anywhere}
+  .device-scene-map figcaption{font-weight:750;font-size:13px;margin-bottom:8px}
+  .device-scene-map svg{display:block;width:min(100%,320px);height:auto;max-height:260px;min-width:0;overflow:visible;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised)}
+  .device-scene-map rect{fill:var(--gold);stroke:var(--ink);stroke-width:0.025;vector-effect:non-scaling-stroke}
+  .device-scene-map p{font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+  .device-scene-map .map-boundary{color:var(--ink-soft)}
   .device-scene-filter{display:flex;flex-wrap:wrap;gap:8px;min-width:0;align-items:center}
   .device-scene-filter input{box-sizing:border-box;flex:1 1 170px;min-width:0;max-width:100%;min-height:36px}
   .device-scene-filter button{flex:0 0 auto;max-width:100%;min-height:36px}
