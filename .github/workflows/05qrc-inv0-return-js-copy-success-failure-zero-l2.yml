@@ -108,8 +108,8 @@ jobs:
               'pub fn qa_take_abandoned_output_dealloc',
               r'''              pub fn qa_consumed_prefix_zero(&self)->u32 {
                   if let Some((ref out,pos))=self.scoped_output {
-                      if *pos==0 || *pos>out.len(){return 0;}
-                      if out[..*pos].iter().all(|b|*b==0){return 2;}else{return 1;}
+                      if pos==0 || pos>out.len(){return 0;}
+                      if out[..pos].iter().all(|b|*b==0){return 2;}else{return 1;}
                   }
                   0
               }
