@@ -315,6 +315,67 @@ try{
  assert.deepEqual(await page.evaluate(keys=>keys.map(k=>localStorage.getItem(k)),oldKeys),
   oldValues,'local composition must not write Moodboard');
  console.log('WEP_SAVEFREE_TWO_VERIFIED_FURNITURE_REAL_CHROME_OFF_IDB_CAS_BACKUP_REOPEN_PASS');
+ // W-DEC-018: a device-local Scene alias can be changed with no game Save.
+ const aliasPanel=page.locator('[data-wep-local-scene-alias]');
+ await aliasPanel.waitFor();
+ assert.equal(await aliasPanel.getAttribute('data-save-writer'),'off');
+ assert.equal(await aliasPanel.getAttribute('data-native-apply'),'off');
+ assert.equal(await aliasPanel.getAttribute('data-cloud'),'off');
+ assert.equal(await aliasPanel.locator('[data-wep-alias-scene]').count(),0,
+  'opening World Editor is passive: no implicit library selection');
+ const beforeAlias=await page.evaluate(async()=>{
+  const {reopenLocalScenes}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  const row=await reopenLocalScenes();
+  return {revision:row.revision,primary:row.primary,backup:row.backup,
+    entries:row.document.entries};
+ });
+ assert.equal(beforeAlias.revision,2);
+ await aliasPanel.locator('[data-wep-alias-load]').click();
+ await aliasPanel.locator('[data-wep-alias-scene]').selectOption(two.entries[0].id);
+ assert.equal(await aliasPanel.locator('[data-wep-alias-confirm]:not([disabled])').count(),0,
+  'unchanged local alias must not write');
+ await aliasPanel.locator('[data-wep-alias-title]').fill('New visible title only');
+ await aliasPanel.locator('[data-wep-alias-confirm]').click();
+ await aliasPanel.locator('[data-wep-alias-status]').waitFor();
+ const renamed=await page.evaluate(async()=>{
+  const {reopenLocalScenes}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  const row=await reopenLocalScenes();
+  return {revision:row.revision,backupRevision:row.backupRevision,
+    primary:row.primary,backup:row.backup,entries:row.document.entries};
+ });
+ assert.equal(renamed.revision,3);
+ assert.equal(renamed.backupRevision,2);
+ assert.equal(renamed.backup,beforeAlias.primary,
+  'old complete library raw bytes must be the exact atomic Backup');
+ assert.equal(renamed.entries[0].title,'New visible title only');
+ assert.deepEqual(renamed.entries[0].artifact,beforeAlias.entries[0].artifact,
+  'captured Scene artifact must remain byte-for-byte logically unchanged');
+ assert.deepEqual(renamed.entries[1],beforeAlias.entries[1],
+  'other local Scene cannot be renamed or mutated');
+ // Stale multi-tab CAS: independent concurrent update wins, never overwrite.
+ await aliasPanel.locator('[data-wep-alias-scene]').selectOption(two.entries[1].id);
+ await aliasPanel.locator('[data-wep-alias-title]').fill('Stale UI rename refused');
+ await page.evaluate(async sceneId=>{
+  const {renameLocalSceneAlias}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  await renameLocalSceneAlias({sceneId,newTitle:'Concurrent valid alias',
+    expectedOldTitle:'Two pinned local furniture',expectedRevision:3});
+ },two.entries[1].id);
+ await aliasPanel.locator('[data-wep-alias-confirm]').click();
+ assert.equal(await aliasPanel.locator('[data-wep-alias-status]').getAttribute('role'),
+  'alert','stale CAS must fail visibly');
+ const afterStale=await page.evaluate(async()=>{
+  const {reopenLocalScenes}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  const row=await reopenLocalScenes();
+  return {revision:row.revision,entries:row.document.entries};
+ });
+ assert.equal(afterStale.revision,4);
+ assert.equal(afterStale.entries[1].title,'Concurrent valid alias');
+ assert.deepEqual(afterStale.entries[1].artifact,beforeAlias.entries[1].artifact);
+ assert.deepEqual(await page.evaluate(keys=>keys.map(k=>localStorage.getItem(k)),oldKeys),
+  oldValues,'local rename must not touch Moodboard/legacy bytes');
+ assert.equal(await page.locator('[data-editor-object-id]').count(),0,
+  'alias manager cannot instantiate game-facing EditorSession');
+ console.log('WEP_LOCAL_SCENE_ALIAS_REAL_CHROME_CAS_BACKUP_REOPEN_STALE_DENY_OFF_PASS');
  assert.deepEqual(unsafe,[],'unexpected external request or mutating HTTP');
  assert.deepEqual(errors,[],'browser JS exception');
  console.log(JSON.stringify({operation:'WEP_SAVEFREE_FIRST_NONEMPTY_VERIFIED_CATALOG_SCENE@1',

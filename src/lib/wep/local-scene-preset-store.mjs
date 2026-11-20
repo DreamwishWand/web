@@ -155,6 +155,57 @@ export async function readLocalSceneById(id,factory=globalThis.indexedDB){
  return {revision:row.revision,entry:structuredClone(entry)};
 }
 
+
+/**
+ * Rename ONLY the user-visible local library alias. The captured portable
+ * Scene artifact, game IDs and existing entries remain byte-for-byte intact.
+ * This is a local IndexedDB CAS; never a game Save/EditorSession operation.
+ */
+/** @param {{factory?: IDBFactory, sceneId: string, newTitle: string,
+ * expectedRevision: number, expectedOldTitle: string}} args */
+export async function renameLocalSceneAlias({
+ factory=globalThis.indexedDB,sceneId,newTitle,expectedRevision,expectedOldTitle
+}) {
+ if(typeof sceneId!=='string'||!/^scene_[0-9a-f-]{36}$/.test(sceneId)||
+    typeof newTitle!=='string'||!newTitle.trim()||newTitle.trim().length>120||
+    typeof expectedOldTitle!=='string'||!expectedOldTitle.trim()||
+    expectedOldTitle.length>120||!Number.isSafeInteger(expectedRevision)||
+    expectedRevision<1||expectedRevision>=Number.MAX_SAFE_INTEGER)fail('ALIAS_INPUT_INVALID');
+ const title=newTitle.trim();
+ if(title===expectedOldTitle)fail('ALIAS_UNCHANGED');
+ const db=await openLocalSceneDb({factory,create:false});
+ let receipt;
+ try {
+  receipt=await transaction(db,'readwrite',row=>{
+   if(row.revision!==expectedRevision)fail('STALE_REVISION');
+   const entry=row.document.entries.find(e=>e.id===sceneId);
+   if(!entry)fail('ENTRY_MISSING');
+   if(entry.title!==expectedOldTitle)fail('STALE_ALIAS');
+   const nextDoc={schema:DOC_SCHEMA,version:1,entries:row.document.entries.map(e=>
+    e.id===sceneId?{...e,title}:e
+   )};
+   const primary=encode(nextDoc);
+   if(primary.length>MAX_BYTES||byteLength(primary)>MAX_BYTES)fail('LIMIT_REACHED');
+   parseDocument(primary);
+   const next={schema:ROW_SCHEMA,revision:row.revision+1,
+    backupRevision:row.revision,primary,backup:row.primary};
+   return {next,value:{id:sceneId,title,oldTitle:expectedOldTitle,
+    revision:next.revision,backupRevision:next.backupRevision,
+    primary,backup:next.backup}};
+  });
+ } finally { db.close(); }
+ // Separate IDB open and transaction: no optimistic in-memory "saved" claim.
+ const row=await reopenLocalScenes(factory);
+ if(row.revision!==receipt.revision||row.backupRevision!==receipt.backupRevision||
+    row.primary!==receipt.primary||row.backup!==receipt.backup)
+  fail('ALIAS_REOPEN_MISMATCH');
+ const entry=row.document.entries.find(e=>e.id===receipt.id);
+ if(!entry||entry.title!==receipt.title)fail('ALIAS_REOPEN_MISMATCH');
+ // Exact old raw snapshot is preserved as the current row's backup.
+ return {revision:row.revision,backupRevision:row.backupRevision,
+  entry:structuredClone(entry),primary:row.primary,backup:row.backup};
+}
+
 /* Migration-only portable file: current library entries, never raw IDB rows,
  * Save bytes, backup/session/account state or executable placement authority.
  * The source and its Backup remain untouched. A target merge is one CAS commit.
