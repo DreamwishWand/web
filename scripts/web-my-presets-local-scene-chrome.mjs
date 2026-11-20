@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 import {localScenePresetCopy} from '../src/lib/wep/local-scene-preset-copy.js';
+import {localSceneTitleFilterCopy} from '../src/lib/presets/local-scene-title-filter.mjs';
 const origin=process.env.WEB_LOCAL_SCENE_ORIGIN||'http://127.0.0.1:4349';
 assert.match(origin,/^http:\/\/127\.0\.0\.1:[0-9]+$/);
 assert.ok(process.env.CHROME_BIN,'Real installed Chrome required');
@@ -65,6 +66,7 @@ try{
  const p=await openMy();
  assert.equal(await haveDB(p),false,'Passive render must not open/create local Scene DB');
  assert.equal(await p.locator('[data-device-scenes-list]').count(),0);
+ assert.equal(await p.locator('[data-device-scene-search]').count(),0,'Passive root does not render search or touch local DB');
  assert.equal(await p.locator('[data-device-scene-preview]').count(),0);
  assert.equal(await p.locator('[data-my-wand-view="created"]').count(),1);
  assert.equal(await p.locator('[data-my-local-scenes] [data-account-created="unverified"]').count(),0);
@@ -133,6 +135,31 @@ try{
  await stale.locator('[data-device-scenes-reopen]').click();
  await stale.locator('[data-device-scene-select]').nth(1).waitFor({timeout:30000});
  assert.equal(await stale.locator('[data-device-scene-select]').count(),2);
+ // Search is a pure filter over the already manually reopened snapshot.
+ const query=stale.locator('[data-device-scene-search]');
+ await query.fill('second');
+ assert.equal(await stale.locator('[data-device-scene-select]').count(),1);
+ assert.match(await stale.locator('[data-device-scene-select]').innerText(),/Second verified Scene/);
+ await query.fill('not-present');
+ assert.equal(await stale.locator('[data-device-scene-select]').count(),0);
+ assert.equal(await stale.locator('[data-device-scene-filter-empty]').isVisible(),true);
+ for(const loc of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
+  await stale.locator('#site-locale').selectOption(loc);
+  const words=localSceneTitleFilterCopy(loc);
+  await stale.waitForFunction(label=>document.querySelector('.device-scene-filter-label')?.textContent?.trim()===label,words.label);
+  assert.equal(await stale.locator('[data-device-scene-filter-empty]').innerText(),words.noMatches);
+  assert.equal(await stale.locator('[data-device-scene-search-clear]').innerText(),words.clear);
+ }
+ await stale.locator('#site-locale').selectOption('en');
+ const beforeClear=await snapshot(stale);
+ assert.deepEqual(beforeClear,afterWrite,'Search cannot change Scene DB snapshots');
+ await stale.locator('[data-device-scene-search-clear]').focus();
+ await stale.keyboard.press('Enter');
+ assert.equal(await stale.locator('[data-device-scene-search]').inputValue(),'');
+ assert.equal(await stale.locator('[data-device-scene-select]').count(),2);
+ assert.equal(await stale.locator('[data-device-scene-filter-empty]').count(),0);
+ assert.deepEqual(await snapshot(stale),beforeClear);
+ console.log('WEB_LOCAL_SCENE_TITLE_FILTER_8LOCALE_KEYBOARD_NO_DB_MUTATION_PASS');
  await stale.locator('[data-device-scene-select]').nth(1).click();
  await stale.locator('[data-device-scene-preview]').waitFor();
  assert.match(await stale.locator('[data-device-scene-preview]').innerText(),/Second verified Scene/);
