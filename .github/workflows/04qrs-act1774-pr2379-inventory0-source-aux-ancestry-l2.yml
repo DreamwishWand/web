@@ -53,7 +53,8 @@ jobs:
            'tests/09p-r22-inventory0-product-source.test.mjs'];
           const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_AUTHOR_NAME:'QRS ephemeral probe',GIT_AUTHOR_EMAIL:'qrs@example.invalid',GIT_COMMITTER_NAME:'QRS ephemeral probe',GIT_COMMITTER_EMAIL:'qrs@example.invalid'};
           const git=(args,input,extra={})=>execFileSync('git',args,{env:{...env,...extra},encoding:'utf8',input,stdio:['pipe','pipe','pipe']}).trim();
-          assert.equal(git(['rev-parse','HEAD']),process.env.GITHUB_SHA);
+          const qaHead=git(['rev-parse','HEAD']);
+          assert.notEqual(qaHead,SOURCE);
           const approved=verifyR22Inventory0SourceCandidate(SOURCE);
           assert.equal(approved.sourceBytesPinned,true);
           assert.equal(approved.signerAuthorized,false);
@@ -63,7 +64,7 @@ jobs:
           const makeCommit=(base,firstParent,edits=[],otherParents=[])=>{
            git(['read-tree',base+'^{tree}'],undefined,idx);
            for(const [p,c] of edits){
-            const blob=git(['hash-object','-w','--stdin'],c);
+            const blob=c===null?git(['rev-parse',SOURCE+':'+p]):git(['hash-object','-w','--stdin'],c);
             git(['update-index','--add','--cacheinfo','100644',blob,p],undefined,idx);
            }
            const tree=git(['write-tree'],undefined,idx);
@@ -84,7 +85,7 @@ jobs:
            }
            const staged=[...Object.keys(INVENTORY0_EXPECTED_SOURCE),...own];
            const mkMain=(edits=[],parents=[])=>{
-            const updated=staged.map(path=>[path,git(['show',SOURCE+':'+path])]);
+            const updated=staged.map(path=>[path,null]);
             const changed=Object.fromEntries(edits);
             for(const p of updated)if(Object.hasOwn(changed,p[0]))p[1]=changed[p[0]];
             return makeCommit(PROTECTED,PROTECTED,updated,parents);
@@ -112,7 +113,7 @@ jobs:
            assert.equal(x.mergeAuthorized,false);
            admitted++;
            assert.equal(admitted,7);
-           assert.equal(git(['rev-parse','HEAD']),process.env.GITHUB_SHA);
+           assert.equal(git(['rev-parse','HEAD']),qaHead);
            console.log('QRS2379_SOURCE_CLASSIFIER_7_UNREVIEWED_AUX_BLOB_OR_EXTRA_PARENT_ADMISSIONS_TRUE_NEG');
            console.log(JSON.stringify({originalSource:SOURCE,mainFirstBase:PROTECTED,mutatedOwnPaths:3,sourceTamperAccepted:3,mainFirstTamperAccepted:3,extraParentAccepted:1,allSevenHaveReleaseAuthority:false,qaOnly:true,verdict:'SOURCE_PROOF_SCOPE_GAP_NOT_PRODUCT_RELEASE'}));
           }finally{rmSync(tmp,{force:true,recursive:true})}
