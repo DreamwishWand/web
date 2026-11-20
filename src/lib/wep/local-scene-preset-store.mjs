@@ -161,9 +161,11 @@ export async function readLocalSceneById(id,factory=globalThis.indexedDB){
  * Scene artifact, game IDs and existing entries remain byte-for-byte intact.
  * This is a local IndexedDB CAS; never a game Save/EditorSession operation.
  */
+/** @param {{factory?: IDBFactory, sceneId: string, newTitle: string,
+ * expectedRevision: number, expectedOldTitle: string}} args */
 export async function renameLocalSceneAlias({
  factory=globalThis.indexedDB,sceneId,newTitle,expectedRevision,expectedOldTitle
-}={}) {
+}) {
  if(typeof sceneId!=='string'||!/^scene_[0-9a-f-]{36}$/.test(sceneId)||
     typeof newTitle!=='string'||!newTitle.trim()||newTitle.trim().length>120||
     typeof expectedOldTitle!=='string'||!expectedOldTitle.trim()||
