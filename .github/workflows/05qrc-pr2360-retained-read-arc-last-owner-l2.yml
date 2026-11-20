@@ -1,0 +1,161 @@
+name: 05 QR-C repaired ProductSession retained reader Arc final release native L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - .github/workflows/05qrc-pr2360-retained-read-arc-last-owner-l2.yml
+permissions:
+  contents: read
+jobs:
+  retained-borrow-close-and-final-owner:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/qrc-arc-retained-lastowner-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05qrc-20261120-pr2360-retained-arc-last-owner-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Immutable repaired original two Source paths plus one QA-only workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=f7e5ef6d70cdd2d297d0c8f0ed6fec6b6633d236
+          parent=9883686ad1be3d04ff0f2aa08d908c7a3d72a7db
+          path=.github/workflows/05qrc-pr2360-retained-read-arc-last-owner-l2.yml
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD)" = "$path"
+          test "$(git ls-tree HEAD -- "$path" | awk '{print $1}')" = 100644
+          git diff --name-only "$parent" "$source" | LC_ALL=C sort > /tmp/qrc-actual
+          printf '%s\n' \
+            '.github/workflows/01a-worker-finish-owned-vec-scrub-source.yml' \
+            'crates/ddv-save-core/src/product_session.rs' | LC_ALL=C sort > /tmp/qrc-expected
+          diff -u /tmp/qrc-expected /tmp/qrc-actual
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/worker_session.rs)" = 254af029304f6a357c8c0a0e7a1376b80313d038
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 6432275d2909e6bc6d39265ae70cc7176fc37106
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          echo QRC2360_RETAINED_ARC_NEW_DISTINCT_ONE_QA_WORKFLOW_SOURCE_PIN_PASS
+      - name: Inject test-only allocator witness and two held Arc close cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('crates/ddv-save-core/src/lib.rs')
+          s=p.read_text()
+          witness=r'''
+          // QA-ephemeral native allocator. Observe only exact initialized decoded
+          // data span during deallocation before free; no secret or ptr logging.
+          #[cfg(test)]
+          pub(crate) mod qrc_retained_arc_witness {
+              use std::alloc::{GlobalAlloc,Layout,System};
+              use std::sync::atomic::{AtomicUsize,Ordering};
+              static SPAN:AtomicUsize=AtomicUsize::new(0);
+              static LEN:AtomicUsize=AtomicUsize::new(0);
+              static RESULT:AtomicUsize=AtomicUsize::new(0);
+              struct Observer;
+              unsafe impl GlobalAlloc for Observer {
+                  unsafe fn alloc(&self,l:Layout)->*mut u8 { System.alloc(l) }
+                  unsafe fn dealloc(&self,p:*mut u8,l:Layout) {
+                      let data=SPAN.load(Ordering::SeqCst);
+                      let n=LEN.load(Ordering::SeqCst);
+                      let start=p as usize;
+                      if data!=0 && n>0 && start<=data &&
+                          data.checked_add(n).is_some_and(|end|
+                            start.checked_add(l.size()).is_some_and(|limit|end<=limit)) {
+                          let mut nonzero=false;
+                          for i in 0..n {
+                              if core::ptr::read_volatile((data as *const u8).add(i))!=0 {
+                                  nonzero=true; break;
+                              }
+                          }
+                          RESULT.store(if nonzero{1}else{2},Ordering::SeqCst);
+                          SPAN.store(0,Ordering::SeqCst);
+                      }
+                      System.dealloc(p,l);
+                  }
+              }
+              #[global_allocator]
+              static TRACKER:Observer=Observer;
+              pub(crate) fn arm(p:usize,n:usize) {
+                  RESULT.store(0,Ordering::SeqCst);
+                  LEN.store(n,Ordering::SeqCst);
+                  SPAN.store(p,Ordering::SeqCst);
+              }
+              pub(crate) fn result()->usize { RESULT.load(Ordering::SeqCst) }
+          }
+          '''
+          anchor='mod product_session;'
+          assert s.count(anchor)==1
+          p.write_text(s.replace(anchor,witness+anchor,1))
+          p=Path('crates/ddv-save-core/src/product_session.rs')
+          s=p.read_text()
+          anchor='    pub fn decoded_len_for_internal_benchmark(&self) -> usize { self.decoded.len() }'
+          assert s.count(anchor)==1
+          s=s.replace(anchor,'''    // QA-only internal pointer exposed only to ephemeral native test code.
+              #[cfg(test)]
+              pub(crate) fn qrc_private_decoded_span(&self)->(usize,usize) {
+                  (self.decoded.as_ptr() as usize,self.decoded.len())
+              }
+          '''+anchor,1)
+          p.write_text(s)
+          p=Path('crates/ddv-save-core/src/worker_session.rs')
+          s=p.read_text()
+          anchor='    const BID: &str = "9A239D3DB569756D";'
+          assert s.count(anchor)==1
+          tests=r'''
+              fn qrc_check_arc_retained_until_final_drop(explicit_close:bool) {
+                  let mut guard=WorkerSessionGuard::attach(session());
+                  let borrowed=Arc::clone(&guard.session);
+                  let scope=request(guard.receipt().unwrap());
+                  let (p,n)=borrowed.qrc_private_decoded_span();
+                  assert!(p!=0 && n>40);
+                  assert_eq!(unsafe {core::ptr::read_volatile(p as *const u8)},b'{');
+                  crate::qrc_retained_arc_witness::arm(p,n);
+                  if explicit_close {
+                      guard.close().unwrap();
+                      assert_eq!(guard.receipt().unwrap_err().0,"WORKER_SESSION_CLOSED");
+                  }
+                  // Only revoke the Worker owner. Retained authorized in-flight
+                  // Arc<ProductSession> is not forcibly deallocated or scrubbed.
+                  drop(guard);
+                  assert_eq!(crate::qrc_retained_arc_witness::result(),0,
+                             "premature deallocation while read Arc retained");
+                  assert_eq!(unsafe {core::ptr::read_volatile(p as *const u8)},b'{',
+                             "premature zeroization of in-flight retained read Arc");
+                  assert_eq!(borrowed.dispatch(scope).unwrap_err().0,"SESSION_CLOSED");
+                  assert_eq!(borrowed.receipt().unwrap_err().0,"SESSION_CLOSED");
+                  drop(borrowed);
+                  assert_eq!(crate::qrc_retained_arc_witness::result(),2,
+                             "last owner must deallocate initialized decoded Arc all zero");
+              }
+              #[test]
+              fn qrc_retained_read_arc_after_explicit_close_then_lastowner_zero() {
+                  qrc_check_arc_retained_until_final_drop(true);
+              }
+              #[test]
+              fn qrc_retained_read_arc_after_implicit_drop_then_lastowner_zero() {
+                  qrc_check_arc_retained_until_final_drop(false);
+              }
+          '''
+          p.write_text(s.replace(anchor,anchor+tests,1))
+          print('QRC2360_RETAINED_READER_ARC_NATIVE_EPHEMERAL_TEST_ONLY')
+          PY
+      - name: Real native Rust1.99.1 retained borrow vs final owner Arc dealloc 2 cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = 1.99.1
+          cargo test --locked --no-default-features --manifest-path crates/ddv-save-core/Cargo.toml \
+            --lib qrc_retained_read_arc_after_ -- --test-threads=1 --nocapture
+          test "$(git diff --name-only f7e5ef6d70cdd2d297d0c8f0ed6fec6b6633d236 HEAD)" = \
+            .github/workflows/05qrc-pr2360-retained-read-arc-last-owner-l2.yml
+          echo QRC2360_RETAINED_READ_ARC_CLOSE_LIFETIME_AND_FINAL_ZERO_TWO_POS_NATIVE
