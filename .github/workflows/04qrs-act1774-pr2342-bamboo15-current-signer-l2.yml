@@ -1,0 +1,173 @@
+name: 04 QR-S ACT1774 PR2342 current Bamboo15 signer L2 QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2342-bamboo15-current-signer-l2'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2342-bamboo15-current-signer-l2.yml'
+permissions:
+  contents: read
+jobs:
+  bamboo-current-trust-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact original Source5, actual accepted 15 pin/mode and issuer negatives
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS_BAMBOO'
+          import assert from 'node:assert/strict';
+          import {spawnSync} from 'node:child_process';
+          import {mkdtempSync,rmSync,readFileSync,writeFileSync,appendFileSync,unlinkSync,symlinkSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {pathToFileURL} from 'node:url';
+          import {BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS as trusted,bambooAcceptedRustSourceBlobsOk as pinOk,
+            bambooAcceptedRustCheckoutOk as currentCheckoutOk,
+            bambooProtectedPagesAllowed} from './scripts/readonly-release/seal-bamboo-public-pages.mjs';
+          const SOURCE='c32e5135a00fde5b650a6548100b9168168c8538';
+          const BASE='3f77a30ff11d2b8ea84df81d1dd69668004c7870';
+          const ARCHIVE='419162ef5bc3a75fac05baaee10021a0d269bc2d';
+          const EXPECT={
+            'scripts/readonly-release/seal-bamboo-public-pages.mjs':'6a1afe8be229b1844abe895bad504637293f15ee',
+            'scripts/wasm-distribution/build-bamboo40700007-readonly-candidate.mjs':'dc27faf9130dd783254f5c785ddd828a2b22b0d5',
+            'src/lib/ddv/core/save/product-steam626-bamboo-readonly-release.mjs':'6b74cda2e083dae5892a6a0858b908b757b50574',
+            'tests/09p-bamboo-public-pages-sealer.test.mjs':'40df12991db82807d26f897de602ac0e05f05933',
+            'tests/steam626-bamboo-readonly-public-delivery.test.mjs':'a39cbce737b10471986a0088b4d265f656e1ae50'
+          };
+          const shaMap={
+            'crates/ddv-save-core/Cargo.toml':['e4f2e2c5d4451baba2dea699fe497cb7b40668d4','751a73da41d8b58f7de70643f50b97722a3c1260'],
+            'crates/ddv-save-core/src/wasm_worker.rs':['4287cb5184331ba5c4c5681166a1bda0dd0c6106','6432275d2909e6bc6d39265ae70cc7176fc37106'],
+            'crates/ddv-save-core/src/worker_session.rs':['c2fd0115c3850c963a9994ea1f8e4feac859557f','254af029304f6a357c8c0a0e7a1376b80313d038']
+          };
+          const temp=mkdtempSync(join(tmpdir(),'04qrs2342-')),work=join(temp,'repo');
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',GIT_CONFIG_GLOBAL:'/dev/null',
+            GIT_CONFIG_NOSYSTEM:'1',GIT_TERMINAL_PROMPT:'0',GIT_AUTHOR_NAME:'QRS negative test',
+            GIT_AUTHOR_EMAIL:'qrs@example.invalid',GIT_COMMITTER_NAME:'QRS negative test',
+            GIT_COMMITTER_EMAIL:'qrs@example.invalid'};
+          function git(cwd,...args){
+            const q=spawnSync('git',args,{cwd,env,encoding:'utf8',maxBuffer:16*1024*1024,timeout:90000});
+            assert.equal(q.status,0,args.join(' ')+' '+String(q.stderr).slice(-500));return q.stdout.trim();
+          }
+          function at(cwd,ref,path){return git(cwd,'rev-parse',ref+':'+path);}
+          function mode(cwd,ref,path){return git(cwd,'ls-tree',ref,'--',path).split(' ')[0];}
+          try{
+            const cwd=process.cwd();
+            assert.equal(git(cwd,'merge-base',SOURCE,'HEAD'),SOURCE);
+            assert.equal(git(cwd,'rev-parse',SOURCE+'^'),'2948e56a9ccd8e96a5944c6dacae5ee8ae7374d3');
+            assert.equal(git(cwd,'rev-parse','2948e56a9ccd8e96a5944c6dacae5ee8ae7374d3^'),'0f73a45074c2f96206fedb3715495c1f5f189abd');
+            assert.equal(git(cwd,'rev-parse','0f73a45074c2f96206fedb3715495c1f5f189abd^'),BASE);
+            assert.deepEqual(git(cwd,'diff','--name-only',SOURCE,'HEAD').split('\n'),
+              ['.github/workflows/04qrs-act1774-pr2342-bamboo15-current-signer-l2.yml']);
+            assert.deepEqual(git(cwd,'diff','--name-only',BASE,SOURCE).split('\n'),
+              Object.keys(EXPECT).sort());
+            for(const [p,v] of Object.entries(EXPECT)){
+              assert.equal(at(cwd,SOURCE,p),v);
+              assert.equal(mode(cwd,SOURCE,p),'100644');
+            }
+            assert.equal(Object.keys(trusted).length,15);
+            const observed={},archive={};
+            for(const [p,v] of Object.entries(trusted)){
+              observed[p]=at(cwd,SOURCE,p);
+              archive[p]=at(cwd,ARCHIVE,p);
+              assert.equal(observed[p],v,'TRUST_CURRENT_'+p);
+              assert.equal(mode(cwd,SOURCE,p),'100644','TRUST_MODE_'+p);
+            }
+            assert.equal(pinOk(observed),true);
+            assert.equal(pinOk(archive),false);
+            assert.deepEqual(Object.keys(observed).filter(p=>observed[p]!==archive[p]).sort(),
+              Object.keys(shaMap).sort());
+            for(const [p,[old,now]] of Object.entries(shaMap)){
+              assert.equal(observed[p],now);
+              assert.equal(archive[p],old);
+            }
+            let n=0;
+            for(const p of Object.keys(trusted)){
+              assert.equal(pinOk({...observed,[p]:'f'.repeat(40)}),false,'DENY_'+p);
+              n++;
+            }
+            assert.equal(pinOk({...observed,'crates/ddv-save-core/src/unapproved.rs':'0'.repeat(40)}),false);
+            const without={...observed};delete without['crates/ddv-save-core/src/wasm_worker.rs'];
+            assert.equal(pinOk(without),false);
+            n+=2;
+            console.log('QRS2342_POS_CURRENT15_SHA_MODE_AND_OLD3_DIFF',JSON.stringify({source:SOURCE,base:BASE,positives:1,shaNegatives:n}));
+            const sealer=readFileSync('scripts/readonly-release/seal-bamboo-public-pages.mjs','utf8');
+            const prior=git(cwd,'show',BASE+':scripts/readonly-release/seal-bamboo-public-pages.mjs');
+            assert.ok(sealer.includes("git('ls-tree','HEAD','--',path)"));
+            assert.ok(sealer.includes("protectedPagesContextMatches(env,head,head)"));
+            assert.ok(sealer.includes("verifySignedReleaseSubjects("));
+            assert.ok(sealer.includes("revalidateProtectedCi("));
+            assert.ok(sealer.includes("GITHUB_REPOSITORY_ID"));
+            assert.ok(!sealer.includes('upload-pages-artifact@'));
+            assert.ok(!sealer.includes('deploy-pages@'));
+            assert.ok(prior.includes("'crates/ddv-save-core/Cargo.toml':'e4f2e2"));
+            const builder=readFileSync('scripts/wasm-distribution/build-bamboo40700007-readonly-candidate.mjs','utf8');
+            const contract=readFileSync('src/lib/ddv/core/save/product-steam626-bamboo-readonly-release.mjs','utf8');
+            assert.ok(builder.includes("const cargo='751a73da41d8b58f7de70643f50b97722a3c1260'"));
+            assert.ok(contract.includes("const CARGO='751a73da41d8b58f7de70643f50b97722a3c1260'"));
+            assert.ok(builder.includes("candidateOnly:true,productConsumerEnabled:false,writerAuthorized:false"));
+            assert.ok(builder.includes("stageAuthorized:false,editedCopyAuthorized:false,autoUpload:false"));
+            assert.ok(contract.includes("writerAuthorized:false"));
+            assert.ok(contract.includes("b.originalOverwriteAuthorized===false"));
+            assert.ok(contract.includes("r.originalOverwriteAuthorized===false"));
+            assert.ok(readFileSync('src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs','utf8')
+              .includes('PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;'));
+            const goodContext={
+              WAND_SOURCE_HEAD:SOURCE,WAND_BAMBOO_PUBLIC_RELEASE_GATE:'09INT_ACCEPTED_BAMBOO_READONLY_SIGNED3_PAGES',
+              WAND_RELEASE_BASE_PATH:'/web',GITHUB_REPOSITORY:'DreamwishWand/web',
+              GITHUB_REPOSITORY_ID:'1371485649',GITHUB_REF:'refs/heads/main',
+              GITHUB_SHA:SOURCE,GITHUB_EVENT_NAME:'push'
+            };
+            for(const [field,bad] of [['GITHUB_REPOSITORY_ID','0'],['WAND_BAMBOO_PUBLIC_RELEASE_GATE','DENIED'],['WAND_SOURCE_HEAD',BASE],['GITHUB_REF','refs/heads/unsafe'],['WAND_RELEASE_BASE_PATH','/site']]){
+              assert.equal(bambooProtectedPagesAllowed({...goodContext,[field]:bad},SOURCE),false,'ISSUER_DENIAL_'+field);
+              n++;
+            }
+            const clone=spawnSync('git',['clone','--no-hardlinks','--no-checkout','-q',cwd,work],
+              {cwd,env,encoding:'utf8',timeout:90000});
+            assert.equal(clone.status,0,clone.stderr);
+            git(work,'checkout','--force','--detach',SOURCE);
+            const signer=await import(pathToFileURL(join(work,'scripts/readonly-release/seal-bamboo-public-pages.mjs')).href);
+            assert.equal(await signer.bambooAcceptedRustCheckoutOk(),true,'real clean current signer');
+            const victim='crates/ddv-save-core/src/wasm_worker.rs';
+            appendFileSync(join(work,victim),'\n// unapproved QA dirty mutation\n');
+            assert.equal(await signer.bambooAcceptedRustCheckoutOk(),false,'DIRTY_RUST_DENIED');
+            git(work,'checkout','--',victim);
+            assert.equal(await signer.bambooAcceptedRustCheckoutOk(),true,'restored clean signer');
+            n++;
+            git(work,'update-index','--chmod=+x','--',victim);
+            git(work,'commit','-qm','test changed git mode');
+            assert.equal(mode(work,'HEAD',victim),'100755');
+            assert.equal(await signer.bambooAcceptedRustCheckoutOk(),false,'EXECUTABLE_HEAD_MODE_DENIED');
+            n++;
+            git(work,'checkout','--force','--detach',SOURCE);
+            unlinkSync(join(work,victim));symlinkSync('fake-worker.rs',join(work,victim));
+            git(work,'add','--',victim);
+            git(work,'commit','-qm','test changed symlink mode');
+            assert.equal(mode(work,'HEAD',victim),'120000');
+            assert.equal(await signer.bambooAcceptedRustCheckoutOk(),false,'SYMLINK_HEAD_DENIED');
+            n++;
+            git(work,'checkout','--force','--detach',ARCHIVE);
+            assert.equal(await signer.bambooAcceptedRustCheckoutOk(),false,'ARCHIVED_SIGNER_SOURCE_DENIED');
+            n++;
+            const forged=readFileSync(join(cwd,'scripts/wasm-distribution/protected-release-inputs.json'),'utf8');
+            const cfg=JSON.parse(forged);
+            assert.equal(cfg.productConsumerEnabled,false);
+            assert.equal(cfg.writerEnabled,false);
+            assert.equal(cfg.publicReadonlyAssetsApproved,true);
+            assert.equal(cfg.releasePermission,'OWNER_APPROVED_20261111_THREE_READONLY_PUBLIC_ASSETS_ONLY');
+            console.log('QRS2342_NEG_ACTUAL_DIRTY_MODE_SYMLINK_ARCHIVE_AND_ISSUER',JSON.stringify({negatives:n}));
+            console.log('QRS2342_SECURITY_L2_FOCUS_PASS',JSON.stringify({fixedSource:SOURCE,qaOnly:true,
+              originalSourcePaths:5,trustedRustPins:15,positive:2,negative:n,
+              bambooWasmByteIdentity:false,wasmHashOld:'80c0de8c9f9f43723057c9857c19ad4b596bca9a178687b990e9c85bdc1e2da9',
+              wasmHashCurrent:'419e1d4b7b39ab212914844a57b01e573354da56f258f4b467ee42098898830c',
+              generatedBinaryProof:'09P_CODE_PR2340',protectedIssuerNotInvoked:true,
+              signedProofIssued:false,officialV2:'NOT_RUN',publicReaderOn:false,publicWriterOn:false}));
+          }finally{rmSync(temp,{recursive:true,force:true})}
+          QRS_BAMBOO
