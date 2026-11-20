@@ -141,6 +141,40 @@ pub fn decode_inventory_amount_backup(bytes: &[u8]) -> CoreResult<InventoryAmoun
     })
 }
 
+// Policy73: typed linked Chest snapshot, same common envelope and serializer.
+// It is data only; the exact product provider separately re-mints authority.
+const LINKED_CHEST_AMOUNT:&str="storage.linked-chest-amount";
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct LinkedChestAmountBackup{
+    pub container_id:u32,pub slot_index:u32,pub item_id:u32,pub parent_item_id:u32,
+    pub amount:u32,pub entry_sha256:String,pub source_decoded_sha256:String,
+}
+pub fn encode_linked_chest_amount_backup(v:&LinkedChestAmountBackup)->CoreResult<Vec<u8>>{
+    let bytes=seal(json!({"format":WAND_BACKUP_FORMAT,"schemaVersion":1,
+        "type":LINKED_CHEST_AMOUNT,"sourceBuild":steam_build(),
+        "target":{"containerId":v.container_id,"slotIndex":v.slot_index,"itemId":v.item_id,"parentItemId":v.parent_item_id},
+        "payload":{"amount":v.amount,"entrySha256":v.entry_sha256},
+        "provenance":{"decodedSha256":v.source_decoded_sha256}}))?;
+    decode_linked_chest_amount_backup(&bytes)?;Ok(bytes)
+}
+pub fn decode_linked_chest_amount_backup(bytes:&[u8])->CoreResult<LinkedChestAmountBackup>{
+    let body=verify(bytes)?;
+    if body["type"]!=LINKED_CHEST_AMOUNT{return Err(err("WAND_BACKUP_TYPE"));}
+    if body["sourceBuild"]!=steam_build(){return Err(err("WAND_BACKUP_BUILD"));}
+    let t=&body["target"];let p=&body["payload"];let r=&body["provenance"];
+    keys(t,&["containerId","slotIndex","itemId","parentItemId"])?;
+    keys(p,&["amount","entrySha256"])?;keys(r,&["decodedSha256"])?;
+    let container_id=id(&t["containerId"])?;
+    let slot_index=t["slotIndex"].as_u64().filter(|n|*n<48).ok_or(err("WAND_BACKUP_CHEST_SLOT"))? as u32;
+    let item_id=id(&t["itemId"])?;let parent_item_id=id(&t["parentItemId"])?;
+    let amount=amount(p)?;
+    if container_id<=1||item_id/10_000_000!=3||parent_item_id/10_000_000!=4||!matches!(amount,49|50){
+        return Err(err("WAND_BACKUP_CHEST_PROFILE"));}
+    let entry_sha256=p["entrySha256"].as_str().filter(|s|sha_text(s)).ok_or(err("WAND_BACKUP_ENTRY_HASH"))?.to_owned();
+    let source_decoded_sha256=r["decodedSha256"].as_str().filter(|s|sha_text(s)).ok_or(err("WAND_BACKUP_PROVENANCE"))?.to_owned();
+    Ok(LinkedChestAmountBackup{container_id,slot_index,item_id,parent_item_id,amount,entry_sha256,source_decoded_sha256})
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
