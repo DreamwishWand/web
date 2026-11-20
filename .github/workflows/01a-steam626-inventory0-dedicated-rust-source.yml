@@ -33,9 +33,9 @@ jobs:
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 522e8e8d6beec597b2e5e176cfbe8a6d8e38a124
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
           test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
-          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 775a2766f237d44ae77fa5347e9adf430c8580d2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = f4cf9d66f857a2e20b597de9f697a458b6ab550c
           # Exact latest independently refutable 01A security Source includes both
-          # moved-input Vec and last-owned decoded Arc zeroize; Worker source remains unchanged.
+          # moved-input Vec, last-owned decoded Arc and returned scoped-chunk scrub.
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-transport.mjs)" = 0312afdd91cb07d377a233f454ff07894de6eec5
           test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 81cd04b906f6cab7b1ea1749fb7fc981003a3b03
