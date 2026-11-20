@@ -127,6 +127,7 @@ def read_private_save(raw:bytes,expected_sha:str,source_definition_ids:set[int])
         return out
     def nonfinite(_):deny('NONFINITE_JSON')
     try: obj=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=nonfinite)
+    except SourceDenied:raise
     except (ValueError,UnicodeDecodeError):deny('PRIVATE_SAVE_INVALID_JSON')
     if (not isinstance(obj,dict) or not isinstance(obj.get('GameInfo'),dict) or
         type(obj['GameInfo'].get('Version')) is not int or obj['GameInfo'].get('Version')!=643):
