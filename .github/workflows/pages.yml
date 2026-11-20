@@ -110,8 +110,23 @@ jobs:
         run: npm run verify:community-ops
       - name: Integrated production tree preflight
         run: npm run verify:community-integrated-tree -- --require-ready
+      # Preserve the complete node --test contract. A real Chromium Tour pilot
+      # is scheduled after every other test file has exited, so independent
+      # test-file children cannot contend for its private CDP pipe handshake.
+      # No test is skipped, mocked or counted as PASS without actual Chrome.
       - name: Starter tests
-        run: npm test
+        shell: bash
+        run: |
+          set -euo pipefail
+          isolated=tests/web-presets-my-tour-contract.test.mjs
+          test -f "$isolated"
+          other_tests=()
+          for file in tests/*.test.mjs; do
+            if [ "$file" != "$isolated" ]; then other_tests+=("$file"); fi
+          done
+          test "${#other_tests[@]}" -gt 0
+          node --test "${other_tests[@]}"
+          node --test "$isolated"
       - name: Fixed attested Rust compiler and WebAssembly target
         uses: dtolnay/rust-toolchain@stable
         with:
