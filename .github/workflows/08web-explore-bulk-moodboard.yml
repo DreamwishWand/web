@@ -35,9 +35,14 @@ jobs:
           # A later 02WEP accepted main change must not pollute this delta.
           read -r BASE SOURCE EXTRA <<< "$(git show -s --format=%P HEAD)"
           test -n "$BASE" && test -n "$SOURCE" && test -z "${EXTRA:-}"
-          test "$BASE" = "$EVENT_BASE_SHA"
+          # GitHub may rebuild refs/pull/N/merge onto a NEW protected base
+          # after the original pull_request event is queued. The event base
+          # must be an ancestor of the checkout's first parent; exact equality
+          # would incorrectly reject accepted, nonconflicting main changes.
+          git merge-base --is-ancestor "$EVENT_BASE_SHA" "$BASE"
           test "$SOURCE" = "$EVENT_HEAD_SHA"
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          echo WEB_EXPLORE_BULK_EVENT_BASE_ANCESTOR_CURRENT_GITHUB_MERGE_PARENT_PASS
           printf '%s\n' \
             .github/workflows/08web-explore-bulk-moodboard.yml \
             scripts/web-explore-bulk-moodboard-chrome.mjs \
