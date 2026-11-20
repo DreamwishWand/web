@@ -50,8 +50,11 @@ function synthetic(parent,changed){
 }
 const exists=sha=>{try{git(['cat-file','-e',sha+'^{blob}']);return true}catch{return false}};
 test('ACT1581 private bridge exact3 reviewed original Git blobs/core tree and hostile Rust/issuer gate deny',t=>{
- assert.equal(git(['rev-parse','HEAD:'+gatePath]),'d3997b2d4460109562489c6afa2c5d5e51fa2b5a',
-  'Only fixed trusted policy Source may run this new-stage test');
+ assert.ok([ 'd3997b2d4460109562489c6afa2c5d5e51fa2b5a',
+  // New ACT1581 Inventory0 Gate-first source selector ONLY; review/merge by
+  // independent 04 QR-S and sole09INT required. No new signed/Writer grant.
+  'b468da7916a53bf1ad65a6577e24db0e17d7a1b5' ].includes(git(['rev-parse','HEAD:'+gatePath])),
+  'Only these TWO fixed 100644 trusted Gate GitBlobs allowed');
  assert.equal(git(['rev-parse',protectedMain+':crates/ddv-save-core']),
   '36be23f81c4558eafd3557c85ac71ea56a1e3459');
  assert.equal(git(['rev-parse',protectedMain+':'+configPath]),

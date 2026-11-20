@@ -1,0 +1,33 @@
+name: 09P ACT1581 repaired Inventory0 Rust Worker Source22 Gate-first OFF (no signature)
+on:
+  pull_request:
+    paths:
+      - 'scripts/wasm-distribution/r22-accepted-rust-scope.mjs'
+      - 'tests/09p-r22-inventory0-safe-chunk-gate-first22.test.mjs'
+      - '.github/workflows/09p-r22-inventory0-safe-chunk-gate-first22.yml'
+permissions:
+  contents: read
+jobs:
+  repaired-product-source22-gate-first-off:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Original corrected Worker f4cf / full Rust Core66eed Source22 exact no new signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = b468da7916a53bf1ad65a6577e24db0e17d7a1b5
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 42bebc4aa5a451abc4a9df29f0bc298df92df6a3
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-bamboo-public-pages.mjs)" = e6290e890ac205f6486a76567e7ccac90f8d9aba
+          node --test 'tests/09p-r22-inventory0-safe-chunk-gate-first22.test.mjs'
+          echo 09P_REPAIRED_INV0_GATE_FIRST_SOURCE22_READER_WRITER_SIGNER_OP_OFF
