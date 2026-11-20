@@ -231,11 +231,17 @@ test('current accepted Bamboo signer rejects committed mode100755 with IDENTICAL
   const before=git(['rev-parse','HEAD:'+target],work);
   assert.match(git(['ls-tree','HEAD','--',target]),/^100644 blob [a-f0-9]{40}\t/);
   git(['update-index','--chmod=+x','--',target],work);
-  git(['-c','user.name=Wand Review','-c','user.email=qa@example.invalid',
-   'commit','--quiet','--no-verify','-m','mode-only scope rejection'],work);
-  // A real mode-only commit, not changed Rust source bytes or dirty checkout.
+  assert.match(git(['ls-files','--stage','--',target]),/^100755 [a-f0-9]{40} 0\t/);
+  // Use immutable Git Tree/commit objects: normal git commit may restage the
+  // working-tree file mode back to 100644 during the index refresh.
+  const modeTree=git(['write-tree'],work);
+  assert.equal(git(['ls-tree',modeTree,'--',target]),
+   '100755 blob '+before+'\t'+target);
+  const tampered=git(['-c','user.name=Wand Review','-c',
+   'user.email=qa@example.invalid','commit-tree',modeTree,'-p',good],work);
+  git(['reset','--hard',tampered],work);
+  // A real mode-only committed tree, not changed Rust bytes or dirty checkout.
   await chmod(join(work,target),0o755);
-  const tampered=git(['rev-parse','HEAD'],work);
   assert.notEqual(tampered,good);
   assert.equal(git(['rev-parse','HEAD:'+target],work),before);
   assert.equal(git(['ls-tree','HEAD','--',target]),'100755 blob '+before+'\t'+target);
