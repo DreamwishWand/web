@@ -24,9 +24,19 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Exact 5 source files, old Moodboard storage and signer untouched
         shell: bash
+        env:
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          BASE='b2c28e8a095f07ba7e6b2c5a1dfa985eca2ca90d'
+          # GitHub's pull_request checkout is a two-parent MERGE, not the
+          # original 08WEB branch HEAD. Verify the two Git parents against
+          # GitHub's immutable event SHAs before measuring this PR's 5 leaves.
+          # A later 02WEP accepted main change must not pollute this delta.
+          read -r BASE SOURCE EXTRA <<< "$(git show -s --format=%P HEAD)"
+          test -n "$BASE" && test -n "$SOURCE" && test -z "${EXTRA:-}"
+          test "$BASE" = "$EVENT_BASE_SHA"
+          test "$SOURCE" = "$EVENT_HEAD_SHA"
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           printf '%s\n' \
             .github/workflows/08web-explore-bulk-moodboard.yml \
@@ -47,6 +57,7 @@ jobs:
             test "$(git ls-tree HEAD "$p" | awk '{print $1}')" = 100644
           done
           git diff --exit-code "$BASE" HEAD -- src/lib/moodboards/ src/lib/collection/ src/lib/item-media/ src/lib/ddv/ src/lib/dev/ src/lib/wep/ crates/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_EXPLORE_BULK_PR_PARENT_AUTHENTIC_TWO_PARENTS_EXACT5_PASS
           echo WEB_EXPLORE_BULK_EXACT5_MOODBOARD_CAS_CORE_AND_SIGNER_UNMODIFIED_PASS
       - name: Source identity, capacity, rollback and eight locale Node tests
         run: |
