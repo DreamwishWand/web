@@ -47,7 +47,7 @@ jobs:
           test "$(git rev-parse HEAD:src/lib/wep/local-scene-preset-store.mjs)" = 23af02ab65a3fd5e5a273877be8d0d316fd0fb8a
           test "$(git rev-parse HEAD:src/lib/wep/LocalSceneAliasManager.svelte)" = 29d124913579a423ec3aac0283e1f3b821325ac2
           test "$(git rev-parse HEAD:tests/wep-local-scene-alias-cas.test.mjs)" = 908449e24e58784e18e08916fbd956c5df125cd2
-          test "$(git rev-parse HEAD:scripts/qa-qrw-pr2398-scene-alias-real-chrome.mjs)" = 43934a9d9e9c9f26c888abf4dc25ffd381c8cebb
+          test "$(git rev-parse HEAD:scripts/qa-qrw-pr2398-scene-alias-real-chrome.mjs)" = e05a7fce9d0b05c9d51d1da42b2a10f6dc8b08ed
           git diff --quiet "$source" HEAD -- src tests docs static ops crates package.json package-lock.json
           echo QRW2398_FIXED_SOURCE8_QA2_EXACT_MODE_BLOB_NO_PRODUCT_MUTATION_PASS
       - run: npm ci --no-audit --no-fund
