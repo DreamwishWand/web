@@ -219,6 +219,10 @@ export async function verifySteamLiveImagePhase({
       const b=Buffer.from(await r.arrayBuffer());
       ensureImage(b,target);
       const getCache=cacheValidators(r);
+      // An ON receipt without both actual validators cannot later prove
+      // old immutable CDN URLs were withdrawn. Never attest a dead-end ON.
+      if(!validETag(getCache.etag)||!validHttpDate(getCache.lastModified))
+        fail("LIVE_ON_CACHE_VALIDATORS_REQUIRED:"+target.id);
       check(target.url,"GET",200,getCache);
       const head=await request(fetchImpl,target.url,"HEAD");
       ensureStatus(head,200,"LIVE_IMAGE_HEAD_NOT_200:"+target.id);
@@ -226,6 +230,8 @@ export async function verifySteamLiveImagePhase({
       const len=head.headers.get("content-length");
       if(len!==null&&Number(len)!==target.bytes)fail("LIVE_HEAD_LENGTH_INVALID:"+target.id);
       const headCache=cacheValidators(head);
+      if(!validETag(headCache.etag)||!validHttpDate(headCache.lastModified))
+        fail("LIVE_ON_CACHE_VALIDATORS_REQUIRED:"+target.id);
       if(getCache.etag!==headCache.etag||
          getCache.lastModified!==headCache.lastModified)
         fail("LIVE_GET_HEAD_CACHE_VALIDATORS_MISMATCH:"+target.id);
