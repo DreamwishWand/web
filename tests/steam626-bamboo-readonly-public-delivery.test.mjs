@@ -17,7 +17,7 @@ const manifest={
  contract:'wand.bamboo40700007.public-readonly-candidate@1',
  operation:BAMBOO_READONLY_OPERATION,
  source:{repository:ACTIVE_RELEASE_TUPLE.repository,commit:h40,buildId:BAMBOO_BUILD,
-  platform:'SteamWindows',schema:626,cargoTomlGitBlob:'e4f2e2c5d4451baba2dea699fe497cb7b40668d4',
+  platform:'SteamWindows',schema:626,cargoTomlGitBlob:'751a73da41d8b58f7de70643f50b97722a3c1260',
   cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',
   cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',
   profile:'release',features:BAMBOO_FEATURES,defaultFeatures:false,toolchain:'rustc 1.99.1 (test)'},
