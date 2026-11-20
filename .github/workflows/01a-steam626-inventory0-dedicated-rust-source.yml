@@ -163,6 +163,107 @@ jobs:
             build:{platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626,externallyConfirmed:true},
             decodedChunks:(async function*(){yield encoded})()
           }),/PRODUCT_WORKER_SCOPED_SOURCE_OFF/);
+          // End-to-end synthetic encrypted P1G -> real generated Rust -> one
+          // typed mutation -> distinct encrypted copy, without mocking Rust.
+          // Local directory emulates OPFS API: NOT evidence of physical disk,
+          // Owner real encrypted Save, or signed public route eligibility.
+          const {makeSyntheticP1gProfile}=await import('./tests/helpers/p1g-fixture.mjs');
+          const {p1gPackagedProfileCodec}=await import('./src/lib/ddv/core/save/p1g-packaged-profile-codec.js');
+          const {createProductSteam626Catalog0LocalAdapter}=await import('./src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs');
+          const {spawnSync}=await import('node:child_process');
+          const originalEncrypted=makeSyntheticP1gProfile(source);
+          const originalEncryptedSha=hash(originalEncrypted);
+          const originalFile=new File([originalEncrypted],'synthetic-steam626-inventory0.p1g');
+          const stored=new Map();
+          const directory={
+            async getFileHandle(name,options){
+              if(!stored.has(name)){
+                if(!options?.create)throw Object.assign(new Error('no existing entry'),{name:'NotFoundError'});
+                stored.set(name,new Uint8Array());
+              }
+              return {
+                async getFile(){return new File([stored.get(name)],name)},
+                async createWritable(){let pending=null;return{
+                  async write(bytes){pending=new Uint8Array(bytes)},
+                  async close(){stored.set(name,pending);pending=null},
+                  async abort(){if(pending)pending.fill(0);pending=null}
+                }}
+              };
+            },
+            async removeEntry(name){stored.delete(name)}
+          };
+          const previousLocks=Object.getOwnPropertyDescriptor(navigator,'locks');
+          Object.defineProperty(navigator,'locks',{configurable:true,
+            value:{request:async(_name,action)=>action()}});
+          let synthetic=null,backed=null,edited=null;
+          try{
+            synthetic=createProductSteam626Catalog0LocalAdapter({
+              wasmFactory:async()=>({WorkerWasmSource}),
+              getDirectory:async()=>directory,
+              freshCodecReopen:async(bytes,expectedSha)=>{
+                const decoded=await p1gPackagedProfileCodec.loadProfile(bytes);
+                return hash(new TextEncoder().encode(decoded.jsonText))===expectedSha;
+              }
+            });
+            const selectedBuild={platform:'steam-windows',
+              buildKind:'steam-full-version',buildId:BUILD,schema:626,externallyConfirmed:true};
+            await assert.rejects(synthetic.open({
+              file:originalFile,originalSha256:originalEncryptedSha,
+              build:{...selectedBuild,platform:'switch'}
+            }));
+            await synthetic.open({file:originalFile,originalSha256:originalEncryptedSha,build:selectedBuild});
+            await synthetic.backupOriginal();
+            const available=await synthetic.listVerifiedTargets();
+            const target=available.targets.find(t=>t.kind==='InventoryExistingAmountDecrease'&&
+              t.targetId===0&&t.itemId===40000048&&t.oldAmount===3);
+            assert.ok(target,'Core-minted inventory0 item eligible through real encrypted P1G');
+            await synthetic.stageTyped([{kind:'InventoryExistingAmountDecrease',inventoryId:0,
+              canonicalItemId:40000048,compatibleItemType:'ItemType_Furniture',
+              expectedOldAmount:3,newAmount:2}]);
+            await synthetic.undo();
+            await synthetic.redo();
+            const receipt=await synthetic.exportEditedCopy();
+            assert.equal(receipt.editedCiphertextVerified,true);
+            assert.equal(receipt.freshWorkerReopenVerified,true);
+            assert.equal(receipt.independentProcessReopenVerified,false);
+            assert.equal(receipt.originalUnchanged,true);
+            backed=await synthetic.downloadVerifiedCopy('backup');
+            edited=await synthetic.downloadVerifiedCopy('edited');
+            assert.equal(hash(backed.encryptedBytes),originalEncryptedSha);
+            assert.notEqual(backed.name,edited.name);
+            assert.notEqual(edited.name,originalFile.name);
+            assert.equal(hash(new Uint8Array(await originalFile.arrayBuffer())),originalEncryptedSha);
+            const reopened=await p1gPackagedProfileCodec.loadProfile(edited.encryptedBytes);
+            assert.equal(reopened.jsonText,JSON.stringify(wanted));
+            // Separate Node OS process, same unchanged official packaged codec.
+            // Test-only generated synthetic Save != installed Owner Product V2.
+            const childCode=`
+              import {p1gPackagedProfileCodec} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
+              import {createHash} from 'node:crypto';
+              const parts=[];for await(const part of process.stdin)parts.push(part);
+              const opened=await p1gPackagedProfileCodec.loadProfile(new Uint8Array(Buffer.concat(parts)));
+              const sha=createHash('sha256').update(opened.jsonText).digest('hex');
+              if(sha!==process.argv[1])process.exit(30);
+              const body=JSON.parse(opened.jsonText);
+              if(body.Player.ListInventories['0'].Inventory['40000048'].Amount!==2||
+                 body.Unknown.neverOverwrite!==true)process.exit(31);
+              process.stdout.write('01A_SYNTHETIC_FRESH_OS_PROCESS_CODEC_REOPEN_PASS');
+            `;
+            const separate=spawnSync(process.execPath,
+              ['--input-type=module','--eval',childCode,hash(new TextEncoder().encode(JSON.stringify(wanted)))],
+              {cwd:process.cwd(),input:Buffer.from(edited.encryptedBytes),encoding:'utf8',timeout:30000,maxBuffer:16384});
+            assert.equal(separate.status,0,'synthetic independent child Codec reopen failed');
+            assert.equal(separate.stdout,'01A_SYNTHETIC_FRESH_OS_PROCESS_CODEC_REOPEN_PASS');
+            await synthetic.close();
+            assert.equal(hash(new Uint8Array(await originalFile.arrayBuffer())),originalEncryptedSha);
+            console.log('01A_STEAM626_CATALOG0_ACTUAL_RUST_SYNTHETIC_ENCRYPTED_BACKUP_EDITED_AND_CHILD_CODEC_PASS');
+          }finally{
+            if(backed?.encryptedBytes)backed.encryptedBytes.fill(0);
+            if(edited?.encryptedBytes)edited.encryptedBytes.fill(0);
+            if(synthetic)await synthetic.close();
+            if(previousLocks)Object.defineProperty(navigator,'locks',previousLocks);
+            else delete navigator.locks;
+          }
           console.log('01A_STEAM626_CATALOG0_REAL_GENERATED_RUST_WORKER_PORT_AND_SWITCH_DENIAL_PASS');
           console.log('01A_STEAM626_CATALOG0_CURRENT_RUST_REAL_WASM_ONE_FIELD_POS_AND_FOREIGN_SCOPE_NEG_PASS');
           console.log('01A_STEAM626_CATALOG0_WASM_SHA256',hash(wasmRaw));
