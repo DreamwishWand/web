@@ -165,7 +165,7 @@ jobs:
             assert.throws(()=>w.append_chunk(new Uint8Array([9])));
             w.close();w.free();rejected++;
           }
-          const encoded=new TextEncoder().encode(JSON.stringify(source));
+          // The immutable Source fixture already defines 'encoded'.
           const w=make(626);
           w.append_chunk(encoded);
           assert.equal(w.qa_arm_owned_plaintext_heap(),true);
