@@ -1,0 +1,70 @@
+name: 04 QR-W PR2398 exact Source WEP alias real IndexedDB L2 QA ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2398-scene-alias-idb-l2.yml'
+permissions:
+  contents: read
+jobs:
+  fixed-source-and-real-idb-falsification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2398-972e-scene-alias-indexeddb-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Git original Source8 and only QA2 immutable file-mode/blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          base=39a4335ee3b5e9ef303685f9a3342e18f5dcc16a
+          source=972e44512ac0446475977fb5b0b880d8503b1537
+          test "$(git merge-base "$base" "$source")" = "$base"
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          printf '%s\n' \
+            .github/workflows/wep-savefree-first-scene.yml \
+            docs/wep/world-editor-localization-inventory-20261002.json \
+            scripts/wep-savefree-first-scene-chrome.mjs \
+            src/lib/wep/LocalSceneAliasManager.svelte \
+            src/lib/wep/local-scene-preset-copy.js \
+            src/lib/wep/local-scene-preset-store.mjs \
+            src/routes/editor/world/+page.svelte \
+            tests/wep-local-scene-alias-cas.test.mjs | LC_ALL=C sort >/tmp/qrw2398-source8
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/qrw2398-source8 -
+          printf '%s\n' \
+            .github/workflows/qa-qrw-pr2398-scene-alias-idb-l2.yml \
+            scripts/qa-qrw-pr2398-scene-alias-real-chrome.mjs | LC_ALL=C sort >/tmp/qrw2398-qa2
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qrw2398-qa2 -
+          for p in $(cat /tmp/qrw2398-source8) $(cat /tmp/qrw2398-qa2); do
+            test "$(git ls-tree HEAD -- "$p" | awk '{print $1}')" = 100644
+          done
+          test "$(git rev-parse HEAD:src/lib/wep/local-scene-preset-store.mjs)" = 23af02ab65a3fd5e5a273877be8d0d316fd0fb8a
+          test "$(git rev-parse HEAD:src/lib/wep/LocalSceneAliasManager.svelte)" = 29d124913579a423ec3aac0283e1f3b821325ac2
+          test "$(git rev-parse HEAD:tests/wep-local-scene-alias-cas.test.mjs)" = 908449e24e58784e18e08916fbd956c5df125cd2
+          test "$(git rev-parse HEAD:scripts/qa-qrw-pr2398-scene-alias-real-chrome.mjs)" = 43934a9d9e9c9f26c888abf4dc25ffd381c8cebb
+          git diff --quiet "$source" HEAD -- src tests docs static ops crates package.json package-lock.json
+          echo QRW2398_FIXED_SOURCE8_QA2_EXACT_MODE_BLOB_NO_PRODUCT_MUTATION_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual Chrome IndexedDB ABA, disk-write abort, corrupt backup, no Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          export CHROME_BIN="$BIN"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4363 >/tmp/qa-qrw-pr2398-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4363/editor/world/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/qa-qrw-pr2398-scene-alias-real-chrome.mjs
