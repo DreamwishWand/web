@@ -81,6 +81,7 @@ try {
  assert.deepEqual(unchanged,{revision:1,primary:seed.raw},
   'preview/undo/redo must not mutate original Scene DB');
  await panel.locator('[data-wep-coord-save-as]').click();
+ await panel.locator('[data-wep-coord-status]').filter({hasText:/New Scene saved and independently reopened/}).waitFor({timeout:15000});
  const saved=await page.evaluate(async()=>{
   const {reopenLocalScenes}=await import('/src/lib/wep/local-scene-preset-store.mjs');
   const row=await reopenLocalScenes();
@@ -112,6 +113,7 @@ try {
   await saveLocalScene({artifact:entry.artifact,title:'Concurrent extra Scene',expectedRevision:2});
  },seed.entry);
  await panel.locator('[data-wep-coord-save-as]').click();
+ await panel.locator('[data-wep-coord-status][role="alert"]').waitFor({timeout:15000});
  assert.equal(await panel.locator('[data-wep-coord-status]').getAttribute('role'),'alert',
    'stale Preview Save must fail closed');
  const after=await page.evaluate(async()=>{
