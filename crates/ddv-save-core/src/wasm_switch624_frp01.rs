@@ -54,7 +54,7 @@ impl WorkerWasmSource {
         Ok(serde_json::json!({"contract":OUTPUT,"decodedBytes":bytes,"decodedSha256":digest,
             "writerAuthorized":false,"originalOverwriteAuthorized":false}).to_string())
     }
-    pub fn next_switch624_frp01_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+    pub fn next_switch624_frp01_output_chunk(&mut self)->Result<JsValue,JsValue>{
         if self.scoped_domain.get()!=Some(ScopedEditDomain::SwitchFrp01){
             return Err(err("FRP01_ABI_DOMAIN_MISMATCH"));
         }
