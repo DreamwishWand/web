@@ -167,9 +167,8 @@ jobs:
             assert.equal(mode(work,'HEAD',product),'120000');
             assert.equal(await signer.bambooAcceptedRustCheckoutOk(),false,'SYMLINK_120000_DENIED');negatives++;
             git(work,'checkout','--force','--detach',SOURCE);
-            const older=git(work,'show',MAIN+':'+product);
-            writeFileSync(join(work,product),older);
-            git(work,'add','--',product);git(work,'commit','-qm','QA-only old Rust regression');
+            git(work,'checkout',MAIN,'--',product);
+            git(work,'commit','-qm','QA-only old Rust exact GitBlob regression');
             assert.equal(at(work,'HEAD',product),OLD_SESSION);
             assert.equal(await signer.bambooAcceptedRustCheckoutOk(),false,'HISTORIC_UNWIPED_PRODUCT_DENIED');negatives++;
             git(work,'checkout','--force','--detach',SOURCE);
