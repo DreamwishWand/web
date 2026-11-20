@@ -1,0 +1,219 @@
+name: 05 QR-C Inventory0 current JS owned output copy success/failure zero L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - .github/workflows/05qrc-inv0-return-js-copy-success-failure-zero-l2.yml
+permissions:
+  contents: read
+jobs:
+  optimized-wasm32-abandoned-output:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_TARGET_DIR: /tmp/qrc-inv0-abandoned-out-wasm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05qrc-20261120-inv0-return-js-copy-success-failure-zero-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Source11 unmodified original Rust/Worker and exactly one QA-only workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=8e4ab50342715a6ec5af5569da5c25bcf91e8403
+          path=.github/workflows/05qrc-inv0-return-js-copy-success-failure-zero-l2.yml
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD)" = "$path"
+          test "$(git ls-tree HEAD -- "$path" | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = f4cf9d66f857a2e20b597de9f697a458b6ab550c
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/worker_session.rs)" = 254af029304f6a357c8c0a0e7a1376b80313d038
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
+          test "$(git rev-parse HEAD:.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml)" = 75d7f194debcb912e0dd64ced0dc4bf1fe2d6da4
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          echo QRC_INV0_ABANDON_OUTPUT_FIXED_PRODUCT_SOURCE_ONLY
+      - name: Inject ephemeral exact pending edited output Vec data-span deallocation observer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('crates/ddv-save-core/src/wasm_worker.rs')
+          src=p.read_text()
+          anchor='const MAX_CHUNK:usize=1024*1024;'
+          assert src.count(anchor)==1
+          observer=r'''
+          // Ephemeral CI-only and nonshipped. Observe boolean state only
+          // at exact edited output Vec allocation deallocation before free.
+          use std::alloc::{GlobalAlloc,Layout,System};
+          use core::sync::atomic::{AtomicUsize,Ordering as QaOrd};
+          static QA_EDITED_PTR:AtomicUsize=AtomicUsize::new(0);
+          static QA_EDITED_LEN:AtomicUsize=AtomicUsize::new(0);
+          static QA_EDITED_DEALLOC:AtomicUsize=AtomicUsize::new(0);
+          struct QaEditedAlloc;
+          unsafe impl GlobalAlloc for QaEditedAlloc {
+              unsafe fn alloc(&self,l:Layout)->*mut u8 {System.alloc(l)}
+              unsafe fn dealloc(&self,p:*mut u8,l:Layout){
+                  let data=QA_EDITED_PTR.load(QaOrd::SeqCst);
+                  let len=QA_EDITED_LEN.load(QaOrd::SeqCst);
+                  let start=p as usize;
+                  if data!=0 && len>0 && start<=data &&
+                     data.checked_add(len).is_some_and(|end|
+                       start.checked_add(l.size()).is_some_and(|limit|end<=limit)) {
+                      let mut nonzero=false;
+                      for i in 0..len{
+                          if core::ptr::read_volatile((data as *const u8).add(i))!=0{
+                              nonzero=true;break;
+                          }
+                      }
+                      QA_EDITED_DEALLOC.store(if nonzero{1}else{2},QaOrd::SeqCst);
+                      QA_EDITED_PTR.store(0,QaOrd::SeqCst);
+                  }
+                  System.dealloc(p,l);
+              }
+          }
+          #[global_allocator]
+          static QA_EDITED_ALLOC:QaEditedAlloc=QaEditedAlloc;
+          '''
+          src=src.replace(anchor,observer+anchor,1)
+          anchor='    pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{'
+          assert src.count(anchor)==1
+          methods=r'''
+              // QA only; no real pointer/bytes exposed; witness records at
+              // dealloc before memory is freed, not a post-free probe.
+              pub fn qa_arm_abandoned_output_dealloc(&self)->bool {
+                  if let Some((ref out,_))=self.scoped_output {
+                      if out.len()<2{return false;}
+                      QA_EDITED_DEALLOC.store(0,QaOrd::SeqCst);
+                      QA_EDITED_LEN.store(out.len(),QaOrd::SeqCst);
+                      QA_EDITED_PTR.store(out.as_ptr() as usize,QaOrd::SeqCst);
+                      true
+                  } else {false}
+              }
+              pub fn qa_take_abandoned_output_dealloc(&self)->u32{
+                  QA_EDITED_DEALLOC.swap(0,QaOrd::SeqCst) as u32
+              }
+          '''
+          methods=methods.replace(
+              '              pub fn qa_take_abandoned_output_dealloc',
+              r'''              pub fn qa_consumed_prefix_zero(&self)->u32 {
+                  if let Some((ref out,pos))=self.scoped_output {
+                      if *pos==0 || *pos>out.len(){return 0;}
+                      if out[..*pos].iter().all(|b|*b==0){return 2;}else{return 1;}
+                  }
+                  0
+              }
+              pub fn qa_take_abandoned_output_dealloc''',1)
+          js_anchor="return new Uint8Array(view);"
+          assert src.count(js_anchor)==1
+          src=src.replace(js_anchor,
+              "if (globalThis.__qrc_inject_copy_failure === true) throw new Error('QRC_COPY_FAILED'); return new Uint8Array(view);",1)
+          p.write_text(src.replace(anchor,methods+anchor,1))
+          print('QRC_INV0_ABANDON_OUTPUT_INSTRUMENT_EPHEMERAL_ONLY')
+          PY
+      - name: Compile real optimized Rust1.99.1 wasm32 Inventory0 feature and wasm-bindgen
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = 1.99.1
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,product-steam626-catalog0-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrc-inv0-abandon-bindgen
+          mkdir -p /tmp/qrc-inv0-abandon-pkg
+          /tmp/qrc-inv0-abandon-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir /tmp/qrc-inv0-abandon-pkg --target nodejs --no-typescript
+      - name: Prove new committed worker JS typed copy and exception fail closed with zeroized Rust output
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml').read_text()
+          start=src.index('          const empty=()=>')
+          end=src.index('          const hash=bytes=>',start)
+          fixture='\n'.join(line[10:] for line in src[start:end].splitlines())+'\n'
+          head="""import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          import {createHash} from 'node:crypto';
+          const {WorkerWasmSource}=createRequire(import.meta.url)('/tmp/qrc-inv0-abandon-pkg/ddv_save_core.js');
+          """
+          test=r'''
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          const doc=structuredClone(source);
+          doc.Unknown.unknownPadding='X'.repeat(1400000);
+          const raw=new TextEncoder().encode(JSON.stringify(doc));
+          const orig=sha(raw);
+          const BUILD='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          function stageAndBegin(seed){
+             const w=new WorkerWasmSource('steam-windows','steam-full-version',BUILD,626,true,
+               new Uint8Array(32).fill(seed));
+             for(let i=0;i<raw.length;i+=1024*1024)w.append_chunk(raw.slice(i,i+1024*1024));
+             const opened=JSON.parse(w.finish());
+             const env=x=>[x.sessionId,BigInt(x.revision),BigInt(x.indexGeneration),x.decodedSha256];
+             const pre=JSON.parse(w.preview_scoped_amount('catalog0-furniture',0,40000048,2,...env(opened)));
+             const st=JSON.parse(w.stage_scoped_amount('catalog0-furniture',0,40000048,3,2,
+               pre.entrySha256,...env(opened)));
+             assert.equal(st.exactFieldChangedCount,1);
+             const out=JSON.parse(w.begin_scoped_amount_output(...env(st)));
+             assert.equal(out.writerAuthorized,false);
+             assert.equal(out.originalOverwriteAuthorized,false);
+             assert.ok(out.decodedBytes>1024*1024&&out.decodedBytes<4*1024*1024);
+             assert.equal(w.qa_arm_abandoned_output_dealloc(),true);
+             return {w,out};
+          }
+          // Actual committed Rust return JsValue -> native JS-owned Uint8Array,
+          // full output byte-identical and Rust source slice volatile-zeroed.
+          const ok=stageAndBegin(0x55);
+          const first=ok.w.next_scoped_amount_output_chunk();
+          assert.ok(first instanceof Uint8Array);
+          assert.equal(first.length,1024*1024);
+          assert.equal(ok.w.qa_consumed_prefix_zero(),2,
+             'first copied chunk source MUST be zero before JS receives it');
+          const second=ok.w.next_scoped_amount_output_chunk();
+          assert.ok(second instanceof Uint8Array);
+          assert.equal(first.length+second.length,ok.out.decodedBytes);
+          assert.equal(ok.w.qa_take_abandoned_output_dealloc(),2,
+             'finished staged Rust output Vec must be zero at final dealloc');
+          const buf=new Uint8Array(ok.out.decodedBytes);
+          buf.set(first,0);buf.set(second,first.length);
+          const expected=structuredClone(doc);
+          expected.Player.ListInventories['0'].Inventory['40000048'].Amount=2;
+          assert.equal(new TextDecoder().decode(buf),JSON.stringify(expected));
+          assert.equal(sha(buf),ok.out.decodedSha256);
+          assert.throws(()=>ok.w.next_scoped_amount_output_chunk());
+          ok.w.close();ok.w.free();first.fill(0);second.fill(0);buf.fill(0);
+          console.log('QRC_INV0_NEW_COMMITTED_WORKER_JS_U8ARRAY_2CHUNK_BYTES_EXACT_STORED_PREFIX_ZERO_DEALLOC_ZERO');
+          // CI-only injected JS exception on SECOND chunk: must scrub remaining
+          // staged Rust output, consume one-shot export, no stale retry.
+          const fail=stageAndBegin(0x66);
+          const valid=fail.w.next_scoped_amount_output_chunk();
+          assert.ok(valid instanceof Uint8Array);
+          assert.equal(fail.w.qa_consumed_prefix_zero(),2);
+          globalThis.__qrc_inject_copy_failure=true;
+          try {assert.throws(()=>fail.w.next_scoped_amount_output_chunk())}
+          finally {globalThis.__qrc_inject_copy_failure=false}
+          assert.equal(fail.w.qa_take_abandoned_output_dealloc(),2,
+             'copy exception must zero all remaining Rust output before freeing');
+          assert.throws(()=>fail.w.next_scoped_amount_output_chunk(),'no re-export after JS copy failure');
+          valid.fill(0);fail.w.close();fail.w.free();
+          assert.equal(sha(raw),orig,'original raw input unchanged');
+          console.log('QRC_INV0_NEW_COMMITTED_WORKER_COPY_THROW_FAIL_CLOSED_PENDING_OUTPUT_ZERO_NOREPLAY');
+          '''
+          Path('/tmp/qrc-inv0-abandon.mjs').write_text(head+fixture+test)
+          PY
+          node --check /tmp/qrc-inv0-abandon.mjs
+          node /tmp/qrc-inv0-abandon.mjs
+          test "$(git diff --name-only 8e4ab50342715a6ec5af5569da5c25bcf91e8403 HEAD)" = \
+            '.github/workflows/05qrc-inv0-return-js-copy-success-failure-zero-l2.yml'
