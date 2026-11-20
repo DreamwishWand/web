@@ -50,6 +50,23 @@ fn wipe_pending_decoded_buffer(bytes:&mut Vec<u8>){
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
     bytes.clear();
 }
+// Copy a borrowed WASM slice directly to an independently owned JavaScript
+// Uint8Array. Returning Vec<u8> from wasm-bindgen left an additional plaintext
+// heap allocation unzeroed when the generated JS glue freed the Rust Vec.
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",feature="product-steam626-eyecolor2-scoped",feature="product-switch626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+#[wasm_bindgen(inline_js = "export function wand_copy_scoped_chunk(view) { if (!(view instanceof Uint8Array)) throw new TypeError('WAND_SCOPED_CHUNK_VIEW'); return new Uint8Array(view); }")]
+extern "C" {
+    #[wasm_bindgen(catch)]
+    fn wand_copy_scoped_chunk(view: &[u8]) -> Result<JsValue,JsValue>;
+}
+#[cfg(any(feature="product-amount-scoped",feature="product-switch624-frp01-scoped",feature="product-steam626-makeup-color1-scoped",feature="product-steam626-eyecolor2-scoped",feature="product-switch626-makeup-color1-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")))]
+fn wipe_scoped_output_slice(bytes:&mut [u8]){
+    for byte in bytes.iter_mut(){
+        // SAFETY: each byte is exclusively borrowed from the session-owned Vec.
+        unsafe {core::ptr::write_volatile(byte as *mut u8,0);}
+    }
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+}
 const MAX_CHUNK:usize=1024*1024;
 const MAX_WORKER_DOCUMENT:usize=128*1024*1024;
 fn err(s:&'static str)->JsValue {JsValue::from_str(s)}
@@ -629,7 +646,7 @@ impl WorkerWasmSource {
     #[cfg(all(any(feature="product-amount-scoped",all(feature="product-collection-scoped",feature="semantic-writer-dev")),not(any(all(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped"),all(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped"),any(feature="product-switch626-rm01-scoped",feature="product-steam626-sr03-scoped",feature="product-steam626-chest-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped")),all(feature="product-switch626-chest-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-switch626-rm01-scoped"),all(feature="product-steam626-sr03-scoped",feature="product-switch626-rm01-scoped"),feature="product-steam626-chest-scoped",all(feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped"),all(feature="product-switch626-chest-scoped",feature="product-steam626-sr03-scoped"),all(feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped")))))]
     #[cfg(not(any(feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped")))]
     #[cfg(not(any(feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped")))]
-    pub fn next_scoped_edit_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+    pub fn next_scoped_edit_output_chunk(&mut self)->Result<JsValue,JsValue>{
         self.next_scoped_edit_output_chunk_inner()
     }
     #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
@@ -649,7 +666,7 @@ impl WorkerWasmSource {
     #[cfg(all(feature="product-amount-scoped",not(any(feature="product-steam626-hair-scoped",feature="product-steam626-skin-scoped",feature="product-switch626-rm01-scoped",feature="product-switch626-chest-scoped",feature="product-steam626-comp03-scoped",feature="product-steam626-sr03-scoped"))))]
     #[cfg(not(any(feature="product-switch626-fd01-scoped",feature="product-switch626-fe01-scoped")))]
     #[cfg(not(any(feature="product-switch626-fd02-scoped",feature="product-switch626-fd03-scoped",feature="product-switch626-ortho-l-scoped",feature="product-switch626-diagonal90-scoped",feature="product-switch626-ortho-t-scoped")))]
-    pub fn next_scoped_amount_output_chunk(&mut self)->Result<Vec<u8>,JsValue>{
+    pub fn next_scoped_amount_output_chunk(&mut self)->Result<JsValue,JsValue>{
         self.require_amount_domain()?;
         self.next_scoped_edit_output_chunk_inner()
     }
@@ -731,12 +748,24 @@ impl WorkerWasmSource {
         Ok(serde_json::json!({"contract":contract,"decodedBytes":size,"decodedSha256":sha,
             "writerAuthorized":false,"originalOverwriteAuthorized":false}).to_string())
     }
-    fn next_scoped_edit_output_chunk_inner(&mut self)->Result<Vec<u8>,JsValue>{
+    fn next_scoped_edit_output_chunk_inner(&mut self)->Result<JsValue,JsValue>{
         let (out,pos)=self.scoped_output.as_mut().ok_or(err("WORKER_SCOPED_OUTPUT_CONSUMED"))?;
-        let end=pos.saturating_add(MAX_CHUNK).min(out.len());
-        let chunk=out[*pos..end].to_vec();out[*pos..end].fill(0);*pos=end;
+        let start=*pos;
+        let end=start.saturating_add(MAX_CHUNK).min(out.len());
+        // JS must own its own bytes before Rust scrubs the original source.
+        // Do not allocate and return another Rust plaintext Vec to wasm-bindgen.
+        let copied=wand_copy_scoped_chunk(&out[start..end]);
+        wipe_scoped_output_slice(&mut out[start..end]);
+        if copied.is_err(){
+            // JS copy failure consumes the entire one-time export: no retry
+            // after partial output, and no plaintext pending on Rust drop.
+            wipe_scoped_output_slice(out.as_mut_slice());
+            self.scoped_output=None;
+            return Err(err("WORKER_SCOPED_CHUNK_COPY_FAILED"));
+        }
+        *pos=end;
         if end==out.len(){self.scoped_output=None;}
-        Ok(chunk)
+        copied
     }
 }
 
