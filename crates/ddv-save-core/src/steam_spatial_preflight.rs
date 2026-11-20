@@ -268,7 +268,7 @@ mod grid1261_wire_tests{
         let mut b=valid.clone();b[1]=0x80;b.insert(2,0);deny(&b);
         let mut b=frame(4,2,&[0,4,256],&[0,1,2,0,1,2,0,1]);*b.last_mut().unwrap()=0xff;deny(&b);
         let mut b=frame(3,1,&[0,4,256,512],&[0,1,2]);*b.last_mut().unwrap()|=0xc0;deny(&b);
-        let mut b=valid.clone();b[6..10].copy_from_slice(&[0,0,0,0]);deny(&b);
+        let mut b=valid.clone();b[10..14].copy_from_slice(&[0,0,0,0]);deny(&b);
         let mut foreign=identity(false);foreign.build_id="foreign".into();
         assert!(inspect_v1261_griddata_envelope(&foreign,&valid).is_err());
         let mut unattested=identity(false);unattested.externally_attested=false;
