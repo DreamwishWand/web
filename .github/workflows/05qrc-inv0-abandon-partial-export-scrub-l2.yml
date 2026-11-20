@@ -1,0 +1,200 @@
+name: 05 QR-C Inventory0 Rust abandoned output buffer secure wipe at Close and free L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - .github/workflows/05qrc-inv0-abandon-partial-export-scrub-l2.yml
+permissions:
+  contents: read
+jobs:
+  optimized-wasm32-abandoned-output:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_TARGET_DIR: /tmp/qrc-inv0-abandoned-out-wasm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05qrc-20261120-inv0-abandon-partial-export-scrub-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Source11 unmodified original Rust/Worker and exactly one QA-only workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=284a9b664cafd2078e6bd582458bd101c7bcf34b
+          path=.github/workflows/05qrc-inv0-abandon-partial-export-scrub-l2.yml
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD)" = "$path"
+          test "$(git ls-tree HEAD -- "$path" | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 775a2766f237d44ae77fa5347e9adf430c8580d2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/worker_session.rs)" = 254af029304f6a357c8c0a0e7a1376b80313d038
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
+          test "$(git rev-parse HEAD:.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml)" = 19d7f0c532badecc86f8d36ff89eed1ba0e28bf2
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          echo QRC_INV0_ABANDON_OUTPUT_FIXED_PRODUCT_SOURCE_ONLY
+      - name: Inject ephemeral exact pending edited output Vec data-span deallocation observer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('crates/ddv-save-core/src/wasm_worker.rs')
+          src=p.read_text()
+          anchor='const MAX_CHUNK:usize=1024*1024;'
+          assert src.count(anchor)==1
+          observer=r'''
+          // Ephemeral CI-only and nonshipped. Observe boolean state only
+          // at exact edited output Vec allocation deallocation before free.
+          use std::alloc::{GlobalAlloc,Layout,System};
+          use core::sync::atomic::{AtomicUsize,Ordering as QaOrd};
+          static QA_EDITED_PTR:AtomicUsize=AtomicUsize::new(0);
+          static QA_EDITED_LEN:AtomicUsize=AtomicUsize::new(0);
+          static QA_EDITED_DEALLOC:AtomicUsize=AtomicUsize::new(0);
+          struct QaEditedAlloc;
+          unsafe impl GlobalAlloc for QaEditedAlloc {
+              unsafe fn alloc(&self,l:Layout)->*mut u8 {System.alloc(l)}
+              unsafe fn dealloc(&self,p:*mut u8,l:Layout){
+                  let data=QA_EDITED_PTR.load(QaOrd::SeqCst);
+                  let len=QA_EDITED_LEN.load(QaOrd::SeqCst);
+                  let start=p as usize;
+                  if data!=0 && len>0 && start<=data &&
+                     data.checked_add(len).is_some_and(|end|
+                       start.checked_add(l.size()).is_some_and(|limit|end<=limit)) {
+                      let mut nonzero=false;
+                      for i in 0..len{
+                          if core::ptr::read_volatile((data as *const u8).add(i))!=0{
+                              nonzero=true;break;
+                          }
+                      }
+                      QA_EDITED_DEALLOC.store(if nonzero{1}else{2},QaOrd::SeqCst);
+                      QA_EDITED_PTR.store(0,QaOrd::SeqCst);
+                  }
+                  System.dealloc(p,l);
+              }
+          }
+          #[global_allocator]
+          static QA_EDITED_ALLOC:QaEditedAlloc=QaEditedAlloc;
+          '''
+          src=src.replace(anchor,observer+anchor,1)
+          anchor='    pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{'
+          assert src.count(anchor)==1
+          methods=r'''
+              // QA only; no real pointer/bytes exposed; witness records at
+              // dealloc before memory is freed, not a post-free probe.
+              pub fn qa_arm_abandoned_output_dealloc(&self)->bool {
+                  if let Some((ref out,_))=self.scoped_output {
+                      if out.len()<2{return false;}
+                      QA_EDITED_DEALLOC.store(0,QaOrd::SeqCst);
+                      QA_EDITED_LEN.store(out.len(),QaOrd::SeqCst);
+                      QA_EDITED_PTR.store(out.as_ptr() as usize,QaOrd::SeqCst);
+                      true
+                  } else {false}
+              }
+              pub fn qa_take_abandoned_output_dealloc(&self)->u32{
+                  QA_EDITED_DEALLOC.swap(0,QaOrd::SeqCst) as u32
+              }
+          '''
+          p.write_text(src.replace(anchor,methods+anchor,1))
+          print('QRC_INV0_ABANDON_OUTPUT_INSTRUMENT_EPHEMERAL_ONLY')
+          PY
+      - name: Compile real optimized Rust1.99.1 wasm32 Inventory0 feature and wasm-bindgen
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = 1.99.1
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,product-steam626-catalog0-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrc-inv0-abandon-bindgen
+          mkdir -p /tmp/qrc-inv0-abandon-pkg
+          /tmp/qrc-inv0-abandon-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir /tmp/qrc-inv0-abandon-pkg --target nodejs --no-typescript
+      - name: Verify pending decoded edited-copy bytes wiped before Vec free on close and Worker.free
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml').read_text()
+          start=src.index('          const empty=()=>')
+          end=src.index('          const hash=bytes=>',start)
+          fixture='\n'.join(line[10:] for line in src[start:end].splitlines())+'\n'
+          head="""import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          import {createHash} from 'node:crypto';
+          const {WorkerWasmSource}=createRequire(import.meta.url)('/tmp/qrc-inv0-abandon-pkg/ddv_save_core.js');
+          """
+          test=r'''
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          const input=structuredClone(source);
+          // Large synthetic unknown-preserved field guarantees >1MB output:
+          // deliberately abandon some edited plaintext AFTER staging/export.
+          input.Unknown.unknownPadding='X'.repeat(1400000);
+          const raw=new TextEncoder().encode(JSON.stringify(input));
+          const originalHash=sha(raw);
+          const BUILD='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          function stageAndBegin(seed) {
+              const w=new WorkerWasmSource('steam-windows','steam-full-version',BUILD,626,true,
+                new Uint8Array(32).fill(seed));
+              for(let off=0;off<raw.length;off+=1024*1024)w.append_chunk(raw.slice(off,off+1024*1024));
+              const receipt=JSON.parse(w.finish());
+              const scope=x=>[x.sessionId,BigInt(x.revision),BigInt(x.indexGeneration),x.decodedSha256];
+              const a=scope(receipt);
+              const pre=JSON.parse(w.preview_scoped_amount('catalog0-furniture',0,40000048,2,...a));
+              assert.equal(pre.oldAmount,3);assert.equal(pre.newAmount,2);
+              const staged=JSON.parse(w.stage_scoped_amount('catalog0-furniture',0,40000048,3,2,
+                pre.entrySha256,...a));
+              const out=JSON.parse(w.begin_scoped_amount_output(...scope(staged)));
+              assert.equal(out.originalOverwriteAuthorized,false);
+              assert.equal(out.writerAuthorized,false);
+              assert.ok(out.decodedBytes>1024*1024 && out.decodedBytes<4*1024*1024);
+              return {w,out};
+          }
+          const c1=stageAndBegin(0x27);
+          assert.equal(c1.w.qa_arm_abandoned_output_dealloc(),true);
+          assert.equal(c1.w.qa_take_abandoned_output_dealloc(),0,'pending output not freed until close');
+          c1.w.close();
+          assert.equal(c1.w.qa_take_abandoned_output_dealloc(),2,'close must zero entire pending output Vec before dealloc');
+          assert.throws(()=>c1.w.next_scoped_amount_output_chunk(),'closed cannot resurrect export');
+          c1.w.free();
+          console.log('QRC_INV0_PENDING_EDITED_OUTPUT_EXPLICIT_CLOSE_DEALLOC_ZERO');
+          const c2=stageAndBegin(0x38);
+          assert.equal(c2.w.qa_arm_abandoned_output_dealloc(),true);
+          c2.w.free();
+          // After JS free, the wrapper's method cannot be used, but dealloc
+          // watcher status is stored as a static inside its wasm module.
+          // Create another Worker solely to read the QA static result.
+          const probe2=new WorkerWasmSource('steam-windows','steam-full-version',BUILD,626,true,
+            new Uint8Array(32).fill(0x44));
+          assert.equal(probe2.qa_take_abandoned_output_dealloc(),2,
+            'WASM .free Drop must wipe pending decoded edited-copy Vec before dealloc');
+          probe2.free();
+          console.log('QRC_INV0_PENDING_EDITED_OUTPUT_WORKER_FREE_DEALLOC_ZERO');
+          const c3=stageAndBegin(0x49);
+          const chunk=c3.w.next_scoped_amount_output_chunk();
+          assert.equal(chunk.length,1024*1024,'first chunk must be consumed and zeroized in rust');
+          assert.equal(c3.w.qa_arm_abandoned_output_dealloc(),true);
+          c3.w.close();
+          assert.equal(c3.w.qa_take_abandoned_output_dealloc(),2,
+            'partial export Close must scrub both consumed and all still-pending bytes');
+          c3.w.free();
+          assert.equal(sha(raw),originalHash,'input raw SHA unchanged across all output abandonment');
+          console.log('QRC_INV0_PARTIAL_EDITED_OUTPUT_CLOSE_DEALLOC_ZERO_ORIGINAL_SHA_PRESERVED');
+          '''
+          Path('/tmp/qrc-inv0-abandon.mjs').write_text(head+fixture+test)
+          PY
+          node --check /tmp/qrc-inv0-abandon.mjs
+          node /tmp/qrc-inv0-abandon.mjs
+          test "$(git diff --name-only 284a9b664cafd2078e6bd582458bd101c7bcf34b HEAD)" = \
+            '.github/workflows/05qrc-inv0-abandon-partial-export-scrub-l2.yml'
