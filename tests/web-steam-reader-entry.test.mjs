@@ -35,7 +35,10 @@ test('editor entry distinguishes reference catalog, local scene and Switch timin
  const src=read('src/routes/editor/+page.svelte');
  assert.match(src,/editorHubCopy\(\$locale\)/);
  assert.match(src,/data-editor-catalog href=/);assert.match(src,/data-editor-world href=/);assert.match(src,/data-editor-timing href=/);
- for(const locale of EDITOR_HUB_LOCALES){const c=editorHubCopy(locale);assert.equal(Object.keys(c).length,12);for(const v of Object.values(c))assert.ok(v.trim());assert.match(c.catalogDetail,/Switch v1\.25\.0/);assert.match(c.timingDetail,/Nintendo Switch v1\.25\.3/);assert.ok(Object.isFrozen(c));}
+ assert.match(src,/data-editor-local-scenes href=\{base \+ '\/presets\/'\}/);
+ assert.match(src,/data-beta-capability="local-scene-library" data-beta-state="local"/);
+ assert.match(src,/data-beta-save-authorized="false" data-native-apply="off" data-cloud="off"/);
+ for(const locale of EDITOR_HUB_LOCALES){const c=editorHubCopy(locale);assert.equal(Object.keys(c).length,15);for(const v of Object.values(c))assert.ok(v.trim());assert.match(c.catalogDetail,/Switch v1\.25\.0/);assert.match(c.timingDetail,/Nintendo Switch v1\.25\.3/);assert.ok(c.sceneTitle&&c.sceneDetail&&c.sceneAction);assert.ok(Object.isFrozen(c));}
  assert.equal(editorHubCopy('unknown'),editorHubCopy('en'));assert.equal(editorHubCopy('__proto__'),editorHubCopy('en'));
  assert.doesNotMatch(src,/new Worker\(|type=["']file|<SteamSavedDiffGridsReadonly|createSavedDiffGridsUiClient/);
 });

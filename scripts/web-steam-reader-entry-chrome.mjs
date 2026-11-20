@@ -18,8 +18,8 @@ async function localized(loc,path){
  if(path==='editor'){
   const hub=editorHubCopy(loc);
   await page.waitForFunction(title=>document.querySelector('[data-editor-hub] h1')?.textContent?.trim()===title,hub.title);
-  for(const [selector,title,detail,href] of [['[data-editor-catalog]',hub.catalogTitle,hub.catalogDetail,'/editor/items/'],['[data-editor-world]',hub.worldTitle,hub.worldDetail,'/editor/world/'],['[data-editor-timing]',hub.timingTitle,hub.timingDetail,'/editor/timing/']]){
-   const tile=page.locator(selector);assert.equal(await tile.count(),1);assert.equal(await tile.locator('h2').textContent(),title);assert.equal(await tile.locator('p').textContent(),detail);assert.equal(await tile.getAttribute('href'),base+href);
+  for(const [selector,title,detail,href] of [['[data-editor-catalog]',hub.catalogTitle,hub.catalogDetail,'/editor/items/'],['[data-editor-world]',hub.worldTitle,hub.worldDetail,'/editor/world/'],['[data-editor-local-scenes]',hub.sceneTitle,hub.sceneDetail,'/presets/'],['[data-editor-timing]',hub.timingTitle,hub.timingDetail,'/editor/timing/']]){
+   const tile=page.locator(selector);assert.equal(await tile.count(),1);assert.equal(await tile.locator('h2').textContent(),title);assert.equal(await tile.locator('p').first().textContent(),detail);assert.equal(await tile.getAttribute('href'),base+href);
   }
   assert.equal(await page.locator('[data-editor-writer-boundary]').textContent(),hub.boundary);
  }
@@ -54,11 +54,21 @@ try{
  assert.ok(await entry.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth+1}));
  await page.evaluate(()=>document.documentElement.style.zoom='1');
  await page.goto(origin+base+'/editor/',{waitUntil:'domcontentloaded'});await page.setViewportSize({width:320,height:790});
- for(const selector of ['[data-steam-reader-entry]','[data-editor-catalog]','[data-editor-world]','[data-editor-timing]','[data-editor-writer-boundary]']){
+ for(const selector of ['[data-steam-reader-entry]','[data-editor-catalog]','[data-editor-world]','[data-editor-local-scenes]','[data-editor-timing]','[data-editor-writer-boundary]']){
   const tile=page.locator(selector);await tile.waitFor({state:'visible'});assert.ok(await tile.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth+1}));
  }
  await page.setViewportSize({width:640,height:860});await page.evaluate(()=>document.documentElement.style.zoom='2');
  assert.ok(await page.locator('[data-editor-writer-boundary]').evaluate(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth+1}));
+ // The new link is a real keyboard-operable route into the existing
+ // device-local Scene Presets UI, not a Save Editor permission or Provider.
+ const sceneLink=page.locator('[data-editor-local-scenes]');
+ assert.equal(await sceneLink.getAttribute('data-beta-save-authorized'),'false');
+ assert.equal(await sceneLink.getAttribute('data-native-apply'),'off');
+ assert.equal(await sceneLink.getAttribute('data-cloud'),'off');
+ await sceneLink.focus();await page.keyboard.press('Enter');
+ await page.waitForURL(origin+base+'/presets/');
+ assert.equal(page.url(),origin+base+'/presets/');
+ console.log('EDITOR_DEVICE_LOCAL_SCENES_KEYBOARD_PRESETS_ROUTE_PASS');
  console.log('EDITOR_HUB_LOCALIZED_SCOPE_8_LOCALE_320_200_PASS');
  assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);
  console.log('STEAM_READER_ENTRY_HOME_RC_EDITOR_8LOCALE_KEYBOARD_MOBILE_READONLY_PASS');

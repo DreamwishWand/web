@@ -37,6 +37,7 @@ test('Pre-existing functioning routes are labeled local/read/test and public Wri
   ['data-editor-moodboards','local-moodboards','local','/moodboards/'],
   ['data-editor-catalog','catalog-read','read','/editor/items/'],
   ['data-editor-world','local-world','local','/editor/world/'],
+  ['data-editor-local-scenes','local-scene-library','local','/presets/'],
   ['data-editor-timing','timing-read','read','/editor/timing/'],
   ['data-steam-reader-entry','test-steam-reader','test','/editor/steam-reader/'],
   ['data-editor-collection','test-collection','test','/editor/collection/']
@@ -50,6 +51,9 @@ test('Pre-existing functioning routes are labeled local/read/test and public Wri
  assert.match(hub,/\{#if collectionReady\}/,'no direct bypass of existing test-only Collection route gate');
  assert.match(hub,/getScopedCollectionMountInfo\(\)/,'original gate read retained');
  assert.match(hub,/data-editor-writer-boundary/,'keep product Save Writer warning');
+ assert.match(hub,/data-editor-local-scenes href=\{base \+ '\/presets\/'\}/);
+ assert.match(hub,/data-beta-capability="local-scene-library" data-beta-state="local"/);
+ assert.match(hub,/data-native-apply="off" data-cloud="off"/);
  assert.match(hub,/data-beta-save-authorized="false"/);
  assert.doesNotMatch(hub,/toggle_scoped_edit|stage_fixed_collection|begin_scoped_edit_output/);
 });
