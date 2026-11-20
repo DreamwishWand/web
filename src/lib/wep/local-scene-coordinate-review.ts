@@ -22,7 +22,7 @@ export function reviewLocalSceneCoordinates({
  if(source?.source?.platform!=='synthetic'||source.source.gameVersion!==null||
     source.source.areaKey!==null||base.objects.length!==2||
     source.objects.length!==2||base.objects.some(o=>
-      o.layer!=='furniture'||o.portableState!==undefined||
+      o.layer!=='furniture'||
       o.orientation!==0||o.dependencyIds.length!==0))
    fail('SOURCE_NOT_TWO_LOCAL_FURNITURE');
  if(typeof title!=='string'||title.trim().length<1||title.trim().length>120)
