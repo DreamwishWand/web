@@ -1,0 +1,90 @@
+name: 09P ACT1581 Inventory0 exact R22 product source candidate only (no release)
+on:
+  pull_request:
+    paths:
+      - 'scripts/wasm-distribution/r22-inventory0-product-source.mjs'
+      - 'tests/09p-r22-inventory0-product-source.test.mjs'
+      - 'scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs'
+      - 'tests/09p-r22-inventory0-unsigned-pair.test.mjs'
+      - '.github/workflows/09p-r22-inventory0-product-source.yml'
+permissions:
+  contents: read
+jobs:
+  immutable-product-source-no-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source18 Rust Core/Cargo/Worker/Arc+seven wrappers exact fingerprint and adversarial Git objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 66eeda64ddfa60835b446f94f7b98df715f59e14
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = f4cf9d66f857a2e20b597de9f697a458b6ab550c
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
+          node --test 'tests/09p-r22-inventory0-product-source.test.mjs' 'tests/09p-r22-inventory0-unsigned-pair.test.mjs'
+          echo R22_INVENTORY0_SOURCE_CANDIDATE_ONLY_NOT_SIGNED_NOT_WRITER_NOT_OPERATION_ON
+
+      - name: Generated product WASM only, NEW packaging invariant (no signing)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Compile actual dedicated Rust into isolated, non-public WASM
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/09p-inv0-wasm-target
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,product-steam626-catalog0-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked \
+            --root "$RUNNER_TEMP/09p-inv0-wasm-bindgen"
+          mkdir -p "$RUNNER_TEMP/09p-inv0-wasm"
+          "$RUNNER_TEMP/09p-inv0-wasm-bindgen/bin/wasm-bindgen" \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir "$RUNNER_TEMP/09p-inv0-wasm" --target nodejs --no-typescript
+      - name: Inspect REAL generated Worker prototype and emit private unsigned witness
+        shell: bash
+        env:
+          WAND_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {createRequire} from 'node:module';
+          import {writeFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          import {join} from 'node:path';
+          import {INVENTORY0_PRODUCT_METHODS} from './scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs';
+          const filename=join(process.env.RUNNER_TEMP,'09p-inv0-wasm','ddv_save_core.js');
+          const {WorkerWasmSource}=createRequire(import.meta.url)(filename);
+          assert.equal(typeof WorkerWasmSource,'function');
+          const names=Object.getOwnPropertyNames(WorkerWasmSource.prototype);
+          const allowed=['constructor','__destroy_into_raw','free',...INVENTORY0_PRODUCT_METHODS].sort();
+          assert.deepEqual(names.sort(),allowed,'Unexpected public Worker method or missing exact method');
+          const path=join(process.env.RUNNER_TEMP,'09p-inv0-wasm','abi.json');
+          writeFileSync(path,JSON.stringify(INVENTORY0_PRODUCT_METHODS),{flag:'wx',mode:0o600});
+          NODE
+          node scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs make \
+            "$RUNNER_TEMP/09p-inv0-wasm/ddv_save_core.js" \
+            "$RUNNER_TEMP/09p-inv0-wasm/ddv_save_core_bg.wasm" \
+            "$RUNNER_TEMP/09p-inv0-wasm/abi.json" \
+            "$RUNNER_TEMP/09p-inv0-wasm/unsigned-pair.json"
+          node scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs verify \
+            "$RUNNER_TEMP/09p-inv0-wasm/ddv_save_core.js" \
+            "$RUNNER_TEMP/09p-inv0-wasm/ddv_save_core_bg.wasm" \
+            "$RUNNER_TEMP/09p-inv0-wasm/abi.json" \
+            "$RUNNER_TEMP/09p-inv0-wasm/unsigned-pair.json"
+          test -z "$(git ls-files static/worker-wasm)"
+          echo R22_INVENTORY0_UNSIGNED_PRODUCT_PAIR_PROVED_NO_PAGES_UPLOAD_NO_SIGNER_NO_ON
