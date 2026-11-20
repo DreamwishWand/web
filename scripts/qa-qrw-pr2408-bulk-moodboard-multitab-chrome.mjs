@@ -86,14 +86,15 @@ try{
  // device-local browser. 499 canonical references leave only one slot,
  // so a new batch must fail in full, never add its first item.
  const stress=await a.evaluate(async({main,backup})=>{
-  const {serializeMoodboardDocument}=await import('/src/lib/moodboards/store.js');
+  // The full existing primary was parsed from the real accepted local store.
+  // A QA-only bounded NOTE injection needs no Vite runtime module import.
   const doc=JSON.parse(localStorage.getItem(main));
   const extra=Array.from({length:451},(_,i)=>({
    id:'note_qa_'+i,type:'NOTE',label:'Synthetic '+i,
    url:null,entityId:null,note:null,groupIds:[],createdAt:'2026-11-20T08:00:00.000Z'
   }));
   doc.boards[0].references.push(...extra);
-  const raw=serializeMoodboardDocument(doc);
+  const raw=JSON.stringify(doc,null,2)+'\n';
   localStorage.setItem(main,raw);
   return {raw,prior:localStorage.getItem(backup)};
  },{main:MAIN,backup:BACKUP});
