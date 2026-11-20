@@ -114,7 +114,8 @@ jobs:
             assert.ok(builder.includes("candidateOnly:true,productConsumerEnabled:false,writerAuthorized:false"));
             assert.ok(builder.includes("stageAuthorized:false,editedCopyAuthorized:false,autoUpload:false"));
             assert.ok(contract.includes("writerAuthorized:false"));
-            assert.ok(contract.includes("originalOverwriteAuthorized:false"));
+            assert.ok(contract.includes("b.originalOverwriteAuthorized===false"));
+            assert.ok(contract.includes("r.originalOverwriteAuthorized===false"));
             assert.ok(readFileSync('src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs','utf8')
               .includes('PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;'));
             const goodContext={
