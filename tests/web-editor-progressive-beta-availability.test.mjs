@@ -51,7 +51,7 @@ test('Pre-existing functioning routes are labeled local/read/test and public Wri
  assert.match(hub,/\{#if collectionReady\}/,'no direct bypass of existing test-only Collection route gate');
  assert.match(hub,/getScopedCollectionMountInfo\(\)/,'original gate read retained');
  assert.match(hub,/data-editor-writer-boundary/,'keep product Save Writer warning');
- assert.match(hub,/data-editor-local-scenes href=\{base \+ '\/presets\/'\}/);
+ assert.match(hub,/data-editor-local-scenes href=\{base \+ '\/presets\/#device-local-scenes'\}/);
  assert.match(hub,/data-beta-capability="local-scene-library" data-beta-state="local"/);
  assert.match(hub,/data-native-apply="off" data-cloud="off"/);
  assert.match(hub,/data-beta-save-authorized="false"/);
