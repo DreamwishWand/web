@@ -27,7 +27,7 @@ jobs:
           test "$GITHUB_REPOSITORY_ID" = 1371485649
           test "$(git merge-base 0e57c6b8585002b1baff91e6de573a835bed6577 HEAD)" = 0e57c6b8585002b1baff91e6de573a835bed6577
           git diff --name-only 0e57c6b8585002b1baff91e6de573a835bed6577 HEAD | sort > /tmp/01a-inv0-actual-paths
-          printf '%s\n' '.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml' 'crates/ddv-save-core/Cargo.toml' 'crates/ddv-save-core/src/wasm_worker.rs' 'crates/ddv-save-core/src/product_session.rs' 'tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs' 'tests/01a-steam626-catalog0-product-worker-port.test.mjs' 'src/lib/ddv/core/save/product-scoped-amount-transport.mjs' 'src/lib/ddv/core/save/product-wasm-read-owner.mjs' 'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs' 'src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs' | sort > /tmp/01a-inv0-expected-paths
+          printf '%s\n' '.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml' 'crates/ddv-save-core/Cargo.toml' 'crates/ddv-save-core/src/wasm_worker.rs' 'crates/ddv-save-core/src/product_session.rs' 'tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs' 'tests/01a-steam626-catalog0-product-worker-port.test.mjs' 'tests/product-steam626-catalog0-local-adapter.test.mjs' 'src/lib/ddv/core/save/product-scoped-amount-transport.mjs' 'src/lib/ddv/core/save/product-wasm-read-owner.mjs' 'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs' 'src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs' | sort > /tmp/01a-inv0-expected-paths
           diff -u /tmp/01a-inv0-expected-paths /tmp/01a-inv0-actual-paths
           for f in $(cat /tmp/01a-inv0-actual-paths); do test "$(git ls-tree HEAD -- "$f" | awk '{print $1}')" = 100644; done
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 522e8e8d6beec597b2e5e176cfbe8a6d8e38a124
@@ -44,7 +44,7 @@ jobs:
           test -z "$(git ls-files '*.p1g')"
           cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
           echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
-          node --test tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs tests/01a-steam626-catalog0-product-worker-port.test.mjs
+          node --test tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs tests/01a-steam626-catalog0-product-worker-port.test.mjs tests/product-steam626-catalog0-local-adapter.test.mjs
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: '1.99.1'
