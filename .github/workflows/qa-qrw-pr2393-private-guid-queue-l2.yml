@@ -1,0 +1,48 @@
+name: 04 QR-W PR2393 private GUID queue output L2 QA ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2393-private-guid-queue-l2.yml'
+permissions:
+  contents: read
+jobs:
+  exact-source-private-output:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2393-156925-private-guid-queue-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact 3 original Source / 2 QA only leaves, SHA and mode, no private assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          base=39a4335ee3b5e9ef303685f9a3342e18f5dcc16a
+          source=156925f10eb9686c80b2231e0a17f05abb3d02e1
+          test "$(git merge-base "$base" "$source")" = "$base"
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          printf '%s\n' scripts/asset-research/07dbk-steam1261-image-batch-queue.py tests/07dbk-steam1261-image-batch-queue.test.py tests/07dbk-steam1261-image-batch-queue.test.mjs | LC_ALL=C sort >/tmp/qrw2393-source3
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/qrw2393-source3 -
+          printf '%s\n' .github/workflows/qa-qrw-pr2393-private-guid-queue-l2.yml tests/qa-qrw-pr2393-private-guid-queue-output-l2.test.py | LC_ALL=C sort >/tmp/qrw2393-qa2
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qrw2393-qa2 -
+          for file in $(cat /tmp/qrw2393-source3) $(cat /tmp/qrw2393-qa2); do
+            test "$(git ls-tree HEAD -- "$file" | awk '{print $1}')" = 100644
+          done
+          test "$(git rev-parse HEAD:scripts/asset-research/07dbk-steam1261-image-batch-queue.py)" = 8516552fe8320c049102ef6ed61c1420e78a8b44
+          test "$(git rev-parse HEAD:tests/07dbk-steam1261-image-batch-queue.test.py)" = 556c6488d0201b414571ec939c4ab34536f99c2e
+          test "$(git rev-parse HEAD:tests/07dbk-steam1261-image-batch-queue.test.mjs)" = 33ad38f07f2ca2e827f093f35fcf0e36825b2dfd
+          test "$(git rev-parse HEAD:tests/qa-qrw-pr2393-private-guid-queue-output-l2.test.py)" = 052bdd90f6b60f891eac8dbe18e5c3b550fd8b03
+          git diff --quiet "$source" HEAD -- src scripts crates static ops package.json package-lock.json
+          echo QRW2393_SOURCE3_QA2_SHA_MODE_NO_PUBLIC_PRIVATE_BYTES_PASS
+      - name: Independent 8 pinned synthetic original full private output / no leak fail closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qa-qrw-pr2393-private-guid-queue-output-l2.test.py
+          echo QRW2393_EIGHT_SYNTHETIC_PINNED_ORIGINALS_PRIVATE_0600_OUTPUT_6L2_PASS
