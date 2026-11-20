@@ -31,9 +31,15 @@ jobs:
           base=9883686ad1be3d04ff0f2aa08d908c7a3d72a7db
           path=.github/workflows/01a-worker-finish-owned-vec-scrub-source.yml
           test "$(git merge-base "$base" HEAD)" = "$base"
-          test "$(git diff --name-only "$base" HEAD | sort)" = "$(printf '%s\n' "$path" crates/ddv-save-core/src/product_session.rs | sort)"
+          # Source-focused immutable Git tree gate: original 01A Source2 OR
+          # the exact 09 INT reviewed main-first Scenes6 + 09P6 + 01A2.
+          # No wildcard may authorize unrelated Rust/Core/rights/files.
+          actual="$(git diff --name-only "$base" HEAD | LC_ALL=C sort)"
+          standalone="$(printf '%s\n' "$path" 'crates/ddv-save-core/src/product_session.rs' | LC_ALL=C sort)"
+          accepted_composite="$(printf '%s\n' '.github/workflows/01a-worker-finish-owned-vec-scrub-source.yml' '.github/workflows/09p-r22-switch626-makeup-gate-exact8.yml' '.github/workflows/web-steam-reader-entry.yml' 'crates/ddv-save-core/src/product_session.rs' 'scripts/readonly-release/seal-bamboo-public-pages.mjs' 'scripts/web-steam-reader-entry-chrome.mjs' 'src/routes/editor/+page.svelte' 'src/routes/presets/+page.svelte' 'tests/09p-bamboo-public-pages-sealer.test.mjs' 'tests/09p-r22-steam626-eyecolor2-repair.test.mjs' 'tests/09p-r22-switch626-makeup-gate-exact8.test.mjs' 'tests/09p-r22-trusted-main-preflight.test.mjs' 'tests/web-editor-progressive-beta-availability.test.mjs' 'tests/web-steam-reader-entry.test.mjs' | LC_ALL=C sort)"
+          test "$actual" = "$standalone" || test "$actual" = "$accepted_composite"
           test "$(git ls-tree HEAD -- "$path" | awk '{print $1}')" = 100644
-          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = 34286a10bc726d9195d806b15273792614c99fa6
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 6432275d2909e6bc6d39265ae70cc7176fc37106
           test "$(git ls-tree HEAD -- crates/ddv-save-core/src/product_session.rs | awk '{print $1}')" = 100644
           test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
@@ -208,9 +214,147 @@ jobs:
           ok.close();ok.free();
           console.log('01A_FRP01_FINISH_2_INVALID_1_VALID_ORIGINAL_VEC_DEALLOC_ZERO_ACTUAL_WASM32_PASS');
           NODE
-      - name: Preserve exact two unmerged Source paths after test-only instrumentation
+      - name: Inject exact data-span deallocation witness only in ephemeral runner worktree
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git diff --name-only 9883686ad1be3d04ff0f2aa08d908c7a3d72a7db HEAD | sort)" = "$(printf '%s\n' '.github/workflows/01a-worker-finish-owned-vec-scrub-source.yml' 'crates/ddv-save-core/src/product_session.rs' | sort)"
-          echo 01A_FINISH_INVALID_WASM32_DEALLOC_PLAINTEXT_ZERO2_SOURCE_FOCUS_PASS
+          python3 - <<'PY'
+          from pathlib import Path
+          # The previous input-Vec test has ephemeral global allocator code.
+          # Restore the unchanged Product Worker before injecting the *single*
+          # independent Arc dealloc observer; never commit instrumentation.
+          import subprocess
+          original=subprocess.check_output(['git','show','HEAD:crates/ddv-save-core/src/wasm_worker.rs'])
+          Path('crates/ddv-save-core/src/wasm_worker.rs').write_bytes(original)
+          p=Path('crates/ddv-save-core/src/product_session.rs')
+          s=p.read_text()
+          anchor='    fn lock(&self) -> CoreResult<MutexGuard<'
+          assert s.count(anchor)==1
+          p.write_text(s.replace(anchor,'''    // QA ONLY expose the owned session Arc slice span, no bytes or pointer
+              // cross the JS boundary; consumed only in a wasm32 observer.
+              pub(crate) fn qa_session_decoded_span(&self)->(usize,usize) {
+                  (self.decoded.as_ptr() as usize,self.decoded.len())
+              }
+          '''+anchor,1))
+          p=Path('crates/ddv-save-core/src/worker_session.rs')
+          s=p.read_text()
+          anchor='impl WorkerSessionGuard {'
+          assert s.count(anchor)==1
+          p.write_text(s.replace(anchor,'''impl WorkerSessionGuard {
+              // CI ephemeral test-only access to same single Rust Session Arc.
+              pub(crate) fn qa_owned_decoded_span(&self)->(usize,usize){
+                  self.session.qa_session_decoded_span()
+              }
+          ''',1))
+          p=Path('crates/ddv-save-core/src/wasm_worker.rs')
+          s=p.read_text()
+          anchor='const MAX_CHUNK:usize=1024*1024;'
+          assert s.count(anchor)==1
+          tracker=r'''
+          // CI ephemeral only. The exact data pointer is inside Arc's
+          // allocated Layout; record original initialized bytes at dealloc
+          // (before free), not after. No secrets or pointer values logged.
+          use std::alloc::{GlobalAlloc,Layout,System};
+          use core::sync::atomic::{AtomicUsize,Ordering as QrcOrdering};
+          static QRC_ARC_DATA:AtomicUsize=AtomicUsize::new(0);
+          static QRC_ARC_LEN:AtomicUsize=AtomicUsize::new(0);
+          static QRC_ARC_DEALLOC:AtomicUsize=AtomicUsize::new(0);
+          struct QrcArcAlloc;
+          unsafe impl GlobalAlloc for QrcArcAlloc {
+              unsafe fn alloc(&self,l:Layout)->*mut u8 {System.alloc(l)}
+              unsafe fn dealloc(&self,p:*mut u8,l:Layout){
+                  let data=QRC_ARC_DATA.load(QrcOrdering::SeqCst);
+                  let len=QRC_ARC_LEN.load(QrcOrdering::SeqCst);
+                  let start=p as usize;
+                  if data!=0 && len>0 && start<=data &&
+                     data.checked_add(len).is_some_and(|end|
+                       start.checked_add(l.size()).is_some_and(|limit|end<=limit)){
+                      let mut present=false;
+                      for i in 0..len {
+                          if core::ptr::read_volatile((data as *const u8).add(i))!=0{
+                             present=true;break;
+                          }
+                      }
+                      QRC_ARC_DEALLOC.store(if present{1}else{2},QrcOrdering::SeqCst);
+                      QRC_ARC_DATA.store(0,QrcOrdering::SeqCst);
+                  }
+                  System.dealloc(p,l);
+              }
+          }
+          #[global_allocator]
+          static QRC_ARC_ALLOC:QrcArcAlloc=QrcArcAlloc;
+          '''
+          s=s.replace(anchor,tracker+anchor,1)
+          anchor='    pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{'
+          assert s.count(anchor)==1
+          witness=r'''
+              // CI-only arm an exact decoded Arc from the existing Worker
+              // Session, without giving JS access to any pointer or bytes.
+              pub fn qa_arm_session_arc_deallocation(&self)->bool {
+                  if let Some(ref guard)=self.session {
+                      let (p,n)=guard.qa_owned_decoded_span();
+                      if p==0 || n==0{return false;}
+                      QRC_ARC_DEALLOC.store(0,QrcOrdering::SeqCst);
+                      QRC_ARC_LEN.store(n,QrcOrdering::SeqCst);
+                      QRC_ARC_DATA.store(p,QrcOrdering::SeqCst);
+                      true
+                  } else {false}
+              }
+              pub fn qa_take_session_arc_deallocation(&self)->u32 {
+                  QRC_ARC_DEALLOC.swap(0,QrcOrdering::SeqCst) as u32
+              }
+          '''
+          p.write_text(s.replace(anchor,witness+anchor,1))
+          print('QRC2360_ARC_WITNESS_CI_EPHEMERAL_NO_PRODUCT_CHANGES')
+          PY
+      - name: Compile optimized actual Rust1.99.1 wasm32 and instrumented existing Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = 1.99.1
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrc2360-arc-bindgen
+          mkdir -p /tmp/qrc2360-arc-pkg
+          /tmp/qrc2360-arc-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir /tmp/qrc2360-arc-pkg --target nodejs --no-typescript
+      - name: Observe real immutable decoded Arc raw bytes BEFORE Rust dealloc at Worker Close
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          const {WorkerWasmSource}=createRequire(import.meta.url)(
+            '/tmp/qrc2360-arc-pkg/ddv_save_core.js');
+          const BUILD='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          const decoded=new TextEncoder().encode(JSON.stringify({
+            GameInfo:{Version:626},Player:{},World:{},
+            UnknownSensitivePayload:'S'.repeat(7001)
+          }));
+          const worker=new WorkerWasmSource('steam-windows','steam-full-version',
+            BUILD,626,true,new Uint8Array(32).fill(0x47));
+          worker.append_chunk(decoded);
+          const receipt=JSON.parse(worker.finish());
+          assert.equal(receipt.fullDocumentJsonValidated,true);
+          assert.equal(receipt.writerAuthorized,false);
+          assert.equal(worker.qa_arm_session_arc_deallocation(),true);
+          worker.close();
+          const result=worker.qa_take_session_arc_deallocation();
+          // 1 = the real Arc owned immutable decoded Save was deallocated
+          // with NONZERO secrets present; 2 = zeroized; 0 = not observed.
+          assert.equal(result,2,'decoded Arc must be volatile-zeroed before actual final deallocation');
+          assert.throws(()=>worker.append_chunk(new Uint8Array([0x66])));
+          worker.free();
+          console.log('01A_PRODUCT_SESSION_LAST_ARC_DEALLOC_ZERO_ACTUAL_WASM32_POS');
+          NODE
+          echo 01A_PRODUCT_SESSION_OWNED_ARC_LAST_RELEASE_SCOPE_FOCUS_PASS
+
+      - name: Preserve exact reviewed source-only or main-first combined scope after ephemeral instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 6432275d2909e6bc6d39265ae70cc7176fc37106
+          echo 01A_SOURCE_MOVED_VEC_AND_LAST_ARC_DEALLOC_ZERO_TEST_PROVED
