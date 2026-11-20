@@ -61,7 +61,7 @@ const productFilePairs=[
   "4e7f7afe825d7cabb9469385b33322e98ad7aa2b"
  ]
 ];
-const ownPaths=Object.freeze(['scripts/wasm-distribution/r22-inventory0-product-source.mjs','tests/09p-r22-inventory0-product-source.test.mjs','.github/workflows/09p-r22-inventory0-product-source.yml']);
+const ownPaths=Object.freeze(['scripts/wasm-distribution/r22-inventory0-product-source.mjs','tests/09p-r22-inventory0-product-source.test.mjs','.github/workflows/09p-r22-inventory0-product-source.yml','scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs','tests/09p-r22-inventory0-unsigned-pair.test.mjs']);
 export const INVENTORY0_EXPECTED_SOURCE=Object.freeze(Object.fromEntries(productFilePairs));
 export const INVENTORY0_EXPECTED_CORE=fullCore;
 export const INVENTORY0_EXPECTED_CARGO=cargo;

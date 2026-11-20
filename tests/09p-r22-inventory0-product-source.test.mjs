@@ -101,7 +101,7 @@ test('Actual unreferenced forged Git trees reject Rust, Cargo, ABI, mode, truste
  console.log('09P_INVENTORY0_R22_SCOPED_SOURCE_1POS_AND_NEGATIVE_GIT_OBJECTS_NO_SIGN_NO_ON');
 });
 
-test('01A Inventory0 + 09P Source compose as 13 exact files on protected SECURITY main without changing signer',()=>{
+test('01A Inventory0 + 09P Source compose as 15 exact files on protected SECURITY main without changing signer',()=>{
  const protectedBase='f420bbe72fbc3374f0a3867403c660873ce5f06a';
  const dir=mkdtempSync(join(tmpdir(),'9p-inv0-main-first-local-'));
  try{
@@ -110,7 +110,9 @@ test('01A Inventory0 + 09P Source compose as 13 exact files on protected SECURIT
   const staged=[...Object.keys(INVENTORY0_EXPECTED_SOURCE),
    '.github/workflows/09p-r22-inventory0-product-source.yml',
    'scripts/wasm-distribution/r22-inventory0-product-source.mjs',
-   'tests/09p-r22-inventory0-product-source.test.mjs'];
+   'tests/09p-r22-inventory0-product-source.test.mjs',
+   'scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs',
+   'tests/09p-r22-inventory0-unsigned-pair.test.mjs'];
   for(const path of staged){
    const blob=git(['rev-parse',sourceHead+':'+path]);
    git(['update-index','--add','--cacheinfo','100644',blob,path],undefined,idx);
@@ -119,7 +121,7 @@ test('01A Inventory0 + 09P Source compose as 13 exact files on protected SECURIT
   const synthetic=git(['commit-tree',tree,'-p',protectedBase,
    '-m','09P fixed synthetic main-first candidate NO REF']);
   const a=verifyR22Inventory0MainFirstSynthetic(synthetic);
-  assert.equal(a.changedPaths,13);
+  assert.equal(a.changedPaths,15);
   assert.equal(a.oldSignerGrantsInventory0,false);
   assert.equal(a.mergeAuthorized,false);
   assert.equal(a.signerAuthorized,false);
@@ -155,6 +157,6 @@ test('01A Inventory0 + 09P Source compose as 13 exact files on protected SECURIT
   assert.throws(()=>verifyR22Inventory0MainFirstSynthetic(
    tamper('scripts/wasm-distribution/protected-release-inputs.json','{"writerEnabled":true}')),
    /R22_INVENTORY0_SOURCE_DENIED_/);
-  console.log('09P_INVENTORY0_PROTECTED_MAIN_FIRST_SYNTHETIC13_SOURCE_POS_TAMPERS_DENIED_NO_SIGN_NO_ON');
+  console.log('09P_INVENTORY0_PROTECTED_MAIN_FIRST_SYNTHETIC15_SOURCE_POS_TAMPERS_DENIED_NO_SIGN_NO_ON');
  }finally{rmSync(dir,{recursive:true,force:true})}
 });
