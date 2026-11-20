@@ -12,6 +12,7 @@
   } from '$lib/wep/scene-preset-runtime';
   import { captureScenePreset } from '$lib/wep/scene-capture-runtime';
   import SaveFreeFirstScene from '$lib/wep/SaveFreeFirstScene.svelte';
+  import LocalSceneAliasManager from '$lib/wep/LocalSceneAliasManager.svelte';
   import { createScenePresetWorkflow } from '$lib/wep/scene-preset-workflow';
   import {
     reopenLocalScenes,saveLocalScene,verifiedReopenLocalScene,readLocalSceneById
@@ -4610,6 +4611,7 @@
   </section>
 
   <SaveFreeFirstScene />
+  <LocalSceneAliasManager />
 
   {#if routeSceneIntent || routeSceneStatus || routeSceneDraft}
     <section class="local-scene-panel" data-wep-selected-scene-route
