@@ -172,6 +172,9 @@ jobs:
           const {p1gPackagedProfileCodec}=await import('./src/lib/ddv/core/save/p1g-packaged-profile-codec.js');
           const {createProductSteam626Catalog0LocalAdapter}=await import('./src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs');
           const {spawnSync}=await import('node:child_process');
+          const {mkdtemp,writeFile,readFile,rm}=await import('node:fs/promises');
+          const {tmpdir}=await import('node:os');
+          const {join}=await import('node:path');
           const originalEncrypted=makeSyntheticP1gProfile(source);
           const originalEncryptedSha=hash(originalEncrypted);
           const originalFile=new File([originalEncrypted],'synthetic-steam626-inventory0.p1g');
@@ -196,6 +199,12 @@ jobs:
           const previousLocks=Object.getOwnPropertyDescriptor(navigator,'locks');
           Object.defineProperty(navigator,'locks',{configurable:true,
             value:{request:async(_name,action)=>action()}});
+          // Real filesystem boundary for synthetic fixture only: files are
+          // local private 0600, never the Owner's installed game or browser OPFS.
+          const temporary=await mkdtemp(join(tmpdir(),'wand-inv0-synthetic-v2-'));
+          const originalPath=join(temporary,'encrypted-original.p1g');
+          const backupPath=join(temporary,'encrypted-original-backup.p1g');
+          const editedPath=join(temporary,'encrypted-edited-copy.p1g');
           let synthetic=null,backed=null,edited=null;
           try{
             synthetic=createProductSteam626Catalog0LocalAdapter({
@@ -236,25 +245,44 @@ jobs:
             assert.equal(hash(new Uint8Array(await originalFile.arrayBuffer())),originalEncryptedSha);
             const reopened=await p1gPackagedProfileCodec.loadProfile(edited.encryptedBytes);
             assert.equal(reopened.jsonText,JSON.stringify(wanted));
-            // Separate Node OS process, same unchanged official packaged codec.
-            // Test-only generated synthetic Save != installed Owner Product V2.
+            // Persist each synthetic encrypted artifact as a distinct physical
+            // file, then independently reopen the EDITED FILE by path in a
+            // fresh Node OS process with no plaintext or edited bytes on stdin.
+            await writeFile(originalPath,originalEncrypted,{flag:'wx',mode:0o600});
+            await writeFile(backupPath,backed.encryptedBytes,{flag:'wx',mode:0o600});
+            await writeFile(editedPath,edited.encryptedBytes,{flag:'wx',mode:0o600});
+            assert.equal(hash(new Uint8Array(await readFile(originalPath))),originalEncryptedSha);
+            assert.equal(hash(new Uint8Array(await readFile(backupPath))),originalEncryptedSha);
+            assert.equal(hash(new Uint8Array(await readFile(editedPath))),hash(edited.encryptedBytes));
+            assert.notEqual(hash(new Uint8Array(await readFile(editedPath))),originalEncryptedSha);
+            await assert.rejects(writeFile(originalPath,new Uint8Array([0]),{flag:'wx',mode:0o600}),
+              {code:'EEXIST'},'encrypted original must never be overwritten');
+            // Synthetic-only physical file reopen is stronger than stdin
+            // handoff, but is NOT the private Owner P1G Product V2 or OPFS.
             const childCode=`
               import {p1gPackagedProfileCodec} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
               import {createHash} from 'node:crypto';
-              const parts=[];for await(const part of process.stdin)parts.push(part);
-              const opened=await p1gPackagedProfileCodec.loadProfile(new Uint8Array(Buffer.concat(parts)));
+              import {readFile} from 'node:fs/promises';
+              const encryptedFilePath=process.argv[2];
+              if(!encryptedFilePath)process.exit(32);
+              const opened=await p1gPackagedProfileCodec.loadProfile(
+                new Uint8Array(await readFile(encryptedFilePath)));
               const sha=createHash('sha256').update(opened.jsonText).digest('hex');
               if(sha!==process.argv[1])process.exit(30);
               const body=JSON.parse(opened.jsonText);
               if(body.Player.ListInventories['0'].Inventory['40000048'].Amount!==2||
                  body.Unknown.neverOverwrite!==true)process.exit(31);
-              process.stdout.write('01A_SYNTHETIC_FRESH_OS_PROCESS_CODEC_REOPEN_PASS');
+              process.stdout.write('01A_SYNTHETIC_FRESH_OS_PROCESS_ENCRYPTED_FILE_CODEC_REOPEN_PASS');
             `;
             const separate=spawnSync(process.execPath,
-              ['--input-type=module','--eval',childCode,hash(new TextEncoder().encode(JSON.stringify(wanted)))],
-              {cwd:process.cwd(),input:Buffer.from(edited.encryptedBytes),encoding:'utf8',timeout:30000,maxBuffer:16384});
-            assert.equal(separate.status,0,'synthetic independent child Codec reopen failed');
-            assert.equal(separate.stdout,'01A_SYNTHETIC_FRESH_OS_PROCESS_CODEC_REOPEN_PASS');
+              ['--input-type=module','--eval',childCode,
+                hash(new TextEncoder().encode(JSON.stringify(wanted))),editedPath],
+              {cwd:process.cwd(),encoding:'utf8',timeout:30000,maxBuffer:16384});
+            assert.equal(separate.status,0,'synthetic encrypted file child Codec reopen failed: '+separate.stderr);
+            assert.equal(separate.stdout,'01A_SYNTHETIC_FRESH_OS_PROCESS_ENCRYPTED_FILE_CODEC_REOPEN_PASS');
+            assert.equal(hash(new Uint8Array(await readFile(originalPath))),originalEncryptedSha);
+            assert.equal(hash(new Uint8Array(await readFile(backupPath))),originalEncryptedSha);
+            console.log('01A_STEAM626_CATALOG0_SYNTHETIC_PHYSICAL_ENCRYPTED_FILE_CHILD_REOPEN_PASS');
             await synthetic.close();
             assert.equal(hash(new Uint8Array(await originalFile.arrayBuffer())),originalEncryptedSha);
             console.log('01A_STEAM626_CATALOG0_ACTUAL_RUST_SYNTHETIC_ENCRYPTED_BACKUP_EDITED_AND_CHILD_CODEC_PASS');
@@ -262,6 +290,7 @@ jobs:
             if(backed?.encryptedBytes)backed.encryptedBytes.fill(0);
             if(edited?.encryptedBytes)edited.encryptedBytes.fill(0);
             if(synthetic)await synthetic.close();
+            await rm(temporary,{recursive:true,force:true});
             if(previousLocks)Object.defineProperty(navigator,'locks',previousLocks);
             else delete navigator.locks;
           }
