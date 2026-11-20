@@ -48,7 +48,10 @@ test('Inventory0 exact Core/Cargo/Worker/secure final-Arc Source is candidate ON
   'oldBambooSignerGrantsThisBuild'])assert.equal(a[key],false,key);
  assert.equal(a.productCandidateOnly,true);
  assert.equal(a.requiresNewSecurityL2,true);
- assert.equal(a.sourceBytesPinned,true);
+ assert.equal(a.product11SourcePinned,true);
+ assert.equal(a.auxiliarySourceShaVerified,false);
+ assert.equal(a.completeSourceVerified,false);
+ assert.equal(a.sourceBytesPinned,false);
  assert.throws(()=>verifyR22Inventory0SourceCandidate('not-a-commit'),/NONCOMMIT_SHA/);
  denied('f420bbe72fbc3374f0a3867403c660873ce5f06a');
 });
@@ -122,6 +125,10 @@ test('01A Inventory0 + 09P Source compose as 15 exact files on protected SECURIT
    '-m','09P fixed synthetic main-first candidate NO REF']);
   const a=verifyR22Inventory0MainFirstSynthetic(synthetic);
   assert.equal(a.changedPaths,15);
+  assert.equal(a.product11SourcePinned,true);
+  assert.equal(a.auxiliarySourceShaVerified,false);
+  assert.equal(a.completeSourceVerified,false);
+  assert.equal(a.sourceBytesPinned,false);
   assert.equal(a.oldSignerGrantsInventory0,false);
   assert.equal(a.mergeAuthorized,false);
   assert.equal(a.signerAuthorized,false);
@@ -157,6 +164,52 @@ test('01A Inventory0 + 09P Source compose as 15 exact files on protected SECURIT
   assert.throws(()=>verifyR22Inventory0MainFirstSynthetic(
    tamper('scripts/wasm-distribution/protected-release-inputs.json','{"writerEnabled":true}')),
    /R22_INVENTORY0_SOURCE_DENIED_/);
+
+  // Same-path 100644 auxiliary changes have NOT been independently pinned
+  // by 04QR-S/09INT; source-level receipt MUST NOT falsely report full trust.
+  for(const path of [
+   '.github/workflows/09p-r22-inventory0-product-source.yml',
+   'scripts/wasm-distribution/r22-inventory0-product-source.mjs',
+   'tests/09p-r22-inventory0-product-source.test.mjs',
+   'scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs',
+   'tests/09p-r22-inventory0-unsigned-pair.test.mjs']){
+   const changedOwn=verifyR22Inventory0MainFirstSynthetic(
+    tamper(path,'// FORGED_UNREVIEWED_AUXILIARY_SOURCE\n'));
+   assert.equal(changedOwn.product11SourcePinned,true);
+   assert.equal(changedOwn.completeSourceVerified,false);
+   assert.equal(changedOwn.auxiliarySourceShaVerified,false);
+   assert.equal(changedOwn.sourceBytesPinned,false);
+   assert.equal(changedOwn.signerAuthorized,false);
+  }
+  // Independent QRS2385 found first-parent-only checking false-accepted
+  // merge commits with a foreign second parent; this MUST throw now.
+  const multi=git(['commit-tree',git(['rev-parse',synthetic+'^{tree}']),
+   '-p',protectedBase,'-p',sourceHead,'-m','UNTRUSTED SECOND PARENT']);
+  assert.throws(()=>verifyR22Inventory0MainFirstSynthetic(multi),
+   /R22_INVENTORY0_SOURCE_DENIED_MAIN_FIRST_EXACT_ONE_PROTECTED_PARENT_REQUIRED/);
+  console.log('09P_INV0_QRS2385_5_SAME_PATH_AUX_NOT_VERIFIED_SECOND_PARENT_DENIED');
   console.log('09P_INVENTORY0_PROTECTED_MAIN_FIRST_SYNTHETIC15_SOURCE_POS_TAMPERS_DENIED_NO_SIGN_NO_ON');
  }finally{rmSync(dir,{recursive:true,force:true})}
+});
+
+test('05QR-S counterexample scope: own-source SHA substitutions cannot be reported as complete Source',()=>{
+ const own=[
+  '.github/workflows/09p-r22-inventory0-product-source.yml',
+  'scripts/wasm-distribution/r22-inventory0-product-source.mjs',
+  'tests/09p-r22-inventory0-product-source.test.mjs',
+  'scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs',
+  'tests/09p-r22-inventory0-unsigned-pair.test.mjs'
+ ];
+ for(const path of own){
+  const altered=makeChild([[path,'// UNREVIEWED_SELF_PIN_FILE\n']]);
+  const r=verifyR22Inventory0SourceCandidate(altered);
+  assert.equal(r.product11SourcePinned,true);
+  assert.equal(r.auxiliarySourceShaVerified,false);
+  assert.equal(r.completeSourceVerified,false);
+  assert.equal(r.sourceBytesPinned,false);
+  assert.equal(r.signerAuthorized,false);
+  assert.equal(r.writerAuthorized,false);
+  assert.equal(r.operationOn,false);
+ }
+ console.log('09P_INV0_AUXILIARY_SHA_UNTRUSTED_REPORTS_NOT_VERIFIED_NO_SELF_SIGN');
 });

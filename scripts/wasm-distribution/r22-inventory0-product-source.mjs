@@ -147,12 +147,17 @@ export function verifyR22Inventory0SourceCandidate(sourceHead){
      !equal(input.features,['indexed-read','worker-wasm'])||
      input.defaultFeatures!==false||input.publicReadonlyAssetsApproved!==true||
      input.cargoTomlGitBlob===cargo)deny('OLD_READER_SIGNATURE_PIN_MUST_NOT_GRANT_CATALOG0');
-  // Deliberately not an accepted source selector: QA, protected-main CAS,
-  // separate product-signing contract, Owner V2, and 09INT remain mandatory.
+  // Product11 and Core/Cargo/Worker are pinned; self-owned 09P script,
+  // test and workflow SHA cannot be approved by this very same untrusted
+  // candidate. An independent protected-main/09INT reviewer must pin the
+  // full Source GitBlobs and 04QR-S must supply changed-only L2 before any
+  // signature. Fail closed on COMPLETE source trust for EVERY candidate.
   return Object.freeze({contract:'wand.r22.steam626.inventory0.source-candidate@1',
    sourceHead,sourcePaths:productFilePairs.length,coreTree:fullCore,
    cargoGitBlob:cargo,workerGitBlob:worker,productSessionGitBlob:finalArc,
-   sourceBytesPinned:true,oldBambooSignerGrantsThisBuild:false,
+   product11SourcePinned:true,auxiliarySourceShaVerified:false,
+   completeSourceVerified:false,sourceBytesPinned:false,
+   oldBambooSignerGrantsThisBuild:false,
    productCandidateOnly:true,mergeAuthorized:false,signerAuthorized:false,
    writerAuthorized:false,operationOn:false,requiresNewSecurityL2:true});
  }catch(err){
@@ -172,8 +177,12 @@ export function verifyR22Inventory0MainFirstSynthetic(candidateHead){
  if(!shaOk(candidateHead))deny('MAIN_FIRST_NONCOMMIT_SHA');
  try{
   if(git('cat-file','-t',candidateHead)!=='commit')deny('MAIN_FIRST_NOT_COMMIT');
-  if(git('rev-parse',candidateHead+'^')!==protectedSecurityBase)
-   deny('MAIN_FIRST_WRONG_PROTECTED_PARENT');
+  // First-parent equality alone allows a second/third arbitrary merge parent.
+  // A reproducible main-first receipt must be a SINGLE-PARENT commit exactly
+  // on the reviewed protected security anchor, not any additional ancestry.
+  const parents=git('rev-list','--parents','-n','1',candidateHead).split(/\s+/);
+  if(parents.length!==2||parents[1]!==protectedSecurityBase)
+   deny('MAIN_FIRST_EXACT_ONE_PROTECTED_PARENT_REQUIRED');
   const delta=git('diff','--name-only','--no-renames',
    protectedSecurityBase,candidateHead).split('\n').filter(Boolean).sort();
   if(!equal(delta,lastSourcePaths))deny('MAIN_FIRST_UNREVIEWED_PATHS');
@@ -214,7 +223,9 @@ export function verifyR22Inventory0MainFirstSynthetic(candidateHead){
   // No Source stage grants protected rights, even if GitBlob composition fits.
   return Object.freeze({contract:'wand.r22.steam626.inventory0.synthetic-main-first@1',
    fixedProtectedBase:protectedSecurityBase,candidateHead,
-   changedPaths:lastSourcePaths.length,sourceBytesPinned:true,
+   changedPaths:lastSourcePaths.length,product11SourcePinned:true,
+   auxiliarySourceShaVerified:false,completeSourceVerified:false,
+   sourceBytesPinned:false,
    oldSignerGrantsInventory0:false,mergeAuthorized:false,signerAuthorized:false,
    writerAuthorized:false,operationOn:false,latestProtectedCASVerified:false,
    genuineEncryptedProductV2Verified:false,requiresIndependentSecurityL2:true});

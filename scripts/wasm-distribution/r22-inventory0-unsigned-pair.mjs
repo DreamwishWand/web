@@ -21,7 +21,8 @@ const plain=(o,keys)=>!!o&&typeof o==='object'&&!Array.isArray(o)&&
 const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const hex40=s=>typeof s==='string'&&/^[0-9a-f]{40}$/.test(s);
 const validSource=s=>plain(s,['contract','sourceHead','sourcePaths','coreTree',
- 'cargoGitBlob','workerGitBlob','productSessionGitBlob','sourceBytesPinned',
+ 'cargoGitBlob','workerGitBlob','productSessionGitBlob','product11SourcePinned',
+ 'auxiliarySourceShaVerified','completeSourceVerified','sourceBytesPinned',
  'oldBambooSignerGrantsThisBuild','productCandidateOnly','mergeAuthorized',
  'signerAuthorized','writerAuthorized','operationOn','requiresNewSecurityL2'])&&
  s.contract==='wand.r22.steam626.inventory0.source-candidate@1'&&
@@ -30,7 +31,9 @@ const validSource=s=>plain(s,['contract','sourceHead','sourcePaths','coreTree',
  s.cargoGitBlob==='b3455c36d9d60b4a0e415026a095e47fe577644d'&&
  s.workerGitBlob==='775a2766f237d44ae77fa5347e9adf430c8580d2'&&
  s.productSessionGitBlob==='e53c4930a84f729ea245f38a1b301c7178146ced'&&
- s.sourceBytesPinned===true&&s.oldBambooSignerGrantsThisBuild===false&&
+ s.product11SourcePinned===true&&s.auxiliarySourceShaVerified===false&&
+ s.completeSourceVerified===false&&s.sourceBytesPinned===false&&
+ s.oldBambooSignerGrantsThisBuild===false&&
  s.productCandidateOnly===true&&s.mergeAuthorized===false&&
  s.signerAuthorized===false&&s.writerAuthorized===false&&s.operationOn===false&&
  s.requiresNewSecurityL2===true;
@@ -49,7 +52,8 @@ export function inventory0UnsignedCandidate(source,js,wasm,methods){
   sourceHead:source.sourceHead,
   protectedSecurityAnchor:'f420bbe72fbc3374f0a3867403c660873ce5f06a',
   latestProtectedMainCASVerified:false,
-  source:Object.freeze({coreTree:source.coreTree,
+  source:Object.freeze({product11SourcePinned:true,auxiliarySourceShaVerified:false,
+   completeSourceVerified:false,coreTree:source.coreTree,
    cargoGitBlob:source.cargoGitBlob,workerGitBlob:source.workerGitBlob,
    productSessionGitBlob:source.productSessionGitBlob,
    oldReaderCargoGitBlob:oldReaderCargo,
