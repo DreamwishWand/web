@@ -149,12 +149,12 @@ jobs:
           const sha=b=>createHash('sha256').update(b).digest('hex');
           const doc=structuredClone(source);
           doc.Unknown.unknownPadding='X'.repeat(1400000);
-          const encoded=new TextEncoder().encode(JSON.stringify(doc));
-          const originalSha=sha(encoded);
+          const raw=new TextEncoder().encode(JSON.stringify(doc));
+          const originalSha=sha(raw);
           const BUILD='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
           const w=new WorkerWasmSource('steam-windows','steam-full-version',BUILD,626,true,
             new Uint8Array(32).fill(0x58));
-          for(let i=0;i<encoded.length;i+=1024*1024)w.append_chunk(encoded.slice(i,i+1024*1024));
+          for(let i=0;i<raw.length;i+=1024*1024)w.append_chunk(raw.slice(i,i+1024*1024));
           const receipt=JSON.parse(w.finish());
           assert.equal(receipt.writerAuthorized,false);
           const env=x=>[x.sessionId,BigInt(x.revision),BigInt(x.indexGeneration),x.decodedSha256];
@@ -186,7 +186,7 @@ jobs:
           const expected=structuredClone(doc);
           expected.Player.ListInventories['0'].Inventory['40000048'].Amount=2;
           assert.equal(new TextDecoder().decode(dst),JSON.stringify(expected));
-          assert.equal(sha(encoded),originalSha,'original decoded input immutable');
+          assert.equal(sha(raw),originalSha,'original decoded input immutable');
           assert.throws(()=>w.next_scoped_amount_output_chunk(),'no double output');
           w.close();w.free();
           console.log('QRC_INV0_RETURNED_CHUNK_TRUE_RED_TWO_ACTUAL_DEALLOCS_NO_OWNER_SAVE');
