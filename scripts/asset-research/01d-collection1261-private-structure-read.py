@@ -129,7 +129,7 @@ def read_private_save(raw:bytes,expected_sha:str,source_definition_ids:set[int])
     try: obj=json.loads(raw,object_pairs_hook=unique_pairs,parse_constant=nonfinite)
     except (ValueError,UnicodeDecodeError):deny('PRIVATE_SAVE_INVALID_JSON')
     if (not isinstance(obj,dict) or not isinstance(obj.get('GameInfo'),dict) or
-        obj['GameInfo'].get('Version')!=643 or isinstance(obj['GameInfo'].get('Version'),bool)):
+        type(obj['GameInfo'].get('Version')) is not int or obj['GameInfo'].get('Version')!=643):
         deny('PRIVATE_SAVE_SCHEMA643_REQUIRED')
     player=obj.get('Player')
     if not isinstance(player,dict) or not isinstance(player.get('CollectionSets'),list):
@@ -157,7 +157,7 @@ def read_private_save(raw:bytes,expected_sha:str,source_definition_ids:set[int])
             if not isinstance(items,dict) or len(items)>65536:deny('ITEM_MAP_BOUND')
             for key,val in items.items():
                 if (not isinstance(key,str) or not key.isascii() or not key.isdigit() or
-                    not key or key.startswith('0') or int(key)>0xffffffff):
+                    not key or key.startswith('0') or not 0<int(key)<=0xffffffff):
                     deny('NONCANONICAL_ITEM_KEY')
                 if type(val)!=bool:deny('NONBOOL_ITEM_VALUE')
                 total+=1
