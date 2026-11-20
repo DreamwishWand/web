@@ -1,0 +1,32 @@
+name: 09P Inventory0 immutable Source SHA and live release-denial evidence (OFF)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/09p-inventory0-r22-trust-source-deny.yml'
+      - 'tests/09p-inventory0-r22-trust-source-deny.test.mjs'
+permissions:
+  contents: read
+jobs:
+  exact-source-and-negative-signer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source11 GitBlob/mode and protected Cargo/Bamboo R22 denial, no issuer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = 4967897010faa78de494f1a27aea8b365c009d7d
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 6750ed91920f33be9f2acf180ca1326340d969ed
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 775a2766f237d44ae77fa5347e9adf430c8580d2
+          node --test 'tests/09p-inventory0-r22-trust-source-deny.test.mjs'
+          echo 09P_INVENTORY0_SOURCE_ONLY_DO_NOT_RELEASE_OR_SIGN_NO_WRITER_NO_OP_ON
