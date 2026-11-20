@@ -1,0 +1,182 @@
+name: 05 QR-C PR2360 guarded FRP01 reject and success moved buffer zero L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - .github/workflows/05qrc-pr2360-frp01-success-zeroized-l2.yml
+permissions:
+  contents: read
+jobs:
+  actual-wasm32-finish-error:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 42
+    env:
+      CARGO_TARGET_DIR: /tmp/05qrc-wasm-finish-error-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05qrc-pr2360-frp01-success-zeroized-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Fixed current Source and one QA-only changed workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=53a884e7a17047cf8a66b405adef5b12d873df94
+          protected=9883686ad1be3d04ff0f2aa08d908c7a3d72a7db
+          path=.github/workflows/05qrc-pr2360-frp01-success-zeroized-l2.yml
+          test "$(git merge-base "$base" HEAD)" = "$base"
+          test "$(git diff --name-only "$base" HEAD)" = "$path"
+          test "$(git ls-tree HEAD -- "$path" | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 7ce60a4e95988cc9d8f33ed54453882e4198e7c5
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 6432275d2909e6bc6d39265ae70cc7176fc37106
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = 34286a10bc726d9195d806b15273792614c99fa6
+          test "$(git rev-parse "$protected:crates/ddv-save-core/src/product_session.rs")" = 08a854a949fbd115cc656a1d4bbdc4d867515a39
+          git diff --name-only "$protected" "$base" | LC_ALL=C sort > /tmp/qrc2360-source
+          printf '%s\n' '.github/workflows/01a-worker-finish-owned-vec-scrub-source.yml' 'crates/ddv-save-core/src/product_session.rs' | LC_ALL=C sort > /tmp/qrc2360-expect
+          diff -u /tmp/qrc2360-expect /tmp/qrc2360-source
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          echo QRC2360_FIXED_PRODUCT_SESSION_SOURCE_AND_ONE_QA_WORKFLOW_PASS
+      - name: Inject read-only WASM deallocation witness ONLY into ephemeral QA checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('crates/ddv-save-core/src/wasm_worker.rs')
+          s=p.read_text()
+          anchor='const MAX_CHUNK:usize=1024*1024;'
+          assert s.count(anchor)==1
+          tracker=r'''
+          // QA ONLY: record the old initialized decrypted Vec content at the
+          // moment Rust deallocates it. No freed-pointer dereference or logs
+          // containing sensitive memory. This GlobalAlloc is NEVER committed.
+          use std::alloc::{GlobalAlloc, Layout, System};
+          use core::sync::atomic::{AtomicUsize,Ordering as QrcOrdering};
+          static QRC_WATCH_PTR:AtomicUsize=AtomicUsize::new(0);
+          static QRC_WATCH_LEN:AtomicUsize=AtomicUsize::new(0);
+          static QRC_DEALLOC_RESULT:AtomicUsize=AtomicUsize::new(0);
+          struct QrcTrackingAllocator;
+          unsafe impl GlobalAlloc for QrcTrackingAllocator {
+              unsafe fn alloc(&self,l:Layout)->*mut u8 { System.alloc(l) }
+              unsafe fn dealloc(&self,p:*mut u8,l:Layout) {
+                  if p as usize==QRC_WATCH_PTR.load(QrcOrdering::SeqCst) {
+                      let n=QRC_WATCH_LEN.load(QrcOrdering::SeqCst);
+                      let mut was_nonzero=false;
+                      if n>0 && n<=l.size() {
+                          for i in 0..n {
+                              if core::ptr::read_volatile(p.add(i))!=0 {
+                                  was_nonzero=true;break;
+                              }
+                          }
+                          QRC_DEALLOC_RESULT.store(
+                            if was_nonzero{1}else{2},QrcOrdering::SeqCst);
+                      } else {
+                          QRC_DEALLOC_RESULT.store(3,QrcOrdering::SeqCst);
+                      }
+                      QRC_WATCH_PTR.store(0,QrcOrdering::SeqCst);
+                  }
+                  System.dealloc(p,l);
+              }
+          }
+          #[global_allocator]
+          static QRC_ALLOC:QrcTrackingAllocator=QrcTrackingAllocator;
+          '''
+          s=s.replace(anchor,tracker+anchor,1)
+          begin='    pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{'
+          assert s.count(begin)==1
+          qa=r'''
+              // QA-only wasm-bindgen observer: never reveal plaintext or ptr.
+              pub fn qa_arm_invalid_finish_heap_witness(&self)->bool {
+                  if self.closed || self.buffer.is_empty() || self.session.is_some(){
+                      return false;
+                  }
+                  QRC_DEALLOC_RESULT.store(0,QrcOrdering::SeqCst);
+                  QRC_WATCH_LEN.store(self.buffer.len(),QrcOrdering::SeqCst);
+                  QRC_WATCH_PTR.store(self.buffer.as_ptr() as usize,QrcOrdering::SeqCst);
+                  true
+              }
+              pub fn qa_take_invalid_finish_heap_witness(&self)->u32 {
+                  QRC_DEALLOC_RESULT.swap(0,QrcOrdering::SeqCst) as u32
+              }
+          '''
+          s=s.replace(begin,qa+begin,1)
+          p.write_text(s)
+          print("QRC2360_GLOBAL_ALLOC_DEALLOC_SPY_EPHEMERAL_ONLY")
+          PY
+      - name: Run actual release Rust WASM Worker invalid fullDoc and bad registry Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = 1.99.1
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-switch624-frp01-readonly
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrc-wasm-finish-bindgen
+          mkdir -p /tmp/qrc-wasm-finish-pkg
+          /tmp/qrc-wasm-finish-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --target nodejs --no-typescript --out-dir /tmp/qrc-wasm-finish-pkg
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          const {WorkerWasmSource}=createRequire(import.meta.url)(
+            '/tmp/qrc-wasm-finish-pkg/ddv_save_core.js');
+          const GOOD_BID='52BD625D9B4E0053';
+          let oldNonzero=0,tests=0;
+          for (const badBid of [false,true]){
+            const worker=new WorkerWasmSource('switch','switch-bid',
+              badBid?'9A239D3DB569756D':GOOD_BID,624,true,new Uint8Array(32).fill(0x32));
+            const prefix=new TextEncoder().encode('{"GameInfo":{"Version":624},"Secret":"');
+            const payload=new Uint8Array(6604).fill(0x41);
+            worker.append_chunk(prefix);
+            worker.append_chunk(payload);
+            assert.equal(worker.qa_arm_invalid_finish_heap_witness(),true);
+            assert.throws(()=>worker.finish_switch624_frp01_readonly(), 'invalid source/Build must be denied');
+            const result=worker.qa_take_invalid_finish_heap_witness();
+            // 1 = real Vec allocation deallocated with its former
+            // initialized nonzero plaintext, 2 = scrubbed, 0 = no observed
+            // dealloc, 3 = invalid allocation bound: NEVER treat as PASS.
+            assert.equal(result,2, 'decoded Vec deallocated with nonzero plaintext on rejected FRP01');
+            assert.throws(()=>worker.append_chunk(new Uint8Array([1])));
+            worker.close();
+            worker.free();
+            oldNonzero++;tests++;
+          }
+          assert.equal(tests,2);
+          assert.equal(oldNonzero,2);
+          console.log('QRC2360_FRP01_FINISH_BAD_BID_BAD_JSON_HEAP_ZERO_2POS');
+          // New effect of this Source: after a valid admission the original
+          // moved Vec must ALSO be zero before its Arc copy releases it.
+          let success=0;
+          for(const c of [
+            {platform:'switch',kind:'switch-bid',bid:GOOD_BID,schema:624,method:'finish_switch624_frp01_readonly',op:'switch624-frp01-readonly'},
+            {platform:'steam-windows',kind:'steam-full-version',bid:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',schema:626,method:'finish'}
+          ]){
+            const worker=new WorkerWasmSource(c.platform,c.kind,c.bid,c.schema,true,new Uint8Array(32).fill(0x37));
+            const raw=new TextEncoder().encode(JSON.stringify({GameInfo:{Version:c.schema},Player:{},World:{}}));
+            worker.append_chunk(raw);
+            assert.equal(worker.qa_arm_invalid_finish_heap_witness(),true);
+            const receipt=JSON.parse(worker[c.method]());
+            assert.equal(receipt.fullDocumentJsonValidated,true);
+            assert.equal(receipt.writerAuthorized,false);
+            if(c.op)assert.equal(receipt.operation,c.op);
+            assert.equal(worker.qa_take_invalid_finish_heap_witness(),2,'success freed original Vec without scrub');
+            assert.throws(()=>worker.append_chunk(new Uint8Array([0x37])));
+            worker.close();worker.free();
+            success++;
+          }
+          assert.equal(success,2);
+          console.log('QRC2360_GENERIC_FRP01_VALID_FINISH_SUCCESS_OLD_VEC_ZERO_2POS');
+          NODE
+          test "$(git diff --name-only 53a884e7a17047cf8a66b405adef5b12d873df94 HEAD)" = \
+            '.github/workflows/05qrc-pr2360-frp01-success-zeroized-l2.yml'
+          echo QRC2360_FRP01_AND_GENERIC_SUCCESS_DEALLOC_HEAP_ZERO_INDEPENDENT_PASS
