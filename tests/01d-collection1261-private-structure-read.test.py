@@ -84,6 +84,7 @@ class SourceContract(unittest.TestCase):
             s.read_private_save(raw,'a'*64,ids)
         for change,needle in [
             (lambda x:x['GameInfo'].update(Version=626),'PRIVATE_SAVE_SCHEMA643_REQUIRED'),
+            (lambda x:x['GameInfo'].update(Version=643.0),'PRIVATE_SAVE_SCHEMA643_REQUIRED'),
             (lambda x:x['Player']['CollectionSets'].pop(),'PRIVATE_SOURCE_DEFINITION_SET_MISMATCH'),
             (lambda x:x['Player']['CollectionSets'][1].update(CollectionDefinitionID=2120000001),'COLLECTION_ID_INVALID_OR_DUPLICATE'),
             (lambda x:x['Player']['CollectionSets'][0]['GroupData'][0]['GroupsCollectionItems'].update({'40000001':5}),'NONBOOL_ITEM_VALUE'),
