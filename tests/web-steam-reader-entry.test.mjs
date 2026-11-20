@@ -14,8 +14,10 @@ test('accepted Steam reader is reachable from Editor and the Home-linked RC stat
  assert.match(presets,/if\(window\.location\.hash!==\x27#device-local-scenes\x27\)return/);
  assert.match(presets,/surface=\x27my\x27;myDomain=\x27wand\x27/);
  assert.match(presets,/<span id=\x22device-local-scenes\x22 data-device-scenes-fragment-anchor hidden aria-hidden=\x22true\x22/);
- assert.match(presets,/<section class=\x22panel device-local-scenes\x22 tabindex=\x22-1\x22 data-my-local-scenes/);
- assert.match(presets,/document\.querySelector<HTMLElement>\(\x27\[data-my-local-scenes\]\x27\)\?\.focus\(\)/);
+ assert.match(presets,/<section class=\x22panel device-local-scenes\x22 id=\x22device-local-scene-panel\x22 tabindex=\x22-1\x22 data-my-local-scenes/);
+ assert.match(presets,/use:revealLocalScenesOnRoute/);
+ assert.match(presets,/document\.getElementById\(\x27device-local-scene-panel\x27\)\?\.focus\(\)/);
+ assert.doesNotMatch(presets,/onMount\(/);
  assert.doesNotMatch(src,/new Worker\(|type=["']file|<SteamSavedDiffGridsReadonly|createSavedDiffGridsUiClient/);
  }
  assert.match(read('src/routes/+page.svelte'),/base \+ '\/rc-status\/'/);
