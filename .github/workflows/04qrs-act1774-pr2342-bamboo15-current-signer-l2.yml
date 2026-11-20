@@ -32,14 +32,14 @@ jobs:
           import {BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS as trusted,bambooAcceptedRustSourceBlobsOk as pinOk,
             bambooAcceptedRustCheckoutOk as currentCheckoutOk,
             bambooProtectedPagesAllowed} from './scripts/readonly-release/seal-bamboo-public-pages.mjs';
-          const SOURCE='0f73a45074c2f96206fedb3715495c1f5f189abd';
+          const SOURCE='2948e56a9ccd8e96a5944c6dacae5ee8ae7374d3';
           const BASE='3f77a30ff11d2b8ea84df81d1dd69668004c7870';
           const ARCHIVE='419162ef5bc3a75fac05baaee10021a0d269bc2d';
           const EXPECT={
             'scripts/readonly-release/seal-bamboo-public-pages.mjs':'6a1afe8be229b1844abe895bad504637293f15ee',
             'scripts/wasm-distribution/build-bamboo40700007-readonly-candidate.mjs':'dc27faf9130dd783254f5c785ddd828a2b22b0d5',
             'src/lib/ddv/core/save/product-steam626-bamboo-readonly-release.mjs':'6b74cda2e083dae5892a6a0858b908b757b50574',
-            'tests/09p-bamboo-public-pages-sealer.test.mjs':'3fec36c5059ea551ee6178b3505f9d30ceedb6d3',
+            'tests/09p-bamboo-public-pages-sealer.test.mjs':'f8e2680713c59897c340ed76a3da8eebb1239c61',
             'tests/steam626-bamboo-readonly-public-delivery.test.mjs':'a39cbce737b10471986a0088b4d265f656e1ae50'
           };
           const shaMap={
@@ -60,8 +60,9 @@ jobs:
           function mode(cwd,ref,path){return git(cwd,'ls-tree',ref,'--',path).split(' ')[0];}
           try{
             const cwd=process.cwd();
-            assert.equal(git(cwd,'rev-parse','HEAD^'),SOURCE);
-            assert.equal(git(cwd,'rev-parse',SOURCE+'^'),BASE);
+            assert.equal(git(cwd,'merge-base',SOURCE,'HEAD'),SOURCE);
+            assert.equal(git(cwd,'rev-parse',SOURCE+'^'),'0f73a45074c2f96206fedb3715495c1f5f189abd');
+            assert.equal(git(cwd,'rev-parse','0f73a45074c2f96206fedb3715495c1f5f189abd^'),BASE);
             assert.deepEqual(git(cwd,'diff','--name-only',SOURCE,'HEAD').split('\n'),
               ['.github/workflows/04qrs-act1774-pr2342-bamboo15-current-signer-l2.yml']);
             assert.deepEqual(git(cwd,'diff','--name-only',BASE,SOURCE).split('\n'),
