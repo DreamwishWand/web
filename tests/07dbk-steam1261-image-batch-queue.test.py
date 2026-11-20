@@ -5,6 +5,8 @@ import importlib.util
 import json
 import pathlib
 import tempfile
+import hashlib
+from unittest.mock import patch
 import unittest
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -96,6 +98,59 @@ class QueueSafety(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "TRUE_SOURCE_IMAGE_GUID_DELTA_COUNT_CHANGED"):
             queue.build_image_queue(fixture(), {A},
               expected={"newItemIds": 993, "newUniqueIconGuids": 647})
+
+    def test_eight_pinned_originals_end_to_end_12209_plus_993_no_legacy_gate(self):
+        # Real protobuf parser with generated FAKE fixture only. Read two
+        # builds * four files; absent v12413/v1250 is intentional.
+        module = queue.load_01d()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp).resolve()
+            pins = {}
+            for version in ("v1253", "v1261"):
+                directory = root / version
+                directory.mkdir()
+                pins[version] = {}
+                for category, base in module.CATEGORIES.items():
+                    if category == "ActivityItem":
+                        count = 12206 + (993 if version == "v1261" else 0)
+                    else:
+                        count = 1
+                    raw = bytearray()
+                    for i in range(1, count + 1):
+                        item_id = base + i
+                        name = ("Fixture-" + str(i)).encode("utf-8")
+                        if category != "ActivityItem" or i <= 12206:
+                            guid = A
+                        else:
+                            added = i - 12206
+                            # 681 new-guid IDs reference 647 new GUIDs:
+                            # 647 distinct and 34 duplicates; 312 reuse old A.
+                            if added <= 681:
+                                n = min(added, 647)
+                                guid = "guid:" + format(n, "032x")
+                            else:
+                                guid = A
+                        guid_bytes = guid.encode("ascii")
+                        blob = (b"\x08" + module.varint(item_id)
+                                + b"\x12" + module.varint(len(name)) + name
+                                + b"\x22" + module.varint(len(guid_bytes)) + guid_bytes)
+                        raw.extend(module.varint(i) + module.varint(len(blob)) + blob)
+                    source = bytes(raw)
+                    (directory / (category + ".json")).write_bytes(source)
+                    pins[version][category] = (hashlib.sha256(source).hexdigest(), len(source))
+            module.SOURCE_PINS = pins
+            with patch.object(queue, "load_01d", return_value=module):
+                result = queue.run(root)
+            summary = result["summary"]
+            self.assertEqual(summary["newItemIds"], 993)
+            self.assertEqual(summary["newUniqueIconGuids"], 647)
+            self.assertEqual(summary["newGuidReferencedItemIds"], 681)
+            self.assertEqual(summary["existingGuidReusedItemIds"], 312)
+            self.assertEqual(len(result["extractNewGuidGroups"]), 647)
+            self.assertEqual(result["publicMedia"], "OFF")
+            self.assertFalse(result["consumerOn"])
+            self.assertTrue(all(not g["publishAllowed"] for g in
+                                result["extractNewGuidGroups"] + result["recheckOldGuidGroups"]))
 
     def test_private_output_alias_and_existing_data_denied(self):
         with tempfile.TemporaryDirectory() as p:
