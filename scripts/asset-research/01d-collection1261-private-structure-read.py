@@ -44,7 +44,7 @@ def encode_varint(value:int)->bytes:
     out=[]
     while value>127:
         out.append((value&127)|128); value>>=7
-        out.append(value)
+    out.append(value)
     return bytes(out)
 
 def parse_definition_record(raw:bytes,frame:int)->int:
