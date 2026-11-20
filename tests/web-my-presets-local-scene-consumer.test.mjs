@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {localScenePresetCopy,LOCAL_SCENE_PRESET_LOCALES} from '../src/lib/wep/local-scene-preset-copy.js';
 import {reopenLocalScenes,readLocalSceneById,WEP_LOCAL_SCENE_DB,WEP_LOCAL_SCENE_STORE} from '../src/lib/wep/local-scene-preset-store.mjs';
 import {MY_WAND_VIEWS,MY_DOMAINS,myPresetsCopy} from '../src/lib/presets/my-presets-router.mjs';
+import {filterReopenedLocalScenes,localSceneTitleFilterCopy,LOCAL_SCENE_FILTER_LOCALES} from '../src/lib/presets/local-scene-title-filter.mjs';
 const route=readFileSync(new URL('../src/routes/presets/+page.svelte',import.meta.url),'utf8');
 test('My Presets local Scenes have separate explicit consumer and account ownership remains UNKNOWN',()=>{
  assert.deepEqual(MY_WAND_VIEWS,['created','saved']);
@@ -57,4 +58,31 @@ test('8 locale reuse, no new translation/model/storage fork and responsive keybo
  assert.match(route,/@media\(max-width:570px\)/);
  assert.match(route,/min-width:0/);
  assert.match(route,/data-device-scenes-status role="status" aria-live="polite"/);
+});
+
+test('manual-only local Scene title search is pure, stable, 8-locale and never a data writer',()=>{
+ const samples=Object.freeze([
+  Object.freeze({id:'a',title:'First verified Scene'}),
+  Object.freeze({id:'b',title:'夢の庭園'}),
+  Object.freeze({id:'c',title:'SECOND verified scene'})
+ ]);
+ assert.deepEqual(filterReopenedLocalScenes(samples,'', 'ja'),samples);
+ assert.deepEqual(filterReopenedLocalScenes(samples,'  scene  ','en').map(x=>x.id),['a','c']);
+ assert.deepEqual(filterReopenedLocalScenes(samples,'庭園','ja').map(x=>x.id),['b']);
+ assert.deepEqual(filterReopenedLocalScenes(samples,'ｓｅｃｏｎｄ','en').map(x=>x.id),['c']);
+ assert.deepEqual(filterReopenedLocalScenes(samples,'no match').map(x=>x.id),[]);
+ assert.deepEqual(samples.map(x=>x.title),['First verified Scene','夢の庭園','SECOND verified scene']);
+ assert.deepEqual([...LOCAL_SCENE_FILTER_LOCALES],['en','ja','fr','it','de','es-ES','zh-CN','pt-BR']);
+ for(const loc of LOCAL_SCENE_FILTER_LOCALES){
+  const c=localSceneTitleFilterCopy(loc);
+  for(const k of ['label','clear','noMatches'])assert.ok(c[k]?.trim().length>4,loc+'/'+k);
+ }
+ assert.match(route,/bind:value=\{sceneFilterQuery\}/);
+ assert.match(route,/data-device-scene-search/);
+ assert.match(route,/data-device-scene-search-clear/);
+ assert.match(route,/data-device-scene-filter-empty role="status"/);
+ assert.match(route,/\{#each filteredDeviceScenes as entry \(entry.id\)\}/);
+ assert.match(route,/deviceScenesOpened && deviceScenes\.length/);
+ assert.match(route,/on:click=\{reopenDeviceSceneLibrary\}/);
+ assert.doesNotMatch(route,/sceneFilterQuery.*(?:reopenLocalScenes|readLocalSceneById|fetch\()/);
 });
