@@ -35,7 +35,9 @@ try{
  assert.equal((await page.evaluate(name=>indexedDB.databases().then(rows=>rows.some(x=>x.name===name)),dbName)),false,
   'World Editor load must not implicitly read/create IndexedDB');
  assert.equal(await panel.locator('[data-wep-alias-scene]').count(),0);
- assert.equal(await page.locator('input[type=file]').count(),0,'no Owner Save import');
+ // Existing OFF World Editor retains an input[type=file]. This QA never selects it.
+ assert.equal(await page.locator('[data-editor-object-id]').count(),0,
+  'QA must not load a game Save or enter a game EditorSession');
  console.log('QRW2398_PASSIVE_WORLD_EDITOR_NO_DB_OR_SAVE_PASS');
 
  // Create a real local-only synthetic verified artifact through the accepted
