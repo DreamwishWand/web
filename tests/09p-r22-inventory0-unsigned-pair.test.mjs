@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {mkdtempSync,mkdirSync,writeFileSync,symlinkSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {INVENTORY0_PRODUCT_METHODS,inventory0UnsignedCandidate,
- inventory0UnsignedCandidateExact} from '../scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs';
+ inventory0UnsignedCandidateExact,inventory0PairPath} from '../scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs';
 const source=Object.freeze({
  contract:'wand.r22.steam626.inventory0.source-candidate@1',
  sourceHead:'f'.repeat(40),sourcePaths:11,
@@ -64,4 +67,40 @@ test('changing a generated pair byte, source SHA/mode closure, or ABI fails clos
  denied(source,js,wasm,[...INVENTORY0_PRODUCT_METHODS,'discover_switch626_chest']);
  denied(source,js,wasm,[...INVENTORY0_PRODUCT_METHODS,'preview_steam626_comp03']);
  console.log('09P_INV0_UNSIGNED_GENUINE_ASSET_PAIR_FORMAT_NEGATIVE_NO_SIGNATURE_GRANT');
+});
+
+test('CI-root subject path is absolute, regular, private, and rejects parent symlinks',()=>{
+ const temp=mkdtempSync(join(tmpdir(),'9p-inv0-pair-boundary-'));
+ try{
+  const root=join(temp,'runner'),sub=join(root,'09p-inv0-wasm');
+  mkdirSync(root);mkdirSync(sub);
+  const jsFile=join(sub,'ddv_save_core.js'),abi=join(sub,'abi.json');
+  writeFileSync(jsFile,'class WorkerWasmSource {}',{mode:0o644,flag:'wx'});
+  writeFileSync(abi,'[]',{mode:0o600,flag:'wx'});
+  assert.equal(inventory0PairPath(root,jsFile,'ddv_save_core.js'),jsFile);
+  assert.equal(inventory0PairPath(root,abi,'abi.json'),abi);
+  const manifest=join(sub,'unsigned-pair.json');
+  assert.equal(inventory0PairPath(root,manifest,'unsigned-pair.json',false),manifest);
+  assert.throws(()=>inventory0PairPath(root,join(temp,'escape.js'),'ddv_save_core.js'),
+    /R22_INV0_UNSIGNED_PAIR_DENIED_/);
+  assert.throws(()=>inventory0PairPath(root,jsFile,'abi.json'),
+    /R22_INV0_UNSIGNED_PAIR_DENIED_/);
+  const rootAlias=join(temp,'root-alias');
+  symlinkSync(root,rootAlias,'dir');
+  assert.throws(()=>inventory0PairPath(rootAlias,join(rootAlias,'09p-inv0-wasm','ddv_save_core.js'),
+   'ddv_save_core.js'),/R22_INV0_UNSIGNED_PAIR_DENIED_/);
+  const parent=join(temp,'parent');
+  mkdirSync(parent);symlinkSync(sub,join(parent,'09p-inv0-wasm'),'dir');
+  assert.throws(()=>inventory0PairPath(parent,join(parent,'09p-inv0-wasm','ddv_save_core.js'),
+   'ddv_save_core.js'),/R22_INV0_UNSIGNED_PAIR_DENIED_/);
+  const forgedWasm=join(sub,'ddv_save_core_bg.wasm');
+  symlinkSync(jsFile,forgedWasm);
+  assert.throws(()=>inventory0PairPath(root,forgedWasm,'ddv_save_core_bg.wasm'),
+   /R22_INV0_UNSIGNED_PAIR_DENIED_/);
+  writeFileSync(manifest,'{}',{mode:0o600,flag:'wx'});
+  assert.throws(()=>inventory0PairPath(root,manifest,'unsigned-pair.json',false),
+   /R22_INV0_UNSIGNED_PAIR_DENIED_/);
+  assert.equal(inventory0PairPath(root,manifest,'unsigned-pair.json',true),manifest);
+  console.log('09P_INV0_PAIR_PARENT_SYMLINK_BASENAME_ESCAPE_MODE_AND_OVERWRITE_DENIED');
+ }finally{rmSync(temp,{recursive:true,force:true})}
 });
