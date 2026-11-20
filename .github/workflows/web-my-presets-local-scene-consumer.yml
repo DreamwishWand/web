@@ -36,6 +36,26 @@ jobs:
           printf '%s\n' \
             .github/workflows/web-my-presets-local-scene-consumer.yml \
             scripts/web-my-presets-local-scene-chrome.mjs \
+            src/lib/presets/local-scene-readonly-map.mjs \
+            src/routes/presets/+page.svelte \
+            tests/web-local-scene-readonly-map.test.mjs | LC_ALL=C sort >/tmp/local-scene-map-expected
+          git diff --name-only "$BASE_PR" HEAD | LC_ALL=C sort >/tmp/local-scene-filter-actual
+          if diff -q /tmp/local-scene-map-expected /tmp/local-scene-filter-actual >/dev/null; then
+            for p in .github/workflows/web-my-presets-local-scene-consumer.yml scripts/web-my-presets-local-scene-chrome.mjs src/routes/presets/+page.svelte; do
+              test "$(git diff --name-status "$BASE_PR" HEAD -- "$p" | cut -f1)" = M
+            done
+            for p in src/lib/presets/local-scene-readonly-map.mjs tests/web-local-scene-readonly-map.test.mjs; do
+              test "$(git diff --name-status "$BASE_PR" HEAD -- "$p" | cut -f1)" = A
+            done
+            for p in .github/workflows/web-my-presets-local-scene-consumer.yml scripts/web-my-presets-local-scene-chrome.mjs src/lib/presets/local-scene-readonly-map.mjs src/routes/presets/+page.svelte tests/web-local-scene-readonly-map.test.mjs; do
+              test "$(git ls-tree HEAD "$p" | awk '{print $1}')" = 100644
+            done
+            git diff --exit-code "$BASE_PR" HEAD -- src/lib/wep/ src/routes/editor/ src/routes/moodboards/ src/routes/collection/ src/lib/community/ crates/ supabase/ static/ .github/workflows/pages.yml
+            echo WEB_LOCAL_SCENE_MAP_EXACT5_DISPLAY_ONLY_NO_WEP_OR_SIGNER_CHANGE_PASS
+          else
+          printf '%s\n' \
+            .github/workflows/web-my-presets-local-scene-consumer.yml \
+            scripts/web-my-presets-local-scene-chrome.mjs \
             src/lib/presets/local-scene-title-filter.mjs \
             src/routes/presets/+page.svelte \
             tests/web-my-presets-local-scene-consumer.test.mjs | LC_ALL=C sort >/tmp/local-scene-filter-expected
@@ -68,11 +88,12 @@ jobs:
           git diff --exit-code "$BASE" HEAD -- src/lib/wep/ src/lib/presets/ src/routes/editor/ src/routes/moodboards/ src/routes/collection/ src/lib/community/ crates/ supabase/ static/ .github/workflows/pages.yml
           echo WEB_LOCAL_SCENE_FOUR_FILE_SCOPE_ACCEPTED_WEP_STORE_UNMODIFIED_PASS
           fi
+          fi
       - name: Local-only Node contract, Svelte typecheck, static /web build
         env:
           BASE_PATH: /web
         run: |
-          node --test tests/web-my-presets-local-scene-consumer.test.mjs tests/web-my-presets-internal-router.test.mjs
+          node --test tests/web-local-scene-readonly-map.test.mjs tests/web-my-presets-local-scene-consumer.test.mjs tests/web-my-presets-internal-router.test.mjs
           npm run check
           npm run build
           test -f build/presets/index.html

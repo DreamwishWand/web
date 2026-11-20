@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 import {localScenePresetCopy} from '../src/lib/wep/local-scene-preset-copy.js';
 import {localSceneTitleFilterCopy} from '../src/lib/presets/local-scene-title-filter.mjs';
+import {localSceneReadonlyMapCopy} from '../src/lib/presets/local-scene-readonly-map.mjs';
 const origin=process.env.WEB_LOCAL_SCENE_ORIGIN||'http://127.0.0.1:4349';
 assert.match(origin,/^http:\/\/127\.0\.0\.1:[0-9]+$/);
 assert.ok(process.env.CHROME_BIN,'Real installed Chrome required');
@@ -68,6 +69,7 @@ try{
  assert.equal(await p.locator('[data-device-scenes-list]').count(),0);
  assert.equal(await p.locator('[data-device-scene-search]').count(),0,'Passive root does not render search or touch local DB');
  assert.equal(await p.locator('[data-device-scene-preview]').count(),0);
+ assert.equal(await p.locator('[data-device-scene-readonly-map]').count(),0);
  assert.equal(await p.locator('[data-my-wand-view="created"]').count(),1);
  assert.equal(await p.locator('[data-my-local-scenes] [data-account-created="unverified"]').count(),0);
  await p.evaluate(([keys,values])=>keys.forEach((k,i)=>localStorage.setItem(k,values[i])),[oldKeys,oldData]);
@@ -108,7 +110,22 @@ try{
  await p.locator('[data-device-scene-preview]').waitFor();
  assert.match(await p.locator('[data-device-scene-preview]').innerText(),/First verified Scene/);
  assert.match(await p.locator('[data-device-scene-preview] code').innerText(),/writeReady=false/);
+ const map=p.locator('[data-device-scene-readonly-map]');
+ await map.waitFor();
+ assert.equal(await map.getAttribute('data-device-scene-map-apply'),'off');
+ assert.equal(await map.getAttribute('data-device-scene-map-ownership'),'unknown');
+ assert.equal(await p.locator('[data-device-scene-map-svg]').getAttribute('viewBox'),'0 0 1 1');
+ assert.equal(await p.locator('[data-device-scene-map-cell]').count(),1);
+ assert.equal(await p.locator('[data-device-scene-map-cell]').getAttribute('data-item-id'),'40000048');
  assert.equal(await p.locator('[data-device-scene-world-editor]').getAttribute('href'),'/editor/world/');
+ for(const loc of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
+  await p.locator('#site-locale').selectOption(loc);
+  const label=localSceneReadonlyMapCopy(loc).title;
+  await p.waitForFunction(t=>document.querySelector('.device-scene-map figcaption')?.textContent?.trim()===t,label);
+  assert.equal(await p.locator('[data-device-scene-map-cell]').count(),1);
+ }
+ await p.locator('#site-locale').selectOption('en');
+ console.log('WEB_LOCAL_SCENE_VERIFIED_2D_MAP_EIGHT_LOCALE_READONLY_APPLY_OFF_PASS');
  assert.deepEqual(await snapshot(p),original,'Readonly list and preview must be byte-neutral');
  for(const [width,zoom] of [[320,'1'],[640,'2']]){
   await p.setViewportSize({width,height:860});
@@ -131,6 +148,7 @@ try{
  await stale.locator('[data-device-scene-select]').first().click();
  await stale.locator('[data-device-scenes-status]').filter({hasText:localScenePresetCopy('en').blocked}).waitFor();
  assert.equal(await stale.locator('[data-device-scene-preview]').count(),0);
+ assert.equal(await stale.locator('[data-device-scene-readonly-map]').count(),0,'stale map must never render');
  assert.deepEqual(await snapshot(stale),afterWrite,'stale preview must not mutate either snapshot');
  await stale.locator('[data-device-scenes-reopen]').click();
  await stale.locator('[data-device-scene-select]').nth(1).waitFor({timeout:30000});
@@ -163,6 +181,7 @@ try{
  await stale.locator('[data-device-scene-select]').nth(1).click();
  await stale.locator('[data-device-scene-preview]').waitFor();
  assert.match(await stale.locator('[data-device-scene-preview]').innerText(),/Second verified Scene/);
+ assert.equal(await stale.locator('[data-device-scene-map-cell]').count(),1);
  assert.deepEqual(await snapshot(stale),afterWrite);
  assert.deepEqual(await legacyState(stale),oldData);
  console.log('WEB_LOCAL_SCENE_STALE_TWO_TAB_REVISION_REJECT_BACKUP_UNCHANGED_PASS');
@@ -181,6 +200,7 @@ try{
  await stale.locator('[data-device-scenes-reopen]').click();
  await stale.locator('[data-device-scenes-status]').filter({hasText:localScenePresetCopy('en').blocked}).waitFor();
  assert.equal(await stale.locator('[data-device-scene-preview]').count(),0);
+ assert.equal(await stale.locator('[data-device-scene-readonly-map]').count(),0);
  assert.deepEqual(await rawSnapshot(stale),corrupted);
  assert.deepEqual(await legacyState(stale),oldData);
  console.log('WEB_LOCAL_SCENE_CORRUPTED_SNAPSHOT_FAIL_CLOSED_NO_REPAIR_PASS');
