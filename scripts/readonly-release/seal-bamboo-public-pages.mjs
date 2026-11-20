@@ -42,7 +42,7 @@ export const BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS=Object.freeze({
  'crates/ddv-save-core/src/sr03_installed_geometry.rs':'4ff82faf19cc9883259cea36da5f90faa5bea698',
  'crates/ddv-save-core/src/comp03_installed_geometry.rs':'645e6e6a64664088997df46954cd1d8bb4a2995a',
  'crates/ddv-save-core/src/placement_saved_refs.rs':'2ad0d925cebfcb19bb39b2afe5ff6404966ad849',
- 'crates/ddv-save-core/src/product_session.rs':'08a854a949fbd115cc656a1d4bbdc4d867515a39',
+ 'crates/ddv-save-core/src/product_session.rs':'34286a10bc726d9195d806b15273792614c99fa6',
  'crates/ddv-save-core/src/indexed_read.rs':'47b8b07e013f357fceee51cbc0ce676b271fb207',
  'crates/ddv-save-core/src/strict_document.rs':'e49ea87eb18227c68e049e3de7278af02550fdbd',
  'crates/ddv-save-core/src/saved_diffgrids_index.rs':'b8980ee01cd8edea46400dc6fcccdafcdc4cb6c2'
