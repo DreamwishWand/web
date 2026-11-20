@@ -9,9 +9,12 @@ import {dirname,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const all=readdirSync(resolve(repo,'tests'),{withFileTypes:true})
- .filter(entry=>entry.isFile()&&entry.name.endsWith('.test.mjs'))
- .map(entry=>'tests/'+entry.name).sort();
+const matched=readdirSync(resolve(repo,'tests'),{withFileTypes:true})
+ .filter(entry=>entry.name.endsWith('.test.mjs'));
+// The former shell glob includes symlink and directory names. Never silently
+// drop a matched path and then report that the full test suite passed.
+if(matched.some(entry=>!entry.isFile()))throw Error('WEB_TEST_DISCOVERY_NONREGULAR_ENTRY');
+const all=matched.map(entry=>'tests/'+entry.name).sort();
 const browser='tests/web-presets-my-tour-contract.test.mjs';
 if(!all.includes(browser)||all.length<2)throw Error('WEB_TEST_DISCOVERY_MISSING');
 const ordinary=all.filter(path=>path!==browser);
