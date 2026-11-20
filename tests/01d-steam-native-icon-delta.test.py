@@ -72,6 +72,31 @@ class IconGuidDeltaSafety(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"MISSING_OR_SYMLINK_NATIVE_SOURCE"):
                 delta.analyze(root,synthetic=True,include_v1261=True)
 
+    def test_only_v1261_uses_exact_four_sources_with_no_legacy_delta_or_authority(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp)
+            fixtures(root)
+            x=delta.analyze(root,synthetic=True,only_v1261=True)
+            self.assertEqual(set(x["source"]),{"v1261"})
+            self.assertEqual(x["sourceItemCount"],7)
+            self.assertFalse(x["comparisonAvailable"])
+            self.assertNotIn("v1253_to_v1261",x)
+            self.assertEqual(x["switch1261BID"],"UNKNOWN_NOT_READ_FROM_STEAM")
+            self.assertFalse(x["publishAllowed"])
+            self.assertFalse(x["nativeSaveWriterAllowed"])
+            for old in ["v12413","v1250","v1253"]:
+                for file in (root/old).iterdir():file.unlink()
+                (root/old).rmdir()
+            self.assertEqual(delta.analyze(root,synthetic=True,only_v1261=True)["sourceItemCount"],7)
+            with self.assertRaisesRegex(ValueError,"VERSION_MODE_CONFLICT"):
+                delta.analyze(root,synthetic=True,only_v1261=True,include_v1261=True)
+            # A fabricated source cannot be attributed to a real pinned owner original.
+            with self.assertRaisesRegex(ValueError,"PINNED_NATIVE_SOURCE_SHA_OR_BYTES_MISMATCH"):
+                delta.analyze(root,synthetic=False,only_v1261=True)
+            (root/"v1261"/"Clothing.json").unlink()
+            with self.assertRaisesRegex(ValueError,"MISSING_OR_SYMLINK_NATIVE_SOURCE"):
+                delta.analyze(root,synthetic=True,only_v1261=True)
+
     def test_original_mode_rejects_fake_raw_protobuf(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=pathlib.Path(tmp)
