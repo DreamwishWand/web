@@ -1,0 +1,146 @@
+name: 05 QR-C compiled Bamboo WASM old-vs-new pending heap scrub L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qrc-bamboo-wasm-heap-old-new-raw-zeroization-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-wasm32-allocation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_TARGET_DIR: /tmp/qrc-wasm-heap-proof-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05qrc-bamboo-wasm-heap-old-new-3f77-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify exact protected main, old/new Rust Blob and one QA-only workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=3f77a30ff11d2b8ea84df81d1dd69668004c7870
+          path=.github/workflows/05qrc-bamboo-wasm-heap-old-new-raw-zeroization-l2.yml
+          test "$(git merge-base "$root" HEAD)" = "$root"
+          test "$(git diff --name-only "$root" HEAD)" = "$path"
+          test "$(git ls-tree HEAD -- "$path" | awk '{print $1}')" = 100644
+          test "$(git rev-parse "HEAD:crates/ddv-save-core")" = 7ce60a4e95988cc9d8f33ed54453882e4198e7c5
+          test "$(git rev-parse "HEAD:crates/ddv-save-core/src/wasm_worker.rs")" = 6432275d2909e6bc6d39265ae70cc7176fc37106
+          test "$(git rev-parse "HEAD:crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs")" = 26414572b41211076f1f83a3f8752eea2ab65142
+          test "$(git rev-parse "HEAD:crates/ddv-save-core/src/product_session.rs")" = 08a854a949fbd115cc656a1d4bbdc4d867515a39
+          test "$(git rev-parse "HEAD:crates/ddv-save-core/Cargo.toml")" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          git cat-file -e 5fbb1f3d393df127da67f1eafe9796fbb7ce3a56^{blob}
+          git cat-file blob 5fbb1f3d393df127da67f1eafe9796fbb7ce3a56 > /tmp/qrc-wasm-worker-old-original.rs
+          cp crates/ddv-save-core/src/wasm_worker.rs /tmp/qrc-wasm-worker-current-original.rs
+          test "$(git hash-object /tmp/qrc-wasm-worker-old-original.rs)" = 5fbb1f3d393df127da67f1eafe9796fbb7ce3a56
+          test "$(git hash-object /tmp/qrc-wasm-worker-current-original.rs)" = 6432275d2909e6bc6d39265ae70cc7176fc37106
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          echo QRC_WASM_HEAP_FIXED_CORETREE_OLD_NEW_RUST_ONE_WORKFLOW_PASS
+      - name: Prepare ephemeral wasm32-only raw allocator probe and Node assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/qrc-wasm-heap-inject.py <<'PY'
+          from pathlib import Path
+          import sys
+          mode=sys.argv[1]
+          assert mode in ('old','new')
+          source=Path('/tmp/qrc-wasm-worker-'+('old' if mode=='old' else 'current')+'-original.rs').read_text()
+          anchor='    pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{'
+          assert source.count(anchor)==1
+          probe=r'''
+              // QA instrumentation only. Not shipped, not committed, and
+              // exposed only in this runner's instrumented generated WASM.
+              // This reads the original initialized allocation after clear().
+              pub fn qa_original_allocation_zeroed(&self, n:usize)->bool {
+                  if !self.closed || !self.buffer.is_empty() ||
+                     n==0 || self.buffer.capacity()<n ||
+                     self.entropy.iter().any(|b|*b!=0) ||
+                     self.session.is_some() { return false; }
+                  let raw=self.buffer.as_ptr();
+                  for i in 0..n {
+                      // SAFETY: n bytes were initialized immediately before
+                      // close/rejection, and this Vec still owns allocation.
+                      let byte=unsafe{core::ptr::read_volatile(raw.add(i))};
+                      if byte!=0 { return false; }
+                  }
+                  true
+              }
+          '''
+          source=source.replace(anchor,probe+anchor,1)
+          Path('crates/ddv-save-core/src/wasm_worker.rs').write_text(source)
+          print('QRC_WASM_HEAP_EPHEMERAL_INSTRUMENTED_SOURCE',mode)
+          PY
+          cat > /tmp/qrc-wasm-heap-assert.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          const require=createRequire(import.meta.url);
+          const {WorkerWasmSource}=require(process.env.WAND_HEAP_JS);
+          const mode=process.env.WAND_HEAP_MODE;
+          assert.ok(mode==='old'||mode==='new');
+          const expected=mode==='new';
+          const make=()=>new WorkerWasmSource('steam-windows','steam-full-version',
+            'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true,
+            new Uint8Array(32).fill(0x33));
+          const patterns=[
+            {name:'close',n:6400,invalid:null},
+            {name:'empty',n:6604,invalid:new Uint8Array(0)},
+            {name:'oversize',n:6604,invalid:new Uint8Array(1048577).fill(0x55)}
+          ];
+          let cases=0;
+          for (const v of patterns){
+            const worker=make();
+            const a=v.n===6400?3500:4401,b=v.n-a;
+            worker.append_chunk(new Uint8Array(a).fill(0xA5));
+            worker.append_chunk(new Uint8Array(b).fill(0x5A));
+            if (v.invalid===null){
+              worker.close();
+              assert.throws(()=>worker.append_chunk(new Uint8Array([0x42])));
+            } else {
+              assert.throws(()=>worker.append_chunk(v.invalid),'invalid append must deny');
+            }
+            const erased=worker.qa_original_allocation_zeroed(v.n);
+            assert.equal(erased,expected,
+              mode+' '+v.name+' actual initialized WASM memory must distinguish old and new');
+            worker.free();
+            cases++;
+          }
+          assert.equal(cases,3);
+          console.log(expected
+            ? 'QRC_ACTUAL_WASM32_RELEASE_CURRENT_CLOSE_BOUNDS_SCRUB_3POS_ALL_BYTES_ERASED'
+            : 'QRC_ACTUAL_WASM32_RELEASE_OLD_CLEAR_ONLY_3NEG_ALL_PLAINTEXT_RETAINED');
+          NODE
+          node --check /tmp/qrc-wasm-heap-assert.mjs
+      - name: Actual release-mode old and current WASM compiled with same toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = 1.99.1
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrc-wasm-heap-bindgen
+          for mode in old new; do
+            python3 /tmp/qrc-wasm-heap-inject.py "$mode"
+            cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+              --target wasm32-unknown-unknown --no-default-features \
+              --features product-steam626-bamboo-readonly,worker-wasm
+            dir="/tmp/qrc-wasm-heap-$mode"
+            mkdir -p "$dir"
+            /tmp/qrc-wasm-heap-bindgen/bin/wasm-bindgen \
+              "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+              --out-dir "$dir" --target nodejs --no-typescript
+            WAND_HEAP_JS="$dir/ddv_save_core.js" WAND_HEAP_MODE="$mode" \
+              node /tmp/qrc-wasm-heap-assert.mjs
+          done
+          echo QRC_ACTUAL_RELEASE_WASM_OLD_RETENTION_NEW_ERASURE_CHANGED_SCOPE_PASS
+          test "$(git diff --name-only 3f77a30ff11d2b8ea84df81d1dd69668004c7870 HEAD)" = \
+            ".github/workflows/05qrc-bamboo-wasm-heap-old-new-raw-zeroization-l2.yml"
