@@ -1623,6 +1623,16 @@ export function verifyAcceptedRustScope(cwd,base,source){
  // already-reviewed protected Gate; no second parent, old-base stack or
  // candidate-supplied self-accepting verifier. Historical profiles unchanged.
  if(profile.metadata.inventory0GateFirstSourceOnly===true){
+  // The protected base itself is not an attacker-supplied authorization:
+  // old Bamboo signer/issuer/Lock/readonly R22 inputs must match known
+  // protected GitBlobs, not merely be identical between forged base/source.
+  // A future legitimate protected authority change needs new scoped review.
+  const protectedAuthority=[["scripts/wasm-distribution/protected-release-inputs.json","30551c7cc566614f64c8ba04748c3aef44b419bb"],["scripts/readonly-release/seal-bamboo-public-pages.mjs","e6290e890ac205f6486a76567e7ccac90f8d9aba"],["src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs","d5b167f35b10ecc5b16d40e84e9d9bb324288539"],["scripts/wasm-distribution/approved-Cargo.lock","b667b42cfef2032c2925be7b2aa9b7142bff4b52"],["scripts/wasm-distribution/verify-protected-release.mjs","d4ab1f6b46413b9992301ddbad00aedf3b01b040"],["scripts/wasm-distribution/r22-trusted-before-candidate.mjs","5aefdaff6a46ae9bdf1f5a37c4f0973442308a4a"]];
+  for(const [path,blob] of protectedAuthority){
+   const got=git(cwd,'ls-tree',base,'--',path);
+   if(got!=='100644 blob '+blob+'\t'+path)
+    deny('INVENTORY0_UNTRUSTED_PROTECTED_BASE_AUTHORITY_'+path);
+  }
   const parents=git(cwd,'rev-list','--parents','-n','1',source).split(/\s+/);
   if(parents.length!==2||parents[1]!==base)
    deny('INVENTORY0_EXACT_ONE_PROTECTED_PARENT_REQUIRED');

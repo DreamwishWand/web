@@ -188,3 +188,34 @@ test('mutated Rust/Cargo/Worker/aux/source mode, extras, second parent all denie
  denied(construct([], [sourceOriginal]));
  console.log('09P_INVENTORY0_GATE_FIRST_10_NEG_WRITER_OFF');
 });
+
+test('forged caller-supplied protected base issuer/Config/Lock is always denied',()=>{
+ const paths=[
+  'scripts/wasm-distribution/protected-release-inputs.json',
+  'scripts/readonly-release/seal-bamboo-public-pages.mjs',
+  'src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs',
+  'scripts/wasm-distribution/approved-Cargo.lock',
+  'scripts/wasm-distribution/verify-protected-release.mjs',
+  'scripts/wasm-distribution/r22-trusted-before-candidate.mjs'
+ ];
+ for(const [i,path] of paths.entries()){
+  const temp=mkdtempSync(join(tmpdir(),'9p-gate-base-forgery-'));
+  try{
+   const idx={GIT_INDEX_FILE:join(temp,'index')};
+   git(['read-tree',base+'^{tree}'],undefined,idx);
+   const altered=git(['hash-object','-w','--stdin'],'UNTRUSTED_PROTECTED_AUTHORITY_'+i+'\n');
+   git(['update-index','--add','--cacheinfo','100644',altered,path],undefined,idx);
+   const forgedBase=git(['commit-tree',git(['write-tree'],undefined,idx),
+    '-p',base,'-m','isolated wrong protected base']);
+   git(['read-tree',forgedBase+'^{tree}'],undefined,idx);
+   for(const [sourcePath,sourceSha] of exact)
+    git(['update-index','--add','--cacheinfo','100644',sourceSha,sourcePath],undefined,idx);
+   const candidate=git(['commit-tree',git(['write-tree'],undefined,idx),
+    '-p',forgedBase,'-m','isolated source22 wrong protected issuer']);
+   assert.throws(()=>verifyAcceptedRustScope(cwd,forgedBase,candidate),
+    /R22_ACCEPTED_SCOPE_INVENTORY0_UNTRUSTED_PROTECTED_BASE_AUTHORITY_/,
+    'untrusted base was falsely accepted: '+path);
+  }finally{rmSync(temp,{force:true,recursive:true})}
+ }
+ console.log('09P_INVENTORY0_GATE22_SIX_UNTRUSTED_PROTECTED_BASE_BLOBS_DENIED');
+});

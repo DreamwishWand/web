@@ -177,7 +177,7 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
      // GitBlob must pass independent 04 QR-S Security L2 and 09INT protected
      // CAS acceptance before becoming trusted main. It does not waive Cargo
      // /Bamboo release denial, sign assets, or authorize a product Writer.
-     'b468da7916a53bf1ad65a6577e24db0e17d7a1b5']:
+     'dda72d9cfd1836f77830a94b74a3f0fce16478b9']:
     windowsLfCore?['fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323']:
     ['e54e5f0fd94c77dba6818b3c3307fe168a9eac8d',
      'fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323'];

@@ -48,7 +48,7 @@ test('ACT1581 exact Mannequin saved-int32 Rust and Windows pack LF both orders: 
  assert.ok([ 'd3997b2d4460109562489c6afa2c5d5e51fa2b5a',
   // New ACT1581 Inventory0 Gate-first source selector ONLY; review/merge by
   // independent 04 QR-S and sole09INT required. No new signed/Writer grant.
-  'b468da7916a53bf1ad65a6577e24db0e17d7a1b5' ].includes(git(['rev-parse','HEAD:'+gatePath])));
+  'dda72d9cfd1836f77830a94b74a3f0fce16478b9' ].includes(git(['rev-parse','HEAD:'+gatePath])));
  assert.equal(git(['rev-parse',main+':crates/ddv-save-core']),C.before);
  assert.equal(git(['rev-parse',main+':'+rust]),oldRust);
  assert.equal(git(['ls-tree',main,'--',attr]),'');

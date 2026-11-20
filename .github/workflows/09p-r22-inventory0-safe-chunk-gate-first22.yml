@@ -25,7 +25,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = b468da7916a53bf1ad65a6577e24db0e17d7a1b5
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = dda72d9cfd1836f77830a94b74a3f0fce16478b9
           test "$(git rev-parse HEAD:crates/ddv-save-core)" = 42bebc4aa5a451abc4a9df29f0bc298df92df6a3
           test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
           test "$(git rev-parse HEAD:scripts/readonly-release/seal-bamboo-public-pages.mjs)" = e6290e890ac205f6486a76567e7ccac90f8d9aba

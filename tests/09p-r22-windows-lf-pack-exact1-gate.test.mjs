@@ -41,7 +41,7 @@ test('ACT1581 fixed Windows LF data GitBlob exact one permits only reviewed Core
  assert.ok([ 'd3997b2d4460109562489c6afa2c5d5e51fa2b5a',
   // New ACT1581 Inventory0 Gate-first source selector ONLY; review/merge by
   // independent 04 QR-S and sole09INT required. No new signed/Writer grant.
-  'b468da7916a53bf1ad65a6577e24db0e17d7a1b5' ].includes(git(['rev-parse','HEAD:'+gatePath])));
+  'dda72d9cfd1836f77830a94b74a3f0fce16478b9' ].includes(git(['rev-parse','HEAD:'+gatePath])));
  assert.equal(git(['rev-parse',beforeMain+':crates/ddv-save-core']),
   '10e9e9bff19ef38c4a3d16def95c0b9448ce1d7c');
  assert.equal(git(['rev-parse',beforeMain+':crates/ddv-save-core/Cargo.toml']),
