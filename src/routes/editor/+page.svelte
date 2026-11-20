@@ -56,6 +56,15 @@
       <p>{copy.worldDetail}</p><p class="beta-state-note"><strong>{beta.local}</strong> · {beta.worldDetail}</p>
       <span>{copy.worldAction} →</span>
     </a>
+    <a class="feature-tile" data-editor-local-scenes href={base + '/presets/'}
+      data-beta-capability="local-scene-library" data-beta-state="local"
+      data-beta-save-authorized="false" data-native-apply="off" data-cloud="off">
+      <span class="tile-emoji" aria-hidden="true">◇</span>
+      <h2>{copy.sceneTitle}</h2>
+      <p>{copy.sceneDetail}</p>
+      <p class="beta-state-note"><strong>{beta.local}</strong></p>
+      <span>{copy.sceneAction} →</span>
+    </a>
     <a class="feature-tile" data-editor-timing href={base + '/editor/timing/'} data-beta-capability="timing-read" data-beta-state="read" data-beta-save-authorized="false">
       <span class="tile-emoji" aria-hidden="true">◷</span>
       <h2>{copy.timingTitle}</h2>
