@@ -1,0 +1,65 @@
+name: 04 QR-W PR2408 real two-tab Moodboard CAS quota capacity L2 QA ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2408-explore-moodboard-real-l2.yml'
+permissions:
+  contents: read
+jobs:
+  fixed-source-real-browser-compensation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2408-336e-explore-bulk-real-storage-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Original exact Source5 and QA2 GitBlob/mode, no production Store changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          base=b2c28e8a095f07ba7e6b2c5a1dfa985eca2ca90d
+          source=336efba3d3135cb4929c602f4cd7899b4a3ce0f5
+          test "$(git merge-base "$base" "$source")" = "$base"
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          printf '%s\n' \
+            .github/workflows/08web-explore-bulk-moodboard.yml \
+            scripts/web-explore-bulk-moodboard-chrome.mjs \
+            src/lib/explore/verified-moodboard-batch.mjs \
+            src/routes/explore/+page.svelte \
+            tests/web-explore-bulk-verified-moodboard.test.mjs | LC_ALL=C sort >/tmp/qrw2408-src5
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/qrw2408-src5 -
+          printf '%s\n' \
+            .github/workflows/qa-qrw-pr2408-explore-moodboard-real-l2.yml \
+            scripts/qa-qrw-pr2408-bulk-moodboard-multitab-chrome.mjs | LC_ALL=C sort >/tmp/qrw2408-qa2
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qrw2408-qa2 -
+          for f in $(cat /tmp/qrw2408-src5) $(cat /tmp/qrw2408-qa2); do
+            test "$(git ls-tree HEAD -- "$f" | awk '{print $1}')" = 100644
+          done
+          test "$(git rev-parse HEAD:src/lib/explore/verified-moodboard-batch.mjs)" = 70bf60a2cae238564baeedd336ceaaf735d7fd14
+          test "$(git rev-parse HEAD:src/routes/explore/+page.svelte)" = 1b250beb01499a76ab047dbac93dde698ba7e93d
+          test "$(git rev-parse HEAD:tests/web-explore-bulk-verified-moodboard.test.mjs)" = a1b22b66633f7ff41445d0641a0f5b6e2f624af3
+          test "$(git rev-parse HEAD:scripts/qa-qrw-pr2408-bulk-moodboard-multitab-chrome.mjs)" = 35d8419267591b9ac2187fa268b39aa8cc216340
+          git diff --quiet "$source" HEAD -- src tests docs crates static ops package.json package-lock.json
+          echo QRW2408_EXACT_SOURCE5_QA2_BLOB_MODE_NO_LOCAL_STORE_CHANGE_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real Chrome A+B shared storage, compensated exception, all-or-nothing limit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          export CHROME_BIN="$BIN"
+          BASE_PATH='/web' npm run dev -- --host 127.0.0.1 --port 4367 >/tmp/qrw2408-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4367/web/explore/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/qa-qrw-pr2408-bulk-moodboard-multitab-chrome.mjs
