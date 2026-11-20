@@ -1,0 +1,133 @@
+name: 04 QR-S ACT1774 PR2379 repaired Inventory0 five aux SHA/mode and single parent L2 QA ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2379-inv0-five-aux-failclosed-single-parent-l2.yml'
+permissions:
+  contents: read
+jobs:
+  auxiliary-source-ancestry-adversarial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrs/act1774-pr2379-inv0-five-aux-failclosed-single-parent-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen 09P Source HEAD and one QA-only workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=08e49250e43108c55180315e5a900a6df21e0502
+          path=.github/workflows/04qrs-act1774-pr2379-inv0-five-aux-failclosed-single-parent-l2.yml
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD)" = "$path"
+          test "$(git ls-tree HEAD -- "$path" | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-inventory0-product-source.mjs)" = 36aedda6b8bdb67a7c34e8581ff7d2d58761b14e
+          test "$(git rev-parse HEAD:tests/09p-r22-inventory0-product-source.test.mjs)" = 258fda117459de485867b4a49a34e22033676195
+          test "$(git rev-parse HEAD:.github/workflows/09p-r22-inventory0-product-source.yml)" = 0b6c58d29ab40dbc017ed8492d06758832575e0d
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 775a2766f237d44ae77fa5347e9adf430c8580d2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs)" = 221ad641af096b28544e781c663be2379aa67897
+          test "$(git rev-parse HEAD:tests/09p-r22-inventory0-unsigned-pair.test.mjs)" = e54438b84ced80fc5f12f50bb709074e16c152c1
+          echo QRS2379_NEW_SOURCE_5_AUX_GIT_BLOBS_MODES_FROZEN
+      - name: Actual isolated Git auxiliary Source mode100644 SHA tamper and second-parent denial counterexample
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'QRS_NODE'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {mkdtempSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          import {verifyR22Inventory0SourceCandidate,verifyR22Inventory0MainFirstSynthetic,INVENTORY0_EXPECTED_SOURCE} from './scripts/wasm-distribution/r22-inventory0-product-source.mjs';
+          const SOURCE='08e49250e43108c55180315e5a900a6df21e0502';
+          const PROTECTED='f420bbe72fbc3374f0a3867403c660873ce5f06a';
+          const own=[
+           '.github/workflows/09p-r22-inventory0-product-source.yml',
+           'scripts/wasm-distribution/r22-inventory0-product-source.mjs',
+           'tests/09p-r22-inventory0-product-source.test.mjs',
+           'scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs',
+           'tests/09p-r22-inventory0-unsigned-pair.test.mjs'
+          ];
+          const env={...process.env,GIT_NO_REPLACE_OBJECTS:'1',
+           GIT_AUTHOR_NAME:'QRS ephemeral proof',GIT_AUTHOR_EMAIL:'qrs@example.invalid',
+           GIT_COMMITTER_NAME:'QRS ephemeral proof',GIT_COMMITTER_EMAIL:'qrs@example.invalid'};
+          const git=(args,input,extra={})=>execFileSync('git',args,{env:{...env,...extra},encoding:'utf8',
+           input,stdio:['pipe','pipe','pipe'],maxBuffer:16*1024*1024}).trim();
+          const qaHead=git(['rev-parse','HEAD']);assert.notEqual(qaHead,SOURCE);
+          const baseline=verifyR22Inventory0SourceCandidate(SOURCE);
+          assert.equal(baseline.product11SourcePinned,true);
+          for(const key of ['auxiliarySourceShaVerified','completeSourceVerified','sourceBytesPinned',
+           'signerAuthorized','writerAuthorized','mergeAuthorized','operationOn'])
+           assert.equal(baseline[key],false,key);
+          const dir=mkdtempSync(join(tmpdir(),'qrs-2379-fixed-'));
+          const idx={GIT_INDEX_FILE:join(dir,'index')};
+          const makeCommit=(base,parent,changes=[],parents=[])=>{
+           git(['read-tree',base+'^{tree}'],undefined,idx);
+           for(const [path,body,mode='100644'] of changes){
+            const blob=body===null?git(['rev-parse',SOURCE+':'+path]):git(['hash-object','-w','--stdin'],body);
+            git(['update-index','--add','--cacheinfo',mode,blob,path],undefined,idx);
+           }
+           const tree=git(['write-tree'],undefined,idx);
+           const args=['commit-tree',tree,'-p',parent];
+           for(const p of parents)args.push('-p',p);
+           return git([...args,'-m','QRS isolated unreferenced Git negative only']);
+          };
+          const checkNonAuthority=receipt=>{
+           assert.equal(receipt.product11SourcePinned,true);
+           for(const key of ['auxiliarySourceShaVerified','completeSourceVerified','sourceBytesPinned',
+            'signerAuthorized','writerAuthorized','operationOn','mergeAuthorized'])
+            assert.equal(receipt[key],false,key);
+          };
+          let sourceChanged=0,sourceModeDenied=0,mainChanged=0,mainModeDenied=0,parentDenied=0;
+          try{
+           for(const path of own){
+            const changed=makeCommit(SOURCE,SOURCE,[[path,'// QA unreviewed auxiliary source SHA\n']]);
+            assert.notEqual(git(['rev-parse',changed+':'+path]),git(['rev-parse',SOURCE+':'+path]));
+            checkNonAuthority(verifyR22Inventory0SourceCandidate(changed));sourceChanged++;
+            const mode=makeCommit(SOURCE,SOURCE,[[path,null,'100755']]);
+            assert.throws(()=>verifyR22Inventory0SourceCandidate(mode),
+             /R22_INVENTORY0_SOURCE_DENIED_/);sourceModeDenied++;
+           }
+           const staged=[...Object.keys(INVENTORY0_EXPECTED_SOURCE),...own];
+           const mkMain=(changed=[],parents=[])=>{
+            const map=new Map(changed.map(([p,body,mode])=>[p,[body,mode||'100644']]));
+            const edits=staged.map(p=>[p,...(map.get(p)||[null,'100644'])]);
+            return makeCommit(PROTECTED,PROTECTED,edits,parents);
+           };
+           const main=mkMain();
+           const receipt=verifyR22Inventory0MainFirstSynthetic(main);
+           assert.equal(receipt.changedPaths,15);
+           checkNonAuthority(receipt);
+           assert.equal(receipt.latestProtectedCASVerified,false);
+           for(const path of own){
+            const c=mkMain([[path,'// QA unreviewed main-first auxiliary SHA\n']]);
+            assert.notEqual(git(['rev-parse',c+':'+path]),git(['rev-parse',SOURCE+':'+path]));
+            checkNonAuthority(verifyR22Inventory0MainFirstSynthetic(c));mainChanged++;
+            const mode=mkMain([[path,null,'100755']]);
+            assert.throws(()=>verifyR22Inventory0MainFirstSynthetic(mode),
+             /R22_INVENTORY0_SOURCE_DENIED_/);mainModeDenied++;
+           }
+           const multi=mkMain([],[SOURCE]);
+           assert.deepEqual(git(['rev-list','--parents','-n','1',multi]).split(/\s+/).slice(1),
+            [PROTECTED,SOURCE]);
+           assert.throws(()=>verifyR22Inventory0MainFirstSynthetic(multi),
+            /R22_INVENTORY0_SOURCE_DENIED_MAIN_FIRST_EXACT_ONE_PROTECTED_PARENT_REQUIRED/);
+           parentDenied++;
+           assert.deepEqual([sourceChanged,sourceModeDenied,mainChanged,mainModeDenied,parentDenied],[5,5,5,5,1]);
+           assert.equal(git(['rev-parse','HEAD']),qaHead,'no Git ref changed');
+           console.log('QRS2379_NEW_SOURCE_5_AUX_SHA_MODE_SOURCE_5_AUX_SHA_MODE_MAIN_FIRST_EXTRA_PARENT_ALL_DENIED_21_POS');
+           console.log(JSON.stringify({source:SOURCE,sourceTamperFailClosed:5,sourceModeDenied:5,
+            mainFirstTamperFailClosed:5,mainFirstModeDenied:5,secondParentDenied:1,
+            completeSourceVerified:false,sourceBytesPinned:false,releaseAuthorized:false,qaOnly:true}));
+          }finally{rmSync(dir,{recursive:true,force:true})}
+          QRS_NODE
+          test "$(git diff --name-only 08e49250e43108c55180315e5a900a6df21e0502 HEAD)" = .github/workflows/04qrs-act1774-pr2379-inv0-five-aux-failclosed-single-parent-l2.yml
+          echo QRS2379_QA_ONLY_NO_PRODUCTION_SOURCE_CHANGE_NO_RELEASE_NO_WRITER
