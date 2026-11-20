@@ -62,16 +62,16 @@ try{
  }
  await move(0,2);
  let body=await panel.locator('[data-wep-coord-review]').innerText();
- assert.match(body,/o1 \(3, 0\) → \(0, 2\)/);
+ assert.match(body,/o1 \(3,0\) → \(0,2\)/);
  await move(0,3);
- assert.match(await panel.locator('[data-wep-coord-review]').innerText(),/\(0, 3\)/);
+ assert.match(await panel.locator('[data-wep-coord-review]').innerText(),/\(0,3\)/);
  await panel.locator('[data-wep-coord-undo]').click();
- assert.match(await panel.locator('[data-wep-coord-review]').innerText(),/\(0, 2\)/);
+ assert.match(await panel.locator('[data-wep-coord-review]').innerText(),/\(0,2\)/);
  assert.equal(await panel.locator('[data-wep-coord-redo]').isEnabled(),true);
  await move(0,4);
  assert.equal(await panel.locator('[data-wep-coord-redo]').isEnabled(),false,
   'new branch after Undo must discard old Redo, never replay stale coordinate');
- assert.match(await panel.locator('[data-wep-coord-review]').innerText(),/\(0, 4\)/);
+ assert.match(await panel.locator('[data-wep-coord-review]').innerText(),/\(0,4\)/);
  assert.equal(await panel.locator('[data-wep-coord-save-as]').isEnabled(),true);
  const afterHistory=await readRow();
  assert.equal(afterHistory.revision,1);
