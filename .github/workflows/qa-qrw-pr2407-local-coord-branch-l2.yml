@@ -46,7 +46,7 @@ jobs:
           test "$(git rev-parse HEAD:src/lib/wep/local-scene-coordinate-review.ts)" = 5370d534f7bbeadf6021981f65666a980f4461cb
           test "$(git rev-parse HEAD:src/lib/wep/LocalSceneCoordinateStudio.svelte)" = f3932e0cabfc51efb70a1a77d71774de6b16dccb
           test "$(git rev-parse HEAD:tests/wep-local-scene-coordinate-review.test.mjs)" = 1cc5ce61db46801123f3e98d051e8907272cc22f
-          test "$(git rev-parse HEAD:scripts/qa-qrw-pr2407-coordinate-branch-stale-real-chrome.mjs)" = a81e2318812d64aa15625423398a3eaeb2febd14
+          test "$(git rev-parse HEAD:scripts/qa-qrw-pr2407-coordinate-branch-stale-real-chrome.mjs)" = 7325e7e9c14a1beefc406dfba00c957bc98a49c2
           git diff --quiet "$source" HEAD -- src tests docs static crates ops package.json package-lock.json
           echo QRW2407_FIXED_SOURCE8_QA2_EXACT_SHA_MODE_NO_PRODUCT_SAVE_PASS
       - run: npm ci --no-audit --no-fund
