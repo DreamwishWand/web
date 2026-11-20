@@ -1,0 +1,144 @@
+name: 01A QA ONLY current Rust Bamboo actual generated WASM read runtime
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/01a-qa-only-current-bamboo-runtime.yml'
+permissions:
+  contents: read
+jobs:
+  actual-bamboo-readonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      WAND_GENERATED_MODULE: /tmp/01a-bamboo-current/ddv_save_core.js
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact protected current Rust and one QA-only path
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          test "$(git merge-base 3f77a30ff11d2b8ea84df81d1dd69668004c7870 HEAD)" = 3f77a30ff11d2b8ea84df81d1dd69668004c7870
+          test "$(git diff --name-only 3f77a30ff11d2b8ea84df81d1dd69668004c7870 HEAD)" = '.github/workflows/01a-qa-only-current-bamboo-runtime.yml'
+          test "$(git ls-tree HEAD -- .github/workflows/01a-qa-only-current-bamboo-runtime.yml | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 7ce60a4e95988cc9d8f33ed54453882e4198e7c5
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 6432275d2909e6bc6d39265ae70cc7176fc37106
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs)" = 26414572b41211076f1f83a3f8752eea2ab65142
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          test -z "$(git ls-files '*.p1g')"
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Compile real current Bamboo-only Rust WASM + node bindings
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = '1.99.1'
+          export CARGO_TARGET_DIR="$RUNNER_TEMP/01a-bamboo-test-target"
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features product-steam626-bamboo-readonly,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root "$RUNNER_TEMP/01a-bamboo-test-bindgen"
+          mkdir -p /tmp/01a-bamboo-current
+          "$RUNNER_TEMP/01a-bamboo-test-bindgen/bin/wasm-bindgen" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/01a-bamboo-current --target nodejs --no-typescript
+      - name: Real generated WASM same-session Bamboo positive, CAS and foreign Build negatives
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          import {readFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          import {makeSyntheticP1gProfile} from './tests/helpers/p1g-fixture.mjs';
+          import {createP1gRustWorkerReadOnlyBridge} from './src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+          import {BAMBOO_METHODS,BAMBOO_WASM_EXPORTS,bambooWasmExportsOk} from './src/lib/ddv/core/save/product-steam626-bamboo-readonly-release.mjs';
+          const {WorkerWasmSource}=createRequire(import.meta.url)(process.env.WAND_GENERATED_MODULE);
+          const raw=await readFile('/tmp/01a-bamboo-current/ddv_save_core_bg.wasm');
+          assert.equal(bambooWasmExportsOk(new WebAssembly.Module(raw)),true);
+          assert.deepEqual(WebAssembly.Module.exports(new WebAssembly.Module(raw)).map(x=>x.name).sort(),BAMBOO_WASM_EXPORTS);
+          assert.deepEqual(Object.getOwnPropertyNames(WorkerWasmSource.prototype).sort(),
+            ['constructor','free','__destroy_into_raw',...BAMBOO_METHODS].sort());
+          const BUILD='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          const doc={GameInfo:{Version:626},World:{
+            Villages:[{Areas:{'2':{Unlocked:true,GridIDs:[90001]}}}],PlayerHouses:[],
+            GridCollection:{Grids:{'90001':{
+              ID:90001,GridDataPath:'GridData/Villages/Village04-MeadowLevel-GridData.json',
+              GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:50,
+              Objects:{'10':{ID:10,ItemID:40700007,X:388,Y:196,
+                Orientation:'GridOrientation_Down',State:null}}
+            }},DiffGrids:{}}
+          },Player:{ListInventories:{'0':{
+            ID:0,CompatibleItemType:'ItemType_Furniture',
+            CompatibleFurnitureTypes:{List:['FurnitureItemType_Fence']},
+            Inventory:{'40700007':{Amount:10,Marker:'ItemMarker_None'}}
+          }},ContainerInventories:{}}};
+          const decoded=new TextEncoder().encode(JSON.stringify(doc));
+          const encrypted=makeSyntheticP1gProfile(doc);
+          const sha=b=>createHash('sha256').update(b).digest('hex'),originalSha=sha(encrypted);
+          const wasm=new WorkerWasmSource('steam-windows','steam-full-version',BUILD,626,true,new Uint8Array(32).fill(9));
+          wasm.append_chunk(decoded);
+          const e=JSON.parse(wasm.finish());
+          assert.equal(e.fullDocumentJsonValidated,true);
+          assert.equal(e.writerAuthorized,false);
+          let hit=null,attempts=0;
+          outer: for(let x=4;x<388;x+=2){
+            for(let y=4;y<196;y+=2){
+              attempts++;
+              try{
+                const obj=JSON.parse(wasm.read_steam626_bamboo_single_target(
+                  90001,x,y,e.sessionId,BigInt(e.revision),BigInt(e.indexGeneration),e.decodedSha256));
+                hit={x,y,obj};break outer;
+              }catch(err){}
+              if(attempts>=8000)break outer;
+            }
+          }
+          assert.ok(hit,'official installed floor4 valid Bamboo position must exist');
+          const {x,y,obj}=hit;
+          assert.equal(obj.contract,'wand.worker.steam626.bamboo.readonly-target@1');
+          assert.equal(obj.itemId,40700007);
+          assert.equal(obj.gridId,90001);
+          assert.equal(obj.oldStock,10);
+          assert.equal(obj.nextGridObjectId,50);
+          assert.equal(obj.stockDelta,0);
+          assert.equal(obj.readOnly,true);
+          for(const k of ['writerAuthorized','stageAuthorized','editedCopyAuthorized','operationOn','productReadAccepted'])
+            assert.equal(obj[k],false);
+          for(const k of ['rootSha256','gridSha256','counterSha256','stockSha256','housesSha256'])
+            assert.match(obj[k],/^[a-f0-9]{64}$/);
+          const valid=[90001,x,y,e.sessionId,BigInt(e.revision),BigInt(e.indexGeneration),e.decodedSha256];
+          assert.throws(()=>wasm.read_steam626_bamboo_single_target(...[90001,x,y,e.sessionId,BigInt(e.revision)+1n,BigInt(e.indexGeneration),e.decodedSha256]));
+          assert.throws(()=>wasm.read_steam626_bamboo_single_target(...[90001,x,y,e.sessionId,BigInt(e.revision),BigInt(e.indexGeneration)+1n,e.decodedSha256]));
+          assert.throws(()=>wasm.read_steam626_bamboo_single_target(...[90001,x,y,e.sessionId,BigInt(e.revision),BigInt(e.indexGeneration),'9'.repeat(64)]));
+          assert.throws(()=>wasm.read_steam626_bamboo_single_target(...[90002,x,y,e.sessionId,BigInt(e.revision),BigInt(e.indexGeneration),e.decodedSha256]));
+          assert.equal(JSON.parse(wasm.read_steam626_bamboo_single_target(...valid)).oldStock,10);
+          wasm.close();
+          assert.throws(()=>wasm.read_steam626_bamboo_single_target(...valid));
+          const bridge=createP1gRustWorkerReadOnlyBridge(async()=>({WorkerWasmSource}),
+            {allowSteam626BambooReadOnlySource:true});
+          const build={platform:'steam-windows',buildKind:'steam-full-version',buildId:BUILD,schema:626,externallyConfirmed:true};
+          const opened=await bridge.openEncrypted({build,encryptedBytes:encrypted});
+          assert.equal(opened.writerAuthorized,false);
+          const projected=bridge.readSteam626BambooSingleTarget({gridId:90001,x,y});
+          assert.deepEqual(Object.keys(projected).sort(),[
+            'itemId','gridId','x','y','oldStock','nextGridObjectId','readOnly',
+            'productReadAccepted','writerAuthorized','stageAuthorized','editedCopyAuthorized','operationOn'].sort());
+          assert.equal(projected.oldStock,10);assert.equal(projected.nextGridObjectId,50);
+          assert.equal(projected.operationOn,false);
+          assert.ok(!('decodedSha256' in projected)&&!('sessionId' in projected));
+          assert.ok(!('exportScopedEditedCopy' in bridge));
+          assert.throws(()=>bridge.readSteam626BambooSingleTarget({gridId:90001,x,y}));
+          bridge.close();
+          assert.equal(sha(encrypted),originalSha);
+          const foreign=new WorkerWasmSource('switch','switch-bid','9A239D3DB569756D',626,true,new Uint8Array(32).fill(7));
+          foreign.append_chunk(decoded);
+          const f=JSON.parse(foreign.finish());
+          assert.throws(()=>foreign.read_steam626_bamboo_single_target(90001,x,y,f.sessionId,BigInt(f.revision),BigInt(f.indexGeneration),f.decodedSha256));
+          foreign.close();
+          console.log('01A_CURRENT_BAMBOO_GENERATED_WASM_REAL_READ_POS_CAS_FOREIGN_CLOSE_NEG_PASS');
+          console.log('01A_CURRENT_BAMBOO_GENERATED_WASM_SHA256',sha(raw));
+          NODE
