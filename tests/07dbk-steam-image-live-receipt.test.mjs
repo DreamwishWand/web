@@ -24,16 +24,17 @@ const fake=(state,overrides={})=>{
     const isManifest=url.endsWith("manifest.json");
     if(state==="ON"){
       const cacheHeaders=overrides.missingCacheValidators?{}:{
-        etag:overrides.cacheEtag??'"synthetic-observed-on-tag"',
-        "last-modified":overrides.cacheDate??"Wed, 18 Nov 2026 11:38:36 GMT"
+        ...(overrides.missingEtag?{}:{etag:overrides.cacheEtag??'"synthetic-observed-on-tag"'}),
+        ...(overrides.missingLastModified?{}:{"last-modified":overrides.cacheDate??"Wed, 18 Nov 2026 11:38:36 GMT"})
       };
+      const headCacheHeaders=overrides.headMissingCacheValidators?{}:cacheHeaders;
       if(isManifest)return new Response(JSON.stringify({schema:"wand.item-images.steam-primary-release@1",
         assetVariant:variant,publication:{gate:"MEDIA_PUBLIC_SCOPED_ON"},
         items:{[id]:{webpSha256:digest(bytes)}}}),{
         status:overrides.manifestStatus??200,headers:{"content-type":"application/json"}});
       if(method==="HEAD")return new Response(null,{
         status:overrides.imageHeadStatus??200,
-        headers:{"content-type":"image/webp","content-length":String(bytes.length),...cacheHeaders}});
+        headers:{"content-type":"image/webp","content-length":String(bytes.length),...headCacheHeaders}});
       return new Response(overrides.bytes??bytes,{
         status:overrides.imageStatus??200,
         headers:{"content-type":overrides.imageMime??"image/webp",...cacheHeaders}});
@@ -177,12 +178,27 @@ test("WITHDRAW refuses missing or mismatched real prior GET/HEAD cache validator
       /PRIOR_REAL_CACHE_VALIDATORS_REQUIRED/);
     assert.equal(f.calls.length,0,"do not HTTP probe using unauthenticated, absent or malformed old cache values");
   }
-  const noCache=await verifySteamLiveImagePhase({...opts,phase:"ON",
-    fetchImpl:fake("ON",{missingCacheValidators:true}).fetchImpl});
-  const f=fake("WITHDRAW");
-  await assert.rejects(isolatedVerify(withdrawArgs(noCache,f.fetchImpl)),
-    /PRIOR_REAL_CACHE_VALIDATORS_REQUIRED/);
-  assert.equal(f.calls.length,0);
+  // New ON policy refuses unwithdrawable receipts at issuance rather than
+  // postponing the failure until an urgent CDN takedown is needed.
+  const f=fake("ON",{missingCacheValidators:true});
+  await assert.rejects(verifySteamLiveImagePhase({...opts,phase:"ON",fetchImpl:f.fetchImpl}),
+    /LIVE_ON_CACHE_VALIDATORS_REQUIRED/);
+  assert.deepEqual(f.calls.map(c=>c.method),["GET","GET"]);
+});
+test("ON refuses an unwithdrawable cache receipt when GET or HEAD omits a required validator",async()=>{
+  for(const overrides of [
+    {missingCacheValidators:true},
+    {missingEtag:true},
+    {missingLastModified:true},
+    {headMissingCacheValidators:true}
+  ]){
+    const f=fake("ON",overrides);
+    await assert.rejects(
+      verifySteamLiveImagePhase({...opts,phase:"ON",fetchImpl:f.fetchImpl}),
+      /LIVE_ON_CACHE_VALIDATORS_REQUIRED/);
+    assert.equal(f.calls.some(c=>c.method==="GET"),true);
+    assert.equal(f.calls.some(c=>c.url.endsWith(".webp")),true);
+  }
 });
 test("ON rejects malformed ETag and mismatched HEAD/GET validators",async()=>{
   for(const overrides of [{cacheEtag:"unquoted"},
