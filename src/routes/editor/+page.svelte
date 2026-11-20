@@ -56,7 +56,7 @@
       <p>{copy.worldDetail}</p><p class="beta-state-note"><strong>{beta.local}</strong> · {beta.worldDetail}</p>
       <span>{copy.worldAction} →</span>
     </a>
-    <a class="feature-tile" data-editor-local-scenes href={base + '/presets/'}
+    <a class="feature-tile" data-editor-local-scenes href={base + '/presets/#device-local-scenes'}
       data-beta-capability="local-scene-library" data-beta-state="local"
       data-beta-save-authorized="false" data-native-apply="off" data-cloud="off">
       <span class="tile-emoji" aria-hidden="true">◇</span>
