@@ -171,7 +171,7 @@ def run(source_root: Path):
     for version, items in (("v1253", old), ("v1261", newer)):
         for cat in module.CATEGORIES:
             p = source_root / version / (cat + ".json")
-            if p.is_symlink() or not p.is_file() or source_root not in p.resolve().parents:
+            if p.parent.is_symlink() or p.is_symlink() or not p.is_file() or source_root not in p.resolve().parents:
                 denied("SOURCE_FILE_MISSING_OR_ALIAS")
             b = p.read_bytes()
             if (hashlib.sha256(b).hexdigest(), len(b)) != module.SOURCE_PINS[version][cat]:
