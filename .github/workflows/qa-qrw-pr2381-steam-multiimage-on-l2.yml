@@ -1,0 +1,49 @@
+name: 04 QR-W PR2381 Steam3 multi-image ON validators L2 QA ONLY NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2381-steam-multiimage-on-l2.yml'
+permissions:
+  contents: read
+jobs:
+  scope-pinned-on-validator-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2381-5f9f-multiimage-validator-on-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin original Source two paths and independent QA-only two files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = 1371485649
+          base=f420bbe72fbc3374f0a3867403c660873ce5f06a
+          source=5f9f4e2c0d0f28cb348d47bd99bd85c1a40c0c67
+          test "$(git merge-base "$base" "$source")" = "$base"
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          printf '%s\n' scripts/07dbk-steam-image-live-receipt.mjs tests/07dbk-steam-image-live-receipt.test.mjs | LC_ALL=C sort >/tmp/qrw2381-src2
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/qrw2381-src2 -
+          printf '%s\n' .github/workflows/qa-qrw-pr2381-steam-multiimage-on-l2.yml tests/qa-qrw-pr2381-steam-live-on-multiasset-validator-l2.test.mjs | LC_ALL=C sort >/tmp/qrw2381-qa2
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qrw2381-qa2 -
+          for f in $(cat /tmp/qrw2381-src2) $(cat /tmp/qrw2381-qa2); do
+            test "$(git ls-tree HEAD -- "$f" | awk '{print $1}')" = 100644
+          done
+          test "$(git rev-parse "$base":scripts/07dbk-steam-image-live-receipt.mjs)" = 0e5af33a1e428f3a3f6ac0540763548ba46662fd
+          test "$(git rev-parse "$base":tests/07dbk-steam-image-live-receipt.test.mjs)" = 0eeadffc72253b852b0797924a52267306318604
+          test "$(git rev-parse HEAD:scripts/07dbk-steam-image-live-receipt.mjs)" = c3e834b15ed537204a8191f427c9651831bceefa
+          test "$(git rev-parse HEAD:tests/07dbk-steam-image-live-receipt.test.mjs)" = 0dac297cc08ea72fcfefabc2cf8f731043ff9149
+          test "$(git rev-parse HEAD:tests/qa-qrw-pr2381-steam-live-on-multiasset-validator-l2.test.mjs)" = e0b561c0bd822212cbffa52b162445115cec4e15
+          test "$(git rev-parse HEAD:scripts/07dbk-steam-image-trusted-on-anchors.json)" = 2e99fa94728d430b8d468fe07caba629b50f339c
+          git diff --quiet "$source" HEAD -- src scripts static ops crates package.json package-lock.json
+          echo QRW2381_SOURCE2_QA2_EXACT_BLOBS_MODES_AND_EMPTY_SIGNED_TRUST_PASS
+      - name: Multi-asset GET HEAD validator completeness and forged authority denial
+        run: |
+          set -euo pipefail
+          node --test tests/qa-qrw-pr2381-steam-live-on-multiasset-validator-l2.test.mjs
+          echo QRW2381_STEAM3_ON_MULTI_ASSET_VALIDATORS_FAIL_CLOSED_PASS
