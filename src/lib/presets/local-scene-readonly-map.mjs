@@ -45,12 +45,12 @@ export function localSceneReadonlyMapFromDraft(draft){
 }
 const labels=Object.freeze({
  en:['Local Scene layout (read only)','Local coordinates only; not a game placement or ownership check.','Furniture item ID','Grid cells'],
- ja:['ローカルSceneの配置図（読み取り専用）','端末内の相対座標のみ。ゲーム内配置・所有権は未確認です。','家具アイテムID','マス'],
+ ja:['ローカルSceneの配置図（読み取り専用）','端末内の相対座標のみ。ゲーム内配置・所有権は未確認です。','家具アイテムID','配置マス'],
  fr:['Plan de la scène locale (lecture seule)','Coordonnées locales uniquement, sans vérification de placement ni de propriété.','ID objet de mobilier','Cases'],
  it:['Mappa della scena locale (sola lettura)','Solo coordinate locali, senza conferma di posa o proprietà nel gioco.','ID oggetto arredo','Celle'],
  de:['Lokaler Szenenplan (nur lesend)','Nur lokale Koordinaten, keine Prüfung von Platzierung oder Besitz im Spiel.','Möbel-Item-ID','Zellen'],
  'es-ES':['Plano de escena local (solo lectura)','Solo coordenadas locales; sin verificar ubicación ni propiedad en el juego.','ID de mueble','Celdas'],
- 'zh-CN':['本地场景布局（只读）','仅显示本地坐标，不验证游戏内摆放或物品所有权。','家具物品 ID','格'],
+ 'zh-CN':['本地场景布局（只读）','仅显示本地坐标，不验证游戏内摆放或物品所有权。','家具物品 ID','网格单元'],
  'pt-BR':['Mapa da cena local (somente leitura)','Somente coordenadas locais, sem validar posicionamento nem posse no jogo.','ID de móvel','Células']
 });
 export const LOCAL_SCENE_MAP_LOCALES=Object.freeze(Object.keys(labels));
