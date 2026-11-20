@@ -7,12 +7,12 @@ import {INVENTORY0_PRODUCT_METHODS,inventory0UnsignedCandidate,
  inventory0UnsignedCandidateExact,inventory0PairPath} from '../scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs';
 const source=Object.freeze({
  contract:'wand.r22.steam626.inventory0.source-candidate@1',
- sourceHead:'f'.repeat(40),sourcePaths:11,
- coreTree:'b29f86343a6052b93bfedbf4379c6958907a6c3d',
+ sourceHead:'f'.repeat(40),sourcePaths:18,
+ coreTree:'66eeda64ddfa60835b446f94f7b98df715f59e14',
  cargoGitBlob:'b3455c36d9d60b4a0e415026a095e47fe577644d',
  workerGitBlob:'f4cf9d66f857a2e20b597de9f697a458b6ab550c',
  productSessionGitBlob:'e53c4930a84f729ea245f38a1b301c7178146ced',
- product11SourcePinned:true,auxiliarySourceShaVerified:false,
+ product18SourcePinned:true,auxiliarySourceShaVerified:false,
  completeSourceVerified:false,sourceBytesPinned:false,
  oldBambooSignerGrantsThisBuild:false,
  productCandidateOnly:true,mergeAuthorized:false,signerAuthorized:false,
@@ -27,7 +27,7 @@ const denied=(s,j=js,w=wasm,m=INVENTORY0_PRODUCT_METHODS)=>
 test('offline witness schema explicitly cannot authorize signatures, Pages, Writer or Op',()=>{
  const r=inventory0UnsignedCandidate(source,js,wasm,INVENTORY0_PRODUCT_METHODS);
  assert.equal(inventory0UnsignedCandidateExact(r,source,js,wasm,INVENTORY0_PRODUCT_METHODS),true);
- assert.equal(r.source.product11SourcePinned,true);
+ assert.equal(r.source.product18SourcePinned,true);
  assert.equal(r.source.auxiliarySourceShaVerified,false);
  assert.equal(r.source.completeSourceVerified,false);
  assert.equal(r.release.signatureVerified,false);
@@ -65,7 +65,7 @@ test('changing a generated pair byte, source SHA/mode closure, or ABI fails clos
  denied({...source,sourceBytesPinned:true});
  denied({...source,completeSourceVerified:true});
  denied({...source,auxiliarySourceShaVerified:true});
- denied({...source,product11SourcePinned:false});
+ denied({...source,product18SourcePinned:false});
  denied({...source,mergeAuthorized:true});
  denied({...source,writerAuthorized:true});
  denied({...source,requiresNewSecurityL2:false});

@@ -39,7 +39,7 @@ const denied=(ref)=>assert.throws(()=>verifyR22Inventory0SourceCandidate(ref),
 
 test('Inventory0 exact Core/Cargo/Worker/secure final-Arc Source is candidate ONLY',()=>{
  const a=verifyR22Inventory0SourceCandidate(sourceHead);
- assert.equal(a.sourceHead,sourceHead);assert.equal(a.sourcePaths,11);
+ assert.equal(a.sourceHead,sourceHead);assert.equal(a.sourcePaths,18);
  assert.equal(a.coreTree,INVENTORY0_EXPECTED_CORE);
  assert.equal(a.cargoGitBlob,INVENTORY0_EXPECTED_CARGO);
  assert.equal(a.workerGitBlob,INVENTORY0_EXPECTED_WORKER);
@@ -48,7 +48,7 @@ test('Inventory0 exact Core/Cargo/Worker/secure final-Arc Source is candidate ON
   'oldBambooSignerGrantsThisBuild'])assert.equal(a[key],false,key);
  assert.equal(a.productCandidateOnly,true);
  assert.equal(a.requiresNewSecurityL2,true);
- assert.equal(a.product11SourcePinned,true);
+ assert.equal(a.product18SourcePinned,true);
  assert.equal(a.auxiliarySourceShaVerified,false);
  assert.equal(a.completeSourceVerified,false);
  assert.equal(a.sourceBytesPinned,false);
@@ -104,7 +104,7 @@ test('Actual unreferenced forged Git trees reject Rust, Cargo, ABI, mode, truste
  console.log('09P_INVENTORY0_R22_SCOPED_SOURCE_1POS_AND_NEGATIVE_GIT_OBJECTS_NO_SIGN_NO_ON');
 });
 
-test('01A Inventory0 + 09P Source compose as 15 exact files on protected SECURITY main without changing signer',()=>{
+test('01A Inventory0 + 09P Source compose as 22 exact files on protected SECURITY main without changing signer',()=>{
  const protectedBase='f420bbe72fbc3374f0a3867403c660873ce5f06a';
  const dir=mkdtempSync(join(tmpdir(),'9p-inv0-main-first-local-'));
  try{
@@ -124,8 +124,8 @@ test('01A Inventory0 + 09P Source compose as 15 exact files on protected SECURIT
   const synthetic=git(['commit-tree',tree,'-p',protectedBase,
    '-m','09P fixed synthetic main-first candidate NO REF']);
   const a=verifyR22Inventory0MainFirstSynthetic(synthetic);
-  assert.equal(a.changedPaths,15);
-  assert.equal(a.product11SourcePinned,true);
+  assert.equal(a.changedPaths,22);
+  assert.equal(a.product18SourcePinned,true);
   assert.equal(a.auxiliarySourceShaVerified,false);
   assert.equal(a.completeSourceVerified,false);
   assert.equal(a.sourceBytesPinned,false);
@@ -175,7 +175,7 @@ test('01A Inventory0 + 09P Source compose as 15 exact files on protected SECURIT
    'tests/09p-r22-inventory0-unsigned-pair.test.mjs']){
    const changedOwn=verifyR22Inventory0MainFirstSynthetic(
     tamper(path,'// FORGED_UNREVIEWED_AUXILIARY_SOURCE\n'));
-   assert.equal(changedOwn.product11SourcePinned,true);
+   assert.equal(changedOwn.product18SourcePinned,true);
    assert.equal(changedOwn.completeSourceVerified,false);
    assert.equal(changedOwn.auxiliarySourceShaVerified,false);
    assert.equal(changedOwn.sourceBytesPinned,false);
@@ -188,7 +188,7 @@ test('01A Inventory0 + 09P Source compose as 15 exact files on protected SECURIT
   assert.throws(()=>verifyR22Inventory0MainFirstSynthetic(multi),
    /R22_INVENTORY0_SOURCE_DENIED_MAIN_FIRST_EXACT_ONE_PROTECTED_PARENT_REQUIRED/);
   console.log('09P_INV0_QRS2385_5_SAME_PATH_AUX_NOT_VERIFIED_SECOND_PARENT_DENIED');
-  console.log('09P_INVENTORY0_PROTECTED_MAIN_FIRST_SYNTHETIC15_SOURCE_POS_TAMPERS_DENIED_NO_SIGN_NO_ON');
+  console.log('09P_INVENTORY0_PROTECTED_MAIN_FIRST_SYNTHETIC22_SOURCE_POS_TAMPERS_DENIED_NO_SIGN_NO_ON');
  }finally{rmSync(dir,{recursive:true,force:true})}
 });
 
@@ -203,7 +203,7 @@ test('05QR-S counterexample scope: own-source SHA substitutions cannot be report
  for(const path of own){
   const altered=makeChild([[path,'// UNREVIEWED_SELF_PIN_FILE\n']]);
   const r=verifyR22Inventory0SourceCandidate(altered);
-  assert.equal(r.product11SourcePinned,true);
+  assert.equal(r.product18SourcePinned,true);
   assert.equal(r.auxiliarySourceShaVerified,false);
   assert.equal(r.completeSourceVerified,false);
   assert.equal(r.sourceBytesPinned,false);

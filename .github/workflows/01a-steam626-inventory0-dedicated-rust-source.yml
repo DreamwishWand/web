@@ -27,13 +27,20 @@ jobs:
           test "$GITHUB_REPOSITORY_ID" = 1371485649
           test "$(git merge-base 0e57c6b8585002b1baff91e6de573a835bed6577 HEAD)" = 0e57c6b8585002b1baff91e6de573a835bed6577
           git diff --name-only 0e57c6b8585002b1baff91e6de573a835bed6577 HEAD | sort > /tmp/01a-inv0-actual-paths
-          printf '%s\n' '.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml' 'crates/ddv-save-core/Cargo.toml' 'crates/ddv-save-core/src/wasm_worker.rs' 'crates/ddv-save-core/src/product_session.rs' 'tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs' 'tests/01a-steam626-catalog0-product-worker-port.test.mjs' 'tests/product-steam626-catalog0-local-adapter.test.mjs' 'src/lib/ddv/core/save/product-scoped-amount-transport.mjs' 'src/lib/ddv/core/save/product-wasm-read-owner.mjs' 'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs' 'src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs' | sort > /tmp/01a-inv0-expected-paths
+          printf '%s\n' '.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml' 'crates/ddv-save-core/Cargo.toml' 'crates/ddv-save-core/src/wasm_worker.rs' 'crates/ddv-save-core/src/product_session.rs' 'crates/ddv-save-core/src/wasm_steam626_eyecolor2.rs' 'crates/ddv-save-core/src/wasm_steam626_makeup_color1.rs' 'crates/ddv-save-core/src/wasm_switch624_frp01.rs' 'crates/ddv-save-core/src/wasm_switch626_fd01.rs' 'crates/ddv-save-core/src/wasm_switch626_fe01.rs' 'crates/ddv-save-core/src/wasm_switch626_fixed_fence_add.rs' 'crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs' 'tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs' 'tests/01a-steam626-catalog0-product-worker-port.test.mjs' 'tests/product-steam626-catalog0-local-adapter.test.mjs' 'src/lib/ddv/core/save/product-scoped-amount-transport.mjs' 'src/lib/ddv/core/save/product-wasm-read-owner.mjs' 'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs' 'src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs' | sort > /tmp/01a-inv0-expected-paths
           diff -u /tmp/01a-inv0-expected-paths /tmp/01a-inv0-actual-paths
           for f in $(cat /tmp/01a-inv0-actual-paths); do test "$(git ls-tree HEAD -- "$f" | awk '{print $1}')" = 100644; done
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 522e8e8d6beec597b2e5e176cfbe8a6d8e38a124
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
           test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = f4cf9d66f857a2e20b597de9f697a458b6ab550c
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_steam626_eyecolor2.rs)" = 1f31facb11f54d0e52f5b2188393a9d488c1fb35
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_steam626_makeup_color1.rs)" = afc6290a286adc8ad68b6cc9c8f0267c64a27106
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_switch624_frp01.rs)" = fdd5e85bff63fe0d147c604586e38654cb49d8ed
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_switch626_fd01.rs)" = 478c950cecbeb89387a555ce1ac56a10f53f30ac
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_switch626_fe01.rs)" = 242641a0cabb49029df40f1ea27dc4985ffb40db
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_switch626_fixed_fence_add.rs)" = ee9fbf6af12ca9ceb6cd9eae1e4814259e770d36
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs)" = 1dae83f8c56c6ab6ecb9d6dc8e00c8965d646dc2
           # Exact latest independently refutable 01A security Source includes both
           # moved-input Vec, last-owned decoded Arc and returned scoped-chunk scrub.
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
@@ -60,6 +67,30 @@ jobs:
           mkdir -p /tmp/01a-inv0-only-wasm
           /tmp/01a-inv0-only-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/01a-inv0-only-wasm --target nodejs --no-typescript
           test -s /tmp/01a-inv0-only-wasm/ddv_save_core_bg.wasm
+      - name: Validate changed feature-gated scoped output ABI closure (11 Rust profiles)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # One common Session and one changed return type: compile every
+          # previously accepted feature-cfg caller, not all unrelated tests.
+          for feature in \
+            product-switch626-fd01-scoped \
+            product-switch626-fe01-scoped \
+            product-steam626-eyecolor2-scoped \
+            product-steam626-makeup-color1-scoped \
+            product-switch626-makeup-color1-scoped \
+            product-switch624-frp01-scoped \
+            product-switch626-fd02-scoped \
+            product-switch626-fd03-scoped \
+            product-switch626-ortho-l-scoped \
+            product-switch626-diagonal90-scoped \
+            product-switch626-ortho-t-scoped
+          do
+            cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+              --target wasm32-unknown-unknown --no-default-features \
+              --features "worker-wasm,$feature"
+          done
+          echo 01A_SCOPED_OUTPUT_RETURN_ABI_11_FEATURE_CFG_COMPILED
       - name: Actual generated Rust-WASM Steam Inventory0 single-amount and denied domains
         shell: bash
         run: |

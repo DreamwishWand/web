@@ -21,17 +21,17 @@ const plain=(o,keys)=>!!o&&typeof o==='object'&&!Array.isArray(o)&&
 const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const hex40=s=>typeof s==='string'&&/^[0-9a-f]{40}$/.test(s);
 const validSource=s=>plain(s,['contract','sourceHead','sourcePaths','coreTree',
- 'cargoGitBlob','workerGitBlob','productSessionGitBlob','product11SourcePinned',
+ 'cargoGitBlob','workerGitBlob','productSessionGitBlob','product18SourcePinned',
  'auxiliarySourceShaVerified','completeSourceVerified','sourceBytesPinned',
  'oldBambooSignerGrantsThisBuild','productCandidateOnly','mergeAuthorized',
  'signerAuthorized','writerAuthorized','operationOn','requiresNewSecurityL2'])&&
  s.contract==='wand.r22.steam626.inventory0.source-candidate@1'&&
- hex40(s.sourceHead)&&s.sourcePaths===11&&
- s.coreTree==='b29f86343a6052b93bfedbf4379c6958907a6c3d'&&
+ hex40(s.sourceHead)&&s.sourcePaths===18&&
+ s.coreTree==='66eeda64ddfa60835b446f94f7b98df715f59e14'&&
  s.cargoGitBlob==='b3455c36d9d60b4a0e415026a095e47fe577644d'&&
  s.workerGitBlob==='f4cf9d66f857a2e20b597de9f697a458b6ab550c'&&
  s.productSessionGitBlob==='e53c4930a84f729ea245f38a1b301c7178146ced'&&
- s.product11SourcePinned===true&&s.auxiliarySourceShaVerified===false&&
+ s.product18SourcePinned===true&&s.auxiliarySourceShaVerified===false&&
  s.completeSourceVerified===false&&s.sourceBytesPinned===false&&
  s.oldBambooSignerGrantsThisBuild===false&&
  s.productCandidateOnly===true&&s.mergeAuthorized===false&&
@@ -52,7 +52,7 @@ export function inventory0UnsignedCandidate(source,js,wasm,methods){
   sourceHead:source.sourceHead,
   protectedSecurityAnchor:'f420bbe72fbc3374f0a3867403c660873ce5f06a',
   latestProtectedMainCASVerified:false,
-  source:Object.freeze({product11SourcePinned:true,auxiliarySourceShaVerified:false,
+  source:Object.freeze({product18SourcePinned:true,auxiliarySourceShaVerified:false,
    completeSourceVerified:false,coreTree:source.coreTree,
    cargoGitBlob:source.cargoGitBlob,workerGitBlob:source.workerGitBlob,
    productSessionGitBlob:source.productSessionGitBlob,

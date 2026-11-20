@@ -8,7 +8,7 @@ import {fileURLToPath} from 'node:url';
 const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
 const base='0e57c6b8585002b1baff91e6de573a835bed6577';
 const shaPattern=/^[0-9a-f]{40}$/;
-const fullCore='b29f86343a6052b93bfedbf4379c6958907a6c3d';
+const fullCore='66eeda64ddfa60835b446f94f7b98df715f59e14';
 const cargo='b3455c36d9d60b4a0e415026a095e47fe577644d';
 const worker='f4cf9d66f857a2e20b597de9f697a458b6ab550c';
 const finalArc='e53c4930a84f729ea245f38a1b301c7178146ced';
@@ -18,7 +18,7 @@ const approvedLock='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da
 const productFilePairs=[
  [
   ".github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml",
-  "75d7f194debcb912e0dd64ced0dc4bf1fe2d6da4"
+  "aa407c444f434e444fb459d6c122405369bf220b"
  ],
  [
   "crates/ddv-save-core/Cargo.toml",
@@ -59,6 +59,34 @@ const productFilePairs=[
  [
   "tests/product-steam626-catalog0-local-adapter.test.mjs",
   "4e7f7afe825d7cabb9469385b33322e98ad7aa2b"
+ ],
+ [
+  "crates/ddv-save-core/src/wasm_steam626_eyecolor2.rs",
+  "1f31facb11f54d0e52f5b2188393a9d488c1fb35"
+ ],
+ [
+  "crates/ddv-save-core/src/wasm_steam626_makeup_color1.rs",
+  "afc6290a286adc8ad68b6cc9c8f0267c64a27106"
+ ],
+ [
+  "crates/ddv-save-core/src/wasm_switch624_frp01.rs",
+  "fdd5e85bff63fe0d147c604586e38654cb49d8ed"
+ ],
+ [
+  "crates/ddv-save-core/src/wasm_switch626_fd01.rs",
+  "478c950cecbeb89387a555ce1ac56a10f53f30ac"
+ ],
+ [
+  "crates/ddv-save-core/src/wasm_switch626_fe01.rs",
+  "242641a0cabb49029df40f1ea27dc4985ffb40db"
+ ],
+ [
+  "crates/ddv-save-core/src/wasm_switch626_fixed_fence_add.rs",
+  "ee9fbf6af12ca9ceb6cd9eae1e4814259e770d36"
+ ],
+ [
+  "crates/ddv-save-core/src/wasm_switch626_makeup_color1.rs",
+  "1dae83f8c56c6ab6ecb9d6dc8e00c8965d646dc2"
  ]
 ];
 const ownPaths=Object.freeze(['scripts/wasm-distribution/r22-inventory0-product-source.mjs','tests/09p-r22-inventory0-product-source.test.mjs','.github/workflows/09p-r22-inventory0-product-source.yml','scripts/wasm-distribution/r22-inventory0-unsigned-pair.mjs','tests/09p-r22-inventory0-unsigned-pair.test.mjs']);
@@ -147,7 +175,7 @@ export function verifyR22Inventory0SourceCandidate(sourceHead){
      !equal(input.features,['indexed-read','worker-wasm'])||
      input.defaultFeatures!==false||input.publicReadonlyAssetsApproved!==true||
      input.cargoTomlGitBlob===cargo)deny('OLD_READER_SIGNATURE_PIN_MUST_NOT_GRANT_CATALOG0');
-  // Product11 and Core/Cargo/Worker are pinned; self-owned 09P script,
+  // Product18 and Core/Cargo/Worker are pinned; self-owned 09P script,
   // test and workflow SHA cannot be approved by this very same untrusted
   // candidate. An independent protected-main/09INT reviewer must pin the
   // full Source GitBlobs and 04QR-S must supply changed-only L2 before any
@@ -155,7 +183,7 @@ export function verifyR22Inventory0SourceCandidate(sourceHead){
   return Object.freeze({contract:'wand.r22.steam626.inventory0.source-candidate@1',
    sourceHead,sourcePaths:productFilePairs.length,coreTree:fullCore,
    cargoGitBlob:cargo,workerGitBlob:worker,productSessionGitBlob:finalArc,
-   product11SourcePinned:true,auxiliarySourceShaVerified:false,
+   product18SourcePinned:true,auxiliarySourceShaVerified:false,
    completeSourceVerified:false,sourceBytesPinned:false,
    oldBambooSignerGrantsThisBuild:false,
    productCandidateOnly:true,mergeAuthorized:false,signerAuthorized:false,
@@ -223,7 +251,7 @@ export function verifyR22Inventory0MainFirstSynthetic(candidateHead){
   // No Source stage grants protected rights, even if GitBlob composition fits.
   return Object.freeze({contract:'wand.r22.steam626.inventory0.synthetic-main-first@1',
    fixedProtectedBase:protectedSecurityBase,candidateHead,
-   changedPaths:lastSourcePaths.length,product11SourcePinned:true,
+   changedPaths:lastSourcePaths.length,product18SourcePinned:true,
    auxiliarySourceShaVerified:false,completeSourceVerified:false,
    sourceBytesPinned:false,
    oldSignerGrantsInventory0:false,mergeAuthorized:false,signerAuthorized:false,

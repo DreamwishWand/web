@@ -22,12 +22,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Source11 Rust Core/Cargo/Worker/Arc exact fingerprint and adversarial Git objects
+      - name: Source18 Rust Core/Cargo/Worker/Arc+seven wrappers exact fingerprint and adversarial Git objects
         shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY_ID" = 1371485649
-          test "$(git rev-parse HEAD:crates/ddv-save-core)" = b29f86343a6052b93bfedbf4379c6958907a6c3d
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = 66eeda64ddfa60835b446f94f7b98df715f59e14
           test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = f4cf9d66f857a2e20b597de9f697a458b6ab550c
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = e53c4930a84f729ea245f38a1b301c7178146ced
