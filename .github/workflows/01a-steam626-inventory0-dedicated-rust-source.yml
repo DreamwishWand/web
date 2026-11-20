@@ -67,7 +67,7 @@ jobs:
           mkdir -p /tmp/01a-inv0-only-wasm
           /tmp/01a-inv0-only-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/01a-inv0-only-wasm --target nodejs --no-typescript
           test -s /tmp/01a-inv0-only-wasm/ddv_save_core_bg.wasm
-      - name: Validate changed feature-gated scoped output ABI closure (11 Rust profiles)
+      - name: Validate scoped output ABI closure (11 wrappers + 8 dependent Rust profiles)
         shell: bash
         run: |
           set -euo pipefail
@@ -84,13 +84,21 @@ jobs:
             product-switch626-fd03-scoped \
             product-switch626-ortho-l-scoped \
             product-switch626-diagonal90-scoped \
-            product-switch626-ortho-t-scoped
+            product-switch626-ortho-t-scoped \
+            product-steam626-chest-scoped \
+            product-switch626-chest-scoped \
+            product-steam626-comp03-scoped \
+            product-steam626-sr03-scoped \
+            product-switch626-rm01-scoped \
+            product-steam626-hair-scoped \
+            product-steam626-skin-scoped \
+            product-collection-scoped
           do
             cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml \
               --target wasm32-unknown-unknown --no-default-features \
               --features "worker-wasm,$feature"
           done
-          echo 01A_SCOPED_OUTPUT_RETURN_ABI_11_FEATURE_CFG_COMPILED
+          echo 01A_SCOPED_OUTPUT_RETURN_ABI_19_FEATURE_CFG_COMPILED
       - name: Actual generated Rust-WASM Steam Inventory0 single-amount and denied domains
         shell: bash
         run: |
