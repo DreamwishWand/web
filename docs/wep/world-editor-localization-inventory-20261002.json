@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-11-19",
+  "generatedAt": "2026-11-20",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "31eea7cd801b5962e100b1fb4f870a523ce7ac7d",
+    "src/routes/editor/world/+page.svelte": "3e9a705f417eb2513de11c4c421bac8b01fa52f7",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "7898fe66999d01fff70c2b19ca104dbf438f3013",
@@ -32,7 +32,10 @@
     "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832",
     "src/lib/wep/local-scene-route-handoff.mjs": "9114d537d5afee718db5240d538b4203546a591f",
     "src/lib/wep/SaveFreeFirstScene.svelte": "565f44c905759e84107721687abe7e611b0d2818",
-    "src/lib/wep/savefree-first-scene.ts": "5b333f2e08fccc56ae755691724d1384ffed3919"
+    "src/lib/wep/savefree-first-scene.ts": "5b333f2e08fccc56ae755691724d1384ffed3919",
+    "src/lib/wep/LocalSceneAliasManager.svelte": "29d124913579a423ec3aac0283e1f3b821325ac2",
+    "src/lib/wep/local-scene-preset-copy.js": "7d9a4555910f7e9c60b3c46630c869e0da39dfc6",
+    "src/lib/wep/local-scene-preset-store.mjs": "b7dadf887a5fdbca04ac85fcce42266f924937c0"
   },
   "ownership": {
     "wepOwned": [
@@ -100,7 +103,8 @@
       "F-P04 detached read-only local Scene reuse Draft: explicit opt-in, fresh revision match, local coordinates, eight-locale status and refusal; never Native Apply or Editor mutation.",
       "My Presets selected local Scene same-tab navigation: passive one-shot hint, explicit reread button, eight-locale confirmation/ready/denial. No auto Apply or native identity.",
       "Save-independent local NONEMPTY Scene: explicit SHA-verified Switch v1.25.0 Catalog furniture Item choices, SHA-pinned Geometry/Scope Footprints, one or two source-verified furniture objects with bounded 0..63 local X/Y, non-overlap and read-only SVG layout. Existing one-object capture remains. Both use canonical WEP Capture, same IndexedDB CAS+Backup/independent Reopen, eight-locale UI; inventory or personal rights never inferred; Native Writer/Apply/Cloud remain OFF.",
-      "Shared SiteHeader '?' accessible help label and unavailable role=status live message use 08 WEB presets-my-tour-copy.mjs in eight launch locales; the four-step Presets Tour is not a World Editor Tour."
+      "Shared SiteHeader '?' accessible help label and unavailable role=status live message use 08 WEB presets-my-tour-copy.mjs in eight launch locales; the four-step Presets Tour is not a World Editor Tour.",
+      "Device-local Scene display-alias manager: opt-in IndexedDB read, selected-scene ID and revision CAS, exact previous raw Backup, separate reopen, eight locale user-visible rename/denial and no game Save, Grid, Scene artifact or ownership change."
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -1466,6 +1470,24 @@
           "Second furniture Y",
           "Remove second furniture",
           "Readonly local Scene layout"
+        ]
+      },
+      {
+        "surface": "Device-local Scene name-only CAS manager / World Editor",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/wep/LocalSceneAliasManager.svelte",
+          "src/lib/wep/local-scene-preset-copy.js"
+        ],
+        "strings": [
+          "Manage local Scene names",
+          "Load saved Scenes",
+          "Choose a Scene",
+          "New display name",
+          "Rename on this device",
+          "Display name updated and independently reopened. Scene content retained.",
+          "Rename not verified. Reopen the library before retrying.",
+          "Changes only the device-local display name; captured Scene content and DDV Save remain unchanged."
         ]
       }
     ],
