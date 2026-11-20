@@ -1,0 +1,48 @@
+name: QA ONLY 04 QR-W PR2347 Tour runner completeness L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2347-tour-runner-completeness-l2.yml'
+permissions:
+  contents: read
+jobs:
+  changed-boundary-real-test-enumeration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrw/pr2347-557dd-real-tour-suite-integrity-l2
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact fixed original Source2 and only independent QA2
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=3f77a30ff11d2b8ea84df81d1dd69668004c7870
+          source=557dd13679126161e63744d9b127441c51ba3b89
+          git merge-base --is-ancestor "$base" "$source"
+          git merge-base --is-ancestor "$source" HEAD
+          test "$(git rev-parse "$base:package.json")" = debad5de2583effe9b5818226a4d06264eebf3d9
+          if git cat-file -e "$base:scripts/web-serial-tour-test-runner.mjs" 2>/dev/null; then exit 1; fi
+          test "$(git rev-parse HEAD:package.json)" = a95ace4fe7ca67b6d24015d859a81fddf3427764
+          test "$(git rev-parse HEAD:scripts/web-serial-tour-test-runner.mjs)" = 248bb8af85526d27acca9b1c00033dbd5e23280b
+          test "$(git rev-parse HEAD:tests/qa-qrw-pr2347-tour-test-suite-completeness-l2.test.mjs)" = 5ea6f31230ac7865bcbb49fecb3bbc77bcf6808e
+          for f in package.json scripts/web-serial-tour-test-runner.mjs tests/qa-qrw-pr2347-tour-test-suite-completeness-l2.test.mjs .github/workflows/qa-qrw-pr2347-tour-runner-completeness-l2.yml; do
+            test "$(git ls-tree HEAD "$f" | awk '{print $1}')" = 100644
+          done
+          printf '%s\n' package.json scripts/web-serial-tour-test-runner.mjs | LC_ALL=C sort > /tmp/source2
+          printf '%s\n' tests/qa-qrw-pr2347-tour-test-suite-completeness-l2.test.mjs .github/workflows/qa-qrw-pr2347-tour-runner-completeness-l2.yml | LC_ALL=C sort >/tmp/qa2
+          git diff --name-only "$base" "$source" | LC_ALL=C sort | diff -u /tmp/source2 -
+          git diff --name-only "$source" HEAD | LC_ALL=C sort | diff -u /tmp/qa2 -
+          git diff --quiet "$source" HEAD -- package.json src/ scripts/ static/ crates/ ops/ package-lock.json
+          echo QRW2347_FIXED_ORIGINAL_SOURCE2_QAONLY2_MODE_SHA_PASS
+      - name: Run actual runner in isolated hostile test tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qa-qrw-pr2347-tour-test-suite-completeness-l2.test.mjs
+          echo QRW2347_ALL_DISCOVERED_TESTS_MANDATORY_AND_FAILCLOSED_PASS
