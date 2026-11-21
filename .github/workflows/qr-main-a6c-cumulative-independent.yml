@@ -1,0 +1,60 @@
+name: 04 QR exact protected main a6c postmerge Spatial Item PC Preset W1 acceptance
+on:
+  push:
+    branches: [qa/main-a6c-cumulative-spatial-collection-20261104]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  merged-crossdomain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 33
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Exact protected integration HEAD and no QA product mutations
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN=a6c69b441463431baa5333b07b952bddc62b843b
+          git merge-base --is-ancestor "$MAIN" HEAD
+          git diff --name-only "$MAIN" HEAD | sort >/tmp/qrmain-delta
+          printf '%s\n' .github/workflows/qr-main-a6c-cumulative-independent.yml scripts/qr-main-a6c-cumulative-independent-browser.mjs tests/qr-main-a6c-cumulative-spatial-collection-independent.test.mjs | sort >/tmp/qrmain-expected
+          diff -u /tmp/qrmain-expected /tmp/qrmain-delta
+          test "$(git hash-object src/lib/wep/real-save-spatial-source.ts)" = c0e696c1dc808ae2e9ad4ef7d0c99331eb96ef70
+          test "$(git hash-object src/lib/ddv/core/items/item-semantics-contract.mjs)" = daab1e1e3b6318aa69cdf79b8cda5fc0a3c0daf5
+          test "$(git hash-object src/lib/ddv/core/items/local-item-overlay-read-contract.mjs)" = 63051d1a5b1fd8aecf90cb51d6b6a71eb5702302
+          test "$(git hash-object src/lib/presets/native-local-file-import-contract.mjs)" = 0dcdec622e8deb45b53d8138f597cf9068a2d04e
+          test "$(git hash-object src/lib/presets/NativePresetManager.svelte)" = a89b55786469c1954b9ddec5d9bc52384481bb9d
+          test -z "$(git diff --name-only "$MAIN" HEAD -- supabase src static docs)"
+          echo QR_MAIN_A6C_FIXED_FIVE_ACCEPTED_BLOBS_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independent changed integration 624 vs626 Source/capability no privileged Writer
+        run: node --experimental-strip-types --test tests/qr-main-a6c-cumulative-spatial-collection-independent.test.mjs
+      - run: npm run check
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual installed Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Local HTTP Vite UI, no Provider/Stage116
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4209 >/tmp/qrmain-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            curl -fsS http://127.0.0.1:4209/editor/items/ >/dev/null && exit 0
+            sleep 1
+          done
+          tail -n 30 /tmp/qrmain-vite.log; exit 1
+      - name: Actual Chrome protected main no loaded P1G across four surfaces
+        run: node scripts/qr-main-a6c-cumulative-independent-browser.mjs
