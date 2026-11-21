@@ -1,0 +1,41 @@
+name: "04 QR-W protected main227 deployed ItemThumb HTTPS Chrome"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-main227-itemthumb-hosted-chrome.yml'
+      - 'scripts/04qr-w-main227-itemthumb-hosted-chrome.mjs'
+permissions:
+  contents: read
+jobs:
+  deployed-main227-itemthumb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real Chrome without private Save, original game art or credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo 'NOT_RUN: installed actual Chrome required'; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Actual deployed public TEST HTTPS + browser changed-only QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/04qr-w-main227-itemthumb-hosted-chrome.mjs
+          node scripts/04qr-w-main227-itemthumb-hosted-chrome.mjs
