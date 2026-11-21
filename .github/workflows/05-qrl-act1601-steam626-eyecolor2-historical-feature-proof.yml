@@ -1,0 +1,117 @@
+name: 05 QR-L ACT1601 Steam626 EyeColor2 historical feature generated ABI (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05-qrl-act1601-steam626-eyecolor2-historical-feature-proof.yml'
+permissions:
+  contents: read
+jobs:
+  historical-source-generated-feature:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrl-switch-makeup-rust
+      QRL_HISTORICAL_SOURCE: '320e56c75773d182d7c1306bfaf606e09975742d'
+      QRL_ALLOWED_PARENT: '85ff72a69bb41d4a7c3fbafaa69521c0904a5aac'
+      QRL_QA_FILE: '.github/workflows/05-qrl-act1601-steam626-eyecolor2-historical-feature-proof.yml'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify actual QA-only one-file diff, no new Engine or Product code
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only "$QRL_ALLOWED_PARENT" HEAD | wc -l)" -eq 1
+          git diff --name-only "$QRL_ALLOWED_PARENT" HEAD | grep -Fx "$QRL_QA_FILE"
+          test -z "$(git diff --name-only "$QRL_ALLOWED_PARENT" HEAD -- crates src scripts static)"
+      - name: Fetch immutable accepted historical PR1918 exact Rust Source into isolated worktree only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -c protocol.version=2 fetch --no-tags origin "$QRL_HISTORICAL_SOURCE"
+          test "$(git rev-parse FETCH_HEAD)" = "$QRL_HISTORICAL_SOURCE"
+          git worktree add --detach /tmp/wand-qrl-switch-makeup-historical "$QRL_HISTORICAL_SOURCE"
+          cd /tmp/wand-qrl-switch-makeup-historical
+          test "$(git rev-parse HEAD)" = "$QRL_HISTORICAL_SOURCE"
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 'd0dfad1d33c837872874127482ed724023e6d987'
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_steam626_eyecolor2.rs)" = '1b68343ef3093352dceb00af6dfd67bf1bdde24d'
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/worker_steam626_eyecolor2.rs)" = '2f6b077cf2cc1b47892b7a01ce697ce48bb505ce'
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = 'b667b42cfef2032c2925be7b2aa9b7142bff4b52'
+          grep -Fx 'product-steam626-eyecolor2-scoped = ["semantic-writer-dev"]' crates/ddv-save-core/Cargo.toml
+          test ! -e static/worker-wasm-scoped-switch-makeup
+      - name: Fixed historical Rust wasm32 toolchain (not current-main build witness)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Compile historical leaf feature only; never write current Git or public Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/wand-qrl-switch-makeup-historical
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --release --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,product-steam626-eyecolor2-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrl-switch-makeup-bindgen
+          mkdir -p /tmp/wand-qrl-switch-makeup-generated
+          /tmp/wand-qrl-switch-makeup-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir /tmp/wand-qrl-switch-makeup-generated --target web --no-typescript
+      - name: Actual generated binary export contract and explicit historical fail-closed receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          import crypto from 'node:crypto';
+          const base='/tmp/wand-qrl-switch-makeup-generated/';
+          const js=fs.readFileSync(base+'ddv_save_core.js');
+          const wasm=fs.readFileSync(base+'ddv_save_core_bg.wasm');
+          const symbols=WebAssembly.Module.exports(new WebAssembly.Module(wasm)).map(v=>v.name);
+          const methods=[
+            'preview_steam626_eyecolor2',
+            'stage_steam626_eyecolor2',
+            'toggle_steam626_eyecolor2',
+            'begin_steam626_eyecolor2_output',
+            'next_steam626_eyecolor2_output_chunk'
+          ];
+          for(const n of methods){
+            assert(js.includes(Buffer.from(n)),'missing historical JS '+n);
+            assert(symbols.some(x=>x.endsWith('_'+n)),'missing historical binary export '+n);
+          }
+          for(const denied of ['steam626_makeup_color1','switch626_eyecolor2']){
+            assert(!symbols.some(x=>x.includes(denied)),'foreign ABI '+denied);
+          }
+          const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+          const receipt={
+            contract:'wand.qrl.act1601.steam626-eyecolor2.historical-scoped-abi@1',
+            verdict:'HISTORICAL_SOURCE_COMPILE_ONLY_NOT_CURRENT_PRODUCT',
+            sourceCommit:'320e56c75773d182d7c1306bfaf606e09975742d',
+            currentMainAtQueue:'85ff72a69bb41d4a7c3fbafaa69521c0904a5aac',
+            feature:['worker-wasm','product-steam626-eyecolor2-scoped'],
+            generatedMethodCount:5,generatedMethods:methods,
+            actualWasmExports:symbols,
+            generatedWasmSha256:sha(wasm),generatedJsSha256:sha(js),
+            officialCargoLockGit:'b667b42cfef2032c2925be7b2aa9b7142bff4b52',
+            actualOwnerOriginalSaveV2:'NOT_RUN',
+            publicWriter:false,publicOn:false,merged:false,signed:false,pages:false
+          };
+          fs.writeFileSync(base+'qrl-receipt.json',JSON.stringify(receipt,null,2)+'\n',{flag:'wx'});
+          console.log('QRL_HISTORICAL_STEAM626_EYECOLOR2_ABI_PASS',JSON.stringify({sourceCommit:receipt.sourceCommit,exports:symbols.length,methodCount:5,wasm:receipt.generatedWasmSha256,js:receipt.generatedJsSha256,actualProductV2:'NOT_RUN'}));
+          NODE
+      - name: Store unsigned QA-only historical build with no Save/Codec/key and no Pages grant
+        uses: actions/upload-artifact@v4
+        with:
+          name: qrl-act1601-steam626-eyecolor2-HISTORICAL-UNSIGNED-NEVER-PAGES
+          retention-days: 2
+          if-no-files-found: error
+          path: |
+            /tmp/wand-qrl-switch-makeup-generated/ddv_save_core.js
+            /tmp/wand-qrl-switch-makeup-generated/ddv_save_core_bg.wasm
+            /tmp/wand-qrl-switch-makeup-generated/qrl-receipt.json
