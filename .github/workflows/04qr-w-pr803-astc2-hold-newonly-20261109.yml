@@ -1,0 +1,39 @@
+name: "04 QR-W PR803 independent Switch1253 ASTC2 HOLD metadata"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr803-astc2-hold-newonly-20261109.yml"
+      - "scripts/04qr-w-pr803-astc2-hold-newonly-20261109.mjs"
+  push:
+    branches:
+      - "qa/04qr-w-pr803-astc2-hold-newonly-c03b51-20261109"
+permissions:
+  contents: read
+jobs:
+  independent-astc2-hold:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "No private Switch Steam Save or game media in public CI"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env | grep -Eq '^(DDV_PRIVATE_SAVE_PATH|WEP_PRIVATE_P1G_PATH|WAND_PRIVATE_MEDIA_PATH|SWITCH_ROMFS_PATH|NATIVE_SWITCH_ASSET_PATH)='; then
+            echo "PRIVATE_INPUT_FORBIDDEN"
+            exit 1
+          fi
+      - name: "Source 2 Git blobs immutable and changed-risk 37 synthetic deny mutations"
+        run: node scripts/04qr-w-pr803-astc2-hold-newonly-20261109.mjs
+      - name: "Inherited Source-only deterministic tests, no decoded media or browser needed"
+        run: node --test tests/01d-switch1253-format50-two-raster-hold.test.mjs
+      - name: "No claims for owner private native image pixel parity Rights or media public"
+        run: echo "QRW803_NATIVE_PIXEL_DEVICE_EQUIVALENCE_PRIVATE_MEDIA_RIGHTS_PROVIDER_PUBLIC_OFF_NOT_RUN"
