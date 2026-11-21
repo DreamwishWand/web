@@ -1,0 +1,84 @@
+name: QA ONLY 04 QR-W MAIN933 Backpack Wardrobe owner bridge exclusive negative L2 (NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-main933-bw-exclusive-negative-l2.yml'
+permissions:
+  contents: read
+jobs:
+  bw-scope-exclusive:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 93332153aed6b3b24ae885084470974c367eb484
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin exact five live shared Web boundaries and four OFF route anchors
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 93332153aed6b3b24ae885084470974c367eb484
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = c65930ffa0158542071202f02d912ad20ed25075
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 22fff2a30705c620c3a9375167fd64ff0affcd08
+          test "$(git rev-parse HEAD:src/lib/dev/local-placement-workflow.mjs)" = b391cac5ce961a40692e65755be4d289a7a1eb7d
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = 7e54a2c67d4dfda9e26d0b89687dcd809571a40c
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = 8a68955bea6d9048b44349e37f30f1f9e6178fc2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs)" = 7969122897ebc81bb249dda14d578038a9ffe9e2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs)" = f3f12518965dde92617962b5505b8212f4e04980
+          echo QRW_MAIN933_BW_SHARED5_AND_FOUR_ANCHORS_FROZEN_PASS
+      - name: Real current Node Owner/Bridge typed mixed-scope denials and four null release gates
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createProductWasmReadOwner} from './src/lib/ddv/core/save/product-wasm-read-owner.mjs';
+          import {createP1gRustWorkerReadOnlyBridge} from './src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+          import {PROTECTED_STEAM_BACKPACK_RELEASE_ANCHOR,PROTECTED_SWITCH_BACKPACK_RELEASE_ANCHOR} from './src/lib/ddv/core/save/product-scoped-backpack-release-anchor.mjs';
+          import {PROTECTED_STEAM_WARDROBE_RELEASE_ANCHOR,PROTECTED_SWITCH_WARDROBE_RELEASE_ANCHOR} from './src/lib/ddv/core/save/product-scoped-wardrobe-release-anchor.mjs';
+          for (const v of [PROTECTED_STEAM_BACKPACK_RELEASE_ANCHOR,PROTECTED_SWITCH_BACKPACK_RELEASE_ANCHOR,PROTECTED_STEAM_WARDROBE_RELEASE_ANCHOR,PROTECTED_SWITCH_WARDROBE_RELEASE_ANCHOR]) assert.equal(v,null,'public release anchor must be OFF');
+          let forbiddenFactory=0,negative=0,positiveConstructors=0;
+          const noFactory=async()=>{forbiddenFactory++;throw Error('FORBIDDEN_WASM_FACTORY');};
+          const factories=[['owner',createProductWasmReadOwner],['bridge',createP1gRustWorkerReadOnlyBridge]];
+          const others=[
+            {allowSwitch626ChestSource:true},{allowSteam626ChestSource:true},
+            {allowScopedAmountSource:true},{allowScopedCollectionSource:true},
+            {allowCollectionCandidateSource:true},{allowSwitch626Catalog0Source:true},
+            ...['comp03','comp03-spatial','vase','sr03','rm01','fd01','fd02','fd03','ortho-l','diagonal90','ortho-t','fe01'].map(placementScope=>({placementScope})),
+            ...['hair','skin','eyecolor2','eyecolor2-switch','makeup-color1','makeup-color1-switch'].map(appearanceScope=>({appearanceScope}))
+          ];
+          const deny=async (action, label)=>{
+            let error=null;try{await action()}catch(e){error=e;}
+            assert.ok(error,'mixed scope erroneously accepted '+label);
+            assert.ok(!String(error).includes('FORBIDDEN_WASM_FACTORY'),'Worker factory called before scope rejection '+label);
+            negative++;
+          };
+          for(const [label,create] of factories){
+            for(const domain of ['backpackScope','wardrobeScope']){
+              const opposite=domain==='backpackScope'?'wardrobeScope':'backpackScope';
+              for(const build of ['steam','switch']){
+                const solo=await create(noFactory,{[domain]:build});
+                assert.ok(solo&&typeof solo==='object','valid dedicated domain constructor '+label+domain+build);
+                positiveConstructors++;
+                for(const opt of [...others,{[opposite]:'steam'},{[opposite]:'switch'}]){
+                  await deny(()=>create(noFactory,{[domain]:build,...opt}),label+':'+domain+':'+build+':'+JSON.stringify(opt));
+                }
+              }
+              for(const bad of ['foreign','all',null,0,true,{}]){
+                if(bad===null)continue;
+                await deny(()=>create(noFactory,{[domain]:bad}),label+':'+domain+':invalid'+String(bad));
+              }
+            }
+          }
+          assert.equal(others.length,24);
+          assert.equal(negative,2*2*2*(24+2)+2*2*5);
+          assert.equal(positiveConstructors,8);
+          assert.equal(forbiddenFactory,0);
+          console.log('QRW_MAIN933_BW_MIXED_OWNER_BRIDGE_SCOPE_NEGATIVE_PASS '+JSON.stringify({negative,positiveConstructors,offReleaseAnchors:4,forbiddenWorkerFactories:forbiddenFactory,sharedOwnerBridgeCurrent:true,signed:false,genuine:false}));
+          NODE
+      - name: Ensure read-only QA workspace left product Source untouched
+        run: |
+          git diff --exit-code
+          echo QRW_MAIN933_BW_EXCLUSIVE_QA_NO_PRODUCT_MUTATION_PASS
