@@ -1,0 +1,226 @@
+name: QA ONLY 04 QR-W PR2155 746E Bamboo Worker Success Repair L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr2155-746e-worker-composed-red-fix-l2.yml'
+permissions:
+  contents: read
+jobs:
+  bamboo-one-rust-worker-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 746e3733a63d549a7b2d9ba183da3dd1cffe5dfd
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin product exact six Source ADDs, protected loader/old OFF untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 746e3733a63d549a7b2d9ba183da3dd1cffe5dfd
+          test "$(git merge-base HEAD fc3a396adc73895fe7ea15e417212dd721403e9d)" = fc3a396adc73895fe7ea15e417212dd721403e9d
+          cat > /tmp/qrw2155-pins <<'PINS'
+          2c621f6ace3c29e15f74dedf67c676d6d7a9141c .github/workflows/08web-steam626-bamboo-protected-consumer.yml
+          7b401d8b2a4dd0f6997940230b5fec1030c4ead5 scripts/web-steam626-bamboo-protected-consumer-chrome.mjs
+          f01df0e318775608be51e2bfa13bdbad9822ee00 src/lib/wep/steam-bamboo-readonly-consumer.mjs
+          e9b63a7fadd25e65767b5373afc9e9a886d0d3fc src/lib/wep/steam-bamboo-readonly.consumer.worker.mjs
+          6165b2efe455c6b1d657326e1735fe39861b3a0b src/routes/editor/bamboo/steam/read/+page.svelte
+          5d0845b5f75d30ad632904da14a2a46e73017102 tests/web-steam626-bamboo-protected-consumer.test.mjs
+          PINS
+          while read -r blob path; do
+           test "$(git rev-parse "HEAD:$path")" = "$blob"
+           test "$(git ls-tree HEAD "$path" | awk '{print $1}')" = 100644
+           test "$(git diff --name-status fc3a396adc73895fe7ea15e417212dd721403e9d HEAD -- "$path" | cut -f1)" = A
+          done < /tmp/qrw2155-pins
+          awk '{print $2}' /tmp/qrw2155-pins | LC_ALL=C sort > /tmp/qrw2155-expected
+          git diff --name-only fc3a396adc73895fe7ea15e417212dd721403e9d HEAD | LC_ALL=C sort > /tmp/qrw2155-actual
+          diff -u /tmp/qrw2155-expected /tmp/qrw2155-actual
+          git diff --quiet fc3a396adc73895fe7ea15e417212dd721403e9d HEAD -- src/lib/ddv/core/save/ src/routes/editor/bamboo/steam/+page.svelte package-lock.json .github/workflows/pages.yml static/ddv/item-images/
+          echo QRW2155_746E_EXACT6_NEW_HEAD_TWO_BLOB_REPAIR_PASS
+      - name: Prove only two changed Source files since original TRUE_RED and preserve old RED
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git merge-base 808d65cb67c6b7a886adb9028c7f934a974b449e HEAD)" = 808d65cb67c6b7a886adb9028c7f934a974b449e
+          cat > /tmp/qrw2155-two <<'PINS'
+          src/lib/wep/steam-bamboo-readonly-consumer.mjs
+          tests/web-steam626-bamboo-protected-consumer.test.mjs
+          PINS
+          LC_ALL=C sort /tmp/qrw2155-two > /tmp/qrw2155-two-expected
+          git diff --name-only 808d65cb67c6b7a886adb9028c7f934a974b449e HEAD | LC_ALL=C sort > /tmp/qrw2155-two-actual
+          diff -u /tmp/qrw2155-two-expected /tmp/qrw2155-two-actual
+          echo QRW2155_746E_ONLY_TWO_CHANGED_FILES_SINCE_HISTORIC_TRUE_RED
+      - name: Inherit accepted product-only DTO and pre-release no-File boundary
+        run: node --test tests/web-steam626-bamboo-protected-consumer.test.mjs tests/web-steam626-bamboo-readonly-off-ui.test.mjs
+      - name: Execute independent Worker trust, one shot, File and zeroization negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {runInNewContext} from 'node:vm';
+          import {webcrypto} from 'node:crypto';
+          import {Blob,File} from 'node:buffer';
+          import {
+           BAMBOO_CONSUMER_CONTRACT,BAMBOO_READ_KIND,BAMBOO_READY_KIND,
+           BAMBOO_RESULT_KIND,exactBambooRequest,exactBambooUiResult,
+           projectBambooReadOnlyResult
+          } from './src/lib/wep/steam-bamboo-readonly-consumer.mjs';
+          import {PROTECTED_BAMBOO40700007_READONLY_ANCHOR as realAnchor}
+           from './src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs';
+          assert.equal(realAnchor,null,'actual protected public release remains OFF');
+          const source=readFileSync('src/lib/wep/steam-bamboo-readonly.consumer.worker.mjs','utf8');
+          const imports=[...source.matchAll(/^import[\s\S]*?;\s*$/gm)];
+          assert.equal(imports.length,3,'only three explicit import declarations may be mocked at QA boundary');
+          const instrumented=source.replace(/^import[\s\S]*?;\s*$/gm,'');
+          assert.doesNotMatch(instrumented,/^import /m);
+          const permitted={
+           WorkerWasmSource:function Source(){},attestationVerifiedAtBuild:true,
+           readOnlyOperationAuthorized:true,writerAuthorized:false,stageAuthorized:false,
+           productConsumerEnabled:false,checkedBothJsAndWasm:true,sameOriginFetchOnly:true
+          };
+          const receipt=()=>({
+           itemId:40700007,gridId:7,x:294,y:0,oldStock:9140,nextGridObjectId:15949,
+           readOnly:true,productReadAccepted:false,writerAuthorized:false,
+           stageAuthorized:false,editedCopyAuthorized:false,operationOn:false
+          });
+          const opened=()=>({
+           fullDocumentJsonValidated:true,schema:626,
+           writerAuthorized:false,applyAuthorized:false,editedCopyAuthorized:false,
+           productReadAccepted:false
+          });
+          const makeFile=(n=32,name='good.p1g')=>new File([Buffer.alloc(n,0x4a)],name,{type:'application/octet-stream'});
+          const request=(file=makeFile())=>({
+           kind:BAMBOO_READ_KIND,requestId:1,file,gridId:7,x:294,y:0,
+           externalSteamBuildObserved:true
+          });
+          const tick=()=>new Promise(r=>setTimeout(r,0));
+          async function start(seal=permitted,overrides={}){
+           const logs=[],state={close:0,open:0,read:0,buffer:null,listener:null,loader:0};
+           const bridge={
+            async openEncrypted(args){
+             state.open++;state.buffer=args.encryptedBytes;
+             assert.deepEqual(
+              [args.build.platform,args.build.buildKind,args.build.schema,args.build.externallyConfirmed],
+              ['steam-windows','steam-full-version',626,true]);
+             return overrides.openResult??opened();
+            },
+            readSteam626BambooSingleTarget(args){
+             state.read++;assert.deepEqual({...args},{gridId:7,x:294,y:0});
+             return overrides.readResult??receipt();
+            },
+            close(){state.close++}
+           };
+           const ctx={
+            self:{
+             postMessage(data){logs.push(data)},
+             addEventListener(type,fn){assert.equal(type,'message');state.listener=fn}
+            },
+            File,Blob,crypto:webcrypto,Uint8Array,
+            BAMBOO_CONSUMER_CONTRACT,BAMBOO_READY_KIND,BAMBOO_READ_KIND,
+            BAMBOO_RESULT_KIND,BAMBOO_STEAM_FULL_VERSION:
+            'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+            exactBambooRequest,projectBambooReadOnlyResult,
+            async loadProtectedBambooReadonlyWorker(){state.loader++;if(seal===null)throw Error('PROTECTED_ANCHOR_NULL');return seal},
+            createP1gRustWorkerReadOnlyBridge(loader,gate){
+             assert.equal(gate.allowSteam626BambooReadOnlySource,true);
+             assert.equal(typeof loader,'function');
+             return bridge;
+            }
+           };
+           runInNewContext(instrumented,ctx,{timeout:3000});
+           await tick();
+           return {logs,state,send:async data=>{assert.equal(typeof state.listener,'function');state.listener({data});await tick();await tick();}};
+          }
+          let pos=0,neg=0;
+          {
+           const t=await start(null);
+           assert.deepEqual(t.logs.map(x=>[x.kind,x.ready]),[[BAMBOO_READY_KIND,false]]);
+           assert.equal(t.state.listener,null);assert.equal(t.state.open,0);neg++;
+          }
+          for(const mutated of [
+           {...permitted,attestationVerifiedAtBuild:false},
+           {...permitted,readOnlyOperationAuthorized:false},
+           {...permitted,writerAuthorized:true},
+           {...permitted,stageAuthorized:true},
+           {...permitted,productConsumerEnabled:true},
+           {...permitted,checkedBothJsAndWasm:false},
+           {...permitted,sameOriginFetchOnly:false},
+           {...permitted,WorkerWasmSource:null}
+          ]){
+           const t=await start(mutated);
+           assert.equal(t.logs[0]?.ready,false);
+           assert.equal(t.state.listener,null);
+           assert.equal(t.state.open,0);neg++;
+          }
+          {
+           const t=await start();
+           assert.equal(t.logs.length,1);assert.equal(t.logs[0].ready,true);
+           await t.send(request());
+           assert.equal(t.logs.length,2);
+           assert.equal(t.logs[1].ok,true);
+           assert.equal(t.logs[1].kind,BAMBOO_RESULT_KIND);
+           assert.equal(exactBambooUiResult(t.logs[1]),true);
+           assert.deepEqual(t.logs[1].result,projectBambooReadOnlyResult(receipt()));
+           assert.equal(t.state.open,1);assert.equal(t.state.read,1);assert.equal(t.state.close,1);
+           assert.ok(t.state.buffer?.every(v=>v===0),'post-read encrypted buffer must be zeroed even on success');
+           assert.ok(!JSON.stringify(t.logs).includes('4a4a4a4a'));
+           await t.send(request());assert.equal(t.logs.length,2);
+           assert.equal(t.state.open,1);pos++;
+          }
+          for(const mutation of [
+           {file:makeFile(15)},
+           {file:makeFile(17)},
+           {file:makeFile(32,'other.zip')},
+           {file:{}},
+           {requestId:2},
+           {externalSteamBuildObserved:false},
+           {gridId:4294967296},
+           {x:-1},
+           {y:0.5},
+           {writerAuthorized:true},
+           {kind:'STAGE_STEAM626_BAMBOO'}
+          ]){
+           const t=await start();await t.send({...request(),...mutation});
+           assert.equal(t.logs[1]?.ok,false,'bad request must fail generic');
+           assert.equal(t.logs[1]?.error,'BAMBOO_CONSUMER_LOCAL_READ_DENIED');
+           assert.equal(t.state.open,0);
+           assert.equal(t.state.close,1);
+           await t.send(request());assert.equal(t.logs.length,2,'bad first request consumes Worker lifetime');
+           neg++;
+          }
+          for(const mutation of [
+           {schema:624},{fullDocumentJsonValidated:false},{writerAuthorized:true},
+           {applyAuthorized:true},{editedCopyAuthorized:true},{productReadAccepted:true}
+          ]){
+           const t=await start(permitted,{openResult:{...opened(),...mutation}});
+           await t.send(request());
+           assert.equal(t.logs[1]?.ok,false);assert.equal(t.state.read,0);
+           assert.equal(t.state.open,1);assert.equal(t.state.close,1);
+           assert.ok(t.state.buffer?.every(v=>v===0));neg++;
+          }
+          for(const mutation of [
+           {itemId:40700246},{writerAuthorized:true},{sessionId:'SECRET'},
+           {rootSha256:'a'.repeat(64)},{nextGridObjectId:0}
+          ]){
+           const t=await start(permitted,{readResult:{...receipt(),...mutation}});
+           await t.send(request());
+           assert.equal(t.logs[1]?.ok,false);assert.equal(t.state.close,1);
+           assert.equal(t.state.read,1);
+           assert.ok(!JSON.stringify(t.logs).includes('SECRET'));
+           assert.ok(t.state.buffer?.every(v=>v===0));neg++;
+          }
+          assert.equal(exactBambooUiResult({contract:BAMBOO_CONSUMER_CONTRACT,
+           kind:BAMBOO_RESULT_KIND,requestId:1,ok:true,result:{...receipt(),rawSave:'SECRET'}}),false);
+          neg++;
+          console.log('QRW2155_INDEPENDENT_WORKER_TRUST_AND_ZEROIZE',JSON.stringify({
+           positives:pos,negatives:neg,actualSignedPublicP1G:'NOT_RUN',
+           coreReadAndProductV2:'NOT_RUN',writerOn:false,operationOn:false}));
+          
+          NODE
