@@ -1,0 +1,110 @@
+name: 09P-SQL derived82+one-gap disposable local Bootstrap (NEVER DEPLOY)
+on:
+  pull_request:
+    paths:
+      - 'scripts/09p-sql-derive82-temporary-bootstrap.mjs'
+      - 'tests/09p-sql-derived82-temporary-bootstrap.test.mjs'
+      - '.github/workflows/09p-sql-derived82-disposable-bootstrap.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  derived82-local-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Node source-only derived fixture provenance check
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/09p-sql-immutable82-historical-drift.test.mjs tests/09p-sql-derived82-temporary-bootstrap.test.mjs
+          git diff --exit-code -- supabase/migrations
+          echo 'DERIVED82_ORIGINAL_SOURCE_BYTES_UNTOUCHED'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Build 82-migration DERIVED temporary scratch project only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN"
+          docker version
+          supabase --version
+          node scripts/09p-sql-derive82-temporary-bootstrap.mjs > "$RUNNER_TEMP/09p-derived82-path"
+          scratch="$(cat "$RUNNER_TEMP/09p-derived82-path")"
+          test -f "$scratch/DERIVED82_TEST_ONLY_PROVENANCE.json"
+          python3 - "$scratch/supabase/config.toml" <<'PY'
+          import pathlib,sys,re
+          p=pathlib.Path(sys.argv[1])
+          content=p.read_text()
+          if re.search(r'(?m)^project_id\s*=',content):
+              content=re.sub(r'(?m)^project_id\s*=.*$', 'project_id = "wand_09p_derived82_disposable"', content,count=1)
+          else:
+              content='project_id = "wand_09p_derived82_disposable"\n'+content
+          p.write_text(content)
+          PY
+          # Source gap already exists as a 03 COMM-authored, unmerged, SHA-pinned
+          # additive migration in PR442. Copy it into temp scratch ONLY.
+          # This is NOT a new migration authored by 09P-SQL, not an approved
+          # production migration, and not raw 82-file bootstrap equivalence.
+          gap='20260930115500_provider_identity_cleanup_parent_bootstrap_v1.sql'
+          git cat-file -e '56c537c51a9be3d764986d66cf4b459a7a624b8d^{commit}'
+          git show "56c537c51a9be3d764986d66cf4b459a7a624b8d:supabase/migrations/$gap" > "$scratch/supabase/migrations/$gap"
+          test "$(git hash-object "$scratch/supabase/migrations/$gap")" = '81d253c81f6c956ce7ec8d99c0bdb16ecdba5471'
+          test "$(find "$scratch/supabase/migrations" -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 83
+          printf '%s\n' 'DERIVED82_PLUS_ONE_DRAFT_GAP__NOT_RAW82_REPLAY' > "$scratch/DERIVED83_CANDIDATE_ONLY"
+          echo 'DERIVED82_PLUS_ONE_ADDON_SHA_PINNED__TEMP_ONLY__NO_MIGRATION_HISTORY_REWRITE__NO_REMOTE_CREDENTIALS'
+      - name: Replay DERIVED82+PR442 gap into a disposable local PostgreSQL (not original82)
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(cat "$RUNNER_TEMP/09p-derived82-path")"
+          cd "$scratch"
+          timeout 1500s supabase start --debug > "$RUNNER_TEMP/09p-derived82-start.log" 2>&1 || {
+            echo 'DERIVED83_LOCAL_BOOTSTRAP_RED__NOT_ORIGINAL82_PASS'
+            grep -E 'ERROR|SQLSTATE|Error|Failed|error|applying migration' "$RUNNER_TEMP/09p-derived82-start.log" | grep -viE 'key|token|secret' | tail -n 35 || true
+            exit 1
+          }
+          echo 'DERIVED83_DISPOSABLE_FIRST_BOOTSTRAP_PASS__ORIGINAL82_REMAINS_TRUE_RED'
+      - name: Reset DERIVED82+gap local PostgreSQL and verify separate ledger count
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(cat "$RUNNER_TEMP/09p-derived82-path")"
+          cd "$scratch"
+          timeout 900s supabase db reset --no-seed > "$RUNNER_TEMP/09p-derived82-reset.log" 2>&1 || {
+            echo 'DERIVED83_LOCAL_RESET_RED__NOT_ORIGINAL82_PASS'
+            grep -E 'ERROR|SQLSTATE|Error|Failed|error|applying migration' "$RUNNER_TEMP/09p-derived82-reset.log" | grep -viE 'key|token|secret' | tail -n 35 || true
+            exit 1
+          }
+          db_container="$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)"
+          test -n "$db_container"
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+          do $check$
+          declare n integer;
+          begin
+            select count(*) into n from supabase_migrations.schema_migrations;
+            if n <> 83 then raise exception 'DERIVED83_EXPECTED_83_MIGRATIONS: %', n; end if;
+            if to_regprocedure('public.community_add_reaction(uuid,uuid,text)') is null then
+              raise exception 'DERIVED82_EXPECTED_HISTORIC_RPC_ABSENT';
+            end if;
+          end;
+          $check$;
+          SQL
+          echo 'DERIVED83_TEMP_ONLY_TWO_REPLAYS_AND_83_LEDGER_PASS__LEGACY_WRITERS_NOT_ACCEPTED'
+      - name: Stop only disposable local containers
+        if: always()
+        shell: bash
+        run: |
+          scratch="$(cat "$RUNNER_TEMP/09p-derived82-path" 2>/dev/null || true)"
+          if [ -n "$scratch" ] && [ -d "$scratch" ]; then
+            (cd "$scratch" && supabase stop --no-backup >/dev/null 2>&1) || true
+            rm -rf -- "$scratch"
+          fi
+          echo 'NO_PRODUCTION_DB_NO_REMOTE_PROVIDER_NO_DEPLOY_NO_WRITER_FLAG'
