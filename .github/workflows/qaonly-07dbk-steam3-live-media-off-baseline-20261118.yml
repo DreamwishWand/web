@@ -1,0 +1,76 @@
+name: QA ONLY 07 DBK real Pages Steam3 media-OFF baseline NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - .github/workflows/qaonly-07dbk-steam3-live-media-off-baseline-20261118.yml
+permissions:
+  contents: read
+jobs:
+  active-pages-no-public-art:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d395fb18223aec2c2979a3c5ed2a8e8c9606d1b2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read signed source, query real active hosted Steam art URLs, never upload assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = d395fb18223aec2c2979a3c5ed2a8e8c9606d1b2
+          test "$(git rev-parse HEAD:src/lib/item-media/switch1253-public-item-images.mjs)" = 73f15d221cede4ce2c195a48e57321a7293ab501
+          npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {
+            STEAM1253_REVIEWED_RELEASE, STEAM1253_NATIVE_PINS,
+            STEAM1253_ITEM_IMAGE_VARIANT, STEAM1253_MANIFEST_PATH
+          } from './src/lib/item-media/switch1253-public-item-images.mjs';
+          assert.equal(STEAM1253_REVIEWED_RELEASE.mediaPublic,false);
+          assert.deepEqual(Object.keys(STEAM1253_REVIEWED_RELEASE.items),[]);
+          assert.equal(STEAM1253_ITEM_IMAGE_VARIANT,'steam-1.25.3-schema626-lossless160-v1');
+          const items=['40300045','40006110','40005160'];
+          const base='https://dreamwishwand.github.io/web/';
+          const paths=[STEAM1253_MANIFEST_PATH];
+          for(const id of items){
+            const pin=STEAM1253_NATIVE_PINS[id];
+            assert.ok(pin && pin.codec==='WEBP_LOSSLESS_RGBA_EXACT');
+            assert.match(pin.webpSha256,/^[0-9a-f]{64}$/);
+            paths.push('ddv/item-images/'+STEAM1253_ITEM_IMAGE_VARIANT+'/'+pin.webpSha256.slice(0,2)+'/'+pin.webpSha256+'.webp');
+          }
+          let probes=0;
+          for(const [i,path] of paths.entries()){
+            assert.ok(!path.includes('..')&&!path.includes('?')&&!path.includes('#'));
+            const url=base+path;
+            const calls=[
+              ['GET',{}],
+              ['HEAD',{}],
+              ['GET',{'If-None-Match':'"previous-cached-image"'}],
+              ['GET',{'If-Modified-Since':'Wed, 01 Jan 2025 00:00:00 GMT'}]
+            ];
+            for(const [method,conditional] of calls){
+              const headers={'Cache-Control':'no-cache, max-age=0','Pragma':'no-cache',...conditional};
+              const res=await fetch(url,{
+                method,headers,redirect:'manual',signal:AbortSignal.timeout(25000)
+              });
+              assert.ok(res.status===404||res.status===410,
+                'REAL_HOST_PUBLIC_MEDIA_OFF_EXPECTED_404_OR_410 index='+i+' method='+method+' status='+res.status);
+              if(method==='GET'){
+                const bytes=new Uint8Array(await res.arrayBuffer());
+                assert.ok(bytes.length<500000,'UNEXPECTED_LARGE_RESPONSE '+i);
+                const sig=new TextDecoder('latin1').decode(bytes.subarray(0,12));
+                assert.ok(!sig.startsWith('RIFF')&&!sig.startsWith('\x89PNG'),
+                  'MISSING_URL_SERVED_GAME_IMAGE_BYTES '+i);
+              }
+              probes++;
+              console.log('DBK_REAL_ACTIVE_PAGES_MEDIA_OFF_404_OR_410_PASS route='+i+' method='+method+' conditional='+(Object.keys(conditional).length>0)+' status='+res.status);
+            }
+          }
+          assert.equal(probes,16);
+          console.log('DBK_REAL_ACTIVE_PAGES_4_PATHS_16_REQUEST_MEDIA_OFF_BASELINE_SCOPED_PASS');
+          NODE
