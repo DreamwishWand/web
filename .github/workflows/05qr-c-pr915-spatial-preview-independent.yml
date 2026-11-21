@@ -1,0 +1,65 @@
+name: 05 QR-C PR915 independent Steam626 spatial preview-only
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa05qrc_pr915_spatial_preview.rs'
+      - '.github/workflows/05qr-c-pr915-spatial-preview-independent.yml'
+permissions:
+  contents: read
+jobs:
+  qac915-spatial-preview-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    env:
+      CARGO_TARGET_DIR: /tmp/qac915-rust-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Source original four immutable blobs and QA two ADD only
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=0477cc06dd7cd8e38bb95cacfe1aaac8c383a033
+          test "$(git merge-base "$src" HEAD)" = "$src"
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/lib.rs)" = dfebe0c330057e21a128437d546756a1f0ee09fc
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/steam_spatial_preflight.rs)" = 96e901b637d034d8e1e0b59449889d4f2ef7e5e2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/tests/steam_spatial_preflight.rs)" = 70d6226802b35a026ed13f6b84e4dc9ed106a67a
+          test "$(git rev-parse HEAD:docs/core/01b-r06r22-steam-spatial-preflight-20261111.md)" = dbc74b9858cbafcb90e24a4ab6b4a6a7987eb5d7
+          got="$(git diff --name-only "$src" HEAD | sort)"
+          want="$(printf '%s\n' .github/workflows/05qr-c-pr915-spatial-preview-independent.yml crates/ddv-save-core/tests/qa05qrc_pr915_spatial_preview.rs | sort)"
+          test "$got" = "$want"
+          test -z "$(git ls-files | grep -Ei 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g$' || true)"
+          echo QAC915_EXACT_SOURCE4_QA2_AND_NO_PRIVATE_SAVE_PASS
+      - name: Independent Rust Preview positives and adversarial negatives two feature sets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --test qa05qrc_pr915_spatial_preview -- --nocapture
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features indexed-read --test qa05qrc_pr915_spatial_preview -- --nocapture
+          echo QAC915_RUST_INDEPENDENT_STEAM626_SPATIAL_POS_NEG_BOTH_FEATURES_PASS
+      - name: Public WASM ABI and native authority fail-closed audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features worker-wasm,indexed-read --target wasm32-unknown-unknown
+          grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          test -z "$(git diff --name-only 0477cc06dd7cd8e38bb95cacfe1aaac8c383a033 HEAD -- src/lib/ddv/core/save crates/ddv-save-core/src)"
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const src=readFileSync('crates/ddv-save-core/src/steam_spatial_preflight.rs','utf8');
+          const doc=readFileSync('docs/core/01b-r06r22-steam-spatial-preflight-20261111.md','utf8');
+          for(const k of ['source_object_authenticated:false','native_footprint_parent_floor_verified:false','native_placement_legal:false','writer_authorized:false']){
+            assert.equal(src.split(k).length-1,1,k);
+          }
+          assert.match(doc,/Native placement legality false/);
+          assert.match(src,/SPATIAL_ROTATED_FOOTPRINT_UNKNOWN/);
+          console.log('QAC915_PARENT_FLOOR_SOURCE_NOT_AUTHENTICATED_NATIVE_V3_WRITER_OFF_PASS');
+          NODE
+          echo QAC915_PRODUCT_WASM_ABI_READONLY_NO_SAVE_MODIFICATION_PASS
