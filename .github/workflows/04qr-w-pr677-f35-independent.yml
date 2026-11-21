@@ -1,0 +1,24 @@
+name: "04 QR-W PR677 f35 Q07-Q08 independent differential"
+on:
+  pull_request:
+    paths:
+      - "tests/04qr-w-pr677-f35-differential.test.mjs"
+      - ".github/workflows/04qr-w-pr677-f35-independent.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qr677-f35-diff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: NEW_ONLY f35 source blob Q07 Q08 + positive query boundary
+        run: node --test tests/04qr-w-pr677-f35-differential.test.mjs
