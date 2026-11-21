@@ -1,0 +1,91 @@
+name: "04 QR-S ACT1606 PR1975 protected Pages authenticated GET Security L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr1975-auth-get-allowlist-l2.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a907d548bbe9cc3f3ed633fb9b53669620d618d4
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exactly pinned 4-file Source and unchanged protected security inputs
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "a907d548bbe9cc3f3ed633fb9b53669620d618d4"
+          test "$(git merge-base 98fe15d340c5e4811cb399993029d01c9e0065d1 HEAD)" = "98fe15d340c5e4811cb399993029d01c9e0065d1"
+          printf '%s\n' '.github/workflows/pages.yml' 'scripts/int-protected-ci-gate.mjs' 'tests/int-protected-ci-gate.test.mjs' 'tests/scoped-sr03-spatial-proof-workflow.test.mjs' | sort > /tmp/qa-allowed
+          git diff --name-only "98fe15d340c5e4811cb399993029d01c9e0065d1" "a907d548bbe9cc3f3ed633fb9b53669620d618d4" | sort > /tmp/qa-actual
+          diff -u /tmp/qa-allowed /tmp/qa-actual
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = "a21a180a077b1cbeaa68580c4156fc246a36f307"
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = "d88d7f81074bd3bf123277e8dedf93bc2de3708a"
+          test "$(git rev-parse HEAD:tests/int-protected-ci-gate.test.mjs)" = "e87fbf6a290c21e5b896e46a42ac31097df9840c"
+          test "$(git rev-parse HEAD:tests/scoped-sr03-spatial-proof-workflow.test.mjs)" = "be322bc28700125d401f6be9a8692e18f35935e8"
+          for file in scripts/int-ci-evidence-preflight.mjs scripts/wasm-distribution/verify-protected-release.mjs scripts/wasm-distribution/approved-Cargo.lock scripts/wasm-distribution/protected-release-inputs.json; do
+            test "$(git rev-parse 98fe15d340c5e4811cb399993029d01c9e0065d1:"$file")" = "$(git rev-parse a907d548bbe9cc3f3ed633fb9b53669620d618d4:"$file")"
+          done
+      - name: Run accepted public predecessor and auth regressions against fixed Source
+        run: |
+          node --test tests/int-protected-ci-gate.test.mjs
+      - name: Independently disprove bearer attachment to unknown GitHub API endpoint
+        run: |
+          node --input-type=module <<'EOF'
+          import assert from 'node:assert/strict';
+          import {githubPublicJson,createPublicJsonGetter} from './scripts/int-protected-ci-gate.mjs';
+          const token='ghs_'+ 'A'.repeat(40), root='/repos/DreamwishWand/web';
+          const heads='a'.repeat(40);
+          const authorized=[
+            root,
+            root+'/git/ref/heads/main',
+            root+'/actions/runs?branch=main&event=push&head_sha='+heads+'&per_page=100',
+            root+'/actions/runs/123',
+            root+'/actions/runs/123/attempts/1/jobs?per_page=100'
+          ];
+          let positive=0,negative=0,leaked=0;
+          for(const path of authorized){
+            const obj=await githubPublicJson(path,async(url,options)=>{
+              assert.equal(url.href,'https://api.github.com'+path);
+              assert.equal(options.method,'GET');assert.equal(options.redirect,'error');
+              assert.equal(options.headers.Authorization,'Bearer '+token);
+              positive++;
+              return new Response('{}',{headers:{'content-type':'application/json'}});
+            },undefined,undefined,undefined,token);
+            assert.deepEqual(obj,{});
+          }
+          const unauthorized=[
+            root+'/issues/1',
+            root+'/actions/workflows?per_page=100',
+            root+'/actions/runs/123?secret=1',
+            root+'/actions/runs?branch=main&event=push&head_sha='+heads+'&per_page=101',
+            '/repos/DreamwishWand/other-repository',
+            root+'/%2e%2e/other-repository'
+          ];
+          for(const path of unauthorized){
+            let requests=0,error=null;
+            try{
+              await githubPublicJson(path,async(_url,options)=>{
+                assert.equal(options.method,'GET');
+                assert.equal(options.headers.Authorization,'Bearer '+token,'confirmed bearer on unexpected path');
+                requests++;
+                return new Response('{}',{headers:{'content-type':'application/json'}});
+              },undefined,undefined,undefined,token);
+            }catch(e){error=e;}
+            if(requests){
+              leaked+=requests;
+              console.error('QRS_PR1975_AUTH_GET_ALLOWLIST_TRUE_RED',JSON.stringify({path,requests,issue:'out-of-allowlist GET was invoked with bearer token by tested source'}));
+            }else{
+              assert.match(error?.message??'',/UNSAFE_API_(PATH|CATEGORY|ORIGIN)/);
+              negative++;
+            }
+          }
+          if(leaked)throw Error('QRS_PR1975_AUTH_GET_ALLOWLIST_TRUE_RED requests='+leaked);
+          console.log('QRS_PR1975_AUTH_GET_ALLOWLIST_L2_PASS',JSON.stringify({positive,negative,leaked,actualSignature:false,releaseAuthorized:false}));
+          EOF
