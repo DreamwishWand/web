@@ -1,0 +1,195 @@
+name: 04 QR-S ACT1774 patched Bamboo WASM finish plaintext zeroize L2 QA ONLY
+on:
+  push:
+    branches:
+      - '04qrs/act1774-pr2360-bamboo-finish-repaired-qa'
+    paths:
+      - '.github/workflows/04qrs-act1774-pr2360-bamboo-finish-wipe-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-wasm32-finish-error:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 42
+    env:
+      CARGO_TARGET_DIR: /tmp/04qrs-bamboo-wasm-finish-error-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 04qrs/act1774-pr2360-bamboo-finish-repaired-qa
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Fixed current Source and one QA-only changed workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=9883686ad1be3d04ff0f2aa08d908c7a3d72a7db
+          path=.github/workflows/04qrs-act1774-pr2360-bamboo-finish-wipe-l2.yml
+          test "$(git merge-base "$base" HEAD)" = "$base"
+          test "$(git diff --name-only "$base" HEAD | sort)" = "$(printf '%s\n' "$path" crates/ddv-save-core/src/product_session.rs .github/workflows/01a-worker-finish-owned-vec-scrub-source.yml | sort)"
+          test "$(git ls-tree HEAD -- "$path" | awk '{print $1}')" = 100644
+          test "$(git rev-parse HEAD:crates/ddv-save-core)" = f8ca1bfe087258376a9cfbc0bfe18385f7d20828
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 6432275d2909e6bc6d39265ae70cc7176fc37106
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = 34286a10bc726d9195d806b15273792614c99fa6
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = 751a73da41d8b58f7de70643f50b97722a3c1260
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          echo QRS_BAMBOO_FINISH_NEW_PROTECTED_CANDIDATE_TWO_SOURCE_FILES_ONE_QA_FILE_PASS
+      - name: Confirm same publicly trusted Bamboo15 signer would admit this Rust Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:scripts/readonly-release/seal-bamboo-public-pages.mjs)" = 6a1afe8be229b1844abe895bad504637293f15ee
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs)" = 6fc525e975de9db68544d1feaff5ec9cd0011348
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS,bambooAcceptedRustSourceBlobsOk,bambooAcceptedRustCheckoutOk}
+             from './scripts/readonly-release/seal-bamboo-public-pages.mjs';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim();
+          const pins=BAMBOO_ACCEPTED_RUST_SOURCE_BLOBS;
+          assert.equal(Object.keys(pins).length,15);
+          const observed=Object.fromEntries(Object.keys(pins).map(p=>[p,git('rev-parse','HEAD:'+p)]));
+          const drift=Object.keys(pins).filter(p=>observed[p]!==pins[p]);
+          assert.deepEqual(drift,['crates/ddv-save-core/src/product_session.rs']);
+          assert.equal(observed[drift[0]],'34286a10bc726d9195d806b15273792614c99fa6');
+          assert.equal(bambooAcceptedRustSourceBlobsOk(observed),false);
+          assert.equal(await bambooAcceptedRustCheckoutOk(),false,'unsafe unsigned re-pin not allowed');
+          assert.equal(pins['crates/ddv-save-core/src/wasm_worker.rs'],'6432275d2909e6bc6d39265ae70cc7176fc37106');
+          console.log('QRS_BAMBOO_SIGNER_DENIES_NEW_FIXED_CORE_BEFORE_09P_REPIN_TRUE_FAIL_CLOSED');
+          NODE
+          grep -Fx 'export const PROTECTED_BAMBOO40700007_READONLY_ANCHOR=null;' src/lib/ddv/core/save/product-steam626-bamboo-readonly-anchor.mjs
+      - name: Inject read-only WASM deallocation witness ONLY into ephemeral QA checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('crates/ddv-save-core/src/wasm_worker.rs')
+          s=p.read_text()
+          anchor='const MAX_CHUNK:usize=1024*1024;'
+          assert s.count(anchor)==1
+          tracker=r'''
+          // QA ONLY: record the old initialized decrypted Vec content at the
+          // moment Rust deallocates it. No freed-pointer dereference or logs
+          // containing sensitive memory. This GlobalAlloc is NEVER committed.
+          use std::alloc::{GlobalAlloc, Layout, System};
+          use core::sync::atomic::{AtomicUsize,Ordering as QrcOrdering};
+          static QRC_WATCH_PTR:AtomicUsize=AtomicUsize::new(0);
+          static QRC_WATCH_LEN:AtomicUsize=AtomicUsize::new(0);
+          static QRC_DEALLOC_RESULT:AtomicUsize=AtomicUsize::new(0);
+          struct QrcTrackingAllocator;
+          unsafe impl GlobalAlloc for QrcTrackingAllocator {
+              unsafe fn alloc(&self,l:Layout)->*mut u8 { System.alloc(l) }
+              unsafe fn dealloc(&self,p:*mut u8,l:Layout) {
+                  if p as usize==QRC_WATCH_PTR.load(QrcOrdering::SeqCst) {
+                      let n=QRC_WATCH_LEN.load(QrcOrdering::SeqCst);
+                      let mut was_nonzero=false;
+                      if n>0 && n<=l.size() {
+                          for i in 0..n {
+                              if core::ptr::read_volatile(p.add(i))!=0 {
+                                  was_nonzero=true;break;
+                              }
+                          }
+                          QRC_DEALLOC_RESULT.store(
+                            if was_nonzero{1}else{2},QrcOrdering::SeqCst);
+                      } else {
+                          QRC_DEALLOC_RESULT.store(3,QrcOrdering::SeqCst);
+                      }
+                      QRC_WATCH_PTR.store(0,QrcOrdering::SeqCst);
+                  }
+                  System.dealloc(p,l);
+              }
+          }
+          #[global_allocator]
+          static QRC_ALLOC:QrcTrackingAllocator=QrcTrackingAllocator;
+          '''
+          s=s.replace(anchor,tracker+anchor,1)
+          begin='    pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{'
+          assert s.count(begin)==1
+          qa=r'''
+              // QA-only wasm-bindgen observer: never reveal plaintext or ptr.
+              pub fn qa_arm_invalid_finish_heap_witness(&self)->bool {
+                  if self.closed || self.buffer.is_empty() || self.session.is_some(){
+                      return false;
+                  }
+                  QRC_DEALLOC_RESULT.store(0,QrcOrdering::SeqCst);
+                  QRC_WATCH_LEN.store(self.buffer.len(),QrcOrdering::SeqCst);
+                  QRC_WATCH_PTR.store(self.buffer.as_ptr() as usize,QrcOrdering::SeqCst);
+                  true
+              }
+              pub fn qa_take_invalid_finish_heap_witness(&self)->u32 {
+                  QRC_DEALLOC_RESULT.swap(0,QrcOrdering::SeqCst) as u32
+              }
+          '''
+          s=s.replace(begin,qa+begin,1)
+          p.write_text(s)
+          print("QRC_FINISH_GLOBAL_ALLOC_DEALLOC_SPY_EPHEMERAL_ONLY")
+          PY
+      - name: Run actual release Rust WASM Worker invalid fullDoc and bad registry Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = 1.99.1
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features --features product-steam626-bamboo-readonly,worker-wasm
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/04qrs-bamboo-wasm-finish-bindgen
+          mkdir -p /tmp/04qrs-bamboo-wasm-finish-pkg
+          /tmp/04qrs-bamboo-wasm-finish-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --target nodejs --no-typescript --out-dir /tmp/04qrs-bamboo-wasm-finish-pkg
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          const {WorkerWasmSource}=createRequire(import.meta.url)(
+            '/tmp/04qrs-bamboo-wasm-finish-pkg/ddv_save_core.js');
+          const BUILD='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          let newZero=0,tests=0;
+          for (const badSchema of [false,true]){
+            const worker=new WorkerWasmSource('steam-windows','steam-full-version',
+              BUILD,badSchema?0:626,true,new Uint8Array(32).fill(0x32));
+            const prefix=new TextEncoder().encode('{"GameInfo":{"Version":626},"Secret":"');
+            const payload=new Uint8Array(6604).fill(0x41);
+            worker.append_chunk(prefix);
+            worker.append_chunk(payload);
+            assert.equal(worker.qa_arm_invalid_finish_heap_witness(),true);
+            assert.throws(()=>worker.finish(), 'invalid source/Build must be denied');
+            const result=worker.qa_take_invalid_finish_heap_witness();
+            // 1 = real Vec allocation deallocated with its former
+            // initialized nonzero plaintext, 2 = scrubbed, 0 = no observed
+            // dealloc, 3 = invalid allocation bound: NEVER treat as PASS.
+            assert.equal(result,2, 'fixed original Vec must be erased prior to deallocation');
+            assert.throws(()=>worker.append_chunk(new Uint8Array([1])));
+            worker.close();
+            worker.free();
+            newZero++;tests++;
+          }
+          assert.equal(tests,2);
+          assert.equal(newZero,2);
+          // Success-path control: ProductSession remains valid while the
+          // moved original decoded Vec is zeroized before deallocation.
+          const good=new WorkerWasmSource('steam-windows','steam-full-version',
+            BUILD,626,true,new Uint8Array(32).fill(0x39));
+          good.append_chunk(new TextEncoder().encode(
+            JSON.stringify({GameInfo:{Version:626},Player:{},World:{}})));
+          assert.equal(good.qa_arm_invalid_finish_heap_witness(),true);
+          const receipt=JSON.parse(good.finish());
+          assert.equal(good.qa_take_invalid_finish_heap_witness(),2);
+          assert.equal(receipt.fullDocumentJsonValidated,true);
+          assert.equal(receipt.writerAuthorized,false);
+          assert.equal(receipt.editedCopyAuthorized,false);
+          good.close();good.free();
+          console.log('QRS_BAMBOO_FINISH_VALID_P1G_SESSION_OLD_VEC_ZERO_VALID_WITNESS_POS');
+          console.log('QRS_BAMBOO_FINISH_INVALID_P1G_DEALLOC_ZERO_2_POS_WASM32_SIGNED_FEATURE');
+          NODE
+          test "$(git diff --name-only 9883686ad1be3d04ff0f2aa08d908c7a3d72a7db HEAD | sort)" = \
+            "$(printf '%s\n' '.github/workflows/04qrs-act1774-pr2360-bamboo-finish-wipe-l2.yml' 'crates/ddv-save-core/src/product_session.rs' '.github/workflows/01a-worker-finish-owned-vec-scrub-source.yml' | sort)"
+          echo QRS_BAMBOO_NEW_SOURCE_WIPE_PROVEN_IN_BAMBOO_FEATURE_BUT_SIGNER_REPIN_OFF
