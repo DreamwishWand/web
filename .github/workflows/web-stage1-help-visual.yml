@@ -1,0 +1,94 @@
+name: WEB Stage1 Community Help Center 3 plus 1 visible root
+on:
+  push:
+    branches:
+      - 'web/stage1-help-visual-*'
+  pull_request:
+    paths:
+      - 'src/routes/help/+page.svelte'
+      - 'tests/web-stage1-help-visual-root.test.mjs'
+      - 'scripts/web-stage1-help-visual-chrome.mjs'
+      - '.github/workflows/web-stage1-help-visual.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact latest-main scope four Help UI and test files; no Provider/Writer change
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=87f656833491b87712eee031f51ca135bda26b30
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD >/tmp/stage1-help
+          test "$(wc -l </tmp/stage1-help)" -eq 4
+          while IFS= read -r f; do
+            case "$f" in
+              src/routes/help/+page.svelte|tests/web-stage1-help-visual-root.test.mjs|scripts/web-stage1-help-visual-chrome.mjs|.github/workflows/web-stage1-help-visual.yml) ;;
+              *) echo "OUTSIDE_STAGE1_HELP_SCOPE:$f"; exit 1 ;;
+            esac
+          done </tmp/stage1-help
+          git diff --exit-code "$BASE" HEAD -- src/lib/community/ src/lib/ddv/ src/lib/wep/ src/routes/help/questions/ src/routes/help/tips/ src/routes/help/issues/ src/routes/help/my/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_STAGE1_HELP_VISUAL_SCOPE_ONLY_PASS
+      - name: Three equal public and separate personal visual cards; gated search
+        run: node --test tests/web-stage1-help-visual-root.test.mjs
+      - name: Existing Node and Svelte/Pages full regressions
+        env:
+          BASE_PATH: /web
+        run: |
+          npm test
+          npm run check
+          npm run build
+      - name: Static Help root and no unapproved positive entity publication
+        shell: bash
+        run: |
+          test -f build/help/index.html
+          test -f build/404.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          echo WEB_STAGE1_HELP_NO_UNAPPROVED_PUBLIC_SOURCE_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Build and start real loopback Chrome host
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4290 >/tmp/web-stage1-help.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4290/help/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-stage1-help.log
+          exit 1
+      - name: Actual Chrome 8 locale DOM, 3+1 visually responsive mobile, keyboard/zoom
+        env:
+          STAGE1_HELP_URL: http://127.0.0.1:4290
+        run: node scripts/web-stage1-help-visual-chrome.mjs
