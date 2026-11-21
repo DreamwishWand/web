@@ -286,4 +286,85 @@ mod tests{
    let s=open(&d);assert!(s.prepare_fixed_makeup_color1(env(&s,WorkerAction::ReadDomain)).is_err(),"negative {i}");
   }
  }
+
+ #[cfg(feature="product-switch626-makeup-color1-internal")]
+ #[test]
+ fn qa1902_switch_opaque_cas_and_build_exclusion(){
+  let mut d=doc();
+  d["World"]["UnrelatedOpaque"]=json!({"Escaped":"a\\b","Array":[null,42,true],"UnknownId":9001});
+  d["Player"]["MaleAvatar"]["Makeup"]["1"]["KeepOpaque"]=json!({"Nested":{"x":7},"Path":"a/b"});
+  let original=serde_json::to_vec(&d).unwrap();
+  let s=open_switch(&d);let read=env(&s,WorkerAction::ReadDomain);
+  let p=s.prepare_switch626_fixed_makeup_color1(read).unwrap();
+  assert_eq!(&s.decoded[p.span.begin..p.span.end],b"53");
+  assert!(s.prepare_fixed_makeup_color1(read).is_err());
+  let stage=WorkerEnvelope{action:WorkerAction::Stage,..read};
+  let mut negatives=1usize;
+  macro_rules! deny {($expr:expr)=>{{assert!(($expr).is_err());negatives+=1;}};}
+  let mut bad=s.prepare_switch626_fixed_makeup_color1(read).unwrap();
+  bad.token_sha="0".repeat(64);deny!(s.stage_switch626_fixed_makeup_color1(stage,&bad));
+  let mut bad=s.prepare_switch626_fixed_makeup_color1(read).unwrap();
+  bad.female_sha="0".repeat(64);deny!(s.stage_switch626_fixed_makeup_color1(stage,&bad));
+  let mut bad=s.prepare_switch626_fixed_makeup_color1(read).unwrap();
+  bad.male_sha="0".repeat(64);deny!(s.stage_switch626_fixed_makeup_color1(stage,&bad));
+  let mut bad=s.prepare_switch626_fixed_makeup_color1(read).unwrap();
+  bad.entry_sha="0".repeat(64);deny!(s.stage_switch626_fixed_makeup_color1(stage,&bad));
+  let mut bad=s.prepare_switch626_fixed_makeup_color1(read).unwrap();
+  bad.routes_sha="0".repeat(64);deny!(s.stage_switch626_fixed_makeup_color1(stage,&bad));
+  let mut bad=s.prepare_switch626_fixed_makeup_color1(read).unwrap();
+  bad.projected[0]^=1;deny!(s.stage_switch626_fixed_makeup_color1(stage,&bad));
+  let mut bad=s.prepare_switch626_fixed_makeup_color1(read).unwrap();
+  bad.span.begin+=1;deny!(s.stage_switch626_fixed_makeup_color1(stage,&bad));
+  let mut bad=s.prepare_switch626_fixed_makeup_color1(read).unwrap();
+  bad.scope.expected_revision=2;deny!(s.stage_switch626_fixed_makeup_color1(stage,&bad));
+  deny!(s.stage_switch626_fixed_makeup_color1(read,&p));
+  deny!(s.stage_switch626_fixed_makeup_color1(WorkerEnvelope{expected_revision:1,..stage},&p));
+  deny!(s.stage_switch626_fixed_makeup_color1(WorkerEnvelope{expected_index_generation:2,..stage},&p));
+  deny!(s.stage_switch626_fixed_makeup_color1(WorkerEnvelope{expected_decoded_sha256:[0;32],..stage},&p));
+  deny!(s.stage_switch626_fixed_makeup_color1(WorkerEnvelope{session_id:[0;16],..stage},&p));
+  let foreign=open_switch(&d);
+  deny!(foreign.stage_switch626_fixed_makeup_color1(env(&foreign,WorkerAction::Stage),&p));
+  let steam=open(&d);
+  deny!(steam.prepare_switch626_fixed_makeup_color1(env(&steam,WorkerAction::ReadDomain)));
+  for (id,attested) in [("WRONG_BID",true),("9A239D3DB569756D",false)]{
+   let b=BuildIdentity{platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+      build_id:id.into(),schema:626,externally_attested:attested};
+   match ProductSession::open_decoded_readonly(original.clone(),b){
+    Err(_)=>negatives+=1,
+    Ok(mut alt)=>{alt.worker_bound=true;deny!(alt.prepare_switch626_fixed_makeup_color1(env(&alt,WorkerAction::ReadDomain)));},
+   }
+  }
+  let r=s.stage_switch626_fixed_makeup_color1(stage,&p).unwrap();
+  assert_eq!((r.operation_count,r.exact_field_changed_count),(1,1));
+  assert!(!r.native_v3_verified&&!r.product_writer_authorized&&!r.original_overwrite_authorized);
+  deny!(s.stage_switch626_fixed_makeup_color1(stage,&p));
+  s.undo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+  deny!(s.take_typed_semantic_decoded_once(env(&s,WorkerAction::ExportEditedCopy)));
+  s.redo_typed_semantic_batch(env(&s,WorkerAction::Stage)).unwrap();
+  let ex=env(&s,WorkerAction::ExportEditedCopy);
+  let out=s.take_typed_semantic_decoded_once(ex).unwrap();
+  deny!(s.take_typed_semantic_decoded_once(ex));
+  let mut want=d.clone();want["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"]=json!(60);
+  assert_eq!(out,serde_json::to_vec(&want).unwrap());
+  assert_eq!(serde_json::to_vec(&d).unwrap(),original);
+  assert_eq!(sha(&out),hex(&r.staged_decoded_sha256));
+  std::fs::write("/tmp/qrc1902-switch-makeup-edited.json",&out).unwrap();
+  std::fs::write("/tmp/qrc1902-switch-makeup-original.json",&original).unwrap();
+  println!("QRC1902_SWITCH_MAKEUP_EXACT1_ACTUAL 1POS {}NEG SHA_ORIGINAL_UNCHANGED",negatives);
+ }
+ #[cfg(feature="product-switch626-makeup-color1-internal")]
+ #[test]
+ #[ignore="QA-only independent process after exact output stage"]
+ fn qa1902_switch_makeup_child_reopen(){
+  let bytes=std::fs::read("/tmp/qrc1902-switch-makeup-edited.json").unwrap();
+  let raw=std::fs::read("/tmp/qrc1902-switch-makeup-original.json").unwrap();
+  let v:Value=serde_json::from_slice(&bytes).unwrap();
+  assert_eq!(v["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"],json!(60));
+  let s=open_switch(&v);assert_eq!(s.receipt().unwrap().schema,626);
+  assert!(s.prepare_switch626_fixed_makeup_color1(env(&s,WorkerAction::ReadDomain)).is_err());
+  assert_ne!(sha(&raw),sha(&bytes));
+  let before:Value=serde_json::from_slice(&raw).unwrap();
+  assert_eq!(before["Player"]["MaleAvatar"]["Makeup"]["1"]["ColorIndex1"],json!(53));
+  println!("QRC1902_SWITCH_MAKEUP_CHILD_REOPEN_PASS schema626 exact1");
+ }
 }
