@@ -1,0 +1,42 @@
+name: 05 QR-C ACT523 PR1083 scene persistence
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-act523-scene-persistence.mjs'
+      - '.github/workflows/05qrc-act523-scene-persistence.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed original5 and exact QA-only delta
+        run: |
+          source=bc48e1abdfb827fdaf70ba404691208ddc8ba192
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:src/lib/wep/local-scene-preset-store.mjs)" = c78ec768a04338cab89bf3f2098fb045105d5919
+          git diff --quiet "$source" HEAD -- src scripts
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual Chrome IndexedDB transaction and strict typed input
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          "$CHROME_BIN" --version
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4383 >/tmp/act523-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4383/presets/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4383/presets/ >/dev/null
+          node tests/qa/05qrc-act523-scene-persistence.mjs
