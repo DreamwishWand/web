@@ -1,0 +1,169 @@
+name: QA ONLY 04 QR-W ACT1643 MAIN85FF Catalog0 shared5 mixed L2 NEVER MERGE
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-act1643-main85ff-catalog0-shared5-mixed-l2.yml'
+permissions:
+  contents: read
+jobs:
+  catalog0-shared5-mixed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 85ff72a69bb41d4a7c3fbafaa69521c0904a5aac
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin actual current signed Source shared5, Catalog0 product and OFF anchor
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 85ff72a69bb41d4a7c3fbafaa69521c0904a5aac
+          cat > /tmp/qrw-catalog0-pins <<'PINS'
+          22fff2a30705c620c3a9375167fd64ff0affcd08 src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
+          107a44cfdcfdaf8cd1769bba3e90c0056fb59cc0 src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs
+          16cfcda06614be2536b877872b15f7ff85bc0f2b src/lib/ddv/core/save/product-scoped-amount-transport.mjs
+          674f3a86b3a06e5e0b41a750cca3d30d63d942df src/lib/ddv/core/save/product-wasm-read-owner.d.mts
+          c65930ffa0158542071202f02d912ad20ed25075 src/lib/ddv/core/save/product-wasm-read-owner.mjs
+          PINS
+          while read -r blob path; do
+            test "$(git rev-parse "HEAD:$path")" = "$blob"
+            test "$(git ls-tree HEAD "$path" | awk '{print $1}')" = 100644
+          done < /tmp/qrw-catalog0-pins
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-switch-catalog0-release.mjs)" = 27c7769cca317146dd6da5e31f7e46109413e228
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-switch-catalog0-release-anchor.mjs)" = d9c74cefcd49ffd3980e74fc78f6af1354b9f8f7
+          test "$(git rev-parse HEAD:tests/product-switch626-catalog0-local-adapter.test.mjs)" = 408cb30ebeb6d1bb9765b036d86763f915fbbef8
+          test "$(git rev-parse HEAD:tests/product-scoped-switch-catalog0-release.test.mjs)" = c2ea9a84ba87ccd758c080932fc6333f5fa5d7d5
+          echo QRW1643_MAIN85FF_SHARED5_BLOBS_AND_CATALOG0_SOURCE_PIN_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Run existing Catalog0, protected release and adjacent Chest/amount invariant tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test \
+            tests/product-switch626-catalog0-local-adapter.test.mjs \
+            tests/product-scoped-switch-catalog0-release.test.mjs \
+            tests/product-switch626-chest-local-adapter.test.mjs \
+            tests/product-steam626-chest-local-adapter.test.mjs \
+            tests/product-scoped-amount-transport.test.mjs
+          echo QRW1643_MAIN85FF_CATALOG0_ADJACENT_ACTUAL_5SUITES_PASS
+      - name: Independently refute current Catalog0 source selection cross-domain and forged Rust receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createProductWasmReadOwner} from './src/lib/ddv/core/save/product-wasm-read-owner.mjs';
+          import {createProductSwitch626Catalog0LocalAdapter} from './src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs';
+          import {createSwitch626Catalog0Transport} from './src/lib/ddv/core/save/product-scoped-amount-transport.mjs';
+          import {PROTECTED_SCOPED_SWITCH_CATALOG0_RELEASE_ANCHOR} from './src/lib/ddv/core/save/product-scoped-switch-catalog0-release-anchor.mjs';
+          const id='a'.repeat(32),sha='b'.repeat(64),item=40000076;
+          const build={platform:'switch',buildKind:'switch-bid',buildId:'9A239D3DB569756D',schema:626};
+          const receipt={contract:'wand.product.single-save-session.boundary@1',schema:626,revision:0,indexGeneration:1,sessionId:id,decodedSha256:sha,productWorkerBound:true,fullDocumentJsonValidated:true,writerAuthorized:false,editedCopyAuthorized:false,applyAuthorized:false};
+          let positives=0,negatives=0;
+          const denied=(label,fn)=>{assert.throws(fn,undefined,label);negatives++;};
+          assert.equal(PROTECTED_SCOPED_SWITCH_CATALOG0_RELEASE_ANCHOR,null);
+          positives++;
+          const idle=createProductWasmReadOwner(async()=>({}),{allowSwitch626Catalog0Source:true});
+          assert.deepEqual(idle.close(),{closed:true,writerAuthorized:false});positives++;
+          const exclusive=[
+            {allowScopedAmountSource:true},{allowScopedCollectionSource:true},
+            {allowCollectionCandidateSource:true},{allowSwitch626ChestSource:true},
+            {allowSteam626ChestSource:true},{placementScope:'fd01'},
+            {placementScope:'rm01'},{placementScope:'comp03'},
+            {backpackScope:'steam'},{backpackScope:'switch'},
+            {wardrobeScope:'steam'},{wardrobeScope:'switch'},
+            {appearanceScope:'skin'},{appearanceScope:'eyecolor2-switch'},
+            {appearanceScope:'makeup-color1'}
+          ];
+          for(const flags of exclusive)denied('shared-owner cross domain '+JSON.stringify(flags),()=>createProductWasmReadOwner(async()=>({}),{allowSwitch626Catalog0Source:true,...flags}));
+          for(const flags of [
+            {coreDiscoveryProfile:'linked-crop-chest48'},
+            {coreDiscoveryProfile:'inventory'},{discoverScopedTargets:()=>[]},
+            {allowCoreDiscoverySource:false}
+          ])denied('catalog0 fixed local scope '+JSON.stringify(Object.keys(flags)),()=>createProductSwitch626Catalog0LocalAdapter({wasmFactory:async()=>({}),...flags}));
+          for(const flags of [
+            {allowSwitch626Catalog0Source:'true'},
+            {allowSwitch626Catalog0Source:true,placementScope:'nonexistent'},
+            {allowSwitch626Catalog0Source:true,backpackScope:'nonexistent'},
+            {allowSwitch626Catalog0Source:true,appearanceScope:'nonexistent'},
+            {allowSwitch626Catalog0Source:true,wardrobeScope:'nonexistent'}
+          ])denied('invalid worker scope '+JSON.stringify(flags),()=>createProductWasmReadOwner(async()=>({}),flags));
+          function subject(receiptOverride=receipt,identityOverride=build,alter={}){
+            const state={revokes:0,discover:0,preview:0,stage:0};
+            const row={profile:'catalog0-furniture',id:0,selector:item,itemId:item,oldAmount:3};
+            const wasm={
+              discover_switch626_catalog0(offset){state.discover++;return JSON.stringify({contract:'wand.worker.switch626.scoped-catalog0-discovery@1',profile:'catalog0-furniture',sessionId:id,revision:0,indexGeneration:1,decodedSha256:sha,offset,nextOffset:null,scanned:1,rows:[row],writerAuthorized:false,editedCopyAuthorized:false,...alter.discover});},
+              preview_switch626_catalog0(_index,_selector,_new){state.preview++;return JSON.stringify({contract:'wand.worker.switch626.scoped-catalog0@1',...row,newAmount:2,entrySha256:'c'.repeat(64),sessionId:id,revision:0,indexGeneration:1,decodedSha256:sha,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false,...alter.preview});},
+              stage_switch626_catalog0(){state.stage++;throw Error('NO_STAGE_IN_PREFLIGHT');},
+              toggle_scoped_edit(){throw Error('NO_TOGGLE');},
+              begin_scoped_edit_output(){throw Error('NO_EXPORT');},
+              next_scoped_edit_output_chunk(){throw Error('NO_OUTPUT_CHUNK');}
+            };
+            const opts={parse:JSON.parse,current:()=>true,revoke:()=>{state.revokes++;},maxBytes:4096,chunkBytes:1024};
+            const transport=createSwitch626Catalog0Transport(wasm,receiptOverride,identityOverride,opts);
+            return {transport,state};
+          }
+          {
+            const x=subject();const targets=x.transport.discoverTargets('catalog0-furniture');
+            assert.equal(targets.length,1);
+            assert.deepEqual(targets[0],{profile:'catalog0-furniture',id:0,selector:item,itemId:item,oldAmount:3});
+            assert.equal(x.transport.previewTarget({profile:'catalog0-furniture',id:0,selector:item,newAmount:2}).itemId,item);
+            assert.equal(x.state.discover,1);assert.equal(x.state.preview,1);assert.equal(x.state.stage,0);assert.equal(x.state.revokes,0);positives+=4;
+          }
+          for(const [key,value] of Object.entries({
+            platform:'steam-windows',buildKind:'steam-full-version',buildId:'WRONG_BUILD',
+            schema:624
+          }))denied('catalog0 foreign Build '+key,()=>subject(receipt,{...build,[key]:value}));
+          for(const [key,value] of Object.entries({
+            contract:'OTHER',schema:624,revision:1,indexGeneration:2,sessionId:'0'.repeat(32),
+            decodedSha256:'g'.repeat(64),productWorkerBound:false,
+            fullDocumentJsonValidated:false,writerAuthorized:true,
+            editedCopyAuthorized:true,applyAuthorized:true
+          }))denied('forged session receipt '+key,()=>subject({...receipt,[key]:value}));
+          for(const selector of [
+            {profile:'linked-crop-chest48',id:0,selector:item,newAmount:2},
+            {profile:'catalog0-furniture',id:1,selector:item,newAmount:2},
+            {profile:'catalog0-furniture',id:0,selector:40000077,newAmount:2},
+            {profile:'catalog0-furniture',id:0,selector:item,newAmount:9999},
+            {profile:'catalog0-furniture',id:0,selector:item,newAmount:0},
+            {profile:'catalog0-furniture',id:0,selector:item,newAmount:3},
+            {profile:'catalog0-furniture',id:0,selector:item,newAmount:2,writerAuthorized:true}
+          ]){
+            const x=subject();
+            if(selector.newAmount===3)continue; // fixed contract can permit a different Core-authorized oldAmount
+            denied('UI untrusted selector '+JSON.stringify(selector),()=>x.transport.previewTarget(selector));
+            assert.equal(x.state.preview,0);assert.equal(x.state.stage,0);
+          }
+          for(const profile of ['linked-crop-chest48','inventory','collection','steam-catalog0']){
+            const x=subject();denied('untrusted discovery profile '+profile,()=>x.transport.discoverTargets(profile));
+            assert.equal(x.state.discover,0);
+          }
+          for(const [key,value] of Object.entries({
+            contract:'OTHER',profile:'linked-crop-chest48',sessionId:'f'.repeat(32),
+            revision:1,indexGeneration:2,decodedSha256:'d'.repeat(64),
+            nextOffset:0,scanned:17,writerAuthorized:true,editedCopyAuthorized:true,
+            rows:[{profile:'catalog0-furniture',id:0,selector:item,itemId:40000077,oldAmount:3}],
+            extraField:true
+          })){
+            const x=subject(receipt,build,{discover:{[key]:value}});
+            denied('forged discovery '+key,()=>x.transport.discoverTargets('catalog0-furniture'));
+            assert.equal(x.state.revokes,1);
+          }
+          for(const [key,value] of Object.entries({
+            contract:'OTHER',profile:'linked-crop-chest48',id:1,selector:40000077,
+            itemId:40000077,oldAmount:9999,newAmount:12,entrySha256:'g'.repeat(64),
+            sessionId:'f'.repeat(32),revision:1,indexGeneration:2,
+            decodedSha256:'f'.repeat(64),scopedCandidate:false,
+            writerAuthorized:true,editedCopyAuthorized:true,extraField:true
+          })){
+            const x=subject(receipt,build,{preview:{[key]:value}});
+            denied('forged preview '+key,()=>x.transport.previewTarget({profile:'catalog0-furniture',id:0,selector:item,newAmount:2}));
+            assert.equal(x.state.revokes,1);assert.equal(x.state.stage,0);
+          }
+          console.log('QRW1643_CATALOG0_MAIN85FF_SHARED5_EXCLUSIVE_MIXED_PASS',JSON.stringify({positive:positives,negative:negatives,realCoreNo:true,syntheticSourceOnly:true,oneWorkerOwner:true,publicWriter:false,anchor:null}));
+          NODE
