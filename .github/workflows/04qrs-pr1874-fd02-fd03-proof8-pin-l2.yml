@@ -1,0 +1,53 @@
+name: "[04 QR-S][ACT1517] PR1874 FD02/FD03 Proof8 pin L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr1874-fd02-fd03-proof8-pin-l2.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 06105cc2fdf745dae87a811f14e0b3c655ad1fec
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reuse unchanged core/product tests
+        run: |
+          set -euo pipefail
+          node --test tests/scoped-collection-proof-workflow.test.mjs tests/scoped-steam-chest-proof-workflow.test.mjs tests/scoped-switch-chest-proof-workflow.test.mjs
+      - name: Changed only independent negative and pin checks
+        run: |
+          set -euo pipefail
+          cat > qa-independent.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8',maxBuffer:16*1024*1024}).trim(),raw=(r,p)=>execFileSync('git',['show',r+':'+p],{encoding:'utf8',maxBuffer:16*1024*1024});
+          const head='06105cc2fdf745dae87a811f14e0b3c655ad1fec',base='3a3614888b543c2c53483a6e41b4a50f6e6687fc';
+          assert.equal(g('rev-parse','HEAD'),head);assert.equal(g('rev-parse','HEAD^'),base);
+          const paths=g('diff','--name-only',base,head).split('\n');assert.equal(paths.length,7);
+          const rust=['crates/ddv-save-core/src/fence_add_shape.rs','crates/ddv-save-core/src/switch624_fence_fe01.rs'];for(const p of rust)assert.ok(paths.includes(p));
+          const pins=paths.filter(p=>!rust.includes(p));assert.equal(pins.length,5);const wf='.github/workflows/pages.yml';assert.ok(pins.includes(wf));
+          const oldCore='fa7aeef5dc1459104564bf1eb9704d315ab7c415',newCore='9d779873e935cbdd7b1b11b372a318af7ebc68b5';assert.equal(g('rev-parse',head+':crates/ddv-save-core'),newCore);
+          let count=0,pos=0,neg=0;
+          for(const p of pins){const before=raw(base,p),after=raw(head,p);assert.notEqual(before,after);
+           const hits=after.split(newCore).length-1;assert.ok(hits>0);assert.equal(after.replaceAll(newCore,oldCore),before);count+=hits;pos++;assert.notEqual(after.replace(newCore,'e'+newCore.slice(1)),after);neg++;
+          }
+          assert.equal(count,17);
+          const y=raw(head,wf),old=raw(base,wf),sections=s=>[...s.matchAll(/^  (scoped_[a-z0-9_]+_proof):\n/gm)].map(x=>({n:x[1],at:x.index})).map((x,i,a)=>({name:x.n,body:s.slice(x.at, i+1<a.length?a[i+1].at:s.length)}));
+          const newSec=sections(y),oldSec=sections(old);assert.equal(newSec.length,8);assert.deepEqual(newSec.map(x=>x.name),oldSec.map(x=>x.name));
+          const getPins=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]+)\)" = ([0-9a-f]{40})/g)].map(m=>[m[1],m[2]]);
+          let newPins=0,changedPins=0;
+          for(let i=0;i<8;i++){const curr=getPins(newSec[i].body),oldp=getPins(oldSec[i].body);assert.equal(curr.length,oldp.length);for(let j=0;j<curr.length;j++){assert.equal(curr[j][0],oldp[j][0]);if(curr[j][0]==='crates/ddv-save-core'){assert.equal(curr[j][1],newCore);assert.equal(oldp[j][1],oldCore);changedPins++;}else{assert.equal(curr[j][1],oldp[j][1]);}newPins++}pos++;}
+          assert.equal(changedPins,8);assert.equal(newPins,252);
+          assert.equal(g('rev-parse',head+':scripts/wasm-distribution/r22-accepted-rust-scope.mjs'),g('rev-parse',base+':scripts/wasm-distribution/r22-accepted-rust-scope.mjs'));pos++;
+          assert.equal(g('rev-parse',head+':scripts/wasm-distribution/approved-Cargo.lock'),g('rev-parse',base+':scripts/wasm-distribution/approved-Cargo.lock'));pos++;
+          for(const p of paths.filter(p=>p.startsWith('tests/'))){assert.ok(raw(head,p).includes(newCore));neg++}
+          console.log('QRS_PR1874_FD02_FD03_PROOF8_PIN_L2_PASS',JSON.stringify({pos,neg,paths:7,pinPaths:5,swaps:17,pins:newPins,changed:changedPins,unchanged:newPins-changedPins,oldCore,newCore,protectedAcceptance:false,actualSignature:false}));
+          EOF
+          node qa-independent.mjs
