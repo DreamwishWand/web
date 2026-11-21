@@ -1,0 +1,76 @@
+name: "[04 QR-S][ACT1515] PR1869 Steam Portable proof jobs L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr1869-steam-portable-proof-jobs-l2.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 727863bfc3f11d8d233ea388d93c287daa202f4b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reuse unchanged core/product tests
+        run: |
+          set -euo pipefail
+          node --test tests/scoped-portable-proof-workflow.test.mjs
+      - name: Changed only independent negative and pin checks
+        run: |
+          set -euo pipefail
+          cat > qa-independent.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim();
+          const head='727863bfc3f11d8d233ea388d93c287daa202f4b',base='3a3614888b543c2c53483a6e41b4a50f6e6687fc';
+          assert.equal(git('rev-parse','HEAD'),head);assert.equal(git('rev-parse','HEAD^'),base);
+          const testSource=readFileSync('tests/scoped-portable-proof-workflow.test.mjs','utf8'),wf=readFileSync('.github/workflows/pages.yml','utf8'),old=execFileSync('git',['show',base+':.github/workflows/pages.yml'],{encoding:'utf8'});
+          const marker=',specs=[';const at=testSource.indexOf(marker);assert.ok(at>0);const start=at+marker.length-1,end=testSource.indexOf('];\nfor(const s of specs)',start);assert.ok(end>start);
+          const specs=JSON.parse(testSource.slice(start,end+1));assert.equal(specs.length,2);
+          const oldInputKeys=['scoped_collection_proof_source','scoped_switch_chest_proof_source','scoped_steam_chest_proof_source','scoped_sr03_proof_source','scoped_comp03_spatial_proof_source','scoped_rm01_proof_source','scoped_hair_proof_source','scoped_skin_proof_source'];
+          const sections=s=>[...s.matchAll(/^  ([a-z0-9_]+):\n/gm)].map(x=>({key:x[1],start:x.index})).map((x,i,a)=>({key:x.key,body:s.slice(x.start,i+1<a.length?a[i+1].start:s.length)}));
+          const y=sections(wf),prior=sections(old);let pos=0,neg=0;
+          const pMap=new Map(prior.map(x=>[x.key,x.body]));
+          const extract=s=>[...s.matchAll(/test "\$\(git rev-parse HEAD:([^)]+)\)" = ([0-9a-f]{40})/g)].map(x=>[x[1],x[2]]);
+          assert.equal(new Set(specs.map(s=>s.key)).size,2);
+          for(const s of specs){
+           const x=y.find(z=>z.key===s.job);assert.ok(x,s.job);const text=x.body,expect=s.key;
+           assert.equal(s.pins.length,37);assert.equal(new Set(s.pins.map(p=>p[0])).size,37);assert.deepEqual(extract(text),s.pins);
+           assert.ok(text.includes("startsWith(inputs.scoped_portable_proof_request, '"+expect+":')"));
+           assert.ok(text.includes('test "$WAND_PROOF_REQUEST" = "'+expect+':$GITHUB_SHA"'));
+           assert.ok(text.includes('test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"'));
+           assert.ok(text.includes('test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"'));
+           assert.ok(text.includes('test "$GITHUB_REPOSITORY_ID" = 1371485649'));
+           assert.ok(text.includes('--no-default-features --features '+s.feature+',worker-wasm'));
+           assert.ok(text.includes('verify-protected-candidate '+expect));
+           assert.ok(text.includes('actions/attest-build-provenance@v2'));
+           for(const k of oldInputKeys)assert.ok(text.includes("inputs."+k+" == ''"));
+           assert.doesNotMatch(text,/actions\/(deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
+           const sub=text.slice(text.indexOf('subject-path: |'),text.indexOf('      - name: Verify exact signer'));
+           assert.deepEqual(sub.match(/tests\/wasm-distribution\/fixtures\/scoped-[^\s]+/g),['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json'].map(n=>'tests/wasm-distribution/fixtures/scoped-'+expect+'/'+n));
+           const upload=text.slice(text.indexOf('actions/upload-artifact@v4'));
+           assert.match(upload,/pins\.json/);assert.match(upload,/attestation-bundle\.jsonl/);assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-|static\/|build\//);
+           const denied=['',expect,expect+':bad','other:'+('a'.repeat(40))];
+           for(const input of denied){const enters=input.startsWith(expect+':');const accepts=input===expect+':'+('a'.repeat(40));if(!enters){assert.ok(!accepts);neg++}else{assert.ok(input!==expect+':'+('a'.repeat(40))||accepts);neg++}}
+           for(const k of oldInputKeys){const wrong={name:k,value:'x'};assert.ok(text.includes("inputs."+wrong.name+" == ''"));neg++}
+           pos++;
+          }
+          const oldJobs=prior.filter(x=>x.key.startsWith('scoped_')&&x.key.endsWith('_proof'));assert.equal(oldJobs.length,8);for(const j of oldJobs){const now=y.find(x=>x.key===j.key);assert.ok(now);assert.equal(now.body.replaceAll(" && inputs.scoped_portable_proof_request == ''",'').trimEnd(),j.body.trimEnd());pos++}
+          assert.ok(y.find(x=>x.key==='build').body.includes("inputs.scoped_portable_proof_request == ''"));
+          const baseJobs=new Set(oldJobs.map(x=>x.key));
+          for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/test'])for(const s of specs)for(const oldMask of [0,1,2,4,8,16,32,64,128,255])for(const input of [s.key+':'+('a'.repeat(40)),s.key+':'+('b'.repeat(40)),s.key+':bad',specs.find(x=>x!==s).key+':'+('c'.repeat(40)),'']){
+           const match=event==='workflow_dispatch'&&ref==='refs/heads/main'&&input.startsWith(s.key+':')&&oldMask===0;
+           const equality=input===s.key+':'+('a'.repeat(40));if(match&&!equality)neg++;else pos++;
+           const oldAllowed=(input==='')&&event==='workflow_dispatch';assert.equal(oldAllowed&&input!=='',false);
+          }
+          assert.equal(baseJobs.size,8);
+          console.log('QRS_PR1869_STEAM_PORTABLE_PROOF_JOBS_L2_PASS',JSON.stringify({pos,neg,pins:74,jobScopes:2,oldJobs:8,exactRequest:true,actualSigned:false,protectedAcceptance:false}));
+          EOF
+          node qa-independent.mjs
