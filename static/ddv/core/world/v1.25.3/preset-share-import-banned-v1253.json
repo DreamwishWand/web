@@ -1,0 +1,161 @@
+{
+  "schema": "ddv.preset-share-import-banned-v1253@1",
+  "requestId": "01B-V1253-PRESET-SHARE-IMPORT-BANNED-V1",
+  "status": "PARTIAL_NATIVE_BODY_AND_RUNTIME_PENDING",
+  "platform": "Nintendo Switch",
+  "gameVersion": "1.25.3",
+  "buildId": "9A239D3DB569756D",
+  "profileSchema": 626,
+  "baseline": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchema": 624
+  },
+  "sources": {
+    "switch1250": {
+      "type": "Il2CppDumper dump.cs (declarations/RVA, not executable)",
+      "driveId": "13nyviL_uZ9w-Op_9VhJsdpe0Ho4l2cdj",
+      "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+    },
+    "switch1253": {
+      "type": "Il2CppDumper dump.cs (declarations/RVA, not executable)",
+      "driveId": "17_y_G-olsu7zzOBcKwJg5YTFOW9JQbto",
+      "sha256": "638a5618728e92821ab146d4281e7cc47657785317a065e810a83034c217bf6b"
+    },
+    "steam1250": {
+      "type": "Il2CppDumper dump.cs",
+      "driveId": "1hU6xRnr0ehmNZveuXiYdOYOcZN0b1LRu",
+      "sha256": "2cf3629aac90d15a36a399af7e4735a3bae4251c8732232f951815c2ac14b86f",
+      "nativeRvaStatus": "DECLARATIONS_EXTRACTED_BODY_UNAVAILABLE"
+    },
+    "steam1253": {
+      "type": "Il2CppDumper dump.cs",
+      "driveId": "1Jt3QQ1j3cNfovJmIWXZdSLsZtjz7OvQc",
+      "sha256": "08307a26419cbf239c77b7dd0b3fa96036dc514cc46c5d7d5d1cb9780a1cdb05",
+      "nativeRvaStatus": "DECLARATIONS_EXTRACTED_BODY_UNAVAILABLE",
+      "buildIdentity": "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22",
+      "exactCodeMapperSupport": "METADATA_ONLY; client interpreter presently Switch-only, Steam must remain fail closed"
+    }
+  },
+  "confirmed": {
+    "shareResult": {
+      "identity": "GenerateDecorationPresetShareCode.Types.Result.Banned",
+      "baseline": "absent",
+      "current": 14
+    },
+    "importError": {
+      "identity": "EDecorationPresetError.Banned",
+      "baseline": "absent",
+      "current": 17
+    },
+    "localization": {
+      "identity": "DecorationPreset.BannedText",
+      "key": "menu.decoration_preset_banned_text",
+      "proof": "symbol/constant, not translated UI fallback acceptance"
+    },
+    "stateMachineDelta": {
+      "identity": "Client.<GenerateDecorationPresetShareCode>d__721",
+      "v1250Awaiters": [
+        "TaskAwaiter<DateTime>",
+        "TaskAwaiter<GenerateDecorationPresetShareCode.Types.Response>",
+        "TaskAwaiter<UpdateDecorationPresetStateFlags.Types.Response>"
+      ],
+      "v1253Awaiters": [
+        "TaskAwaiter<bool>",
+        "TaskAwaiter<DateTime>",
+        "TaskAwaiter<GenerateDecorationPresetShareCode.Types.Response>",
+        "TaskAwaiter<UpdateDecorationPresetStateFlags.Types.Response>"
+      ],
+      "interpretation": "ADDITIONAL_BOOLEAN_AWAIT_CONFIRMED; PREDICATE_UNKNOWN"
+    },
+    "steam1253EnumAndLocalizationParity": {
+      "shareBanned": 14,
+      "importBanned": 17,
+      "key": "menu.decoration_preset_banned_text",
+      "sourceSha256": "08307a26419cbf239c77b7dd0b3fa96036dc514cc46c5d7d5d1cb9780a1cdb05"
+    },
+    "steam1253ShareStateMachineAddsBooleanAwaiter": true
+  },
+  "switchNativeAnchors": [
+    {
+      "method": "Client.GenerateDecorationPresetShareCode(int,CancellationToken)",
+      "v1250Rva": "0x606AD10",
+      "v1253Rva": "0x6072F20"
+    },
+    {
+      "method": "Client.<GenerateDecorationPresetShareCode>d__721.MoveNext",
+      "v1250Rva": "0x60905C0",
+      "v1253Rva": "0x60987D0"
+    },
+    {
+      "method": "OnlineClient.LookupDecorationPresetShareAsync(string)",
+      "v1250Rva": "0x611D7E0",
+      "v1253Rva": "0x6125D60"
+    },
+    {
+      "method": "OnlineClient.DownloadAndSaveDecorationPresetAsync(...)",
+      "v1250Rva": "0x611E560",
+      "v1253Rva": "0x6126AE0"
+    },
+    {
+      "method": "DecorationPresetCatalog.ImportDecoPresetShareCode(string)",
+      "v1250Rva": "0x7902EF0",
+      "v1253Rva": "0x790C100"
+    }
+  ],
+  "errorPolicy": {
+    "Banned": "explicit server rejection: display BannedText, do not retry/bypass or import",
+    "unknown": "fail closed",
+    "success": "only pass to existing independently validated flow",
+    "staticPremadePresets": "24/24 byte-equal, runtime behavior UNKNOWN"
+  },
+  "unknowns": [
+    "native method body/call graph unavailable; dump.cs cannot prove branch predicates",
+    "Banned trigger policy identity/moderation/permission specifics",
+    "end-to-end share/import response propagation",
+    "Steam executable-body/call-graph equivalence and runtime flow (RVA now separately extracted)",
+    "server-auth/ban checks"
+  ],
+  "downstream": [
+    "02 WEP",
+    "09 INT",
+    "08 WEB",
+    "04 QR"
+  ],
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false,
+    "nativeWriterAuthorized": false
+  },
+  "steamNativeAnchors": [
+    {
+      "method": "Client.GenerateDecorationPresetShareCode(int,CancellationToken)",
+      "v1250Rva": "0x4C693C0",
+      "v1253Rva": "0x4C6B210"
+    },
+    {
+      "method": "Client.<GenerateDecorationPresetShareCode>d__721.MoveNext",
+      "v1250Rva": "0x4C83FB0",
+      "v1253Rva": "0x4C85E00"
+    },
+    {
+      "method": "OnlineClient.LookupDecorationPresetShareAsync(string)",
+      "v1250Rva": "0x4CEE140",
+      "v1253Rva": "0x4CF0190"
+    },
+    {
+      "method": "OnlineClient.DownloadAndSaveDecorationPresetAsync(...)",
+      "v1250Rva": "0x4CEEF80",
+      "v1253Rva": "0x4CF0FD0"
+    },
+    {
+      "method": "DecorationPresetCatalog.ImportDecoPresetShareCode(string)",
+      "v1250Rva": "0x60C4560",
+      "v1253Rva": "0x60C6F50"
+    }
+  ]
+}
