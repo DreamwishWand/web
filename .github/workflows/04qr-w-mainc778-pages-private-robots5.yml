@@ -1,0 +1,37 @@
+name: "04QR-W mainc778 actually deployed private5 robots noindex"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-mainc778-pages-private-robots5.yml'
+      - 'scripts/04qr-w-mainc778-pages-private-robots5.mjs'
+permissions:
+  contents: read
+jobs:
+  managed-public-cdn-chrome-static-robots:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Confirm real installed Chrome without private Owner Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: missing actual system Chrome"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Raw actual GitHub Pages private five noindex SSR and real Chrome negative
+        run: node scripts/04qr-w-mainc778-pages-private-robots5.mjs
