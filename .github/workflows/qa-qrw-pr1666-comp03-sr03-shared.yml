@@ -1,0 +1,162 @@
+name: QA ONLY PR1666 shared UI repair only (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-qrw-pr1666-comp03-sr03-shared.yml'
+permissions:
+  contents: read
+jobs:
+  # Original fixed actual-connection jobs remain on Run 43836332024 (HEAD14d70d83).
+  # UI-only repair: fetch complete Git ancestry for fixed exact24 parent check.
+  shared-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ebbbe21aef15640cb23a941cef2bc29e1951e1ed
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin actual source and keep production anchor null
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = ebbbe21aef15640cb23a941cef2bc29e1951e1ed
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs)" = '66c0abb8532b3dd1a52e234039bfc3aca992de6d'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-release.mjs)" = '09ac1481977d3034e13dda046f00e5dbaf6bf1e9'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-scoped-placement-transport.mjs)" = '0677da74b9b52f44b95ecf7f83fd15a03c3e1d7e'
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 'c519091b3bee4cde5459a20ac658ed236d094957'
+          test "$(git rev-parse HEAD:src/lib/dev/LocalPlacementEditorDev.svelte)" = '4c9d29d4278222b88b6a3c31d6397a17859d0d37'
+          test "$(git rev-parse HEAD:src/lib/dev/local-scoped-edit-worker-port.mjs)" = '1b838e9dac6e906b6ae1778bbb69ea949d875c55'
+          test "$(git rev-parse HEAD:src/lib/dev/product-placement-client.mjs)" = '652c86525404df1fa035ccd2cf47c54c8d48fc66'
+          test "$(git diff --name-only 78e5105a27df8d853e5e7fd4a40073e0c3b51242 HEAD | wc -l)" = 24
+          test "$(git rev-parse HEAD^{tree})" = debe0200cf56a00867529243f7e9eb6ab626e754
+          grep -Fx 'export const PROTECTED_COMP03_SPATIAL_RELEASE_ANCHOR=null;' src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual production static OFF for current shared routes
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run build
+          cat > tests/.qa-1248-static.mjs <<'NODE'
+          import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {spawn,spawnSync} from 'node:child_process';import {chromium} from 'playwright-core';
+          const origin='http://127.0.0.1:4187',server=spawn('python3',['-m','http.server','4187','--bind','127.0.0.1','--directory','build'],{stdio:'inherit'});let browser;
+          try{
+           for(let i=0;i<80;i++){try{if((await fetch(origin+'/editor/world/comp03/')).ok)break}catch{}await new Promise(r=>setTimeout(r,250))}
+           const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+           const page=await browser.newPage(),requests=[],errors=[];page.on('request',r=>requests.push(r.url()));page.on('pageerror',e=>errors.push(String(e)));
+           await page.addInitScript(()=>{const w=window.Worker;window.__qaWorkers=[];window.Worker=new Proxy(w,{construct(t,a,n){window.__qaWorkers.push(String(a[0]));return Reflect.construct(t,a,n)}})});
+           for(const [route,op] of [['/editor/world/comp03/?spatial=1&mode=public-accepted','comp03'],['/editor/world/comp03/?release=steam626-comp03-spatial','comp03'],['/editor/world/comp03/','comp03'],['/editor/world/sr03/?spatial=1&release=steam626-comp03-spatial','sr03'],['/editor/world/vase/?operation=sr03','vase'],['/editor/backpack/steam/?spatial=1','backpack-steam'],['/editor/backpack/switch/?spatial=1','backpack-switch'],['/editor/wardrobe/steam/?spatial=1','wardrobe-steam'],['/editor/wardrobe/switch/?spatial=1','wardrobe-switch']]){
+            const response=await page.goto(origin+route);assert.equal(response.status(),200);const r=page.locator('[data-placement-product-route="'+op+'"]');await r.waitFor();await page.waitForLoadState('networkidle');assert.equal(await r.getAttribute('data-placement-scope'),'off');assert.equal(await r.locator('input[type=file],[data-comp03-spatial-review]').count(),0);assert.equal(await page.evaluate(()=>window.__qaWorkers.length),0);
+           }
+           assert.equal(requests.filter(x=>/worker-wasm-scoped-|ddv_save_core_bg.wasm/.test(x)).length,0);assert.deepEqual(errors,[]);
+           console.log('QRW1666_STATIC_OFF_PASS '+JSON.stringify({staticRoutes:9,worker:0,scopedRequests:0,actualSignature:false}));
+          }finally{await browser?.close();server.kill()}
+          NODE
+          node tests/.qa-1248-static.mjs
+      - name: Isolated source DOM unmount while spatial pending
+        run: |
+          set -euo pipefail
+          mkdir -p src/routes/test-wep-spatial-review
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const source=readFileSync('src/lib/dev/LocalPlacementEditorDev.svelte','utf8');
+          const a="import {productPlacementPortScope} from './product-placement-client.mjs';";
+          const b="import {productPlacementPortScope} from './.qa-wep-review-scope.mjs';";
+          assert.equal(source.split(a).length,2);
+          const copy=source.replace(a,b);assert.equal(copy.replace(b,a),source);
+          writeFileSync('src/lib/dev/QaWepReview.svelte',copy);
+          NODE
+          cat > src/lib/dev/.qa-wep-review-scope.mjs <<'NODE'
+          // TEST ONLY: this module is never imported by the real product route.
+          // No real product brand, signature, Worker or editing authority.
+          const scopes=new WeakMap();
+          export const productPlacementPortScope=p=>scopes.get(p)||null;
+          export const fixtureScope=(p,which)=>{scopes.set(p,Object.freeze({uiOperation:which==='sr03'?'sr03':'comp03',mode:'private-product-v2',...(which==='spatial'?{spatialPreviewEnabled:true}:{})}));return p};
+          NODE
+          cat > src/routes/test-wep-spatial-review/+page.svelte <<'SVELTE'
+          <script>
+          import {onMount} from 'svelte';
+          import {setLocale} from '$lib/i18n/runtime.js';
+          import {localPlacementCopy} from '$lib/dev/local-placement-copy.mjs';
+          import QaWepReview from '$lib/dev/QaWepReview.svelte';
+          import {fixtureScope} from '$lib/dev/.qa-wep-review-scope.mjs';
+          let mode='spatial',adapter=null,generation=0;
+          const safe=(kind,extra={})=>({kind,ok:true,writerAuthorized:false,nativeV3Verified:false,originalOverwriteAuthorized:false,...extra});
+          const coords=[[16,24],[20,24],[24,24],[16,28],[20,28],[24,28],[16,32],[20,32],[24,32]];
+          const state={calls:[],hold:false,invalid:false,release:null};
+          function make(which){
+           let input=null,seed=82;
+           const a={
+            async open(r){input=r;state.calls.push('open');return safe('OPEN')},
+            async backupOriginal(){state.calls.push('backup');return {backupReadbackVerified:true,originalUnchanged:true,shaMatched:true,sizeMatched:true,separateName:true,originalName:input.file.name,originalSha256:input.originalSha256,originalSizeBytes:input.file.size,backupName:'synthetic-backup.p1g'}},
+            async previewPlacement(s){if(which==='sr03'){state.calls.push('preview:sr03');return {itemId:40100068,gridId:s.gridId,retainedId:s.retainedId,movedId:s.movedId,nextObjectId:50,oldAmount:10,newAmount:7,exactFieldChangedCount:8,inventoryDelta:-3,addObjects:3,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false}}seed=s.seedId;state.calls.push('preview:'+seed);return {itemId:40100038,gridId:301,seedId:seed,nextObjectId:92,oldAmount:99,newAmount:99,inventoryDelta:0,retainSeed:1,addObjects:8,exactFieldChangedCount:9,scopedCandidate:true,writerAuthorized:false,editedCopyAuthorized:false}},
+            async spatialPreview(...args){if(args.length)throw Error('fixture args');state.calls.push('spatial');if(state.hold)await new Promise(r=>state.release=r);return {rootSceneItemId:1540000150,gridId:state.invalid?999:301,seedId:seed,nextObjectId:92,anchors:coords.map(([x,y],i)=>({objectId:i===0?seed:91+i,x,y,role:i===0?'retained':'proposed'})),writerAuthorized:false,editedCopyAuthorized:false}},
+            async stagePlacement(){state.calls.push('stage');return safe('STAGED',{exactFieldChangedCount:which==='sr03'?8:9})},
+            async undo(){return safe('UNDONE')},async redo(){return safe('REDONE')},async exportEditedCopy(){throw Error('fixture never exports')},async downloadVerifiedCopy(){throw Error('fixture never downloads')},
+            async close(){state.calls.push('close');input=null;return safe('CLOSED')}
+           };
+           return fixtureScope(Object.freeze(a),which);
+          }
+          function change(which){mode=which;state.hold=false;state.invalid=false;state.release?.();state.release=null;adapter=make(which);generation++}
+          function replacePending(){const old=state.release;state.release=null;state.hold=false;state.invalid=false;mode='sr03';adapter=make('sr03');generation++;return old}
+          onMount(()=>{setLocale('en');window.__wepReview={state,change,replacePending,words:localPlacementCopy('en')};change('spatial')});
+          </script>
+          <div data-qa-review-shell>
+           {#if adapter}{#key generation}<QaWepReview trustedWorkerAdapter={adapter} fixedOperation={mode==='sr03'?'sr03':'comp03'}/>{/key}{/if}
+          </div>
+          SVELTE
+          cat > tests/.qa-wep-spatial-review-browser.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from 'playwright-core';
+          import {spawn,spawnSync} from 'node:child_process';
+          const origin='http://127.0.0.1:4186';
+          const server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4186','--strictPort'],{env:{...process.env,BASE_PATH:''},stdio:'inherit'});
+          let browser;
+          try{
+           let ready=false;for(let i=0;i<100;i++){try{if((await fetch(origin+'/test-wep-spatial-review/')).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,250))}assert.ok(ready,'server ready');
+           const bin=['google-chrome-stable','google-chrome','chromium'].find(x=>spawnSync('which',[x]).status===0);assert.ok(bin);
+           browser=await chromium.launch({headless:true,executablePath:spawnSync('which',[bin],{encoding:'utf8'}).stdout.trim(),args:['--no-sandbox','--disable-dev-shm-usage']});
+           const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+           page.on('pageerror',e=>errors.push(String(e)));
+           // Real unmodified product route; query cannot grant optional scope.
+           await page.addInitScript(()=>{const w=window.Worker;window.__wepWorkers=[];window.Worker=new Proxy(w,{construct(t,a,n){window.__wepWorkers.push(String(a[0]));return Reflect.construct(t,a,n)}})});
+           await page.goto(origin+'/editor/world/comp03/?spatial=1&mode=public-accepted');
+           const off=page.locator('[data-placement-product-route="comp03"]');await off.waitFor();
+           assert.equal(await off.getAttribute('data-placement-scope'),'off');assert.equal(await off.locator('input[type=file]').count(),0);assert.equal(await off.locator('[data-comp03-spatial-review]').count(),0);
+           assert.equal(await page.evaluate(()=>window.__wepWorkers.filter(x=>/comp03|placement/i.test(x)).length),0);
+           await page.goto(origin+'/test-wep-spatial-review/');
+           await page.waitForFunction(()=>!!window.__wepReview);
+           const w=await page.evaluate(()=>window.__wepReview.words);
+           const shell=page.locator('[data-qa-review-shell]'),ed=shell.locator('[data-dev-placement]'),plot=ed.locator('[data-comp03-spatial-review]');
+           const button=k=>ed.getByRole('button',{name:w[k],exact:true});
+           const waitHidden=async()=>{await plot.waitFor({state:'detached'});assert.equal(await plot.count(),0)};
+           async function prepare(sr=false){
+            const file=ed.locator('input[type=file]');await file.waitFor();
+            await file.setInputFiles({name:'synthetic.p1g',mimeType:'application/octet-stream',buffer:Buffer.alloc(16)});
+            await ed.locator('input[type=checkbox]').check();
+            await button('openFile').click();await button('backup').click();
+            const nums=ed.locator('input[type=number]');if(sr){assert.equal(await nums.count(),3);for(const [i,v] of ['90001','10','11'].entries())await nums.nth(i).fill(v)}else{assert.equal(await nums.count(),1);await nums.fill('82')}
+           }
+           // Distinct independent counterexample: destroy old component while companion awaits.
+           await prepare();await page.evaluate(()=>window.__wepReview.state.hold=true);await button('review').click();await page.waitForFunction(()=>!!window.__wepReview.state.release);await waitHidden();
+           await page.evaluate(()=>{window.__oldRelease=window.__wepReview.replacePending()});
+           await ed.locator('input[type=file]').waitFor();await waitHidden();
+           await page.evaluate(()=>{window.__oldRelease();delete window.__oldRelease});
+           await page.waitForTimeout(150);await waitHidden();assert.equal(await button('stagePlacement').count(),0);
+           // The old spatial receipt cannot publish into a newly mounted SR03.
+           await prepare(true);const before=await page.evaluate(()=>window.__wepReview.state.calls.filter(x=>x==='spatial').length);await button('review').click();await button('stagePlacement').waitFor();await waitHidden();
+           const preview=ed.locator('[data-placement-preview]');assert.match(await preview.innerText(),/50, 51, 52/);assert.match(await preview.innerText(),/10 → 7/);
+           const nums=ed.locator('input[type=number]');await nums.nth(2).fill('12');assert.equal(await button('stagePlacement').isDisabled(),true);await nums.nth(2).fill('11');await button('stagePlacement').click();await button('undo').waitFor();assert.equal(await page.evaluate(()=>window.__wepReview.state.calls.filter(x=>x==='spatial').length),before);await button('close').click();await ed.locator('input[type=file]').waitFor();await waitHidden();
+           // Return to spatial. Only its current generation receives nine markers.
+           await page.evaluate(()=>window.__wepReview.change('spatial'));await prepare();await button('review').click();await plot.waitFor();assert.equal(await plot.locator('[data-comp03-anchor]').count(),9);assert.equal(await plot.locator('[data-comp03-anchor="retained"]').count(),1);
+           await ed.locator('input[type=number]').fill('83');await waitHidden();assert.equal(await button('stagePlacement').isDisabled(),true);await ed.locator('input[type=number]').fill('82');await plot.waitFor();await button('stagePlacement').click();await button('undo').waitFor();await waitHidden();await button('close').click();await ed.locator('input[type=file]').waitFor();
+           assert.equal(errors.length,0,errors.join('\n'));
+           console.log('QRW1666_CROSS_DOMAIN_UI_PASS '+JSON.stringify({oldPendingUnmount:true,lateReceiptHidden:true,sr03Exact8Review:true,sr03NoSpatialCall:true,sr03StaleSelectorDenied:true,newGenerationAnchors:9,spatialStaleSelectorDenied:true,closeHidden:true,actualSigned:false,productV2:false}));
+          }finally{await browser?.close();server.kill('SIGTERM')}
+          NODE
+          node tests/.qa-wep-spatial-review-browser.mjs
+          git diff --exit-code -- src/lib/dev/LocalPlacementEditorDev.svelte src/lib/dev/local-placement-workflow.mjs src/lib/dev/PlacementProductRoute.svelte src/lib/dev/comp03-product-route-port.mjs src/lib/ddv/core/save/product-scoped-comp03-spatial-release-anchor.mjs
