@@ -1,0 +1,65 @@
+name: QR Scene Revision WEP current Cover browser acceptance
+
+on:
+  push:
+    branches: ['integration/qr-scene-revision-r17-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qr-scene-current-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scene-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Cross-product exact 03 COMM + 02 WEP negative contracts
+        run: |
+          node --test tests/qr-scene-cross-product-r17-contract.test.mjs
+          node --test tests/qr-scene-r17-release-negative.test.mjs
+      - name: Resolve actual Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Start isolated synthetic UI (no staging Auth or Storage)
+        shell: bash
+        env:
+          VITE_SUPABASE_URL: https://staging.example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_synthetic_readonly_only
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4189 > /tmp/qr-scene-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4189/presets/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr-scene-vite.log
+          exit 1
+      - name: Actual Chrome 320px/current Scene signed-Cover fake network/retry rejection
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          WEP_SCENE_BASE_URL: http://127.0.0.1:4189
+        run: node scripts/wep-scene-revision-readonly-browser.mjs
+      - name: Archive evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-scene-wep-readonly-synthetic-chrome
+          path: .artifacts/wep-scene-revision-browser/
+          if-no-files-found: error
