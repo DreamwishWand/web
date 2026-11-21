@@ -1,0 +1,47 @@
+name: 09 INT ACT380 Hosted Synthetic WebP Evidence (QA ONLY)
+on:
+  push:
+    branches:
+      - '09int/qa-act380-hosted-*'
+permissions:
+  contents: read
+jobs:
+  hosted-canary-exact3:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact accepted product commit for canonical expected bytes
+        uses: actions/checkout@v4
+        with:
+          ref: 40a0bd002ac31f61d2dddfb598debeacababbe69
+          persist-credentials: false
+      - name: Verify three hosted GET and HEAD bodies against original source bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_dir='static/__dbk-takedown-rehearsal__/20261113'
+          public_base='https://dreamwishwand.github.io/web/__dbk-takedown-rehearsal__/20261113'
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          for n in alias canary control; do
+            source_file="$source_dir/$n.webp"
+            test -f "$source_file"
+            test "$(wc -c < "$source_file" | tr -d ' ')" = 44
+            success=0
+            for attempt in 1 2 3 4 5 6; do
+              code=$(curl --silent --show-error --location --connect-timeout 15 --max-time 35 --dump-header "$work/get.headers" --output "$work/get.webp" --write-out '%{http_code}' "$public_base/$n.webp") || code=000
+              if [[ "$code" = 200 ]] && cmp -s "$source_file" "$work/get.webp"; then success=1; break; fi
+              if [[ "$attempt" != 6 ]]; then sleep 8; fi
+            done
+            if [[ "$success" != 1 ]]; then echo "HOSTED_CANARY_GET_OR_BYTES_RED $n HTTP=$code"; exit 1; fi
+            get_mime=$(awk 'tolower($1)=="content-type:" {print tolower($2)}' "$work/get.headers" | tr -d '\r' | tail -n 1)
+            [[ "$get_mime" = image/webp* ]] || { echo "HOSTED_CANARY_GET_MIME_RED $n $get_mime"; exit 1; }
+            hcode=$(curl --silent --show-error --location --head --connect-timeout 15 --max-time 35 --dump-header "$work/head.headers" --output /dev/null --write-out '%{http_code}' "$public_base/$n.webp") || hcode=000
+            [[ "$hcode" = 200 ]] || { echo "HOSTED_CANARY_HEAD_RED $n HTTP=$hcode"; exit 1; }
+            head_mime=$(awk 'tolower($1)=="content-type:" {print tolower($2)}' "$work/head.headers" | tr -d '\r' | tail -n 1)
+            [[ "$head_mime" = image/webp* ]] || { echo "HOSTED_CANARY_HEAD_MIME_RED $n $head_mime"; exit 1; }
+            echo "HOSTED_CANARY_GET_HEAD_BYTES_MIME_SHA256_PASS $n $(sha256sum "$source_file" | awk '{print $1}')"
+          done
+          cmp -s "$source_dir/alias.webp" "$source_dir/canary.webp"
+          ! cmp -s "$source_dir/control.webp" "$source_dir/canary.webp"
+          echo 'ACT380_SYNTHETIC_HOSTED_GET_HEAD_3OF3_PASS_WITHOUT_REMOVAL_RESTORE'
