@@ -1,0 +1,32 @@
+name: 05 QR-C PR1067 independent protected lock contract
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1067-lock-recovery.mjs'
+      - '.github/workflows/05qrc-pr1067-lock-recovery.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Fixed Source original6 and QA-only scope
+        run: |
+          git merge-base --is-ancestor 14db794f05ecbb2b5e5662a0bdb8f1e38f79cc41 HEAD
+          test "$(git diff --name-only 14db794f05ecbb2b5e5662a0bdb8f1e38f79cc41 HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs)" = 1a0cd2e949685584ed6fb48000a56907b800844b
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/approved-Cargo.lock)" = b667b42cfef2032c2925be7b2aa9b7142bff4b52
+          git fetch origin main
+      - name: Actual shared loader provenance and preflight negatives
+        run: node --test tests/qa/05qrc-pr1067-lock-recovery.mjs
