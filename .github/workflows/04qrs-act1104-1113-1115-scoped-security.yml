@@ -1,0 +1,137 @@
+name: 04 QR-S fixed security boundaries (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1104-1113-1115-scoped-security.yml'
+permissions:
+  contents: read
+jobs:
+  r22-exact4:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f6300643dddfeac0abc5dd7954edd3904821bde2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual fixed exact4 gate, isolated Git composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:scripts/wasm-distribution/r22-accepted-rust-scope.mjs)" = 1ee2685f10b7a03a47b7022577fffee8dd6d1196
+          git fetch --no-tags origin f0f1b3441c0b5507818797a5e74441a6400f9a68 5a5ce7eab0e5922d15e50b9ed699c44570c23f30 eaeafb84b55d522f1f6eab6e84d879780fc1d031 2ec84d06a24d5fe964c7e8b8186a6b442650593b
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
+          import {verifyAcceptedRustScope} from './scripts/wasm-distribution/r22-accepted-rust-scope.mjs';
+          const gate='scripts/wasm-distribution/r22-accepted-rust-scope.mjs',core='crates/ddv-save-core';
+          const old='2ec84d06a24d5fe964c7e8b8186a6b442650593b',oldPost='eaeafb84b55d522f1f6eab6e84d879780fc1d031',main='f0f1b3441c0b5507818797a5e74441a6400f9a68',child='5a5ce7eab0e5922d15e50b9ed699c44570c23f30',fixed='f6300643dddfeac0abc5dd7954edd3904821bde2';
+          const dir=fs.mkdtempSync(path.join(os.tmpdir(),'act1104-')),repo=path.join(dir,'repo'),idx=path.join(dir,'index');
+          const env={...process.env,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_AUTHOR_NAME:'QA',GIT_AUTHOR_EMAIL:'qa@example.invalid',GIT_COMMITTER_NAME:'QA',GIT_COMMITTER_EMAIL:'qa@example.invalid'};
+          const run=(cwd,args,more={},input)=>execFileSync('git',args,{cwd,env:{...env,...more},input,encoding:'utf8',stdio:['pipe','pipe','pipe'],maxBuffer:16*1024*1024}).trim();
+          const g=(...a)=>run(repo,a),ix=(...a)=>run(repo,a,{GIT_INDEX_FILE:idx});
+          const get=(rev,p)=>{const m=/^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/.exec(g('ls-tree',rev,'--',p));assert(m&&m[3]===p);return [m[1],m[2]]};
+          const set=(p,m,b)=>ix('update-index','--add','--cacheinfo',m+','+b+','+p);
+          const blob=s=>run(repo,['hash-object','-w','--stdin'],{},s);
+          const make=(base,from,paths,edit=()=>{})=>{fs.rmSync(idx,{force:true});ix('read-tree',base);for(const p of paths)set(p,...get(from,p));edit();return run(repo,['commit-tree',ix('write-tree'),'-p',base],{},'isolated model\n')};
+          const check=(base,candidate,count)=>{const r=verifyAcceptedRustScope(repo,base,candidate);assert.equal(r.entryCount,count);assert.equal(r.mergeAuthorized,false);assert.equal(r.writerAuthorized,false)};
+          let pos=0,neg=0;const yes=(name,fn)=>{fn();pos++;console.log('POS',name)},no=(name,fn)=>{assert.throws(fn,undefined,name);neg++;console.log('NEG',name)};
+          try{
+            run(process.cwd(),['clone','--no-hardlinks','--no-checkout',process.cwd(),repo]);
+            const oldPaths=g('diff','--name-only',old,oldPost).split('\n');assert.equal(oldPaths.length,15);
+            const gates=['scripts/wasm-distribution/verify-protected-release.mjs',gate,'scripts/int-selection-preflight.mjs'];
+            const base15=make(old,fixed,gates);const candidate15=make(base15,oldPost,oldPaths);
+            yes('historical exact15 preserved',()=>check(base15,candidate15,15));
+            const base4=make(main,fixed,[gate]);const paths=['product_amount_scoped.rs','product_switch626_chest.rs','wasm_worker.rs','worker_session.rs'].map(p=>core+'/src/'+p);
+            const exact=make(base4,child,paths);
+            assert.equal(g('rev-parse',base4+':'+core),'ca1ef1772b53ff535618fc8263cd647f757f3dad');
+            assert.equal(g('rev-parse',exact+':'+core),'2b50d1208e830433bd86bb9506b8cf67228d518d');
+            yes('actual exact4 on modeled accepted gate',()=>check(base4,exact,4));
+            const noncore=make(base4,child,[],()=>set('qa-noncore','100644',blob('synthetic')));
+            yes('non-Core drift retains exact4',()=>check(noncore,make(noncore,child,paths),4));
+            no('self introducing gate',()=>check(main,exact,4));
+            no('missing path',()=>check(base4,make(base4,child,paths.slice(1)),4));
+            no('extra non-Core path',()=>check(base4,make(base4,child,paths,()=>set('qa-extra','100644',blob('extra'))),4));
+            no('changed Core blob',()=>check(base4,make(base4,child,paths,()=>set(paths[0],'100644',blob('changed'))),4));
+            no('changed mode',()=>check(base4,make(base4,child,paths,()=>set(paths[0],'100755',get(child,paths[0])[1])),4));
+            no('gate change',()=>check(base4,make(base4,child,paths,()=>set(gate,'100644',blob('changed'))),4));
+            const drift=make(base4,child,[],()=>set(core+'/src/qa-drift.rs','100644',blob('synthetic')));
+            no('base Core drift',()=>check(drift,make(drift,child,paths),4));
+            no('mixed old/new pair',()=>check(base15,make(base15,child,paths),4));
+            no('wrong ancestor',()=>check(base4,base15,4));
+            console.log('ACT1104_EXACT4_PASS',JSON.stringify({pos,neg,actualGit:true,actualProtectedApproval:false,authority:false}));
+          }finally{fs.rmSync(dir,{recursive:true,force:true})}
+          JS
+  embed:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - act: ACT1113
+            head: 9c35b6171117630a5cbe671026c6397b5e6fa59f
+            workflow: 10d0f078f9b00e41684dce2c40e604b6b4f3a195
+            module: product_vase_effective.rs
+            pack: steam626-vase-geometry-quota.jsonl
+            count: 6
+          - act: ACT1115
+            head: 83c04cfc92e64c87aae983051299c83f6a4db1af
+            workflow: 75f920e815b2353e00ce39fe0f7f8baaf7900018
+            module: comp03_product_target.rs
+            pack: steam626-placement-applicable-supplement.json
+            count: 5
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.head }}
+          persist-credentials: false
+      - name: Actual fixed workflow shell and isolated mutation denials
+        env:
+          QA_ACT: ${{ matrix.act }}
+          QA_HEAD: ${{ matrix.head }}
+          QA_WORKFLOW: ${{ matrix.workflow }}
+          QA_MODULE: ${{ matrix.module }}
+          QA_PACK: ${{ matrix.pack }}
+          QA_COUNT: ${{ matrix.count }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$QA_HEAD"
+          test "$(git rev-parse HEAD:.github/workflows/core-product-session-boundary.yml)" = "$QA_WORKFLOW"
+          python3 - <<'PY'
+          import os, subprocess as s, tempfile, pathlib, yaml, re, json, hashlib
+          root=os.getcwd(); core=pathlib.Path('crates/ddv-save-core')
+          raw=pathlib.Path('.github/workflows/core-product-session-boundary.yml').read_text()
+          doc=yaml.load(raw,Loader=yaml.BaseLoader)
+          run=next(x['run'] for j in doc['jobs'].values() for x in j.get('steps',[]) if x.get('name')=='Reject embedded private files or Writer promotion')
+          pins=re.findall(r"'([0-9a-f]{64})  (crates/ddv-save-core/data/[^']+)'",run)
+          assert len(pins)==int(os.environ['QA_COUNT'])
+          for sha,p in pins: assert hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==sha
+          with tempfile.TemporaryDirectory() as d:
+              s.run(['git','clone','--no-hardlinks','--no-checkout',root,d],check=True,stdout=s.DEVNULL)
+              os.chdir(d)
+              def git(*a):return s.check_output(['git',*a],text=True).strip()
+              git('checkout','--detach',os.environ['QA_HEAD'])
+              git('config','user.name','QA');git('config','user.email','qa@example.invalid')
+              def check():return s.run(['bash','-e','-o','pipefail','-c',run],capture_output=True).returncode==0
+              assert check();print('POS exact fixed source and all raw pins')
+              neg=0
+              def mutation(name,fn):
+                  global neg
+                  fn();git('add','-A');git('commit','-m','synthetic QA mutation')
+                  assert not check(),name
+                  neg+=1; print('NEG',name)
+                  git('reset','--hard',os.environ['QA_HEAD']);git('clean','-fd')
+              module=core/'src'/os.environ['QA_MODULE'];pack=core/'data'/os.environ['QA_PACK']
+              mutation('changed approved bytes',lambda:pack.write_bytes(pack.read_bytes()+b'\n'))
+              mutation('changed include literal',lambda:module.write_text(module.read_text().replace('../data/'+pack.name,'../data/qa-unapproved.json')))
+              mutation('extra include',lambda:module.write_text(module.read_text()+'\nconst QA_EXTRA:&[u8]=include_bytes!("../data/'+pack.name+'");\n'))
+              mutation('unapproved source path',lambda:module.rename(core/'src'/'qa-unapproved.rs'))
+              mutation('old approved pack changed',lambda:pathlib.Path(pins[0][1]).write_bytes(pathlib.Path(pins[0][1]).read_bytes()+b'\n'))
+              mutation('synthetic private-marker extra include',lambda:module.write_text(module.read_text()+'\nconst QA_PRIVATE:&[u8]=include_bytes!("../data/qa-private.json");\n'))
+              print(os.environ['QA_ACT']+'_EMBED_PASS',json.dumps({'pos':1,'neg':neg,'pins':len(pins),'actualShell':True,'privateData':False,'authority':False}))
+              os.chdir(root)
+          PY
