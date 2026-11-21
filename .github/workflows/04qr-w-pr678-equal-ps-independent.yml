@@ -1,0 +1,50 @@
+name: "04 QR-W PR678 independent P=S Chrome and source negative"
+on:
+  pull_request:
+    paths:
+      - "scripts/04qr-w-pr678-equal-ps-chrome.mjs"
+      - "tests/04qr-w-pr678-equal-ps-source.test.mjs"
+      - ".github/workflows/04qr-w-pr678-equal-ps-independent.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  equal-ps-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --no-audit --no-fund
+      - name: New-only exact 3 Source blob and typed P/S semantics negatives
+        run: node --test tests/04qr-w-pr678-equal-ps-source.test.mjs
+      - name: Build static fallback, no published typed P/S prerender
+        env:
+          BASE_PATH: /web
+        run: npm run build
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve actual Chrome binary and start isolated Vite server
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4203 >/tmp/qr678-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4203/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr678-vite.log
+          exit 1
+      - name: Independent actual Chromium 8 locale equal P/S, 320/200, keyboard, 404 and no uploads
+        env:
+          QR678_E2E_URL: http://127.0.0.1:4203
+        run: node scripts/04qr-w-pr678-equal-ps-chrome.mjs
