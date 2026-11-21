@@ -1,0 +1,67 @@
+name: INT ACT1042 affected Hosted Storage MOVE acceptance (never merge)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-int-act1042-hosted-storage.yml'
+permissions:
+  contents: read
+jobs:
+  hosted-storage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8121f0767a1aee82969f75d189a1b8614c2c17da
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify deployed source and fixed harness
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '8121f0767a1aee82969f75d189a1b8614c2c17da'
+          test "$(git rev-parse HEAD:src/lib/wep/storage-furniture-v125.ts)" = ec6f2ec01b959ab8eb612d51c3fb822cb75ecf9c
+          test "$(git rev-parse HEAD:src/routes/editor/world/+page.svelte)" = 5f334aed2923a0c2c0d4bf39827a29d164c9742b
+          curl --fail --silent --show-error --max-time 30 'https://dreamwishwand.github.io/web/worker-wasm/manifest.json' -o /tmp/act1042-manifest.json
+          node --input-type=module -e 'import fs from "node:fs";import assert from "node:assert/strict";const m=JSON.parse(fs.readFileSync("/tmp/act1042-manifest.json"));assert.equal(m.source.commit,"8121f0767a1aee82969f75d189a1b8614c2c17da");assert.equal(m.release.productConsumerEnabled,false);assert.equal(m.release.writerAuthorized,false);console.log("ACT1042_HOSTED_SOURCE_PIN_PASS",m.source.commit)'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real HTTPS browser synthetic MOVE with existing harness
+        env:
+          WEP_STORAGE_BASE_URL: https://dreamwishwand.github.io/web
+        run: |
+          set -euo pipefail
+          export CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          node scripts/wep-storage-furniture-browser-acceptance.mjs
+      - name: Independent process full-document encrypted Reopen
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          import {p1gPackagedProfileCodec as codec} from './src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
+          const dir='.artifacts/wep-storage-furniture-browser/';
+          const [backup,edited,report]=await Promise.all([readFile(dir+'storage-original.profile'),readFile(dir+'storage-edited.profile'),readFile(dir+'acceptance-report.json','utf8').then(JSON.parse)]);
+          assert.equal(report.result,'PASS'); assert.equal(report.sourceImmutability,'PASS');
+          assert.equal(createHash('sha256').update(backup).digest('hex'),report.sourceSha256);
+          assert.notDeepEqual(backup,edited);
+          const a=await codec.loadProfile(new Uint8Array(backup));const b=await codec.loadProfile(new Uint8Array(edited));
+          assert.equal(a.inputType,'packaged');assert.equal(b.inputType,'packaged');
+          const expected=JSON.parse(a.jsonText);const actual=JSON.parse(b.jsonText);
+          const object=expected.World.GridCollection.Grids['10'].Objects['42'];
+          assert.equal(object.X,report.legalPlacement.x);assert.equal(object.Y,report.legalPlacement.y);
+          object.X=report.legalPlacement.afterX;object.Y=report.legalPlacement.afterY;
+          assert.deepEqual(actual,expected);
+          console.log('ACT1042_HOSTED_STORAGE_MOVE_FULL_DOCUMENT_REOPEN_PASS');
+          NODE
+          curl --fail --silent --show-error --max-time 30 'https://dreamwishwand.github.io/web/worker-wasm/manifest.json' -o /tmp/act1042-manifest-after.json
+          cmp /tmp/act1042-manifest.json /tmp/act1042-manifest-after.json
+          echo ACT1042_HOSTED_STORAGE_MOVE_ACCEPTANCE_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: act1042-hosted-storage-synthetic-report
+          path: .artifacts/wep-storage-furniture-browser/acceptance-report.json
+          if-no-files-found: ignore
