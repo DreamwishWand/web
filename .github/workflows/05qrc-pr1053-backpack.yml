@@ -1,0 +1,37 @@
+name: 05 QR-C PR1053 independent Backpack pair
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_pr1053_backpack.rs'
+      - '.github/workflows/05qrc-pr1053-backpack.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Fixed Source and QA-only scope
+        run: |
+          git merge-base --is-ancestor 74a172ddfce1a299cfef6bb9d3c539a864fc7f7d HEAD
+          test "$(git diff --name-only 74a172ddfce1a299cfef6bb9d3c539a864fc7f7d HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = d0d0a776dd3404e340e3f61f94bd6af95b1fb1da
+          test "$(git rev-parse HEAD:crates/ddv-save-core/examples/wand-private-backpack-slot-pair-read.rs)" = 44318f10828770572aac1cb3b907cb3a8927c217
+      - name: Native independent exact spans and scope
+        run: |
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --test qa_pr1053_backpack -- --nocapture
+          cargo test --locked --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features private-native-v1,semantic-writer-dev --test qa_pr1053_backpack -- --nocapture
+      - name: Public and DEV WASM feature checks
+        run: |
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
