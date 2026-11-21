@@ -1,0 +1,215 @@
+name: "04 QR-S ACT1720 Steam626 Bamboo per-Op proof signer Security L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qrs-act1720-pr2124-bamboo-foreign-stage-repair-l2.yml"
+permissions:
+  contents: read
+jobs:
+  bamboo-signer-refutation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9e4d91a45d64175b21ebf7be857e0dd58ca9c594
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.99.1"
+      - name: Original tests and independent issuer, readonly-only ABI, real CLI symlink negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/steam-bamboo-perop-proof.test.mjs
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cat > qrs-act1720-independent.mjs <<'NODE'
+          import assert from 'node:assert/strict';
+          import {spawnSync,execFileSync} from 'node:child_process';
+          import {Buffer} from 'node:buffer';
+          import {createHash} from 'node:crypto';
+          import {existsSync,mkdirSync,readFileSync,writeFileSync,rmSync,symlinkSync,lstatSync,renameSync,mkdtempSync} from 'node:fs';
+          import {join,resolve} from 'node:path';
+          import {tmpdir} from 'node:os';
+          import {inspectBambooProofSubjects,validateBambooProofManifest}
+            from './scripts/readonly-release/steam-bamboo-perop-signed.mjs';
+          const head='9e4d91a45d64175b21ebf7be857e0dd58ca9c594';
+          const base='3b87b852ec827179587c9853d4560ae755d750f1';
+          const cli='scripts/readonly-release/steam-bamboo-perop-signed.mjs';
+          const paths=['.github/workflows/09p-steam626-bamboo-perop-proof.yml',
+            cli,'tests/steam-bamboo-perop-proof.test.mjs'];
+          const expected=['372068af10e1ebe5e49747aeed1a5ada0c3e5a74',
+            'fba726a287ae9cee75caa93a2325a5b12fc5d92f',
+            '8be1b93e9d4e4bfaebd10a32837ac234839ef29d'];
+          const git=(...args)=>execFileSync('git',args,{encoding:'utf8',
+            env:{...process.env,GIT_NO_REPLACE_OBJECTS:'1'}}).trim();
+          const blob=(ref,path)=>{
+            const m=/^(100644|100755|120000) blob ([0-9a-f]{40})\t(.+)$/
+              .exec(git('ls-tree',ref,'--',path));
+            assert.ok(m&&m[3]===path);
+            return {mode:m[1],sha:m[2]};
+          };
+          const sha=x=>createHash('sha256').update(x).digest('hex');
+          const maybe=p=>{try{return lstatSync(p)}catch{return null}};
+          let pos=0,neg=0;
+          assert.equal(git('rev-parse','HEAD'),head);
+          assert.equal(git('merge-base',base,head),base);
+          assert.deepEqual(git('diff','--name-only',base,head).split('\n').sort(),paths.slice().sort());
+          paths.forEach((p,i)=>assert.deepEqual(blob(head,p),{mode:'100644',sha:expected[i]}));
+          for(const p of ['.github/workflows/pages.yml','.github/workflows/ci.yml',
+            'scripts/readonly-release/seal.mjs',
+            'scripts/wasm-distribution/protected-release-inputs.json',
+            'scripts/wasm-distribution/approved-Cargo.lock',
+            'crates/ddv-save-core/Cargo.toml',
+            'crates/ddv-save-core/src/worker_steam_bamboo_readonly.rs',
+            'crates/ddv-save-core/src/wasm_steam_bamboo_readonly.rs']){
+            assert.deepEqual(blob(head,p),blob(base,p),p+' immutable');
+          }
+          pos++;
+          const workflow=readFileSync(paths[0],'utf8');
+          assert.match(workflow,/workflow_dispatch:/);
+          assert.match(workflow,/if: github.event_name == 'workflow_dispatch' && inputs.scoped_bamboo_proof_source != '' && github.ref == 'refs\/heads\/main'/);
+          assert.match(workflow,/permissions:\s+contents: read/);
+          assert.match(workflow,/id-token: write/);
+          assert.match(workflow,/attestations: write/);
+          assert.doesNotMatch(workflow,/deploy-pages@|upload-pages-artifact@|static\/worker-wasm\/ddv_save_core\.js/);
+          assert.match(workflow,/persist-credentials: false/);
+          assert.match(workflow,/--no-default-features --features product-steam626-bamboo-readonly,worker-wasm/);
+          assert.match(workflow,/actions\/attest-build-provenance@v2/);
+          assert.match(workflow,/node scripts\/readonly-release\/steam-bamboo-perop-signed\.mjs ci-recheck/);
+          assert.match(workflow,/node scripts\/readonly-release\/steam-bamboo-perop-signed\.mjs verify-signed/);
+          assert.match(workflow,/test ! -e static\/worker-wasm-steam626-bamboo-perop/);
+          assert.match(workflow,/test ! -e build\/worker-wasm-steam626-bamboo-perop/);
+          assert.match(workflow,/bamboo-proof\/pins.json/);
+          assert.match(workflow,/bamboo-proof\/bundle.jsonl/);
+          pos++;
+
+          const env={...process.env,WAND_PROOF_EXPECTED_SOURCE:head,
+            GITHUB_REPOSITORY:'DreamwishWand/web',GITHUB_REPOSITORY_ID:'1371485649',
+            GITHUB_EVENT_NAME:'pull_request'};
+          const run=(mode,patch={})=>spawnSync('node',[cli,mode],
+            {env:{...env,...patch},encoding:'utf8',timeout:60000});
+          const good=run('preflight');
+          assert.equal(good.status,0,good.stderr);
+          assert.match(good.stdout,/BAMBOO_PROOF_EXACT_SOURCE_PUBLIC_OFF/);
+          pos++;
+          const deny=(mode,patch,label)=>{
+            const r=run(mode,patch);
+            assert.notEqual(r.status,0,label);
+            assert.match(r.stderr,/BAMBOO_PEROP_PROOF_DENIED/,label);
+            neg++;
+          };
+          deny('preflight',{GITHUB_REPOSITORY_ID:'0'},'wrong repo identity');
+          deny('preflight',{WAND_PROOF_EXPECTED_SOURCE:'f'.repeat(40)},'foreign Source HEAD');
+          deny('preflight',{GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/feature',
+            GITHUB_SHA:head,GITHUB_WORKFLOW_SHA:head,
+            GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/09p-steam626-bamboo-perop-proof.yml@refs/heads/main'},'nonmain proof dispatch');
+          deny('preflight',{GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/main',
+            GITHUB_SHA:head,GITHUB_WORKFLOW_SHA:'f'.repeat(40),
+            GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/09p-steam626-bamboo-perop-proof.yml@refs/heads/main'},'foreign signer workflow SHA');
+          deny('preflight',{GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/main',
+            GITHUB_SHA:head,GITHUB_WORKFLOW_SHA:head,
+            GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/other.yml@refs/heads/main'},'foreign workflow issuer');
+
+          const method='read_steam626_bamboo_single_target';
+          const exp=Buffer.from(method);
+          const sec=(id,data)=>Buffer.from([id,data.length,...data]);
+          const wasm=Buffer.concat([Buffer.from([0,97,115,109,1,0,0,0]),
+            sec(1,[1,0x60,0,0]),sec(3,[1,0]),
+            sec(7,[1,exp.length,...exp,0,0]),sec(10,[1,2,0,0x0b])]);
+          assert.deepEqual(WebAssembly.Module.exports(new WebAssembly.Module(wasm)).map(x=>x.name),[method]);
+          const js=Buffer.from('export function '+method+'(){ return 0; }\n');
+          const make=(customJs=js,customWasm=wasm,mutate=()=>{})=>{
+            const m={contract:'wand.steam626.bamboo40700007.signed-proof-only@1',
+              kind:'THREE_PROOF_SUBJECTS_NO_PUBLIC_DEPLOY',
+              source:{repository:'DreamwishWand/web',commit:head,
+                buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
+                cargoTomlGitBlob:'e4f2e2c5d4451baba2dea699fe497cb7b40668d4',
+                cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',
+                rustcVersion:'1.99.1',wasmBindgenCliVersion:'0.2.105',
+                features:['product-steam626-bamboo-readonly','worker-wasm'],defaultFeatures:false},
+              assets:{js:{path:'ddv_save_core.js',sizeBytes:customJs.length,sha256:sha(customJs)},
+                wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:customWasm.length,sha256:sha(customWasm)}},
+              release:{proofOnly:true,publicAssets:false,productConsumerEnabled:false,
+                writerAuthorized:false,stageAuthorized:false,editedCopyAuthorized:false,
+                operationOn:false,autoUpload:false},
+              abi:{exportClass:'WorkerWasmSource',method,itemId:40700007,readOnly:true,
+                writerAuthorized:false,stageAuthorized:false,editedCopyAuthorized:false}};
+            mutate(m);
+            const bytes=[Buffer.from(JSON.stringify(m)),customJs,customWasm];
+            return {m,bytes};
+          };
+          const {m,bytes}=make();
+          assert.equal(validateBambooProofManifest(m,bytes,head),true);
+          const pin=inspectBambooProofSubjects(bytes,head);
+          assert.equal(pin.publicAssets,false);
+          assert.equal(pin.writerAuthorized,false);
+          assert.equal(pin.operationOn,false);
+          assert.equal(pin.verifiedSignature,false);
+          assert.deepEqual([pin.manifestSha256,pin.jsSha256,pin.wasmSha256],bytes.map(sha));
+          pos++;
+          function rejectInspector(js2,reason){
+            const candidate=make(Buffer.from(js2));
+            let denied=false;try{inspectBambooProofSubjects(candidate.bytes,head)}catch(e){
+              assert.match(String(e),/BAMBOO_PEROP_PROOF_DENIED/);denied=true;}
+            if(!denied)throw Error('TRUE_RED_BAMBOO_PROOF_READONLY_FOREIGN_STAGE_EXPORT_ACCEPTED:'+reason);
+            neg++;
+          }
+          rejectInspector(js.toString()+'export function dev_stage() {}\n','known dev Stage');
+          rejectInspector(js.toString()+'export function stage_steam626_bamboo() {}\n','known Bamboo Stage');
+          rejectInspector(js.toString()+'export function export_steam626_bamboo() {}\n','known Bamboo Export');
+          // A proof with readOnly=true must not bless *any* unrelated
+          // game-save mutation entrypoint. This is a contract refutation,
+          // not an assertion that the genuine accepted Rust build contains it.
+          rejectInspector(js.toString()+'export function stage_steam626_chest() {}\n','foreign Chest Stage');
+          rejectInspector(js.toString()+'export function export_steam626_chest() {}\n','foreign Chest Export');
+
+          const stage='tests/stage-e/pkg';
+          mkdirSync(stage,{recursive:true});
+          writeFileSync(join(stage,'ddv_save_core.js'),js);
+          writeFileSync(join(stage,'ddv_save_core_bg.wasm'),wasm);
+          const toolsPath='tests/qrs-act1720-bindgen-version-test';
+          writeFileSync(toolsPath,'#!/bin/sh\nprintf "wasm-bindgen 0.2.105\\n"\n',{mode:0o700});
+          const candidate=()=>run('candidate',{WAND_BINDGEN_CLI:resolve(toolsPath)});
+          const parent='tests/wasm-distribution/fixtures';
+          const dir=join(parent,'steam626-bamboo-perop-proof');
+          assert.equal(existsSync(parent),false,'fresh checkout must not already contain private fixture parent');
+          const clean=candidate();
+          assert.equal(clean.status,0,clean.stderr);
+          assert.match(clean.stdout,/BAMBOO_PROOF_THREE_REAL_UNSIGNED_SUBJECTS_NO_PUBLIC_ON/);
+          assert.equal(lstatSync(dir).isDirectory(),true);
+          pos++;
+          deny('candidate',{WAND_BINDGEN_CLI:resolve(toolsPath)},'duplicate child blocks replay');
+          rmSync(parent,{recursive:true,force:true});
+          const out=mkdtempSync(join(tmpdir(),'qrs-bamboo-outside-'));
+          try{
+            const foreign=join(out,'foreign');mkdirSync(foreign);
+            symlinkSync(foreign,parent,'dir');
+            deny('candidate',{WAND_BINDGEN_CLI:resolve(toolsPath)},'symlink private fixtures parent');
+            assert.equal(existsSync(join(foreign,'steam626-bamboo-perop-proof')),false);
+            rmSync(parent,{force:true});
+            writeFileSync(parent,'foreign data');
+            deny('candidate',{WAND_BINDGEN_CLI:resolve(toolsPath)},'non-directory parent');
+            assert.equal(readFileSync(parent,'utf8'),'foreign data');
+            rmSync(parent,{force:true});
+          }finally{
+            if(maybe(parent))rmSync(parent,{recursive:true,force:true});
+            rmSync(out,{recursive:true,force:true});
+          }
+          pos++;
+          assert.equal(existsSync('static/worker-wasm-steam626-bamboo-perop'),false);
+          assert.equal(existsSync('build/worker-wasm-steam626-bamboo-perop'),false);
+          pos++;
+          console.log('QRS_ACT1720_BAMBOO_REPAIRED_SIGNER_SECURITY_L2_PASS',JSON.stringify({
+            positive:pos,negative:neg,sourceHead:head,base,
+            exactThreeAdd:true,protectedMainIssuerDenied:true,
+            syntheticProofOnly:true,actualRustGeneratedHere:false,
+            actualSigstore3Here:false,realSourceCiGenuineWasmInherited:true,
+            publicReader:false,publicWriter:false,operationOn:false
+          }));
+          NODE
+          node qrs-act1720-independent.mjs
