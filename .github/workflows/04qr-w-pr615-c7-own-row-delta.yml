@@ -1,0 +1,31 @@
+name: "04 QR-W PR615 c7 R39 own ItemID row differential"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-pr615-c7-own-row-delta.yml'
+      - 'tests/04qr-w-pr615-c7-own-row-delta.test.mjs'
+permissions:
+  contents: read
+jobs:
+  independent-own-data-provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed Source new-only negative (no game art, no private Save)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node --check tests/04qr-w-pr615-c7-own-row-delta.test.mjs
+          node --test tests/04qr-w-pr615-c7-own-row-delta.test.mjs
