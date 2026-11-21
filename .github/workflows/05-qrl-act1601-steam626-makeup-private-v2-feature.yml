@@ -1,0 +1,110 @@
+name: 05 QR-L ACT1601 Steam626 Makeup feature-only WASM evidence (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05-qrl-act1601-steam626-makeup-private-v2-feature.yml'
+permissions:
+  contents: read
+jobs:
+  private-lab-artifact:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qrl-act1601-rust
+      QRL_QA_PATH: .github/workflows/05-qrl-act1601-steam626-makeup-private-v2-feature.yml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pin exact accepted product Source and one-file QA-only diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "93332153aed6b3b24ae885084470974c367eb484" HEAD
+          test "$(git diff --name-only "93332153aed6b3b24ae885084470974c367eb484" HEAD | wc -l)" -eq 1
+          git diff --name-only "93332153aed6b3b24ae885084470974c367eb484" HEAD | grep -Fx "$QRL_QA_PATH"
+          test -f crates/ddv-save-core/src/wasm_steam626_makeup_color1.rs
+          test -f crates/ddv-save-core/src/worker_steam626_makeup_color1.rs
+          grep -Fx 'product-steam626-makeup-color1-scoped = ["semantic-writer-dev"]' crates/ddv-save-core/Cargo.toml
+          test ! -e static/worker-wasm-scoped-makeup
+      - name: Fixed accepted Rust toolchain and wasm32
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Generate only Steam Makeup opt-in candidate from pinned source and approved Cargo lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,product-steam626-makeup-color1-scoped
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qrl-act1601-bindgen
+          /tmp/wand-qrl-act1601-bindgen/bin/wasm-bindgen --version | grep -Fx 'wasm-bindgen 0.2.105'
+          mkdir -p /tmp/wand-qrl-act1601-feature
+          /tmp/wand-qrl-act1601-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir /tmp/wand-qrl-act1601-feature --target web --no-typescript
+      - name: Actual generated binary five-method export census and fail-closed candidate receipt
+        env:
+          QRL_BASE: 93332153aed6b3b24ae885084470974c367eb484
+        shell: bash
+        run: |
+          set -euo pipefail
+          export QRL_QA_SOURCE_SHA="$(git rev-parse HEAD)"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          import assert from 'node:assert/strict';
+          const dir='/tmp/wand-qrl-act1601-feature';
+          const js=fs.readFileSync(dir+'/ddv_save_core.js');
+          const wasm=fs.readFileSync(dir+'/ddv_save_core_bg.wasm');
+          const exports=WebAssembly.Module.exports(new WebAssembly.Module(wasm)).map(v=>v.name);
+          const methods=[
+            'preview_steam626_makeup_color1',
+            'stage_steam626_makeup_color1',
+            'toggle_steam626_makeup_color1',
+            'begin_steam626_makeup_color1_output',
+            'next_steam626_makeup_color1_output_chunk'
+          ];
+          for(const method of methods){
+            assert(js.includes(Buffer.from(method)), 'JS_MISSING:'+method);
+            assert(exports.some(name=>name.endsWith('_'+method)), 'WASM_MISSING:'+method);
+          }
+          for(const forbidden of ['switch626_makeup_color1','steam626_eyecolor2','switch626_eyecolor2']){
+            assert(!exports.some(name=>name.includes(forbidden)), 'FOREIGN_ABI:'+forbidden);
+          }
+          const sha256=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
+          const result={
+            contract:'wand.qrl.act1601.feature-generated-private-candidate@1',
+            kind:'QA_ONLY_UNTRUSTED_UNSIGNED_NOT_PAGES_NEVER_MERGE',
+            sourceHead:process.env.QRL_QA_SOURCE_SHA,
+            approvedParent:process.env.QRL_BASE,
+            feature:['worker-wasm','product-steam626-makeup-color1-scoped'],
+            defaultFeatures:false,
+            toolchain:'rustc 1.99.1',
+            wasmBindgen:'0.2.105',
+            methodNames:methods,methodCount:methods.length,
+            exportNames:exports,
+            jsSha256:sha256(js),wasmSha256:sha256(wasm),
+            approvedCargoLockSha256:sha256(fs.readFileSync('scripts/wasm-distribution/approved-Cargo.lock')),
+            candidate:true,signatureVerified:false,publishedPages:false,productConsumerEnabled:false,writerAuthorized:false,
+            containsOriginalSave:false,
+            productV2:'NOT_RUN'
+          };
+          fs.writeFileSync(dir+'/qrl-proof.json',JSON.stringify(result,null,2)+'\n',{flag:'wx'});
+          console.log('QRL_PRIVATE_FEATURE_ABI_CENSUS_PASS',JSON.stringify({sourceHead:result.sourceHead,methodCount:5,exportCount:exports.length,jsSha256:result.jsSha256,wasmSha256:result.wasmSha256,productV2:'NOT_RUN'}));
+          NODE
+          test ! -e static/worker-wasm-scoped-makeup
+          test ! -e build/worker-wasm-scoped-makeup
+      - name: Upload non-signed isolated binary only as explicit QA candidate NEVER Pages
+        uses: actions/upload-artifact@v4
+        with:
+          name: qrl-act1601-steam-makeup-feature-only-UNSIGNED-NO-PAGES
+          retention-days: 2
+          if-no-files-found: error
+          path: |
+            /tmp/wand-qrl-act1601-feature/ddv_save_core.js
+            /tmp/wand-qrl-act1601-feature/ddv_save_core_bg.wasm
+            /tmp/wand-qrl-act1601-feature/qrl-proof.json
