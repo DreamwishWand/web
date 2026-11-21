@@ -1,0 +1,38 @@
+name: 05 QR-C PR1034 independent DEV epoch
+on:
+  pull_request:
+    paths:
+      - 'tests/qa/05qrc-pr1034-dev-epoch.mjs'
+      - '.github/workflows/05qrc-pr1034-dev-epoch.yml'
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Exact source and real DEV WASM
+        run: |
+          git merge-base --is-ancestor a6aaf877e0949b036a7e1ec592039d1b8affe11c HEAD
+          test "$(git diff --name-only a6aaf877e0949b036a7e1ec592039d1b8affe11c HEAD | wc -l)" -eq 2
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 07329b38c72a88d803a4a9a0d5b196a133a4b2ef
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features worker-wasm,indexed-read,semantic-writer-dev
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root "$RUNNER_TEMP/bindgen"
+          mkdir -p "$RUNNER_TEMP/dev"
+          "$RUNNER_TEMP/bindgen/bin/wasm-bindgen" crates/ddv-save-core/target/wasm32-unknown-unknown/release/ddv_save_core.wasm --target web --out-dir "$RUNNER_TEMP/dev" --no-typescript
+          echo '{"type":"module"}' > "$RUNNER_TEMP/dev/package.json"
+      - name: Independent deterministic epoch race (expected red on fixed source)
+        run: node tests/qa/05qrc-pr1034-dev-epoch.mjs "$RUNNER_TEMP/dev"
