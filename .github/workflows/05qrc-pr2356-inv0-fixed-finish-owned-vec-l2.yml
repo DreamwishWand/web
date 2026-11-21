@@ -1,0 +1,204 @@
+name: 05 QR-C PR2356 repaired Rust Inventory0 + finish deallocation L2 (QA ONLY NEVER MERGE)
+on:
+  pull_request:
+    paths:
+      - .github/workflows/05qrc-pr2356-inv0-fixed-finish-owned-vec-l2.yml
+permissions:
+  contents: read
+jobs:
+  composed-rust-inventory0-owned-buffer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 44
+    env:
+      CARGO_TARGET_DIR: /tmp/qrc2356-composed-finish-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05qrc-pr2356-inv0-fixed-finish-owned-vec-l2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Immutable current Inventory0 Rust source + independent exact shared security Blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=bde0420641c00f2e0343153e67cdfa08bb975ffa
+          parent=0e57c6b8585002b1baff91e6de573a835bed6577
+          path=.github/workflows/05qrc-pr2356-inv0-fixed-finish-owned-vec-l2.yml
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git diff --name-only "$source" HEAD)" = "$path"
+          test "$(git ls-tree HEAD -- "$path" | awk '{print $1}')" = 100644
+          git diff --name-only "$parent" "$source" | LC_ALL=C sort > /tmp/qrc-current-diff
+          printf '%s\n' \
+            '.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml' \
+            'crates/ddv-save-core/Cargo.toml' \
+            'crates/ddv-save-core/src/product_session.rs' \
+            'crates/ddv-save-core/src/wasm_worker.rs' \
+            'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs' \
+            'src/lib/ddv/core/save/product-scoped-amount-local-adapter.mjs' \
+            'src/lib/ddv/core/save/product-scoped-amount-transport.mjs' \
+            'src/lib/ddv/core/save/product-wasm-read-owner.mjs' \
+            'tests/01a-steam626-catalog0-product-worker-port.test.mjs' \
+            'tests/01a-steam626-inventory0-exclusive-rust-feature.test.mjs' \
+            'tests/product-steam626-catalog0-local-adapter.test.mjs' | LC_ALL=C sort > /tmp/qrc-expected-diff
+          diff -u /tmp/qrc-expected-diff /tmp/qrc-current-diff
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_session.rs)" = 34286a10bc726d9195d806b15273792614c99fa6
+          test "$(git rev-parse 4fd4ac5e9ab1e6324423626ccc291b7d7e4747f0:crates/ddv-save-core/src/product_session.rs)" = 34286a10bc726d9195d806b15273792614c99fa6
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/wasm_worker.rs)" = 775a2766f237d44ae77fa5347e9adf430c8580d2
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = b3455c36d9d60b4a0e415026a095e47fe577644d
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/product_amount_scoped.rs)" = 522e8e8d6beec597b2e5e176cfbe8a6d8e38a124
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/semantic_writer.rs)" = f11c68ca214853c762788ae032710fc4683dd472
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 81cd04b906f6cab7b1ea1749fb7fc981003a3b03
+          test ! -e crates/ddv-save-core/Cargo.lock
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          echo 'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c  crates/ddv-save-core/Cargo.lock' | sha256sum -c -
+          echo QRC2356_COMPOSED_FIXED_RUST_AND_SINGLE_QA_WORKFLOW_PASS
+      - name: CI-ephemeral witness of raw decoded Vec deallocation before free
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('crates/ddv-save-core/src/wasm_worker.rs')
+          s=p.read_text()
+          anchor='const MAX_CHUNK:usize=1024*1024;'
+          assert s.count(anchor)==1
+          monitor=r'''
+          // CI ONLY: the same read-only deallocation-time witness used to
+          // independently find the original Rust move/drop TRUE_RED.
+          // No original bytes/pointers leave the wasm32 heap.
+          use std::alloc::{GlobalAlloc,Layout,System};
+          use core::sync::atomic::{AtomicUsize,Ordering as QrcOrdering};
+          static QRC_WATCH_PTR:AtomicUsize=AtomicUsize::new(0);
+          static QRC_WATCH_LEN:AtomicUsize=AtomicUsize::new(0);
+          static QRC_RESULT:AtomicUsize=AtomicUsize::new(0);
+          struct QrcAlloc;
+          unsafe impl GlobalAlloc for QrcAlloc {
+              unsafe fn alloc(&self,l:Layout)->*mut u8 {System.alloc(l)}
+              unsafe fn dealloc(&self,p:*mut u8,l:Layout) {
+                  if p as usize==QRC_WATCH_PTR.load(QrcOrdering::SeqCst) {
+                      let n=QRC_WATCH_LEN.load(QrcOrdering::SeqCst);
+                      if n==0||n>l.size(){QRC_RESULT.store(3,QrcOrdering::SeqCst);}
+                      else{
+                          let mut nonzero=false;
+                          for i in 0..n{
+                              if core::ptr::read_volatile(p.add(i))!=0{nonzero=true;break;}
+                          }
+                          QRC_RESULT.store(if nonzero{1}else{2},QrcOrdering::SeqCst);
+                      }
+                      QRC_WATCH_PTR.store(0,QrcOrdering::SeqCst);
+                  }
+                  System.dealloc(p,l);
+              }
+          }
+          #[global_allocator]
+          static QRC_ALLOC:QrcAlloc=QrcAlloc;
+          '''
+          s=s.replace(anchor,monitor+anchor,1)
+          before='    pub fn append_chunk(&mut self,chunk:&[u8])->Result<(),JsValue>{'
+          assert s.count(before)==1
+          observer=r'''
+              // Instrumentation is never committed or distributed.
+              pub fn qa_arm_owned_plaintext_heap(&self)->bool {
+                  if self.closed||self.session.is_some()||self.buffer.is_empty(){return false;}
+                  QRC_RESULT.store(0,QrcOrdering::SeqCst);
+                  QRC_WATCH_LEN.store(self.buffer.len(),QrcOrdering::SeqCst);
+                  QRC_WATCH_PTR.store(self.buffer.as_ptr() as usize,QrcOrdering::SeqCst);
+                  true
+              }
+              pub fn qa_take_owned_plaintext_heap(&self)->u32 {
+                  QRC_RESULT.swap(0,QrcOrdering::SeqCst) as u32
+              }
+          '''
+          s=s.replace(before,observer+before,1)
+          p.write_text(s)
+          print('QRC2356_INSTRUMENTATION_EPHEMERAL_NOT_SOURCE_COMMIT')
+          PY
+      - name: Compile real Inventory0 Rust ProductSession optimized wasm32 with repaired ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | cut -d' ' -f2)" = 1.99.1
+          cargo build --locked --release --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,product-steam626-catalog0-scoped
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qrc2356-composed-bindgen
+          mkdir -p /tmp/qrc2356-composed-pkg
+          /tmp/qrc2356-composed-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir /tmp/qrc2356-composed-pkg --target nodejs --no-typescript
+      - name: Real repaired failure+success dealloc and single Inventory0 CAS/foreign denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('.github/workflows/01a-steam626-inventory0-dedicated-rust-source.yml').read_text()
+          start=src.index('          const empty=()=>')
+          end=src.index('          const hash=bytes=>',start)
+          fixture='\n'.join(line[10:] for line in src[start:end].splitlines())+'\n'
+          head="""import assert from 'node:assert/strict';
+          import {createRequire} from 'node:module';
+          const {WorkerWasmSource}=createRequire(import.meta.url)('/tmp/qrc2356-composed-pkg/ddv_save_core.js');
+          """
+          probe=r'''
+          const BUILD='releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22';
+          const make=(schema)=>new WorkerWasmSource('steam-windows','steam-full-version',
+              BUILD,schema,true,new Uint8Array(32).fill(0x34));
+          let rejected=0,success=0,denials=0;
+          // Two previously observed plaintext leaks, now under the NEW
+          // dedicated Inventory0 Product feature, not only generic worker.
+          for(const badSchema of [false,true]){
+            const w=make(badSchema?0:626);
+            w.append_chunk(new TextEncoder().encode('{"GameInfo":{"Version":626},"Secret":"'));
+            w.append_chunk(new Uint8Array(6604).fill(0x45));
+            assert.equal(w.qa_arm_owned_plaintext_heap(),true);
+            assert.throws(()=>w.finish());
+            assert.equal(w.qa_take_owned_plaintext_heap(),2,
+              'repaired Rust must scrub original decoder Vec before dealloc');
+            assert.throws(()=>w.append_chunk(new Uint8Array([9])));
+            w.close();w.free();rejected++;
+          }
+          // The immutable Source fixture already defines 'encoded'.
+          const w=make(626);
+          w.append_chunk(encoded);
+          assert.equal(w.qa_arm_owned_plaintext_heap(),true);
+          const receipt=JSON.parse(w.finish());
+          assert.equal(receipt.fullDocumentJsonValidated,true);
+          assert.equal(receipt.writerAuthorized,false);
+          assert.equal(w.qa_take_owned_plaintext_heap(),2,
+            'success Arc copy must zero original moved allocation');
+          const a=[receipt.sessionId,BigInt(receipt.revision),
+            BigInt(receipt.indexGeneration),receipt.decodedSha256];
+          const list=JSON.parse(w.discover_scoped_amount('catalog0-furniture',0,...a));
+          assert.ok(list.rows.some(r=>r.id===0&&r.selector===40000048&&r.oldAmount===3));
+          const pre=JSON.parse(w.preview_scoped_amount('catalog0-furniture',0,40000048,2,...a));
+          assert.equal(pre.oldAmount,3);assert.equal(pre.newAmount,2);
+          const stage=JSON.parse(w.stage_scoped_amount('catalog0-furniture',0,40000048,3,2,
+              pre.entrySha256,...a));
+          assert.equal(stage.exactFieldChangedCount,1);
+          assert.equal(stage.writerAuthorized,false);
+          success++;
+          assert.throws(()=>w.stage_scoped_amount('catalog0-furniture',0,40000048,3,2,
+              pre.entrySha256,...a));denials++;
+          assert.throws(()=>w.stage_scoped_amount('linked-crop-chest48',12,0,50,49,
+              pre.entrySha256,...a));denials++;
+          w.close();
+          assert.equal(rejected,2);assert.equal(success,1);assert.equal(denials,2);
+          console.log('QRC2356_COMPOSED_WASM32_GENERIC_BAD_JSON_BUILD_ZERO2_POS');
+          console.log('QRC2356_COMPOSED_WASM32_INV0_SUCCESS_ORIGINAL_ZERO_STAGE_EXACT1_POS');
+          console.log('QRC2356_COMPOSED_WASM32_STALE_CAS_FOREIGN_CHEST_2NEG');
+          '''
+          Path('/tmp/qrc2356-composed.mjs').write_text(head+fixture+probe)
+          PY
+          node --check /tmp/qrc2356-composed.mjs
+          node /tmp/qrc2356-composed.mjs
+          echo QRC2356_REPAIRED_WORKER_INV0_BOUNDS_CAS_COMPOSED_ACTUAL_PASS
+          test "$(git diff --name-only bde0420641c00f2e0343153e67cdfa08bb975ffa HEAD)" = \
+            '.github/workflows/05qrc-pr2356-inv0-fixed-finish-owned-vec-l2.yml'
