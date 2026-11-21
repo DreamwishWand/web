@@ -1,0 +1,127 @@
+{
+  "contract": "ddv.01e.save-first-compatibility-evidence@1",
+  "scope": "Switch v1.25.0/schema624 -> Switch v1.25.3/schema626; Steam tracked independently",
+  "evidenceClass": "CONFIRMED_EXISTING_ACCEPTANCE_PLUS_PARTIAL_MODEL",
+  "personalSaveRawIncluded": false,
+  "observedRealSaveCrossVersionValueDiffPerformed": false,
+  "builds": [
+    {
+      "platform": "switch",
+      "gameVersion": "1.25.0",
+      "buildIdentityKind": "switch-bid",
+      "buildIdentity": "52BD625D9B4E0053",
+      "saveSchema": 624,
+      "read": "EXACT_ACCEPTED_OFFLINE",
+      "model": "FEATURE_SCOPED_ONLY",
+      "write": "NOT_AUTHORIZED"
+    },
+    {
+      "platform": "switch",
+      "gameVersion": "1.25.3",
+      "buildIdentityKind": "switch-bid",
+      "buildIdentity": "9A239D3DB569756D",
+      "saveSchema": 626,
+      "read": "EXACT_ACCEPTED_OFFLINE_REAL_SAVE",
+      "model": "PARTIAL",
+      "write": "NOT_AUTHORIZED"
+    },
+    {
+      "platform": "steam-windows",
+      "gameVersion": "1.25.0",
+      "buildIdentityKind": "steam-full-version",
+      "buildIdentity": "releases_1.25-v1.25.0-8687-gdd3d3a5ae738-incremental-14",
+      "saveSchema": 624,
+      "read": "EXACT_ACCEPTED_OFFLINE",
+      "model": "FEATURE_SCOPED_ONLY",
+      "write": "NOT_AUTHORIZED"
+    },
+    {
+      "platform": "steam-windows",
+      "gameVersion": "1.25.3",
+      "buildIdentityKind": "steam-full-version",
+      "buildIdentity": "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22",
+      "saveSchema": 626,
+      "read": "STATIC_COMPATIBLE_RUNTIME_PENDING",
+      "model": "PARTIAL_STATIC_ONLY",
+      "write": "NOT_AUTHORIZED"
+    }
+  ],
+  "featureModelEvidence": [
+    {
+      "feature": "protobuf-serialized-types",
+      "paths": ["GameInfo", "Player", "World"],
+      "classification": "CONFIRMED_STATIC_DECLARATION_PARITY",
+      "finding": "2538 serialized generated types; added=0 removed=0 changed=0 in each same-platform Switch and Steam 624->626 comparison",
+      "limitations": ["No per-value migration parity", "No modified serialization equivalence"]
+    },
+    {
+      "feature": "profile-update-migrations",
+      "paths": ["GameInfo.Version"],
+      "classification": "CONFIRMED_STATIC_SWITCH_PARTIAL_RUNTIME",
+      "finding": "ProfileUpdater registers new version-624 InvalidPurpleImpatiensFlowerProfileUpdate and version-625 FixRewardsOfVLGLady040ProfileUpdate",
+      "limitations": ["Native update side effects not proven by typed-save schema identity", "Read-only audit must not migrate"]
+    },
+    {
+      "feature": "world-grid-area-subgrid",
+      "paths": ["World", "Grid", "Objects", "SubGrid", "FloatingIslands"],
+      "classification": "PARTIAL_STRUCTURAL",
+      "finding": "Serialized declaration compatibility and selected current save reference coverage only",
+      "limitations": ["Different play-state specimens do not prove before-after parity", "No current write or cold persistence acceptance"]
+    },
+    {
+      "feature": "road-fence",
+      "paths": ["Objects", "State", "FenceMode", "NextGridObjectID"],
+      "classification": "HIGH_CONFIDENCE_OLD_CONFIRMED_CLASSES_STATIC_TARGET",
+      "finding": "11 matching type layouts; normalized MoveTo 2448 and UpdatePosition 2080 instructions; 10 matching helper shapes; source Path_MainStreet 40100068 byte-equal",
+      "limitations": ["No new Switch v1.25.3 native outcome", "Unobserved ROAD-R04 negative-Y mixed q5 deferred and fail-closed"]
+    },
+    {
+      "feature": "list-inventory-ownership",
+      "paths": ["Player.ListInventories", "Inventory", "Amount", "Marker"],
+      "classification": "PARTIAL_STRUCTURAL",
+      "finding": "Existing 1250 routing/amount/marker findings and 1253 serialized declaration parity",
+      "limitations": ["Current per-item canonical variation and UI claims not reaccepted", "No automatic personal Owned/Missing assertions"]
+    },
+    {
+      "feature": "collectionsets-itemdb",
+      "paths": ["Player.CollectionSets", "GroupData", "GroupsCollectionItems"],
+      "classification": "CONFIRMED_ORIGINAL_ITEMDB_BYTES_PARTIAL_SEMANTICS",
+      "finding": "Switch 1253 original CollectionSet packed corpus 293/293 and 45171 bytes byte-equal to 1250; target T1/T2 definition payloads confirmed",
+      "limitations": ["Current native ItemDatabase selector results absent", "No true/false/absent player membership, canonical ownership and UI crosswalk", "No user collected percentage"]
+    },
+    {
+      "feature": "wand-preset-apply",
+      "paths": ["World", "Grid", "Objects"],
+      "classification": "DEPENDENT_NOT_AUTHORIZED",
+      "finding": "Preset is a Wand-native artifact; saved-model structural parity does not confer a DDV writer",
+      "limitations": ["Await exact-operation validation, transaction safety and native load/cold proof"]
+    }
+  ],
+  "evidenceIndex": [
+    "DDV_CORE_SAVE_HANDOFF_CURRENT — Switch 626 post-merge read-only acceptance",
+    "DDV_01E_SWITCH_V1253_SCHEMA626_READONLY_ACCEPTANCE_2026-10-24 — 27/27 negative cases and actual packaged real-save offline reads",
+    "DDV_CORE_ROADFENCE_HANDOFF_CURRENT — 01C exact-source 1253 static parity, not device-native acceptance",
+    "DDV_CORE_GAMEDB_HANDOFF_CURRENT — 01D original 1253 CollectionSet byte comparison",
+    "DDV_CORE_RUNTIME_HANDOFF_CURRENT — 01E latest operator ROAD-R04 deferral and Save-first V0"
+  ],
+  "comparisonUtility": {
+    "script": "scripts/ddv-save-structure-compare.mjs",
+    "mode": "PRIVATE_OFFLINE_DECODED_JSON_ONLY",
+    "emits": "CANONICAL_FIELD_NAMES_AND_JSON_KINDS_ONLY",
+    "neverEmits": ["personal values", "dynamic map keys", "item IDs", "coordinates", "inventory quantities", "timestamps", "raw private profile bytes", "value hashes"],
+    "missingFieldInterpretation": "OPTIONAL_OR_STATE_DEPENDENT_UNOBSERVED",
+    "kindMismatchInterpretation": "DIFFERENT_OBSERVED_KIND_NEEDS_REVIEW",
+    "profileBuildSource": "INDEPENDENT_OPERATOR_ATTESTATION_REQUIRED",
+    "resultAuthorizesWrite": false
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false,
+    "localSaveWriterAuthorized": false,
+    "verifiedReplacementCandidateAuthorized": false
+  },
+  "promotionPolicy": "No read or model observation alone can change writer capability; only 01 CORE Integrator may promote separately accepted operations"
+}
