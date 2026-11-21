@@ -1,0 +1,44 @@
+name: "04 QR-W actual Pages 475b one-shot Scene receiver hosted E2E"
+on:
+  push:
+    branches: [qa/04qr-w-main475b-deployed-selected-receiver-20261110]
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-main475b-deployed-selected-receiver-20261110.yml"
+      - "scripts/04qr-w-main475b-deployed-selected-receiver-20261110.mjs"
+permissions:
+  contents: read
+  pages: read
+  deployments: read
+jobs:
+  real-deployed-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Real distributed HTTPS installed Chrome only isolated synthetic QA"
+        shell: bash
+        env:
+          QRW_GITHUB_TOKEN: ${{ github.token }}
+          QRW475_MAIN: 475b6768031e34d91baed456446af91f376839db
+          QRW475_URL: https://dreamwishwand.github.io/web/
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          CHROME_BIN="$BIN" node scripts/04qr-w-main475b-deployed-selected-receiver-20261110.mjs
+      - name: "QA-only OFF gate"
+        run: echo "QRW873_QA_ONLY_WRITER_NATIVE_APPLY_CLOUD_PROVIDER_COMMUNITYPUBLIC_OFF"
