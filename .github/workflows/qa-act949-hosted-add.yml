@@ -1,0 +1,71 @@
+name: QA-only ACT949 hosted ordinary ADD safety
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-act949-hosted-add.yml'
+      - 'scripts/qa-act949-hosted-add.mjs'
+permissions:
+  contents: read
+jobs:
+  hosted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      EXPECTED_SOURCE: 944e9314c246bba52489bf9ad653fde10cc841c0
+      WEP_STAGE1_BASE_URL: https://dreamwishwand.github.io/web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact protected source and QA-only paths
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SOURCE"
+          test "$(git hash-object scripts/wep-decorate-stage1-browser-acceptance.mjs)" = 0fe491f557b631868485e7eabb33f06d5367a66c
+          test "$(git hash-object src/lib/wep/ordinary-furniture-add-verified-export-v125.ts)" = c2f5554cd1d4ed62c99db1add9be1cd81cf87495
+          test "$(git diff --name-only HEAD^ HEAD | wc -l)" = 2
+          git diff --exit-code HEAD^ HEAD -- src/ static/ crates/ package.json package-lock.json .github/workflows/pages.yml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve actual Chrome
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Bind exact deployed manifest and actual route
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 30); do
+            code="$(curl --silent --show-error --max-time 12 --max-filesize 262144 --max-redirs 0 --proto '=https' -H 'Cache-Control: no-cache' -o /tmp/act949-manifest.json -w '%{http_code}' "$WEP_STAGE1_BASE_URL/worker-wasm/manifest.json" || true)"
+            if [[ "$code" == 200 ]] && jq -e --arg sha "$EXPECTED_SOURCE" '.source.commit==$sha' /tmp/act949-manifest.json >/dev/null; then ok=1; break; fi
+            sleep 10
+          done
+          test "$ok" = 1
+          echo "ACT949_HOSTED_MANIFEST_SHA256=$(sha256sum /tmp/act949-manifest.json | cut -d' ' -f1)"
+          status="$(curl --silent --show-error --max-time 20 --max-filesize 2097152 --max-redirs 0 --proto '=https' -H 'Cache-Control: no-cache' -o /tmp/act949-world.html -w '%{http_code} %{content_type}' "$WEP_STAGE1_BASE_URL/editor/world/")"
+          [[ "$status" == "200 text/html"* ]]
+          echo ACT949_HOSTED_ROUTE_HTTP200_HTML
+      - name: Actual hosted synthetic ordinary ADD Backup and independent Reopen
+        run: node scripts/qa-act949-hosted-add.mjs
+      - name: Bind final manifest and affected verdict
+        run: |
+          set -euo pipefail
+          code="$(curl --silent --show-error --max-time 15 --max-filesize 262144 --max-redirs 0 --proto '=https' -H 'Cache-Control: no-cache' -o /tmp/act949-after.json -w '%{http_code}' "$WEP_STAGE1_BASE_URL/worker-wasm/manifest.json")"
+          test "$code" = 200
+          cmp /tmp/act949-manifest.json /tmp/act949-after.json
+          jq -e '.result=="PASS" and .network.nonRead==0 and .network.external==0 and (.checks|any(.name=="ORDINARY_FURNITURE_ADD_ACTUAL_DOWNLOAD_BACKUP_EXACT_REOPEN" and .status=="PASS"))' .artifacts/wep-decorate-stage1-browser/act949-hosted-report.json >/dev/null
+          echo ACT949_HOSTED_ADD_BACKUP_REOPEN_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: act949-hosted-report-only
+          path: .artifacts/wep-decorate-stage1-browser/act949-hosted-report.json
+          if-no-files-found: error
