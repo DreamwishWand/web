@@ -682,6 +682,7 @@
 
 <svelte:head>
   <title>Community Lab — Dreamwish Wand</title>
+  <meta name="robots" content="noindex,nofollow" />
   <meta
     name="description"
     content="Internal staging path for Dreamwish Wand Community Core acceptance."
