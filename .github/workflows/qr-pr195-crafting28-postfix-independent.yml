@@ -1,0 +1,59 @@
+name: 04 QR post-PR208 Crafting RecipeType28 independent SOURCE-ONLY gate
+on:
+  push:
+    branches: ['qr/pr195-crafting28-postfix-independent-20261028']
+  pull_request:
+    branches: ['core/collection-save-backed-readonly-20261026']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  crafting28-source-provenance:
+    name: QR corrected Crafting28 new-only source consistency (raw native NEED_SOURCE)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      DDVRE_ORIGINAL_PRIVATE_FILES_AVAILABLE: 'false'
+      DDVRE_NATIVE_WRITER_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm fixed Owner HEAD and exact data-only correction surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor da9528ce3565f68c5c201593fe06c84dfe8fbd3e HEAD
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-crafting-recipe-type-28-original-v125.json)" = 877d06e19cd783423995f578105de17af5558ac7
+          test "$(git diff --name-only 64913f8d63f90dc9ada1200a1249aff373217420 da9528ce3565f68c5c201593fe06c84dfe8fbd3e | wc -l)" -eq 4
+          test -z "$(git diff --name-only da9528ce3565f68c5c201593fe06c84dfe8fbd3e HEAD -- static/ddv/core/collection/v1.25/ supabase/ src/)"
+          echo QR_CRAFT28_EXACT_OWNER_NATIVE_MANIFEST_SOURCE_PIN_PASS
+      - name: Seven source-only independence tests (NO fake native pass)
+        run: |
+          set -euo pipefail
+          node --test tests/qr-pr195-crafting28-postfix-independent-source.test.mjs | tee /tmp/qr-crafting28-source-only.log
+          grep -q QR_CRAFT28_OWNER_FROZEN_SCOPE_BLOB_AND_FIVE_EXPECTED_HASHES_SOURCE_PASS /tmp/qr-crafting28-source-only.log
+          grep -q QR_CRAFT28_SOURCE_ROSTER_PB_WIRE_28_CONSISTENT_SHA256 /tmp/qr-crafting28-source-only.log
+          grep -q QR_CRAFT28_CRITTER_NEGATIVE_HISTORICAL_RED_PRESERVED /tmp/qr-crafting28-source-only.log
+          grep -q QR_CRAFT28_NEW28_PARTIAL_NEED_ORIGINAL_PRIVATE_BYTES_INDEPENDENT_RAW_REPLAY /tmp/qr-crafting28-source-only.log
+      - name: Independently authored offline original-source script parses
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/qr/reaccept-crafting28-switch1250-original.py
+          test "$DDVRE_ORIGINAL_PRIVATE_FILES_AVAILABLE" = false
+          test "$DDVRE_NATIVE_WRITER_ENABLED" = false
+          echo QR_CRAFT28_FIVE_ORIGINAL_PRIVATE_FILES_NOT_AVAILABLE_IN_GITHUB_ACTIONS
+          echo QR_CRAFT28_SOURCE_STATIC_CONSISTENT_BUT_NATIVE_ORIGINAL_REPLAY_NEED_SOURCE
+          echo QR_CRAFT28_INDEPENDENT_ACCEPTED_REMAINS_228_OF_256
+      - name: Preserve safe non-private evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-crafting28-source-only-scope-not-native-pass
+          path: /tmp/qr-crafting28-source-only.log
+          if-no-files-found: warn
