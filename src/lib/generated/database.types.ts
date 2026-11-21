@@ -1358,6 +1358,105 @@ export type Database = {
           },
         ]
       }
+      gallery_photo_revision_fields: {
+        Row: {
+          cover_media_id: string
+          created_at: string
+          originality_attested: boolean
+          revision_id: string
+          subject_id: string
+        }
+        Insert: {
+          cover_media_id: string
+          created_at?: string
+          originality_attested: boolean
+          revision_id: string
+          subject_id: string
+        }
+        Update: {
+          cover_media_id?: string
+          created_at?: string
+          originality_attested?: boolean
+          revision_id?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_photo_revision_fields_cover_media_id_fkey"
+            columns: ["cover_media_id"]
+            isOneToOne: false
+            referencedRelation: "media_assets"
+            referencedColumns: ["media_id"]
+          },
+          {
+            foreignKeyName: "gallery_photo_revision_fields_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: true
+            referencedRelation: "gallery_work_revisions"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "gallery_photo_revision_fields_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "gallery_verified_subjects"
+            referencedColumns: ["subject_id"]
+          },
+        ]
+      }
+      gallery_photo_subjects: {
+        Row: {
+          created_at: string
+          creator_profile_id: string
+          owner_account_id: string
+          subject_id: string
+          work_id: string
+        }
+        Insert: {
+          created_at?: string
+          creator_profile_id: string
+          owner_account_id: string
+          subject_id: string
+          work_id: string
+        }
+        Update: {
+          created_at?: string
+          creator_profile_id?: string
+          owner_account_id?: string
+          subject_id?: string
+          work_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_photo_subjects_creator_profile_id_fkey"
+            columns: ["creator_profile_id"]
+            isOneToOne: false
+            referencedRelation: "creator_profiles"
+            referencedColumns: ["creator_profile_id"]
+          },
+          {
+            foreignKeyName: "gallery_photo_subjects_owner_account_id_fkey"
+            columns: ["owner_account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "gallery_photo_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "gallery_verified_subjects"
+            referencedColumns: ["subject_id"]
+          },
+          {
+            foreignKeyName: "gallery_photo_subjects_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: true
+            referencedRelation: "gallery_works"
+            referencedColumns: ["work_id"]
+          },
+        ]
+      }
       gallery_revision_items: {
         Row: {
           featured: boolean
@@ -1413,6 +1512,51 @@ export type Database = {
             referencedColumns: ["preset_revision_id"]
           },
         ]
+      }
+      gallery_verified_subjects: {
+        Row: {
+          base_item_id: number | null
+          build_id: string
+          canonical_target_id: string
+          created_at: string
+          evidence_ref: string
+          gallery_kind: string
+          game_version: string
+          platform: string
+          profile_schema: number
+          subject_id: string
+          subject_type: string
+          verification_state: string
+        }
+        Insert: {
+          base_item_id?: number | null
+          build_id: string
+          canonical_target_id: string
+          created_at?: string
+          evidence_ref: string
+          gallery_kind: string
+          game_version: string
+          platform: string
+          profile_schema: number
+          subject_id?: string
+          subject_type: string
+          verification_state?: string
+        }
+        Update: {
+          base_item_id?: number | null
+          build_id?: string
+          canonical_target_id?: string
+          created_at?: string
+          evidence_ref?: string
+          gallery_kind?: string
+          game_version?: string
+          platform?: string
+          profile_schema?: number
+          subject_id?: string
+          subject_type?: string
+          verification_state?: string
+        }
+        Relationships: []
       }
       gallery_work_revisions: {
         Row: {
@@ -1835,6 +1979,7 @@ export type Database = {
       }
       preset_artifacts: {
         Row: {
+          associated_gallery_work_id: string | null
           community_work_id: string | null
           created_at: string
           creator_profile_id: string
@@ -1844,6 +1989,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          associated_gallery_work_id?: string | null
           community_work_id?: string | null
           created_at?: string
           creator_profile_id: string
@@ -1853,6 +1999,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          associated_gallery_work_id?: string | null
           community_work_id?: string | null
           created_at?: string
           creator_profile_id?: string
@@ -1862,6 +2009,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "preset_artifacts_associated_gallery_work_id_fkey"
+            columns: ["associated_gallery_work_id"]
+            isOneToOne: false
+            referencedRelation: "gallery_works"
+            referencedColumns: ["work_id"]
+          },
           {
             foreignKeyName: "preset_artifacts_community_work_id_fkey"
             columns: ["community_work_id"]
@@ -2888,6 +3042,23 @@ export type Database = {
         }
         Returns: Json
       }
+      community_delete_gallery_photo_v1: {
+        Args: {
+          p_auth_subject: string
+          p_expected_version: number
+          p_idempotency_key: string
+          p_work_id: string
+        }
+        Returns: Json
+      }
+      community_delete_scene_preset_v1: {
+        Args: {
+          p_auth_subject: string
+          p_idempotency_key: string
+          p_preset_artifact_id: string
+        }
+        Returns: Json
+      }
       community_delete_work: {
         Args: {
           p_auth_subject: string
@@ -3049,6 +3220,10 @@ export type Database = {
         Args: { p_blob_id: string; p_expected_storage_key: string }
         Returns: Json
       }
+      community_finalize_unattached_media_discard_v1: {
+        Args: { p_auth_subject: string; p_media_id: string }
+        Returns: Json
+      }
       community_follow_creator: {
         Args: { p_auth_subject: string; p_creator_profile_id: string }
         Returns: Json
@@ -3108,6 +3283,10 @@ export type Database = {
         Returns: Json
       }
       community_get_gallery_dreamsnap_public_v1: {
+        Args: { p_work_id: string }
+        Returns: Json
+      }
+      community_get_gallery_photo_public_v1: {
         Args: { p_work_id: string }
         Returns: Json
       }
@@ -3232,6 +3411,10 @@ export type Database = {
         Args: { p_auth_subject: string; p_limit?: number }
         Returns: Json
       }
+      community_get_scene_preset_public_v1: {
+        Args: { p_work_id: string }
+        Returns: Json
+      }
       community_get_security_policy_summary: {
         Args: { p_admin_auth_subject: string }
         Returns: Json
@@ -3319,8 +3502,29 @@ export type Database = {
         }
         Returns: Json
       }
+      community_prepare_unattached_media_discard_v1: {
+        Args: { p_auth_subject: string; p_media_id: string }
+        Returns: Json
+      }
       community_process_outbox_batch: {
         Args: { p_limit?: number }
+        Returns: Json
+      }
+      community_publish_gallery_photo_v1: {
+        Args: {
+          p_auth_subject: string
+          p_cover_media_id: string
+          p_creator_profile_id: string
+          p_description: string
+          p_expected_version: number
+          p_gallery_kind: string
+          p_idempotency_key: string
+          p_media_ids: string[]
+          p_originality_attested: boolean
+          p_subject_id: string
+          p_title: string
+          p_work_id: string
+        }
         Returns: Json
       }
       community_publish_gallery_v3: {
@@ -3367,6 +3571,24 @@ export type Database = {
           p_schema_version: number
           p_title: string
           p_visibility: string
+        }
+        Returns: Json
+      }
+      community_publish_scene_preset_product_v1: {
+        Args: {
+          p_artifact_storage_key: string
+          p_auth_subject: string
+          p_byte_size: number
+          p_checksum_sha256: string
+          p_content_type: string
+          p_creator_profile_id: string
+          p_description: string
+          p_existing_preset_artifact_id: string
+          p_idempotency_key: string
+          p_media_ids: string[]
+          p_metadata: Json
+          p_schema_version: number
+          p_title: string
         }
         Returns: Json
       }
@@ -3549,6 +3771,14 @@ export type Database = {
       }
       community_unlink_ddv_identity_v1: {
         Args: { p_auth_subject: string; p_workspace_id: string }
+        Returns: Json
+      }
+      community_unpublish_scene_preset_v1: {
+        Args: {
+          p_auth_subject: string
+          p_idempotency_key: string
+          p_preset_artifact_id: string
+        }
         Returns: Json
       }
       community_unpublish_work: {
