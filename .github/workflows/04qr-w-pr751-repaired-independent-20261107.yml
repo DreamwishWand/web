@@ -1,0 +1,24 @@
+name: "04 QR-W PR751 repaired host contract independent new-only"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qr-w-pr751-repaired-independent-20261107.yml"
+      - "tests/04qr-w-pr751-repaired-independent-20261107.test.mjs"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-repaired-host-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Freeze original three Source blobs and reject status/cache/JWT conflation
+        run: node --test tests/04qr-w-pr751-repaired-independent-20261107.test.mjs
