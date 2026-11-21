@@ -1,0 +1,145 @@
+name: 04 QR-S ACT1110 Switch Chest proof boundary (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1110-switch-chest-proof-l2.yml'
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  fixed-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e58c03c4b8d61cd41f51c5fc352409a2a646961f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual isolated Git proof composition and dispatch boundaries
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 1f55fc6c3af55e7024870ef5c54ff43e7b649dd1
+          git fetch --no-tags origin f0f1b3441c0b5507818797a5e74441a6400f9a68 5a5ce7eab0e5922d15e50b9ed699c44570c23f30 d2f903e43f84bb11e1133c2e3933fce9977dc122 9294b770b336f1cda966945611cb7c96f2d99e61 0fdcf9234a94f9134292205e55ff0f1926f40b5e
+          python3 - <<'PY'
+          import os, subprocess as s, pathlib, tempfile, yaml, re, json
+          H='e58c03c4b8d61cd41f51c5fc352409a2a646961f'; B='f0f1b3441c0b5507818797a5e74441a6400f9a68'
+          C='5a5ce7eab0e5922d15e50b9ed699c44570c23f30'; F='d2f903e43f84bb11e1133c2e3933fce9977dc122'
+          W='9294b770b336f1cda966945611cb7c96f2d99e61'; L='0fdcf9234a94f9134292205e55ff0f1926f40b5e'
+          def git(*a):return s.check_output(['git',*a],text=True).strip()
+          y=lambda h:yaml.load(git('show',h+':.github/workflows/pages.yml'),Loader=yaml.BaseLoader)
+          cur,old=y(H),y(B); jobs=cur['jobs']; proof=jobs['scoped_switch_chest_proof']; steps=proof['steps']
+          def norm(x):
+              if isinstance(x,dict):return {k:norm(v) for k,v in x.items()}
+              if isinstance(x,list):return [norm(v) for v in x]
+              return x.rstrip('\n') if isinstance(x,str) else x
+          assert cur['permissions']==old['permissions'] and cur['concurrency']==old['concurrency']
+          assert norm(jobs['deploy'])==norm(old['jobs']['deploy'])
+          for j in ['build','scoped_collection_proof']:
+              assert norm({k:v for k,v in jobs[j].items() if k!='if'})==norm({k:v for k,v in old['jobs'][j].items() if k!='if'})
+          assert set(jobs)=={'build','deploy','scoped_collection_proof','scoped_switch_chest_proof'}
+          def ev(expr,event,c,w,ref):
+              return eval(expr.replace('github.event_name',repr(event)).replace('inputs.scoped_collection_proof_source',repr(c)).replace('inputs.scoped_switch_chest_proof_source',repr(w)).replace('github.ref',repr(ref)).replace('&&',' and ').replace('||',' or '),{'__builtins__':{}})
+          cases=[('push','','','refs/heads/main',(True,False,False)),('workflow_dispatch','','','refs/heads/main',(True,False,False)),('workflow_dispatch','a'*40,'','refs/heads/main',(False,True,False)),('workflow_dispatch','','b'*40,'refs/heads/main',(False,False,True)),('workflow_dispatch','a'*40,'b'*40,'refs/heads/main',(False,False,False)),('workflow_dispatch','','b'*40,'refs/heads/other',(False,False,False))]
+          for e,c,w,ref,want in cases:assert tuple(ev(jobs[j]['if'],e,c,w,ref) for j in ['build','scoped_collection_proof','scoped_switch_chest_proof'])==want
+          shell=next(x['run'] for x in steps if x.get('name')=='Require exact accepted source and immutable scoped proof inputs')
+          pins=re.findall(r'git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})',shell)
+          assert len(pins)==22
+          repo=tempfile.mkdtemp(prefix='act1110-');s.run(['git','clone','--no-hardlinks','--no-checkout',os.getcwd(),repo],check=True)
+          os.chdir(repo);git('config','user.name','QA');git('config','user.email','qa@example.invalid')
+          git('read-tree',H)
+          core='crates/ddv-save-core'
+          for p in ['src/product_amount_scoped.rs','src/product_switch626_chest.rs','src/worker_session.rs']:
+              git('restore','--source='+C,'--staged','--',core+'/'+p)
+          for p in ['Cargo.toml','src/wasm_worker.rs']:
+              git('restore','--source='+F,'--staged','--',core+'/'+p)
+          for p,sha in pins:
+              if p==core:continue
+              ref=next((x for x in [H,W,L,B] if s.run(['git','rev-parse','--verify',x+':'+p],capture_output=True,text=True).stdout.strip()==sha),None)
+              assert ref,(p,sha)
+              git('restore','--source='+ref,'--staged','--',p)
+          candidate=git('commit-tree',git('write-tree'),'-p',H,'-m','isolated exact proof model')
+          git('checkout','--detach',candidate);git('checkout-index','--all','--force')
+          for p,sha in pins:assert git('rev-parse','HEAD:'+p)==sha,(p,sha,git('rev-parse','HEAD:'+p))
+          def check(**kw):
+              env={**os.environ,'WAND_PROOF_EXPECTED_SOURCE':candidate,'GITHUB_SHA':candidate,'GITHUB_WORKFLOW_SHA':candidate,'GITHUB_REF':'refs/heads/main','GITHUB_REPOSITORY_ID':'1371485649',**kw}
+              return s.run(['bash','-c',shell],env=env,capture_output=True).returncode==0
+          assert check();print('POS exact22 pinned composition')
+          neg=0
+          for k,v in [('WAND_PROOF_EXPECTED_SOURCE','bad'),('WAND_PROOF_EXPECTED_SOURCE','a'*40),('GITHUB_SHA','b'*40),('GITHUB_WORKFLOW_SHA','c'*40),('GITHUB_REF','refs/heads/other'),('GITHUB_REPOSITORY_ID','1')]:
+              assert not check(**{k:v});neg+=1
+          for p in ['static/worker-wasm-scoped-switch-chest','build/worker-wasm-scoped-switch-chest']:
+              pathlib.Path(p).mkdir(parents=True,exist_ok=True);assert not check();neg+=1;pathlib.Path(p).rmdir()
+          for p in ['crates/ddv-save-core/Cargo.toml','src/lib/ddv/core/save/product-scoped-switch-chest-release.mjs','src/routes/editor/chest/+page.svelte']:
+              with open(p,'a') as f:f.write('\n# synthetic QA drift\n')
+              git('add',p);git('commit','-m','isolated drift');h=git('rev-parse','HEAD')
+              assert not check(WAND_PROOF_EXPECTED_SOURCE=h,GITHUB_SHA=h,GITHUB_WORKFLOW_SHA=h);neg+=1
+              git('reset','--hard',candidate)
+          sign=next(i for i,x in enumerate(steps) if x.get('id')=='scoped_sigstore')
+          assert steps[sign-1]['run']=='node scripts/int-protected-ci-gate.mjs deploy'
+          assert steps[sign-1]['env']['WAND_CI_RECEIPT']==steps[sign+1]['env']['WAND_CI_RECEIPT']
+          assert steps[sign+1]['run'].strip().endswith('node scripts/int-protected-ci-gate.mjs deploy')
+          assert len(steps[sign]['with']['subject-path'].strip().splitlines())==3
+          assert steps[-1]['uses']=='actions/upload-artifact@v4'
+          assert [x.split('/')[-1] for x in steps[-1]['with']['path'].strip().splitlines()]==['pins.json','attestation-bundle.jsonl']
+          assert not any('deploy-pages' in x.get('uses','') or 'upload-pages-artifact' in x.get('uses','') for x in steps)
+          assert git('status','--porcelain','--untracked-files=all')==''
+          print('ACT1110_PROOF_PREFLIGHT_PASS',json.dumps({'pos':1,'neg':neg,'dispatchCases':len(cases),'pins':len(pins),'actualShell':True,'actualSigning':False}))
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('QA_COMPOSITE='+repo+'\nQA_COMPOSITE_HEAD='+candidate+'\n')
+          PY
+      - name: Fixed historical signed Reader bundle, no new signatures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          mkdir "$dir/site" "$dir/bundles"
+          gh run download 43784300468 --repo DreamwishWand/web --name github-pages --dir "$dir"
+          archive="$(find "$dir" -maxdepth 1 -type f -name '*.tar*' -print -quit)"
+          tar -xf "$archive" -C "$dir/site"
+          cd "$dir/site/worker-wasm"
+          printf '%s\n' '5c920e9472d4349757685e66380c7606b45965f9391011e88214fd89357db8ba  manifest.json' '4704a19c6e2962583d03a0bf8e7d5bf5ad2a802fd664259117eff4b2bbcbac0d  ddv_save_core.js' 'c000fbc0867721db0facf7ea899bde0f899992678d7d469edda51387b952425f  ddv_save_core_bg.wasm' | sha256sum -c -
+          for name in manifest.json ddv_save_core.js ddv_save_core_bg.wasm; do
+            (cd "$dir/bundles"; gh attestation download "$dir/site/worker-wasm/$name" --repo DreamwishWand/web)
+          done
+          cat "$dir/bundles/"*.jsonl > "$dir/reader.jsonl"
+          test -s "$dir/reader.jsonl"
+          echo "QA_SIG_DIR=$dir" >> "$GITHUB_ENV"
+      - name: Actual shared verifier and new scope inspector, unsigned negatives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd "$QA_COMPOSITE"
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {spawnSync} from 'node:child_process';
+          import {verifySignedReleaseSubjects} from './scripts/readonly-release/seal.mjs';
+          import {inspectScopedSwitchChestSubjects,privateScopedSwitchChestIdentity} from './scripts/readonly-release/seal-scoped-switch-chest-private.mjs';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {SCOPED_SWITCH_CHEST_RELEASE_OP as op,SCOPED_SWITCH_CHEST_FEATURES as features,SCOPED_SWITCH_CHEST_METHODS as methods,SCOPED_SWITCH_CHEST_WASM_EXPORTS as names} from './src/lib/ddv/core/save/product-scoped-switch-chest-release.mjs';
+          const home=process.env.QA_SIG_DIR,source=process.env.QA_COMPOSITE_HEAD,dir=path.join(home,'synthetic'),reader=path.join(home,'site','worker-wasm'),bundle=path.join(home,'reader.jsonl');
+          const hash=b=>createHash('sha256').update(b).digest('hex'),leb=n=>{let a=[];do{let x=n&127;n>>>=7;a.push(x|(n?128:0))}while(n);return a},sec=(i,a)=>[i,...leb(a.length),...a];
+          const exp=[...leb(names.length),...names.flatMap(n=>{let b=Buffer.from(n);return [...leb(b.length),...b,n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]})];
+          const wasm=Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,0x60,0,0]),...sec(3,[1,0]),...sec(4,[1,0x6f,0,1]),...sec(5,[1,0,1]),...sec(7,exp),...sec(10,[1,2,0,0x0b])]);
+          const js=Buffer.from('export class WorkerWasmSource {}\n'),files=['manifest.json','ddv_save_core.js','ddv_save_core_bg.wasm'];
+          const m={contract:'wand.scoped-switch-chest.runtime@1',operation:op,source:{repository:tuple.repository,commit:source,cargoTomlSha256:'a'.repeat(64),cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features,defaultFeatures:false,toolchain:'rustc 1.99.1 (synthetic)'},assets:{js:{path:files[1],sizeBytes:js.length,sha256:hash(js)},wasm:{path:files[2],sizeBytes:wasm.length,sha256:hash(wasm)}},abi:{exportClass:'WorkerWasmSource',methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false}};
+          const mf=Buffer.from(JSON.stringify(m)),bytes=[mf,js,wasm];fs.mkdirSync(dir);files.forEach((n,i)=>fs.writeFileSync(path.join(dir,n),bytes[i]));
+          const pins=inspectScopedSwitchChestSubjects(bytes,source,tuple);
+          assert.equal(pins.sourceHead,source);let pos=1,neg=0;
+          const model=privateScopedSwitchChestIdentity(pins,'http://127.0.0.1:4188',['switch'],tuple);assert.equal(model.mode,'private-product-v2');assert.equal(model.builds[0].productV2EvidenceSha256,null);pos++;
+          for(const [o,p] of [['https://example.invalid',['switch']],['http://127.0.0.1:4188',['steam']],['http://127.0.0.1:4188',['switch','switch']]]){assert.throws(()=>privateScopedSwitchChestIdentity(pins,o,p,tuple));neg++}
+          const deny=async(f,marker)=>{await assert.rejects(f,e=>String(e).includes(marker));neg++};
+          await deny(()=>verifySignedReleaseSubjects(reader,'8121f0767a1aee82969f75d189a1b8614c2c17da',bundle,tuple,inspectScopedSwitchChestSubjects),'SCOPED_SWITCH_CHEST_PRIVATE_SEAL_DENIED');
+          await deny(()=>verifySignedReleaseSubjects(dir,source,bundle,tuple,inspectScopedSwitchChestSubjects),'R22_RELEASE_SEAL_SIGNATURE_VERIFICATION_DENIED');
+          await deny(()=>verifySignedReleaseSubjects(dir,'a'.repeat(40),bundle,tuple,inspectScopedSwitchChestSubjects),'SCOPED_SWITCH_CHEST_PRIVATE_SEAL_DENIED');
+          fs.writeFileSync(path.join(dir,'extra'),'extra');await deny(()=>verifySignedReleaseSubjects(dir,source,bundle,tuple,inspectScopedSwitchChestSubjects),'R22_RELEASE_SEAL_EXACT_THREE_FILES');fs.unlinkSync(path.join(dir,'extra'));
+          const anchor='src/lib/ddv/core/save/product-scoped-switch-chest-release-anchor.mjs',prior=fs.readFileSync(anchor);
+          const run=(args,env={})=>spawnSync(process.execPath,['scripts/readonly-release/seal-scoped-switch-chest-private.mjs',...args],{env:{...process.env,...env},encoding:'utf8'});
+          for(const [args,env,mark] of [[['verify-protected-candidate',source,dir,bundle],{},'SCOPED_SWITCH_CHEST_PRIVATE_SEAL_DENIED'],[['seal-private-v2',source,dir,bundle,'http://127.0.0.1:4188','switch'],{},'SCOPED_SWITCH_CHEST_PRIVATE_SEAL_DENIED'],[['seal-private-v2',source,dir,bundle,'http://127.0.0.1:4188','switch'],{GITHUB_ACTIONS:'false'},'R22_RELEASE_SEAL_SIGNATURE_VERIFICATION_DENIED']]){const x=run(args,env);assert.notEqual(x.status,0);assert((x.stdout+x.stderr).includes(mark),x.stderr);neg++}
+          assert(fs.readFileSync(anchor).equals(prior));assert(!fs.existsSync('static/worker-wasm-scoped-switch-chest'));assert(!fs.existsSync(anchor+'.private-v2.tmp'));
+          console.log('ACT1110_SIGNATURE_BOUNDARY_PASS',JSON.stringify({pos,neg,actualSigstoreDenials:2,syntheticExports:names.length,actualScopedSignature:false,authority:false,anchorUnchanged:true}));
+          JS
