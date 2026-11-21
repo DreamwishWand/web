@@ -53,3 +53,71 @@ jobs:
           ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
           test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
           test -f crates/ddv-save-core/src/wasm_worker.rs
+
+      - name: QA ONLY ACT1108 Vase effective Binder generated exact3
+        run: |
+          set -euo pipefail
+          B=/tmp/wand-stagee-wasm-tools/bin/wasm-bindgen
+          W="$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+          "$B" "$W" --out-dir /tmp/vase-off --target nodejs --no-typescript
+          for mode in amount both; do
+            features=worker-wasm,product-amount-scoped
+            if [ "$mode" = both ]; then features="$features,product-collection-scoped"; fi
+            cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --no-default-features --features "$features"
+            "$B" "$W" --out-dir "/tmp/vase-$mode" --target nodejs --no-typescript
+          done
+          node --input-type=commonjs <<'JS'
+          const assert=require('node:assert/strict'),fs=require('node:fs'),{createHash}=require('node:crypto');
+          const cls=m=>require('/tmp/vase-'+m+'/ddv_save_core.js').WorkerWasmSource,sha=b=>createHash('sha256').update(b).digest('hex');
+          const steam=['steam-windows','steam-full-version','releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',626,true],sw=['switch','switch-bid','9A239D3DB569756D',626,true],item=40000066;
+          const data=fs.readFileSync('crates/ddv-save-core/data/steam626-vase-geometry-quota.jsonl','utf8').trim().split('\n').slice(1).map(JSON.parse);
+          const bits=Buffer.concat(data.filter(x=>x[0]==='floor').map(x=>Buffer.from(x[2],'hex')));
+          const floor=(x,y)=>{if(x<2||x+4>250||y<2||y+4>175)return false;for(let i=x-2;i<x+4;i++)for(let j=y-2;j<y+4;j++){const n=i*175+j;if(!(bits[n>>3]&(1<<(n%8))))return false;}return true};
+          let poses=[];for(let x=2;x<247;x++)for(let y=2;y<172;y++)if(floor(x,y))poses.push([x*2,y*2]);assert.equal(poses.length,9299);
+          const [x,y]=poses[0], [x2,y2]=poses[poses.length-1];
+          const sup=JSON.parse(fs.readFileSync('crates/ddv-save-core/data/steam626-placement-applicable-supplement.json','utf8'));
+          const [eventId]=Object.entries(sup.recurring).find(([k,v])=>v[0]==='ItemSpawning'&&v[2]==='offline-preserve');
+          function doc(gid=7,next=9,x=x2,y=y2){
+            const ox=x<250?480:2,oy=y<175?330:2;
+            return {GameInfo:{Version:626},World:{Villages:[{Areas:{6:{Unlocked:true,GridIDs:[gid]}},VillageObjectLimitName:'Village04ObjectLimit',HighEndVillageObjectLimitName:'HighEndVillageObjectLimit',BoughtObjectLimit:{UniqueLimit:0,InstanceLimit:0,Exclusions:[],SpecificItemLimits:[]}}],FloatingIslands:{},ExtraLimitObject:false,GridCollection:{Grids:{[gid]:{ID:gid,GridDataPath:'GridData/Villages/Village04-DarkLevel-GridData.json',GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:next,Objects:{4:{ID:4,ItemID:item,X:ox,Y:oy,Orientation:'GridOrientation_Up',State:null}}}},DiffGrids:{}},MissionSlots:{},RecurringEvents:{},TimeLostTreasures:{},NextTimeLostTreasureID:1,Snippets:{},NextSnippetID:0},Player:{ListInventories:{0:{ID:0,CompatibleItemType:'ItemType_Furniture',CompatibleFurnitureTypes:{List:['FurnitureItemType_Default']},Inventory:{[item]:{Amount:3,Marker:'ItemMarker_None'}}}},ContainerInventories:{},AchievementsData:[],EvolveStatesProfile:{EvolveProgressState:{}},DutySlots:{},BattlePassStates:{Progress:{},FtueProgress:{TasksProgress:[],WeeklyTasksProgress:[]}}},ConditionalEventHistory:{ActiveEvents:{}},Opaque:{keep:'x'.repeat(1100000),escaped:'keep'}};
+          }
+          const raw=d=>Buffer.from(JSON.stringify(d).replace('"escaped":"keep"','"escaped":"\\u006beep"'));
+          let pos=0,neg=0,nonce=0;const deny=f=>{assert.throws(f);neg++};
+          function open(m,d,b=steam){const a=raw(d),w=new(cls(m))(...b,new Uint8Array(32).fill(++nonce));for(let i=0;i<a.length;i+=1048576)w.append_chunk(a.subarray(i,i+1048576));const r=JSON.parse(w.finish());assert.equal(r.decodedSha256,sha(a));return[w,r]}
+          const sc=r=>[r.sessionId,BigInt(r.revision),BigInt(r.indexGeneration),r.decodedSha256],parse=JSON.parse;
+          const preview=(w,r,gid,x,y)=>parse(w.preview_steam626_vase_add(gid,x,y,...sc(r)));
+          const stage=(w,r,p)=>parse(w.stage_steam626_vase_add(p.gridId,p.x,p.y,p.oldAmount,p.nextObjectId,p.entrySha256,p.gridSha256,p.projectedDecodedSha256,...sc(r)));
+          for(const m of ['off','amount','both'])for(const n of ['preview_steam626_vase_add','stage_steam626_vase_add'])assert.equal(typeof cls(m).prototype[n],m==='off'?'undefined':'function');
+          for(const [m,gid,next,px,py] of [['amount',7,9,x,y],['both',71,99,x2,y2]]){
+            const d=doc(gid,next,px,py);if(m==='both')d.World.RecurringEvents={1:{ItemSpawning:{RecurringEventItemID:Number(eventId),NextOccurrence:'2026-11-16T00:00:00Z',EndDate:null,LastOccurrence:null}}};
+            const [w,r]=open(m,d),p=preview(w,r,gid,px,py);assert.equal(p.contract,'wand.worker.steam626.scoped-vase-add@1');assert.equal(p.oldAmount,3);assert.equal(p.newAmount,2);assert.equal(p.nextObjectId,next);assert.equal(p.writerAuthorized,false);
+            const g=d.World.GridCollection.Grids[gid],obj=JSON.stringify(g.Objects);
+            const record=JSON.stringify({ID:next,ItemID:item,Orientation:'GridOrientation_Up',State:null,X:px,Y:py});
+            const want=Buffer.from(raw(d).toString().replace('"Objects":'+obj,'"Objects":'+obj.slice(0,-1)+',"'+next+'":'+record+'}').replace('"NextGridObjectID":'+next,'"NextGridObjectID":'+(next+1)).replace('"Amount":3,"Marker":"ItemMarker_None"','"Amount":2,"Marker":"ItemMarker_None"'));
+            assert.equal(p.projectedDecodedSha256,sha(want));assert.equal(p.gridSha256,sha(Buffer.from(JSON.stringify(g))));assert.equal(p.entrySha256,sha(Buffer.from(JSON.stringify(d.Player.ListInventories[0].Inventory[item]))));
+            for(const [k,v] of [['oldAmount',2],['nextObjectId',next+1],['entrySha256','00'.repeat(32)],['gridSha256','00'.repeat(32)],['projectedDecodedSha256','00'.repeat(32)],['x',px+1]])deny(()=>stage(w,r,{...p,[k]:v}));
+            const [f,fr]=open(m,d);deny(()=>stage(f,r,p));f.close();f.free();deny(()=>w.begin_scoped_edit_output(...sc(r)));
+            const s=stage(w,r,p);assert.equal(s.operationCount,3);assert.equal(s.exactFieldChangedCount,3);assert.equal(s.stagedDecodedSha256,sha(want));assert.equal(s.originalOverwriteAuthorized,false);
+            deny(()=>stage(w,r,p));deny(()=>w.toggle_scoped_amount(false,...sc(s)));deny(()=>w.begin_scoped_amount_output(...sc(s)));
+            const u=parse(w.toggle_scoped_edit(false,...sc(s)));deny(()=>w.begin_scoped_edit_output(...sc(u)));const v=parse(w.toggle_scoped_edit(true,...sc(u)));
+            const o=parse(w.begin_scoped_edit_output(...sc(v)));assert.equal(o.decodedSha256,sha(want));const a=Buffer.from(w.next_scoped_edit_output_chunk()),b=Buffer.from(w.next_scoped_edit_output_chunk());assert.deepEqual(Buffer.concat([a,b]),want);
+            deny(()=>w.next_scoped_edit_output_chunk());deny(()=>w.begin_scoped_edit_output(...sc(v)));w.close();w.free();pos++;
+          }
+          for(const mut of [
+            d=>{d.World.GridCollection.Grids[7].Objects[4].X=x;d.World.GridCollection.Grids[7].Objects[4].Y=y},
+            d=>d.World.GridCollection.Grids[7].GridDataPath='unknown',
+            d=>d.World.Villages[0].Areas[6].Unlocked=false,
+            d=>d.Opaque.GridIDs=[7],d=>d.Opaque.SubGrid={GridID:7},
+            d=>d.Opaque.ref={GridID:7,GridObjectID:9},
+            d=>d.World.Villages[0].BoughtObjectLimit.UniqueLimit=1,
+            d=>d.World.ExtraLimitObject='false',
+            d=>d.World.RecurringEvents={1:{Unknown:{RecurringEventItemID:1}}},
+            d=>d.World.RecurringEvents={1:{ItemSpawning:{RecurringEventItemID:Number(eventId),NextOccurrence:null,EndDate:null,LastOccurrence:null}}},
+            d=>d.World.Snippets={1:{}},
+            d=>d.World.GridCollection.Grids[7].Objects[4].State={Unknown:{}},
+            d=>d.Player.ListInventories[0].Inventory[item].Amount=1,
+            d=>d.Player.ListInventories[0].Inventory[item].Marker='ItemMarker_Favorite'
+          ]){const d=doc(7,9,x,y);d.Opaque={};mut(d);const [w,r]=open('both',d);deny(()=>preview(w,r,7,x,y));w.close();w.free();}
+          {const d=doc(7,9,x,y),[w,r]=open('both',d,sw);deny(()=>preview(w,r,7,x,y));w.close();w.free();}
+          console.log('ACT1108_VASE_GENERATED '+pos+'POS '+neg+'NEG PASS');assert.equal(pos,2);assert.equal(neg,43);
+          JS
