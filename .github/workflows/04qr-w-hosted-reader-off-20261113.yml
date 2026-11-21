@@ -1,0 +1,25 @@
+name: 04 QR-W actual hosted Reader OFF boundary
+on:
+  pull_request:
+    paths:
+      - 'scripts/04qr-w-hosted-reader-off-20261113.mjs'
+      - '.github/workflows/04qr-w-hosted-reader-off-20261113.yml'
+permissions:
+  contents: read
+jobs:
+  hosted-reader-off:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual public HTTPS Chrome only, no private Save
+        run: node scripts/04qr-w-hosted-reader-off-20261113.mjs
