@@ -1,0 +1,40 @@
+name: "04QR-W main96b actual Pages DreamSnaps four child robots privacy"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/04qr-w-main96b-dreamsnaps-child-robots.mjs'
+      - '.github/workflows/04qr-w-main96b-dreamsnaps-child-robots.yml'
+permissions:
+  contents: read
+jobs:
+  independent-real-pages-child-robots:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real system Chrome must be available
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: actual Chrome is required"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Exact real public Pages HTTP200, static SEO noindex for four gated DreamSnaps children
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-main96b-dreamsnaps-child-robots.mjs
