@@ -1,0 +1,23 @@
+name: "04 QR-W PR666 schema626 Village Areas independent"
+on:
+  pull_request:
+    paths:
+      - "tests/04qr-w-pr666-village-areas-independent.test.mjs"
+      - ".github/workflows/04qr-w-pr666-village-areas-independent.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-626-negative:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Independent PR666 frozen Source2 checks and Village corruption negatives
+        run: node --test tests/04qr-w-pr666-village-areas-independent.test.mjs
