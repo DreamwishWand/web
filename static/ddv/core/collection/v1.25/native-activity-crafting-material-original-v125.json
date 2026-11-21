@@ -1,0 +1,306 @@
+{
+  "schema": "ddv.collection-activity-crafting-material-original-v125@1",
+  "classification": "OWNER_STATIC_NATIVE_PREDICATE_ONLY_NEW_INDEPENDENT_QR_PENDING",
+  "scope": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "saveSchema": 624
+  },
+  "sourceProvenance": {
+    "main": {
+      "bytes": 96002294,
+      "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0"
+    },
+    "originalMetadata": {
+      "bytes": 36538728,
+      "version": 31,
+      "sha256": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c"
+    },
+    "sameBuildDump": {
+      "bytes": 59624529,
+      "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+    },
+    "losslessItemDb": {
+      "bytes": 5090928,
+      "sha256": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048"
+    },
+    "supportTables": {
+      "bytes": 168583,
+      "sha256": "537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9"
+    },
+    "historicalUntracedMetadata": {
+      "digestPrefix": "d5487eb7",
+      "source": "NEED_SOURCE",
+      "equatedToOriginal": false
+    }
+  },
+  "selectionComparison": {
+    "fish": {
+      "definitionId": 2120000020,
+      "outerCase": 6,
+      "innerCase": 4,
+      "branchRva": "0x4BFD8A0",
+      "genericMethodSpecIndex": 98766,
+      "concreteType": "FishingDataItemData",
+      "concreteTypeDefIndex": 9692,
+      "itemType": 205,
+      "subtype": 1,
+      "additionalRequirements": "CollectionTypeWithLocation/FishingData predicate, Fish result mapping, original foreign FishItemData relationship and runtime enumerator input",
+      "status": "UNKNOWN_NOT_PROMOTED"
+    },
+    "craftingMaterial": {
+      "definitionId": 2120000096,
+      "outerCase": 6,
+      "innerCase": 6,
+      "branchRva": "0x4BFCAF4",
+      "genericMethodSpecIndex": 98757,
+      "concreteType": "ActivityItemData",
+      "concreteTypeDefIndex": 9044,
+      "itemType": 3,
+      "subtype": 17,
+      "additionalRequirements": "None for specific typed GetAll/Select/ToList branch; common IsValid and runtime ItemDatabase remain separate",
+      "status": "OWNER_CONFIRMED_STATIC_PREDICATE"
+    }
+  },
+  "definition": {
+    "id": 2120000096,
+    "name": "ForagingCrafting",
+    "source": "Support Tables tables.CollectionSet one full rawPayloadBase64 row",
+    "fullRawBytes": 313,
+    "fullRawSha256": "0d29ce51cd9970208831abd746e9371187bf78875d1dbdcd54c96b95b380443c",
+    "groupCount": 1,
+    "outerOneof": "ActivityItem",
+    "outerField": 6,
+    "outerCase": 6,
+    "innerOneof": "CraftingMaterial",
+    "innerField": 6,
+    "innerCase": 6,
+    "byTypeSelectedWireHex": "32023200",
+    "innerExplicitEmptyHex": "3200",
+    "byTypeSelectedIgnore": {
+      "fieldPresent": false,
+      "defaultValue": false
+    },
+    "separateByTypeIgnoredRecipe": {
+      "present": true,
+      "ignore": true,
+      "oneof": "Crafting",
+      "recipeType": 2001100001
+    },
+    "separateByItemPositiveIds": [
+      31700015,
+      31700021
+    ],
+    "separateByItemIgnoredExample": {
+      "id": 31700039,
+      "present": true,
+      "ignore": true
+    },
+    "important": "ByItem and ignored Crafting RecipeType are separate source entries and are NOT filters within this CraftingMaterial Native selector."
+  },
+  "native": {
+    "getItemsFromTypeRva": "0x4BFAA70",
+    "outerCase6TestRva": "0x4BFCAF4",
+    "boundedArm": {
+      "start": "0x4BFCAF0",
+      "bytes": 256,
+      "sha256": "9b4fa9773591d2fea136fad19a2e8a6d8e0520fb9331658152e92a405364c6b3"
+    },
+    "typedGetAll": {
+      "callSite": "0x4BFCB34",
+      "callTarget": "0x37816F0",
+      "itemTypeConstant3Rva": "0x4BFCB2C",
+      "subtypeConstant17Rva": "0x4BFCB28",
+      "subtypeStackStoreRva": "0x4BFCB30",
+      "genericUsage": "0xC003038B",
+      "genericUsageRva": "0xB1EF600",
+      "methodSpecIndex": 98757,
+      "methodSpecRva": "0x96E5FD8",
+      "methodSpecRawHex": "2a950100ffffffff37870000",
+      "methodDefIndex": 103722,
+      "methodName": "ItemDatabase.GetAllByType<ItemDataType,SubItemEnumType>",
+      "methodInstantiationIndex": 34615,
+      "genericInstantiationPointerRva": "0xAC1F750",
+      "genericArgCount": 2,
+      "genericArgTypePointers": [
+        "0xB2CCFB8",
+        "0xB2CCFD8"
+      ],
+      "genericArgs": [
+        {
+          "type": "ActivityItemData",
+          "typeDefIndex": 9044
+        },
+        {
+          "type": "ActivityItemType",
+          "typeDefIndex": 10400
+        }
+      ]
+    },
+    "projection": {
+      "lambda": "CollectionGroup.<>c.<_GetItemsFromType>b__46_31(ActivityItemData)",
+      "lambdaRva": "0x4BFF290",
+      "lambdaBytes": 160,
+      "lambdaSha256": "13dc42cb2d2242ee3031b247f8b210cf46e9f045fc2a7d6db00351cfb14eed7b",
+      "idFieldReadRva": "0x4BFF2B8",
+      "idBackingOffset": "0x18",
+      "selectCallSiteRva": "0x4BFD874",
+      "selectTargetRva": "0x3752680",
+      "toListCallSiteRva": "0x4BFD880",
+      "toListTargetRva": "0x37566C0",
+      "hasSpecificWhere": false
+    },
+    "exactSelectorStageExpression": "GetAllByType<ActivityItemData,ActivityItemType>(ItemType=3,ActivityItemType=17).Select(x=>x.ID).ToList()",
+    "commonIsValidSeparate": true
+  },
+  "concrete": {
+    "type": "ActivityItemData",
+    "typeDefIndex": 9044,
+    "metadataTypeDef88Sha256": "34d34ee450e18d546a9f1d2a12935da7ec4ae71d6f573b3ee1e1bfe84585797b",
+    "interfaceOffsetTable": {
+      "startIndex": 18220,
+      "count": 16,
+      "sha256": "9d4ba5bb84fe4fc8d74b75f382d63c3872a914583cd834d6f083af9aa6e0c1e4"
+    },
+    "icollectionItem": {
+      "typeIndex": 64932,
+      "offset": 31,
+      "methodSlot": 1,
+      "concreteVtableSlot": 32,
+      "vtableMethodEncoded": "0x60028809",
+      "methodDefIndex": 82948
+    },
+    "variation": {
+      "typeIndex": 65831,
+      "implemented": false
+    },
+    "getCanBeCollected": {
+      "rva": "0x44EFE70",
+      "instructionBytes": "084041391f010071e0179f1ac0035fd6",
+      "bytes": 16,
+      "sha256": "e37d5869e849938f2d6eecdde5f518bb0cdecd450eb9d97a7a9d1f4d6d7d1957",
+      "expression": "!IsMissionItem",
+      "boolBackingOffset": "0x50"
+    },
+    "protobuf": {
+      "itemIdField": 1,
+      "missionField": 8,
+      "missionAbsentDefault": false
+    },
+    "important": "Original ActivityItemData protobuf has no subtype discriminator field; provenance-backed lossless DB source itemType/subtype columns are separate and mandatory for candidate classification."
+  },
+  "sourceAudit": {
+    "originalActivityItemDataRowsShaVerified": 166,
+    "typedSubtype17": {
+      "count": 132,
+      "missionField8AbsentDefaultFalse": 128,
+      "missionField8ExplicitTrue": 4,
+      "staticGetterTrueInputs": 128,
+      "staticGetterFalseInputs": 4
+    },
+    "typedSubtype0": {
+      "count": 34,
+      "missionField8AbsentDefaultFalse": 32,
+      "missionField8ExplicitTrue": 2,
+      "excludedByNativeSubtype17": true
+    },
+    "sourceOnly": true,
+    "representativeExamples": [
+      {
+        "itemId": 31700000,
+        "name": "Refinement!Brick",
+        "sourceSubtype": 17,
+        "rawPayloadBytes": 210,
+        "rawPayloadSha256": "50dd483949b61c6c1bf7e8848db9a9b8d991d00818341f5000a3e9017332c74a",
+        "missionField8Present": false,
+        "staticSubtypeMatch": true,
+        "staticGetter": true,
+        "staticSelectorStage": "TYPED_POSITIVE"
+      },
+      {
+        "itemId": 31700015,
+        "name": "Basic!Soil",
+        "sourceSubtype": 17,
+        "rawPayloadBytes": 218,
+        "rawPayloadSha256": "d65424678f5806e100656fe6e9b51a296a2745fc8fec1d08af7c0fc7f421f1e4",
+        "missionField8Present": false,
+        "staticSubtypeMatch": true,
+        "staticGetter": true,
+        "alsoSeparateByItemInclude": true
+      },
+      {
+        "itemId": 31700039,
+        "name": "Basic!Expansion01!PlasticScrap",
+        "sourceSubtype": 17,
+        "rawPayloadBytes": 250,
+        "rawPayloadSha256": "dcfd07c64b4806abdc9aff38b828509faf52128d23004011fc3ceb725c909400",
+        "missionField8Present": false,
+        "staticSubtypeMatch": true,
+        "staticGetter": true,
+        "separateByItemIgnore": true,
+        "finalMembership": "UNKNOWN"
+      },
+      {
+        "itemId": 31700023,
+        "name": "Mission!Village!MixOfOil",
+        "sourceSubtype": 17,
+        "rawPayloadBytes": 236,
+        "rawPayloadSha256": "d722511b5added662e96dc4b46fa214ca66fd792465cdf2462a8d0d424b8db69",
+        "missionField8Present": true,
+        "missionField8WireHex": "4001",
+        "staticSubtypeMatch": true,
+        "staticGetter": false,
+        "staticSelectorStage": "TYPED_POSITIVE_GETTER_NEGATIVE"
+      },
+      {
+        "itemId": 30000031,
+        "name": "Crafting!PurifiedNightShard",
+        "sourceSubtype": 0,
+        "rawPayloadBytes": 253,
+        "rawPayloadSha256": "d07a2003d954bd8e38236b39152f63634b6ee9aac1030b381d20740dfa723de9",
+        "missionField8Present": false,
+        "staticSubtypeMatch": false,
+        "staticGetter": true,
+        "staticSelectorStage": "TYPED_NEGATIVE_DIFFERENT_SUBTYPE"
+      }
+    ],
+    "unknowns": [
+      "Actual ItemDatabase.GetAllByType runtime enumerator output is unknown, even though original typed source subtype is known.",
+      "GetItemsFromType selector stage does not apply the separate common IsValidItemForCollection gate or CollectionByItem/ByType Ignore composition.",
+      "The original whole 45171-byte CollectionSet.json source SHA is manifest-only; the individual 313-byte row is SHA-verified.",
+      "No original-source CraftingMaterial mission-true row may be assumed to be present in a device's runtime database; static typed getter negative is conditional."
+    ]
+  },
+  "coverage": {
+    "previousOwnerStatic": 102,
+    "newStaticSelectors": 1,
+    "currentOwnerStatic": 103,
+    "total": 256,
+    "remainingUnknown": 153,
+    "unresolvedFamilyCounts": {
+      "ActivityItem": 1,
+      "Crafting": 28,
+      "Clothing": 61,
+      "Furniture": 63
+    },
+    "remainingActivitySelector": "Fish"
+  },
+  "safety": {
+    "independentQrAccepted": false,
+    "qr205MineralFrozenHead": "5ed6b31dc1ce44943baee67362e65575effaf6ab",
+    "qr205MineralVerdict": "PARTIAL_NEED_SOURCE",
+    "runtimeEligibility": "UNKNOWN",
+    "finalMembershipKnown": false,
+    "denominator": null,
+    "owned": "UNKNOWN",
+    "collected": "UNKNOWN",
+    "missing": "UNKNOWN",
+    "personalMetricsEnabled": false,
+    "nativeSaveWriterEnabled": false,
+    "presetApplyEnabled": false,
+    "communityPublishingEnabled": false,
+    "entitlementEditingEnabled": false,
+    "steamAndSchema626MeaningTransferred": false
+  }
+}
