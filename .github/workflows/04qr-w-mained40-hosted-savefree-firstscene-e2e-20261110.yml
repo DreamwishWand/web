@@ -1,0 +1,43 @@
+name: "04 QR-W actual deployed MAINed40 first Savefree Scene HTTPS E2E"
+on:
+  push:
+    branches: [qa/04qr-w-mained40-hosted-savefree-firstscene-e2e-20261110]
+  pull_request:
+    paths:
+      - ".github/workflows/04qr-w-mained40-hosted-savefree-firstscene-e2e-20261110.yml"
+      - "scripts/04qr-w-mained40-hosted-savefree-firstscene-e2e-20261110.mjs"
+permissions:
+  contents: read
+  pages: read
+  deployments: read
+jobs:
+  actual-public-https-new-operation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 36
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Public Pages new one operation real installed Chrome and synthetic Scene only"
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          QRW884_MAIN: ed40e346d381f485ee6dd419f72c5ca09b71d9c0
+          QRW884_URL: https://dreamwishwand.github.io/web/
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          CHROME_BIN="$BIN" node scripts/04qr-w-mained40-hosted-savefree-firstscene-e2e-20261110.mjs
+      - name: "QA-only hard OFF gate"
+        run: echo "QA_ONLY_NEVER_MERGE_NATIVE_WRITER_APPLY_CLOUD_PROVIDER_MEDIA_COMMUNITY_PUBLIC_OFF"
