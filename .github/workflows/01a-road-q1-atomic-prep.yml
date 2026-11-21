@@ -1,0 +1,30 @@
+name: 01A Steam626 Road Q1 Atomic Preparation (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/steam626_road_q1_atomic_prep.rs'
+      - 'crates/ddv-save-core/src/product_session.rs'
+      - '.github/workflows/01a-road-q1-atomic-prep.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fixed-road-q1-readonly-preparation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Exact Road40100068 Q1 proposal and fail-closed negative suite
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --no-default-features --features semantic-writer-dev --lib road_q1_prep_ --verbose
+      - name: Existing single Rust Session DEV-only worker typecheck (no export added)
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --no-default-features --features worker-wasm,semantic-writer-dev
+      - name: Public Pages profile stays read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          grep -F -- 'product-steam626-singlefence-readonly = ["indexed-read"]' crates/ddv-save-core/Cargo.toml
+          ! grep -R -F 'steam626_road_q1_atomic_prep' crates/ddv-save-core/src/wasm_worker.rs
