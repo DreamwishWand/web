@@ -1,0 +1,142 @@
+name: QA-only hosted Steam Reader exact route and deny
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-qrw-hosted-steam-reader.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  hosted-reader:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EXPECTED_SOURCE: b48bd69f260230090216769de64f8444e2cd7902
+      ROOT: https://dreamwishwand.github.io/web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Bind exact protected source and QA-only path
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_SOURCE"
+          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/qa-qrw-hosted-steam-reader.yml'
+          test "$(git rev-parse HEAD:src/lib/wep/SteamSavedDiffGridsReadonly.svelte)" = 5b609616fb327bb3280899ecba0bde02e563cd82
+          test "$(git rev-parse HEAD:src/routes/editor/steam-reader/+page.svelte)" = 14a3a2bcb1a9d96d3ec90798a0a9d5ea6bafeec8
+          test "$(git rev-parse HEAD:src/lib/wep/steam-saved-diffgrids.consumer.worker.ts)" = 8a030e52693ffe62f60dc4359fddba6bbc7f1290
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-original-backup.mjs)" = 7ea426cffdce8b6cdc8a5b100ff5607ddb9ea48f
+      - name: Exact deployed manifest and compatible protected head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          status="$(curl -fsS --proto '=https' --max-redirs 0 --max-time 30 --max-filesize 262144 -H 'Cache-Control: no-cache' -o /tmp/qrw-reader-manifest.json -w '%{http_code}' "$ROOT/worker-wasm/manifest.json")"
+          test "$status" = 200
+          deployed="$(jq -er '.source.commit' /tmp/qrw-reader-manifest.json)"
+          [[ "$deployed" =~ ^[0-9a-f]{40}$ ]]
+          test "$(jq -r '.source.repository' /tmp/qrw-reader-manifest.json)" = DreamwishWand/web
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$EXPECTED_SOURCE" "$deployed"
+          git merge-base --is-ancestor "$deployed" refs/remotes/origin/main
+          git diff --exit-code "$EXPECTED_SOURCE" "$deployed" -- src/routes/editor/steam-reader src/routes/editor/timing src/lib/wep/SteamSavedDiffGridsReadonly.svelte 'src/lib/wep/steam-saved-diffgrids*' src/lib/wep/steam-reader-input-help.mjs src/lib/ddv/core/save/local-original-backup.mjs src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs 'src/lib/ddv/core/save/product-rust-wasm-release-*' tools/owner-local-steam-v1/attestation.mjs
+          gh api "repos/DreamwishWand/web/actions/runs?head_sha=$deployed&event=push&per_page=30" | jq -e '[.workflow_runs[] | select(.name=="CI" and .head_branch=="main" and .conclusion=="success")]|length>0' >/dev/null
+          gh api "repos/DreamwishWand/web/actions/runs?head_sha=$deployed&event=push&per_page=30" | jq -e '[.workflow_runs[] | select(.name=="Build and deploy Dreamwish Wand" and .head_branch=="main" and .conclusion=="success")]|length>0' >/dev/null
+          echo "QRW_HOSTED_READER_SOURCE=$deployed"
+          sha256sum /tmp/qrw-reader-manifest.json
+          for route in editor/steam-reader/ editor/timing/; do
+            status="$(curl -fsS --proto '=https' --max-redirs 0 --max-time 30 --max-filesize 2097152 -o /tmp/qrw-reader-route.html -w '%{http_code} %{content_type}' "$ROOT/$route")"
+            [[ "$status" == "200 text/html"* ]]
+          done
+      - name: Install isolated browser test dependency
+        run: |
+          npm install --prefix /tmp/qrw-hosted-reader playwright-core@1.55.0 --no-package-lock --no-audit --no-fund
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Actual hosted Chrome route, manual selection and fail-closed malformed input
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {chromium} from '/tmp/qrw-hosted-reader/node_modules/playwright-core/index.mjs';
+          const root=process.env.ROOT,origin=new URL(root).origin;
+          const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const context=await browser.newContext({viewport:{width:1280,height:800},serviceWorkers:'block',acceptDownloads:false});
+          const net={sameOriginReads:0,blockedExternal:0,blockedNonRead:0};
+          await context.route('**/*',async route=>{
+            const r=route.request(),u=new URL(r.url());
+            if(!['http:','https:'].includes(u.protocol))return route.continue();
+            if(!['GET','HEAD'].includes(r.method())){net.blockedNonRead++;return route.abort();}
+            if(u.origin!==origin||!u.pathname.startsWith('/web/')){net.blockedExternal++;return route.abort();}
+            net.sameOriginReads++;return route.continue();
+          });
+          const page=await context.newPage(),errors=[],workers=[],requests=[];
+          page.on('pageerror',e=>errors.push(String(e)));
+          page.on('worker',w=>workers.push(w.url()));
+          page.on('request',r=>requests.push(r.url()));
+          const wait=async(fn,label)=>{for(let i=0;i<200;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100))}throw Error(label)};
+          try{
+            const t=await page.goto(root+'/editor/timing/',{waitUntil:'domcontentloaded'});
+            assert.equal(t.status(),200);
+            const timing=page.locator('[data-steam-diffgrids-readonly]');
+            await timing.waitFor();
+            assert.equal(await timing.getAttribute('data-preformal-read'),'off');
+            assert.equal(await timing.evaluate(e=>e.open),false);
+            assert.equal(await timing.locator('input[type=file]').count(),0);
+            await page.waitForTimeout(500);
+            assert.equal(requests.filter(u=>u.includes('/worker-wasm/')).length,0,'TIMING_NO_SIGNED_READER_ASSET');
+            const r=await page.goto(root+'/editor/steam-reader/',{waitUntil:'domcontentloaded'});
+            assert.equal(r.status(),200);
+            assert.equal(page.url(),root+'/editor/steam-reader/');
+            const panel=page.locator('[data-steam-diffgrids-readonly]');
+            await panel.waitFor();
+            assert.equal(await panel.evaluate(e=>e.open),true);
+            for(const [a,v] of Object.entries({'data-preformal-read':'scoped','data-writer':'off','data-cloud':'off','data-product-read':'off'}))assert.equal(await panel.getAttribute(a),v,a);
+            const help=page.locator('[data-steam-input-help]');
+            await help.locator('summary').click();
+            assert.match(await help.locator('code').innerText(),/Get-FileHash -LiteralPath .* -Algorithm SHA256/);
+            const file=page.locator('#steam-diffgrids-file'),sha=page.locator('#steam-diffgrids-sha'),confirm=panel.locator('.confirmation input'),open=panel.locator('[data-diffgrids-open]');
+            await file.waitFor({timeout:45000});
+            assert.equal(await file.evaluate(e=>e.files.length),0);
+            assert.equal(await open.isDisabled(),true);
+            assert.equal(await panel.locator('[data-diffgrids-count],[data-diffgrids-backup]').count(),0);
+            assert.ok(workers.length>=1,'SIGNED_WORKER_STARTED');
+            // Non-save bytes with a deliberately wrong digest. No genuine Save,
+            // no successful owner attestation or source provenance claim.
+            await file.setInputFiles({name:'qa-invalid.p1g',mimeType:'application/octet-stream',buffer:Buffer.alloc(16,165)});
+            assert.equal(await open.isDisabled(),true,'NO_SHA_OR_ATTESTATION_NO_OPEN');
+            await sha.fill('0'.repeat(64));
+            assert.equal(await open.isDisabled(),true,'NO_ATTESTATION_NO_OPEN');
+            assert.equal(await panel.locator('[data-diffgrids-count],[data-diffgrids-backup]').count(),0);
+            await confirm.check();
+            await wait(async()=>!(await open.isDisabled()),'MANUAL_OPEN_READY');
+            await open.click();
+            await panel.locator('[data-diffgrids-error]').waitFor({timeout:30000});
+            assert.equal(await panel.locator('[data-diffgrids-count],[data-diffgrids-backup],[data-diffgrids-next]').count(),0,'DENIED_NO_RESULTS_OR_BACKUP');
+            await wait(async()=>!(await file.isDisabled()),'DENIAL_CLOSE_SETTLED');
+            await file.setInputFiles({name:'qa-invalid-second.p1g',mimeType:'application/octet-stream',buffer:Buffer.alloc(16,90)});
+            assert.equal(await sha.inputValue(),'');
+            assert.equal(await confirm.isChecked(),false);
+            assert.equal(await open.isDisabled(),true);
+            assert.equal(await panel.locator('[data-diffgrids-count],[data-diffgrids-backup]').count(),0);
+            assert.equal(await panel.locator('[data-writer="on"]').count(),0);
+            assert.equal(errors.length,0,errors.join('\n'));
+            assert.equal(net.blockedNonRead,0);
+            assert.equal(net.blockedExternal,0);
+            assert.ok(net.sameOriginReads>0);
+            console.log('QRW_HOSTED_STEAM_READER_MANUAL_DENY_PASS',JSON.stringify({net,workerCount:workers.length,realSave:false,positiveRead:false,backup:false,writer:false}));
+          }finally{await context.close();await browser.close()}
+          NODE
+      - name: Deployed manifest stable throughout observation
+        run: |
+          set -euo pipefail
+          status="$(curl -fsS --proto '=https' --max-redirs 0 --max-time 30 --max-filesize 262144 -H 'Cache-Control: no-cache' -o /tmp/qrw-reader-after.json -w '%{http_code}' "$ROOT/worker-wasm/manifest.json")"
+          test "$status" = 200
+          cmp /tmp/qrw-reader-manifest.json /tmp/qrw-reader-after.json
+          echo QRW_HOSTED_STEAM_READER_EXACT_MANIFEST_STABLE
