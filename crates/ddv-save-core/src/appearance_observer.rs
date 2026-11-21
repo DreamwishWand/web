@@ -162,6 +162,10 @@ pub(super) fn enum_token(bytes:&[u8],s:Span,prefix:&str)->CoreResult<String>{
 }
 
 pub(super) fn inventory_dependencies(bytes:&[u8],lists:Span,female:&Branch,male:&Branch)->CoreResult<Value>{
+    inventory_dependencies_with_proposed_clothing(bytes,lists,female,male,None)
+}
+/// Bounded private Wardrobe readset only. Default observer semantics remain untouched.
+pub(super) fn inventory_dependencies_with_proposed_clothing(bytes:&[u8],lists:Span,female:&Branch,male:&Branch,proposed_clothing:Option<i32>)->CoreResult<Value>{
     use std::collections::BTreeSet;
     let mut clothes=BTreeSet::new();let mut makeup=BTreeSet::new();
     for b in [female,male]{
@@ -170,6 +174,10 @@ pub(super) fn inventory_dependencies(bytes:&[u8],lists:Span,female:&Branch,male:
         }
         for e in &b.customization.entries{clothes.insert(e.key as i32);}
         for e in &b.makeup.entries{makeup.insert(e.value);}
+    }
+    if let Some(id)=proposed_clothing {
+        if id<=0||id/10_000_000!=5{return Err(denied("AVATAR_DEP_PROPOSED_CLOTHING_ID"));}
+        clothes.insert(id);
     }
     let mut selected=[None,None];
     for (key,rec) in members(bytes,lists,128)?{
