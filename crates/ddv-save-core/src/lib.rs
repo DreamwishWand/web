@@ -50,6 +50,7 @@ pub use steam_spatial_preflight::{
     PreviewCell,PreviewObjectKey,PreviewTransform,PreviewGrid,
     PreviewRestrictions,PreviewOccupiedCell,PreviewSnapshot,PreviewRequest,
     PreviewReceipt,STEAM_SPATIAL_PREFLIGHT_CONTRACT,
+    inspect_v1261_griddata_envelope,V1261GridDataEnvelope,V1261_GRIDDATA_WIRE_CONTRACT,
 };
 mod worker_session;
 #[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]
