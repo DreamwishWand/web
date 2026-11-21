@@ -1,0 +1,20 @@
+name: "04 QR-W PR668 repaired 2acd symlink-root differential"
+on:
+  pull_request:
+    paths:
+      - "tests/04qr-w-pr668-repair-2acd.test.py"
+      - ".github/workflows/04qr-w-pr668-repair-2acd.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  repaired-cli-negative:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: New independent repaired CLI-root and no-clobber negatives
+        run: python3 tests/04qr-w-pr668-repair-2acd.test.py
