@@ -1,0 +1,76 @@
+name: 09 INT ACT380 Subsequent Signed Redeploy No-Resurrection QA ONLY
+on:
+  push:
+    branches:
+      - '09int/qa-act380-redeploy-noresurrection-main344-20261117'
+permissions:
+  contents: read
+jobs:
+  hosted-withdrawal-two-negative-control-positive:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Checkout exact signed protected product main (no QA Source mutation)
+        uses: actions/checkout@v4
+        with:
+          ref: 344e4e1105037d732eeacc1bdff68fa140c2fafa
+          fetch-depth: 2 # Needed to verify HEAD^ against previous protected signed deployment
+          persist-credentials: false
+      - name: Pin current source DELETE2 and unchanged control
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 344e4e1105037d732eeacc1bdff68fa140c2fafa
+          p=static/__dbk-takedown-rehearsal__/20261113
+          for n in alias canary; do
+            test ! -e "$p/$n.webp"
+            ! git cat-file -e "HEAD:$p/$n.webp" 2>/dev/null
+          done
+          test "$(git rev-parse HEAD:"$p/control.webp")" = c080c82101f223bbf5a7a07bb17879b02466fafa
+          echo "5d8814f2a6795e7c976a43d97e98332b9ecf831857db7d0e726604f5b4656997  $p/control.webp" | sha256sum -c -
+          test "$(git rev-parse HEAD^)" = 2c9cd43c043ba8f97c1826dad38c2290e202b9d7
+          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/web-shared-catalog-detail.yml
+          echo ACT380_PROTECTED_MAIN344_NEW_REDEPLOY_SOURCE_DELETE2_CONTROL_AND_UNRELATED_ONLY_PASS
+      - name: Actual public HTTPS old URLs and cache variants GET/HEAD negative; control bytes positive
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=https://dreamwishwand.github.io/web/__dbk-takedown-rehearsal__/20261113
+          old_sha=ff3faebd2f71d24f08b4fdcb5135f36accd8badb7c4dff81e7d7a318457fab50
+          control_sha=5d8814f2a6795e7c976a43d97e98332b9ecf831857db7d0e726604f5b4656997
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          cases=0
+          for n in alias canary; do
+            for query in '' '?v=20261113' '?v=20261117' '?cacheBust=act380-redeploy344'; do
+              for mode in plain nocache; do
+                args=()
+                if [[ "$mode" = nocache ]]; then
+                  args=(-H 'Cache-Control: no-cache, no-store, max-age=0' -H 'Pragma: no-cache')
+                fi
+                url="$base/$n.webp$query"
+                code="$(curl --silent --show-error --connect-timeout 12 --max-time 40 --dump-header "$work/get.headers" --output "$work/body" --write-out '%{http_code}' "${args[@]}" "$url")"
+                [[ "$code" = 404 || "$code" = 410 ]] || { echo "ACT380_HOSTED_GET_STALE_RED name=$n query=$query mode=$mode status=$code"; exit 1; }
+                mime="$(awk 'tolower($1)=="content-type:" {print tolower($2)}' "$work/get.headers" | tr -d '\r' | tail -n 1)"
+                [[ "$mime" != image/webp* ]] || { echo "ACT380_HOSTED_GET_WEBP_RED name=$n query=$query mode=$mode"; exit 1; }
+                got="$(sha256sum "$work/body" | cut -d' ' -f1)"
+                [[ "$got" != "$old_sha" ]] || { echo "ACT380_HOSTED_OLD_IMAGE_BYTES_RED name=$n query=$query mode=$mode"; exit 1; }
+                headcode="$(curl --silent --show-error --head --connect-timeout 12 --max-time 40 --output /dev/null --write-out '%{http_code}' "${args[@]}" "$url")"
+                [[ "$headcode" = 404 || "$headcode" = 410 ]] || { echo "ACT380_HOSTED_HEAD_STALE_RED name=$n query=$query mode=$mode status=$headcode"; exit 1; }
+                cases=$((cases + 1))
+              done
+            done
+          done
+          [[ "$cases" = 16 ]]
+          echo ACT380_SECOND_SIGNED_REDEPLOY_MAIN344_TARGET_ALIAS_16GET_16HEAD_NO_RESURRECTION_PASS
+          for query in '' '?v=20261113' '?cacheBust=act380-redeploy344'; do
+            code="$(curl --silent --show-error --connect-timeout 12 --max-time 40 --dump-header "$work/control.headers" --output "$work/control.webp" --write-out '%{http_code}' "$base/control.webp$query")"
+            [[ "$code" = 200 ]] || { echo "ACT380_CONTROL_GET_RED $query status=$code"; exit 1; }
+            mime="$(awk 'tolower($1)=="content-type:" {print tolower($2)}' "$work/control.headers" | tr -d '\r' | tail -n 1)"
+            [[ "$mime" = image/webp* ]] || { echo "ACT380_CONTROL_MIME_RED $query mime=$mime"; exit 1; }
+            echo "$control_sha  $work/control.webp" | sha256sum -c -
+            headcode="$(curl --silent --show-error --head --connect-timeout 12 --max-time 40 --output /dev/null --write-out '%{http_code}' "$base/control.webp$query")"
+            [[ "$headcode" = 200 ]] || { echo "ACT380_CONTROL_HEAD_RED $query status=$headcode"; exit 1; }
+          done
+          echo ACT380_SECOND_SIGNED_REDEPLOY_MAIN344_CONTROL_GET_HEAD_SHA_MIME_POSITIVE_PASS
+          echo ACT380_REDEPLOY_MAIN344_SECOND_DEPLOY_NO_RESURRECTION_SCOPED_PASS_NOT_GLOBAL_BROWSER_CDN_PURGE_OR_ROLLBACK_RESTORE
