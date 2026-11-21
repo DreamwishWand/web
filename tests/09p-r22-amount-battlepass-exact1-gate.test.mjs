@@ -53,7 +53,10 @@ test('ACT1581 approved exact1 BattlePass Rust source reconstructs and rejects fo
   '751a73da41d8b58f7de70643f50b97722a3c1260');
  assert.equal(git(['rev-parse',protectedMain+':scripts/wasm-distribution/protected-release-inputs.json']),
   '30551c7cc566614f64c8ba04748c3aef44b419bb');
- assert.equal(git(['rev-parse','HEAD:'+gatePath]),'d3997b2d4460109562489c6afa2c5d5e51fa2b5a');
+ assert.ok([ 'd3997b2d4460109562489c6afa2c5d5e51fa2b5a',
+  // New ACT1581 Inventory0 Gate-first source selector ONLY; review/merge by
+  // independent 04 QR-S and sole09INT required. No new signed/Writer grant.
+  '02d8d757fc9dfe7bf85a306fda87e8fd1d76d0ed' ].includes(git(['rev-parse','HEAD:'+gatePath])));
  // Preserve all original Rust bytes, including the final newline.
  const before=execFileSync('git',['show',protectedMain+':'+rustPath],{
   cwd,env,encoding:'utf8'});

@@ -171,7 +171,13 @@ test('ACT1581 independent PRE-candidate trusted-main executable denies self-chan
      'e54e5f0fd94c77dba6818b3c3307fe168a9eac8d',
      'fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323']:
     (mannequinCore||bothCore)?['949eda609e5ea91b1d7482d7f5c0324197f95323','d3997b2d4460109562489c6afa2c5d5e51fa2b5a']:
-    (rustHeapScrubCore||zeroizedFinishCore||zeroizedArcCore)?['d3997b2d4460109562489c6afa2c5d5e51fa2b5a']:
+    (rustHeapScrubCore||zeroizedFinishCore||zeroizedArcCore)?[
+     'd3997b2d4460109562489c6afa2c5d5e51fa2b5a',
+     // 09P ACT1581 Gate-first exact Source15 candidate ONLY. This candidate
+     // GitBlob must pass independent 04 QR-S Security L2 and 09INT protected
+     // CAS acceptance before becoming trusted main. It does not waive Cargo
+     // /Bamboo release denial, sign assets, or authorize a product Writer.
+     '02d8d757fc9dfe7bf85a306fda87e8fd1d76d0ed']:
     windowsLfCore?['fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323']:
     ['e54e5f0fd94c77dba6818b3c3307fe168a9eac8d',
      'fa595f6a72c7e7fcfa47d1edd6dc0bd142a463e9','949eda609e5ea91b1d7482d7f5c0324197f95323'];
