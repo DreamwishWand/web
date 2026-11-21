@@ -1,0 +1,77 @@
+name: 04 QR-S ACT1254 PR1730 proof5 current L2 (QA ONLY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-act1254-pr1730-proof5-current.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 181edfc5fe9a9a8205ad94f2eb9e7416630a714c
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact actual pins, exclusive dispatch and new RM01 deny only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 181edfc5fe9a9a8205ad94f2eb9e7416630a714c
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 3001eb39ce1b7a6d18be94de03fa27b37f5cce84
+          test "$(git rev-parse HEAD:scripts/readonly-release/scoped-placement-proof.mjs)" = 55d9e32cd52ee5845c2f4fbfb51b8b65ac88ab3b
+          test "$(git rev-parse HEAD:tests/scoped-placement-proof.test.mjs)" = d8b0db818d9890bc23f459cb3c8d1712d3847432
+          test "$(git rev-parse HEAD:tests/scoped-sr03-spatial-proof-workflow.test.mjs)" = a8b2c953fcb44dc656a0d468f3eea5f93da34afb
+          cat > qa-current-proof5.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {readFileSync,writeFileSync,unlinkSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {ACTIVE_RELEASE_TUPLE as tuple} from './src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs';
+          import {COMP03_RELEASE as comp,COMP03_SPATIAL_RELEASE as sp,SR03_RELEASE as sr,VASE_ADD_RELEASE as vase,RM01_RELEASE as rm} from './src/lib/ddv/core/save/product-scoped-placement-release.mjs';
+          import {fixedPlacementProofScope as fixed,inspectPlacementSubjects as inspect} from './scripts/readonly-release/scoped-placement-proof.mjs';
+          const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim(),head=git('rev-parse','HEAD'),parent='fe0848f572e38b4b551be1dfd1311eeed8fba0b7',main='eb5afaced685da301a5899b3edb8937becb68c30',previous='4858e25ea1e5c18edec8cbad06801c47faf0a16f',raw=(ref,p)=>execFileSync('git',['show',ref+':'+p],{encoding:'utf8'});
+          const y=readFileSync('.github/workflows/pages.yml','utf8'),old=raw(parent,'.github/workflows/pages.yml'),adapter='scripts/readonly-release/scoped-placement-proof.mjs',oldAdapter=raw(previous,adapter),newAdapter=raw(head,adapter);
+          const names=['scoped_collection_proof','scoped_switch_chest_proof','scoped_steam_chest_proof','scoped_sr03_proof','scoped_comp03_spatial_proof'],keys=names.map(n=>n+'_source');
+          const section=(text,n)=>{const i=text.indexOf('\n  '+n+':\n');assert.ok(i>=0,n);const j=text.slice(i+1).search(/\n  [a-z0-9_]+:\n/);return j<0?text.slice(i):text.slice(i,i+1+j)};
+          const tail=" && inputs.scoped_sr03_proof_source == '' && inputs.scoped_comp03_spatial_proof_source == ''",start=y.indexOf('\n  scoped_sr03_proof:\n');
+          const inverse=y.slice(0,start).replace(/      scoped_sr03_proof_source:\n(?:        [^\n]+\n){4}      scoped_comp03_spatial_proof_source:\n(?:        [^\n]+\n){4}/,'').split(tail).join('');
+          assert.equal(inverse,old);assert.equal(newAdapter.replace('(?:preview|stage)_switch626_(?:vase_add|rm01)','(?:preview|stage)_switch626_vase_add'),oldAdapter);
+          let pos=2,neg=0,pins=0;
+          for(const [i,n] of names.entries()){
+            const b=section(y,n),entries=[...b.matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g)].map(m=>[m[1],m[2]]);
+            const count=[...section(old,names[Math.min(i,2)]).matchAll(/test "\$\(git rev-parse HEAD:([^)]*)\)" = ([0-9a-f]{40})/g)].length;
+            assert.equal(entries.length,i<3?count:i===3?38:39);assert.equal(new Set(entries.map(x=>x[0])).size,entries.length);
+            for(const [p,h] of entries){assert.equal(git('rev-parse',head+':'+p),h);pins++;assert.notEqual(git('rev-parse',head+':'+p),(h[0]==='0'?'1':'0')+h.slice(1));neg++;
+              if(p===adapter){assert.equal(h,'55d9e32cd52ee5845c2f4fbfb51b8b65ac88ab3b');assert.equal(git('rev-parse',main+':'+p),'5e0bcc0ed447eea1b020219fe8bafd32a4d49073')}
+              else assert.equal(git('rev-parse',main+':'+p),h);
+            }
+            if(i<3){assert.equal(b.split(tail).join(''),section(old,n));pos++;continue}
+            const key=i===3?'steam626-sr03':'steam626-comp03-spatial',feature=i===3?'product-steam626-sr03-scoped':'product-steam626-comp03-spatial-preview';
+            const stages=['node scripts/int-protected-ci-gate.mjs build','node scripts/wasm-distribution/verify-protected-release.mjs inputs','--no-default-features --features '+feature+',worker-wasm','scoped-placement-proof.mjs build '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/attest-build-provenance@v2','verify-protected-candidate '+key,'node scripts/int-protected-ci-gate.mjs deploy','actions/upload-artifact@v4'];let last=-1;for(const s of stages){last=b.indexOf(s,last+1);assert.ok(last>=0,s)}
+            assert.ok(b.includes('test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"'));assert.ok(b.includes('test "$GITHUB_REPOSITORY_ID" = 1371485649'));assert.ok(b.includes('test "$WAND_PROOF_EXPECTED_SOURCE" = "$GITHUB_SHA"'));
+            assert.doesNotMatch(b,/actions\/(?:deploy-pages|upload-pages-artifact)@|seal-private-v2|npm run build|permissions:/);
+            const sub=b.slice(b.indexOf('subject-path: |'),b.indexOf('      - name: Verify exact signer'));assert.deepEqual(sub.match(/tests\/wasm-distribution\/fixtures\/scoped-[^\s]+/g),['ddv_save_core.js','ddv_save_core_bg.wasm','manifest.json'].map(x=>'tests/wasm-distribution/fixtures/scoped-'+key+'/'+x));
+            const upload=b.slice(b.indexOf('actions/upload-artifact@v4'));assert.match(upload,/pins\.json/);assert.match(upload,/attestation-bundle\.jsonl/);assert.doesNotMatch(upload,/ddv_save_core|fixtures\/scoped-|static\/|build\//);pos++;
+          }
+          assert.equal(pins,134);
+          const guards=['build',...names].map(n=>section(y,n).split('\n').find(l=>l.trim().startsWith('if:')).trim().slice(4));
+          const evalGuard=(g,event,ref,values)=>g.split(' || ').some(or=>or.replace(/^\(|\)$/g,'').split(' && ').every(term=>{const m=term.match(/^(github\.event_name|github\.ref|inputs\.[a-z0-9_]+) (==|!=) '([^']*)'$/);assert.ok(m,term);const v=m[1]==='github.event_name'?event:m[1]==='github.ref'?ref:values[m[1].slice(7)];return m[2]==='=='?v===m[3]:v!==m[3]}));
+          for(const event of ['workflow_dispatch','push'])for(const ref of ['refs/heads/main','refs/heads/other'])for(let mask=0;mask<32;mask++){const v=Object.fromEntries(keys.map((k,i)=>[k,mask&(1<<i)?'x':''])),out=guards.map(g=>evalGuard(g,event,ref,v)),expect=[event!=='workflow_dispatch'||mask===0,...keys.map((k,i)=>event==='workflow_dispatch'&&ref==='refs/heads/main'&&mask===(1<<i))];assert.deepEqual(out,expect);if(expect.some(Boolean))pos++;else neg++}
+          const sha=b=>createHash('sha256').update(b).digest('hex'),u=n=>{const a=[];do{let v=n&127;n>>>=7;a.push(v|(n?128:0))}while(n);return a},str=s=>[...u(Buffer.byteLength(s)),...Buffer.from(s)],sec=(id,b)=>[id,...u(b.length),...b];
+          const wasm=s=>{const es=s.exports.flatMap(n=>[...str(n),n==='memory'?2:n==='__wbindgen_externrefs'?1:0,0]);return Buffer.from([0,97,115,109,1,0,0,0,...sec(1,[1,96,0,0]),...sec(3,[1,0]),...sec(4,[1,111,0,1]),...sec(5,[1,0,1]),...sec(7,[...u(s.exports.length),...es]),...sec(10,[1,2,0,11])])};
+          const pack=(s,j,w)=>[Buffer.from(JSON.stringify({contract:s.prefix+'.runtime@1',operation:s.operation,source:{repository:tuple.repository,commit:head,cargoTomlSha256:'b'.repeat(64),cargoLockSha256:'e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c',cargoLockOrigin:'approved-repository-lock',wasmBindgen:'0.2.105',wasmTarget:'wasm32-unknown-unknown',profile:'release',features:s.features,defaultFeatures:false,toolchain:'rustc 1.99.1 (test)'},assets:{js:{path:'ddv_save_core.js',sizeBytes:j.length,sha256:sha(j)},wasm:{path:'ddv_save_core_bg.wasm',sizeBytes:w.length,sha256:sha(w)}},abi:{exportClass:'WorkerWasmSource',methods:s.methods,writerAuthorized:false,originalOverwriteAuthorized:false},release:{productConsumerEnabled:false,writerAuthorized:false,autoUpload:false,originalOverwriteAuthorized:false}})),j,w];
+          const temp='scripts/readonly-release/qa-old-placement-proof.mjs';writeFileSync(temp,oldAdapter,{flag:'wx'});
+          try{const oldInspect=(await import('./'+temp)).inspectPlacementSubjects;for(const s of [comp,vase,sr,sp]){
+            const j=Buffer.from('export default function(){}'),w=wasm(s);assert.equal(fixed(s.key),s);assert.deepEqual(inspect(s,pack(s,j,w),head),oldInspect(s,pack(s,j,w),head));pos++;
+            for(const symbol of ['preview_switch626_rm01','stage_switch626_rm01']){const foreign=Buffer.from(symbol),b=pack(s,foreign,w);assert.doesNotThrow(()=>oldInspect(s,b,head));assert.throws(()=>inspect(s,b,head));neg++}
+            assert.throws(()=>inspect(s,pack(s,j,wasm(rm)),head));assert.throws(()=>inspect(s,pack(rm,j,wasm(rm)),head));neg+=2;
+          }assert.throws(()=>fixed(rm.key));neg++;}finally{unlinkSync(temp)}
+          console.log('ACT1254_PR1730_CURRENT_PROOF5_L2_PASS',JSON.stringify({pos,neg,pins,actualGit:true,syntheticChangedForeign:true,actualSignature:false,protectedAcceptance:false}));
+          EOF
+          node qa-current-proof5.mjs
