@@ -1,0 +1,145 @@
+name: "04 QR-S ACT1573 PR1941 Cargo exact R22 pin (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/04qrs-pr1941-protected-cargo-exactpin-l2.yml'
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bb799efb8e132b498dccd9bc408b65434a2ddd2b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+      - name: Exact Git Source and independent R22 verifier counterexamples (no deploy/sign)
+        run: |
+          set -euo pipefail
+          cp scripts/wasm-distribution/approved-Cargo.lock crates/ddv-save-core/Cargo.lock
+          cat > qa-fixed.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import {execFileSync,spawnSync} from 'node:child_process';
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          const source='bb799efb8e132b498dccd9bc408b65434a2ddd2b';
+          const main='52890077b59154d55325de8fcf9ce08bc9e9260d';
+          const previous='7e9170e42f29856919020aa654d0832ca8493925';
+          const path='scripts/wasm-distribution/protected-release-inputs.json';
+          const cargo='crates/ddv-save-core/Cargo.toml';
+          const lock='crates/ddv-save-core/Cargo.lock';
+          const pages='.github/workflows/pages.yml';
+          const oldCargo='6e3102f66faa31174e110c2fe760a9c9ef38d10c';
+          const newCargo='effccf08990c8c1bc0626e5b0342fc68f6baf811';
+          const oldConfig='dd59264c1c20325c66e6aecc3413e91d10fc72ed';
+          const newConfig='7afda02936b28335d6ceec7f75a649e3aef067f2';
+          const g=(...a)=>execFileSync('git',a,{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+          const show=(ref,p)=>execFileSync('git',['show',ref+':'+p],{encoding:'utf8'});
+          const original=readFileSync(path,'utf8'),cfg=JSON.parse(original),before=show(main,path),prior=JSON.parse(before);
+          const norm=(o)=>Object.keys(o).sort().map(k=>[k,o[k]]);
+          let pos=0,neg=0,runtimeNeg=0,scopeNeg=0;
+          const expect=(v)=>{assert.ok(v);pos++};
+          const h=(v)=>createHash('sha256').update(v).digest('hex');
+          const pair=(s,p)=>{const x=g('ls-tree',s,'--',p);const m=/^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/.exec(x);assert.ok(m&&m[3]===p);return {mode:m[1],sha:m[2]}};
+          expect(g('rev-parse','HEAD')===source);
+          expect(g('rev-parse','HEAD^')===main);
+          expect(g('diff','--name-only','--no-renames',main,source)===path);
+          expect(pair(main,path).sha===oldConfig&&pair(source,path).sha===newConfig&&pair(main,path).mode==='100644'&&pair(source,path).mode==='100644');
+          expect(original===before.replace(oldCargo,newCargo));
+          const altered={...cfg,cargoTomlGitBlob:oldCargo};
+          expect(JSON.stringify(norm(altered))===JSON.stringify(norm(prior)));
+          expect(cfg.cargoTomlGitBlob===g('rev-parse',source+':'+cargo));
+          expect(g('rev-parse',main+':'+cargo)===newCargo);
+          expect(g('rev-parse',previous+':'+cargo)===oldCargo);
+          const currentCargo=show(source,cargo),previousCargo=show(previous,cargo);
+          const added=['product-switch626-fd01-scoped = ["product-amount-scoped"]\n','product-switch626-fe01-scoped = ["product-amount-scoped"]\n'];
+          expect(added.every(s=>currentCargo.includes(s))&&added.every(s=>!previousCargo.includes(s)));
+          expect(currentCargo.replace('\n'+added[0]+added[1],'')===previousCargo);
+          expect(cfg.defaultFeatures===false&&JSON.stringify(cfg.features)==='["indexed-read","worker-wasm"]');
+          expect(cfg.productConsumerEnabled===false&&cfg.writerEnabled===false);
+          expect(cfg.publicReadonlyAssetsApproved===true&&cfg.releasePermission==='OWNER_APPROVED_20261111_THREE_READONLY_PUBLIC_ASSETS_ONLY');
+          expect(g('rev-parse',source+':'+pages)===g('rev-parse',main+':'+pages));
+          expect(g('rev-parse',source+':scripts/wasm-distribution/verify-protected-release.mjs')===g('rev-parse',main+':scripts/wasm-distribution/verify-protected-release.mjs'));
+          for(const p of ['scripts/wasm-distribution/approved-Cargo.lock','.github/workflows/01a-protected-main-signed-wasm-release-off.yml','scripts/wasm-distribution/r22-accepted-rust-scope.mjs','src/lib/ddv/core/save/product-rust-wasm-release-trust.mjs'])expect(g('rev-parse',source+':'+p)===g('rev-parse',main+':'+p));
+          expect(h(readFileSync(lock))===cfg.approvedCargoLockSha256);
+          expect(h(readFileSync('scripts/wasm-distribution/approved-Cargo.lock'))===cfg.approvedCargoLockSha256);
+          const validator=readFileSync('scripts/wasm-distribution/verify-protected-release.mjs','utf8');
+          expect(validator.includes("fail('CARGO_TOML_CHANGE_NEEDS_SCOPE_QA')")&&validator.includes('config.cargoTomlGitBlob'));
+          expect(validator.includes("config.writerEnabled!==false")&&validator.includes("config.productConsumerEnabled!==false"));
+          expect(validator.includes("config.approvedCargoLockSha256")&&validator.includes("CARGO_LOCK_SHA_DRIFT_NEEDS_NEW_REVIEW"));
+          const env={...process.env,GITHUB_ACTIONS:'true',GITHUB_REPOSITORY_ID:'1371485649',GITHUB_REPOSITORY:'DreamwishWand/web',GITHUB_EVENT_NAME:'pull_request',
+           GITHUB_REF:'refs/pull/0/head',GITHUB_WORKFLOW_REF:'DreamwishWand/web/.github/workflows/01a-protected-main-signed-wasm-release-off.yml@refs/pull/0/head',
+           WAND_SOURCE_HEAD:source,WAND_PR_BASE_SHA:main,WAND_PUBLIC_READONLY_ASSET_GATE:'OWNER_APPROVED_THREE_FILES_20261111',WAND_APPROVED_RELEASE_LOCK:'1'};
+          const validate=(input=env)=>spawnSync('node',['scripts/wasm-distribution/verify-protected-release.mjs','inputs'],{env:input,encoding:'utf8',timeout:30000});
+          const check=(object,expectedRuntime,tag)=>{
+           writeFileSync(path,JSON.stringify(object,null,2)+'\n');
+           const loaded=readFileSync(path,'utf8');
+           const staticAllowed=loaded===original&&Object.keys(object).length===Object.keys(cfg).length;
+           assert.equal(staticAllowed,false,'contract should deny '+tag);scopeNeg++;neg++;
+           if(expectedRuntime){
+            const p=validate();
+            assert.notEqual(p.status,0,'real runtime gate erroneously accepts '+tag+' '+p.stdout);
+            assert.match(p.stderr+p.stdout,/R22_PROTECTED_RELEASE_/,'named fail-closed runtime '+tag);
+            runtimeNeg++;neg++;
+           }
+          };
+          try{
+           g('update-ref','refs/remotes/origin/main',main);
+           const ok=validate();
+           assert.equal(ok.status,0,'preflight POS '+ok.stderr+' '+ok.stdout);
+           assert.match(ok.stdout,/R22_RELEASE_INPUTS_ONLY_SOURCE_PINNED/);pos++;
+           for(const [name,mod,runtime] of [
+            ['stale Cargo',{cargoTomlGitBlob:oldCargo},true],
+            ['zero Cargo',{cargoTomlGitBlob:'0'.repeat(40)},true],
+            ['short Cargo',{cargoTomlGitBlob:newCargo.slice(0,39)},true],
+            ['uppercase Cargo',{cargoTomlGitBlob:newCargo.toUpperCase()},true],
+            ['mixed Cargo',{cargoTomlGitBlob:newCargo.slice(0,-1)+'0'},true],
+            ['writer enabled',{writerEnabled:true},true],
+            ['consumer enabled',{productConsumerEnabled:true},true],
+            ['permissions',{releasePermission:'ALLOW_WRITER'},true],
+            ['public assets off',{publicReadonlyAssetsApproved:false},true],
+            ['dev release',{releaseProfile:'debug'},true],
+            ['default features',{defaultFeatures:true},true],
+            ['worker product feature',{features:['indexed-read','worker-wasm','product-switch626-fd01-scoped']},true],
+            ['wrong rustc',{rustcVersion:'1.99.2'},true],
+            ['wrong bindgen',{wasmBindgenCliVersion:'0.2.106'},true],
+            ['wrong target',{wasmTarget:'wasm32-unknown-unknown-v2'},true],
+            ['different lock',{approvedCargoLockSha256:'0'.repeat(64)},true],
+            ['foreign ancestor',{acceptedAncestorProtectedMain:'0'.repeat(40)},true],
+            ['unknown permission property',{ownerApprovalReference:'unverified'},false],
+            ['original workflow pin',{originalPagesWorkflowGitBlob:'0'.repeat(40)},false],
+            ['unsupported contract',{contract:'wand.r22.test@0'},true],
+            ['extra key',{allowNewCloud:true},false]
+           ])check({...cfg,...mod},runtime,name);
+           const absent={...cfg};delete absent.cargoTomlGitBlob;check(absent,true,'missing Cargo key');
+           writeFileSync(path,original);
+           for(const [name,input] of [
+            ['foreign repository ID',{...env,GITHUB_REPOSITORY_ID:'999'}],
+            ['foreign repo',{...env,GITHUB_REPOSITORY:'other/project'}],
+            ['invalid approved flag',{...env,WAND_APPROVED_RELEASE_LOCK:'0'}],
+            ['wrong event/ref',{...env,GITHUB_EVENT_NAME:'workflow_dispatch'}],
+            ['stale reviewed base',{...env,WAND_PR_BASE_SHA:previous}]
+           ]){
+            const p=validate(input);assert.notEqual(p.status,0,name);assert.match(p.stderr+p.stdout,/R22_PROTECTED_RELEASE_/);runtimeNeg++;neg++;
+           }
+           const badLock=readFileSync(lock);
+           writeFileSync(lock,Buffer.concat([badLock,Buffer.from('\n# QA-only tamper\n')]));
+           const denied=validate();assert.notEqual(denied.status,0);assert.match(denied.stderr+denied.stdout,/CARGO_LOCK_SHA_DRIFT_NEEDS_NEW_REVIEW/);runtimeNeg++;neg++;
+           writeFileSync(lock,badLock);
+           const originalPages=readFileSync(pages);
+           writeFileSync(pages,originalPages.toString('utf8').replaceAll('actions/attest-build-provenance@v2','disabled-qa-proof'));
+           const pagesDenied=validate();assert.notEqual(pagesDenied.status,0);assert.match(pagesDenied.stderr+pagesDenied.stdout,/PAGES_RELEASE_POLICY_NOT_OWNER_AUTHORIZED/);runtimeNeg++;neg++;
+           writeFileSync(pages,originalPages);
+           console.log('QRS_PR1941_R22_CARGO_EXACT_PIN_L2_PASS',JSON.stringify({pos,neg,runtimeNeg,scopeNeg,onePath:path,oldConfig,newConfig,oldCargo,newCargo,protectedMain:main,sourceHead:source,actualGit:true,actualVerifierPreflight:true,simulationOnly:true,actualSignature:false,productWriterEnabled:false}));
+          }finally{writeFileSync(path,original)}
+          
+          EOF
+          node qa-fixed.mjs
