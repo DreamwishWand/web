@@ -1,0 +1,44 @@
+name: 05 QR-C PR919 independent topology comparison repair
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr919-topology-repair-independent.yml'
+      - 'tests/qa05qrc-pr919-topology-repair.test.mjs'
+permissions:
+  contents: read
+jobs:
+  qac919-repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact repaired Source two ADD, old failure provenance and QA-only two ADD
+        shell: bash
+        run: |
+          set -euo pipefail
+          s=02c5a5d92d8dcdb7ee92e46a64b2a69a36853bcb
+          o=384bbff7f89a4e3e0ae24d6fdca52ed3c93a4aef
+          q=4c0308f22c34b9e7c4b88cc01f8684b2542f94a6
+          p=src/lib/ddv/core/roadfence/operation-intent-v125.js
+          t=tests/ddv-roadfence-operation-intent-v125.test.mjs
+          test "$(git merge-base "$s" HEAD)" = "$s"
+          test "$(git rev-parse "$s^")" = "$o"
+          test "$(git rev-parse "$o:$p")" = 50c856244cbbdc6536293eb3eb96b8d2d96fa3f8
+          test "$(git rev-parse "$q:$p")" = 50c856244cbbdc6536293eb3eb96b8d2d96fa3f8
+          test "$(git rev-parse "$s:$p")" = 590962406839ecc6a5d504816e4cd589784f205c
+          test "$(git rev-parse "HEAD:$p")" = 590962406839ecc6a5d504816e4cd589784f205c
+          test "$(git rev-parse "$s:$t")" = f1e714b427450cb5fe1a7e6ae719e4cf24c62482
+          test "$(git rev-parse "HEAD:$t")" = f1e714b427450cb5fe1a7e6ae719e4cf24c62482
+          test "$(git diff --name-only "$o" "$s" | sort)" = "$(printf '%s\n' "$p" "$t" | sort)"
+          test "$(git diff --name-only "$s" HEAD | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr919-topology-repair-independent.yml tests/qa05qrc-pr919-topology-repair.test.mjs | sort)"
+          test -z "$(git ls-files | grep -Ei '\.p1g$|OWNER_PRIVATE|PRIVATE_DECODED' || true)"
+          echo QAC919_REPAIRED_SOURCE2_IMMUTABLE_OLD_QA_PROVENANCE_QA_ONLY2_PASS
+      - name: Independent old module runtime reproduction and changed comparator regressions
+        run: node --test tests/qa05qrc-pr919-topology-repair.test.mjs
