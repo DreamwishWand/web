@@ -1,0 +1,115 @@
+name: "04 QR-S ACT1614 PR1990 Stateless GITHUB_TOKEN Security L2 (QA ONLY)"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qrs-act1614-pr1990-stateless-ghs-jwt-l2.yml"
+permissions:
+  contents: read
+jobs:
+  focus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout immutable product Source, not QA-only tree
+        uses: actions/checkout@v4
+        with:
+          ref: 37eb30e15ff8ebb0275bad4e4c6cfeb12cd8bc02
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Assert approved exact four Source files and security preimages
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 37eb30e15ff8ebb0275bad4e4c6cfeb12cd8bc02
+          test "$(git merge-base 7f18c74f86c2f74eccc0d7d498ed0c22041e635b HEAD)" = 7f18c74f86c2f74eccc0d7d498ed0c22041e635b
+          printf '%s\n' '.github/workflows/pages.yml' 'scripts/int-protected-ci-gate.mjs' 'tests/int-protected-ci-gate.test.mjs' 'tests/scoped-sr03-spatial-proof-workflow.test.mjs' | sort >/tmp/allowed
+          git diff --name-only 7f18c74f86c2f74eccc0d7d498ed0c22041e635b HEAD | sort >/tmp/actual
+          diff -u /tmp/allowed /tmp/actual
+          test "$(git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)" = 5a3940b6dc3254aae3fd91a1ba24b69a79ccd934
+          test "$(git rev-parse HEAD:tests/int-protected-ci-gate.test.mjs)" = 70f3e495f29d7e61f2abb03e0b5650922900de95
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 31339903787633703f8b438800d66fb42052f2f5
+          test "$(git rev-parse HEAD:tests/scoped-sr03-spatial-proof-workflow.test.mjs)" = cae253656a2142acf1da2ce9d06d89922c812987
+          for file in scripts/int-ci-evidence-preflight.mjs scripts/wasm-distribution/verify-protected-release.mjs scripts/wasm-distribution/approved-Cargo.lock scripts/wasm-distribution/protected-release-inputs.json scripts/wasm-distribution/r22-accepted-rust-scope.mjs; do
+            test "$(git rev-parse 7f18c74f86c2f74eccc0d7d498ed0c22041e635b:"$file")" = "$(git rev-parse HEAD:"$file")"
+          done
+          test "$(grep -c 'git rev-parse HEAD:scripts/int-protected-ci-gate.mjs)' .github/workflows/pages.yml)" = 6
+          test "$(grep -c '5a3940b6dc3254aae3fd91a1ba24b69a79ccd934' .github/workflows/pages.yml)" = 6
+          echo 'QRS_ACT1614_FIXED_FOUR_BLOBS_AND_SIX_PINS_PASS'
+      - name: Reuse accepted CI receipt/replay/403 predecessor regressions
+        run: node --test tests/int-protected-ci-gate.test.mjs
+      - name: Independent synthetic long-token positive and hostile prefetch negative
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { githubPublicJson,createPublicJsonGetter,inspectProtectedCi,revalidateProtectedCi } from './scripts/int-protected-ci-gate.mjs';
+          import { readFileSync } from 'node:fs';
+          const root='/repos/DreamwishWand/web',h='a'.repeat(40);
+          const endpoints=[root,root+'/git/ref/heads/main',root+'/actions/runs?branch=main&event=push&head_sha='+h+'&per_page=100',root+'/actions/runs/123',root+'/actions/runs/123/attempts/1/jobs?per_page=100'];
+          const legacy='ghs_'+'A'.repeat(40);
+          const stateless='ghs_12345678_'+('a'.repeat(165))+'.'+('b'.repeat(160))+'.'+('c'.repeat(160));
+          assert.ok(stateless.length>255&&stateless.length<2048);
+          let positive=0,negative=0,requests=0,retries=0;
+          for(const token of [legacy,stateless]){
+            for(const path of endpoints){
+              const result=await githubPublicJson(path,async(url,opt)=>{
+                requests++;positive++;
+                assert.equal(url.href,'https://api.github.com'+path);
+                assert.equal(opt.method,'GET');assert.equal(opt.redirect,'error');
+                assert.equal(opt.headers.Authorization,'Bearer '+token);
+                return new Response('{}',{headers:{'content-type':'application/json'}});
+              },undefined,undefined,undefined,token);
+              assert.deepEqual(result,{});
+            }
+          }
+          assert.equal(positive,10);
+          const rejects=[
+            '', 'ghs_'+'A'.repeat(35), 'ghs_'+'A'.repeat(2045),
+            'ghs_'+'A'.repeat(40)+'\n', 'ghs_'+'A'.repeat(40)+'\r\n',
+            'ghs_'+'A'.repeat(40)+' ', 'ghs_'+'A'.repeat(40)+'\t',
+            'ghs_'+'A'.repeat(40)+':Injected', 'ghs_'+'A'.repeat(40)+'/',
+            'ghs_'+'A'.repeat(40)+'?', 'ghp_'+'A'.repeat(40),
+            'ghs_'+'A'.repeat(40)+'\u0000',
+          ];
+          for(const token of rejects){
+            let count=0;
+            await assert.rejects(githubPublicJson(endpoints[1],async()=>{count++;return new Response('{}');},undefined,undefined,undefined,token),/PROTECTED_CI_READ_TOKEN_DENIED/);
+            assert.equal(count,0);negative++;
+          }
+          const unlisted=[
+            root+'/issues/1', root+'/actions/workflows?per_page=100',
+            root+'/actions/runs/123?secret=1',
+            root+'/actions/runs?branch=main&event=push&head_sha='+h+'&per_page=101',
+            '/repos/DreamwishWand/other-repository',
+            root+'/%2e%2e/other-repository',
+            root+'/git/ref/heads/main?ignored=1',
+          ];
+          for(const token of [legacy,stateless]){
+            for(const path of unlisted){
+              let count=0;
+              await assert.rejects(githubPublicJson(path,async()=>{count++;return new Response('{}');},undefined,undefined,undefined,token),/UNSAFE_API_(?:PATH|CATEGORY|ORIGIN)/);
+              assert.equal(count,0,'out-of-allowlist bearer must not fetch');negative++;
+            }
+          }
+          for(const token of [legacy,stateless]){
+            let calls=0,sleeps=[];
+            const result=await githubPublicJson(endpoints[1],async(_url,opt)=>{
+              calls++;assert.equal(opt.method,'GET');
+              assert.equal(opt.headers.Authorization,'Bearer '+token);
+              return calls===1?new Response('SENSITIVE_NEVER_LOG',{status:403,headers:{'retry-after':'1','x-ratelimit-remaining':'0'}}):new Response('{}',{headers:{'content-type':'application/json'}});
+            },async ms=>sleeps.push(ms),undefined,undefined,token);
+            assert.deepEqual(result,{});assert.equal(calls,2);assert.deepEqual(sleeps,[1000]);retries++;
+          }
+          const pages=readFileSync('.github/workflows/pages.yml','utf8');
+          const steps=pages.split(/\n(?=      - name: )/).filter(s=>s.includes('node scripts/int-protected-ci-gate.mjs'));
+          assert.ok(steps.length>=12);
+          for(const step of steps)assert.match(step,/^          WAND_GATE_READ_TOKEN: \$\{\{ github\.token \}\}$/m);
+          assert.match(pages,/permissions:\n  contents: read\n  actions: read\n/);
+          assert.match(pages,/  deploy:\n[\s\S]*?    permissions:\n      pages: write\n      id-token: write\n      actions: read\n/);
+          assert.doesNotMatch(pages,/^\s+pull_request_target:/m);
+          assert.equal(requests,10,'only positive approved requests may send');
+          console.log('QRS_ACT1614_STATELESS_GHS_JWT_L2_PASS',JSON.stringify({positive,negative,retries,authorizedRequests:requests,unlistedRequests:0,realCredentialUsed:false,issuerChanged:false,writerAuthorized:false}));
+          NODE
