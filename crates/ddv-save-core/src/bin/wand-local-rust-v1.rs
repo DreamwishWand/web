@@ -110,6 +110,31 @@ fn pinned_private_output(raw:&str)->PinnedPrivateOutput{
 }
 #[cfg(not(target_os="linux"))]
 fn pinned_private_output(_raw:&str)->PinnedPrivateOutput{denied("PRIVATE_OUTPUT_LINUX_ONLY")}
+// ACT1101: reuse the accepted ACT984/471 Linux anonymous-pipe boundary.
+ // Only the authorized Private Lab parent owns persistence; no caller path,
+ // file, named FIFO, socket, stdout/stderr or stdin alias for either Wardrobe mode.
+#[cfg(target_os="linux")]
+fn wardrobe_private_pipe(fd:i32)->Result<std::fs::File,&'static str>{
+    use std::{fs,os::unix::{fs::{FileTypeExt,MetadataExt},io::FromRawFd}};
+    let p=format!("/proc/self/fd/{fd}");
+    let link=fs::read_link(&p).map_err(|_|"PRIVATE_RECEIPT_FD_MISSING")?;
+    let m=fs::metadata(&p).map_err(|_|"PRIVATE_RECEIPT_FD_MISSING")?;
+    if !m.file_type().is_fifo()||link.to_str()!=Some(&format!("pipe:[{}]",m.ino())){
+        return Err("PRIVATE_RECEIPT_ANONYMOUS_PIPE_REQUIRED");
+    }
+    for i in 0..3{
+        if let Ok(other)=fs::metadata(format!("/proc/self/fd/{i}")){
+            if other.dev()==m.dev()&&other.ino()==m.ino(){return Err("PRIVATE_RECEIPT_STDIO_ALIAS")}
+        }
+    }
+    let info=fs::read_to_string(format!("/proc/self/fdinfo/{fd}")).map_err(|_|"PRIVATE_RECEIPT_FD_FLAGS")?;
+    let flags=info.lines().find_map(|l|l.strip_prefix("flags:")).and_then(|x|u32::from_str_radix(x.trim(),8).ok()).ok_or("PRIVATE_RECEIPT_FD_FLAGS")?;
+    if flags&3!=1{return Err("PRIVATE_RECEIPT_WRITE_ONLY_REQUIRED")}
+    // Single-threaded process; the inherited descriptor is owned exactly once.
+    Ok(unsafe{std::fs::File::from_raw_fd(fd)})
+}
+#[cfg(not(target_os="linux"))]
+fn wardrobe_private_pipe(_fd:i32)->Result<std::fs::File,&'static str>{Err("PRIVATE_RECEIPT_LINUX_ONLY")}
 fn selector_id(s:&str)->i32{
     let n=s.parse::<i32>().unwrap_or_else(|_|denied("CHARACTER_SKIN_SELECTOR_ID"));
     if n<=0||n.to_string()!=s{denied("CHARACTER_SKIN_SELECTOR_ID");}
@@ -129,10 +154,21 @@ fn run(){
     // The accepted no-argument V1 path remains byte-for-byte behaviorally
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
+    let switch_wardrobe=argv.first().is_some_and(|s|s=="--switch626-wardrobe-same-slot-receipt-only");
+    let wardrobe_output=match argv.as_slice(){
+        [flag,slot,old,new,out] if (flag=="--wardrobe-same-slot-receipt-only"||switch_wardrobe)&&out=="--receipt-fd3"=>{
+            if slot!="0"{denied("WARDROBE_SLOT_SELECTOR")}
+            let old=collection_selector(old,5);let new=collection_selector(new,5);
+            let pipe=wardrobe_private_pipe(3).unwrap_or_else(|code|denied(code));
+            Some((old,new,pipe))
+        },
+        _=>None,
+    };
     let switch_collection=argv.first().is_some_and(|s|s=="--switch626-collection-furniture-receipt-only");
     let steam_furniture=argv.first().is_some_and(|s|s=="--steam626-collection-furniture-receipt-only");
     let (native_slice,avatar_output,skin_output,dependency_output,skin_dependency_output,collection_output)=match argv.as_slice(){
       []=>(false,None,None,None,None,None),
+      _ if wardrobe_output.is_some()=>(false,None,None,None,None,None),
       [flag] if flag=="--native-area-grid-slice-only"=>(true,None,None,None,None,None),
       [flag,out,path] if flag=="--active-avatar-receipt-only"&&out=="--out"=>
         (false,Some(private_output_path(path)),None,None,None,None),
@@ -147,13 +183,13 @@ fn run(){
             collection_selector(t,if switch_collection||steam_furniture{4}else{3}),pinned_private_output(path)))),
       _=>denied("UNTRUSTED_CLI_ARGS"),
     };
-    if switch_collection{
+    if switch_collection||switch_wardrobe{
       if required("WAND_LOCAL_INSTALLED_SWITCH_BID")!=EXACT_SWITCH_BID||
          env::var_os("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION").is_some_and(|v|!v.is_empty()){
         denied("EXACT_EXTERNAL_SWITCH_BUILD_REQUIRED");
       }
     }else if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION||
-        (steam_furniture&&env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty())){
+        ((steam_furniture||wardrobe_output.is_some())&&env::var_os("WAND_LOCAL_INSTALLED_SWITCH_BID").is_some_and(|v|!v.is_empty())){
       denied("EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
     }
     let original_sha=hex32(&required("WAND_LOCAL_ORIGINAL_SHA256"));
@@ -175,9 +211,9 @@ fn run(){
       denied("DECODED_SOURCE_SHA_MISMATCH");
     }
     let build=BuildIdentity{
-      platform:if switch_collection{Platform::Switch}else{Platform::SteamWindows},
-      build_kind:if switch_collection{BuildKind::SwitchBid}else{BuildKind::SteamFullVersion},
-      build_id:if switch_collection{EXACT_SWITCH_BID}else{EXACT_STEAM_VERSION}.to_owned(),
+      platform:if switch_collection||switch_wardrobe{Platform::Switch}else{Platform::SteamWindows},
+      build_kind:if switch_collection||switch_wardrobe{BuildKind::SwitchBid}else{BuildKind::SteamFullVersion},
+      build_id:if switch_collection||switch_wardrobe{EXACT_SWITCH_BID}else{EXACT_STEAM_VERSION}.to_owned(),
       schema:626,externally_attested:true
     };
     let session=ProductSession::open_decoded_readonly(decoded,build)
@@ -198,6 +234,44 @@ fn run(){
       expected_decoded_sha256:receipt.decoded_sha256,
       action:WorkerAction::ReadDomain
     };
+    if let Some((old,new,mut pipe))=wardrobe_output{
+        let witness=(if switch_wardrobe{session.read_private_switch626_wardrobe_same_slot(scope,0,old,new)}
+            else{session.read_private_wardrobe_same_slot(scope,0,old,new)})
+            .unwrap_or_else(|_|denied("WARDROBE_SAME_SLOT_READ_DENIED"));
+        let mut out=witness.to_private_receipt_json();
+        let a=&out["avatar"];
+        let build_ok=if switch_wardrobe{
+            out["contract"]=="wand.native.private.switch626.wardrobe-same-slot-readset@1"&&
+            a["contract"]=="wand.native.private.switch626.active-avatar-read@1"&&
+            a["platform"]=="Switch"&&a["buildKind"]=="SwitchBid"&&a["buildId"]==EXACT_SWITCH_BID&&a.get("fullVersion").is_none()
+        }else{
+            out["contract"]=="wand.native.private.wardrobe-same-slot-readset@1"&&
+            a["platform"]=="SteamWindows"&&a["fullVersion"]==EXACT_STEAM_VERSION
+        };
+        if !build_ok||a["schema"]!=626||
+           a["sessionId"]!=hex_bytes(&receipt.session_id)||a["decodedSha256"]!=hex_bytes(&receipt.decoded_sha256)||
+           a["revision"]!=receipt.revision||a["indexGeneration"]!=receipt.index_generation||
+           out["slot"]!=0||out["oldItemId"]!=old||out["proposedItemId"]!=new||
+           out["fullDocumentRustValidated"]!=true||
+           ["sameSlotDefinitionVerified","effectiveEligibilityVerified","rightsVerified","subscriberClosureVerified",
+            "productReadAccepted","writerAuthorized","editedCopyAuthorized","applyAuthorized"].iter().any(|k|out[*k]!=false)||
+           session.receipt().ok()!=Some(receipt){denied("WARDROBE_RECEIPT_SCOPE_DENIED");}
+        out["originalSha256SuppliedExternally"]=serde_json::json!(hex_bytes(&original_sha));
+        out["originalSizeBytesSuppliedExternally"]=serde_json::json!(original_size);
+        out["cloudUploadPerformed"]=serde_json::json!(false);
+        out["originalModifiedByHarness"]=serde_json::json!(false);
+        session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
+        // Encode only after exact receipt/session validation. No partial
+        // authorization from an incomplete stream: trusted parent validates
+        // exit status, bounded complete JSON and all scope fields before persistence.
+        let bytes=serde_json::to_vec(&out).unwrap_or_else(|_|denied("PRIVATE_RECEIPT_ENCODE"));
+        if bytes.is_empty()||bytes.len()>8*1024*1024{denied("PRIVATE_RECEIPT_BOUND")}
+        use std::io::Write;
+        if pipe.write_all(&bytes).and_then(|_|pipe.flush()).is_err(){denied("PRIVATE_RECEIPT_WRITE")}
+        drop(pipe);
+        eprintln!("LOCAL_RUST_V1_PRIVATE_WARDROBE_RECEIPT_WRITTEN");
+        return;
+    }
     if let Some((definition,group,target,path))=collection_output{
         let witness=session.read_private_collection_group(scope,definition,group,target)
             .unwrap_or_else(|_|denied("COLLECTION_GROUP_READ_DENIED"));
@@ -354,5 +428,20 @@ fn skin_dependency_pinned_output_does_not_follow_replaced_parent(){
     write_private_receipt(&out.path,&v);
     assert!(!other.join("receipt.json").exists());
     assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(moved.join("receipt.json")).unwrap()).unwrap(),v);
+}
+#[cfg(all(test,target_os="linux"))]
+#[test]
+fn wardrobe_anonymous_pipe_only(){
+    use std::{io::Write,os::fd::{AsRawFd,IntoRawFd}};
+    let (mut reader,writer)=io::pipe().unwrap();
+    assert!(wardrobe_private_pipe(reader.as_raw_fd()).is_err());
+    let fd=writer.into_raw_fd();
+    let mut out=wardrobe_private_pipe(fd).unwrap();
+    out.write_all(b"synthetic wardrobe receipt").unwrap();drop(out);
+    let mut got=Vec::new();reader.read_to_end(&mut got).unwrap();
+    assert_eq!(got,b"synthetic wardrobe receipt");
+    let f=std::fs::File::open("/dev/null").unwrap();
+    assert!(wardrobe_private_pipe(f.as_raw_fd()).is_err());
+    assert!(wardrobe_private_pipe(-1).is_err());
 }
 fn main(){run()}
