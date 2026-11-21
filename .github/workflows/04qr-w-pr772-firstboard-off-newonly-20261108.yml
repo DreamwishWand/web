@@ -1,0 +1,45 @@
+name: "04 QR-W PR772 FIRST_BOARD_OFF four-path independent Chrome"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr772-firstboard-off-newonly-20261108.yml"
+      - "scripts/04qr-w-pr772-firstboard-off-newonly-20261108.mjs"
+permissions:
+  contents: read
+jobs:
+  independent-firstboard-off-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Use installed system Chrome and localhost only, no private Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: installed Chrome missing"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4304 >/tmp/qrw772-off.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4304/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qrw772-off.log
+          exit 1
+      - name: Fixed Source4 QA2, zero-write firstboard OFF and real Chrome existing-board consumer
+        env:
+          QRW772_OFF_ORIGIN: http://127.0.0.1:4304
+        run: node scripts/04qr-w-pr772-firstboard-off-newonly-20261108.mjs
