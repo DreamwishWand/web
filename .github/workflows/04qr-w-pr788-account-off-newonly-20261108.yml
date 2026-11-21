@@ -1,0 +1,56 @@
+name: "04 QR-W PR788 independent Account OFF private static HTTP"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr788-account-off-newonly-20261108.yml"
+      - "scripts/04qr-w-pr788-account-off-newonly-20261108.mjs"
+  push:
+    branches:
+      - "qa/04qr-w-pr788-account-off-newonly-ed891d-20261108"
+permissions:
+  contents: read
+jobs:
+  independent-account-off:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Installed Chrome and public CI with no private inputs"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env | grep -Eq '^(DDV_PRIVATE_SAVE_PATH|WEP_PRIVATE_P1G_PATH|VITE_SUPABASE_PUBLISHABLE_KEY|VITE_WAND_DISPOSABLE_ACCOUNT_TEST)='; then
+            echo "PRIVATE_INPUT_OR_TEST_FLAG_FORBIDDEN"
+            exit 1
+          fi
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: "Existing public Pages static default OFF and private routes absent"
+        env:
+          BASE_PATH: /web
+          VITE_WAND_DISPOSABLE_ACCOUNT_TEST: ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          test -f build/account/index.html
+          test -f build/404.html
+          test ! -f build/library/index.html
+          test ! -f build/users/example_123/index.html
+          test ! -e build/CNAME
+      - name: "Independent generated-static HTTP and eight locale installed Chrome plus synthetic actor negatives"
+        run: node scripts/04qr-w-pr788-account-off-newonly-20261108.mjs
+      - name: "No managed GoTrue JWT RLS or actual email attestation"
+        run: echo "QRW788_MANAGED_AUTH_GO_TRUE_JWT_RLS_EMAIL_NOT_RUN__PUBLIC_ACCOUNT_PRIVATE_LIBRARY_OFF"
