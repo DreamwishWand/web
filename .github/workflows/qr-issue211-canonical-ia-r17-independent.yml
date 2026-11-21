@@ -1,0 +1,30 @@
+name: 04 QR Issue211 IA-R17 Main Source Independent Gate
+on:
+  pull_request:
+    paths:
+      - 'docs/qa/qr-issue211-canonical-ia-r17-independent-20261027.md'
+      - 'tests/fixtures/qr-issue211-canonical-ia-r17-readonly-20261027.json'
+      - 'tests/qr-issue211-canonical-ia-r17-independent-source.test.mjs'
+      - '.github/workflows/qr-issue211-canonical-ia-r17-independent.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  issue211-source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact historical Main R17 + 10 new-only Source witnesses
+        run: node --test tests/qr-issue211-canonical-ia-r17-independent-source.test.mjs
+      - name: Explicit non-release status
+        run: echo "SOURCE_ONLY / DRAFT / R17 0 PASS 12 PARTIAL 18 BLOCKED / NO-GO / NO SIGNED ACTOR / NO DEPLOY"
