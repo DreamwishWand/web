@@ -1,4 +1,6 @@
 import { withSupabase } from 'npm:@supabase/server';
+import { classifyGalleryOriginIntegrity } from '../_shared/gallery-origin-integrity.mjs';
+import { classifyGalleryPhysicalCleanupGate } from '../_shared/gallery-physical-cleanup-gate.mjs';
 
 type RetentionJob = {
   retentionJobId: string;
@@ -157,13 +159,121 @@ export default {
       }
     }
 
+    // Reuse the SAME pg_cron #33 -> Vault token -> retention_cleanup worker.
+    // Orphan work is bounded and claimed with a DB lease. Storage remove and
+    // DB completion deliberately live on opposite sides of an idempotent retry.
+    let galleryOrphans: {claimed:number;completed:number;failed:number;cleanupBlocked?:string;workerFailure?:string} = {claimed:0,completed:0,failed:0};
+    try {
+      // Existing Gallery orphan claim is still SQL-testable, but Storage.remove
+      // MUST NOT execute before an authorized disposable Actor/Origin acceptance.
+      // Fail closed without consuming leases or running unrelated account jobs.
+      const {data:cleanupGate,error:cleanupGateError}=await ctx.supabaseAdmin.rpc(
+        'community_gallery_physical_cleanup_gate_v1'
+      );
+      if(cleanupGateError) throw cleanupGateError;
+      const galleryPhysicalCleanupGateState=classifyGalleryPhysicalCleanupGate(cleanupGate);
+      if(galleryPhysicalCleanupGateState==='invalid') {
+        // A null/partial or prematurely positive privileged RPC is not proof
+        // that an external Storage deletion is permitted. No lease is claimed.
+        galleryOrphans.cleanupBlocked='GALLERY_PHYSICAL_CLEANUP_GATE_INVALID';
+        galleryOrphans.workerFailure='GALLERY_PHYSICAL_CLEANUP_GATE_INVALID';
+      } else if(galleryPhysicalCleanupGateState!=='authorized') {
+        galleryOrphans.cleanupBlocked='GALLERY_PHYSICAL_STORAGE_DELETE_E2E_NOT_ACCEPTED';
+      } else {
+      const galleryLockToken = crypto.randomUUID();
+      const {data: galleryClaim,error:galleryClaimError} = await ctx.supabaseAdmin.rpc(
+        'community_claim_gallery_media_orphans_v1',
+        {p_limit:Math.min(limit,20),p_lock_token:galleryLockToken}
+      );
+      if (galleryClaimError) throw galleryClaimError;
+      const orphanJobs = Array.isArray(galleryClaim?.jobs) ? galleryClaim.jobs as Array<{storageKey:string}> : [];
+      galleryOrphans.claimed=orphanJobs.length;
+      for(const orphan of orphanJobs){
+        try{
+          const key=String(orphan.storageKey);
+          const {error:removeError}=await ctx.supabaseAdmin.storage.from(MEDIA_BUCKET).remove([key]);
+          if(removeError){
+            const {error:infoError}=await ctx.supabaseAdmin.storage.from(MEDIA_BUCKET).info(key);
+            if(Number(infoError?.status)!==404)throw removeError;
+          }
+          // Must prove object is physically absent from origin metadata before
+          // committing DB cleanup; CDN old-token policy belongs to #116.
+          const {data:stillThere,error:infoError}=await ctx.supabaseAdmin.storage.from(MEDIA_BUCKET).info(key);
+          if(stillThere || Number(infoError?.status)!==404)
+            throw new Error('GALLERY_ORPHAN_STORAGE_REMOVAL_NOT_CONFIRMED');
+          const {error:doneError}=await ctx.supabaseAdmin.rpc(
+            'community_complete_gallery_media_orphan_v1',
+            {p_storage_key:key,p_lock_token:galleryLockToken}
+          );
+          if(doneError)throw doneError;
+          galleryOrphans.completed++;
+        }catch(error){
+          galleryOrphans.failed++;
+          const {error:failedRpcError}=await ctx.supabaseAdmin.rpc(
+            'community_fail_gallery_media_orphan_v1',
+            {p_storage_key:String(orphan.storageKey),p_lock_token:galleryLockToken,
+              p_error:messageOf(error)}
+          );
+          if(failedRpcError) {
+            // Reclaim after the DB lease expires; fail-closed without a delete
+            // of metadata or a false success result.
+            galleryOrphans.workerFailure='GALLERY_ORPHAN_FAILURE_ACK_FAILED';
+          }
+        }
+      }
+      }
+    } catch(error){
+      galleryOrphans.workerFailure='GALLERY_ORPHAN_CLAIM_FAILED';
+    }
+
+    // Aggregate-only capacity telemetry. TTL FINALIZED purge is intentionally
+    // absent: #128 requires signed Storage + Privacy/Legal/Ops acceptance.
+    const {data:galleryCapacityMetrics,error:galleryCapacityError} =
+      await ctx.supabaseAdmin.rpc('community_gallery_media_capacity_ops_v1');
+    if(galleryCapacityError) {
+      galleryOrphans.workerFailure='GALLERY_CAPACITY_TELEMETRY_FAILED';
+    }
+
+    // Existing Cron run emits aggregate operator-alert status without issuing
+    // new network notifications or exposing owner IDs / signed Media tokens.
+    const {data:galleryAdmissionAlert,error:galleryAdmissionAlertError} =
+      await ctx.supabaseAdmin.rpc('community_gallery_global_capacity_alert_v1');
+    if(galleryAdmissionAlertError) {
+      galleryOrphans.workerFailure='GALLERY_GLOBAL_ALERT_UNAVAILABLE';
+    }
+
+    // Reconcile *actual* origin object catalog against the existing
+    // MediaAsset + Gallery intent journal. Read-only, service role only.
+    // Never act on untracked blobs: Cloud/legacy authority remains UNKNOWN.
+    const {data:galleryOriginReconciliation,error:galleryOriginError} =
+      await ctx.supabaseAdmin.rpc('community_gallery_storage_reconciliation_v1',{
+        p_bucket:MEDIA_BUCKET
+      });
+    if(galleryOriginError || !galleryOriginReconciliation) {
+      galleryOrphans.workerFailure='GALLERY_ORIGIN_RECONCILIATION_UNAVAILABLE';
+    }
+    const galleryOriginIntegrity = classifyGalleryOriginIntegrity(
+      galleryOriginError ? null : galleryOriginReconciliation
+    );
+    if (!galleryOriginError && galleryOriginReconciliation &&
+        galleryOriginIntegrity === 'unknown') {
+      // A malformed/partial operator RPC is not a healthy Storage inventory.
+      // Return 503 so the existing operator channel can alert on lost proof.
+      galleryOrphans.workerFailure='GALLERY_ORIGIN_RECONCILIATION_INVALID';
+    }
+
     return reply({
       ok: true,
       claimed: jobs.length,
       completed: results.filter((result) => result.ok === true).length,
       failed: results.filter((result) => result.ok !== true).length,
       ddvBindingTombstonesPurged: Number(ddvBindingPurge?.purged ?? 0),
+      galleryOrphans,
+      galleryCapacityMetrics:galleryCapacityError ? null : galleryCapacityMetrics,
+      galleryAdmissionAlert:galleryAdmissionAlertError ? null : galleryAdmissionAlert,
+      galleryOriginReconciliation:galleryOriginIntegrity==='unknown' ? null : galleryOriginReconciliation,
+      galleryOriginIntegrity,
       results
-    });
+    }, galleryOrphans.workerFailure ? 503 : 200);
   })
 };

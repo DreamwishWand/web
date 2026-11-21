@@ -97,20 +97,24 @@ test('publication keeps WandAccount namespaces and signed private reads', () => 
   );
 });
 
-test('retention preserves physical delete before Community finalizer ordering', () => {
+test('retention remains fail-closed until independently accepted physical delete and finalizer', () => {
   const source = read('supabase/functions/wep-preset-retention/index.ts');
-
-  const remove = source.indexOf(
-    'ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey])'
-  );
-  const finalize = source.indexOf(
-    "ctx.supabaseAdmin.rpc('community_finalize_artifact_blob_purge'"
-  );
-
-  assert.ok(remove >= 0);
-  assert.ok(finalize >= 0);
-  assert.ok(remove < finalize);
-  assert.match(source, /published\/\$\{accountId\}\//);
+  // When physical deletion is NOT accepted, never call external Storage.remove
+  // or commit the finalizer. Private suppression remains independent and retryable.
+  assert.match(source, /community_verify_worker_token/);
+  assert.match(source, /WORKER_AUTH_REQUIRED/);
+  assert.match(source, /WORKER_AUTH_INVALID/);
+  assert.match(source, /INVALID_PURGE_REQUEST/);
+  assert.match(source, /R18_PRESET_PHYSICAL_RETENTION_CLEANUP_NOT_ENROLLED/);
+  assert.match(source, /physicalDeleteAuthorized:false/);
+  assert.match(source, /privacySuppressionIndependent:true/);
+  assert.match(source, /DEFERRED_OPERATOR_RECONCILIATION_REQUIRED/);
+  assert.doesNotMatch(source, /\.storage\.from\(BUCKET\)\.remove\(/);
+  assert.doesNotMatch(source, /community_finalize_artifact_blob_purge/);
+  const denyIndex = source.indexOf('R18_PRESET_PHYSICAL_RETENTION_CLEANUP_NOT_ENROLLED');
+  const authIndex = source.indexOf('community_verify_worker_token');
+  assert.ok(denyIndex > authIndex, 'retention deny must follow worker authorization');
+  assert.match(source.slice(denyIndex), /\},409\)/);
 });
 
 test('production migration does not provision the staging Preset bucket', () => {

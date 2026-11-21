@@ -29,48 +29,13 @@ export default {
       return reply({ ok: false, error: 'INVALID_PURGE_REQUEST' }, 400);
     }
 
-    try {
-      const { data: claimed, error: claimError } = await ctx.supabaseAdmin.rpc(
-        'wep_get_claimed_retention_artifact_blobs',
-        {
-          p_retention_job_id: retentionJobId,
-          p_lock_token: lockToken
-        }
-      );
-      if (claimError || !claimed) throw claimError ?? new Error('Claimed retention payload missing');
-
-      const accountId = String(claimed.accountId ?? '');
-      const blobs = Array.isArray(claimed.blobs) ? claimed.blobs : [];
-      let purged = 0;
-
-      for (const item of blobs) {
-        const blobId = String(item.blobId ?? '');
-        const storageKey = String(item.storageKey ?? '');
-        const expectedPrefix = `published/${accountId}/`;
-        if (!blobId || !storageKey.startsWith(expectedPrefix) || storageKey.includes('..') || !storageKey.endsWith('.json')) {
-          throw new Error('ARTIFACT_STORAGE_KEY_OUTSIDE_WEP_NAMESPACE');
-        }
-
-        const { error: removeError } = await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
-        if (removeError) throw removeError;
-
-        const { error: finalizeError } = await ctx.supabaseAdmin.rpc('community_finalize_artifact_blob_purge', {
-          p_blob_id: blobId,
-          p_expected_storage_key: storageKey
-        });
-        if (finalizeError) throw finalizeError;
-        purged += 1;
-      }
-
-      return reply({
-        ok: true,
-        retentionJobId,
-        accountId,
-        purged,
-        remaining: 0
-      });
-    } catch (error) {
-      return reply({ ok: false, error: 'PRESET_ARTIFACT_PURGE_FAILED', message: messageOf(error) }, 400);
-    }
+    return reply({
+      ok:false,
+      error:'R18_PRESET_PHYSICAL_RETENTION_CLEANUP_NOT_ENROLLED',
+      retentionJobId,
+      physicalDeleteAuthorized:false,
+      privacySuppressionIndependent:true,
+      recovery:'DEFERRED_OPERATOR_RECONCILIATION_REQUIRED'
+    },409);
   })
 };

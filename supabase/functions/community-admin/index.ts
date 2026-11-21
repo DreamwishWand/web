@@ -50,6 +50,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     return reply({ ok: false, error: 'JWT session-id claim missing' }, 401);
   }
 
+  // Source154 verified GoTrue Session + immutable terminal tombstone is the
+  // shared server authority, not the older account-global cutoff alone.
+  // Product writers require independent DB-atomic acceptance.
+  const {error: signedSessionError} = await ctx.supabaseAdmin.rpc(
+    'community_authorize_signed_session_v2',{
+      p_auth_subject: subject, p_issued_at_epoch: issuedAt,
+      p_session_id: String(ctx.jwtClaims?.session_id ?? '')
+    });
+  if (signedSessionError) return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
   const { error: sessionError } = await ctx.supabaseAdmin.rpc(
     'community_authorize_session',
     {

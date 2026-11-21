@@ -6,3 +6,7 @@ import_map = "./functions/community-public-media/deno.json"
 [functions.community-public-query]
 verify_jwt = false
 import_map = "./functions/community-public-query/deno.json"
+
+[functions.community-dreamsnap-owner]
+verify_jwt = true
+import_map = "./functions/community-dreamsnap-owner/deno.json"

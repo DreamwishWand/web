@@ -1,14 +1,26 @@
 import { withSupabase } from 'npm:@supabase/server';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
+const KNOWN_GALLERY_STAGING_PROJECT_REF = 'ptpdoxhrqopvczpclcij';
+function resolveMediaBucketForGallery(): string {
+  const explicit = Deno.env.get('COMMUNITY_MEDIA_BUCKET')?.trim();
+  if (explicit) return explicit;
+  const url = Deno.env.get('SUPABASE_URL') ?? '';
+  if (url.includes(KNOWN_GALLERY_STAGING_PROJECT_REF)) return 'community-media-staging';
+  throw new Error('COMMUNITY_MEDIA_BUCKET must be configured.');
+}
+
 type JsonObject = Record<string, unknown>;
 
 const commandToRpc = {
-  ensureAccountCreator: 'community_ensure_account_creator',
+  ensureAccountCreator: 'community_ensure_account_creator_signed_v1',
   updateCreatorProfile: 'community_update_creator_profile',
   createGalleryDraft: 'community_create_gallery_draft',
   createGalleryWork: 'community_create_gallery_work_v1',
-  publishGallery: 'community_publish_gallery_v4',
+  preflightGalleryGraph: 'community_gallery_graph_preflight_r15',
+  publishGallery: 'community_publish_gallery_pinned_r15',
+  publishGalleryPhoto: 'community_publish_gallery_photo_v1',
+  deleteGalleryPhoto: 'community_delete_gallery_photo_v1',
   registerDreamsnapWork: 'community_register_dreamsnap_work_v1',
   updateDreamsnapWork: 'community_dreamsnap_update_work_revision_v1',
   joinDreamsnapEvent: 'community_dreamsnap_join_event_v1',
@@ -17,6 +29,7 @@ const commandToRpc = {
   addDreamsnapBrowseReaction: 'community_dreamsnap_add_browse_reaction_v1',
   addDreamsnapSpecialPick: 'community_dreamsnap_special_pick_v1',
   setDreamsnapOfficialResultPublication: 'community_dreamsnap_set_official_result_publication_v1',
+  setDreamsnapOfficialAccountConsent: 'community_dreamsnap_set_account_official_result_consent_r20',
   publishDreamsnapGallery: 'community_dreamsnap_publish_gallery_v1',
   saveEntity: 'community_save_entity',
   unsaveEntity: 'community_unsave_entity',
@@ -26,6 +39,7 @@ const commandToRpc = {
   removeReaction: 'community_remove_reaction',
   addComment: 'community_add_comment_v3',
   setGalleryCommentsEnabled: 'community_set_gallery_comments_enabled_v2',
+  setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_signed_v1',
   removeGalleryComment: 'community_gallery_author_remove_comment_v2',
   askQuestion: 'community_ask_question_v1',
   addAnswer: 'community_add_answer_v1',
@@ -57,6 +71,8 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   createGalleryDraft: 'gallery_write',
   createGalleryWork: 'gallery_write',
   publishGallery: 'gallery_write',
+  publishGalleryPhoto: 'gallery_write',
+  deleteGalleryPhoto: 'gallery_write',
   registerDreamsnapWork: 'dreamsnap_write',
   updateDreamsnapWork: 'dreamsnap_write',
   joinDreamsnapEvent: 'dreamsnap_write',
@@ -65,6 +81,7 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   addDreamsnapBrowseReaction: 'dreamsnap_signal',
   addDreamsnapSpecialPick: 'dreamsnap_signal',
   setDreamsnapOfficialResultPublication: 'dreamsnap_write',
+  setDreamsnapOfficialAccountConsent: 'dreamsnap_write',
   publishDreamsnapGallery: 'dreamsnap_write',
   saveEntity: 'save',
   unsaveEntity: 'save',
@@ -74,6 +91,7 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   removeReaction: 'reaction',
   addComment: 'comment',
   setGalleryCommentsEnabled: 'gallery_write',
+  setGalleryCommentsAtomicR16: 'gallery_write',
   removeGalleryComment: 'gallery_write',
   askQuestion: 'qa_write',
   addAnswer: 'qa_write',
@@ -132,7 +150,7 @@ async function deriveDdvIdentityDigest(playerId: string): Promise<string> {
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
     status,
-    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store' }
+    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store, max-age=0', 'CDN-Cache-Control': 'no-store', 'Surrogate-Control': 'no-store', 'Vary': 'Authorization, Origin' }
   });
 }
 
@@ -161,38 +179,100 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     const command = body.command as CommandName;
     const payload = body.payload ?? {};
+    // D06: legacy Entry/field publishing must never be routed even to a
+    // service-role DB function. A separate Account-global CAS is the only writer.
+    if (command === 'setDreamsnapOfficialResultPublication') {
+      return reply({ok:false,error:'D06_LEGACY_PER_ENTRY_OFFICIAL_RESULT_PUBLICATION_DISABLED'},409);
+    }
     const rpc = commandToRpc[command];
 
-    const authorizationRpc =
-      command === 'ensureAccountCreator'
-        ? 'community_authorize_identity_bootstrap'
-        : 'community_authorize_session';
+    // First Account needs a special ONE-TRANSACTION verified GoTrue bootstrap.
+    // It MUST NOT bypass Source154 on any existing/other command. The SQL
+    // bootstrap RPC checks the SAME tombstone and ends by enforcing v2.
+    if (command !== 'ensureAccountCreator') {
+      const {error: signedSessionError} = await ctx.supabaseAdmin.rpc(
+        'community_authorize_signed_session_v2',{
+          p_auth_subject: subject, p_issued_at_epoch: issuedAt,
+          p_session_id: sessionId
+        });
+      if (signedSessionError) return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
+
+      const {error: sessionError} = await ctx.supabaseAdmin.rpc(
+        'community_authorize_session',{
+          p_auth_subject: subject, p_issued_at_epoch: issuedAt,
+          p_max_age_seconds: null
+        });
+      if (sessionError) return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
+    } else {
+      // Signed anonymous GoTrue sessions are NOT eligible for Wand identity
+      // onboarding. Do not treat the authenticated role alone as age proof.
+      if (ctx.jwtClaims?.role !== 'authenticated' ||
+          ctx.jwtClaims?.is_anonymous === true) {
+        return reply({ok:false,error:'SIGNED_BOOTSTRAP_AUTHENTICATED_USER_REQUIRED'},401);
+      }
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
+        return reply({ok:false,error:'SIGNED_BOOTSTRAP_SESSION_REQUIRED'},401);
+      }
+    }
+    // Source158: genuine post-revocation service-role R15 SQL commit was
+    // reproduced on disposable FULL157 after a *separate* signed preflight.
+    // Keep disabled until a same-transaction signed R15 writer is accepted.
+    // Use a string Set check to avoid narrowing the command union: the
+    // legacy parsing/mapping remains source-visible but is never reachable.
+    if (new Set<string>(['publishGallery']).has(command)) {
+      return reply({ok:false,error:'R15_GALLERY_PUBLISH_WRITER_NOT_ENROLLED'},409);
+    }
+
+    // Source159: signed v2 preflight and legacy service-role Workspace/Identity
+    // mutation are separate transactions. Four old subject-only RPCs genuinely
+    // COMMITTED after local Session revocation in disposable FULL158.
+    // All four remain OFF until same-transaction verified signed commands
+    // independently pass; retain the separate signed DELETE/read-only paths.
+    if (new Set<string>([
+      'createDdvProfileWorkspace', 'updateDdvProfileWorkspace',
+      'associateDdvIdentity', 'unlinkDdvIdentity'
+    ]).has(command)) {
+      return reply({ok:false,error:'SOURCE159_WORKSPACE_WRITER_NOT_ENROLLED'},409);
+    }
+
+    // Source160: old Help askQuestion/createTip SQL takes subject only.
+    // Real signed A1 local revoke committed before a separate service-role
+    // SQL transaction yet both old RPCs persisted public Help Work and
+    // Search/Outbox/Idempotency on disposable FULL158. Keep them OFF until
+    // independently accepted same-transaction signed v2 Help Writers exist.
+    if (new Set<string>(['askQuestion','createTip']).has(command)) {
+      return reply({ok:false,error:'SOURCE160_HELP_QA_WRITER_NOT_ENROLLED'},409);
+    }
+
+    // Source161: the two original Gallery Draft/create server-role SQL RPCs
+    // accept only an Auth subject, not a transaction-bound signed Session.
+    // Genuine local ES256 preflight → committed Local revoke → separate
+    // service-role SQL still inserted draft Work/Outbox/Idempotency. Deny
+    // both before rate/DB; this does NOT authorize Photo publication.
+    if (new Set<string>(['createGalleryDraft','createGalleryWork']).has(command)) {
+      return reply({ok:false,error:'SOURCE161_GALLERY_DRAFT_WRITER_NOT_ENROLLED'},409);
+    }
+
+    // Source162: the Photo parent is SECURITY DEFINER and can invoke
+    // Source161-retired Gallery Work create internally with definer rights.
+    // Genuine signed v2 preflight and SQL transaction were separate: after
+    // committed local revoke, parent still COMMITTED a public Gallery Work
+    // using only synthetic READY Media/verified Subject metadata.
+    // Deny until a same-transaction signed atomic Photo Writer passes QA.
+    if (new Set<string>(['publishGalleryPhoto']).has(command)) {
+      return reply({ok:false,error:'SOURCE162_GALLERY_PHOTO_WRITER_NOT_ENROLLED'},409);
+    }
+
+    // Source163: signed A1 revocation did not prevent legacy addAnswer service-role SQL COMMIT.
+    // Only this operation is disabled; revoked session returns 401 above.
+    if (new Set<string>(['addAnswer']).has(command)) {
+      return reply({ok:false,error:'SOURCE163_HELP_ANSWER_WRITER_NOT_ENROLLED'},409);
+    }
 
     const authorizationParams: JsonObject = {
-      p_auth_subject: subject,
-      p_issued_at_epoch: issuedAt
+      p_auth_subject: subject, p_issued_at_epoch: issuedAt,
+      p_max_age_seconds: null
     };
-
-    if (command !== 'ensureAccountCreator') {
-      authorizationParams.p_max_age_seconds = null;
-    }
-
-    const { error: sessionError } = await ctx.supabaseAdmin.rpc(
-      authorizationRpc,
-      authorizationParams
-    );
-
-    if (sessionError) {
-      return reply(
-        {
-          ok: false,
-          error: 'SESSION_REVOKED_OR_INVALID',
-          message: sessionError.message
-        },
-        401
-      );
-    }
-
     const rateBucket = commandToRateBucket[command];
     if (rateBucket) {
       const { data: rate, error: rateError } = await ctx.supabaseAdmin.rpc(
@@ -232,8 +312,17 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     switch (command) {
       case 'ensureAccountCreator':
+        if (typeof payload.handle !== 'string' ||
+            !/^[A-Za-z0-9][A-Za-z0-9._-]{2,39}$/.test(payload.handle) ||
+            typeof payload.displayName !== 'string' ||
+            payload.displayName.trim().length === 0 ||
+            payload.displayName.length > 80) {
+          return reply({ok:false,error:'SIGNED_BOOTSTRAP_PROFILE_INVALID'},400);
+        }
         params.p_handle = payload.handle;
         params.p_display_name = payload.displayName;
+        params.p_issued_at_epoch = issuedAt;
+        params.p_session_id = sessionId;
         break;
       case 'updateCreatorProfile':
         params.p_expected_version = payload.expectedVersion;
@@ -254,6 +343,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_gallery_kind = payload.galleryKind;
         params.p_idempotency_key = payload.idempotencyKey;
         break;
+      case 'preflightGalleryGraph':
+        if (typeof payload.workId !== 'string' || !Array.isArray(payload.presetRevisionIds)) {
+          return reply({ok:false,error:'R15_PREFLIGHT_REQUEST_INVALID'},400);
+        }
+        params.p_work_id = payload.workId;
+        params.p_preset_revision_ids = payload.presetRevisionIds;
+        break;
       case 'publishGallery':
         if (!Array.isArray(payload.mediaIds) || payload.mediaIds.length === 0) {
           return reply({ ok: false, error: 'mediaIds required' }, 400);
@@ -268,6 +364,49 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_featured_item_ids = Array.isArray(payload.featuredItemIds) ? payload.featuredItemIds : [];
         params.p_moodboard_snapshot_ref = payload.moodboardSnapshotRef ?? null;
         params.p_idempotency_key = payload.idempotencyKey;
+        // An explicit server-issued R15 preflight pin is mandatory.
+        // Never refresh a caller SHA during transient whole-transaction retry.
+        const pin = payload.graphPin as Record<string, unknown> | undefined;
+        if (!pin || typeof pin !== 'object' || Array.isArray(pin) ||
+            pin.registryVersion !== 'gallery-scene-scoped@r15' ||
+            typeof pin.expectedGraphSha256 !== 'string' ||
+            !/^[0-9a-f]{64}$/.test(pin.expectedGraphSha256)) {
+          return reply({ok:false,error:'R15_EXPECTED_GRAPH_PIN_REQUIRED'},409);
+        }
+        params.p_expected_graph_sha256 = pin.expectedGraphSha256;
+        break;
+      case 'publishGalleryPhoto':
+        if (payload.workId != null && (typeof payload.workId !== 'string' || payload.workId.length===0)) {
+          return reply({ok:false,error:'GALLERY_WORK_ID_INVALID'},400);
+        }
+        if (!Array.isArray(payload.mediaIds) || payload.mediaIds.length<1 || payload.mediaIds.length>10
+            || payload.mediaIds.some(x=>typeof x!=='string')) {
+          return reply({ok:false,error:'GALLERY_MEDIA_SELECTION_INVALID'},400);
+        }
+        if (!['outdoor','indoor','tom_furniture','tom_clothing'].includes(String(payload.galleryKind??''))) {
+          return reply({ok:false,error:'GALLERY_KIND_UNSUPPORTED'},400);
+        }
+        if (typeof payload.subjectId!=='string' || typeof payload.creatorProfileId!=='string'
+            || typeof payload.coverMediaId!=='string' || typeof payload.title!=='string'
+            || typeof payload.idempotencyKey!=='string') {
+          return reply({ok:false,error:'GALLERY_REQUEST_INVALID'},400);
+        }
+        params.p_creator_profile_id=payload.creatorProfileId;
+        params.p_work_id=payload.workId ?? null;
+        params.p_expected_version=payload.expectedVersion ?? null;
+        params.p_gallery_kind=payload.galleryKind;
+        params.p_subject_id=payload.subjectId;
+        params.p_title=payload.title;
+        params.p_description=payload.description ?? null;
+        params.p_media_ids=payload.mediaIds;
+        params.p_cover_media_id=payload.coverMediaId;
+        params.p_originality_attested=payload.originalityAttested === true;
+        params.p_idempotency_key=payload.idempotencyKey;
+        break;
+      case 'deleteGalleryPhoto':
+        params.p_work_id=payload.workId;
+        params.p_expected_version=payload.expectedVersion;
+        params.p_idempotency_key=payload.idempotencyKey;
         break;
       case 'registerDreamsnapWork':
         params.p_creator_profile_id = payload.creatorProfileId;
@@ -309,10 +448,24 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_challenge_id = payload.challengeId;
         params.p_entry_id = payload.entryId;
         break;
-      case 'setDreamsnapOfficialResultPublication':
-        params.p_entry_id = payload.entryId;
-        params.p_public_fields = Array.isArray(payload.publicFields) ? payload.publicFields : [];
+      case 'setDreamsnapOfficialAccountConsent': {
+        if (typeof payload.enabled !== 'boolean' ||
+            !Number.isSafeInteger(payload.expectedVersion) ||
+            Number(payload.expectedVersion)<0 ||
+            (payload.enabled === true && payload.acknowledgedScope !== true)) {
+          return reply({ok:false,error:'D06_ACCOUNT_CONSENT_REQUEST_INVALID'},400);
+        }
+        params.p_enabled = payload.enabled;
+        params.p_expected_version = payload.expectedVersion;
+        params.p_acknowledged_scope = payload.acknowledgedScope === true;
+        params.p_issued_at_epoch = issuedAt;
+        // SQL checks the actual session record rather than JWT age on ON.
+        params.p_session_id = /^[0-9a-f]{8}-[0-9a-f-]{27,36}$/i.test(sessionId) ? sessionId : null;
+        if (payload.enabled === true && !params.p_session_id) {
+          return reply({ok:false,error:'D06_RECENT_SESSION_REQUIRED'},401);
+        }
         break;
+      }
       case 'publishDreamsnapGallery':
         params.p_entry_id = payload.entryId;
         params.p_comments_enabled = payload.commentsEnabled !== false;
@@ -340,6 +493,21 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       case 'setGalleryCommentsEnabled':
         params.p_work_id = payload.workId;
         params.p_enabled = payload.enabled;
+        break;
+      case 'setGalleryCommentsAtomicR16':
+        if (typeof payload.workId !== 'string' || !Number.isSafeInteger(payload.expectedVersion) ||
+            typeof payload.expectedCurrentRevisionId !== 'string' ||
+            typeof payload.enabled !== 'boolean' ||
+            typeof payload.idempotencyKey !== 'string' || payload.idempotencyKey.length===0) {
+          return reply({ok:false,error:'R16_METADATA_PIN_REQUIRED'},409);
+        }
+        params.p_issued_at_epoch = issuedAt;
+        params.p_session_id = sessionId;
+        params.p_work_id = payload.workId;
+        params.p_expected_version = payload.expectedVersion;
+        params.p_expected_current_revision_id = payload.expectedCurrentRevisionId;
+        params.p_enabled = payload.enabled;
+        params.p_idempotency_key = payload.idempotencyKey;
         break;
       case 'removeGalleryComment':
         params.p_work_id = payload.workId;
@@ -493,10 +661,78 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         break;
     }
 
-    const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
+    if (command === 'publishGalleryPhoto') {
+      // This supplements (NEVER replaces) the canonical atomic SQL checks.
+      // The DB owns owner/READY/CLEAR and actual Work revision mutation.
+      const { data: manifest, error: manifestError } = await ctx.supabaseAdmin.rpc(
+        'community_gallery_photo_owned_media_manifest_v1', {
+          p_auth_subject: subject, p_media_ids: params.p_media_ids
+        }
+      );
+      if (manifestError || !manifest || !Array.isArray(manifest.items) ||
+          manifest.items.length !== (params.p_media_ids as string[]).length) {
+        return reply({ ok:false, error:'GALLERY_MEDIA_NOT_READY_OR_NOT_OWNED' },403);
+      }
+      // READY alone is insufficient: reject orphan MediaAsset rows whose
+      // Storage object has already disappeared or differs in actual size.
+      for (const item of manifest.items) {
+        const { data: object, error: objectError } = await ctx.supabaseAdmin.storage
+          .from(resolveMediaBucketForGallery()).info(String(item.storageKey));
+        if (objectError || !object || Number(object.size) !== Number(item.byteSize)) {
+          return reply({ok:false,error:'GALLERY_MEDIA_STORAGE_OBJECT_UNAVAILABLE'},409);
+        }
+      }
+    }
+
+    // R14 SOURCE-SCOPED actual Gallery v4 writer only. Every separate RPC is
+    // a NEW PostgreSQL transaction, never a statement/savepoint replay.
+    // Reauthorization checks the real JWT subject, current Identity, session
+    // cutoff and Privacy barrier before EVERY attempt; semantic stale
+    // owner/version/idempotency errors are terminal, not retryable.
+    const maxAttempts = (command === 'publishGallery' || command === 'setGalleryCommentsAtomicR16') ? 3 : 1;
+    const retryStartedAt = Date.now();
+    let data: unknown = null;
+    let error: {code?: string; message: string} | null = null;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        const {error: reauthError} = await ctx.supabaseAdmin.rpc(
+          'community_authorize_session',authorizationParams
+        );
+        if (reauthError) return reply({ok:false,error:'SESSION_REVOKED_OR_PRIVACY_SUPPRESSED'},401);
+      }
+      const outcome = await ctx.supabaseAdmin.rpc(rpc,params);
+      data=outcome.data;
+      error=outcome.error;
+      if (!error) break;
+      const transient =
+        ['40P01','55P03','40001'].includes(String(error.code ?? '')) ||
+        error.message.includes('R14_GRAPH_CHANGED_RETRY_WHOLE_TRANSACTION') ||
+        error.message.includes('R14_ARTIFACT_ROSTER_CHANGED_RETRY_WHOLE_TRANSACTION');
+      if (!transient || attempt+1>=maxAttempts ||
+          Date.now()-retryStartedAt>1700) break;
+      // Bounded jitter is safe only because the DB mutation RPC itself
+      // rolls back ALL revisions/Search/Outbox/idempotency on an error.
+      await new Promise(resolve => setTimeout(resolve,30+Math.floor(Math.random()*65)));
+    }
+    if (error && command === 'ensureAccountCreator') {
+      // No SQL existence, cleanup, policy or Session data in 401 body.
+      const profileInvalid = error.message.includes('SIGNED_BOOTSTRAP_PROFILE_INVALID');
+      return reply({ok:false,error:profileInvalid?'SIGNED_BOOTSTRAP_PROFILE_INVALID':'SIGNED_BOOTSTRAP_DENIED'},profileInvalid?400:401);
+    }
     if (error) {
+      const unenrolledGraphWriter =
+        error.message.includes('R17_LEGACY_GALLERY_COMMENTS_PIN_REQUIRED') ||
+        error.message.includes('R17_PHOTO_DEPENDENCY_NOT_ENROLLED');
+      const staleGraph = error.message.includes('R15_STALE_GRAPH_TERMINAL') ||
+        error.message.includes('R15_PINNED_GRAPH_REQUIRED') ||
+        error.message.includes('R15_IDEMPOTENCY_REQUEST_CONFLICT') ||
+        error.message.includes('R16_STALE_WORK_TERMINAL') ||
+        error.message.includes('R16_IDEMPOTENCY_CONFLICT') ||
+        error.message.includes('D06_STALE_ACCOUNT_CONSENT');
       const conflict =
         error.message.includes('Row version conflict') ||
+        error.message.includes('GALLERY_ROW_VERSION_CONFLICT') ||
+        error.message.includes('GALLERY_IDEMPOTENCY_CONFLICT') ||
         error.message.includes('Idempotency key reused') ||
         error.message.includes('DDV_PROFILE_WORKSPACE_LIMIT_REACHED') ||
         error.message.includes('DDV_IDENTITY_ASSOCIATION_EXISTS') ||
@@ -511,26 +747,36 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         recentAuth ||
         error.message.includes('DDV Profile Workspace not found') ||
         error.message.includes('does not own') ||
+        error.message.includes('GALLERY_WORK_FORBIDDEN') ||
+        error.message.includes('GALLERY_CREATOR_FORBIDDEN') ||
         error.message.includes('not accessible') ||
         error.message.includes('not active') ||
         error.message.includes('role required') ||
         error.message.includes('Self-judging') ||
         error.message.includes('Self Special Pick') ||
-        error.message.includes('DREAMSNAP_REAL_ENTRY_FLOOR_NOT_MET');
+        error.message.includes('DREAMSNAP_REAL_ENTRY_FLOOR_NOT_MET') ||
+        error.message.includes('D06_ACCOUNT_UNAVAILABLE') ||
+        error.message.includes('Recent authentication required') ||
+        error.message.includes('Session-bound recent authentication required');
+
+      const galleryErrorCode =
+        (command === 'publishGalleryPhoto' || command === 'deleteGalleryPhoto')
+          ? /^GALLERY_[A-Z0-9_]+/.exec(error.message)?.[0] ?? null
+          : null;
 
       return reply(
         {
           ok: false,
-          error: recentAuth
+          error: unenrolledGraphWriter ? 'UNENROLLED_GRAPH_WRITER' : staleGraph ? 'STALE_GRAPH' : galleryErrorCode ?? (recentAuth
             ? 'RECENT_AUTH_REQUIRED'
             : conflict
               ? 'CONFLICT'
               : forbidden
                 ? 'FORBIDDEN'
-                : 'COMMAND_FAILED',
+                : 'COMMAND_FAILED'),
           message: error.message
         },
-        conflict ? 409 : forbidden ? 403 : 400
+        (unenrolledGraphWriter || staleGraph || conflict) ? 409 : forbidden ? 403 : 400
       );
     }
 

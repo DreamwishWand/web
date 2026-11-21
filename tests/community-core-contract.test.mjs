@@ -238,10 +238,13 @@ test('Community Edge adapters trust the verified Supabase user ID, never a clien
   }
 });
 
-test('active Gallery command path is media-backed v4 and the old media-less RPC is revoked', () => {
+test('legacy Gallery publication remains explicitly OFF despite preserved media validation and old RPC revoke', () => {
   const source = read('supabase/functions/community-command/index.ts');
   const preset = read('supabase/migrations/20260930035240_community_core_v0_preset_bridge.sql');
-  assert.match(source, /publishGallery: 'community_publish_gallery_v4'/);
+  assert.match(source, /publishGallery: 'community_publish_gallery_pinned_r15'/);
+  assert.match(source, /R15_GALLERY_PUBLISH_WRITER_NOT_ENROLLED/);
+  assert.match(source, /if \(new Set<string>\(\['publishGallery'\]\)\.has\(command\)\)/);
+  assert.ok(source.indexOf('R15_GALLERY_PUBLISH_WRITER_NOT_ENROLLED') < source.indexOf('const authorizationParams'));
   assert.match(source, /mediaIds required/);
   assert.match(source, /p_preset_revision_ids/);
   assert.match(preset, /revoke execute on function public\.community_publish_gallery_v2/i);
@@ -565,11 +568,12 @@ test('authenticated Community Edge adapters enforce Wand session cutoff with one
 
   const command = read('supabase/functions/community-command/index.ts');
   assert.match(command, /ctx\.jwtClaims\?\.iat/);
-  assert.match(command, /community_authorize_identity_bootstrap/);
+  assert.match(command, /community_authorize_signed_session_v2/);
   assert.match(command, /community_authorize_session/);
-  assert.match(command, /command === 'ensureAccountCreator'/);
+  assert.match(command, /ctx\.jwtClaims\?\.role !== 'authenticated'/);
+  assert.match(command, /SIGNED_BOOTSTRAP_SESSION_REQUIRED/);
   assert.match(command, /if \(command !== 'ensureAccountCreator'\)/);
-  assert.match(command, /authorizationParams\.p_max_age_seconds = null/);
+  assert.match(command, /p_max_age_seconds: null/);
   assert.match(command, /SESSION_REVOKED_OR_INVALID/);
 });
 
@@ -724,7 +728,10 @@ test('Community Ops console is internal, admin-only in intent, and omits secrets
 
 test('Community command session authorization is single-source and uses verified jwtClaims', () => {
   const command = read('supabase/functions/community-command/index.ts');
-  assert.equal((command.match(/community_authorize_session/g) ?? []).length, 1);
+  assert.equal((command.match(/\.rpc\(\s*'community_authorize_session'/g) ?? []).length, 2);
+  assert.match(command, /if \(attempt > 0\) \{[\s\S]*?community_authorize_session[\s\S]*?SESSION_REVOKED_OR_PRIVACY_SUPPRESSED/);
+  assert.ok(command.indexOf('if (attempt > 0)') < command.lastIndexOf('community_authorize_session'), 'retry must reauthorize before another RPC attempt');
+  assert.equal((command.match(/\.rpc\(\s*'community_authorize_signed_session_v2'/g) ?? []).length, 1);
   assert.equal((command.match(/const issuedAt/g) ?? []).length, 1);
   assert.doesNotMatch(command, /function jwtIssuedAt/);
   assert.match(command, /ctx\.jwtClaims\?\.iat/);
@@ -748,14 +755,17 @@ test('generated schema exposes session-bound high-risk RPC signatures', () => {
 });
 
 
-test('self-service account deletion Edge is JWT-bound, session-bound and explicitly confirmed', () => {
+test('self-service privacy suppression is JWT-bound and explicitly confirmed without claiming final physical deletion', () => {
   const account = read('supabase/functions/community-account/index.ts');
 
   assert.match(account, /withSupabase\(\{ auth: 'user' \}/);
   assert.match(account, /ctx\.userClaims\?\.id/);
   assert.match(account, /ctx\.jwtClaims\?\.session_id/);
   assert.match(account, /body\.confirmation !== 'DELETE'/);
-  assert.match(account, /community_tombstone_account/);
+  assert.match(account, /community_request_privacy_suppression_v1/);
+  assert.doesNotMatch(account, /\.rpc\(\s*'community_tombstone_account'/);
+  assert.match(account, /stage: 'privacy_suppressed_cleanup_pending'/);
+  assert.match(account, /fullDeletionComplete: false/);
   assert.match(account, /p_session_id: sessionId/);
   assert.match(account, /RECENT_AUTH_REQUIRED/);
   assert.doesNotMatch(account, /payload\.actorAccountId|payload\.actor_account_id/);
@@ -915,14 +925,19 @@ test('first-time identity bootstrap is explicit and fail-closed for retired or r
   assert.match(migration, /WandAccount is not active/);
 });
 
-test('Community command uses bootstrap authorization only for ensureAccountCreator', () => {
+test('Community First Account signed bootstrap bypass is isolated from other session-bound commands', () => {
   const command = read('supabase/functions/community-command/index.ts');
 
-  assert.match(command, /command === 'ensureAccountCreator'/);
-  assert.match(command, /community_authorize_identity_bootstrap/);
+  assert.match(command, /if \(command !== 'ensureAccountCreator'\)/);
+  assert.match(command, /ctx\.jwtClaims\?\.role !== 'authenticated'/);
+  assert.match(command, /ctx\.jwtClaims\?\.is_anonymous === true/);
+  assert.match(command, /SIGNED_BOOTSTRAP_SESSION_REQUIRED/);
+  assert.match(command, /params\.p_session_id = sessionId/);
+  assert.match(command, /community_ensure_account_creator_signed_v1/);
+  assert.match(command, /community_authorize_signed_session_v2/);
   assert.match(command, /community_authorize_session/);
   assert.match(command, /if \(command !== 'ensureAccountCreator'\)/);
-  assert.match(command, /authorizationParams\.p_max_age_seconds = null/);
+  assert.match(command, /p_max_age_seconds: null/);
 });
 
 test('safe bootstrap keeps privileged RPCs service-only', () => {
